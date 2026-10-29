@@ -20,6 +20,7 @@ mod verify_paths;
 mod verify_rules;
 mod waves;
 mod windows;
+mod workstreams;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -57,5 +58,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     nyquist::declare(c);
     verify_rules::declare(c);
     windows::declare(c);
+    workstreams::declare(c);
     gates::declare(c);
 }

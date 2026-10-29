@@ -40,3 +40,20 @@ The 15 `@gsd/core` agents of `gsd/core/contributions/README.md` (the Agents tabl
 (all but executor, phase-researcher, plan-checker, planner and verifier). `gsd/core/tests/port.rs` compares each with
 the port under `gsd/core/assets/agents/` line for line: a line may differ only where upstream's names `.planning/`,
 `gsd-tools`, `gsd_run` or `gsd-sdk`. Both copies are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
+
+## `src/complexity-trigger.cts` and `tests/complexity-trigger.test.cjs`: the complexity scorer
+
+The refactor trigger's decision-point scorer and its own tests, copied unchanged by `git -C <gsd-core> show
+v1.18.0:src/complexity-trigger.cts` and `…:tests/complexity-trigger.test.cjs`. `gsd/core/src/commands/complexity/`
+ports `stripLiterals`, `scanFunctions`, `analyzeSource`, `isAnalyzablePath` and `evaluateCandidates`, and
+`complexity/tests.rs` ports the test cases that exercise them, with the same source text and expected scores; it names
+the cases it leaves out (the baseline file, the proposal file and the JavaScript module's exports). Both files are MIT,
+Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
+
+## `src/clusters.cts` and `tests/clusters.test.cjs`: the skill clusters
+
+The ten named groups of skill stems `/gsd:surface` enables and disables, and their own tests, copied unchanged by
+`git -C <gsd-core> show v1.18.0:src/clusters.cts` and `…:tests/clusters.test.cjs`. `gsd/core/src/settings/surface.rs`
+ports `CLUSTERS` (names, order and members) and declares one `specforge.surface.<cluster>` setting for each;
+`tests/cli/cmd_surface.rs` pins the port against the vendored file. Both files are MIT, Copyright (c) 2026 Open GSD
+(`gsd/core/LICENSE-GSD`).

@@ -3,8 +3,7 @@
 use super::dsl::*;
 
 const ABANDONED: &[Field] = &[str("reason").r(), str("ruled_by").r(), date("at").r()];
-// `audit` (a reference to `milestone_audit`) joins with that kind in round r39.
-const COMPLETION: &[Field] = &[date("at")];
+const COMPLETION: &[Field] = &[date("at"), rf("audit", "milestone_audit")];
 const STATS: &[Field] = &[
     int("files"),
     int("loc"),
@@ -37,7 +36,7 @@ pub const MILESTONE: Kind = Kind::new(
             .doc("the workstream that scopes it; absent outside one"),
         block("completion", COMPLETION)
             .h()
-            .doc("written by /gsd-complete-milestone once its audit passes"),
+            .doc("written by close_milestone (/gsd-complete-milestone) once its audit passes"),
         en("state", MILESTONE_STATE)
             .c()
             .doc("planned, in progress or shipped, from its phases and its completion"),

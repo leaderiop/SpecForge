@@ -3,7 +3,7 @@
 pub mod agents;
 pub mod codes;
 mod collectors;
-mod commands;
+pub mod commands;
 mod digest;
 pub mod judged;
 mod kinds;
@@ -11,6 +11,7 @@ mod passes;
 mod prompts;
 mod rules;
 pub mod settings;
+mod slash;
 mod time;
 
 use specforge_extension_sdk::prelude::*;
@@ -33,6 +34,7 @@ impl Contributions for GsdCore {
         rules::declare(c);
         judged::declare(c);
         commands::declare(c);
+        slash::declare(c);
         prompts::declare(c);
         passes::declare(c);
         collectors::declare(c);

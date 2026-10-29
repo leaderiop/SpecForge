@@ -13,20 +13,7 @@ use specforge_extension_sdk::{Cite, Verdict};
 use crate::judged::{self, JUDGED};
 use crate::prompts::GATES;
 
-const INVALID: &str = "invalid_input";
-
-/// The optional JSON arg `name` as `T`, `default` when it is not given.
-fn json<T>(
-    call: &CommandCall<'_>,
-    name: &str,
-    default: T,
-    parse: impl FnOnce(&str) -> serde_json::Result<T>,
-) -> Result<T, String> {
-    match call.str(name) {
-        None => Ok(default),
-        Some(text) => parse(text).map_err(|e| format!("{name}: not the JSON it takes: {e}")),
-    }
-}
+use super::support::{INVALID, json};
 
 /// A `passed` on `gsd/E202` needs the five scores, each 0..=100, and every one within its gate (the judge's own
 /// numbers must show what it concluded). Without them the rule would be satisfied by a spec that fails its gates.

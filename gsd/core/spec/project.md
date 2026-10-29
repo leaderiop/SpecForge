@@ -59,7 +59,7 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | whats_next | str | | `**What's next:**` |
 | abandoned | {reason str R, ruled_by str R, at date R} | | gsd-path's abandon ruling |
 | workstream | → workstream | I | the workstream it belongs to (K2: it scopes the milestone, `auth-rework/v1.0`); absent outside one, and the milestone keeps its short id |
-| completion | {at date, audit → milestone_audit} | H | written by `/gsd-complete-milestone` once its audit passes |
+| completion | {at date, audit → milestone_audit} | H | written by `close_milestone` (`/gsd-complete-milestone`) once its audit passes: `audit` is the latest audit it closed on |
 | state | enum{planned, in_progress, shipped, abandoned} | C | ✅ 🚧 📋: `abandoned` when `abandoned` is written, `shipped` when `completion` is, `in_progress` when a phase is past `not_started`, else `planned` |
 | shipped | date | C | `(Shipped: …)`: the completion record's date |
 | stats | {files int, loc int, phases int, plans int, tasks int, days int} | C | `**Stats:**`: from the graph and the recorded commits (`loc` sums their `insertions` and `deletions`; `files` counts distinct paths; `days` runs from the first commit to `completion.at`, or to the last commit); the commit-based members are absent with no commit |
@@ -101,7 +101,7 @@ GSD: `.planning/workstreams/<name>/`. A scope (K2): its milestones, phases and p
 | purpose | str | R | the workstream's description |
 | status | enum{active, complete} | C | all its milestones shipped |
 
-Which workstream is active is session state, not a field ([execute.md](execute.md#session-state)).
+Which workstream is active is session state, not a field ([execute.md](execute.md#session-state)): `workstreams switch` and `resume` write `active_workstream` to the extension's project state. A command cannot read state or a computed field, so `status` does not name the active workstream and a workstream is `complete` when every milestone has a `completion`; its progress counts the plans that have a summary.
 
 ## retrospective and lesson
 

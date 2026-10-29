@@ -88,8 +88,8 @@ The test being asked now is session state.
 | expected | str | R | expected behaviour |
 | criterion | int | | the phase success criterion it proves |
 | from_task | → task | | a harvested `<human-check>` |
-| result | enum{pending, pass, issue, skipped, blocked} | H | written from the human's answer |
-| source | enum{human, automated} | H | an automated result comes from a collector (DOM, e2e) |
+| result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by the caller through `set_uat_result --by` (an attestation, not a proof of a person: K18) |
+| source | enum{human, automated} | H | written by `set_uat_result`: given, or `human` when a re-answer replaces an earlier `source`; an automated result is one the caller marks `--source automated` (a pass or an issue), as a collector (DOM, e2e) would. A re-answer unsets the members its result does not take |
 | reported | str | | the human's words, verbatim, when `issue` |
 | severity | enum{blocker, major, minor, cosmetic} | | major when absent |
 | reason | str | | why skipped; `Deferred follow-up…` counts as passing |
@@ -106,7 +106,7 @@ enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/
 GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-validate-phase`.
 
 **validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file str`, `quick_cmd str`, `full_cmd str`,
-`max_latency_s int`; `approval {by str, at ts}` is `H`; `status enum{draft, validated}`, `nyquist_compliant bool` and
+`max_latency_s int`; `approval {by str, at ts}` is `H`, written by `approve_validation`; `status enum{draft, validated}`, `nyquist_compliant bool` and
 `wave_0_complete bool` are `C`.
 
 **validation_row**: the Per-Task Verification Map. Name `VR1`. `validation R`, `task → task R`, `requirement → requirement`,
@@ -197,6 +197,10 @@ Kept on purpose, listed so none is silent:
 - A UAT session with a blocked test or an unexcused skip and open gaps that all have root causes is `diagnosed`;
   upstream says `partial`. A session with no test is `complete`. A UAT status is computed, so it differs from the
   `status:` a writer sets when a run ends (the twin: [parity](../../parity/README.md)).
+- The refactor trigger does not port upstream's anchor on first observation: the baseline of a function is the score of
+  its latest *disposed* proposal, else the current score, so a function that creeps from 3 to 14 in small steps never
+  fires `jump` before it crosses the threshold. While a proposal for a function is untriaged `propose_refactor` records
+  nothing for it (upstream freezes the anchor the same way), so a second run adds no proposal and no window.
 - The scan marks a directory or an unreadable file `unchecked` where upstream fails it; `unchecked` never fails an item.
   Debt-marker matching is by whole word (`FIXMEs`, `FIXME_LATER` are not blockers; upstream greps the substring).
 - `gsd/W318` flags any stale judgement on a plan, not only the plan-check's. Harmless while no other rule judges a plan.

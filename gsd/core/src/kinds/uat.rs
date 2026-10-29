@@ -55,9 +55,9 @@ pub const UAT_TEST: Kind = Kind::new(
         en("result", RESULT)
             .h()
             .doc("written from the person's answer"),
-        en("source", SOURCE)
-            .h()
-            .doc("an automated result comes from a collector"),
+        en("source", SOURCE).h().doc(
+            "an automated result is marked by the caller (a collector, or `--source automated`)",
+        ),
         str("reported").doc("the person's words, verbatim, when `issue`"),
         en("severity", SEVERITY).doc("major when absent"),
         str("reason").doc("why skipped; `Deferred follow-up` counts as passing"),

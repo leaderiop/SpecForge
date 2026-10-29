@@ -193,6 +193,89 @@ fn a_tdd_plan_without_review_is_w404() {
     assert!(w404(&plan(Some(review(true)))).is_empty());
 }
 
+fn two_plans(subject: &str, state: &str, summary: bool) -> PassInput {
+    let plan = |id: &str, state: &str| {
+        json!({ "id": id, "kind": "plan", "fields": { "type": "tdd" },
+                "judgements": [{ "rule": "gsd/W313", "state": state, "passed": false }] })
+    };
+    input(
+        ship(Some(subject)),
+        vec![
+            json!({ "id": "v1.0/01", "kind": "phase" }),
+            plan("v1.0/01/01-01", state),
+            plan("v1.0/01/01-02", "stale"),
+        ]
+        .into_iter()
+        .chain(summary.then(|| json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" })))
+        .collect(),
+        vec![
+            json!({ "source": "v1.0/01/01-01", "target": "v1.0/01", "label": "phase" }),
+            json!({ "source": "v1.0/01/01-02", "target": "v1.0/01", "label": "phase" }),
+        ],
+    )
+}
+
+#[test]
+fn a_plan_subject_scopes_its_plan() {
+    // Only plan 01-01 is stale here; 01-02 would be, were the gate on the phase.
+    let found = w318(&two_plans("v1.0/01/01-01", "stale", false));
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].entity.as_deref(), Some("v1.0/01/01-01"));
+    assert!(w318(&two_plans("v1.0/01/01-01", "fresh", false)).is_empty());
+    assert_eq!(w318(&two_plans("v1.0/01", "fresh", false)).len(), 1);
+}
+
+#[test]
+fn a_summary_subject_scopes_its_plan_and_w404_names_the_summary() {
+    let summary = "v1.0/01/01-01/01-01-SUMMARY";
+    let found = w404(&two_plans(summary, "fresh", true));
+    assert_eq!(found.len(), 1, "only 01-01 has a summary");
+    assert_eq!(found[0].entity.as_deref(), Some(summary));
+    // At a phase the diagnostic names the plan.
+    assert_eq!(
+        w404(&two_plans("v1.0/01", "fresh", true))[0]
+            .entity
+            .as_deref(),
+        Some("v1.0/01/01-01")
+    );
+}
+
+#[test]
+fn an_executed_plans_stale_plan_check_does_not_count_but_another_stale_verdict_does() {
+    let entities = |summary: bool, rule: &str| {
+        let completed = json!({ "completed": "2026-10-29T10:00:00Z" });
+        let mut all = vec![
+            json!({ "id": "v1.0/01", "kind": "phase" }),
+            json!({ "id": "v1.0/01/01-01", "kind": "plan",
+                    "judgements": [{ "rule": rule, "state": "stale", "passed": false }] }),
+        ];
+        if summary {
+            all.push(json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary", "fields": completed }));
+        }
+        input(ship(None), all, phase_edge())
+    };
+    // A summary that is only created (no `completed`) is not an execution: the entry gate still refuses.
+    let created = input(
+        ship(None),
+        vec![
+            json!({ "id": "v1.0/01", "kind": "phase" }),
+            json!({ "id": "v1.0/01/01-01", "kind": "plan",
+                    "judgements": [{ "rule": "gsd/W313", "state": "stale", "passed": false }] }),
+            json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" }),
+        ],
+        phase_edge(),
+    );
+    assert_eq!(codes(w318(&created)), ["W318"]);
+    assert_eq!(codes(e516(&created)), ["E516"]);
+    assert_eq!(codes(w318(&entities(false, "gsd/W313"))), ["W318"]);
+    assert_eq!(codes(e516(&entities(false, "gsd/W313"))), ["E516"]);
+    // A plan that has run: its plan-check verdict is history.
+    assert!(w318(&entities(true, "gsd/W313")).is_empty());
+    assert!(e516(&entities(true, "gsd/W313")).is_empty());
+    // Any other judgement of it still counts.
+    assert_eq!(codes(e516(&entities(true, "gsd/E501"))), ["E516"]);
+}
+
 #[test]
 fn a_stale_verdict_is_e516_under_plus() {
     let stale = |state: &str| {
@@ -215,13 +298,15 @@ fn everything_wrong() -> (Vec<Value>, Vec<Value>) {
         json!({ "id": "v1.0", "kind": "milestone" }),
         json!({ "id": "v1.0/01", "kind": "phase" }),
         window("BW1", json!({})),
-        json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "type": "tdd" },
-                "judgements": [{ "rule": "gsd/W313", "state": "stale", "passed": false }] }),
+        json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "type": "tdd" } }),
         json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" }),
+        json!({ "id": "v1.0/01/01-02", "kind": "plan",
+                "judgements": [{ "rule": "gsd/W313", "state": "stale", "passed": false }] }),
         json!({ "id": "v1.0/01/01-01/TR1", "kind": "truth",
                 "judgements": [{ "rule": "gsd/E501", "state": "stale", "passed": false }] }),
     ];
     let mut edges = phase_edge();
+    edges.push(json!({ "source": "v1.0/01/01-02", "target": "v1.0/01", "label": "phase" }));
     edges.push(json!({ "source": "v1.0/01", "target": "v1.0", "label": "milestone" }));
     (entities, edges)
 }

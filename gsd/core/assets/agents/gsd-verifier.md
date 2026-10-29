@@ -69,22 +69,22 @@ At verification decision points, apply structured reasoning:
 At verification decision points, reference calibration examples:
 @~/.claude/gsd-core/references/few-shot-examples/verifier.md
 
-## Resolver Bootstrap (Every Mode)
+## Querying (Every Mode)
 
-`specforge gsd` is used in initial and re-verification mode alike, so it is defined here, before Step 0, not inside a mode-specific step. Each Bash call is a fresh shell, so a `specforge gsd` function defined in one call does not exist in the next: every Bash snippet below that calls `specforge gsd` (in any step, in any mode) must begin with this resolver block in the same call. If `specforge gsd.cjs` cannot be found, never search the filesystem (no `find /`, no `find "$HOME"`): use the runtime config directory's `gsd-core/bin/specforge gsd.cjs` (`${CLAUDE_CONFIG_DIR:-$HOME/.claude}/gsd-core/bin/specforge gsd.cjs` on Claude Code) or stop and report.
+`specforge query` and `specforge gsd record-verdict` are used in initial and re-verification mode alike. Each Bash call is a fresh shell: every snippet below names what it needs. The phase is `$PHASE_ID` (for example `v1.0/03`); if you cannot resolve it, run `specforge query --kinds phase` and never search the filesystem.
 
-@~/.claude/gsd-core/references/gsd-run-resolver.md
+
 
 ## Step 0: Check for Previous Verification
 
 ```bash
-_VERIF=( "$PHASE_DIR"/*-VERIFICATION.md )
-if [ -e "${_VERIF[0]}" ]; then cat "${_VERIF[@]}"; fi
+specforge query "$PHASE_ID/${PHASE_NUM}-VERIFICATION" --depth 2 --format json 2>/dev/null   # the previous verification, if any
+# gaps, overrides and re_verification are in the answer
 ```
 
 **If previous verification exists with `gaps:` section → RE-VERIFICATION MODE:**
 
-1. Parse previous VERIFICATION.md frontmatter
+1. Read the previous verification entity
 2. Extract `must_haves` (truths, artifacts, key_links, prohibitions)
 3. Extract `gaps` (items that failed)
 4. Set `is_re_verification = true`
@@ -99,13 +99,13 @@ Set `is_re_verification = false`, proceed with Step 1.
 ## Step 1: Load Context (Initial Mode Only)
 
 ```bash
-ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
-ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
-specforge gsd query roadmap.get-phase "$PHASE_NUM"
-grep -E "^| $PHASE_NUM" spec/gsd/REQUIREMENTS.md 2>/dev/null
+specforge query "$PHASE_ID" --kinds plan --format json
+specforge query "$PHASE_ID" --kinds summary --format json
+specforge query "$PHASE_ID" --format json   # the phase: goal and success criteria
+specforge query "$PHASE_ID" --kinds requirement --format json   # the requirements mapped to this phase
 ```
 
-Extract phase goal from ROADMAP.md — this is the outcome to verify, not the tasks.
+Extract the phase goal from the phase entity — this is the outcome to verify, not the tasks.
 
 ## Step 2: Establish Must-Haves (Initial Mode Only)
 
@@ -114,7 +114,7 @@ In re-verification mode, must-haves come from Step 0.
 **Step 2a: Always load ROADMAP Success Criteria**
 
 ```bash
-PHASE_DATA=$(specforge gsd query roadmap.get-phase "$PHASE_NUM" --raw)
+PHASE_DATA=$(specforge query "$PHASE_ID" --format json)
 ```
 
 Parse the `success_criteria` array from the JSON output. These are the **roadmap contract** — they must always be verified regardless of what PLAN frontmatter says. Store them as `roadmap_truths`.
@@ -202,11 +202,11 @@ For each truth:
 
 ## Step 3b: Check Verification Overrides
 
-Before marking any must-have as FAILED or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, check the VERIFICATION.md frontmatter for an `overrides:` entry that matches this must-have.
+Before marking any must-have as FAILED or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, check the verification's `override` entities for an entry that matches this must-have.
 
 **Override check procedure:**
 
-1. Parse `overrides:` array from VERIFICATION.md frontmatter (if present)
+1. Read the verification's `override` entities (if any)
 2. For each override entry, normalize both the override `must_have` and the current truth to lowercase, strip punctuation, collapse whitespace
 3. Split into tokens and compute intersection — match if 80% token overlap in either direction
 4. Key technical terms (file paths, component names, API endpoints) have higher weight
@@ -223,7 +223,7 @@ Before marking any must-have as FAILED or ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, ch
 **Suggesting overrides:** When a must-have FAILs but evidence shows an alternative implementation that achieves the same intent, include an override suggestion in the report:
 
 ```markdown
-**This looks intentional.** To accept this deviation, add to VERIFICATION.md frontmatter:
+**This looks intentional.** To accept this deviation, a human adds an `override` entity under the verification:
 
 ```yaml
 overrides:
@@ -236,15 +236,15 @@ overrides:
 
 ## Step 4: Verify Artifacts (Three Levels)
 
-Use `specforge query` for artifact verification against must_haves in PLAN frontmatter:
+Use `specforge query` for artifact verification against the plan's `artifact` entities:
 
 ```bash
-ARTIFACT_RESULT=$(specforge gsd query verify.artifacts "$PLAN_PATH") && ARTIFACT_EXIT=0 || ARTIFACT_EXIT=$?
+ARTIFACT_RESULT=$(specforge query "$PLAN_ID" --depth 2 --kinds artifact --format json) && ARTIFACT_EXIT=0 || ARTIFACT_EXIT=$?
 ```
 
-Parse JSON result: `{ all_passed, passed, total, artifacts: [{path, exists, issues, passed}] }`
+Parse JSON result: each artifact's computed `state`: `present | missing | too_short | lacks_contains | lacks_export | unchecked`
 
-The exit status follows the verdict (#5170): `0` = every artifact passed; `1` = negative verdict (`all_passed: false`), the JSON is still authoritative, so map each artifact below; `66` (`NO_INPUT`) = the plan declares no `must_haves.artifacts`, report Step 4 as not applicable, never VERIFIED; `69` (`UNAVAILABLE`) = the plan file is missing or unreadable (the JSON carries `error`), report Step 4 as unevaluated, never VERIFIED; any other status = the verb did not run.
+`present` = the artifact passed. `unchecked` = the check could not run (the file is unreadable): report Step 4 as unevaluated for it, never VERIFIED. If the plan declares no artifacts, report Step 4 as not applicable, never VERIFIED. Any other state is a finding.
 
 For each artifact in result:
 - `exists=false` → MISSING
@@ -314,15 +314,15 @@ a mock rather than a real query.
 
 Key links are critical connections. If broken, the goal fails even with all artifacts present.
 
-Use `specforge query` for key link verification against must_haves in PLAN frontmatter:
+Use `specforge query` for key link verification against the plan's `key_link` entities:
 
 ```bash
-LINKS_RESULT=$(specforge gsd query verify.key-links "$PLAN_PATH") && LINKS_EXIT=0 || LINKS_EXIT=$?
+LINKS_RESULT=$(specforge query "$PLAN_ID" --depth 2 --kinds key_link --format json) && LINKS_EXIT=0 || LINKS_EXIT=$?
 ```
 
-Parse JSON result: `{ all_verified, verified, total, links: [{from, to, via, verified, detail}] }`
+Parse JSON result: each link's computed `state`: `wired | not_wired | unchecked`
 
-The exit status follows the verdict (#5170): `0` = every link verified; `1` = negative verdict (`all_verified: false`), the JSON is still authoritative; `66` (`NO_INPUT`) = the plan declares no `must_haves.key_links`, nothing to verify; `69` (`UNAVAILABLE`) = the plan file is missing or unreadable, report Step 5 as unevaluated, never WIRED.
+`wired` = verified. `unchecked` = the check could not run: report Step 5 as unevaluated, never WIRED. If the plan declares no key links, there is nothing to verify.
 
 For each link:
 - `verified=true` → WIRED
@@ -364,24 +364,24 @@ For each requirement ID from plans:
 **6c. Check for orphaned requirements:**
 
 ```bash
-grep -E "Phase $PHASE_NUM" spec/gsd/REQUIREMENTS.md 2>/dev/null
+specforge query "$PHASE_ID" --kinds requirement --format json   # the requirements whose phase is this one
 ```
 
-If REQUIREMENTS.md maps additional IDs to this phase that don't appear in ANY plan's `requirements` field, flag as **ORPHANED** — these requirements were expected but no plan claimed them. ORPHANED requirements MUST appear in the verification report.
+If the requirements map additional IDs to this phase that don't appear in ANY plan's `requirements` field, flag as **ORPHANED** — these requirements were expected but no plan claimed them. ORPHANED requirements MUST appear in the verification report.
 
 ## Step 7: Scan for Anti-Patterns
 
-Identify files modified in this phase from SUMMARY.md key-files section, or extract commits and verify:
+Identify files modified in this phase from the summary's `key_files`, or extract commits and verify:
 
 ```bash
 # Option 1: Extract from SUMMARY frontmatter
-SUMMARY_FILES=$(specforge gsd query summary-extract "$PHASE_DIR"/*-SUMMARY.md --fields key-files)
+SUMMARY_FILES=$(specforge query "$PHASE_ID" --kinds summary --format json)   # each summary's key_files
 
 # Option 2: Verify commits exist (if commit hashes documented)
-COMMIT_HASHES=$(grep -oE "[a-f0-9]{7,40}" "$PHASE_DIR"/*-SUMMARY.md | head -10)
+COMMIT_HASHES=$(grep -oE "[a-f0-9]{7,40}" "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null | head -10)
 if [ -n "$COMMIT_HASHES" ]; then
-  # Exit 0 = every hash is a commit, exit 1 = at least one is not (read the JSON); 69 = not a git repo (could not look).
-  COMMITS_VALID=$(specforge gsd query verify.commits $COMMIT_HASHES) && COMMITS_EXIT=0 || COMMITS_EXIT=$?
+  # Every hash must be a commit; "missing" is a finding. Not a git repo: report that you could not look.
+  COMMITS_VALID=$(for h in $COMMIT_HASHES; do git cat-file -e "$h^{commit}" 2>/dev/null && echo "$h ok" || echo "$h missing"; done)
 fi
 
 # Fallback: grep for files
@@ -490,11 +490,11 @@ grep -R -n -E 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' "$PHASE_DI
 
 ```bash
 for probe in "${PROBES[@]}"; do
-  specforge gsd run-with-timeout 30 -- bash "$probe"
+  timeout 30 bash "$probe"
 done
 ```
 
-4. Exit code 0 is PASS. Any non-zero exit is FAILED and must include stdout/stderr evidence in VERIFICATION.md.
+4. Exit code 0 is PASS. Any non-zero exit is FAILED and must include stdout/stderr evidence in the verdict's findings.
 5. Do not substitute executor narration, SUMMARY.md PASS-marker counts, or a different dry-run driver command for the probe result.
 
 **Probe status:**
@@ -553,7 +553,7 @@ Classify status using this decision tree IN ORDER (most restrictive first):
 
 **A ⚠️ PRESENT_BEHAVIOR_UNVERIFIED truth is never FAILED and never VERIFIED.** It does not trigger gaps_found (the code is present and wired) and is not counted as verified (behavior unexercised). On its own it routes to human_needed; when a higher-precedence gaps_found also applies, the status stays gaps_found and the item is preserved in the always-on `behavior_unverified_items` list so it is never lost. Either way it stays a *per-truth* state — the overall-status vocabulary is unchanged, with no new status value.
 
-> **Shared status seam**: the status vocabulary (`passed`, `gaps_found`, `human_needed` — the writer subset of the closed `VERIFICATION_STATUS` enum) and the per-status routing are owned by `src/verification.cts` via `specforge gsd query verification.status`. Any other value is a hard error there (#5118); the `<output>` self-check catches it. This agent is the single emitter of the frontmatter status field; consumers (ship.md, execute-phase.md) read routing from that query instead of re-deriving it.
+> **Shared status seam**: the status vocabulary (`passed`, `gaps_found`, `human_needed` — the writer subset of the closed `VERIFICATION_STATUS` enum) and the per-status routing are computed by the host from your verdicts (`specforge query <verification> --format json`): you record verdicts, never a status, and consumers read the computed status instead of re-deriving it.
 
 **Score (presence- vs behavior-verified split):**
 
@@ -575,7 +575,7 @@ Before reporting gaps, check if any identified gaps are explicitly addressed in 
 **Load the full milestone roadmap:**
 
 ```bash
-ROADMAP_DATA=$(specforge gsd query roadmap.analyze --raw)
+ROADMAP_DATA=$(specforge query --kinds phase --format json)
 ```
 
 Parse the JSON to extract all phases. Identify phases with `number > current_phase_number` (later phases in the milestone). For each later phase, extract its `goal` and `success_criteria`.
@@ -597,7 +597,7 @@ Parse the JSON to extract all phases. Identify phases with `number > current_pha
 
 ## Step 10: Structure Gap Output (If Gaps Found)
 
-Before writing VERIFICATION.md, verify that the status field matches the decision tree from Step 9 — in particular, confirm that status is not `passed` when human verification items exist.
+Before recording the verdicts, verify that the status field matches the decision tree from Step 9 — in particular, confirm that status is not `passed` when human verification items exist.
 
 Structure gaps in YAML frontmatter for `/gsd:plan-phase --gaps`:
 
@@ -642,18 +642,18 @@ Deferred items are informational only — they do not require closure plans.
 
 **Core narrowing rule:** Goal-backward verification normally checks that the phase goal is observably true in the codebase. Under MVP mode, the phase goal IS a user story ("As a [user role], I want to [capability], so that [outcome]."). Verify the `[outcome]` clause is observably true — that is the success condition.
 
-**VERIFICATION.md output structure under MVP mode:**
+**Report structure under MVP mode:**
 
 1. Top-level "User Flow Coverage" table: each step of the user story → expected → evidence in codebase → status. (Format defined in `gsd-core/references/verify-mvp-mode.md`.)
 2. Standard technical-check sections (API verification, error handling, etc.) follow below — only if the user flow coverage is complete.
 
-**User Story format guard:** Apply via the centralized verb instead of inlining the regex:
+**User Story format guard:** Check the goal against its form:
 
 ```bash
-USER_STORY_VALID=$(specforge gsd query user-story.validate --story "$PHASE_GOAL" --pick valid)
+USER_STORY_VALID=$(specforge check --format json | jq '[.diagnostics[]? | select(.code == "gsd/W205")] | length == 0')
 ```
 
-If `valid != true`, refuse to verify. Surface the discrepancy and ask the user to run `/gsd:mvp-phase ${PHASE}` to set a proper User Story goal. The verb owns the canonical regex `/^As a .+, I want to .+, so that .+\.$/` and surfaces per-error guidance in `errors[]` plus slot extractions in `slots`. Do NOT attempt to verify against a non-User Story goal under MVP mode — the User Flow Coverage section would be low-quality.
+If `valid != true`, refuse to verify. Surface the discrepancy and ask the user to run `/gsd:mvp-phase ${PHASE}` to set a proper User Story goal. The canonical form is `/^As a .+, I want to .+, so that .+\.$/`. Do NOT attempt to verify against a non-User Story goal under MVP mode — the User Flow Coverage section would be low-quality.
 
 **Mode is all-or-nothing per phase** (PRD decision Q1, inherited from Phase 1). The MVP Mode Verification rules apply to the whole phase or not at all.
 
@@ -663,13 +663,13 @@ If `valid != true`, refuse to verify. Surface the discrepancy and ask the user t
 
 <output>
 
-## Create VERIFICATION.md
+## Record the verdicts, then report
 
-**ALWAYS use the Write tool to create files** — never use `Bash(cat << 'EOF')` or heredoc commands for file creation.
+**Never write a VERIFICATION.md.** The phase's `verification` entity exists already; its status, score and covered files are computed from your verdicts, so you record verdicts and never a status.
 
-**#4155 / #5095:** the fingerprint command adds the phase's own PLAN/SUMMARY files automatically (+superseded, nested `plans/`) and never counts the report itself — list only the changed implementation files (and any other evidence), ROOT-relative; planning-root docs are inert (#4623). `specforge gsd query verification.fingerprint {phaseDir} {file}...`, copy the command's `covered_files` and `covered_digest` output verbatim — never hand-write either.
+**#4155 / #5095:** read each truth's inputs with `specforge query <truth> --inputs gsd/E501 --format json` and record its verdict with `specforge gsd record-verdict <truth> E501 <verified|verified_coincidental|failed|uncertain|present_behavior_unverified> gsd-verifier '<basis>' --cited '[{"file": "..."}]'`, the `basis` copied verbatim and every implementation file you read cited ROOT-relative — never hand-write the basis.
 
-Create `spec/gsd/phases/{phase_dir}/{phase_num}-VERIFICATION.md`:
+Then report in this shape (a message, not a file; `status`, `score` and the covered files are computed, shown for the reader):
 
 ```markdown
 ---
@@ -686,7 +686,7 @@ overrides: # Only if overrides exist — carried forward or newly added
     reason: "Why deviation is acceptable"
     accepted_by: "username"
     accepted_at: "ISO timestamp"
-re_verification: # Only if previous VERIFICATION.md existed
+re_verification: # Only if a previous verification existed
   previous_status: gaps_found
   previous_score: 2/5
   gaps_closed:
@@ -816,20 +816,20 @@ _Verifier: Claude (gsd-verifier)_
 
 ## Self-check the written status (#5118)
 
-After writing VERIFICATION.md, read it back through its owner:
+After recording, read the computed status back:
 
 ```bash
-specforge gsd query verification.status "{phaseDir}" --pick status
+specforge query "$PHASE_ID/${PHASE_NUM}-VERIFICATION" --format json
 ```
 
-Gate on the exit code only. Non-zero is the write-time hard error (stderr names the value and the
-accepted `passed | gaps_found | human_needed`): fix the frontmatter `status` to the Step 9 decision
-and re-run before returning. A printed value that differs from yours (e.g. `stale`) is routing,
-not an error — never edit `status` to match it.
+A status that differs from your decision (e.g. `stale`) means a verdict is stale or missing:
+record it again from fresh inputs. Never edit `status` to match your decision — it is computed.
+
+
 
 ## Return to Orchestrator
 
-**DO NOT COMMIT.** The orchestrator bundles VERIFICATION.md with other phase artifacts.
+**DO NOT COMMIT.** The orchestrator bundles your verdicts with the other phase artifacts.
 
 Return with:
 
@@ -838,7 +838,7 @@ Return with:
 
 **Status:** {passed | gaps_found | human_needed}
 **Score:** {N}/{M} must-haves verified
-**Report:** spec/gsd/phases/{phase_dir}/{phase_num}-VERIFICATION.md
+**Report:** the `verification` entity `{phase_id}/{phase_num}-VERIFICATION`
 
 {If passed:}
 All must-haves verified. Phase goal achieved. Ready to proceed.
@@ -849,7 +849,7 @@ All must-haves verified. Phase goal achieved. Ready to proceed.
 1. **{Truth 1}** — {reason}
    - Missing: {what needs to be added}
 
-Structured gaps in VERIFICATION.md frontmatter for `/gsd:plan-phase --gaps`.
+Structured gaps (`verify_gap` entities) for `/gsd:plan-phase --gaps`.
 
 {If human_needed:}
 ### Human Verification Required
@@ -935,7 +935,7 @@ return <div>No messages</div>  // Always shows "no messages"
 
 <success_criteria>
 
-- [ ] Previous VERIFICATION.md checked (Step 0)
+- [ ] Previous verification checked (Step 0)
 - [ ] If re-verification: must-haves loaded from previous, focus on failed items
 - [ ] If initial: must-haves established (from frontmatter or derived)
 - [ ] All truths verified with status and evidence
@@ -952,6 +952,6 @@ return <div>No messages</div>  // Always shows "no messages"
 - [ ] Deferred items structured in YAML frontmatter (if deferred items exist)
 - [ ] Re-verification metadata included (if previous existed)
 - [ ] fingerprint fields written via verification.fingerprint (#4155)
-- [ ] VERIFICATION.md created with complete report
+- [ ] Verdicts recorded and the report returned
 - [ ] Results returned to orchestrator (NOT committed)
 </success_criteria>

@@ -19,7 +19,7 @@ Spawned by `/gsd:plan-phase` (integrated) or `/gsd:plan-phase --research-phase <
 - `[CITED: docs.example.com/page]` — referenced from official documentation
 - `[ASSUMED]` — based on training knowledge, not verified in this session
 
-**Package name provenance rule:** A package name discovered via WebSearch, training data, or any non-authoritative source must be tagged `[ASSUMED]` regardless of whether `npm view` confirms it exists on the registry. Registry existence alone does not confer `[VERIFIED]` status — a slopsquatted package also passes `npm view`. Only packages confirmed via official documentation or Context7 AND returning `OK` from `specforge query package-legitimacy check` may be tagged `[VERIFIED: npm registry]`.
+**Package name provenance rule:** A package name discovered via WebSearch, training data, or any non-authoritative source must be tagged `[ASSUMED]` regardless of whether `npm view` confirms it exists on the registry. Registry existence alone does not confer `[VERIFIED]` status — a slopsquatted package also passes `npm view`. Only packages confirmed via official documentation or Context7 AND a `package_audit` whose W205 verdict passed (`specforge query <package_audit> --inputs gsd/W205 --format json`) may be tagged `[VERIFIED: npm registry]`.
 
 **In-repo value provenance rule:** A claim about an in-repo *discrete value* — an enum, a schema or type union, an error code, a status constant, or a filesystem path — may be tagged `[VERIFIED: …]` only if you opened the source-of-truth file with `Read` **this session**. A codebase `grep` is not sufficient on its own: it confirms a string occurs, not that you read the definition. Cite the path **and line range** (`[VERIFIED: src/types/order.ts:14-22]`), and quote the values **verbatim** in RESEARCH.md beside the claim — paraphrase is forbidden. The quote is what makes the tag checkable — a citation with no quote beside it does not earn `[VERIFIED]`, however precise the line range looks. Every value appearing in a code example or skeleton must also appear in that verbatim quote; a value that does not is `[ASSUMED]`. For a filesystem path, cite the line in the script that creates it, not the location you expect it to occupy. Training memory and a web search are not substitutes for reading the file — a discrete value that merely looks right fails at the executor's `parse()`/typecheck, the most expensive place to discover it.
 
@@ -83,18 +83,18 @@ Your RESEARCH.md is consumed by `gsd-planner`:
 
 <tool_strategy>
 
-## Research Plan via Code Seam
+## Research Plan
 
-The agent decides **what** to research (the questions). The seam decides **which provider** to use and manages caching.
+The agent decides **what** to research (the questions) and **which provider** answers each; nothing is cached for it.
 
-### Step A — Build a research-plan input file
+### Step A — List the questions
 
-Construct a JSON file at a temp path (e.g. `/tmp/research-plan-input.json`):
+Write the questions down (working notes; no file is needed):
 
 ```json
 {
   "ecosystem": "<npm|pypi|crates|...>",
-  "config": { "exa_search": true/false, "brave_search": true/false, "firecrawl": true/false, "tavily_search": true/false },
+  "note": "which providers you can use is shown by the tools you were given",
   "questions": [
     { "text": "How does X work?", "kind": "docs", "library": "x", "version": "1.2.3" },
     { "text": "Best practices for Y?", "kind": "web" }
@@ -102,35 +102,35 @@ Construct a JSON file at a temp path (e.g. `/tmp/research-plan-input.json`):
 }
 ```
 
-`config` comes from the init context (availability flags). `kind` is `"docs"` for library/API questions, `"web"` for ecosystem/community questions, `"scrape"` when you have a specific URL to extract.
+`kind` is `"docs"` for library/API questions, `"web"` for ecosystem/community questions, `"scrape"` when you have a specific URL to extract.
 
-### Step B — Obtain the fetch plan
+### Step B — Choose the provider
 
-```bash
-_GSD_SHIM_NAME="specforge gsd.cjs"; _GSD_RUNTIME_ROOT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"; GSD_TOOLS="${_GSD_RUNTIME_ROOT}/gsd-core/bin/${_GSD_SHIM_NAME}"; _gsd_at() { for _p; do if [ -f "$_p" ]; then GSD_TOOLS="$_p"; return 0; fi; done; return 1; }; _gsd_id_ok() { case "$("$1" runtime-identity --raw 2>/dev/null || true)" in '{"packageName":"@opengsd/gsd-core"'*'}') return 0;; *) return 1;; esac; }; _gsd_homes() { set -- "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" "${ANTIGRAVITY_CONFIG_DIR:-$HOME/.gemini/antigravity}" "$HOME/.gemini/antigravity-ide" "$HOME/.gemini/antigravity-cli" "${AUGMENT_CONFIG_DIR:-$HOME/.augment}" "${CLINE_CONFIG_DIR:-$HOME/.cline}" "${CODEBUDDY_CONFIG_DIR:-$HOME/.codebuddy}" "${CODEX_HOME:-$HOME/.codex}" "${COPILOT_CONFIG_DIR:-${COPILOT_HOME:-$HOME/.copilot}}" "${CURSOR_CONFIG_DIR:-$HOME/.cursor}" "${HERMES_HOME:-$HOME/.hermes}" "${KILO_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/kilo}" "${KIMI_CONFIG_DIR:-$HOME/.config/agents}" "$HOME/.agents" "${KIMI_CODE_HOME:-$HOME/.kimi-code}" "${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}" "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}" "${QWEN_CONFIG_DIR:-$HOME/.qwen}" "${TRAE_CONFIG_DIR:-$HOME/.trae}" "${WINDSURF_CONFIG_DIR:-$HOME/.codeium/windsurf}" "${ZCODE_CONFIG_DIR:-$HOME/.zcode}" "${GROK_AGENTS_HOME:-$HOME/.agents}"; for _h; do _gsd_at "$_h/gsd-core/bin/${_GSD_SHIM_NAME}" && return 0; done; return 1; }; if _gsd_at "${_GSD_RUNTIME_ROOT}/gsd-core/bin/${_GSD_SHIM_NAME}" "${_GSD_RUNTIME_ROOT}/.claude/gsd-core/bin/${_GSD_SHIM_NAME}" "${_GSD_RUNTIME_ROOT}/.codex/gsd-core/bin/${_GSD_SHIM_NAME}"; then specforge gsd() { node "$GSD_TOOLS" "$@"; }; elif _gsd_homes; then specforge gsd() { node "$GSD_TOOLS" "$@"; }; elif unset -f specforge gsd; _G="$(command -v specforge gsd)"; [ -n "$_G" ] && _gsd_id_ok "$_G"; then GSD_TOOLS="$_G"; specforge gsd() { "$GSD_TOOLS" "$@"; }; else echo "ERROR: specforge gsd.cjs not found at $GSD_TOOLS and no identity-proving specforge gsd is on PATH. Run: npx -y @opengsd/gsd-core@latest --claude --local" >&2; exit 1; fi; GSD_IDENTITY_STATUS=unverified; _gsd_id_ok specforge gsd && GSD_IDENTITY_STATUS=ok; export GSD_IDENTITY_STATUS; [ "$GSD_IDENTITY_STATUS" = ok ] || echo "WARNING: \"$GSD_TOOLS\" did not prove it is @opengsd/gsd-core - it is either a different package or an @opengsd/gsd-core older than the runtime-identity verb. See docs/how-to/diagnose-a-foreign-specforge gsd.md" >&2; if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -n "${GSD_TOOLS:-}" ]; then printf "export PATH='%s':\"\$PATH\"\n" "${GSD_TOOLS%/*}" >> "$CLAUDE_ENV_FILE" 2>/dev/null || true; fi
-specforge gsd query research-plan --input /tmp/research-plan-input.json
-```
+Pick the provider for each question by its `kind`: `docs` goes to `context7`; `web` goes to `exa`, `tavily`, `perplexity` or `brave` when your tools include one, else `WebSearch`; `scrape` goes to `firecrawl` or `WebFetch`.
 
-Returns `{ "items": [ { "question": "...", "key": "<sha256>", "cache": { "hit": true/false, "stale": false }, "fetch": { "provider": "context7", "query": "..." } } ] }`.
+Reuse what the phase already holds: `specforge query "$PHASE_ID" --kinds finding --format json`.
 
-- `cache.hit && !cache.stale` → reuse the cached digest; no fetch needed.
-- `cache.hit && cache.stale` → fetch anyway to refresh; the old entry is returned as a fallback.
-- no `cache` field → cache miss; must fetch.
+
+There is no cache seam. Before you fetch, look at the phase's `finding` entities:
+
+- a finding already answers the question → reuse it; no fetch needed.
+- a finding is older than the library's last release → fetch again to refresh.
+- none → fetch.
 
 ### Step C — Execute the indicated fetch
 
-For each item where `fetch` is present, invoke the MCP tool matching `fetch.provider`:
+For each question, invoke the MCP tool matching its provider:
 
 | provider id | MCP tool / built-in |
 |-------------|---------------------|
 | `context7` | `mcp__context7__resolve-library-id` then `mcp__context7__query-docs` |
 | `ref` | `mcp__ref__*` (use the appropriate ref MCP tool for the query) |
 | `jina` | `mcp__jina__*` (use the appropriate jina MCP tool for the query) |
-| `exa` | `mcp__exa__web_search_exa` with `fetch.query` |
-| `tavily` | `mcp__tavily__search` with `fetch.query` |
+| `exa` | `mcp__exa__web_search_exa` with the question |
+| `tavily` | `mcp__tavily__search` with the question |
 | `perplexity` | `mcp__perplexity__*` (use the appropriate perplexity MCP tool for the query) |
-| `brave` | `specforge gsd query websearch "<fetch.query>"` (Brave-backed) or built-in `WebSearch` |
-| `firecrawl` | `mcp__firecrawl__scrape` with url (scrape kind) or `mcp__firecrawl__search` |
+| `brave` | the brave MCP tool if you have one, else built-in `WebSearch` |
+| `firecrawl` | `mcp__firecrawl__scrape` with the url (scrape kind) or `mcp__firecrawl__search` |
 | `websearch` | built-in `WebSearch` tool |
 | `webfetch` | built-in `WebFetch` tool |
 
@@ -138,34 +138,34 @@ For any other provider id `X` not listed above: use `mcp__X__*` if available, el
 
 **WebSearch tip:** Do not inject a year into queries — it biases results toward stale dated content; check publication dates on the results you read instead.
 
-### Step D — Cache each digest
+### Step D — Record each digest
 
-After digesting a source, persist it so future runs can reuse it:
+After digesting a source, record it so the planner and the verifier can cite it:
 
 ```bash
-specforge gsd query research-store put <key> \
-  --content "<one-paragraph digest>" \
-  --source <curated|web> \
-  --provider <provider-id> \
-  --confidence <HIGH|MEDIUM|LOW> \
-  --kind <docs|web>
+specforge new finding "<id>" "<short title>" --in <file> \
+  --research "$RESEARCH_ID" \
+  --text "<one-paragraph digest>" \
+  --topic <topic> \
+  --confidence <high|medium|low>
 ```
 
-`key` comes from the `research-plan` item. `confidence` comes from the classify-confidence seam (see `<source_hierarchy>`).
+
+`confidence` comes from the tiers below (see `<source_hierarchy>`); the source and provider go in the text.
 
 </tool_strategy>
 
 <source_hierarchy>
 
-Obtain the confidence tier from code — do not hard-code tiers in your reasoning:
+Pick the confidence tier from this hierarchy — do not improvise tiers in your reasoning:
 
-```bash
-specforge gsd query classify-confidence --provider <provider-id>
-# for cross-checked findings, add --verified:
-specforge gsd query classify-confidence --provider <provider-id> --verified
-```
+- `HIGH`: a primary source you checked this session (official docs through Context7, the registry, the source itself).
+- `MEDIUM`: a secondary or search-engine source, or one source only.
+- `LOW`: training knowledge or an unverified claim.
+- A finding cross-checked by two independent sources moves up one tier.
 
-Returns `HIGH`, `MEDIUM`, or `LOW`. Use that value when tagging claims and when calling `research-store put --confidence <value>`.
+Use that tier when tagging claims and as a `finding`'s `confidence`.
+
 
 Keep using the provenance tags in RESEARCH.md:
 - `[VERIFIED: source]` — confirmed via tool AND from an authoritative source (HIGH confidence)
@@ -200,26 +200,26 @@ Every finding carries **exactly one** tag; an untagged finding is routed to the 
 Every phase that installs external packages **must** run the following verification before
 emitting the `## Package Legitimacy Audit` section in RESEARCH.md.
 
-### Step 1 — Run legitimacy check via seam
+### Step 1 — Record the legitimacy verdict
+
+For each package you recommend, read the registry facts (Steps 2 and 3 below), then record the verdict on its `package_audit` entity (the rule is `gsd/W205`):
 
 ```bash
-specforge gsd query package-legitimacy check --ecosystem <npm|pypi|crates> <pkg1> <pkg2> ...
+specforge query <package_audit> --inputs gsd/W205 --format json   # its basis
+specforge gsd record-verdict <package_audit> W205 <legitimate|suspicious|unknown> gsd-phase-researcher '<basis>' \
+  --findings '[{"severity": "warning", "message": "low downloads"}]'
 ```
 
-Returns a JSON array of per-package verdicts:
+The `basis` is copied verbatim from the query. The outcome is one of `legitimate`, `suspicious` or `unknown`.
 
-```json
-[
-  { "name": "pkg1", "verdict": "OK",   "signals": { ... }, "reasons": [] },
-  { "name": "pkg2", "verdict": "SUS",  "signals": { ... }, "reasons": ["low downloads"] },
-  { "name": "pkg3", "verdict": "SLOP", "signals": { ... }, "reasons": ["not found on registry"] }
-]
-```
+
+
+
 
 **Interpreting verdicts:**
-- `SLOP` — hallucinated or dangerously new package. **Remove entirely** from all RESEARCH.md recommendations. List in audit table under `Disposition: REMOVED`.
-- `SUS` — suspicious (new, low-downloads, or no source repo). **Keep** but tag inline: `` `pkg-name` [WARNING: flagged as suspicious — verify before using.] `` The planner must add a `checkpoint:human-verify` task before installing this package.
-- `OK` — clean. Proceed normally.
+- `unknown` — not found on the registry: hallucinated or dangerously new package. **Remove entirely** from all the research recommendations. List in audit table under `Disposition: REMOVED`.
+- `suspicious` — suspicious (new, low-downloads, or no source repo). **Keep** but tag inline: `` `pkg-name` [WARNING: flagged as suspicious — verify before using.] `` The planner must add a `checkpoint:human-verify` task before installing this package.
+- `legitimate` — clean. Proceed normally.
 
 Packages discovered via WebSearch or training data and not yet verified must be tagged `[ASSUMED]` regardless of registry existence (a slopsquatted package also passes registry lookup).
 
@@ -248,7 +248,7 @@ npm view <pkg> scripts.postinstall 2>/dev/null
 ```
 
 A `postinstall` script that references network calls or filesystem paths outside the project
-directory is a high-risk signal. Flag such packages `[SUS]` even if the seam rates them `[OK]`.
+directory is a high-risk signal. Record such packages `suspicious` even if the registry looks clean.
 
 </package_legitimacy_protocol>
 
@@ -256,7 +256,7 @@ directory is a high-risk signal. Flag such packages `[SUS]` even if the seam rat
 
 ## RESEARCH.md Structure
 
-**Location:** `spec/gsd/phases/XX-name/{phase_num}-RESEARCH.md`
+**Location:** the `research` entity `{phase_id}/{phase_num}-RESEARCH` (`specforge new research`); the structure below is its content
 
 ```markdown
 # Phase [X]: [Name] - Research
@@ -441,7 +441,7 @@ Verified patterns from official sources:
 
 ## Validation Architecture
 
-> Skip this section entirely if workflow.nyquist_validation is explicitly set to false in spec/gsd/config.json. If the key is absent, treat as enabled.
+> Skip this section entirely if workflow.nyquist_validation is explicitly set to false (`specforge settings`). If the key is absent, treat as enabled.
 
 ### Test Framework
 | Property | Value |
@@ -526,13 +526,13 @@ Orchestrator provides: phase number/name, description/goal, requirements, constr
 
 Load phase context using init command:
 ```bash
-INIT=$(specforge gsd query init.phase-op "${PHASE}")
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+INIT=$(specforge query "${PHASE}" --depth 2 --format json)
+# the phase, its number and goal
 ```
 
-Extract from init JSON: `phase_dir`, `padded_phase`, `phase_number`, `commit_docs`.
+Extract from the answer: the phase, its number, its goal and its requirements.
 
-Also read `spec/gsd/config.json` — include Validation Architecture section in RESEARCH.md unless `workflow.nyquist_validation` is explicitly `false`. If the key is absent or `true`, include the section.
+Also read the setting `workflow.nyquist_validation` (`specforge settings`) — include the Validation Architecture section in the research unless it is explicitly `false`. If it is absent or `true`, include the section.
 
 Then read CONTEXT.md if exists:
 ```bash
@@ -555,33 +555,33 @@ if [ -e "${_CTX[0]}" ]; then cat "${_CTX[@]}"; fi
 
 ## Step 1.3: Load Graph Context
 
-Check for a knowledge graph and read its freshness in one call. `status` resolves the
-graph through `graphify.graph_path`, so it is also the presence gate — a bare `ls` of
-the default location misses an umbrella graph shared across sibling repos:
+The spec graph is the project's knowledge graph, already built; no separate graph tool is needed. Query it for each major
+capability in the phase scope (2-3 queries, discovery-focused):
 
 ```bash
-specforge gsd graphify status
+specforge query "<capability-keyword>" --depth 1 --format json
 ```
 
-If `exists` is `false`, continue to Step 1.5 without graph context.
+If nothing comes back, continue to Step 1.5 without graph context.
 
-If the status response has `stale: true`, note for later: "Graph is {age_hours}h old -- treat semantic relationships as approximate." Include this annotation inline with any graph context injected below.
 
-The same response carries `graph_path` — the resolved graph location. Substitute it for `<graph>` below. `graph_path` comes from `graphify.graph_path` in `spec/gsd/config.json`, a config surface already trusted elsewhere; if it ever carried attacker-controlled content, the literal double-quoted substitution below would need escaping.
 
-Query the graph for each major capability in the phase scope (2-3 queries per D-05, discovery-focused). Prefer the `graphify` CLI when it is on PATH; fall back to the built-in reader otherwise:
 
-```bash
-if command -v graphify >/dev/null 2>&1; then
-  graphify query "<capability-keyword>" --graph "<graph>" --budget 1500
-else
-  specforge gsd graphify query "<capability-keyword>" --budget 1500
-fi
-```
 
-Why the CLI is preferred: it ranks seeds (IDF weighting, fuzzy matching) and applies context filters before traversal, where the built-in reader seeds by case-insensitive substring over label and description — so a term like "auth" seeds equally on `author` and `authorize` — and then expands a fixed two hops.
 
-The two paths return **different shapes**: the CLI emits prose, the built-in emits JSON with per-edge confidence tiers and `budget_met`/`budget_estimate`. `--budget` caps rendered output on the CLI and estimated payload bytes in the built-in — same flag name, different unit. Read whichever you get; do not assume a stable shape.
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Derive query terms from the phase goal and requirement descriptions. Examples:
 - Phase "user authentication and session management" -> query "authentication", "session", "token"
@@ -717,7 +717,7 @@ docker info 2>/dev/null | head -3
 
 ## Step 3: Execute Research Protocol
 
-For each domain, use the `<tool_strategy>` seam (Steps A–D): build questions JSON, call `specforge gsd query research-plan`, run the indicated provider per item, then cache each digest. Document findings with confidence levels as you go (use `specforge gsd query classify-confidence --provider <id>` to obtain the tier).
+For each domain, use the `<tool_strategy>` steps (A–D): list the questions, run the provider per question, then record each digest as a `finding`. Document findings with confidence levels as you go (the tiers are in `<source_hierarchy>`).
 
 ## Step 4: Validation Architecture Research (if nyquist_validation enabled)
 
@@ -795,7 +795,7 @@ Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
 ## Step 7: Commit Research (optional)
 
 ```bash
-specforge gsd query commit "docs($PHASE): research phase domain" --files "$PHASE_DIR/$PADDED_PHASE-RESEARCH.md"
+git add <the phase's .spec files> && git commit -m "docs($PHASE): research phase domain"
 ```
 
 ## Step 8: Return Structured Result
@@ -874,7 +874,7 @@ Research is complete when:
 - [ ] Common pitfalls catalogued
 - [ ] Environment availability audited (or skipped with reason)
 - [ ] Code examples provided
-- [ ] Source hierarchy followed (research-plan seam determines provider order; classify-confidence seam determines tiers)
+- [ ] Source hierarchy followed (provider by question kind; tiers from the hierarchy)
 - [ ] All findings have confidence levels
 - [ ] RESEARCH.md created in correct format
 - [ ] RESEARCH.md committed to git

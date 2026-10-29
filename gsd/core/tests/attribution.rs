@@ -47,3 +47,35 @@ fn the_licence_is_upstreams() {
         "SOURCE.md names the licence"
     );
 }
+
+/// A Rust file ported from upstream says so on its first line, with the version and the licence.
+#[test]
+fn every_ported_source_is_attributed() {
+    let ported = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/commands/complexity");
+    let mut all = Vec::new();
+    files(&ported, &mut all);
+    assert!(all.len() >= 4, "{} ported files", all.len());
+    for path in all {
+        let text = std::fs::read_to_string(&path).expect("a source");
+        let first = text.lines().next().unwrap_or_default();
+        assert!(
+            first.starts_with("//! Ported from gsd-core v1.18.0 ")
+                && first.contains("MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD"),
+            "{}: {first}",
+            path.display()
+        );
+    }
+}
+
+/// The vendored scorer and its tests are upstream's, where the port's tests say they come from.
+#[test]
+fn the_vendored_scorer_is_the_file_the_port_names() {
+    let upstream = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/upstream/v1.18.0");
+    for file in [
+        "src/complexity-trigger.cts",
+        "tests/complexity-trigger.test.cjs",
+    ] {
+        let text = std::fs::read_to_string(upstream.join(file)).expect("a vendored file");
+        assert!(text.contains("analyzeSource"), "{file}");
+    }
+}

@@ -721,14 +721,14 @@ issue:
 ## Step 1: Load Context
 
 Load phase operation context:
-@~/.claude/gsd-core/references/gsd-run-resolver.md
+The phase is `$PHASE_ID` (for example `v1.0/03`); `specforge query --kinds phase` lists them.
 
 ```bash
-INIT=$(specforge gsd query init.phase-op "${PHASE_ARG}")
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+INIT=$(specforge query "${PHASE_ID}" --depth 2 --format json)
+# the phase, its plans, summaries and research
 ```
 
-Extract from init JSON: `phase_dir`, `phase_number`, `has_plans`, `plan_count`.
+Extract from the answer: the phase, its `plan` entities and their count.
 
 Orchestrator provides CONTEXT.md content in the verification prompt. If provided, parse for locked decisions, discretion areas, deferred ideas.
 
@@ -736,41 +736,41 @@ Orchestrator provides CONTEXT.md content in the verification prompt. If provided
 # #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
-specforge gsd query phase.list-plans "$phase_number"
-# Research / brief artifacts (deterministic listing)
-specforge gsd query phase.list-artifacts "$phase_number" --type research
-specforge gsd query roadmap.get-phase "$phase_number"
-specforge gsd query phase.list-artifacts "$phase_number" --type summary
+specforge query "$PHASE_ID" --kinds plan --format json
+# Research / summary entities (deterministic listing)
+specforge query "$PHASE_ID" --kinds research --format json
+specforge query "$PHASE_ID" --format json   # the phase: goal and success criteria
+specforge query "$PHASE_ID" --kinds summary --format json
 
 # Smart-zone estimate check (#2631) — advisory, never fails the check.
-for plan in "${phase_dir:-$PHASE_DIR}"/*-PLAN.md; do
-  [ -f "$plan" ] || continue   # unmatched glob leaves the literal pattern — skip it
-  EST=$(sed -n '/^estimate:/,/^[a-z_]*:/p' "$plan" | grep -o 'tokens: *[0-9]*' | head -1 | grep -o '[0-9]*')
-  [ -n "$EST" ] && specforge gsd query estimate-check --tokens "$EST" --calibrated 2>/dev/null || true
-done
+# A plan's `estimate` is a field of the plan entity; read it from the plan query above.
+# Over the smart zone (about 100k tokens): note it as a warning; never fail the check on it.
+
+
+
 ```
 
 **Extract:** Phase goal, requirements (decompose goal), locked decisions, deferred ideas.
 
 ## Step 2: Load All Plans
 
-Use `specforge query` to validate plan structure:
+Use `specforge check` to validate plan structure:
 
 ```bash
-# #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
-shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
+# The checker's structure rules run over the whole spec; read the phase's plans' diagnostics.
+PLAN_STRUCTURE=$(specforge check --format json) && STRUCTURE_EXIT=0 || STRUCTURE_EXIT=$?
+echo "$PLAN_STRUCTURE"
+echo "structure_exit=$STRUCTURE_EXIT"
 
-for plan in "$PHASE_DIR"/*-PLAN.md; do
-  echo "=== $plan ==="
-  PLAN_STRUCTURE=$(specforge gsd query verify.plan-structure "$plan") && STRUCTURE_EXIT=0 || STRUCTURE_EXIT=$?
-  echo "$PLAN_STRUCTURE"
-  echo "structure_exit=$STRUCTURE_EXIT"
-done
+
+
+
+
 ```
 
-Parse JSON result: `{ valid, errors, warnings, task_count, tasks: [{name, hasFiles, hasAction, hasVerify, hasDone}], frontmatter_fields }`
+Parse JSON result: `diagnostics` (code, message, entity) for the phase's plans and tasks
 
-The exit status follows the verdict (#5170): exit `0` = `valid: true`, exit `1` = `valid: false` (a negative verdict — the JSON is still authoritative, so read `errors`). Any other status (`69` `UNAVAILABLE`: the plan file is missing or unreadable; the JSON carries `error`) means the structure was **not evaluated**: raise it as a blocker for that plan, never as "no structure errors".
+The exit status follows the verdict: exit `0` = no Error, exit `1` = Errors (a negative verdict — the diagnostics are authoritative, so read them). Any other status means the check did not run: report the structure as unevaluated, never valid.
 
 Map errors/warnings to verification dimensions:
 - Missing frontmatter field → `task_completeness` or `must_haves_derivation`
@@ -780,13 +780,13 @@ Map errors/warnings to verification dimensions:
 
 ## Step 3: Parse must_haves
 
-Extract must_haves from each plan using `specforge query`:
+Extract must_haves from each plan by querying its `truth`, `artifact` and `key_link` entities:
 
 ```bash
-MUST_HAVES=$(specforge gsd query frontmatter.get "$PLAN_PATH" must_haves)
+MUST_HAVES=$(specforge query "$PLAN_ID" --depth 2 --kinds truth,artifact,key_link --format json)
 ```
 
-Returns JSON: `{ truths: [...], artifacts: [...], key_links: [...] }`
+Returns the plan's truths, artifacts and key links.
 
 **Expected structure:**
 
@@ -821,31 +821,31 @@ Session persists     | 01    | 3     | COVERED
 
 For each requirement: find covering task(s), verify action is specific, flag gaps.
 
-**Exhaustive cross-check:** Also read PROJECT.md requirements (not just phase goal). Verify no PROJECT.md requirement relevant to this phase is silently dropped. A requirement is "relevant" if the ROADMAP.md explicitly maps it to this phase or if the phase goal directly implies it — do NOT flag requirements that belong to other phases or future work. Any unmapped relevant requirement is an automatic blocker — list it explicitly in issues.
+**Exhaustive cross-check:** Also read PROJECT.md requirements (not just phase goal). Verify no PROJECT.md requirement relevant to this phase is silently dropped. A requirement is "relevant" if the phase's `requirements` explicitly map it to this phase or if the phase goal directly implies it — do NOT flag requirements that belong to other phases or future work. Any unmapped relevant requirement is an automatic blocker — list it explicitly in issues.
 
 ## Step 5: Validate Task Structure
 
-Use `verify.plan-structure` (already run in Step 2):
+Use the diagnostics (already read in Step 2):
 
 ```bash
-PLAN_STRUCTURE=$(specforge gsd query verify.plan-structure "$PLAN_PATH") && STRUCTURE_EXIT=0 || STRUCTURE_EXIT=$?
+specforge check --format json   # the phase's plan and task diagnostics
 ```
 
-Exit `0` / `1` are the verdict (`valid` true / false, read the JSON); any other status means the structure was not evaluated (Step 2).
+Exit `0` / `1` are the verdict (read the diagnostics); any other status means the structure was not evaluated (Step 2).
 
-The `tasks` array in the result shows each task's completeness:
-- `hasFiles` — files element present
-- `hasAction` — action element present
-- `hasVerify` — verify element present
-- `hasDone` — done element present
+The `task` entities show each task's completeness:
+- `files` — files present
+- `action` — action present
+- `verify` — verify present
+- `done` — done present
 
 **Check:** valid task type (auto, checkpoint:*, tdd), auto tasks have files/action/verify/done, action is specific, verify is runnable, done is measurable.
 
-**For manual validation of specificity** (`verify.plan-structure` checks structure, not content quality), use structured extraction instead of grepping raw XML:
+**For manual validation of specificity** (`specforge check` checks structure, not content quality), query the tasks instead of grepping raw text:
 ```bash
-specforge gsd query plan.task-structure "$PLAN_PATH"
+specforge query "$PLAN_ID" --depth 1 --kinds task --format json
 ```
-Inspect `tasks` in the JSON; open the PLAN in the editor for prose-level review.
+Inspect the tasks in the JSON; open the plan in the editor for prose-level review.
 
 ## Step 6: Verify Dependency Graph
 
@@ -873,8 +873,8 @@ Missing: No mention of fetch/API call → Issue: Key link not planned
 ## Step 8: Assess Scope
 
 ```bash
-specforge gsd query plan.task-structure "$PHASE_DIR/$PHASE-01-PLAN.md"
-specforge gsd query frontmatter.get "$PHASE_DIR/$PHASE-01-PLAN.md" files_modified
+specforge query "$PLAN_ID" --depth 1 --kinds task --format json
+specforge query "$PLAN_ID" --format json   # the plan's files_modified
 ```
 
 Thresholds: 2-3 tasks/plan good, 4 warning, 5+ blocker (split required).

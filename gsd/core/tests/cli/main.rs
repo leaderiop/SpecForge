@@ -1,7 +1,19 @@
 //! Black-box tests: the `specforge` binary on small projects that load the built `@gsd/core` (ADR gsd/0001 D5, D7).
 
 mod agents;
+mod cmd_attest;
+mod cmd_execute;
+mod cmd_milestone;
+mod cmd_phase;
+mod cmd_refactor;
+mod cmd_state;
+mod cmd_surface;
+mod cmd_verify;
+mod cmd_windows;
+mod cmd_workstreams;
 mod collect;
+mod commands;
+mod commands_support;
 mod discuss;
 mod e502_probe;
 mod execute;
@@ -10,6 +22,7 @@ mod execute_status;
 mod gates;
 mod harness;
 mod install_agents;
+mod install_skills;
 mod judged;
 mod judged_flow;
 mod judged_refusals;

@@ -176,6 +176,33 @@ still waits for kernel work (K18):
   verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
   (with `baseline-format` 3). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
   synthetic baselines, not black-box (the judgement list is empty on a baseline).
+- **A command's graph has no computed fields (K18).** A command reads entities and their authored fields, never a
+  computed one (`status`, a context's `digest`), so `record_research`, `record_spec` and `record_validation` (the
+  `context_digest` writers), `/gsd-health`, `/gsd-stats` and the progress report are not built (r41 probe P7).
+  `context_digest` is an `H` field, so until then **nobody can write it**: a hand edit is refused (E083) and no command
+  writes it. A new research, phase spec or validation carries no digest, the drift pass skips it, and `gsd/W406` is
+  inert for it.
+- **A person's answer is recorded by the caller (K18).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+  `approve_validation`, `waive_window`, `dispose_refactor` and `pause` write the `H` fields of a person's reply, as
+  upstream's agent transcribes the conversation. Each requires a non-empty `--by` (an empty one is refused), but `--by`
+  is the caller's **attestation**, not a proof of a person: an agent can record any name (`set_uat_result` echoes it and
+  stores it nowhere, a `uat_test` has no `by`). So a gate that such a record satisfies (`gsd/W404`'s answered
+  `tdd_review` checkpoint, and the sign-offs r42's gates read) is an honest-agent gate. `override` and `debt_accepted`
+  stay human-only because no command writes them. A human-attested command kind (the host refuses an agent-facing call
+  and records the caller) is a K18 item; the ignored tests `cmd_attest` carry the desired behaviour.
+- **`gsd/E516` is subject-scoped at a command gate (K18).** The host keeps only the diagnostics that name an entity
+  inside the gate's subject, and E516 names the stale entity itself. So `start_plan <plan>` is refused by a stale
+  verdict inside that plan only, and `close_milestone` by one under the milestone only, not project-wide as the rule
+  reads. The fix is for the guard to name the subject (K18); an ignored test carries it.
+- **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is
+  untriaged (it answers `nothing new` and writes nothing, so a hook may call it on every phase event), as upstream
+  freezes the anchor. It does not port upstream's anchor on first observation: the baseline is the score of the latest
+  *disposed* proposal, so a function that creeps below the threshold in small steps never fires `jump` until it crosses.
+- **`specforge <ext> help <cmd>` is gone for every extension.** T17 turned off clap's `help` subcommand on an
+  extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
+  `specforge gsd help` lists the commands.
+- **A slash command's `when` takes one setting (K18).** A skill in two clusters follows its first, so disabling
+  `utility` leaves `/gsd-help` (also `core_loop`) shown.
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
 - **A `file()` input names a file-reference field only.** `gsd/E501` and the plan checks read no file as an input,

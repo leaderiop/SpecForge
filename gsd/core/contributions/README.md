@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), and the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), and the writing commands and the five command-backed slash commands (r41).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -12,8 +12,9 @@ of two things (K9 U4):
   also reached through the core tool `specforge.prompt` and the CLI `specforge prompt`. The host agent follows it;
   each step's writes are a command's edit plan (K5), and a step whose gate fails is refused.
 - **a command**: code in the extension, served as the MCP tool `specforge.gsd.<name>` and the CLI
-  `specforge gsd <name>`. The command-backed ones are `@gsd/core`'s `/gsd-health`, `/gsd-help`, `/gsd-stats`,
-  `/gsd-surface`, `/gsd-phase`, `/gsd-workstreams` and `/gsd-cleanup` (7), and `@gsd/codebase`'s `/gsd-graphify`.
+  `specforge gsd <name>`. The command-backed ones built are `@gsd/core`'s `/gsd-help`, `/gsd-surface`, `/gsd-phase`,
+  `/gsd-workstreams` and `/gsd-cleanup` (5); `/gsd-health` and `/gsd-stats` wait for computed fields in a command's graph
+  (K18, see the README of `gsd/`), and `@gsd/codebase`'s `/gsd-graphify` is not built.
   Every other row below is a workflow. `/gsd-workspace` and `/gsd-update` are workflows too: a command runs nothing
   (the sandbox), and worktrees and updates need git and the package manager, which the agent runs.
 
@@ -42,21 +43,24 @@ ambiguous one, naming each candidate).
 ## Writing commands
 
 Every `H` field of the model has exactly one writer, a command whose edit plan the host checks and applies (K5), or a
-collector. The workflows call these; none is a slash command. Round r41 builds all but `record_verdict` (r40).
+collector. The workflows call these; none is a slash command. Round r41 builds all of them but three: the digests of
+`record_research`, `record_spec` and `record_validation` wait for computed fields in a command's graph (K18). CLI names
+are the ids with `-`: `specforge gsd complete-plan`.
 
 | Command | Writes (`H` fields) |
 |---|---|
-| `start_plan`, `complete_plan` | summary `started`, `completed`, `status`, the plan's state |
+| `start_plan`, `complete_plan` | summary `started`, `completed` (`start_plan` writes nothing: it runs the entry gates and answers the clock) |
 | `answer_checkpoint` | checkpoint `answer` |
 | `confirm_setup` | user_setup `done` |
 | `set_uat_result` | uat_test `result`, `source` |
 | `approve_validation` | validation `approval` |
-| `complete_milestone` | milestone `completion` (gated by gsd/E106), its retrospective |
+| `close_milestone` | milestone `completion` (gated by gsd/E106, E511, E516), its retrospective |
 | `pause`, `resume` | pause `at`, `by`; removes the pause |
 | `raise_blocker`, `resolve_blocker` | blocker `raised`, `resolved` |
 | `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
-| `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` |
+| `record_research`, `record_spec`, `record_validation` (not built: K18) | research, phase_spec, validation `context_digest`; no writer yet |
+| `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
 | the `gsd-junit` collector (built, r38): `specforge collect --runner gsd-junit --no-run` | none: it records test results in `specforge-report.json`, which the derive pass reads |
