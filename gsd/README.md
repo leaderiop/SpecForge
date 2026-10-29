@@ -197,6 +197,10 @@ still waits for kernel work (K19):
 - **A rendered step has no agent field (K19)**: the step's title carries the agent. **There is no free-text tail for a
   prompt's arguments (K19)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
   (K19)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
+- **The lifecycle prompts (r42) leave three kernel items (K19).** The claude-code skill writer does not write a skill's
+  `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested. A prompt's
+  subject is required, so `/gsd-plan-phase` without a phase is refused where upstream picks the next one (`/gsd-next`
+  is r43's). A reference is the id as written, so `3` and `03` are different spellings of the same phase.
 - **The hooks wait for five host items (K19)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
   a full compile, Cursor's `beforeSubmitPrompt`, and a hook reading another extension's settings.
 - **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is

@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), and the writing commands and the five command-backed slash commands (r41).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the five command-backed slash commands (r41), and the 16 lifecycle prompts with the command `reference` (r42).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -38,6 +38,34 @@ ambiguous one, naming each candidate).
 | @gsd/ui | `/gsd-ui-phase`, `/gsd-ui-review` | 2 |
 | @gsd/core skills (namespace routers: they list and dispatch, nothing else) | `/gsd-ns-context`, `/gsd-ns-ideate`, `/gsd-ns-manage`, `/gsd-ns-project`, `/gsd-ns-review`, `/gsd-ns-workflow` | 6 |
 | **total** | | **72** |
+
+## Lifecycle prompts (r42)
+
+Built in `@gsd/core`: the prompt id, the slash command `/gsd-<id with ->`, the gate (the guard rules a refused prompt
+names) and the steps (an agent, a command or the next prompt). `reference` serves the workflows, references and
+templates a prompt does not inline (`specforge gsd reference gsd-core/references/<file>.md`).
+
+| Prompt | Gate | Steps |
+|---|---|---|
+| `new_project`, `new_milestone` | none | researcher, synthesizer, roadmapper; `record_research`; `discuss_phase` |
+| `discuss_phase` | none | assumptions analyzer, advisor researcher; `plan_phase` |
+| `spec_phase` | none | `record_spec`; `discuss_phase` |
+| `mvp_phase` | E516 | `plan_phase` |
+| `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `record_verdict`; `execute_phase` |
+| `plan_review_convergence` | E516 | `plan_phase`; plan checker |
+| `ultraplan_phase` | E201, W204, E206, W406, E516 | plan checker; `record_verdict` |
+| `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; verifier; `record_verdict`, `record_window`; `verify_work` |
+| `execute_plan` (no slash command) | W318, E516 | `start_plan`, `answer_checkpoint`, `confirm_setup`, `raise_blocker`, `complete_plan`; executor |
+| `verify_work` | E516 | `set_uat_result`; planner, plan checker |
+| `validate_phase` | E516 | nyquist auditor; `record_validation`, `approve_validation` |
+| `add_tests` | E516 | none |
+| `audit_uat` | none | `set_uat_result` |
+| `audit_milestone` | E516 | integration checker; `record_verdict`; `plan_phase` |
+| `complete_milestone` | E106, E511, E516 | `close_milestone` |
+| `ship` | E511, E512, E516 | `fix_window`, `waive_window` |
+
+The other rows of the roster above are r43's. A rendered text may name them (the preamble says to skip what is not
+installed); `tests/ported_text.rs` lists every such name.
 
 ## Writing commands
 
