@@ -6454,7 +6454,7 @@
           },
           {
             "default_value": null,
-            "description": "one digest over the covered files' digests, as the verdicts judged them",
+            "description": "one digest over the covered files' current digests (every E501 judgement of the phase, stale ones too)",
             "edge": null,
             "field_type": "string",
             "file_reference": false,

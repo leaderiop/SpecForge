@@ -36,7 +36,8 @@ fn label(status: &str) -> &'static str {
 /// The twin with the verifier's `verified` verdict on every item of phase 01 (its verification then passes).
 fn verified_taskboard() -> Project {
     let p = taskboard();
-    assert!(p.verify_phase("v1.0/01") > 0);
+    // Every truth, artifact and key link of phase 01 (the exact count, so a dropped item is noticed).
+    assert_eq!(p.verify_phase("v1.0/01"), 7);
     p
 }
 
@@ -350,7 +351,7 @@ fn taskboard_coverage_matches_recorded_tests() {
 }
 
 #[test]
-fn the_twin_is_silent_under_compat_with_and_without_a_report() {
+fn the_twin_reports_only_unrecorded_verdicts_with_and_without_a_report() {
     let p = taskboard();
     p.check_exact(&[]);
     let report =

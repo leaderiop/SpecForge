@@ -245,6 +245,12 @@ fn an_unknown_rule_is_refused() {
         &basis,
     ]);
     assert_ne!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all()
+            .contains("is not an entity the rule 'gsd/W311' judges"),
+        "{}",
+        run.all()
+    );
     assert!(!p.exists("specforge-harness"));
 }
 
@@ -308,6 +314,11 @@ fn the_judge_is_the_rules_not_the_callers() {
         "gsd-verifier",
     ]);
     assert_ne!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all().contains("unexpected argument '--judge'"),
+        "{}",
+        run.all()
+    );
     // A recorded verdict names the rule's judge.
     let run = p.record(PLAN, "W311", "passed", &[]);
     assert_eq!(run.code, 0, "{}", run.all());

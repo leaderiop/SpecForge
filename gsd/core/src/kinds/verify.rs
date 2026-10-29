@@ -47,7 +47,7 @@ pub const VERIFICATION: Kind = Kind::new(
             .doc("the files the phase's verdicts name"),
         str("covered_digest")
             .c()
-            .doc("one digest over the covered files' digests, as the verdicts judged them"),
+            .doc("one digest over the covered files' current digests (every E501 judgement of the phase, stale ones too)"),
         block("re_verification", RE_VERIFICATION)
             .c()
             .doc("`re_verification:` against the git baseline"),

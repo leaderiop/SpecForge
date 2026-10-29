@@ -208,6 +208,8 @@ Six things r39 and r40 could not build, or could not guarantee, wait for kernel 
   - **An edit that stales a passing Error verdict is refused** (a truth's text, its plan's fields, a checked plan
     under strict). The worst case is gsd/E518: its `requirements` input is every requirement, so once a milestone
     audit's integration verdict passes, every requirement edit and creation is refused.
+  - `cited` defaults to `[]` and code files are not E501 inputs, so a verdict that cites no file never goes stale on a code
+    change (`record_verdict` does not require a citation: a truth verified by tests alone has no file to cite).
   - `check` is red from planning on: gsd/E501 is an Error from the first planned truth until it is verified.
   - The kernel also reports `(0 findings)` in every judged message (it counts a list of values, not of blocks).
   `@gsd/core` therefore ships fail-closed only when no verdict exists yet; once a pass exists it cannot be revoked. The

@@ -274,6 +274,8 @@ fn a_plan_is_checked_only_with_four_fresh_passing_verdicts() {
         ("stale", false),
         ("unrecorded", false),
         ("fresh", false),
+        // The kernel sets `passed` only on a fresh judgement; a plan check does not rely on it.
+        ("stale", true),
     ] {
         for at in 0..4 {
             let mut states = [fresh; 4];

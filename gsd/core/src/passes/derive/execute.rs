@@ -57,7 +57,9 @@ fn plan_check(plan: &PassEntity) -> &'static str {
         .collect();
     if judged.is_empty() {
         "ready"
-    } else if judged.len() == PLAN_CHECK.len() && judged.iter().all(|j| j.passed) {
+    } else if judged.len() == PLAN_CHECK.len()
+        && judged.iter().all(|j| j.passed && j.state == "fresh")
+    {
         "checked"
     } else {
         "draft"

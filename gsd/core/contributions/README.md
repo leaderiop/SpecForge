@@ -83,7 +83,9 @@ rule's `judge` names one of these agents (K7), and its rendered file lists the r
 
 The judged rules (K7) a `@gsd/core` agent judges; `specforge install` appends the list to the agent's file under
 "## Judged rules" (`tests/cli/agents.rs` reads the rows from the judged table, `src/judged.rs`). `record_verdict` is
-how the judge records its verdict.
+how the judge records its verdict; its body also ends with a section that names the command (the host's own list names only
+`specforge.verdict_inputs`). The judge is the rule's own, but that is not an identity check: any agent can call
+`record_verdict` and `--model` is free text, as any agent can write VERIFICATION.md upstream.
 
 | Agent | Judges |
 |---|---|

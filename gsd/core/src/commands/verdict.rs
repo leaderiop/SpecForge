@@ -1,6 +1,8 @@
 //! `record_verdict`: writes a judge's verdict on a judged `gsd/` rule (K7), and nothing else. A prompt cannot write,
 //! and an agent calls a command: this is the command. The judge is the rule's own (`crate::judged`), never an
-//! argument, so a caller cannot name another one; the host checks it again.
+//! argument, so a caller cannot name another one; the host checks it again. That is not an identity check: any agent
+//! may call this command, and `model` is free text. The verdict is as trustworthy as the agent that was told to judge
+//! (parity with upstream, where any agent can write VERIFICATION.md).
 
 use std::collections::BTreeMap;
 

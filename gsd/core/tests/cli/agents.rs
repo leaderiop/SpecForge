@@ -301,7 +301,10 @@ fn every_judges_file_lists_exactly_its_rules() {
             assert_eq!(listed, Some(expected), "{}", agent.id);
         }
     }
-    assert!(judges >= 1);
+    assert_eq!(
+        judges, 4,
+        "plan-checker, verifier, integration-checker and phase-researcher"
+    );
     // A prompt judge is no agent: its rules are listed by no file.
     for j in JUDGED.iter().filter(|j| j.judge.starts_with("prompt:")) {
         for agent in AGENTS {
