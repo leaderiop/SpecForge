@@ -69,7 +69,7 @@ specforge settings --extension @gsd/core
 
 ### Waiting on the kernel
 
-Three things r39 could not build, or could not guarantee, wait for kernel work (K17):
+Four things r39 and r40 could not build, or could not guarantee, wait for kernel work (K17):
 
 - **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
   baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
@@ -80,6 +80,19 @@ Three things r39 could not build, or could not guarantee, wait for kernel work (
   synthetic baselines, not black-box (the judgement list is empty until r40 records E501 verdicts).
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
+- **A verdict's own state counts as a new error (E080).** The host re-checks the project an edit would leave and keys
+  a diagnostic by its code, severity, file and message shape. A judged rule's message changes when a verdict is
+  recorded (`…: no verdict` becomes `…: the verdict of <date> is '<outcome>' (<n> findings)`), so recording a
+  **non-passing** verdict on a rule whose effective severity is an Error (gsd/E501 `failed` or `uncertain`, gsd/E518
+  `issues`, gsd/E202 `failed`, and gsd/W311, W313, W315 under `gsd-strict`) is refused whole:
+  `error[E080]: the edit would leave the project with 1 error it does not have; nothing was written`
+  (`a_failing_verdict_on_an_error_rule_is_refused_whole`; the ignored `a_failing_verdict_on_an_error_rule_records` is
+  the test to un-ignore). `@gsd/core` ships **fail-closed**: such a verdict cannot be recorded, so the rule keeps
+  saying `no verdict` and nothing becomes `passed`, `checked` or `complete` wrongly. The smallest kernel change: a
+  judged rule's diagnostic is keyed without the verdict part of its message (or a recorded verdict's own judged state
+  is not a *new* error). The same keying probably refuses any command that *creates* a truth, artifact, key link, phase
+  spec or milestone audit (the new entity adds an E501, E202 or E518 `no verdict` Error): K17 must take this before
+  r41's planner commands.
 - **Human-only on existing entities.** Closed for `override` in r40: the host's `edit_flags` checks the kind's writer
   on create, delete and retitle, and a *field's* writer on `set`, `unset` and `link`, so every field of `override` is
   marked human and an agent can no longer change or re-point one

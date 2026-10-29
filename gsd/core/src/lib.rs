@@ -3,6 +3,7 @@
 pub mod agents;
 pub mod codes;
 mod collectors;
+mod commands;
 mod digest;
 pub mod judged;
 mod kinds;
@@ -30,6 +31,7 @@ impl Contributions for GsdCore {
         kinds::declare(c);
         rules::declare(c);
         judged::declare(c);
+        commands::declare(c);
         passes::declare(c);
         collectors::declare(c);
         settings::declare(c);

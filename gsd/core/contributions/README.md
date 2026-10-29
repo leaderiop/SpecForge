@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; only the collectors `gsd-git` and `gsd-junit` are built (r38).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), and the 15 core agents and the command `record_verdict` (r40).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -57,7 +57,7 @@ collector. The workflows call these; none is a slash command. Round r41 builds a
 | `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
 | `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` |
-| `record_verdict` | a verdict (`V` fields), through `set_verdict` (round r40) |
+| `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
 | the `gsd-junit` collector (built, r38): `specforge collect --runner gsd-junit --no-run` | none: it records test results in `specforge-report.json`, which the derive pass reads |
 

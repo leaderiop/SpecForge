@@ -439,6 +439,49 @@ impl Project {
         self.write(relative, &text.replacen(from, to, 1));
     }
 
+    /// `specforge query <entity> --inputs gsd/<code> --format json`: what the judge reads, and the basis to record.
+    pub fn inputs(&self, entity: &str, code: &str) -> serde_json::Value {
+        let run = self.run(&[
+            "query",
+            entity,
+            "--inputs",
+            &format!("gsd/{code}"),
+            "--format",
+            "json",
+        ]);
+        serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("inputs are JSON ({e}): {}", run.all()))
+    }
+
+    /// Plays the judge: reads the inputs of `gsd/<code>` on `entity`, then records `outcome` over their basis with
+    /// `specforge gsd record-verdict`. `extra` are further options (`--findings`, `--cited`, `--values`).
+    pub fn record(&self, entity: &str, code: &str, outcome: &str, extra: &[&str]) -> Run {
+        let basis = self.inputs(entity, code)["basis"].to_string();
+        self.record_over(entity, code, outcome, &basis, extra)
+    }
+
+    /// [`Project::record`] over a `basis` the caller read earlier.
+    pub fn record_over(
+        &self,
+        entity: &str,
+        code: &str,
+        outcome: &str,
+        basis: &str,
+        extra: &[&str],
+    ) -> Run {
+        let mut args = vec![
+            "gsd",
+            "record-verdict",
+            entity,
+            code,
+            outcome,
+            "test-model",
+            basis,
+        ];
+        args.extend_from_slice(extra);
+        self.run(&args)
+    }
+
     /// Whether a path of the project exists.
     pub fn exists(&self, relative: &str) -> bool {
         self.dir.path().join(relative).exists()
