@@ -192,6 +192,27 @@ impl Repo {
             .max_by_key(|m| m.dir.len())
     }
 
+    /// `names` and every member that depends on one of them, directly or not, by any kind of dependency: what
+    /// nextest's `rdeps()` reaches, so building these builds every test a change can break.
+    pub fn with_dependents(&self, names: &[String]) -> Vec<String> {
+        let mut reached: std::collections::BTreeSet<String> = names.iter().cloned().collect();
+        loop {
+            let before = reached.len();
+            for member in &self.members {
+                if member
+                    .dependencies
+                    .iter()
+                    .any(|d| reached.contains(&d.name))
+                {
+                    reached.insert(member.name.clone());
+                }
+            }
+            if reached.len() == before {
+                return reached.into_iter().collect();
+            }
+        }
+    }
+
     /// The projects the spec checks judge, each with its spec directory read from its `specforge.json`'s
     /// `spec_root`: `.` is `spec`, `integrations/rust/spec` itself, `examples/*` their `spec`.
     /// Every directory `specforge format` judges: each project's spec directory, then the fixture directories.
@@ -325,6 +346,35 @@ pub(crate) fn this_repo() -> Repo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dependents_are_reached_through_every_kind_and_transitively() {
+        let on = |name: &str, kind| Dependency {
+            name: name.into(),
+            dir: String::new(),
+            kind,
+        };
+        let member = |name: &str, dependencies| Member {
+            name: name.into(),
+            dependencies,
+            ..Default::default()
+        };
+        let repo = Repo {
+            root: PathBuf::new(),
+            target_dir: PathBuf::new(),
+            members: vec![
+                member("leaf", vec![]),
+                member("mid", vec![on("leaf", DependencyKind::Normal)]),
+                member("top", vec![on("mid", DependencyKind::Dev)]),
+                member("other", vec![]),
+            ],
+        };
+        assert_eq!(
+            repo.with_dependents(&["leaf".into()]),
+            ["leaf", "mid", "top"]
+        );
+        assert_eq!(repo.with_dependents(&["top".into()]), ["top"]);
+    }
 
     #[test]
     fn a_pattern_keeps_what_follows_its_star() {

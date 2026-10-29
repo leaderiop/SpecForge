@@ -249,24 +249,34 @@ pub fn audit(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     finish(failures)
 }
 
-pub fn build(ctx: &Ctx, _: &Selection) -> Result<(), String> {
+/// What `build` and `tests` hand cargo: in ci with a change set (a PR), `-p` for the changed crates and their
+/// dependents, so the rest of the workspace is not compiled; elsewhere `--workspace` (one build, same features).
+fn packages_args(ctx: &Ctx, selection: &Selection) -> Vec<String> {
+    match selection {
+        Selection::Only(packages) if ctx.mode == Mode::Ci => ctx
+            .repo
+            .with_dependents(packages)
+            .into_iter()
+            .flat_map(|p| ["-p".to_string(), p])
+            .collect(),
+        _ => vec!["--workspace".into()],
+    }
+}
+
+pub fn build(ctx: &Ctx, selection: &Selection) -> Result<(), String> {
     ctx.sh(ctx
         .cmd("cargo")
-        .args(["nextest", "run", "--workspace", "--no-run", "--cargo-quiet"]))
+        .args(["nextest", "run", "--no-run", "--cargo-quiet"])
+        .args(packages_args(ctx, selection)))
 }
 
 pub fn tests(ctx: &Ctx, selection: &Selection) -> Result<(), String> {
     let mut cmd = ctx.cmd("cargo");
-    cmd.args([
-        "nextest",
-        "run",
-        "--workspace",
-        "--profile",
-        ctx.mode.nextest_profile(),
-    ])
-    .env("SPECFORGE_REPORT", ctx.reports());
+    cmd.args(["nextest", "run", "--profile", ctx.mode.nextest_profile()])
+        .args(packages_args(ctx, selection))
+        .env("SPECFORGE_REPORT", ctx.reports());
     if let Selection::Only(packages) = selection {
-        // Only the changed crates and their dependents run; the workspace is built whole (same features).
+        // Only the changed crates and their dependents run.
         let filter: Vec<String> = packages.iter().map(|p| format!("rdeps(={p})")).collect();
         cmd.args(["-E", &filter.join(" | ")]);
     }
