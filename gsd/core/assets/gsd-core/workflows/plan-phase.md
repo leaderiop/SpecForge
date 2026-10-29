@@ -179,7 +179,7 @@ Defer the `phase.mvp-mode` query until `PHASE` is finalized (after explicit argu
 ```bash
 WALKING_SKELETON=false
 if [ "$MVP_MODE" = "true" ] && [ "$padded_phase" = "01" ]; then
-  PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --kinds summary --format json 2>/dev/null | jq '[.nodes[]|select(.kind=="summary")]|length')
+  PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --format json 2>/dev/null | jq '[.nodes[]|select(.kind=="summary")]|length')
   if [ "$PRIOR_SUMMARIES" = "0" ]; then WALKING_SKELETON=true; fi
 fi
 ```

@@ -13,7 +13,7 @@ mkdir -p "${phase_archive_path}"
 # phases are entities: archive them by removing each with `specforge gsd phase --remove` (the run keeps its record)
 ```
 
-Then verify `specforge query --kinds phase` no longer lists old milestone phases before continuing.
+Then verify `specforge query "$MILESTONE" --kinds phase` no longer lists old milestone phases before continuing.
 
 If `phase_dir_count > 0` but `phase_archive_path` is missing:
 - Stop and explain that reset numbering is unsafe without a completed milestone archive target.

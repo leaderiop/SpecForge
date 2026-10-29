@@ -568,7 +568,7 @@ Extract from init JSON: `planner_model`, `researcher_model`, `checker_model`, `c
 
 Also load planning state (position, decisions, blockers) via the SDK — **use `node` to invoke the CLI** (not `npx`):
 ```bash
-specforge query "$MILESTONE" --kinds milestone,phase,decision --format context 2>/dev/null
+specforge query "$MILESTONE" --depth 2 --kinds milestone,phase,decision --format context 2>/dev/null
 ```
 If the spec has no project entity yet, offer to create one with `/gsd-new-project` or continue without.
 </step>
@@ -637,7 +637,7 @@ Apply discovery level protocol (see discovery_levels section).
 
 **Step 1 — Generate digest index:**
 ```bash
-specforge query "$MILESTONE" --kinds summary --format brief   # the digest index: one line per summary
+specforge query "$MILESTONE" --depth 3 --kinds summary --format brief   # the digest index: one line per summary
 ```
 
 **Step 2 — Select relevant phases (typically 2-4):**

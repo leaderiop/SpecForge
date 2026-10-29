@@ -47,6 +47,7 @@ mod prompts_ship;
 mod prompts_spec;
 mod prompts_support;
 mod prompts_verify;
+mod queries;
 mod reference;
 mod render_prompts;
 mod roadmap;

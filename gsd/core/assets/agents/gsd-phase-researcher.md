@@ -108,7 +108,7 @@ Write the questions down (working notes; no file is needed):
 
 Pick the provider for each question by its `kind`: `docs` goes to `context7`; `web` goes to `exa`, `tavily`, `perplexity` or `brave` when your tools include one, else `WebSearch`; `scrape` goes to `firecrawl` or `WebFetch`.
 
-Reuse what the phase already holds: `specforge query "$PHASE_ID" --kinds finding --format json`.
+Reuse what the phase already holds: `specforge query "$PHASE_ID" --depth 2 --kinds finding --format json`.
 
 
 There is no cache seam. Before you fetch, look at the phase's `finding` entities:

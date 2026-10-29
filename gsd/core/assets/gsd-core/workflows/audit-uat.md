@@ -12,7 +12,7 @@ Run the CLI audit:
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-AUDIT=$(specforge query "$MILESTONE" --kinds uat_test,human_item --format json)
+AUDIT=$(specforge query "$MILESTONE" --depth 3 --kinds uat_test,human_item --format json)
 ```
 
 Parse JSON for `results` array and `summary` object.

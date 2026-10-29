@@ -214,7 +214,7 @@ This IS the execution instructions. Follow exactly. If plan references CONTEXT.m
 
 <step name="previous_phase_check">
 ```bash
-specforge query "$PHASE_ID" --kinds summary --format json
+specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
 # Extract the second-to-last summary from the JSON result
 ```
 
@@ -579,7 +579,7 @@ counts, i.e. `status: superseded` plans excluded, matching this route's
 "outstanding work" question):
 
 ```bash
-PHASE_COUNTS=$(specforge query "$PHASE_ID" --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
+PHASE_COUNTS=$(specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
 PLAN_COUNT=$(echo "$PHASE_COUNTS" | jq -r '.plan_count // 0')
 SUMMARY_COUNT=$(echo "$PHASE_COUNTS" | jq -r '.summary_count // 0')
 ```

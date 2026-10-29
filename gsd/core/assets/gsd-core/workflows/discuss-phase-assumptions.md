@@ -153,7 +153,7 @@ Read project-level and prior phase context to avoid re-asking decided questions.
 **Step 1: Read project-level files**
 ```bash
 specforge query "$PROJECT" --depth 0 --format context 2>/dev/null || true
-specforge query "$MILESTONE" --kinds requirement --format context 2>/dev/null || true
+specforge query "$MILESTONE" --depth 2 --kinds requirement --format context 2>/dev/null || true
 specforge query "$MILESTONE" --kinds milestone,phase --format context 2>/dev/null || true
 ```
 
@@ -164,7 +164,7 @@ Extract from these:
 
 **Step 2: Read all prior CONTEXT.md files**
 ```bash
-specforge query "$MILESTONE" --kinds context --format brief | sort
+specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort
 ```
 
 For each CONTEXT.md where phase number < current phase:

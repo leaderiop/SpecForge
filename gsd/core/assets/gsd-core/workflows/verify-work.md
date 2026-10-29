@@ -658,7 +658,7 @@ PHASE_VERIFICATION_STATUS="$VERIFICATION_STATUS_VALUE"
 if [ "$VERIFICATION_STATUS_VALUE" = "human_needed" ]; then
   # #5170: exit 0 and exit 1 are VERDICTS (1 = the predicate says not passed) — the JSON on stdout is
   # authoritative. Any other status, or exit 1 with nothing on stdout (an error()), means it could not run.
-  UAT_PRECHECK=$(specforge query "$PHASE_ID" --kinds uat_test --format json | jq -c '{passed: ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0), blockers: ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | map(.id))}') && UAT_EXIT=0 || UAT_EXIT=$?
+  UAT_PRECHECK=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test --format json | jq -c '{passed: ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0), blockers: ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | map(.id))}') && UAT_EXIT=0 || UAT_EXIT=$?
   if [ "$UAT_EXIT" -gt 1 ] || { [ "$UAT_EXIT" -eq 1 ] && [ -z "$UAT_PRECHECK" ]; }; then echo "phase uat-passed could not run (exit $UAT_EXIT) — see the error above." >&2; exit 1; fi
   UAT_PRECHECK_PASSED=$(printf '%s' "$UAT_PRECHECK" | jq -r '.passed // false' 2>/dev/null || echo "false")
   if [ "$UAT_PRECHECK_PASSED" = "true" ]; then
@@ -712,7 +712,7 @@ Otherwise, check the shared UAT-plus-verification completion predicate before tr
 ```bash
 # #5170: exit 0 and exit 1 are VERDICTS (1 = not passed) — read the JSON either way. Any other status,
 # or exit 1 with nothing on stdout (an error()), means the command could not run: abort.
-PHASE_COMPLETE=$(specforge query "$PHASE_ID" --kinds uat_test,verification --format json | jq -c '{passed: (([.nodes[]|select(.kind=="verification")][0].fields.status == "passed") and ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0))}') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?
+PHASE_COMPLETE=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test,verification --format json | jq -c '{passed: (([.nodes[]|select(.kind=="verification")][0].fields.status == "passed") and ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0))}') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?
 if [ "$PHASE_COMPLETE_EXIT" -gt 1 ] || { [ "$PHASE_COMPLETE_EXIT" -eq 1 ] && [ -z "$PHASE_COMPLETE" ]; }; then echo "phase uat-passed could not run (exit $PHASE_COMPLETE_EXIT) — see the error above." >&2; exit 1; fi
 PHASE_COMPLETE_PASSED=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.passed' 2>/dev/null || echo "false")
 PHASE_COMPLETE_BLOCKERS=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.blockers[]?' 2>/dev/null || true)
