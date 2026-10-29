@@ -603,3 +603,5 @@ fn quoted(texts: &[String]) -> String {
 
 #[cfg(test)]
 mod tests;
+
+// probe: CI timing for a leaf-crate change (this PR is closed unmerged).
