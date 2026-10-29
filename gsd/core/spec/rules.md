@@ -128,11 +128,10 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   `gsd/E517` is not yet, and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
 
-- **Not built, waiting on the kernel (K17).** Baseline re-verification (T13): the baseline compile sees only a commit's
+- **Not built, waiting on the kernel (K18).** Baseline re-verification (T13): the baseline compile sees only a commit's
   `*.spec` files, so its source files read as missing; `previous_status`/`previous_score` are not computed and
   `re_verification` compares verdicts and verify gaps only (`regressions` is tested on synthetic baselines, not
-  black-box). `gsd/W514` (above). The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297): a failing verdict, the replacement of a pass, the creation of a judged target and an edit that stales a pass are written (`tests/cli/judged_refusals.rs`). The human-only guarantee of `override` holds
-  for its own fields (r40 T16); an agent can still delete a `milestone_audit`.
+  black-box). `gsd/W514` (above). The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297): a failing verdict, the replacement of a pass, the creation of a judged target and an edit that stales a pass are written (`tests/cli/judged_refusals.rs`). The human-only guarantee holds for every existing entity of a human-only kind and against deleting a person's value (K17, ADR 0298): an agent cannot change an `override` or delete a `milestone_audit` that carries a `debt_accepted`. T13 and W514 wait for K18.
 
 ## Setting-gated rules
 
@@ -171,13 +170,13 @@ is neither fresh nor stale.
 | gsd/E202 | phase_spec | `spec` self · `items` self<locked_req\|interview.spec · `phase` self.phase | `scores` (its recorded values) |
 | gsd/W203 | locked_req | `req` self · `traces` self.traces | — |
 | gsd/W205 | package_audit | `audit` self | `legitimacy` (its outcome: legitimate \| suspicious \| unknown, passing legitimate) |
-| gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` every requirement (a selector cannot go on past a reference, and a requirement has no milestone: K17) | `integration` (its outcome: passed \| issues, passing passed) |
+| gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` every requirement (a selector cannot go on past a reference, and a requirement has no milestone: K18) | `integration` (its outcome: passed \| issues, passing passed) |
 
 gsd/E501 reads no `file()` input, though the verifier judges code: a `file()` input must name a file-reference field, the
 host checks every such field for existence (E016), and a plan, an artifact and a key link name files that do not exist
 yet (`plan.files_modified`, `artifact.path`, `key_link.from` and `to` stay plain strings). The verifier cites the files
 it read, and the verdict digests `cited` (and `covered_files` lists them). A file it did not cite can change without
-staling the verdict. The kernel would need a file-reference field the existence rule skips (K17).
+staling the verdict. The kernel would need a file-reference field the existence rule skips (K18).
 
 A summary is no plan-check input (writing it after execution stales nothing), and no verifier input either (its claims
 are not evidence).
