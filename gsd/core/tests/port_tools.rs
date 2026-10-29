@@ -67,7 +67,8 @@ fn every_asset() -> Vec<(String, Vec<String>, Vec<String>)> {
 
 /// The verbs of the `specforge` CLI that ported lines name.
 const VERBS: &[&str] = &[
-    "check", "collect", "format", "gsd", "install", "new", "query", "schema", "set", "settings",
+    "add", "check", "collect", "format", "gsd", "init", "install", "new", "query", "schema", "set",
+    "settings",
 ];
 
 #[test]

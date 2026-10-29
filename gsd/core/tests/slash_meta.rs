@@ -21,6 +21,7 @@ const ADAPTED: &[(&str, &str)] = &[
     ),
     ("milestone-summary", "[--milestone <version>]"),
     ("pr-branch", "[--target <branch>]"),
+    ("workspace", "[--new | --list | --remove] [--name <name>]"),
     (
         "review",
         "<phase> [--claude] [--codex] [--opencode] [--qwen] [--cursor] [--agy] [--all]",

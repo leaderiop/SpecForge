@@ -32,7 +32,7 @@ fn shipped() -> Project {
     p
 }
 
-const ROWS: [Row; 36] = [
+const ROWS: [Row; 38] = [
     Row {
         id: "new_project",
         args: &["--auto"],
@@ -207,6 +207,16 @@ const ROWS: [Row; 36] = [
         id: "onboard",
         args: &["--fast"],
         setup: empty,
+    },
+    Row {
+        id: "workspace",
+        args: &["--new", "--name", "feature-x"],
+        setup: twin,
+    },
+    Row {
+        id: "update",
+        args: &["--sync"],
+        setup: twin,
     },
     Row {
         id: "config",

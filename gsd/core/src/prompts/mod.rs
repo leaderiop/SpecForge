@@ -28,8 +28,10 @@ pub(crate) mod setting;
 mod ship;
 mod slash;
 mod spec;
+mod update;
 mod verify;
 mod workflow;
+mod workspace;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -74,4 +76,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     git::declare(c);
     learning::declare(c);
     onboard::declare(c);
+    workspace::declare(c);
+    update::declare(c);
 }

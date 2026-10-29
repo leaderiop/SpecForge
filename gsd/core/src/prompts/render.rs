@@ -93,6 +93,10 @@ fn substitute_arguments(text: &str, arguments: &str) -> String {
 
 /// The text of the prompt, or why it cannot be built.
 pub fn render(input: &Input<'_>) -> Result<String, String> {
+    if input.command == "update" {
+        // ours, not a port (D-r43-16): upstream's workflow installs upstream GSD over this one
+        return Ok(assemble(super::update::TEXT, input));
+    }
     let path = format!("commands/gsd/{}.md", input.command);
     if let Some(command) = assets::get(&path) {
         return Ok(assemble(without_notice(command), input));

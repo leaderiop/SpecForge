@@ -445,3 +445,15 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-ingest-docs` and `/gsd-on
 | `commands/gsd/onboard.md` | `97eebe6830989d96f71eb48be3aa2b588a6d17efa70826dea1e73d3247beac29` |
 | `gsd-core/workflows/ingest-docs.md` | `5a5fb661c572c3ce8f57d13c69ce57f2581fa5767aed2ac15a0eac68176455e4` |
 | `gsd-core/workflows/onboard.md` | `6e8ecfe10f680e73b2d19ec5abf7095360525f11799ee8c3c0a4a1de276cc97a` |
+
+## r43 T10: workspace and update
+
+Vendored byte for byte from gsd-core v1.18.0: the three workspace workflows and `/gsd-workspace` are ported; `commands/gsd/update.md` is vendored for the slash metadata only (the update text is ours, D-r43-16).
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/update.md` | `c009de60568956c4a89d9bcb83527e1d12edc9f486356ca869a4d71fae043af4` |
+| `commands/gsd/workspace.md` | `cc8cd6dad484ae91feb48457aef4e3a96b76874897cb32eb9b8c784100aec05e` |
+| `gsd-core/workflows/list-workspaces.md` | `da446be2980632cc3b765f430a41cfbe00a8bbfcedc7656c0cf82646178680ba` |
+| `gsd-core/workflows/new-workspace.md` | `55ccc4ee96b522eea2932d8ee977cd9617e32127650f77820e6c9e7fdd206e54` |
+| `gsd-core/workflows/remove-workspace.md` | `d9cc19a118a68c81d436a698d9f803fed4152b439afc7c2aa27024d4db7da109` |

@@ -54,6 +54,8 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("commands/gsd/review-backlog.md", 36, 37),
     ("commands/gsd/review.md", 10, 10),
     ("commands/gsd/review.md", 7, 7),
+    ("commands/gsd/workspace.md", 35, 35),
+    ("commands/gsd/workspace.md", 37, 37),
     ("gsd-core/references/planning-config.md", 372, 372),
     ("gsd-core/references/reviewer-instances.md", 5, 5),
     ("gsd-core/references/reviewer-instances.md", 76, 79),
@@ -102,6 +104,8 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/ingest-docs.md", 55, 55),
     ("gsd-core/workflows/ingest-docs.md", 63, 63),
     ("gsd-core/workflows/ingest-docs.md", 68, 69),
+    ("gsd-core/workflows/list-workspaces.md", 17, 17),
+    ("gsd-core/workflows/list-workspaces.md", 20, 20),
     ("gsd-core/workflows/milestone-summary.md", 101, 101),
     ("gsd-core/workflows/milestone-summary.md", 16, 16),
     ("gsd-core/workflows/milestone-summary.md", 19, 19),
@@ -117,6 +121,8 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/milestone-summary.md", 72, 75),
     ("gsd-core/workflows/milestone-summary.md", 79, 79),
     ("gsd-core/workflows/milestone-summary.md", 95, 96),
+    ("gsd-core/workflows/new-workspace.md", 17, 17),
+    ("gsd-core/workflows/new-workspace.md", 20, 20),
     ("gsd-core/workflows/onboard.md", 16, 16),
     ("gsd-core/workflows/onboard.md", 18, 18),
     ("gsd-core/workflows/onboard.md", 20, 20),
@@ -187,6 +193,10 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 694, 694),
     ("gsd-core/workflows/quick.md", 696, 699),
     ("gsd-core/workflows/quick.md", 790, 790),
+    ("gsd-core/workflows/remove-workspace.md", 12, 12),
+    ("gsd-core/workflows/remove-workspace.md", 18, 18),
+    ("gsd-core/workflows/remove-workspace.md", 23, 23),
+    ("gsd-core/workflows/remove-workspace.md", 36, 36),
     ("gsd-core/workflows/resume-project.md", 103, 106),
     ("gsd-core/workflows/resume-project.md", 115, 115),
     ("gsd-core/workflows/resume-project.md", 117, 124),
@@ -339,6 +349,9 @@ fn workflow_assets_diff_only_in_ported_passages() {
     assert!(checked > 0, "no workflow asset was checked");
 }
 
+/// Vendored for its metadata alone: the prompt renders text of ours (D-r43-16), so the file is not an asset.
+const VENDORED_ONLY: &[&str] = &["commands/gsd/update.md"];
+
 #[test]
 fn the_vendored_tree_lists_every_asset() {
     let source = std::fs::read_to_string(vendored_root().join("SOURCE.md")).expect("SOURCE.md");
@@ -360,6 +373,9 @@ fn the_vendored_tree_lists_every_asset() {
         );
     }
     for path in &named {
-        assert!(assets.contains(path), "{path} is vendored but not an asset");
+        assert!(
+            assets.contains(path) || VENDORED_ONLY.contains(&path.as_str()),
+            "{path} is vendored but not an asset"
+        );
     }
 }

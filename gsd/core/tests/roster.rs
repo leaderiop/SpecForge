@@ -15,8 +15,6 @@ const NOT_YET_SERVED: &[&str] = &[
     "ns-project",
     "ns-review",
     "ns-workflow",
-    "update",
-    "workspace",
 ];
 
 fn root() -> PathBuf {
