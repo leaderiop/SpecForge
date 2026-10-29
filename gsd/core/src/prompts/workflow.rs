@@ -60,18 +60,48 @@ pub fn attribution(path: &str) -> Attribution {
     }
 }
 
+/// The ids the shell blocks use: the project, and the milestone the run is about (the subject's, else the one
+/// still open, else the last).
+fn shell_ids(call: &PromptCall<'_>, subject: Option<&str>) -> String {
+    let nodes: &[_] = call.graph().map_or(&[], |g| &g.nodes);
+    let of_kind = |kind: &'static str| nodes.iter().filter(move |n| n.kind == kind);
+    let project = of_kind("project").map(|n| n.id.as_str()).next();
+    let milestone = subject
+        .map(|id| id.split('/').next().unwrap_or(id))
+        .or_else(|| {
+            of_kind("milestone")
+                .find(|n| !n.fields.contains_key("completion"))
+                .or_else(|| of_kind("milestone").last())
+                .map(|n| n.id.as_str())
+        });
+    let say = |var: &str, id: Option<&str>| match id {
+        Some(id) => format!("`${var}` is `{id}`"),
+        None => format!("`${var}` is not in the spec yet (leave that command out)"),
+    };
+    format!(
+        "{} and {}.",
+        say("MILESTONE", milestone),
+        say("PROJECT", project)
+    )
+}
+
 fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, String> {
     let arguments = args::text(call, spec.args);
     let mut tail = spec.tail.map(|f| f(call)).unwrap_or_default();
-    if let Some((name, id)) = spec.subject.and_then(|n| call.str(n).map(|id| (n, id))) {
+    let subject = spec.subject.and_then(|n| call.str(n).map(|id| (n, id)));
+    let mut ids = shell_ids(call, subject.map(|(_, id)| id));
+    if let Some((name, id)) = subject {
         let var = match name {
             "phase" => "PHASE_ID",
             "plan" => "PLAN_ID",
             "milestone" => "MILESTONE",
             _ => "SUBJECT_ID",
         };
-        tail = format!("\n\nIn the shell blocks above, `${var}` is `{id}`.{tail}");
+        if name != "milestone" {
+            ids = format!("`${var}` is `{id}`; {ids}");
+        }
     }
+    tail = format!("\n\nIn the shell blocks above, {ids}{tail}");
     let text = render::render(&Input {
         command: spec.command,
         host: call.host().unwrap_or("claude-code"),
@@ -96,6 +126,7 @@ fn source_path(spec: &Spec) -> String {
 pub fn declare(c: &mut ContributionsBuilder, spec: &'static Spec) {
     c.prompt(spec.id, |p| {
         p.title(spec.title)
+            .reads_graph()
             .description(spec.description)
             .attribution(attribution(&source_path(spec)));
         args::declare(p, spec.args);

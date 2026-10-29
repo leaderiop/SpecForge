@@ -1,5 +1,5 @@
 {
-  "bytes": 81822,
+  "bytes": 81971,
   "head": [
     "<cursor_skill_adapter>",
     "## B. User Prompting",
@@ -72,7 +72,7 @@
     "- **Spawning an agent** on this host: as the adapter header above says (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
-    "  it), `$MILESTONE` is the current milestone and `$PROJECT` the project: `specforge query` finds either by its kind.",
+    "  it), `$MILESTONE` is the current milestone and `$PROJECT` the project (the end of this text names them too).",
     "",
     "## Settings",
     "",
@@ -82,7 +82,7 @@
     "```json",
     "{"
   ],
-  "lines": 2284,
+  "lines": 2289,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:8b359cef57ec2ffce5cdeb490d4d262ce84fe0b947c661ec2bc4ad6043742f70",
+    "digest": "sha256:cbbfd2b55d0919b761e0ec64b9e03a9a6a18c34c6b3a4becee7b080fc56705c0",
     "prompt": "@gsd/core@0.1.0:new_project",
     "steps": [
       {
@@ -120,5 +120,5 @@
       }
     ]
   },
-  "sha256": "8b359cef57ec2ffce5cdeb490d4d262ce84fe0b947c661ec2bc4ad6043742f70"
+  "sha256": "cbbfd2b55d0919b761e0ec64b9e03a9a6a18c34c6b3a4becee7b080fc56705c0"
 }

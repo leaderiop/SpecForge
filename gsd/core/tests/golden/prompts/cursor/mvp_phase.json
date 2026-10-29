@@ -1,5 +1,5 @@
 {
-  "bytes": 27186,
+  "bytes": 27234,
   "head": [
     "<cursor_skill_adapter>",
     "## B. User Prompting",
@@ -72,7 +72,7 @@
     "- **Spawning an agent** on this host: as the adapter header above says (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
-    "  it), `$MILESTONE` is the current milestone and `$PROJECT` the project: `specforge query` finds either by its kind.",
+    "  it), `$MILESTONE` is the current milestone and `$PROJECT` the project (the end of this text names them too).",
     "",
     "## Settings",
     "",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:b4bb887f8ad1377c6af94277a0e7750405db9de18e669aa96b0a572ec74f90c6",
+    "digest": "sha256:70a29c4b2d89b7ff8865eea7b053f3c88d8a487625ae65392a98a9b197434125",
     "prompt": "@gsd/core@0.1.0:mvp_phase",
     "steps": [
       {
@@ -102,5 +102,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "b4bb887f8ad1377c6af94277a0e7750405db9de18e669aa96b0a572ec74f90c6"
+  "sha256": "70a29c4b2d89b7ff8865eea7b053f3c88d8a487625ae65392a98a9b197434125"
 }

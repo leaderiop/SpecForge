@@ -141,3 +141,34 @@ fn discuss_phase_requires_its_phase() {
     let run = prompt(&p, "discuss_phase", &[], "claude-code");
     assert_ne!(run.code, 0, "{}", run.all());
 }
+
+/// `$MILESTONE` and `$PROJECT` are in the shell blocks of the workflows (REVIEW-r42 minor 2): the prompt says what they are.
+#[test]
+fn the_shell_ids_are_named_in_the_text() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(
+        &p,
+        "discuss_phase",
+        &["v1.0/02"],
+        "claude-code",
+    )));
+    assert!(
+        text.contains(
+            "`$PHASE_ID` is `v1.0/02`; `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
+        ),
+        "{}",
+        &text[text.len().saturating_sub(600)..]
+    );
+    let none = super::harness::project("empty");
+    let text = text_of(&payload(&prompt(
+        &none,
+        "new_milestone",
+        &["--name", "v1.1"],
+        "claude-code",
+    )));
+    assert!(
+        text.contains("`$PROJECT` is not in the spec yet"),
+        "{}",
+        &text[text.len().saturating_sub(600)..]
+    );
+}

@@ -100,7 +100,7 @@ PLAN_START_EPOCH=$(date +%s)
 TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --format json 2>/dev/null | jq '[.nodes[]|select(.kind=="task")]|length' || echo "0")
 INLINE_THRESHOLD="{{setting:workflow.inline_plan_threshold|2}}"   # workflow.inline_plan_threshold (the settings)
 USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
-RUNTIME="{{setting:runtime|claude}}"   # runtime (the settings)
+RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings)
 HUMAN_VERIFY_MODE="{{setting:workflow.human_verify_mode|end-of-phase}}"   # workflow.human_verify_mode (the settings)
 specforge query "$PLAN_ID" --kinds checkpoint --format context
 ```

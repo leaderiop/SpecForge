@@ -1,5 +1,5 @@
 {
-  "bytes": 75899,
+  "bytes": 75947,
   "head": [
     "<specforge_gsd_preamble>",
     "You are running a GSD workflow inside SpecForge (the extension `@gsd/core`). The workflow text below is GSD's own. The",
@@ -53,7 +53,7 @@
     "- **Spawning an agent** on this host: `Task(subagent_type=\"gsd-<name>\", ...)` (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
-    "  it), `$MILESTONE` is the current milestone and `$PROJECT` the project: `specforge query` finds either by its kind.",
+    "  it), `$MILESTONE` is the current milestone and `$PROJECT` the project (the end of this text names them too).",
     "",
     "## Settings",
     "",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:cfbb8c12e1a4a10852cd82baba5149864e123070cb8c40923e1a096fde8fbcf1",
+    "digest": "sha256:e85ecb063849fe90e81bc67f518b1aaea705586f74d646ee1c8a5734482986ba",
     "prompt": "@gsd/core@0.1.0:plan_review_convergence",
     "steps": [
       {
@@ -106,5 +106,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "cfbb8c12e1a4a10852cd82baba5149864e123070cb8c40923e1a096fde8fbcf1"
+  "sha256": "e85ecb063849fe90e81bc67f518b1aaea705586f74d646ee1c8a5734482986ba"
 }

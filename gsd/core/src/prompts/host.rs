@@ -5,8 +5,8 @@
 //! adapter headers. Claude Code gets what upstream's install does to a Claude file (`to_claude`): the runtime notes of
 //! another runtime dropped and `/gsd:x` written `/gsd-x`. Left out, by name: the frontmatter and file
 //! naming of a skill (the host's install writes those), `rewriteBareGsdToolsCommandsForCodex` (a rendered text names no
-//! `gsd-tools` command, the port rule and `assert_clean` see to it) and the path rewrite of Cursor's install step
-//! (`_applyRuntimeRewrites`: references are re-pointed first, D-r42-5).
+//! `gsd-tools` command, the port rule and `assert_clean` see to it) and the stamp of `_applyRuntimeRewrites` (the
+//! workflow's `RUNTIME` line takes the host as its fallback instead, `setting::fill`). Cursor's path rewrite is done.
 
 mod headers;
 #[cfg(test)]
@@ -485,5 +485,41 @@ pub fn to_cursor(content: &str) -> String {
     c = c.replace(".claude/skills/", ".cursor/skills/");
     c = drop_lines_starting(&c, "**Known Claude Code bug (classifyHandoffIfNeeded):**");
     c = drop_lines_starting(&c, "- **classifyHandoffIfNeeded false failure:**");
-    brand_swap(&c, "Cursor")
+    cursor_paths(&brand_swap(&c, "Cursor"))
+}
+
+/// `from` -> `to` where no word character or `-` follows (JavaScript's `(?![\w-])`).
+fn replace_not_followed(text: &str, from: &str, to: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(from) {
+        let next = rest[at + from.len()..].chars().next();
+        let ok = !next.is_some_and(|c| is_word(c) || c == '-');
+        out.push_str(&rest[..at]);
+        out.push_str(if ok { to } else { from });
+        rest = &rest[at + from.len()..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// `_applyRuntimeRewrites(cursor)`, profile `slash-lookahead-own-tilde`: the install paths Claude's text names are
+/// Cursor's (`~/.cursor/` for the home forms). References were re-pointed before this runs (D-r42-5).
+fn cursor_paths(content: &str) -> String {
+    let mut c = content.to_string();
+    for (from, to) in [
+        ("~/.claude/", "~/.cursor/"),
+        ("$HOME/.claude/", "~/.cursor/"),
+        ("./.claude/", "./.cursor/"),
+    ] {
+        c = c.replace(from, to);
+    }
+    for (from, to) in [
+        ("~/.claude", "~/.cursor"),
+        ("$HOME/.claude", "~/.cursor"),
+        ("./.claude", "./.cursor"),
+    ] {
+        c = replace_not_followed(&c, from, to);
+    }
+    c
 }

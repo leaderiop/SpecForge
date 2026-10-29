@@ -1,5 +1,5 @@
 {
-  "bytes": 13635,
+  "bytes": 13713,
   "head": [
     "<specforge_gsd_preamble>",
     "You are running a GSD workflow inside SpecForge (the extension `@gsd/core`). The workflow text below is GSD's own. The",
@@ -53,7 +53,7 @@
     "- **Spawning an agent** on this host: `Task(subagent_type=\"gsd-<name>\", ...)` (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
-    "  it), `$MILESTONE` is the current milestone and `$PROJECT` the project: `specforge query` finds either by its kind.",
+    "  it), `$MILESTONE` is the current milestone and `$PROJECT` the project (the end of this text names them too).",
     "",
     "## Settings",
     "",
@@ -82,7 +82,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 322,
+  "lines": 327,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:628dc739511370f1abe50afc351863a774abc80910ace06c1f6e44cf6ae5ec0a",
+    "digest": "sha256:f9c973bcb31f24b3708e8a8c8fe330a97d23e4767e077f386dc4e3433db6b27f",
     "prompt": "@gsd/core@0.1.0:audit_uat",
     "steps": [
       {
@@ -103,5 +103,5 @@
       }
     ]
   },
-  "sha256": "628dc739511370f1abe50afc351863a774abc80910ace06c1f6e44cf6ae5ec0a"
+  "sha256": "f9c973bcb31f24b3708e8a8c8fe330a97d23e4767e077f386dc4e3433db6b27f"
 }

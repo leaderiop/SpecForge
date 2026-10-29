@@ -24,8 +24,8 @@ fn shell_text(value: &serde_json::Value) -> String {
 }
 
 /// `text` with each `{{setting:<key>|<fallback>}}` replaced by the setting's value in `block` (a JSON object), else
-/// the fallback.
-pub fn fill(text: &str, block: &str) -> String {
+/// the fallback; the fallback `@host` is `runtime`, the runtime the text is rendered for (`claude`, `codex`, `cursor`).
+pub fn fill(text: &str, block: &str, runtime: &str) -> String {
     let values: serde_json::Value = serde_json::from_str(block).unwrap_or_default();
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
@@ -39,7 +39,11 @@ pub fn fill(text: &str, block: &str) -> String {
         let (key, fallback) = after[..end].split_once('|').unwrap_or((&after[..end], ""));
         match values.get(key.trim()) {
             Some(value) => out.push_str(&shell_text(value)),
-            None => out.push_str(fallback),
+            None => out.push_str(if fallback == "@host" {
+                runtime
+            } else {
+                fallback
+            }),
         }
         rest = &after[end + CLOSE.len()..];
     }
@@ -57,32 +61,38 @@ mod tests {
     fn a_set_key_is_replaced_by_its_value() {
         let text = "M=\"{{setting:workflow.discuss_mode|discuss}}\" W=\"{{setting:context_window|200000}}\" B=\"{{setting:workflow.use_x|false}}\"";
         assert_eq!(
-            fill(text, BLOCK),
+            fill(text, BLOCK, "claude"),
             "M=\"assumptions\" W=\"1000000\" B=\"true\""
         );
     }
 
     #[test]
     fn an_unset_key_takes_its_fallback() {
-        assert_eq!(fill("{{setting:response_language|}}.", BLOCK), ".");
-        assert_eq!(fill("{{setting:runtime|claude}}", "{}"), "claude");
-        assert_eq!(fill("{{setting:runtime|claude}}", "not json"), "claude");
+        assert_eq!(
+            fill("{{setting:response_language|}}.", BLOCK, "claude"),
+            "."
+        );
+        assert_eq!(fill("{{setting:runtime|@host}}", "{}", "codex"), "codex");
+        assert_eq!(
+            fill("{{setting:runtime|@host}}", "not json", "cursor"),
+            "cursor"
+        );
     }
 
     #[test]
     fn a_list_is_json_and_a_string_cannot_leave_its_quotes() {
         assert_eq!(
-            fill("\"{{setting:review.default_reviewers|}}\"", BLOCK),
+            fill("\"{{setting:review.default_reviewers|}}\"", BLOCK, "claude"),
             "\"[\\\"a\\\",\\\"b\\\"]\""
         );
         assert_eq!(
-            fill("\"{{setting:workflow.test_command|}}\"", BLOCK),
+            fill("\"{{setting:workflow.test_command|}}\"", BLOCK, "claude"),
             "\"echo \\\"\\$HOME\\\" \\`id\\`\""
         );
     }
 
     #[test]
     fn an_open_token_is_left_alone() {
-        assert_eq!(fill("a {{setting:x|y", BLOCK), "a {{setting:x|y");
+        assert_eq!(fill("a {{setting:x|y", BLOCK, "claude"), "a {{setting:x|y");
     }
 }

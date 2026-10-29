@@ -106,6 +106,7 @@ fn reference(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     answered.push_str(&setting::fill(
         &repoint(&compose::composed(path, body)),
         &settings::block(),
+        "claude",
     ));
     Ok(answer(
         call,

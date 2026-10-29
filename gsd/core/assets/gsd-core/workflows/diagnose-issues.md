@@ -63,7 +63,7 @@ gaps = [
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
-RUNTIME="{{setting:runtime|claude}}"   # runtime (the settings)
+RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings)
 ```
 
 **Resolve isolation now (#2584/#2652).** Read @gsd-core/references/dispatch-isolation-gate.md

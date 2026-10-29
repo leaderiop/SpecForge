@@ -113,7 +113,11 @@ fn wrapper(workflow: &str) -> String {
 /// [`render`] over the text of the command file.
 fn assemble(command: &str, input: &Input<'_>) -> String {
     let mut text = preamble::text(input.host, input.settings);
-    text.push_str(&setting::fill(&inline_includes(command), input.settings));
+    text.push_str(&setting::fill(
+        &inline_includes(command),
+        input.settings,
+        runtime(input.host),
+    ));
     text = substitute_arguments(&text, input.arguments);
     if !input.tail.is_empty() {
         text.push_str("\n\n");
@@ -121,6 +125,11 @@ fn assemble(command: &str, input: &Input<'_>) -> String {
     }
     let converted = host::convert(input.host, &repoint(&text));
     format!("{}{converted}", header(input.host))
+}
+
+/// The runtime a host is called in the settings: `claude-code` is `claude`.
+fn runtime(host: &str) -> &str {
+    host.strip_suffix("-code").unwrap_or(host)
 }
 
 fn header(host: &str) -> String {

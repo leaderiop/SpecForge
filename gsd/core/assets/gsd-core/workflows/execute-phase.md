@@ -121,7 +121,7 @@ _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDI
 Read runtime/worktree config and fail closed before any executor dispatch:
 
 ```bash
-RUNTIME="{{setting:runtime|claude}}"   # runtime (the settings)
+RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings)
 USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 EXECUTOR_STALL_INTERVAL_MINUTES="{{setting:executor.stall_detect_interval_minutes|5}}"   # executor.stall_detect_interval_minutes (the settings)
 EXECUTOR_STALL_THRESHOLD_MINUTES="{{setting:executor.stall_threshold_minutes|10}}"   # executor.stall_threshold_minutes (the settings)

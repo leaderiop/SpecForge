@@ -232,3 +232,21 @@ fn claude_gets_hyphen_names_and_no_other_runtimes_notes() {
         "/gsd-ns-review and /gsd-review."
     );
 }
+
+/// The probe through upstream's compiled converters (`node`, gsd-core v1.18.0): `convertClaudeToCodexMarkdown`, and
+/// `convertClaudeToCursorMarkdown` then `_applyRuntimeRewrites(cursor, '~/.cursor/')` (REVIEW-r42 minors 4 and 10). The
+/// two goldens were written by:
+/// `m.convertClaudeToCodexMarkdown(probe)` and
+/// `m._applyRuntimeRewrites(m.convertClaudeToCursorMarkdown(probe), 'cursor', '~/.cursor/', true)`.
+#[test]
+fn the_conversions_equal_upstreams_compiled_converters_on_the_probe() {
+    let probe = include_str!("../../../tests/golden/host/probe.md");
+    assert_eq!(
+        to_codex(probe),
+        include_str!("../../../tests/golden/host/codex.md")
+    );
+    assert_eq!(
+        to_cursor(probe),
+        include_str!("../../../tests/golden/host/cursor.md")
+    );
+}
