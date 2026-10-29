@@ -86,8 +86,46 @@ fn the_body_is_the_asset() {
     installed(&p, "claude-code");
     for agent in AGENTS {
         // The asset's header line is a comment about the port; the host's own notice follows the body.
-        let asset = agent.full.trim();
+        // A judging agent's body is followed by the section that names `record_verdict`.
+        let asset = format!("{}{}", agent.full, gsd_core::agents::recording(agent.id));
         let installed = body(&claude_agent(&p, agent.id));
-        assert_eq!(installed, asset, "{}", agent.id);
+        assert_eq!(installed, asset.trim(), "{}", agent.id);
     }
+}
+
+/// M6 of the r40 review: an installed judge is told the command that completes the loop; no other agent is.
+#[test]
+fn a_judge_is_told_how_to_record_its_verdict() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    let mut judges = Vec::new();
+    for agent in AGENTS {
+        let file = claude_agent(&p, agent.id);
+        if file.contains(JUDGED) {
+            judges.push(agent.id);
+            assert!(
+                file.contains("## Recording a verdict (@gsd/core)"),
+                "{}",
+                agent.id
+            );
+            assert!(
+                file.contains("specforge gsd record-verdict"),
+                "{}",
+                agent.id
+            );
+            assert!(file.contains("`record_verdict`"), "{}", agent.id);
+        } else {
+            assert!(!file.contains("record-verdict"), "{}", agent.id);
+        }
+    }
+    judges.sort();
+    assert_eq!(
+        judges,
+        [
+            "gsd-integration-checker",
+            "gsd-phase-researcher",
+            "gsd-plan-checker",
+            "gsd-verifier"
+        ]
+    );
 }

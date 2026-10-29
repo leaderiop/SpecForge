@@ -177,3 +177,35 @@ fn tools_are_upstreams() {
         }
     }
 }
+
+/// The ported lines are a mechanical rename (REVIEW-r40 M6): these name commands and files that do not exist (`@gsd/core`
+/// has one command, `record_verdict`; project state is `.spec` files, never `spec/gsd/*.md`). The commands (r41) and the
+/// workflows (r42) rewrite them. Until then this pins how many there are: the counts may only fall, so lower a number
+/// when you remove lines, never raise it.
+const NOT_YET_REWRITTEN: [(&str, usize); 3] = [
+    (r"specforge gsd query", 73),
+    (r"specforge gsd\.cjs", 13),
+    (r"spec/gsd/", 133),
+];
+
+#[test]
+fn the_unrewritten_ported_references_can_only_shrink() {
+    let mut text = String::new();
+    for entry in std::fs::read_dir(assets_dir()).expect("assets") {
+        text += &read(&entry.expect("an entry").path());
+    }
+    for (pattern, pinned) in NOT_YET_REWRITTEN {
+        let found = Regex::new(pattern)
+            .expect("a regex")
+            .find_iter(&text)
+            .count();
+        assert!(
+            found <= pinned,
+            "{pattern}: {found} occurrences, more than the {pinned} pinned"
+        );
+        assert!(
+            found == pinned,
+            "{pattern}: {found} occurrences; lower the pin ({pinned}) to {found}"
+        );
+    }
+}
