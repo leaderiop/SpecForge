@@ -35,6 +35,8 @@ pub fn gsd_writes_wire() -> Value {
             {"name": "by", "field_type": "string"},
             {"name": "at", "field_type": "string"},
             {"name": "phase", "field_type": "reference", "target_kind": "phase"},
+            // A value the `seen` pass derives (the hosts fixture answers it once a spec says `EDITED`).
+            {"name": "seen", "field_type": "string", "writer": "computed"},
         ]}),
         // A block list one of whose members is written by a person.
         json!({"name": "reviewed", "keyword": "reviewed", "fields": [

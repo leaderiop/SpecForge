@@ -67,6 +67,7 @@ behavior run_a_hook "Run a Hook" {
   verify unit "the spec guard denies a raw write of a human-only value"
   verify unit "the spec guard allows prose and reports the errors an edit adds as context"
   verify unit "the spec guard does not read a person's entity as removed from a file the write leaves unparsable"
+  verify unit "the spec guard compares a person's entity as written, not with the values a pass derived"
   verify unit "state a hook patches is what another hook reads, per session"
   verify unit "a state patch that would exceed 64 KiB is refused and reported, and the state is unchanged"
   verify unit "a command reads its state when it declares it and patches it with what it answers"

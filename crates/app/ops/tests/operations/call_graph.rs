@@ -1,7 +1,7 @@
 //! The graph a call receives is the graph export of the checked project it runs over: authored values, computed values
 //! and each entity's judgements (ADR 0299, K18). A command, a writing collector, a `reads_graph` prompt and a
-//! `reads_graph` hook render it with the same `graph_export` call (`prompt.rs`, `hook/mod.rs`), so these tests read the
-//! first two.
+//! `reads_graph` hook render it with the same `graph_export` call (`prompt.rs`, `hook/mod.rs`); these tests read a
+//! command, a writing collector and a hook. A prompt's has no pin (its fixture declares no computed field).
 
 use std::sync::Arc;
 
@@ -12,14 +12,17 @@ use specforge_ops::testing::{ScriptedMachine, caller};
 use specforge_ops::view::ProjectView;
 use specforge_project::SharedRuntime;
 use specforge_project::testing::{
-    CORE, GSD_WRITES_EXTENSIONS, GsdWrites, TestProject, gsd_judged_builder, gsd_judged_project,
-    gsd_writes_answer,
+    CORE, GSD_WRITES_EXTENSIONS, GsdHosts, GsdWrites, TestProject, gsd_judged_builder,
+    gsd_judged_project, gsd_writes_answer,
 };
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::WasmCallResult;
 use specforge_wasm::testing::InProcessRuntime;
 
+use crate::host_support::{hosted, hosts_project, run_hook};
+use crate::judged_writes::verdict_on;
 use crate::plans::{compiled, revision, run_command, set};
+use crate::verdicts::gsd;
 
 const SPEC: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\nverification V \"V\" {\n  phase 03\n}\n\ndeliverable D \"D\" {\n  checks [ { kind unit  ref \"t\" } ]\n}\n";
 
@@ -216,4 +219,83 @@ fn a_plan_echoing_a_computed_value_it_read_is_refused() {
         std::fs::read_to_string(p.root().join("a.spec")).unwrap(),
         before
     );
+}
+
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "a plan echoing a verdict-given value its graph carries is refused"
+)]
+fn a_plan_echoing_a_verdict_value_it_read_is_refused() {
+    let project = gsd_judged_project("");
+    let verdict = verdict_on(
+        &project,
+        "PA",
+        "gsd/W205",
+        "suspicious",
+        "gsd-package-auditor",
+    );
+    assert_eq!(gsd(&project, verdict, false), "applied");
+    let runtime = Arc::new(
+        InProcessRuntime::new()
+            .with(|| {
+                let mut c = gsd_judged_builder();
+                c.command("show", |cmd| {
+                    cmd.title("Show").handler(|_| CommandOutput {
+                        exit_code: 0,
+                        stdout: String::new(),
+                        stderr: String::new(),
+                        plan: None,
+                        state: None,
+                    });
+                });
+                c
+            })
+            .answer_raw(
+                "@gsd/core",
+                "__pass_plan_status",
+                ok(json!({"diagnostics": [], "summary": {}, "values": []})),
+            )
+            .answer_raw("@gsd/core", "cmd__show", ok(json!({"exit_code": 0}))),
+    );
+    let compiled = project.compile_in(Arc::clone(&runtime) as SharedRuntime);
+    run_command(&project, &compiled, &runtime, "core", "show");
+
+    // The verdict's value reaches every call...
+    let read = node(&input_of(&runtime, "cmd__show"), "PA");
+    assert_eq!(read["fields"]["legitimacy"], "suspicious", "{read}");
+
+    // ... and a plan writing it back lands only if the file is unchanged: the host's value wins and E082 reports the
+    // written one, which the write adds (E080).
+    let echo = json!([set(
+        "PA",
+        "legitimacy",
+        json!("suspicious"),
+        &revision(&project, "a.spec")
+    )]);
+    assert_eq!(gsd(&project, echo, false), "E080");
+    assert!(!project.read("a.spec").contains("legitimacy"));
+}
+
+#[specforge_test(
+    behavior = "compute_field_values",
+    verify = "the graph a reads_graph hook receives carries the computed values"
+)]
+fn a_hooks_graph_carries_the_computed_values() {
+    let project = hosts_project(json!({}), json!({}));
+    project.write(
+        "m.spec",
+        &project.read("m.spec").replace("\"Ship\"", "\"EDITED\""),
+    );
+    project.write(
+        "o.spec",
+        "override O1 \"Waive\" {\n  by \"a person\"\n  phase 03\n}\n",
+    );
+    let hosted = hosted(project, GsdHosts::new());
+    let status =
+        json!({"event": "statusline", "host": "claude-code", "session": "s1", "status": {}});
+    run_hook(&hosted, "statusline", &status);
+
+    let o1 = node(&hosted.input("hook__statusline"), "O1");
+    assert_eq!(o1["fields"]["seen"], "yes", "{o1}");
+    assert_eq!(o1["computed"], json!(["seen"]), "{o1}");
 }
