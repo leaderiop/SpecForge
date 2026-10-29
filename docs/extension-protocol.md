@@ -824,7 +824,7 @@ next one; W167 reports one that is waiting). Only a command or collector that de
 
 A writing command's input also carries `revisions`, `{"<file>": "sha256:<hex>" | "absent"}` for the project's
 sources, and every `graph` node carries its `file`. A writing collector is sent `cwd`, `today`, `now`, `graph` and
-`revisions` beside the report. A collector's plan is applied after its report is written, and judged against the project with that report (ADR 0297). The command answers `CommandOutput.plan`, a collector `CollectOutput.plan`:
+`revisions` beside the report. A collector's plan is applied after its report is written, and judged against the project with that report (ADR 0297). A `set_verdict` in such a plan has its `basis` checked against that project too: one whose entity's inputs the report changed is refused as stale. The command answers `CommandOutput.plan`, a collector `CollectOutput.plan`:
 
 ```json
 {

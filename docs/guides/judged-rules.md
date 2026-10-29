@@ -56,7 +56,8 @@ targets (a new truth, a phase spec), editing an input of a passing verdict (it b
 verdict are all written, and the finding is reported by the write and by `check`, which still fails on it. Recording
 `failed` is the honest record when the judge disagrees. A rule that guards a contradiction between a pass and other
 evidence (gsd/E502: a `verified` verdict over tests that failed) is a pass, not a judged rule: it refuses the write.
-A writing collector's plan is judged with the report its collect wrote, so a failing test does not refuse its commits.
+A writing collector's plan is judged with the report its collect wrote, so a failing test does not refuse its commits. The same applies to its `set_verdict`: a `basis` that the report changed
+(the entity's tests, say) is refused as stale, not accepted and stale on the next compile.
 
 ## Inputs
 

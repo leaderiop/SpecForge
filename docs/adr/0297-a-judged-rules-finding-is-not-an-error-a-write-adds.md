@@ -35,7 +35,16 @@ node of its kinds unless a fresh passing verdict says otherwise. Four consequenc
 - **D2. A collector's plan is judged with its report.** When a collect answered plans, `apply_collected` re-reads the
   project over the disk as the collect left it and applies each plan over that view. The plans keep the revisions they were
   sent (a collect writes no `.spec` file); a plan whose file changed under it is `stale_revision`, as before. The cost is one
-  more compile per collect that answered a plan.
+  more compile per collect that answered a plan. A plan's `set_verdict` therefore checks its `basis` against the project
+  with the collect's report: one whose entity's inputs the report changed (a `test(self)` input, say) is refused with a
+  stale basis, where before it was accepted and went stale on the next compile (a behaviour change; it fails closed).
+  The re-read view keeps the call's containment.
+- **D1b. The exemption is the owning extension's.** The diagnostic must also name the extension that owns the judged
+  rule as its origin (the judged evaluation sets it), so a host diagnostic or another extension's with the same text is
+  counted. The registry refuses (W112) a declarative rule of the extension that shares a judged rule's code. Still open
+  (K18): a pass that `reports` a judged rule's code, and a guard pass's fail-closed "could not be evaluated" error for
+  such a code, carry the extension's origin and are exempt too (a guard that lists a judged code fails open on writes);
+  closing it means having `CompiledProject` keep the findings `judged::evaluate` produced and match against that list.
 - **D3. No protocol change.** No type, export or descriptor key changes; `PROTOCOL_VERSION` stays 1.11.0 and no blob is
   rebuilt. The E080 catalog text gains one clause.
 
@@ -52,4 +61,5 @@ node of its kinds unless a fresh passing verdict says otherwise. Four consequenc
 
 A write may leave judged Errors: `check` exits non-zero on them, every gate reads them, and a write's output lists them. A
 verifier records `failed` instead of being refused, and an author creates a judged entity before its verdict is owed. A pass
-that reports a judged rule's code would have that finding exempted too; no builtin or gsd pass does.
+that reports a judged rule's code of its own extension would have that finding exempted too (D1b); no builtin or gsd
+pass does.

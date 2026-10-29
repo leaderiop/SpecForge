@@ -212,3 +212,17 @@ still waits for kernel work (K18):
   the kernel reports `(0 findings)` in every judged message (it counts a list of values, not of blocks). `gsd/E502`
   counts the tests recorded for a truth (its `[gsd:<id>]` link), not the tests a verdict cites: a pass is not sent
   `cited_tests`.
+- **What E502 guarantees today, and what it does not.** `gsd/E502` is enforced only through E080: a plan that records
+  `verified` over tests that fail the truth is refused, and the verifier records `failed`. It does not hold when (a) one
+  plan holds two `set_verdict` ops that swap an E502 (one clears an existing one, the other adds one on another truth:
+  E080 matches diagnostics by message shape with the digits collapsed, so the multiset is unchanged), which a verdict
+  recorded before K17 or a hand edit can make reachable; (b) `derive` reads a fresh `verified` as `Verified` whether or
+  not E502 stands, so a verification can read `passed` while the Error is reported (gates still fail on the Error, but
+  anything reading `status` does not); (c) `verification` (`explicit` or `backstop`) is agent-writable, so an agent can
+  turn the guard off for a truth before it records `verified` (the diff shows it, and the verdict goes stale when the
+  field flips). K18: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
+  with the predicate E502 uses; key E080's pairing by subject for pass codes; make `verification` human-only or
+  harness-only.
+- **A judged code reused by a pass (K18).** The registry refuses a declarative rule that shares a judged rule's code, not
+  a pass that `reports` it, nor a guard's fail-closed error for it: E080 exempts those findings (ADR 0297 D1b). No gsd
+  pass reports a judged code.
