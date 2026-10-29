@@ -6452,6 +6452,18 @@
           },
           {
             "default_value": null,
+            "description": "one digest over the covered files' digests, as the verdicts judged them",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "covered_digest",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
             "description": "`re_verification:` against the git baseline",
             "edge": null,
             "field_type": "block",

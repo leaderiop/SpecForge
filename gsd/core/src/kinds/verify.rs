@@ -28,8 +28,7 @@ const ANTI_PATTERNS: &[Field] = &[
 ];
 const GAP_ARTIFACTS: &[Field] = &[str("path"), str("issue")];
 
-/// `NN-VERIFICATION.md`, named `01-VERIFICATION` and scoped by its phase. `covered_digest` waits for r40: it needs the
-/// digests of the files a verdict cites.
+/// `NN-VERIFICATION.md`, named `01-VERIFICATION` and scoped by its phase.
 pub const VERIFICATION: Kind = Kind::new(
     "verification",
     "What a phase's verifier found (GSD NN-VERIFICATION.md)",
@@ -46,6 +45,9 @@ pub const VERIFICATION: Kind = Kind::new(
         files("covered_files")
             .c()
             .doc("the files the phase's verdicts name"),
+        str("covered_digest")
+            .c()
+            .doc("one digest over the covered files' digests, as the verdicts judged them"),
         block("re_verification", RE_VERIFICATION)
             .c()
             .doc("`re_verification:` against the git baseline"),

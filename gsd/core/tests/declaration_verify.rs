@@ -44,6 +44,7 @@ fn the_verification_kinds_declare_the_fields_of_the_model() {
             "score",
             "verified",
             "covered_files",
+            "covered_digest",
             "re_verification",
             "anti_patterns",
             "scan_partial"

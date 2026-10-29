@@ -6,6 +6,7 @@ use super::harness::{Project, judged, project};
 const VERIFICATION: &str = "v1.0/01/01-VERIFICATION";
 const PLAN_1: &str = "v1.0/01/01-01";
 const PLAN_2: &str = "v1.0/01/01-02";
+const TRUTH: &str = "v1.0/01/01-01/TR1";
 
 /// The phase's truths, artifacts and key links (two plans, one of each kind each).
 const ITEMS: [&str; 6] = [
@@ -235,4 +236,43 @@ fn the_plans_of_the_phase_are_the_ones_judged() {
     let mut want = ITEMS.map(String::from).to_vec();
     want.sort();
     assert_eq!(ids, want);
+}
+
+#[test]
+fn covered_digest_changes_with_a_covered_file() {
+    let p = bare();
+    let read = |p: &Project| {
+        let run = p.run(&[
+            "query",
+            TRUTH,
+            "--inputs",
+            "gsd/E501",
+            "--cite-file",
+            "src/tasks.js",
+            "--format",
+            "json",
+        ]);
+        serde_json::from_str::<serde_json::Value>(&run.stdout).expect("inputs")["basis"].to_string()
+    };
+    let basis = read(&p);
+    let cited = r#"[{"file":"src/tasks.js"}]"#;
+    let run = p.record_over(TRUTH, "E501", "verified", &basis, &["--cited", cited]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let before = verification(&p);
+    let digest = before["covered_digest"]
+        .as_str()
+        .expect("a digest")
+        .to_string();
+    assert!(digest.starts_with("fnv1a64:"), "{before}");
+    assert_eq!(before["covered_files"], serde_json::json!(["src/tasks.js"]));
+    p.write(
+        "src/tasks.js",
+        "export const add = (l, t) => [...l, t];\n// edited\n",
+    );
+    let after = verification(&p);
+    assert_ne!(
+        after["covered_digest"].as_str(),
+        Some(digest.as_str()),
+        "{after}"
+    );
 }

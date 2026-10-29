@@ -161,6 +161,18 @@ fn latest(group: &Group) -> Option<String> {
         .max()
 }
 
+/// One digest over the `(path, digest)` of every file the phase's verdicts covered.
+fn covered_digest(group: &Group) -> Option<String> {
+    let pairs: Vec<(&str, &str)> = group
+        .entities
+        .iter()
+        .flat_map(|e| &e.judgements)
+        .filter(|j| j.rule.ends_with("E501"))
+        .flat_map(|j| j.files.iter().map(|f| (f.path.as_str(), f.digest.as_str())))
+        .collect();
+    (!pairs.is_empty()).then(|| crate::digest::files(pairs))
+}
+
 fn covered(group: &Group) -> Vec<String> {
     let files: BTreeSet<&str> = group
         .entities
@@ -333,6 +345,9 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
         let files = covered(&a.group);
         if !files.is_empty() {
             found.push(value(&v.id, "covered_files", json!(files)));
+        }
+        if let Some(digest) = covered_digest(&a.group) {
+            found.push(value(&v.id, "covered_digest", digest));
         }
         if let Some(block) = re_verification(input, v, &a.group, &a.now, statuses) {
             found.push(value(&v.id, "re_verification", block));
