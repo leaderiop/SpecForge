@@ -4,10 +4,10 @@ use serde_json::json;
 
 use super::commands_support::*;
 
-const PLAN: &str = "v1.0/02/02-01";
-const SUMMARY: &str = "v1.0/02/02-01/02-01-SUMMARY";
-const PLANTED: &str = "summary 02-01-SUMMARY \"Save and load: summary\" {\n  plan                   v1.0/02/02-01\n  status                 complete\n  one_liner              \"Tasks are saved after every change.\"\n  subsystem              \"store\"\n  requirements_completed [STORE-01, STORE-02]\n}\n";
-const STARTED: &str = "2026-10-29T09:00:00Z";
+pub(super) const PLAN: &str = "v1.0/02/02-01";
+pub(super) const SUMMARY: &str = "v1.0/02/02-01/02-01-SUMMARY";
+pub(super) const PLANTED: &str = "summary 02-01-SUMMARY \"Save and load: summary\" {\n  plan                   v1.0/02/02-01\n  status                 complete\n  one_liner              \"Tasks are saved after every change.\"\n  subsystem              \"store\"\n  requirements_completed [STORE-01, STORE-02]\n}\n";
+pub(super) const STARTED: &str = "2026-10-29T09:00:00Z";
 
 #[test]
 fn complete_plan_writes_both_times_and_their_ledger_lines() {
@@ -60,7 +60,7 @@ fn start_plan_answers_the_hosts_now() {
 }
 
 /// A stale plan-check verdict on plan 02-01 of the twin: recorded, then its input (the instructions) edited.
-fn stale_plan_check(p: &crate::harness::Project) {
+pub(super) fn stale_plan_check(p: &crate::harness::Project) {
     p.write("CLAUDE.md", "# Rules\n\nNo task is longer than an hour.\n");
     for code in ["W311", "W313", "W315", "W316"] {
         let run = p.record(PLAN, code, "passed", &[]);
@@ -173,9 +173,9 @@ fn complete_plan_refuses() {
 
 // -- answer_checkpoint and confirm_setup (D-r41-4, D-r41-5, D-r41-6) -----------------------------------------------
 
-const CHECKPOINT: &str = "v1.0/01/01-02/C1";
+pub(super) const CHECKPOINT: &str = "v1.0/01/01-02/C1";
 const SECOND_PLAN: &str = "v1.0/01/01-02";
-const SETUP: &str = "v1.0/02/02-01/US1";
+pub(super) const SETUP: &str = "v1.0/02/02-01/US1";
 
 /// Plays the plan checker on the second plan of the `execute` project: its four plan-check verdicts are fresh.
 fn checked(p: &crate::harness::Project) {

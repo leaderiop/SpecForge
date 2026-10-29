@@ -4,17 +4,17 @@
 use super::commands_support::*;
 use super::harness::{Project, project};
 
-const PHASE: &str = "v1.0/01";
+pub(super) const PHASE: &str = "v1.0/01";
 
 /// A function of `branches` ifs: it scores `branches + 1`.
-fn busy(name: &str, branches: usize) -> String {
+pub(super) fn busy(name: &str, branches: usize) -> String {
     let body: String = (0..branches)
         .map(|i| format!("  if (x === {i}) {{ return {i}; }}\n"))
         .collect();
     format!("export function {name}(x) {{\n{body}  return -1;\n}}\n")
 }
 
-fn with_source(source: &str) -> Project {
+pub(super) fn with_source(source: &str) -> Project {
     let p = project("execute");
     p.write("src/tasks.js", source);
     p

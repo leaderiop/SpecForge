@@ -20,7 +20,7 @@ fn close_milestone_on_the_twin_is_refused_e106_and_e511() {
 
 /// A one-phase milestone whose phase is verified (nothing to verify) and whose audit passes with tech debt a person
 /// accepted: nothing for the gates to refuse.
-fn ready() -> Project {
+pub(super) fn ready() -> Project {
     let p = project("empty");
     p.write(
         "spec/m.spec",

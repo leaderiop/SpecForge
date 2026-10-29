@@ -7,7 +7,7 @@ const SESSION: &str = "v1.0/01/01-UAT";
 const REPORTED: &str = "it prints a stack trace before the message, which is noisy";
 
 /// The twin's U1-U3 as if nobody had answered: no `result` line in the spec, none in the ledger.
-fn unanswered() -> crate::harness::Project {
+pub(super) fn unanswered() -> crate::harness::Project {
     let p = twin();
     let text = p.read("spec/verify.spec");
     let stripped: String = text

@@ -11,6 +11,7 @@ mod cmd_verify;
 mod cmd_windows;
 mod cmd_workstreams;
 mod collect;
+mod commands;
 mod commands_support;
 mod discuss;
 mod e502_probe;
