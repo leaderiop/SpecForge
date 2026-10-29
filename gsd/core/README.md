@@ -80,9 +80,9 @@ Three things r39 could not build, or could not guarantee, wait for kernel work (
   synthetic baselines, not black-box (the judgement list is empty until r40 records E501 verdicts).
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
-- **Human-only on existing entities.** The guarantee of `override` (and `debt_accepted`) holds for creating, deleting
-  and retitling only: the host's `edit_flags` checks the kind's writer on those, not on `set`, `unset` or `link` of an
-  existing entity, so an agent can change or re-point an existing override. The black-box test
-  `an_agent_cannot_edit_an_existing_override` is ignored until the kernel fix. An agent can also delete a milestone
-  audit that carries a person's `debt_accepted` (gsd/E106 then refuses the gate).
+- **Human-only on existing entities.** Closed for `override` in r40: the host's `edit_flags` checks the kind's writer
+  on create, delete and retitle, and a *field's* writer on `set`, `unset` and `link`, so every field of `override` is
+  marked human and an agent can no longer change or re-point one
+  (`an_agent_cannot_edit_an_existing_override`). What stays: an agent can delete a milestone audit that carries a
+  person's `debt_accepted` (gsd/E106 then refuses the gate), because the kind is not human; the general fix is K17.
 

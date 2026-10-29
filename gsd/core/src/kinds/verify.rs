@@ -78,16 +78,18 @@ pub const VERIFY_GAP: Kind = Kind::new(
 .scoped_by("verification");
 
 /// A human's decision to accept a truth that the verifier did not verify, `OV1`. Only a person writes it (ADR 0289);
-/// `by` and `at` are not required so that gsd/E503 is the one diagnostic of their absence.
+/// `by` and `at` are not required so that gsd/E503 is the one diagnostic of their absence. Every field but the parent
+/// is `.u()`, a human's: the host checks the field's writer on `set`, `unset` and `link` of an existing override, so an
+/// agent cannot re-point or forge one (the parent is the entity's scope, which no edit changes).
 pub const OVERRIDE: Kind = Kind::new(
     "override",
     "A human accepts a truth the verifier could not verify (GSD verification override)",
     &[
         rf("verification", "verification").r().i().doc("parent"),
-        rf("truth", "truth").r().doc("the truth accepted"),
-        str("reason").r().doc("why"),
-        str("by").doc("who accepted it (gsd/E503)"),
-        date("at").doc("when (gsd/E503)"),
+        rf("truth", "truth").r().u().doc("the truth accepted"),
+        str("reason").r().u().doc("why"),
+        str("by").u().doc("who accepted it (gsd/E503)"),
+        date("at").u().doc("when (gsd/E503)"),
     ],
 )
 .human()

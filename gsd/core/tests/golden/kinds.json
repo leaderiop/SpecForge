@@ -6771,7 +6771,8 @@
             "inverse_of": null,
             "name": "truth",
             "required": true,
-            "target_kind": "truth"
+            "target_kind": "truth",
+            "writer": "human"
           },
           {
             "default_value": null,
@@ -6782,7 +6783,8 @@
             "inverse_of": null,
             "name": "reason",
             "required": true,
-            "target_kind": null
+            "target_kind": null,
+            "writer": "human"
           },
           {
             "default_value": null,
@@ -6793,7 +6795,8 @@
             "inverse_of": null,
             "name": "by",
             "required": false,
-            "target_kind": null
+            "target_kind": null,
+            "writer": "human"
           },
           {
             "default_value": null,
@@ -6804,7 +6807,8 @@
             "inverse_of": null,
             "name": "at",
             "required": false,
-            "target_kind": null
+            "target_kind": null,
+            "writer": "human"
           }
         ],
         "has_body_parser": false,

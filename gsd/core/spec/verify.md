@@ -64,9 +64,9 @@ An open verify_gap puts the verifier in re-verification mode (failed items in fu
 `re_verification` reports the outcome, it does not start it.
 
 **override** (kind `U`; name `OV1`): `verification R`, `truth → truth R`, `reason str R`, `by str`, `at date` (`by` and `at` are not `R`: gsd/E503 is the one diagnostic of their absence). The host refuses
-to create, delete or retitle an override in any extension's plan and any MCP write (K5 D7); a human writes it by hand or
-from an interactive `specforge` command. Until the kernel checks the writer on existing entities too (K17), an agent's
-`set`, `unset` or `link` on an existing override is not refused. An agent that edits the file directly is not stopped: the commit shows it, and more than three in
+to create, delete or retitle an override in any extension's plan and any MCP write (K5 D7), and to `set`, `unset` or
+`link` any of its fields (`truth`, `reason`, `by`, `at` are human fields, K5 D7); a human writes it by hand or from an
+interactive `specforge` command. An agent that edits the file directly is not stopped: the commit shows it, and more than three in
 a phase warns.
 
 **human_item** (name `HI1`): `verification R`, `test str R`, `expected str R`, `why_human str R`, `uat → uat_test`.
