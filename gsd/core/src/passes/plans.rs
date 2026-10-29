@@ -177,6 +177,7 @@ pub fn texts(entity: &PassEntity) -> Vec<String> {
 #[cfg(test)]
 const REFERENCES: &[&str] = &[
     "phase",
+    "plan",
     "verification",
     "validation",
     "truth",

@@ -52,6 +52,9 @@ pub const VERIFICATION: Kind = Kind::new(
         blocks("anti_patterns", ANTI_PATTERNS)
             .c()
             .doc("the lexical anti-pattern scan"),
+        bool("scan_partial")
+            .c()
+            .doc("a file of the phase was not served (a budget, a cap): the scan is partial and the phase is not `passed`"),
     ],
 )
 .scoped_by("phase");

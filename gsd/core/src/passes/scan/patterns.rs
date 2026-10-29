@@ -1,5 +1,5 @@
 //! The lexical part of the verifier's file checks (`agents/gsd-verifier.md:404-422`): debt markers, cleanup comments,
-//! placeholder phrases, `exports` and a key link's `pattern`. Hand-written: the matching is a deterministic subset of
+//! placeholder phrases and a key link's `pattern`. Hand-written: the matching is a deterministic subset of
 //! upstream's `grep`, and says where it differs.
 
 /// How serious an anti-pattern is.
@@ -86,22 +86,6 @@ pub fn anti_patterns(text: &str) -> Vec<Hit> {
             })
         })
         .collect()
-}
-
-/// `export … <name>`, `module.exports.<name>` or `exports.<name>` on one line, `name` a whole word.
-pub fn exports(text: &str, name: &str) -> bool {
-    text.lines().any(|line| {
-        let all: Vec<&str> = words(line).collect();
-        let exported = all
-            .iter()
-            .position(|w| *w == "export")
-            .is_some_and(|at| all[at + 1..].contains(&name));
-        let property = line.match_indices("exports.").any(|(at, m)| {
-            let rest = &line[at + m.len()..];
-            rest.starts_with(name) && !rest[name.len()..].starts_with(is_word)
-        });
-        exported || property
-    })
 }
 
 /// Whether a key link's `pattern` is plain text. Upstream compiles it as a regular expression, which this scan does

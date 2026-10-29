@@ -151,3 +151,15 @@ fn a_gap_is_closed_by_a_complete_gap_closure_plan() {
             .any(|v| v.field == "status" && v.value == json!("open"))
     );
 }
+
+#[test]
+fn a_partial_scan_is_not_passed() {
+    let mut input = input(
+        vec![truth(1, vec![judgement("verified", "fresh", true)])],
+        vec![],
+    );
+    input.entities[0]
+        .values
+        .insert("scan_partial".into(), json!(true));
+    assert_eq!(of(&run(&input), "status"), Some(json!("pending")));
+}

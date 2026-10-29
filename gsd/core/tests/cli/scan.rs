@@ -160,3 +160,18 @@ fn anti_patterns_list_todo_as_warning() {
     );
     assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
 }
+
+#[test]
+fn writing_a_plan_that_names_a_file_with_a_debt_marker_is_accepted() {
+    let p = verify();
+    p.write("src/legacy.js", "// FIXME legacy hack\n");
+    let run = p.run(&[
+        "set",
+        "v1.0/01/01-02",
+        "files_modified",
+        "src/complete.js",
+        "src/legacy.js",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}

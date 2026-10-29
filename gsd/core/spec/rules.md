@@ -116,9 +116,11 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 - Rules that read project files are *buildable* since protocol 1.11.0 (K11): they declare `reads` and are sent the facts and
   capped text of those files. `gsd/E320` is built (r37; a compute pass writes `task.verify_paths`, which the check pass
   reads). `gsd/E505` is built (r39), with the scan pass that computes the file facts under `gsd/E501`: `artifact.state`
-  (`missing`, `min_lines`, `contains`, `exports`, a deterministic subset: `export … name`, `module.exports.name`,
-  `exports.name`) and `key_link.state` (a plain-text `pattern`; one with a regular-expression metacharacter is
-  `unchecked`).
+  (`missing`, `min_lines` as upstream counts, `contains`, `exports` by substring as upstream) and `key_link.state` (a
+  plain-text `pattern`, searched in the `from` and the `to` file; one with a regular-expression metacharacter is
+  `unchecked`). `gsd/E505` judges the plans that have a summary only, so writing a plan is never refused for a file it
+  names. A file the host did not serve (its 1 MiB text budget is charged per entity and path) makes the phase's
+  verification `scan_partial`, which keeps it from `passed`.
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), by declaring `reads_tests`: `gsd/W408`
   (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E502` and `gsd/E515`.
   `gsd/W403` reads the recorded commits, not the report.

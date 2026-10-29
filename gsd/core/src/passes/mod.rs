@@ -32,6 +32,7 @@ pub const CLAIMED: &[&str] = &[
     "artifact.state",
     "key_link.state",
     "verification.anti_patterns",
+    "verification.scan_partial",
     "validation_row.file_exists",
     "wave0_item.done",
 ];

@@ -93,13 +93,20 @@ fn entity_item(e: &PassEntity, overridden: &BTreeSet<&str>) -> Item {
     )
 }
 
-/// The status of a verification (D-r39-7), first match.
-pub fn status(items: &[Item], truths: &[Item], blocker: bool, human_open: bool) -> &'static str {
+/// The status of a verification (D-r39-7), first match. A `partial` scan (a file of the phase the host did not
+/// serve) cannot reach `passed`: it may have missed a blocker.
+pub fn status(
+    items: &[Item],
+    truths: &[Item],
+    blocker: bool,
+    human_open: bool,
+    partial: bool,
+) -> &'static str {
     if blocker || items.contains(&Item::Failed) {
         "gaps_found"
     } else if human_open || truths.contains(&Item::BehaviorUnverified) {
         "human_needed"
-    } else if !items.is_empty() && items.iter().all(|i| *i == Item::Verified) {
+    } else if !partial && !items.is_empty() && items.iter().all(|i| *i == Item::Verified) {
         "passed"
     } else {
         "pending"
@@ -156,6 +163,11 @@ fn blocker(v: &PassEntity) -> bool {
         .into_iter()
         .flatten()
         .any(|row| row.get("severity").and_then(Value::as_str) == Some("blocker"))
+}
+
+/// The scan could not read every file of the phase.
+fn partial(v: &PassEntity) -> bool {
+    v.values.get("scan_partial").and_then(Value::as_bool) == Some(true)
 }
 
 fn latest(group: &Group) -> Option<String> {
@@ -282,7 +294,7 @@ fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
         let human_open = of_kind(input, "human_item")
             .filter(|h| link(input, h, "verification") == Some(v.id.as_str()))
             .any(|h| !passed_in_uat(input, h));
-        let status = status(&now, &truths, blocker(v), human_open);
+        let status = status(&now, &truths, blocker(v), human_open, partial(v));
         found.push(Assessment {
             verification: v,
             group,

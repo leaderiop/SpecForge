@@ -29,8 +29,8 @@ the item and its plan, the code the item or its plan names, and every file the v
 |---|---|
 | truth `verified`, `failed`, `uncertain`, `present_behavior_unverified`, `verified_coincidental` | the verifier's verdict on the truth; `verified` needs a named passing test in the evidence for an `explicit` truth (honest verifier) |
 | truth `passed_override` | an `override` entity, written by a human |
-| artifact `verified`, `orphaned`, `stub`, `missing`; data flow `flowing`, `static`, `disconnected`, `hollow_prop` | `missing`, `min_lines`, `contains` and `exports` are a pass over the file's facts (the file is absent, too short, lacks the text); the rest are the verdict |
-| key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched) when `pattern` is set, else the verdict |
+| artifact `verified`, `orphaned`, `stub`, `missing`; data flow `flowing`, `static`, `disconnected`, `hollow_prop` | `missing`, `min_lines`, `contains` and `exports` are a pass over the file's facts (the file is absent, too short by upstream's `split('\n')` count, lacks the text or a name it exports, found by substring as upstream does); the rest are the verdict |
+| key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched in `from`, and in `to`, as upstream) when `pattern` is set, else the verdict |
 
 The passes that read project files (artifact facts, a key link's `pattern`, `anti_patterns`, `validation_row.file_exists`,
 `wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and built in r39 (the scan pass; the refactor trigger's complexity waits for r41; the verify command's own paths are `gsd/E320`, built in r37): a pass declares the paths it
@@ -54,7 +54,8 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | verified | ts | C | `verified:`: the latest verdict's time |
 | covered_files, covered_digest | files, str | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name, and one digest over their current digests (the judgements' `files`) |
 | re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): its status and score; items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine) |
-| anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass |
+| anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass; it lists what it read |
+| scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
 
 **verify_gap**: a failed or partial truth, as an entity a gap-closure plan can name. Name `VG1`, scoped by its verification.
 `verification R`, `truth → truth R`, `reason str R`, `artifacts {path file, issue str}`, `missing strs`;

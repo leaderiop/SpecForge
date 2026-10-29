@@ -45,7 +45,8 @@ fn the_verification_kinds_declare_the_fields_of_the_model() {
             "verified",
             "covered_files",
             "re_verification",
-            "anti_patterns"
+            "anti_patterns",
+            "scan_partial"
         ]
     );
     assert_eq!(

@@ -35,17 +35,6 @@ fn a_placeholder_phrase_is_info() {
 }
 
 #[test]
-fn exports_match_the_three_forms() {
-    assert!(exports("export function add() {}", "add"));
-    assert!(exports("export { a, add }", "add"));
-    assert!(exports("module.exports.add = add", "add"));
-    assert!(exports("exports.add = add", "add"));
-    assert!(!exports("export function addAll() {}", "add"));
-    assert!(!exports("function add() {}", "add"));
-    assert!(!exports("exports.addAll = 1", "add"));
-}
-
-#[test]
 fn only_a_plain_pattern_is_literal() {
     assert!(is_literal("require"));
     assert!(!is_literal("import.*store"));
