@@ -1,21 +1,302 @@
    Compiling gsd-core v0.1.0 (/Users/mohammadalmechkor/Projects/Perso/SpecForge-r42/gsd/core)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.62s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.46s
      Running unittests src/lib.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/gsd_core-f9a443ec1adf226c)
 
-running 11 tests
-test collectors::junit::tests::the_relative_path_is_the_reports_or_the_roots ... ok
-test collectors::junit::tests::a_report_that_does_not_close_is_an_error ... ok
-test commands::support::tests::a_control_character_is_found_but_a_line_feed_and_a_tab_are_not ... ok
+running 292 tests
+test collectors::git::tests::a_binary_numstat_counts_zero ... ok
+test collectors::git::tests::a_created_path_may_hold_spaces ... ok
+test collectors::git::tests::a_subject_cannot_forge_a_record ... ok
+test collectors::git::tests::a_quoted_path_is_unquoted ... ok
+test collectors::git::tests::an_empty_log_is_no_plan ... ok
+test collectors::git::tests::control_characters_in_a_subject_or_a_path_are_replaced ... ok
+test collectors::git::tests::a_commit_the_project_holds_is_not_recorded_again ... ok
+test collectors::git::tests::a_task_is_named_as_the_executor_words_it ... ok
+test collectors::git::tests::only_commits_naming_a_plan_are_recorded_oldest_first ... ok
+test collectors::git::tests::the_header_grammar_is_undos ... ok
+test collectors::git::tests::a_bad_header_skips_its_commit_and_is_named ... ok
+test collectors::git::tests::two_tasks_with_one_title_name_the_plan_only ... ok
+test collectors::graph::tests::a_short_form_resolves_like_graph_find ... ok
 test collectors::junit::tests::a_report_cut_inside_a_test_or_no_xml_is_refused ... ok
-test commands::reports::tests::a_report_without_computed_status_is_refused ... ok
+test collectors::junit::tests::a_coverage_ref_links_by_name_and_file ... ok
+test collectors::junit::tests::a_report_that_does_not_close_is_an_error ... ok
+test collectors::junit::tests::a_time_is_a_finite_non_negative_number ... ok
+test collectors::junit::tests::a_tag_links_by_the_graphs_rules_and_a_bad_one_is_unlinked ... ok
+test collectors::junit::tests::an_unlinked_test_keeps_its_classname_segments ... ok
+test collectors::junit::tests::the_collector_never_answers_a_plan ... ok
+test collectors::junit::tests::the_relative_path_is_the_reports_or_the_roots ... ok
+test collectors::junit::tests::two_tags_of_one_entity_are_one_result_and_a_bad_tag_is_listed ... ok
+test collectors::junit::tests::xml_entities_and_self_closing_testcases ... ok
+test commands::complexity::tests::a_non_positive_threshold_falls_back_to_the_default ... ok
+test commands::complexity::tests::an_unparseable_file_is_skipped ... ok
+test commands::complexity::tests::attributes_scores_to_each_function ... ok
+test commands::complexity::tests::breaks_candidate_ties_stably ... ok
+test commands::complexity::tests::complexity_scores_match_upstream_vectors ... ok
+test commands::complexity::tests::counts_branch_inside_template_interpolation ... ok
+test commands::complexity::tests::counts_each_decision_construct_once ... ok
+test commands::complexity::tests::detects_all_function_forms ... ok
+test collectors::git::tests::the_header_grammar_agrees_with_the_regex ... ok
+test commands::complexity::tests::does_not_count_bare_else ... ok
+test commands::complexity::tests::does_not_count_optional_chaining_or_nullish_coalescing ... ok
+test commands::complexity::tests::does_not_count_switch_default ... ok
+test commands::complexity::tests::does_not_double_count_nested_function ... ok
+test commands::complexity::tests::does_not_mistake_division_for_regex_literal ... ok
+test commands::complexity::tests::does_not_treat_missing_baseline_as_zero ... ok
+test commands::complexity::tests::does_not_trigger_when_complexity_decreased ... ok
+test commands::complexity::tests::emits_a_single_candidate_carrying_both_reasons ... ok
+test commands::complexity::tests::does_not_conflate_length_with_complexity ... ok
+test commands::complexity::tests::file_selection ... ok
+test commands::complexity::tests::handles_escaped_quote_without_swallowing_code ... ok
+test commands::complexity::tests::ignores_alternation_inside_regex_literal ... ok
+test commands::complexity::tests::ignores_decision_keyword_in_comments_strings_and_templates ... ok
+test commands::complexity::tests::jump_is_strictly_greater ... ok
+test commands::complexity::tests::orders_candidates_deterministically ... ok
+test commands::complexity::tests::produces_identical_scores_for_crlf_and_lf ... ok
+test commands::complexity::tests::property_comments_and_strings_are_score_neutral ... ok
+test commands::complexity::tests::refuses_to_score_unterminated_literal ... ok
+test commands::complexity::tests::returns_empty_result_for_empty_whitespace_and_functionless_files ... ok
+test commands::complexity::tests::scores_flat_function_as_one ... ok
+test commands::complexity::tests::scores_flat_switch_by_case_count_pinning_known_bias ... ok
+test commands::complexity::tests::scores_single_if_as_two ... ok
+test commands::complexity::tests::threshold_is_strictly_greater ... ok
+test commands::digest::tests::an_uncomputed_digest_is_refused ... ok
+test commands::digest::tests::the_digest_is_the_contexts_in_the_same_phase ... ok
 test commands::reports::tests::a_phase_reads_its_computed_values ... ok
-test passes::scan::patterns::tests::a_bare_marker_is_a_blocker_and_a_referenced_one_is_not ... ok
+test commands::reports::tests::a_report_without_computed_status_is_refused ... ok
+test commands::support::tests::a_control_character_is_found_but_a_line_feed_and_a_tab_are_not ... ok
+test digest::tests::a_decision_of_another_origin_is_not_in_the_digest ... ok
+test digest::tests::a_files_digest_ignores_order_and_repeats_and_follows_a_digest ... ok
+test digest::tests::a_structured_value_of_a_scalar_field_is_ignored ... ok
+test digest::tests::an_edited_decision_or_a_new_deferred_idea_changes_the_digest ... ok
+test digest::tests::fnv1a64_matches_the_published_vectors ... ok
+test digest::tests::structured_values_count_and_a_missing_context_has_no_digest ... ok
+test digest::tests::the_digest_has_a_prefix_and_sixteen_hex_digits ... ok
+test digest::tests::the_digest_ignores_computed_fields_and_entity_order ... ok
+test kinds::dsl::tests::a_computed_member_is_listed_as_kind_field_member ... ok
+test kinds::dsl::tests::a_local_time_is_e107 ... ok
 test kinds::dsl::tests::a_reference_member_declares_its_edge ... ok
+test kinds::dsl::tests::a_required_human_field_of_an_agent_kind_is_refused_at_declare_time - should panic ... ok
+test kinds::dsl::tests::an_authored_ts_field_gets_e107_and_a_computed_one_does_not ... ok
+test kinds::dsl::tests::an_authored_ts_member_gets_e107_and_a_harness_blocks_member_does_not ... ok
+test passes::cross_plan::tests::a_coupling_peer_in_another_wave_or_phase_covers_nothing ... ok
+test passes::cross_plan::tests::a_decision_cited_by_name_or_by_its_first_six_words_is_covered ... ok
+test passes::cross_plan::tests::a_justified_coupling_is_i321 ... ok
+test passes::cross_plan::tests::a_requirement_in_no_plan_is_e301_on_the_phase ... ok
+test passes::cross_plan::tests::an_uncited_context_decision_is_e310_on_the_decision ... ok
+test passes::cross_plan::tests::an_unplanned_phase_is_not_judged ... ok
+test passes::cross_plan::tests::only_the_scanned_surfaces_cite ... ok
+test passes::cross_plan::tests::soft_phrase_normalisation_is_gsds ... ok
+test passes::derive::audit::tests::a_phase_whose_verification_is_not_passed_makes_gaps_found ... ok
+test passes::derive::audit::tests::a_validated_validation_with_green_rows_is_compliant ... ok
+test passes::derive::audit::tests::an_orphaned_requirement_makes_gaps_found ... ok
+test passes::derive::audit::tests::an_unsatisfied_requirement_names_its_status ... ok
+test passes::derive::audit::tests::nyquist_counts_by_phase ... ok
+test passes::derive::audit::tests::tech_debt_without_gaps_is_tech_debt ... ok
 test passes::derive::execute::tests::a_check_status_is_pass_fail_or_unknown_from_the_report ... ok
+test passes::derive::execute::tests::a_plan_is_checked_only_with_four_fresh_passing_verdicts ... ok
+test passes::derive::execute::tests::a_task_named_by_a_commit_is_done ... ok
+test passes::derive::execute::tests::actuals_and_key_files_come_from_commits ... ok
+test passes::derive::execute::tests::duration_is_gsds ... ok
+test passes::derive::execute::tests::execution_beats_the_check ... ok
+test passes::derive::execute::tests::plan_status_follows_summary_halt_and_commits ... ok
+test passes::derive::halt::tests::a_cycle_fails_closed ... ok
+test passes::derive::halt::tests::a_dependency_outside_the_phase_is_dropped ... ok
+test passes::derive::halt::tests::halt_propagation_is_gsds ... ok
+test passes::derive::ladder::tests::a_complete_requirement_of_a_gaps_found_phase_is_gaps_found ... ok
+test passes::derive::ladder::tests::a_passed_verification_makes_the_phase_complete_and_counts_in_progress ... ok
+test passes::derive::ladder::tests::completed_is_the_verified_date ... ok
+test passes::derive::ladder::tests::gaps_found_stays_executed ... ok
+test passes::derive::ladder::tests::human_needed_is_needs_review ... ok
+test passes::derive::ladder::tests::the_ladder_up_to_executed ... ok
+test passes::derive::progress::tests::a_requirement_is_complete_once_a_plan_naming_it_completes ... ok
+test passes::derive::progress::tests::a_requirement_of_an_executing_plan_is_in_progress ... ok
+test passes::derive::progress::tests::a_requirement_whose_plans_all_halted_is_blocked ... ok
+test passes::derive::progress::tests::milestone_progress_percent_is_the_smaller_fraction ... ok
+test passes::derive::progress::tests::milestone_stats_and_git_range_come_from_commits ... ok
+test passes::derive::tests::the_derive_pass_gives_each_context_its_digest ... ok
+test passes::derive::uat::tests::a_deferred_follow_up_skip_passes ... ok
+test passes::derive::uat::tests::a_resolved_issue_passes ... ok
+test passes::derive::uat::tests::a_session_with_nothing_blocking_is_complete ... ok
+test passes::derive::uat::tests::open_gaps_with_root_causes_are_diagnosed ... ok
+test passes::derive::uat::tests::pending_is_testing ... ok
+test passes::derive::verify::tests::a_blocker_anti_pattern_is_gaps_found ... ok
+test passes::derive::verify::tests::a_deferral_to_the_same_an_earlier_or_a_missing_phase_does_not_count ... ok
+test passes::derive::verify::tests::a_failed_truth_is_gaps_found ... ok
+test passes::derive::verify::tests::a_gap_is_closed_by_a_complete_gap_closure_plan ... ok
+test passes::derive::verify::tests::a_partial_scan_is_not_passed ... ok
+test passes::derive::verify::tests::a_stale_judgement_is_not_a_pass ... ok
+test passes::derive::verify::tests::a_truth_deferred_to_a_later_phase_does_not_count ... ok
+test passes::derive::verify::tests::a_truth_with_no_verdict_is_never_passed ... ok
+test passes::derive::verify::tests::all_truths_verified_is_passed ... ok
+test passes::derive::verify::tests::an_override_counts_as_verified ... ok
+test passes::derive::verify::tests::an_override_counts_only_while_the_truth_says_what_it_accepted ... ok
+test passes::derive::verify::tests::behavior_unverified_is_human_needed_and_not_counted_as_verified ... ok
+test passes::derive::verify::tests::e501_outcomes_are_the_derivations ... ok
+test passes::derive::verify::tests::re_verification_closes_and_reopens_verify_gaps ... ok
+test passes::derive::verify::tests::re_verification_closes_keeps_and_regresses_truths_by_verdict ... ok
+test passes::derive::verify::tests::the_scan_verifies_only_a_wired_key_link ... ok
+test passes::drift::tests::a_spec_recorded_against_another_digest_is_w406_and_a_matching_one_is_clean ... ok
+test passes::drift::tests::research_recorded_against_another_digest_is_w406 ... ok
+test passes::drift::tests::research_without_a_digest_is_not_judged ... ok
+test passes::execute::tests::a_plan_commit_counts_only_for_the_plans_only_task ... ok
+test passes::execute::tests::a_task_of_a_tdd_plan_is_judged ... ok
+test passes::execute::tests::e401_names_the_missing_and_the_extra_ids ... ok
+test passes::execute::tests::w403_needs_a_red_commit_before_the_green_one ... ok
+test passes::execute::tests::w407_judges_complete_plans_and_leaves_manual_tasks_alone ... ok
+test passes::execute::tests::w408_judges_checks_that_have_a_status_and_rationales ... ok
+test passes::fails_when::tests::a_missing_statement_is_a_problem ... ok
+test passes::fails_when::tests::a_placeholder_is_a_problem_in_any_case ... ok
+test passes::fails_when::tests::a_vacuous_but_real_statement_is_clean ... ok
+test passes::fails_when::tests::an_empty_statement_is_a_problem ... ok
+test passes::fails_when::tests::the_wave_zero_sentinel_has_no_failure_to_state ... ok
+test passes::file_scope::tests::a_deleted_file_counts_as_overlap ... ok
+test passes::file_scope::tests::a_path_holding_a_comma_is_one_item ... ok
+test passes::file_scope::tests::a_task_file_outside_its_plan_is_w306_per_item ... ok
+test passes::file_scope::tests::other_waves_other_phases_and_plans_without_a_wave_do_not_overlap ... ok
+test passes::file_scope::tests::same_wave_overlap_is_w305_once_per_path_on_the_later_plan ... ok
+test passes::gates::tests::a_gate_is_told_by_its_kind_not_by_a_command ... ok
+test passes::gates::tests::a_plan_subject_scopes_its_plan ... ok
+test commands::complexity::tests::property_strip_never_manufactures_decision_points ... ok
+test passes::gates::tests::a_stale_plan_check_is_w318 ... ok
+test passes::gates::tests::a_stale_verdict_is_e516_under_plus ... ok
+test passes::gates::tests::a_tdd_plan_without_review_is_w404 ... ok
+test passes::gates::tests::a_summary_subject_scopes_its_plan_and_w404_names_the_summary ... ok
+test passes::gates::tests::an_unaccepted_tech_debt_audit_is_e106 ... ok
+test passes::gates::tests::an_executed_plans_stale_plan_check_does_not_count_but_another_stale_verdict_does ... ok
+test passes::gates::tests::e106_reads_the_latest_audit_by_number_and_only_at_a_milestone ... ok
+test passes::gates::tests::an_unverified_phase_is_e511_at_ship ... ok
+test passes::gates::tests::e512_is_silent_on_a_resolved_window_and_without_a_gate ... ok
+test passes::gates::tests::e512_names_the_subject_of_a_scoped_gate ... ok
+test passes::gates::tests::ship_with_an_open_window_is_refused_e512 ... ok
+test passes::plan_shape::tests::a_checkpoint_after_a_task_of_another_plan_is_e307_and_counts_for_nothing ... ok
+test passes::gates::tests::every_guard_answers_a_gate_and_is_silent_on_a_write ... ok
+test passes::plan_shape::tests::a_phase_plan_named_after_another_phase_is_w323 ... ok
+test passes::plan_shape::tests::a_phaseless_plan_not_named_by_a_quick_id_is_w323 ... ok
+test passes::plan_shape::tests::a_quick_id_and_a_phase_plan_are_clean ... ok
+test passes::plan_shape::tests::a_quick_id_is_six_digits_a_dash_and_three_base_36_digits ... ok
+test passes::plan_shape::tests::e302_fires_on_a_phase_plan_with_no_or_empty_requirements ... ok
+test passes::plan_shape::tests::auto_select_is_checked_only_on_a_decision_checkpoint_with_options ... ok
+test passes::plan_shape::tests::e302_is_silent_on_a_quick_plan_and_on_a_plan_with_requirements ... ok
+test passes::plan_shape::tests::e303_fires_on_an_auto_task_without_files_or_verify ... ok
+test passes::plan_shape::tests::e303_is_silent_on_a_manual_task_and_on_any_verify_form ... ok
+test passes::plan_shape::tests::e307_is_silent_on_a_matching_auto_select_and_answer ... ok
+test passes::plan_shape::tests::e307_names_the_available_options ... ok
 test passes::plan_shape::tests::e307_reports_an_answer_outside_the_options_a_duplicate_and_an_empty_auto_select ... ok
+test passes::plan_shape::tests::phase_02_1_plan_02_1_01_is_clean ... ok
+test passes::plan_shape::tests::w308_fires_on_a_one_way_task_with_no_decision_before_it ... ok
+test passes::plan_shape::tests::w304_is_four_tasks_and_e322_is_five_never_both ... ok
+test passes::plan_shape::tests::w309_needs_both_a_truth_and_an_artifact ... ok
+test passes::plan_shape::tests::w308_is_silent_when_settled_or_after_a_decision_checkpoint ... ok
+test passes::research::tests::a_project_research_question_is_not_w204 ... ok
+test passes::research::tests::a_misnamed_phaseless_research_gets_w204_like_a_phase_research ... ok
+test passes::research::tests::an_open_question_without_resolved_by_is_w204 ... ok
+test passes::roadmap::plans::tests::a_cycle_names_each_plan_on_it_and_only_those ... ok
+test passes::roadmap::plans::tests::a_dependency_in_the_phase_is_clean ... ok
+test passes::roadmap::plans::tests::a_dependency_on_another_phase_is_e102 ... ok
+test passes::roadmap::plans::tests::a_quick_plan_is_checked_for_cycles_only ... ok
+test passes::roadmap::tests::a_decimal_phase_without_its_integer_or_out_of_order_is_w104 ... ok
+test passes::roadmap::tests::a_dependency_on_an_earlier_phase_or_an_inserted_one_is_clean ... ok
+test passes::roadmap::tests::a_forward_dependency_between_letter_and_nested_phases_is_e102 ... ok
+test passes::roadmap::tests::a_huge_gap_is_one_warning_and_cheap ... ok
+test passes::roadmap::tests::a_lone_research_without_phase_not_named_research_is_e206 ... ok
+test passes::roadmap::tests::a_letter_phase_and_a_nested_decimal_phase_are_numbered ... ok
+test passes::roadmap::tests::a_milestone_of_only_decimal_phases_is_still_checked ... ok
+test passes::roadmap::tests::a_requirement_in_one_phase_and_a_v2_requirement_in_none_are_clean ... ok
+test passes::roadmap::tests::a_second_context_in_a_phase_is_e206 ... ok
+test passes::roadmap::tests::a_second_project_is_e108 ... ok
+test passes::roadmap::tests::a_second_project_research_is_e206 ... ok
+test passes::roadmap::tests::contexts_of_two_phases_are_clean ... ok
+test passes::roadmap::tests::custom_named_and_backlog_phases_are_outside_the_numbering ... ok
+test passes::roadmap::tests::cycle_is_e102 ... ok
+test passes::roadmap::tests::decimal_parts_order_numerically ... ok
+test passes::roadmap::tests::decimal_phase_between_neighbours_is_clean ... ok
+test passes::roadmap::tests::every_member_of_a_cycle_is_named_not_only_the_back_edge_path ... ok
+test passes::roadmap::tests::forward_dependency_is_e102 ... ok
+test passes::roadmap::tests::gap_in_phase_numbers_is_w104 ... ok
+test passes::roadmap::tests::numbering_is_judged_per_milestone ... ok
+test passes::roadmap::tests::one_criterion_is_w103 ... ok
+test passes::roadmap::tests::requirement_in_two_phases_is_e101 ... ok
+test passes::roadmap::tests::requirements_before_any_phase_are_not_e101 ... ok
+test passes::roadmap::tests::the_research_named_research_is_the_projects_whatever_sorts_first ... ok
+test passes::roadmap::tests::two_and_five_criteria_are_clean ... ok
+test passes::roadmap::tests::two_ids_with_one_number_are_w104 ... ok
+test passes::roadmap::tests::unmapped_requirement_is_e101 ... ok
+test passes::scan::patterns::tests::a_bare_marker_is_a_blocker_and_a_referenced_one_is_not ... ok
+test passes::scan::patterns::tests::a_colour_is_not_a_follow_up ... ok
+test passes::scan::patterns::tests::a_marker_is_a_whole_word ... ok
+test passes::scan::patterns::tests::a_placeholder_phrase_is_info ... ok
+test passes::scan::patterns::tests::only_a_plain_pattern_is_literal ... ok
+test passes::scan::tests::a_file_that_is_not_there_is_missing ... ok
+test passes::scan::tests::a_file_that_is_there_and_has_the_text_is_present ... ok
+test passes::scan::tests::a_file_the_host_did_not_serve_makes_the_scan_partial ... ok
+test passes::scan::tests::a_key_link_pattern_found_only_in_the_target_is_wired ... ok
+test passes::scan::tests::a_path_is_looked_up_normalised ... ok
+test passes::scan::tests::a_wave0_item_is_done_when_its_file_exists_and_a_linked_test_ran ... ok
+test passes::scan::tests::a_withheld_or_truncated_read_is_unchecked_never_missing ... ok
 test passes::scan::tests::an_export_is_found_by_substring_whatever_the_language ... ok
+test passes::scan::tests::e505_judges_only_a_plan_that_has_a_summary ... ok
+test passes::scan::tests::min_lines_counts_as_upstream_does ... ok
+test passes::schema_drift::tests::schema_patterns_are_gsds ... ok
+test passes::schema_drift::tests::the_evidence_patterns_are_gsds ... ok
+test passes::scope::tests::a_covered_phase_and_an_unplanned_phase_are_silent ... ok
+test passes::scope::tests::a_dotted_version_is_not_a_scope_cut ... ok
+test passes::scope::tests::a_hit_that_cites_a_decision_of_the_phase_is_clean ... ok
+test passes::scope::tests::a_phrase_inside_a_word_is_not_e312 ... ok
+test passes::scope::tests::a_phrase_is_matched_case_insensitively ... ok
+test passes::scope::tests::an_uncovered_item_is_one_w317_on_the_phase ... ok
+test passes::scope::tests::rows_sort_by_source_then_natural_key ... ok
+test passes::scope::tests::scope_reduction_phrase_is_e312 ... ok
+test passes::scope::tests::the_gap_table_is_gsds ... ok
+test passes::scope::tests::the_summary_and_an_empty_table_are_gsds ... ok
+test passes::verify_paths::grounding::tests::a_cd_chain_folds_and_an_absolute_segment_starts_over ... ok
+test passes::verify_paths::grounding::tests::an_escaped_ampersand_chains_like_a_real_one ... ok
+test passes::verify_paths::grounding::tests::the_prefix_flag_names_the_directory_with_or_without_quotes ... ok
+test passes::verify_paths::grounding::tests::the_tool_decides_the_manifest_and_the_script ... ok
+test passes::verify_paths::grounding::tests::what_cannot_be_checked_is_named ... ok
+test passes::verify_paths::manifest::tests::a_broken_or_non_object_manifest_is_none ... ok
+test passes::verify_paths::manifest::tests::a_duplicate_key_keeps_the_last_value_as_json_parse_does ... ok
+test passes::verify_paths::manifest::tests::escapes_are_decoded_in_script_names ... ok
+test passes::verify_paths::manifest::tests::the_scripts_of_a_manifest_are_listed ... ok
+test passes::verify_paths::tests::nothing_is_computed_for_a_task_without_a_cd_or_prefix ... ok
+test passes::waves::tests::a_chain_counts_up ... ok
+test passes::waves::tests::a_cycle_leaves_the_phase_without_waves ... ok
+test passes::waves::tests::a_dependency_on_another_phase_is_dropped ... ok
+test passes::waves::tests::a_diamond_takes_the_longest_path ... ok
+test passes::waves::tests::a_plan_with_a_checkpoint_is_not_autonomous ... ok
+test passes::waves::tests::a_quick_plan_has_no_wave ... ok
+test passes::waves::tests::a_wave0_plan_starts_the_phase_at_wave_0 ... ok
+test passes::waves::tests::roots_are_wave_1 ... ok
+test prompts::host::tests::a_runtime_note_for_another_host_is_dropped ... ok
+test prompts::host::tests::adapter_header_lines_are_upstreams ... ok
+test prompts::host::tests::claude_code_gets_the_text_raw ... ok
+test prompts::host::tests::codex_conversion_matches_upstreams_vectors ... ok
+test prompts::host::tests::codex_drops_clear_and_moves_paths ... ok
+test prompts::host::tests::codex_skill_mentions_leave_paths_alone ... ok
+test prompts::host::tests::copilot_paragraphs_are_dropped_off_copilot ... ok
+test prompts::host::tests::cursor_conversion_matches_upstreams_vectors ... ok
+test prompts::host::tests::cursor_drops_the_claude_code_bug_workarounds ... ok
+test prompts::host::tests::cursor_keeps_claude_code_inside_a_runtime_compatibility_table ... ok
+test prompts::host::tests::the_codex_header_has_no_invocation_section_and_no_resolve_model ... ok
+test prompts::render::tests::arguments_replace_every_dollar_arguments ... ok
+test prompts::render::tests::render_order_repoints_before_the_host_conversion ... ok
+test prompts::render::tests::the_argument_text_rebuilds_upstreams_order ... ok
+test prompts::render::tests::the_execution_context_is_inlined_once_and_wrapped ... ok
+test prompts::render::tests::the_preamble_settings_block_lists_the_gsd_settings ... ok
+test prompts::render::tests::the_preamble_table_matches_spec_readme ... ok
+test prompts::render::tests::the_text_has_the_preamble_the_header_and_the_tail ... ok
+test prompts::repoint::tests::a_backticked_path_keeps_one_pair_of_backticks ... ok
+test prompts::repoint::tests::a_home_path_and_a_sentence_end_are_read_apart ... ok
+test prompts::repoint::tests::a_line_with_two_paths_rewrites_both ... ok
+test prompts::repoint::tests::a_path_no_workflow_embeds_says_so ... ok
+test prompts::repoint::tests::an_at_line_becomes_the_command_that_serves_the_file ... ok
+test prompts::repoint::tests::text_without_a_path_is_unchanged ... ok
+test time::tests::a_time_reads_back_to_its_seconds ... ok
+test time::tests::an_impossible_date_is_no_time ... ok
+test time::tests::unix_seconds_become_utc_rfc3339 ... ok
+test collectors::junit::tests::a_malformed_entity_costs_no_more_than_its_length ... ok
+test passes::roadmap::tests::a_long_dependency_chain_does_not_exhaust_the_stack ... ok
+test commands::complexity::tests::analyzes_large_file_within_bounds ... ok
 
-test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 263 filtered out; finished in 0.00s
+test result: ok. 292 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
      Running tests/assets.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/assets-5651d36c712aee7c)
 
@@ -26,140 +307,650 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
      Running tests/attribution.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/attribution-b002768fcb408b09)
 
-running 2 tests
+running 4 tests
+test the_licence_is_upstreams ... ok
 test every_ported_source_is_attributed ... ok
+test every_asset_is_attributed ... ok
 test the_vendored_scorer_is_the_file_the_port_names ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
      Running tests/cli/main.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/cli-0ad382cdcd2f99c8)
 
-running 45 tests
-test cmd_reports::gsd_health_and_gsd_stats_skills_render ... ok
+running 483 tests
+test a_project_with_requirements_checks_clean ... ok
+test a_phase_is_found_by_its_full_path_and_by_a_unique_short_form ... ok
+test a_lesson_is_named_within_its_retrospective ... ok
+test a_requirement_with_an_unknown_tier_is_refused ... ok
+test a_milestone_in_a_workstream_is_named_by_its_workstream ... ok
 test agents::a_rendered_agent_carries_its_attribution ... ok
+test agents::an_explicit_variant_beats_the_preset ... ok
+test agents::adaptive_follows_the_routing_tier ... ok
+test agents::an_override_beats_the_profile ... ok
+test agents::budget_profile_picks_haiku_for_light_agents ... ok
+test agents::compact_is_not_rendered_unless_asked ... ok
+test agents::claude_code_never_renders_compact ... ok
+test agents::exactly_ten_agents_have_a_compact_variant ... ok
+test agents::compact_variant_renders ... ok
+test agents::every_judges_file_lists_exactly_its_rules ... ok
+test agents::every_core_agent_renders ... ok
+test agents::inherit_writes_no_model_line ... ok
+test an_ambiguous_short_form_names_each_candidate ... ok
+test an_empty_project_loads_gsd_core_and_checks_clean ... ok
+test agents::plan_checker_file_lists_its_rules ... ok
+test cmd_attest::a_human_attested_command_refuses_an_agent_call ... ignored, K19: human-attested
+test cmd_attest::an_agents_answer_does_not_satisfy_the_tdd_review_gate ... ignored, K19: human-attested
+test agents::the_default_profile_is_balanced ... ok
+test agents::the_planner_judges_nothing ... ok
+test cmd_digest::a_project_research_is_refused ... ok
+test cmd_digest::no_context_is_refused ... ok
+test cmd_digest::record_research_reproduces_the_twins_digest ... ok
+test cmd_digest::record_research_stales_the_phases_plan_checks ... ok
+test cmd_attest::an_empty_by_is_refused ... ok
+test cmd_digest::record_spec_stales_its_e202_verdict ... ok
+test cmd_execute::a_stale_verdict_anywhere_refuses_start_plan_under_plus ... ignored, K19: project-wide E516 at a command gate
+test cmd_execute::a_control_character_in_text_is_refused ... ok
+test cmd_execute::a_started_time_older_than_a_week_is_refused ... ok
+test cmd_attest::a_call_records_whatever_by_names ... ok
+test cmd_execute::an_answered_checkpoint_is_refused ... ok
+test cmd_execute::an_option_outside_the_checkpoints_options_is_refused ... ok
+test cmd_digest::recorded_digest_equals_the_pass_digest ... ok
+test cmd_execute::a_stale_verdict_outside_the_subject_does_not_refuse_start_plan_yet ... ok
+test cmd_execute::complete_plan_is_refused_without_a_tdd_review_under_strict ... ok
+test cmd_execute::an_executed_plans_stale_plan_check_does_not_refuse_a_gate ... ok
+test cmd_execute::an_unexecuted_plans_stale_plan_check_still_refuses ... ok
+test cmd_execute::confirm_setup_writes_done ... ok
+test cmd_execute::complete_plan_refuses ... ok
+test cmd_execute::complete_plan_writes_both_times_and_their_ledger_lines ... ok
+test cmd_execute::start_plan_answers_the_hosts_now ... ok
+test cmd_execute::answer_checkpoint_writes_option_text_by_and_at ... ok
+test cmd_execute::start_plan_is_refused_by_a_stale_plan_check_under_strict ... ok
+test cmd_execute::start_plan_is_refused_by_a_stale_verdict_under_plus ... ok
+test cmd_execute::start_plan_is_allowed_under_default ... ok
+test cmd_execute::starting_a_plan_with_an_uncompleted_summary_is_still_refused ... ok
+test cmd_execute::the_executors_new_examples_run ... ok
+test cmd_milestone::a_retrospective_item_with_a_control_character_is_refused ... ok
+test cmd_milestone::a_closed_milestone_is_refused ... ok
+test cmd_milestone::close_milestone_on_the_twin_is_refused_e106_and_e511 ... ok
+test cmd_milestone::a_tech_debt_audit_without_a_persons_acceptance_is_refused ... ok
+test cmd_milestone::an_existing_retrospective_is_kept ... ok
+test cmd_phase::a_backlog_phase_is_refused ... ok
+test cmd_milestone::the_audit_it_records_is_the_one_the_gate_judged ... ok
+test cmd_milestone::close_milestone_writes_completion_and_the_retrospective ... ok
+test cmd_phase::a_criterion_with_a_control_character_or_an_empty_name_is_refused ... ok
+test cmd_phase::add_appends_with_to_be_planned ... ok
+test cmd_phase::edit_sets_goal_and_criteria ... ok
+test cmd_phase::remove_refuses_a_later_phase_that_has_started_without_force ... ok
+test cmd_phase::remove_refuses_a_phase_holding_an_override_and_names_the_step ... ok
+test cmd_phase::remove_refuses_an_executed_phase_without_force ... ok
+test cmd_phase::remove_refuses_when_an_override_outside_names_a_moved_truth ... ok
+test cmd_phase::insert_after_02_on_the_twin_makes_02_2 ... ok
+test cmd_phase::gsd_phase_skill_renders ... ok
+test cmd_phase::remove_with_force_deletes_its_plans ... ok
+test cmd_refactor::dispose_is_refused_twice ... ok
+test cmd_refactor::nothing_crossing_writes_nothing ... ok
+test cmd_refactor::a_second_run_does_not_duplicate_an_untriaged_proposal ... ok
+test cmd_refactor::propose_refactor_reads_the_plans_files_and_creates_a_proposal ... ok
+test cmd_refactor::strict_records_a_deviation_window ... ok
+test cmd_phase::remove_renames_every_nested_child_and_leaves_nothing_dangling ... ok
+test cmd_phase::remove_renumbers_twelve_phases ... ok
 test cmd_reports::health_equals_the_golden_on_the_twin ... ok
 test cmd_reports::progress_report_on_the_unverified_twin_differs_only_in_phase_01 ... ok
+test cmd_refactor::the_baseline_is_the_last_disposed_score ... ok
 test cmd_reports::reports_leave_backlog_phases_out ... ok
-test cmd_reports::stats_last_activity_is_the_newest_summary_completion ... ok
+test cmd_reports::gsd_health_and_gsd_stats_skills_render ... ok
 test cmd_reports::stats_git_fields_come_from_recorded_commits ... ok
-test cmd_surface::surface_list_reports_each_clusters_setting ... ok
-test cmd_verify::a_control_character_in_reported_is_refused ... ok
-test cmd_verify::an_issue_without_reported_is_refused ... ok
-test cmd_workstreams::complete_reports_unshipped_milestones ... ok
-test collect::a_report_that_stops_short_is_refused ... ok
-test collect::an_untagged_test_is_reported_unlinked ... ok
-test e502_probe::a_failing_report_after_a_pass_stales_the_pass_and_is_never_refused ... ok
+test cmd_reports::stats_last_activity_is_the_newest_summary_completion ... ok
+test cmd_state::a_control_character_in_how_is_refused ... ok
+test cmd_state::a_resolved_blocker_is_refused ... ok
+test cmd_state::a_second_pause_is_numbered_after_the_first ... ok
 test cmd_reports::progress_report_equals_the_golden_on_the_verified_twin ... ok
+test cmd_state::pause_without_a_reason_is_refused_by_clap ... ok
+test cmd_state::pause_then_resume_round_trips_the_twin ... ok
 test cmd_reports::stats_counts_phases_plans_and_requirements ... ok
-test execute_rules::without_a_report_w408_does_not_judge_checks ... ok
-test e502_probe::e502_is_silent_without_a_report ... ok
-test execute_status::a_check_status_is_pass_fail_or_unknown_from_the_report ... ok
-test execute_status::without_a_report_the_compile_says_i205_once_and_collect_silences_it ... ok
+test cmd_state::raise_then_resolve_writes_raised_and_resolved ... ok
+test cmd_surface::clusters_match_upstream ... ok
+test cmd_state::resume_keeps_a_handoff_another_pause_names ... ok
+test cmd_surface::help_lists_the_slash_commands_and_the_prompt ... ok
 test cmd_reports::stats_on_the_twin_leave_a_backlog_phase_out ... ok
+test cmd_surface::specforge_gsd_help_runs ... ok
+test cmd_surface::surface_list_reports_each_clusters_setting ... ok
+test cmd_surface::surface_profile_is_refused ... ok
+test cmd_verify::a_control_character_in_reported_is_refused ... ok
+test cmd_surface::surface_disable_prints_the_settings_line ... ok
+test cmd_surface::a_disabled_cluster_hides_its_skills_on_install ... ok
+test cmd_verify::an_issue_without_reported_is_refused ... ok
+test cmd_verify::a_re_answer_leaves_no_member_of_the_earlier_one ... ok
+test cmd_verify::approve_validation_writes_by_and_at ... ok
+test cmd_windows::a_control_character_in_the_reason_is_refused ... ok
+test cmd_windows::a_window_whose_proposal_was_accepted_cannot_be_waived ... ok
+test cmd_verify::the_sessions_totals_follow ... ok
+test cmd_windows::fix_then_waive_is_refused ... ok
+test cmd_windows::waive_requires_a_reason ... ok
+test cmd_workstreams::cleanup_lists_a_shipped_milestone_and_writes_nothing ... ok
+test cmd_workstreams::cleanup_on_the_twin_says_nothing_is_shipped ... ok
+test cmd_windows::record_window_line_is_an_integer ... ok
+test cmd_windows::record_then_waive_writes_recorded_at_and_waiver ... ok
+test cmd_workstreams::complete_reports_unshipped_milestones ... ok
+test cmd_workstreams::e517_fires_on_overlapping_active_plans_under_plus ... ok
+test cmd_workstreams::e517_is_silent_by_default ... ok
+test cmd_workstreams::e517_is_silent_once_one_plan_completed ... ok
+test cmd_verify::set_uat_result_reproduces_the_twins_ledger ... ok
+test cmd_workstreams::create_on_the_twin_creates_a_workstream ... ok
+test cmd_workstreams::list_and_progress_answer_from_the_graph ... ok
+test cmd_workstreams::resume_writes_it_too_and_a_missing_workstream_is_refused ... ok
+test cmd_workstreams::switch_writes_the_active_workstream_to_project_state ... ok
+test collect::a_coverage_ref_links_to_its_deliverable ... ok
+test cmd_workstreams::gsd_workstreams_and_gsd_cleanup_skills_render ... ok
+test collect::a_commit_naming_a_plan_is_written_into_its_plan_file ... ok
+test collect::a_failure_child_is_failed_and_skipped_is_not_recorded ... ok
+test collect::a_commit_the_host_cannot_write_costs_only_itself ... ok
+test collect::a_dry_run_writes_nothing_and_the_next_run_records_the_commit ... ok
+test collect::a_report_that_stops_short_is_refused ... ok
+test collect::a_repository_without_commits_is_e045 ... ok
+test collect::a_metadata_commit_names_the_plan_only ... ok
+test collect::a_second_collect_records_nothing_new ... ok
+test collect::a_test_name_may_hold_a_hash ... ok
+test collect::a_tagged_node_test_links_to_its_truth ... ok
+test collect::a_failing_test_never_refuses_the_commits_of_a_collect ... ok
+test collect::an_ambiguous_tag_is_unlinked ... ok
+test collect::a_subject_cannot_forge_a_commit ... ok
+test collect::an_untagged_test_is_reported_unlinked ... ok
+test collect::the_junit_collector_is_never_run_by_a_plain_collect ... ok
+test collect::an_ambiguous_plan_scope_is_skipped ... ok
+test collect::an_unrelated_commit_is_skipped ... ok
+test discuss::a_canonical_ref_to_a_missing_file_is_e016 ... ok
+test discuss::a_context_is_named_02_context_in_its_phase ... ok
+test commands::every_command_refuses_an_unknown_entity_with_its_name ... ok
+test discuss::a_context_that_says_no_external_specs_is_clean ... ok
+test commands::a_failing_gate_refuses_and_an_off_setting_allows ... ok
+test discuss::a_hand_written_digest_is_e083 ... ok
+test discuss::a_hand_written_legitimacy_is_e082 ... ok
+test discuss::a_hand_written_score_is_e082 ... ok
+test discuss::a_legitimate_verdict_sets_legitimacy ... ok
+test discuss::a_decision_of_another_origin_does_not_move_the_digest ... ok
+test discuss::a_decision_resolves_in_its_phase_and_from_the_project ... ok
+test discuss::a_project_research_is_named_research_in_the_project_scope ... ok
+test discuss::a_removed_interview_is_e085 ... ok
+test commands::dry_run_and_gates ... ok
+test discuss::a_prompt_judged_spec_verdict_records ... ok
+test discuss::a_removed_log_entry_is_refused ... ok
+test discuss::a_research_without_phase_is_e206_even_when_the_project_has_none ... ok
+test discuss::a_resolved_open_question_is_clean ... ok
+test discuss::a_rewritten_interview_answer_is_e084 ... ok
+test discuss::a_research_without_phase_that_is_not_named_research_is_e206 ... ok
+test discuss::a_rewritten_log_entry_is_refused ... ok
+test discuss::a_passed_spec_verdict_needs_scores_within_the_gates ... ok
+test discuss::an_appended_log_entry_is_clean ... ok
+test discuss::an_open_question_names_the_decision_that_resolves_it ... ok
+test discuss::an_interview_answer_may_be_set_once ... ok
+test discuss::context_drift_action_block_raises_w406_to_an_error ... ok
+test discuss::a_suspicious_package_fails_w205 ... ok
+test discuss::context_drift_action_warn_keeps_w406_a_warning ... ok
+test discuss::context_with_empty_refs_is_e201 ... ok
+test discuss::context_without_refs_is_e201 ... ok
+test discuss::context_drift_precheck_off_silences_w406 ... ok
+test discuss::open_question_without_decision_is_w204 ... ok
+test discuss::project_key_decisions_name_project_decisions ... ok
+test discuss::a_spec_recorded_before_its_context_is_w406 ... ok
+test discuss::the_spec_phase_prompt_names_its_rules ... ok
+test discuss::context_changed_after_research_is_w406 ... ok
+test discuss::w203_inputs ... ok
+test discuss::w204_is_an_error_under_gsd_strict ... ok
+test discuss::the_discuss_project_checks_clean ... ok
+test discuss::w205_inputs ... ok
+test discuss::w406_is_an_error_under_gsd_strict ... ok
+test e502_probe::a_failed_verdict_the_tests_explain_records ... ok
+test e502_probe::a_backstop_truth_is_never_e502 ... ok
+test discuss::two_phases_may_each_have_a_d_01 ... ok
+test discuss::research_items_are_named_within_their_research ... ok
+test e502_probe::a_verified_verdict_the_tests_contradict_is_refused_naming_e502 ... ok
+test e502_probe::e502_is_silent_without_a_report ... ok
+test e502_probe::a_verified_verdict_with_a_passing_linked_test_records ... ok
+test execute::a_commit_named_by_twelve_decimal_digits_is_a_name ... ok
+test e502_probe::a_failing_report_after_a_pass_stales_the_pass_and_is_never_refused ... ok
+test execute::a_deliverable_check_status_is_a_computed_member ... ok
+test execute::a_hand_written_blocker_raised_is_e083 ... ok
+test execute::a_decision_of_a_summary_is_linked_by_its_key_decisions ... ok
+test execute::a_deleted_file_in_a_summary_is_not_e016 ... ok
+test execute::a_hand_written_commit_field_is_refused_by_the_spec_guard ... ok
+test execute::a_hand_written_commit_is_e083_at_check ... ok
+test execute::a_handoff_names_its_blockers_and_decisions ... ok
+test execute::a_hand_written_pause_at_is_e083 ... ok
+test execute::a_pause_is_named_within_its_phase ... ok
+test execute::a_removed_deviation_is_e085 ... ok
+test execute::a_phaseless_pause_is_in_the_project_scope ... ok
+test execute::a_resolved_blocker_at_a_local_time_is_e107 ... ok
+test execute::a_rewritten_deviation_is_refused ... ok
+test execute::a_summary_requirement_list_and_a_deliverable_requirement_are_edges ... ok
+test execute::a_recorded_commit_is_read_back_by_its_task_and_plan ... ok
+test execute::a_task_cannot_write_its_commits_by_hand ... ok
+test execute::an_agent_set_of_a_commit_field_is_harness_field ... ok
+test execute::a_summary_is_named_03_02_summary_within_its_plan ... ok
+test execute::an_appended_deviation_is_clean ... ok
+test execute_rules::a_deliverable_without_checks_is_w408 ... ok
+test execute::summary_times_are_harness_fields ... ok
+test execute_rules::a_git_only_collect_leaves_the_checks_unjudged_even_under_strict ... ok
+test execute_rules::a_failing_check_is_w408 ... ok
+test execute_rules::a_human_judged_deliverable_needs_a_rationale ... ok
+test execute_rules::a_green_without_red_does_not_stop_the_other_commits ... ok
+test execute_rules::a_plan_only_commit_for_a_sibling_task_is_not_a_green ... ok
+test execute_rules::an_unknown_check_is_w408 ... ok
+test execute::the_execute_project_checks_clean ... ok
+test execute_rules::e405_is_an_error_under_every_profile ... ok
+test execute_rules::e403_is_clean_with_a_test_commit_first ... ok
+test execute_rules::e405_names_the_orm_and_its_push_command ... ok
+test execute_rules::e405_is_clean_with_push_evidence_with_the_gate_off_and_before_execution ... ok
+test execute_rules::each_execute_code_fires_on_its_fixture ... ok
+test execute_rules::w407_is_on_under_gsd_strict ... ok
+test execute_rules::without_a_report_w408_does_not_judge_checks ... ok
+test execute_status::a_check_status_is_pass_fail_or_unknown_from_the_report ... ok
+test execute_rules::task_without_commit_is_w407_only_when_task_commits_is_on ... ok
+test execute_rules::w403_needs_a_red_commit_first_and_tdd_mode_on ... ok
+test execute_status::duration_is_gsds_through_the_host ... ok
+test execute_status::actuals_and_key_files_come_from_commits_through_the_host ... ok
+test execute_status::plan_check_off_is_ready ... ok
+test explain_names_a_gsd_code ... ok
+test execute_status::without_a_report_the_compile_says_i205_once_and_collect_silences_it ... ok
+test gates::windows_enforce_is_off_under_compat_and_on_under_strict ... ok
+test harness::tests::a_relative_path_is_refused_whether_or_not_the_file_exists ... ok
+test gates::a_write_that_opens_a_window_is_accepted ... ok
+test execute_status::executing_beats_checked ... ok
+test execute_status::plan_status_follows_commits_and_halts ... ok
 test install_agents::a_judge_is_told_how_to_record_its_verdict ... ok
-test install_agents::install_agents_golden ... ok
 test install_agents::an_installed_agent_body_names_no_claude_gsd_core_path ... ok
-test judged::a_plan_without_a_verdict_reports_w311_to_w316 ... ok
+test install_agents::install_agents_golden ... ok
 test install_agents::the_body_is_the_asset ... ok
 test install_agents::a_second_install_changes_nothing ... ok
-test plan_rules::the_plan_project_reports_no_plan_rule ... ok
+test judged::a_failing_verdict_on_a_warning_rule_records ... ok
+test install_skills::install_skills_golden ... ok
+test judged::a_failing_verdict_on_an_error_rule_records ... ok
+test judged::a_passing_verdict_on_an_error_rule_records ... ok
+test judged::a_plan_without_a_verdict_reports_w311_to_w316 ... ok
+test judged::a_stale_basis_is_refused ... ok
+test judged::a_failing_check_leaves_the_plan_a_draft ... ok
+test judged::an_unknown_rule_is_refused ... ok
+test install_skills::a_second_install_changes_nothing ... ok
+test judged::plan_check_off_is_ready ... ok
+test judged::malformed_findings_are_invalid_input ... ok
+test judged::record_verdict_records_a_plan_check_verdict ... ok
 test judged::plan_check_off_reports_none ... ok
+test judged::four_passing_verdicts_make_checked ... ok
+test judged::strict_raises_w311_to_error ... ok
+test judged::the_judge_is_the_rules_not_the_callers ... ok
+test judged::an_edited_input_stales_checked ... ok
+test judged_refusals::an_agent_creates_a_judged_target ... ok
+test judged_refusals::a_plan_check_pass_is_replaced_by_issues ... ok
+test judged_refusals::e202_failed_records ... ok
+test judged_refusals::a_failing_verdict_replaces_a_pass ... ok
+test judged_refusals::w203_failed_records_under_strict ... ok
+test judged_refusals::e518_issues_records ... ok
+test judged_refusals::an_edit_that_stales_a_pass_is_allowed ... ok
+test ladder::an_open_human_item_makes_the_phase_need_review ... ok
+test ladder::an_unverified_phase_stays_executed ... ok
+test ladder::windows_are_counted_by_status ... ok
+test parity_plans::gate_cutover_plan_verdicts_reproduce ... ok
+test parity_plans::taskboard_plan_verdicts_match ... ok
+test parity_plans::gate_cutover_variants_reproduce_the_other_verdicts ... ok
+test judged_flow::judged_flow_end_to_end ... ok
+test parity_plans::taskboard_waves_match ... ok
+test parity_discuss::taskboard_discuss_matches_planning ... ok
+test parity_roadmap::taskboard_roadmap_matches_gsd_tools ... ok
+test parity_state::completed_phases_and_percent_match_upstream ... ok
+test parity_state::taskboard_summaries_match_planning ... ok
+test parity_state::taskboard_coverage_matches_recorded_tests ... ok
+test parity_state::phase_01_is_complete_as_upstream_says ... ok
 test parity_verify::the_uat_twin_reports_what_audit_uat_lists ... ok
-test reference::reference_answers_json_and_accepts_the_full_path ... ok
+test parity_verify::the_uat_twin_totals_are_the_uat_summary ... ok
+test parity_verify::the_uat_twins_status_is_partial_where_the_file_says_complete ... ok
+test plan::a_checkpoint_is_after_a_task_of_its_plan ... ok
+test plan::a_coupling_peer_is_an_edge ... ok
+test plan::a_dependency_on_another_phase_leaves_the_wave_alone ... ok
+test plan::a_file_the_plan_will_create_is_not_e016 ... ok
+test plan::a_hand_written_checkpoint_answer_is_e083 ... ok
+test plan::a_hand_written_setup_done_is_e083 ... ok
+test parity_state::taskboard_progress_matches_gsd_tools ... ok
+test plan::a_plan_depends_on_its_sibling_by_short_name ... ok
+test plan::a_quick_plan_is_autonomous_and_has_no_wave ... ok
+test plan::a_plan_is_found_as_v1_0_03_03_02 ... ok
+test plan::a_quick_plan_is_in_the_project_scope ... ok
+test plan::a_removed_disposition_is_e085 ... ok
+test plan::a_rewritten_disposition_is_refused ... ok
+test plan::a_settled_by_names_a_decision ... ok
+test plan::a_task_with_two_verify_commands_declares_both ... ok
+test plan::a_task_is_named_within_its_plan ... ok
+test plan::an_appended_disposition_is_clean ... ok
+test parity_verify::the_twins_verification_passes_with_its_verdicts ... ok
+test plan::a_verify_item_without_automated_is_refused ... ok
+test plan::an_artifact_the_plan_creates_is_not_e016 ... ok
+test plan::must_haves_are_named_within_their_plan ... ok
+test parity_state::the_twin_reports_only_unrecorded_verdicts_with_and_without_a_report ... ok
+test plan::two_phases_may_each_have_a_plan_01 ... ok
+test plan::waves_follow_phase_plan_index ... ok
+test plan_rules::a_decision_cited_by_its_first_six_words_is_covered ... ok
+test plan_rules::a_coupling_peer_in_another_wave_is_i321 ... ok
+test plan_rules::a_deleted_file_counts_as_overlap ... ok
+test plan_rules::a_manual_task_without_files_and_three_children_are_clean ... ok
+test plan_rules::a_justified_coupling_is_i321 ... ok
+test plan_rules::a_path_holding_a_comma_is_one_item ... ok
+test plan::the_plan_project_checks_clean ... ok
+test plan::the_readme_example_checks_clean ... ok
+test plan_rules::a_plan_depending_on_another_phase_is_e102 ... ok
+test plan_rules::a_plan_named_after_another_phase_is_w323 ... ok
+test plan_rules::a_plan_without_its_phase_is_w323 ... ok
+test plan_rules::a_project_decision_is_not_tracked ... ok
+test plan_rules::a_quick_plan_without_requirements_is_clean ... ok
+test plan_rules::a_version_and_a_hit_citing_a_decision_are_not_e312 ... ok
+test plan_rules::an_action_for_now_static_is_e312 ... ok
+test plan_rules::an_uncovered_phase_requirement_is_w317 ... ok
+test plan_rules::an_unplanned_phase_is_not_e301 ... ok
+test plan_rules::an_unplanned_phase_is_not_w317 ... ok
+test plan_rules::an_uncited_context_decision_is_e310 ... ok
+test plan_rules::context_coverage_gate_off_silences_e310 ... ok
+test plan_rules::plan_with_empty_requirements_is_e302 ... ok
+test plan_rules::phase_requirement_in_no_plan_is_e301 ... ok
+test plan_rules::plan_cycle_is_e102 ... ok
+test plan_rules::plans_of_different_waves_may_share_a_file ... ok
+test plan_rules::post_planning_gaps_off_silences_w317 ... ok
+test plan_rules::plan_without_requirements_is_e302 ... ok
+test plan_rules::the_plan_project_reports_no_plan_rule ... ok
+test plan_rules::same_wave_overlap_is_w305 ... ok
+test plan_rules::task_file_outside_plan_is_w306 ... ok
+test plan_rules::w305_is_an_error_under_gsd_strict ... ok
+test plan_rules::w308_is_an_error_under_gsd_strict ... ok
+test plan_rules::w323_is_an_error_under_gsd_strict ... ok
+test progress::a_halted_plan_stays_counted_in_the_milestone ... ok
+test progress::a_requirement_is_complete_once_a_plan_naming_it_completes ... ok
+test progress::a_requirement_of_an_executing_plan_is_in_progress ... ok
+test progress::a_requirement_whose_plans_all_halted_is_blocked ... ok
 test progress::context_status_is_ready_once_bounded_and_referenced ... ok
+test progress::a_workstream_is_complete_when_its_milestones_shipped ... ok
+test progress::milestone_stats_and_git_range_come_from_commits ... ok
+test progress::an_inserted_and_a_backlog_phase_are_flagged ... ok
+test progress::validated_and_active_follow_requirement_status ... ok
+test prompts_support::a_codex_mention_is_found_and_a_path_is_not ... ok
+test prompts_support::the_existing_judge_prompt_renders_through_the_helpers ... ok
+test reference::reference_answers_json_and_accepts_the_full_path ... ok
+test progress::project_updated_is_the_latest_commit_or_completion ... ok
+test plan_rules::each_plan_shape_code_fires_on_its_fixture ... ok
 test reference::reference_refuses_an_unknown_path_and_names_the_nearest ... ok
 test reference::reference_serves_an_embedded_reference ... ok
-test roadmap::a_clean_roadmap_reports_no_gsd_code ... ok
 test reference::reference_names_a_templates_kind ... ok
+test roadmap::a_clean_roadmap_reports_no_gsd_code ... ok
+test roadmap::a_far_phase_number_is_one_warning ... ok
+test roadmap::a_criterion_with_a_comma_counts_once ... ok
+test progress::the_phase_ladder_up_to_executed ... ok
+test roadmap::a_second_project_is_e108 ... ok
+test roadmap::a_phase_with_two_contexts_is_e206 ... ok
+test roadmap::one_criterion_is_w103 ... ok
 test roadmap::roadmap_errors_report_each_code_once ... ok
+test roadmap::letter_and_nested_decimal_phases_are_numbered_not_skipped ... ok
+test roadmap::w103_is_an_error_under_gsd_strict ... ok
+test roadmap::six_criteria_is_w103 ... ok
+test scan::a_debt_marker_with_an_issue_ref_is_silent ... ok
 test scan::a_missing_artifact_is_reported ... ok
+test scan::a_short_artifact_is_too_short ... ok
+test scan::a_key_link_pattern_not_found_is_not_wired ... ok
 test scan::a_missing_export_is_reported ... ok
+test scan::a_wave0_item_is_done_when_its_file_exists_and_its_test_ran ... ok
+test scan::a_withheld_artifact_is_unchecked_not_missing ... ok
+test scan::anti_patterns_list_todo_as_warning ... ok
+test scan::xxxl_is_not_a_debt_marker ... ok
+test settings::a_family_key_outside_its_list_is_refused ... ok
+test scan::todo_in_a_phase_file_is_e505 ... ok
+test scan::writing_a_plan_that_names_a_file_with_a_debt_marker_is_accepted ... ok
+test settings::an_explicit_setting_beats_its_default ... ok
+test settings::a_secret_is_never_listed_with_its_value ... ok
+test settings::context_is_gsds_enum_and_context_profile_is_not_a_setting ... ok
+test settings::gsd_strict_raises_w103_to_an_error ... ok
+test settings::specforge_settings_lists_gsd_core_defaults ... ok
+test settings::the_unset_sentinel_of_a_reviewer_lane_is_accepted ... ok
+test settings::specforge_task_commits_off_gates_w407 ... ok
+test verify_paths::a_bare_verify_text_is_not_e507 ... ok
+test two_milestones_may_each_have_a_phase_01 ... ok
+test settings::the_threshold_endpoints_gsd_refuses_are_refused ... ok
+test verify_paths::a_broken_directory_is_e320_and_not_also_w324 ... ok
+test verify_paths::a_dynamic_path_is_w324 ... ok
+test verify_paths::a_computed_path_field_is_read_with_directory_facts ... ok
+test verify_paths::a_directory_the_plan_creates_is_pending_not_missing ... ok
+test verify_paths::a_directory_without_the_manifest_its_tool_needs_is_e320 ... ok
+test verify_paths::a_manifest_over_the_host_cap_is_not_checked ... ok
+test verify_paths::a_missing_sentinel_is_not_e507 ... ok
+test verify_paths::a_path_no_command_names_is_not_read ... ok
+test verify_paths::a_missing_directory_is_e320 ... ok
+test verify_paths::a_vacuous_but_real_statement_is_clean ... ok
+test verify_paths::a_missing_npm_script_is_w324 ... ok
+test verify_paths::a_withheld_file_is_not_a_directory ... ok
+test verify_paths::an_empty_fails_when_is_e507 ... ok
+test verify_paths::a_placeholder_fails_when_is_e507 ... ok
+test verify_paths::an_outside_path_is_w324 ... ok
+test verify_paths::an_unparsable_package_json_is_w324 ... ok
+test verify_paths::automated_without_fails_when_is_e507 ... ok
+test verify_paths::one_manifest_is_read_once_for_all_the_tasks_that_name_it ... ok
+test verify_paths::task_files_are_split_on_commas_and_white_space ... ok
+test verify_paths::the_project_root_needs_no_directory_fact ... ok
+test verify_rules::a_phase_without_validation_is_not_judged_by_e314 ... ok
+test verify_rules::a_research_that_mentions_validation_architecture_without_a_heading_is_not_w510 ... ok
+test verify_rules::a_phase_with_validation_architecture_and_no_validation_is_w510 ... ok
+test verify_rules::a_research_without_the_section_is_not_w510 ... ok
+test verify_rules::a_validation_written_with_a_relative_phase_is_not_w510 ... ok
+test verify_rules::a_task_without_verify_or_wave0_is_e314 ... ok
+test verify_rules::a_skip_without_reason_is_e509 ... ok
+test verify_rules::a_validation_written_with_a_relative_phase_still_validates_the_phase ... ok
+test verify_rules::a_wave0_item_written_with_a_relative_validation_still_satisfies_e314 ... ok
+test verify_rules::a_wave0_item_for_the_requirement_satisfies_e314 ... ok
+test verify_rules::a_verification_before_validated_is_w510 ... ok
+test verify_rules::each_verify_code_fires_on_its_fixture ... ok
+test verify_rules::each_verify_code_is_silent_on_its_counterpart ... ok
 test verify_rules::an_issue_without_a_report_is_e509 ... ok
+test verify_rules::fixed_only_is_silent ... ok
+test verify_rules::four_overrides_is_w504 ... ok
+test verify_rules::an_override_without_by_is_e503 ... ok
+test verify_rules::overrides_written_with_either_spelling_are_counted_together_by_w504 ... ok
+test verify_paths::a_path_the_host_did_not_serve_is_not_checked ... ok
+test verify_rules::waived_only_is_silent ... ok
+test verify_rules::waived_and_fixed_is_e513 ... ok
+test verify_rules::nyquist_validation_off_silences_e314_and_w510 ... ok
+test verify_status::a_hand_written_override_checks_clean ... ok
+test verify_status::a_declined_proposal_waives_its_window ... ok
+test verify_status::a_human_accepts_debt ... ok
+test verify_status::a_missing_artifact_makes_gaps_found ... ok
+test verify_status::a_uat_gap_is_named_03_03_uat_u1_g1 ... ok
+test verify_status::a_disposed_proposal_fixes_its_window ... ok
+test verify_status::a_completed_gap_closure_plan_resolves_its_gap ... ok
+test verify_status::a_person_edits_an_override ... ok
+test verify_status::a_verify_gap_is_named_by_its_verification ... ok
+test verify_status::a_waived_window_is_waived ... ok
+test verify_status::a_validation_row_names_its_task ... ok
+test verify_status::an_agent_cannot_accept_debt ... ok
+test verify_status::a_waiver_is_immutable_once_recorded ... ok
+test verify_status::a_uat_result_is_harness_written ... ok
+test verify_status::an_agent_written_override_is_refused ... ok
+test verify_status::an_agent_cannot_delete_an_audit_carrying_debt_accepted ... ok
+test verify_status::an_open_human_item_makes_human_needed ... ok
+test verify_status::an_unverified_phase_makes_the_audit_gaps_found ... ok
 test verify_status::an_override_written_with_relative_references_still_counts ... ok
-test verify_verdicts::an_audit_without_a_verdict_reports_e518 ... ok
+test verify_status::audit_status_is_computed ... ok
+test verify_status::an_agent_cannot_edit_an_existing_override ... ok
+test verify_status::an_issue_with_one_gap_resolved_and_one_open_is_not_complete ... ok
+test verify_status::approval_is_harness_written ... ok
+test verify_status::present_files_alone_never_pass_a_verification ... ok
+test verify_status::re_verification_is_absent_without_a_baseline_verification ... ok
+test verify_status::gap_closure_names_a_verify_or_uat_gap ... ok
 test verify_status::uat_tests_and_gaps_written_with_relative_references_still_count ... ok
 test verify_status::validation_rows_written_with_relative_references_still_count ... ok
-test parity_state::the_twin_reports_only_unrecorded_verdicts_with_and_without_a_report ... ok
+test verify_status::re_verification_keeps_what_still_holds ... ok
+test verify_status::verification_fields_are_computed ... ok
+test verify_status::without_verdicts_status_is_pending_and_score_0_of_m ... ok
+test verify_status::uat_totals_match_audit_uat_golden ... ok
+test verify_status::the_verify_project_checks_clean ... ok
+test verify_verdicts::a_failed_truth_makes_gaps_found ... ok
+test verify_verdicts::a_backstop_truth_is_human_needed ... ok
+test verify_verdicts::a_coincidental_verdict_verifies_too ... ok
+test verify_verdicts::a_passed_integration_sets_the_field ... ok
+test verify_verdicts::a_deferral_counts_only_to_a_later_phase ... ok
+test verify_verdicts::a_key_link_with_a_pattern_is_not_judged ... ok
+test verify_verdicts::an_audit_without_a_verdict_reports_e518 ... ok
+test verify_verdicts::a_key_link_with_a_regex_pattern_stays_pending ... ok
+test verify_verdicts::a_verified_truth_records ... ok
+test verify_verdicts::covered_digest_changes_with_a_covered_file ... ok
+test verify_verdicts::e518_inputs ... ok
+test verify_verdicts::a_stale_verdict_is_not_a_pass ... ok
+test verify_verdicts::an_override_still_verifies ... ok
+test verify_verdicts::the_plans_of_the_phase_are_the_ones_judged ... ok
+test verify_verdicts::an_override_ends_when_its_truth_is_rewritten ... ok
+test verify_verdicts::every_item_verified_makes_passed ... ok
+test verify_verdicts::every_non_passing_truth_outcome_records ... ok
 
-test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 436 filtered out; finished in 43.75s
+test result: ok. 480 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 243.32s
 
      Running tests/declaration.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/declaration-f7149a427aefaa00)
 
-running 0 tests
+running 22 tests
+test a_phase_is_scoped_by_its_milestone ... ok
+test canonical_ref_paths_are_files_from_the_project_root ... ok
+test every_field_of_an_interview_is_immutable ... ok
+test context_decision_and_deferred_idea_declare_the_fields_of_the_model ... ok
+test a_decision_origin_is_required_and_immutable_and_its_phase_is_not_required ... ok
+test serde_json_is_a_dependency_only_while_the_library_uses_it ... ok
+test the_code_book_golden ... ok
+test the_code_book_matches_rules_md ... ok
+test milestone_and_phase_declare_the_fields_of_the_model ... ok
+test project_and_requirement_declare_the_fields_of_the_model ... ok
+test the_discuss_kinds_are_scoped_by_their_phase ... ok
+test the_context_digest_is_computed_and_the_recorded_copies_are_harness_values ... ok
+test the_family_carries_its_own_licence_texts ... ok
+test the_handshake_names_gsd_core_and_tracks_1_18_0 ... ok
+test the_discussion_entries_are_append_only ... ok
+test the_kinds_golden ... ok
+test every_research_item_is_scoped_by_its_research ... ok
+test the_learning_kinds_declare_the_fields_of_the_model ... ok
+test the_tracked_release_is_the_manifests ... ok
+test the_spec_kinds_declare_the_fields_of_the_model ... ok
+test the_roadmap_kinds_declare_every_field_of_project_md ... ok
+test the_discuss_kinds_declare_every_field_of_discuss_md ... ok
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
 
      Running tests/declaration_execute.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/declaration_execute-61a19961b4169627)
 
-running 2 tests
-test the_junit_collector_reads_a_report_and_is_handed_the_graph ... ok
+running 11 tests
+test a_deliverable_check_status_is_a_computed_member_in_the_declaration ... ok
 test a_summary_requires_phase_is_a_reference_member ... ok
+test the_git_collector_runs_git_log_and_writes_a_plan ... ok
+test the_junit_collector_reads_a_report_and_is_handed_the_graph ... ok
+test the_deviation_kind_is_append_only_and_every_field_immutable ... ok
+test the_model_counts_its_fields ... ok
+test the_model_has_the_collectors_it_builds ... ok
+test the_model_declares_the_execute_kinds ... ok
+test the_ops_kinds_declare_the_fields_of_the_model ... ok
+test the_execute_kinds_declare_the_fields_of_the_model ... ok
+test the_commit_kind_is_harness_written ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.02s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
 
      Running tests/declaration_judged.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/declaration_judged-252ecfb1ef4eea02)
 
-running 0 tests
+running 1 test
+test plan_checker_inputs_match_rules_md ... ok
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running tests/declaration_plan.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/declaration_plan-fcfabd1446f3cdb5)
 
-running 1 test
+running 11 tests
+test a_checkpoint_answer_is_a_harness_block_with_no_e107_rule ... ok
 test a_coupling_peer_is_a_reference_member ... ok
+test a_verify_is_a_block_list_of_a_command_and_its_failing_direction ... ok
+test each_computed_field_is_listed_by_one_compute_pass ... ok
+test a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list ... ok
+test the_disposition_kind_is_append_only_and_every_field_immutable ... ok
+test the_plan_kind_is_scoped_by_its_phase_which_is_optional ... ok
+test the_plan_kind_declares_the_fields_of_the_model ... ok
+test the_plan_kinds_declare_every_field_of_plan_md ... ok
+test the_task_and_checkpoint_kinds_declare_the_fields_of_the_model ... ok
+test must_haves_golden ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.02s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
 
      Running tests/declaration_verify.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/declaration_verify-2a88526b41e847d2)
 
-running 1 test
+running 4 tests
 test the_guards_are_declared_with_their_reports ... ok
+test the_model_has_its_kinds ... ok
+test an_override_is_a_human_only_kind ... ok
+test the_verification_kinds_declare_the_fields_of_the_model ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.01s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
      Running tests/models.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/models-52309ff77b43f5c1)
 
-running 0 tests
+running 2 tests
+test the_model_table_is_the_catalogs ... ok
+test the_preset_sets_every_agent_for_every_profile_but_inherit ... ok
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
      Running tests/port.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/port-c8555718e0d1ccfa)
 
-running 1 test
+running 8 tests
+test blind_rename_counts_are_pinned ... ok
+test every_command_a_body_names_is_declared ... ok
+test no_asset_names_planning_or_gsd_tools ... ok
+test the_compact_bodies_are_upstreams_too ... ok
+test tools_are_upstreams ... ok
 test bodies_diff_only_in_ported_passages ... ok
+test every_gsd_invocation_a_body_gives_uses_flags_the_command_declares ... ok
+test every_specforge_new_and_set_a_body_gives_fits_the_kind ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.03s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.38s
 
      Running tests/port_workflows.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/port_workflows-a73d38ef83825cc5)
 
-running 1 test
+running 2 tests
+test the_vendored_tree_lists_every_asset ... ok
 test workflow_assets_diff_only_in_ported_passages ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.01s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
      Running tests/profiles.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/profiles-5c4d1978da133a5f)
 
-running 0 tests
+running 3 tests
+test the_gates_are_the_setting_gated_rules_table ... ok
+test the_profile_presets_are_the_settings_md_table ... ok
+test profiles_match_rules_md ... ok
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
      Running tests/record_script.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/record_script-16ec44c6fed77901)
 
-running 0 tests
+running 1 test
+test a_failing_gsd_tools_that_still_prints_json_records_nothing ... ok
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
 
      Running tests/settings_roster.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/settings_roster-41dcbccc7f076c7f)
 
-running 0 tests
+running 1 test
+test every_core_key_of_the_manifest_is_declared_with_its_default ... ok
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/slash_meta.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/slash_meta-6fb6291d2b10455b)
+
+running 1 test
+test every_prompt_slash_keeps_its_upstream_metadata ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
      Running tests/writer_roster.rs (/Users/mohammadalmechkor/Projects/Perso/SpecForge-targets/r42/gsd/debug/deps/writer_roster-1132fc9cff5587c4)
 
-running 0 tests
+running 3 tests
+test each_row_names_a_command_that_writes_its_field ... ok
+test each_writer_is_a_writing_command_or_the_git_collector ... ok
+test every_h_field_has_one_writer ... ok
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
    Doc-tests gsd_core
 
@@ -168,4 +959,4 @@ test core/src/lib.rs - __export_bridge_impl (line 56) ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-all doctests ran in 0.29s; merged doctests compilation took 0.29s
+all doctests ran in 0.14s; merged doctests compilation took 0.13s

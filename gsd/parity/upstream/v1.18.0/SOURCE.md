@@ -70,6 +70,10 @@ absolute URL of the file at the tag). A file whose relative links leave this tre
 port drops it, because the slash binding carries it. All files are MIT, Copyright (c) 2026 Open GSD
 (`gsd/core/LICENSE-GSD`).
 
+`src/runtime-artifact-conversion.cts` is the source of the host adapters `gsd/core/src/prompts/host.rs` ports (Codex's and
+Cursor's text rewrites and adapter headers), and `tests/cursor-conversion.test.cjs` and `tests/runtime-converters.test.cjs`
+are the tests whose vectors `host/tests.rs` runs through the port.
+
 | File | sha256 |
 |---|---|
 | `gsd-core/references/agent-skills-bootstrap.md.txt` | `0ad5db82dd8bda51bdb367c3abba2a360846a3f1bcfc3efbc8d546b7b38a879b` |
@@ -104,4 +108,7 @@ port drops it, because the slash binding carries it. All files are MIT, Copyrigh
 | `gsd-core/templates/roadmap.md` | `e4e35a9eb5dd4d4f2b4aed28ca6896c5bf4d652ad565f698325a56a7e840694f` |
 | `gsd-core/templates/state.md` | `03d21c7d9e571d2684beaf00198d4f371832a4770255d52dab578973cbb4a0a9` |
 | `gsd-core/templates/verification-report.md` | `930e2f288db2429375e97e14334545a85ec9bf2fc493147c817da11abc4b2488` |
+| `src/runtime-artifact-conversion.cts` | `9b84125146270c5ecfc6f8f530f2ca01883b0239497990e91834a4b4939cad6c` |
+| `tests/cursor-conversion.test.cjs` | `c787bcff4ff452f17459caed63706a11ecc3d8cbc2eb728d20dfcdc448da0e6b` |
+| `tests/runtime-converters.test.cjs` | `9b481753590f9a0a48d3a76136ae03d27cb16029d4576c7f2711342f2f6f2263` |
 <!-- r42 workflows end -->
