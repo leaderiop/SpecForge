@@ -7,6 +7,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # No debuginfo in test binaries: a core-crate rebuild links ~140 of them, 27% faster without it (measured
+  # 108s -> 79s). opt-level 0 was tried too: the build saved 77s, the tests lost 267s. CI backtraces lose file:line.
+  CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
   ci:
@@ -45,8 +48,11 @@ jobs:
           # PRs read main's cache and write none, so they never evict it.
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Install nextest
-        uses: taiki-e/install-action@nextest
+      # Prebuilt binaries: `cargo install` of these took 2–6 min on a cold cache. Versions match gate/src/run.rs.
+      - name: Install nextest, cargo-audit and tree-sitter
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest,cargo-audit,tree-sitter-cli@0.27.0
 
       - name: Install z3 (SMT solver for prove tests)
         run: sudo apt-get update && sudo apt-get install -y z3
