@@ -235,6 +235,29 @@ fn the_command_line_help_is_derived_from_the_declaration() {
     insta::assert_snapshot!("command_line_help", pinned.join("\n"));
 }
 
+#[test]
+fn an_extension_command_named_help_is_parsed() {
+    let mut c = contribution();
+    c.id = "help".into();
+    c.args.clear();
+    let command = declared(c);
+    let matches = command_line("x", &[&command])
+        .try_get_matches_from(["specforge x", "help"])
+        .unwrap();
+    assert_eq!(matches.subcommand().map(|(name, _)| name), Some("help"));
+    // `--help` is still the generated help of the extension and of the command.
+    assert!(is_display(
+        &command_line("x", &[&command])
+            .try_get_matches_from(["specforge x", "--help"])
+            .unwrap_err()
+    ));
+    assert!(is_display(
+        &command_line("x", &[&command])
+            .try_get_matches_from(["specforge x", "help", "--help"])
+            .unwrap_err()
+    ));
+}
+
 #[specforge_test(
     behavior = "locate_project_root",
     verify = "every command that reads a project takes the one --path option, and none takes a project path as a positional argument"

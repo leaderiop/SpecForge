@@ -484,6 +484,8 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
     let mut cli = Command::new(ext.to_string())
         .bin_name(format!("specforge {ext}"))
         .subcommand_required(true)
+        // An extension may declare a command named `help`: clap's own `help` subcommand would be a duplicate.
+        .disable_help_subcommand(true)
         .arg_required_else_help(true);
     for command in commands.iter().filter(|c| c.refusal().is_none()) {
         let mut sub = Command::new(command.cli_name()).about(command.title().to_string());
