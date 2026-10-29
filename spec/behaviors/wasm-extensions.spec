@@ -285,6 +285,7 @@ behavior compute_field_values "Compute Field Values" {
   verify unit "a computed field or member is never required and never scaffolded"
   verify unit "every surface shows a computed value as a field and marks it computed"
   verify unit "the graph a command and a writing collector receive carries the computed values"
+  verify unit "a call over a checked project runs no compute pass"
   verify unit "hover marks a computed field and completion offers none"
   verify unit "MCP inspect shows a computed value"
 }

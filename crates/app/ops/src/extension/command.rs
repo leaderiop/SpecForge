@@ -9,7 +9,7 @@
 //! and why the host refuses it. [`ExtensionCommands`] is the project's
 //! commands as the registry build routes them (ADR 0097). The CLI and MCP both read them and run the command here:
 //! the export receives the protocol's `CommandInput` (the args, the project
-//! root, the compiled graph in the graph export's shape, the format the
+//! root, the compiled graph in the graph export's shape, computed values and judgements included (ADR 0299), the format the
 //! caller asked for and the host's date) and answers with a
 //! `CommandOutput` (`specforge_protocol_types`, through
 //! `specforge_wasm::ExtensionCalls`). The host knows no command: which
@@ -458,7 +458,7 @@ impl RunError {
 /// 4. the date is the host's, UTC, `YYYY-MM-DD` (ADR 0011 C);
 /// 5. the command's subject is resolved to its full path, and its gate evaluated in the subject's scope: a failing
 ///    gate is [`RunError::Gate`] and the export is not called (ADR 0291);
-/// 6. the view's graph is rendered as the graph export
+/// 6. the view's graph is rendered as the graph export, with its computed values and judgements (ADR 0299)
 ///    (`specforge_emitter::emit`, at the project's versioned schema version, in the view's registry build)
 ///    and the `cmd__` export called with that `CommandInput`.
 ///
@@ -501,9 +501,29 @@ pub(crate) fn settle(
     }
 }
 
-/// The view's graph as the plain graph export, naming the version of the
-/// project's schema.
+/// The view's graph as the graph export a call receives (ADR 0299): authored values, the computed values of the
+/// checked compile and each entity's judgements, as `specforge export` shows them. A command, a `reads_graph` prompt,
+/// a `reads_graph` hook and a writing collector get this. A call that needs what a person wrote, never what a pass
+/// derived, uses [`authored_export`].
 pub(crate) fn graph_export(view: &ProjectView<'_>) -> String {
+    let versioned = view.versioned_schema();
+    let judgements = view.project().judgements().listed();
+    specforge_emitter::emit(
+        view.graph(),
+        &specforge_emitter::EmitOptions {
+            schema: versioned.schema(),
+            registries: view.registries(),
+            computed: Some(view.computed()),
+            judgements: Some(&judgements),
+            ..specforge_emitter::EmitOptions::default()
+        },
+    )
+    .expect("a graph export cannot fail")
+}
+
+/// The view's graph as the plain graph export, naming the version of the project's schema: authored values only (the
+/// hand-edit guard compares what a person wrote, ADR 0299 D2).
+pub(crate) fn authored_export(view: &ProjectView<'_>) -> String {
     let versioned = view.versioned_schema();
     specforge_emitter::emit(
         view.graph(),

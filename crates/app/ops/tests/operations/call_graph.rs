@@ -6,19 +6,20 @@
 use std::sync::Arc;
 
 use serde_json::{Value, json};
-use specforge_extension_sdk::DeclaredCategory;
+use specforge_extension_sdk::prelude::CommandOutput;
 use specforge_ops::analysis::collect::{self, Mode, Request};
 use specforge_ops::testing::{ScriptedMachine, caller};
 use specforge_ops::view::ProjectView;
 use specforge_project::SharedRuntime;
 use specforge_project::testing::{
     CORE, GSD_WRITES_EXTENSIONS, GsdWrites, TestProject, gsd_judged_builder, gsd_judged_project,
+    gsd_writes_answer,
 };
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::WasmCallResult;
 use specforge_wasm::testing::InProcessRuntime;
 
-use crate::plans::{compiled, run_command};
+use crate::plans::{compiled, revision, run_command, set};
 
 const SPEC: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\nverification V \"V\" {\n  phase 03\n}\n\ndeliverable D \"D\" {\n  checks [ { kind unit  ref \"t\" } ]\n}\n";
 
@@ -71,7 +72,6 @@ fn node(input: &Value, id: &str) -> Value {
     behavior = "compute_field_values",
     verify = "the graph a command and a writing collector receive carries the computed values"
 )]
-#[ignore = "pins K18; T3 un-ignores"]
 fn a_commands_graph_carries_the_computed_values() {
     let p = project();
     let runtime = Arc::new(
@@ -94,18 +94,21 @@ fn a_commands_graph_carries_the_computed_values() {
     behavior = "answer_judged_inputs",
     verify = "inspect, query, the graph export and a command's graph list each entity's judgements"
 )]
-#[ignore = "pins K18; T3 un-ignores"]
 fn a_commands_graph_carries_each_entitys_judgements() {
     let project = gsd_judged_project("");
     let runtime = Arc::new(
         InProcessRuntime::new()
             .with(|| {
                 let mut c = gsd_judged_builder();
-                c.raw_category(
-                    DeclaredCategory::Surfaces,
-                    json!([{"commands": [{"id": "show", "title": "show", "description": "show",
-                        "export": "cmd__show", "args": []}]}]),
-                );
+                c.command("show", |cmd| {
+                    cmd.title("Show").handler(|_| CommandOutput {
+                        exit_code: 0,
+                        stdout: String::new(),
+                        stderr: String::new(),
+                        plan: None,
+                        state: None,
+                    });
+                });
                 c
             })
             .answer_raw(
@@ -120,7 +123,9 @@ fn a_commands_graph_carries_each_entitys_judgements() {
 
     let input = input_of(&runtime, "cmd__show");
     let plan = node(&input, "v1.0/03/03-02");
-    let listed = plan["judgements"].as_array().expect("judgements listed");
+    let listed = plan["judgements"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no judgements in {plan}"));
     let w311 = listed
         .iter()
         .find(|j| j["rule"] == "gsd/W311")
@@ -133,7 +138,6 @@ fn a_commands_graph_carries_each_entitys_judgements() {
     behavior = "compute_field_values",
     verify = "the graph a command and a writing collector receive carries the computed values"
 )]
-#[ignore = "pins K18; T3 un-ignores"]
 fn a_writing_collectors_graph_carries_the_computed_values() {
     let p = project().file(".specforge/reports/git.json", "{}");
     let runtime = Arc::new(
@@ -157,4 +161,59 @@ fn a_writing_collectors_graph_carries_the_computed_values() {
 
     let input = input_of(&runtime, "collect__git");
     assert_eq!(node(&input, "v1.0/03/V")["fields"]["status"], "passed");
+}
+
+#[specforge_test(
+    behavior = "compute_field_values",
+    verify = "a call over a checked project runs no compute pass"
+)]
+fn a_command_call_runs_no_pass() {
+    let p = project();
+    let runtime = Arc::new(
+        computing()
+            .answering(CORE, "cmd__quiet", ok(json!({"exit_code": 0})))
+            .runtime(),
+    );
+    let compiled = compiled(&p, &runtime);
+    runtime.clear_calls();
+    run_command(&p, &compiled, &runtime, "core", "quiet");
+
+    let exports: Vec<String> = runtime.calls().into_iter().map(|c| c.export).collect();
+    assert_eq!(exports, ["cmd__quiet"], "{exports:?}");
+}
+
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "a plan echoing a computed value its graph carries is refused"
+)]
+fn a_plan_echoing_a_computed_value_it_read_is_refused() {
+    let p = project();
+    let ops = json!([set(
+        "v1.0/03/V",
+        "status",
+        json!("passed"),
+        &revision(&p, "a.spec")
+    )]);
+    let runtime = Arc::new(
+        computing()
+            .answering(CORE, "cmd__record", gsd_writes_answer(0, ops))
+            .runtime(),
+    );
+    let compiled = compiled(&p, &runtime);
+    let before = std::fs::read_to_string(p.root().join("a.spec")).unwrap();
+    let ran = run_command(&p, &compiled, &runtime, "core", "record");
+
+    // The command read the value it now writes back.
+    assert_eq!(
+        node(&ran.input("cmd__record"), "v1.0/03/V")["fields"]["status"],
+        "passed"
+    );
+    assert_eq!(
+        ran.refusal.map(|(code, _)| code).as_deref(),
+        Some("computed_field")
+    );
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.spec")).unwrap(),
+        before
+    );
 }
