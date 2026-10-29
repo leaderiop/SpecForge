@@ -287,3 +287,5 @@ fn open_database(data_dir: &Path) -> Result<Database, String> {
     Database::open(&path)
         .map_err(|e| format!("cannot open the token database {}: {e}", path.display()))
 }
+
+// probe: CI timing for a surface-crate change (this PR is closed unmerged).
