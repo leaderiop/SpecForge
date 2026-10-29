@@ -49,8 +49,8 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 |---|---|---|---|
 | phase | → phase | R I | `phase:` |
 | deferred | {truth → truth R, addressed_in → phase R, evidence str R} | | `deferred:` |
-| status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; a backstop truth with no explicit evidence is human_needed, never passed |
-| score | str `N/M` | C | `score:` |
+| status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, it never verifies), and a complete scan; a backstop truth with no explicit evidence is human_needed, never passed |
+| score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
 | covered_files, covered_digest | files, str | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name, and one digest over their current digests (the judgements' `files`) |
 | re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): its status and score; items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine) |
@@ -148,7 +148,7 @@ GSD: `.planning/WINDOWS.md`, the broken-windows ledger. Name `BW1`, project-scop
 | waiver | {reason str R, by str R, at ts R} | H I | `waive` (a reason is required): written by `waive_window` |
 | fixed_at | ts | H I | `fix`: written by `fix_window` |
 | refactor | → refactor_proposal | | a strict-mode refactor proposal recorded as a `deviation` |
-| status | enum{open, waived, fixed} | C | waived when `waiver` is set; fixed when `fixed_at` is set or the linked proposal is accepted or declined |
+| status | enum{open, waived, fixed} | C | waived when `waiver` is set or the linked proposal is declined; fixed when `fixed_at` is set or the linked proposal is accepted |
 | milestone | → milestone | C | from the phase |
 | recorded_at | ts | H I | when the window was recorded: set by the plan that creates it |
 

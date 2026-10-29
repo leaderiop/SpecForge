@@ -103,9 +103,11 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
             unexcused_skip: tests
                 .iter()
                 .any(|t| result(t) == "skipped" && !is_deferred(text(t, "reason"))),
-            unresolved_issue: tests
-                .iter()
-                .any(|t| result(t) == "issue" && !gaps_of(t).iter().any(|g| resolved(g))),
+            unresolved_issue: tests.iter().any(|t| {
+                let gaps = gaps_of(t);
+                // Upstream: every gap of the issue is resolved.
+                result(t) == "issue" && !(!gaps.is_empty() && gaps.iter().all(|g| resolved(g)))
+            }),
             open_gaps: tests
                 .iter()
                 .flat_map(|t| gaps_of(t))

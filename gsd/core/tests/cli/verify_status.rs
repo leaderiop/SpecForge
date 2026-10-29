@@ -465,3 +465,81 @@ fn validation_rows_written_with_relative_references_still_count() {
     let row = p.fields_of("v1.0/01/01-VALIDATION/VR1");
     assert!(row.get("wave").is_some(), "{row}");
 }
+
+#[test]
+fn a_declined_proposal_waives_its_window() {
+    let p = verify();
+    p.edit(
+        "spec/ops/windows.spec",
+        "  description \"A TODO remains in the store\"\n",
+        "  description \"A TODO remains in the store\"\n  refactor    v1.0/01/RP1\n",
+    );
+    p.edit(
+        "spec/ops/windows.spec",
+        "  target_function \"add\"\n",
+        "  target_function \"add\"\n  disposition {\n    outcome declined\n    by \"ada\"\n    at \"2026-10-29T11:00:00Z\"\n  }\n",
+    );
+    p.record_harness(
+        "v1.0/01/RP1",
+        "disposition",
+        r#"{"at":"2026-10-29T11:00:00Z","by":"ada","outcome":"declined"}"#,
+    );
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    assert_eq!(p.fields_of("v1.0/01/RP1")["status"], "declined");
+    assert_eq!(p.fields_of(WINDOW)["status"], "waived");
+}
+
+#[test]
+fn an_issue_with_one_gap_resolved_and_one_open_is_not_complete() {
+    let p = verify();
+    answer(&p, "U1", 1, "pass");
+    answer(&p, "U2", 2, "issue");
+    let text = p.read("spec/uat.spec");
+    p.write(
+        "spec/uat.spec",
+        &format!("{text}\nuat_gap G2 \"Completed tasks keep their position\" {{\n  test       v1.0/01/01-UAT/U2\n  truth      \"A completed task moves down\"\n  reason     \"The list is not reordered\"\n  severity   minor\n  root_cause \"the sort ignores the flag\"\n}}\n"),
+    );
+    let gap = format!("{SESSION}/U2/G1");
+    p.edit(
+        "spec/plans.spec",
+        "  depends_on     [01-01]\n  files_modified [\"src/complete.js\"]\n",
+        &format!("  depends_on     [01-01]\n  gap_closure    [{gap}]\n  files_modified [\"src/complete.js\"]\n"),
+    );
+    let text = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &format!("{text}\nsummary 01-02-SUMMARY \"Completion summary\" {{\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Tasks can be completed\"\n  subsystem              \"store\"\n  requirements_completed [TASK-02]\n}}\n"),
+    );
+    assert_eq!(p.run(&["format", "spec"]).code, 0);
+    assert_eq!(p.fields_of(&gap)["status"], "resolved");
+    assert_eq!(p.fields_of(&format!("{SESSION}/U2/G2"))["status"], "open");
+    assert_eq!(p.fields_of(SESSION)["status"], "diagnosed");
+}
+
+#[test]
+fn present_files_alone_never_pass_a_verification() {
+    // Both truths overridden, the human item gone, the key links literal: the scan finds every file in order, yet
+    // that is no verdict (a file that is there is not shown substantive and wired).
+    let p = verify();
+    p.edit("spec/verify.spec", "human_item HI1", "human_item HI1");
+    let text = p.read("spec/verify.spec");
+    let at = text.find("human_item HI1").expect("the human item");
+    let second = "\noverride OV2 \"Accept the completion\" {\n  verification v1.0/01/01-VERIFICATION\n  truth        v1.0/01/01-02/TR1\n  reason       \"Checked by hand\"\n  by           \"ada\"\n  at           2026-10-29\n}\n";
+    p.write(
+        "spec/verify.spec",
+        &format!("{}\n{second}", text[..at].trim_end()),
+    );
+    p.edit(
+        "spec/plans.spec",
+        "via  \"require\"",
+        "pattern \"require\"\n  via  \"require\"",
+    );
+    p.edit(
+        "spec/plans.spec",
+        "via  \"import\"\n}\n\nplan 02-01",
+        "pattern \"import\"\n  via  \"import\"\n}\n\nplan 02-01",
+    );
+    let found = verification(&p);
+    assert_ne!(found["status"], "passed", "{found}");
+    assert_eq!(found["score"], "2/2", "{found}");
+}

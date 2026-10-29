@@ -74,7 +74,7 @@ fn an_override_counts_as_verified() {
 }
 
 #[test]
-fn behavior_unverified_is_human_needed_and_excluded_from_score() {
+fn behavior_unverified_is_human_needed_and_not_counted_as_verified() {
     let out = run(&input(
         vec![
             truth(
@@ -86,7 +86,7 @@ fn behavior_unverified_is_human_needed_and_excluded_from_score() {
         vec![],
     ));
     assert_eq!(of(&out, "status"), Some(json!("human_needed")));
-    assert_eq!(of(&out, "score"), Some(json!("1/1")));
+    assert_eq!(of(&out, "score"), Some(json!("1/2")));
 }
 
 #[test]

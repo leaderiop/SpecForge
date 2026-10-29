@@ -1,10 +1,11 @@
 //! The computed values of verification (`spec/verify.md`, D-r39-7): a verification's status, score, time, covered files
 //! and re-verification, and a verify gap's status.
 //!
-//! An item is `Verified` by a fresh passing `gsd/E501` verdict or an override (a truth), by the scan finding its file
-//! in order (an artifact, a key link with a `pattern`), `Failed` by a failing verdict or a scan finding. Verdicts are
-//! recorded by r40's commands, so until then a truth is `Unknown` and a verification is `pending`, `gaps_found` or
-//! `human_needed`, never `passed`. A stale verdict is not a pass and not a failure.
+//! An item is `Verified` by a fresh passing `gsd/E501` verdict or an override (a truth), `Failed` by a failing verdict
+//! or a scan finding (a file that is missing, short or lacks the text). The scan never verifies: that a file is there
+//! does not show it is substantive and wired. Verdicts are recorded by r40's commands, so until then an artifact and
+//! a key link are `Unknown` and a verification is `pending`, `gaps_found` or `human_needed`, never `passed`. A stale
+//! verdict is not a pass and not a failure.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -45,42 +46,26 @@ fn judged<'a>(mut rows: impl Iterator<Item = Row<'a>>) -> Item {
     }
 }
 
-/// An item's state from what is known of it: its kind, the scan's `state`, whether a `pattern` is set, its verdicts
-/// and whether a human overrode it.
-pub fn item_state(
-    kind: &str,
-    scan: Option<&str>,
-    pattern: bool,
-    verdict: Item,
-    overridden: bool,
-) -> Item {
+/// An item's state from what is known of it: its kind, the scan's `state`, its verdicts and whether a human overrode
+/// it. The scan can fail an item, never verify one.
+pub fn item_state(kind: &str, scan: Option<&str>, verdict: Item, overridden: bool) -> Item {
     if overridden {
         return Item::Verified;
     }
-    let scanned = match (kind, scan) {
-        ("artifact", Some("present")) | ("key_link", Some("wired"))
-            if kind == "artifact" || pattern =>
-        {
-            Some(Item::Verified)
-        }
-        ("artifact", Some("missing" | "too_short" | "lacks_contains" | "lacks_export"))
-        | ("key_link", Some("not_wired")) => Some(Item::Failed),
-        _ => None,
-    };
-    match (scanned, verdict) {
-        (Some(Item::Failed), _) | (_, Item::Failed) => Item::Failed,
-        (Some(found), _) => found,
-        (None, verdict) => verdict,
-    }
+    let failed = matches!(
+        (kind, scan),
+        (
+            "artifact",
+            Some("missing" | "too_short" | "lacks_contains" | "lacks_export")
+        ) | ("key_link", Some("not_wired"))
+    );
+    if failed { Item::Failed } else { verdict }
 }
 
 fn entity_item(e: &PassEntity, overridden: &BTreeSet<&str>) -> Item {
     item_state(
         &e.kind,
         e.fields.get("state").map(String::as_str),
-        e.fields
-            .get("pattern")
-            .is_some_and(|p| !p.trim().is_empty()),
         judged(e.judgements.iter().map(|j| {
             (
                 j.rule.as_str(),
@@ -113,14 +98,11 @@ pub fn status(
     }
 }
 
-/// `{verified}/{truths − behavior_unverified}`.
+/// `{verified}/{truths}`: every truth that is not deferred counts in the denominator, a behavior-unverified one is
+/// only left out of the numerator (`gsd-verifier.md`: `score: verified_truths / total_truths`).
 pub fn score(truths: &[Item]) -> String {
-    let counted = truths
-        .iter()
-        .filter(|t| **t != Item::BehaviorUnverified)
-        .count();
     let verified = truths.iter().filter(|t| **t == Item::Verified).count();
-    format!("{verified}/{counted}")
+    format!("{verified}/{}", truths.len())
 }
 
 struct Group<'a> {
@@ -227,7 +209,8 @@ fn re_verification(
         };
         match (then, *state) {
             (Item::Failed, Item::Verified) => closed.push(e.id.clone()),
-            (Item::Failed, Item::Failed) => remaining.push(e.id.clone()),
+            (Item::Failed, Item::Unknown) => {}
+            (Item::Failed, _) => remaining.push(e.id.clone()),
             (Item::Verified, Item::Failed) => regressions.push(e.id.clone()),
             _ => {}
         }

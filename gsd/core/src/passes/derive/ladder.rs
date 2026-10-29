@@ -39,7 +39,8 @@ pub fn gaps_found(input: &PassInput, requirement: &str, failing: &BTreeSet<&str>
     })
 }
 
-/// `open`, `waived` or `fixed` (D-r39-8): a waiver wins over a fix, and a fix is `fixed_at` or a disposed proposal.
+/// `open`, `waived` or `fixed` (D-r39-8): a waiver wins over a fix, and a fix is `fixed_at` or an accepted proposal.
+/// A declined proposal waives the window (upstream's router: accept marks it fixed, decline waives it).
 pub fn window_status(input: &PassInput, window: &PassEntity) -> &'static str {
     let set = |field: &str| {
         window
@@ -47,13 +48,17 @@ pub fn window_status(input: &PassInput, window: &PassEntity) -> &'static str {
             .get(field)
             .is_some_and(|v| !v.trim().is_empty())
     };
-    let disposed = link(input, window, "refactor").is_some_and(|proposal| {
+    let outcome = link(input, window, "refactor").and_then(|proposal| {
         of_kind(input, "refactor_proposal")
-            .any(|p| p.id == proposal && p.fields.contains_key("disposition"))
+            .find(|p| p.id == proposal)?
+            .values
+            .get("disposition")?
+            .get("outcome")?
+            .as_str()
     });
-    if set("waiver") {
+    if set("waiver") || outcome == Some("declined") {
         "waived"
-    } else if set("fixed_at") || disposed {
+    } else if set("fixed_at") || outcome == Some("accepted") {
         "fixed"
     } else {
         "open"
