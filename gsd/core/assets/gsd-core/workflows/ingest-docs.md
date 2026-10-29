@@ -53,8 +53,8 @@ Read the state the run starts from:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-INIT=$(specforge query --kinds project,requirement,decision --format json)
-PROJECT_EXISTS=$(echo "$INIT" | jq '[.nodes[]|select(.kind=="project")]|length')   # 1 when the project already exists
+INIT=$(specforge query "$PROJECT" --depth 2 --kinds requirement,decision --format json 2>/dev/null)   # empty when there is no project yet (leave this command out then)
+if [ -n "$INIT" ]; then PROJECT_EXISTS=1; else PROJECT_EXISTS=0; fi   # 1 when the project already exists
 : # model resolution: the installed agents carry their model
 
 
@@ -324,7 +324,7 @@ Agent({
 
 **Applies only when MODE=merge.**
 
-Load the existing roadmap (`specforge query --kinds milestone,phase --format context`), the `project` entity, the `requirement` entities, and all `context` entities of the phases.
+Load the existing roadmap (`specforge query "$PROJECT" --depth 2 --kinds milestone,phase --format context`), the `project` entity, the `requirement` entities, and all `context` entities of the phases.
 
 The synthesizer has already hard-blocked on any LOCKED-in-ingest vs LOCKED-in-existing contradiction; if we reach this step, no such blockers remain.
 

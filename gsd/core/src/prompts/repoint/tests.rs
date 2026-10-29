@@ -1,7 +1,7 @@
 use super::repoint;
 
 const EMBEDDED: &str = "references/verification-patterns.md";
-const LATER_WORKFLOW: &str = "workflows/ingest-docs.md";
+const LATER_WORKFLOW: &str = "workflows/update.md";
 
 #[test]
 fn an_at_line_becomes_the_command_that_serves_the_file() {

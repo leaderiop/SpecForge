@@ -16,7 +16,7 @@ There is no `init onboard` projection here: compute it from the spec and the rep
 
 ```bash
 # One projection, computed here (--fast changes nothing: there is no fast map to accept):
-ENTITIES=$(specforge query --kinds project,milestone,phase,requirement --format json)
+ENTITIES=$(specforge query "$PROJECT" --depth 2 --kinds milestone,phase,requirement --format json 2>/dev/null)   # empty when there is no project yet (leave this command out then)
 # Existing ADR/PRD/SPEC/RFC documents:
 DOC_CANDIDATES=$(find . -type f \( -path '*/adr/*' -o -path '*/adrs/*' -o -path '*/prd/*' -o -path '*/prds/*' -o -path '*/rfc/*' -o -path '*/rfcs/*' -o -name 'ADR-*.md' -o -name 'PRD-*.md' -o -name 'SPEC-*.md' -o -name 'RFC-*.md' \) -not -path './.git/*' 2>/dev/null | wc -l | tr -d ' ')
 ONBOARDING_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -27,7 +27,7 @@ Work out these fields from `ENTITIES`, `DOC_CANDIDATES` and git (no projection s
 - `next_action.kind`, `next_action.command`, `next_action.reason`, `next_action.missing`: the first of these that holds — `map-codebase` (a brownfield repo whose project planning is not complete; command `/gsd:map-codebase`, or `/gsd:map-codebase --fast` with `--fast`), `ingest-docs` (doc candidates and no project; `/gsd:ingest-docs`), `new-project` (no project; `/gsd:new-project`), `partial-planning` (some of the project, requirements and roadmap exist but not all; `missing` names the rest), else `write-summary`
 - `handoff_commands.ingest_docs`, `handoff_commands.manager`, `handoff_commands.new_project`, `handoff_commands.onboard`: `/gsd:ingest-docs`, `/gsd:manager`, `/gsd:new-project`, `/gsd:onboard`
 - `map_readiness`: `unavailable` (`@gsd/codebase`, which serves `/gsd:map-codebase`, is not installed here); `codebase_map_summary_status` and `codebase_map_final_status`: `not installed`
-- `project_exists`, `requirements_exists`, `roadmap_exists`: a `project` entity, `requirement` entities, `milestone` and `phase` entities in `ENTITIES`; `planning_exists`: any of them; `state_exists`: the same as `project_exists` (the project state is computed, never a file)
+- `project_exists`: `ENTITIES` is not empty (the project is in the spec); `requirements_exists`, `roadmap_exists`: `requirement` entities, `milestone` and `phase` entities in `ENTITIES`; `planning_exists`: any of them; `state_exists`: the same as `project_exists` (the project state is computed, never a file)
 - `is_brownfield`: the repository has files other than `*.spec` (`git ls-files`); `fast_mode`: `--fast` was parsed; `has_codebase_map`, `has_fast_codebase_map`: false
 - `missing_codebase_map_files`, `missing_fast_codebase_map_files`: not applicable (no map is expected here)
 - `has_docs_candidates`: `DOC_CANDIDATES` is above 0; `doc_candidate_count`: `DOC_CANDIDATES`; `onboarding_summary_exists`: false (the summary is shown, never written)

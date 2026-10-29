@@ -59,7 +59,9 @@ static INGEST_DOCS: Spec = Spec {
     ],
     slash: Some(Slash {
         hint: "[--dir <path>] [--mode new|merge] [--manifest <file>] [--resolve auto|interactive]",
-        tools: &["read", "write", "shell", "search", "ask_user", "agent"],
+        tools: &[
+            "read", "write", "edit", "shell", "search", "ask_user", "agent",
+        ],
         effort: None,
     }),
     tail: Some(ingested),
