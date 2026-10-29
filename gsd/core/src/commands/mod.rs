@@ -4,10 +4,12 @@
 mod execute;
 mod support;
 mod verdict;
+mod verify;
 
 use specforge_extension_sdk::prelude::*;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     verdict::declare(c);
     execute::declare(c);
+    verify::declare(c);
 }

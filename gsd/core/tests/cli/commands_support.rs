@@ -96,3 +96,15 @@ pub fn json(run: &Run) -> serde_json::Value {
     serde_json::from_str(&run.stdout)
         .unwrap_or_else(|e| panic!("the command prints JSON ({e}): {}", run.all()))
 }
+
+/// Removes the ledger lines of `field` of `entity`, as if the value had never been recorded.
+pub fn unledger(p: &Project, entity: &str, field: &str) {
+    let prefix = format!("{entity} {field} ");
+    let kept: Vec<String> = p
+        .read("specforge-harness")
+        .lines()
+        .filter(|l| !l.starts_with(&prefix))
+        .map(String::from)
+        .collect();
+    p.write("specforge-harness", &format!("{}\n", kept.join("\n")));
+}

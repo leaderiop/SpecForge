@@ -2,6 +2,7 @@
 
 mod agents;
 mod cmd_execute;
+mod cmd_verify;
 mod collect;
 mod commands_support;
 mod discuss;

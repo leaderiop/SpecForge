@@ -88,8 +88,8 @@ The test being asked now is session state.
 | expected | str | R | expected behaviour |
 | criterion | int | | the phase success criterion it proves |
 | from_task | → task | | a harvested `<human-check>` |
-| result | enum{pending, pass, issue, skipped, blocked} | H | written from the human's answer |
-| source | enum{human, automated} | H | an automated result comes from a collector (DOM, e2e) |
+| result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, written by `set_uat_result` |
+| source | enum{human, automated} | H | written by `set_uat_result` only when given; an automated result comes from a collector (DOM, e2e) |
 | reported | str | | the human's words, verbatim, when `issue` |
 | severity | enum{blocker, major, minor, cosmetic} | | major when absent |
 | reason | str | | why skipped; `Deferred follow-up…` counts as passing |
@@ -106,7 +106,7 @@ enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/
 GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-validate-phase`.
 
 **validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file str`, `quick_cmd str`, `full_cmd str`,
-`max_latency_s int`; `approval {by str, at ts}` is `H`; `status enum{draft, validated}`, `nyquist_compliant bool` and
+`max_latency_s int`; `approval {by str, at ts}` is `H`, written by `approve_validation`; `status enum{draft, validated}`, `nyquist_compliant bool` and
 `wave_0_complete bool` are `C`.
 
 **validation_row**: the Per-Task Verification Map. Name `VR1`. `validation R`, `task → task R`, `requirement → requirement`,
