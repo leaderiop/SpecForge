@@ -212,3 +212,26 @@ fn every_referenced_path_is_embedded_or_listed_for_r43() {
     let listed: BTreeSet<String> = R43_PATHS.iter().map(|s| s.to_string()).collect();
     assert_eq!(later, listed, "files not installed yet");
 }
+
+/// close-milestone keeps the requirements (REVIEW-r42 C1): upstream deletes REQUIREMENTS.md after archiving it, but the
+/// entities are the milestone's history (W506 and the audit read them), so no rendered prompt may tell an agent to
+/// delete, remove or `git rm` one.
+#[test]
+fn no_prompt_tells_the_agent_to_delete_a_requirement() {
+    let rx = Regex::new(r"(?i)\b(delet\w*|remov\w*|git rm|rm -f?)\b").expect("a regex");
+    let mut seen = 0;
+    for (command, host, _, text) in sweep()
+        .iter()
+        .filter(|(c, _, _, _)| matches!(c.as_str(), "complete-milestone" | "new-milestone"))
+    {
+        seen += 1;
+        for line in text.lines() {
+            let lower = line.to_lowercase();
+            assert!(
+                !(lower.contains("requirement") && rx.is_match(line)),
+                "{command} on {host} deletes a requirement: {line}"
+            );
+        }
+    }
+    assert!(seen >= 4, "{seen} renders");
+}

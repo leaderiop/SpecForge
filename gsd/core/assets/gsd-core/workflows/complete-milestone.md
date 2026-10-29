@@ -22,7 +22,7 @@ When a milestone completes:
 1. Extract full milestone details to the spec]-ROADMAP.md`
 2. Archive requirements to the spec]-REQUIREMENTS.md`
 3. Update ROADMAP.md — overwrite in place with milestone grouping (preserve Backlog section)
-4. Safety commit archive files + updated ROADMAP.md, then `git rm REQUIREMENTS.md` (fresh for next milestone)
+4. Safety commit archive files + updated ROADMAP.md, then nothing is removed: the `requirement` entities stay with the completed milestone (new ones are added for the next)
 5. Perform full PROJECT.md evolution review
 6. Offer to create next milestone inline
 7. Archive UI artifacts (`*-UI-SPEC.md`, `*-UI-REVIEW.md`) alongside other phase documents
@@ -278,7 +278,7 @@ if [ -e "${_SUMMARIES[0]}" ]; then cat "${_SUMMARIES[@]}"; fi
    - Format: `- ✓ [Requirement] — v[X.Y]`
 
    **Active section:**
-   - Remove requirements moved to Validated
+   - Take requirements moved to Validated off the Active list (the `requirement` entities themselves stay)
    - Add new requirements for next milestone
    - Keep unaddressed requirements
 
@@ -444,7 +444,7 @@ Verify after a default (archived) completion: `✅ Phase directories archived to
 After archival, the AI still handles:
 - Reorganizing ROADMAP.md with milestone grouping (requires judgment) — overwrite in place after extracting Backlog section, with the write-guard's single-use sentinel armed first (a per-step env var cannot reach a hook — see the reorganize step for the sentinel mechanics)
 - Full PROJECT.md evolution review (requires understanding)
-- Safety commit of archive files + updated ROADMAP.md, then `git rm the `requirement` entities
+- Safety commit of archive files + updated ROADMAP.md, then continue (the `requirement` entities stay as they are)
 - These are NOT fully delegated because they require AI interpretation of content
 
 </step>
@@ -543,7 +543,7 @@ This creates a durable checkpoint in git history. If anything fails after this p
 
 MILESTONES.md and PROJECT.md are workstream-scoped the same way STATE.md/ROADMAP.md are (`planningPaths(cwd)the spec/`.project`) — under an active workstream this commits the actual files `milestone complete` wrote, not the root copies.
 
-**Remove REQUIREMENTS.md via git rm** (preserves history, stages deletion atomically):
+**The `requirement` entities stay** (they are the milestone's history; no file is archived or cleared):
 
 ```bash
 IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
@@ -554,8 +554,8 @@ GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/
 INIT_REORG=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_REORG" == @file:* ]]; then INIT_REORG=$(cat "${INIT_REORG#@file:}"); fi
 _gsd_field() { node -e "const o=JSON.parse(process.argv[1]); const v=o[process.argv[2]]; process.stdout.write(v==null?'':String(v))" "$1" "$2"; }
-REQUIREMENTS_PATH=$(_gsd_field "$INIT_REORG" requirements_path)
-git rm "$REQUIREMENTS_PATH"
+: # no requirements file: the requirement entities are the archive
+: # nothing to remove: the requirement entities stay
 ```
 
 </step>
@@ -662,13 +662,13 @@ If `section_manifest` is `null` or `"git-tag"` is in its `included` list: read a
 
 <step name="git_commit_milestone">
 
-Commit the REQUIREMENTS.md deletion (archive files and ROADMAP.md were already committed in the safety commit in `reorganize_roadmap_and_delete_originals`).
+Commit what is left (archive files and ROADMAP.md were already committed in the safety commit in `reorganize_roadmap_and_delete_originals`).
 
 ```bash
-git commit -m "chore: remove REQUIREMENTS.md for v[X.Y] milestone"
+git commit -m "chore: complete v[X.Y] milestone"
 ```
 
-Confirm: "Committed: chore: remove REQUIREMENTS.md for v[X.Y] milestone"
+Confirm: "Committed: chore: complete v[X.Y] milestone"
 
 </step>
 
@@ -742,8 +742,8 @@ Milestone completion is successful when:
 - [ ] ROADMAP.md reorganized with milestone grouping (overwritten in place, not deleted)
 - [ ] Roadmap archive created (milestones/v[X.Y]-ROADMAP.md)
 - [ ] Requirements archive created (milestones/v[X.Y]-REQUIREMENTS.md)
-- [ ] Safety commit made (archive files + updated ROADMAP.md) BEFORE deleting REQUIREMENTS.md
-- [ ] REQUIREMENTS.md removed via `git rm` (fresh for next milestone, history preserved)
+- [ ] Safety commit made (archive files + updated ROADMAP.md) BEFORE the final commit
+- [ ] `requirement` entities kept with the completed milestone (none deleted)
 - [ ] STATE.md updated with fresh project reference
 - [ ] Git tag created (v[X.Y]) (if `git.create_tag` enabled)
 - [ ] Milestone commit made (includes archive files and deletion)

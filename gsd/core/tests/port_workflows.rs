@@ -11,12 +11,24 @@ mod rule;
 use rule::check_lines;
 
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
-/// became the absolute URL of the file at the tag.
+/// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
+/// told the agent something false.
 const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/references/agent-skills-bootstrap.md", 9),
     ("gsd-core/references/loop-hook-dispatch.md", 133),
     ("gsd-core/references/loop-hook-dispatch.md", 142),
     ("gsd-core/references/mvp-concepts.md", 4),
+    // REVIEW-r42 C1: upstream deletes REQUIREMENTS.md after archiving it; the requirement entities stay.
+    ("gsd-core/workflows/complete-milestone.md", 23),
+    ("gsd-core/workflows/complete-milestone.md", 279),
+    ("gsd-core/workflows/complete-milestone.md", 544),
+    ("gsd-core/workflows/complete-milestone.md", 555),
+    ("gsd-core/workflows/complete-milestone.md", 556),
+    ("gsd-core/workflows/complete-milestone.md", 663),
+    ("gsd-core/workflows/complete-milestone.md", 666),
+    ("gsd-core/workflows/complete-milestone.md", 669),
+    ("gsd-core/workflows/complete-milestone.md", 743),
+    ("gsd-core/workflows/complete-milestone.md", 744),
 ];
 
 fn root() -> PathBuf {

@@ -93,7 +93,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
    - Create the spec
    - Mark all v1 requirements as complete (checkboxes checked)
    - Note requirement outcomes (validated, adjusted, dropped)
-   - Delete the `requirement` entities (fresh one created for next milestone)
+   - Keep the `requirement` entities as they are: they stay with the completed milestone (nothing to archive or clear)
 
 6. **Update PROJECT.md:**
 
@@ -117,7 +117,7 @@ Output: Milestone archived (roadmap + requirements), PROJECT.md evolved, git tag
 
 - Milestone archived to the spec
 - Requirements archived to the spec
-- the `requirement` entities deleted (fresh for next milestone)
+- the `requirement` entities kept with the completed milestone (their status is computed)
 - ROADMAP.md collapsed to one-line entry
 - PROJECT.md updated with current state
 - Git tag v{{version}} created (if `git.create_tag` enabled)
