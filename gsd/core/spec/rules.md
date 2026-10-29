@@ -101,7 +101,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/W510 | a planned phase whose research has a Validation Architecture section has a validation, and a verification exists only once the validation has an `approval`. A plain planned phase is not warned: `validate-phase` is opt-in (`validate-phase.md:38-43`) | pass | W | E | Nyquist 8a–8f |
 | gsd/E511 | a phase is complete only when verification passed and UAT is complete (part of the phase-status derivation; a gate code of `complete_milestone` and `/gsd-ship`) | guard | E | E | phase-status ladder |
 | gsd/E512 | no broken window is open at ship | guard (ship:pre) | E | E | broken-windows gate |
-| gsd/E513 | a resolved window cannot be waived or fixed again (`waiver` and `fixed_at` are never both set) | pass | E | E | `src/broken-windows.cts` |
+| gsd/E513 | a resolved window cannot be waived or fixed again: `waiver` and `fixed_at` are never both set (each is immutable, so a ledger that holds both came from two commands acting on one window) | pass | E | E | `src/broken-windows.cts` |
 | gsd/W514 | no refactor `deviation` window is recorded while `workflow.windows_enforce` is off. Not built: a pass is not sent the project's settings, and a setting gates a code only while it is on | pass | W | W | `refactor_strict_not_enforcing` |
 | gsd/E515 | a complete requirement traces to a task, a commit and a passing test | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E516 | a stale verdict blocks every workflow step (reads the judgements K7 hands the guard pass) | guard | — | E (plus) | (new: gsd-plus) |

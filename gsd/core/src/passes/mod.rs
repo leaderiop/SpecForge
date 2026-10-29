@@ -18,6 +18,7 @@ mod scope;
 mod verify_paths;
 mod verify_rules;
 mod waves;
+mod windows;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -53,4 +54,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     verify_paths::declare(c);
     nyquist::declare(c);
     verify_rules::declare(c);
+    windows::declare(c);
 }

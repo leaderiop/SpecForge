@@ -205,3 +205,50 @@ fn each_verify_code_is_silent_on_its_counterpart() {
     let p = verify();
     assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
 }
+
+const WAIVER: &str = r#"{"at":"2026-10-29T11:00:00Z","by":"ada","reason":"Tracked as issue 42"}"#;
+const FIXED: &str = "2026-10-29T12:00:00Z";
+
+/// Window BW1 resolved: waived, fixed, or both, each in the file and blessed in the ledger.
+fn resolve(p: &Project, waived: bool, fixed: bool) {
+    let mut lines = String::new();
+    if waived {
+        lines += "  waiver {\n    reason \"Tracked as issue 42\"\n    by \"ada\"\n    at \"2026-10-29T11:00:00Z\"\n  }\n";
+    }
+    if fixed {
+        lines += &format!("  fixed_at \"{FIXED}\"\n");
+    }
+    p.edit(
+        "spec/ops/windows.spec",
+        "  description \"A TODO remains in the store\"\n",
+        &format!("  description \"A TODO remains in the store\"\n{lines}"),
+    );
+    if waived {
+        p.record_harness("BW1", "waiver", WAIVER);
+    }
+    if fixed {
+        p.record_harness("BW1", "fixed_at", &format!("\"{FIXED}\""));
+    }
+}
+
+#[test]
+fn waived_and_fixed_is_e513() {
+    let p = verify();
+    resolve(&p, true, true);
+    assert_eq!(p.codes(), ["gsd/E513"], "{:?}", p.report());
+    assert!(p.report()[0].1.contains("BW1"), "{:?}", p.report());
+}
+
+#[test]
+fn waived_only_is_silent() {
+    let p = verify();
+    resolve(&p, true, false);
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}
+
+#[test]
+fn fixed_only_is_silent() {
+    let p = verify();
+    resolve(&p, false, true);
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}
