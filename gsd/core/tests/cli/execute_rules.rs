@@ -1,4 +1,4 @@
-//! The rules of execution, end to end (`spec/rules.md`): `gsd/E401`, `E402`, `E403` and `E405` on the `execute`
+//! The rules of execution, end to end (`spec/rules.md`): `gsd/E401`, `E402`, `W403` and `E405` on the `execute`
 //! project. Each case edits a fresh copy and asserts the whole list of codes.
 
 use serde_json::json;
@@ -74,7 +74,7 @@ fn tdd(p: &Project) {
 }
 
 #[test]
-fn e403_needs_a_red_commit_first_and_tdd_mode_on() {
+fn w403_needs_a_red_commit_first_and_tdd_mode_on() {
     let p = repository();
     tdd(&p);
     p.settings(json!({ "workflow.tdd_mode": true }));
@@ -84,28 +84,62 @@ fn e403_needs_a_red_commit_first_and_tdd_mode_on() {
         "a tdd task nobody committed"
     );
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
-    // With the gate on the host refuses to record the GREEN commit (the edit would add the error): record it first.
-    p.settings(json!({ "workflow.tdd_mode": true }));
-    let refused = p.collect(&["--runner", "gsd-git"]);
-    assert_ne!(refused.code, 0, "{}", refused.all());
-    assert!(refused.all().contains("gsd/E403"), "{}", refused.all());
-    p.settings(json!({ "workflow.tdd_mode": false }));
+    // A warning cannot make the host refuse the collector's write: the GREEN commit is recorded.
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    // Once a report exists, a check no test ran is `unknown` (W408): the deliverable's test ran too.
     junit(&p, &[("adds a task", true)]);
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W403"], "{found:?}");
+    assert!(
+        found[0].1.contains("v1.0/01/01-01/T1") && found[0].1.contains("GREEN commit"),
+        "{found:?}"
+    );
+    p.settings(json!({ "workflow.tdd_mode": false }));
     assert_eq!(
         codes(&p),
         Vec::<String>::new(),
         "the setting off: GSD does not enforce it"
     );
+}
+
+#[test]
+fn a_green_without_red_does_not_stop_the_other_commits() {
+    let p = repository();
+    tdd(&p);
     p.settings(json!({ "workflow.tdd_mode": true }));
-    let found = report(&p);
-    assert_eq!(codes(&p), ["gsd/E403"], "{found:?}");
-    assert!(
-        found[0].1.contains("v1.0/01/01-01/T1") && found[0].1.contains("GREEN commit"),
-        "{found:?}"
+    let first = p.git_commit("feat(01-02): Complete a task", &[("src/c.js", "c\n")], T0);
+    let green = p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
+    let last = p.git_commit("feat(02-01): Write the file", &[("src/w.js", "w\n")], T1);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let mut all = [&first[..12], &green[..12], &last[..12]];
+    all.sort_unstable();
+    assert_eq!(
+        p.nodes_of("commit")
+            .iter()
+            .filter_map(|n| n["id"].as_str().and_then(|i| i.rsplit('/').next()))
+            .map(String::from)
+            .collect::<std::collections::BTreeSet<_>>(),
+        all.iter().map(|h| h.to_string()).collect()
     );
+    junit(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), ["gsd/W403"], "{:?}", report(&p));
+}
+
+#[test]
+fn a_plan_only_commit_for_a_sibling_task_is_not_a_green() {
+    let p = repository();
+    tdd(&p);
+    p.settings(json!({ "workflow.tdd_mode": true }));
+    // GSD words a commit with the plan, not the task: it is T2's as likely as T1's.
+    p.git_commit(
+        "feat(01-01): scaffold the store",
+        &[("src/tasks.js", "a\n")],
+        T0,
+    );
+    assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
+    junit(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
 }
 
 #[test]
@@ -168,7 +202,7 @@ fn e405_is_clean_with_push_evidence_with_the_gate_off_and_before_execution() {
     touch_schema(&p);
     p.settings(json!({ "workflow.schema_drift_gate": false }));
     assert_eq!(codes(&p), Vec::<String>::new());
-    // A phase that has not run: plan 02-01 has no summary and no commit.
+    // A phase that has not run: plan 02-01 has no summary.
     let p = project("execute");
     p.edit(
         "spec/plans.spec",
@@ -176,6 +210,22 @@ fn e405_is_clean_with_push_evidence_with_the_gate_off_and_before_execution() {
         "files_modified [\"src/store.js\", \"prisma/schema.prisma\"]",
     );
     assert_eq!(codes(&p), Vec::<String>::new());
+    // The phase's first schema commit is recorded and judged only once a summary closes a plan.
+    let p = repository();
+    p.edit(
+        "spec/plans.spec",
+        "files_modified [\"src/store.js\"]",
+        "files_modified [\"src/store.js\", \"prisma/schema.prisma\"]",
+    );
+    p.git_commit(
+        "feat(02-01): Write the file",
+        &[("prisma/schema.prisma", "model A {}\n")],
+        T0,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
 }
 
 #[test]

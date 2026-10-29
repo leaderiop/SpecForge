@@ -80,11 +80,11 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 |---|---|---|---|---|---|
 | gsd/E401 | a summary's `requirements_completed` equals its plan's `requirements`, as sets of resolved ids; one error on the summary names the missing and the extra ids, and a quick plan with none on either side is clean | pass | E | E | execute-plan |
 | gsd/E402 | a halted summary says why (`halted_because`) | decl | E | E | summary template |
-| gsd/E403 | a `tdd` task (its own `type`, or its plan's) with a recorded `feat` or `fix` commit has a `test` commit that names it before. A commit that names only the plan counts when the plan has one `tdd` task. The RED run's failure is not checked: upstream reads a run record, and a commit is all there is here. With `workflow.tdd_mode` on, the host refuses to record a GREEN commit that has no RED one (the collect edit would add this error) | pass | E | E | `gate-tdd-red-evidence` |
+| gsd/W403 | a `tdd` task (its own `type`, or its plan's) with a recorded `feat` or `fix` commit has a `test` commit that names it before. A commit that names only the plan counts when the task is the plan's only task: GSD's executor words a commit `{type}({phase}-{plan}): {description}` and so names the plan, not the task. The RED run's failure is not checked: upstream reads a run record, and a commit is all there is here. A warning, not an error (REVIEW-r38 M1): a commit already made cannot be repaired, and an error would make the host refuse the collector's write, and with it every other commit | pass | W | W | `gate-tdd-red-evidence` |
 | gsd/W404 | the TDD review checkpoint ran after execution | guard | W | E | `gate-tdd-review-checkpoint` |
-| gsd/E405 | a phase that changed an ORM's schema files records its database push. The files are its plans' `files_modified` matched by `SCHEMA_PATTERNS`; the evidence is the push command in its summaries' text or its commits' subjects (`schema-detect.cts:20-73`). GSD runs the gate at `execute:wave:post`, so only a phase with a summary or a recorded commit is judged. One error per phase names the ORMs and their push commands | pass | E | E | `gate-schema-drift` (`execute:wave:post`) |
+| gsd/E405 | a phase that changed an ORM's schema files records its database push. The files are its plans' `files_modified` (trimmed) matched by `SCHEMA_PATTERNS`; the evidence is the push command in its summaries' and deviations' text or its commits' subjects (`schema-detect.cts:20-73`). GSD runs the gate at `execute:wave:post`, so only a phase with a summary is judged (REVIEW-r38 M1): the first schema commit of a phase must be recorded before its push commit or summary can exist. One error per phase names the ORMs and their push commands | pass | E | E | `gate-schema-drift` (`execute:wave:post`) |
 | gsd/W406 | the context the plan was written against has not drifted (the `context_digest` a research, spec or validation recorded differs from the context's current digest; the project's research has no context, and a misnamed phaseless research is E206, so neither is judged. Upstream also judges `PATTERNS.md`: not covered, because `pattern_map` (`@gsd/codebase`) records no `context_digest` yet and should gain one when that extension is planned) | pass | W | E | `gate-context-drift` |
-| gsd/W407 | every task of a `complete` or `halted` plan has a recorded commit that names it, one warning per task; a `manual` task is exempt. Off until `specforge.task_commits` is on (gsd-strict and gsd-plus) | pass | — | W | (new: the git collector) |
+| gsd/W407 | every task of a `complete` plan has a recorded commit that names it, one warning per task; a `manual` task is exempt, and so is every task of a halted plan (the later ones never ran). A commit names its task when its description, without a squash-merge ` (#12)` and the TDD verbs `add failing test for ` and `implement `, equals or holds exactly one task title; GSD's other wordings name the plan only. Off until `specforge.task_commits` is on (gsd-strict and gsd-plus) | pass | — | W | (new: the git collector) |
 | gsd/W408 | a deliverable that is not human-judged has checks and none has status `fail` or `unknown`; one that is human-judged has a `rationale`. A check with no status (no test report) is not judged: GSD's auto-pass rule (`summary.md:195`). Once any collector has written a report, a check no test ran is `unknown` | pass | W | E | summary coverage |
 
 ## Verify
@@ -119,7 +119,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   `contains`, `exports`; a key link's `pattern`).
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), by declaring `reads_tests`: `gsd/W408`
   (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E502` and `gsd/E515`.
-  `gsd/E403` reads the recorded commits, not the report.
+  `gsd/W403` reads the recorded commits, not the report.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is not yet, and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is buildable since 1.11.0 (K15), not yet built: `prompt:spec_phase`.
@@ -133,7 +133,7 @@ is off while the setting is false, whatever the profile; a profile only presets 
 | Setting | Default (gsd-compat) | gsd-strict, gsd-plus | Rules |
 |---|---|---|---|
 | `workflow.windows_enforce` | false | true | gsd/E512 |
-| `workflow.tdd_mode` | false | false | gsd/E403, gsd/W404 |
+| `workflow.tdd_mode` | false | false | gsd/W403, gsd/W404 |
 | `workflow.nyquist_validation` | true | true | gsd/E314, gsd/W510 |
 | `workflow.plan_check` | true | true | gsd/W311, gsd/W313, gsd/W315, gsd/W316, gsd/W318 |
 | `workflow.post_planning_gaps` | true | true | gsd/W317 |

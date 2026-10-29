@@ -1,4 +1,4 @@
-//! The execute pass: `gsd/E401` (a summary's requirements are its plan's), `gsd/E403` (a `tdd` task has a RED commit
+//! The execute pass: `gsd/E401` (a summary's requirements are its plan's), `gsd/W403` (a `tdd` task has a RED commit
 //! before its GREEN one), `gsd/W407` (an executed task has a commit) and `gsd/W408` (a deliverable's checks pass, or a
 //! person judged it). `gsd/E402` is declarative (`rules.rs`) and `gsd/E405` is the schema-drift pass. The pass reads
 //! the test report only for the checks' computed status, so a project with no report is not judged on them.
@@ -81,9 +81,10 @@ fn requirements(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// E403: for each `tdd` task (its own `type`, or its plan's), a recorded `feat` or `fix` commit that names it comes
-/// after a `test` commit that names it. A commit that names only the plan counts for the plan's `tdd` task when it
-/// has exactly one. The RED run's failure is not checked: upstream reads a run record, a commit is all there is here.
+/// W403: for each `tdd` task (its own `type`, or its plan's), a recorded `feat` or `fix` commit that names it comes
+/// after a `test` commit that names it. A commit that names only the plan counts for the plan's `tdd` task when it is
+/// the plan's only task (GSD's own wording names the plan, not the task). It is a warning: the order is a fact of
+/// history that no later commit can repair, so it must never refuse the collector's write. The RED run's failure is not checked: upstream reads a run record, a commit is all there is here.
 fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
     let mut found = Vec::new();
     for plan in of_kind(input, "plan") {
@@ -92,12 +93,13 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
             .into_iter()
             .filter(|t| tdd_plan || text(t, "type") == Some("tdd"))
             .collect();
+        let alone = children(input, &plan.id, "task").len() == 1;
         for task in &tdd {
             let named: Vec<&Commit> = commits
                 .iter()
                 .filter(|c| {
                     c.task.as_deref() == Some(task.id.as_str())
-                        || (tdd.len() == 1
+                        || (alone
                             && c.task.is_none()
                             && c.plan.as_deref() == Some(plan.id.as_str()))
                 })
@@ -113,8 +115,8 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
             }
             found.push(
                 PassDiagnostic::new(
-                    "E403",
-                    PassSeverity::Error,
+                    "W403",
+                    PassSeverity::Warning,
                     format!(
                         "task '{}' has a GREEN commit '{}' with no RED `test(…)` commit before it",
                         task.id,
@@ -129,7 +131,7 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
     found
 }
 
-/// W407: a task of an executed (`complete` or `halted`) plan that no recorded commit names. A `manual` task is a human's
+/// W407: a task of a `complete` plan that no recorded commit names (a halted plan's later tasks never ran). A `manual` task is a human's
 /// step and leaves no commit. The host runs it only while `specforge.task_commits` is on.
 fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
     of_kind(input, "task")
@@ -139,7 +141,7 @@ fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
             let executed = of_kind(input, "plan")
                 .find(|p| p.id == plan)
                 .and_then(|p| text(p, "status"))
-                .is_some_and(|s| matches!(s, "complete" | "halted"));
+                .is_some_and(|s| s == "complete");
             executed
                 && !commits
                     .iter()
@@ -150,7 +152,7 @@ fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
                 "W407",
                 PassSeverity::Warning,
                 format!(
-                    "task '{}' of an executed plan has no recorded commit",
+                    "task '{}' of a complete plan has no recorded commit",
                     task.id
                 ),
             )

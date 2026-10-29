@@ -74,7 +74,7 @@ fn tdd_input(task_types: &[&str]) -> PassInput {
 }
 
 #[test]
-fn e403_needs_a_red_commit_before_the_green_one() {
+fn w403_needs_a_red_commit_before_the_green_one() {
     let input = tdd_input(&["tdd"]);
     let green = red_before_green(&input, &[commit("feat", Some("P/T1"))]);
     assert_eq!(green.len(), 1, "{green:?}");
@@ -105,11 +105,15 @@ fn e403_needs_a_red_commit_before_the_green_one() {
 }
 
 #[test]
-fn a_plan_commit_counts_only_for_a_sole_tdd_task() {
-    // One tdd task and an auto one: a commit naming only the plan is the tdd task's.
-    let sole = tdd_input(&["tdd", "auto"]);
-    assert_eq!(red_before_green(&sole, &[commit("feat", None)]).len(), 1);
-    // Two tdd tasks: it names neither.
+fn a_plan_commit_counts_only_for_the_plans_only_task() {
+    // A lone tdd task: a commit naming only the plan is its own.
+    assert_eq!(
+        red_before_green(&tdd_input(&["tdd"]), &[commit("feat", None)]).len(),
+        1
+    );
+    // Beside an auto task, GSD's plan-only wording is that task's as likely as the tdd one's: it names neither.
+    let sibling = tdd_input(&["tdd", "auto"]);
+    assert!(red_before_green(&sibling, &[commit("feat", None)]).is_empty());
     let two = tdd_input(&["tdd", "tdd"]);
     assert!(red_before_green(&two, &[commit("feat", None)]).is_empty());
     // A task of another kind is not judged at all.
@@ -137,10 +141,11 @@ fn task_input(plan_status: &str, task_type: &str) -> PassInput {
 }
 
 #[test]
-fn w407_judges_executed_plans_and_leaves_manual_tasks_alone() {
+fn w407_judges_complete_plans_and_leaves_manual_tasks_alone() {
     let named = [commit("feat", Some("P/T1"))];
     assert_eq!(task_commits(&task_input("complete", "auto"), &[]).len(), 1);
-    assert_eq!(task_commits(&task_input("halted", "auto"), &[]).len(), 1);
+    // The tasks after a halt never ran.
+    assert!(task_commits(&task_input("halted", "auto"), &[]).is_empty());
     assert!(task_commits(&task_input("executing", "auto"), &[]).is_empty());
     assert!(task_commits(&task_input("complete", "manual"), &[]).is_empty());
     assert!(task_commits(&task_input("complete", "auto"), &named).is_empty());

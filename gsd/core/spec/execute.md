@@ -1,6 +1,6 @@
 # Execution, results and state
 
-**Status: built (r38): the seven kinds below, `gsd/E401` to `gsd/E405`, `gsd/W407` and `gsd/W408`, the computed values of execution (plan, task and check status, duration, actuals, key files) and the collectors `gsd-git` and `gsd-junit`. The session state is not modelled.**
+**Status: built (r38): the seven kinds below, `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408`, the computed values of execution (plan, task and check status, duration, actuals, key files) and the collectors `gsd-git` and `gsd-junit`. The session state is not modelled.**
 
 ```
  plan ─1──0..1─ summary ─1──*─ deliverable

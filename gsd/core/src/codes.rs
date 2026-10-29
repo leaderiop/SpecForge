@@ -413,12 +413,12 @@ pub static CODES: &[Code] = &[
         Severity::Error,
     ),
     code(
-        "E403",
+        "W403",
         "GREEN commit without an earlier RED commit",
-        "A tdd task's GREEN commit follows a RED test commit (the RED run's failure is not checked)",
+        "A tdd task's GREEN commit follows a RED test commit (the RED run's failure is not checked; a warning, as the order cannot be repaired after the fact)",
         "execute",
-        Severity::Error,
-        Severity::Error,
+        Severity::Warning,
+        Severity::Warning,
     ),
     code(
         "W404",
@@ -447,7 +447,7 @@ pub static CODES: &[Code] = &[
     code(
         "W407",
         "Task has no commit",
-        "Every task of an executed plan has a recorded commit (a manual task is exempt)",
+        "Every task of a complete plan has a recorded commit (a manual task is exempt)",
         "execute",
         Severity::Warning,
         Severity::Warning,

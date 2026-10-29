@@ -2,15 +2,16 @@
 //! database. A port of `src/schema-detect.cts:20-73` (gsd-core v1.18.0, MIT, `LICENSE-GSD`): `SCHEMA_PATTERNS`, and
 //! `ORM_INFO`'s `envHint` and `evidencePatterns`, hand-written because the crate has no regex dependency.
 //!
-//! GSD runs the gate at `execute:wave:post`, after the work, so a phase is judged once it has a summary or a recorded
-//! commit: the changed files are its plans' `files_modified`, and the execution log is the text of its summaries and
-//! the subjects of its commits. `GSD_SKIP_SCHEMA_CHECK` has no counterpart: `workflow.schema_drift_gate` is it.
+//! GSD runs the gate at `execute:wave:post`, after the work, so a phase is judged once it has a summary (the nearest
+//! stand-in: a commit alone may be the first of several, and the collector's write that records it must not be
+//! refused): the changed files are its plans' `files_modified`, and the execution log is the text of its summaries
+//! and deviations and the subjects of its commits. `GSD_SKIP_SCHEMA_CHECK` has no counterpart: `workflow.schema_drift_gate` is it.
 
 use std::collections::BTreeMap;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::commits::commits;
+use super::commits::{commits, target};
 use super::plans::{of_kind, phase_of, strings, texts};
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -150,19 +151,25 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
             .filter(|c| c.plan.as_deref().is_some_and(|p| ids.contains(&p)))
             .map(|c| c.subject.as_str())
             .collect();
-        // Before anything ran, there is nothing to push yet.
-        if summaries.is_empty() && subjects.is_empty() {
+        // Until a summary closes a plan there is no wave to judge: the push may be a commit still to come.
+        if summaries.is_empty() {
             continue;
         }
+        let deviations = of_kind(input, "deviation").filter(|d| {
+            target(input, &d.id, "summary").is_some_and(|s| summaries.iter().any(|x| x.id == s))
+        });
         let log: String = summaries
             .iter()
-            .flat_map(|s| texts(s))
+            .copied()
+            .chain(deviations)
+            .flat_map(texts)
             .chain(subjects.iter().map(|s| s.to_string()))
             .collect::<Vec<_>>()
             .join("\n");
         let files: Vec<String> = plans
             .iter()
             .flat_map(|p| strings(p, "files_modified"))
+            .map(|f| f.trim().to_string())
             .filter(|f| orm_of(f).is_some())
             .collect();
         let mut orms: Vec<&Orm> = Vec::new();
