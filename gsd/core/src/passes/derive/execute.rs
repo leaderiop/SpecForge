@@ -17,7 +17,7 @@ use crate::digest::scope_of;
 use crate::passes::plans::{of_kind, rows, text};
 use crate::time::seconds;
 
-fn value(entity: &str, field: &str, value: impl Into<Value>) -> PassValue {
+pub fn value(entity: &str, field: &str, value: impl Into<Value>) -> PassValue {
     PassValue {
         entity: entity.to_string(),
         field: field.to_string(),
@@ -26,7 +26,7 @@ fn value(entity: &str, field: &str, value: impl Into<Value>) -> PassValue {
 }
 
 /// The summary of each plan, by plan id: the first by id when a plan has several (GSD has one file per plan).
-fn summaries(input: &PassInput) -> BTreeMap<&str, &PassEntity> {
+pub fn summaries(input: &PassInput) -> BTreeMap<&str, &PassEntity> {
     let mut found: BTreeMap<&str, &PassEntity> = BTreeMap::new();
     let mut all: Vec<&PassEntity> = of_kind(input, "summary").collect();
     all.sort_by(|a, b| a.id.cmp(&b.id));
@@ -139,8 +139,11 @@ fn check_statuses(input: &PassInput, deliverable: &PassEntity) -> Vec<PassValue>
         .collect()
 }
 
-pub fn values(input: &PassInput, commits: &[Commit]) -> Vec<PassValue> {
-    let statuses = plan_statuses(input, commits);
+pub fn values(
+    input: &PassInput,
+    commits: &[Commit],
+    statuses: &BTreeMap<&str, &'static str>,
+) -> Vec<PassValue> {
     let mut out: Vec<PassValue> = statuses
         .iter()
         .map(|(plan, status)| value(plan, "status", *status))

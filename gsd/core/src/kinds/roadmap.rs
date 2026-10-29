@@ -13,6 +13,13 @@ const STATS: &[Field] = &[
     int("tasks"),
     int("days"),
 ];
+const PROGRESS: &[Field] = &[
+    int("phases"),
+    int("phases_complete"),
+    int("plans"),
+    int("plans_complete"),
+    int("percent"),
+];
 const MILESTONE_STATE: &[&str] = &["planned", "in_progress", "shipped", "abandoned"];
 
 /// A milestone section of `ROADMAP.md`, named `v1.0` and scoped by its workstream when it has one.
@@ -41,6 +48,9 @@ pub const MILESTONE: Kind = Kind::new(
         str("git_range")
             .c()
             .doc("Git range: from the recorded commits"),
+        block("progress", PROGRESS)
+            .c()
+            .doc("state json's `progress`: its phases and plans, and the smaller of the two fractions as a percent"),
     ],
 )
 .scoped_by("workstream");

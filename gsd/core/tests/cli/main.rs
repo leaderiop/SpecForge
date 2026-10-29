@@ -10,6 +10,7 @@ mod parity_plans;
 mod parity_roadmap;
 mod plan;
 mod plan_rules;
+mod progress;
 mod roadmap;
 mod settings;
 mod verify_paths;

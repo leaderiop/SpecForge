@@ -102,7 +102,7 @@ fn a_task_named_by_a_commit_is_done() {
         .entities
         .push(entity(&format!("{}/t2", plan("a")), "task", &[]));
     let task_status = |input: &PassInput, commits: &[Commit]| -> Vec<(String, Value)> {
-        values(input, commits)
+        values(input, commits, &plan_statuses(input, commits))
             .into_iter()
             .filter(|v| v.field == "status" && v.entity.ends_with(['1', '2']))
             .map(|v| (v.entity, v.value))
@@ -164,10 +164,11 @@ fn actuals_and_key_files_come_from_commits() {
         commit("a", Some("t1"), &["src/x.js", "src/y.js"], &["src/y.js"]),
         commit("a", None, &["src/x.js", "src/z.js"], &["src/z.js"]),
     ];
-    let given: BTreeMap<(String, String), Value> = values(&input, &commits)
-        .into_iter()
-        .map(|v| ((v.entity, v.field), v.value))
-        .collect();
+    let given: BTreeMap<(String, String), Value> =
+        values(&input, &commits, &plan_statuses(&input, &commits))
+            .into_iter()
+            .map(|v| ((v.entity, v.field), v.value))
+            .collect();
     let at = |plan_name: &str, field: &str| {
         given.get(&(format!("{}/S", plan(plan_name)), field.to_string()))
     };

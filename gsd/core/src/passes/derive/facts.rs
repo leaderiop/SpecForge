@@ -8,20 +8,30 @@ use crate::passes::plans::{of_kind, strings, text};
 /// One recorded commit.
 #[derive(Debug, Clone, Default)]
 pub struct Commit {
+    /// `feat`, `fix`, `test` ...
+    pub kind: String,
     pub plan: Option<String>,
     pub task: Option<String>,
     /// `YYYY-MM-DDTHH:MM:SSZ`: sorts as time does.
     pub at: String,
     pub files: Vec<String>,
     pub created: Vec<String>,
+    pub insertions: i64,
+    pub deletions: i64,
 }
 
-fn target<'a>(input: &'a PassInput, source: &str, label: &str) -> Option<&'a str> {
+pub fn target<'a>(input: &'a PassInput, source: &str, label: &str) -> Option<&'a str> {
     input
         .edges
         .iter()
         .find(|e| e.source == source && e.label == label)
         .map(|e| e.target.as_str())
+}
+
+fn number(entity: &PassEntity, field: &str) -> i64 {
+    text(entity, field)
+        .and_then(|t| t.parse().ok())
+        .unwrap_or(0)
 }
 
 /// Every commit, oldest first: by time, and in the file's order for the same second (the collector writes the log
@@ -36,11 +46,14 @@ pub fn commits(input: &PassInput) -> Vec<Commit> {
                 .unwrap_or_default();
             (
                 Commit {
+                    kind: text(e, "type").unwrap_or_default().to_string(),
                     plan: target(input, &e.id, "plan").map(String::from),
                     task: target(input, &e.id, "task").map(String::from),
                     at: text(e, "at").unwrap_or_default().to_string(),
                     files: strings(e, "files"),
                     created: strings(e, "created"),
+                    insertions: number(e, "insertions"),
+                    deletions: number(e, "deletions"),
                 },
                 place,
             )
