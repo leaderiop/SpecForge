@@ -111,9 +111,14 @@ fn duration(summary: &PassEntity) -> Option<String> {
 }
 
 /// A check's status from the report: `fail` when a test named by its `ref` failed, `pass` when one passed, `unknown`
-/// when none was recorded. No report, no status.
+/// when none was recorded. No test result, no status: a report with no result in it (the git collector writes one) is
+/// no more a test run than no report is.
 fn check_statuses(input: &PassInput, deliverable: &PassEntity) -> Vec<PassValue> {
-    let Some(report) = input.test_results.as_ref() else {
+    let Some(report) = input
+        .test_results
+        .as_ref()
+        .filter(|r| !r.results.is_empty())
+    else {
         return Vec::new();
     };
     let tests = report.of(&deliverable.id);

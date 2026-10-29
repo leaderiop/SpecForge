@@ -393,3 +393,22 @@ fn without_a_report_w408_does_not_judge_checks() {
         report(&p)
     );
 }
+
+#[test]
+fn a_git_only_collect_leaves_the_checks_unjudged_even_under_strict() {
+    let p = repository();
+    p.settings(json!({ "profile": "gsd-strict" }));
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    p.git_commit(
+        "test(01-01): Store tests",
+        &[("test/tasks.test.js", "t\n")],
+        T1,
+    );
+    assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
+    assert!(
+        p.exists("specforge-report.json"),
+        "the git collect writes a report"
+    );
+    // No test ever ran: no W408 (an Error under strict).
+    assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
+}

@@ -252,7 +252,7 @@ impl Project {
     }
 
     /// Records one passing test for the `execute` project's deliverable check (`test/tasks.test.js#adds a task`), as
-    /// `gsd-junit` reads a JUnit report. Once any collector has written a report, a check no test ran is `unknown`
+    /// `gsd-junit` reads a JUnit report. Once a test runner has recorded a result, a check no test ran is `unknown`
     /// and `gsd/W408` says so; this settles it.
     pub fn passing_tests(&self) {
         let file = self
