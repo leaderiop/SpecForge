@@ -164,7 +164,7 @@ The packaging (one Cargo workspace, built on demand, tested through the `specfor
 
 ## Waiting on the kernel
 
-Four things r39 and r40 could not build, or could not guarantee, wait for kernel work (K17):
+Six things r39 and r40 could not build, or could not guarantee, wait for kernel work (K17):
 
 - **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
   baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
@@ -173,6 +173,10 @@ Four things r39 and r40 could not build, or could not guarantee, wait for kernel
   verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
   (with `baseline-format` 3). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
   synthetic baselines, not black-box (the judgement list is empty on a baseline).
+- **`gsd/E502`** is not built: an explicit truth verified without a passing test would be a new Error whenever a
+  failing test is recorded for it, and recording the verdict is then refused whole by the same keying (E080). The
+  verifier could not record a `verified` that a report contradicts. It needs the E080 change below. `covered_digest`
+  is built.
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
 - **A verdict's own state counts as a new error (E080).** The host re-checks the project an edit would leave and keys
@@ -188,6 +192,11 @@ Four things r39 and r40 could not build, or could not guarantee, wait for kernel
   is not a *new* error). The same keying probably refuses any command that *creates* a truth, artifact, key link, phase
   spec or milestone audit (the new entity adds an E501, E202 or E518 `no verdict` Error): K17 must take this before
   r41's planner commands.
+- **A `file()` input names a file-reference field only.** `gsd/E501` and the plan checks read no file as an input,
+  because a plan, an artifact and a key link name files that do not exist yet and the host checks every file-reference
+  field for existence (E016). The verifier cites the files it read (`cited`); a file it did not cite can change
+  without staling its verdict. Likewise `gsd/E518`'s `requirements` input is every requirement: a selector cannot go
+  on past a reference (`phase.milestone.requirements`).
 - **Human-only on existing entities.** Closed for `override` in r40: the host's `edit_flags` checks the kind's writer
   on create, delete and retitle, and a *field's* writer on `set`, `unset` and `link`, so every field of `override` is
   marked human and an agent can no longer change or re-point one

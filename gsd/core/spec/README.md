@@ -183,7 +183,7 @@ throwaway output outside the spec tree.
 
 ## Waiting on the kernel
 
-Three things r39 could not build, or could not guarantee, wait for kernel work (K17):
+Six things r39 and r40 could not build, or could not guarantee, wait for kernel work (K17):
 
 - **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
   baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
@@ -192,11 +192,32 @@ Three things r39 could not build, or could not guarantee, wait for kernel work (
   verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
   (with `baseline-format` 3). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
   synthetic baselines, not black-box (the judgement list is empty on a baseline).
+- **`gsd/E502`** is not built: an explicit truth verified without a passing test would be a new Error whenever a
+  failing test is recorded for it, and recording the verdict is then refused whole by the same keying (E080). The
+  verifier could not record a `verified` that a report contradicts. It needs the E080 change below. `covered_digest`
+  is built.
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
-- **Human-only on existing entities.** The guarantee of `override` (and `debt_accepted`) holds for creating, deleting
-  and retitling only: the host's `edit_flags` checks the kind's writer on those, not on `set`, `unset` or `link` of an
-  existing entity, so an agent can change or re-point an existing override. The black-box test
-  `an_agent_cannot_edit_an_existing_override` is ignored until the kernel fix. An agent can also delete a milestone
-  audit that carries a person's `debt_accepted` (gsd/E106 then refuses the gate).
-
+- **A verdict's own state counts as a new error (E080).** The host re-checks the project an edit would leave and keys
+  a diagnostic by its code, severity, file and message shape. A judged rule's message changes when a verdict is
+  recorded (`…: no verdict` becomes `…: the verdict of <date> is '<outcome>' (<n> findings)`), so recording a
+  **non-passing** verdict on a rule whose effective severity is an Error (gsd/E501 `failed` or `uncertain`, gsd/E518
+  `issues`, gsd/E202 `failed`, and gsd/W311, W313, W315 under `gsd-strict`) is refused whole:
+  `error[E080]: the edit would leave the project with 1 error it does not have; nothing was written`
+  (`a_failing_verdict_on_an_error_rule_is_refused_whole`; the ignored `a_failing_verdict_on_an_error_rule_records` is
+  the test to un-ignore). `@gsd/core` ships **fail-closed**: such a verdict cannot be recorded, so the rule keeps
+  saying `no verdict` and nothing becomes `passed`, `checked` or `complete` wrongly. The smallest kernel change: a
+  judged rule's diagnostic is keyed without the verdict part of its message (or a recorded verdict's own judged state
+  is not a *new* error). The same keying probably refuses any command that *creates* a truth, artifact, key link, phase
+  spec or milestone audit (the new entity adds an E501, E202 or E518 `no verdict` Error): K17 must take this before
+  r41's planner commands.
+- **A `file()` input names a file-reference field only.** `gsd/E501` and the plan checks read no file as an input,
+  because a plan, an artifact and a key link name files that do not exist yet and the host checks every file-reference
+  field for existence (E016). The verifier cites the files it read (`cited`); a file it did not cite can change
+  without staling its verdict. Likewise `gsd/E518`'s `requirements` input is every requirement: a selector cannot go
+  on past a reference (`phase.milestone.requirements`).
+- **Human-only on existing entities.** Closed for `override` in r40: the host's `edit_flags` checks the kind's writer
+  on create, delete and retitle, and a *field's* writer on `set`, `unset` and `link`, so every field of `override` is
+  marked human and an agent can no longer change or re-point one
+  (`an_agent_cannot_edit_an_existing_override`). What stays: an agent can delete a milestone audit that carries a
+  person's `debt_accepted` (gsd/E106 then refuses the gate), because the kind is not human; the general fix is K17.
