@@ -339,3 +339,122 @@ fn a_commit_named_by_twelve_decimal_digits_is_a_name() {
     let query = p.run(&["query", "012345678901", "--depth", "0", "--format", "brief"]);
     assert_eq!(node_ids(&query), ["012345678901"], "{}", query.all());
 }
+
+#[test]
+fn a_pause_is_named_within_its_phase() {
+    let p = project("execute");
+    let query = p.run(&["query", "v1.0/01/PS1", "--depth", "0", "--format", "brief"]);
+    assert_eq!(node_ids(&query), ["v1.0/01/PS1"], "{}", query.all());
+    let query = p.run(&["query", "v1.0/01/HO1", "--depth", "0", "--format", "brief"]);
+    assert_eq!(node_ids(&query), ["v1.0/01/HO1"], "{}", query.all());
+}
+
+#[test]
+fn a_phaseless_pause_is_in_the_project_scope() {
+    let p = project("execute");
+    p.edit(
+        "spec/ops.spec",
+        "  phase   v1.0/01\n  plan    v1.0/01/01-02\n  reason",
+        "  plan    v1.0/01/01-02\n  reason",
+    );
+    let query = p.run(&["query", "PS1", "--depth", "0", "--format", "brief"]);
+    assert_eq!(node_ids(&query), ["PS1"], "{}", query.all());
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn a_hand_written_pause_at_is_e083() {
+    let p = project("execute");
+    p.edit(
+        "spec/ops.spec",
+        "  reason  \"How completion is stored is still open\"\n",
+        "  reason  \"How completion is stored is still open\"\n  at      \"2026-10-29T10:00:00Z\"\n",
+    );
+    let report = p.report();
+    assert_eq!(
+        report.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(),
+        ["E083"],
+        "{report:?}"
+    );
+    assert!(
+        report[0]
+            .1
+            .contains("harness field 'at' of pause 'v1.0/01/PS1'"),
+        "{report:?}"
+    );
+    p.record_harness("v1.0/01/PS1", "at", "\"2026-10-29T10:00:00Z\"");
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn a_resolved_blocker_at_a_local_time_is_e107() {
+    // The first black-box E107: `resolved.at` is an authored time member, so a local time is refused.
+    let p = project("execute");
+    p.edit(
+        "spec/ops.spec",
+        "at  \"2026-10-29T10:00:00Z\"",
+        "at  \"2026-10-29T10:00:00+02:00\"",
+    );
+    let report = p.report();
+    assert_eq!(
+        report.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(),
+        ["gsd/E107"],
+        "{report:?}"
+    );
+    assert!(
+        report[0].1.contains("blocker 'BL1'") && report[0].1.contains("2026-10-29T10:00:00+02:00"),
+        "{report:?}"
+    );
+}
+
+#[test]
+fn a_hand_written_blocker_raised_is_e083() {
+    let p = project("execute");
+    p.edit(
+        "spec/ops.spec",
+        "  text  \"How completion is stored is undecided\"\n",
+        "  text  \"How completion is stored is undecided\"\n  raised \"2026-10-28T10:00:00Z\"\n",
+    );
+    let report = p.report();
+    assert_eq!(
+        report.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(),
+        ["E083"],
+        "{report:?}"
+    );
+    assert!(
+        report[0]
+            .1
+            .contains("harness field 'raised' of blocker 'BL1'"),
+        "{report:?}"
+    );
+}
+
+#[test]
+fn a_handoff_names_its_blockers_and_decisions() {
+    let p = project("execute");
+    let query = p.run(&["query", "v1.0/01/HO1", "--format", "json"]);
+    let graph: serde_json::Value = serde_json::from_str(&query.stdout).expect("JSON");
+    let mut edges: Vec<(String, String)> = graph["edges"]
+        .as_array()
+        .expect("edges")
+        .iter()
+        .filter(|e| e["source"] == "v1.0/01/HO1")
+        .map(|e| {
+            (
+                e["label"].as_str().unwrap_or_default().to_string(),
+                e["target"].as_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect();
+    edges.sort();
+    assert_eq!(
+        edges,
+        [
+            ("blockers".into(), "BL1".into()),
+            ("completed_work.task".into(), "v1.0/01/01-01/T1".into()),
+            ("decisions_made".into(), "v1.0/01/D-01".into()),
+            ("phase".into(), "v1.0/01".into()),
+            ("task".into(), "v1.0/01/01-02/T1".into()),
+        ]
+    );
+}

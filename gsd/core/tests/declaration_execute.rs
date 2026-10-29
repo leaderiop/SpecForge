@@ -188,3 +188,109 @@ fn the_commit_kind_is_harness_written() {
     assert!(!fields_of("task").contains(&"commits".to_string()));
     assert!(!fields_of("plan").contains(&"commits".to_string()));
 }
+
+#[test]
+fn the_ops_kinds_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("pause"),
+        ["phase", "plan", "at", "by", "reason", "handoff"]
+    );
+    assert_eq!(
+        fields_of("handoff"),
+        [
+            "phase",
+            "task",
+            "state",
+            "current_state",
+            "completed_work",
+            "remaining_work",
+            "decisions_made",
+            "blockers",
+            "context",
+            "next_action"
+        ]
+    );
+    assert_eq!(
+        fields_of("blocker"),
+        ["text", "phase", "plan", "raised", "resolved"]
+    );
+    for kind in ["pause", "handoff"] {
+        assert_eq!(kind_of(kind)["scoped_by"], "phase", "{kind}");
+        let phase = field_of(kind, "phase");
+        assert_eq!(phase["immutable"], true, "{kind}");
+        assert_ne!(
+            phase["required"], true,
+            "{kind}: a pause or handoff may have no phase"
+        );
+    }
+    assert!(kind_of("blocker")["scoped_by"].is_null());
+    for (kind, field) in [
+        ("pause", "reason"),
+        ("handoff", "state"),
+        ("handoff", "current_state"),
+        ("handoff", "next_action"),
+        ("blocker", "text"),
+    ] {
+        assert_eq!(field_of(kind, field)["required"], true, "{kind}.{field}");
+    }
+    for (kind, field) in [("pause", "at"), ("pause", "by"), ("blocker", "raised")] {
+        assert_eq!(writer(kind, field), "harness", "{kind}.{field}");
+    }
+    // `resolved` is authored, so its `at` gets the E107 rule; a `pause.at` is harness-written, so it gets none.
+    assert_eq!(writer("blocker", "resolved"), "author");
+    let rules = describe("validation_rules");
+    let e107: Vec<(String, String)> = rules["items"]
+        .as_array()
+        .expect("rules")
+        .iter()
+        .filter(|r| r["code"].to_string().contains("E107"))
+        .filter(|r| {
+            ["pause", "handoff", "blocker"].contains(&r["target_kind"].as_str().unwrap_or_default())
+        })
+        .map(|r| {
+            (
+                r["target_kind"].as_str().unwrap_or_default().to_string(),
+                r["field"].as_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect();
+    assert_eq!(e107, [("blocker".to_string(), "resolved.at".to_string())]);
+    let edges = describe("edges");
+    for label in [
+        "HandoffBlockers",
+        "HandoffDecisionsMade",
+        "HandoffCompletedWorkTask",
+    ] {
+        assert!(
+            edges["items"]
+                .as_array()
+                .expect("edges")
+                .iter()
+                .any(|e| e["label"] == label),
+            "{label} in {edges}"
+        );
+    }
+}
+
+#[test]
+fn the_model_has_forty_kinds() {
+    let kinds = describe("entities");
+    assert_eq!(kinds["items"].as_array().expect("kinds").len(), 40);
+}
+
+#[test]
+fn the_model_counts_its_fields() {
+    let total: usize = [
+        "summary",
+        "deliverable",
+        "deviation",
+        "commit",
+        "pause",
+        "handoff",
+        "blocker",
+    ]
+    .iter()
+    .map(|k| fields_of(k).len())
+    .sum();
+    assert_eq!(total, 22 + 6 + 5 + 10 + 6 + 10 + 5);
+}

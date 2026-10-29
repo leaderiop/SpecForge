@@ -496,6 +496,96 @@
         "label": "CommitPlan",
         "source_kind": "commit",
         "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PausePhase",
+        "source_kind": "pause",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PausePlan",
+        "source_kind": "pause",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PauseHandoff",
+        "source_kind": "pause",
+        "target_kind": "handoff"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "HandoffPhase",
+        "source_kind": "handoff",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "HandoffTask",
+        "source_kind": "handoff",
+        "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "HandoffCompletedWorkTask",
+        "source_kind": "handoff",
+        "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "HandoffDecisionsMade",
+        "source_kind": "handoff",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "HandoffBlockers",
+        "source_kind": "handoff",
+        "target_kind": "blocker"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "BlockerPhase",
+        "source_kind": "blocker",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "BlockerPlan",
+        "source_kind": "blocker",
+        "target_kind": "plan"
       }
     ]
   },
@@ -5469,6 +5559,362 @@
         "keyword": null,
         "lsp_icon": null,
         "name": "commit",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "Work paused for a handoff (GSD /gsd-pause-work)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "absent when the pause is not in a phase",
+            "edge": "PausePhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": false,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the plan that was open",
+            "edge": "PausePlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "plan",
+            "required": false,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "written by the pausing command, with the host's clock",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "at",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "who paused",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "by",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "why the work stopped",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`.continue-here.md`",
+            "edge": "PauseHandoff",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "handoff",
+            "required": false,
+            "target_kind": "handoff"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "pause",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "What the next session needs to continue (GSD .continue-here.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "absent when the handoff is not in a phase",
+            "edge": "HandoffPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": false,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the task that was open",
+            "edge": "HandoffTask",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "task",
+            "required": false,
+            "target_kind": "task"
+          },
+          {
+            "default_value": null,
+            "description": "where the work stands",
+            "edge": null,
+            "enum_values": [
+              "in_progress",
+              "blocked",
+              "almost_done"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "state",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<current_state>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "current_state",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<completed_work>`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "HandoffCompletedWorkTask",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "task",
+                "required": false,
+                "target_kind": "task"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "done",
+                  "in_progress",
+                  "not_started"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "state",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "completed_work",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<remaining_work>`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "remaining_work",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<decisions_made>`",
+            "edge": "HandoffDecisionsMade",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "decisions_made",
+            "required": false,
+            "target_kind": "decision"
+          },
+          {
+            "default_value": null,
+            "description": "`<blockers>`",
+            "edge": "HandoffBlockers",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "blockers",
+            "required": false,
+            "target_kind": "blocker"
+          },
+          {
+            "default_value": null,
+            "description": "`<context>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "context",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<next_action>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "next_action",
+            "required": true,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "handoff",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A blocker or concern that stops or slows the work (GSD STATE.md Blockers/Concerns)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the blocker",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the phase it blocks",
+            "edge": "BlockerPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "phase",
+            "required": false,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the plan it blocks",
+            "edge": "BlockerPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "plan",
+            "required": false,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "written by the command that raises it, with the host's clock",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "raised",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "how and when it was resolved (an authored time: gsd/E107)",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "how",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "resolved",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "blocker",
         "open_fields": false,
         "semantic_token": null,
         "singleton": false,

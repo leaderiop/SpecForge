@@ -87,16 +87,18 @@ fallback links a test only by `entity_id__slug` or a module named after an entit
 These are what `STATE.md` and `.continue-here.md` hold that cannot be derived and that a teammate pulling the repository
 must see. They are committed, in `spec/gsd/ops/`.
 
-**pause**: written by `/gsd-pause-work`, removed by `/gsd-resume-work`. Name `PS1`. `phase → phase`, `plan → plan`,
-`at ts H`, `by str H`, `reason str R`, `handoff → handoff`.
+**pause**: written by `/gsd-pause-work`, removed by `/gsd-resume-work`. Name `PS1`, scoped by its phase (`phase → phase I`,
+optional: a pause with no phase is in the project scope). `plan → plan`, `at ts H`, `by str H`, `reason str R`,
+`handoff → handoff`.
 
-**handoff**: GSD `.continue-here.md`. Name `HO1`. `phase → phase`, `task → task`,
-`state enum{in_progress, blocked, almost_done} R`, `current_state text R`,
+**handoff**: GSD `.continue-here.md`. Name `HO1`, scoped by its phase as a pause is. `phase → phase I`, `task → task`,
+`state enum{in_progress, blocked, almost_done} R`, `current_state str R`,
 `completed_work {task → task, state enum{done, in_progress, not_started}}`, `remaining_work strs`,
-`decisions_made →* decision`, `blockers →* blocker`, `context text`, `next_action str R`.
+`decisions_made →* decision`, `blockers →* blocker`, `context str`, `next_action str R`.
 
 **blocker**: GSD `### Blockers/Concerns`. Name `BL1`, project scope. `text str R`, `phase → phase`, `plan → plan`, `raised ts H`,
-`resolved {at ts, how str}`.
+`resolved {at ts, how str}`. `resolved` is authored, so a person writes `resolved.at` and `gsd/E107` refuses a time that
+is not RFC 3339 UTC (`2026-10-29T10:00:00Z`).
 
 ## Session state
 

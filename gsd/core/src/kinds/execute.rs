@@ -108,3 +108,64 @@ pub const DEVIATION: Kind = Kind::new(
 )
 .append_only()
 .scoped_by("summary");
+
+const HANDOFF_STATE: &[&str] = &["in_progress", "blocked", "almost_done"];
+const WORK_STATE: &[&str] = &["done", "in_progress", "not_started"];
+const COMPLETED_WORK: &[Field] = &[rf("task", "task"), en("state", WORK_STATE)];
+const RESOLVED: &[Field] = &[ts("at"), str("how")];
+
+/// `/gsd-pause-work`'s record, named `PS1`: what a teammate who pulls the repository must see. Removed on resume.
+pub const PAUSE: Kind = Kind::new(
+    "pause",
+    "Work paused for a handoff (GSD /gsd-pause-work)",
+    &[
+        rf("phase", "phase")
+            .i()
+            .doc("absent when the pause is not in a phase"),
+        rf("plan", "plan").doc("the plan that was open"),
+        ts("at")
+            .h()
+            .doc("written by the pausing command, with the host's clock"),
+        str("by").h().doc("who paused"),
+        str("reason").r().doc("why the work stopped"),
+        rf("handoff", "handoff").doc("`.continue-here.md`"),
+    ],
+)
+.scoped_by("phase");
+
+/// `.continue-here.md`, named `HO1`.
+pub const HANDOFF: Kind = Kind::new(
+    "handoff",
+    "What the next session needs to continue (GSD .continue-here.md)",
+    &[
+        rf("phase", "phase")
+            .i()
+            .doc("absent when the handoff is not in a phase"),
+        rf("task", "task").doc("the task that was open"),
+        en("state", HANDOFF_STATE).r().doc("where the work stands"),
+        str("current_state").r().doc("`<current_state>`"),
+        blocks("completed_work", COMPLETED_WORK).doc("`<completed_work>`"),
+        strs("remaining_work").doc("`<remaining_work>`"),
+        rfs("decisions_made", "decision").doc("`<decisions_made>`"),
+        rfs("blockers", "blocker").doc("`<blockers>`"),
+        str("context").doc("`<context>`"),
+        str("next_action").r().doc("`<next_action>`"),
+    ],
+)
+.scoped_by("phase");
+
+/// STATE.md's `### Blockers/Concerns`, named `BL1`, in the project scope.
+pub const BLOCKER: Kind = Kind::new(
+    "blocker",
+    "A blocker or concern that stops or slows the work (GSD STATE.md Blockers/Concerns)",
+    &[
+        str("text").r().doc("the blocker"),
+        rf("phase", "phase").doc("the phase it blocks"),
+        rf("plan", "plan").doc("the plan it blocks"),
+        ts("raised")
+            .h()
+            .doc("written by the command that raises it, with the host's clock"),
+        block("resolved", RESOLVED)
+            .doc("how and when it was resolved (an authored time: gsd/E107)"),
+    ],
+);

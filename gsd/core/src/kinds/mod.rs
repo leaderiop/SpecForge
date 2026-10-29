@@ -54,6 +54,9 @@ const KINDS: &[&Kind] = &[
     &execute::DELIVERABLE,
     &execute::DEVIATION,
     &commit::COMMIT,
+    &execute::PAUSE,
+    &execute::HANDOFF,
+    &execute::BLOCKER,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
