@@ -30,7 +30,7 @@ fn repository() -> Project {
 }
 
 #[test]
-fn a_commit_naming_03_02_is_written_into_its_plan_file() {
+fn a_commit_naming_a_plan_is_written_into_its_plan_file() {
     // The first use of a wasm guest's writing collector that creates harness-written entities.
     let p = repository();
     let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
@@ -126,7 +126,7 @@ fn a_second_collect_records_nothing_new() {
 }
 
 #[test]
-fn a_commit_after_the_plan_file_changed_is_recorded_on_the_next_run() {
+fn a_dry_run_writes_nothing_and_the_next_run_records_the_commit() {
     let p = repository();
     let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
     let before = p.read("spec/plans.spec");

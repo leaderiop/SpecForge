@@ -387,11 +387,7 @@ fn without_a_report_w408_does_not_judge_checks() {
     assert_eq!(codes(&p), Vec::<String>::new());
     p.settings(json!({ "profile": "gsd-strict" }));
     // Under strict the W407 warnings arrive; the checks still say nothing.
-    assert!(
-        codes(&p).iter().all(|c| c == "gsd/W407"),
-        "{:?}",
-        report(&p)
-    );
+    assert_eq!(codes(&p), ["gsd/W407", "gsd/W407"], "{:?}", report(&p));
 }
 
 #[test]

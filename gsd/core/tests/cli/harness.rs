@@ -228,10 +228,28 @@ impl Project {
     fn git(&self, args: &[&str], at: &str) -> String {
         let output = Command::new("git")
             .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
-            .args(["-c", "commit.gpgsign=false"])
+            .args([
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+            ])
+            .args([
+                "-c",
+                "core.excludesFile=/dev/null",
+                "-c",
+                "tag.gpgSign=false",
+            ])
             .args(args)
+            // Not the developer's configuration, hooks, signing or repository.
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env_remove("GIT_DIR")
+            .env_remove("GIT_WORK_TREE")
+            .env_remove("GIT_INDEX_FILE")
             .env("GIT_AUTHOR_DATE", at)
-            .env("GIT_COMMITTER_DATE", at)
+            // The committer's date differs from the author's, so `%at` is told from `%ct`.
+            .env("GIT_COMMITTER_DATE", "2030-01-01T00:00:00Z")
             .current_dir(self.dir.path())
             .output()
             .expect("run git");

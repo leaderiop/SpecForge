@@ -335,4 +335,7 @@ fn the_twin_is_silent_under_compat_with_and_without_a_report() {
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(p.codes(), Vec::<String>::new());
+    // With a report the harness hides I205 for every project: a stray one would be invisible, so count it raw.
+    let check = p.run(&["check"]);
+    assert!(!check.all().contains("I205"), "{}", check.all());
 }
