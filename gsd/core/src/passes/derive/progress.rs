@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::{summaries, value};
-use super::facts::{Commit, target};
+use crate::passes::commits::{Commit, target};
 use crate::passes::plans::{name_of, of_kind, phase_of, rows, text};
 use crate::time::seconds;
 

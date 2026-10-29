@@ -18,6 +18,20 @@ pub fn declare(c: &mut ContributionsBuilder) {
         });
     });
 
+    // E402: a halted summary says why.
+    c.rule("E402", |r| {
+        r.check(CheckKind::ConditionalFieldRequired)
+            .target_kind("summary")
+            .field("halted_because")
+            .severity(ValidationSeverity::Error)
+            .message_template("summary '{id}' is halted but gives no halted_because");
+        r.constraint(|fc| {
+            fc.kind(ConstraintKind::WhenFieldEquals)
+                .pattern("status")
+                .values(&["halted"]);
+        });
+    });
+
     // E201: a context has canonical refs. The field is not `required` (that would be the host's own error), so this
     // code is the one diagnostic of its absence. An unwritten field breaks no `non_empty`, a written `[]` is not
     // missing: each case fires exactly one of the two rules.

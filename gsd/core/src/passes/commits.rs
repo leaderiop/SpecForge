@@ -1,4 +1,4 @@
-//! What the derive pass reads from the recorded commits: each commit's plan, task, type, time and files, from the
+//! What the passes read from the recorded commits: each commit's plan, task, type, subject, time and files, from the
 //! entity and its resolved `plan` and `task` edges.
 
 use specforge_extension_sdk::prelude::*;
@@ -8,6 +8,9 @@ use crate::passes::plans::{of_kind, strings, text};
 /// One recorded commit.
 #[derive(Debug, Clone, Default)]
 pub struct Commit {
+    /// The entity id: `<plan>/<12 hex>`.
+    pub id: String,
+    pub subject: String,
     /// `feat`, `fix`, `test` ...
     pub kind: String,
     pub plan: Option<String>,
@@ -46,6 +49,8 @@ pub fn commits(input: &PassInput) -> Vec<Commit> {
                 .unwrap_or_default();
             (
                 Commit {
+                    id: e.id.clone(),
+                    subject: text(e, "subject").unwrap_or_default().to_string(),
                     kind: text(e, "type").unwrap_or_default().to_string(),
                     plan: target(input, &e.id, "plan").map(String::from),
                     task: target(input, &e.id, "task").map(String::from),

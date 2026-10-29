@@ -9,7 +9,6 @@
 //! `retrospective.sessions` (no harness), and plan `draft`/`checked` (the plan-check verdicts, r40).
 
 mod execute;
-mod facts;
 mod halt;
 mod progress;
 
@@ -39,7 +38,7 @@ fn derive(input: &PassInput) -> PassOutput {
             })
         })
         .collect();
-    let commits = facts::commits(input);
+    let commits = crate::passes::commits::commits(input);
     let statuses = execute::plan_statuses(input, &commits);
     values.extend(execute::values(input, &commits, &statuses));
     values.extend(progress::values(input, &commits, &statuses));

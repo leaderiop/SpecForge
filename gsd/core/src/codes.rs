@@ -414,8 +414,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "E403",
-        "GREEN commit without a recorded RED failure",
-        "A tdd task's GREEN commit follows a recorded RED failure",
+        "GREEN commit without an earlier RED commit",
+        "A tdd task's GREEN commit follows a RED test commit (the RED run's failure is not checked)",
         "execute",
         Severity::Error,
         Severity::Error,
@@ -430,8 +430,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "E405",
-        "Schema drifted from the planned migrations",
-        "The schema has not drifted from the plan's declared migrations",
+        "Schema changed with no database push recorded",
+        "A phase that changed an ORM's schema files records its database push in a summary or a commit subject, once it has run",
         "execute",
         Severity::Error,
         Severity::Error,

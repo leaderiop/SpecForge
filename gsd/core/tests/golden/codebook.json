@@ -250,8 +250,8 @@
     {
       "code": "E403",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "A tdd task's GREEN commit follows a recorded RED failure. It is an error.",
-      "title": "GREEN commit without a recorded RED failure"
+      "explanation": "A tdd task's GREEN commit follows a RED test commit (the RED run's failure is not checked). It is an error.",
+      "title": "GREEN commit without an earlier RED commit"
     },
     {
       "code": "W404",
@@ -262,8 +262,8 @@
     {
       "code": "E405",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "The schema has not drifted from the plan's declared migrations. It is an error.",
-      "title": "Schema drifted from the planned migrations"
+      "explanation": "A phase that changed an ORM's schema files records its database push in a summary or a commit subject, once it has run. It is an error.",
+      "title": "Schema changed with no database push recorded"
     },
     {
       "code": "W406",

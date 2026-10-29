@@ -11,9 +11,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::facts::Commit;
 use super::halt::{self, Node};
 use crate::digest::scope_of;
+use crate::passes::commits::Commit;
 use crate::passes::plans::{of_kind, rows, text};
 use crate::time::seconds;
 
