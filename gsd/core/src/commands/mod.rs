@@ -8,6 +8,7 @@ mod help;
 mod milestone;
 mod phase;
 mod refactor;
+mod reports;
 mod state;
 mod support;
 pub(crate) use support::natural;
@@ -71,5 +72,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     phase::declare(c);
     workstreams::declare(c);
     help::declare(c);
+    reports::declare(c);
     surface::declare(c);
 }

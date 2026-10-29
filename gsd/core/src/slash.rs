@@ -40,6 +40,8 @@ pub fn declare(c: &mut ContributionsBuilder) {
     bind(c, "workstreams", None);
     bind(c, "cleanup", None);
     bind(c, "help", None);
+    bind(c, "health", None);
+    bind(c, "stats", None);
     bind(
         c,
         "surface",

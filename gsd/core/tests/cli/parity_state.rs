@@ -20,17 +20,31 @@ fn golden(name: &str) -> Value {
         .unwrap_or_else(|e| panic!("{name} is JSON: {e}"))
 }
 
-/// The label `progress json` gives a phase status (`phase-status.cts`).
-fn label(status: &str) -> &'static str {
-    match status {
-        "not_started" => "Pending",
-        "planned" => "Planned",
-        "in_progress" => "In Progress",
-        "executed" => "Executed",
-        "needs_review" => "Needs Review",
-        "complete" => "Complete",
-        other => panic!("no label for {other}"),
-    }
+/// The label `progress json` gives each phase, as the `progress_report` command answers it, by phase number.
+fn labels(p: &Project) -> Vec<(String, String)> {
+    let run = p.run(&["gsd", "progress-report", "--format", "json"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let report: Value = serde_json::from_str(&run.stdout).expect("JSON");
+    report["phases"]
+        .as_array()
+        .expect("phases")
+        .iter()
+        .map(|ph| {
+            (
+                ph["number"].as_str().unwrap_or_default().to_string(),
+                ph["status"].as_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect()
+}
+
+/// The label of phase `number`.
+fn label_of(p: &Project, number: &str) -> String {
+    labels(p)
+        .into_iter()
+        .find(|(n, _)| n == number)
+        .unwrap_or_else(|| panic!("no phase {number}"))
+        .1
 }
 
 /// The twin with the verifier's `verified` verdict on every item of phase 01 (its verification then passes).
@@ -54,8 +68,7 @@ fn taskboard_progress_matches_gsd_tools() {
             fields["plans_complete"], counts,
             "phase {number}: summaries/plans"
         );
-        let status = fields["status"].as_str().unwrap_or_default();
-        assert_eq!(label(status), phase["status"], "phase {number}");
+        assert_eq!(label_of(&p, number), phase["status"], "phase {number}");
     }
     // The totals, and the plan-based percent, from `milestone.progress`.
     let milestone = p.fields_of("v1.0")["progress"].clone();
@@ -84,23 +97,9 @@ fn phase_01_is_complete_as_upstream_says() {
     assert_eq!(progress["phases"][0]["status"], "Complete");
     let p = taskboard();
     // Without the verifier's verdicts the phase stops at Executed.
-    assert_eq!(
-        label(
-            p.fields_of("v1.0/01")["status"]
-                .as_str()
-                .unwrap_or_default()
-        ),
-        "Executed"
-    );
+    assert_eq!(label_of(&p, "01"), "Executed");
     let p = verified_taskboard();
-    assert_eq!(
-        label(
-            p.fields_of("v1.0/01")["status"]
-                .as_str()
-                .unwrap_or_default()
-        ),
-        "Complete"
-    );
+    assert_eq!(label_of(&p, "01"), "Complete");
 }
 
 #[test]
