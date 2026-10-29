@@ -4,6 +4,7 @@
 
 mod args;
 pub(crate) mod assets;
+mod audit;
 mod discuss;
 mod execute;
 mod host;
@@ -28,4 +29,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     plan::declare(c);
     execute::declare(c);
     verify::declare(c);
+    audit::declare(c);
 }

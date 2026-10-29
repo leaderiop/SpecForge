@@ -77,6 +77,8 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | File | sha256 |
 |---|---|
 | `commands/gsd/add-tests.md` | `d62d2e34817c899a92998903b26f427005d93138806f3a98d8112c671fe3edcb` |
+| `commands/gsd/audit-milestone.md` | `64fd4df436242de2e7bb064561b31c60418672620876016aaee03be45ce11b79` |
+| `commands/gsd/audit-uat.md` | `a7ce7c63bf2db68eb2f87bd76d3d135c1189318e2ed43d395dcee5d95f8661b8` |
 | `commands/gsd/discuss-phase.md` | `6302cf0b4afa6d8df67f5322a1d80b56eadb28f9f3d55e3e25b3ae89b83bdf22` |
 | `commands/gsd/execute-phase.md` | `ce00d2d18ce57594855bd1b15f9c7854d33e047e2782952cd05bd11354300d4d` |
 | `commands/gsd/mvp-phase.md` | `f4403d0841bfa0046ffe311bb70827c97b6b208db4f1583d659558b70f600f2c` |
@@ -193,6 +195,8 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/templates/user-setup.md` | `07c227403d62a9e0cae43a7ee0f9db7d667383e42fefb799067da6b39db145c0` |
 | `gsd-core/templates/verification-report.md` | `930e2f288db2429375e97e14334545a85ec9bf2fc493147c817da11abc4b2488` |
 | `gsd-core/workflows/add-tests.md` | `7b4e1f2ec34c7c25158870ca7508344ac6ceb70b7221b089cb8c2e598fa33e45` |
+| `gsd-core/workflows/audit-milestone.md` | `b16abf6ae3137c05502a02ed579df7e431459ebfec7224575ec7b28bcc061f7e` |
+| `gsd-core/workflows/audit-uat.md` | `22b7973b45449828a99c993270f50e105922eee1fd43365e6a0a4dd0747d0492` |
 | `gsd-core/workflows/diagnose-issues.md` | `ccf520c63dda7f743ea83411da1f82141e10f4325e587b04e8237601d4f835f4` |
 | `gsd-core/workflows/discuss-phase-assumptions.md` | `1ccc3c8d295c89542a94751215faa71eaffab34b03d20ab85051eb5e712191d4` |
 | `gsd-core/workflows/discuss-phase-assumptions/steps/auto-advance-dispatch.md` | `b29510c8bb53cbb7ce057f2b2fc44a04b332026610d385a1a4104d4246da01f8` |

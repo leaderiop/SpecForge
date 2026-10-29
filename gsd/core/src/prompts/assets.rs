@@ -15,6 +15,8 @@ macro_rules! asset {
 /// `(path, text)`, sorted by path.
 pub static ASSETS: &[(&str, &str)] = &[
     asset!("commands/gsd/add-tests.md"),
+    asset!("commands/gsd/audit-milestone.md"),
+    asset!("commands/gsd/audit-uat.md"),
     asset!("commands/gsd/discuss-phase.md"),
     asset!("commands/gsd/execute-phase.md"),
     asset!("commands/gsd/mvp-phase.md"),
@@ -131,6 +133,8 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/templates/user-setup.md"),
     asset!("gsd-core/templates/verification-report.md"),
     asset!("gsd-core/workflows/add-tests.md"),
+    asset!("gsd-core/workflows/audit-milestone.md"),
+    asset!("gsd-core/workflows/audit-uat.md"),
     asset!("gsd-core/workflows/diagnose-issues.md"),
     asset!("gsd-core/workflows/discuss-phase-assumptions.md"),
     asset!("gsd-core/workflows/discuss-phase-assumptions/steps/auto-advance-dispatch.md"),

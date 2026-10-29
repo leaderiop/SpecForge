@@ -67,6 +67,7 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
         let var = match name {
             "phase" => "PHASE_ID",
             "plan" => "PLAN_ID",
+            "milestone" => "MILESTONE",
             _ => "SUBJECT_ID",
         };
         tail = format!("\n\nIn the shell blocks above, `${var}` is `{id}`.{tail}");

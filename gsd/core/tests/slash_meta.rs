@@ -17,6 +17,7 @@ const ADAPTED: &[(&str, &str)] = &[
     ("ultraplan-phase", "<phase>"),
     ("verify-work", "<phase> [--ws <name>]"),
     ("validate-phase", "<phase>"),
+    ("audit-milestone", "<milestone>"),
     ("add-tests", "<phase> [--instructions \"...\"]"),
     (
         "execute-phase",

@@ -38,6 +38,7 @@ mod parity_verify;
 mod plan;
 mod plan_rules;
 mod progress;
+mod prompts_audit;
 mod prompts_discuss;
 mod prompts_execute;
 mod prompts_plan;
