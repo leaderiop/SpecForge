@@ -41,6 +41,8 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-executor.md", 70),
     ("gsd-executor.md", 73),
     ("gsd-executor.md", 75),
+    ("gsd-executor.md", 93),
+    ("gsd-executor.md", 94),
     ("gsd-executor.md", 416),
     ("gsd-executor.md", 422),
     ("gsd-executor.md", 635),
@@ -478,4 +480,188 @@ fn every_command_a_body_names_is_declared() {
         }
     }
     assert!(seen >= 5, "only {seen} commands named");
+}
+
+/// A body's text with the quoted strings blanked: the commands' words and flags are left, a `|`, `)` or `;` inside a
+/// quote does not end an invocation.
+fn unquoted(line: &str) -> String {
+    let quoted = Regex::new(r#""[^"]*"|'[^']*'"#).expect("a regex");
+    quoted.replace_all(line, "X").into_owned()
+}
+
+/// Every `specforge <verb> ...` invocation of a body as the words after `specforge`, up to the end of the command
+/// (a pipe, a closing quote or parenthesis, a comment, `;` or `&&`). A line ending in `\` goes on in the next.
+fn invocations(file: &str, verb: &str) -> Vec<(usize, Vec<String>)> {
+    let text = read(&assets_dir().join(file));
+    let mut joined: Vec<(usize, String)> = Vec::new();
+    let mut continued = false;
+    for (n, line) in text.lines().enumerate() {
+        match joined.last_mut().filter(|_| continued) {
+            Some((_, last)) => {
+                last.push(' ');
+                last.push_str(line.trim_end_matches('\\'));
+            }
+            None => joined.push((n + 1, line.trim_end_matches('\\').to_string())),
+        }
+        continued = line.ends_with('\\');
+    }
+    let rx = Regex::new(&format!(r"specforge {verb}\b(?:\s+([^`|);&#]*))?")).expect("a regex");
+    joined
+        .into_iter()
+        .flat_map(|(n, line)| {
+            let line = unquoted(&line);
+            rx.captures_iter(&line)
+                .map(|c| {
+                    let words = c.get(1).map_or("", |m| m.as_str());
+                    (n, words.split_whitespace().map(String::from).collect())
+                })
+                .collect::<Vec<(usize, Vec<String>)>>()
+        })
+        .collect()
+}
+
+/// The `--flag` names among `words`, with `_` as `-` and without `=value`.
+fn flags(words: &[String]) -> Vec<String> {
+    words
+        .iter()
+        .filter_map(|w| w.strip_prefix("--"))
+        .map(|w| w.split('=').next().unwrap_or(w).replace('_', "-"))
+        .collect()
+}
+
+/// What every `specforge` command takes besides its own arguments.
+const GLOBAL_FLAGS: [&str; 5] = ["format", "path", "dry-run", "help", "yes"];
+
+#[test]
+fn every_gsd_invocation_a_body_gives_uses_flags_the_command_declares() {
+    let declaration = gsd_core::build().declaration();
+    let mut seen = 0;
+    for file in R41 {
+        for (n, words) in invocations(file, "gsd") {
+            let Some(name) = words.first() else { continue };
+            let Some(command) = declaration
+                .surfaces
+                .commands
+                .iter()
+                .find(|c| c.id.replace('_', "-") == *name)
+            else {
+                continue; // `every_command_a_body_names_is_declared` names it
+            };
+            seen += 1;
+            let declared: Vec<String> = command
+                .args
+                .iter()
+                .map(|a| a.name.replace('_', "-"))
+                .collect();
+            for flag in flags(&words) {
+                assert!(
+                    declared.contains(&flag) || GLOBAL_FLAGS.contains(&flag.as_str()),
+                    "{file}:{n}: `specforge gsd {name}` has no --{flag} (it takes {declared:?})"
+                );
+            }
+        }
+    }
+    assert!(seen >= 10, "only {seen} invocations checked");
+}
+
+/// The kinds of the extension: name -> (field -> (required, writer)).
+fn kinds() -> std::collections::BTreeMap<String, std::collections::BTreeMap<String, (bool, String)>>
+{
+    let host = specforge_extension_sdk::testing::MockHost::new(gsd_core::build());
+    let described: serde_json::Value =
+        serde_json::from_str(&host.describe_json("entities").expect("entities")).expect("JSON");
+    described["items"]
+        .as_array()
+        .expect("kinds")
+        .iter()
+        .map(|k| {
+            let fields = k["fields"]
+                .as_array()
+                .expect("fields")
+                .iter()
+                .map(|f| {
+                    (
+                        f["name"].as_str().unwrap_or_default().to_string(),
+                        (
+                            f["required"] == true,
+                            f["writer"].as_str().unwrap_or("user").to_string(),
+                        ),
+                    )
+                })
+                .collect();
+            (k["name"].as_str().unwrap_or_default().to_string(), fields)
+        })
+        .collect()
+}
+
+#[test]
+fn every_specforge_new_and_set_a_body_gives_fits_the_kind() {
+    let kinds = kinds();
+    let mut complete = 0;
+    for file in R41 {
+        for (n, words) in invocations(file, "new") {
+            let Some(kind) = words.first() else { continue };
+            let fields = kinds
+                .get(kind)
+                .unwrap_or_else(|| panic!("{file}:{n}: `specforge new {kind}`: no such kind"));
+            assert!(
+                !words.iter().any(|w| w.contains('=') && !w.starts_with('-')),
+                "{file}:{n}: `specforge new {kind}` takes `--field value`, not `field=value`: {words:?}"
+            );
+            let given = flags(&words);
+            for flag in &given {
+                let field = fields.get(&flag.replace('-', "_"));
+                assert!(
+                    [
+                        "in", "verify", "revision", "dry-run", "format", "path", "help"
+                    ]
+                    .contains(&flag.as_str())
+                        || field.is_some_and(|(_, writer)| writer == "user"),
+                    "{file}:{n}: `specforge new {kind}` has no writable field --{flag}"
+                );
+            }
+            // `kind id "title" ...` is a whole example; fewer words only mention the command.
+            if words.len() >= 3 {
+                complete += 1;
+                assert!(
+                    given.contains(&"in".to_string()),
+                    "{file}:{n}: `specforge new {kind}` needs --in <file>"
+                );
+                for (name, (required, writer)) in fields {
+                    assert!(
+                        !required || writer != "user" || given.contains(&name.replace('_', "-")),
+                        "{file}:{n}: `specforge new {kind}` needs the required --{name}"
+                    );
+                }
+            }
+        }
+        for (n, words) in invocations(file, "set") {
+            let (Some(_), Some(field)) = (words.first(), words.get(1)) else {
+                continue;
+            };
+            assert!(
+                kinds
+                    .values()
+                    .any(|f| f.get(field).is_some_and(|(_, w)| w == "user")),
+                "{file}:{n}: `specforge set` names no user-written field '{field}'"
+            );
+        }
+        for (n, words) in invocations(file, "settings set") {
+            assert!(
+                words.first().is_some_and(|e| e.starts_with('@')),
+                "{file}:{n}: `specforge settings set` takes the extension first (`@gsd/core`): {words:?}"
+            );
+        }
+        for (n, words) in invocations(file, "query") {
+            let op = words.first().map_or("", String::as_str);
+            assert!(
+                !(op.contains('.') && !op.contains('/')) && !op.contains("legitimacy"),
+                "{file}:{n}: `specforge query {op}` is an upstream operation, not a query"
+            );
+        }
+    }
+    assert!(
+        complete >= 3,
+        "only {complete} whole `specforge new` examples"
+    );
 }

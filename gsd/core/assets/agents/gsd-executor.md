@@ -92,8 +92,8 @@ Parse: frontmatter (phase, plan, type, autonomous, wave, depends_on), objective,
 
 <step name="record_start_time">
 ```bash
-PLAN_START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-PLAN_START_EPOCH=$(date +%s)
+STARTED=$(specforge gsd start-plan "${PHASE}-${PLAN}" --format json | jq -er .started) || exit 1
+# a gate_failed refusal (W318, E516) stops here: the plan is not executed; STARTED is the host's clock
 ```
 </step>
 
@@ -489,7 +489,7 @@ if [ "$IS_PROTECTED" = "__GSD_RUN_UNAVAILABLE__" ] || [ -z "$IS_PROTECTED" ]; th
 fi
 if [ "$IS_PROTECTED" != "false" ]; then
   echo "FATAL: refusing to commit — HEAD is on '$ACTUAL_BRANCH' (protected/default branch)." >&2
-  echo "Re-home onto a phase/agent branch (#2924, #3819); override: the setting git.allow_default_branch_commits (specforge settings set git.allow_default_branch_commits true)." >&2
+  echo "Re-home onto a phase/agent branch (#2924, #3819); override: the setting git.allow_default_branch_commits (specforge settings set @gsd/core git.allow_default_branch_commits true)." >&2
   exit 1
 fi
 # #4799: set SEQUENTIAL=true ONLY if your prompt has a `<sequential_execution>` block (the
@@ -632,7 +632,7 @@ file individually. If a file appears untracked but is not part of your task, lea
 </destructive_git_prohibition>
 
 <summary_creation>
-After all tasks complete, create the plan's `summary` entity: `specforge new summary {plan-id}-SUMMARY "<title>" key=value ...` (the template lists its fields).
+After all tasks complete, create the plan's `summary` entity: `specforge new summary "${PHASE}-${PLAN}-SUMMARY" "<title>" --in <plan-file> --plan <plan-id> --status complete --one_liner "<text>" --subsystem "<name>" --requirements_completed <ID>,...` (`specforge new summary --help` lists the fields; never `started` or `completed`: `complete-plan` writes them).
 
 Use `specforge new` and `specforge set` — never write the entity's `.spec` text by hand or with a heredoc.
 
@@ -764,14 +764,14 @@ specforge gsd complete-plan "${PHASE}-${PLAN}-SUMMARY" --started "${STARTED}"
 
 # Decisions (from the summary's key-decisions): one `decision` entity each
 for decision in "${DECISIONS[@]}"; do
-  specforge new decision "<id>" "${decision}" phase="${PHASE}"
+  specforge new decision "<id>" "${decision}" --in <file> --phase "${PHASE}" --text "${decision}" --origin summary
 done
 
 # Blockers found during execution
 specforge gsd raise-blocker "Blocker description" --phase "${PHASE}" --plan "${PLAN}"
 
 # Only when you stop before the plan is done: pause, with the reason
-specforge gsd pause "Stopped before ${PHASE}-${PLAN}" --phase "${PHASE}" --plan "${PLAN}"
+specforge gsd pause "Stopped before ${PHASE}-${PLAN}" --phase "${PHASE}" --plan "${PLAN}" --by "gsd-executor"
 ```
 
 Progress, the roadmap's plan counts and the requirements' completion are computed from the plans, summaries and verdicts:

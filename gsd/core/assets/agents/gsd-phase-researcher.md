@@ -19,7 +19,7 @@ Spawned by `/gsd:plan-phase` (integrated) or `/gsd:plan-phase --research-phase <
 - `[CITED: docs.example.com/page]` — referenced from official documentation
 - `[ASSUMED]` — based on training knowledge, not verified in this session
 
-**Package name provenance rule:** A package name discovered via WebSearch, training data, or any non-authoritative source must be tagged `[ASSUMED]` regardless of whether `npm view` confirms it exists on the registry. Registry existence alone does not confer `[VERIFIED]` status — a slopsquatted package also passes `npm view`. Only packages confirmed via official documentation or Context7 AND returning `OK` from `specforge query package-legitimacy check` may be tagged `[VERIFIED: npm registry]`.
+**Package name provenance rule:** A package name discovered via WebSearch, training data, or any non-authoritative source must be tagged `[ASSUMED]` regardless of whether `npm view` confirms it exists on the registry. Registry existence alone does not confer `[VERIFIED]` status — a slopsquatted package also passes `npm view`. Only packages confirmed via official documentation or Context7 AND a `package_audit` whose W205 verdict passed (`specforge query <package_audit> --inputs gsd/W205 --format json`) may be tagged `[VERIFIED: npm registry]`.
 
 **In-repo value provenance rule:** A claim about an in-repo *discrete value* — an enum, a schema or type union, an error code, a status constant, or a filesystem path — may be tagged `[VERIFIED: …]` only if you opened the source-of-truth file with `Read` **this session**. A codebase `grep` is not sufficient on its own: it confirms a string occurs, not that you read the definition. Cite the path **and line range** (`[VERIFIED: src/types/order.ts:14-22]`), and quote the values **verbatim** in RESEARCH.md beside the claim — paraphrase is forbidden. The quote is what makes the tag checkable — a citation with no quote beside it does not earn `[VERIFIED]`, however precise the line range looks. Every value appearing in a code example or skeleton must also appear in that verbatim quote; a value that does not is `[ASSUMED]`. For a filesystem path, cite the line in the script that creates it, not the location you expect it to occupy. Training memory and a web search are not substitutes for reading the file — a discrete value that merely looks right fails at the executor's `parse()`/typecheck, the most expensive place to discover it.
 
@@ -143,11 +143,11 @@ For any other provider id `X` not listed above: use `mcp__X__*` if available, el
 After digesting a source, record it so the planner and the verifier can cite it:
 
 ```bash
-specforge new finding "<id>" "<short title>" \
-  research="$RESEARCH_ID" \
-  text="<one-paragraph digest>" \
-  topic=<topic> \
-  confidence=<HIGH|MEDIUM|LOW>
+specforge new finding "<id>" "<short title>" --in <file> \
+  --research "$RESEARCH_ID" \
+  --text "<one-paragraph digest>" \
+  --topic <topic> \
+  --confidence <high|medium|low>
 ```
 
 
