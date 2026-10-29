@@ -3,6 +3,7 @@
 mod agents;
 mod collect;
 mod discuss;
+mod e502_probe;
 mod execute;
 mod execute_rules;
 mod execute_status;
@@ -11,6 +12,7 @@ mod harness;
 mod install_agents;
 mod judged;
 mod judged_flow;
+mod judged_refusals;
 mod ladder;
 mod parity_discuss;
 mod parity_plans;

@@ -22,12 +22,12 @@ fn verify() -> Project {
     project("verify")
 }
 
-fn verification(p: &Project) -> serde_json::Value {
+pub(super) fn verification(p: &Project) -> serde_json::Value {
     p.fields_of(VERIFICATION)
 }
 
 /// The fixture's override, gap and human item removed: nothing is accepted by a person, nothing is open.
-fn bare() -> Project {
+pub(super) fn bare() -> Project {
     let p = verify();
     let text = p.read("spec/verify.spec");
     let at = text.find("verify_gap VG1").expect("the gap");
@@ -44,7 +44,7 @@ fn e501(p: &Project) -> Vec<String> {
         .collect()
 }
 
-fn verified(p: &Project, entity: &str) {
+pub(super) fn verified(p: &Project, entity: &str) {
     let run = p.record(entity, "E501", "verified", &[]);
     assert_eq!(run.code, 0, "{entity}: {}", run.all());
 }

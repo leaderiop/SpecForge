@@ -92,7 +92,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
 | gsd/E501 | the verifier's verdict on each truth, artifact and key link is fresh | judged (verifier) | E | E | verifier, honest-verifier |
-| gsd/E502 | an explicit truth is verified only with a named passing test. NOT BUILT: with it, recording a verdict while a failing test is recorded for the truth is refused whole as a new error (E080), so the verifier could not record a `verified` that a report contradicts (kernel: a verdict's own judged state is not a new error, K17) | pass | E | E | honest-verifier |
+| gsd/E502 | an explicit truth is verified only with a named passing test. NOT BUILT (deferred, not blocked: REVIEW-r40 M7). Until it is, a `verified` records on an explicit truth whose recorded tests include a failing one. A failing report collected after a pass stales the pass, so E502 (which needs a fresh passing judgement) is not raised by it, and refusing a `verified` over a failing test is the rule's purpose (`tests/cli/e502_probe.rs`) | pass | E | E | honest-verifier |
 | gsd/E503 | an override names who accepted the truth and when: `by` and `at` are not required fields, so this is their one diagnostic, naming which is missing | pass | E | E | verifier overrides |
 | gsd/W504 | more than three overrides in a phase: one warning on the verification | pass | W | W | verifier |
 | gsd/E505 | debt markers (TBD, FIXME, XXX) in the phase's files link to an issue: a whole-word marker in a file a plan names in `files_modified`, on a line with no `#N`, `issue #N`, `PR #N` or `DEF-N`; one error per file and line, naming `file:line`. Judged over the authored `files_modified`, never a commit's file list. A file the host did not serve (a budget, a cap) is not checked, never a finding. `TODO`, `HACK` and `PLACEHOLDER` are warnings in `verification.anti_patterns`, not diagnostics | pass | E | E | verifier |
@@ -131,8 +131,11 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 - **Not built, waiting on the kernel (K17).** Baseline re-verification (T13): the baseline compile sees only a commit's
   `*.spec` files, so its source files read as missing; `previous_status`/`previous_score` are not computed and
   `re_verification` compares verdicts and verify gaps only (`regressions` is tested on synthetic baselines, not
-  black-box). `gsd/W514` (above). The human-only guarantee of `override` holds for create, delete and retitle only: an
-  agent can `set`, `unset` or `link` an existing one (test ignored until the kernel checks the kind's writer there).
+  black-box). `gsd/W514` (above). The host's E080 treats a judged rule's own state as a new error: a failing verdict, the
+  replacement of a pass, the creation of a judged target and an edit that stales a passing Error verdict are all refused
+  whole, so a passing verdict cannot be withdrawn through `record_verdict` (see the "Waiting on the kernel" list of
+  [../README.md](../README.md), and `tests/cli/judged_refusals.rs`). The human-only guarantee of `override` holds
+  for its own fields (r40 T16); an agent can still delete a `milestone_audit`.
 
 ## Setting-gated rules
 
