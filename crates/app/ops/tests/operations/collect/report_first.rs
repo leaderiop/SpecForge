@@ -7,6 +7,7 @@ use std::sync::Arc;
 use serde_json::{Value, json};
 use specforge_extension_sdk::DeclaredCategory;
 use specforge_extension_sdk::prelude::{ContributionsBuilder, ExtensionMeta};
+use specforge_ops::Containment;
 use specforge_ops::analysis::collect::{self, Mode, Request};
 use specforge_ops::authoring::apply::apply_collected;
 use specforge_ops::testing::{ScriptedMachine, caller};
@@ -89,6 +90,18 @@ fn collect_and_apply(
     Result<(), String>,
     Arc<specforge_wasm::testing::InProcessRuntime>,
 ) {
+    collect_and_apply_in(p, ops, &Containment::unbounded())
+}
+
+/// [`collect_and_apply`] over a view bounded by `containment`, as MCP's is.
+fn collect_and_apply_in(
+    p: &TestProject,
+    ops: Value,
+    containment: &Containment,
+) -> (
+    Result<(), String>,
+    Arc<specforge_wasm::testing::InProcessRuntime>,
+) {
     let runtime = Arc::new(
         GsdWrites::new()
             .answering(CORE, "collect__git", answer(ops))
@@ -96,7 +109,7 @@ fn collect_and_apply(
             .with_handler(tests_extension, handle),
     );
     let compiled = compiled(p, &runtime);
-    let view = ProjectView::of(&compiled);
+    let view = ProjectView::of(&compiled).bounded_by(containment);
     let mut outcome = collect::collect(
         &view,
         Request {
@@ -180,4 +193,22 @@ fn a_collect_without_plans_compiles_once() {
             .is_empty()
     );
     assert_eq!(passes(), before);
+}
+
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "answer_edit_plan",
+    verify = "a writing collectors plan is applied within its calls containment"
+)]
+fn a_collectors_plan_reads_the_format_configuration_within_the_calls_containment() {
+    let p = project();
+    let elsewhere = tempfile::TempDir::new().unwrap();
+    let outside = elsewhere.path().join("c.toml");
+    std::fs::write(&outside, "indent_width = 8\n").unwrap();
+    std::os::unix::fs::symlink(&outside, p.root().join(".specforgefmt.toml")).unwrap();
+    let (applied, _) = collect_and_apply_in(&p, commit("03"), &Containment::within(p.root()));
+    applied.unwrap_or_else(|refusal| panic!("{refusal}"));
+    // The bounded read refuses the link: the defaults lay the commit out, not the linked file's eight columns.
+    let written = std::fs::read_to_string(p.root().join("commits.spec")).unwrap();
+    assert!(written.contains("\n  phase v1.0/03"), "{written}");
 }

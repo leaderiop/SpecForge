@@ -20,7 +20,10 @@ pub fn apply_collected(
         view.project()
             .edited_over_disk(&std::collections::BTreeMap::new(), None)
     });
-    let fresh = reread.as_ref().map(ProjectView::of);
+    // The re-read keeps the call's containment (ADR 0183): MCP's root bounds what it reads.
+    let fresh = reread
+        .as_ref()
+        .map(|project| ProjectView::of(project).bounded_by(view.containment()));
     let view = fresh.as_ref().unwrap_or(view);
     let mut applied = Vec::new();
     for CollectedPlan {

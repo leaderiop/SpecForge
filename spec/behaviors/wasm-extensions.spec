@@ -1007,6 +1007,7 @@ behavior answer_edit_plan "Answer an Edit Plan" {
   """
   verify unit "a writing collector receives the graph and its plan is applied after the report"
   verify unit "a writing collectors plan is judged against the report its collect wrote"
+  verify unit "a writing collectors plan is applied within its calls containment"
 }
 
 behavior run_guard_passes "Run Guard Passes" {
