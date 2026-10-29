@@ -43,6 +43,7 @@ mod prompts_discuss;
 mod prompts_execute;
 mod prompts_plan;
 mod prompts_project;
+mod prompts_ship;
 mod prompts_spec;
 mod prompts_support;
 mod prompts_verify;

@@ -79,6 +79,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `commands/gsd/add-tests.md` | `d62d2e34817c899a92998903b26f427005d93138806f3a98d8112c671fe3edcb` |
 | `commands/gsd/audit-milestone.md` | `64fd4df436242de2e7bb064561b31c60418672620876016aaee03be45ce11b79` |
 | `commands/gsd/audit-uat.md` | `a7ce7c63bf2db68eb2f87bd76d3d135c1189318e2ed43d395dcee5d95f8661b8` |
+| `commands/gsd/complete-milestone.md` | `bde2999b8492c260b646b321e688b6da16d577dec65019f3f5fcd11dfdfc301c` |
 | `commands/gsd/discuss-phase.md` | `6302cf0b4afa6d8df67f5322a1d80b56eadb28f9f3d55e3e25b3ae89b83bdf22` |
 | `commands/gsd/execute-phase.md` | `ce00d2d18ce57594855bd1b15f9c7854d33e047e2782952cd05bd11354300d4d` |
 | `commands/gsd/mvp-phase.md` | `f4403d0841bfa0046ffe311bb70827c97b6b208db4f1583d659558b70f600f2c` |
@@ -86,6 +87,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `commands/gsd/new-project.md` | `3ccfcba83d400d996db7f73a045e9138a7322ee372e516ccbc96ec33971407fd` |
 | `commands/gsd/plan-phase.md` | `03c2ea26a9f4c480fa587bd647551399156c419803dcdf6ad9de259adcaeacf0` |
 | `commands/gsd/plan-review-convergence.md` | `4ca4073a5d2574d1ca155334136760ea109f0945dff5104f8938ee5c072227c4` |
+| `commands/gsd/ship.md` | `b63cc58605b7ccaee6cca771fa68c010f14433c5dbf69567aa748cc6e3b7b68e` |
 | `commands/gsd/spec-phase.md` | `99120491c57e274edb56027c5a9573cc6fd6da9fa37304816fda69bbaabebeb1` |
 | `commands/gsd/ultraplan-phase.md` | `6ce468cd97f99a3d81a7db17baba2ae20858972e1f0090b621e56d58d9a76cb8` |
 | `commands/gsd/validate-phase.md` | `47da3f45f5fb517864921413d06e824dda19ba9272e34192d5c7d5ca1eea73d1` |
@@ -180,6 +182,8 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/templates/UAT.md` | `19823ed0f9499ad5fca73832abdc71c07753eadb770409395175565333ed2597` |
 | `gsd-core/templates/VALIDATION.md` | `e2281534271f86b7d3c62e833b3c3533b1251bb062596f859c1c4cb3050e550e` |
 | `gsd-core/templates/context.md` | `69b01e7909ea3f661d5b0fcec5470314f74176aa5bd998939d80d74c03fd07d9` |
+| `gsd-core/templates/milestone-archive.md` | `591b6decdc0c0e51fba1359ed015ed140b33d50a9dcf9c0dbe149d605e3e5f54` |
+| `gsd-core/templates/milestone.md` | `74d2f750ae9f4a9c18feec3708d8f414c5b15148b22eb7da554dc2da87587711` |
 | `gsd-core/templates/project.md` | `4f311fb1b05b823bd00c655f737b546b98bb1123e0b20ca673ff5a0a3b6e5cc1` |
 | `gsd-core/templates/requirements.md` | `a44de4c2f146e473265777500951b12642553606b613168001ed2577d9e968d4` |
 | `gsd-core/templates/research-project/ARCHITECTURE.md` | `746b9ef791d758b0222ca03e03d6da314f54c0d560966b5a3d34766b1553b1ea` |
@@ -187,6 +191,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/templates/research-project/PITFALLS.md` | `3ef75fa768422eeca68f4411d1e058c1f447a23a23a43aaed449905940c0cf52` |
 | `gsd-core/templates/research-project/STACK.md` | `82c85799ac4dd344441370e791f09563119f62843034b3a094876a476c2bd4e5` |
 | `gsd-core/templates/research-project/SUMMARY.md` | `dceb2f346388839d9fce7c8de9ffff2354b8539880e5dadfd10fccfce0062997` |
+| `gsd-core/templates/retrospective.md` | `03981e30dd760103c1ea91d31ad24810feb082a388b4231d3a03a2c8ca386c5d` |
 | `gsd-core/templates/roadmap.md` | `e4e35a9eb5dd4d4f2b4aed28ca6896c5bf4d652ad565f698325a56a7e840694f` |
 | `gsd-core/templates/spec.md` | `26d55bce940f0288cf1b9796b7b99374bc88f53491d445bfe8f8c88d8551900b` |
 | `gsd-core/templates/state.md` | `03d21c7d9e571d2684beaf00198d4f371832a4770255d52dab578973cbb4a0a9` |
@@ -197,6 +202,9 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/workflows/add-tests.md` | `7b4e1f2ec34c7c25158870ca7508344ac6ceb70b7221b089cb8c2e598fa33e45` |
 | `gsd-core/workflows/audit-milestone.md` | `b16abf6ae3137c05502a02ed579df7e431459ebfec7224575ec7b28bcc061f7e` |
 | `gsd-core/workflows/audit-uat.md` | `22b7973b45449828a99c993270f50e105922eee1fd43365e6a0a4dd0747d0492` |
+| `gsd-core/workflows/complete-milestone.md` | `c1b4c7b2c26738fb6140df69b70ffda0f3698d53ffdfe4d5a73d0f17f44bae5f` |
+| `gsd-core/workflows/complete-milestone/detail/elaboration.md` | `8298a3a9fe43cba23e9d518cf65b165c57574d83cc73c9c6a8a753ba1aea1261` |
+| `gsd-core/workflows/complete-milestone/steps/git-tag.md` | `651ed29ec56dff1a7e0746b06cd9e61120c9d1a00c6feda188e10a12fb96ea8a` |
 | `gsd-core/workflows/diagnose-issues.md` | `ccf520c63dda7f743ea83411da1f82141e10f4325e587b04e8237601d4f835f4` |
 | `gsd-core/workflows/discuss-phase-assumptions.md` | `1ccc3c8d295c89542a94751215faa71eaffab34b03d20ab85051eb5e712191d4` |
 | `gsd-core/workflows/discuss-phase-assumptions/steps/auto-advance-dispatch.md` | `b29510c8bb53cbb7ce057f2b2fc44a04b332026610d385a1a4104d4246da01f8` |
@@ -263,6 +271,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md` | `9b9d040fa38e35ce147ba712268fede1f4df3367d414d5380bb66d61dae1915e` |
 | `gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md` | `49f58c3f75be3eb5e607b572fd28b1969faa0b47e837c3d9255df36ffbafe80b` |
 | `gsd-core/workflows/plan-review-convergence.md` | `0ffef2e4ae27966f485326f017312a42ed153d8da0f29cf49abb81ac32393798` |
+| `gsd-core/workflows/ship.md` | `20b492e7404ad6e5eb52e9f63e8a6aa1a43a57e8b89ba04660e6408be04722f3` |
 | `gsd-core/workflows/spec-phase.md` | `9a05d48ae07f40f373c2bf02321094b9d64e66329d63310851accebc7e16dd00` |
 | `gsd-core/workflows/transition.md` | `9b8a135f54ddbc9de3e48a69686e2e46ed5a8e49517b33251dcdb00c90119041` |
 | `gsd-core/workflows/transition/steps/workstream-collision-check.md` | `ddf53acd9512bd2b6caab2c45bff4da585f8a2976bba3d4fe7e6092265e7824c` |

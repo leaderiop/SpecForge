@@ -13,6 +13,7 @@ mod preamble;
 mod project;
 pub(crate) mod render;
 pub(crate) mod repoint;
+mod ship;
 mod slash;
 mod spec;
 mod verify;
@@ -30,4 +31,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     execute::declare(c);
     verify::declare(c);
     audit::declare(c);
+    ship::declare(c);
 }
