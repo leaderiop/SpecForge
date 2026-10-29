@@ -8,6 +8,7 @@ mod help;
 mod milestone;
 mod phase;
 mod refactor;
+mod reference;
 mod reports;
 mod state;
 mod support;
@@ -73,5 +74,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     workstreams::declare(c);
     help::declare(c);
     reports::declare(c);
+    reference::declare(c);
     surface::declare(c);
 }

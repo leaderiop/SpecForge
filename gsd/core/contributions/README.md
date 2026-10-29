@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), and the writing commands and the five command-backed slash commands (r41).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the five command-backed slash commands (r41), and the 16 lifecycle prompts with the command `reference` (r42).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -38,6 +38,55 @@ ambiguous one, naming each candidate).
 | @gsd/ui | `/gsd-ui-phase`, `/gsd-ui-review` | 2 |
 | @gsd/core skills (namespace routers: they list and dispatch, nothing else) | `/gsd-ns-context`, `/gsd-ns-ideate`, `/gsd-ns-manage`, `/gsd-ns-project`, `/gsd-ns-review`, `/gsd-ns-workflow` | 6 |
 | **total** | | **72** |
+
+## Lifecycle prompts (r42)
+
+Built in `@gsd/core`: the prompt id, the slash command `/gsd-<id with ->`, the gate (the guard rules a refused prompt
+names) and the steps (an agent, a command or the next prompt). `reference` serves the workflows, references and
+templates a prompt does not inline (`specforge gsd reference gsd-core/references/<file>.md`).
+
+| Prompt | Gate | Steps |
+|---|---|---|
+| `new_project`, `new_milestone` | none | researcher, synthesizer, roadmapper; `record_research`; `discuss_phase` |
+| `discuss_phase` | none | assumptions analyzer, advisor researcher; `plan_phase` |
+| `spec_phase` | none | `record_spec`; `discuss_phase` |
+| `mvp_phase` | E516 | `plan_phase` |
+| `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `record_verdict`; `execute_phase` |
+| `plan_review_convergence` | E201, W204, E206, W406, E516 | `plan_phase`; plan checker |
+| `ultraplan_phase` | E201, W204, E206, W406, E516 | plan checker; `record_verdict` |
+| `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; verifier; `record_verdict`, `record_window`; `verify_work` |
+| `execute_plan` (no slash command) | W318, E516 | `start_plan`, `answer_checkpoint`, `confirm_setup`, `raise_blocker`, `complete_plan`; executor |
+| `verify_work` | E516 | `set_uat_result`; planner, plan checker |
+| `validate_phase` | E516 | nyquist auditor; `record_validation`, `approve_validation` |
+| `add_tests` | E516 | none |
+| `audit_uat` | none | `set_uat_result` |
+| `audit_milestone` | E516 | integration checker; `record_verdict`; `plan_phase` |
+| `complete_milestone` | E106, E511, E516 | `close_milestone` |
+| `ship` | E511, E512, E516 | `fix_window`, `waive_window` |
+
+### What the lifecycle prompts do not do (known, not fixed)
+
+The assets are upstream's text; where the spec has no counterpart a line was defaulted, not ported (each is a line in
+`REWRITTEN` of `tests/port_workflows.rs`):
+
+- Settings. `{{setting:<key>|<fallback>}}` reads the settings block. `commit_docs`, `features.graduation*`,
+  `workflow._auto_chain_active`, `workflow.code_review_command` and `workflow.live_dom_uat` are not keys of the roster
+  (`NOT_SETTINGS` in `tests/ported_text.rs`), so they always take their fallback, and a `settings set` on them would be
+  refused. `USE_WORKTREES` is `false` (the `sequential` tail of `execute_phase`); `RUNTIME` is the rendered host.
+- Defaulted gaps: worktrees, the loop hooks, `intel`, `resolve-model`, learnings and the dispatch-isolation steps.
+- `init` JSON fields (`phase_dir`, `plan_count`, ...) have no counterpart: the text reads the graph (`specforge query`)
+  and the ids named at the end of the text (`$PHASE_ID`, `$MILESTONE`, `$PROJECT`).
+- `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
+- The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's, not upstream's.
+- Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
+  an agent's effort to `high` as upstream does (`tests/golden/host/` holds the probe and both conversions, made with
+  upstream's converters).
+- The twin has no commit, broken-window, human-item, methodology or lesson data, so the query tests do not reach them.
+- The goldens (`tests/golden/prompts/`) are hashes plus the first 80 lines and counts, not the whole text.
+- `cargo gate full` is the check for all of it; a revendor or a kernel change is K19, not done here.
+
+The other rows of the roster above are r43's. A rendered text may name them (the preamble says to skip what is not
+installed); `tests/ported_text.rs` lists every such name.
 
 ## Writing commands
 

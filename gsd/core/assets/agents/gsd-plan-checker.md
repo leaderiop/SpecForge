@@ -721,7 +721,7 @@ issue:
 ## Step 1: Load Context
 
 Load phase operation context:
-The phase is `$PHASE_ID` (for example `v1.0/03`); `specforge query --kinds phase` lists them.
+The phase is `$PHASE_ID` (for example `v1.0/03`); `specforge query "$MILESTONE" --kinds phase` lists them.
 
 ```bash
 INIT=$(specforge query "${PHASE_ID}" --depth 2 --format json)
@@ -740,7 +740,7 @@ specforge query "$PHASE_ID" --kinds plan --format json
 # Research / summary entities (deterministic listing)
 specforge query "$PHASE_ID" --kinds research --format json
 specforge query "$PHASE_ID" --format json   # the phase: goal and success criteria
-specforge query "$PHASE_ID" --kinds summary --format json
+specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
 
 # Smart-zone estimate check (#2631) — advisory, never fails the check.
 # A plan's `estimate` is a field of the plan entity; read it from the plan query above.

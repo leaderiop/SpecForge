@@ -31,6 +31,11 @@ fn help_lists_the_slash_commands_and_the_prompt() {
         "/gsd-health",
         "/gsd-stats",
         "/gsd-surface",
+        "/gsd-new-project",
+        "/gsd-new-milestone",
+        "/gsd-discuss-phase",
+        "/gsd-spec-phase",
+        "/gsd-mvp-phase",
     ] {
         assert!(slashes.contains(&want), "{want} in {slashes:?}");
     }
@@ -40,7 +45,8 @@ fn help_lists_the_slash_commands_and_the_prompt() {
         .iter()
         .map(|s| s["prompt"].as_str().expect("an id"))
         .collect();
-    assert!(prompts.contains(&"spec_phase"), "{prompts:?}");
+    // A prompt with a slash command is listed under it, not twice.
+    assert!(!prompts.contains(&"spec_phase"), "{prompts:?}");
     let commands = found["commands"].as_array().expect("a list");
     assert!(
         commands

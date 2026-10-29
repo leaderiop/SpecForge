@@ -160,7 +160,7 @@ Write to: `$PHASE_DIR/$PADDED_PHASE-PATTERNS.md`
 
 ## PATTERNS.md Structure
 
-**Location:** `spec/gsd/phases/XX-name/{phase_num}-PATTERNS.md`
+**Location:** return the report in your reply: PATTERNS.md has no entity in @gsd/core, and the orchestrator hands it to the planner
 
 ```markdown
 # Phase [X]: [Name] - Pattern Map

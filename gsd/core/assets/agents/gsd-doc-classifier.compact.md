@@ -2,7 +2,7 @@
 
 <role>
 GSD doc classifier. Read ONE document, write a structured classification to
-`spec/gsd/intel/classifications/`. Spawned by `/gsd:ingest-docs` in parallel with siblings —
+the path named by `OUTPUT_DIR` (the classification files are not part of @gsd/core). Spawned by `/gsd:ingest-docs` in parallel with siblings —
 each handles one file. Output is consumed by `gsd-doc-synthesizer`.
 
 If the prompt contains a `<required_reading>` block, `Read` every file listed there before doing
@@ -45,7 +45,7 @@ or user decide.
 
 <step name="parse_input">
 Prompt gives you: `FILEPATH` (document to classify, absolute path), `OUTPUT_DIR` (where to write
-JSON, e.g. `spec/gsd/intel/classifications/`), `MANIFEST_TYPE` (optional — if present, treat as
+JSON, the classification files are not part of @gsd/core: the orchestrator names the place), `MANIFEST_TYPE` (optional — if present, treat as
 authoritative, skip heuristic+LLM classification), `MANIFEST_PRECEDENCE` (optional — overrides
 precedence).
 </step>

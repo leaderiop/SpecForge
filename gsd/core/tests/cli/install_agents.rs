@@ -6,6 +6,7 @@ use std::path::Path;
 
 use super::agents::{claude_agent, installed, split};
 use super::harness::project;
+use gsd_core::agents::repointed;
 use gsd_core::agents::roster::AGENTS;
 
 const JUDGED: &str = "\n## Judged rules\n";
@@ -87,7 +88,11 @@ fn the_body_is_the_asset() {
     for agent in AGENTS {
         // The asset's header line is a comment about the port; the host's own notice follows the body.
         // A judging agent's body is followed by the section that names `record_verdict`.
-        let asset = format!("{}{}", agent.full, gsd_core::agents::recording(agent.id));
+        let asset = repointed(&format!(
+            "{}{}",
+            agent.full,
+            gsd_core::agents::recording(agent.id)
+        ));
         let installed = body(&claude_agent(&p, agent.id));
         assert_eq!(installed, asset.trim(), "{}", agent.id);
     }
@@ -127,5 +132,24 @@ fn a_judge_is_told_how_to_record_its_verdict() {
             "gsd-plan-checker",
             "gsd-verifier"
         ]
+    );
+}
+
+/// D-r42-5: an installed body reads its references through `specforge gsd reference`, never a `~/.claude` path.
+#[test]
+fn an_installed_agent_body_names_no_claude_gsd_core_path() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    let mut pointed = 0;
+    for agent in AGENTS {
+        let file = claude_agent(&p, agent.id);
+        for forbidden in ["~/.claude/gsd-core", "$HOME/.claude/gsd-core"] {
+            assert!(!file.contains(forbidden), "{} names {forbidden}", agent.id);
+        }
+        pointed += file.matches("specforge gsd reference gsd-core/").count();
+    }
+    assert!(
+        pointed > 50,
+        "only {pointed} references were pointed at the command"
     );
 }

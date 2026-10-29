@@ -24,7 +24,7 @@ Follow the tier exactly — controls output shape.
 
 <process>
 1. Read ROADMAP.md phase description
-2. Read prior CONTEXT.md (`find spec/gsd/phases -name "*-CONTEXT.md"`)
+2. Read prior CONTEXT.md (`specforge query "$MILESTONE" --depth 2 --kinds context --format brief`)
 3. Glob/Grep for files related to phase goal terms
 4. Read 5-15 most relevant source files
 5. Form assumptions from what the codebase reveals

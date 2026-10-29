@@ -46,10 +46,10 @@ Your SUMMARY.md is consumed by the gsd-roadmapper agent which uses it to:
 Read all 4 research files:
 
 ```bash
-cat spec/gsd/research/STACK.md
-cat spec/gsd/research/FEATURES.md
-cat spec/gsd/research/ARCHITECTURE.md
-cat spec/gsd/research/PITFALLS.md
+specforge query RESEARCH --kinds stack_choice --format context
+specforge query RESEARCH --kinds finding --format context
+specforge query RESEARCH --kinds pattern --format context
+specforge query RESEARCH --kinds pitfall --format context
 
 # Planning config is loaded by the commit step below, after the launcher preamble
 ```
@@ -121,13 +121,13 @@ Identify gaps that couldn't be resolved and need attention during planning.
 
 ## Step 6: Write SUMMARY.md
 
-**This is the canonical output of this agent. The orchestrator depends on `spec/gsd/research/SUMMARY.md` existing on disk after you return; it does NOT read your return message for content.**
+**This is the canonical output of this agent. The orchestrator depends on the `summary` of the project's `research` entity (`RESEARCH`) being set after you return; it does NOT read your return message for content.**
 
 **Hard rules (must follow):**
 
 1. **Use the `Write` tool** to write the file, and try it FIRST. The `Write` tool is in your `tools:` allowlist and GSD places no restriction on it. Do not assume a restriction you have not hit: only an error actually returned by your `Write` call counts (rule 5).
 2. **Do NOT return the SUMMARY.md content in your response.** Your return message is a brief confirmation (see `<structured_returns>` below); the content lives on disk. The one exception is rule 5's runtime refusal.
-3. **Do NOT ask permission to write.** Writing `spec/gsd/research/SUMMARY.md` is the explicit purpose of this agent. Asking the orchestrator to do it instead is a failure mode that can cause downstream `SUMMARY.md not found` failures.
+3. **Do NOT ask permission to write.** Setting the `summary` of the `RESEARCH` entity is the explicit purpose of this agent. Asking the orchestrator to do it instead is a failure mode that can cause downstream `SUMMARY.md not found` failures.
 4. **Do NOT use `Bash(cat << 'EOF')` or heredoc** for file creation. Use the `Write` tool. In short: **never use `Bash(cat << 'EOF')` or heredoc**.
 5. **If the Write tool errors,** surface the actual error in your return message. Do not silently fall back to returning content; that hides the failure from the orchestrator. **The one exception is the runtime's own refusal of this filename.** Claude Code refuses a subagent's `Write` to a few exact basenames, `SUMMARY.md` among them, with `Subagents should return findings as text, not write report files` (observed on Claude Code 2.1.301; it depends on the file name, not on your tools or effort). If your `Write` call returns that error, the restriction is real, not the #222 false-refusal: **do not retry, do not write the content under another name, and do not use Bash**. Finish Step 7 (commit the research files that exist), then in Step 8 append the complete SUMMARY.md document after the confirmation, under the heading `### SUMMARY.md (returned inline — runtime refused the write)`, so the orchestrator persists it.
 6. **Large-file / truncation fallback.** Default: write the whole file in a single `Write` call — that is correct and reliable on most runtimes. But some runtimes (e.g. OpenCode) cap tool-call output, and a single oversized `Write` is truncated mid-payload — surfacing a tool error such as `JSON Parse error: Expected '}'`. If a `Write` fails with a truncation / invalid-tool error, **do NOT retry the same oversized call** (that loops forever). Instead build the file incrementally so no single tool call carries the whole payload:
@@ -137,15 +137,15 @@ Identify gaps that couldn't be resolved and need attention during planning.
 
 Use template: ~/.claude/gsd-core/templates/research-project/SUMMARY.md
 
-Write to `spec/gsd/research/SUMMARY.md`.
+Write the summary with `specforge set RESEARCH summary "<text>"`, and the synthesized findings with `specforge new finding` (one per roadmap implication).
 
 ## Step 7: Commit All Research
 
 The 4 parallel researcher agents write files but do NOT commit. You commit everything together.
 
 ```bash
-_GSD_SHIM_NAME="specforge gsd.cjs"; _GSD_RUNTIME_ROOT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"; GSD_TOOLS="${_GSD_RUNTIME_ROOT}/gsd-core/bin/${_GSD_SHIM_NAME}"; _gsd_at() { for _p; do if [ -f "$_p" ]; then GSD_TOOLS="$_p"; return 0; fi; done; return 1; }; _gsd_id_ok() { case "$("$1" runtime-identity --raw 2>/dev/null || true)" in '{"packageName":"@opengsd/gsd-core"'*'}') return 0;; *) return 1;; esac; }; _gsd_homes() { set -- "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" "${ANTIGRAVITY_CONFIG_DIR:-$HOME/.gemini/antigravity}" "$HOME/.gemini/antigravity-ide" "$HOME/.gemini/antigravity-cli" "${AUGMENT_CONFIG_DIR:-$HOME/.augment}" "${CLINE_CONFIG_DIR:-$HOME/.cline}" "${CODEBUDDY_CONFIG_DIR:-$HOME/.codebuddy}" "${CODEX_HOME:-$HOME/.codex}" "${COPILOT_CONFIG_DIR:-${COPILOT_HOME:-$HOME/.copilot}}" "${CURSOR_CONFIG_DIR:-$HOME/.cursor}" "${HERMES_HOME:-$HOME/.hermes}" "${KILO_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/kilo}" "${KIMI_CONFIG_DIR:-$HOME/.config/agents}" "$HOME/.agents" "${KIMI_CODE_HOME:-$HOME/.kimi-code}" "${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}" "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}" "${QWEN_CONFIG_DIR:-$HOME/.qwen}" "${TRAE_CONFIG_DIR:-$HOME/.trae}" "${WINDSURF_CONFIG_DIR:-$HOME/.codeium/windsurf}" "${ZCODE_CONFIG_DIR:-$HOME/.zcode}" "${GROK_AGENTS_HOME:-$HOME/.agents}"; for _h; do _gsd_at "$_h/gsd-core/bin/${_GSD_SHIM_NAME}" && return 0; done; return 1; }; if _gsd_at "${_GSD_RUNTIME_ROOT}/gsd-core/bin/${_GSD_SHIM_NAME}" "${_GSD_RUNTIME_ROOT}/.claude/gsd-core/bin/${_GSD_SHIM_NAME}" "${_GSD_RUNTIME_ROOT}/.codex/gsd-core/bin/${_GSD_SHIM_NAME}"; then specforge gsd() { node "$GSD_TOOLS" "$@"; }; elif _gsd_homes; then specforge gsd() { node "$GSD_TOOLS" "$@"; }; elif unset -f specforge gsd; _G="$(command -v specforge gsd)"; [ -n "$_G" ] && _gsd_id_ok "$_G"; then GSD_TOOLS="$_G"; specforge gsd() { "$GSD_TOOLS" "$@"; }; else echo "ERROR: specforge gsd.cjs not found at $GSD_TOOLS and no identity-proving specforge gsd is on PATH. Run: npx -y @opengsd/gsd-core@latest --claude --local" >&2; exit 1; fi; GSD_IDENTITY_STATUS=unverified; _gsd_id_ok specforge gsd && GSD_IDENTITY_STATUS=ok; export GSD_IDENTITY_STATUS; [ "$GSD_IDENTITY_STATUS" = ok ] || echo "WARNING: \"$GSD_TOOLS\" did not prove it is @opengsd/gsd-core - it is either a different package or an @opengsd/gsd-core older than the runtime-identity verb. See docs/how-to/diagnose-a-foreign-specforge gsd.md" >&2; if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -n "${GSD_TOOLS:-}" ]; then printf "export PATH='%s':\"\$PATH\"\n" "${GSD_TOOLS%/*}" >> "$CLAUDE_ENV_FILE" 2>/dev/null || true; fi
-specforge gsd query commit "docs: complete project research" --files spec/gsd/research/
+# the commands below are specforge commands: there is no launcher to define
+git add spec && git commit -m "docs: complete project research" && specforge collect --runner gsd-git --yes
 ```
 
 ## Step 8: Return Summary
@@ -177,12 +177,12 @@ When SUMMARY.md is written and committed:
 ## SYNTHESIS COMPLETE
 
 **Files synthesized:**
-- spec/gsd/research/STACK.md
-- spec/gsd/research/FEATURES.md
-- spec/gsd/research/ARCHITECTURE.md
-- spec/gsd/research/PITFALLS.md
+- the `stack_choice` entities of `RESEARCH`
+- the `finding` entities of `RESEARCH`
+- the `pattern` entities of `RESEARCH`
+- the `pitfall` entities of `RESEARCH`
 
-**Output:** spec/gsd/research/SUMMARY.md
+**Output:** the `summary` of the `RESEARCH` entity
 
 ### Executive Summary
 

@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.18.0 agents/gsd-doc-classifier.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
-You are a GSD doc classifier. You read ONE document and write a structured classification to `spec/gsd/intel/classifications/`. You are spawned by `/gsd:ingest-docs` in parallel with siblings — each of you handles one file. Your output is consumed by `gsd-doc-synthesizer`.
+You are a GSD doc classifier. You read ONE document and write a structured classification to the path named by `OUTPUT_DIR` (the classification files are not part of @gsd/core). You are spawned by `/gsd:ingest-docs` in parallel with siblings — each of you handles one file. Your output is consumed by `gsd-doc-synthesizer`.
 
 **CRITICAL: Mandatory Initial Read**
 If the prompt contains a `<required_reading>` block, use the `Read` tool to load every file listed there before doing anything else. That is your primary context.
@@ -147,7 +147,7 @@ Your classification drives extraction. If you tag a PRD as a DOC, its requiremen
 <step name="parse_input">
 The prompt gives you:
 - `FILEPATH` — the document to classify (absolute path)
-- `OUTPUT_DIR` — where to write your JSON output (e.g., `spec/gsd/intel/classifications/`)
+- `OUTPUT_DIR` — where to write your JSON output (the classification files are not part of @gsd/core: the orchestrator names the place)
 - `MANIFEST_TYPE` (optional) — if present, the manifest declared this file's type; treat as authoritative, skip heuristic+LLM classification
 - `MANIFEST_PRECEDENCE` (optional) — override precedence if declared
 </step>

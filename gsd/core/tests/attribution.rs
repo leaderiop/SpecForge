@@ -22,6 +22,9 @@ fn every_asset_is_attributed() {
     for path in all {
         let relative = path.strip_prefix(&assets).expect("under assets");
         let upstream = relative.to_string_lossy();
+        if upstream.ends_with(".json") {
+            continue; // a JSON file cannot carry the line: `assets.rs` and `tests/assets.rs` cover it
+        }
         let text = std::fs::read_to_string(&path).expect("a text asset");
         let first = text.lines().next().unwrap_or_default();
         assert_eq!(
