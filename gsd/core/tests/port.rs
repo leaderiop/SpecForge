@@ -415,39 +415,6 @@ const RUNNABLE: [&str; 21] = [
     "gsd-doc-classifier.compact.md",
 ];
 
-/// The other ported lines are a mechanical rename (REVIEW-r40 M6): they name commands and files that do not exist
-/// (`@gsd/core` has no `query`; project state is `.spec` files, never `spec/gsd/*.md`). r42's workflows rewrite them.
-/// Until then this pins how many there are in the files r42 owns: the counts may only fall, so lower a number when you
-/// remove lines, never raise it. The r41 files are at 0.
-const BLIND: [(&str, usize); 3] = [
-    (r"specforge gsd query", 0),
-    (r"specforge gsd\.cjs", 0),
-    (r"spec/gsd/", 0),
-];
-
-#[test]
-fn blind_rename_counts_are_pinned() {
-    for (pattern, pinned) in BLIND {
-        let rx = Regex::new(pattern).expect("a regex");
-        let mut rest = 0;
-        for entry in std::fs::read_dir(assets_dir()).expect("assets") {
-            let path = entry.expect("an entry").path();
-            let name = path
-                .file_name()
-                .expect("a name")
-                .to_string_lossy()
-                .to_string();
-            let found = rx.find_iter(&read(&path)).count();
-            if RUNNABLE.contains(&name.as_str()) {
-                assert_eq!(found, 0, "{name}: {found} occurrences of {pattern}");
-            } else {
-                rest += found;
-            }
-        }
-        assert_eq!(rest, pinned, "{pattern}: {rest} left; the pin is {pinned}");
-    }
-}
-
 #[test]
 fn every_command_a_body_names_is_declared() {
     let declaration = gsd_core::build().declaration();

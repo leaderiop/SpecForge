@@ -20,7 +20,7 @@ pub const VARIANT_SETTING: &str = "specforge.agent_variant";
 
 /// The section added after the ported body of an agent that judges rules. The host adds its own "Judged rules" list
 /// after it, which names `specforge.verdict_inputs` only; this names the command that records the verdict, so an
-/// installed judge can complete the loop (the ported lines still name upstream's tools, `spec/README.md` M6).
+/// installed judge can complete the loop.
 pub fn recording(agent: &str) -> String {
     let codes: Vec<String> = crate::judged::JUDGED
         .iter()
@@ -44,9 +44,9 @@ pub fn recording(agent: &str) -> String {
          every file you read: a verdict goes stale when a cited file changes, and not otherwise) and `--values '{{...}}'` \
          for the fields the rule binds.\n\n\
          A verdict recorded over a `basis` that has since changed is refused (`stale_revision`): read the inputs again. \
-         The host refuses, whole and with `E080`, a verdict that would add an error the project does not have (a failing \
-         outcome on a rule whose severity is an Error) and a failing verdict over a recorded pass. Do not edit the spec \
-         to get around the refusal; report the findings to the user instead.\n",
+         A failing outcome is recorded, whatever the rule's severity, and replaces an earlier pass: `specforge check` \
+         then reports it as the rule's finding. A verdict on an entity a person owns is refused (`human_only`). Do not \
+         edit the spec to get around a refusal; report the findings to the user instead.\n",
         codes.join(", ")
     )
 }
