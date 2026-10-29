@@ -272,10 +272,13 @@ fn refusal(
     }
     for (at, p) in positionals.iter().enumerate() {
         let named = p.trim_matches(|c| matches!(c, '<' | '>'));
-        if let Some(declared) = shape.positionals.iter().position(|n| n == named) {
-            if declared != at {
-                return Some(format!("'{p}' is positional {declared}, written at {at}"));
-            }
+        if let Some(declared) = shape
+            .positionals
+            .iter()
+            .position(|n| n == named)
+            .filter(|d| *d != at)
+        {
+            return Some(format!("'{p}' is positional {declared}, written at {at}"));
         }
     }
     None
