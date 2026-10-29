@@ -155,7 +155,7 @@ the plan's summary, written by the executor at the end, lands in the same file.
 | `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase | core |
 | `STATE.md` | computed (progress, position) + pause, blocker + session state | core |
 | `config.json` | settings | core |
-| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology | core |
+| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson (what `/gsd-extract-learnings` writes: it has no phase, its id `L-<phase>-<n>` carries it), methodology | core |
 | `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion | core |
 | `NN-SPEC.md` | phase_spec, locked_req, interview | core |
 | `NN-RESEARCH.md`, `research/*.md` | research and its items | core |
@@ -176,6 +176,13 @@ the plan's summary, written by the executor at the end, lands in the same file.
 | `NN-UI-SPEC.md`, `NN-UI-REVIEW.md` | ui_spec, tokens, components, ui_review, findings | ui |
 | `codebase/*`, `intel/*`, `NN-PATTERNS.md` | codebase kinds, pattern_map | codebase |
 | `debug/*`, `NN-REVIEW.md`, `todos/*`, `seeds/*`, `threads/*`, `BACKLOG.md`, `USER-PROFILE.md` | ops kinds | ops |
+
+Written nowhere, on purpose: a prompt shows these to the user and stores no file, because no kind holds them (a later model round may add one):
+
+- cross-AI reviews (`REVIEWS.md`), the session report and the milestone summary (`reports/*.md`), and the onboarding summary (`onboarding/SUMMARY.md`);
+- the ingest staging (`intel/*`) and the conflict report (`INGEST-CONFLICTS.md`): the classifier and the synthesizer write scratch files outside the project, and the conflicts are reported to the user;
+- `estimation-calibration.json`: `/gsd-extract-learnings` skips that step;
+- a workspace's `WORKSPACE.md` stays a file the agent writes in the workspace directory, beside the worktrees it lists; the workspace gets its own spec with `specforge init`, `specforge add @gsd/core` and `specforge install <host>`.
 
 Not modelled, on purpose: GSD's `references/*` and `workflows/*` are GSD's own rules and procedures, so they become
 [rules](rules.md) and ported prompts ([contributions](../contributions/)), not data; the text a prompt does not inline

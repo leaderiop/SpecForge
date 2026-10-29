@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the five command-backed slash commands (r41), and the 16 lifecycle prompts with the command `reference` (r42).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the five command-backed slash commands (r41), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -38,6 +38,85 @@ ambiguous one, naming each candidate).
 | @gsd/ui | `/gsd-ui-phase`, `/gsd-ui-review` | 2 |
 | @gsd/core skills (namespace routers: they list and dispatch, nothing else) | `/gsd-ns-context`, `/gsd-ns-ideate`, `/gsd-ns-manage`, `/gsd-ns-project`, `/gsd-ns-review`, `/gsd-ns-workflow` | 6 |
 | **total** | | **72** |
+
+## Round and mechanism of each command
+
+Every `/gsd-*` command of v1.18.0 has one owner and one round (`tests/roster.rs` checks the 72 rows against the vendored `commands.json`). The 22 commands of the capability extensions are owned and named; each is served when its extension ships.
+
+| Command | Round | Mechanism |
+|---|---|---|
+| `/gsd-add-tests` | r42 | prompt `add_tests` |
+| `/gsd-ai-integration-phase` | after r44 | @gsd/ai |
+| `/gsd-audit-fix` | after r44 | @gsd/ops |
+| `/gsd-audit-milestone` | r42 | prompt `audit_milestone` |
+| `/gsd-audit-uat` | r42 | prompt `audit_uat` |
+| `/gsd-autonomous` | r43 | prompt `autonomous` |
+| `/gsd-capture` | after r44 | @gsd/ops |
+| `/gsd-cleanup` | r41 | command `cleanup`, command-backed slash |
+| `/gsd-code-review` | after r44 | @gsd/ops |
+| `/gsd-complete-milestone` | r42 | prompt `complete_milestone` |
+| `/gsd-config` | r43 | prompt `config` |
+| `/gsd-debug` | after r44 | @gsd/ops |
+| `/gsd-discuss-phase` | r42 | prompt `discuss_phase` |
+| `/gsd-docs-update` | after r44 | @gsd/codebase |
+| `/gsd-eval-review` | after r44 | @gsd/ai |
+| `/gsd-execute-phase` | r42 | prompt `execute_phase` (and `execute_plan`, which has no slash command) |
+| `/gsd-explore` | after r44 | @gsd/ops |
+| `/gsd-extract-learnings` | r43 | prompt `extract_learnings` |
+| `/gsd-fast` | r43 | prompt `fast` |
+| `/gsd-forensics` | after r44 | @gsd/ops |
+| `/gsd-graphify` | after r44 | @gsd/codebase (command-backed there) |
+| `/gsd-health` | r41 | command `health` |
+| `/gsd-help` | r41 | command `help` |
+| `/gsd-import` | after r44 | @gsd/import |
+| `/gsd-inbox` | after r44 | @gsd/ops |
+| `/gsd-ingest-docs` | r43 | prompt `ingest_docs` |
+| `/gsd-manager` | r43 | prompt `manager` |
+| `/gsd-map-codebase` | after r44 | @gsd/codebase |
+| `/gsd-mempalace-capture` | after r44 | @gsd/ops |
+| `/gsd-mempalace-recall` | after r44 | @gsd/ops |
+| `/gsd-milestone-summary` | r43 | prompt `milestone_summary` |
+| `/gsd-mvp-phase` | r42 | prompt `mvp_phase` |
+| `/gsd-new-milestone` | r42 | prompt `new_milestone` |
+| `/gsd-new-project` | r42 | prompt `new_project` |
+| `/gsd-next` | r43 | prompt `next` over the command `smart_entry` |
+| `/gsd-ns-context` | r43 | router prompt `ns_context` |
+| `/gsd-ns-ideate` | r43 | router prompt `ns_ideate` |
+| `/gsd-ns-manage` | r43 | router prompt `ns_manage` |
+| `/gsd-ns-project` | r43 | router prompt `ns_project` |
+| `/gsd-ns-review` | r43 | router prompt `ns_review` |
+| `/gsd-ns-workflow` | r43 | router prompt `ns_workflow` |
+| `/gsd-onboard` | r43 | prompt `onboard` |
+| `/gsd-pause-work` | r43 | prompt `pause_work` over the command `pause` |
+| `/gsd-phase` | r41 | command `phase` (r43 adds `--promote`) |
+| `/gsd-plan-phase` | r42 | prompt `plan_phase` |
+| `/gsd-plan-review-convergence` | r42 | prompt `plan_review_convergence` |
+| `/gsd-pr-branch` | r43 | prompt `pr_branch` |
+| `/gsd-profile-user` | after r44 | @gsd/ops |
+| `/gsd-progress` | r43 | prompt `progress` over the command `progress_report` |
+| `/gsd-quick-batch` | r43 | prompt `quick_batch` |
+| `/gsd-quick` | r43 | prompt `quick` |
+| `/gsd-resume-work` | r43 | prompt `resume_work` over the command `resume` |
+| `/gsd-review-backlog` | r43 | prompt `review_backlog` over `phase --promote` |
+| `/gsd-review` | r43 | prompt `review` |
+| `/gsd-secure-phase` | after r44 | @gsd/security |
+| `/gsd-settings` | r43 | prompt `settings` |
+| `/gsd-ship` | r42 | prompt `ship` |
+| `/gsd-sketch` | after r44 | @gsd/ops |
+| `/gsd-spec-phase` | r40 | prompt `spec_phase` |
+| `/gsd-spike` | after r44 | @gsd/ops |
+| `/gsd-stats` | r41 | command `stats` |
+| `/gsd-surface` | r41 | command `surface` |
+| `/gsd-thread` | after r44 | @gsd/ops |
+| `/gsd-ui-phase` | after r44 | @gsd/ui |
+| `/gsd-ui-review` | after r44 | @gsd/ui |
+| `/gsd-ultraplan-phase` | r42 | prompt `ultraplan_phase` |
+| `/gsd-undo` | r43 | prompt `undo` |
+| `/gsd-update` | r43 | prompt `update`, a text of ours |
+| `/gsd-validate-phase` | r42 | prompt `validate_phase` |
+| `/gsd-verify-work` | r42 | prompt `verify_work` |
+| `/gsd-workspace` | r43 | prompt `workspace` |
+| `/gsd-workstreams` | r41 | command `workstreams` |
 
 ## Lifecycle prompts (r42)
 
@@ -108,6 +187,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
 | `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` (the computed `digest` of the phase's context) |
 | `health`, `stats`, `progress_report` (`/gsd-health`, `/gsd-stats`) | nothing: they report from the computed values of the graph |
+| `smart_entry` (`/gsd-next`) | nothing: it is read-only, and classifies the project from its computed `status`, `backlog` and `verification.status` fields |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
