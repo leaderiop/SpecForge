@@ -3817,7 +3817,7 @@
           },
           {
             "default_value": null,
-            "description": null,
+            "description": "the phase researcher's verdict (gsd/W205)",
             "edge": null,
             "enum_values": [
               "legitimate",
@@ -3829,7 +3829,8 @@
             "inverse_of": null,
             "name": "legitimacy",
             "required": false,
-            "target_kind": null
+            "target_kind": null,
+            "writer": "verdict"
           }
         ],
         "has_body_parser": false,

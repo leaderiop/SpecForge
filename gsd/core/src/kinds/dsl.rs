@@ -36,6 +36,8 @@ pub enum Writer {
     Computed,
     /// `H`: a command's or collector's plan.
     Harness,
+    /// `V`: the outcome or a value of a fresh verdict of a judged rule.
+    Verdict,
 }
 
 #[derive(Clone, Copy)]
@@ -89,6 +91,11 @@ impl Field {
     /// `H`
     pub const fn h(mut self) -> Self {
         self.writer = Writer::Harness;
+        self
+    }
+    /// `V`
+    pub const fn v(mut self) -> Self {
+        self.writer = Writer::Verdict;
         self
     }
     /// `U`
@@ -295,6 +302,9 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         }
         Writer::Harness => {
             f.harness();
+        }
+        Writer::Verdict => {
+            f.verdict();
         }
     }
     if !field.inverse.is_empty() {

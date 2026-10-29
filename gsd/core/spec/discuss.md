@@ -94,7 +94,7 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 | source | `research R`, `url str R`, `tier enum{primary, secondary, tertiary} R`, `checked str` | `## Sources` |
 | package_audit | `research R`, `package str R`, `registry str R`, `legitimacy enum{legitimate, suspicious, unknown}` `V` | the package-legitimacy table |
 
-`package_audit.legitimacy` is `V` like `phase_spec.scores`, and is declared authored until r40 binds `gsd/W205` (a verdict field no judged rule lists is the kernel's W021). `context.status` is declared `C` and answered by the derive pass (r38): `ready_for_planning` when `boundary` is written and `canonical_refs` has an item, else `gathering`.
+`package_audit.legitimacy` is `V`: the outcome of the phase researcher's verdict on `gsd/W205`, so a hand-written value is E082 (`specforge query <audit> --inputs gsd/W205`, then `specforge gsd record-verdict`). `context.status` is declared `C` and answered by the derive pass (r38): `ready_for_planning` when `boundary` is written and `canonical_refs` has an item, else `gathering`.
 
 An `open_question` with no `resolved_by` is what the plan checker's research-resolution dimension flags; here it is a
 rule over the graph, `gsd/W204` ([rules](rules.md)), for a phase's research only: the plan checker reads the phase's `RESEARCH.md`, so the project's research (the one named `RESEARCH`) is exempt; a phaseless research with another name is E206 and is judged as a phase's.

@@ -128,6 +128,20 @@ pub const JUDGED: &[Judged] = &[
         values: &[],
         outcome_fields: &[],
     },
+    Judged {
+        code: "W205",
+        message: "package '{id}' has no legitimacy verdict",
+        judge: "gsd-phase-researcher",
+        outcomes: &["legitimate", "suspicious", "unknown"],
+        passing: &["legitimate"],
+        targets: &[Target {
+            kind: "package_audit",
+            inputs: &[("audit", "self")],
+            unless_set: &[],
+        }],
+        values: &[],
+        outcome_fields: &["package_audit.legitimacy"],
+    },
 ];
 
 /// The judged rule with this local code.

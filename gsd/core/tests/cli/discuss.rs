@@ -261,19 +261,75 @@ fn an_open_question_names_the_decision_that_resolves_it() {
     );
 }
 
+const AUDIT: &str = "v1.0/02/02-RESEARCH/PA1";
+
 #[test]
-fn an_unknown_legitimacy_is_refused() {
+fn w205_inputs() {
     let p = project("discuss");
-    let spec = std::fs::read_to_string(format!(
-        "{}/tests/projects/discuss/spec/research.spec",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .expect("the fixture");
+    let inputs = p.inputs(AUDIT, "W205");
+    assert_eq!(inputs["verdict"]["state"], "missing", "{inputs}");
+    let names: Vec<&str> = inputs["inputs"]
+        .as_array()
+        .expect("inputs")
+        .iter()
+        .filter_map(|i| i["name"].as_str())
+        .collect();
+    assert_eq!(names, ["audit"], "{inputs}");
+    // The package has no verdict, so exactly one W205 says so.
+    let found = p.report_all();
+    assert_eq!(
+        found.iter().filter(|(c, _)| c == "gsd/W205").count(),
+        1,
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn a_hand_written_legitimacy_is_e082() {
+    let p = project("discuss");
+    let spec = fixture("research.spec");
+    let hand = spec.replace(
+        "  registry \"builtin\"\n",
+        "  registry \"builtin\"\n  legitimacy legitimate\n",
+    );
+    assert_ne!(spec, hand);
+    p.write("spec/research.spec", &hand);
+    assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.codes());
+    // An unknown value is still the kernel's, on top.
     p.write(
         "spec/research.spec",
-        &spec.replace("legitimate\n", "trusted\n"),
+        &hand.replace("legitimate\n", "trusted\n"),
     );
-    assert_eq!(codes(&p), ["E061"]);
+    assert!(p.codes().contains(&"E061".to_string()), "{:?}", p.codes());
+}
+
+#[test]
+fn a_legitimate_verdict_sets_legitimacy() {
+    let p = project("discuss");
+    assert_eq!(p.fields_of(AUDIT).get("legitimacy"), None);
+    let run = p.record(AUDIT, "W205", "legitimate", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of(AUDIT)["legitimacy"], "legitimate");
+    let found = p.report_all();
+    assert!(!found.iter().any(|(c, _)| c == "gsd/W205"), "{found:#?}");
+}
+
+#[test]
+fn a_suspicious_package_fails_w205() {
+    let p = project("discuss");
+    let run = p.record(AUDIT, "W205", "suspicious", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of(AUDIT)["legitimacy"], "suspicious");
+    let found = p.report_all();
+    let w205: Vec<_> = found.iter().filter(|(c, _)| c == "gsd/W205").collect();
+    assert_eq!(w205.len(), 1, "{found:#?}");
+    assert!(w205[0].1.contains("suspicious"), "{found:#?}");
+    // Under strict W205 is an Error: the failing verdict would leave a new error, which the host refuses whole.
+    let strict = project("discuss");
+    strict.settings(serde_json::json!({ "profile": "gsd-strict" }));
+    let run = strict.record(AUDIT, "W205", "suspicious", &[]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("E080"), "{}", run.all());
 }
 
 fn with_canonical_refs(refs: Option<&str>) -> Project {
