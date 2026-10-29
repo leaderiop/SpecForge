@@ -219,6 +219,11 @@ still waits for kernel work (K19):
   `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested. A prompt's
   subject is required, so `/gsd-plan-phase` without a phase is refused where upstream picks the next one (`/gsd-next`
   is r43's). A reference is the id as written, so `3` and `03` are different spellings of the same phase.
+- **A command's answer is not host-converted (K19).** `smart_entry` names the next actions as `/gsd-x`, `$gsd-x` for
+  codex, so it takes upstream's own `--runtime` option; a prompt that runs it says which host it is rendered for. It
+  never says `idle-stranded`: a command runs no git, so the dirty, unpushed and stale signals are false. A phase's
+  computed `status` stands for STATE.md's words (`planning`, `executing`, `verifying`, `milestone complete`), and
+  a milestone's phase counts are the roadmap's.
 - **The hooks wait for five host items (K19)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
   a full compile, Cursor's `beforeSubmitPrompt`, and a hook reading another extension's settings.
 - **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is

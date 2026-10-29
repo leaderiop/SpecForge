@@ -296,3 +296,18 @@ against it (`gsd/core/tests/roster.rs`), and so is the README's Commands table.
 | File | sha256 |
 |---|---|
 | `commands.json` | `e203d386a5df1f6f747d210c819dc62b115852fd3c6f5de5732bfb3b05b70ec4` |
+
+## `src/smart-entry.cts`, `src/runtime-slash.cts` and `tests/smart-entry.unit.test.cjs`: the router (r43)
+
+`/gsd:next`'s state-aware classifier and the slash-name formatter it uses, and the classifier's own unit tests, copied
+unchanged by `git -C <gsd-core> show v1.18.0:<path>`. `gsd/core/src/commands/smart_entry.rs` ports `classify`,
+`isComplete`, `isIdleStranded`, `actionsFor`, `phaseSummary`, `buildSummary`, `progressLine` and `SITUATIONS`, and
+`formatGsdSlash`, over signals read from the graph a command receives; `smart_entry/tests.rs` ports the unit cases that
+call them on a signals object (or on a fixture whose STATE.md and ROADMAP.md reduce to one) and names the cases it
+leaves out. All three are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
+
+| File | sha256 |
+|---|---|
+| `src/smart-entry.cts` | `fde78e6d2fecf8b682fb109fa82be065a09c4107d15265ba3c61ade65eb9d9d6` |
+| `src/runtime-slash.cts` | `0ba8838ff084a5182b12ca0e9c346b9c964bf18cdeb57a18591035523cb0ab4a` |
+| `tests/smart-entry.unit.test.cjs` | `bd8c7a27c5317110236221c073b6f77e2ac3628877a10f3f0f1533576efdfd80` |
