@@ -13,21 +13,26 @@ env:
 
 jobs:
   ci:
-    # `cargo gate ci` split over three runners, so the build -> tests path has its cores to itself.
+    # `cargo gate ci` split over six runners: the tests in four nextest partitions (each builds from the same
+    # cache), lint, and specs. `dogfood` judges every partition's reports, so it is the job after these.
     # The lint shard fails when `cargo gate list` holds a check no shard names.
     name: Check list (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      GATE_TEST_PARTITION: ${{ matrix.partition }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - shard: tests
-            checks: build,tests,guests,dogfood
+          - { shard: tests-1, cache: tests, partition: 1/4, checks: "build,tests" }
+          - { shard: tests-2, cache: tests, partition: 2/4, checks: "build,tests" }
+          - { shard: tests-3, cache: tests, partition: 3/4, checks: "build,tests" }
+          - { shard: tests-4, cache: tests, partition: 4/4, checks: "build,tests" }
           - shard: lint
             checks: rustfmt,clippy,gsd,doctests,audit
           - shard: specs
-            checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,crate-map,links,doc-links,root-layout,builtins,published-schemas,specs,spec-modules
+            checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs,spec-modules
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,7 +49,7 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.shard }}
+          key: ${{ matrix.cache || matrix.shard }}
           # PRs read main's cache and write none, so they never evict it.
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
@@ -69,5 +74,36 @@ jobs:
       # A PR runs the checks its diff reaches (quick's triggers); main runs the whole list.
       - name: Run the shard's checks
         run: cargo gate ci --only ${{ matrix.checks }} ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
+
+      # dogfood reaches only full runs (main), so only main keeps the reports for it.
+      - name: Keep the test reports for dogfood
+        if: github.event_name == 'push' && (startsWith(matrix.shard, 'tests') || matrix.shard == 'specs')
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ matrix.shard }}
+          path: target/specforge
+          retention-days: 1
+
+  dogfood:
+    # Every test of every partition and guest reported into target/specforge; dogfood judges them together.
+    name: Check list (dogfood)
+    needs: ci
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: specs
+          save-if: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: reports-*
+          path: target/specforge
+          merge-multiple: true
+      - name: Run dogfood
+        run: cargo gate ci --only dogfood
 
   # The fresh-clone bootstrap is bootstrap.yml: on a PR it runs only when a blob input changes.
