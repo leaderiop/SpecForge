@@ -19,11 +19,19 @@ fn step_ids(rendered: &serde_json::Value) -> Vec<String> {
 fn new_project_renders() {
     let p = project("empty");
     let rendered = payload(&prompt(&p, "new_project", &["--auto"], "claude-code"));
-    // The `discuss` step (the prompt `discuss_phase`) is added with that prompt: a step naming a prompt that is not
-    // declared drops the whole prompt (W021).
     assert_eq!(
         step_ids(&rendered),
-        ["research", "synthesize", "roadmap", "record_research"]
+        [
+            "research",
+            "synthesize",
+            "roadmap",
+            "record_research",
+            "discuss"
+        ]
+    );
+    assert_eq!(
+        rendered["payload"]["steps"][4]["prompt"],
+        "specforge.gsd.discuss_phase"
     );
     let record = &rendered["payload"]["steps"][3];
     assert_eq!(record["cli"], "specforge gsd record-research");
@@ -80,7 +88,13 @@ fn new_milestone_renders_for_three_hosts() {
         assert!(text_of(&rendered).contains("--name"), "{host}");
         assert_eq!(
             step_ids(&rendered),
-            ["research", "synthesize", "roadmap", "record_research"],
+            [
+                "research",
+                "synthesize",
+                "roadmap",
+                "record_research",
+                "discuss"
+            ],
             "{host}"
         );
     }

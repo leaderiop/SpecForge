@@ -27,6 +27,11 @@ const STEPS: &[Step] = &[
         title: "Record each research entity's digest (specforge gsd record-research <research>)",
         does: Do::Command("record_research"),
     },
+    Step {
+        id: "discuss",
+        title: "Discuss the first phase before planning it (discuss_phase)",
+        does: Do::Prompt("discuss_phase"),
+    },
 ];
 
 const NEW_PROJECT_ARGS: &[Arg] = &[Arg::flag("auto"), Arg::text("idea")];

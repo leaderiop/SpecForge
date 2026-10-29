@@ -4,6 +4,7 @@
 
 mod args;
 pub(crate) mod assets;
+mod discuss;
 mod host;
 mod preamble;
 mod project;
@@ -20,4 +21,5 @@ pub use spec::GATES;
 pub fn declare(c: &mut ContributionsBuilder) {
     spec::declare(c);
     project::declare(c);
+    discuss::declare(c);
 }

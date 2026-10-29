@@ -12,7 +12,11 @@ use rule::check_lines;
 
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
 /// became the absolute URL of the file at the tag.
-const REWRITTEN: &[(&str, usize)] = &[("gsd-core/references/agent-skills-bootstrap.md", 9)];
+const REWRITTEN: &[(&str, usize)] = &[
+    ("gsd-core/references/agent-skills-bootstrap.md", 9),
+    ("gsd-core/references/loop-hook-dispatch.md", 133),
+    ("gsd-core/references/loop-hook-dispatch.md", 142),
+];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()

@@ -31,7 +31,6 @@ pub struct Arg {
 
 impl Arg {
     /// A required reference: the phase, plan or milestone the prompt is about.
-    #[allow(dead_code, reason = "the phase prompts that follow take a reference")]
     pub const fn reference(name: &'static str, kind: &'static str) -> Arg {
         Arg {
             name,

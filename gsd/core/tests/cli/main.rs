@@ -37,6 +37,7 @@ mod parity_verify;
 mod plan;
 mod plan_rules;
 mod progress;
+mod prompts_discuss;
 mod prompts_project;
 mod prompts_support;
 mod reference;

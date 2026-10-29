@@ -1,0 +1,124 @@
+//! `discuss_phase` (T3): refused for a missing phase, rendered for three hosts, its modes served by reference.
+
+use super::commands_support::twin;
+use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
+
+#[test]
+fn discuss_phase_gate_refuses_a_missing_phase() {
+    let p = twin();
+    let before = p.read("specforge.json");
+    let run = prompt(&p, "discuss_phase", &["v1.0/09"], "claude-code");
+    assert_ne!(run.code, 0, "{}", run.all());
+    let all = run.all();
+    // The argument is a reference, so the host refuses an unknown phase before any prompt text exists (E003).
+    assert!(
+        all.contains("E003") && all.contains("unresolved entity 'v1.0/09'"),
+        "{all}"
+    );
+    assert_eq!(p.read("specforge.json"), before);
+}
+
+#[test]
+fn discuss_phase_renders_for_three_hosts() {
+    let p = twin();
+    let out = render_three_hosts(
+        &p,
+        "discuss_phase",
+        &[
+            "v1.0/02",
+            "--all",
+            "--auto",
+            "--chain",
+            "--batch",
+            "--analyze",
+            "--text",
+            "--power",
+            "--assumptions",
+        ],
+        "02 --all --auto --chain --batch --analyze --text --power --assumptions",
+        "<objective>",
+    );
+    for (host, rendered) in out {
+        assert_eq!(rendered["payload"]["subject"], "v1.0/02", "{host}");
+    }
+}
+
+#[test]
+fn discuss_phase_names_its_modes_by_reference() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(
+        &p,
+        "discuss_phase",
+        &["v1.0/02"],
+        "claude-code",
+    )));
+    // The command routes in prose and reads its workflow on demand.
+    let workflow = "specforge gsd reference gsd-core/workflows/discuss-phase.md";
+    assert!(
+        text.contains(workflow),
+        "the text does not name the workflow"
+    );
+    let served = p.run(&["gsd", "reference", "gsd-core/workflows/discuss-phase.md"]);
+    assert_eq!(served.code, 0, "{}", served.all());
+    // The workflow names a mode by its path under the install root; the preamble says to read such a path with
+    // `specforge gsd reference`, and the command takes it with or without `gsd-core/`.
+    let power = "workflows/discuss-phase/modes/power.md";
+    assert!(
+        served.stdout.contains(power),
+        "the workflow does not name the power mode"
+    );
+    assert!(
+        text.contains("specforge gsd reference <path>"),
+        "the preamble does not say how to read a path"
+    );
+    let mode = p.run(&["gsd", "reference", power]);
+    assert_eq!(mode.code, 0, "{}", mode.all());
+    assert!(!mode.stdout.is_empty());
+}
+
+#[test]
+fn the_assumptions_mode_reads_the_discuss_mode_setting() {
+    let p = twin();
+    p.settings(serde_json::json!({ "workflow.discuss_mode": "assumptions" }));
+    let text = text_of(&payload(&prompt(
+        &p,
+        "discuss_phase",
+        &["v1.0/02"],
+        "claude-code",
+    )));
+    assert!(
+        text.contains("\"workflow.discuss_mode\": \"assumptions\""),
+        "settings block"
+    );
+}
+
+#[test]
+fn discuss_phase_steps_spawn_core_agents_only() {
+    let p = twin();
+    let rendered = payload(&prompt(&p, "discuss_phase", &["v1.0/02"], "claude-code"));
+    let steps = rendered["payload"]["steps"].as_array().expect("steps");
+    assert_eq!(steps.len(), 2);
+    let text = steps
+        .iter()
+        .map(|s| s["title"].as_str().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(text.contains("gsd-assumptions-analyzer") && text.contains("gsd-advisor-researcher"));
+    assert!(
+        gsd_core::agents::roster::AGENTS
+            .iter()
+            .any(|a| a.id == "gsd-assumptions-analyzer")
+    );
+    assert!(
+        gsd_core::agents::roster::AGENTS
+            .iter()
+            .any(|a| a.id == "gsd-advisor-researcher")
+    );
+}
+
+#[test]
+fn discuss_phase_requires_its_phase() {
+    let p = twin();
+    let run = prompt(&p, "discuss_phase", &[], "claude-code");
+    assert_ne!(run.code, 0, "{}", run.all());
+}
