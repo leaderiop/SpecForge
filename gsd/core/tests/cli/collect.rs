@@ -190,3 +190,200 @@ fn a_repository_without_commits_is_e045() {
         assert_eq!(recorded(&p), Vec::<String>::new());
     }
 }
+
+const TRUTH: &str = "v1.0/01/01-01/TR1";
+const DELIVERABLE: &str = "v1.0/01/01-01/01-01-SUMMARY/D1";
+
+/// The report the collectors wrote, as `{entity: [(test name, status)]}`.
+fn report(p: &Project) -> std::collections::BTreeMap<String, Vec<(String, String)>> {
+    let report: serde_json::Value =
+        serde_json::from_str(&p.read("specforge-report.json")).expect("a JSON report");
+    report["results"]
+        .as_object()
+        .expect("results")
+        .iter()
+        .map(|(entity, recorded)| {
+            let tests = recorded["tests"]
+                .as_array()
+                .expect("tests")
+                .iter()
+                .map(|t| {
+                    (
+                        t["name"].as_str().unwrap_or_default().to_string(),
+                        t["status"].as_str().unwrap_or_default().to_string(),
+                    )
+                })
+                .collect();
+            (entity.clone(), tests)
+        })
+        .collect()
+}
+
+/// The root of the project as the tool that runs the tests prints it: its real path.
+fn root_of(p: &Project) -> String {
+    p.root()
+        .canonicalize()
+        .expect("the root exists")
+        .display()
+        .to_string()
+}
+
+fn junit(p: &Project, testcases: &str) -> Run {
+    p.write(
+        "junit.xml",
+        &format!("<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n{testcases}\n</testsuite>\n</testsuites>\n"),
+    );
+    p.collect(&["--runner", "gsd-junit", "--no-run"])
+}
+
+#[test]
+fn a_tagged_node_test_links_to_its_truth() {
+    let p = project("execute");
+    let run = junit(
+        &p,
+        "<testcase name=\"[gsd:01-01/TR1] adds a task\" classname=\"test\" time=\"0.01\"/>",
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    // The tag is a short form, which the host's own `collect` would drop as W115: the collector resolved it.
+    assert_eq!(
+        report(&p),
+        [(
+            TRUTH.to_string(),
+            vec![(
+                "[gsd:01-01/TR1] adds a task".to_string(),
+                "passed".to_string()
+            )]
+        )]
+        .into()
+    );
+    let runner = &json(&run)["runners"][0];
+    assert_eq!(
+        (runner["entities"].as_i64(), runner["passed"].as_i64()),
+        (Some(1), Some(1))
+    );
+    assert_eq!(
+        json(&run)["diagnostics"],
+        serde_json::json!([]),
+        "{}",
+        run.stdout
+    );
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn an_untagged_test_is_reported_unlinked() {
+    let p = project("execute");
+    let run = junit(&p, "<testcase name=\"adds a task\" classname=\"test\"/>");
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(report(&p), Default::default());
+    assert_eq!(json(&run)["runners"][0]["entities"], 0, "{}", run.stdout);
+}
+
+#[test]
+fn a_coverage_ref_links_to_its_deliverable() {
+    let p = project("execute");
+    let file = format!("{}/test/tasks.test.js", root_of(&p));
+    let run = junit(
+        &p,
+        &format!(
+            "<testcase name=\"adds a task\" classname=\"test\" time=\"0.02\" file=\"{file}\"/>"
+        ),
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    // Recorded under the deliverable, named by the reference exactly.
+    assert_eq!(
+        report(&p),
+        [(
+            DELIVERABLE.to_string(),
+            vec![(
+                "test/tasks.test.js#adds a task".to_string(),
+                "passed".to_string()
+            )]
+        )]
+        .into()
+    );
+    // The same test of another file proves nothing.
+    let other = junit(
+        &p,
+        "<testcase name=\"adds a task\" classname=\"test\" file=\"/elsewhere/test/other.test.js\"/>",
+    );
+    assert_eq!(other.code, 0, "{}", other.all());
+    assert_eq!(report(&p), Default::default());
+}
+
+#[test]
+fn an_ambiguous_tag_is_unlinked() {
+    // `TR1` is the truth of both plans of phase 01.
+    let p = project("execute");
+    let run = junit(&p, "<testcase name=\"[gsd:TR1] which one\"/>");
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(report(&p), Default::default());
+    assert_eq!(
+        json(&run)["diagnostics"],
+        serde_json::json!([]),
+        "{}",
+        run.stdout
+    );
+}
+
+#[test]
+fn a_failure_child_is_failed_and_skipped_is_not_recorded() {
+    let p = project("execute");
+    let run = junit(
+        &p,
+        "<testcase name=\"[gsd:01-01/TR1] fails\"><failure message=\"no\"/></testcase>\n<testcase name=\"[gsd:01-01/AR1] skips\"><skipped/></testcase>\n<testcase name=\"[gsd:01-02/TR1] errors\"><error/></testcase>",
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        report(&p),
+        [
+            (
+                TRUTH.to_string(),
+                vec![("[gsd:01-01/TR1] fails".to_string(), "failed".to_string())]
+            ),
+            (
+                "v1.0/01/01-02/TR1".to_string(),
+                vec![("[gsd:01-02/TR1] errors".to_string(), "failed".to_string())]
+            ),
+        ]
+        .into()
+    );
+    let runner = &json(&run)["runners"][0];
+    assert_eq!(
+        (
+            runner["failed"].as_i64(),
+            runner["skipped"].as_i64(),
+            runner["passed"].as_i64()
+        ),
+        (Some(2), Some(1), Some(0)),
+        "{}",
+        run.stdout
+    );
+}
+
+#[test]
+fn a_report_that_stops_short_is_refused() {
+    let p = project("execute");
+    p.write(
+        "junit.xml",
+        "<testsuite><testcase name=\"[gsd:01-01/TR1] a\"",
+    );
+    let run = p.collect(&["--runner", "gsd-junit", "--no-run"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("junit.xml"), "{}", run.all());
+    assert!(!p.exists("specforge-report.json"));
+}
+
+#[test]
+fn the_junit_collector_is_never_run_by_a_plain_collect() {
+    // It is named, not detected: a plain `collect` finds no runner to run.
+    let p = project("execute");
+    p.write("junit.xml", "<testsuite/>");
+    let run = p.run(&["collect", "--yes", "--format", "json"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all().contains("E058") && run.all().contains("available: gsd-git, gsd-junit"),
+        "{}",
+        run.all()
+    );
+}

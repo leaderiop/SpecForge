@@ -5,9 +5,11 @@
 
 mod git;
 mod graph;
+mod junit;
 
 use specforge_extension_sdk::prelude::*;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     git::declare(c);
+    junit::declare(c);
 }

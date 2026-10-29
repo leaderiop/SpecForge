@@ -325,5 +325,23 @@ fn the_model_has_the_collectors_it_builds() {
         .into_iter()
         .map(|c| c.name)
         .collect();
-    assert_eq!(names, ["gsd-git"]);
+    assert_eq!(names, ["gsd-git", "gsd-junit"]);
+}
+
+#[test]
+fn the_junit_collector_reads_a_report_and_is_handed_the_graph() {
+    let junit = MockHost::new(build())
+        .declaration()
+        .collectors
+        .into_iter()
+        .find(|c| c.name == "gsd-junit")
+        .expect("the gsd-junit collector");
+    // `writes` is declared only to receive the graph and the root; the answer never carries a plan.
+    assert!(junit.writes);
+    assert_eq!(junit.report.as_deref(), Some("junit.xml"));
+    // GSD is language-agnostic: no command to run, and no detection that would select it for a plain `collect`.
+    assert!(junit.run.is_empty());
+    assert!(junit.auto_detect.is_none());
+    assert!(junit.capture.is_none());
+    assert_eq!(junit.input_formats, ["junit-xml"]);
 }

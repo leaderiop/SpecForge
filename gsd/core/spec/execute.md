@@ -93,9 +93,23 @@ nothing, and the next run records the same commits.
 Schema drift reads the subjects, and a milestone's `stats.loc` the line counts. `/gsd-undo` reads the commits of a plan or a
 phase from here instead of a manifest file.
 
-**Test link.** A test names its entity with a tag in its name, `[gsd:<id>]` (`[gsd:03-02/TR1] stays signed in`);
-`@gsd/core`'s JUnit collector (`gsd-junit`) links it. The host's `collect` keeps only a full path (a short form is W115), so the collector resolves the id itself. The host's own
-fallback links a test only by `entity_id__slug` or a module named after an entity, which cannot spell a scoped id.
+**Test link.** A test links to an entity two ways, and the JUnit collector (`gsd-junit`) does both.
+- A **tag** in the test's name, `[gsd:<id>]` (`[gsd:03-02/TR1] stays signed in`), links it to any entity. The id is a path,
+  a rooted path or a unique suffix; the collector resolves it over the graph as the host's `find` does. A tag that names
+  nothing, or several entities, links nothing.
+- A **coverage reference** links a deliverable's check, GSD's own test link (`gsd-core/templates/summary.md:59`): the check's
+  `ref` is `test/tasks.test.js#a task is added`, and a test named `a task is added` whose `file` attribute (made
+  project-relative by stripping the project root) is `test/tasks.test.js` proves it. A `ref` with an empty file part
+  (`#name`) matches on the name alone. The result is recorded under the deliverable and named by the `ref` exactly, which
+  is what the derive pass looks a check's status up by.
+
+A test that links neither way is reported unlinked, for the host's naming convention (`entity_id__slug`, a module named
+after an entity), which cannot spell a scoped id. The collector has no command (GSD is language-agnostic) and reads the
+report the project's own test run wrote: `specforge collect --runner gsd-junit --no-run` (the declared report is
+`junit.xml` at the project root), or `--report <file>`. It declares `writes` only to be handed the graph and the project
+root: the host's `collect` keeps a full entity path and drops any other id as W115, so a collector that is given a short
+form resolves it itself. It answers results, never a plan. A report that stops short of its last tag is an error naming
+the file, not a smaller report.
 
 ## pause, handoff and blocker
 
