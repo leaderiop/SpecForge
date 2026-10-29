@@ -468,6 +468,21 @@ impl Project {
         self.record_over(entity, code, outcome, &basis, extra)
     }
 
+    /// Plays the verifier on every item of `phase` (`v1.0/01`): a `verified` verdict on each truth, artifact and key
+    /// link that `gsd/E501` reports. Answers how many it recorded.
+    pub fn verify_phase(&self, phase: &str) -> usize {
+        let items: Vec<String> = judged(&self.report_all())
+            .into_iter()
+            .filter(|(code, id)| code == "gsd/E501" && id.starts_with(&format!("{phase}/")))
+            .map(|(_, id)| id)
+            .collect();
+        for id in &items {
+            let run = self.record(id, "E501", "verified", &[]);
+            assert_eq!(run.code, 0, "{id}: {}", run.all());
+        }
+        items.len()
+    }
+
     /// [`Project::record`] over a `basis` the caller read earlier.
     pub fn record_over(
         &self,

@@ -1,6 +1,6 @@
 //! The taskboard's SpecForge twin of phase 1's UAT against what gsd-tools 1.18.0 says about `01-UAT.md` (parity
 //! suite): `audit-uat`, the UAT's own Summary and frontmatter, and the phase's verification, whose differences from
-//! `01-VERIFICATION.md` are named below until r40 records the E501 verdicts. The goldens come from `record.sh`.
+//! `01-VERIFICATION.md` are named below. The goldens come from `record.sh`.
 
 use std::path::Path;
 
@@ -116,16 +116,20 @@ fn the_uat_twins_status_is_partial_where_the_file_says_complete() {
     assert_eq!(p.fields_of(SESSION)["status"], "partial");
 }
 
-/// A named divergence, until r40 records the E501 verdicts: `01-VERIFICATION.md` is `passed`, `2/2 must-haves
-/// verified`, and the twin's verification is `pending` with no verdict on its three truths (the twin also models more
-/// truths than the file's two must-haves). r40 turns this into an equality.
+/// `01-VERIFICATION.md` is `passed`, `2/2 must-haves verified`. The twin's verification passes once the verifier's
+/// `verified` verdicts are recorded on every item of the phase. The score stays a named divergence: the twin models
+/// three truths where the file lists two must-haves, so it is `3/3`.
 #[test]
-fn the_twins_verification_is_pending_until_r40() {
+fn the_twins_verification_passes_with_its_verdicts() {
     let p = taskboard();
     let file = pairs(&p.read(VERIFICATION_MD), None);
     assert_eq!(get(&file, "status"), "passed");
     assert!(get(&file, "score").starts_with("2/2"), "{file:?}");
+    let before = p.fields_of("v1.0/01/01-VERIFICATION");
+    assert_eq!(before["status"], "pending", "{before}");
+    assert_eq!(before["score"], "0/3", "{before}");
+    assert!(p.verify_phase("v1.0/01") > 0);
     let twin = p.fields_of("v1.0/01/01-VERIFICATION");
-    assert_eq!(twin["status"], "pending", "{twin}");
-    assert_eq!(twin["score"], "0/3", "{twin}");
+    assert_eq!(twin["status"], get(&file, "status"), "{twin}");
+    assert_eq!(twin["score"], "3/3", "{twin}");
 }
