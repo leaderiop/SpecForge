@@ -30,7 +30,7 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 # the commands below are specforge commands: there is no launcher to define
-RESPONSE_LANGUAGE=""   # response_language: read it from the settings block; this is its default
+RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
@@ -268,7 +268,7 @@ For each SUMMARY.md in the phase directory:
 Read append-only project-specific PRD/PR body sections from config:
 
 ```bash
-CUSTOM_PR_SECTIONS='[]'   # ship.pr_body_sections: read it from the settings block; this is its default
+CUSTOM_PR_SECTIONS="{{setting:ship.pr_body_sections|[]}}"   # ship.pr_body_sections (the settings)
 ```
 
 `ship.pr_body_sections` is an onboarding-time extension point for teams that need extra PRD-style sections such as `User Stories & Acceptance Criteria`, `Risks & Dependencies`, `Success Metrics`, `Release Criteria`, or `Stakeholder Review & Approval`.
@@ -391,7 +391,7 @@ Report: "PR #{number} created: {url}"
 Before prompting the user, check if an external review command is configured:
 
 ```bash
-REVIEW_CMD=""   # workflow.code_review_command: read it from the settings block; this is its default
+REVIEW_CMD="{{setting:workflow.code_review_command|}}"   # workflow.code_review_command (the settings)
 ```
 
 If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:

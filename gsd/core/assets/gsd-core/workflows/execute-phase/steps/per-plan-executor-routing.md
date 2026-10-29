@@ -23,7 +23,7 @@ default `gsd-executor`. `plan_json` (the current plan's object from
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 # Default-on; opt out with: gsd config-set workflow.agent_hint_routing false
-AGENT_HINT_ROUTING="true"   # workflow.agent_hint_routing: read it from the settings block; this is its default
+AGENT_HINT_ROUTING="{{setting:workflow.agent_hint_routing|true}}"   # workflow.agent_hint_routing (the settings)
 
 EXECUTOR_TYPE="gsd-executor"
 if [ "${AGENT_HINT_ROUTING:-true}" != "false" ]; then

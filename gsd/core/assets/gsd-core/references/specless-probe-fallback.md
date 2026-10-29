@@ -18,7 +18,7 @@ skip, never a hard-fail). Sets `SPECLESS_FALLBACK`, `EDGE_ABSENT`, `PROHIB_ABSEN
 
 ```bash
 # Toggle defaults ON (D-04 / RAIL-05): any value other than literal "false" enables.
-SPECLESS_CFG="true"   # workflow.specless_probe_fallback: read it from the settings block; this is its default
+SPECLESS_CFG="{{setting:workflow.specless_probe_fallback|true}}"   # workflow.specless_probe_fallback (the settings)
 SPECLESS_FALLBACK=true; [[ "$SPECLESS_CFG" == "false" ]] && SPECLESS_FALLBACK=false
 
 # Per-section absence (D-05 / RAIL-03): "not supplied" = header absent OR present-but-empty. The

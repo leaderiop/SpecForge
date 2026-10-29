@@ -13,6 +13,7 @@ mod preamble;
 mod project;
 pub(crate) mod render;
 pub(crate) mod repoint;
+pub(crate) mod setting;
 mod ship;
 mod slash;
 mod spec;

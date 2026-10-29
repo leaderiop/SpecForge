@@ -155,8 +155,8 @@ Skipping bounce step.
 **Read pass count:**
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-BOUNCE_PASSES="2"   # workflow.plan_bounce_passes: read it from the settings block; this is its default
-BOUNCE_SCRIPT=""   # workflow.plan_bounce_script: read it from the settings block
+BOUNCE_PASSES="{{setting:workflow.plan_bounce_passes|2}}"   # workflow.plan_bounce_passes (the settings)
+BOUNCE_SCRIPT="{{setting:workflow.plan_bounce_script|}}"   # workflow.plan_bounce_script (the settings)
 ```
 
 Display banner:

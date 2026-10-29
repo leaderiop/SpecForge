@@ -80,3 +80,17 @@ fn reference_names_a_templates_kind() {
         state.stdout
     );
 }
+
+#[test]
+fn a_reference_reads_the_setting_it_names() {
+    let p = twin();
+    let read = |p: &super::harness::Project| {
+        gsd(p, "reference", &["references/compact-content-gate.md"]).stdout
+    };
+    let default = read(&p);
+    assert!(default.contains("COMPACT_CONTENT=\"false\""), "{default}");
+    p.settings(serde_json::json!({ "workflow.compact_content": true }));
+    let set = read(&p);
+    assert!(set.contains("COMPACT_CONTENT=\"true\""), "{set}");
+    assert!(!set.contains("{{setting:"), "an unfilled token");
+}

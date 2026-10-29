@@ -37,7 +37,7 @@ Context files are resolved in-workflow using `init phase-op` and roadmap/state t
 **Mode routing:**
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-DISCUSS_MODE="discuss"   # workflow.discuss_mode: read it from the settings block; this is its default
+DISCUSS_MODE="{{setting:workflow.discuss_mode|discuss}}"   # workflow.discuss_mode (the settings)
 ```
 
 If `--assumptions` is in the `<arguments>` block:

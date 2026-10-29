@@ -77,19 +77,37 @@ fn discuss_phase_names_its_modes_by_reference() {
 }
 
 #[test]
-fn the_assumptions_mode_reads_the_discuss_mode_setting() {
+fn the_routing_line_reads_the_discuss_mode_setting() {
     let p = twin();
+    let routing = |p: &super::harness::Project| {
+        text_of(&payload(&prompt(
+            p,
+            "discuss_phase",
+            &["v1.0/02"],
+            "claude-code",
+        )))
+    };
+    let default = routing(&p);
+    assert!(
+        default.contains("DISCUSS_MODE=\"discuss\""),
+        "default routing"
+    );
     p.settings(serde_json::json!({ "workflow.discuss_mode": "assumptions" }));
-    let text = text_of(&payload(&prompt(
-        &p,
-        "discuss_phase",
-        &["v1.0/02"],
-        "claude-code",
-    )));
+    let text = routing(&p);
+    // the settings block and the line the prompt routes on say the same
     assert!(
         text.contains("\"workflow.discuss_mode\": \"assumptions\""),
         "settings block"
     );
+    assert!(
+        text.contains("DISCUSS_MODE=\"assumptions\""),
+        "routing line"
+    );
+    assert!(
+        !text.contains("DISCUSS_MODE=\"discuss\""),
+        "stale routing line"
+    );
+    assert!(!text.contains("{{setting:"), "an unfilled token");
 }
 
 #[test]

@@ -45,7 +45,7 @@ Before proceeding with milestone close, run the comprehensive open artifact audi
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-RESPONSE_LANGUAGE=""   # response_language: read it from the settings block; this is its default
+RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 specforge check --format json   # the open UAT and verification items are findings
 ```
 

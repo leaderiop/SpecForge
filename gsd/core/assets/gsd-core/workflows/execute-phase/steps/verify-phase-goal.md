@@ -31,7 +31,7 @@ TDD_MODE=${TDD_MODE:-false}   # the loop capability is not part of @gsd/core: --
 # #4772: this file is Read, not textually substituted - write the parent command's original argument string in place of $ARGUMENTS so --ws reaches the query.
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 VERIFIER_SKILLS=""   # the host install carries the skills of gsd-verifier
-CONTEXT_WINDOW="200000"   # context_window: read it from the settings block; this is its default
+CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
 PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '.nodes[0].fields.goal')
 ```
 </step>

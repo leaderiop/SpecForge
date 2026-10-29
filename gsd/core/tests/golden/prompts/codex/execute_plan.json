@@ -1,5 +1,5 @@
 {
-  "bytes": 57454,
+  "bytes": 57306,
   "head": [
     "<codex_skill_adapter>",
     "## B. AskUserQuestion → request_user_input Mapping",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:8dfc1c73829c30b16c0b47fd1602820db4a13fd5fa29ff4ff0820c97c20636d9",
+    "digest": "sha256:6bc475c9fd2179bd22cc9543dd445ae968fc88f9d4512ce7aef5ed886637d839",
     "prompt": "@gsd/core@0.1.0:execute_plan",
     "steps": [
       {
@@ -153,5 +153,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "8dfc1c73829c30b16c0b47fd1602820db4a13fd5fa29ff4ff0820c97c20636d9"
+  "sha256": "6bc475c9fd2179bd22cc9543dd445ae968fc88f9d4512ce7aef5ed886637d839"
 }

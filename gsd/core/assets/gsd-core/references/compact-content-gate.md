@@ -9,7 +9,7 @@ either check inline.
 ## The check
 
 ```bash
-COMPACT_CONTENT="false"   # workflow.compact_content: read it from the settings block; this is its default
+COMPACT_CONTENT="{{setting:workflow.compact_content|false}}"   # workflow.compact_content (the settings)
 ```
 
 ## Stream 1 — spine + detail (top-level, eagerly `@`-included workflows)

@@ -36,7 +36,7 @@ Normalize per `@~/.claude/gsd-core/references/phase-argument-parsing.md` (zero-p
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-RESPONSE_LANGUAGE=""   # response_language: read it from the settings block; this is its default
+RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_name: .nodes[0].fields.name, goal: .nodes[0].fields.goal, mode: (.nodes[0].fields.mode // "")}')
 PHASE_FOUND=$(echo "$PHASE_INFO" | jq -r '.found')
 PHASE_NAME=$(echo "$PHASE_INFO" | jq -r '.phase_name')

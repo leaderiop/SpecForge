@@ -58,7 +58,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 if echo "$GSD_ARGS" | grep -qE '(^|[[:space:]])--override-gate([[:space:]]|$)'; then
   CONVERGENCE_ENABLED="override"
 else
-  CONVERGENCE_ENABLED="false"   # workflow.plan_review_convergence: read it from the settings block; this is its default
+  CONVERGENCE_ENABLED="{{setting:workflow.plan_review_convergence|false}}"   # workflow.plan_review_convergence (the settings)
 fi
 ```
 
@@ -112,7 +112,7 @@ done
 # unconfigured users (#2315 AC3). REVIEWER_DISPLAY mirrors the resolved value
 # so the startup banner reflects what will actually run (#2315 AC4).
 if [ -z "$REVIEWER_FLAGS" ]; then
-  DEFAULT_REVIEWERS_JSON=""   # review.default_reviewers: read it from the settings block; this is its default
+  DEFAULT_REVIEWERS_JSON="{{setting:review.default_reviewers|}}"   # review.default_reviewers (the settings)
   if ! command -v jq >/dev/null 2>&1; then
     # jq is a documented production dependency (review.md, detect_clis — the
     # "jq-dependent reviewer lanes" note). If it is absent we cannot inspect

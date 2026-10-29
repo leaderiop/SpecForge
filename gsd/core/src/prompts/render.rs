@@ -2,11 +2,11 @@
 //! the text a model reads. The export and the native tests call the same function.
 //!
 //! In order: the preamble (ours), the command file with `$ARGUMENTS` replaced and its `<execution_context>` includes
-//! inlined, the prompt's own tail, then the references re-pointed (D-r42-5) and the whole converted for the host
+//! inlined, the settings its lines read filled in (`setting`), the prompt's own tail, then the references re-pointed (D-r42-5) and the whole converted for the host
 //! (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths. The host's adapter
 //! header goes in front, unconverted.
 
-use super::{assets, host, preamble, repoint::repoint};
+use super::{assets, host, preamble, repoint::repoint, setting};
 
 pub struct Input<'a> {
     /// The upstream command file's stem: `plan-phase` for `commands/gsd/plan-phase.md`.
@@ -113,7 +113,7 @@ fn wrapper(workflow: &str) -> String {
 /// [`render`] over the text of the command file.
 fn assemble(command: &str, input: &Input<'_>) -> String {
     let mut text = preamble::text(input.host, input.settings);
-    text.push_str(&inline_includes(command));
+    text.push_str(&setting::fill(&inline_includes(command), input.settings));
     text = substitute_arguments(&text, input.arguments);
     if !input.tail.is_empty() {
         text.push_str("\n\n");

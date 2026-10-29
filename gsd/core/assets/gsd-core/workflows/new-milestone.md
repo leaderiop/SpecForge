@@ -43,7 +43,7 @@ MILESTONE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g'
 # separate shell) can forward it — the same cross-fence problem Step 5/6
 # already solve for OUTGOING_MILESTONE via .gsd-outgoing-milestone.
 # the --ws name is kept in your notes: each later block repeats it
-RESPONSE_LANGUAGE=""   # response_language: read it from the settings block; this is its default
+RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 # #2994: EARLY, section-manifest-only init.new-milestone call — needed here
 # (before Step 4) to gate the project-md-milestone-write section. This is
 # DELIBERATELY separate from Step 7's full init.new-milestone call below,
@@ -272,7 +272,7 @@ rejects any `--archive-version` value that is not a plain version token (no path
 Stage the phase archive move + source removal so they land in the same commit as the milestone start (atomic — no orphaned uncommitted deletions, no un-archived dirs carried forward). `phases.clear` archives each non-999 dir to `milestones/<version>-phases/`; staging both dirs captures the new archive and the removals together (#1871).
 
 ```bash
-COMMIT_DOCS="true"   # commit_docs: read it from the settings block; this is its default
+COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT_STAGE=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_STAGE" == @file:* ]]; then INIT_STAGE=$(cat "${INIT_STAGE#@file:}"); fi

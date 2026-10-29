@@ -121,10 +121,10 @@ _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDI
 Read runtime/worktree config and fail closed before any executor dispatch:
 
 ```bash
-RUNTIME="claude"   # runtime: read it from the settings block; this is its default
-USE_WORKTREES="true"   # workflow.use_worktrees: read it from the settings block; this is its default
-EXECUTOR_STALL_INTERVAL_MINUTES="5"   # executor.stall_detect_interval_minutes: read it from the settings block; this is its default
-EXECUTOR_STALL_THRESHOLD_MINUTES="10"   # executor.stall_threshold_minutes: read it from the settings block; this is its default
+RUNTIME="{{setting:runtime|claude}}"   # runtime (the settings)
+USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
+EXECUTOR_STALL_INTERVAL_MINUTES="{{setting:executor.stall_detect_interval_minutes|5}}"   # executor.stall_detect_interval_minutes (the settings)
+EXECUTOR_STALL_THRESHOLD_MINUTES="{{setting:executor.stall_threshold_minutes|10}}"   # executor.stall_threshold_minutes (the settings)
 
 # Resolve ISOLATION + apply its guards: read and execute the "Resolve ISOLATION"
 # section of execute-phase/steps/executor-isolation-dispatch.md. It sets
@@ -156,7 +156,7 @@ When `USE_WORKTREES` is `false`, `ISOLATION` is forced to `none`: executors run 
 Read context window size for adaptive prompt enrichment:
 
 ```bash
-CONTEXT_WINDOW="200000"   # context_window: read it from the settings block; this is its default
+CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
 ```
 
 When `CONTEXT_WINDOW >= 500000` (1M-class models), subagent prompts include richer context:
@@ -829,7 +829,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
 5. **Post-wave hook validation (parallel mode only):** Hooks run on every executor commit by default (#2924); this post-wave run only fires when `workflow.worktree_skip_hooks=true` opted out of per-commit hooks:
    ```bash
-   SKIP_HOOKS="false"   # workflow.worktree_skip_hooks: read it from the settings block; this is its default
+   SKIP_HOOKS="{{setting:workflow.worktree_skip_hooks|false}}"   # workflow.worktree_skip_hooks (the settings)
    if [ "$SKIP_HOOKS" = "true" ]; then
      # Stash uncommitted changes under a named ref so we always pop (bare `git stash` strands them on hook/script failure). #3542: `refs/stash` is shared across worktrees, so this helper runs ONLY in the orchestrator's main checkout after all wave worktrees have been merged + removed; executors are forbidden from running any `git stash` subcommand (see `<destructive_git_prohibition>` in `agents/gsd-executor.md`).
      STASHED=false
@@ -1088,7 +1088,7 @@ Plans with `autonomous: false` require user interaction.
 **Auto-mode checkpoint handling:**
 Read auto-advance config (chain flag OR user preference — same boolean as `check.auto-mode`):
 ```bash
-AUTO_MODE=""   # workflow._auto_chain_active: read it from the settings block
+AUTO_MODE="{{setting:workflow._auto_chain_active|}}"   # workflow._auto_chain_active (the settings)
 ```
 
 When executor returns a checkpoint AND `AUTO_MODE` is `true`:
@@ -1326,7 +1326,7 @@ learnings artifact (the sole producer is otherwise the user-invoked
 
 **Check config gate:**
 ```bash
-GL_ENABLED="false"   # features.global_learnings: read it from the settings block; this is its default
+GL_ENABLED="{{setting:features.global_learnings|false}}"   # features.global_learnings (the settings)
 ```
 
 **If `GL_ENABLED` is not `true`:** Skip this step entirely (feature disabled by default).

@@ -33,7 +33,7 @@ Run the same checkpoint loop above using that server. Resolve the key first:
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-LIVE_DOM_UAT="false"   # workflow.live_dom_uat: read it from the settings block; this is its default
+LIVE_DOM_UAT="{{setting:workflow.live_dom_uat|false}}"   # workflow.live_dom_uat (the settings)
 ```
 
 Treat any value other than `true` as disabled.

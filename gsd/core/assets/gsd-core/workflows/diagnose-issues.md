@@ -62,8 +62,8 @@ gaps = [
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-USE_WORKTREES="true"   # workflow.use_worktrees: read it from the settings block; this is its default
-RUNTIME="claude"   # runtime: read it from the settings block; this is its default
+USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
+RUNTIME="{{setting:runtime|claude}}"   # runtime (the settings)
 ```
 
 **Resolve isolation now (#2584/#2652).** Read @gsd-core/references/dispatch-isolation-gate.md

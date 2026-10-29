@@ -98,10 +98,10 @@ PLAN_START_EPOCH=$(date +%s)
 ```bash
 # Count tasks — match <task tag at any indentation level
 TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --format json 2>/dev/null | jq '[.nodes[]|select(.kind=="task")]|length' || echo "0")
-INLINE_THRESHOLD="2"   # workflow.inline_plan_threshold: read it from the settings block; this is its default
-USE_WORKTREES="true"   # workflow.use_worktrees: read it from the settings block; this is its default
-RUNTIME="claude"   # runtime: read it from the settings block; this is its default
-HUMAN_VERIFY_MODE="end-of-phase"   # workflow.human_verify_mode: read it from the settings block; this is its default
+INLINE_THRESHOLD="{{setting:workflow.inline_plan_threshold|2}}"   # workflow.inline_plan_threshold (the settings)
+USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
+RUNTIME="{{setting:runtime|claude}}"   # runtime (the settings)
+HUMAN_VERIFY_MODE="{{setting:workflow.human_verify_mode|end-of-phase}}"   # workflow.human_verify_mode (the settings)
 specforge query "$PLAN_ID" --kinds checkpoint --format context
 ```
 
@@ -370,7 +370,7 @@ If verification fails:
 
 **Check if node repair is enabled** (default: on):
 ```bash
-NODE_REPAIR="true"   # workflow.node_repair: read it from the settings block; this is its default
+NODE_REPAIR="{{setting:workflow.node_repair|true}}"   # workflow.node_repair (the settings)
 ```
 
 If `NODE_REPAIR` is `true`: invoke `@./.claude/gsd-core/workflows/node-repair.md` with:

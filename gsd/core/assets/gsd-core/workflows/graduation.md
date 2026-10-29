@@ -23,10 +23,10 @@ Read from project config (`config.json`):
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-RESPONSE_LANGUAGE=""   # response_language: read it from the settings block; this is its default
-GRADUATION_ENABLED="true"   # features.graduation: read it from the settings block; this is its default
-GRADUATION_WINDOW="5"   # features.graduation_window: read it from the settings block; this is its default
-GRADUATION_THRESHOLD="3"   # features.graduation_threshold: read it from the settings block; this is its default
+RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
+GRADUATION_ENABLED="{{setting:features.graduation|true}}"   # features.graduation (the settings)
+GRADUATION_WINDOW="{{setting:features.graduation_window|5}}"   # features.graduation_window (the settings)
+GRADUATION_THRESHOLD="{{setting:features.graduation_threshold|3}}"   # features.graduation_threshold (the settings)
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.

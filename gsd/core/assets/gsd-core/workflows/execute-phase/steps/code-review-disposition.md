@@ -1011,7 +1011,7 @@ FIX_REPORT_FILE="${FIX_REPORT_FILE}" node -e "
   })();
 " || echo "Code review disposition record skipped (non-blocking)."
 
-COMMIT_DOCS="true"   # commit_docs: read it from the settings block; this is its default
+COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
 # `-f` FOLLOWS a symlink, so this could hand the commit helper a link the script above just
 # refused to write through -- the guard and its consumer disagreeing about the same path.
 if [ "$COMMIT_DOCS" = "true" ] && [ -f "${DISPOSITION_FILE}" ] && [ ! -L "${DISPOSITION_FILE}" ]; then

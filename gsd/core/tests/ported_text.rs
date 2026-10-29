@@ -235,3 +235,44 @@ fn no_prompt_tells_the_agent_to_delete_a_requirement() {
     }
     assert!(seen >= 4, "{seen} renders");
 }
+
+/// A setting a workflow reads is the setting (REVIEW-r42 M1), never a default written into the line: no render keeps
+/// a token or says "this is its default", and the settings the lines read are keys of the roster.
+#[test]
+fn no_render_keeps_a_setting_token_or_a_literal_default() {
+    for (command, host, arguments, text) in sweep() {
+        assert!(!text.contains("{{setting:"), "{command} on {host}: a token");
+        assert!(
+            !text.contains("read it from the settings block"),
+            "{command} on {host} with '{arguments}'"
+        );
+    }
+}
+
+/// Keys of upstream's config that `@gsd/core` does not declare (the roster is the tracked manifest's, and the
+/// ephemeral chain flag is runtime state): a line that reads one always takes its fallback, as `config-get` of an unset
+/// key did.
+const NOT_SETTINGS: &[&str] = &[
+    "commit_docs",
+    "features.graduation",
+    "features.graduation_threshold",
+    "features.graduation_window",
+    "workflow._auto_chain_active",
+    "workflow.code_review_command",
+    "workflow.live_dom_uat",
+];
+
+#[test]
+fn every_setting_a_line_reads_is_a_key_of_the_roster() {
+    let rx = Regex::new(r"\{\{setting:([a-z_.]+)\|").expect("a regex");
+    let roster: BTreeSet<&str> = gsd_core::settings::key_names().collect();
+    let mut seen = 0;
+    for path in asset_paths() {
+        for cap in rx.captures_iter(asset(path).expect("an asset")) {
+            seen += 1;
+            let known = roster.contains(&cap[1]) || NOT_SETTINGS.contains(&&cap[1]);
+            assert!(known, "{path}: '{}' is not a setting", &cap[1]);
+        }
+    }
+    assert!(seen >= 50, "{seen} tokens");
+}

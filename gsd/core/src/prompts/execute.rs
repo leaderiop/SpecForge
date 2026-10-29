@@ -78,11 +78,11 @@ const PLAN_STEPS: &[Step] = &[
     },
 ];
 
-/// Worktree isolation is a capability @gsd/core does not have; the workflow's worktree machinery is rewritten to its
-/// defaults, so the executors run one after another in this checkout.
+/// Worktree isolation is a capability @gsd/core does not have; the workflow's lines set `USE_WORKTREES` to `false`
+/// whatever `workflow.use_worktrees` says, so the executors run one after another in this checkout.
 fn sequential(_: &PromptCall<'_>) -> String {
-    "\n\nGit worktree isolation is not part of @gsd/core: treat `workflow.use_worktrees` as `false` whatever the \
-     settings block says, and run the executors one after another in this checkout.\n"
+    "\n\nGit worktree isolation is not part of @gsd/core: `USE_WORKTREES` is `false` in the shell blocks above whatever \
+     `workflow.use_worktrees` says; run the executors one after another in this checkout.\n"
         .to_string()
 }
 

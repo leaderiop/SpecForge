@@ -130,7 +130,7 @@ Row 1 is deliberately **not** scoped to interactive runs. Golden rule 6 above st
 Read `HUMAN_VERIFY_MODE` with an explicit default — `workflow.human_verify_mode` is absent from `SCHEMA_DEFAULTS`, so a bare `config-get` exits non-zero with `Key not found` on any project whose `config.json` predates #3309:
 
 ```bash
-HUMAN_VERIFY_MODE="end-of-phase"   # workflow.human_verify_mode: read it from the settings block; this is its default
+HUMAN_VERIFY_MODE="{{setting:workflow.human_verify_mode|end-of-phase}}"   # workflow.human_verify_mode (the settings)
 ```
 </type>
 

@@ -70,9 +70,9 @@ executor skips them.
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-CROSS_AI_ENABLED="false"   # workflow.cross_ai_execution: read it from the settings block; this is its default
-CROSS_AI_CMD=""   # workflow.cross_ai_command: read it from the settings block; this is its default
-CROSS_AI_TIMEOUT="300"   # workflow.cross_ai_timeout: read it from the settings block; this is its default
+CROSS_AI_ENABLED="{{setting:workflow.cross_ai_execution|false}}"   # workflow.cross_ai_execution (the settings)
+CROSS_AI_CMD="{{setting:workflow.cross_ai_command|}}"   # workflow.cross_ai_command (the settings)
+CROSS_AI_TIMEOUT="{{setting:workflow.cross_ai_timeout|300}}"   # workflow.cross_ai_timeout (the settings)
 ```
 
 **If no plans are marked for cross-AI:** Skip to execute_waves.

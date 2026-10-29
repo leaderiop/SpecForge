@@ -96,8 +96,8 @@ if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-plan-checker
-CONTEXT_WINDOW="200000"   # context_window: read it from the settings block; this is its default
-MVP_MODE_CFG="false"   # workflow.mvp_mode: read it from the settings block; this is its default
+CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
+MVP_MODE_CFG="{{setting:workflow.mvp_mode|false}}"   # workflow.mvp_mode (the settings)
 ```
 
 When the tdd capability's `workflow.tdd_mode` is active (resolved via the plan:pre render-hooks), the planner agent is instructed to apply `type: tdd` to eligible tasks using heuristics from `gsd-core/references/tdd.md`. The TDD guidance is injected via the tdd capability's contribution hook at §5.6; no inline config-get is needed.
@@ -212,7 +212,7 @@ IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
 $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
-CHUNKED_CFG="false"   # workflow.plan_chunked: read it from the settings block; this is its default
+CHUNKED_CFG="{{setting:workflow.plan_chunked|false}}"   # workflow.plan_chunked (the settings)
 CHUNKED_MODE=false
 if [[ "$GSD_ARGS" =~ --chunked ]] || [[ "$CHUNKED_CFG" == "true" ]]; then
   CHUNKED_MODE=true
@@ -256,7 +256,7 @@ If `context_path` is not null, display: `Using phase context from: ${context_pat
 
 Read discuss mode for context gate label:
 ```bash
-DISCUSS_MODE="discuss"   # workflow.discuss_mode: read it from the settings block; this is its default
+DISCUSS_MODE="{{setting:workflow.discuss_mode|discuss}}"   # workflow.discuss_mode (the settings)
 ```
 
 If `TEXT_MODE` is true, present as a plain-text numbered list:
@@ -555,7 +555,7 @@ Display: `Using UI design contract: ${UI_SPEC_PATH}`. Continue to step 6.
 Read the ephemeral auto-chain flag:
 
 ```bash
-AUTO_CHAIN=""   # workflow._auto_chain_active: read it from the settings block
+AUTO_CHAIN="{{setting:workflow._auto_chain_active|}}"   # workflow._auto_chain_active (the settings)
 AUTO_CHAIN="${AUTO_CHAIN:-false}"
 ```
 
@@ -1218,7 +1218,7 @@ Agent(
 `gsd-core/references/revision-loop.md`, with this workflow's bindings:
 
 ```bash
-if ! CONVERGENCE_ENABLED=$(echo "false"); then   # workflow.plan_review_convergence: read it from the settings block; this is its default
+if ! CONVERGENCE_ENABLED=$(echo "{{setting:workflow.plan_review_convergence|false}}"); then   # workflow.plan_review_convergence (the settings)
   echo "BLOCKED: cannot read workflow.plan_review_convergence." >&2
   exit 1
 fi
@@ -1362,7 +1362,7 @@ when a discuss-phase decision silently dropped.
 no CONTEXT.md exists for this phase, or its `<decisions>` block is empty.
 
 ```bash
-GATE_CFG="true"   # workflow.context_coverage_gate: read it from the settings block; this is its default
+GATE_CFG="{{setting:workflow.context_coverage_gate|true}}"   # workflow.context_coverage_gate (the settings)
 if [ "$GATE_CFG" != "false" ]; then
   # #2770: CONTEXT_PATH from step-1 init doesn't survive into this Bash block;
   # recompute it. Only run when a CONTEXT.md exists (handler fails closed on an

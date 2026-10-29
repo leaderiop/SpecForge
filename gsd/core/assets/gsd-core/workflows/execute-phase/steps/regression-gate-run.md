@@ -23,7 +23,7 @@ if [ -s "$_GSD_HANDOFF/regression-files" ]; then
 fi
 # gsd-handoff:end regression-files-read
 # Resolve test command: project config > Makefile > language sniff
-REG_TEST_CMD=""   # workflow.test_command: read it from the settings block; this is its default
+REG_TEST_CMD="{{setting:workflow.test_command|}}"   # workflow.test_command (the settings)
 if [ -z "$REG_TEST_CMD" ]; then
   if [ -f "Makefile" ] && grep -q "^test:" Makefile; then
     REG_TEST_CMD="make test"
@@ -51,7 +51,7 @@ fi
 # #1857: normalize to a one-shot form (defeat vitest/jest watch mode) and bound
 # with a timeout so a watch-mode runner cannot hang the gate indefinitely.
 REG_TEST_CMD="$REG_TEST_CMD"   # normalize-test-command is not part of @gsd/core: the command runs as configured
-TEST_GATE_TIMEOUT="600"   # workflow.test_gate_timeout: read it from the settings block; this is its default
+TEST_GATE_TIMEOUT="{{setting:workflow.test_gate_timeout|600}}"   # workflow.test_gate_timeout (the settings)
 timeout "$TEST_GATE_TIMEOUT" bash -c "$REG_TEST_CMD" 2>&1
 REG_TEST_EXIT=$?
 if [ "$REG_TEST_EXIT" -eq 124 ]; then

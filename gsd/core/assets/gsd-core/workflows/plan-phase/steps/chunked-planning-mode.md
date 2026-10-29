@@ -23,7 +23,7 @@ safe default. `dispatch-capacity` is the same negotiated dispatch-capability que
 flag to serial regardless of the config value:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-CHUNKED_PARALLEL_CFG="false"   # planning.chunked_parallel: read it from the settings block; this is its default
+CHUNKED_PARALLEL_CFG="{{setting:planning.chunked_parallel|false}}"   # planning.chunked_parallel (the settings)
 DISPATCH_CAPACITY="1"   # dispatch capacity is not part of @gsd/core: run one agent at a time
 CHUNKED_PARALLEL=false
 if [[ "$CHUNKED_PARALLEL_CFG" == "true" ]] && [[ "${DISPATCH_CAPACITY:-1}" -gt 1 ]] 2>/dev/null; then

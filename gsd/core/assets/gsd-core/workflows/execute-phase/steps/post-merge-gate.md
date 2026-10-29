@@ -11,7 +11,7 @@ detect.
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 # Resolve build command: project config > Xcode > Makefile > language sniff
-BUILD_CMD=""   # workflow.build_command: read it from the settings block; this is its default
+BUILD_CMD="{{setting:workflow.build_command|}}"   # workflow.build_command (the settings)
 if [ -z "$BUILD_CMD" ]; then
   XCODEPROJ=$(find . -maxdepth 2 -name "*.xcodeproj" -not -path "*/node_modules/*" 2>/dev/null | head -1)
   if [ -n "$XCODEPROJ" ]; then
@@ -91,7 +91,7 @@ fi
 
 ```bash
 # Resolve test command: project config > Xcode > Makefile > language sniff
-TEST_CMD=""   # workflow.test_command: read it from the settings block; this is its default
+TEST_CMD="{{setting:workflow.test_command|}}"   # workflow.test_command (the settings)
 if [ -z "$TEST_CMD" ]; then
   XCODEPROJ=$(find . -maxdepth 2 -name "*.xcodeproj" -not -path "*/node_modules/*" 2>/dev/null | head -1)
   if [ -n "$XCODEPROJ" ]; then
@@ -139,7 +139,7 @@ fi
 # same shared normalize-test-command helper the regression gate uses, then bound
 # with the configured timeout so a watch-mode runner cannot hang the gate.
 TEST_CMD="$TEST_CMD"   # normalize-test-command is not part of @gsd/core: the command runs as configured
-TEST_GATE_TIMEOUT="600"   # workflow.test_gate_timeout: read it from the settings block; this is its default
+TEST_GATE_TIMEOUT="{{setting:workflow.test_gate_timeout|600}}"   # workflow.test_gate_timeout (the settings)
 TEST_EXIT=0
 timeout "$TEST_GATE_TIMEOUT" bash -c "$TEST_CMD" 2>&1
 TEST_EXIT=$?

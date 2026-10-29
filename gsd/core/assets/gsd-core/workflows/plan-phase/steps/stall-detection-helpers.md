@@ -90,12 +90,12 @@ to `true`.
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-PLANNER_STALL_DETECTION_ENABLED="true"   # planner.stall_detection_enabled: read it from the settings block; this is its default
+PLANNER_STALL_DETECTION_ENABLED="{{setting:planner.stall_detection_enabled|true}}"   # planner.stall_detection_enabled (the settings)
 # Defense in depth for hand-edited config and old runtimes: only the exact
 # canonical false token may disable the default-on recovery policy.
 [ "$PLANNER_STALL_DETECTION_ENABLED" = "false" ] || PLANNER_STALL_DETECTION_ENABLED=true
-PLANNER_STALL_INTERVAL_MINUTES="5"   # planner.stall_detect_interval_minutes: read it from the settings block; this is its default
-PLANNER_STALL_THRESHOLD_MINUTES="10"   # planner.stall_threshold_minutes: read it from the settings block; this is its default
+PLANNER_STALL_INTERVAL_MINUTES="{{setting:planner.stall_detect_interval_minutes|5}}"   # planner.stall_detect_interval_minutes (the settings)
+PLANNER_STALL_THRESHOLD_MINUTES="{{setting:planner.stall_threshold_minutes|10}}"   # planner.stall_threshold_minutes (the settings)
 # Both values are config-controlled (the settings (`specforge settings`), editable by any repo
 # contributor) and both flow into `$(( ))` arithmetic below. A non-numeric
 # value there is NOT a code-execution risk (empirically verified: bash's
