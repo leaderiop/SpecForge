@@ -125,6 +125,8 @@ pub fn gsd_judged_wire() -> Value {
                 "enum_values": ["legitimate", "suspicious", "unknown"]}),
             ],
         ),
+        // A person's audit: judged like `package_audit`, and never written by an agent (its verdict included).
+        json!({"name": "sealed_audit", "keyword": "sealed_audit", "writer": "human", "fields": []}),
         kind("truth", Some("plan"), vec![reference("plan", "plan")]),
         kind(
             "artifact",
@@ -236,6 +238,7 @@ pub fn gsd_judged_rules() -> Value {
         "message_template": "the package audit {id} was not judged",
         "judged": judged("gsd-package-auditor", &["legitimate", "suspicious", "unknown"], &["legitimate"], json!([
             {"kind": "package_audit", "inputs": inputs(&[("audit", "self")])},
+            {"kind": "sealed_audit", "inputs": inputs(&[("audit", "self")])},
         ])),
     });
     w205["judged"]["outcome_fields"] = json!(["package_audit.legitimacy"]);

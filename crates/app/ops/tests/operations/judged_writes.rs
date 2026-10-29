@@ -94,6 +94,7 @@ fn a_failing_verdict_on_an_error_rule_records() {
     let compiled = compile(&p);
     let judgement = compiled.judgements().get(TRUTH, "gsd/E501").unwrap();
     assert_eq!(judgement.state, "fresh");
+    assert!(!judgement.passed, "a failing verdict passes nothing");
 }
 
 #[specforge_test(
@@ -159,8 +160,9 @@ fn an_edit_that_stales_a_passing_verdict_is_written() {
     behavior = "validate_typed_edit",
     verify = "a judged rules finding is no error a write adds"
 )]
-fn a_non_judged_error_beside_a_judged_one_is_still_e080() {
-    // A truth (judged: no verdict) and a plan naming no file: only the second refuses, and the message names it alone.
+fn the_e080_message_names_no_judged_finding() {
+    // A truth (judged: no verdict) and a truth whose plan does not exist: only the second refuses, and the message
+    // names it alone.
     let p = gsd_judged_project("");
     let truth = create("truth", "TR2", &[("plan", "03-02")]);
     let dangling = create("truth", "TR3", &[("plan", "03-99")]);
@@ -219,4 +221,17 @@ fn a_migration_counts_no_judged_finding() {
     let verdict = judge(&pre, &planned, &input);
     assert!(verdict.compared);
     assert_eq!(verdict.added_errors, 0, "{:?}", verdict.post_diagnostics);
+}
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "a set_verdict on a human-only entity is still refused"
+)]
+fn a_set_verdict_on_a_human_only_entity_is_still_refused() {
+    let p = gsd_judged_project("sealed_audit S1 \"S\" {}\n");
+    let ops = verdict_on(&p, "S1", "gsd/W205", "legitimate", "gsd-package-auditor");
+    assert_eq!(gsd(&p, ops, false), "human_only");
+    // The same verdict on a package audit, which no person owns, is recorded.
+    let ops = verdict_on(&p, "PA", "gsd/W205", "legitimate", "gsd-package-auditor");
+    assert_eq!(gsd(&p, ops, false), "applied");
 }

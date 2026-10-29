@@ -287,7 +287,7 @@ fn an_agents_write_that_drops_a_persons_member_value_is_refused() {
     behavior = "refuse_human_only_write",
     verify = "an agent deletes an entity holding only computed or harness values"
 )]
-fn an_entity_holding_only_computed_or_harness_values_is_deletable() {
+fn a_delete_of_an_entity_with_only_computed_or_harness_values_is_not_refused() {
     use specforge_ops::authoring::edit::Edit;
     let p = project().file(
         "u.spec",
@@ -298,4 +298,28 @@ fn an_entity_holding_only_computed_or_harness_values_is_deletable() {
         unlink_references: false,
     };
     assert_eq!(typed(&p, &[delete]), None);
+}
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "an agent still writes a non-human field of a non-human kind"
+)]
+fn an_agent_still_writes_a_non_human_field_of_a_non_human_kind() {
+    use crate::edit::{set, unset};
+    use specforge_ops::authoring::edit::{Edit, Input};
+    use std::collections::BTreeMap;
+    let note = |text: &str| BTreeMap::from([("note".to_string(), Input::One(text.into()))]);
+    let p = project().file("n.spec", "reviewed N \"N\" {}\n");
+    assert_eq!(
+        typed(&p, &[set("N", "approvals", Input::Blocks(vec![note("a")]))]),
+        None,
+        "set"
+    );
+    let append = Edit::Append {
+        entity_id: "N".into(),
+        field: "approvals".into(),
+        value: Input::Block(note("b")),
+    };
+    assert_eq!(typed(&p, &[append]), None, "append");
+    assert_eq!(typed(&p, &[unset("N", "approvals")]), None, "unset");
 }

@@ -406,4 +406,6 @@ behavior refuse_human_only_write "Refuse a Human-Only Write" {
   verify unit "a plan that renames an entity and deletes it under the new id is refused as the delete would be"
   verify unit "an agents unset, remove or replacing set of a persons member value is refused"
   verify unit "an agent deletes an entity holding only computed or harness values"
+  verify unit "an agent still writes a non-human field of a non-human kind"
+  verify unit "a set_verdict on a human-only entity is still refused"
 }
