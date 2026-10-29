@@ -390,14 +390,20 @@ fn tools_are_upstreams() {
     }
 }
 
-/// The bodies r41 owns: they name only commands that exist (REVIEW-r40 M6).
-const R41: [&str; 6] = [
+/// The bodies that name only commands that exist (REVIEW-r40 M6): r41's, and r42's as each workflow rewrites its own.
+const RUNNABLE: [&str; 12] = [
     "gsd-executor.md",
     "gsd-verifier.md",
     "gsd-plan-checker.md",
     "gsd-phase-researcher.md",
     "gsd-integration-checker.md",
     "gsd-integration-checker.compact.md",
+    "gsd-roadmapper.md",
+    "gsd-roadmapper.compact.md",
+    "gsd-project-researcher.md",
+    "gsd-project-researcher.compact.md",
+    "gsd-research-synthesizer.md",
+    "gsd-research-synthesizer.compact.md",
 ];
 
 /// The other ported lines are a mechanical rename (REVIEW-r40 M6): they name commands and files that do not exist
@@ -405,9 +411,9 @@ const R41: [&str; 6] = [
 /// Until then this pins how many there are in the files r42 owns: the counts may only fall, so lower a number when you
 /// remove lines, never raise it. The r41 files are at 0.
 const BLIND: [(&str, usize); 3] = [
-    (r"specforge gsd query", 23),
-    (r"specforge gsd\.cjs", 8),
-    (r"spec/gsd/", 108),
+    (r"specforge gsd query", 7),
+    (r"specforge gsd\.cjs", 0),
+    (r"spec/gsd/", 30),
 ];
 
 #[test]
@@ -423,7 +429,7 @@ fn blind_rename_counts_are_pinned() {
                 .to_string_lossy()
                 .to_string();
             let found = rx.find_iter(&read(&path)).count();
-            if R41.contains(&name.as_str()) {
+            if RUNNABLE.contains(&name.as_str()) {
                 assert_eq!(found, 0, "{name}: {found} occurrences of {pattern}");
             } else {
                 rest += found;
@@ -444,7 +450,7 @@ fn every_command_a_body_names_is_declared() {
         .collect();
     let rx = Regex::new(r"specforge gsd ([a-z][a-z0-9-]*)").expect("a regex");
     let mut seen = 0;
-    for file in R41 {
+    for file in RUNNABLE {
         for (n, line) in read(&assets_dir().join(file)).lines().enumerate() {
             for cap in rx.captures_iter(line) {
                 seen += 1;
@@ -514,7 +520,7 @@ const GLOBAL_FLAGS: [&str; 5] = ["format", "path", "dry-run", "help", "yes"];
 fn every_gsd_invocation_a_body_gives_uses_flags_the_command_declares() {
     let declaration = gsd_core::build().declaration();
     let mut seen = 0;
-    for file in R41 {
+    for file in RUNNABLE {
         for (n, words) in invocations(file, "gsd") {
             let Some(name) = words.first() else { continue };
             let Some(command) = declaration
@@ -576,7 +582,7 @@ fn kinds() -> std::collections::BTreeMap<String, std::collections::BTreeMap<Stri
 fn every_specforge_new_and_set_a_body_gives_fits_the_kind() {
     let kinds = kinds();
     let mut complete = 0;
-    for file in R41 {
+    for file in RUNNABLE {
         for (n, words) in invocations(file, "new") {
             let Some(kind) = words.first() else { continue };
             let fields = kinds
