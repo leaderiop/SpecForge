@@ -39,12 +39,18 @@ fn a_plan_without_a_verdict_reports_w311_to_w316() {
         .collect();
     assert!(plans.len() >= 3, "{plans:?}");
     let report = p.report_all();
+    let plan_check = |pairs: Vec<(String, String)>| -> Vec<(String, String)> {
+        pairs
+            .into_iter()
+            .filter(|(c, _)| c.starts_with("gsd/W3"))
+            .collect()
+    };
     let mut expected: Vec<(String, String)> = plans
         .iter()
         .flat_map(|id| PLAN_CHECK.map(|c| (format!("gsd/{c}"), id.clone())))
         .collect();
     expected.sort();
-    assert_eq!(judged(&report), expected, "{report:#?}");
+    assert_eq!(plan_check(judged(&report)), expected, "{report:#?}");
     assert_eq!(unjudged(&report), Vec::new());
     // The message names the rule and the state.
     let w311 = report
@@ -62,7 +68,11 @@ fn plan_check_off_reports_none() {
     let p = project("plan");
     p.settings(json!({ "workflow.plan_check": false }));
     let report = p.report_all();
-    assert_eq!(judged(&report), Vec::new(), "{report:#?}");
+    let plan_check: Vec<_> = judged(&report)
+        .into_iter()
+        .filter(|(c, _)| c.starts_with("gsd/W3"))
+        .collect();
+    assert_eq!(plan_check, Vec::new(), "{report:#?}");
     p.check_exact(&PLAN_CHECK);
 }
 

@@ -253,11 +253,19 @@ impl Project {
     /// extra one, and any other diagnostic fail it.
     pub fn check_exact(&self, off: &[&str]) {
         let run = self.run(&["check"]);
-        assert_eq!(run.code, 0, "check: {}", run.all());
         let report = self.report_all();
         assert_eq!(unjudged(&report), Vec::new(), "{report:#?}");
         let found = judged(&report);
-        assert_eq!(found, self.expected_judged(off), "{report:#?}");
+        let expected = self.expected_judged(off);
+        assert_eq!(found, expected, "{report:#?}");
+        // `check` exits 1 exactly when a judged rule that is an Error (under gsd-compat) reports.
+        let errors = expected.iter().any(|(code, _)| {
+            let local = code.strip_prefix("gsd/").unwrap_or(code);
+            gsd_core::codes::CODES
+                .iter()
+                .any(|k| k.id == local && k.severity == gsd_core::codes::Severity::Error)
+        });
+        assert_eq!(run.code, i32::from(errors), "check: {}", run.all());
         assert!(
             report
                 .iter()

@@ -52,7 +52,7 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, it never verifies), and a complete scan; a backstop truth with no explicit evidence is human_needed, never passed |
 | score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
-| covered_files | files | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. `covered_digest` (one digest over their current digests, the judgements' `files`) is not declared yet: r40 |
+| covered_files | files | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. `covered_digest` (one digest over their current digests, the judgements' `files`) is not declared yet |
 | re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure), by verdict (truths, artifacts, key links) and by status (verify gaps). `previous_status` and `previous_score` are NOT BUILT: the baseline compile sees only a commit's spec files, so its scan states and status would be wrong (kernel: serve source files from the commit). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine). `gaps_*` are ids as text (`strs`), and also name verify gaps |
 | anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass; it lists what it read |
 | scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
@@ -184,10 +184,10 @@ reporting that is gsd/W514, NOT BUILT (kernel: `SettingDescriptor.gates_when_on`
 
 ## Known differences from GSD
 
-Kept on purpose, or waiting for r40, listed so none is silent:
+Kept on purpose, listed so none is silent:
 
 - A truth the verifier is `uncertain` about stays `pending`; upstream makes it a human item (`human_needed`). A
-  backstop truth with no explicit evidence is not yet `human_needed` (r40's verdicts). A verification with no truth,
+  backstop truth with no explicit evidence is not `human_needed`: only a fresh verdict makes it verified. A verification with no truth,
   whose artifacts and key links all pass, is `passed 0/0`.
 - A verification is judged one per phase, but nothing refuses a second: the last by id wins, and W504 counts per
   verification, not per phase. The same holds for a phase's validation (the first by id).

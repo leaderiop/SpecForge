@@ -165,13 +165,19 @@ is neither fresh nor stale.
 | Rules | Target | Inputs | Binds |
 |---|---|---|---|
 | gsd/W311, W313, W315, W316 (plan check) | plan | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements · `decisions` self.phase<decision.phase · `all_decisions` decision (a superset of `decisions`: the selector grammar cannot filter on an unset `phase`, so any decision change stales the plan check, the safe side) · `context` self.phase<context\|deferred_idea.phase · `research` self.phase<research.phase · `research_items` self.phase<research.phase<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research · `siblings` self.phase<plan.phase · `instructions` file("CLAUDE.md", "AGENTS.md") | — |
-| gsd/E501 | truth | `truth` self · `plan` self.plan · `phase` self.plan.phase · `code` file(self.plan.files_modified) · `tests` test(self) | — |
-| gsd/E501 | artifact | `artifact` self · `plan` self.plan · `code` file(self.path) | — |
-| gsd/E501 | key_link | `link` self · `plan` self.plan · `from` file(self.from) · `to` file(self.to); not judged while `pattern` is set (`unless_set pattern`: a pass searches it) | — |
+| gsd/E501 | truth | `truth` self · `plan` self.plan · `phase` self.plan.phase · `tests` test(self) | — |
+| gsd/E501 | artifact | `artifact` self · `plan` self.plan | — |
+| gsd/E501 | key_link | `link` self · `plan` self.plan; not judged while `pattern` is set (`unless_set pattern`: a pass searches it) | — |
 | gsd/E202 | phase_spec | `spec` self · `items` self<locked_req\|interview.spec · `phase` self.phase | `scores` (its recorded values) |
 | gsd/W203 | locked_req | `req` self · `traces` self.traces | — |
 | gsd/W205 | package_audit | `audit` self | `legitimacy` (its outcome: legitimate \| suspicious \| unknown, passing legitimate) |
 | gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` self.milestone<phase.milestone.requirements | `integration` (its outcome: passed \| issues, passing passed) |
+
+gsd/E501 reads no `file()` input, though the verifier judges code: a `file()` input must name a file-reference field, the
+host checks every such field for existence (E016), and a plan, an artifact and a key link name files that do not exist
+yet (`plan.files_modified`, `artifact.path`, `key_link.from` and `to` stay plain strings). The verifier cites the files
+it read, and the verdict digests `cited` (and `covered_files` lists them). A file it did not cite can change without
+staling the verdict. The kernel would need a file-reference field the existence rule skips (K17).
 
 A summary is no plan-check input (writing it after execution stales nothing), and no verifier input either (its claims
 are not evidence).

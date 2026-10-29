@@ -172,7 +172,7 @@ Four things r39 and r40 could not build, or could not guarantee, wait for kernel
   `unchecked`, and the baseline's status and score are wrong. `re_verification` therefore compares fresh verdicts and
   verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
   (with `baseline-format` 3). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
-  synthetic baselines, not black-box (the judgement list is empty until r40 records E501 verdicts).
+  synthetic baselines, not black-box (the judgement list is empty on a baseline).
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
 - **A verdict's own state counts as a new error (E080).** The host re-checks the project an edit would leave and keys

@@ -24,6 +24,7 @@ mod settings;
 mod verify_paths;
 mod verify_rules;
 mod verify_status;
+mod verify_verdicts;
 
 use harness::project;
 

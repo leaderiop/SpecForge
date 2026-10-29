@@ -88,6 +88,7 @@ how the judge records its verdict.
 | Agent | Judges |
 |---|---|
 | `gsd-plan-checker` | `gsd/W311`, `gsd/W313`, `gsd/W315`, `gsd/W316` (a plan) |
+| `gsd-verifier` | `gsd/E501` (a truth, an artifact, a key link without a `pattern`) |
 
 Every other core agent judges nothing.
 

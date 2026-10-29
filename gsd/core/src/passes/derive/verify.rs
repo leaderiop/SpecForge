@@ -3,9 +3,8 @@
 //!
 //! An item is `Verified` by a fresh passing `gsd/E501` verdict or an override (a truth), `Failed` by a failing verdict
 //! or a scan finding (a file that is missing, short or lacks the text). The scan never verifies: that a file is there
-//! does not show it is substantive and wired. Verdicts are recorded by r40's commands, so until then an artifact and
-//! a key link are `Unknown` and a verification is `pending`, `gaps_found` or `human_needed`, never `passed`. A stale
-//! verdict is not a pass and not a failure.
+//! does not show it is substantive and wired. Verdicts are recorded by `record_verdict` (r40); an item with no fresh
+//! verdict is `Unknown` and keeps the verification from `passed`. A stale verdict is not a pass and not a failure.
 
 use std::collections::{BTreeMap, BTreeSet};
 

@@ -248,3 +248,28 @@ fn re_verification_closes_and_reopens_verify_gaps() {
         json!({ "gaps_closed": [gap(1)], "regressions": [gap(2)] })
     );
 }
+
+#[test]
+fn e501_outcomes_are_the_derivations() {
+    let status = |outcome: &str, passed: bool| {
+        let out = run(&input(
+            vec![truth(1, vec![judgement(outcome, "fresh", passed)])],
+            vec![],
+        ));
+        of(&out, "status")
+    };
+    assert_eq!(status("verified", true), Some(json!("passed")));
+    assert_eq!(status("verified_coincidental", true), Some(json!("passed")));
+    assert_eq!(status("failed", false), Some(json!("gaps_found")));
+    assert_eq!(status("uncertain", false), Some(json!("pending")));
+    assert_eq!(
+        status("present_behavior_unverified", false),
+        Some(json!("human_needed"))
+    );
+}
+
+#[test]
+fn a_truth_with_no_verdict_is_never_passed() {
+    let out = run(&input(vec![truth(1, vec![])], vec![]));
+    assert_ne!(of(&out, "status"), Some(json!("passed")));
+}

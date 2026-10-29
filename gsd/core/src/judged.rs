@@ -58,6 +58,33 @@ const PLAN_CHECK: &[Target] = &[Target {
     unless_set: &[],
 }];
 
+// No input reads a file (`file(self.path)`, `file(self.plan.files_modified)`): a `file()` input must name a
+// file-reference field, and the host checks every such field for existence (E016), but a plan, an artifact and a key
+// link name files that do not exist yet. The verifier cites the files it read instead; `cited` is digested too.
+const E501: &[Target] = &[
+    Target {
+        kind: "truth",
+        inputs: &[
+            ("truth", "self"),
+            ("plan", "self.plan"),
+            ("phase", "self.plan.phase"),
+            ("tests", "test(self)"),
+        ],
+        unless_set: &[],
+    },
+    Target {
+        kind: "artifact",
+        inputs: &[("artifact", "self"), ("plan", "self.plan")],
+        unless_set: &[],
+    },
+    // A key link with a `pattern` is not judged: a pass searches the pattern (`passes::scan`).
+    Target {
+        kind: "key_link",
+        inputs: &[("link", "self"), ("plan", "self.plan")],
+        unless_set: &["pattern"],
+    },
+];
+
 const fn plan_check(code: &'static str, message: &'static str) -> Judged {
     Judged {
         code,
@@ -85,6 +112,22 @@ pub const JUDGED: &[Judged] = &[
         "W316",
         "plan '{id}' is not checked against the agent instructions and mapped patterns",
     ),
+    Judged {
+        code: "E501",
+        message: "{kind} '{id}' has no fresh verifier verdict",
+        judge: "gsd-verifier",
+        outcomes: &[
+            "verified",
+            "verified_coincidental",
+            "failed",
+            "uncertain",
+            "present_behavior_unverified",
+        ],
+        passing: &["verified", "verified_coincidental"],
+        targets: E501,
+        values: &[],
+        outcome_fields: &[],
+    },
 ];
 
 /// The judged rule with this local code.
