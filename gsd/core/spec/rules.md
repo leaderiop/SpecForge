@@ -27,7 +27,7 @@ every profile, while that setting is false; its letter is still the severity it 
 | gsd/W103 | a phase has 2–5 success criteria (reads the list's items) | pass | W | E | roadmap template |
 | gsd/W104 | phase numbers (GSD's `\d+[A-Z]?(\.\d+)*`: `12A`, `3.2.1`) are continuous, one warning per run of missing integers; two ids do not share a number; an inserted phase follows the phase it is numbered from. A name outside the grammar and a `999.x` backlog phase are exempt | pass | W | W | roadmap |
 | gsd/E105 | an `out_of_scope` requirement has a reason | decl | E | E | requirements template |
-| gsd/E106 | a milestone completes only with a passing (or accepted) audit | guard | E | E | complete-milestone |
+| gsd/E106 | a milestone completes only with a passing (or accepted) audit: at the gate, the subject milestone's latest audit is `passed`, or `tech_debt` with a person's `debt_accepted`; no audit is refused too. Silent outside a gate | guard | E | E | complete-milestone |
 | gsd/E107 | a timestamp field holds an RFC 3339 UTC time (every authored `ts` field, and every authored `ts` member of an authored block, is a `str` that `matches` `YYYY-MM-DDTHH:MM:SS[.f]Z` with ASCII digits and RFC 3339's ranges for month, day, hour, minute and second; the day is not checked against the month; generated per field and member. `project.updated` is computed, so the first is `blocker.resolved.at` (r38, fired by a black-box test); `answer.at`, `done.at`, `pause.at` and `blocker.raised` are harness values and get none) | decl | E | E | (new: SpecForge has no timestamp type) |
 | gsd/E108 | a repository has one `project` (the kernel keeps `singleton` as metadata, so the second and later `project` entities, by id, are reported) | pass | E | E | (new: `PROJECT.md` is one file) |
 
@@ -61,11 +61,11 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/W311 | the plan achieves its phase goal, keeps to scope and contradicts no settled decision | judged (plan checker) | W | E | D7 and the goal and scope dimensions |
 | gsd/E312 | no task action reduces scope: the planner's twelve prohibited phrases ("v1", "v2", "simplified version", "static for now", "hardcoded for now", "future enhancement", "placeholder", "basic version", "minimal implementation", "will be wired later", "dynamic in future phase", "skip for now"), case-insensitive and word-bounded (`v10` and `placeholders` do not match; `api v1` does, as the planner forbids it outright; a dotted version such as `v1.0` is not a hit). A hit is exempt when the action cites a decision of the plan's phase (`\bD-NN\b`, as E310 matches): upstream's checker cross-references each hit with the decision before it blocks. One error per task, naming the first phrase found. The checker's wider list (stub, hours, too complex) is judgment, `gsd/W311` | pass | E | E | `agents/gsd-planner.md:81-85` (no code matcher exists upstream), D7b |
 | gsd/W313 | key links are wired between artifacts the plan names | judged (plan checker) | W | E | plan checker (key links) |
-| gsd/E314 | each task has an automated verify or a wave-0 item (Nyquist); built in r39, with the `validation` kinds whose wave-0 items it reads | pass | E | E | D8, `nyquist` |
+| gsd/E314 | each task has an automated verify or a wave-0 item (Nyquist). Judged only for a phase that has a `validation` (GSD skips D8 without one); a `manual` task is exempt; a wave-0 item satisfies it when its `for` names a requirement of the task's plan | pass | E | E | D8, `nyquist` |
 | gsd/W315 | data contracts between plans match (`requires` / `provides`) | judged (plan checker) | W | E | plan checker (data contracts) |
 | gsd/W316 | the plan follows the project's agent instructions and the mapped patterns | judged (plan checker) | W | W | plan checker (CLAUDE.md, patterns) |
 | gsd/W317 | the post-planning gap report finds nothing open: every requirement of a planned phase and every `D-NN` of its context (trackable or not) appears as a word in the text of the phase's plans (plans, tasks, checkpoints and must-haves; a plan's `requirements` items count). One warning per phase, on the phase, `⚠ {u} of {n} items not covered by any plan: <ids>`; the report table (`## Post-Planning Gap Analysis`, GSD's rows) is the suggestion. Sort divergence: GSD orders rows by `localeCompare` of the natural key (ICU, case-insensitive first); here it is a byte compare, so ids that differ in letter case (`REQ-a1`, `REQ-B1`) can swap, and rows with equal keys (`D-1`, `D-01`) keep id order, not CONTEXT order. The upper-case ids GSD's grammar writes sort alike. A phase with no plan is not judged (GSD runs the gate at `plan:post`) | pass | W | W | `gate-gap-analysis-plan-post`, `src/gap-checker.cts` |
-| gsd/W318 | the plan-check verdict is fresh before execution (reads the judgements K7 hands the guard pass) | guard | W | E | plan-check loop (up to 3 rounds) |
+| gsd/W318 | the plan-check verdict is fresh before execution (reads the judgements K7 hands the guard pass): at the gate, a plan in scope has a stale judgement. Silent outside a gate | guard | W | E | plan-check loop (up to 3 rounds) |
 | gsd/E319 | a prohibition with `verification test` names a test (`conditional_field_required`) | decl | E | E | the prohibition probe's LOCATE guard (a test-tier prohibition with no check target fails closed), `src/prohibition-enforcement.cts:746-756` |
 | gsd/E320 | a task's verify command runs in a directory that exists (`cd` chains fold with absolute-reset, `npm --prefix`, `&amp;` decoded; the `MISSING` sentinel is skipped) and holds the manifest its tool needs (`package.json` for npm, npx, pnpm, yarn and bun; `Makefile` for make). A directory the plan's own task files (each item split on commas and white space, as GSD splits `<files>`) or artifact paths equal or cover is pending creation, not missing (more lenient than GSD, which does not strip a trailing `/` of the target: `cd web/` is covered by `web/a.js` here). A dynamic or outside target is `gsd/W324`. Divergences: (1) the guest does not know the project root, so GSD's probe of a `../sibling` directory and of an absolute path inside the root is not made; both count as outside (GSD reports a missing sibling as a blocker; an open item for the kernel round that sends the root); (2) the host has no `is_dir` fact, so a directory is a path that exists and has no bytes: an unreadable regular file reads as a directory, while a withheld (`.env`) or oversized file is not one; (3) the host serves a manifest up to 64 KiB (GSD 512 KiB), once per distinct path: a path the host did not serve (a `budget` or `too_large` error, or past its 2000 facts) is not checked, never E320 or W324, so a larger `package.json` is silent where GSD warns `manifest_unreadable` | pass | E | E | `gate-verify-command-paths` |
 | gsd/I321 | the deterministic half of D3b: a `coupling_justified` item naming a peer of the same phase and wave is reported as the applied exemption (`coupling between 'A' and 'B' is justified: <reason>`), and one naming a peer in another wave or phase as covering nothing. Finding the coupling itself is judgment, `gsd/W311` (r40). Information under every profile | pass | I | I | D3b, `planner-coupling.md:25-35` |
@@ -81,7 +81,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E401 | a summary's `requirements_completed` equals its plan's `requirements`, as sets of resolved ids; one error on the summary names the missing and the extra ids, and a quick plan with none on either side is clean. Faithful to the executor ("MUST copy verbatim"), so a `halted` summary lists every requirement of its plan, although its derived requirement status is `blocked` (r38 divergence, `project.md`) | pass | E | E | execute-plan |
 | gsd/E402 | a halted summary says why (`halted_because`) | decl | E | E | summary template |
 | gsd/W403 | a `tdd` task (its own `type`, or its plan's) with a recorded `feat` or `fix` commit has a `test` commit that names it before. A commit that names only the plan counts when the task is the plan's only task: GSD's executor words a commit `{type}({phase}-{plan}): {description}` and so names the plan, not the task. The RED run's failure is not checked: upstream reads a run record, and a commit is all there is here. A warning, not an error (REVIEW-r38 M1): a commit already made cannot be repaired, and an error would make the host refuse the collector's write, and with it every other commit | pass | W | W | `gate-tdd-red-evidence` |
-| gsd/W404 | the TDD review checkpoint ran after execution | guard | W | E | `gate-tdd-review-checkpoint` |
+| gsd/W404 | the TDD review checkpoint ran after execution: at the gate, a `tdd` plan in scope has a summary and no answered `tdd_review` checkpoint. Silent outside a gate | guard | W | E | `gate-tdd-review-checkpoint` |
 | gsd/E405 | a phase that changed an ORM's schema files records its database push. The files are its plans' `files_modified` (trimmed) matched by `SCHEMA_PATTERNS`; the evidence is the push command in its summaries' and deviations' text or its commits' subjects (`schema-detect.cts:20-73`). GSD runs the gate at `execute:wave:post`, so only a phase with a summary is judged (REVIEW-r38 M1): the first schema commit of a phase must be recorded before its push commit or summary can exist. One error per phase names the ORMs and their push commands | pass | E | E | `gate-schema-drift` (`execute:wave:post`) |
 | gsd/W406 | the context the plan was written against has not drifted (the `context_digest` a research, spec or validation recorded differs from the context's current digest; the project's research has no context, and a misnamed phaseless research is E206, so neither is judged. Upstream also judges `PATTERNS.md`: not covered, because `pattern_map` (`@gsd/codebase`) records no `context_digest` yet and should gain one when that extension is planned) | pass | W | E | `gate-context-drift` |
 | gsd/W407 | every task of a `complete` plan has a recorded commit that names it, one warning per task; a `manual` task is exempt, and so is every task of a halted plan (the later ones never ran). A commit names its task when its description, without a squash-merge ` (#12)` and the TDD verbs `add failing test for ` and `implement `, equals or holds exactly one task title; GSD's other wordings name the plan only. Off until `specforge.task_commits` is on (gsd-strict and gsd-plus) | pass | — | W | (new: the git collector) |
@@ -93,18 +93,18 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 |---|---|---|---|---|---|
 | gsd/E501 | the verifier's verdict on each truth, artifact and key link is fresh | judged (verifier) | E | E | verifier, honest-verifier |
 | gsd/E502 | an explicit truth is verified only with a named passing test | pass | E | E | honest-verifier |
-| gsd/E503 | an override has its human author and date (`missing_required_field` on `by` and `at`) | decl | E | E | verifier overrides |
-| gsd/W504 | more than three overrides in a phase | pass | W | W | verifier |
-| gsd/E505 | debt markers (TBD, FIXME, XXX) in the phase's files link to an issue | pass | E | E | verifier |
+| gsd/E503 | an override names who accepted the truth and when: `by` and `at` are not required fields, so this is their one diagnostic, naming which is missing | pass | E | E | verifier overrides |
+| gsd/W504 | more than three overrides in a phase: one warning on the verification | pass | W | W | verifier |
+| gsd/E505 | debt markers (TBD, FIXME, XXX) in the phase's files link to an issue: a whole-word marker in a file a plan names in `files_modified`, on a line with no `#N`, `issue #N`, `PR #N` or `DEF-N`; one error per file and line, naming `file:line`. Judged over the authored `files_modified`, never a commit's file list. A file the host did not serve (a budget, a cap) is not checked, never a finding. `TODO`, `HACK` and `PLACEHOLDER` are warnings in `verification.anti_patterns`, not diagnostics | pass | E | E | verifier |
 | gsd/W506 | every settled decision maps to something shipped | pass | W | W | `gate-decision-coverage-verify` |
-| gsd/E509 | a UAT passes only with no pending, blocked, unresolved or undeferred skipped test | pass | E | E | UAT predicate |
-| gsd/W510 | a planned phase has a validation, validated before verify | pass | W | E | Nyquist 8a–8f |
-| gsd/E511 | a phase is complete only when verification passed and UAT is complete (part of the phase-status derivation; a gate code of `complete_milestone` and `/gsd-ship`) | guard | E | E | phase-status ladder |
-| gsd/E512 | no broken window is open at ship | guard (ship:pre) | E | E | broken-windows gate |
-| gsd/E513 | a resolved window cannot be waived or fixed again (`waiver` and `fixed_at` are never both set) | pass | E | E | `src/broken-windows.cts` |
-| gsd/W514 | no refactor `deviation` window is recorded while `workflow.windows_enforce` is off | pass | W | W | `refactor_strict_not_enforcing` |
+| gsd/E509 | authored UAT evidence that makes a session unpassable: a `skipped` test with no `reason`, an `issue` test with no `reported` (a test a collector reported, `source automated`, is not judged). The session's own status is computed from the predicate (pending, blocked, unresolved or undeferred skipped), so it cannot be contradicted | pass | E | E | UAT predicate |
+| gsd/W510 | a planned phase whose research has a Validation Architecture section has a validation, and a verification exists only once the validation has an `approval`. A plain planned phase is not warned: `validate-phase` is opt-in (`validate-phase.md:38-43`) | pass | W | E | Nyquist 8a–8f |
+| gsd/E511 | a phase ships only when its verification passed (`ship.md:59-74`, `phase.cts:4000-4001`; a gate code of `complete_milestone` and `/gsd-ship`): at the gate, a phase in scope (the subject, a milestone's phases, or all) has no `passed` verification. UAT completeness is E509 and the verify-work gate, not this. Silent outside a gate | guard | E | E | phase-status ladder |
+| gsd/E512 | no broken window is open at ship: at the gate, one error per open window. Silent outside a gate, so a write is never refused | guard (ship:pre) | E | E | broken-windows gate |
+| gsd/E513 | a resolved window cannot be waived or fixed again: `waiver` and `fixed_at` are never both set (each is immutable, so a ledger that holds both came from two commands acting on one window) | pass | E | E | `src/broken-windows.cts` |
+| gsd/W514 | no refactor `deviation` window is recorded while `workflow.windows_enforce` is off. NOT BUILT: a pass is not sent the project's settings, and a setting gates a code only while it is on (kernel: `SettingDescriptor.gates_when_on`) | pass | W | W | `refactor_strict_not_enforcing` |
 | gsd/E515 | a complete requirement traces to a task, a commit and a passing test | pass | — | E (plus) | (new: gsd-plus) |
-| gsd/E516 | a stale verdict blocks every workflow step (reads the judgements K7 hands the guard pass) | guard | — | E (plus) | (new: gsd-plus) |
+| gsd/E516 | a stale verdict blocks every workflow step (reads the judgements K7 hands the guard pass): at the gate, one error per entity with a stale judgement. Silent outside a gate | guard | — | E (plus) | (new: gsd-plus) |
 | gsd/E517 | active plans of different workstreams share no path in `files_modified ∪ files_deleted` | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E518 | the integration checker's verdict on a milestone audit is fresh | judged (integration checker) | E | E | audit-milestone integration check |
 
@@ -115,14 +115,24 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   D3). The roster maps `gate-evidence` to that refusal.
 - Rules that read project files are *buildable* since protocol 1.11.0 (K11): they declare `reads` and are sent the facts and
   capped text of those files. `gsd/E320` is built (r37; a compute pass writes `task.verify_paths`, which the check pass
-  reads). Not yet built (r39): `gsd/E505` and the file facts under `gsd/E501` (artifact `missing`, `min_lines`,
-  `contains`, `exports`; a key link's `pattern`).
+  reads). `gsd/E505` is built (r39), with the scan pass that computes the file facts under `gsd/E501`: `artifact.state`
+  (`missing`, `min_lines` as upstream counts, `contains`, `exports` by substring as upstream) and `key_link.state` (a
+  plain-text `pattern`, searched in the `from` and the `to` file; one with a regular-expression metacharacter is
+  `unchecked`). `gsd/E505` judges the plans that have a summary only, so writing a plan is never refused for a file it
+  names. A file the host did not serve (its 1 MiB text budget is charged per entity and path) makes the phase's
+  verification `scan_partial`, which keeps it from `passed`.
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), by declaring `reads_tests`: `gsd/W408`
   (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E502` and `gsd/E515`.
   `gsd/W403` reads the recorded commits, not the report.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is not yet, and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is buildable since 1.11.0 (K15), not yet built: `prompt:spec_phase`.
+
+- **Not built, waiting on the kernel (K17).** Baseline re-verification (T13): the baseline compile sees only a commit's
+  `*.spec` files, so its source files read as missing; `previous_status`/`previous_score` are not computed and
+  `re_verification` compares verdicts and verify gaps only (`regressions` is tested on synthetic baselines, not
+  black-box). `gsd/W514` (above). The human-only guarantee of `override` holds for create, delete and retitle only: an
+  agent can `set`, `unset` or `link` an existing one (test ignored until the kernel checks the kind's writer there).
 
 ## Setting-gated rules
 
@@ -169,7 +179,7 @@ are not evidence).
 ## Derivations, not rules
 
 These are computed fields, not checks; they are listed so the parity suite can compare them with GSD's own values:
-phase status (up to `executed`), plan wave, `autonomous`, plan and task status (blocked by halt propagation), a summary's duration, actuals and key files, a deliverable check's status, requirement status, milestone state,
+phase status (`complete` once its verification is `passed`), plan wave, `autonomous`, plan and task status (blocked by halt propagation), a summary's duration, actuals and key files, a deliverable check's status, requirement status, milestone state,
 verification status, score and re-verification, UAT totals and status, validation status, audit status, broken-window status and the
 project's window counts, refactor proposal status, `STATE.md` progress.
 

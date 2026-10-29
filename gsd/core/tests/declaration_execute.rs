@@ -275,9 +275,25 @@ fn the_ops_kinds_declare_the_fields_of_the_model() {
 }
 
 #[test]
-fn the_model_has_forty_kinds() {
+fn the_model_declares_the_execute_kinds() {
     let kinds = describe("entities");
-    assert_eq!(kinds["items"].as_array().expect("kinds").len(), 40);
+    let names: Vec<&str> = kinds["items"]
+        .as_array()
+        .expect("kinds")
+        .iter()
+        .filter_map(|k| k["name"].as_str())
+        .collect();
+    for kind in [
+        "summary",
+        "deliverable",
+        "deviation",
+        "commit",
+        "pause",
+        "handoff",
+        "blocker",
+    ] {
+        assert!(names.contains(&kind), "{kind} in {names:?}");
+    }
 }
 
 #[test]

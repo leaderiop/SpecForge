@@ -16,8 +16,7 @@ const COUPLING: &[Field] = &[rf("peer", "plan").r(), str("reason").r()];
 const ESTIMATE: &[Field] = &[int("tokens")];
 
 /// `NN-MM-PLAN.md`, named `03-02` and scoped by its phase; a quick plan has no phase and is named by its quick id.
-// `gap_closure → verify_gap | uat_gap` is declared with those kinds (round r39): a reference to a kind no loaded
-// extension declares is W021. Paths are `strs`, not `files`: a plan names files it will create, so the host's E016
+// Paths are `strs`, not `files`: a plan names files it will create, so the host's E016
 // ("this file does not exist") would fire on every one.
 pub const PLAN: Kind = Kind::new(
     "plan",
@@ -34,6 +33,8 @@ pub const PLAN: Kind = Kind::new(
         strs("files_deleted").doc("`files_deleted:`"),
         blocks("coupling_justified", COUPLING)
             .doc("`coupling_justified:`; exempts only non-file coupling"),
+        rfs_any("gap_closure", &["verify_gap", "uat_gap"])
+            .doc("`gap_closure: true` and `gap_ids:`; the gaps this plan closes"),
         rfs("requirements", "requirement")
             .doc("`requirements:` (non-empty: gsd/E302 is the one diagnostic of its absence)"),
         bool("wave0").doc("`wave: 0`: the plan builds the phase's wave-0 items"),

@@ -322,6 +322,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "PlanGapClosure",
+        "source_kind": "plan",
+        "target_kind": null
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "PlanRequirements",
         "source_kind": "plan",
         "target_kind": "requirement"
@@ -586,6 +595,285 @@
         "label": "BlockerPlan",
         "source_kind": "blocker",
         "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerificationPhase",
+        "source_kind": "verification",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerificationDeferredTruth",
+        "source_kind": "verification",
+        "target_kind": "truth"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerificationDeferredAddressedIn",
+        "source_kind": "verification",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerifyGapVerification",
+        "source_kind": "verify_gap",
+        "target_kind": "verification"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerifyGapTruth",
+        "source_kind": "verify_gap",
+        "target_kind": "truth"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerifyGapClosedBy",
+        "source_kind": "verify_gap",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "OverrideVerification",
+        "source_kind": "override",
+        "target_kind": "verification"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "OverrideTruth",
+        "source_kind": "override",
+        "target_kind": "truth"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "HumanItemVerification",
+        "source_kind": "human_item",
+        "target_kind": "verification"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "HumanItemUat",
+        "source_kind": "human_item",
+        "target_kind": "uat_test"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatSessionPhase",
+        "source_kind": "uat_session",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatSessionSource",
+        "source_kind": "uat_session",
+        "target_kind": "summary"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatTestSession",
+        "source_kind": "uat_test",
+        "target_kind": "uat_session"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatTestFromTask",
+        "source_kind": "uat_test",
+        "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatGapTest",
+        "source_kind": "uat_gap",
+        "target_kind": "uat_test"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatGapResolvedBy",
+        "source_kind": "uat_gap",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ValidationPhase",
+        "source_kind": "validation",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ValidationRowValidation",
+        "source_kind": "validation_row",
+        "target_kind": "validation"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ValidationRowTask",
+        "source_kind": "validation_row",
+        "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ValidationRowRequirement",
+        "source_kind": "validation_row",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "Wave0ItemValidation",
+        "source_kind": "wave0_item",
+        "target_kind": "validation"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "Wave0ItemFor",
+        "source_kind": "wave0_item",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ManualCheckValidation",
+        "source_kind": "manual_check",
+        "target_kind": "validation"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ManualCheckRequirement",
+        "source_kind": "manual_check",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "MilestoneAuditMilestone",
+        "source_kind": "milestone_audit",
+        "target_kind": "milestone"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "MilestoneAuditTechDebtPhase",
+        "source_kind": "milestone_audit",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "MilestoneAuditGapsRequirement",
+        "source_kind": "milestone_audit",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "BrokenWindowPhase",
+        "source_kind": "broken_window",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "BrokenWindowRefactor",
+        "source_kind": "broken_window",
+        "target_kind": "refactor_proposal"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "BrokenWindowMilestone",
+        "source_kind": "broken_window",
+        "target_kind": "milestone"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RefactorProposalPhase",
+        "source_kind": "refactor_proposal",
+        "target_kind": "phase"
       }
     ]
   },
@@ -3661,6 +3949,21 @@
           },
           {
             "default_value": null,
+            "description": "`gap_closure: true` and `gap_ids:`; the gaps this plan closes",
+            "edge": "PlanGapClosure",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "gap_closure",
+            "required": false,
+            "target_kind": null,
+            "target_kinds": [
+              "verify_gap",
+              "uat_gap"
+            ]
+          },
+          {
+            "default_value": null,
             "description": "`requirements:` (non-empty: gsd/E302 is the one diagnostic of its absence)",
             "edge": "PlanRequirements",
             "field_type": "reference_list",
@@ -4505,6 +4808,26 @@
             "name": "contains",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what the scan found in the file: `exports` matches `export … name`, `module.exports.name` or `exports.name`",
+            "edge": null,
+            "enum_values": [
+              "present",
+              "missing",
+              "too_short",
+              "lacks_contains",
+              "lacks_export",
+              "unchecked"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "state",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -4574,7 +4897,7 @@
           },
           {
             "default_value": null,
-            "description": "`pattern:`",
+            "description": "`pattern:`; a plain text, searched in the `from` file",
             "edge": null,
             "field_type": "string",
             "file_reference": false,
@@ -4582,6 +4905,23 @@
             "name": "pattern",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "wired when `pattern` is in the `from` file; unchecked for a pattern with a regular-expression metacharacter",
+            "edge": null,
+            "enum_values": [
+              "wired",
+              "not_wired",
+              "unchecked"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "state",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -5985,6 +6325,2221 @@
         "lsp_icon": null,
         "name": "blocker",
         "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "What a phase's verifier found (GSD NN-VERIFICATION.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`",
+            "edge": "VerificationPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`deferred:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "VerificationDeferredTruth",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "truth",
+                "required": true,
+                "target_kind": "truth"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "VerificationDeferredAddressedIn",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "addressed_in",
+                "required": true,
+                "target_kind": "phase"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "evidence",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "deferred",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`status:`; `passed` needs a fresh gsd/E501 verdict on every truth",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "passed",
+              "gaps_found",
+              "human_needed"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`score:` as `N/M`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "score",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`verified:`; the latest verdict's time",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verified",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the files the phase's verdicts name",
+            "edge": null,
+            "field_type": "string_list",
+            "file_base": "project",
+            "file_reference": true,
+            "inverse_of": null,
+            "name": "covered_files",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`re_verification:` against the git baseline",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "pending",
+                  "passed",
+                  "gaps_found",
+                  "human_needed"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "previous_status",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "previous_score",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "gaps_closed",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "gaps_remaining",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "regressions",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "re_verification",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the lexical anti-pattern scan",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "file",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "line",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "text",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "blocker",
+                  "warning",
+                  "info"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "severity",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "anti_patterns",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "a file of the phase was not served (a budget, a cap): the scan is partial and the phase is not `passed`",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "scan_partial",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "verification",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A failed or partial truth a gap-closure plan can name (GSD verification gaps)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "VerifyGapVerification",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "verification",
+            "required": true,
+            "target_kind": "verification"
+          },
+          {
+            "default_value": null,
+            "description": "the truth that failed",
+            "edge": "VerifyGapTruth",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "truth",
+            "required": true,
+            "target_kind": "truth"
+          },
+          {
+            "default_value": null,
+            "description": "why it failed",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the files at fault",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "path",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "issue",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "artifacts",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what is missing",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "missing",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "closed when a `gap_closure` plan naming it is complete",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "closed"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "that plan",
+            "edge": "VerifyGapClosedBy",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "closed_by",
+            "required": false,
+            "target_kind": "plan",
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "verify_gap",
+        "open_fields": false,
+        "scoped_by": "verification",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A human accepts a truth the verifier could not verify (GSD verification override)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "OverrideVerification",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "verification",
+            "required": true,
+            "target_kind": "verification"
+          },
+          {
+            "default_value": null,
+            "description": "the truth accepted",
+            "edge": "OverrideTruth",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "truth",
+            "required": true,
+            "target_kind": "truth"
+          },
+          {
+            "default_value": null,
+            "description": "why",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "who accepted it (gsd/E503)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "by",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "when (gsd/E503)",
+            "edge": null,
+            "field_type": "date",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "at",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "override",
+        "open_fields": false,
+        "scoped_by": "verification",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": [],
+        "writer": "human"
+      },
+      {
+        "description": "A check only a human can make (GSD human_verification)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "HumanItemVerification",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "verification",
+            "required": true,
+            "target_kind": "verification"
+          },
+          {
+            "default_value": null,
+            "description": "what to check",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "test",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what should happen",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "expected",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "why a program cannot check it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "why_human",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the UAT test that asks it",
+            "edge": "HumanItemUat",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "uat",
+            "required": false,
+            "target_kind": "uat_test"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "human_item",
+        "open_fields": false,
+        "scoped_by": "verification",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A user acceptance session of a phase (GSD NN-UAT.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`",
+            "edge": "UatSessionPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`source:`; the summaries tested",
+            "edge": "UatSessionSource",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "source",
+            "required": true,
+            "target_kind": "summary"
+          },
+          {
+            "default_value": null,
+            "description": "`started:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "started",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`status:`",
+            "edge": null,
+            "enum_values": [
+              "testing",
+              "partial",
+              "complete",
+              "diagnosed"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`## Summary`",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "total",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "passed",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "issues",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "pending",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "skipped",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "blocked",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "totals",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "uat_session",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "One thing a person checks (GSD UAT test)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "UatTestSession",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "session",
+            "required": true,
+            "target_kind": "uat_session"
+          },
+          {
+            "default_value": null,
+            "description": "expected behaviour",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "expected",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the phase success criterion it proves",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "criterion",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a harvested `<human-check>`",
+            "edge": "UatTestFromTask",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "from_task",
+            "required": false,
+            "target_kind": "task"
+          },
+          {
+            "default_value": null,
+            "description": "written from the person's answer",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "pass",
+              "issue",
+              "skipped",
+              "blocked"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "result",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "an automated result comes from a collector",
+            "edge": null,
+            "enum_values": [
+              "human",
+              "automated"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "source",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "the person's words, verbatim, when `issue`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reported",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "major when absent",
+            "edge": null,
+            "enum_values": [
+              "blocker",
+              "major",
+              "minor",
+              "cosmetic"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "severity",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "why skipped; `Deferred follow-up` counts as passing",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "when blocked",
+            "edge": null,
+            "enum_values": [
+              "server",
+              "physical_device",
+              "release_build",
+              "third_party",
+              "prior_phase"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "blocked_by",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "uat_test",
+        "open_fields": false,
+        "scoped_by": "session",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "What a UAT test found wrong (GSD UAT gap)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "UatGapTest",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "test",
+            "required": true,
+            "target_kind": "uat_test"
+          },
+          {
+            "default_value": null,
+            "description": "`truth:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "truth",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`reason:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`severity:`",
+            "edge": null,
+            "enum_values": [
+              "blocker",
+              "major",
+              "minor",
+              "cosmetic"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "severity",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`root_cause:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "root_cause",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`artifacts:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "path",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "issue",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "artifacts",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`missing:`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "missing",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "resolved once a `gap_closure` plan naming it completes",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "resolved"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "that plan",
+            "edge": "UatGapResolvedBy",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "resolved_by",
+            "required": false,
+            "target_kind": "plan",
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "that plan's summary's completion",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "resolved_at",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "uat_gap",
+        "open_fields": false,
+        "scoped_by": "test",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "How a phase's tasks are sampled by tests (GSD NN-VALIDATION.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`",
+            "edge": "ValidationPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the digest of the phase's context when it was recorded (gsd/W406)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "context_digest",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`framework`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "framework",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`config_file`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "config_file",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`quick_cmd`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "quick_cmd",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`full_cmd`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "full_cmd",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`max_latency_s`",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "max_latency_s",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "written by the command that approves it, with the host's clock",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "approval",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "validated once `approval` is set",
+            "edge": null,
+            "enum_values": [
+              "draft",
+              "validated"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "every row green and every task covered",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "nyquist_compliant",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "every wave-0 item done",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "wave_0_complete",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "validation",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "How one task is verified (GSD Per-Task Verification Map)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "ValidationRowValidation",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "validation",
+            "required": true,
+            "target_kind": "validation"
+          },
+          {
+            "default_value": null,
+            "description": "the task",
+            "edge": "ValidationRowTask",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "task",
+            "required": true,
+            "target_kind": "task"
+          },
+          {
+            "default_value": null,
+            "description": "the requirement it serves",
+            "edge": "ValidationRowRequirement",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "requirement",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "`Test Type`",
+            "edge": null,
+            "enum_values": [
+              "unit",
+              "integration",
+              "smoke",
+              "e2e",
+              "manual"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "test_type",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`Automated Command`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "command",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the row's test file",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "file",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the task's wave",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "wave",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the test file exists",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "file_exists",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "green or red from the task's linked tests; `flaky` is never derived",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "green",
+              "red",
+              "flaky"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "validation_row",
+        "open_fields": false,
+        "scoped_by": "validation",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A file wave 0 must create before the tasks can be sampled (GSD Wave 0 Requirements)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "Wave0ItemValidation",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "validation",
+            "required": true,
+            "target_kind": "validation"
+          },
+          {
+            "default_value": null,
+            "description": "the file",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "path",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the requirement it serves",
+            "edge": "Wave0ItemFor",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "for",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "what it is",
+            "edge": null,
+            "enum_values": [
+              "test_stub",
+              "fixture",
+              "framework_install"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "kind",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the file exists and a linked test ran",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "done",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "wave0_item",
+        "open_fields": false,
+        "scoped_by": "validation",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A behaviour with no automated check (GSD Manual-Only Verifications)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "ManualCheckValidation",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "validation",
+            "required": true,
+            "target_kind": "validation"
+          },
+          {
+            "default_value": null,
+            "description": "the behaviour",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "behavior",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the requirement it serves",
+            "edge": "ManualCheckRequirement",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "requirement",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "why it cannot be automated",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "why_manual",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "how to check it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "instructions",
+            "required": true,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "manual_check",
+        "open_fields": false,
+        "scoped_by": "validation",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "What an audit of a milestone found (GSD vX.Y-MILESTONE-AUDIT.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the version",
+            "edge": "MilestoneAuditMilestone",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "milestone",
+            "required": true,
+            "target_kind": "milestone"
+          },
+          {
+            "default_value": null,
+            "description": "`tech_debt:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "MilestoneAuditTechDebtPhase",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "phase",
+                "required": false,
+                "target_kind": "phase"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "item",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "tech_debt",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a person accepts the `tech_debt` status; refused in every plan and MCP write",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "date",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "debt_accepted",
+            "required": false,
+            "target_kind": null,
+            "writer": "human"
+          },
+          {
+            "default_value": null,
+            "description": "`gaps:`; the milestone's requirements that are not complete",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "MilestoneAuditGapsRequirement",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "requirement",
+                "required": false,
+                "target_kind": "requirement"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "unsatisfied",
+                  "partial",
+                  "orphaned"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "status",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "gaps",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`nyquist:`",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "compliant",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "partial",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "not_validated",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "missing",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "nyquist",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`status:`",
+            "edge": null,
+            "enum_values": [
+              "passed",
+              "gaps_found",
+              "tech_debt"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "milestone_audit",
+        "open_fields": false,
+        "scoped_by": "milestone",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A defect left in the code, open until it is fixed or waived (GSD WINDOWS.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`kind`",
+            "edge": null,
+            "enum_values": [
+              "stub",
+              "todo",
+              "fixme",
+              "skipped_test",
+              "lint_warning",
+              "unmet_truth",
+              "unrun_verify",
+              "deviation"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "kind",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the phase that found it",
+            "edge": "BrokenWindowPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`file`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "file",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`line`",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "line",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`description`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "description",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`waive` (a reason is required); written by the command that waives it",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "reason",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "waiver",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`fix`; written by the command that fixes it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "fixed_at",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "a strict-mode refactor proposal recorded as a `deviation`",
+            "edge": "BrokenWindowRefactor",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "refactor",
+            "required": false,
+            "target_kind": "refactor_proposal"
+          },
+          {
+            "default_value": null,
+            "description": "waived when `waiver` is set; fixed when `fixed_at` is set or its proposal is disposed",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "waived",
+              "fixed"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "from the phase",
+            "edge": "BrokenWindowMilestone",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "milestone",
+            "required": false,
+            "target_kind": "milestone",
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "when the window was recorded",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "recorded_at",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "broken_window",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A function whose complexity crossed the refactor threshold (GSD NN-REFACTOR.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase`",
+            "edge": "RefactorProposalPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`target_file`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "target_file",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`target_function`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "target_function",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`score` (decision points)",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "score",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`baseline`: the function's anchor score",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "baseline",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`delta`",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "delta",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`reason`",
+            "edge": null,
+            "enum_values": [
+              "threshold",
+              "jump"
+            ],
+            "field_type": "enum_list",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "reasons",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`candidates`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "file",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "function",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "line",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "score",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "baseline",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "delta",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "candidates",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`refactor accept|decline`",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "accepted",
+                  "declined"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "outcome",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "reason",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "disposition",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "from `disposition`",
+            "edge": null,
+            "enum_values": [
+              "proposed",
+              "accepted",
+              "declined"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "refactor_proposal",
+        "open_fields": false,
+        "scoped_by": "phase",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

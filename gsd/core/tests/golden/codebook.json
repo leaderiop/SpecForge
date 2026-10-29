@@ -298,7 +298,7 @@
     {
       "code": "E503",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "An override has its human author and date (missing_required_field on by and at). It is an error.",
+      "explanation": "An override names who accepted the truth and when (by and at). It is an error.",
       "title": "Override lacks its author or date"
     },
     {
@@ -310,7 +310,7 @@
     {
       "code": "E505",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "Debt markers (TBD, FIXME, XXX) in the phase's files link to an issue. It is an error.",
+      "explanation": "Debt markers (TBD, FIXME, XXX) in the files a plan modifies name an issue on the same line. It is an error.",
       "title": "Debt marker without an issue"
     },
     {
@@ -322,20 +322,20 @@
     {
       "code": "E509",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A UAT passes only with no pending, blocked, unresolved or undeferred skipped test. It is an error.",
-      "title": "UAT passed with open tests"
+      "explanation": "A skipped UAT test has a reason and an issue has the person's report. It is an error.",
+      "title": "UAT evidence that cannot pass"
     },
     {
       "code": "W510",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A planned phase has a validation, validated before verify. It is a warning, and an error under gsd-strict.",
-      "title": "Planned phase has no validated validation"
+      "explanation": "A planned phase whose research asks for a validation has one, approved before its verification. It is a warning, and an error under gsd-strict.",
+      "title": "Phase lacks a validation it needs"
     },
     {
       "code": "E511",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A phase is complete only when verification passed and UAT is complete (part of the phase-status derivation; a gate code of complete_milestone and /gsd-ship). It is an error.",
-      "title": "Phase completed before verification and UAT"
+      "explanation": "A phase ships only when its verification passed (a gate code of complete_milestone and /gsd-ship). It is an error.",
+      "title": "Phase shipped before verification passed"
     },
     {
       "code": "E512",

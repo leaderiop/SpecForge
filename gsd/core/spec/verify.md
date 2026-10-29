@@ -29,11 +29,11 @@ the item and its plan, the code the item or its plan names, and every file the v
 |---|---|
 | truth `verified`, `failed`, `uncertain`, `present_behavior_unverified`, `verified_coincidental` | the verifier's verdict on the truth; `verified` needs a named passing test in the evidence for an `explicit` truth (honest verifier) |
 | truth `passed_override` | an `override` entity, written by a human |
-| artifact `verified`, `orphaned`, `stub`, `missing`; data flow `flowing`, `static`, `disconnected`, `hollow_prop` | `missing`, `min_lines`, `contains` and `exports` are a pass over the file's facts (the file is absent, too short, lacks the text); the rest are the verdict |
-| key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched) when `pattern` is set, else the verdict |
+| artifact `verified`, `orphaned`, `stub`, `missing`; data flow `flowing`, `static`, `disconnected`, `hollow_prop` | `missing`, `min_lines`, `contains` and `exports` are a pass over the file's facts (the file is absent, too short by upstream's `split('\n')` count, lacks the text or a name it exports, found by substring as upstream does); the rest are the verdict |
+| key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched in `from`, and in `to`, as upstream) when `pattern` is set, else the verdict |
 
 The passes that read project files (artifact facts, a key link's `pattern`, `anti_patterns`, `validation_row.file_exists`,
-`wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and not yet built (r39; the verify command's own paths are `gsd/E320`, built in r37): a pass declares the paths it
+`wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and built in r39 (the scan pass; the refactor trigger's complexity waits for r41; the verify command's own paths are `gsd/E320`, built in r37): a pass declares the paths it
 reads (`reads`) and receives a `FileFact` per file (`exists`, `bytes`, `lines`, `digest`) and, for declared text reads, the text.
 Every status computed from test evidence declares `reads_tests` (K12): compute, check and guard passes then receive the
 recorded test report, and I205 says once when none is recorded.
@@ -49,22 +49,24 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 |---|---|---|---|
 | phase | → phase | R I | `phase:` |
 | deferred | {truth → truth R, addressed_in → phase R, evidence str R} | | `deferred:` |
-| status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; a backstop truth with no explicit evidence is human_needed, never passed |
-| score | str `N/M` | C | `score:` |
+| status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, it never verifies), and a complete scan; a backstop truth with no explicit evidence is human_needed, never passed |
+| score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
-| covered_files, covered_digest | files, str | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name, and one digest over their current digests (the judgements' `files`) |
-| re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): its status and score; items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine) |
-| anti_patterns | {file file, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass |
+| covered_files | files | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. `covered_digest` (one digest over their current digests, the judgements' `files`) is not declared yet: r40 |
+| re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure), by verdict (truths, artifacts, key links) and by status (verify gaps). `previous_status` and `previous_score` are NOT BUILT: the baseline compile sees only a commit's spec files, so its scan states and status would be wrong (kernel: serve source files from the commit). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine). `gaps_*` are ids as text (`strs`), and also name verify gaps |
+| anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass; it lists what it read |
+| scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
 
 **verify_gap**: a failed or partial truth, as an entity a gap-closure plan can name. Name `VG1`, scoped by its verification.
-`verification R`, `truth → truth R`, `reason str R`, `artifacts {path file, issue str}`, `missing strs`;
+`verification R`, `truth → truth R`, `reason str R`, `artifacts {path str, issue str}`, `missing strs`;
 `status enum{open, closed}` and `closed_by → plan` are `C` (closed when a `gap_closure` plan naming it completes).
 An open verify_gap puts the verifier in re-verification mode (failed items in full, passed items as a regression check);
 `re_verification` reports the outcome, it does not start it.
 
 **override** (kind `U`; name `OV1`): `verification R`, `truth → truth R`, `reason str R`, `by str`, `at date` (`by` and `at` are not `R`: gsd/E503 is the one diagnostic of their absence). The host refuses
-an override in any extension's plan and any MCP write (K5 D7); a human writes it by hand or from an interactive
-`specforge` command. An agent that edits the file directly is not stopped: the commit shows it, and more than three in
+to create, delete or retitle an override in any extension's plan and any MCP write (K5 D7); a human writes it by hand or
+from an interactive `specforge` command. Until the kernel checks the writer on existing entities too (K17), an agent's
+`set`, `unset` or `link` on an existing override is not refused. An agent that edits the file directly is not stopped: the commit shows it, and more than three in
 a phase warns.
 
 **human_item** (name `HI1`): `verification R`, `test str R`, `expected str R`, `why_human str R`, `uat → uat_test`.
@@ -92,9 +94,9 @@ The test being asked now is session state.
 | reason | str | | why skipped; `Deferred follow-up…` counts as passing |
 | blocked_by | enum{server, physical_device, release_build, third_party, prior_phase} | | when blocked |
 
-**uat_gap**: GSD `## Gaps`. Name `G-03-1`, scoped by its test.
+**uat_gap**: GSD `## Gaps`. Name `G1`, scoped by its test (`v1.0/01/01-UAT/U2/G1`).
 `test → uat_test R`, `truth str R`, `reason str`, `severity enum{blocker, major, minor, cosmetic}`, `root_cause str`,
-`artifacts {path file, issue str}`, `missing strs`;
+`artifacts {path str, issue str}`, `missing strs`;
 `status enum{open, resolved}`, `resolved_by → plan` and `resolved_at` are `C`. `debug → debug_session` is an
 enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/*` extension.
 
@@ -102,16 +104,16 @@ enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/
 
 GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-validate-phase`.
 
-**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file file`, `quick_cmd str`, `full_cmd str`,
+**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file str`, `quick_cmd str`, `full_cmd str`,
 `max_latency_s int`; `approval {by str, at ts}` is `H`; `status enum{draft, validated}`, `nyquist_compliant bool` and
 `wave_0_complete bool` are `C`.
 
 **validation_row**: the Per-Task Verification Map. Name `VR1`. `validation R`, `task → task R`, `requirement → requirement`,
 `test_type enum{unit, integration, smoke, e2e, manual} R`,
-`command str`; `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
+`command str`, `file str` (the row's test file; a `str`, as wave 0 may create it); `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
 enhancement declared by `@gsd/security` on this kind.
 
-**wave0_item** (name `W0-1`): `validation R`, `path file R`, `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
+**wave0_item** (name `W0-1`): `validation R`, `path str R` (a `file` would be E016 on the file wave 0 creates), `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
 `done bool C` (the file exists and the collector saw it run).
 
 **manual_check** (name `MC1`): `validation R`, `behavior str R`, `requirement → requirement`, `why_manual str R`, `instructions text R`.
@@ -141,13 +143,13 @@ GSD: `.planning/WINDOWS.md`, the broken-windows ledger. Name `BW1`, project-scop
 |---|---|---|---|
 | kind | enum{stub, todo, fixme, skipped_test, lint_warning, unmet_truth, unrun_verify, deviation} | R | `kind` |
 | phase | → phase | R | the phase that found it |
-| file | file | | `file` |
+| file | str | | `file` (a `str`: the file may since have been deleted) |
 | line | int | | `line` |
 | description | str | R | `description` |
 | waiver | {reason str R, by str R, at ts R} | H I | `waive` (a reason is required): written by `waive_window` |
 | fixed_at | ts | H I | `fix`: written by `fix_window` |
 | refactor | → refactor_proposal | | a strict-mode refactor proposal recorded as a `deviation` |
-| status | enum{open, waived, fixed} | C | waived when `waiver` is set; fixed when `fixed_at` is set or the linked proposal is accepted or declined |
+| status | enum{open, waived, fixed} | C | waived when `waiver` is set or the linked proposal is declined; fixed when `fixed_at` is set or the linked proposal is accepted |
 | milestone | → milestone | C | from the phase |
 | recorded_at | ts | H I | when the window was recorded: set by the plan that creates it |
 
@@ -164,16 +166,38 @@ the phase.
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | phase | → phase | R I | `phase` |
-| target_file | file | R I | `target_file` |
+| target_file | str | R I | `target_file` |
 | target_function | str | R I | `target_function` |
-| score | int | R H I | `score` (decision points) |
+| score | int | H I | `score` (decision points) |
 | baseline | int | H I | `baseline`: the function's anchor score |
 | delta | int | H I | `delta` |
-| reasons | enums{threshold, jump} | R H I | `reason` |
-| candidates | {file file, function str, line int, score int, baseline int, delta int} | H I | `candidates` |
+| reasons | enums{threshold, jump} | H I | `reason` |
+| candidates | {file str, function str, line int, score int, baseline int, delta int} | H I | `candidates` |
 | disposition | {outcome enum{accepted, declined} R, reason str, by str R, at ts R} | H | `refactor accept\|decline` |
 | status | enum{proposed, accepted, declined} | C | `status`: from `disposition` |
 
+A harness field is never `R` (the DSL refuses it); the trigger that writes `score` and `reasons` also writes them together.
+
 Under `refactor.trigger_strict` the proposal also records a `deviation` window, cleared when the proposal is
-dispositioned, never when the score improves. With `workflow.windows_enforce` off that window cannot block ship
-(gsd/W514).
+dispositioned, never when the score improves. With `workflow.windows_enforce` off that window cannot block ship;
+reporting that is gsd/W514, NOT BUILT (kernel: `SettingDescriptor.gates_when_on`).
+
+## Known differences from GSD
+
+Kept on purpose, or waiting for r40, listed so none is silent:
+
+- A truth the verifier is `uncertain` about stays `pending`; upstream makes it a human item (`human_needed`). A
+  backstop truth with no explicit evidence is not yet `human_needed` (r40's verdicts). A verification with no truth,
+  whose artifacts and key links all pass, is `passed 0/0`.
+- A verification is judged one per phase, but nothing refuses a second: the last by id wins, and W504 counts per
+  verification, not per phase. The same holds for a phase's validation (the first by id).
+- A milestone audit lists a requirement of a `gaps_found` phase as `partial`, where upstream lists it `unsatisfied`, and
+  does not list the complete requirements of phases that have not passed. The audit's status is `gaps_found` either way.
+- A UAT session with a blocked test or an unexcused skip and open gaps that all have root causes is `diagnosed`;
+  upstream says `partial`. A session with no test is `complete`. A UAT status is computed, so it differs from the
+  `status:` a writer sets when a run ends (the twin: [parity](../../parity/README.md)).
+- The scan marks a directory or an unreadable file `unchecked` where upstream fails it; `unchecked` never fails an item.
+  Debt-marker matching is by whole word (`FIXMEs`, `FIXME_LATER` are not blockers; upstream greps the substring).
+- `gsd/W318` flags any stale judgement on a plan, not only the plan-check's. Harmless while no other rule judges a plan.
+- The host charges the 1 MiB text budget per entity and path and in plan order: an older phase can spend it, and a
+  file named by several fields is read several times. A phase left with an unread file is `scan_partial`.

@@ -5,17 +5,23 @@ mod discuss;
 mod execute;
 mod execute_rules;
 mod execute_status;
+mod gates;
 mod harness;
+mod ladder;
 mod parity_discuss;
 mod parity_plans;
 mod parity_roadmap;
 mod parity_state;
+mod parity_verify;
 mod plan;
 mod plan_rules;
 mod progress;
 mod roadmap;
+mod scan;
 mod settings;
 mod verify_paths;
+mod verify_rules;
+mod verify_status;
 
 use harness::project;
 

@@ -1,6 +1,6 @@
 # Parity suite
 
-**Status: the config roster, the taskboard roadmap, the taskboard's discussed and researched phase, its plans, and its executed phase (summaries, progress and the recorded tests) are built; the rest is being designed.** What makes "1:1 with GSD, version by version" a check rather than a hope.
+**Status: the config roster, the taskboard roadmap, the taskboard's discussed and researched phase, its plans, and its executed phase (summaries, progress and the recorded tests) and its UAT are built; the rest is being designed.** What makes "1:1 with GSD, version by version" a check rather than a hope.
 
 | Check | Proves |
 |---|---|
@@ -18,7 +18,7 @@ the version matrix live here.
 |---|---|
 | `upstream/v1.18.0/` | the tracked release's configuration roster, frozen so the roster check runs offline ([SOURCE.md](upstream/v1.18.0/SOURCE.md)); `core/tests/settings_roster.rs` reads it |
 | `fixtures/taskboard/` | a small Node CLI with a GSD 1.18.0 `.planning/`: three phases and an inserted `02.1`, phase 1 executed, verified and run through UAT, phase 2 discussed, researched and planned; its three plans and the two summaries of phase 1 are in the twin's `spec/plans.spec` |
-| `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health`, `check.verify-context-drift 2` and `check.decision-coverage-plan` of phase 2; the plan verdicts of r37: `verify.plan-structure` of each plan, `check.verify-command-paths` and `check.verify-failure-directions` of phases 1 and 2, `check.gap-analysis-plan-post` of phases 1 and 2; and `junit.xml`, what the fixture's own `npm test` reports (r38), with the machine's paths and timings normalised |
+| `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health`, `check.verify-context-drift 2` and `check.decision-coverage-plan` of phase 2; the plan verdicts of r37: `verify.plan-structure` of each plan, `check.verify-command-paths` and `check.verify-failure-directions` of phases 1 and 2, `check.gap-analysis-plan-post` of phases 1 and 2; `audit-uat` (r39), and `junit.xml`, what the fixture's own `npm test` reports (r38), with the machine's paths and timings normalised |
 | `record.sh` | re-records the goldens |
 | `upstream/v1.18.0/gate-cutover/` | ten verdicts of gsd-core's own gate-cutover fixtures (decision coverage, verify command paths, failing directions, post-planning gaps), copied unchanged; `core/tests/projects/gate_cutover/` is their SpecForge twin |
 
@@ -33,7 +33,9 @@ requirement's or phase's `status`, the progress percentages, `STATE.md`), which 
 milestone `v1.0` is synthetic: the fixture's GSD project is milestone-less (`"milestones": []`) and a SpecForge phase needs a
 milestone to sit in; the test asserts both so a change to either is noticed.
 
-`core/tests/cli/parity_state.rs` (r38) compares what execution derives: per phase, the plan and summary counts and the status label with `progress-json.json` (phases 02, 02.1 and 03 equal; phase 01 is `Executed` where gsd-tools says `Complete`, because `01-VERIFICATION.md` passed and verification is r39's), the totals and the plan-based percent, and the three counts of `state-json.json` that equal `milestone.progress` (`total_phases`, `total_plans`, `completed_plans`); `completed_phases` (1) and `percent` (25) are verification-based and differ today (0 and 0), until plan 06. It compares each twin summary and deliverable with the `SUMMARY.md` frontmatter, and, after `collect --runner gsd-junit --report goldens/taskboard/junit.xml`, each check's computed status with the SUMMARY's `status: pass`.
+`core/tests/cli/parity_state.rs` (r38) compares what execution derives: per phase, the plan and summary counts and the status label with `progress-json.json` (phases 02, 02.1 and 03 equal; phase 01 is `Executed` where gsd-tools says `Complete`, because `01-VERIFICATION.md` passed and the verdict that says so is an E501 judgement, r40's), the totals and the plan-based percent, and the three counts of `state-json.json` that equal `milestone.progress` (`total_phases`, `total_plans`, `completed_plans`); `completed_phases` (1) and `percent` (25) are verification-based and differ today (0 and 0), until r40 records the verdicts. `core/tests/cli/parity_verify.rs` (r39) compares the twin's UAT (`spec/verify.spec`: three tests, one gap) with `audit-uat.json` and `01-UAT.md`: the one `issue` test by name and expected text, its gap's truth and reason, and the totals, parsed from the file's `## Summary`. Two differences are named, not hidden: the session's status is `partial` where the file and the golden say `complete` (the file's writer set it when the run finished; the twin's is computed, and its one gap is open with no root cause), and the twin's verification is `pending`, `0/3`, where `01-VERIFICATION.md` is `passed`, `2/2` (the verdicts are E501 judgements, r40's, which turns that test into an equality).
+
+`parity_state.rs` also compares each twin summary and deliverable with the `SUMMARY.md` frontmatter, and, after `collect --runner gsd-junit --report goldens/taskboard/junit.xml`, each check's computed status with the SUMMARY's `status: pass`.
 
 ### Re-recording
 

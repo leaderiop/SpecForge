@@ -1,6 +1,6 @@
 # Plans and tasks
 
-**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger) and `gap_closure` (r39) wait for later rounds. `commits` is read back from `commit` (r38); the derive pass computes `status` there, except `draft` and `checked`, which wait for the plan-check verdicts (r40).**
+**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger) wait for later rounds; `gap_closure` is built (r39). `commits` is read back from `commit` (r38); the derive pass computes `status` there, except `draft` and `checked`, which wait for the plan-check verdicts (r40).**
 
 ```
  phase ─1──*─ plan ─1──*─ task
@@ -33,7 +33,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | coupling_justified | {peer → plan R, reason str R} | | `coupling_justified:`; exempts only non-file coupling (D3b, gsd/I321), never file overlap (gsd/W305) |
 | requirements | →* requirement | | `requirements:` (non-empty for a plan of a phase, not `R`, so gsd/E302 is the one diagnostic of its absence; a quick plan names none) |
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
-| gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (declared in round r39, with those kinds: a reference to a kind no loaded extension declares is W021) |
+| gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (a reference union, ADR 0285 D5) |
 | agent_hint | str | | `agent_hint:` |
 | estimate | {tokens int} | | `estimate:` |
 | objective | str | R | `<objective>` |

@@ -84,6 +84,7 @@ record verify-failure-directions-1 query check.verify-failure-directions 1
 record verify-failure-directions-2 query check.verify-failure-directions 2
 record gap-analysis-plan-post-1 query check.gap-analysis-plan-post .planning/phases/01-core TASK-01,TASK-02
 record gap-analysis-plan-post-2 query check.gap-analysis-plan-post .planning/phases/02-persistence STORE-01,STORE-02
+record audit-uat audit-uat
 # The recorded tests: what `npm test` writes (node's JUnit reporter), with the machine's paths and timings out, so a
 # second run changes nothing. `gsd-junit` links its tests to the twin's deliverables by name and project-relative file.
 (cd "$work" && npm test >/dev/null)

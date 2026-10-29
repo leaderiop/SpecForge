@@ -1,6 +1,6 @@
 # `@gsd/core` model
 
-**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the sixteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/E202`, `gsd/W203` and `gsd/W205` over them wait for r40) the nine kinds of [plan.md](plan.md) with their non-judged rules (r37) and the seven kinds of [execute.md](execute.md) with `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408` and the two collectors (r38); the rest is being designed. Tracks gsd-core 1.18.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
+**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the sixteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/E202`, `gsd/W203` and `gsd/W205` over them wait for r40) the nine kinds of [plan.md](plan.md) with their non-judged rules (r37) and the seven kinds of [execute.md](execute.md) with `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408` and the two collectors (r38); the fourteen kinds of [verify.md](verify.md) with their computed values, the scan pass and the rules and gate guards listed in [rules.md](rules.md) (r39; `gsd/W514` and the E501 and E502 verdicts wait); the rest is being designed. Tracks gsd-core 1.18.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
 file of `.planning/` maps to kinds here or in a capability extension ([the file table](#every-gsd-file-maps-to-a-kind));
 nothing is kept as Markdown.
 
@@ -38,7 +38,7 @@ nothing is kept as Markdown.
 | `C` | **computed**: derived by a compute pass (a collector files a report the pass reads), held in the compiled graph only, never in `.spec`; writing it is an error. A value that compares with the past (`re_verification`) compares with the git baseline | K4 |
 | `H` | set only by a command's or a collector's plan; its digest goes in `specforge-harness`; any other value is an error | K4 |
 | `V` | its value comes from the fresh, recorded verdict of the judged rule that binds it (its outcome or a value it records); absent otherwise; written by hand it is an error (K4 E082) | K7 |
-| `U` | human-only: refused in every extension's plan and every MCP write; the CLI writes it only from an interactive terminal; hand edits stay free (a field the host must also refuse an agent's direct edit of is `H`, written by a command that takes a reason) | K5 |
+| `U` | human-only: refused in every extension's plan and every MCP write when it is created, deleted or retitled (editing an existing one is not yet checked, K17); the CLI writes it only from an interactive terminal; hand edits stay free (a field the host must also refuse an agent's direct edit of is `H`, written by a command that takes a reason) | K5 |
 
 The rule this table carries: an agent may author a plan, but it may not author `status passed`.
 
@@ -180,3 +180,23 @@ the plan's summary, written by the executor at the end, lands in the same file.
 Not modelled, on purpose: GSD's `references/*` and `workflows/*` are GSD's own rules and procedures, so they become
 [rules](rules.md) and ported prompts ([contributions](../contributions/)), not data. Sketch and spike HTML stays
 throwaway output outside the spec tree.
+
+## Waiting on the kernel
+
+Three things r39 could not build, or could not guarantee, wait for kernel work (K17):
+
+- **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
+  baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
+  commit, so at the baseline every source file reads as absent (`exists: false`): the scan says `missing`, never
+  `unchecked`, and the baseline's status and score are wrong. `re_verification` therefore compares fresh verdicts and
+  verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
+  (with `baseline-format` 3). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
+  synthetic baselines, not black-box (the judgement list is empty until r40 records E501 verdicts).
+- **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
+  `SettingDescriptor.gates_when_on`.
+- **Human-only on existing entities.** The guarantee of `override` (and `debt_accepted`) holds for creating, deleting
+  and retitling only: the host's `edit_flags` checks the kind's writer on those, not on `set`, `unset` or `link` of an
+  existing entity, so an agent can change or re-point an existing override. The black-box test
+  `an_agent_cannot_edit_an_existing_override` is ignored until the kernel fix. An agent can also delete a milestone
+  audit that carries a person's `debt_accepted` (gsd/E106 then refuses the gate).
+

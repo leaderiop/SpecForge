@@ -1,5 +1,6 @@
 //! The kinds of `@gsd/core`, as tables (`dsl`): one file per area of the model.
 
+mod audit;
 mod commit;
 mod discuss;
 mod dsl;
@@ -11,6 +12,10 @@ mod project;
 mod research;
 mod roadmap;
 mod spec;
+mod uat;
+mod validation;
+mod verify;
+mod windows;
 
 use dsl::Kind;
 use specforge_extension_sdk::prelude::*;
@@ -57,6 +62,20 @@ const KINDS: &[&Kind] = &[
     &execute::PAUSE,
     &execute::HANDOFF,
     &execute::BLOCKER,
+    &verify::VERIFICATION,
+    &verify::VERIFY_GAP,
+    &verify::OVERRIDE,
+    &verify::HUMAN_ITEM,
+    &uat::UAT_SESSION,
+    &uat::UAT_TEST,
+    &uat::UAT_GAP,
+    &validation::VALIDATION,
+    &validation::VALIDATION_ROW,
+    &validation::WAVE0_ITEM,
+    &validation::MANUAL_CHECK,
+    &audit::MILESTONE_AUDIT,
+    &windows::BROKEN_WINDOW,
+    &windows::REFACTOR_PROPOSAL,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

@@ -1,6 +1,6 @@
 //! The taskboard's SpecForge twin of phase 1's execution against what gsd-tools 1.18.0 says (parity suite, "state"):
 //! `progress json`, the two `SUMMARY.md` files, and the tests `npm test` recorded. What verification decides (a
-//! phase `Complete`, state json's `completed_phases` and `percent`) waits for r39; the tests name those gaps.
+//! phase `Complete`, state json's `completed_phases` and `percent`) waits for plan 07 (r40, once E501 verdicts are recorded); the tests name those gaps.
 
 use std::path::Path;
 
@@ -48,8 +48,8 @@ fn taskboard_progress_matches_gsd_tools() {
         );
         let status = fields["status"].as_str().unwrap_or_default();
         if number == "01" {
-            // The named r39 divergence: gsd-tools says Complete because `01-VERIFICATION.md` passed; verification is not
-            // modelled yet, so the twin stops at Executed.
+            // The named divergence: gsd-tools says Complete because `01-VERIFICATION.md` passed; a passed verification
+            // needs plan 07 (r40, once E501 verdicts are recorded), so the twin stops at Executed.
             assert_eq!(phase["status"], "Complete");
             assert_eq!(label(status), "Executed", "phase 01");
         } else {
@@ -68,7 +68,7 @@ fn taskboard_progress_matches_gsd_tools() {
         (done / plans * 100.0).round(),
         progress["percent"].as_f64().expect("percent")
     );
-    // `state json`: three counts equal, two wait for verification (plan 06 turns both into equalities).
+    // `state json`: three counts equal, two wait for verification (plan 07, r40, turns both into equalities).
     let state = golden("state-json")["progress"].clone();
     assert_eq!(milestone["phases"], state["total_phases"]);
     assert_eq!(milestone["plans"], state["total_plans"]);
@@ -76,7 +76,7 @@ fn taskboard_progress_matches_gsd_tools() {
     assert_eq!(
         (&milestone["phases_complete"], &milestone["percent"]),
         (&json!(0), &json!(0)),
-        "no phase is complete before r39"
+        "no phase is complete before r40's verdicts"
     );
     assert_eq!(
         (&state["completed_phases"], &state["percent"]),

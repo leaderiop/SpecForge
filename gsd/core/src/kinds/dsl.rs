@@ -14,11 +14,15 @@ pub enum Ty {
     /// An RFC 3339 UTC time: a string that `gsd/E107` checks when it is authored.
     Ts,
     Enum(&'static [&'static str]),
+    /// A list of values of a vocabulary, each once (ADR 0285).
+    Enums(&'static [&'static str]),
     Strs,
     /// Paths of project files, from the project root: the host's `E016` checks that each exists.
     Files,
     Ref(&'static str),
     Refs(&'static str),
+    /// A list of references to any of these kinds (ADR 0285 D5).
+    RefsAny(&'static [&'static str]),
     Block(&'static [Field]),
     Blocks(&'static [Field]),
 }
@@ -41,6 +45,8 @@ pub struct Field {
     pub required: bool,
     pub writer: Writer,
     pub immutable: bool,
+    /// `U`: only a person writes it (ADR 0289).
+    pub human: bool,
     /// `+`: the baseline's list is a prefix of the current one.
     pub append: bool,
     /// The inclusive bounds of an `int`.
@@ -58,6 +64,7 @@ impl Field {
             required: false,
             writer: Writer::Author,
             immutable: false,
+            human: false,
             append: false,
             range: None,
             inverse: "",
@@ -82,6 +89,11 @@ impl Field {
     /// `H`
     pub const fn h(mut self) -> Self {
         self.writer = Writer::Harness;
+        self
+    }
+    /// `U`
+    pub const fn u(mut self) -> Self {
+        self.human = true;
         self
     }
     /// `+`
@@ -124,6 +136,9 @@ pub const fn ts(name: &'static str) -> Field {
 pub const fn en(name: &'static str, values: &'static [&'static str]) -> Field {
     Field::new(name, Ty::Enum(values))
 }
+pub const fn ens(name: &'static str, values: &'static [&'static str]) -> Field {
+    Field::new(name, Ty::Enums(values))
+}
 pub const fn strs(name: &'static str) -> Field {
     Field::new(name, Ty::Strs)
 }
@@ -135,6 +150,9 @@ pub const fn rf(name: &'static str, kind: &'static str) -> Field {
 }
 pub const fn rfs(name: &'static str, kind: &'static str) -> Field {
     Field::new(name, Ty::Refs(kind))
+}
+pub const fn rfs_any(name: &'static str, kinds: &'static [&'static str]) -> Field {
+    Field::new(name, Ty::RefsAny(kinds))
 }
 pub const fn block(name: &'static str, members: &'static [Field]) -> Field {
     Field::new(name, Ty::Block(members))
@@ -150,6 +168,8 @@ pub struct Kind {
     pub singleton: bool,
     /// A log: an entity the baseline holds stays, with every authored value (K4).
     pub append_only: bool,
+    /// `U`: only a person writes the kind's entities (ADR 0289).
+    pub human: bool,
     /// The reference field that scopes the kind's names (K2).
     pub scoped_by: Option<&'static str>,
     pub fields: &'static [Field],
@@ -162,6 +182,7 @@ impl Kind {
             doc,
             singleton: false,
             append_only: false,
+            human: false,
             scoped_by: None,
             fields,
         }
@@ -172,6 +193,10 @@ impl Kind {
     }
     pub const fn append_only(mut self) -> Self {
         self.append_only = true;
+        self
+    }
+    pub const fn human(mut self) -> Self {
+        self.human = true;
         self
     }
     pub const fn scoped_by(mut self, field: &'static str) -> Self {
@@ -215,6 +240,9 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         Ty::Enum(values) => {
             f.vocabulary(&Vocabulary::new(values));
         }
+        Ty::Enums(values) => {
+            f.enum_list(&Vocabulary::new(values));
+        }
         Ty::Strs => {
             f.field_type(FieldType::StringList);
         }
@@ -231,6 +259,11 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         Ty::Refs(target) => {
             f.field_type(FieldType::ReferenceList)
                 .target_kind(target)
+                .edge(&edge_label(kind, field.name));
+        }
+        Ty::RefsAny(targets) => {
+            f.field_type(FieldType::ReferenceList)
+                .target_kinds(targets)
                 .edge(&edge_label(kind, field.name));
         }
         Ty::Block(members) | Ty::Blocks(members) => {
@@ -270,6 +303,9 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
     if field.immutable {
         f.immutable();
     }
+    if field.human {
+        f.human();
+    }
     if field.append {
         f.append_only();
     }
@@ -289,10 +325,20 @@ pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
             if kind.append_only {
                 k.append_only();
             }
+            if kind.human {
+                k.human();
+            }
             if let Some(scope) = kind.scoped_by {
                 k.scoped_by(scope);
             }
             for field in kind.fields {
+                // A required human field of a kind an agent may write could never be created (W021).
+                assert!(
+                    !(field.human && field.required && !kind.human),
+                    "{}.{}: a required human field needs a human kind",
+                    kind.name,
+                    field.name
+                );
                 k.field(field.name, |f| apply(kind.name, f, field));
             }
         });
@@ -323,6 +369,12 @@ fn declare_edges(c: &mut ContributionsBuilder, kind: &str, owner: &str, field: &
         Ty::Ref(target) | Ty::Refs(target) => {
             c.edge(&edge_label(owner, field.name), |e| {
                 e.source_kind(kind).target_kind(target);
+            });
+        }
+        // One edge for the union: an edge has one target kind, so it names none.
+        Ty::RefsAny(_) => {
+            c.edge(&edge_label(owner, field.name), |e| {
+                e.source_kind(kind);
             });
         }
         Ty::Block(members) | Ty::Blocks(members) => {
@@ -385,7 +437,12 @@ pub fn structured(kinds: &[&Kind]) -> Vec<String> {
                 .filter(|f| {
                     matches!(
                         f.ty,
-                        Ty::Block(_) | Ty::Blocks(_) | Ty::Strs | Ty::Files | Ty::Refs(_)
+                        Ty::Block(_)
+                            | Ty::Blocks(_)
+                            | Ty::Strs
+                            | Ty::Files
+                            | Ty::Refs(_)
+                            | Ty::RefsAny(_)
                     )
                 })
                 .map(move |f| format!("{}.{}", kind.name, f.name))

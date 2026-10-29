@@ -4,6 +4,15 @@
 
 use super::dsl::*;
 
+const ARTIFACT_STATE: &[&str] = &[
+    "present",
+    "missing",
+    "too_short",
+    "lacks_contains",
+    "lacks_export",
+    "unchecked",
+];
+const LINK_STATE: &[&str] = &["wired", "not_wired", "unchecked"];
 const TRUTH_VERIFICATION: &[&str] = &["explicit", "backstop"];
 
 /// `must_haves.truths`, named `TR1` within its plan.
@@ -33,6 +42,9 @@ pub const ARTIFACT: Kind = Kind::new(
         int("min_lines").doc("`min_lines:`"),
         strs("exports").doc("`exports:`"),
         str("contains").doc("`contains:`"),
+        en("state", ARTIFACT_STATE)
+            .c()
+            .doc("what the scan found in the file: `exports` matches `export … name`, `module.exports.name` or `exports.name`"),
     ],
 )
 .scoped_by("plan");
@@ -48,7 +60,10 @@ pub const KEY_LINK: Kind = Kind::new(
             .doc("`from:` (a path, not existence-checked)"),
         str("to").r().doc("`to:` (a path, not existence-checked)"),
         str("via").r().doc("`via:`"),
-        str("pattern").doc("`pattern:`"),
+        str("pattern").doc("`pattern:`; a plain text, searched in the `from` file"),
+        en("state", LINK_STATE)
+            .c()
+            .doc("wired when `pattern` is in the `from` file; unchecked for a pattern with a regular-expression metacharacter"),
     ],
 )
 .scoped_by("plan");

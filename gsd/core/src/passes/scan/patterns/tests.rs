@@ -1,0 +1,51 @@
+use super::*;
+
+fn severities(text: &str) -> Vec<(usize, Severity)> {
+    anti_patterns(text)
+        .into_iter()
+        .map(|h| (h.line, h.severity))
+        .collect()
+}
+
+#[test]
+fn a_bare_marker_is_a_blocker_and_a_referenced_one_is_not() {
+    let text =
+        "a\n// FIXME later\n// TBD see #42\n// XXX tracked in DEF-12\n// XXX\nlet x; // TODO\n";
+    assert_eq!(
+        severities(text),
+        [
+            (2, Severity::Blocker),
+            (5, Severity::Blocker),
+            (6, Severity::Warning)
+        ]
+    );
+}
+
+#[test]
+fn a_marker_is_a_whole_word() {
+    assert_eq!(severities("size XXXL\nFIXMEs\nTODO_X\n"), []);
+}
+
+#[test]
+fn a_placeholder_phrase_is_info() {
+    assert_eq!(
+        severities("coming soon\nNot Yet Implemented\n"),
+        [(1, Severity::Info), (2, Severity::Info)]
+    );
+}
+
+#[test]
+fn only_a_plain_pattern_is_literal() {
+    assert!(is_literal("require"));
+    assert!(!is_literal("import.*store"));
+}
+
+#[test]
+fn a_colour_is_not_a_follow_up() {
+    assert_eq!(
+        severities("color: #1a2b; // FIXME"),
+        [(1, Severity::Blocker)]
+    );
+    assert_eq!(severities("// FIXME #42 later"), []);
+    assert_eq!(severities("// FIXME see PR #7."), []);
+}

@@ -125,3 +125,16 @@ fn a_computed_member_is_listed_as_kind_field_member() {
         ]
     );
 }
+
+const REQUIRED_HUMAN_ON_AN_AGENT_KIND: Kind = Kind::new(
+    "forged",
+    "an agent kind with a required human field",
+    &[str("by").u().r()],
+);
+
+#[test]
+#[should_panic(expected = "a required human field needs a human kind")]
+fn a_required_human_field_of_an_agent_kind_is_refused_at_declare_time() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@gsd/test", "0.0.0"));
+    declare(&mut c, &[&REQUIRED_HUMAN_ON_AN_AGENT_KIND]);
+}
