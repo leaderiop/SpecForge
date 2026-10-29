@@ -14,6 +14,15 @@ const ADAPTED: &[(&str, &str)] = &[
         "plan-phase",
         "<phase> [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--skip-ui] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--bounce] [--skip-bounce] [--chunked] [--tdd] [--mvp] [--granularity <coarse|standard|fine>] [--no-tracer] [--no-reversibility-gates]",
     ),
+    (
+        "quick",
+        "[--list | --status <slug> | --resume <slug> | --full] [--validate] [--discuss] [--research] [--task \"task description\"]",
+    ),
+    (
+        "quick-batch",
+        "[--file <path>] [--jobs auto|N] [--validate] [--research] [--resume <batch-id>] [--tasks \"task list\"]",
+    ),
+    ("fast", "[--task \"task description\"]"),
     ("ultraplan-phase", "<phase>"),
     ("verify-work", "<phase> [--ws <name>]"),
     ("validate-phase", "<phase>"),

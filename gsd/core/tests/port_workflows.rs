@@ -35,6 +35,40 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/transition.md", 222),
 ];
 
+/// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
+/// exist here: a state table, a directory, a batch router. Each run opens with a line that says what replaced it.
+const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
+    ("gsd-core/workflows/fast.md", 78, 82),
+    ("gsd-core/workflows/fast.md", 85, 85),
+    ("gsd-core/workflows/fast.md", 87, 89),
+    ("gsd-core/workflows/fast.md", 92, 92),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 21, 21),
+    ("gsd-core/workflows/quick.md", 141, 142),
+    ("gsd-core/workflows/quick.md", 254, 254),
+    ("gsd-core/workflows/quick.md", 265, 265),
+    ("gsd-core/workflows/quick.md", 637, 637),
+    ("gsd-core/workflows/quick.md", 639, 639),
+    ("gsd-core/workflows/quick.md", 641, 641),
+    ("gsd-core/workflows/quick.md", 643, 643),
+    ("gsd-core/workflows/quick.md", 645, 645),
+    ("gsd-core/workflows/quick.md", 647, 647),
+    ("gsd-core/workflows/quick.md", 649, 651),
+    ("gsd-core/workflows/quick.md", 653, 655),
+    ("gsd-core/workflows/quick.md", 657, 659),
+    ("gsd-core/workflows/quick.md", 661, 663),
+    ("gsd-core/workflows/quick.md", 667, 667),
+    ("gsd-core/workflows/quick.md", 670, 674),
+    ("gsd-core/workflows/quick.md", 676, 677),
+    ("gsd-core/workflows/quick.md", 679, 679),
+    ("gsd-core/workflows/quick.md", 681, 682),
+    ("gsd-core/workflows/quick.md", 684, 684),
+    ("gsd-core/workflows/quick.md", 686, 690),
+    ("gsd-core/workflows/quick.md", 692, 692),
+    ("gsd-core/workflows/quick.md", 694, 694),
+    ("gsd-core/workflows/quick.md", 696, 699),
+    ("gsd-core/workflows/quick.md", 790, 790),
+];
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
@@ -104,6 +138,9 @@ fn workflow_assets_diff_only_in_ported_passages() {
         let asset = std::fs::read_to_string(root().join("assets").join(&path)).expect("an asset");
         check_lines(&path, &path, &asset, &body(&path), &rx, &|n| {
             REWRITTEN.contains(&(path.as_str(), n))
+                || REWRITTEN_SPANS
+                    .iter()
+                    .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
         });
         checked += 1;
     }

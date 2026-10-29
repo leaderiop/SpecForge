@@ -329,3 +329,30 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-next`, `/gsd-progress` an
 | `gsd-core/workflows/progress/steps/forensic-audit.md` | `18a8259b34cf9ac88d11915af7163bff3a5ee3ac7eb50bde7bc5ea13668dcfb1` |
 | `gsd-core/workflows/progress/steps/mvp-display.md` | `5a8cfbca688a9021e05a8c011a4427c59f50ca151332063b7bb43d62f1a25f7c` |
 | `gsd-core/workflows/smart-entry.md` | `7450c3fdd945c5b4a3c0fcf5fbccf0e681913b66c8bee636386f6c51f8682243` |
+
+## r43 T2: quick, quick-batch and fast
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-quick`, `/gsd-quick-batch` and `/gsd-fast`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/fast.md` | `9d26279e3e038f83a7df29b6a2b65c2f55dfc86cef7249756dcb02b805b50c21` |
+| `commands/gsd/quick-batch.md` | `502642bf0a71944f779211d9204f49fecfd9ae6f5a41066bac6cc8c4b9d1bc27` |
+| `commands/gsd/quick.md` | `5392a78ad85dde4afc1a0ca45a4fb96ea0c1fe9304edc6ef09171a86a4a7f4e8` |
+| `gsd-core/workflows/fast.md` | `0f3d8981eeaee0d0b9eb5e290d63e95707635ada2a90607186609b0531acdb4c` |
+| `gsd-core/workflows/quick-batch.md` | `fc523a1008727bc5ba17229a019a4a0379b816c40110041d579c105d7de451ae` |
+| `gsd-core/workflows/quick-batch/steps/batch-init.md` | `ae78b383ccf94c96a8c3e0f11fa4c7a6ab0f181becd98520c8818f2c02588f02` |
+| `gsd-core/workflows/quick-batch/steps/completion.md` | `4792226e1de8878be684c0ee5e6c3e3e2eaefe14412a610c5dc0aefbd200cba5` |
+| `gsd-core/workflows/quick-batch/steps/merge-wave.md` | `a680c1f1bb16fb225814e3bfe4910b2b108faf32750efa7b2e6367b87ad0827b` |
+| `gsd-core/workflows/quick-batch/steps/plan-checker-loop.md` | `3447c34b1cd2c9a55d4aa0d39863d06ef3045ae1c03bef435c210a4d02b69d53` |
+| `gsd-core/workflows/quick-batch/steps/planner-wave.md` | `d985460359821d90a193f2613eb9060ff8e1e6fef008c2b9fa3257c017088678` |
+| `gsd-core/workflows/quick-batch/steps/research-phase.md` | `c9ebeb0e6c19c30417a0f06fdbde6e374e94e0e3faeeb6ec98d9a4df89967b0b` |
+| `gsd-core/workflows/quick-batch/steps/resume-mode.md` | `2e0993f30697c8f01277d7a8b05e59a159335d40916b0df2e400586fd99312aa` |
+| `gsd-core/workflows/quick-batch/steps/verification-wave.md` | `dfa2ba337fa28b781315e9a5ea9f85f3397b760634d70aff1e596c829e3017bd` |
+| `gsd-core/workflows/quick-batch/steps/worktree-dispatch.md` | `fbf40017f6819c84d6855c1b6f582f59e1ea74bbe5125b92e1d82d9c9a2455f1` |
+| `gsd-core/workflows/quick.md` | `f4877d414b09469dbabe4acc0c5f204a0369a4f3b8d3e3c13247f065da9c68f8` |
+| `gsd-core/workflows/quick/steps/discussion-phase.md` | `ff7a0c851f0b4a3c5ceb26d0aa125897e9a572522c9761a0962279ef46744d7f` |
+| `gsd-core/workflows/quick/steps/plan-checker-loop.md` | `83ab28e3776266a48d343e88cc3132d96d2090d085f378eb04d2d2b42a7e1ae1` |
+| `gsd-core/workflows/quick/steps/quick-verification.md` | `84cd6b07a1378f3d27a1d5dc2a168c8260339d2062e433b6a4dd5e48906f6f04` |
+| `gsd-core/workflows/quick/steps/research-phase.md` | `9dbacbf97906704f30b3cedba24a2bd655d189e05274e870ba1c60ab4459dc80` |
+| `gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md` | `a0c8774cffba8ab38c8ea9deb6ec92d0851af477b6cde353b82c35ce49276ecb` |

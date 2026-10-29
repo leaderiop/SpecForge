@@ -13,6 +13,7 @@ mod navigate;
 mod plan;
 mod preamble;
 mod project;
+mod quick;
 pub(crate) mod render;
 pub(crate) mod repoint;
 pub mod roster;
@@ -58,4 +59,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     audit::declare(c);
     ship::declare(c);
     navigate::declare(c);
+    quick::declare(c);
 }

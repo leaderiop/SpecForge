@@ -46,6 +46,7 @@ mod prompts_gates;
 mod prompts_navigate;
 mod prompts_plan;
 mod prompts_project;
+mod prompts_quick;
 mod prompts_ship;
 mod prompts_spec;
 mod prompts_support;

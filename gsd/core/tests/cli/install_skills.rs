@@ -4,7 +4,7 @@ use std::path::Path;
 
 use super::harness::project;
 
-const SKILLS: [&str; 26] = [
+const SKILLS: [&str; 29] = [
     "gsd-phase",
     "gsd-workstreams",
     "gsd-cleanup",
@@ -31,6 +31,9 @@ const SKILLS: [&str; 26] = [
     "gsd-next",
     "gsd-progress",
     "gsd-manager",
+    "gsd-quick",
+    "gsd-quick-batch",
+    "gsd-fast",
 ];
 
 fn check_golden(id: &str, actual: &str) {
