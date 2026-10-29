@@ -108,3 +108,14 @@ pub fn unledger(p: &Project, entity: &str, field: &str) {
         .collect();
     p.write("specforge-harness", &format!("{}\n", kept.join("\n")));
 }
+
+/// The project's files are as `before` ([`bytes`]) saw them: the failure names the files that differ.
+pub fn unchanged(p: &Project, before: &BTreeMap<String, String>) {
+    let after = bytes(p);
+    let names: Vec<&String> = before
+        .keys()
+        .chain(after.keys())
+        .filter(|k| before.get(*k) != after.get(*k))
+        .collect();
+    assert!(names.is_empty(), "these files differ: {names:?}");
+}

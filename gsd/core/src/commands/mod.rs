@@ -2,6 +2,7 @@
 //! builds the others, each file the commands of one family (D-r41-2).
 
 mod execute;
+mod state;
 mod support;
 mod verdict;
 mod verify;
@@ -12,4 +13,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     verdict::declare(c);
     execute::declare(c);
     verify::declare(c);
+    state::declare(c);
 }

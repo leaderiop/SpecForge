@@ -1,6 +1,8 @@
 //! What the writing commands share (D-r41-2): one way to refuse, the clock, a person's text and the ids a command
 //! creates. Every refusal is `invalid_input` (exit 1) unless a gate or the host says otherwise.
 
+use std::collections::BTreeMap;
+
 use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
@@ -99,6 +101,63 @@ pub fn node<'a>(call: &CommandCall<'a>, kind: &str, id: &str) -> Result<&'a Grap
                 .join(", ")
         )),
     }
+}
+
+/// The next free number of `prefix` among the entities of `kind` under `scope` (a path prefix, `""` for none):
+/// `PS` with `PS1` and `PS3` there gives `PS4`.
+pub fn next_id(graph: &CommandGraph, kind: &str, scope: &str, prefix: &str) -> String {
+    let highest = graph
+        .nodes()
+        .iter()
+        .filter(|n| n.kind == kind)
+        .filter_map(|n| n.id.strip_prefix(scope))
+        .filter_map(|rest| rest.strip_prefix(prefix))
+        .filter_map(|digits| digits.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0);
+    format!("{prefix}{}", highest + 1)
+}
+
+/// The file a new ops entity (a pause, a blocker, a window) goes to: the `ops.spec` beside the file that holds
+/// `anchor` when the project has one, else that file itself. A new file would not round-trip: the host leaves an
+/// emptied file behind when its last entity is deleted.
+pub fn ops_file(graph: &CommandGraph, anchor: Option<&str>) -> String {
+    let file = anchor
+        .and_then(|id| graph.node(id))
+        .and_then(|n| n.file.as_deref())
+        .or_else(|| graph.nodes().iter().find_map(|n| n.file.as_deref()))
+        .unwrap_or("spec/ops.spec");
+    let ops = match file.rsplit_once('/') {
+        Some((dir, _)) => format!("{dir}/ops.spec"),
+        None => "ops.spec".to_string(),
+    };
+    if graph
+        .nodes()
+        .iter()
+        .any(|n| n.file.as_deref() == Some(&ops))
+    {
+        ops
+    } else {
+        file.to_string()
+    }
+}
+
+/// A one-line title for an entity made from a person's text: its first line, cut at 72 characters.
+pub fn title(text: &str) -> String {
+    let line = text.lines().next().unwrap_or_default().trim();
+    match line.char_indices().nth(72) {
+        Some((cut, _)) => format!("{}...", line[..cut].trim_end()),
+        None => line.to_string(),
+    }
+}
+
+/// The fields of a `create`: the pairs whose value is not null.
+pub fn fields<const N: usize>(pairs: [(&str, Value); N]) -> BTreeMap<String, Value> {
+    pairs
+        .into_iter()
+        .filter(|(_, value)| !value.is_null())
+        .map(|(name, value)| (name.to_string(), value))
+        .collect()
 }
 
 #[cfg(test)]
