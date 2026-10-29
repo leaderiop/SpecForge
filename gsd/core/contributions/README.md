@@ -64,6 +64,27 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 | `complete_milestone` | E106, E511, E516 | `close_milestone` |
 | `ship` | E511, E512, E516 | `fix_window`, `waive_window` |
 
+### What the lifecycle prompts do not do (known, not fixed)
+
+The assets are upstream's text; where the spec has no counterpart a line was defaulted, not ported (each is a line in
+`REWRITTEN` of `tests/port_workflows.rs`):
+
+- Settings. `{{setting:<key>|<fallback>}}` reads the settings block. `commit_docs`, `features.graduation*`,
+  `workflow._auto_chain_active`, `workflow.code_review_command` and `workflow.live_dom_uat` are not keys of the roster
+  (`NOT_SETTINGS` in `tests/ported_text.rs`), so they always take their fallback, and a `settings set` on them would be
+  refused. `USE_WORKTREES` is `false` (the `sequential` tail of `execute_phase`); `RUNTIME` is the rendered host.
+- Defaulted gaps: worktrees, the loop hooks, `intel`, `resolve-model`, learnings and the dispatch-isolation steps.
+- `init` JSON fields (`phase_dir`, `plan_count`, ...) have no counterpart: the text reads the graph (`specforge query`)
+  and the ids named at the end of the text (`$PHASE_ID`, `$MILESTONE`, `$PROJECT`).
+- `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
+- The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's, not upstream's.
+- Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
+  an agent's effort to `high` as upstream does (`tests/golden/host/` holds the probe and both conversions, made with
+  upstream's converters).
+- The twin has no commit, broken-window, human-item, methodology or lesson data, so the query tests do not reach them.
+- The goldens (`tests/golden/prompts/`) are hashes plus the first 80 lines and counts, not the whole text.
+- `cargo gate full` is the check for all of it; a revendor or a kernel change is K19, not done here.
+
 The other rows of the roster above are r43's. A rendered text may name them (the preamble says to skip what is not
 installed); `tests/ported_text.rs` lists every such name.
 

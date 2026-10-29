@@ -83,11 +83,12 @@ fn a_ported_line_names_only_declared_tools() {
     let mut seen = 0;
     for (path, lines, body) in every_asset() {
         for (n, (mine, theirs)) in lines.iter().zip(&body).enumerate() {
-            // a shell comment is prose
-            if mine == theirs || mine.trim_start().starts_with('#') {
+            if mine == theirs {
                 continue;
             }
-            for cap in verb.captures_iter(mine) {
+            // the one prose phrase every shell block opens with
+            let mine = mine.replace("are specforge commands", "");
+            for cap in verb.captures_iter(&mine) {
                 seen += 1;
                 assert!(
                     VERBS.contains(&&cap[1]),

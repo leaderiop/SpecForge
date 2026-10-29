@@ -503,7 +503,7 @@ questions: [
     multiSelect: false,
     options: [
       { label: "Yes (Recommended)", description: "Planning docs tracked in version control" },
-      { label: "No", description: "Keep the spec local-only (add to .gitignore)" }
+      { label: "No", description: "Keep the spec local-only (add spec/ to .gitignore, creating it if needed)" }
     ]
   }
 ]
@@ -1119,7 +1119,7 @@ This ensures new projects get the default GSD workflow-enforcement guidance and 
 **Commit roadmap (after approval or auto mode):**
 
 ```bash
-git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
+git add spec && git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
 ```
 
 ## 9. Done

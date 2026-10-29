@@ -52,7 +52,6 @@ const NON_CORE_COMMANDS: &[&str] = &[
 
 /// Files of upstream's tree that r43 ports: a rendered text may name them as "not installed yet".
 const R43_PATHS: &[&str] = &[
-    "gsd-core/bin/lib/edge-probe.cjs",
     "gsd-core/templates/research-project/",
     "gsd-core/workflows/node-repair.md",
 ];
@@ -109,6 +108,9 @@ fn sweep() -> Vec<(String, &'static str, String, String)> {
 }
 
 fn assert_clean(label: &str, text: &str) {
+    // the user's own profile file is not an asset: its path stays
+    let text = text.replace("/.claude/gsd-core/USER-PROFILE.md", "");
+    let text = text.as_str();
     for forbidden in FORBIDDEN {
         assert!(!text.contains(forbidden), "{label} names {forbidden}");
     }

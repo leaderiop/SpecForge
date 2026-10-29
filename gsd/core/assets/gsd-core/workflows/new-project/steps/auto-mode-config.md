@@ -34,7 +34,7 @@ AskUserQuestion([
     multiSelect: false,
     options: [
       { label: "Yes (Recommended)", description: "Planning docs tracked in version control" },
-      { label: "No", description: "Keep the spec local-only (add to .gitignore)" }
+      { label: "No", description: "Keep the spec local-only (add spec/ to .gitignore, creating it if needed)" }
     ]
   }
 ])

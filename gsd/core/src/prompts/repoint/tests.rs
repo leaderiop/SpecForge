@@ -54,3 +54,18 @@ fn text_without_a_path_is_unchanged() {
     let text = "nothing to point at, not even .claude/ alone";
     assert_eq!(repoint(text), text);
 }
+
+#[test]
+fn a_path_in_a_double_quoted_string_gets_no_backticks() {
+    let out = repoint(r#"for d in "$HOME/.claude/gsd-core/bin/lib" "x"; do"#);
+    assert_eq!(
+        out,
+        r#"for d in "specforge gsd reference gsd-core/bin/lib" "x"; do"#
+    );
+}
+
+#[test]
+fn the_users_own_profile_file_keeps_its_path() {
+    let line = r#"P="$HOME/.claude/gsd-core/USER-PROFILE.md""#;
+    assert_eq!(repoint(line), line);
+}
