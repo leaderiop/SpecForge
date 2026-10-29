@@ -6,6 +6,7 @@ version.workspace = true
 license.workspace = true
 repository.workspace = true
 build = "build.rs"
+autotests = false
 
 [dependencies]
 tree-sitter-language = { workspace = true }
@@ -21,3 +22,7 @@ cc = { workspace = true }
 
 [lints]
 workspace = true
+
+[[test]]
+name = "suite"
+path = "tests/suite.rs"

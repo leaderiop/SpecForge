@@ -11,7 +11,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
-mod probe_support;
+use crate::probe_support;
 
 use probe_support::{
     ALL, Bait, PROBE, command_input, declared_surfaces, granted_nothing, probe_runtime,

@@ -5,6 +5,7 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
+autotests = false
 
 [dependencies]
 # The catalog's title on every diagnostics JSON entry; it has no dependencies.
@@ -34,3 +35,7 @@ tempfile = { workspace = true }
 
 [lints]
 workspace = true
+
+[[test]]
+name = "suite"
+path = "tests/suite.rs"

@@ -5,6 +5,7 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
+autotests = false
 
 [features]
 # `builtins::load_builtins` and `load_builtins_for`: put builtins into a
@@ -41,3 +42,7 @@ harness = false
 
 [lints]
 workspace = true
+
+[[test]]
+name = "suite"
+path = "tests/suite.rs"

@@ -3,7 +3,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
-mod support;
+use crate::support;
 
 use specforge_hosts::renderer;
 use specforge_ops::host::{Host, ModelChoice};
