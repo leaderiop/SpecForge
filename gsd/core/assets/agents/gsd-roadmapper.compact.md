@@ -349,7 +349,7 @@ Orchestrator provides revision feedback → parse concerns, update files in plac
 
 ### Files Ready for Review
 
-User can review actual files in the editor or via SDK queries (e.g. `specforge query roadmap.analyze` and `specforge query state.load`) instead of ad-hoc shell `cat`.
+User can review actual files in the editor or via SDK queries (e.g. `specforge query "$MILESTONE" --kinds phase --format context` and `specforge check`) instead of ad-hoc shell `cat`.
 
 {If gaps found during creation:}
 

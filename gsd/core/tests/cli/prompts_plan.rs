@@ -2,6 +2,8 @@
 
 use serde_json::json;
 
+use super::cmd_execute::stale_plan_check;
+use super::commands_support::{plus, twin};
 use super::harness::{Project, project};
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
@@ -181,4 +183,85 @@ fn the_plan_phase_slash_command_has_effort_max() {
     let run = p.install("claude-code", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert!(p.exists(".claude/skills/gsd-plan-phase/SKILL.md"));
+}
+
+const CODEX_CYCLES: &[&str] = &[PHASE, "--codex", "--max-cycles", "3"];
+
+#[test]
+fn convergence_renders() {
+    let p = twin();
+    let rendered = payload(&prompt(
+        &p,
+        "plan_review_convergence",
+        CODEX_CYCLES,
+        "claude-code",
+    ));
+    let steps = rendered["payload"]["steps"].as_array().expect("steps");
+    assert_eq!(steps[0]["id"], "replan");
+    assert_eq!(steps[0]["prompt"], "specforge.gsd.plan_phase");
+    assert_eq!(steps[1]["id"], "check");
+    assert!(
+        steps[1]["title"]
+            .as_str()
+            .expect("a title")
+            .contains("gsd-plan-checker")
+    );
+    assert!(text_of(&rendered).contains("02 --codex --max-cycles 3"));
+}
+
+#[test]
+fn convergence_renders_for_three_hosts() {
+    let p = twin();
+    let args = [
+        PHASE,
+        "--claude",
+        "--codex",
+        "--coderabbit",
+        "--opencode",
+        "--qwen",
+        "--cursor",
+        "--antigravity",
+        "--agy",
+        "--ollama",
+        "--lm-studio",
+        "--llama-cpp",
+        "--kimi-code",
+        "--text",
+        "--ws",
+        "alpha",
+        "--all",
+        "--max-cycles",
+        "3",
+    ];
+    render_three_hosts(
+        &p,
+        "plan_review_convergence",
+        &args,
+        "02 --claude --codex --coderabbit --opencode --qwen --cursor --antigravity --agy --ollama --lm-studio --llama-cpp --kimi-code --text --ws \"alpha\" --all --max-cycles 3",
+        "<objective>",
+    );
+}
+
+#[test]
+fn ultraplan_phase_renders_for_three_hosts() {
+    let p = twin();
+    render_three_hosts(&p, "ultraplan_phase", &[PHASE], "02", "<objective>");
+}
+
+#[test]
+fn ultraplan_phase_gate_refuses_a_context_without_canonical_refs() {
+    let p = without_refs();
+    let run = prompt(&p, "ultraplan_phase", &[PHASE], "claude-code");
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("E201"), "{}", run.all());
+}
+
+#[test]
+fn convergence_gate_refuses_a_stale_verdict_under_plus() {
+    let p = twin();
+    stale_plan_check(&p);
+    plus(&p);
+    let run = prompt(&p, "plan_review_convergence", &[PHASE], "claude-code");
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("E516"), "{}", run.all());
 }

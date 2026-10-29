@@ -19,7 +19,9 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("commands/gsd/new-milestone.md"),
     asset!("commands/gsd/new-project.md"),
     asset!("commands/gsd/plan-phase.md"),
+    asset!("commands/gsd/plan-review-convergence.md"),
     asset!("commands/gsd/spec-phase.md"),
+    asset!("commands/gsd/ultraplan-phase.md"),
     asset!("gsd-core/references/agent-contracts.md"),
     asset!("gsd-core/references/agent-skills-bootstrap.md"),
     asset!("gsd-core/references/checkpoints.md"),
@@ -146,7 +148,9 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/workflows/plan-phase/steps/reviews-prerequisite.md"),
     asset!("gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md"),
     asset!("gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md"),
+    asset!("gsd-core/workflows/plan-review-convergence.md"),
     asset!("gsd-core/workflows/spec-phase.md"),
+    asset!("gsd-core/workflows/ultraplan-phase.md"),
 ];
 
 /// The text of the asset at `path` (its attribution line included).

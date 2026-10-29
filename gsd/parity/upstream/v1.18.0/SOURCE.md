@@ -81,7 +81,9 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `commands/gsd/new-milestone.md` | `5bd5d02468791c6b50c70e0b50a37807e8d362634e480d26920cb1986dbcb0fd` |
 | `commands/gsd/new-project.md` | `3ccfcba83d400d996db7f73a045e9138a7322ee372e516ccbc96ec33971407fd` |
 | `commands/gsd/plan-phase.md` | `03c2ea26a9f4c480fa587bd647551399156c419803dcdf6ad9de259adcaeacf0` |
+| `commands/gsd/plan-review-convergence.md` | `4ca4073a5d2574d1ca155334136760ea109f0945dff5104f8938ee5c072227c4` |
 | `commands/gsd/spec-phase.md` | `99120491c57e274edb56027c5a9573cc6fd6da9fa37304816fda69bbaabebeb1` |
+| `commands/gsd/ultraplan-phase.md` | `6ce468cd97f99a3d81a7db17baba2ae20858972e1f0090b621e56d58d9a76cb8` |
 | `gsd-core/references/agent-contracts.md` | `b07ecbfe64411229ec0760e1f6cb5b05ad0f2493ca688f87d258c4b0cd7d6597` |
 | `gsd-core/references/agent-skills-bootstrap.md.txt` | `0ad5db82dd8bda51bdb367c3abba2a360846a3f1bcfc3efbc8d546b7b38a879b` |
 | `gsd-core/references/checkpoints.md` | `dc5f1f03e9fc812538dd257f620c74fadc7213b6fcd871323d797137bf6c5eb2` |
@@ -208,7 +210,9 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/workflows/plan-phase/steps/reviews-prerequisite.md` | `d0d084ad6a1fea566643a476c3dc6e46d85c49075b4a10cf991553c9ee539f02` |
 | `gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md` | `9b9d040fa38e35ce147ba712268fede1f4df3367d414d5380bb66d61dae1915e` |
 | `gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md` | `49f58c3f75be3eb5e607b572fd28b1969faa0b47e837c3d9255df36ffbafe80b` |
+| `gsd-core/workflows/plan-review-convergence.md` | `0ffef2e4ae27966f485326f017312a42ed153d8da0f29cf49abb81ac32393798` |
 | `gsd-core/workflows/spec-phase.md` | `9a05d48ae07f40f373c2bf02321094b9d64e66329d63310851accebc7e16dd00` |
+| `gsd-core/workflows/ultraplan-phase.md` | `58512036c7dc6a70f1612854e5a9929cfa22c33039d5242133147daf744c2521` |
 | `src/runtime-artifact-conversion.cts` | `9b84125146270c5ecfc6f8f530f2ca01883b0239497990e91834a4b4939cad6c` |
 | `tests/cursor-conversion.test.cjs` | `c787bcff4ff452f17459caed63706a11ecc3d8cbc2eb728d20dfcdc448da0e6b` |
 | `tests/runtime-converters.test.cjs` | `9b481753590f9a0a48d3a76136ae03d27cb16029d4576c7f2711342f2f6f2263` |

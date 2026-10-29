@@ -14,7 +14,6 @@ pub enum Kind {
     /// `--name "text"`.
     Text,
     /// `--name 3`.
-    #[allow(dead_code, reason = "execute_phase takes --wave")]
     Integer,
     /// `--name value`, one of these.
     OneOf(&'static [&'static str]),
@@ -49,7 +48,6 @@ impl Arg {
             required: false,
         }
     }
-    #[allow(dead_code, reason = "execute_phase takes --wave")]
     pub const fn integer(name: &'static str) -> Arg {
         Arg {
             name,
