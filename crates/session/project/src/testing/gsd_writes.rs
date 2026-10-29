@@ -143,7 +143,12 @@ impl GsdWrites {
         } else {
             runtime.with(move || core(guard))
         };
-        let mut runtime = runtime.with(ui).with(other).answer_raw(
+        let mut runtime = runtime.with(ui).with(other);
+        // The first answer to an export wins: a test's own comes before the empty default.
+        for (extension, export, result) in self.answers {
+            runtime = runtime.answer_raw(&extension, &export, result);
+        }
+        runtime = runtime.answer_raw(
             CORE,
             "__pass_verify_status",
             WasmCallResult::Ok(
@@ -152,9 +157,6 @@ impl GsdWrites {
                     .into_bytes(),
             ),
         );
-        for (extension, export, result) in self.answers {
-            runtime = runtime.answer_raw(&extension, &export, result);
-        }
         runtime
     }
 }

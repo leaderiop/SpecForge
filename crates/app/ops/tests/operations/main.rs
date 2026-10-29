@@ -6,6 +6,7 @@
 )]
 
 mod anchors;
+mod call_graph;
 mod captures;
 mod collect;
 mod command_now;
