@@ -1,11 +1,16 @@
-//! The verify rules no judged rule or declaration carries: `gsd/E503`, an override has its author and date;
-//! `gsd/W504`, no more than three overrides in a phase; `gsd/E509`, authored UAT evidence that makes a session
+//! The verify rules no judged rule or declaration carries: `gsd/E502`, a `verified` verdict is not contradicted by the
+//! truth's recorded tests; `gsd/E503`, an override has its author and date; `gsd/W504`, no more than three overrides in a phase; `gsd/E509`, authored UAT evidence that makes a session
 //! unpassable (a skipped test with no reason, an issue with no report). A session's status is computed, so it cannot
 //! be contradicted: E509 reports what the author left out.
 //!
 //! D-r39-1: E503 and E314 read only authored data. E509 reads `uat_test.result` and `reported`, which a command or
 //! a collector writes: it leaves out a test a collector reported (`source automated`), so a collector's plan can never
 //! newly trigger it. A future writer of `result` without a `source`, or an `issue` recorded without `reported`, would.
+//!
+//! `gsd/E502` needs a fresh passing `gsd/E501` judgement and a recorded report, and both of its inputs are inputs of
+//! E501 (`truth self`, `tests test(self)`): a new or changed result stales the verdict first, so a recorded test never
+//! makes E502 appear. It appears only when a verifier records `verified` over results that contradict it, and that
+//! record is refused (E080 names it): the verifier records `failed` instead. Silent without a report (I205 says so).
 //!
 //! `gsd/W514` (a refactor `deviation` window while `workflow.windows_enforce` is off) is not built: a pass is not
 //! sent the project's settings, and a setting gates a code only while it is on, never while it is off (it needs
@@ -22,12 +27,12 @@ const MAX_OVERRIDES: usize = 3;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("verify_rules", |p| {
-        p.phase("check").run(check);
+        p.phase("check").reads_tests().run(check);
     });
 }
 
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
-    let mut found = Vec::new();
+    let mut found = e502(input);
     let mut per_verification: BTreeMap<&str, usize> = BTreeMap::new();
     for o in of_kind(input, "override") {
         let missing: Vec<&str> = ["by", "at"]
@@ -84,4 +89,43 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
         }
     }
     found
+}
+
+/// E502: an explicit truth whose fresh passing E501 verdict stands over recorded tests that hold no passed result or a
+/// failed one. A backstop truth is never E502, and no report is no finding.
+fn e502(input: &PassInput) -> Vec<PassDiagnostic> {
+    let Some(report) = &input.test_results else {
+        return Vec::new();
+    };
+    of_kind(input, "truth")
+        .filter(|t| text(t, "verification") == Some("explicit"))
+        .filter(|t| {
+            t.judgements
+                .iter()
+                .any(|j| j.rule == "gsd/E501" && j.state == "fresh" && j.passed)
+        })
+        .filter_map(|t| {
+            let tests = report.of(&t.id);
+            let failed = tests.iter().any(|r| r.status == TestStatus::Failed);
+            let passed = tests.iter().any(|r| r.status == TestStatus::Passed);
+            let why = if failed {
+                "a test recorded for it failed"
+            } else if !passed {
+                "no passing test is recorded for it"
+            } else {
+                return None;
+            };
+            Some(
+                PassDiagnostic::new(
+                    "E502",
+                    PassSeverity::Error,
+                    format!("explicit truth '{}' is verified, but {why}", t.id),
+                )
+                .with_suggestion(
+                    "record `failed` for the truth, or link a passing test to it with `[gsd:<id>]`",
+                )
+                .with_entity(&t.id),
+            )
+        })
+        .collect()
 }

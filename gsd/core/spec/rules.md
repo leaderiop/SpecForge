@@ -92,7 +92,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
 | gsd/E501 | the verifier's verdict on each truth, artifact and key link is fresh | judged (verifier) | E | E | verifier, honest-verifier |
-| gsd/E502 | an explicit truth is verified only with a named passing test. NOT BUILT (deferred, not blocked: REVIEW-r40 M7). Until it is, a `verified` records on an explicit truth whose recorded tests include a failing one. A failing report collected after a pass stales the pass, so E502 (which needs a fresh passing judgement) is not raised by it, and refusing a `verified` over a failing test is the rule's purpose (`tests/cli/e502_probe.rs`) | pass | E | E | honest-verifier |
+| gsd/E502 | an explicit truth is verified only with a passing test recorded for it (its `[gsd:<id>]` link): a fresh passing `gsd/E501` verdict over recorded tests that hold no passed result, or a failed one, is E502. Silent without a report (I205 says there is none); a `backstop` truth is never E502. Every input of E502 is an input of E501 (`truth self`, `tests test(self)`), so a recorded result stales the verdict first and never makes E502 appear: it appears when a verifier records `verified` over results that contradict it, and that record is refused (E080 names `gsd/E502`; the verifier records `failed` instead, `tests/cli/e502_probe.rs`). A verdict's `cited_tests` are not sent to a pass, so a cited test that is not linked does not count | pass | E | E | honest-verifier |
 | gsd/E503 | an override names who accepted the truth and when: `by` and `at` are not required fields, so this is their one diagnostic, naming which is missing | pass | E | E | verifier overrides |
 | gsd/W504 | more than three overrides in a phase: one warning on the verification | pass | W | W | verifier |
 | gsd/E505 | debt markers (TBD, FIXME, XXX) in the phase's files link to an issue: a whole-word marker in a file a plan names in `files_modified`, on a line with no `#N`, `issue #N`, `PR #N` or `DEF-N`; one error per file and line, naming `file:line`. Judged over the authored `files_modified`, never a commit's file list. A file the host did not serve (a budget, a cap) is not checked, never a finding. `TODO`, `HACK` and `PLACEHOLDER` are warnings in `verification.anti_patterns`, not diagnostics | pass | E | E | verifier |
@@ -122,7 +122,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   names. A file the host did not serve (its 1 MiB text budget is charged per entity and path) makes the phase's
   verification `scan_partial`, which keeps it from `passed`.
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), by declaring `reads_tests`: `gsd/W408`
-  (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E502` (above) and `gsd/E515`.
+  (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E515`.
   `gsd/W403` reads the recorded commits, not the report.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is not yet, and reads the items in `values`.

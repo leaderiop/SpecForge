@@ -292,7 +292,7 @@
     {
       "code": "E502",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "An explicit truth is verified only with a named passing test. It is an error.",
+      "explanation": "An explicit truth is verified only with a passing test recorded for it. It is an error.",
       "title": "Explicit truth verified without a passing test"
     },
     {
