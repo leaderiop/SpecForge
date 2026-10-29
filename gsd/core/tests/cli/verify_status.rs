@@ -45,9 +45,10 @@ fn an_agent_cannot_edit_an_existing_override() {
             "set",
             "v1.0/01/01-VERIFICATION/OV1",
             "truth",
-            "v1.0/01/01-01/TR2",
+            "v1.0/01/01-02/TR1",
         ][..],
         &["unset", "v1.0/01/01-VERIFICATION/OV1", "by"][..],
+        &["set", "v1.0/01/01-VERIFICATION/OV1", "accepts", "anything"][..],
     ] {
         let run = p.run(args);
         assert_ne!(run.code, 0, "{args:?}: {}", run.all());

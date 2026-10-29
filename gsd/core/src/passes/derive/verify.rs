@@ -14,7 +14,8 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::value;
-use crate::passes::plans::{children, link, links, of_kind, phase_of};
+use crate::passes::plans::{children, link, links, of_kind, phase_of, text};
+use crate::passes::roadmap::numbering::Number;
 
 type Statuses<'a> = BTreeMap<&'a str, &'static str>;
 
@@ -135,12 +136,37 @@ fn group<'a>(input: &'a PassInput, phase: &str, deferred: &BTreeSet<String>) -> 
     Group { entities }
 }
 
-fn deferred(v: &PassEntity) -> BTreeSet<String> {
+/// An override that wrote `accepts` (the truth's text as the person accepted it) counts only while the truth still says
+/// that: rewriting the truth ends the acceptance (upstream matches an override to its must-have by text). One without
+/// `accepts` is bound by the truth's id alone.
+fn still_accepts(input: &PassInput, o: &PassEntity) -> bool {
+    let Some(accepted) = text(o, "accepts") else {
+        return true;
+    };
+    link(input, o, "truth")
+        .and_then(|id| of_kind(input, "truth").find(|t| t.id == id))
+        .and_then(|t| text(t, "text"))
+        == Some(accepted)
+}
+
+/// The truths a verification defers: only to a phase that exists and comes later in the roadmap than its own (upstream
+/// defers to a later phase). A deferral to the same, an earlier or an unknown phase, or to one outside the numbering,
+/// is ignored, so the truth still needs its verdict: an agent-written `deferred` cannot reach `passed` by itself.
+fn deferred(input: &PassInput, v: &PassEntity, phase: &str) -> BTreeSet<String> {
+    let own = Number::of(phase);
     v.values
         .get("deferred")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
+        .filter(|row| {
+            let to = row.get("addressed_in").and_then(Value::as_str);
+            to.is_some_and(|to| of_kind(input, "phase").any(|p| p.id == to))
+                && to
+                    .and_then(Number::of)
+                    .zip(own.clone())
+                    .is_some_and(|(to, own)| to > own)
+        })
         .filter_map(|row| row.get("truth")?.as_str().map(String::from))
         .collect()
 }
@@ -279,9 +305,10 @@ fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
         let Some(phase) = link(input, v, "phase") else {
             continue;
         };
-        let group = group(input, phase, &deferred(v));
+        let group = group(input, phase, &deferred(input, v, phase));
         let overridden: BTreeSet<&str> = of_kind(input, "override")
             .filter(|o| link(input, o, "verification") == Some(v.id.as_str()))
+            .filter(|o| still_accepts(input, o))
             .filter_map(|o| link(input, o, "truth"))
             .collect();
         let now: Vec<Item> = group

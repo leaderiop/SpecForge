@@ -48,7 +48,7 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | phase | → phase | R I | `phase:` |
-| deferred | {truth → truth R, addressed_in → phase R, evidence str R} | | `deferred:` |
+| deferred | {truth → truth R, addressed_in → phase R, evidence str R} | | `deferred:`; a deferral takes the truth out of the status and the score only when `addressed_in` names a phase that exists and comes later than the verification's own (by phase number); otherwise it is ignored and the truth needs its verdict. It is the third path to `passed` besides a verdict and an override, and an agent can write it |
 | status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, except that a key link whose literal `pattern` it found is verified; a regular-expression pattern is `unchecked` and keeps the phase `pending`), and a complete scan; a backstop truth with no explicit evidence is human_needed, never passed |
 | score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
@@ -64,7 +64,7 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 An open verify_gap puts the verifier in re-verification mode (failed items in full, passed items as a regression check);
 `re_verification` reports the outcome, it does not start it.
 
-**override** (kind `U`; name `OV1`): `verification R`, `truth → truth R`, `reason str R`, `by str`, `at date` (`by` and `at` are not `R`: gsd/E503 is the one diagnostic of their absence). The host refuses
+**override** (kind `U`; name `OV1`): `verification R`, `truth → truth R`, `accepts str` (the truth's text as the person accepted it: the override counts only while the truth still says exactly this, so an agent that rewrites the truth ends the acceptance, as upstream's match by text does; an override without `accepts` is bound by the truth's id alone, and a person should write it), `reason str R`, `by str`, `at date` (`by` and `at` are not `R`: gsd/E503 is the one diagnostic of their absence). The host refuses
 to create, delete or retitle an override in any extension's plan and any MCP write (K5 D7), and to `set`, `unset` or
 `link` any of its fields (`truth`, `reason`, `by`, `at` are human fields, K5 D7); a human writes it by hand or from an
 interactive `specforge` command. An agent that edits the file directly is not stopped: the commit shows it, and more than three in

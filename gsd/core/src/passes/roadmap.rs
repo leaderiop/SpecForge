@@ -3,7 +3,7 @@
 //! gate guard (r39).
 
 mod criteria;
-mod numbering;
+pub(crate) mod numbering;
 mod one_per_phase;
 mod plans;
 

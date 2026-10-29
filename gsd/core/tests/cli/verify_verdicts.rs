@@ -181,6 +181,64 @@ fn a_stale_verdict_is_not_a_pass() {
     assert_eq!(e501(&p), vec!["v1.0/01/01-02/TR1".to_string()]);
 }
 
+/// M2 of the r40 review: a `deferred` an agent writes only counts when it names a later phase that exists.
+#[test]
+fn a_deferral_counts_only_to_a_later_phase() {
+    for (to, status) in [("v1.0/02", "passed"), ("v1.0/01", "pending")] {
+        let p = bare();
+        p.edit(
+            "spec/verify.spec",
+            "  phase v1.0/01\n",
+            &format!("  phase v1.0/01\n  deferred [\n    {{ truth v1.0/01/01-01/TR1 addressed_in {to} evidence \"later\" }}\n  ]\n"),
+        );
+        for item in ITEMS.iter().filter(|i| **i != "v1.0/01/01-01/TR1") {
+            verified(&p, item);
+        }
+        assert_eq!(verification(&p)["status"], status, "{to}");
+    }
+}
+
+/// M3 of the r40 review: an override that wrote `accepts` ends when the truth is rewritten (an agent can rewrite a truth
+/// that has no passing verdict: its E501 `no verdict` is the same before and after). One without it is bound by id.
+#[test]
+fn an_override_ends_when_its_truth_is_rewritten() {
+    for (accepts, after) in [(true, "pending"), (false, "passed")] {
+        let p = verify();
+        let text = p.read("spec/verify.spec");
+        let gap = text.find("verify_gap VG1").expect("the gap");
+        let ov = text.find("override OV1").expect("the override");
+        let human = text.find("human_item HI1").expect("the human item");
+        let mut kept = text[ov..human].trim_end().to_string();
+        if accepts {
+            kept = kept.replace(
+                "  reason ",
+                "  accepts      \"A user can add a task and see it listed\"\n  reason ",
+            );
+        }
+        p.write(
+            "spec/verify.spec",
+            &format!("{}\n{kept}\n", text[..gap].trim_end()),
+        );
+        for item in &ITEMS[1..] {
+            verified(&p, item);
+        }
+        assert_eq!(
+            verification(&p)["status"],
+            "passed",
+            "{}",
+            p.read("spec/verify.spec")
+        );
+        let run = p.run(&[
+            "set",
+            "v1.0/01/01-01/TR1",
+            "text",
+            "A user can delete a task",
+        ]);
+        assert_eq!(run.code, 0, "{}", run.all());
+        assert_eq!(verification(&p)["status"], after, "accepts: {accepts}");
+    }
+}
+
 #[test]
 fn an_override_still_verifies() {
     let p = verify();

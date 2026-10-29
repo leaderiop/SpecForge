@@ -6790,6 +6790,18 @@
           },
           {
             "default_value": null,
+            "description": "the truth's text as the person accepted it; the override counts only while the truth still says this. Without it the override is bound by the truth's id alone",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "accepts",
+            "required": false,
+            "target_kind": null,
+            "writer": "human"
+          },
+          {
+            "default_value": null,
             "description": "why",
             "edge": null,
             "field_type": "string",

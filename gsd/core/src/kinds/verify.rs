@@ -89,6 +89,7 @@ pub const OVERRIDE: Kind = Kind::new(
     &[
         rf("verification", "verification").r().i().doc("parent"),
         rf("truth", "truth").r().u().doc("the truth accepted"),
+        str("accepts").u().doc("the truth's text as the person accepted it; the override counts only while the truth still says this. Without it the override is bound by the truth's id alone"),
         str("reason").r().u().doc("why"),
         str("by").u().doc("who accepted it (gsd/E503)"),
         date("at").u().doc("when (gsd/E503)"),
