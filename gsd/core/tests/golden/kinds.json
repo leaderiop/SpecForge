@@ -811,6 +811,33 @@
         "label": "ManualCheckRequirement",
         "source_kind": "manual_check",
         "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "MilestoneAuditMilestone",
+        "source_kind": "milestone_audit",
+        "target_kind": "milestone"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "MilestoneAuditTechDebtPhase",
+        "source_kind": "milestone_audit",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "MilestoneAuditGapsRequirement",
+        "source_kind": "milestone_audit",
+        "target_kind": "requirement"
       }
     ]
   },
@@ -7725,6 +7752,226 @@
         "name": "manual_check",
         "open_fields": false,
         "scoped_by": "validation",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "What an audit of a milestone found (GSD vX.Y-MILESTONE-AUDIT.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the version",
+            "edge": "MilestoneAuditMilestone",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "milestone",
+            "required": true,
+            "target_kind": "milestone"
+          },
+          {
+            "default_value": null,
+            "description": "`tech_debt:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "MilestoneAuditTechDebtPhase",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "phase",
+                "required": false,
+                "target_kind": "phase"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "item",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "tech_debt",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a person accepts the `tech_debt` status; refused in every plan and MCP write",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "date",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "debt_accepted",
+            "required": false,
+            "target_kind": null,
+            "writer": "human"
+          },
+          {
+            "default_value": null,
+            "description": "`gaps:`; the milestone's requirements that are not complete",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "MilestoneAuditGapsRequirement",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "requirement",
+                "required": false,
+                "target_kind": "requirement"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "unsatisfied",
+                  "partial",
+                  "orphaned"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "status",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "gaps",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`nyquist:`",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "compliant",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "partial",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "not_validated",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "missing",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "nyquist",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`status:`",
+            "edge": null,
+            "enum_values": [
+              "passed",
+              "gaps_found",
+              "tech_debt"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "milestone_audit",
+        "open_fields": false,
+        "scoped_by": "milestone",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

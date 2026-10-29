@@ -1,5 +1,6 @@
 //! The kinds of `@gsd/core`, as tables (`dsl`): one file per area of the model.
 
+mod audit;
 mod commit;
 mod discuss;
 mod dsl;
@@ -71,6 +72,7 @@ const KINDS: &[&Kind] = &[
     &validation::VALIDATION_ROW,
     &validation::WAVE0_ITEM,
     &validation::MANUAL_CHECK,
+    &audit::MILESTONE_AUDIT,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

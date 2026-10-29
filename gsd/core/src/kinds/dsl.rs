@@ -90,10 +90,6 @@ impl Field {
         self
     }
     /// `U`
-    #[expect(
-        dead_code,
-        reason = "the first `.u()` field is milestone_audit.debt_accepted"
-    )]
     pub const fn u(mut self) -> Self {
         self.human = true;
         self

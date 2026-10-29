@@ -150,3 +150,37 @@ fn approval_is_harness_written() {
     );
     assert!(p.codes().contains(&"E083".to_string()), "{:?}", p.report());
 }
+
+const AUDIT: &str = "v1.0/A1";
+
+#[test]
+fn an_agent_cannot_accept_debt() {
+    let p = verify();
+    let run = p.run(&["set", AUDIT, "debt_accepted.by", "ada"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("human_only"), "{}", run.all());
+    assert!(!p.read("spec/audit.spec").contains("debt_accepted"));
+}
+
+#[test]
+fn a_human_accepts_debt() {
+    let p = verify();
+    p.edit(
+        "spec/audit.spec",
+        "  milestone v1.0\n",
+        "  milestone v1.0\n  debt_accepted {\n    by \"ada\"\n    at 2026-10-29\n  }\n",
+    );
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    assert_eq!(p.fields_of(AUDIT)["debt_accepted"]["by"], "ada");
+}
+
+#[test]
+fn audit_status_is_computed() {
+    let p = verify();
+    p.edit(
+        "spec/audit.spec",
+        "  milestone v1.0\n",
+        "  milestone v1.0\n  status passed\n",
+    );
+    assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.report());
+}
