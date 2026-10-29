@@ -284,7 +284,7 @@ fn a_hooks_graph_carries_the_computed_values() {
     let project = hosts_project(json!({}), json!({}));
     project.write(
         "m.spec",
-        &project.read("m.spec").replace("\"Ship\"", "\"EDITED\""),
+        project.read("m.spec").replace("\"Ship\"", "\"EDITED\""),
     );
     project.write(
         "o.spec",
