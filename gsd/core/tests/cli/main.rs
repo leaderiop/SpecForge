@@ -5,6 +5,7 @@ mod discuss;
 mod execute;
 mod execute_rules;
 mod execute_status;
+mod gates;
 mod harness;
 mod ladder;
 mod parity_discuss;

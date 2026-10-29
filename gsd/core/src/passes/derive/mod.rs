@@ -13,10 +13,10 @@
 mod audit;
 mod execute;
 mod halt;
-mod ladder;
+pub mod ladder;
 mod progress;
 mod uat;
-mod verify;
+pub mod verify;
 
 use specforge_extension_sdk::prelude::*;
 

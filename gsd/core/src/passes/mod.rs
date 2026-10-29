@@ -7,6 +7,7 @@ mod drift;
 mod execute;
 mod fails_when;
 mod file_scope;
+mod gates;
 mod nyquist;
 mod plan_shape;
 mod plans;
@@ -55,4 +56,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     nyquist::declare(c);
     verify_rules::declare(c);
     windows::declare(c);
+    gates::declare(c);
 }

@@ -66,3 +66,28 @@ fn the_verification_kinds_declare_the_fields_of_the_model() {
     );
     assert_eq!(field_of("override", "by")["required"], false);
 }
+
+#[test]
+fn the_guards_are_declared_with_their_reports() {
+    let passes = describe("passes");
+    let items = passes["items"].as_array().expect("passes");
+    let guards: Vec<&serde_json::Value> = items.iter().filter(|p| p["phase"] == "guard").collect();
+    let reported: Vec<String> = guards
+        .iter()
+        .flat_map(|p| p["reports"].as_array().cloned().unwrap_or_default())
+        .filter_map(|c| c.as_str().map(String::from))
+        .collect();
+    let mut reported = reported;
+    reported.sort();
+    assert_eq!(
+        reported,
+        ["E106", "E511", "E512", "E516", "W318", "W404"],
+        "{passes}"
+    );
+    // A guard answers no values.
+    assert!(
+        guards
+            .iter()
+            .all(|p| p["computes"].as_array().is_none_or(Vec::is_empty))
+    );
+}

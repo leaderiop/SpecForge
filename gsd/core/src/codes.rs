@@ -526,8 +526,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "E511",
-        "Phase completed before verification and UAT",
-        "A phase is complete only when verification passed and UAT is complete (part of the phase-status derivation; a gate code of complete_milestone and /gsd-ship)",
+        "Phase shipped before verification passed",
+        "A phase ships only when its verification passed (a gate code of complete_milestone and /gsd-ship)",
         "verify",
         Severity::Error,
         Severity::Error,

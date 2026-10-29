@@ -334,8 +334,8 @@
     {
       "code": "E511",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A phase is complete only when verification passed and UAT is complete (part of the phase-status derivation; a gate code of complete_milestone and /gsd-ship). It is an error.",
-      "title": "Phase completed before verification and UAT"
+      "explanation": "A phase ships only when its verification passed (a gate code of complete_milestone and /gsd-ship). It is an error.",
+      "title": "Phase shipped before verification passed"
     },
     {
       "code": "E512",
