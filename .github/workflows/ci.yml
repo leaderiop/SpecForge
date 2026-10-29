@@ -28,6 +28,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # A PR's checks are chosen from its diff against the base, so the base's history is needed.
+          fetch-depth: 0
 
       - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -39,6 +42,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.shard }}
+          # PRs read main's cache and write none, so they never evict it.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install nextest
         uses: taiki-e/install-action@nextest
@@ -55,8 +60,9 @@ jobs:
           if [ -n "$missing" ]; then echo "checks in no shard: $missing"; exit 1; fi
 
       # tree-sitter-cli and cargo-audit are installed by the checks that need them, at the versions the list pins.
+      # A PR runs the checks its diff reaches (quick's triggers); main runs the whole list.
       - name: Run the shard's checks
-        run: cargo gate ci --only ${{ matrix.checks }}
+        run: cargo gate ci --only ${{ matrix.checks }} ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
 
   bootstrap:
     name: Fresh-clone bootstrap (builtin components)

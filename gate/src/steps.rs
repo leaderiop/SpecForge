@@ -276,8 +276,8 @@ pub fn tests(ctx: &Ctx, selection: &Selection) -> Result<(), String> {
 /// The exports of this repository, its examples and five fixtures against their published schemas
 /// (`schema.rs`, `specforge-ops`'s `published` tests): the one test module whose names carry the claim.
 pub fn published_schemas(ctx: &Ctx, _: &Selection) -> Result<(), String> {
-    // Full and ci run the whole workspace under `tests`, these two tests included.
-    if matches!(ctx.mode, Mode::Full | Mode::Ci) {
+    // Full and ci (no `--since`, so no change set) run the whole workspace under `tests`, these two tests included.
+    if matches!(ctx.mode, Mode::Full | Mode::Ci) && ctx.changes.is_empty() {
         ctx.log("covered by `tests` in this mode");
         return Ok(());
     }

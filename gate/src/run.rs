@@ -396,8 +396,14 @@ fn free_space(dir: &std::path::Path) -> Result<(), String> {
 }
 
 /// Run the checks `mode` selects (only those `only` names when given), at most one compiling check at a time, each
-/// after the checks it names. Logs go to `<target_dir>/gate/`.
-pub fn run(mode: Mode, repo: &Repo, only: Option<&str>) -> Result<Report, String> {
+/// after the checks it names. Logs go to `<target_dir>/gate/`. With `since`, the checks are chosen as quick chooses
+/// them, from what changed since that revision; they still run as `mode` runs them.
+pub fn run(
+    mode: Mode,
+    repo: &Repo,
+    only: Option<&str>,
+    since: Option<&str>,
+) -> Result<Report, String> {
     for name in only.into_iter().flat_map(|list| list.split(',')) {
         if !CHECKS.iter().any(|c| c.name == name) {
             return Err(format!("no check named `{name}` (cargo gate list)"));
@@ -406,17 +412,18 @@ pub fn run(mode: Mode, repo: &Repo, only: Option<&str>) -> Result<Report, String
     if matches!(mode, Mode::Full | Mode::Ci) {
         free_space(&repo.target_dir)?;
     }
-    let changes = match mode {
-        Mode::Hook => ChangeSet::staged(repo)?,
-        Mode::Quick => ChangeSet::working_tree(repo)?,
-        _ => ChangeSet::default(),
+    let (changes, choosing) = match (mode, since) {
+        (_, Some(rev)) => (ChangeSet::since(repo, rev)?, Mode::Quick),
+        (Mode::Hook, None) => (ChangeSet::staged(repo)?, mode),
+        (Mode::Quick, None) => (ChangeSet::working_tree(repo)?, mode),
+        _ => (ChangeSet::default(), mode),
     };
     let mut selections = Vec::new();
     for check in CHECKS {
         selections.push(if !named(only, check.name) {
             Selection::Skip
         } else {
-            check.selection(mode, repo, &changes)?
+            check.selection(choosing, repo, &changes)?
         });
     }
     let log_dir = repo.target_dir.join("gate");

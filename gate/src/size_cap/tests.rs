@@ -268,7 +268,7 @@ fn git(root: &Path, args: &[&str]) {
 }
 
 fn outcome(repo: &Repo) -> Result<(), String> {
-    let report = crate::run::run(Mode::Full, repo, Some(CHECK)).unwrap();
+    let report = crate::run::run(Mode::Full, repo, Some(CHECK), None).unwrap();
     let (_, outcome, _) = report
         .outcomes
         .into_iter()

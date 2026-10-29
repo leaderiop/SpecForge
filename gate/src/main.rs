@@ -5,6 +5,7 @@
 //! cargo gate hook            what .githooks/pre-commit runs, on the staged files
 //! cargo gate full            every check but the bootstrap's
 //! cargo gate ci              what CI's main job runs
+//! cargo gate ci --since <rev> the checks quick would choose for what changed since <rev>, run as ci runs them (PRs)
 //! cargo gate bootstrap       what CI's cold job runs
 //! cargo gate baseline        lower gate/baseline.json to what the checks find today (never raises an entry)
 //! cargo gate baseline --only specs|file-size [--since <rev>]
@@ -24,7 +25,7 @@ use std::process::ExitCode;
 
 use gate::{Mode, Repo};
 
-const USAGE: &str = "usage: cargo gate [hook|quick|full|ci|bootstrap] [--only <check>[,<check>...]] | baseline [--only specs|file-size] [--since <rev>] | crate-map | list";
+const USAGE: &str = "usage: cargo gate [hook|quick|full|ci|bootstrap] [--only <check>[,<check>...]] | ci --since <rev> | baseline [--only specs|file-size] [--since <rev>] | crate-map | list";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -50,8 +51,8 @@ fn main() -> ExitCode {
             },
         }
     }
-    if since.is_some() && word != Some("baseline") {
-        return usage("--since is for `baseline`");
+    if since.is_some() && !matches!(word, Some("baseline" | "ci")) {
+        return usage("--since is for `baseline` and `ci`");
     }
     if word == Some("list") {
         print!("{}", gate::render_list());
@@ -79,7 +80,7 @@ fn main() -> ExitCode {
             Err(e) => fail(&e),
         };
     }
-    let report = match gate::run(mode, &repo, only) {
+    let report = match gate::run(mode, &repo, only, since) {
         Ok(report) => report,
         Err(e) => return fail(&e),
     };
