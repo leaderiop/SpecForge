@@ -193,6 +193,49 @@ fn a_tdd_plan_without_review_is_w404() {
     assert!(w404(&plan(Some(review(true)))).is_empty());
 }
 
+fn two_plans(subject: &str, state: &str) -> PassInput {
+    let plan = |id: &str, state: &str| {
+        json!({ "id": id, "kind": "plan", "fields": { "type": "tdd" },
+                "judgements": [{ "rule": "gsd/W313", "state": state, "passed": false }] })
+    };
+    input(
+        ship(Some(subject)),
+        vec![
+            json!({ "id": "v1.0/01", "kind": "phase" }),
+            plan("v1.0/01/01-01", state),
+            plan("v1.0/01/01-02", "stale"),
+            json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" }),
+        ],
+        vec![
+            json!({ "source": "v1.0/01/01-01", "target": "v1.0/01", "label": "phase" }),
+            json!({ "source": "v1.0/01/01-02", "target": "v1.0/01", "label": "phase" }),
+        ],
+    )
+}
+
+#[test]
+fn a_plan_subject_scopes_its_plan() {
+    // Only plan 01-01 is stale here; 01-02 would be, were the gate on the phase.
+    let found = w318(&two_plans("v1.0/01/01-01", "stale"));
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].entity.as_deref(), Some("v1.0/01/01-01"));
+    assert!(w318(&two_plans("v1.0/01/01-01", "fresh")).is_empty());
+    assert_eq!(w318(&two_plans("v1.0/01", "fresh")).len(), 1);
+}
+
+#[test]
+fn a_summary_subject_scopes_its_plan_and_w404_names_the_summary() {
+    let summary = "v1.0/01/01-01/01-01-SUMMARY";
+    let found = w404(&two_plans(summary, "fresh"));
+    assert_eq!(found.len(), 1, "only 01-01 has a summary");
+    assert_eq!(found[0].entity.as_deref(), Some(summary));
+    // At a phase the diagnostic names the plan.
+    assert_eq!(
+        w404(&two_plans("v1.0/01", "fresh"))[0].entity.as_deref(),
+        Some("v1.0/01/01-01")
+    );
+}
+
 #[test]
 fn a_stale_verdict_is_e516_under_plus() {
     let stale = |state: &str| {

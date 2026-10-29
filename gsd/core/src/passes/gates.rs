@@ -167,8 +167,21 @@ fn e512(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// The plans in the gate's scope.
+/// The plan a plan or a summary subject names: a plan is its own, a summary's is the plan that scopes it.
+fn subject_plan<'a>(input: &'a PassInput, subject: &str) -> Option<&'a PassEntity> {
+    let plan = if of_kind(input, "summary").any(|s| s.id == subject) {
+        scope_of(subject)
+    } else {
+        subject
+    };
+    of_kind(input, "plan").find(|p| p.id == plan)
+}
+
+/// The plans in the gate's scope: the plan (or the summary's plan) the subject names, else the phases' plans.
 fn plans_in<'a>(input: &'a PassInput, subject: Option<&str>) -> Vec<&'a PassEntity> {
+    if let Some(plan) = subject.and_then(|s| subject_plan(input, s)) {
+        return vec![plan];
+    }
     let phases: BTreeSet<&str> = phases(input, subject)
         .into_iter()
         .map(|p| p.id.as_str())
@@ -215,10 +228,15 @@ fn w404(input: &PassInput) -> Vec<PassDiagnostic> {
             })
         })
         .map(|p| {
+            // The host keeps a diagnostic only when it names an entity within the subject's scope: at a summary,
+            // the summary (as E512 names its subject), since its plan is outside the summary's scope.
+            let entity = subject
+                .filter(|s| of_kind(input, "summary").any(|e| e.id == *s))
+                .unwrap_or(&p.id);
             refuse(
                 "W404",
                 PassSeverity::Warning,
-                &p.id,
+                entity,
                 format!(
                     "tdd plan '{}' has a summary and no answered TDD review checkpoint",
                     p.id
