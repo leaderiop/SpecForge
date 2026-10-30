@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::history::{
-    Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha, SharedHistory,
+    Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha, SharedHistory, TreeEntry,
     default_history, set_default,
 };
 
@@ -20,7 +20,11 @@ pub struct FakeHistory {
     pub blobs: Vec<CommitFile>,
     /// What `blobs` answers instead, when set: git failing to read the files.
     pub blobs_fail: Option<HistoryError>,
+    /// The entries its tree holds besides the files and `blobs` (a link, a submodule, a file git cannot give).
+    pub listed: Vec<TreeEntry>,
     asked: AtomicUsize,
+    trees: AtomicUsize,
+    blobs_asks: AtomicUsize,
     any: AtomicUsize,
 }
 
@@ -41,7 +45,10 @@ impl FakeHistory {
             named: Vec::new(),
             blobs: Vec::new(),
             blobs_fail: None,
+            listed: Vec::new(),
             asked: AtomicUsize::new(0),
+            trees: AtomicUsize::new(0),
+            blobs_asks: AtomicUsize::new(0),
             any: AtomicUsize::new(0),
         }
     }
@@ -55,7 +62,10 @@ impl FakeHistory {
             named: Vec::new(),
             blobs: Vec::new(),
             blobs_fail: None,
+            listed: Vec::new(),
             asked: AtomicUsize::new(0),
+            trees: AtomicUsize::new(0),
+            blobs_asks: AtomicUsize::new(0),
             any: AtomicUsize::new(0),
         }
     }
@@ -63,6 +73,16 @@ impl FakeHistory {
     /// How many times the files at a commit were asked for.
     pub fn files_asked(&self) -> usize {
         self.asked.load(Ordering::SeqCst)
+    }
+
+    /// How many times a commit's tree was asked for.
+    pub fn trees_asked(&self) -> usize {
+        self.trees.load(Ordering::SeqCst)
+    }
+
+    /// How many times named files were asked for.
+    pub fn blobs_asked(&self) -> usize {
+        self.blobs_asks.load(Ordering::SeqCst)
     }
 
     /// How many questions of any kind were asked.
@@ -99,8 +119,23 @@ impl History for FakeHistory {
         }
         self.files.clone()
     }
+    fn tree(&self, _: &GitPlace, commit: &Sha, _: &Path) -> Result<Vec<TreeEntry>, HistoryError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        self.trees.fetch_add(1, Ordering::SeqCst);
+        let files = match self.named.iter().find(|(_, sha, _)| sha == commit) {
+            Some((_, _, files)) => files.clone(),
+            None => self.files.clone()?,
+        };
+        Ok(files
+            .iter()
+            .chain(&self.blobs)
+            .map(|(path, bytes)| (path.clone(), Some(bytes.len() as u64)))
+            .chain(self.listed.iter().cloned())
+            .collect())
+    }
     fn blobs(&self, _: &GitPlace, _: &Sha, paths: &[PathBuf]) -> Result<Vec<Blob>, HistoryError> {
         self.any.fetch_add(1, Ordering::SeqCst);
+        self.blobs_asks.fetch_add(1, Ordering::SeqCst);
         if let Some(error) = &self.blobs_fail {
             return Err(error.clone());
         }

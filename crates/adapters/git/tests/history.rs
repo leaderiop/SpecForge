@@ -135,3 +135,41 @@ fn history_reads_named_files_at_a_commit() {
         ]
     );
 }
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "history lists a commit's tree with each file's size and no content"
+)]
+fn history_lists_a_commits_tree() {
+    if !has_git() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    std::fs::create_dir_all(root.join("spec")).unwrap();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("spec/a.spec"), "one\n").unwrap();
+    std::fs::write(root.join("src/a.ts"), "four\n").unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink("a.ts", root.join("src/l.ts")).unwrap();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["add", "-A"]);
+    git(root, &["commit", "-q", "-m", "c1"]);
+    let cli = GitCli::default();
+    let Located::Repo(place) = cli.locate(root) else {
+        panic!("a repository");
+    };
+    let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
+    let mut all = cli.tree(&place, &head, Path::new("")).unwrap();
+    all.sort();
+    let mut expected = vec![
+        ("spec/a.spec".into(), Some(4)),
+        ("src/a.ts".into(), Some(5)),
+    ];
+    #[cfg(unix)]
+    expected.push(("src/l.ts".into(), None));
+    assert_eq!(all, expected);
+    let mut under = cli.tree(&place, &head, Path::new("src")).unwrap();
+    under.sort();
+    assert_eq!(under, expected[1..]);
+}

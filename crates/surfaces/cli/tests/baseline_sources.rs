@@ -15,7 +15,6 @@ fn facts<'a>(input: &'a Value, read: &str) -> &'a [Value] {
     input["files"][read]["facts"].as_array().unwrap()
 }
 
-#[ignore = "pins K19; T3 un-ignores"]
 #[specforge_test(
     behavior = "read_git_baseline",
     verify = "the baseline reads a source file through git, and a link at the commit is unreadable"

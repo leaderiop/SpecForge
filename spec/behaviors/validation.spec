@@ -338,6 +338,9 @@ behavior read_git_baseline "Read the Git Baseline" {
     History is the git baseline (ADR 0287): HEAD, or under check --since the merge-base of the revision and HEAD,
     compiled in the current environment. It is read only when something declares history, so a project that declares
     none runs no process and watches no ref.
+    A compute pass that declares reads reads the files the commit holds: what exists comes from the commit's tree, the
+    bytes of the files its reads name are fetched once, and a link, a submodule or a file git cannot give is
+    unreadable, never absent (ADR 0300).
   """
   produces []
   verify unit "a project that declares no history reads no git and watches no ref and no ledger"
@@ -351,6 +354,9 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "a compute pass at the baseline reads the commit's files"
   verify unit "a glob read at the baseline lists the commit's tree"
   verify unit "the baseline reads a source file through git, and a link at the commit is unreadable"
+  verify unit "history lists a commit's tree with each file's size and no content"
+  verify unit "a baseline asks for the commit's tree only when a compute pass reads, and runs each compute pass once"
+  verify unit "a file git cannot give or a file over the cap is not absent at the baseline"
   verify unit "check since judges history against the merge-base and refuses an unknown revision"
   verify unit "validate since judges per request"
 }

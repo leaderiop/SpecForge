@@ -624,6 +624,7 @@ fn re_verification_reads_the_baselines_judgements() {
             id.clone(),
             Path::new(""),
             files,
+            Vec::new(),
             &fetch,
         )
     };

@@ -8,7 +8,9 @@ use std::process::Command;
 use std::time::Duration;
 
 use specforge_common::process::{Ran, RunError, run_with};
-use specforge_project::history::{Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha};
+use specforge_project::history::{
+    Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha, TreeEntry,
+};
 
 /// Runs `git` from `PATH`.
 pub struct GitCli {
@@ -97,6 +99,30 @@ impl GitCli {
             Err(Failed::Other(why)) => Err(HistoryError(why)),
         }
     }
+
+    /// `git ls-tree -r -z --full-tree` of `commit` under `dir` (from the top), with each blob's size when `long`.
+    fn ls_tree(
+        &self,
+        place: &GitPlace,
+        commit: &Sha,
+        dir: &Path,
+        long: bool,
+    ) -> Result<Vec<u8>, HistoryError> {
+        let mut args = vec!["ls-tree", "-r", "-z", "--full-tree"];
+        if long {
+            args.push("-l");
+        }
+        args.push(commit.as_str());
+        let pathspec = if dir.as_os_str().is_empty() {
+            None
+        } else {
+            Some(format!("{}/", dir.to_string_lossy()))
+        };
+        if let Some(pathspec) = &pathspec {
+            args.extend(["--", pathspec]);
+        }
+        self.ok(&place.toplevel, &args, None)
+    }
 }
 
 impl History for GitCli {
@@ -171,16 +197,7 @@ impl History for GitCli {
         commit: &Sha,
         dir: &Path,
     ) -> Result<Vec<CommitFile>, HistoryError> {
-        let mut args = vec!["ls-tree", "-r", "-z", "--full-tree", commit.as_str()];
-        let pathspec = if dir.as_os_str().is_empty() {
-            None
-        } else {
-            Some(format!("{}/", dir.to_string_lossy()))
-        };
-        if let Some(pathspec) = &pathspec {
-            args.extend(["--", pathspec]);
-        }
-        let listing = self.ok(&place.toplevel, &args, None)?;
+        let listing = self.ls_tree(place, commit, dir, false)?;
         // `<mode> SP <type> SP <object> TAB <path> NUL`; a symlink or a submodule is no file.
         let mut blobs: Vec<(PathBuf, String)> = Vec::new();
         for entry in listing.split(|b| *b == 0).filter(|e| !e.is_empty()) {
@@ -232,6 +249,32 @@ impl History for GitCli {
             at = end + 1 + size + 1;
         }
         Ok(files)
+    }
+
+    fn tree(
+        &self,
+        place: &GitPlace,
+        commit: &Sha,
+        dir: &Path,
+    ) -> Result<Vec<TreeEntry>, HistoryError> {
+        let listing = self.ls_tree(place, commit, dir, true)?;
+        // `<mode> SP <type> SP <object> SP+ <size or -> TAB <path> NUL`
+        let mut entries = Vec::new();
+        for entry in listing.split(|b| *b == 0).filter(|e| !e.is_empty()) {
+            let text = String::from_utf8_lossy(entry);
+            let Some((meta, path)) = text.split_once('\t') else {
+                continue;
+            };
+            let parts: Vec<&str> = meta.split_whitespace().collect();
+            let [mode, kind, _, size] = parts[..] else {
+                continue;
+            };
+            let size = (kind == "blob" && mode != "120000")
+                .then(|| size.parse::<u64>().ok())
+                .flatten();
+            entries.push((PathBuf::from(path), size));
+        }
+        Ok(entries)
     }
 
     fn blobs(
