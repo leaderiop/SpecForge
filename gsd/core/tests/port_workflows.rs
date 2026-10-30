@@ -139,6 +139,9 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 203, 203),
     ("gsd-core/workflows/pr-branch.md", 261, 261),
     ("gsd-core/workflows/pr-branch.md", 252, 252),
+    // REVIEW-r43 post-fix N4, N5: the empty-name refusal, the next phase query, the integrations table.
+    ("gsd-core/workflows/settings-integrations.md", 330, 330),
+    ("gsd-core/workflows/remove-workspace.md", 17, 17),
     // REVIEW-r43 M1, Minor 11: undo takes a full id and refuses a closed milestone; planning-config no longer says to
     // gitignore or untrack the spec.
     ("gsd-core/workflows/undo.md", 271, 271),
@@ -369,7 +372,6 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/session-report.md", 57, 57),
     ("gsd-core/workflows/settings-integrations.md", 13, 13),
     ("gsd-core/workflows/settings-integrations.md", 15, 15),
-    ("gsd-core/workflows/settings-integrations.md", 24, 24),
     ("gsd-core/workflows/settings.md", 38, 38),
     ("gsd-core/workflows/undo.md", 125, 126),
     ("gsd-core/workflows/undo.md", 128, 131),

@@ -88,7 +88,7 @@ fn remove_workspace_guards_the_name_and_the_path() {
     )));
     let line = text
         .lines()
-        .find(|l| l.starts_with("case \"$WORKSPACE_NAME\" in"))
+        .find(|l| l.starts_with("[ -n \"$WORKSPACE_NAME\" ] ||"))
         .expect("the guard line")
         .to_string();
     let home = tempfile::tempdir().expect("a home");
@@ -105,7 +105,7 @@ fn remove_workspace_guards_the_name_and_the_path() {
     };
     let passed = |name: &str| String::from_utf8_lossy(&run(name).stdout).contains("passed");
     assert!(passed("real"));
-    for bad in ["../../etc", "a/b", "nope"] {
+    for bad in ["../../etc", "a/b", "nope", ""] {
         assert!(!passed(bad), "{bad} was accepted");
     }
 }
