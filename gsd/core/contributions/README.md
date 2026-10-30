@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 hooks and the install goldens (r44), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 14 hooks and the install goldens (r44), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -270,8 +270,8 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 | gsd-secret-read-guard | `secret_read_guard` (`pre_tool`) |
 | gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only (see below) |
 | gsd-prompt-guard | `prompt_guard` (`pre_tool`): scans content written to spec files |
-| gsd-agent-isolation-guard | `agent_isolation_guard` (`pre_tool`): allows every dispatch, because `@gsd/core` runs its executors sequentially in the checkout (upstream's sentinel `none`); the line is written for Claude Code and Cursor and does nothing on Cursor |
-| gsd-worktree-path-guard | `worktree_path_guard` (`pre_tool`): path based; refuses the main checkout by any case and by a relative path, not through a symlink |
+| gsd-agent-isolation-guard | none: dropped in the roster, because `@gsd/core` runs its executors sequentially in the checkout and the guard would always allow (r44 post-fix N7; ACCEPTANCE's divergences) |
+| gsd-worktree-path-guard | `worktree_path_guard` (`pre_tool`): path based; refuses the main checkout by any case, and by a relative path that climbs into it (stricter than upstream, which allows every relative path; see ACCEPTANCE's divergences), not through a symlink |
 | gsd-workflow-guard | `workflow_marker` (`user_prompt`: a `/gsd-...` prompt sets the marker, which lasts the session) and `workflow_guard` (`pre_tool`, `hooks.workflow_guard`) |
 | gsd-context-monitor | `context_monitor` (`post_tool`) and `context_compacted` (`pre_compact`): warnings at the `hooks.context_*` thresholds, metrics kept in session state |
 | gsd-statusline | `statusline`, from the graph and the session state |
@@ -283,8 +283,8 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 | gsd-cursor-pre-tool, -post-tool, -session-start | the Cursor renderings of the events above |
 | gsd-cursor-stop, -subagent-start, -subagent-stop, gsd-windsurf-* | none: no hook of ours registers on those events, and Windsurf is a later host |
 
-At defaults an install writes 11 hook lines for Claude Code, 8 for Codex and 8 for Cursor; with `hooks.community` and
-the other booleans on, 15, 12 and 12. Codex does not render `injection_scanner`, `agent_isolation_guard` and
+At defaults an install writes 10 hook lines for Claude Code, 8 for Codex and 7 for Cursor; with `hooks.community` and
+the other booleans on, 14, 12 and 11. Codex does not render `injection_scanner` and
 `statusline`; Cursor does not render `workflow_marker`, `context_compacted` and `statusline`.
 
 ### Hosts
@@ -298,7 +298,7 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
 | Cursor subagentStart answer | `permission: deny` + `user_message` | `gsd-cursor-subagent-start.js:26-31` | unverified (no gsd hook answers it) |
 | Codex `[features] hooks = true` | written by install | changeset 3566, `bin/install.js` | agrees |
 | Codex event set | the events of `CODEX_EXTENDED_HOOK_EVENTS` (nine, with SessionStart), five used here | `bin/install.js:162` | agrees for the five used |
-| Codex hook copies | 8 of the 14 hook ids (`injection_scanner`, `agent_isolation_guard` and `statusline` are not rendered; the community hooks only when on) | upstream copies two (`CODEX_HOOKS_TO_COPY`) | divergence: more here |
+| Codex hook copies | 8 of the 13 hook ids (`injection_scanner` and `statusline` are not rendered; the community hooks only when on) | upstream copies two (`CODEX_HOOKS_TO_COPY`) | divergence: more here |
 | Codex and Cursor agent and skill files | as the kernel renders | not compared | unverified |
 
 ### What the hooks do not do (known, not fixed)
@@ -311,7 +311,7 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
   another extension's settings.
 - `validate_commit` lets `-F`, `--fixup` and similar commits through (no message on the command line), and a literal
   `fixup! ...` subject; the heredoc form `$(cat <<'EOF' ... EOF)` is read only for a quoted delimiter, nothing after the
-  closing paren, no `--cleanup` but default or whitespace and an `-m` that is not single-quoted (as upstream blocks the
+  closing paren, no `--cleanup` but default or whitespace (git's abbreviations and spliced quotes are read, and every word of the command is scanned) and an `-m` that is not single-quoted (as upstream blocks the
   others). It blocks `git commit -m $MSG` (unquoted) and `-m "" -m "feat: x"`, which upstream lets through.
 - The milestone-choice weakness (`v1.9` sorts after `v1.10`, id-string order) is in `smart_entry`, the statusline and
   `session_state`.

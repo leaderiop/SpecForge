@@ -278,10 +278,6 @@
           "why": "Codex has no tool of class read, web_fetch, web_search"
         },
         {
-          "what": "hook gsd.agent_isolation_guard",
-          "why": "Codex has no tool of class agent"
-        },
-        {
           "what": "hook gsd.statusline",
           "why": "Codex has no statusline event"
         }

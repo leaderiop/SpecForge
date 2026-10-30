@@ -5,6 +5,8 @@
 //! shortcut: the guest does not know the project root, so an absolute target, or one that climbs out of the project,
 //! is `Outside` whether or not it exists (GSD probes a climb that names a sibling, and lets an absolute path inside
 //! the root through); upgrade when the host sends the root.
+//!
+//! gsd-core modules this file ports: verify-command-grounding.cjs.
 
 /// What a command's text says about where it runs.
 #[derive(Debug, PartialEq, Eq)]

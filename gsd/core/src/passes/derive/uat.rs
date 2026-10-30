@@ -4,6 +4,8 @@
 //! is blocked, every skipped test has a `Deferred follow-up` reason and every issue has a resolved gap; otherwise
 //! `diagnosed` when every open gap has a root cause, else `partial`. A gap is resolved once a complete
 //! `gap_closure` plan names it.
+//!
+//! gsd-core modules this file ports: uat-predicate.cjs, uat.cjs.
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;

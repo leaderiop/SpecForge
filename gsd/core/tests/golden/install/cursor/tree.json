@@ -60,8 +60,8 @@
     "sha256": "257caba6be349d51d6f6db3c44a0fce5af79ace30eb6c873934a1ed20fb6c77b"
   },
   ".cursor/hooks.json": {
-    "bytes": 1468,
-    "sha256": "723a2f6574e10ca73b37509b5011c970cede9eaa18ef5b80a787e6937b9d125e"
+    "bytes": 1324,
+    "sha256": "3f80767907d13157eb93549e037b20e92772b870d291b76d0d94580881a1c42f"
   },
   ".cursor/mcp.json": {
     "bytes": 132,

@@ -1,6 +1,8 @@
 //! `gsd/E513`: a resolved window is never both waived and fixed (`src/broken-windows.cts`: only an `open` window
 //! transitions). `waiver` and `fixed_at` are harness fields, each immutable once recorded, so a ledger that holds both
 //! can only come from two commands acting on one window.
+//!
+//! gsd-core modules this file ports: broken-windows.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

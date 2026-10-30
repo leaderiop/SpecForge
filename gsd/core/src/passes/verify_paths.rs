@@ -10,6 +10,8 @@
 //! distinct path once, on the first task (by id) that names it, and the check looks a path up whatever entity carries
 //! it. A path the host did not serve (`truncated`, or a `budget` / `too_large` error) is not checked: never E320 or
 //! W324.
+//!
+//! gsd-core modules this file ports: gate-verify-command-paths.cjs.
 
 mod grounding;
 mod manifest;

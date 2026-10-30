@@ -203,7 +203,7 @@ const PROPERTY_PORTED: &[&str] = &[
 const WRITE_SKIPPED: &[(&str, &str)] = &[
     (
         "gsd-write-guard.js: catastrophic shrink of curated artifacts > block output names the documented override",
-        "fs: the override env var and the sentinel are dropped (D-r44-7)",
+        "diverges: [no-sentinel] the override env var and the sentinel are dropped (D-r44-7)",
     ),
     (
         "gsd-write-guard.js: catastrophic shrink of curated artifacts > GSD_ALLOW_PLANNING_SHRINK=1 bypasses",
@@ -235,11 +235,11 @@ const WRITE_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "round 9: symlink resolution, CRLF counting, and denial-content pins > the denial prose does NOT publish the sentinel recipe",
-        "fs: no sentinel (D-r44-7)",
+        "diverges: [no-sentinel] no sentinel (D-r44-7)",
     ),
     (
         "round 9: symlink resolution, CRLF counting, and denial-content pins > CRLF content counts lines correctly",
-        "diverges: bytes, not lines (D-r44-7, U52)",
+        "diverges: [write-guard-bytes] bytes, not lines (D-r44-7, U52)",
     ),
     (
         "gsd-write-guard.js: deliberately narrow trigger (no-op paths) > malformed JSON on stdin fails open",
@@ -275,11 +275,11 @@ const WRITE_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "single-use sentinel exemption",
-        "fs: the sentinel is dropped (D-r44-7)",
+        "diverges: [no-sentinel] the sentinel is dropped (D-r44-7)",
     ),
     (
         "guard <-> complete-milestone workflow binding",
-        "fs: the sentinel is dropped, so no workflow arms it (D-r44-7)",
+        "diverges: [no-sentinel] the sentinel is dropped, so no workflow arms it (D-r44-7)",
     ),
     (
         "workstream-scoped curated paths (#4455)",
@@ -295,7 +295,7 @@ const WRITE_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "guard <-> gsd-roadmapper binding",
-        "fs: the sentinel is dropped, so no agent arms it (D-r44-7)",
+        "diverges: [no-sentinel] the sentinel is dropped, so no agent arms it (D-r44-7)",
     ),
 ];
 

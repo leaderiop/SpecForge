@@ -5,6 +5,8 @@
 //! off turns it off (the setting gates the code). Reading the shipped files is not done (U39).
 //!
 //! Also ports gsd-core bin/lib modules: decision-coverage-support.cjs, decisions.cjs.
+//!
+//! gsd-core modules this file ports: coverage.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

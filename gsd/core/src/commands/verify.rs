@@ -2,6 +2,8 @@
 //! validation. A UAT result is the person's own: the command writes what they said, never a sanitised copy.
 //!
 //! Also ports gsd-core bin/lib modules: verify.cjs.
+//!
+//! gsd-core modules this file ports: verification.cjs.
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;

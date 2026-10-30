@@ -2,6 +2,8 @@
 //!
 //! Also ports gsd-core bin/lib modules: config-loader.cjs, config-types.cjs, configuration.cjs,
 //! federated-config.cjs.
+//!
+//! gsd-core modules this file ports: config.cjs.
 
 mod gates;
 mod keys;

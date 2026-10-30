@@ -4,6 +4,8 @@
 //! is refused, the templates (`.env.example`, `.sample`, `.template`, `.dist`) excepted. The shell command is read
 //! from the tool's own `command` (upstream's tokenizer, ported), because the host's words lose where one command
 //! ends and the next begins. Starting `gsd-debugger` as a CLI process is refused too.
+//!
+//! gsd-core modules this file ports: secrets.cjs.
 
 mod debugger;
 mod git;

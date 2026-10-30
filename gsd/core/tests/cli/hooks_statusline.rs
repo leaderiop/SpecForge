@@ -117,7 +117,13 @@ fn the_compact_format_drops_the_name_and_bar() {
     let home = installed(&p);
     let out = line(&p, &home, &status(&p, 70, None));
     assert!(out.contains("v1.0 · P1/4 · "), "{out}");
-    assert!(!out.contains("█") || out.matches('█').count() <= 4, "{out}");
+    // the context meter keeps its bar; the state segment (between the first two separators) has none
+    assert!(
+        !out.split('│')
+            .nth(1)
+            .is_some_and(|state| state.contains('█')),
+        "{out}"
+    );
 }
 
 #[test]
