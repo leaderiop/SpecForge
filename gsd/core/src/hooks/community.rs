@@ -27,6 +27,9 @@ const BUILTIN_TYPES: [&str; 10] = [
     "feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore",
 ];
 
+/// What git strips as blank: the ASCII space and tab.
+const BLANK: [char; 2] = [' ', '\t'];
+
 /// The longest subject.
 const SUBJECT_LIMIT: usize = 72;
 
@@ -68,9 +71,16 @@ fn type_of(subject: &str) -> Option<&str> {
 
 /// The delimiter of a heredoc opener `$(cat <<[-]'X'`, when it is quoted (`'X'`, `"X"`, `\X`): the shell leaves the body
 /// alone only then. A bare delimiter lets the shell expand the body, so what git receives is not what is written.
+/// Upstream's grammar: blanks (space, tab) after `$(`, `cat`, `/bin/cat` or `/usr/bin/cat` (a relative path or a
+/// command before it is not a known cat), blanks or none before `<<`.
 fn quoted_delimiter(opener: &str) -> Option<&str> {
-    let d = opener
-        .strip_prefix("$(cat <<")?
+    let rest = opener.strip_prefix("$(")?.trim_start_matches(BLANK);
+    let rest = ["cat", "/bin/cat", "/usr/bin/cat"]
+        .iter()
+        .find_map(|c| rest.strip_prefix(c))?;
+    let d = rest
+        .trim_start_matches(BLANK)
+        .strip_prefix("<<")?
         .trim_start_matches('-')
         .trim();
     let inner = [('\'', '\''), ('"', '"')]
@@ -187,14 +197,20 @@ fn subject_of<'a>(message: &'a str, command: &str) -> &'a str {
     let closes = rest
         .iter()
         .position(|l| l.trim_start_matches('\t') == delim);
-    // after the closing delimiter: `)`, then nothing, or another message after a blank line
-    let clean = closes.is_some_and(|at| matches!(rest[at + 1..], [")"] | [")", "", ..]));
+    // after the closing delimiter: a `)` line (blanks around it allowed), then nothing, or another message after a blank line
+    let paren = |l: &str| l.trim_matches(BLANK) == ")";
+    let clean = closes.is_some_and(|at| match rest[at + 1..] {
+        [p] => paren(p),
+        [p, next, ..] => paren(p) && next.is_empty(),
+        [] => false,
+    });
     if !clean || command.contains("'$(cat <<") || cleanup_kept(command) {
         return first;
     }
-    let subject = rest
+    // git's blank is the ASCII space and tab, not Unicode white space
+    let subject = rest[..closes.unwrap_or_default()]
         .iter()
-        .find(|l| !l.trim().is_empty())
+        .find(|l| !l.trim_matches(BLANK).is_empty())
         .copied()
         .unwrap_or_default();
     let subject = if first.contains("<<-") {
@@ -202,7 +218,7 @@ fn subject_of<'a>(message: &'a str, command: &str) -> &'a str {
     } else {
         subject
     };
-    subject.trim_end()
+    subject.trim_end_matches(BLANK)
 }
 
 /// The verdict on a commit's message, given the types the config adds.
@@ -363,4 +379,4 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

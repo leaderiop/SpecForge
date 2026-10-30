@@ -561,7 +561,8 @@ const SAFETY_SKIPPED: &[(&str, &str)] = block![
     "git-cmd.js isGitSubcommand: should NOT match commit" => "runtime: git-cmd.js is validate-commit's shell parser (a loop of non-commit spellings, each a title `desc`); the kernel's commit fact replaces it (D-r44-14)",
     "git-cmd.js tokenize" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
     "gsd-validate-commit.sh delegates to git-cmd.js" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
-    "git-cmd.js resolveCommitSubject" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
+    "git-cmd.js resolveCommitSubject > MAJOR 3: a TRUNCATED capture" => "diverges: upstream's `-m` capture truncates at a quote and its resolver reads a complete first line of a cut body; the kernel hands the whole message, and a heredoc with no terminator is judged by its opener (stricter)",
+    "git-cmd.js resolveCommitSubject > property:" => "env: fast-check properties over generated heredocs; the cases above are the examples they generalise",
     "git-cmd.js extractBranchArgument" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
 ];
 
@@ -573,7 +574,9 @@ fn worktree_path_guard_accounts_for_every_upstream_case() {
             .iter()
             .map(|b| (*b, WORKTREE_LIBRARY)),
     );
-    accounting::account(SAFETY_SUITE, &safety_ported(), &skipped);
+    let mut ported = safety_ported();
+    ported.extend(crate::hooks::community::tests::resolve_subject_ported());
+    accounting::account(SAFETY_SUITE, &ported, &skipped);
 }
 
 /// REVIEW-r44 M4: the main checkout under another spelling or by a relative path is still the main checkout.

@@ -90,7 +90,8 @@ Not verified:
   Cursor too and does nothing there.
 - `validate_commit` lets `-F` and `--fixup` commits through (they have no message on the command line); a literal
   `fixup! ...` subject is allowed, which upstream does not do; `git commit -m $MSG` (unquoted) is blocked where
-  upstream lets it through.
+  upstream lets it through. A heredoc message with no terminator line is judged by its opener (upstream's capture can
+  hand a cut body whose first line is complete, and resolves it).
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
   RED before it and is silent otherwise) and `prohibition-enforcement-request-file-judgment-mode` (upstream flags a
