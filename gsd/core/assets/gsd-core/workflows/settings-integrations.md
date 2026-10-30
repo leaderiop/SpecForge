@@ -81,9 +81,9 @@ EXA="{{setting:exa_search|}}"   # exa_search (the settings)
 SEARCH_GITIGNORED="false"   # search_gitignored: not a setting here: nothing of the project is gitignored
 ```
 
-For each secret key (`brave_search`, `firecrawl`, `exa_search`) the displayed
-value is `****<last-4>` when set, never the raw string. Never echo the
-plaintext to stdout, stderr, or any log.
+The keys themselves live in the environment (`BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`): show `set` or
+`not set` as `specforge settings` reports each secret, never a value. `brave_search`, `firecrawl` and `exa_search`
+are booleans that force a source on or off, not keys. Never echo a key to stdout, stderr, or any log.
 </step>
 
 <step name="section_1_search_integrations">
@@ -105,8 +105,8 @@ AskUserQuestion([
     options: [
       // When already set:
       { label: "Leave (**** already set)", description: "Keep current value" },
-      { label: "Replace", description: "Enter a new API key" },
-      { label: "Clear", description: "Remove the stored key" }
+      { label: "Replace", description: "You set the new key in your own environment" },
+      { label: "Clear", description: "You remove the variable from your own environment" }
       // When unset, use the two-option shape: Skip / Set.
     ]
   },
@@ -134,22 +134,22 @@ AskUserQuestion([
 ])
 ```
 
-For each "Set" or "Replace", follow with a text-input prompt that asks for the
-key value. **The answer must not be echoed back** in subsequent question
-descriptions or confirmation text. Write the value via:
+For each "Set" or "Replace", **do not ask for the key and do not take it in this conversation**: it would pass
+through the transcript and the tool-call log, and an `export` runs in one tool call's shell and is gone in the next.
+Tell the user to put `BRAVE_API_KEY`, `FIRECRAWL_API_KEY` or `EXA_API_KEY` in their own shell profile or secret
+manager (whichever they manage their secrets with) and to restart the session. The agent never receives the value and
+never writes it anywhere. Afterwards `specforge settings` reports each secret's status (set or not), never its value.
+
+For "Clear", the user removes the variable from that same place. To force a source off whatever the environment says:
 
 ```bash
-export BRAVE_API_KEY="<value>"       # a secret: an environment variable, never written to the settings
-export FIRECRAWL_API_KEY="<value>"   # a secret: an environment variable, never written to the settings
-export EXA_API_KEY="<value>"         # a secret: an environment variable, never written to the settings
-: # search_gitignored: not a setting here (the spec is source, not gitignored)
+specforge settings set @gsd/core brave_search false   # firecrawl and exa_search likewise
 ```
 
-For "Clear", write `null`:
 
-```bash
-unset BRAVE_API_KEY   # to clear: remove the variable from the environment (specforge settings set @gsd/core brave_search false forces the source off)
-```
+
+
+
 </step>
 
 <step name="section_2_review_models">
@@ -288,7 +288,7 @@ any entry containing a quote character (`'` or `"` — it cannot be written
 safely through the single-quoted form), and write the JSON array form:
 
 ```bash
-specforge settings set @gsd/core agent_skills.<slug> '["skills/alpha","skills/beta"]'
+specforge settings set @gsd/core agent_skills.<slug> skills/alpha skills/beta
 ```
 
 A single skill may be written as one bare string or a one-element array —

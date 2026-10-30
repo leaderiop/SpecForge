@@ -1,6 +1,6 @@
 <!-- Ported from gsd-core v1.18.0 gsd-core/workflows/settings.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
-Interactive configuration of GSD workflow agents (research, plan_check, verifier) and model profile selection via multi-question prompt. Updates the settings with user preferences. Optionally saves settings as global defaults (~/.gsd/defaults.json) for future projects.
+Interactive configuration of GSD workflow agents (research, plan_check, verifier) and model profile selection via multi-question prompt. Updates the settings with user preferences. There are no global defaults here: the settings are this project's.
 </purpose>
 
 <required_reading>
@@ -552,67 +552,67 @@ Write each changed value with the `specforge settings set @gsd/core <key> <value
 </step>
 
 <step name="save_as_defaults">
-Ask whether to save these settings as global defaults for future projects:
+There are no global defaults here: skip this step, and do not ask the question. `~/.gsd/defaults.json` is upstream
+GSD's own defaults store: writing it would change that tool's defaults, and no setting of `@gsd/core` follows it, so a
+new project would not start from these settings. The settings are this project's `specforge.json`; a new project is set
+up with the same `specforge settings set @gsd/core <key> <value>` lines. Tell the user so if they ask for defaults.
 
-```
-AskUserQuestion([
-  {
-    question: "Save these as default settings for all new projects?",
-    header: "Defaults",
-    multiSelect: false,
-    options: [
-      { label: "Yes", description: "New projects start with these settings (saved to ~/.gsd/defaults.json)" },
-      { label: "No", description: "Only apply to this project" }
-    ]
-  }
-])
-```
 
-If "Yes": write the same config object (minus project-specific fields like `brave_search`) to the global defaults store, `${GSD_HOME:-$HOME}/.gsd/defaults.json` (`~/.gsd/defaults.json` unless `GSD_HOME` is set):
 
-```bash
-mkdir -p "${GSD_HOME:-$HOME}/.gsd"
-```
 
-Write `${GSD_HOME:-$HOME}/.gsd/defaults.json` with:
-```json
-{
-  "mode": <current>,
-  "granularity": <current>,
-  "model_profile": <current>,
-  "commit_docs": <current>,
-  "parallelization": <current>,
-  "branching_strategy": <current>,
-  "quick_branch_template": <current>,
-  "workflow": {
-    "research": <current>,
-    "plan_check": <current>,
-    "verifier": <current>,
-    "auto_advance": <current>,
-    "nyquist_validation": <current>,
-    "pattern_mapper": <current>,
-    "ui_phase": <current>,
-    "ui_safety_gate": <current>,
-    "ai_integration_phase": <current>,
-    "tdd_mode": <current>,
-    "code_review": <current>,
-    "code_review_depth": <current>,
-    "ui_review": <current>,
-    "skip_discuss": <current>,
-    "compact_content": <current>
-  },
-  "plan_review": {
-    "source_grounding": <current>
-  },
-  "intel": {
-    "enabled": <current>
-  },
-  "graphify": {
-    "enabled": <current>,
-    "auto_update": <current>
-  }
-}
-```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </step>
 
 <step name="confirm">
@@ -666,6 +666,6 @@ Quick commands:
 - [ ] Current config read
 - [ ] User presented with 25 settings (profile + workflow toggles + features + git branching + git tagging + ctx warnings + compact content), grouped into six sections: Planning, Execution, Docs & Output, Features, Model & Pipeline, Misc. `code_review_depth` is conditional on `code_review=on`. Model profile uses a two-question split (Q1: Adaptive / Standard tier / Inherit; Q2: Quality / Balanced / Budget — only when Standard tier chosen) to stay within the 4-option AskUserQuestion cap while exposing all 5 valid profiles (#3784). Drift Guard (`plan_review.source_grounding`) is in the Planning section.
 - [ ] Config updated with model_profile, workflow, and git sections
-- [ ] User offered to save as global defaults (~/.gsd/defaults.json)
+- [ ] No global defaults written (there are none here)
 - [ ] Changes confirmed to user
 </success_criteria>
