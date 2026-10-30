@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:280a01e66c53100ab0feb066b7b776c8c7774a5bdecc9ea21fbc16029a070a82",
-    "prompt": "@gsd/core@0.1.0:milestone_summary",
+    "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
         "cli": "specforge gsd progress-report",

@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:e85ecb063849fe90e81bc67f518b1aaea705586f74d646ee1c8a5734482986ba",
-    "prompt": "@gsd/core@0.1.0:plan_review_convergence",
+    "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
         "id": "replan",

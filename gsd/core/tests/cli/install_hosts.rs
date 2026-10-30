@@ -88,7 +88,7 @@ fn a_skill(host: &str) -> &'static str {
 }
 
 /// `text` with every marker's `@gsd/core@<version>` read as `@gsd/core@VERSION`.
-fn normalised(text: &str) -> String {
+pub(super) fn normalised(text: &str) -> String {
     let key = "@gsd/core@";
     let mut out = String::new();
     let mut rest = text;
@@ -536,5 +536,43 @@ fn install_never_leaves_the_project() {
                 "{host}: {path}"
             );
         }
+    }
+}
+
+/// D-r44-23: no golden holds the extension's version, so the next bump moves nothing but `Cargo.toml` and the lock.
+#[test]
+fn the_marker_version_is_normalised() {
+    fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).expect("a golden folder") {
+            let path = entry.expect("an entry").path();
+            if path.is_dir() {
+                files(&path, out);
+            } else {
+                out.push(path);
+            }
+        }
+    }
+    let mut all = Vec::new();
+    files(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/install"),
+        &mut all,
+    );
+    let marked: Vec<_> = all
+        .iter()
+        .filter(|f| std::fs::read_to_string(f).is_ok_and(|t| t.contains("@gsd/core@")))
+        .collect();
+    assert_eq!(
+        marked.len(),
+        65,
+        "15 agent and 50 skill goldens hold the marker"
+    );
+    for file in marked {
+        let text = std::fs::read_to_string(file).expect("a golden");
+        assert_eq!(
+            normalised(&text),
+            text,
+            "{} holds a version, not VERSION",
+            file.display()
+        );
     }
 }

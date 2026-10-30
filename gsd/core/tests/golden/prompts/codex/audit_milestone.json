@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:e893e30b191f5d42dd3e410d077a6722aed6596ec290d17fa3e85a477a9306c0",
-    "prompt": "@gsd/core@0.1.0:audit_milestone",
+    "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
         "id": "integrate",

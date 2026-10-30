@@ -93,7 +93,7 @@ fn an_empty_project_loads_gsd_core_and_checks_clean() {
     assert_eq!(check.code, 0, "check: {}", check.all());
     let listed = p.run(&["extensions"]);
     assert!(
-        listed.all().contains("@gsd/core") && listed.all().contains("0.1.0"),
+        listed.all().contains("@gsd/core") && listed.all().contains(env!("CARGO_PKG_VERSION")),
         "extensions: {}",
         listed.all()
     );

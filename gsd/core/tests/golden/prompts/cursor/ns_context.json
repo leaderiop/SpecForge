@@ -173,7 +173,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:c838505d3ac46c2f6217c6382e6817bcfd0dc8cebad5bd8577fb84b8d7878e81",
-    "prompt": "@gsd/core@0.1.0:ns_context"
+    "prompt": "@gsd/core@VERSION:ns_context"
   },
   "sha256": "c838505d3ac46c2f6217c6382e6817bcfd0dc8cebad5bd8577fb84b8d7878e81"
 }

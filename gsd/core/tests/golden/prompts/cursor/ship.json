@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:b05579289de37cf95544a2da8495017e36a61f14f4a16fb096ae5efee11b0055",
-    "prompt": "@gsd/core@0.1.0:ship",
+    "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
         "cli": "specforge gsd fix-window",

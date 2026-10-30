@@ -182,7 +182,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:94019d425ad13bbd6e6b1ae2ac8087462ab87430b1537d9396fd0326e5c05393",
-    "prompt": "@gsd/core@0.1.0:ns_review"
+    "prompt": "@gsd/core@VERSION:ns_review"
   },
   "sha256": "94019d425ad13bbd6e6b1ae2ac8087462ab87430b1537d9396fd0326e5c05393"
 }

@@ -159,6 +159,6 @@ fn a_disabled_cluster_hides_the_new_milestone_skill() {
     let rendered = payload(&prompt(&p, "new_milestone", &[], "claude-code"));
     assert_eq!(
         rendered["payload"]["prompt"],
-        "@gsd/core@0.1.0:new_milestone"
+        concat!("@gsd/core@", env!("CARGO_PKG_VERSION"), ":new_milestone")
     );
 }

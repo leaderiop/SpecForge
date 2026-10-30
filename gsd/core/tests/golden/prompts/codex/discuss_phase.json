@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:9258c2875ae6642780b69fed2a8df05c4a16c3b11c715f51284df6ab00957b88",
-    "prompt": "@gsd/core@0.1.0:discuss_phase",
+    "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
         "id": "analyze_assumptions",

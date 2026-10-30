@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:058c6d66c018aa115c9b5004db611e6044dbc97d8116a8d543c0d1778937ab88",
-    "prompt": "@gsd/core@0.1.0:mvp_phase",
+    "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
         "id": "plan",

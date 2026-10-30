@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:5793838cb6292da3bbfbbf972ef64316628d124d0f69f4f5b97e999d4201c4fe",
-    "prompt": "@gsd/core@0.1.0:execute_plan",
+    "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
         "cli": "specforge gsd start-plan",

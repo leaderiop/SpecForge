@@ -154,7 +154,7 @@
   "lines": 222,
   "payload": {
     "digest": "sha256:877f3e0b322377a2c95a6422acbce7d91ce52710e760be0fec98885d4e16f63d",
-    "prompt": "@gsd/core@0.1.0:update"
+    "prompt": "@gsd/core@VERSION:update"
   },
   "sha256": "877f3e0b322377a2c95a6422acbce7d91ce52710e760be0fec98885d4e16f63d"
 }

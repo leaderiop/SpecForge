@@ -13,10 +13,23 @@ fn the_handshake_names_gsd_core_and_tracks_1_18_0() {
         serde_json::from_str(&host.handshake_json()).expect("the handshake is JSON");
     assert_eq!(handshake["name"], "@gsd/core");
     assert_eq!(handshake["ext_short"], "gsd");
-    assert_eq!(handshake["version"], "0.1.0");
+    assert_eq!(handshake["version"], env!("CARGO_PKG_VERSION"));
     assert_eq!(
         handshake["keywords"],
         serde_json::json!(["tracks:gsd-core@1.18.0"])
+    );
+}
+
+/// D-r44-23: the extension\'s version is the crate\'s, so a bump moves `Cargo.toml` and the lock and no test.
+#[test]
+fn the_handshake_names_the_crate_version() {
+    let host = MockHost::new(build());
+    let handshake: serde_json::Value =
+        serde_json::from_str(&host.handshake_json()).expect("the handshake is JSON");
+    assert_eq!(handshake["version"], env!("CARGO_PKG_VERSION"));
+    assert!(
+        env!("CARGO_PKG_VERSION").split('.').count() == 3,
+        "a release version"
     );
 }
 

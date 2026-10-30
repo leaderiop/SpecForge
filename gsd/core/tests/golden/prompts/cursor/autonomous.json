@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:63bff95dba9dd17c502323b123c5e47cbf6cd0fb4ef7c8c7102e47e155843216",
-    "prompt": "@gsd/core@0.1.0:autonomous",
+    "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
         "id": "discuss",

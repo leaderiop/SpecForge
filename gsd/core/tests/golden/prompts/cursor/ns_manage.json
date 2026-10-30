@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:c0c92c3cfe7582a32f66b4b318e5af6afd1a6f2d7c89bc86f71d178ca5e48280",
-    "prompt": "@gsd/core@0.1.0:ns_manage"
+    "prompt": "@gsd/core@VERSION:ns_manage"
   },
   "sha256": "c0c92c3cfe7582a32f66b4b318e5af6afd1a6f2d7c89bc86f71d178ca5e48280"
 }
