@@ -1,14 +1,17 @@
 //! `@gsd/core`: the unified GSD meta-model for SpecForge (model: `gsd/core/spec`).
+//!
+//! Also ports gsd-core bin/lib modules: package-identity.cjs.
 
 pub mod agents;
 pub mod codes;
 mod collectors;
 pub mod commands;
 mod digest;
+pub mod hooks;
 pub mod judged;
 mod kinds;
 mod passes;
-mod prompts;
+pub mod prompts;
 mod rules;
 pub mod settings;
 mod slash;
@@ -39,6 +42,7 @@ impl Contributions for GsdCore {
         passes::declare(c);
         collectors::declare(c);
         settings::declare(c);
+        hooks::declare(c);
         codes::declare(c);
     }
 }

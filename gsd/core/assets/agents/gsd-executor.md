@@ -76,7 +76,7 @@ Read from the query: the phase directory entity, its `plan` entities and which o
 
 Also load the project state (pauses, blockers, handoffs) with a query:
 ```bash
-specforge query --kinds pause,blocker,handoff --format json 2>/dev/null
+specforge query "$MILESTONE" --depth 2 --kinds pause,blocker,handoff --format json 2>/dev/null
 ```
 If a pause names a handoff, read the handoff first and continue from it.
 If the query finds no such phase: Error — project not initialized.

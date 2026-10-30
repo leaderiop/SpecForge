@@ -2,6 +2,8 @@
 //! graph a command receives, which carries each phase's computed `status` and `plans_complete`. `progress` is the one
 //! computation `progress_report` and the statusline share. A graph without those computed values (a view whose checks
 //! were skipped) is refused, never guessed at (ADR 0299 D4).
+//!
+//! Also ports gsd-core bin/lib modules: health-diagnostic*, validate.cjs.
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
@@ -38,7 +40,7 @@ impl Phase {
 }
 
 /// The milestone a report is about: the one in progress, else the last.
-fn current(graph: &CommandGraph) -> Option<&GraphNode> {
+pub(crate) fn current(graph: &CommandGraph) -> Option<&GraphNode> {
     let milestones: Vec<&GraphNode> = graph.nodes_of_kind("milestone").collect();
     milestones
         .iter()

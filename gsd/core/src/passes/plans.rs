@@ -1,4 +1,6 @@
 //! What every plan pass reads the same way: the plans, and the phase each one is in.
+//!
+//! Also ports gsd-core bin/lib modules: plan-*.
 
 use std::collections::BTreeMap;
 

@@ -1,5 +1,7 @@
 //! The slash commands that run a command of this extension (D-r41-14): one binding each, with upstream's argument hint.
 //! The host renders the trampoline; the description is the command's. Each carries the notice of the upstream file.
+//!
+//! Also ports gsd-core bin/lib modules: command-aliases.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

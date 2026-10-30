@@ -10,6 +10,8 @@
 //! a full entity path (a short form is W115), so the collector resolves `[gsd:01-01/T1]` itself and answers full
 //! paths. It never answers a plan. It has no command (GSD is language-agnostic): run the project's tests, then
 //! `specforge collect --runner gsd-junit --no-run`, or name the report with `--report <file>`.
+//!
+//! Also ports gsd-core bin/lib modules: normalize-test-command.cjs.
 
 #[cfg(test)]
 mod tests;

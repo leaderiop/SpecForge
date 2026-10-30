@@ -116,20 +116,87 @@ fn the_uat_twins_status_is_partial_where_the_file_says_complete() {
     assert_eq!(p.fields_of(SESSION)["status"], "partial");
 }
 
-/// `01-VERIFICATION.md` is `passed`, `2/2 must-haves verified`. The twin's verification passes once the verifier's
-/// `verified` verdicts are recorded on every item of the phase. The score stays a named divergence: the twin models
-/// three truths where the file lists two must-haves, so it is `3/3`.
+/// `01-VERIFICATION.md` is `passed`, `3/3 must-haves verified` (D-r44-21: the verifier merges the roadmap's success
+/// criteria with the plans' must-haves). The twin carries its verifier's verdicts, so it says `passed` and `3/3` with
+/// nothing recorded, and the file's three rows pair with the twin's three truths.
 #[test]
-fn the_twins_verification_passes_with_its_verdicts() {
+fn verification_is_three_of_three_on_both_sides() {
     let p = taskboard();
     let file = pairs(&p.read(VERIFICATION_MD), None);
     assert_eq!(get(&file, "status"), "passed");
-    assert!(get(&file, "score").starts_with("2/2"), "{file:?}");
-    let before = p.fields_of("v1.0/01/01-VERIFICATION");
-    assert_eq!(before["status"], "pending", "{before}");
-    assert_eq!(before["score"], "0/3", "{before}");
-    assert!(p.verify_phase("v1.0/01") > 0);
+    assert!(get(&file, "score").starts_with("3/3"), "{file:?}");
     let twin = p.fields_of("v1.0/01/01-VERIFICATION");
     assert_eq!(twin["status"], get(&file, "status"), "{twin}");
     assert_eq!(twin["score"], "3/3", "{twin}");
+    // The file's rows, each paired with the twin truth that says it.
+    let rows: Vec<String> = p
+        .read(VERIFICATION_MD)
+        .lines()
+        .filter(|l| l.starts_with("| ") && l.contains("VERIFIED"))
+        .map(|l| l.split('|').nth(2).unwrap_or_default().trim().to_string())
+        .collect();
+    assert_eq!(rows.len(), 3, "{rows:?}");
+    let truths = p.nodes_of("truth");
+    let phase_one: Vec<String> = truths
+        .iter()
+        .filter(|n| n["id"].as_str().is_some_and(|i| i.starts_with("v1.0/01/")))
+        .map(|n| {
+            n["fields"]["text"]
+                .as_str()
+                .unwrap_or_default()
+                .to_lowercase()
+        })
+        .collect();
+    assert_eq!(phase_one.len(), 3, "{phase_one:?}");
+    let pairing = [
+        ("add a task with a title", "next integer id"),
+        ("mark a task complete by its id", "completed by its id"),
+        ("does not exist fails", "does not exist fails"),
+    ];
+    for (row, (said, twin_says)) in rows.iter().zip(pairing) {
+        assert!(row.contains(said), "{row} says {said}");
+        assert!(
+            phase_one.iter().any(|t| t.contains(twin_says)),
+            "{twin_says} in {phase_one:?}"
+        );
+    }
+    // Stripped of its verdicts the verification is pending.
+    let q = taskboard();
+    q.strip_verdicts();
+    let before = q.fields_of("v1.0/01/01-VERIFICATION");
+    assert_eq!(
+        (before["status"].clone(), before["score"].clone()),
+        ("pending".into(), "0/3".into())
+    );
+}
+
+/// P7 (D-r44-21): the verifier's seven verdicts on phase 01 are committed into the twin's `spec/` and its harness
+/// ledger, and they are fresh in any copy of it. `GSD_BLESS=1` records them on a copy and writes the files back.
+#[test]
+fn the_twin_holds_its_verifier_verdicts() {
+    if std::env::var_os("GSD_BLESS").is_some() {
+        let p = taskboard();
+        let recorded = p.verify_phase("v1.0/01");
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard");
+        let mut files: Vec<String> = std::fs::read_dir(fixture.join("spec"))
+            .expect("the spec dir")
+            .map(|e| {
+                format!(
+                    "spec/{}",
+                    e.expect("an entry").file_name().to_string_lossy()
+                )
+            })
+            .collect();
+        files.push("specforge-harness".to_string());
+        for file in files {
+            std::fs::write(fixture.join(&file), p.read(&file)).expect("the fixture file");
+        }
+        eprintln!("recorded {recorded} verdicts into the twin");
+    }
+    let fresh = taskboard();
+    assert_eq!(
+        fresh.verify_phase("v1.0/01"),
+        0,
+        "no E501 judgement is pending in phase 01: GSD_BLESS=1 records them"
+    );
 }

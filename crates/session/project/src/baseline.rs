@@ -6,6 +6,7 @@
 //! `.specforge/baselines/<sha>-<env16>.json` under the project root, where `env16` is the first 16 hex of the digest
 //! of what the compile reads besides the sources (the host version, the loaded declarations and the digest of each installed module, the spec root and the
 //! excludes). A different extension version is a different environment, never a stale hit.
+//! A compute pass that reads files reads the commit's, listed from its tree and fetched on demand (ADR 0300).
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -19,7 +20,7 @@ use specforge_registry::RegistryBuild;
 use specforge_wasm::WasmRuntime;
 
 use crate::Environment;
-use crate::history::{CommitFile, GitPlace, History, Located, Sha};
+use crate::history::{CommitFile, GitPlace, History, Located, Sha, TreeEntry};
 use crate::sources::Read;
 
 /// One entity at the baseline: its kind, each field it wrote as the host reads it (`graph::wire`), and the values
@@ -397,7 +398,40 @@ impl Baseline {
                 let files = history
                     .files(place, commit, within)
                     .map_err(|e| e.to_string())?;
+                // The commit's tree, only for a compute pass that reads files (ADR 0300).
+                let tree = if env
+                    .registries()
+                    .compute_passes()
+                    .any(|pass| !pass.reads().is_empty())
+                {
+                    history
+                        .tree(place, commit, within)
+                        .map_err(|e| e.to_string())?
+                } else {
+                    Vec::new()
+                };
                 let failed = std::cell::RefCell::new(None);
+                // A file the tree lists and git cannot give: the baseline is used, but not cached (it may be whole later).
+                let incomplete = std::cell::Cell::new(false);
+                let sizes = |keys: &[String]| -> Vec<(String, Option<u64>)> {
+                    let asked = crate::baseline_judged::paths(within, keys);
+                    match history.sizes(place, commit, &asked) {
+                        Ok(found) => {
+                            let found: Vec<_> = keys
+                                .iter()
+                                .cloned()
+                                .zip(found.into_iter().map(|(_, size)| size))
+                                .collect();
+                            incomplete
+                                .set(incomplete.get() || found.iter().any(|(_, s)| s.is_none()));
+                            found
+                        }
+                        Err(error) => {
+                            *failed.borrow_mut() = Some(error.to_string());
+                            keys.iter().map(|key| (key.clone(), None)).collect()
+                        }
+                    }
+                };
                 let fetch = |keys: &[String]| -> Vec<(String, Option<Vec<u8>>)> {
                     let asked = crate::baseline_judged::paths(within, keys);
                     match history.blobs(place, commit, &asked) {
@@ -412,13 +446,18 @@ impl Baseline {
                         }
                     }
                 };
-                let compiled = Self::compile(env, commit.clone(), within, files, &fetch);
+                let compiled =
+                    Self::compile(env, commit.clone(), within, files, tree, &sizes, &fetch);
                 // Files git could not give are not files it lacks: nothing is cached, and the baseline is unreadable.
                 if let Some(why) = failed.into_inner() {
                     return Err(format!(
-                        "the files the judged rules read could not be read at {}: {why}",
+                        "the files the judged rules and the compute passes read could not be read at {}: {why}",
                         commit.as_str()
                     ));
+                }
+                // Used now, read again next time: a sparse or blobless checkout may hold the missing blobs later.
+                if incomplete.get() {
+                    return Ok(Arc::new(compiled));
                 }
                 // shortcut: the cache is best effort and never pruned; prune by age if it grows.
                 if let Ok(json) = serde_json::to_vec(&compiled) {
@@ -449,20 +488,26 @@ impl Baseline {
         revision: Sha,
         within: &Path,
         files: Vec<CommitFile>,
+        tree: Vec<TreeEntry>,
+        sizes: crate::baseline_reads::Sizes<'_>,
         fetch: crate::baseline_judged::Fetch<'_>,
     ) -> Baseline {
         let mut texts: BTreeMap<String, String> = BTreeMap::new();
         let mut held: BTreeMap<String, Vec<u8>> = BTreeMap::new();
         let mut ledger = String::new();
+        let key_of = |path: &Path| -> Option<String> {
+            let rest = path.strip_prefix(within).ok()?;
+            Some(
+                rest.components()
+                    .map(|c| c.as_os_str().to_string_lossy())
+                    .collect::<Vec<_>>()
+                    .join("/"),
+            )
+        };
         for (path, bytes) in files {
-            let Ok(rest) = path.strip_prefix(within) else {
+            let Some(key) = key_of(&path) else {
                 continue;
             };
-            let key = rest
-                .components()
-                .map(|c| c.as_os_str().to_string_lossy())
-                .collect::<Vec<_>>()
-                .join("/");
             held.insert(key.clone(), bytes.clone());
             if key == crate::harness::LEDGER_FILE {
                 ledger = String::from_utf8(bytes).unwrap_or_default();
@@ -478,20 +523,8 @@ impl Baseline {
         let keys: Vec<String> = texts.keys().cloned().collect();
         let built = env.build_sources(&keys, &written, |_| Read::Gone);
         let snapshot = env.entity_snapshot(&built.graph);
-        // A compute pass that declares `reads` reads the files as the commit held them (ADR 0293).
-        let commit_disk = if env
-            .registries()
-            .compute_passes()
-            .any(|pass| !pass.reads().is_empty())
-        {
-            held.iter().fold(
-                specforge_registry::MemoryDisk::new(),
-                |disk, (key, bytes)| disk.with_file(env.root().join(key), bytes),
-            )
-        } else {
-            specforge_registry::MemoryDisk::new()
-        };
         // The judged rules at the commit, over its files, before the compute passes read them.
+        let seeded = held.clone();
         let judged = crate::baseline_judged::judge(
             env,
             built.graph.graph(),
@@ -502,19 +535,19 @@ impl Baseline {
         );
         let computed = match env.runtime() {
             Some(runtime) if env.registries().compute_passes().next().is_some() => {
-                crate::compute::run(
+                let tree = tree
+                    .into_iter()
+                    .filter_map(|(path, file)| Some((key_of(&path)?, file)))
+                    .collect();
+                crate::baseline_reads::compute_at(
                     env,
                     &snapshot,
                     &**runtime as &dyn WasmRuntime,
-                    None,
-                    &judged.values,
-                    &judged.judgements,
-                    crate::compute::Reads {
-                        disk: &commit_disk,
-                        tests: None,
-                    },
+                    &judged,
+                    &tree,
+                    seeded,
+                    crate::baseline_reads::Git { sizes, fetch },
                 )
-                .0
             }
             _ => Default::default(),
         };
@@ -600,8 +633,8 @@ fn fingerprint(env: &Environment) -> String {
         bytes.extend(entry.name.to_string().into_bytes());
         bytes.extend(entry.wasm_hash.as_str().as_bytes());
     }
-    // the baseline format: 2 holds each entity's judgements
-    bytes.extend(b"\0baseline-format:2");
+    // the baseline format: 3 reads a commit's source files for the compute passes (ADR 0300)
+    bytes.extend(b"\0baseline-format:3");
     let config = env.config();
     bytes.push(0);
     bytes.extend(config.spec_root.clone().unwrap_or_default().into_bytes());

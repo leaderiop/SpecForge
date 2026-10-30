@@ -74,7 +74,7 @@ Requirements with no cross-phase wiring MUST be flagged in the Requirements Inte
 <verification_process>
 
 ## Step 1: Build Export/Import Map
-For each phase, extract what it provides and consumes from its summaries (`specforge query --kinds summary
+For each phase, extract what it provides and consumes from its summaries (`specforge query "$MILESTONE" --depth 3 --kinds summary
 --format json`: each summary's `key_files` and what it provides). Build a provides/consumes map, e.g.:
 
 ```

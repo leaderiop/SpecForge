@@ -6,6 +6,8 @@
 //! plans gets a wave here (gsd/E102 reports the cycle). A quick plan is in no phase and has no wave. GSD reads
 //! `autonomous:` from the frontmatter; here it is computed, false exactly when the plan has a checkpoint, which is what
 //! GSD's structure check demands of every conforming plan.
+//!
+//! Also ports gsd-core bin/lib modules: file-overlap-partitioner.cjs.
 
 use std::collections::{BTreeMap, BTreeSet};
 

@@ -22,6 +22,9 @@ fn every_asset_is_attributed() {
     for path in all {
         let relative = path.strip_prefix(&assets).expect("under assets");
         let upstream = relative.to_string_lossy();
+        if upstream.ends_with(".json") {
+            continue; // a JSON file cannot carry the line: `assets.rs` and `tests/assets.rs` cover it
+        }
         let text = std::fs::read_to_string(&path).expect("a text asset");
         let first = text.lines().next().unwrap_or_default();
         assert_eq!(
@@ -55,6 +58,20 @@ fn every_ported_source_is_attributed() {
     let mut all = Vec::new();
     files(&ported, &mut all);
     assert!(all.len() >= 4, "{} ported files", all.len());
+    // `smart_entry` (r43) ports `src/smart-entry.cts` and `src/runtime-slash.cts`, and its tests the unit suite
+    let entry = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/commands/smart_entry");
+    files(&entry, &mut all);
+    all.push(entry.with_extension("rs"));
+    // the hooks (r44) port upstream's `hooks/` scripts; only the modules that port nothing say nothing
+    let hooks = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/hooks");
+    let mut ported_hooks = Vec::new();
+    files(&hooks, &mut ported_hooks);
+    all.extend(ported_hooks.into_iter().filter(|p| {
+        !matches!(
+            p.file_name().and_then(|n| n.to_str()),
+            Some("mod.rs" | "roster.rs" | "facts.rs" | "accounting.rs" | "corpus.rs")
+        )
+    }));
     for path in all {
         let text = std::fs::read_to_string(&path).expect("a source");
         let first = text.lines().next().unwrap_or_default();
@@ -77,5 +94,22 @@ fn the_vendored_scorer_is_the_file_the_port_names() {
     ] {
         let text = std::fs::read_to_string(upstream.join(file)).expect("a vendored file");
         assert!(text.contains("analyzeSource"), "{file}");
+    }
+}
+
+/// The vendored router and its suite are the files the port names.
+#[test]
+fn the_vendored_router_is_the_file_the_port_names() {
+    let upstream = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/upstream/v1.18.0");
+    for (file, word) in [
+        ("src/smart-entry.cts", "classify"),
+        ("src/runtime-slash.cts", "formatGsdSlash"),
+        (
+            "tests/smart-entry.unit.test.cjs",
+            "smart-entry: situation coverage",
+        ),
+    ] {
+        let text = std::fs::read_to_string(upstream.join(file)).expect("a vendored file");
+        assert!(text.contains(word), "{file}");
     }
 }

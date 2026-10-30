@@ -17,7 +17,7 @@
 
 File: `plans/<NN-MM>.spec` in the phase folder: the plan, its tasks, checkpoints and must-haves, its plan-check
 verdicts, and later its summary
-([execute.md](execute.md)). A quick task (`/gsd-quick`) is a plan with no phase, in `spec/gsd/ops/quick/`.
+([execute.md](execute.md)). A quick task (`/gsd-quick`, r43) is a plan with no phase, named by its quick id; the prompt creates it with `specforge new plan`, then opens and completes it with `start-plan` and `complete-plan`.
 
 ## plan
 

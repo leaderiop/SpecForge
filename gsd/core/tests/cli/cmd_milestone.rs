@@ -12,9 +12,11 @@ fn close_milestone_on_the_twin_is_refused_e106_and_e511() {
     let run = gsd(&p, "close-milestone", &["v1.0"]);
     assert_ne!(run.code, 0, "{}", run.all());
     let all = run.all();
-    for word in ["E106", "E511", "v1.0/01", "v1.0/02", "v1.0/03", "no audit"] {
+    for word in ["E106", "E511", "v1.0/02", "v1.0/03", "no audit"] {
         assert!(all.contains(word), "'{word}' not in: {all}");
     }
+    // Phase 01 carries its verifier's verdicts (D-r44-21): it is not among the unverified.
+    assert!(!all.contains("phase 'v1.0/01'"), "{all}");
     unchanged(&p, &before);
 }
 

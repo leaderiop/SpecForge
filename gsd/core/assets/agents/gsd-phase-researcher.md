@@ -108,7 +108,7 @@ Write the questions down (working notes; no file is needed):
 
 Pick the provider for each question by its `kind`: `docs` goes to `context7`; `web` goes to `exa`, `tavily`, `perplexity` or `brave` when your tools include one, else `WebSearch`; `scrape` goes to `firecrawl` or `WebFetch`.
 
-Reuse what the phase already holds: `specforge query "$PHASE_ID" --kinds finding --format json`.
+Reuse what the phase already holds: `specforge query "$PHASE_ID" --depth 2 --kinds finding --format json`.
 
 
 There is no cache seam. Before you fetch, look at the phase's `finding` entities:
@@ -147,7 +147,7 @@ specforge new finding "<id>" "<short title>" --in <file> \
   --research "$RESEARCH_ID" \
   --text "<one-paragraph digest>" \
   --topic <topic> \
-  --confidence <high|medium|low>
+  --confidence "<high|medium|low>"
 ```
 
 
@@ -795,7 +795,7 @@ Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
 ## Step 7: Commit Research (optional)
 
 ```bash
-git add <the phase's .spec files> && git commit -m "docs($PHASE): research phase domain"
+git add -- "<the phase spec files>" && git commit -m "docs($PHASE): research phase domain"
 ```
 
 ## Step 8: Return Structured Result

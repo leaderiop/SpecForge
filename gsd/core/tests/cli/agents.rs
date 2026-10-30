@@ -1,6 +1,7 @@
 //! The 15 core agents, rendered by the real host into `.claude/agents/`.
 
 use super::harness::{Project, project};
+use gsd_core::agents::repointed;
 use gsd_core::agents::roster::AGENTS;
 
 /// The `---` frontmatter of a rendered agent file as `(key, value)` lines, and the rest.
@@ -43,6 +44,7 @@ fn every_core_agent_renders() {
     for agent in AGENTS {
         let file = claude_agent(&p, agent.id);
         let (front, body) = split(&file);
+        let full = repointed(agent.full);
         assert_eq!(value(&front, "name"), Some(agent.id), "{file}");
         assert!(
             value(&front, "description").is_some_and(|d| !d.is_empty()),
@@ -51,7 +53,7 @@ fn every_core_agent_renders() {
         assert!(value(&front, "tools").is_some(), "{file}");
         assert_eq!(value(&front, "color"), Some(agent.color), "{file}");
         assert!(
-            body.contains(&agent.full[agent.full.find('\n').unwrap_or(0)..]),
+            body.contains(&full[full.find('\n').unwrap_or(0)..]),
             "{}",
             agent.id
         );
@@ -102,12 +104,12 @@ fn compact_variant_renders() {
     let mut compact = 0;
     for agent in AGENTS {
         let body = cursor_agent(&p, agent.id);
-        let expected = agent.compact.unwrap_or(agent.full);
+        let expected = repointed(agent.compact.unwrap_or(agent.full));
         assert!(body.contains(expected.trim_end()), "{}", agent.id);
         if agent.compact.is_some() {
             compact += 1;
             assert!(
-                !body.contains(agent.full.trim_end()),
+                !body.contains(repointed(agent.full).trim_end()),
                 "{} is full",
                 agent.id
             );
@@ -122,7 +124,7 @@ fn compact_is_not_rendered_unless_asked() {
     installed(&p, "cursor");
     for agent in AGENTS {
         assert!(
-            cursor_agent(&p, agent.id).contains(agent.full.trim_end()),
+            cursor_agent(&p, agent.id).contains(repointed(agent.full).trim_end()),
             "{}",
             agent.id
         );
@@ -136,7 +138,11 @@ fn claude_code_never_renders_compact() {
     installed(&p, "claude-code");
     for agent in AGENTS {
         let body = split(&claude_agent(&p, agent.id)).1;
-        assert!(body.contains(agent.full.trim_end()), "{}", agent.id);
+        assert!(
+            body.contains(repointed(agent.full).trim_end()),
+            "{}",
+            agent.id
+        );
     }
 }
 
@@ -150,7 +156,7 @@ fn an_explicit_variant_beats_the_preset() {
     installed(&p, "cursor");
     for agent in AGENTS {
         assert!(
-            cursor_agent(&p, agent.id).contains(agent.full.trim_end()),
+            cursor_agent(&p, agent.id).contains(repointed(agent.full).trim_end()),
             "{}",
             agent.id
         );

@@ -8,7 +8,9 @@ mod help;
 mod milestone;
 mod phase;
 mod refactor;
-mod reports;
+mod reference;
+pub(crate) mod reports;
+pub mod smart_entry;
 mod state;
 mod support;
 pub(crate) use support::natural;
@@ -73,5 +75,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     workstreams::declare(c);
     help::declare(c);
     reports::declare(c);
+    reference::declare(c);
+    smart_entry::declare(c);
     surface::declare(c);
 }

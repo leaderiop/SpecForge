@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.11.0); `@gsd/core` has its foundation and its discuss, specify, research, plan and execute kinds (kinds, code book, settings, roadmap, discuss, research, plan and execute checks, and the `gsd-git` and `gsd-junit` collectors) and the other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.11.0); `@gsd/core` 1.0.0 is built and tracks gsd-core 1.18.0: its model, checks, 15 agents, 30 commands, 44 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: `gsd/W514` and `gsd/E515` are not built, hooks are 16 of 28, the `specforged` harness is later, Codex and Cursor are unrun). The other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -31,7 +31,8 @@ so `@gsd/core` ships its own JUnit test collector instead of relying on a test-r
 
 ## Decisions
 
-Settled in a design interview on 2026-10-26. The kernel changes they need, K1–K10, K11–K16, K17 and the call graph of ADR 0299, are built and accepted as ADRs;
+Settled in a design interview on 2026-10-26. The kernel changes they need, K1–K10, K11–K16, K17, the call graph of
+ADR 0299 and the baseline's source files (K19), are built and accepted as ADRs;
 the rest of this folder keeps their K names.
 
 | Draft | ADR | Kernel change |
@@ -54,6 +55,9 @@ the rest of this folder keeps their K names.
 | K16 | [0296](../docs/adr/0296-settings-are-set-and-unset-through-specforge-settings.md) | settings are set and unset through `specforge settings` |
 | K17 | [0297](../docs/adr/0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md), [0298](../docs/adr/0298-an-agent-does-not-change-or-delete-what-a-person-wrote.md) | a judged rule's finding is not an error a write adds, a collector's plan is judged with its report, and an agent does not change a human-only entity or delete a person's value |
 | K18 | [0299](../docs/adr/0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) | the graph a call receives carries the computed values and judgements every surface shows |
+| K19 | [0300](../docs/adr/0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) | a compute pass at the baseline reads the files the commit holds |
+
+K20 is the queue of kernel items that still wait ("What still waits for kernel work" below); none of them is built.
 
 Building `@gsd/core` against them found six more gaps no model fix closes. They are a second kernel round (r35,
 protocol 1.11.0, now in the kernel), and the model cites them where it relies on them: **K11** a pass or command reads the project files
@@ -69,7 +73,7 @@ list fields as items, **K14** a writing call knows the time (`now`), **K15** a j
 | Parity means | The same **concepts**, the same **commands** (`/gsd-*`, by exact name) and the same **agent behaviour**. Not the same files: no `.planning/`, no export. |
 | Parity and more | Parity is the floor. The default profile `gsd-compat` behaves as GSD does; `gsd-strict` and `gsd-plus` switch on what SpecForge can do beyond GSD. |
 | Versions | Our extensions keep their own semver and declare what they track: the crate's `[package.metadata.gsd] tracks = "gsd-core@1.18.0"` and the handshake keyword `tracks:gsd-core@1.18.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
-| Upgrades | Per upstream release a diff tool (inventory manifest, `capability.json`, templates, prompts, gates) writes a parity backlog; `tracks` moves only when the [parity suite](parity/) passes. |
+| Upgrades | `gsd/parity/upgrade.sh <gsd-core-dir> <tag>` diffs the tracked tag against the new one (inventory manifest, capability ids, config manifest, changed files) and writes a parity backlog, `gsd/parity/backlog/<tag>.md`, one row per change with the table that owns it; `tracks` moves only when the [parity suite](parity/) passes. |
 | Adoption | `specforge gsd import` reads an existing `.planning/` once and writes `.spec` (edit plans). The parity suite uses it too. |
 
 ### Model
@@ -115,7 +119,7 @@ spec/gsd/
 └── ops/                              debug, threads, todos, seeds, backlog, committed pause and handoff
 specforge-harness                     digests of applied harness values (K4), committed, kept canonical by the host
 .gitattributes                        specforge-harness merge=union
-.specforge/state/gsd/                 session cursor, active workstream, harness checkpoints (git-ignored; written by the host, K9)
+.specforge/state/gsd__core/                 session cursor, active workstream, harness checkpoints (git-ignored; written by the host, K9)
 ```
 
 A plan's results are written to its own file and every edit names the revision it was planned on, so parallel
@@ -130,7 +134,7 @@ Every `capabilities/*/capability.json` of gsd-core 1.18.0 and where it lands.
 |---|---|---|
 | research, gap-analysis, pattern-mapper, assumption-delta, nyquist, tdd, schema-gate, refactor-trigger, broken-windows, audit | feature | `@gsd/core` settings and rules; broken windows also adds the `broken_window` kind |
 | drift | feature | `@gsd/codebase` (codebase drift reads the codebase map) |
-| claude-orchestration, external-job | feature | `@gsd/core` harness (`specforged`) |
+| claude-orchestration, external-job | feature | `@gsd/core` harness (`specforged`), later: only their settings keys exist |
 | code-review, mempalace, profile-pipeline | feature | `@gsd/ops` |
 | security | feature | `@gsd/security` |
 | ai-integration | feature | `@gsd/ai` |
@@ -169,36 +173,40 @@ The packaging (one Cargo workspace, built on demand, tested through the `specfor
 ADR 0299 put the computed values and judgements in the graph a call receives, so a command reads a phase's `status`
 and a context's `digest`, and `record_research`, `record_spec`, `record_validation`, `/gsd-health`, `/gsd-stats` and the progress
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
-human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them. What
-still waits for kernel work (K19):
+human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
+ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
+`previous_score` and compares scan states (r39 T13 is built). What still waits for kernel work (K20):
 
-- **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
-  baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
-  commit, so at the baseline every source file reads as absent (`exists: false`): the scan says `missing`, never
-  `unchecked`, and the baseline's status and score are wrong. `re_verification` therefore compares fresh verdicts and
-  verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
-  (with `baseline-format` 3, ADR 0300 when it is built). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
-  synthetic baselines, not black-box (the judgement list is empty on a baseline).
-- **A person's answer is recorded by the caller (K19).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+- **A person's answer is recorded by the caller (K20).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
   `approve_validation`, `waive_window`, `dispose_refactor` and `pause` write the `H` fields of a person's reply, as
   upstream's agent transcribes the conversation. Each requires a non-empty `--by` (an empty one is refused), but `--by`
   is the caller's **attestation**, not a proof of a person: an agent can record any name (`set_uat_result` echoes it and
   stores it nowhere, a `uat_test` has no `by`). So a gate that such a record satisfies (`gsd/W404`'s answered
   `tdd_review` checkpoint, and the sign-offs r42's gates read) is an honest-agent gate. `override` and `debt_accepted`
   stay human-only because no command writes them. A human-attested command kind (the host refuses an agent-facing call
-  and records the caller) is a K19 item; the ignored tests `cmd_attest` carry the desired behaviour.
-- **`gsd/E516` is subject-scoped at a command gate (K19).** The host keeps only the diagnostics that name an entity
+  and records the caller) is a K20 item; the ignored tests `cmd_attest` carry the desired behaviour.
+- **`gsd/E516` is subject-scoped at a command gate (K20).** The host keeps only the diagnostics that name an entity
   inside the gate's subject, and E516 names the stale entity itself. So `start_plan <plan>` is refused by a stale
   verdict inside that plan only, and `close_milestone` by one under the milestone only, not project-wide as the rule
-  reads. The fix is for the guard to name the subject (K19); an ignored test carries it.
-- **A command or prompt cannot read its extension's state (K19).** The host sends `state` to a `reads_state` command or
+  reads. The fix is for the guard to name the subject (K20); an ignored test carries it.
+- **A command or prompt cannot read its extension's state (K20).** The host sends `state` to a `reads_state` command or
   prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So
   `/gsd-workstreams status` cannot name the active workstream and `--ws` is text. The fix is an SDK change, so a re-vendor.
-- **A rendered step has no agent field (K19)**: the step's title carries the agent. **There is no free-text tail for a
-  prompt's arguments (K19)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
-  (K19)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
-- **The hooks wait for five host items (K19)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
-  a full compile, Cursor's `beforeSubmitPrompt`, and a hook reading another extension's settings.
+- **A rendered step has no agent field (K20)**: the step's title carries the agent. **There is no free-text tail for a
+  prompt's arguments (K20)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
+  (K20)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
+- **The lifecycle prompts (r42) leave three kernel items (K20).** The claude-code skill writer does not write a skill's
+  `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested. A prompt's
+  subject is required, so `/gsd-plan-phase` without a phase is refused where upstream picks the next one (`/gsd-next`
+  is r43's). A reference is the id as written, so `3` and `03` are different spellings of the same phase.
+- **The remaining prompts (r43) leave these (K20).** A prompt cannot see other extensions' contributions, so the routers' route table and `/gsd-next` read a static roster (`src/prompts/roster.rs`) that says which extension owns a command. A prompt argument cannot be named `path` or `format` (the host reads them wherever they stand), so `/gsd-ingest-docs [path]` is `--dir`, and `/gsd-workspace` has no `--path`, `--repos`, `--strategy`, `--branch` or `--auto`. A command's answer is not host-converted, so `smart_entry` takes `--runtime`. `when` takes one setting, so `/gsd-review`, `/gsd-update` and `/gsd-ns-ideate` follow their first cluster only. A command cannot read state, so `/gsd-progress` and `/gsd-resume-work` cannot name the active workstream.
+- **What r43 leaves open.** Reports, summaries and cross-AI reviews are shown, not stored. A lesson has no phase field. `/gsd-review` has no reviewer lane machinery or prompt budget (the agent reads each reviewer CLI's `--help`). `/gsd-quick-batch`'s dispatcher, estimate calibration, sub-repository branches and workspaces are prose. `/gsd-undo` selects the commits recorded as `commit` entities, and `git revert` bypasses the host's checks, so it asks before reverting a `.spec` change that removes a person's value. `smart_entry` never says idle-stranded (a command has no git).
+- **The hooks wait for five host items (K20)**: git facts in `HookInput` (the workflow guard cannot see a
+  `git add -f`, nor `validate_commit` the staged files), a `file_changed` event (settings are read on every compile instead), a hook that runs
+  without a full compile (every hook pays one), Cursor's `beforeSubmitPrompt` (`workflow_marker` is not rendered for
+  Cursor), and a hook reading another extension's settings (`injection_scanner` is advisory, because
+  `security.injection_blocking` is `@gsd/security`'s). Also open: `specforge uninstall` leaves the empty host root
+  directory (the install crate).
 - **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is
   untriaged (it answers `nothing new` and writes nothing, so a hook may call it on every phase event), as upstream
   freezes the anchor. It does not port upstream's anchor on first observation: the baseline is the score of the latest
@@ -206,7 +214,7 @@ still waits for kernel work (K19):
 - **`specforge <ext> help <cmd>` is gone for every extension.** T17 turned off clap's `help` subcommand on an
   extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
   `specforge gsd help` lists the commands.
-- **A slash command's `when` takes one setting (K19).** A skill in two clusters follows its first, so disabling
+- **A slash command's `when` takes one setting (K20).** A skill in two clusters follows its first, so disabling
   `utility` leaves `/gsd-help` (also `core_loop`) shown.
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
@@ -234,12 +242,31 @@ still waits for kernel work (K19):
   not E502 stands, so a verification can read `passed` while the Error is reported (gates still fail on the Error, but
   anything reading `status` does not); (c) `verification` (`explicit` or `backstop`) is agent-writable, so an agent can
   turn the guard off for a truth before it records `verified` (the diff shows it, and the verdict goes stale when the
-  field flips). K19: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
+  field flips). K20: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
   with the predicate E502 uses; key E080's pairing by subject for pass codes; make `verification` human-only or
   harness-only.
-- **A judged code reused by a pass (K19).** The registry refuses a declarative rule that shares a judged rule's code, not
+- **Hook facts and the install path (K20).** A hook is told the name of an out-of-project path, not its real path, so a
+  symlink into the main checkout passes `worktree_path_guard`; it is not told a commit's `--cleanup`; a hook
+  contribution cannot name its hosts (Cursor gets the isolation guard's line, which does nothing there). A broken
+  `specforge.json` makes `specforge install` strip every gsd hook, agent and skill silently with exit 0 (`check` says
+  E069); uninstall removes a user's empty `settings.json`, empty `agents/` and `skills/` directories and
+  `"mcpServers": {}`. A host without `specforge` on its PATH runs no guard.
+- **A judged code reused by a pass (K20).** The registry refuses a declarative rule that shares a judged rule's code, not
   a pass that `reports` it, nor a guard's fail-closed error for it: E080 exempts those findings (ADR 0297 D1b). No gsd
   pass reports a judged code.
+
+## What is not in the program
+
+| Not built | Why | Where it is named |
+|---|---|---|
+| The other `@gsd/*` extensions (ai, ui, codebase, ops, security and the rest) | each is its own program; the 10 capabilities, 51 gate-cutover verdicts and 35 config keys they own are listed, not built | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| Renderers for the other hosts (16 capabilities) | later install renderers | the capability table above |
+| W514 and E515 | no rule behind them yet | [ACCEPTANCE.md](parity/ACCEPTANCE.md), Codes |
+| 14 gate-cutover verdicts | 11 no twin reaches, 3 a twin answers differently | `core/tests/parity_rules/cutover.rs`, [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| The `specforged` harness | `/gsd-autonomous` unattended; `claude-orchestration` and `external-job` have settings keys only | the capability table above |
+| The other extensions' commands and agents | 22 commands and 39 agents are owned by them | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| Codex and Cursor verified in the host | drafts until run there | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| Publishing | `specforge publish` is a user action | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 
 ## Credit
 

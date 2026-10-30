@@ -1,6 +1,7 @@
 //! Black-box tests: the `specforge` binary on small projects that load the built `@gsd/core` (ADR gsd/0001 D5, D7).
 
 mod agents;
+mod baseline;
 mod cmd_attest;
 mod cmd_digest;
 mod cmd_execute;
@@ -8,6 +9,7 @@ mod cmd_milestone;
 mod cmd_phase;
 mod cmd_refactor;
 mod cmd_reports;
+mod cmd_smart_entry;
 mod cmd_state;
 mod cmd_surface;
 mod cmd_verify;
@@ -16,6 +18,7 @@ mod cmd_workstreams;
 mod collect;
 mod commands;
 mod commands_support;
+mod decision_coverage;
 mod discuss;
 mod e502_probe;
 mod execute;
@@ -23,21 +26,59 @@ mod execute_rules;
 mod execute_status;
 mod gates;
 mod harness;
+mod hooks_community;
+mod hooks_context;
+mod hooks_guards;
+mod hooks_isolation;
+mod hooks_scan;
+mod hooks_spec_root;
+mod hooks_statusline;
+mod hooks_support;
+mod hooks_workflow;
 mod install_agents;
+mod install_hosts;
 mod install_skills;
 mod judged;
 mod judged_flow;
 mod judged_refusals;
 mod ladder;
 mod parity_discuss;
+mod parity_gate_cutover;
 mod parity_plans;
 mod parity_roadmap;
+mod parity_scenario;
 mod parity_state;
 mod parity_verify;
 mod plan;
 mod plan_rules;
 mod progress;
+mod prompts_audit;
+mod prompts_autonomous;
+mod prompts_configure;
+mod prompts_discuss;
+mod prompts_execute;
+mod prompts_gates;
+mod prompts_git;
+mod prompts_learning;
+mod prompts_navigate;
+mod prompts_ns;
+mod prompts_onboard;
+mod prompts_plan;
+mod prompts_project;
+mod prompts_quick;
+mod prompts_review;
+mod prompts_session;
+mod prompts_ship;
+mod prompts_spec;
+mod prompts_support;
+mod prompts_verify;
+mod prompts_workspace;
+mod queries;
+mod reference;
+mod render_prompts;
+mod rendered_lines;
 mod roadmap;
+mod rules_silent;
 mod scan;
 mod settings;
 mod verify_paths;
@@ -54,7 +95,7 @@ fn an_empty_project_loads_gsd_core_and_checks_clean() {
     assert_eq!(check.code, 0, "check: {}", check.all());
     let listed = p.run(&["extensions"]);
     assert!(
-        listed.all().contains("@gsd/core") && listed.all().contains("0.1.0"),
+        listed.all().contains("@gsd/core") && listed.all().contains(env!("CARGO_PKG_VERSION")),
         "extensions: {}",
         listed.all()
     );

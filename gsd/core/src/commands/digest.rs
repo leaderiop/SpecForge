@@ -1,6 +1,8 @@
 //! `record_research`, `record_spec` and `record_validation` (D-r41-16, ADR 0299): each copies the computed `digest` of
 //! its phase's context into its own `context_digest`, the value `gsd/W406` compares. The digest is the compute pass's:
 //! the graph a command receives carries it, so no command hashes anything itself.
+//!
+//! Also ports gsd-core bin/lib modules: context-composer.cjs, init.cjs.
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;

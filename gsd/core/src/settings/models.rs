@@ -4,6 +4,8 @@
 //! A preset sets `model_overrides.<agent>` from the profile (the second step is not wired: a preset cannot read
 //! another setting). The value is a host tier, `heavy` (opus), `standard` (sonnet) or `light` (haiku), which each host
 //! maps to its own model; `inherit` presets nothing, so no model line is written.
+//!
+//! Also ports gsd-core bin/lib modules: model-adapter.cjs, model-catalog.cjs, model-resolver.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

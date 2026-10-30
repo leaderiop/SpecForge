@@ -41,6 +41,11 @@ The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `dispo
 `CommandInput.now` (K14).
 | requirement `satisfied`, `blocked`, `needs_human`, `orphaned` | computed from the truths and deliverables that trace to it |
 
+**Decisions to shipped (gsd/W506, r42).** GSD's verify gate asks that every settled decision map to something shipped. A
+phase whose verification is `passed` has each decision of its context (`origin context`) mentioned by one of its summaries
+or by the subject of one of its commits, with E310's matcher ([rules.md](rules.md)). The shipped files themselves are not
+read.
+
 ## verification
 
 GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
@@ -54,7 +59,7 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | verified | ts | C | `verified:`: the latest verdict's time |
 | covered_files | files | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. |
 | covered_digest | str | C | one digest (`fnv1a64:` and 16 hex digits) over the `(path, digest)` of every file the phase's E501 judgements cover, sorted and de-duplicated: it changes when a covered file does. Absent while no verdict cites a file |
-| re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure), by verdict (truths, artifacts, key links) and by status (verify gaps). `previous_status` and `previous_score` are NOT BUILT: the baseline compile sees only a commit's spec files, so its scan states and status would be wrong (kernel: serve source files from the commit). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine). `gaps_*` are ids as text (`strs`), and also name verify gaps |
+| re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure), by verdict (truths, artifacts, key links) and by status (verify gaps). `previous_status`/`previous_score` are the baseline verification's computed `status`/`score`, derived at that commit over its files (ADR 0300); items are compared by scan state and verdict: an item failing there and with no verdict now stays in `gaps_remaining`, an item the scan fails now that was never verified there is not a `regression` (a deleted unverified artifact shows in `status` only), and a truth with an override now is not compared. A link at the commit is unreadable, so a phase that reads one is `pending` there (ADR 0300 Limits). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine). `gaps_*` are ids as text (`strs`), and also name verify gaps |
 | anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass; it lists what it read |
 | scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
 
@@ -88,7 +93,7 @@ The test being asked now is session state.
 | expected | str | R | expected behaviour |
 | criterion | int | | the phase success criterion it proves |
 | from_task | → task | | a harvested `<human-check>` |
-| result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by the caller through `set_uat_result --by` (an attestation, not a proof of a person: K19) |
+| result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by the caller through `set_uat_result --by` (an attestation, not a proof of a person: K20) |
 | source | enum{human, automated} | H | written by `set_uat_result`: given, or `human` when a re-answer replaces an earlier `source`; an automated result is one the caller marks `--source automated` (a pass or an issue), as a collector (DOM, e2e) would. A re-answer unsets the members its result does not take |
 | reported | str | | the human's words, verbatim, when `issue` |
 | severity | enum{blocker, major, minor, cosmetic} | | major when absent |

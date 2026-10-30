@@ -332,9 +332,9 @@ Output: [Artifacts created]
 </execution_context>
 
 <context>
-@spec/gsd/PROJECT.md
-@spec/gsd/ROADMAP.md
-@spec/gsd/STATE.md
+the project entity: `specforge query "$PROJECT" --depth 0 --format context`
+the milestone and phase entities: `specforge query "$MILESTONE" --kinds milestone,phase --format context`
+STATE is computed: there is no file to read
 
 # Only reference prior plan SUMMARYs if genuinely needed
 @path/to/relevant/source.ts
@@ -379,7 +379,7 @@ Threat IDs are unique within a phase. Before numbering, read the `<threat_model>
 </success_criteria>
 
 <output>
-Create `spec/gsd/phases/XX-name/{padded_phase}-{plan}-SUMMARY.md` when done
+Create the plan's `summary` entity when done (`specforge new summary`)
 </output>
 ```
 
@@ -560,7 +560,7 @@ Load planning context:
 @~/.claude/gsd-core/references/gsd-run-resolver.md
 
 ```bash
-INIT=$(specforge gsd query init.plan-phase "${PHASE}")
+INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
@@ -568,9 +568,9 @@ Extract from init JSON: `planner_model`, `researcher_model`, `checker_model`, `c
 
 Also load planning state (position, decisions, blockers) via the SDK — **use `node` to invoke the CLI** (not `npx`):
 ```bash
-specforge gsd query state.load 2>/dev/null
+specforge query "$MILESTONE" --depth 2 --kinds milestone,phase,decision --format context 2>/dev/null
 ```
-If STATE.md missing but spec/gsd/ exists, offer to reconstruct or continue without.
+If the spec has no project entity yet, offer to create one with `/gsd-new-project` or continue without.
 </step>
 
 <step name="load_mode_context">
@@ -590,7 +590,7 @@ instructions for operating in that mode.
 Check for codebase map:
 
 ```bash
-ls spec/gsd/codebase/*.md 2>/dev/null
+# the codebase map is not part of @gsd/core: look for one only if the project keeps it
 ```
 
 If exists, load relevant documents by phase type:
@@ -617,8 +617,8 @@ without graph context.
 
 <step name="identify_phase">
 ```bash
-cat spec/gsd/ROADMAP.md
-ls spec/gsd/phases/
+specforge query "$MILESTONE" --kinds milestone,phase --format context
+specforge query "$MILESTONE" --kinds phase --format brief
 ```
 
 If multiple phases available, ask which to plan. If obvious (first incomplete), proceed.
@@ -637,7 +637,7 @@ Apply discovery level protocol (see discovery_levels section).
 
 **Step 1 — Generate digest index:**
 ```bash
-specforge gsd query history-digest
+specforge query "$MILESTONE" --depth 3 --kinds summary --format brief   # the digest index: one line per summary
 ```
 
 **Step 2 — Select relevant phases (typically 2-4):**
@@ -652,7 +652,7 @@ Select top 2-4 phases. Skip phases with no relevance signal.
 
 **Step 3 — Read full SUMMARYs for selected phases:**
 ```bash
-_SUMMARIES=( spec/gsd/phases/{selected-phase}/*-SUMMARY.md )
+specforge query "{selected-phase}" --kinds summary --format context > /tmp/summaries.txt; _SUMMARIES=( /tmp/summaries.txt )
 if [ -e "${_SUMMARIES[0]}" ]; then cat "${_SUMMARIES[@]}"; fi
 ```
 
@@ -673,7 +673,7 @@ For phases not selected, retain from digest:
 
 **From RETROSPECTIVE.md (if exists):**
 ```bash
-cat spec/gsd/RETROSPECTIVE.md 2>/dev/null | tail -100
+specforge export --kinds retrospective --format context 2>/dev/null | tail -100
 ```
 
 Read the most recent milestone retrospective and cross-milestone trends. Extract:
@@ -683,7 +683,7 @@ Read the most recent milestone retrospective and cross-milestone trends. Extract
 </step>
 
 <step name="inject_global_learnings">
-If `features.global_learnings` is `true`: run `specforge gsd query learnings.query --tag <tag> --limit 5` once per tag from PLAN.md frontmatter `tags` (or use the single most specific keyword). The handler matches one `--tag` at a time. Prefix matches with `[Prior learning from <project>]` as weak priors. Project-local decisions take precedence. Skip silently if disabled or no matches.
+If `features.global_learnings` is `true`: global learnings are not part of @gsd/core, so skip this step silently; where a project keeps its own, search them once per tag from PLAN.md frontmatter `tags` (or use the single most specific keyword). Prefix matches with `[Prior learning from <project>]` as weak priors. Project-local decisions take precedence. Skip silently if disabled or no matches.
 </step>
 
 <step name="gather_phase_context">
@@ -795,9 +795,9 @@ Use template structure for each PLAN.md.
 
 **Write contract (hard rules — must follow):**
 
-These PLAN.md files are the canonical output of this agent. The orchestrator reads each `spec/gsd/phases/{padded_phase}-{slug}/{padded_phase}-{NN}-PLAN.md` from disk after you return; it does NOT read your return message for the file content.
+These PLAN.md files are the canonical output of this agent. The orchestrator reads each plan entity (`specforge query "$PHASE_ID" --kinds plan`) after you return; it does NOT read your return message for the file content.
 
-**Write is for net-new PLAN.md only.** For any existing file (`ROADMAP.md`, `spec/gsd/` files) use `Edit` (scoped replacement), never `Write`. See `update_roadmap`.
+**Write is for net-new PLAN.md only.** For any existing file (`ROADMAP.md`, the spec files) use `Edit` (scoped replacement), never `Write`. See `update_roadmap`.
 
 1. **Default: write each PLAN.md in a single `Write` call.** On most runtimes this is correct and reliable — do this unless rule 4 applies.
 2. **Do NOT return the PLAN.md content in your response.** Your return message is a brief confirmation (see `<structured_returns>`); the content lives on disk.
@@ -828,7 +828,7 @@ The filename MUST follow the exact pattern: `{padded_phase}-{NN}-PLAN.md`
 - ❌ `plan-01.md`
 - ❌ `01-01-plan.md` (lowercase)
 
-Full write path: `spec/gsd/phases/{padded_phase}-{slug}/{padded_phase}-{NN}-PLAN.md`
+Full write path: the plan entity `{padded_phase}-{NN}-PLAN` (`specforge new plan`; an artifact goes through the MCP tool `specforge.edit`)
 
 Include all frontmatter fields.
 </step>
@@ -837,7 +837,7 @@ Include all frontmatter fields.
 `$SCHEMA`: `plan-gap-closure` in gap_closure mode, else `plan`. `gap_closure` must be literal lowercase `true`.
 
 ```bash
-VALID=$(specforge gsd query frontmatter.validate "$PLAN_PATH" --schema "$SCHEMA")
+VALID=$(specforge check --format json)   # the kinds check the plan's required fields
 ```
 
 Returns JSON: `{ valid, missing, present, invalidValue, schema }`
@@ -847,7 +847,7 @@ Returns JSON: `{ valid, missing, present, invalidValue, schema }`
 Also validate plan structure:
 
 ```bash
-STRUCTURE=$(specforge gsd query verify.plan-structure "$PLAN_PATH") && STRUCTURE_EXIT=0 || STRUCTURE_EXIT=$?
+STRUCTURE=$(specforge check --format json) && STRUCTURE_EXIT=0 || STRUCTURE_EXIT=$?
 ```
 
 Returns JSON: `{ valid, errors, warnings, task_count, tasks }`. The exit status follows the verdict (#5170): `0` = `valid: true`, `1` = `valid: false` (read `errors` from the JSON); any other status (`69`: the plan file is missing or unreadable) means the structure was not evaluated — do not commit the plan as validated.
@@ -863,7 +863,7 @@ Update ROADMAP.md to finalize phase placeholders:
 
 **CRITICAL — use `Edit` (scoped), NOT `Write`, for ROADMAP.md.** A whole-file `Write` destroys all phase entries outside your diff window. Use `Edit` to replace only the target section; use multiple `Edit` calls if needed. NEVER pass the entire ROADMAP.md content to `Write`.
 
-1. Read `spec/gsd/ROADMAP.md`
+1. Read the `phase` entities (`specforge query "$MILESTONE" --kinds phase --format context`)
 2. Find phase entry (`### Phase {N}:`)
 3. Update placeholders using `Edit` (scoped replacement only):
 
@@ -886,8 +886,8 @@ Plans:
 
 <step name="git_commit">
 ```bash
-specforge gsd query commit "docs($PHASE): create phase plan" --files \
-  spec/gsd/phases/$PHASE-*/$PHASE-*-PLAN.md spec/gsd/ROADMAP.md
+git add spec && git commit -m "docs($PHASE): create phase plan" && specforge collect --runner gsd-git --yes
+# STATE and the roadmap are computed: nothing else to stage
 ```
 </step>
 

@@ -2,6 +2,8 @@
 //! plan, plan checker D1), `gsd/E310` (a context decision cited by no plan, `gate-decision-coverage-plan`) and
 //! `gsd/I321` (the deterministic half of D3b: a justified coupling). Each judges a phase only once it has a plan:
 //! GSD runs them at `plan:post`, and before that a phase has nothing to cover.
+//!
+//! Also ports gsd-core bin/lib modules: gate-gap-analysis-plan-post.cjs.
 
 use std::collections::BTreeSet;
 
@@ -70,7 +72,7 @@ fn uncovered_requirements(
 }
 
 /// `normalizePhrase`: lowercase, anything but a letter, a digit or white space is a space, white space collapsed.
-fn normalise(text: &str) -> String {
+pub(crate) fn normalise(text: &str) -> String {
     text.to_lowercase()
         .chars()
         .map(|c| {
@@ -87,7 +89,7 @@ fn normalise(text: &str) -> String {
 }
 
 /// `softPhrase`: the first six normalised words of a decision's text, when it has at least six.
-fn soft_phrase(text: &str) -> Option<String> {
+pub(crate) fn soft_phrase(text: &str) -> Option<String> {
     let words: Vec<String> = normalise(text).split(' ').map(String::from).collect();
     (words.len() >= 6).then(|| words[..6].join(" "))
 }
@@ -115,6 +117,19 @@ fn scanned(input: &PassInput, plan: &PassEntity) -> String {
     parts.join("\n")
 }
 
+/// Whether one of `surfaces` cites `decision`: its id as a word (`D-03`), or its first six words (`softPhrase`). The
+/// matcher of E310 (plans) and W506 (what shipped).
+pub(crate) fn mentions(decision: &PassEntity, surfaces: &[String]) -> bool {
+    let id = name_of(&decision.id);
+    let phrase = text(decision, "text").and_then(soft_phrase);
+    surfaces.iter().any(|raw| {
+        has_word(raw, id, false)
+            || phrase
+                .as_ref()
+                .is_some_and(|p| normalise(raw).contains(p.as_str()))
+    })
+}
+
 /// E310: every trackable decision of the phase's context, a `decision` with `origin context`, is cited by one of its
 /// plans: `\bD-NN\b`, or its first six words. `settled` plays no part; discretion items are not decisions.
 fn uncited_decisions(
@@ -123,17 +138,10 @@ fn uncited_decisions(
     plans: &[&PassEntity],
 ) -> Vec<PassDiagnostic> {
     let surfaces: Vec<String> = plans.iter().map(|plan| scanned(input, plan)).collect();
-    let normalised: Vec<String> = surfaces.iter().map(|s| normalise(s)).collect();
     children(input, &phase.id, "decision")
         .into_iter()
         .filter(|d| d.fields.get("origin").map(String::as_str) == Some("context"))
-        .filter(|decision| {
-            let id = name_of(&decision.id);
-            let phrase = text(decision, "text").and_then(soft_phrase);
-            !surfaces.iter().zip(&normalised).any(|(raw, plain)| {
-                has_word(raw, id, false) || phrase.as_ref().is_some_and(|p| plain.contains(p.as_str()))
-            })
-        })
+        .filter(|decision| !mentions(decision, &surfaces))
         .map(|decision| {
             PassDiagnostic::new(
                 "E310",

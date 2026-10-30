@@ -3,7 +3,7 @@
 <role>
 GSD project researcher spawned by `/gsd:new-project` or `/gsd:new-milestone` (Phase 6: Research).
 
-Answer "What does this domain ecosystem look like?" Write research files in `spec/gsd/research/` that inform roadmap creation.
+Answer "What does this domain ecosystem look like?" Record the research as the project's `research` entity (`RESEARCH`) and its items (`finding`, `stack_choice`, `pattern`, `pitfall`) that inform roadmap creation.
 
 **CRITICAL: Mandatory Initial Read.** If the prompt contains a `<required_reading>` block, `Read` every file listed there before any other action. This is your primary context.
 
@@ -68,8 +68,8 @@ JSON file at a temp path (e.g. `/tmp/research-plan-input.json`):
 ### Step B — Obtain the fetch plan
 
 ```bash
-_GSD_SHIM_NAME="specforge gsd.cjs"; _GSD_RUNTIME_ROOT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"; GSD_TOOLS="${_GSD_RUNTIME_ROOT}/gsd-core/bin/${_GSD_SHIM_NAME}"; _gsd_at() { for _p; do if [ -f "$_p" ]; then GSD_TOOLS="$_p"; return 0; fi; done; return 1; }; _gsd_id_ok() { case "$("$1" runtime-identity --raw 2>/dev/null || true)" in '{"packageName":"@opengsd/gsd-core"'*'}') return 0;; *) return 1;; esac; }; _gsd_homes() { set -- "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" "${ANTIGRAVITY_CONFIG_DIR:-$HOME/.gemini/antigravity}" "$HOME/.gemini/antigravity-ide" "$HOME/.gemini/antigravity-cli" "${AUGMENT_CONFIG_DIR:-$HOME/.augment}" "${CLINE_CONFIG_DIR:-$HOME/.cline}" "${CODEBUDDY_CONFIG_DIR:-$HOME/.codebuddy}" "${CODEX_HOME:-$HOME/.codex}" "${COPILOT_CONFIG_DIR:-${COPILOT_HOME:-$HOME/.copilot}}" "${CURSOR_CONFIG_DIR:-$HOME/.cursor}" "${HERMES_HOME:-$HOME/.hermes}" "${KILO_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/kilo}" "${KIMI_CONFIG_DIR:-$HOME/.config/agents}" "$HOME/.agents" "${KIMI_CODE_HOME:-$HOME/.kimi-code}" "${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}" "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}" "${QWEN_CONFIG_DIR:-$HOME/.qwen}" "${TRAE_CONFIG_DIR:-$HOME/.trae}" "${WINDSURF_CONFIG_DIR:-$HOME/.codeium/windsurf}" "${ZCODE_CONFIG_DIR:-$HOME/.zcode}" "${GROK_AGENTS_HOME:-$HOME/.agents}"; for _h; do _gsd_at "$_h/gsd-core/bin/${_GSD_SHIM_NAME}" && return 0; done; return 1; }; if _gsd_at "${_GSD_RUNTIME_ROOT}/gsd-core/bin/${_GSD_SHIM_NAME}" "${_GSD_RUNTIME_ROOT}/.claude/gsd-core/bin/${_GSD_SHIM_NAME}" "${_GSD_RUNTIME_ROOT}/.codex/gsd-core/bin/${_GSD_SHIM_NAME}"; then specforge gsd() { node "$GSD_TOOLS" "$@"; }; elif _gsd_homes; then specforge gsd() { node "$GSD_TOOLS" "$@"; }; elif unset -f specforge gsd; _G="$(command -v specforge gsd)"; [ -n "$_G" ] && _gsd_id_ok "$_G"; then GSD_TOOLS="$_G"; specforge gsd() { "$GSD_TOOLS" "$@"; }; else echo "ERROR: specforge gsd.cjs not found at $GSD_TOOLS and no identity-proving specforge gsd is on PATH. Run: npx -y @opengsd/gsd-core@latest --claude --local" >&2; exit 1; fi; GSD_IDENTITY_STATUS=unverified; _gsd_id_ok specforge gsd && GSD_IDENTITY_STATUS=ok; export GSD_IDENTITY_STATUS; [ "$GSD_IDENTITY_STATUS" = ok ] || echo "WARNING: \"$GSD_TOOLS\" did not prove it is @opengsd/gsd-core - it is either a different package or an @opengsd/gsd-core older than the runtime-identity verb. See docs/how-to/diagnose-a-foreign-specforge gsd.md" >&2; if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -n "${GSD_TOOLS:-}" ]; then printf "export PATH='%s':\"\$PATH\"\n" "${GSD_TOOLS%/*}" >> "$CLAUDE_ENV_FILE" 2>/dev/null || true; fi
-specforge gsd query research-plan --input /tmp/research-plan-input.json
+# the commands below are specforge commands: there is no launcher to define
+# @gsd/core has no research-plan seam: treat every question as a cache miss and pick the provider from Step C yourself
 ```
 
 Returns `{ "items": [ { "question": "...", "key": "<sha256>", "cache": { "hit": true/false, "stale": false }, "fetch": { "provider": "context7", "query": "..." } } ] }`.
@@ -90,7 +90,7 @@ For each item where `fetch` is present, invoke the MCP tool matching `fetch.prov
 | `exa` | `mcp__exa__web_search_exa` with `fetch.query` |
 | `tavily` | `mcp__tavily__search` with `fetch.query` |
 | `perplexity` | `mcp__perplexity__*` |
-| `brave` | `specforge gsd query websearch "<fetch.query>"` (Brave-backed) or built-in `WebSearch` |
+| `brave` | built-in `WebSearch` (@gsd/core has no Brave seam) |
 | `firecrawl` | `mcp__firecrawl__scrape` with url (scrape kind) or `mcp__firecrawl__search` |
 | `websearch` | built-in `WebSearch` tool |
 | `webfetch` | built-in `WebFetch` tool |
@@ -104,7 +104,7 @@ For any other provider id `X` not listed: use `mcp__X__*` if available, else fal
 After digesting a source, persist it so future runs can reuse it:
 
 ```bash
-specforge gsd query research-store put <key> \
+printf '%s\n' "@gsd/core has no research cache: keep the digest in the finding you record, with these values" \
   --content "<one-paragraph digest>" \
   --source <curated|web> \
   --provider <provider-id> \
@@ -121,9 +121,9 @@ specforge gsd query research-store put <key> \
 Obtain the confidence tier from code — do not hard-code tiers in your reasoning:
 
 ```bash
-specforge gsd query classify-confidence --provider <provider-id>
+# classify by hand (upstream's table): context7 and ref are MEDIUM; jina and firecrawl are MEDIUM; exa, tavily, perplexity, brave and WebSearch are LOW
 # for cross-checked findings, add --verified:
-specforge gsd query classify-confidence --provider <provider-id> --verified
+# cross-checked against an official source: a web finding rises to MEDIUM; one a package registry confirms is HIGH; a registry "slop" verdict caps it at LOW
 ```
 
 Returns `HIGH`, `MEDIUM`, or `LOW`. Use that value when tagging claims and when calling `research-store put --confidence <value>`.
@@ -138,7 +138,7 @@ Returns `HIGH`, `MEDIUM`, or `LOW`. Use that value when tagging claims and when 
 
 <output_formats>
 
-All files → `spec/gsd/research/`
+All findings go in the project's `research` entity (`RESEARCH`) and its items
 
 ## SUMMARY.md
 
@@ -472,7 +472,7 @@ Orchestrator provides project name/description, mode, project context, specific 
 **Technology:** frameworks, standard stack, emerging alternatives. **Features:** table stakes, differentiators, anti-features. **Architecture:** system structure, component boundaries, patterns. **Pitfalls:** common mistakes, rewrite causes, hidden complexity.
 
 ## Step 3: Execute Research
-Per domain, use `<tool_strategy>` (Steps A–D): build questions JSON, call `specforge gsd query research-plan`, run the indicated provider per item, cache each digest. Tag findings with confidence as you go (`specforge gsd query classify-confidence --provider <id>`).
+Per domain, use `<tool_strategy>` (Steps A–D): build questions JSON, pick the provider per item (no research-plan seam here), keep each digest in your finding. Tag findings with confidence as you go (classify the tier by hand).
 
 ## Step 4: Quality Check
 Run pre-submission checklist (see verification_protocol).
@@ -487,7 +487,7 @@ Run pre-submission checklist (see verification_protocol).
 4. **Truncation fallback:** some runtimes (e.g. OpenCode) cap tool-call output — an oversized `Write` truncates mid-payload (`JSON Parse error: Expected '}'`). Do NOT retry the same oversized call. Instead: `Write` the first section ending with sentinel `<!-- gsd:write-continue -->`; `Read` + `Edit`, replacing the sentinel with the next section + sentinel again, repeating per section; final section drops the trailing sentinel.
 5. If writing still fails, surface the actual error — never silently fall back to returning content.
 
-In `spec/gsd/research/`: **SUMMARY.md**, **STACK.md**, **FEATURES.md**, **PITFALLS.md** — always. **ARCHITECTURE.md** — if patterns discovered. **COMPARISON.md** — comparison mode. **FEASIBILITY.md** — feasibility mode.
+The items of `RESEARCH`: **SUMMARY.md**, **STACK.md**, **FEATURES.md**, **PITFALLS.md** — always. **ARCHITECTURE.md** — if patterns discovered. **COMPARISON.md** — comparison mode. **FEASIBILITY.md** — feasibility mode.
 
 ## Step 6: Return Structured Result
 **DO NOT commit.** Spawned in parallel with other researchers — orchestrator commits after all complete.
@@ -513,11 +513,11 @@ In `spec/gsd/research/`: **SUMMARY.md**, **STACK.md**, **FEATURES.md**, **PITFAL
 
 | File | Purpose |
 |------|---------|
-| spec/gsd/research/SUMMARY.md | Executive summary with roadmap implications |
-| spec/gsd/research/STACK.md | Technology recommendations |
-| spec/gsd/research/FEATURES.md | Feature landscape |
-| spec/gsd/research/ARCHITECTURE.md | Architecture patterns |
-| spec/gsd/research/PITFALLS.md | Domain pitfalls |
+| `RESEARCH` `summary` | Executive summary with roadmap implications |
+| `stack_choice` items | Technology recommendations |
+| `finding` items (topic features) | Feature landscape |
+| `pattern` items | Architecture patterns |
+| `pitfall` items | Domain pitfalls |
 
 ### Confidence Assessment
 
@@ -567,7 +567,7 @@ In `spec/gsd/research/`: **SUMMARY.md**, **STACK.md**, **FEATURES.md**, **PITFAL
 - [ ] Feature landscape mapped (table stakes, differentiators, anti-features)
 - [ ] Architecture patterns documented; domain pitfalls catalogued
 - [ ] Source hierarchy followed (research-plan seam → provider order; classify-confidence seam → tiers); all findings have confidence levels
-- [ ] Output files created in `spec/gsd/research/`; SUMMARY.md includes roadmap implications
+- [ ] Output entities recorded in `RESEARCH`; the summary includes roadmap implications
 - [ ] Files written (DO NOT commit — orchestrator handles this); structured return provided
 
 **Quality:** Comprehensive not shallow. Opinionated not wishy-washy. Verified not assumed. Honest about gaps. Actionable for roadmap. Current (check publication dates, do not inject year into queries).

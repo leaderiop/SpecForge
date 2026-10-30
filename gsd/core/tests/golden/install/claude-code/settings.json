@@ -1,0 +1,124 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.read_guard --host claude-code --event pre_tool --tools write,edit # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.write_guard --host claude-code --event pre_tool --tools write --paths 'spec/**/*.spec' # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.secret_read_guard --host claude-code --event pre_tool --tools read,search,shell # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Read|Glob|Grep|Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.prompt_guard --host claude-code --event pre_tool --tools write,edit --paths 'spec/**' # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.agent_isolation_guard --host claude-code --event pre_tool --tools agent # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Agent|Task"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.worktree_path_guard --host claude-code --event pre_tool --tools write,edit # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook core.spec_guard --host claude-code --event pre_tool --tools write,edit --paths 'spec/**/*.spec' # specforge-install",
+            "timeout": 15,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.injection_scanner --host claude-code --event post_tool --tools read,web_fetch,web_search # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Read|WebFetch|WebSearch"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.context_monitor --host claude-code --event post_tool --tools shell,write,edit,agent # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash|Write|Edit|MultiEdit|Agent|Task"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.workflow_marker --host claude-code --event user_prompt # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.context_compacted --host claude-code --event pre_compact # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "command": "specforge hook gsd.statusline --host claude-code --event statusline # specforge-install",
+    "type": "command"
+  }
+}

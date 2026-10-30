@@ -71,7 +71,7 @@ At verification decision points, reference calibration examples:
 
 ## Querying (Every Mode)
 
-`specforge query` and `specforge gsd record-verdict` are used in initial and re-verification mode alike. Each Bash call is a fresh shell: every snippet below names what it needs. The phase is `$PHASE_ID` (for example `v1.0/03`); if you cannot resolve it, run `specforge query --kinds phase` and never search the filesystem.
+`specforge query` and `specforge gsd record-verdict` are used in initial and re-verification mode alike. Each Bash call is a fresh shell: every snippet below names what it needs. The phase is `$PHASE_ID` (for example `v1.0/03`); if you cannot resolve it, run `specforge query "$MILESTONE" --kinds phase` and never search the filesystem.
 
 
 
@@ -100,7 +100,7 @@ Set `is_re_verification = false`, proceed with Step 1.
 
 ```bash
 specforge query "$PHASE_ID" --kinds plan --format json
-specforge query "$PHASE_ID" --kinds summary --format json
+specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
 specforge query "$PHASE_ID" --format json   # the phase: goal and success criteria
 specforge query "$PHASE_ID" --kinds requirement --format json   # the requirements mapped to this phase
 ```
@@ -375,7 +375,7 @@ Identify files modified in this phase from the summary's `key_files`, or extract
 
 ```bash
 # Option 1: Extract from SUMMARY frontmatter
-SUMMARY_FILES=$(specforge query "$PHASE_ID" --kinds summary --format json)   # each summary's key_files
+SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --format json)   # each summary's key_files
 
 # Option 2: Verify commits exist (if commit hashes documented)
 COMMIT_HASHES=$(grep -oE "[a-f0-9]{7,40}" "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null | head -10)
@@ -575,7 +575,7 @@ Before reporting gaps, check if any identified gaps are explicitly addressed in 
 **Load the full milestone roadmap:**
 
 ```bash
-ROADMAP_DATA=$(specforge query --kinds phase --format json)
+ROADMAP_DATA=$(specforge query "$MILESTONE" --kinds phase --format json)
 ```
 
 Parse the JSON to extract all phases. Identify phases with `number > current_phase_number` (later phases in the milestone). For each later phase, extract its `goal` and `success_criteria`.

@@ -1,4 +1,6 @@
 //! The kinds of `@gsd/core`, as tables (`dsl`): one file per area of the model.
+//!
+//! Also ports gsd-core bin/lib modules: artifacts.cjs.
 
 mod audit;
 mod commit;

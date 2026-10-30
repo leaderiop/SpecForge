@@ -243,24 +243,6 @@ fn w203_inputs() {
     assert_eq!(run.code, 0, "{}", run.all());
 }
 
-#[test]
-fn the_spec_phase_prompt_names_its_rules() {
-    let p = project("discuss");
-    let run = p.run(&["prompt", "gsd.spec_phase", SPEC]);
-    assert_eq!(run.code, 0, "{}", run.all());
-    let text = run.all();
-    for needle in [
-        "gsd/E202",
-        "gsd/W203",
-        "--inputs gsd/<code>",
-        "record-verdict",
-        "scores",
-        SPEC,
-    ] {
-        assert!(text.contains(needle), "{needle}: {text}");
-    }
-}
-
 const FIRST_ENTRY: &str = "    {\n      area     \"Storage\"\n      question \"Where are tasks kept?\"\n      options  [\"One JSON file\", \"SQLite\"]\n      chosen   \"One JSON file\"\n      mode     interactive\n    }\n";
 const SECOND_ENTRY: &str = "    {\n      area     \"Safety\"\n      question \"How is the file written?\"\n      options  [\"In place\", \"Atomically\"]\n      chosen   \"Atomically\"\n      mode     interactive\n    }\n";
 

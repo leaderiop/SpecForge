@@ -1,0 +1,270 @@
+{
+  ".cursor/agents/gsd-advisor-researcher.md": {
+    "bytes": 5136,
+    "sha256": "d0028597e30d9eaa51609296985619f915931dc0d04ad9948525a3e617d90329"
+  },
+  ".cursor/agents/gsd-assumptions-analyzer.md": {
+    "bytes": 5148,
+    "sha256": "9769959f2b466926bb2a9e67717f443d319037f13b43c62ecd3718ac509bbcba"
+  },
+  ".cursor/agents/gsd-doc-classifier.md": {
+    "bytes": 12090,
+    "sha256": "b31db5e54e98a29867159ce57ab4cf18c2679c4be7e7d7485cc1a0f647c96d4b"
+  },
+  ".cursor/agents/gsd-doc-synthesizer.md": {
+    "bytes": 13611,
+    "sha256": "75cf99a493f2183f5ad4bb5c55c9a8b6cb66f3ca1ace21c07250265f555dcdc6"
+  },
+  ".cursor/agents/gsd-executor.md": {
+    "bytes": 46561,
+    "sha256": "2ead3d3bdea5736120e4a24247f36ca2bbe259f4129df9c1ff20da255cbfc3f0"
+  },
+  ".cursor/agents/gsd-integration-checker.md": {
+    "bytes": 17262,
+    "sha256": "fbab78db11c6c7d10ea05fb1721d23100fc0a255124b5c71f6a43813f95a35dc"
+  },
+  ".cursor/agents/gsd-nyquist-auditor.md": {
+    "bytes": 7748,
+    "sha256": "ec2d955b03662fa77bd5f0bc748b83dda654bedbafd970efa52ace75ccbc6dab"
+  },
+  ".cursor/agents/gsd-pattern-mapper.md": {
+    "bytes": 13537,
+    "sha256": "a9104985968ac99cf1e14138ca5920559fc10f53d854cca13c4e8efa03c8d5b0"
+  },
+  ".cursor/agents/gsd-phase-researcher.md": {
+    "bytes": 43819,
+    "sha256": "ed0560f5c2ab0be5dd02aca9fd491109c9ca3b09f05d3c11a9d8437cdd21a23a"
+  },
+  ".cursor/agents/gsd-plan-checker.md": {
+    "bytes": 49580,
+    "sha256": "a1282213cd9b85d6396f4b1d27f161caebac44fd2f0494c3b6b92207624cfdbc"
+  },
+  ".cursor/agents/gsd-planner.md": {
+    "bytes": 49192,
+    "sha256": "3e660096c9c82e32668beaa92a152744abe7e8d31b8ad70347e3c3c73a01079b"
+  },
+  ".cursor/agents/gsd-project-researcher.md": {
+    "bytes": 18302,
+    "sha256": "2956e40dda85ade8c840502cf653e65e8df4996e3fc72597d2a46d4634d28f86"
+  },
+  ".cursor/agents/gsd-research-synthesizer.md": {
+    "bytes": 11017,
+    "sha256": "7c97da3fb9dbebc981f0a40c33e043009a684405e8892b4e89fa173e466db883"
+  },
+  ".cursor/agents/gsd-roadmapper.md": {
+    "bytes": 24908,
+    "sha256": "784c57b564550f35af727e4ce426c0ed9d20962ab38aaadd4d63389db0a95b5c"
+  },
+  ".cursor/agents/gsd-verifier.md": {
+    "bytes": 50520,
+    "sha256": "257caba6be349d51d6f6db3c44a0fce5af79ace30eb6c873934a1ed20fb6c77b"
+  },
+  ".cursor/hooks.json": {
+    "bytes": 1468,
+    "sha256": "723a2f6574e10ca73b37509b5011c970cede9eaa18ef5b80a787e6937b9d125e"
+  },
+  ".cursor/mcp.json": {
+    "bytes": 132,
+    "sha256": "2a6bfc1695363f589e076f73c22335d28102ebbfb371e25cffce169b8fbf94b4"
+  },
+  ".cursor/skills/gsd-add-tests/SKILL.md": {
+    "bytes": 907,
+    "sha256": "94c92343785a13e39dcaaf25fe4f00600957a545518ed0beb318cc2541316fa9"
+  },
+  ".cursor/skills/gsd-audit-milestone/SKILL.md": {
+    "bytes": 927,
+    "sha256": "51fef83b0f494a380953905e981db3a08690b68af83f00471d4e76d4c3786add"
+  },
+  ".cursor/skills/gsd-audit-uat/SKILL.md": {
+    "bytes": 893,
+    "sha256": "1003a7bef82759b683bc2b84433d461d4946c520eb396da686dbdaf651b7b308"
+  },
+  ".cursor/skills/gsd-autonomous/SKILL.md": {
+    "bytes": 913,
+    "sha256": "f2b5c64ca6f5722dc38c14b3e5b65568c7b970d2a5e2f740013d4b81149c2a4c"
+  },
+  ".cursor/skills/gsd-cleanup/SKILL.md": {
+    "bytes": 923,
+    "sha256": "7ba5ab4b689cadb8042ab95bc60eb42ca1a9dd7f6043e68345d3b11f04ee9050"
+  },
+  ".cursor/skills/gsd-complete-milestone/SKILL.md": {
+    "bytes": 931,
+    "sha256": "0a3dff800283c937b3023ff45640827111ef8528a3ac7e62754bb017a8d17fb8"
+  },
+  ".cursor/skills/gsd-config/SKILL.md": {
+    "bytes": 909,
+    "sha256": "4621cb14b5123f3e989264c2e1ede94c7e0d924872425db8f6436e70af4c1f67"
+  },
+  ".cursor/skills/gsd-discuss-phase/SKILL.md": {
+    "bytes": 916,
+    "sha256": "ea043e5ac012a4da6974ccfeecae50b99579e79ab9a9381212086cda45abf6dc"
+  },
+  ".cursor/skills/gsd-execute-phase/SKILL.md": {
+    "bytes": 947,
+    "sha256": "f2cdd593f9765aba5ff51f3f9844c2f55fa757cd43ac99c880f7ee56fb05d4f3"
+  },
+  ".cursor/skills/gsd-extract-learnings/SKILL.md": {
+    "bytes": 952,
+    "sha256": "9b4140af8aa1de5553fb17367417a7923d82cdf6cc81a3f19c92942474c91a6d"
+  },
+  ".cursor/skills/gsd-fast/SKILL.md": {
+    "bytes": 875,
+    "sha256": "ca0018a19f7b0a619b222db4fdebdba98203d697335eb52a5555b89c52747456"
+  },
+  ".cursor/skills/gsd-health/SKILL.md": {
+    "bytes": 943,
+    "sha256": "06153cd98cdc89dc695331c7abcd05c109bb35ae046c8f8061518a1105f4dc2f"
+  },
+  ".cursor/skills/gsd-help/SKILL.md": {
+    "bytes": 901,
+    "sha256": "48d3a34bf6e653100cf8cde615a57fe9ab20f5833b37e4cea89b857ffe54cff1"
+  },
+  ".cursor/skills/gsd-ingest-docs/SKILL.md": {
+    "bytes": 934,
+    "sha256": "09ab748ec6c3d3d5fbcd06961c8b8b873fc38df35ef8a3f310021979f675673d"
+  },
+  ".cursor/skills/gsd-manager/SKILL.md": {
+    "bytes": 893,
+    "sha256": "0c7cf8d9cfc2ec8fec26d88529bda4b5ca2e620158dc7094bfabf36c4986bf85"
+  },
+  ".cursor/skills/gsd-milestone-summary/SKILL.md": {
+    "bytes": 966,
+    "sha256": "f0e3c358b2236dcbcf915759beb2ccef68f56f05bb60288661b4c2aea3346804"
+  },
+  ".cursor/skills/gsd-mvp-phase/SKILL.md": {
+    "bytes": 917,
+    "sha256": "4d4dc093ff612ab356586efcdc2c0aefc81ed7e2eb2e6cdd96af91e6a6317359"
+  },
+  ".cursor/skills/gsd-new-milestone/SKILL.md": {
+    "bytes": 927,
+    "sha256": "f33be4f5a4f16f97cda75f9e07e1386bc4d6e34bfc422485f94f1ddaea7f1700"
+  },
+  ".cursor/skills/gsd-new-project/SKILL.md": {
+    "bytes": 907,
+    "sha256": "6ca908f55f1f37152d21fbcb484260fa0a77ff8e8ca48364b480367d208ac3b6"
+  },
+  ".cursor/skills/gsd-next/SKILL.md": {
+    "bytes": 883,
+    "sha256": "44740b3b5b47e6b6a29303835dfea31ff8fb22c4791049adefc04ffe83ef42e4"
+  },
+  ".cursor/skills/gsd-ns-context/SKILL.md": {
+    "bytes": 889,
+    "sha256": "67fc54a2bc90d888f003b792b9b81cfef7fe542c32ce961a4485eabff09887a9"
+  },
+  ".cursor/skills/gsd-ns-ideate/SKILL.md": {
+    "bytes": 885,
+    "sha256": "3e9c5efd2010d27f9ad9165cea39b2ca6adb26b000d7052853911ad93658947d"
+  },
+  ".cursor/skills/gsd-ns-manage/SKILL.md": {
+    "bytes": 885,
+    "sha256": "8fa04a77ebb6d6ae2920b9cffd413bb0b17ac8f73bee7cd07bad70fffddd5004"
+  },
+  ".cursor/skills/gsd-ns-project/SKILL.md": {
+    "bytes": 880,
+    "sha256": "173ec7be120ac7b39e36ae0bceda2702e2bf962f847314b8c1f059a0ebc15f59"
+  },
+  ".cursor/skills/gsd-ns-review/SKILL.md": {
+    "bytes": 886,
+    "sha256": "eff66c041cc03053fd4a78303ee8679c25155a5cadbf3ff63c2800b6c26d30a1"
+  },
+  ".cursor/skills/gsd-ns-workflow/SKILL.md": {
+    "bytes": 893,
+    "sha256": "b1b70f1b0b7073991acb264a84593435d65a5bc58bd2e9b191c040f7ff423334"
+  },
+  ".cursor/skills/gsd-onboard/SKILL.md": {
+    "bytes": 902,
+    "sha256": "31534cdc567a3d8a0fb35f3e28bea7b9571a22753f43d6a8f097490ac8e983bc"
+  },
+  ".cursor/skills/gsd-pause-work/SKILL.md": {
+    "bytes": 885,
+    "sha256": "b0587528086eef6747a509927a97e22d2853befe5a88fc7b6a2a12356603d7fe"
+  },
+  ".cursor/skills/gsd-phase/SKILL.md": {
+    "bytes": 931,
+    "sha256": "1b9f62cd04e454e1457946fd3030c372ca441bf205003e5b743ee8fbc80a9498"
+  },
+  ".cursor/skills/gsd-plan-phase/SKILL.md": {
+    "bytes": 894,
+    "sha256": "d64dac723d89c7c613ad31348f1d5387aa5d2a1503e8623d988a1c4e2f78e50f"
+  },
+  ".cursor/skills/gsd-plan-review-convergence/SKILL.md": {
+    "bytes": 970,
+    "sha256": "00ac946bcba7ca34a1c691376ab2106efd28b4c87a92cd922384b8558bfc7005"
+  },
+  ".cursor/skills/gsd-pr-branch/SKILL.md": {
+    "bytes": 917,
+    "sha256": "b0084893fcfb99ceb6c7819f427cf8e826593300b41e00930810b27358b4ecb7"
+  },
+  ".cursor/skills/gsd-progress/SKILL.md": {
+    "bytes": 928,
+    "sha256": "9624605020a1f2cce8929a8f941357e3c91f1d8845263dc0f8b9bbf211b08be4"
+  },
+  ".cursor/skills/gsd-quick-batch/SKILL.md": {
+    "bytes": 937,
+    "sha256": "35989ab4c9c96052e10f391a7689836dc588c7a0e302cf89496a3d71f3ec2da3"
+  },
+  ".cursor/skills/gsd-quick/SKILL.md": {
+    "bytes": 908,
+    "sha256": "16c51934253972655e9041a2861ca24e52b38ddac227f128c276e972303d160b"
+  },
+  ".cursor/skills/gsd-resume-work/SKILL.md": {
+    "bytes": 903,
+    "sha256": "6bc8315cb9346bf5d3b0ee1b80c04ff1761e8d9483bd3f0a38251c620654b697"
+  },
+  ".cursor/skills/gsd-review-backlog/SKILL.md": {
+    "bytes": 907,
+    "sha256": "22fe55dd57dbcaf100a8e32e5fd33c45849adffeceacd2c9d4375c45b0961ebd"
+  },
+  ".cursor/skills/gsd-review/SKILL.md": {
+    "bytes": 880,
+    "sha256": "ac227ffb5229a6526af0e65e750294eae707199c3572248b4807f6edcc47e99e"
+  },
+  ".cursor/skills/gsd-settings/SKILL.md": {
+    "bytes": 873,
+    "sha256": "d85963b833a129fe0da5fdc3a117a0df5e9f508c37d5ebea1369a43f78891c90"
+  },
+  ".cursor/skills/gsd-ship/SKILL.md": {
+    "bytes": 875,
+    "sha256": "fa833a74b4f96461df2c6e30a90d79f6ee2447d224bbc99c818df9a32f6a4fd5"
+  },
+  ".cursor/skills/gsd-spec-phase/SKILL.md": {
+    "bytes": 929,
+    "sha256": "6b0019f2d8da51b15407d081033a508edae603cf7dc115eec10631ca2ef68969"
+  },
+  ".cursor/skills/gsd-stats/SKILL.md": {
+    "bytes": 937,
+    "sha256": "5f9e07b60a07b358417bbde8741e0f70a8d82be5442b540443d7af8919897bd1"
+  },
+  ".cursor/skills/gsd-surface/SKILL.md": {
+    "bytes": 934,
+    "sha256": "88f53d7b72b99cbe98e5215cd7fceff6c9fbca74c64fb71b2fc77f7f349c71b6"
+  },
+  ".cursor/skills/gsd-ultraplan-phase/SKILL.md": {
+    "bytes": 956,
+    "sha256": "7e22934bc0ab4128faf14e31a1d7bec7203dc7d96b95ae8823dab23e0a0e3cbf"
+  },
+  ".cursor/skills/gsd-undo/SKILL.md": {
+    "bytes": 902,
+    "sha256": "6264e44c6877934be5651f9b4caf4dd7f4f28afd33aa3cd50fa46a89c44f2608"
+  },
+  ".cursor/skills/gsd-update/SKILL.md": {
+    "bytes": 866,
+    "sha256": "e1c5d4abe61d63156bfda505f6fe23284e2d64a6a697b35cbf1d2e3e570341fb"
+  },
+  ".cursor/skills/gsd-validate-phase/SKILL.md": {
+    "bytes": 929,
+    "sha256": "a64fdf1d34d44e1a791a4ae6ed5d9ef4f76458c549f2accad9fea74a2bb1aca2"
+  },
+  ".cursor/skills/gsd-verify-work/SKILL.md": {
+    "bytes": 890,
+    "sha256": "e35278cd0e6d35d51d4ac09e6390763774744ae58855ffcbeb049b48d0941866"
+  },
+  ".cursor/skills/gsd-workspace/SKILL.md": {
+    "bytes": 913,
+    "sha256": "86e58e59082ad36b4dab02be21ec46f1a58fdcf208304cb8723defe8dbf62c33"
+  },
+  ".cursor/skills/gsd-workstreams/SKILL.md": {
+    "bytes": 969,
+    "sha256": "11546d3757bcadd1f92c42981534fc1204fc4a074ef956ddbe5d125f33996b98"
+  }
+}

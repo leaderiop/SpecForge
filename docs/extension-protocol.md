@@ -674,7 +674,8 @@ a 1.10 guest reads. A pass's `PassEntity.values` and a validator's `ValidatorEnt
 `previous` (compute and check passes that name kinds in `baseline`) is the
 git baseline of those kinds, `{"revision", "entities": {"<id>": {"kind",
 "fields": {...}}}}`; it is absent with no baseline (not in a git repository, no
-commit yet). See
+commit yet). Its computed values are those the commit's files give: a compute
+pass's declared reads see the files the commit holds (ADR 0300). See
 [Operate](#operate) for every operation's input and answer.
 
 ```json

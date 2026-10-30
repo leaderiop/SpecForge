@@ -90,7 +90,7 @@ For each phase, extract what it provides and what it should consume.
 
 ```bash
 # Key exports from each phase: the summary entities (each one's key_files and what it provides)
-specforge query --kinds summary --depth 1 --format json
+specforge query "$MILESTONE" --depth 3 --kinds summary --format json
 
 
 

@@ -1,6 +1,8 @@
 //! `close_milestone` (D-r41-7): the write behind `/gsd-complete-milestone`. Its gate (E106, E511, E516) has already
 //! proved the milestone's latest audit passes and its phases are verified; the command records the completion, names
 //! the audit it closed on and, when the milestone has none, creates its retrospective.
+//!
+//! Also ports gsd-core bin/lib modules: milestone-lock.cjs.
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;

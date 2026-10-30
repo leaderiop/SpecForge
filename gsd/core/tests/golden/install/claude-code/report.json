@@ -1,0 +1,280 @@
+{
+  "hosts": [
+    {
+      "host": "claude-code",
+      "files": [
+        {
+          "path": ".claude/agents/gsd-advisor-researcher.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-assumptions-analyzer.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-doc-classifier.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-doc-synthesizer.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-executor.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-integration-checker.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-nyquist-auditor.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-pattern-mapper.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-phase-researcher.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-plan-checker.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-planner.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-project-researcher.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-research-synthesizer.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-roadmapper.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/agents/gsd-verifier.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/settings.json",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-add-tests/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-audit-milestone/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-audit-uat/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-autonomous/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-cleanup/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-complete-milestone/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-config/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-discuss-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-execute-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-extract-learnings/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-fast/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-health/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-help/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-ingest-docs/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-manager/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-milestone-summary/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-mvp-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-new-milestone/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-new-project/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-next/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-ns-context/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-ns-ideate/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-ns-manage/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-ns-project/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-ns-review/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-ns-workflow/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-onboard/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-pause-work/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-plan-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-plan-review-convergence/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-pr-branch/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-progress/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-quick-batch/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-quick/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-resume-work/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-review-backlog/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-review/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-settings/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-ship/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-spec-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-stats/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-surface/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-ultraplan-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-undo/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-update/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-validate-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-verify-work/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-workspace/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".claude/skills/gsd-workstreams/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".mcp.json",
+          "action": "created"
+        }
+      ],
+      "not_rendered": []
+    }
+  ],
+  "refused": [],
+  "dry_run": false
+}

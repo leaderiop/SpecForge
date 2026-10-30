@@ -12,6 +12,8 @@
 //! a subject cannot forge one; control characters in a subject or a path become U+FFFD; a record whose hash is not
 //! hex or whose time is out of range is skipped and named in the plan's title. The host refuses a whole plan for one
 //! value it cannot write, so one bad commit must never reach it.
+//!
+//! Also ports gsd-core bin/lib modules: git-base-branch.cjs.
 
 mod subject;
 #[cfg(test)]

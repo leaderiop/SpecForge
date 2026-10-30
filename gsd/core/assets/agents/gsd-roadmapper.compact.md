@@ -236,8 +236,8 @@ Post-write `## ROADMAP CREATED` return (orchestrator branches only on `ROADMAP C
 ## ROADMAP CREATED
 
 **Files written:**
-- spec/gsd/ROADMAP.md
-- spec/gsd/STATE.md
+- the `milestone` and `phase` entities (the roadmap)
+- STATE is computed: there is no state to write
 
 ### Roadmap Preview
 
@@ -303,10 +303,10 @@ Verify 100% requirement mapping — no orphans, no duplicates. Gaps found → in
 ## Step 7: Write Files Immediately
 **ALWAYS use the Write tool** — never heredoc. Write files first, then return — artifacts persist even if context is lost.
 
-**Arm the write-guard sentinel before each curated write, when the target already exists.** On `/gsd:new-milestone`, `spec/gsd/ROADMAP.md`/`STATE.md` still hold the *outgoing* milestone's content and the replacement is a legitimate, intentional shrink — the `gsd-write-guard` PreToolUse hook (#2255) hard-blocks curated `spec/gsd/` writes otherwise. A hook inherits the runtime's environment (no per-step env var reaches it); the hatch is a **single-use sentinel file the guard itself consumes** — path-bound and single-use, so arm immediately before each Write (one arming never covers both files). On `/gsd:new-project`, neither target exists, the guard exempts the write (ENOENT), and `[ -f ]` skips arming — no unconsumed token left on disk.
+**Arm the write-guard sentinel before each curated write, when the target already exists.** On `/gsd:new-milestone`, the outgoing milestone's `phase` entities still exist and the replacement is a legitimate, intentional shrink — the `gsd-write-guard` PreToolUse hook (#2255) hard-blocks curated files otherwise. A hook inherits the runtime's environment (no per-step env var reaches it); the hatch is a **single-use sentinel file the guard itself consumes** — path-bound and single-use, so arm immediately before each Write (one arming never covers both files). On `/gsd:new-project`, neither target exists, the guard exempts the write (ENOENT), and `[ -f ]` skips arming — no unconsumed token left on disk.
 
-1. **Write ROADMAP.md** — arm first: `[ -f spec/gsd/ROADMAP.md ] && printf 'spec/gsd/ROADMAP.md\n' > spec/gsd/.gsd-allow-shrink`, then Write.
-2. **Write STATE.md** — arm first: `[ -f spec/gsd/STATE.md ] && printf 'spec/gsd/STATE.md\n' > spec/gsd/.gsd-allow-shrink`, then Write.
+1. **Write ROADMAP.md** — an entity is never written as a file: there is no sentinel to arm; `specforge new` / `specforge set` write it.
+2. **Write STATE.md** — STATE is computed: nothing to arm or write.
 3. **Update REQUIREMENTS.md traceability section.**
 
 Files on disk = context preserved; user can review actual files.
@@ -326,11 +326,11 @@ Orchestrator provides revision feedback → parse concerns, update files in plac
 ## ROADMAP CREATED
 
 **Files written:**
-- spec/gsd/ROADMAP.md
-- spec/gsd/STATE.md
+- the `milestone` and `phase` entities (the roadmap)
+- STATE is computed: there is no state to write
 
 **Updated:**
-- spec/gsd/REQUIREMENTS.md (traceability section)
+- each phase's `requirements` (the traceability)
 
 ### Summary
 
@@ -349,7 +349,7 @@ Orchestrator provides revision feedback → parse concerns, update files in plac
 
 ### Files Ready for Review
 
-User can review actual files in the editor or via SDK queries (e.g. `specforge query roadmap.analyze` and `specforge query state.load`) instead of ad-hoc shell `cat`.
+User can review actual files in the editor or via SDK queries (e.g. `specforge query "$MILESTONE" --kinds phase --format context` and `specforge check`) instead of ad-hoc shell `cat`.
 
 {If gaps found during creation:}
 
@@ -368,9 +368,9 @@ User can review actual files in the editor or via SDK queries (e.g. `specforge q
 - {change 1}
 
 **Files updated:**
-- spec/gsd/ROADMAP.md
-- spec/gsd/STATE.md (if needed)
-- spec/gsd/REQUIREMENTS.md (if traceability changed)
+- the `milestone` and `phase` entities (the roadmap)
+- STATE is computed (nothing to update)
+- each phase's `requirements` (if traceability changed)
 
 ### Updated Summary
 
