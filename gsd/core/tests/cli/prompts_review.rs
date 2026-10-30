@@ -54,3 +54,54 @@ fn review_backlog_step_is_the_phase_command() {
         "specforge gsd phase"
     );
 }
+
+/// REVIEW-r43 M4 and M13: the promote line the backlog review shows is run on a backlogged project, and its jq key
+/// reads the number the command answered (`.output.to`, a full id), not `.to` (null). A backlog item of another
+/// milestone is listed and promoted.
+#[test]
+fn the_backlog_review_lists_and_promotes_across_milestones() {
+    use super::cmd_phase::backlogged;
+    let p = backlogged();
+    p.write(
+        "spec/n.spec",
+        "milestone v1.1 \"N\" {\n  name \"N\"\n}\n\nphase 01 \"P01\" {\n  milestone v1.1\n  name \"P01\"\n  slug \"p01\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n",
+    );
+    let text = text_of(&payload(&prompt(&p, "review_backlog", &[], "claude-code")));
+    let line = |start: &str| {
+        text.lines()
+            .map(str::trim)
+            .find(|l| l.starts_with(start))
+            .unwrap_or_else(|| panic!("no line starts with {start}"))
+            .to_string()
+    };
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    let path = format!(
+        "{}:{}",
+        bin.parent().expect("a directory").display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let run = |script: &str| {
+        let out = std::process::Command::new("bash")
+            .args(["-c", script])
+            .env("PATH", &path)
+            .current_dir(p.root())
+            .output()
+            .expect("bash");
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    };
+    let listed = run(&format!("{}\necho \"$_BACKLOG\"", line("_BACKLOG=")));
+    assert_eq!(
+        listed, "v1.0/999.1\nv1.0/999.2",
+        "the backlog of v1.0 is listed from the open milestone v1.1"
+    );
+    let promote = line("NEW_NUM=").replace("<id>", "v1.0/999.1");
+    assert_eq!(
+        run(&format!("MILESTONE=v1.1\n{promote}\necho \"$NEW_NUM\"")),
+        "02"
+    );
+}

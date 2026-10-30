@@ -313,7 +313,7 @@ fn insert_and_edit_refuse_a_backlog_phase() {
 }
 
 /// `twelve()` with a context `999.1-CONTEXT` under the backlog phase and a second backlog phase `999.2`.
-fn backlogged() -> Project {
+pub(super) fn backlogged() -> Project {
     let p = twelve();
     let mut text = p.read("spec/m.spec");
     text.push_str("context 999.1-CONTEXT \"Idea\" {\n  phase v1.0/999.1\n  gathered 2026-10-28\n  boundary \"b\"\n  canonical_refs [{ topic \"none\" paths [] }]\n}\n\nphase 999.2 \"P999.2\" {\n  milestone v1.0\n  name \"P999.2\"\n  slug \"p999-2\"\n  goal \"Goal 999.2\"\n  success_criteria [\"a\"]\n}\n");
@@ -424,4 +424,65 @@ fn a_criterion_with_a_control_character_or_an_empty_name_is_refused() {
         refused(&run, "invalid_input", &[words]);
         unchanged(&p, &before);
     }
+}
+
+/// `backlogged()` with a second milestone `v1.1` that holds phase `01` (or nothing, when `empty`).
+fn two_milestones(empty: bool) -> Project {
+    let p = backlogged();
+    let phase = if empty {
+        ""
+    } else {
+        "\nphase 01 \"P01\" {\n  milestone v1.1\n  name \"P01\"\n  slug \"p01\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n"
+    };
+    p.write(
+        "spec/n.spec",
+        &format!("milestone v1.1 \"N\" {{\n  name \"N\"\n}}\n{phase}"),
+    );
+    p
+}
+
+/// REVIEW-r43 M13: the backlog is roadmap-wide (upstream's `## Backlog`), so a 999.x of v1.0 is promoted into v1.1.
+#[test]
+fn promote_takes_a_backlog_phase_of_another_milestone() {
+    let p = two_milestones(false);
+    let run = gsd(&p, "phase", &["--promote", "999.1", "--milestone", "v1.1"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let phases = ids(&p, "phase");
+    assert!(phases.contains(&"v1.1/02".to_string()), "{phases:?}");
+    assert!(!phases.contains(&"v1.0/999.1".to_string()), "{phases:?}");
+    assert!(phases.contains(&"v1.0/999.2".to_string()), "{phases:?}");
+    assert!(
+        ids(&p, "context").contains(&"v1.1/02/02-CONTEXT".to_string()),
+        "{:?}",
+        ids(&p, "context")
+    );
+    assert_eq!(p.fields_of("v1.1/02")["milestone"], "v1.1");
+    let fields = p.fields_of("v1.1/02");
+    assert!(fields["depends_on"].to_string().contains("01"), "{fields}");
+}
+
+#[test]
+fn promote_into_a_milestone_without_phases_depends_on_nothing() {
+    let p = two_milestones(true);
+    let run = gsd(&p, "phase", &["--promote", "999.1", "--milestone", "v1.1"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(ids(&p, "phase").contains(&"v1.1/01".to_string()));
+}
+
+#[test]
+fn promote_names_the_milestone_when_two_backlogs_share_a_number() {
+    let p = two_milestones(false);
+    let mut text = p.read("spec/n.spec");
+    text.push_str("\nphase 999.1 \"Other\" {\n  milestone v1.1\n  name \"Other\"\n  slug \"other\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n");
+    p.write("spec/n.spec", &text);
+    // v1.1's own 999.1 wins for --milestone v1.1; the other milestone's is named with its id
+    let before = bytes(&p);
+    let run = gsd(
+        &p,
+        "phase",
+        &["--promote", "v1.0/999.1", "--milestone", "v1.1"],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_ne!(before, bytes(&p));
+    assert!(ids(&p, "phase").contains(&"v1.1/999.1".to_string()));
 }
