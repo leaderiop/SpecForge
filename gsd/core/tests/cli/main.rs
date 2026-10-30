@@ -44,6 +44,7 @@ mod parity_discuss;
 mod parity_gate_cutover;
 mod parity_plans;
 mod parity_roadmap;
+mod parity_scenario;
 mod parity_state;
 mod parity_verify;
 mod plan;

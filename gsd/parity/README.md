@@ -37,6 +37,8 @@ milestone to sit in; the test asserts both so a change to either is noticed.
 
 `parity_state.rs` also compares each twin summary and deliverable with the `SUMMARY.md` frontmatter, and, after `collect --runner gsd-junit --report goldens/taskboard/junit.xml`, each check's computed status with the SUMMARY's `status: pass`.
 
+`core/tests/cli/parity_scenario.rs` (r44) is the scenario check: its `SCENARIO` table names, for each of the 19 goldens of `goldens/taskboard/`, the one test that compares the twin with it and the text that test reads it by. `every_taskboard_golden_is_compared_once` fails when a golden is added, removed or left unread, or when a named test is deleted or stops reading its golden; a golden that several tests read (`progress-json.json`) is named once, by its main comparison.
+
 ### Re-recording
 
 ```sh
