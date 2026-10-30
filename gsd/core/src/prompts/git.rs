@@ -22,7 +22,7 @@ fn revert(_call: &PromptCall<'_>) -> String {
 /// The filter has one mode, and what it filters.
 fn filtered(_call: &PromptCall<'_>) -> String {
     "\n\n## What the PR branch leaves out\n\n\
-     The filter is always strict: every `*.spec` file and the `specforge-harness` directory are filtered out of the \
+     The filter is always strict: everything under the spec root (`spec_root` of `specforge.json`) and the `specforge-harness` file are filtered out of the \
      cherry-picked commits, and a commit that touches nothing else is left out. `planning.pr_strict` and \
      `planning.sub_repos` are not settings here: a sub-repository is another SpecForge project, so there is nothing to \
      process in a second repository.\n"

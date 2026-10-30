@@ -73,7 +73,7 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "$MILESTONE/${PLAN_PHASE}"
         | "$MILESTONE/${NN}"
         | "$MILESTONE/${N}" => "v1.0/01",
-        "$PLAN_ID" => "v1.0/01/01-01",
+        "$PLAN_ID" | "${TARGET_PLAN_ID}" => "v1.0/01/01-01",
         _ => return None,
     })
 }

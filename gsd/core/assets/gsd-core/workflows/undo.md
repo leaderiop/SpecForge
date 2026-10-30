@@ -28,8 +28,8 @@ Display the stage banner:
 Parse $ARGUMENTS for the undo mode:
 
 - `--last N` → MODE=last, COUNT=N (integer, default 10 if N missing)
-- `--phase NN` → MODE=phase, TARGET_PHASE=NN (two-digit phase number)
-- `--plan NN-MM` → MODE=plan, TARGET_PLAN=NN-MM (phase-plan ID)
+- `--phase <id>` → MODE=phase, TARGET_PHASE=<id>, the phase's full id as typed (`v2.0/01`; the milestone is part of it)
+- `--plan <id>` → MODE=plan, TARGET_PLAN=<id>, the plan's full id as typed (`v2.0/01/01-01`)
 
 If no valid argument is provided, display usage and exit:
 
@@ -84,11 +84,11 @@ resolves through `planningDir`, so under an active workstream this is that works
 phase directory — not the root's same-numbered one.
 
 ```bash
+# the id names its milestone: that milestone, not the one still open, is the one the run is about
+case "$TARGET_PHASE" in */*) MILESTONE=${TARGET_PHASE%%/*}; TARGET_PHASE=${TARGET_PHASE##*/};; esac
 PHASE_DIR=$(specforge query "$MILESTONE/${TARGET_PHASE}" --depth 0 --format json | jq -r '.nodes[0].id // empty' 2>/dev/null)
 # the phase is an entity of the spec: its commits are the `commit` entities recorded under its plans, so there is no
 # directory to anchor a window on and no project root to resolve (PHASE_DIR holds the phase id).
-
-
 
 PROJECT_ROOT="."   # the commits are those of this repository
 ```
@@ -124,15 +124,15 @@ The refusal below still names both layouts, so it keeps holding if `find-phase` 
 second one:
 
 ```bash
-# A phase of a closed milestone is found by the query above like any other: no directory moves to an archive,
-# so nothing is refused as archived here and PHASE_DIR_ARCHIVED stays empty.
+# No directory moves to an archive here, so the archived layout is the milestone: a phase of a shipped or
+# abandoned milestone is refused like an archived one, and the commits are selected by hand.
+MILESTONE_STATE=$(specforge query "$MILESTONE" --depth 0 --format json | jq -r '.nodes[0].fields.state // empty' 2>/dev/null)
+PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
+# (no archive directory to match)
 
 
 
 
-
-PHASE_DIR_ARCHIVED=""
-# (no archive layout to match)
 
 
 
@@ -172,9 +172,9 @@ PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 
 If `PHASE_DIR_ARCHIVED` is non-empty, stop — this message, not the not-found one:
 ```
-Phase ${TARGET_PHASE} resolves to an ARCHIVED milestone directory (${PHASE_DIR_ARCHIVED}).
-Refusing: the anchor there is the archival commit, so the window would span later
-milestones and select their same-numbered phase instead of this one.
+Phase ${TARGET_PHASE} belongs to ${MILESTONE}, a closed milestone (${PHASE_DIR_ARCHIVED}).
+Refusing: reverting a closed milestone's phase can take away what the later work builds
+on, so its commits are not selected for you.
 Use /gsd:undo --last N and select commits explicitly.
 ```
 If `PHASE_DIR_FOREIGN` is non-empty, stop with its own message:
@@ -263,16 +263,16 @@ window from that phase's own directory — a plan number is unique within its ph
 phase number only within its milestone and workstream.
 
 ```bash
-PLAN_PHASE="${TARGET_PLAN%%-*}"
+case "$TARGET_PLAN" in */*) TARGET_PLAN_ID="$TARGET_PLAN"; MILESTONE=${TARGET_PLAN%%/*}; TARGET_PLAN=${TARGET_PLAN##*/};; *) TARGET_PLAN_ID="$MILESTONE/${TARGET_PLAN%%-*}/$TARGET_PLAN";; esac; PLAN_PHASE="${TARGET_PLAN%%-*}"
 PHASE_DIR=$(specforge query "$MILESTONE/${PLAN_PHASE}" --depth 0 --format json | jq -r '.nodes[0].id // empty' 2>/dev/null)
 # The commits are those of this repository, exactly as in MODE=phase.
 PROJECT_ROOT="."   # the commits are those of this repository
 # Same archived-resolution refusal as MODE=phase, and for the same reason — an archived
 # anchor selects a LATER milestone's same-numbered phase. Blanking PHASE_DIR keeps the
 # fail-closed rule below load-bearing.
-PHASE_DIR_ARCHIVED=""
-# (no archive layout to match)
-
+MILESTONE_STATE=$(specforge query "$MILESTONE" --depth 0 --format json | jq -r '.nodes[0].fields.state // empty' 2>/dev/null)
+PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
+# (no archive directory to match)
 
 
 # Same-repository refusal as MODE=phase: a phase planned in another repository cannot anchor here.
@@ -295,7 +295,7 @@ PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 
 
 
-PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN}" --depth 2 --kinds commit --format json | jq -r '.nodes[]|select(.kind=="commit")|.fields.hash') 2>/dev/null | head -1)
+PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --format json | jq -r '.nodes[]|select(.kind=="commit")|.fields.hash') 2>/dev/null | head -1)
 # As in MODE=phase: an anchor outside HEAD's own history never reaches the root-commit arm.
 if [ -n "$PHASE_START" ] && ! git merge-base --is-ancestor "$PHASE_START" HEAD 2>/dev/null; then PHASE_START=""; fi
 UNDO_RANGE=""
@@ -325,7 +325,7 @@ widening, not a preserved behavior; it makes an unpadded `--plan` argument match
 canonically-padded commit scope instead of silently matching nothing.
 
 ```bash
-COMMITS=$(specforge query "${TARGET_PLAN}" --depth 2 --kinds commit --format json | jq -r '.nodes[]|select(.kind=="commit")|.fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --format json | jq -r '.nodes[]|select(.kind=="commit")|.fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 ```
 
 Use matching commits as COMMITS.

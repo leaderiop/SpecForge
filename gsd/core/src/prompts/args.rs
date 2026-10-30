@@ -9,6 +9,9 @@ use specforge_extension_sdk::prelude::*;
 pub enum Kind {
     /// An entity of the kind (several as `a|b`): positional, and the prompt's subject.
     Reference(&'static str),
+    /// An entity of the kind, written `--name <number>`: a bound inside the milestone the run is about (`--from 02`),
+    /// so only its last segment is shown.
+    Bound(&'static str),
     /// `--name`, off unless given.
     Flag,
     /// `--name "text"`.
@@ -34,11 +37,20 @@ impl Arg {
             required: true,
         }
     }
-    /// An optional reference, written `--name <value>`: a bound the person may name (`--from 02`).
+    /// An optional reference, written `--name <id>` with its full id (`--phase v2.0/01`): the milestone is part of
+    /// what the person named (REVIEW-r43 M1).
     pub const fn optional_reference(name: &'static str, kind: &'static str) -> Arg {
         Arg {
             name,
             kind: Kind::Reference(kind),
+            required: false,
+        }
+    }
+    /// An optional bound, written `--name <number>`: a phase of the milestone the run is about (`--from 02`).
+    pub const fn bound(name: &'static str, kind: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Bound(kind),
             required: false,
         }
     }
@@ -82,7 +94,7 @@ pub fn declare(p: &mut PromptBuilder, args: &[Arg]) {
     for arg in args {
         p.arg(arg.name, |a| {
             match &arg.kind {
-                Kind::Reference(kind) => a.reference(kind),
+                Kind::Reference(kind) | Kind::Bound(kind) => a.reference(kind),
                 Kind::Flag => a.bool(),
                 Kind::Text => a.string(),
                 Kind::Integer => a.integer(),
@@ -117,7 +129,8 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
             (Kind::Reference(_), Value::String(path)) if arg.required => {
                 words.push(written(path).to_string());
             }
-            (Kind::Reference(_), Value::String(path)) => {
+            (Kind::Reference(_), Value::String(path)) => words.push(format!("{option} {path}")),
+            (Kind::Bound(_), Value::String(path)) => {
                 words.push(format!("{option} {}", written(path)));
             }
             (Kind::Flag, Value::Bool(true)) => words.push(option),

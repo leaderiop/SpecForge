@@ -28,7 +28,7 @@ default branch via the single resolver (#1146).
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 CURRENT_BRANCH=$(git branch --show-current)
-TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')}
+TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
 ```
 
 Check preconditions:
@@ -248,9 +248,10 @@ list anywhere else in this file. Their literal values are drift-guarded (`npm ru
 constants — change one side and update the other, or the guard fails.
 
 ```bash
-# The spec's transient directories — reviewer noise. Filtered out with every `*.spec` file (U47).
-
-TRANSIENT_DIRS="specforge-harness"
+# The spec root and the harness ledger (a file at the project root) are reviewer noise (U47); `app.spec` of a build is code.
+TRANSIENT_DIRS=""   # none: specforge-harness is a file
+SPEC_ROOT=$(jq -r '.spec_root // "spec"' specforge.json 2>/dev/null || echo spec)
+TRANSIENT_FILES="specforge-harness"
 
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.
 
@@ -260,7 +261,6 @@ TRANSIENT_DIRS="specforge-harness"
 
 
 STRUCTURAL_RE="a^"   # matches nothing
-
 # Milestone-scoped phase-plan directories: none here.
 
 
@@ -275,8 +275,8 @@ each cherry-picked commit) and `FORBIDDEN_RE` (what `verify` asserts is absent):
 
 ```bash
 if [ "$PR_STRICT" = "true" ]; then
-  FILTER_PATHS=$(printf '%s\n' '*.spec'; for d in $(printf '%s' "$TRANSIENT_DIRS"); do printf '%s/\n' "$d"; done)
-  FORBIDDEN_RE="\.spec$|^($(echo "$TRANSIENT_DIRS" | tr ' ' '|'))/"
+  FILTER_PATHS=$(printf '%s/\n' "$SPEC_ROOT"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
+  FORBIDDEN_RE="^($(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/|$(echo "$TRANSIENT_FILES" | tr ' ' '|')$)"
 else
   : # default mode keeps structural planning state, and there is none here (the filter is always strict)
 
@@ -439,7 +439,7 @@ FILTER_PATHS_EOF
   while IFS= read -r P; do
     [ -n "$P" ] || continue
     case "$P" in
-      *.spec|specforge-harness/*) ;;
+      "$SPEC_ROOT"/*|specforge-harness) ;;
       *) continue ;;
     esac
     if echo "$P" | grep -Eq "$FORBIDDEN_RE"; then continue; fi
@@ -515,7 +515,7 @@ PR_COMMITS=$(git rev-list --count "$TARGET".."$PR_BRANCH")
 # planning files must survive byte-identical. Name-only counting cannot see
 # status (a deleted structural/allowed path verifies clean there), so gate on
 # deletions explicitly, across every planning category.
-PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep -Ec "\.spec$|[[:space:]]specforge-harness/" || true)
+PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
 
 # Default mode preserves anything of the spec that is neither transient nor
 # structural — config.json, intel/, workstreams/. That is deliberate and unchanged, but it

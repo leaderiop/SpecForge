@@ -57,6 +57,8 @@ fn unattended(_call: &PromptCall<'_>) -> String {
      its own gate: a phase that is not ready is refused there, and you stop and report it.\n\n\
      - The unattended harness (`specforged`) is not part of `@gsd/core`. Nothing starts this workflow by itself or \
      resumes it after the conversation ends.\n\
+     - `--from`, `--to` and `--only` are phase numbers of the milestone `$MILESTONE` named above (the one still open): \
+     a phase of another milestone is not a bound here.\n\
      - `claude_orchestration.*` and `external_job.*` are declared settings with no effect here, even when the settings \
      block above shows them set.\n\
      - `/gsd-code-review` and the UI gate (`check ui-plan-gate`) belong to extensions that are not installed: skip \
@@ -70,9 +72,9 @@ static AUTONOMOUS: Spec = Spec {
     description: "Run all remaining phases autonomously — discuss→plan→execute per phase",
     command: "autonomous",
     args: &[
-        Arg::optional_reference("from", "phase"),
-        Arg::optional_reference("to", "phase"),
-        Arg::optional_reference("only", "phase"),
+        Arg::bound("from", "phase"),
+        Arg::bound("to", "phase"),
+        Arg::bound("only", "phase"),
         Arg::flag("interactive"),
         Arg::flag("converge"),
     ],

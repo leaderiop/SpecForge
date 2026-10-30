@@ -38,6 +38,26 @@ const REWRITTEN: &[(&str, usize)] = &[
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
 /// exist here: a state table, a directory, a batch router. Each run opens with a line that says what replaced it.
 const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
+    ("gsd-core/workflows/quick.md", 203, 203),
+    ("gsd-core/workflows/pr-branch.md", 261, 261),
+    ("gsd-core/workflows/pr-branch.md", 252, 252),
+    // REVIEW-r43 M1, Minor 11: undo takes a full id and refuses a closed milestone; planning-config no longer says to
+    // gitignore or untrack the spec.
+    ("gsd-core/workflows/undo.md", 271, 271),
+    ("gsd-core/workflows/undo.md", 264, 264),
+    ("gsd-core/workflows/undo.md", 175, 175),
+    ("gsd-core/workflows/undo.md", 174, 174),
+    ("gsd-core/workflows/undo.md", 173, 173),
+    ("gsd-core/workflows/undo.md", 132, 132),
+    ("gsd-core/workflows/undo.md", 30, 30),
+    ("gsd-core/workflows/undo.md", 29, 29),
+    ("gsd-core/references/planning-config.md", 152, 152),
+    ("gsd-core/references/planning-config.md", 151, 151),
+    ("gsd-core/references/planning-config.md", 149, 149),
+    ("gsd-core/references/planning-config.md", 147, 147),
+    ("gsd-core/references/planning-config.md", 146, 146),
+    ("gsd-core/references/planning-config.md", 144, 144),
+    ("gsd-core/references/planning-config.md", 143, 143),
     ("commands/gsd/config.md", 46, 46),
     ("commands/gsd/extract-learnings.md", 6, 6),
     ("commands/gsd/milestone-summary.md", 27, 27),
