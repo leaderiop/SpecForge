@@ -379,3 +379,31 @@ fn parse_json_lines_name_fields_the_command_prints() {
         bad.join("\n")
     );
 }
+
+fn workflow(name: &str) -> String {
+    std::fs::read_to_string(format!(
+        "{}/assets/gsd-core/workflows/{name}",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .unwrap_or_else(|e| panic!("{name}: {e}"))
+}
+
+/// REVIEW-r43 post-fix N5: the leftovers of the Minor 22 and M10 text mismatches.
+#[test]
+fn the_post_fix_text_leftovers_stay_fixed() {
+    // progress asks for the next phase of the milestone, padded as phase ids are
+    assert!(
+        workflow("progress.md").contains("NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_PHASE_SECTION=$(specforge query \"$MILESTONE/$NEXT_PHASE\"")
+    );
+    // the ingest staging directory holds the documents' text and is removed at the end
+    assert!(workflow("ingest-docs.md").contains("rm -rf \"$INTEL_DIR\""));
+    // `--dir` is where the documents are scanned
+    assert!(!text("onboard").contains("The project is read from the directory"));
+    // the integrations confirmation shows what is written: booleans, and no key at all
+    let integrations = workflow("settings-integrations.md");
+    assert!(
+        !integrations.contains("****<last-4>"),
+        "a masked key is shown"
+    );
+    assert!(!integrations.contains("written plaintext only to `config.json`"));
+}

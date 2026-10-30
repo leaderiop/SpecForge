@@ -74,6 +74,7 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "${PARENT_PHASE}"
         | "$MILESTONE/${PHASE_NUM}"
         | "$MILESTONE/01"
+        | "$MILESTONE/$NEXT_PHASE"
         | "$MILESTONE/${TARGET_PHASE}"
         | "$UNDO_MILESTONE/${TARGET_PHASE}"
         | "$MILESTONE/${PLAN_PHASE}"

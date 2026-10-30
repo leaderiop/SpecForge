@@ -17,16 +17,16 @@ each one is an environment variable, and the environment is the security boundar
 The UI must never display, echo, or
 log the plaintext value. The workflow follows these rules:
 
-- **Masking convention: `****<last-4>`** (e.g. `sk-abc123def456` → `****f456`).
-  Strings shorter than 8 characters render as `****` with no tail so a short
-  secret does not leak a meaningful fraction of its bytes. Unset values render
-  as `(unset)`.
+- **No key is ever read.** The workflow shows each key only as `set` or `not set`
+  (the variable's status), and the `brave_search`, `firecrawl` and `exa_search`
+  settings as `true` or `false`. There is nothing to mask: no key value reaches
+  the workflow.
 - **Plaintext is never echoed by AskUserQuestion descriptions, confirmation
   tables, or any log line.** It is not written to any file
   at all: it is an environment variable.
-- **`config-set` output is masked** for keys in the secret set
-  (`brave_search`, `firecrawl`, `exa_search`) — see
-  `gsd-core/bin/lib/secrets.cjs`.
+- **`specforge settings` reports a secret's status** for the keys in the secret
+  set (`brave_search`, `firecrawl`, `exa_search`),
+  never its value.
 - **Agent-type and CLI slug validation.** `agent_skills.<agent-type>` slug
   inputs are checked against `^[a-zA-Z0-9_-]+$` before any write; inputs
   containing path separators (`/`, `\`, `..`), whitespace, or shell
@@ -71,7 +71,7 @@ Read the current config and compute a masked view for display. For each
 integration field, compute one of:
 
 - `(unset)` — field is null / missing
-- `****<last-4>` — secret field that is populated (plaintext never shown)
+- `true` / `false` — a search source forced on or off (the key itself is an environment variable, never read)
 - `<value>` — non-secret routing/skill string, shown as-is
 
 ```bash
@@ -306,12 +306,12 @@ output under any circumstance.**
 ### GSD ► INTEGRATIONS UPDATED
 
 Search Integrations
-| Field              | Value             |
-|--------------------|-------------------|
-| brave_search       | ****<last-4>      |  (or "(unset)")
-| firecrawl          | ****<last-4>      |
-| exa_search         | ****<last-4>      |
-| search_gitignored  | true | false      |
+| Field              | Setting (bool)    | Environment variable |
+|--------------------|-------------------|----------------------|
+| brave_search       | true or false     | BRAVE_API_KEY: set or not set |
+| firecrawl          | true or false     | FIRECRAWL_API_KEY: set or not set |
+| exa_search         | true or false     | EXA_API_KEY: set or not set |
+| search_gitignored  | true or false     | (none) |
 
 Code Review CLI Routing
 | Lane        | Model id                             |
@@ -326,10 +326,10 @@ Agent Skills Injection
 | ...              | ...                       |
 
 Notes:
-- API keys are never stored: they are environment variables. The confirmation
-  table above never displays plaintext — keys appear as ****<last-4>.
-- Plaintext is not echoed back by this workflow, not written to any log,
-  and not displayed in error messages.
+- API keys are never stored: they are environment variables. The three search
+  fields are booleans that force a source on or off; the table shows them as
+  `true` or `false`, and each key's environment variable only as `set` or `not set`.
+- No key value is read, echoed, written to any log, or displayed in error messages.
 
 Quick commands:
 - /gsd:settings — workflow toggles and model profile
@@ -342,8 +342,8 @@ Quick commands:
 <success_criteria>
 - [ ] Current config read from `$GSD_CONFIG_PATH`
 - [ ] User presented with three sections: Search Integrations, Review CLI Routing, Agent Skills Injection
-- [ ] API keys written plaintext only to `config.json`; never echoed, never logged, never displayed
-- [ ] Masked confirmation table uses `****<last-4>` for set keys and `(unset)` for null
+- [ ] API keys are never taken, written, echoed or logged: the user keeps them in the environment
+- [ ] The confirmation table shows the three search booleans as `true` or `false` and each key's variable as `set` or `not set`
 - [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)
 - [ ] Config merge preserves all keys outside the three sections this workflow owns
 </success_criteria>
