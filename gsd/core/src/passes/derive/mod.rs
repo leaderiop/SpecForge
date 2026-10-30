@@ -9,8 +9,6 @@
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`.
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
-//! Not answered, for want of the kernel:
-//! `re_verification.previous_status` and `previous_score` (the baseline sees no source file, see `verify`).
 
 mod audit;
 mod execute;

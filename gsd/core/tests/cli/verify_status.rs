@@ -339,7 +339,11 @@ fn re_verification_keeps_what_still_holds() {
     );
     assert_eq!(
         verification(&p)["re_verification"],
-        serde_json::json!({ "gaps_remaining": [format!("{VERIFICATION}/VG1")] }),
+        serde_json::json!({
+            "previous_status": "human_needed",
+            "previous_score": "1/2",
+            "gaps_remaining": [format!("{VERIFICATION}/VG1")]
+        }),
         "{}",
         verification(&p)
     );
@@ -356,7 +360,11 @@ fn re_verification_keeps_what_still_holds() {
     );
     assert_eq!(
         verification(&p)["re_verification"],
-        serde_json::json!({ "gaps_closed": [format!("{VERIFICATION}/VG1")] }),
+        serde_json::json!({
+            "previous_status": "human_needed",
+            "previous_score": "1/2",
+            "gaps_closed": [format!("{VERIFICATION}/VG1")]
+        }),
         "{}",
         verification(&p)
     );
