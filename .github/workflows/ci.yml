@@ -55,6 +55,9 @@ jobs:
         with:
           key: ${{ matrix.cache || matrix.shard }}
           workspaces: ${{ matrix.workspaces || '. -> target' }}
+          # The gsd shard rebuilt every crate of the workspace (the `specforge` it drives) on each run: rust-cache
+          # leaves workspace crates out by default. Kept, only what a change reaches rebuilds.
+          cache-workspace-crates: ${{ matrix.shard == 'gsd' }}
           # PRs read main's cache and write none, so they never evict it.
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
