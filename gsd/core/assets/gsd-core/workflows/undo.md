@@ -84,9 +84,9 @@ resolves through `planningDir`, so under an active workstream this is that works
 phase directory — not the root's same-numbered one.
 
 ```bash
-# the id names its milestone: that milestone, not the one still open, is the one the run is about
-case "$TARGET_PHASE" in */*) MILESTONE=${TARGET_PHASE%%/*}; TARGET_PHASE=${TARGET_PHASE##*/};; esac
-PHASE_DIR=$(specforge query "$MILESTONE/${TARGET_PHASE}" --depth 0 --format json | jq -r '.nodes[0].id // empty' 2>/dev/null)
+# the id names its milestone: UNDO_MILESTONE, not $MILESTONE (the open one), is the one the run is about
+UNDO_MILESTONE=$MILESTONE; case "$TARGET_PHASE" in */*) UNDO_MILESTONE=${TARGET_PHASE%%/*}; TARGET_PHASE=${TARGET_PHASE##*/};; esac
+PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${TARGET_PHASE}" --depth 0 --format json | jq -r '.nodes[0].id // empty' 2>/dev/null)
 # the phase is an entity of the spec: its commits are the `commit` entities recorded under its plans, so there is no
 # directory to anchor a window on and no project root to resolve (PHASE_DIR holds the phase id).
 
@@ -126,7 +126,7 @@ second one:
 ```bash
 # No directory moves to an archive here, so the archived layout is the milestone: a phase of a shipped or
 # abandoned milestone is refused like an archived one, and the commits are selected by hand.
-MILESTONE_STATE=$(specforge query "$MILESTONE" --depth 0 --format json | jq -r '.nodes[0].fields.state // empty' 2>/dev/null)
+MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --format json | jq -r '.nodes[0].fields.state // empty' 2>/dev/null)
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
@@ -172,7 +172,7 @@ PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 
 If `PHASE_DIR_ARCHIVED` is non-empty, stop — this message, not the not-found one:
 ```
-Phase ${TARGET_PHASE} belongs to ${MILESTONE}, a closed milestone (${PHASE_DIR_ARCHIVED}).
+Phase ${TARGET_PHASE} belongs to ${UNDO_MILESTONE:-${PHASE_DIR%%/*}}, a closed milestone (${PHASE_DIR_ARCHIVED}).
 Refusing: reverting a closed milestone's phase can take away what the later work builds
 on, so its commits are not selected for you.
 Use /gsd:undo --last N and select commits explicitly.
@@ -263,14 +263,14 @@ window from that phase's own directory — a plan number is unique within its ph
 phase number only within its milestone and workstream.
 
 ```bash
-case "$TARGET_PLAN" in */*) TARGET_PLAN_ID="$TARGET_PLAN"; MILESTONE=${TARGET_PLAN%%/*}; TARGET_PLAN=${TARGET_PLAN##*/};; *) TARGET_PLAN_ID="$MILESTONE/${TARGET_PLAN%%-*}/$TARGET_PLAN";; esac; PLAN_PHASE="${TARGET_PLAN%%-*}"
-PHASE_DIR=$(specforge query "$MILESTONE/${PLAN_PHASE}" --depth 0 --format json | jq -r '.nodes[0].id // empty' 2>/dev/null)
+UNDO_MILESTONE=$MILESTONE; case "$TARGET_PLAN" in */*) TARGET_PLAN_ID="$TARGET_PLAN"; UNDO_MILESTONE=${TARGET_PLAN%%/*}; TARGET_PLAN=${TARGET_PLAN##*/};; *) TARGET_PLAN_ID="$UNDO_MILESTONE/${TARGET_PLAN%%-*}/$TARGET_PLAN";; esac; PLAN_PHASE="${TARGET_PLAN%%-*}"
+PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${PLAN_PHASE}" --depth 0 --format json | jq -r '.nodes[0].id // empty' 2>/dev/null)
 # The commits are those of this repository, exactly as in MODE=phase.
 PROJECT_ROOT="."   # the commits are those of this repository
 # Same archived-resolution refusal as MODE=phase, and for the same reason — an archived
 # anchor selects a LATER milestone's same-numbered phase. Blanking PHASE_DIR keeps the
 # fail-closed rule below load-bearing.
-MILESTONE_STATE=$(specforge query "$MILESTONE" --depth 0 --format json | jq -r '.nodes[0].fields.state // empty' 2>/dev/null)
+MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --format json | jq -r '.nodes[0].fields.state // empty' 2>/dev/null)
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
@@ -441,7 +441,7 @@ PLANNING_DIR=""   # there is no planning directory: the plans and phases are que
 
 **MODE=phase:**
 
-Read the target phase and the phases that list it in `depends_on` (`specforge query "$MILESTONE/${TARGET_PHASE}" --depth 1 --format json`).
+Read the target phase and the phases that list it in `depends_on` (`specforge query "$UNDO_MILESTONE/${TARGET_PHASE}" --depth 1 --format json`).
 
 Search for phases that list a dependency on the target phase. Look for patterns like:
 - "Depends on: Phase ${TARGET_PHASE}"
@@ -449,7 +449,7 @@ Search for phases that list a dependency on the target phase. Look for patterns 
 - "depends_on: [${TARGET_PHASE}]"
 
 For each dependent phase N found:
-1. Check if the phase has plans (`specforge query "$MILESTONE/${N}" --depth 1 --kinds plan --format json`)
+1. Check if the phase has plans (`specforge query "$UNDO_MILESTONE/${N}" --depth 1 --kinds plan --format json`)
 2. If it has, check whether any of its plans has a summary
 
 If any downstream phase has started work, collect warnings:
@@ -464,7 +464,7 @@ If any downstream phase has started work, collect warnings:
 
 Extract the phase number from TARGET_PLAN (the NN part of NN-MM). Extract the plan number (the MM part).
 
-Look for later plans of the same phase (`specforge query "$MILESTONE/${NN}" --depth 1 --kinds plan --format json`, the
+Look for later plans of the same phase (`specforge query "$UNDO_MILESTONE/${NN}" --depth 1 --kinds plan --format json`, the
 same milestone). For each later plan (plans with number > MM):
 1. Read the later plan's PLAN.md
 2. Check if its `<files>` sections or `consumes` fields reference outputs from the target plan

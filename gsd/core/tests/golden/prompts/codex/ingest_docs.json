@@ -61,7 +61,7 @@
     "  test -f \"{MANIFEST_PATH}\" || echo \"MANIFEST_NOT_FOUND\"",
     "fi"
   ],
-  "bytes": 51442,
+  "bytes": 51587,
   "end": [
     "1. **Its own check list per bucket** — which conditions are BLOCKER vs WARNING vs INFO. These are domain-specific (plan ingestion checks are not doc ingestion checks).",
     "2. **The loaded context** — what it reads (ROADMAP.md, PROJECT.md, REQUIREMENTS.md, CONTEXT.md, intel files) before running checks.",
@@ -102,7 +102,7 @@
     "",
     "## Where the ingest goes",
     "",
-    "The project is read from the directory `--dir` names (`--path` is the host's own option and does not reach this prompt). The classifier and the synthesizer write their staging files to a scratch directory outside the project: the intel files and the conflict report are not part of the spec, and the report is shown to the user. Wherever the text above says `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md` or `STATE.md` is written, read that the roadmapper writes the `project`, `requirement`, `milestone` and `phase` entities (`specforge new`, `specforge set`), and that the project state is computed. `--resolve interactive` is reserved, as upstream's."
+    "The documents are scanned under the directory `--dir` names (`--path` is the host's own option and does not reach this prompt). The classifier and the synthesizer write their staging files to a scratch directory outside the project: the intel files and the conflict report are not part of the spec, and the report is shown to the user. Wherever the text above says `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md` or `STATE.md` is written, read that the roadmapper writes the `project`, `requirement`, `milestone` and `phase` entities (`specforge new`, `specforge set`), and that the project state is computed. `--resolve interactive` is reserved, as upstream's."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:380c52773d3b12daec21463060f7d95e7346792053be7c35a44a94665f6158b6",
+    "digest": "sha256:a09ee2296d14f0f18272946a31c78b8d2be76dd407925994be6e0eac0247259f",
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
@@ -212,5 +212,5 @@
       }
     ]
   },
-  "sha256": "380c52773d3b12daec21463060f7d95e7346792053be7c35a44a94665f6158b6"
+  "sha256": "a09ee2296d14f0f18272946a31c78b8d2be76dd407925994be6e0eac0247259f"
 }
