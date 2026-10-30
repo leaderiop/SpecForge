@@ -136,7 +136,9 @@ impl Ctx<'_> {
 
     fn build_specforge(&self) -> Result<PathBuf, String> {
         let mut cmd = self.cmd("cargo");
-        cmd.args(["build", "-q"]);
+        // The test profile: dependencies at opt-level 3 (wasmtime above all). The gsd suite runs this binary on every
+        // test; with a dev build it took 704s and missed the hook latency budget, with this one 188s.
+        cmd.args(["build", "-q", "--profile", "test"]);
         match self.mode {
             // The workspace's own feature set: after the workspace build this finds everything fresh.
             Mode::Full | Mode::Ci => cmd.args(["--workspace", "--bin", "specforge"]),
@@ -487,6 +489,15 @@ pub fn run(
             let Ok((k, result, took)) = finished.recv() else {
                 break;
             };
+            // A CI log shows each check as it ends: a job cancelled at its timeout still says where the time went.
+            if matches!(mode, Mode::Ci) {
+                let verdict = if result.is_ok() { "passed" } else { "failed" };
+                eprintln!(
+                    "cargo gate: {} {verdict} in {}s",
+                    CHECKS[selected[k]].name,
+                    took.as_secs()
+                );
+            }
             states[k] = if result.is_ok() {
                 State::Passed
             } else {
