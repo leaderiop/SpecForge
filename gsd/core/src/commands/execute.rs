@@ -67,7 +67,7 @@ fn complete(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 }
 
 /// `answer_checkpoint <checkpoint> --by <who> [--option] [--text]`: the reply the caller records for the person, with
-/// the host's clock. `--by` is the caller's attestation (K19 item), never refused when it names someone else.
+/// the host's clock. `--by` is the caller's attestation (K20 item), never refused when it names someone else.
 fn answer_checkpoint(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let checkpoint = node(call, "checkpoint", required(call, "checkpoint")?)?;
     let (option, reply) = (text(call, "option")?, text(call, "text")?);
@@ -153,7 +153,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("the reply in the person's words, kept verbatim");
             })
             .arg("by", |a| {
-                a.description("required; who answered: the caller's attestation of what the person said, not a proof of the person (K19)");
+                a.description("required; who answered: the caller's attestation of what the person said, not a proof of the person (K20)");
             })
             .handler(|call| run(call, answer_checkpoint));
     });
@@ -167,7 +167,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
             })
             .arg("by", |a| {
                 a.description(
-                    "required; who did it: the caller's attestation, not a proof of the person (K19)",
+                    "required; who did it: the caller's attestation, not a proof of the person (K20)",
                 );
             })
             .handler(|call| run(call, confirm_setup));

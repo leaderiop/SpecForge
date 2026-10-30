@@ -1,7 +1,9 @@
 # A pass or command declares the project files it reads, and its input carries their facts and capped text
 
-**Status:** accepted (2026-10-28, kernel round 35, plan K11). Extends [ADR 0037](0037-the-sandbox-is-limits-the-host-enforces.md)
-(the guest has no file system: the host reads and hands over), [ADR 0107](0107-the-checks-read-through-the-disk-they-are-given.md)
+**Status:** accepted (2026-10-28, kernel round 35, plan K11). Extends
+[ADR 0037](0037-the-sandbox-is-limits-the-host-enforces.md)
+(the guest has no file system: the host reads and hands over),
+[ADR 0107](0107-the-checks-read-through-the-disk-they-are-given.md)
 (a check's reads are its inputs), [ADR 0287](0287-who-writes-a-field-is-declared.md) (compute and check passes),
 [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (the file digest a judged rule and a verdict
 already use) and [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (the hook globs and
@@ -77,7 +79,8 @@ and a hook alone is told the facts of the paths its tool names (`PathFact`, ADR 
 The test report a `reads_tests` pass receives is the one recorded now. The baseline view (`previous`) is computed from
 the commit's files without it (`tests: None`), so a computed field derived from tests is unknown in `previous` and known
 in the current view; a compute pass that compares the two must not derive from tests. Reading the commit's own
-`specforge-report.json` is the upgrade when a pass needs it. Nothing in r35 declares such a pass. The commit's files are read from its tree and fetched on demand (ADR 0300).
+`specforge-report.json` is the upgrade when a pass needs it. Nothing in r35 declares such a pass.
+The commit's files are read from its tree and fetched on demand (ADR 0300).
 
 ## Rejected
 

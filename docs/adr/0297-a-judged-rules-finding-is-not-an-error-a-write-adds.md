@@ -42,7 +42,7 @@ node of its kinds unless a fresh passing verdict says otherwise. Four consequenc
 - **D1b. The exemption is the owning extension's.** The diagnostic must also name the extension that owns the judged
   rule as its origin (the judged evaluation sets it), so a host diagnostic or another extension's with the same text is
   counted. The registry refuses (W112) a declarative rule of the extension that shares a judged rule's code. Still open
-  (now K19): a pass that `reports` a judged rule's code, and a guard pass's fail-closed "could not be evaluated" error for
+  (now K20): a pass that `reports` a judged rule's code, and a guard pass's fail-closed "could not be evaluated" error for
   such a code, carry the extension's origin and are exempt too (a guard that lists a judged code fails open on writes);
   closing it means having `CompiledProject` keep the findings `judged::evaluate` produced and match against that list.
 - **D3. No protocol change.** No type, export or descriptor key changes; `PROTOCOL_VERSION` stays 1.11.0 and no blob is

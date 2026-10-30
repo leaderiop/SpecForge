@@ -6,7 +6,7 @@
 //! session's state for the context monitor.
 //!
 //! Dropped: the environment and `autoCompactWindow` overrides of the auto-compact threshold (no environment), the
-//! git segment and state freshness (`show_git` and `show_state_freshness` stay declared and inert: K19 git facts),
+//! git segment and state freshness (`show_git` and `show_state_freshness` stay declared and inert: K20 git facts),
 //! the current-task segment (a file under `~/.claude`) and the update banner (a lockfile), and the colours: the
 //! kernel writes a hook's control characters out as text (ADR 0230, 0231), so the line is plain. One more difference: the
 //! phase counts read `completed/total`, the milestone's computed counters, where upstream reads `current/total`.

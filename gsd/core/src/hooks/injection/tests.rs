@@ -355,7 +355,7 @@ fn replayed(suite: &str, calls: &str) -> Vec<String> {
 const SECURITY_SKIPPED: &[(&str, &str)] = &[
     (
         "gsd-read-injection-scanner: opt-in blocking > SCAN-BLK-01",
-        "security: a block is security.injection_blocking, which is @gsd/security's key and no hook reads (K19); injection_is_never_blocked pins the advisory",
+        "security: a block is security.injection_blocking, which is @gsd/security's key and no hook reads (K20); injection_is_never_blocked pins the advisory",
     ),
     (
         "gsd-read-injection-scanner: opt-in blocking > SCAN-BLK-03",
@@ -468,7 +468,7 @@ const CODEBASE_SKIPPED: &[(&str, &str)] = &[
 
 const BLOCKING_SKIPPED: &[(&str, &str)] = &[(
     "#1577 \u{2014} security.injection_blocking config key",
-    "security: the config key and its schema are @gsd/security's (K19)",
+    "security: the config key and its schema are @gsd/security's (K20)",
 )];
 
 #[test]

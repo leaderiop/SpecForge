@@ -445,9 +445,9 @@ fn a_stale_verdict_outside_the_subject_does_not_refuse_start_plan_yet() {
     assert_eq!(run.code, 0, "{}", run.all());
 }
 
-/// The desired behaviour (K19): E516 names the gate's subject, so a stale verdict anywhere refuses the step.
+/// The desired behaviour (K20): E516 names the gate's subject, so a stale verdict anywhere refuses the step.
 #[test]
-#[ignore = "K19: project-wide E516 at a command gate"]
+#[ignore = "K20: project-wide E516 at a command gate"]
 fn a_stale_verdict_anywhere_refuses_start_plan_under_plus() {
     let p = super::harness::project("execute");
     checked(&p);

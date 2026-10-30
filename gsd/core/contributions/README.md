@@ -163,11 +163,11 @@ The assets are upstream's text; where the spec has no counterpart a line was def
 - The twin has no commit, broken-window, human-item, methodology or lesson data, so the query tests do not reach them.
 - The goldens (`tests/golden/prompts/`) are hashes plus the first 80 lines, the 60 lines after the preamble, the last 40 and
   the counts, not the whole text.
-- `cargo gate full` is the check for all of it; a revendor or a kernel change is K19, not done here.
+- `cargo gate full` is the check for all of it; a revendor or a kernel change is K20, not done here.
 
 ### What the r43 prompts do not do (known, not fixed)
 
-Found by REVIEW-r43 and kept, each on purpose or as a kernel limit (K19):
+Found by REVIEW-r43 and kept, each on purpose or as a kernel limit (K20):
 
 - `update` has no upstream attribution: its text is ours (upstream's installs upstream GSD over this one), D-r43-16.
 - `smart_entry` differs from upstream in three signals, all read from the computed graph (K18):
@@ -184,7 +184,7 @@ Found by REVIEW-r43 and kept, each on purpose or as a kernel limit (K19):
   reference follows is not checked.
 - E080 counts the errors a backlog subtree already has as new ones, so a promote or an edit of it is refused until
   `specforge check` is clean; `gsd/E310` is silent on `999.x` and fires once the phase is numbered. This is the kernel's
-  E080 (K19), not changed here; `review-backlog` tells the user to run `specforge check` first.
+  E080 (K20), not changed here; `review-backlog` tells the user to run `specforge check` first.
 - A commit step of `autonomous`, `quick`, `review-backlog`, `pause-work` and `next` runs `git add spec && git commit`
   where upstream commits named files: spec edits the user has not committed are swept in.
 - A lesson id `L-<phase>-<n>` is not unique across milestones: with `--reset-phase-numbers` the re-run rule (`specforge
@@ -304,7 +304,7 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
 ### What the hooks do not do (known, not fixed)
 
 - The context monitor has no stopped-at record and no Stop or SubagentStop rows.
-- The `git add -f` block of upstream's workflow guard is dropped (it needs git facts, K19).
+- The `git add -f` block of upstream's workflow guard is dropped (it needs git facts, K20).
 - The statusline is plain text (the kernel escapes control characters); `show_git` and `show_state_freshness` are
   inert; phase counts read completed over total; the milestone shown is the one `reports::current` chooses.
 - Injection scanning is advisory: `security.injection_blocking` belongs to `@gsd/security` and a hook cannot read

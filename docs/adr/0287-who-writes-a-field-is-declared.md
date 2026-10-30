@@ -1,6 +1,7 @@
 # Who writes a field is declared, and history is the git baseline
 
-**Status:** accepted (2026-10-27, architecture round 31, plan K4). Supersedes [ADR 0009](0009-host-passes-read-declarations.md)
+**Status:** accepted (2026-10-27, architecture round 31, plan K4). Supersedes
+[ADR 0009](0009-host-passes-read-declarations.md)
 C (the build cache and `lifecycle_field`). Extends [ADR 0014](0014-the-session-keeps-itself-current.md),
 [ADR 0019](0019-one-entity-snapshot-per-compile.md), [ADR 0030](0030-a-sessions-inputs-are-one-value.md),
 [ADR 0047](0047-the-compiled-project-is-the-sessions-core.md), [ADR 0128](0128-one-project-change-over-held-files.md),

@@ -198,36 +198,36 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). What still waits for kernel work (K19):
+`previous_score` and compares scan states (r39 T13 is built). What still waits for kernel work (K20):
 
-- **A person's answer is recorded by the caller (K19).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+- **A person's answer is recorded by the caller (K20).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
   `approve_validation`, `waive_window`, `dispose_refactor` and `pause` write the `H` fields of a person's reply, as
   upstream's agent transcribes the conversation. Each requires a non-empty `--by` (an empty one is refused), but `--by`
   is the caller's **attestation**, not a proof of a person: an agent can record any name (`set_uat_result` echoes it and
   stores it nowhere, a `uat_test` has no `by`). So a gate that such a record satisfies (`gsd/W404`'s answered
   `tdd_review` checkpoint, and the sign-offs r42's gates read) is an honest-agent gate. `override` and `debt_accepted`
   stay human-only because no command writes them. A human-attested command kind (the host refuses an agent-facing call
-  and records the caller) is a K19 item; the ignored tests `cmd_attest` carry the desired behaviour.
-- **`gsd/E516` is subject-scoped at a command gate (K19).** The host keeps only the diagnostics that name an entity
+  and records the caller) is a K20 item; the ignored tests `cmd_attest` carry the desired behaviour.
+- **`gsd/E516` is subject-scoped at a command gate (K20).** The host keeps only the diagnostics that name an entity
   inside the gate's subject, and E516 names the stale entity itself. So `start_plan <plan>` is refused by a stale
   verdict inside that plan only, and `close_milestone` by one under the milestone only, not project-wide as the rule
-  reads. The fix is for the guard to name the subject (K19); an ignored test carries it.
-- **A command or prompt cannot read its extension's state (K19).** The host sends `state` to a `reads_state` command or
+  reads. The fix is for the guard to name the subject (K20); an ignored test carries it.
+- **A command or prompt cannot read its extension's state (K20).** The host sends `state` to a `reads_state` command or
   prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So
   `/gsd-workstreams status` cannot name the active workstream and `--ws` is text. The fix is an SDK change, so a re-vendor.
-- **A rendered step has no agent field (K19)**: the step's title carries the agent. **There is no free-text tail for a
-  prompt's arguments (K19)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
-  (K19)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
-- **The lifecycle prompts (r42) leave three kernel items (K19).** The claude-code skill writer does not write a skill's
+- **A rendered step has no agent field (K20)**: the step's title carries the agent. **There is no free-text tail for a
+  prompt's arguments (K20)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
+  (K20)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
+- **The lifecycle prompts (r42) leave three kernel items (K20).** The claude-code skill writer does not write a skill's
   `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested. A prompt's
   subject is required, so `/gsd-plan-phase` without a phase is refused where upstream picks the next one (`/gsd-next`
   is r43's). A reference is the id as written, so `3` and `03` are different spellings of the same phase.
-- **A command's answer is not host-converted (K19).** `smart_entry` names the next actions as `/gsd-x`, `$gsd-x` for
+- **A command's answer is not host-converted (K20).** `smart_entry` names the next actions as `/gsd-x`, `$gsd-x` for
   codex, so it takes upstream's own `--runtime` option; a prompt that runs it says which host it is rendered for. It
   never says `idle-stranded`: a command runs no git, so the dirty, unpushed and stale signals are false. A phase's
   computed `status` stands for STATE.md's words (`planning`, `executing`, `verifying`, `milestone complete`), and
   a milestone's phase counts are the roadmap's.
-- **The hooks wait for five host items (K19)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
+- **The hooks wait for five host items (K20)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
   a full compile, Cursor's `beforeSubmitPrompt`, and a hook reading another extension's settings.
 - **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is
   untriaged (it answers `nothing new` and writes nothing, so a hook may call it on every phase event), as upstream
@@ -236,7 +236,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`specforge <ext> help <cmd>` is gone for every extension.** T17 turned off clap's `help` subcommand on an
   extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
   `specforge gsd help` lists the commands.
-- **A slash command's `when` takes one setting (K19).** A skill in two clusters follows its first, so disabling
+- **A slash command's `when` takes one setting (K20).** A skill in two clusters follows its first, so disabling
   `utility` leaves `/gsd-help` (also `core_loop`) shown.
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
@@ -264,9 +264,9 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   not E502 stands, so a verification can read `passed` while the Error is reported (gates still fail on the Error, but
   anything reading `status` does not); (c) `verification` (`explicit` or `backstop`) is agent-writable, so an agent can
   turn the guard off for a truth before it records `verified` (the diff shows it, and the verdict goes stale when the
-  field flips). K19: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
+  field flips). K20: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
   with the predicate E502 uses; key E080's pairing by subject for pass codes; make `verification` human-only or
   harness-only.
-- **A judged code reused by a pass (K19).** The registry refuses a declarative rule that shares a judged rule's code, not
+- **A judged code reused by a pass (K20).** The registry refuses a declarative rule that shares a judged rule's code, not
   a pass that `reports` it, nor a guard's fail-closed error for it: E080 exempts those findings (ADR 0297 D1b). No gsd
   pass reports a judged code.

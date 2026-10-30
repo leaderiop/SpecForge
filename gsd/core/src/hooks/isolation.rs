@@ -13,7 +13,7 @@
 //!   Code's own place for a subagent's worktree, whose branch is upstream's `worktree-agent-*`) or `wf_*`. It refuses
 //!   a path into `<repo>`, the main checkout, which is the bug it exists for (#260), in any case and as a relative
 //!   path; upstream lets a path outside every repository through, and so does this one. A path that reaches `<repo>`
-//!   through a symlink is not seen (the kernel hands a hook the name, not the real path: K19), where upstream asks
+//!   through a symlink is not seen (the kernel hands a hook the name, not the real path: K20), where upstream asks
 //!   git for the toplevel of the target's real directory.
 
 use specforge_extension_sdk::prelude::*;

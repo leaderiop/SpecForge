@@ -130,7 +130,7 @@ fn fast_renders_for_three_hosts() {
 
 #[test]
 fn quick_refuses_a_bare_task_word() {
-    // The K19 tail: a free-text task is one quoted option, so a bare word is not an argument.
+    // The K20 tail: a free-text task is one quoted option, so a bare word is not an argument.
     let run = prompt(&twin(), "quick", &["fix", "the", "bug"], "claude-code");
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("invalid_input"), "{}", run.all());

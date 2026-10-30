@@ -8,7 +8,7 @@
 //! marker lasts the session and is replaced by the next command (U51); Cursor has no prompt event, so there the guard
 //! is upstream's, always advisory.
 //!
-//! Dropped: the `git add -f` block on an agent branch, which needs a shell and git (K19 git facts). Two of
+//! Dropped: the `git add -f` block on an agent branch, which needs a shell and git (K20 git facts). Two of
 //! upstream's three exemptions are other facts here: the spec root is `.planning/`, and a subagent is
 //! `tool.input.is_subagent` (the kernel carries no `session_type`). The advisory names this port's commands and,
 //! where upstream says STATE.md and SUMMARY.md, the project's state and a summary.
