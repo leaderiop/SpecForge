@@ -25,6 +25,8 @@ mod execute_rules;
 mod execute_status;
 mod gates;
 mod harness;
+mod hooks_guards;
+mod hooks_support;
 mod install_agents;
 mod install_skills;
 mod judged;

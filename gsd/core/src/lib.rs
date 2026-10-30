@@ -5,6 +5,7 @@ pub mod codes;
 mod collectors;
 pub mod commands;
 mod digest;
+pub mod hooks;
 pub mod judged;
 mod kinds;
 mod passes;
@@ -39,6 +40,7 @@ impl Contributions for GsdCore {
         passes::declare(c);
         collectors::declare(c);
         settings::declare(c);
+        hooks::declare(c);
         codes::declare(c);
     }
 }

@@ -470,3 +470,20 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-ns-context`, `/gsd-ns-ide
 | `commands/gsd/ns-project.md` | `2965014b60f6951e8b10526dd16c2dfa7e1e737c414384efff6f5bb495fa718f` |
 | `commands/gsd/ns-review.md` | `5af65e411b1cc5baa6a2fbf3cfdf9452f671c11a72c21d5b88e89ee78dfbcfd5` |
 | `commands/gsd/ns-workflow.md` | `9492a9cdcb4ea148f598688a252b45ee9b695e83b997bfe56834d701ec369c2d` |
+
+## r44 T1: the read, write and secret-read guards
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three guard scripts, the filename classifier the secret guard requires, their test suites (read by `gsd/core/src/hooks/{guards,secrets}/tests.rs` for the accounting of every case), and the inventory manifest the hook roster is compared with. `hook-cases/` holds the calls these suites make, recorded by `gsd/parity/record-hook-cases.cjs`.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-read-guard.js` | `87dcd4118921ed7de1a9db420f558fa86e713178fc242e83f5898c1ab0564d14` |
+| `hooks/gsd-write-guard.js` | `1ec4bb014724ee3e7c636658decb96ec2e271867e1356e38e4a6b87fc8cddbae` |
+| `hooks/gsd-secret-read-guard.js` | `1396e7b4a62c5dd4899a8786b0d3af6de2da5bb0a83b27cee79c02a59c3e516f` |
+| `hooks/lib/filename-classification.js` | `7888ff56ec697c4e4988f14d34eb54cd2616546ab9f13484fec6339df22c3527` |
+| `tests/read-guard.test.cjs` | `1200523c46e2362f9f81bec83363a3e6e15b2b3bc012b24083d5e016dae2fcd4` |
+| `tests/gsd-write-guard.test.cjs` | `04848f2efa144efef768f0ff0cdf63b4a95700ebf83c520e15e8ebc8289a9520` |
+| `tests/gsd-write-guard.property.test.cjs` | `be3f162aacfd6cf26e8a36d73b17fff4bbba925d1154b1851aa6850fa130dcab` |
+| `tests/gsd-secret-read-guard.test.cjs` | `980fa5a261f18bd0cf2fd24dd53e64a5c1a8e5f70729ab8b12ad2e6464c1075c` |
+| `INVENTORY-MANIFEST.json` (taken from `docs/INVENTORY-MANIFEST.json`) | `f735971fd00f69058c80053128450fd68fa6b5e5f1068cd84293678c71968727` |
+| `hook-cases/gsd-secret-read-guard.json` (recorded by `gsd/parity/record-hook-cases.cjs`, not upstream bytes) | `3a955df2bcc7fd9cdd335ba23f3d9e512fcb70a4813c8219ec56790539c31b2c` |
