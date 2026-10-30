@@ -489,6 +489,15 @@ pub fn run(
             let Ok((k, result, took)) = finished.recv() else {
                 break;
             };
+            // A CI log shows each check as it ends: a job cancelled at its timeout still says where the time went.
+            if matches!(mode, Mode::Ci) {
+                let verdict = if result.is_ok() { "passed" } else { "failed" };
+                eprintln!(
+                    "cargo gate: {} {verdict} in {}s",
+                    CHECKS[selected[k]].name,
+                    took.as_secs()
+                );
+            }
             states[k] = if result.is_ok() {
                 State::Passed
             } else {

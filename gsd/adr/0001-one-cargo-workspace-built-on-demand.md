@@ -50,7 +50,8 @@ Reach `quick`, so `cargo gate quick`, `full` and `ci` run it; it is triggered by
 (the tests run through the `specforge` binary, which is built from all of them, the SDK included) and the root manifest and
 lockfile. `cargo gate ci` ignores triggers. `cargo gate --only gsd` is `quick`, and `quick` selects by the change set, so on
 a clean tree it runs nothing: use `cargo gate full --only gsd`. Steps: clippy native and wasm (`-D warnings`), the wasm
-build, the `specforge` CLI build, `cargo test` with both variables set (absolute paths); every cargo step is `--locked`.
+build, the `specforge` CLI build (the test profile: optimised dependencies), `cargo nextest run` with both variables set
+(absolute paths); every cargo step is `--locked`. CI runs the check on a runner of its own (the `gsd` shard).
 `gsd/Cargo.toml` joins `OUTSIDE_WORKSPACE`, so the existing `rustfmt` check covers it, and the fixture `.spec` directories
 join `spec-format`.
 

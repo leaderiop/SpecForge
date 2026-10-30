@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# A new push to a pull request cancels its older run; main runs every push to the end.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   CARGO_TERM_COLOR: always
   # No debuginfo in test binaries: a core-crate rebuild links ~140 of them, 27% faster without it (measured
@@ -13,7 +18,7 @@ env:
 
 jobs:
   ci:
-    # `cargo gate ci`'s lint and specs shards; the `build` and `tests` jobs below hold the tests. `dogfood` judges every partition's reports.
+    # `cargo gate ci`'s lint, specs and gsd shards; the `build` and `tests` jobs below hold the tests. `dogfood` judges every partition's reports.
     # The lint shard fails when `cargo gate list` holds a check no shard names.
     name: Check list (${{ matrix.shard }})
     runs-on: ubuntu-latest
@@ -23,7 +28,13 @@ jobs:
       matrix:
         include:
           - shard: lint
-            checks: rustfmt,clippy,gsd,doctests,audit
+            checks: rustfmt,clippy,doctests,audit
+          # The @gsd workspace on a runner of its own: its builds and black-box tests run beside lint and specs.
+          - shard: gsd
+            checks: gsd
+            workspaces: |
+              . -> target
+              gsd -> target/gsd
           - shard: specs
             checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs,spec-modules
     steps:
@@ -43,6 +54,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.cache || matrix.shard }}
+          workspaces: ${{ matrix.workspaces || '. -> target' }}
           # PRs read main's cache and write none, so they never evict it.
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
@@ -53,6 +65,7 @@ jobs:
           tool: nextest,cargo-audit,tree-sitter-cli@0.27.0
 
       - name: Install z3 (SMT solver for prove tests)
+        if: matrix.shard != 'gsd'
         run: sudo apt-get update && sudo apt-get install -y z3
 
       - name: Every check of the list is in a shard
