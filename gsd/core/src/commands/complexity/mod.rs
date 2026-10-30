@@ -4,6 +4,8 @@
 //! `scan` scores each function, and [`evaluate`] picks the functions whose score crosses the threshold or jumped from
 //! their baseline. Upstream's baseline file, proposal file and git adapter are not ported: SpecForge keeps the baseline
 //! in the disposed `refactor_proposal`s and the files in the plan's `files_modified`.
+//!
+//! Also ports gsd-core bin/lib modules: clusters.cjs, estimate-cli.cjs.
 
 mod scan;
 mod strip;

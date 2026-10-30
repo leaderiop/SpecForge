@@ -1,6 +1,8 @@
 //! The research pass: `gsd/W204`, an open question of a phase's research that no decision resolves. The plan checker's
 //! research-resolution dimension reads the phase's `RESEARCH.md` only, so the project's research (the one named `RESEARCH`) is exempt. A research without `phase` and with another name is
 //! E206, and its questions get W204 as a phase's would.
+//!
+//! Also ports gsd-core bin/lib modules: research-provider.cjs.
 
 use std::collections::BTreeSet;
 

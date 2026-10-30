@@ -295,13 +295,27 @@ fn cli_modules_match_the_snapshot() {
     let modules = family("cli_modules");
     assert_eq!(modules.len(), 282);
     let owned: BTreeSet<&str> = EXTENSIONS.into_iter().collect();
+    let mut uncited = Vec::new();
     for (pattern, module) in MODULES {
         assert!(
             modules.iter().any(|m| module_rows(m).contains(pattern)),
             "{pattern} names no module"
         );
         match module {
-            Module::Ported(file) => assert!(core_dir().join(file).is_file(), "{pattern}: {file}"),
+            Module::Ported(file) => {
+                assert!(core_dir().join(file).is_file(), "{pattern}: {file}");
+                // The file's `//!` header says it ports the module (REVIEW-r44 M11): a row pointed at another file fails.
+                let text = std::fs::read_to_string(core_dir().join(file)).expect("a source file");
+                let header: String = text
+                    .lines()
+                    .take_while(|l| l.starts_with("//!") || l.is_empty())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let stem = pattern.trim_end_matches('*').trim_end_matches(".cjs");
+                if !header.contains(stem) {
+                    uncited.push(format!("{pattern} -> {file}"));
+                }
+            }
             Module::Host(command) => {
                 assert!(command.starts_with("specforge "), "{pattern}: {command}")
             }
@@ -309,6 +323,12 @@ fn cli_modules_match_the_snapshot() {
             Module::NotApplicable(reason) => assert!(reason.len() > 30, "{pattern}: a reason"),
         }
     }
+    assert!(
+        uncited.is_empty(),
+        "{} Ported rows whose file's header does not name the module:\n{}",
+        uncited.len(),
+        uncited.join("\n")
+    );
     // no prefix row shadows an exact row: a module has one row
     for module in &modules {
         assert_eq!(
@@ -411,7 +431,8 @@ fn the_acceptance_counts_match() {
         );
     }
     // the totals the plan names
-    assert_eq!(accept::capabilities(), [45, 19, 10, 0, 16]);
+    assert_eq!(accept::hooks(), [28, 16, 0, 10, 2]);
+    assert_eq!(accept::capabilities(), [45, 17, 10, 0, 18]);
     assert_eq!(accept::gate_cutover(), [171, 92, 51, 14, 14]);
     assert_eq!(accept::codes(), [63, 61, 0, 0, 2]);
     assert_eq!(accept::config_keys()[0], 211);

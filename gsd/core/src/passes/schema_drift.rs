@@ -6,6 +6,8 @@
 //! stand-in: a commit alone may be the first of several, and the collector's write that records it must not be
 //! refused): the changed files are its plans' `files_modified`, and the execution log is the text of its summaries
 //! and deviations and the subjects of its commits. `GSD_SKIP_SCHEMA_CHECK` has no counterpart: `workflow.schema_drift_gate` is it.
+//!
+//! Also ports gsd-core bin/lib modules: gate-schema-drift.cjs.
 
 use std::collections::BTreeMap;
 

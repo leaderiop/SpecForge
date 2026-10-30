@@ -130,6 +130,7 @@ fn owner(family: &str, item: &str) -> Option<String> {
                     Class::Owned(_) => "owned by an extension",
                     Class::NotApplicable(_) => "not applicable",
                     Class::NotReproduced(_) => "not reproduced",
+                    Class::Diverges(_) => "diverges",
                 };
                 format!("GATE_CUTOVER ({word})")
             }),

@@ -1,4 +1,6 @@
 //! `plan`, and the kinds scoped by it (`spec/plan.md`).
+//!
+//! Also ports gsd-core bin/lib modules: task-content-resolution.cjs.
 
 use super::dsl::*;
 

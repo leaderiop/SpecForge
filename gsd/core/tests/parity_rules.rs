@@ -172,7 +172,8 @@ fn the_cutover_table_matches_the_snapshot() {
             | Class::Owned(t)
             | Class::ByConstruction(t)
             | Class::NotApplicable(t)
-            | Class::NotReproduced(t) => t,
+            | Class::NotReproduced(t)
+            | Class::Diverges(t) => t,
         };
         assert!(!text.is_empty(), "{name}: an empty class");
     }
@@ -188,4 +189,25 @@ fn every_by_construction_row_names_its_refusal() {
             );
         }
     }
+}
+
+/// REVIEW-r44 M9: a verdict a twin reaches and answers differently is a divergence, not an unreached verdict.
+#[test]
+fn the_divergences_and_the_unreached_verdicts_are_counted_apart() {
+    let names = |f: fn(&Class) -> bool| -> Vec<&str> {
+        GATE_CUTOVER
+            .iter()
+            .filter(|(_, c)| f(c))
+            .map(|(n, _)| *n)
+            .collect()
+    };
+    assert_eq!(
+        names(|c| matches!(c, Class::Diverges(_))),
+        [
+            "prohibition-enforcement-request-file-judgment-mode",
+            "tdd-review-checkpoint-mixed-violation",
+            "tdd-review-checkpoint-red-only"
+        ]
+    );
+    assert_eq!(names(|c| matches!(c, Class::NotReproduced(_))).len(), 11);
 }

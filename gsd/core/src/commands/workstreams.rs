@@ -2,6 +2,8 @@
 //! `/gsd-cleanup`. A command cannot read the project's state, so a workstream is
 //! `complete` when each of its milestones has a `completion` (what the computed status says), its progress counts the
 //! plans that have a summary, and which workstream is active is written (`switch`) but not answered (`status`).
+//!
+//! Also ports gsd-core bin/lib modules: active-workstream-store.cjs.
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;

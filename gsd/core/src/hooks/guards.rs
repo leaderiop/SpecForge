@@ -3,6 +3,8 @@
 //! `read_guard` (D-r44-7): upstream's reminder to Read a file before writing it, for the hosts whose runtime does not
 //! enforce that. `write_guard`: upstream refuses a Write that shrinks a curated `.planning/` file to under 40% of its
 //! lines; here the files are the spec files, measured in bytes (the old file's lines are not a fact; U52).
+//!
+//! Also ports gsd-core bin/lib modules: token-scanner.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

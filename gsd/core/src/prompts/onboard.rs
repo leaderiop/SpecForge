@@ -1,5 +1,7 @@
 //! `ingest_docs` and `onboard` (D-r43-1 rows 18-19): the spec built from ADRs, PRDs and SPECs, and the route that
 //! leads a repository to it. `ingest_docs` is declared first because `onboard` has a step that runs it.
+//!
+//! Also ports gsd-core bin/lib modules: onboard-projection.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

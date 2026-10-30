@@ -6,7 +6,9 @@
 //!   refuse or cannot express (the shape is one of `SHAPES`).
 //! - `Owned(extension)`: the check belongs to an extension, not to the core.
 //! - `NotApplicable(why)`: the check is the gate engine or the auto-mode runtime, not a rule.
-//! - `NotReproduced(why)`: a core code whose content verdict no twin reaches; each is listed in the README.
+//! - `NotReproduced(why)`: a core code whose content verdict no twin reaches; each is named in `NotReproduced` here and counted in ACCEPTANCE.md.
+//! - `Diverges(why)`: a twin reaches the verdict and answers differently from upstream (REVIEW-r44 M9); each is
+//!   listed under "Known divergences" in ACCEPTANCE.md.
 
 pub enum Class {
     Reproduced(&'static str),
@@ -14,6 +16,7 @@ pub enum Class {
     Owned(&'static str),
     NotApplicable(&'static str),
     NotReproduced(&'static str),
+    Diverges(&'static str),
 }
 
 pub const SHAPES: [&str; 12] = [
@@ -332,7 +335,7 @@ pub const GATE_CUTOVER: [(&str, Class); 171] = [
     ),
     (
         "prohibition-enforcement-request-file-judgment-mode",
-        Class::NotReproduced(
+        Class::Diverges(
             "upstream flags a judgment-tier prohibition without evidence as unverified; E319 judges the test tier only, so the twin is silent where upstream flags",
         ),
     ),
@@ -429,7 +432,7 @@ pub const GATE_CUTOVER: [(&str, Class); 171] = [
     ),
     (
         "tdd-review-checkpoint-mixed-violation",
-        Class::NotReproduced(
+        Class::Diverges(
             "upstream blocks a TDD plan with no RED and GREEN commit; W403 judges a recorded GREEN with no RED before it and says nothing of a plan with no commits",
         ),
     ),
@@ -443,7 +446,7 @@ pub const GATE_CUTOVER: [(&str, Class); 171] = [
     ),
     (
         "tdd-review-checkpoint-red-only",
-        Class::NotReproduced(
+        Class::Diverges(
             "upstream blocks a TDD plan with a RED commit and no GREEN; W403 judges a GREEN without a RED, and a RED alone leaves it silent (probed: no finding)",
         ),
     ),

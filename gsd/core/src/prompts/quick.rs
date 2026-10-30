@@ -1,6 +1,8 @@
 //! `quick`, `quick_batch` and `fast` (D-r43-1 rows 4-6): the prompts for work too small for a phase. A quick task is a
 //! plan with no phase, named by its quick id; `fast` makes no plan at all. None has an entry gate: every guard of this
 //! extension is scoped to a phase.
+//!
+//! Also ports gsd-core bin/lib modules: quick-batch*.
 
 use specforge_extension_sdk::prelude::*;
 

@@ -2,6 +2,9 @@
 //! name), `gsd/E302` (its requirements), `gsd/E303` (a task's parts), `gsd/W304` and `gsd/E322` (how many tasks), `gsd/E307` (a checkpoint's
 //! options; its required fields are declarative, `rules.rs`), `gsd/W308` (a one-way door) and `gsd/W309` (its
 //! must-haves). Each reads what GSD's `verify plan-structure` and the plan checker's dimensions read.
+//!
+//! Also ports gsd-core bin/lib modules: edge-probe.cjs, gate-prohibition-enforcement.cjs, probe-core.cjs,
+//! prohibition-enforcement.cjs.
 
 mod checkpoint;
 

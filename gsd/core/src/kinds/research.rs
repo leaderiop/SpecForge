@@ -1,5 +1,7 @@
 //! `research` and its eight item kinds (`spec/discuss.md`). Each item is scoped by its research and named `F1`, `SC1`,
 //! `P1`, `PF1`, `DH1`, `OQ1`, `SRC1`, `PA1`.
+//!
+//! Also ports gsd-core bin/lib modules: research-store.cjs.
 
 use super::dsl::*;
 

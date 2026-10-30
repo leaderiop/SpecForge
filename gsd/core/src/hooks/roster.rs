@@ -8,13 +8,15 @@ pub enum Disposition {
     Hooks(&'static [&'static str]),
     /// Not ported, and why.
     Dropped(&'static str),
-    /// The Cursor or Windsurf rendering of an event another row ports; the host is named.
+    /// The Cursor or Windsurf rendering of an event another row ports; the host is named. Cursor's is rendered;
+    /// Windsurf is a later host, so its rows are named and open.
     Rendering(&'static str),
 }
 
 use Disposition::{Dropped, Hooks, Rendering};
 
 const UPDATES: &str = "specforge updates extensions through its lockfile (/gsd-update, D-r43-16)";
+const NO_STOP: &str = "no hook of @gsd/core registers on Stop, SubagentStart or SubagentStop (context.rs), so Cursor has no line to render";
 const CURSOR: &str = "cursor";
 const WINDSURF: &str = "windsurf";
 
@@ -39,9 +41,9 @@ pub const HOOK_ROSTER: &[(&str, Disposition)] = &[
     ("gsd-cursor-post-tool.js", Rendering(CURSOR)),
     ("gsd-cursor-pre-tool.js", Rendering(CURSOR)),
     ("gsd-cursor-session-start.js", Rendering(CURSOR)),
-    ("gsd-cursor-stop.js", Rendering(CURSOR)),
-    ("gsd-cursor-subagent-start.js", Rendering(CURSOR)),
-    ("gsd-cursor-subagent-stop.js", Rendering(CURSOR)),
+    ("gsd-cursor-stop.js", Dropped(NO_STOP)),
+    ("gsd-cursor-subagent-start.js", Dropped(NO_STOP)),
+    ("gsd-cursor-subagent-stop.js", Dropped(NO_STOP)),
     (
         "gsd-ensure-canonical-path.js",
         Dropped("rendered files include nothing from ~/.claude"),

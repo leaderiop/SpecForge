@@ -302,7 +302,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 63] = [
         "W403",
         Evidence::Tests {
             fires: "w403_needs_a_red_commit_first_and_tdd_mode_on",
-            silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
+            silent: "gate_cutover_tdd_verdicts_reproduce",
         },
     ),
     (
@@ -323,7 +323,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 63] = [
         "W406",
         Evidence::Tests {
             fires: "w406_a_drifted_context_refuses_the_planning_prompts_when_the_action_is_block",
-            silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
+            silent: "gate_cutover_context_drift_verdicts_reproduce",
         },
     ),
     (
@@ -379,7 +379,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 63] = [
         "W506",
         Evidence::Tests {
             fires: "a_decision_nothing_shipped_is_w506_on_the_decision",
-            silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
+            silent: "w506_a_summary_or_a_commit_that_names_the_decision_covers_it",
         },
     ),
     (
@@ -433,7 +433,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 63] = [
         "E516",
         Evidence::Tests {
             fires: "e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus",
-            silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
+            silent: "e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus",
         },
     ),
     (

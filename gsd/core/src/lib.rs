@@ -1,4 +1,6 @@
 //! `@gsd/core`: the unified GSD meta-model for SpecForge (model: `gsd/core/spec`).
+//!
+//! Also ports gsd-core bin/lib modules: package-identity.cjs.
 
 pub mod agents;
 pub mod codes;

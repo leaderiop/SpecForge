@@ -10,6 +10,8 @@
 //! the current-task segment (a file under `~/.claude`) and the update banner (a lockfile), and the colours: the
 //! kernel writes a hook's control characters out as text (ADR 0230, 0231), so the line is plain. One more difference: the
 //! phase counts read `completed/total`, the milestone's computed counters, where upstream reads `current/total`.
+//!
+//! Also ports gsd-core bin/lib modules: context-utilization.cjs.
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;

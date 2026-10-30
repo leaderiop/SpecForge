@@ -44,11 +44,12 @@ pub fn agents() -> Counts {
 }
 
 pub fn hooks() -> Counts {
-    let na = HOOK_ROSTER
-        .iter()
-        .filter(|(_, d)| matches!(d, gsd_core::hooks::roster::Disposition::Dropped(_)))
-        .count();
-    counts(HOOK_ROSTER.len() - na, 0, na, 0)
+    use gsd_core::hooks::roster::Disposition;
+    let of = |f: fn(&Disposition) -> bool| HOOK_ROSTER.iter().filter(|(_, d)| f(d)).count();
+    // Windsurf is a later host: its renderings are named and open, not built (REVIEW-r44 M6).
+    let open = of(|d| matches!(d, Disposition::Rendering("windsurf")));
+    let na = of(|d| matches!(d, Disposition::Dropped(_)));
+    counts(HOOK_ROSTER.len() - na - open, 0, na, open)
 }
 
 pub fn capabilities() -> Counts {
@@ -64,10 +65,13 @@ pub fn capabilities() -> Counts {
         let cells: Vec<&str> = line.split('|').map(str::trim).collect();
         let n = cells[1].split(',').count();
         let lands = cells[3];
-        if lands.starts_with("`@gsd/core`") || lands.starts_with("install renderers, first") {
-            built += n;
-        } else if lands.starts_with("install renderers, later") {
+        // The `specforged` harness is not built: its two capabilities have their settings keys and nothing else.
+        if lands.starts_with("`@gsd/core` harness") || lands.starts_with("install renderers, later")
+        {
             open += n;
+        } else if lands.starts_with("`@gsd/core`") || lands.starts_with("install renderers, first")
+        {
+            built += n;
         } else {
             assert!(lands.starts_with("`@gsd/"), "{lands}");
             owned += n;
@@ -196,7 +200,7 @@ pub fn gate_cutover() -> Counts {
         of(|c| matches!(c, Class::Reproduced(_) | Class::ByConstruction(_))),
         of(|c| matches!(c, Class::Owned(_))),
         of(|c| matches!(c, Class::NotApplicable(_))),
-        of(|c| matches!(c, Class::NotReproduced(_))),
+        of(|c| matches!(c, Class::NotReproduced(_) | Class::Diverges(_))),
     )
 }
 

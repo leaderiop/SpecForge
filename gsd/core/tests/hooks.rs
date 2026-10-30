@@ -49,13 +49,13 @@ fn the_hook_roster_matches_upstreams_hooks() {
     );
     assert_eq!(
         count(|d| matches!(d, Disposition::Dropped(_))),
-        7,
-        "dropped files"
+        10,
+        "dropped files (7 not ported, and the 3 Cursor renderings no hook feeds)"
     );
     assert_eq!(
         count(|d| matches!(d, Disposition::Rendering(_))),
-        8,
-        "host renderings"
+        5,
+        "host renderings (3 Cursor, 2 Windsurf)"
     );
     for (file, d) in HOOK_ROSTER {
         if let Disposition::Dropped(why) = d {
@@ -237,6 +237,26 @@ fn no_hook_names_an_unknown_command() {
                 commands.contains(&cmd),
                 "{file}: `specforge gsd {cmd}` is not a declared command"
             );
+        }
+    }
+}
+
+/// REVIEW-r44 M6: a `Rendering(host)` row that counts as built has a rendered line for its event on that host.
+#[test]
+fn a_cursor_rendering_row_has_its_line_in_the_cursor_install() {
+    const GOLDEN: &str = include_str!("golden/install/cursor/hooks.json");
+    const COMMUNITY: &str = include_str!("../src/hooks/community.rs");
+    for (file, d) in HOOK_ROSTER {
+        if let Disposition::Rendering("cursor") = d {
+            match *file {
+                "gsd-cursor-pre-tool.js" => assert!(GOLDEN.contains("\"preToolUse\""), "{file}"),
+                "gsd-cursor-post-tool.js" => assert!(GOLDEN.contains("\"postToolUse\""), "{file}"),
+                // the session start is the community hook's, off at install and so not in the golden
+                "gsd-cursor-session-start.js" => {
+                    assert!(COMMUNITY.contains("HookEvent::SessionStart"), "{file}")
+                }
+                other => panic!("{other}: a Cursor row with no rendered event"),
+            }
         }
     }
 }
