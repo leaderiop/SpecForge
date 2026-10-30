@@ -261,7 +261,7 @@ fn every_settings_line_is_accepted_by_the_host() {
         // `set --value-json <json> @gsd/core <key>` carries its value as the flag's, not as a word after the key
         let (json, words) = match words.as_slice() {
             [verb, flag, json, rest @ ..] if flag == "--value-json" => {
-                (concrete(json), [&[verb.clone()], rest].concat())
+                (concrete(json), [std::slice::from_ref(verb), rest].concat())
             }
             _ => (None, words),
         };
