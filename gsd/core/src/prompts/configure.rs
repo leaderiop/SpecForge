@@ -55,7 +55,10 @@ static CONFIG: Spec = Spec {
     args: &[
         Arg::flag("advanced"),
         Arg::flag("integrations"),
-        Arg::text("profile"),
+        Arg::one_of(
+            "profile",
+            &["quality", "balanced", "budget", "adaptive", "inherit"],
+        ),
     ],
     subject: None,
     gates: &[],

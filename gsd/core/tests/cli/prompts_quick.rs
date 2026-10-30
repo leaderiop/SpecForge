@@ -276,3 +276,28 @@ fn quick_dispatches_on_the_option_forms() {
     )));
     assert!(fast.contains("the value of `--task \"<text>\"`"));
 }
+
+/// REVIEW-r43 Minor 7: the quick id is made once (the init block's), and a `git.quick_branch_template` has its `{num}`
+/// expanded to it (`{slug}` is the one the agent writes later).
+#[test]
+fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
+    let p = twin();
+    p.settings(serde_json::json!({ "git.quick_branch_template": "quick/{num}-{slug}" }));
+    let text = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
+    assert_eq!(
+        text.matches("quick_id=\"$(date").count(),
+        1,
+        "the quick id is generated twice"
+    );
+    let line = text
+        .lines()
+        .find(|l| l.starts_with("quick_id=\"$(date"))
+        .expect("the init line");
+    let out = std::process::Command::new("bash")
+        .args(["-c", &format!("{line}\necho \"$quick_id $branch_name\"")])
+        .output()
+        .expect("bash");
+    let said = String::from_utf8_lossy(&out.stdout);
+    let (id, branch) = said.trim().split_once(' ').expect("two words");
+    assert_eq!(branch, format!("quick/{id}-{{slug}}"), "{said}");
+}

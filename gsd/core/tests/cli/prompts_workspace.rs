@@ -20,6 +20,7 @@ fn workspace_renders() {
             "specforge init",
             "specforge add @gsd/core",
             "specforge install",
+            "are not accepted by the slash command",
         ] {
             assert!(text.contains(word), "{host}: no '{word}'");
         }

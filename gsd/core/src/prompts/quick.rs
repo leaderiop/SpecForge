@@ -58,7 +58,7 @@ fn quick_plan(_call: &PromptCall<'_>) -> String {
      characters (`261029-a1b`). `gsd/W323` checks the name; `gsd/E302` and `gsd/E401` do not apply to a plan with no \
      phase. Write the plan, its truths and its artifacts through the host, not by hand:\n\n\
      ```bash\n\
-     quick_id=\"$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)\"\n\
+     # $quick_id is the one the init block above made: a second one would name another plan\n\
      specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\"\n\
      specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"\n\
      # an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`\n\

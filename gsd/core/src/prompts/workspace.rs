@@ -14,7 +14,8 @@ fn checkout(_call: &PromptCall<'_>) -> String {
      above does its work with the shell (`ls`, `git worktree list`). A new workspace gets its own spec: \
      `specforge init`, `specforge add @gsd/core`, then `specforge install <host>` in the workspace directory. Only \
      `--name` is an option here; `--repos`, `--strategy` and `--branch` are asked for, and the workspace goes to \
-     `~/gsd-workspaces/<name>`.\n"
+     `~/gsd-workspaces/<name>`. The usage examples above that name `--repos` or `--auto` are not accepted by the \
+     slash command: do not show them as commands to type, ask the questions instead (there is no unattended mode).\n"
         .to_string()
 }
 

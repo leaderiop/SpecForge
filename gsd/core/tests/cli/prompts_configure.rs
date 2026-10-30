@@ -44,11 +44,27 @@ fn settings_prompt_names_settings_set() {
 fn config_profile_names_model_profile() {
     let p = twin();
     let text = text(&p, "config", &["--profile", "budget"]);
-    assert!(text.contains("--profile \"budget\""), "{text}");
+    assert!(text.contains("--profile budget"), "{text}");
     assert!(
         text.contains("specforge settings set @gsd/core model_profile budget"),
         "no model_profile line"
     );
+}
+
+/// REVIEW-r43 Minor 5: `--profile` is one of the five profiles, so free text never reaches the command line the prompt
+/// shows.
+#[test]
+fn config_profile_is_one_of_the_five() {
+    let p = twin();
+    let run = super::prompts_support::prompt(
+        &p,
+        "config",
+        &["--profile", "x; touch PWNED"],
+        "claude-code",
+    );
+    assert_ne!(run.code, 0, "{}", run.all());
+    let ok = text(&p, "config", &["--profile", "inherit"]);
+    assert!(ok.contains("model_profile inherit"));
 }
 
 #[test]
@@ -92,8 +108,7 @@ fn config_renders_for_three_hosts() {
         vec!["--integrations"],
         vec!["--profile", "quality"],
     ] {
-        let argument_text = args.join(" ").replace("--profile ", "--profile \"")
-            + if args.len() > 1 { "\"" } else { "" };
+        let argument_text = args.join(" ");
         render_three_hosts(
             &p,
             "config",

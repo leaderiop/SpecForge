@@ -105,3 +105,19 @@ fn the_backlog_review_lists_and_promotes_across_milestones() {
         "02"
     );
 }
+
+/// REVIEW-r43 Minor 10: the reviewer settings no lane runner reads are named inert in the review prompt.
+#[test]
+fn the_review_names_its_inert_reviewer_settings() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(&p, "review", &[PHASE], "claude-code")));
+    for key in [
+        "review.models.*",
+        "review.timeouts.*",
+        "review.effort.*",
+        "review.max_prompt_tokens*",
+    ] {
+        assert!(text.contains(key), "no {key}");
+    }
+    assert!(text.contains("declared but inert"));
+}

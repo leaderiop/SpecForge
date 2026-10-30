@@ -33,7 +33,9 @@ fn shown(_call: &PromptCall<'_>) -> String {
      The reviewers are the CLIs of the flags (`claude`, `codex`, `coderabbit`, `opencode`, `qwen`, `cursor`, `agy`, \
      `kimi`) and the local servers (`ollama`, `lm-studio`, `llama-cpp`), run through the shell. Their invocation is \
      the CLI's own: there is no lane manifest, no prompt budget and no lane runner here, so read each CLI's `--help` \
-     for the flag that takes a prompt.\n"
+     for the flag that takes a prompt. The settings `review.models.*`, `review.timeouts.*`, `review.effort.*` and \
+     `review.max_prompt_tokens*` are declared but inert for that reason: nothing reads them (`review.default_reviewers` \
+     is read).\n"
         .to_string()
 }
 
