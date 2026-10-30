@@ -172,3 +172,24 @@ fn the_shell_ids_are_named_in_the_text() {
         &text[text.len().saturating_sub(600)..]
     );
 }
+
+/// REVIEW-r42 N6: `$MILESTONE` is never an abandoned milestone, as `specforge gsd phase` never acts on one.
+#[test]
+fn the_shell_ids_skip_an_abandoned_milestone() {
+    let p = twin();
+    p.write(
+        "spec/v0.spec",
+        "milestone v0.5 \"Dropped\" {\n  name \"Dropped\"\n  abandoned { reason \"dropped\" ruled_by \"tester\" at 2026-10-01 }\n}\n",
+    );
+    let text = text_of(&payload(&prompt(
+        &p,
+        "new_milestone",
+        &["--name", "v1.1"],
+        "claude-code",
+    )));
+    assert!(
+        text.contains("`$MILESTONE` is `v1.0`"),
+        "{}",
+        &text[text.len().saturating_sub(400)..]
+    );
+}

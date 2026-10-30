@@ -72,7 +72,9 @@ fn shell_ids(call: &PromptCall<'_>, subject: Option<&str>) -> String {
         .map(|id| id.split('/').next().unwrap_or(id))
         .or_else(|| {
             of_kind("milestone")
-                .find(|n| !n.fields.contains_key("completion"))
+                .find(|n| {
+                    !n.fields.contains_key("completion") && !n.fields.contains_key("abandoned")
+                })
                 .or_else(|| of_kind("milestone").next_back())
                 .map(|n| n.id.as_str())
         });
