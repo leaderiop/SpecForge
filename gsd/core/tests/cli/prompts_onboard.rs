@@ -116,3 +116,29 @@ fn ingest_docs_description_names_no_planning() {
     assert!(!description.contains(".planning"), "{description}");
     assert!(description.contains("SpecForge spec"), "{description}");
 }
+
+/// REVIEW-r43 M8: the blocker gate reads `{conflicts_path}`, so the synthesizer must be told to write it (and the intel
+/// files) to the paths the orchestrator gives, and a conflicts file that is missing or unreadable is a blocker.
+#[test]
+fn the_synthesizer_writes_the_conflicts_file_the_gate_reads() {
+    for agent in ["gsd-doc-synthesizer.md", "gsd-doc-synthesizer.compact.md"] {
+        let text = std::fs::read_to_string(format!(
+            "{}/assets/agents/{agent}",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .expect("the agent");
+        for stale in [
+            "return the synthesis in your reply",
+            "report the conflicts to the user",
+            "not part of @gsd/core",
+        ] {
+            assert!(!text.contains(stale), "{agent}: still says '{stale}'");
+        }
+    }
+    let p = twin();
+    let text = text_of(&payload(&prompt(&p, "ingest_docs", &[], "claude-code")));
+    assert!(
+        text.contains("A missing, empty or unparsable conflicts file is a BLOCKER"),
+        "the gate treats a missing conflicts file as a pass"
+    );
+}

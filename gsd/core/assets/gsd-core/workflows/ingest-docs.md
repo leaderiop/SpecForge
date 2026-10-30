@@ -232,7 +232,7 @@ The synthesizer writes its staging files outside the spec:
 
 <step name="conflict_gate">
 
-Read `{conflicts_path}`. Count entries in each bucket (the synthesizer always writes the three-bucket header; parse the `### BLOCKERS ({N})`, `### WARNINGS ({N})`, `### INFO ({N})` lines).
+Read `{conflicts_path}`. Count entries in each bucket (the synthesizer always writes the three-bucket header; parse the `### BLOCKERS ({N})`, `### WARNINGS ({N})`, `### INFO ({N})` lines). A missing, empty or unparsable conflicts file is a BLOCKER: the synthesizer failed to report, so nothing says the documents agree; treat it as `BLOCKERS > 0` (re-run the synthesizer or stop) and never read it as "no conflicts".
 
 Apply the safety semantics from `gsd-core/references/doc-conflict-engine.md`. Operation noun: `ingest`.
 
