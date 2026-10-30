@@ -570,7 +570,7 @@ to the next milestone — other workstreams are still working.
 **Clear auto-advance chain flag** — workstream boundary is the natural stopping point:
 
 ```bash
-specforge settings set @gsd/core workflow._auto_chain_active false
+: # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
 ```
 
 <if mode="yolo">
@@ -624,7 +624,7 @@ Do NOT auto-invoke any further slash commands.
 **Clear auto-advance chain flag** — milestone boundary is the natural stopping point:
 
 ```bash
-specforge settings set @gsd/core workflow._auto_chain_active false
+: # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
 ```
 
 <if mode="yolo">

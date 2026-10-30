@@ -285,3 +285,188 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `tests/cursor-conversion.test.cjs` | `c787bcff4ff452f17459caed63706a11ecc3d8cbc2eb728d20dfcdc448da0e6b` |
 | `tests/runtime-converters.test.cjs` | `9b481753590f9a0a48d3a76136ae03d27cb16029d4576c7f2711342f2f6f2263` |
 <!-- r42 workflows end -->
+
+## `commands.json`: the 72 commands (r43)
+
+The roster of upstream's commands: for each file of `commands/gsd/` (sorted by stem), its `name` (the stem), its
+`description` and its `argument_hint` (`argument-hint`, or null), read from the first YAML block of the file at the tag
+`v1.18.0` (a quoted value loses its quotes). It is a snapshot, not a copy: `gsd/core/src/prompts/roster.rs` is checked
+against it (`gsd/core/tests/roster.rs`), and so is the README's Commands table.
+
+| File | sha256 |
+|---|---|
+| `commands.json` | `e203d386a5df1f6f747d210c819dc62b115852fd3c6f5de5732bfb3b05b70ec4` |
+
+## `src/smart-entry.cts`, `src/runtime-slash.cts` and `tests/smart-entry.unit.test.cjs`: the router (r43)
+
+`/gsd:next`'s state-aware classifier and the slash-name formatter it uses, and the classifier's own unit tests, copied
+unchanged by `git -C <gsd-core> show v1.18.0:<path>`. `gsd/core/src/commands/smart_entry.rs` ports `classify`,
+`isComplete`, `isIdleStranded`, `actionsFor`, `phaseSummary`, `buildSummary`, `progressLine` and `SITUATIONS`, and
+`formatGsdSlash`, over signals read from the graph a command receives; `smart_entry/tests.rs` ports the unit cases that
+call them on a signals object (or on a fixture whose STATE.md and ROADMAP.md reduce to one) and names the cases it
+leaves out. All three are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
+
+| File | sha256 |
+|---|---|
+| `src/smart-entry.cts` | `fde78e6d2fecf8b682fb109fa82be065a09c4107d15265ba3c61ade65eb9d9d6` |
+| `src/runtime-slash.cts` | `0ba8838ff084a5182b12ca0e9c346b9c964bf18cdeb57a18591035523cb0ab4a` |
+| `tests/smart-entry.unit.test.cjs` | `bd8c7a27c5317110236221c073b6f77e2ac3628877a10f3f0f1533576efdfd80` |
+
+## r43 T1: next, progress and manager
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-next`, `/gsd-progress` and `/gsd-manager`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/manager.md` | `02734b44af8e771e62aec6d2e690ed94c399798260a1b7512726825ef4ee7623` |
+| `commands/gsd/next.md` | `784d99db8f903ff0d67582711300ef1421d6f8b9518e536260325ee46c3bf952` |
+| `commands/gsd/progress.md` | `0bd26bb1608c9d17e3e471f6e9ca4e144900eff14613414321729a49d6828fad` |
+| `gsd-core/workflows/analyze-dependencies.md` | `26af3b5ebdd423206db01491ef09fee429ce24fb96ad7b209a8062d3ab6ae2f9` |
+| `gsd-core/workflows/do.md` | `62af2738082a58d336022e3775fbf6b9e5dc6f099bd9e18fd0adb3cea8ac21da` |
+| `gsd-core/workflows/manager.md` | `a615e6c5b7eb2e395bc21a3fb427864d4a59b256b0b842d1ec229bb394c0e26e` |
+| `gsd-core/workflows/next.md` | `a7194150cb75d0a85e458c2412b85b1b24e595dd2e604cd341a70f3c2964662e` |
+| `gsd-core/workflows/progress.md` | `cc444c146336dd9eb2512710258f4b0b173069576207a83aee9db682a3919d5a` |
+| `gsd-core/workflows/progress/steps/forensic-audit.md` | `18a8259b34cf9ac88d11915af7163bff3a5ee3ac7eb50bde7bc5ea13668dcfb1` |
+| `gsd-core/workflows/progress/steps/mvp-display.md` | `5a8cfbca688a9021e05a8c011a4427c59f50ca151332063b7bb43d62f1a25f7c` |
+| `gsd-core/workflows/smart-entry.md` | `7450c3fdd945c5b4a3c0fcf5fbccf0e681913b66c8bee636386f6c51f8682243` |
+
+## r43 T2: quick, quick-batch and fast
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-quick`, `/gsd-quick-batch` and `/gsd-fast`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/fast.md` | `9d26279e3e038f83a7df29b6a2b65c2f55dfc86cef7249756dcb02b805b50c21` |
+| `commands/gsd/quick-batch.md` | `502642bf0a71944f779211d9204f49fecfd9ae6f5a41066bac6cc8c4b9d1bc27` |
+| `commands/gsd/quick.md` | `5392a78ad85dde4afc1a0ca45a4fb96ea0c1fe9304edc6ef09171a86a4a7f4e8` |
+| `gsd-core/workflows/fast.md` | `0f3d8981eeaee0d0b9eb5e290d63e95707635ada2a90607186609b0531acdb4c` |
+| `gsd-core/workflows/quick-batch.md` | `fc523a1008727bc5ba17229a019a4a0379b816c40110041d579c105d7de451ae` |
+| `gsd-core/workflows/quick-batch/steps/batch-init.md` | `ae78b383ccf94c96a8c3e0f11fa4c7a6ab0f181becd98520c8818f2c02588f02` |
+| `gsd-core/workflows/quick-batch/steps/completion.md` | `4792226e1de8878be684c0ee5e6c3e3e2eaefe14412a610c5dc0aefbd200cba5` |
+| `gsd-core/workflows/quick-batch/steps/merge-wave.md` | `a680c1f1bb16fb225814e3bfe4910b2b108faf32750efa7b2e6367b87ad0827b` |
+| `gsd-core/workflows/quick-batch/steps/plan-checker-loop.md` | `3447c34b1cd2c9a55d4aa0d39863d06ef3045ae1c03bef435c210a4d02b69d53` |
+| `gsd-core/workflows/quick-batch/steps/planner-wave.md` | `d985460359821d90a193f2613eb9060ff8e1e6fef008c2b9fa3257c017088678` |
+| `gsd-core/workflows/quick-batch/steps/research-phase.md` | `c9ebeb0e6c19c30417a0f06fdbde6e374e94e0e3faeeb6ec98d9a4df89967b0b` |
+| `gsd-core/workflows/quick-batch/steps/resume-mode.md` | `2e0993f30697c8f01277d7a8b05e59a159335d40916b0df2e400586fd99312aa` |
+| `gsd-core/workflows/quick-batch/steps/verification-wave.md` | `dfa2ba337fa28b781315e9a5ea9f85f3397b760634d70aff1e596c829e3017bd` |
+| `gsd-core/workflows/quick-batch/steps/worktree-dispatch.md` | `fbf40017f6819c84d6855c1b6f582f59e1ea74bbe5125b92e1d82d9c9a2455f1` |
+| `gsd-core/workflows/quick.md` | `f4877d414b09469dbabe4acc0c5f204a0369a4f3b8d3e3c13247f065da9c68f8` |
+| `gsd-core/workflows/quick/steps/discussion-phase.md` | `ff7a0c851f0b4a3c5ceb26d0aa125897e9a572522c9761a0962279ef46744d7f` |
+| `gsd-core/workflows/quick/steps/plan-checker-loop.md` | `83ab28e3776266a48d343e88cc3132d96d2090d085f378eb04d2d2b42a7e1ae1` |
+| `gsd-core/workflows/quick/steps/quick-verification.md` | `84cd6b07a1378f3d27a1d5dc2a168c8260339d2062e433b6a4dd5e48906f6f04` |
+| `gsd-core/workflows/quick/steps/research-phase.md` | `9dbacbf97906704f30b3cedba24a2bd655d189e05274e870ba1c60ab4459dc80` |
+| `gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md` | `a0c8774cffba8ab38c8ea9deb6ec92d0851af477b6cde353b82c35ce49276ecb` |
+
+## r43 T3: autonomous
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-autonomous`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/autonomous.md` | `92de7711b8f9aa52bf3e7f0004023429fe483c1a4f3aa0fa65c8eb71c6f2d539` |
+| `gsd-core/references/autonomous-smart-discuss.md` | `b7e449daf980339418e523689465c32b10bfe315b20ddf8af8a99ff8c6caccce` |
+| `gsd-core/references/autonomous-ui-design-contract.md` | `be49254b96992c7ef72c34ccc9c85cd6e65fac5773065ec28259638843c174a3` |
+| `gsd-core/workflows/autonomous.md` | `60404df809dc593868c053e622c7d508c43c7ff78fcf445c2b416b7fbf31c91a` |
+| `gsd-core/workflows/autonomous/steps/converge-banner.md` | `623a3dc7f4ee79b03550dd6c7e5ee6e2e2d53322465e030dff31fd3304cf119d` |
+| `gsd-core/workflows/autonomous/steps/converge-dispatch-bg.md` | `a9e80df7f1629639890d87b6227ddeacf2dd7973adb10cce471e2e009ed68691` |
+| `gsd-core/workflows/autonomous/steps/converge-dispatch-inline.md` | `9c28a7ff77bdd61ba17fcbf951c69d376a6679018e02e01345ab9502c7dabc4e` |
+| `gsd-core/workflows/autonomous/steps/converge-fail-fast.md` | `724b870339135c19f53b9a8e32e552c8659755ebfb9c2631f2e71162b0670908` |
+| `gsd-core/workflows/autonomous/steps/converge-loop.md` | `2e7236809b8323b00432aed14c6efc2eb4be0f418cd81f309e0fcef9d8d42cfc` |
+| `gsd-core/workflows/autonomous/templates/minimal-context.md` | `5b5a283dbfca92f4f36859f869bfa103442baa107eaa9198f6d42fcb6a5cf891` |
+
+## r43 T4: pause-work and resume-work
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-pause-work` and `/gsd-resume-work`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/pause-work.md` | `4d9b31eb7d8657d2c770d9db28daa4d10a8da463c580ca77215dd7163d2f7aae` |
+| `commands/gsd/resume-work.md` | `b7d2324a5c96462a725fcc8ce67ef87b1d28a8ac623e2cd801adb8681b725538` |
+| `gsd-core/references/continuation-format.md` | `ce73e57d053ab8a7949ebeadbf5d0d56563603375e23c9d59a7787746fa0e3f4` |
+| `gsd-core/workflows/pause-work.md` | `47195b230b0915f7629578a500795026e06079a232c5239dad2378e8290c68e6` |
+| `gsd-core/workflows/resume-project.md` | `bfaa76506389f8b10efdde14b08c27eff0d98cf7433b6a4fd2de822555aafcda` |
+| `gsd-core/workflows/session-report.md` | `0a8ed74c950a4d5b34b4d1847f059f5a7d95a5bf9584f86289a3c3995f39067e` |
+
+## r43 T5: review and review-backlog
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-review` and `/gsd-review-backlog`. `reviewer-instances.md` is kept as `.md.txt`: its link to an ADR leaves the tree.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/review-backlog.md` | `ec0cdae53b5edf72d6f8ed55de2ad0291707a7d9b2bf7ae4ba61ea1079b1df34` |
+| `commands/gsd/review.md` | `cea64f93eb906b4ea7f33223da0049f288de287006d36d37e75c14989de75ff9` |
+| `gsd-core/references/reviewer-instances.md.txt` | `c2cac14d435400215398feeace69fdc95d6c4a81bd792f67887bd444219c0f35` |
+| `gsd-core/workflows/review.md` | `7e56b410953ac635513b6790ad8c4e410a37399d81ccc6b6da1efb80bb50bd00` |
+| `gsd-core/workflows/review/steps/reviewer-instances-note-1.md` | `8e99eab70c786614de4cee08bea6ab3522361dcacb11a54cf3561caee52b524f` |
+| `gsd-core/workflows/review/steps/reviewer-instances-note-2.md` | `25672f5511d739d9a7396f85313b899b9e9de53c43797bfae4d3f017424f1cbc` |
+
+## r43 T6: settings and config
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-settings` and `/gsd-config`. `planning-config.md` is kept as `.md.txt`: its link to a doc leaves the tree.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/config.md` | `cbb67008f8701f4611d1452f4e9be4ad7427bf21ccd09b101a0ed6679a642cec` |
+| `commands/gsd/settings.md` | `ad4cd4b4a5a3bab5f5fe2df1db1932d7629a0445fe42e1fbf571c135f79597f1` |
+| `gsd-core/references/planning-config.md.txt` | `575068703ae7efb703832405d1fb26cc509e69ec9fb5db129a367cbb68a57ac3` |
+| `gsd-core/workflows/settings-advanced.md` | `c9cc02bf5f7c7c1c1155a839e7408aa54eb3749d441a435cbb0360773e54fcac` |
+| `gsd-core/workflows/settings-integrations.md` | `eb4634671256c7e567bb278ba96e8fcb41cb541c0f9c7c3f23e9ad8b586b6fb1` |
+| `gsd-core/workflows/settings.md` | `fa67c5d22142d81ec0ffdd05ec81bebf50ff9b85ee2ed2960635c87ed9c458dc` |
+
+## r43 T7: undo and pr-branch
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-undo` and `/gsd-pr-branch`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/pr-branch.md` | `b7eccd9e24f97f3612ce93f2199edab58133d0706b27745fbb442d0eb37ee2c4` |
+| `commands/gsd/undo.md` | `d0fbc584d2d21ad565d4d4be4ede33feff5d631324927e9abecf64dd8cae5b73` |
+| `gsd-core/workflows/pr-branch.md` | `63c1482ecea847da620e8310ca2a7854a229f31a74caa8b4709a22b46bb1193e` |
+| `gsd-core/workflows/undo.md` | `0812391ee95fb221d360dd22c7b97721200be536dc5b8c6a9c4740970be7ac73` |
+
+## r43 T8: milestone-summary and extract-learnings
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-milestone-summary` and `/gsd-extract-learnings`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/extract-learnings.md` | `16e09bc1cee90e60c0cae14e273c1ed1e569b66f10f81d4c72cdbbfd01bbfb94` |
+| `commands/gsd/milestone-summary.md` | `60710830b35b2a1c00be093e696e520b6936e1d2a9f1927d82e59e38c306d0b5` |
+| `gsd-core/workflows/extract-learnings.md` | `a9281400d064bab6e3e4013c02f9d5e26cb509bb83ed6e9d7429f5fb7faa057d` |
+| `gsd-core/workflows/milestone-summary.md` | `3feb033825b2f3df58c61e6962da15470e1d5abfd5ce77a83b7d83d7710bcd2a` |
+
+## r43 T9: ingest-docs and onboard
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-ingest-docs` and `/gsd-onboard`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/ingest-docs.md` | `b5fc2db95efedc11d550ba1ee3cbb34e62b2a56787285f59faca0bf8edfc92cc` |
+| `commands/gsd/onboard.md` | `97eebe6830989d96f71eb48be3aa2b588a6d17efa70826dea1e73d3247beac29` |
+| `gsd-core/workflows/ingest-docs.md` | `5a5fb661c572c3ce8f57d13c69ce57f2581fa5767aed2ac15a0eac68176455e4` |
+| `gsd-core/workflows/onboard.md` | `6e8ecfe10f680e73b2d19ec5abf7095360525f11799ee8c3c0a4a1de276cc97a` |
+
+## r43 T10: workspace and update
+
+Vendored byte for byte from gsd-core v1.18.0: the three workspace workflows and `/gsd-workspace` are ported; `commands/gsd/update.md` is vendored for the slash metadata only (the update text is ours, D-r43-16).
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/update.md` | `c009de60568956c4a89d9bcb83527e1d12edc9f486356ca869a4d71fae043af4` |
+| `commands/gsd/workspace.md` | `cc8cd6dad484ae91feb48457aef4e3a96b76874897cb32eb9b8c784100aec05e` |
+| `gsd-core/workflows/list-workspaces.md` | `da446be2980632cc3b765f430a41cfbe00a8bbfcedc7656c0cf82646178680ba` |
+| `gsd-core/workflows/new-workspace.md` | `55ccc4ee96b522eea2932d8ee977cd9617e32127650f77820e6c9e7fdd206e54` |
+| `gsd-core/workflows/remove-workspace.md` | `d9cc19a118a68c81d436a698d9f803fed4152b439afc7c2aa27024d4db7da109` |
+
+## r43 T11: the six namespace routers
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-ns-context`, `/gsd-ns-ideate`, `/gsd-ns-manage`, `/gsd-ns-project`, `/gsd-ns-review` and `/gsd-ns-workflow`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/ns-context.md` | `9671e855bdb8339a40f6ab73735254977470072d1eb4080154b55568913ef78f` |
+| `commands/gsd/ns-ideate.md` | `53a446e2c39be49c863f7c9253fd4328201ce68e2becd24db95a18f79db5f3d5` |
+| `commands/gsd/ns-manage.md` | `83dd7c64de6618bd1f7ba6c43877a9eda0e4ffaade47e9455cd3757239d724dc` |
+| `commands/gsd/ns-project.md` | `2965014b60f6951e8b10526dd16c2dfa7e1e737c414384efff6f5bb495fa718f` |
+| `commands/gsd/ns-review.md` | `5af65e411b1cc5baa6a2fbf3cfdf9452f671c11a72c21d5b88e89ee78dfbcfd5` |
+| `commands/gsd/ns-workflow.md` | `9492a9cdcb4ea148f598688a252b45ee9b695e83b997bfe56834d701ec369c2d` |

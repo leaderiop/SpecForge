@@ -5,21 +5,34 @@
 mod args;
 pub(crate) mod assets;
 mod audit;
+mod autonomous;
 pub(crate) mod compose;
+mod configure;
 mod discuss;
 mod execute;
+mod git;
 mod host;
+mod learning;
+mod navigate;
+mod ns;
+mod onboard;
 mod plan;
 mod preamble;
 mod project;
+mod quick;
 pub(crate) mod render;
 pub(crate) mod repoint;
+mod review;
+pub mod roster;
+mod session;
 pub(crate) mod setting;
 mod ship;
 mod slash;
 mod spec;
+mod update;
 mod verify;
 mod workflow;
+mod workspace;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -55,4 +68,16 @@ pub fn declare(c: &mut ContributionsBuilder) {
     verify::declare(c);
     audit::declare(c);
     ship::declare(c);
+    navigate::declare(c);
+    quick::declare(c);
+    autonomous::declare(c);
+    session::declare(c);
+    review::declare(c);
+    configure::declare(c);
+    git::declare(c);
+    learning::declare(c);
+    onboard::declare(c);
+    workspace::declare(c);
+    update::declare(c);
+    ns::declare(c);
 }

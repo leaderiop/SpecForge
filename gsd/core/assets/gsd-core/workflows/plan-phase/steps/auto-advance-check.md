@@ -15,7 +15,7 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
    if [[ ! "$GSD_ARGS" =~ --auto ]] && [[ ! "$GSD_ARGS" =~ --chain ]]; then
-     specforge settings set @gsd/core workflow._auto_chain_active false || true
+     : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
    fi
    ```
 
@@ -30,7 +30,7 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 if ([[ "$GSD_ARGS" =~ --auto ]] || [[ "$GSD_ARGS" =~ --chain ]]) && [[ "$AUTO_CHAIN" != "true" ]]; then
-  specforge settings set @gsd/core workflow._auto_chain_active true
+  : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
 fi
 ```
 

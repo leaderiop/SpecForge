@@ -541,7 +541,7 @@ git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specfor
 
 This creates a durable checkpoint in git history. If anything fails after this point, the working tree can be reconstructed from git.
 
-MILESTONES.md and PROJECT.md are workstream-scoped the same way STATE.md/ROADMAP.md are (`planningPaths(cwd)the spec/`.project`) — under an active workstream this commits the actual files `milestone complete` wrote, not the root copies.
+MILESTONES.md and PROJECT.md are workstream-scoped the same way STATE.md/ROADMAP.md are (the milestone and the project are `.spec` files) — under an active workstream this commits the actual files `milestone complete` wrote, not the root copies.
 
 **The `requirement` entities stay** (they are the milestone's history; no file is archived or cleared):
 

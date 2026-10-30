@@ -171,7 +171,7 @@ git add spec && git commit -m "chore: add project config" && specforge collect -
 **Persist auto-advance chain flag to config (survives context compaction):**
 
 ```bash
-specforge settings set @gsd/core workflow._auto_chain_active true
+: # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
 ```
 
 Proceed to Step 4 (skip Steps 3 and 5).

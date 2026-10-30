@@ -14,6 +14,33 @@ const ADAPTED: &[(&str, &str)] = &[
         "plan-phase",
         "<phase> [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--skip-ui] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--bounce] [--skip-bounce] [--chunked] [--tdd] [--mvp] [--granularity <coarse|standard|fine>] [--no-tracer] [--no-reversibility-gates]",
     ),
+    ("extract-learnings", "<phase>"),
+    (
+        "ingest-docs",
+        "[--dir <path>] [--mode new|merge] [--manifest <file>] [--resolve auto|interactive]",
+    ),
+    ("milestone-summary", "[--milestone <version>]"),
+    ("ns-context", "[--intent \"what you want\"]"),
+    ("ns-ideate", "[--intent \"what you want\"]"),
+    ("ns-manage", "[--intent \"what you want\"]"),
+    ("ns-project", "[--intent \"what you want\"]"),
+    ("ns-review", "[--intent \"what you want\"]"),
+    ("ns-workflow", "[--intent \"what you want\"]"),
+    ("pr-branch", "[--target <branch>]"),
+    ("workspace", "[--new | --list | --remove] [--name <name>]"),
+    (
+        "review",
+        "<phase> [--claude] [--codex] [--opencode] [--qwen] [--cursor] [--agy] [--all]",
+    ),
+    (
+        "quick",
+        "[--list | --status <slug> | --resume <slug> | --full] [--validate] [--discuss] [--research] [--task \"task description\"]",
+    ),
+    (
+        "quick-batch",
+        "[--file <path>] [--jobs auto|N] [--validate] [--research] [--resume <batch-id>] [--tasks \"task list\"]",
+    ),
+    ("fast", "[--task \"task description\"]"),
     ("ultraplan-phase", "<phase>"),
     ("verify-work", "<phase> [--ws <name>]"),
     ("validate-phase", "<phase>"),
@@ -54,9 +81,15 @@ fn scalar(front: &[String], key: &str) -> Option<String> {
     let unquoted = value
         .strip_prefix('"')
         .and_then(|v| v.strip_suffix('"'))
-        .or_else(|| value.strip_prefix('\'').and_then(|v| v.strip_suffix('\'')))
-        .unwrap_or(value);
-    Some(unquoted.to_string())
+        .map(|v| v.replace("\\\"", "\""))
+        .or_else(|| {
+            value
+                .strip_prefix('\'')
+                .and_then(|v| v.strip_suffix('\''))
+                .map(String::from)
+        })
+        .unwrap_or_else(|| value.to_string());
+    Some(unquoted)
 }
 
 fn class(tool: &str) -> String {
@@ -68,7 +101,7 @@ fn class(tool: &str) -> String {
         "Glob" | "Grep" => "search".to_string(),
         "WebFetch" => "web_fetch".to_string(),
         "WebSearch" => "web_search".to_string(),
-        "Skill" => "skill".to_string(),
+        "Skill" | "SlashCommand" => "skill".to_string(),
         "AskUserQuestion" => "ask_user".to_string(),
         "Agent" => "agent".to_string(),
         "TodoWrite" => "todo".to_string(),
@@ -80,6 +113,13 @@ fn class(tool: &str) -> String {
             format!("mcp:{server}/{tool}")
         }
     }
+}
+
+/// Upstream's port rule: a line naming one of these is a port line.
+fn names_gsd(text: &str) -> bool {
+    [".planning", "gsd-tools", "gsd_run", "gsd-sdk"]
+        .iter()
+        .any(|w| text.contains(w))
 }
 
 fn tools(front: &[String]) -> Vec<String> {
@@ -130,11 +170,16 @@ fn every_prompt_slash_keeps_its_upstream_metadata() {
             .iter()
             .find(|p| p.id == id)
             .expect("the prompt");
-        assert_eq!(
-            Some(prompt.description.clone()),
-            scalar(&fm, "description"),
-            "{id}: description"
-        );
+        // verbatim, except a description that names a tool or a path of GSD's (a port line, D-r43-9)
+        let theirs = scalar(&fm, "description");
+        let ported = theirs.as_deref().is_some_and(names_gsd) && !names_gsd(&prompt.description);
+        if !ported {
+            assert_eq!(
+                Some(prompt.description.clone()),
+                theirs,
+                "{id}: description"
+            );
+        }
         assert_eq!(slash.tools, tools(&fm), "{id}: tools");
         assert_eq!(slash.effort, scalar(&fm, "effort"), "{id}: effort");
         let hint = slash.argument_hint.clone().unwrap_or_default();

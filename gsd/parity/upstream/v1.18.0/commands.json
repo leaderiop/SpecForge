@@ -1,0 +1,362 @@
+[
+ {
+  "name": "add-tests",
+  "description": "Generate tests for a completed phase based on UAT criteria and implementation",
+  "argument_hint": "<phase> [additional instructions]"
+ },
+ {
+  "name": "ai-integration-phase",
+  "description": "Generate an AI-SPEC.md design contract for phases that involve building AI systems.",
+  "argument_hint": "[phase number]"
+ },
+ {
+  "name": "audit-fix",
+  "description": "Autonomous audit-to-fix pipeline — find issues, classify, fix, test, commit",
+  "argument_hint": "--source <audit-uat> [--severity <medium|high|all>] [--max N] [--dry-run]"
+ },
+ {
+  "name": "audit-milestone",
+  "description": "Audit milestone completion against original intent before archiving",
+  "argument_hint": "[version]"
+ },
+ {
+  "name": "audit-uat",
+  "description": "Cross-phase audit of all outstanding UAT and verification items",
+  "argument_hint": null
+ },
+ {
+  "name": "autonomous",
+  "description": "Run all remaining phases autonomously — discuss→plan→execute per phase",
+  "argument_hint": "[--from N] [--to N] [--only N] [--interactive] [--converge]"
+ },
+ {
+  "name": "capture",
+  "description": "Capture ideas, tasks, notes, and seeds to their destination",
+  "argument_hint": "[--note | --backlog | --seed | --list | --list-seeds] [text]"
+ },
+ {
+  "name": "cleanup",
+  "description": "Archive accumulated phase directories from completed milestones",
+  "argument_hint": null
+ },
+ {
+  "name": "code-review",
+  "description": "Review source files changed during a phase for bugs, security issues, and code quality problems",
+  "argument_hint": "<phase-number> [--depth=quick|standard|deep] [--files file1,file2,...] [--fix [--all] [--auto]] [reviewer-lane flags]"
+ },
+ {
+  "name": "complete-milestone",
+  "description": "Archive completed milestone and prepare for next version",
+  "argument_hint": "<version>"
+ },
+ {
+  "name": "config",
+  "description": "Configure GSD settings — workflow toggles, advanced knobs, integrations, and model profile",
+  "argument_hint": "[--advanced | --integrations | --profile <name>]"
+ },
+ {
+  "name": "debug",
+  "description": "Systematic debugging with persistent state across context resets",
+  "argument_hint": "[list | status <slug> | continue <slug> | --diagnose] [issue description]"
+ },
+ {
+  "name": "discuss-phase",
+  "description": "Gather phase context through adaptive questioning before planning.",
+  "argument_hint": "<phase> [--all] [--auto] [--chain] [--batch] [--analyze] [--text] [--power] [--assumptions]"
+ },
+ {
+  "name": "docs-update",
+  "description": "Generate or update project documentation verified against the codebase",
+  "argument_hint": "[--force] [--verify-only]"
+ },
+ {
+  "name": "eval-review",
+  "description": "Audit an executed AI phase's evaluation coverage and produce an EVAL-REVIEW.md remediation plan.",
+  "argument_hint": "[phase number]"
+ },
+ {
+  "name": "execute-phase",
+  "description": "SDD phase execution — execute all plans in a phase with dependency-aware wave parallelization",
+  "argument_hint": "<phase-number> [--wave N] [--gaps-only] [--interactive] [--tdd]"
+ },
+ {
+  "name": "explore",
+  "description": "Socratic ideation and idea routing — think through ideas before committing to plans",
+  "argument_hint": null
+ },
+ {
+  "name": "extract-learnings",
+  "description": "Extract decisions, lessons, patterns, and surprises from completed phase artifacts",
+  "argument_hint": "<phase-number>"
+ },
+ {
+  "name": "fast",
+  "description": "Execute a trivial task inline — no subagents, no planning overhead",
+  "argument_hint": "[task description]"
+ },
+ {
+  "name": "forensics",
+  "description": "Post-mortem investigation for failed GSD workflows — diagnoses what went wrong.",
+  "argument_hint": "[problem description]"
+ },
+ {
+  "name": "graphify",
+  "description": "Build, query, and inspect the project knowledge graph in .planning/graphs/",
+  "argument_hint": "[build|query <term>|status|diff]"
+ },
+ {
+  "name": "health",
+  "description": "Diagnose planning directory health and optionally repair issues",
+  "argument_hint": "[--repair] [--context]"
+ },
+ {
+  "name": "help",
+  "description": "Show available GSD commands and usage guide",
+  "argument_hint": "[--brief | --full | <topic> | --brief <topic>]"
+ },
+ {
+  "name": "import",
+  "description": "Ingest external plans with conflict detection against project decisions before writing anything.",
+  "argument_hint": "--from <filepath> | --from-gsd2"
+ },
+ {
+  "name": "inbox",
+  "description": "Triage and review open GitHub issues and PRs against project templates and contribution guidelines.",
+  "argument_hint": "[--issues] [--prs] [--label] [--close-incomplete] [--repo owner/repo]"
+ },
+ {
+  "name": "ingest-docs",
+  "description": "Bootstrap or merge a .planning/ setup from existing ADRs, PRDs, SPECs, and docs in a repo.",
+  "argument_hint": "[path] [--mode new|merge] [--manifest <file>] [--resolve auto|interactive]"
+ },
+ {
+  "name": "manager",
+  "description": "Interactive command center for managing multiple phases from one terminal",
+  "argument_hint": "[--analyze-deps]"
+ },
+ {
+  "name": "map-codebase",
+  "description": "Analyze codebase with parallel mapper agents to produce .planning/codebase/ documents",
+  "argument_hint": "[--fast [--focus tech|arch|quality|concerns]] [--query <term>|status|diff|refresh] [area]"
+ },
+ {
+  "name": "mempalace-capture",
+  "description": "File a phase artifact into MemPalace; mirror decision facts into its temporal KG",
+  "argument_hint": "[CONTEXT.md|PLAN.md|SUMMARY.md]"
+ },
+ {
+  "name": "mempalace-recall",
+  "description": "Recall decisions, patterns, and surprises from MemPalace before planning",
+  "argument_hint": "[phase-slug]"
+ },
+ {
+  "name": "milestone-summary",
+  "description": "Generate a comprehensive project summary from milestone artifacts for team onboarding and review",
+  "argument_hint": "[version]"
+ },
+ {
+  "name": "mvp-phase",
+  "description": "Plan a phase as a vertical MVP slice — user story, SPIDR splitting, then plan-phase",
+  "argument_hint": "<phase-number>"
+ },
+ {
+  "name": "new-milestone",
+  "description": "Start a new milestone cycle — update PROJECT.md and route to requirements",
+  "argument_hint": "[milestone name, e.g., 'v1.1 Notifications'] [--ws <name>] [--reset-phase-numbers]"
+ },
+ {
+  "name": "new-project",
+  "description": "Initialize a new project with deep context gathering and PROJECT.md",
+  "argument_hint": "[--auto]"
+ },
+ {
+  "name": "next",
+  "description": "Smart entry — detect project state and route to the right next GSD action.",
+  "argument_hint": null
+ },
+ {
+  "name": "ns-context",
+  "description": "codebase intel | map graphify docs learnings mempalace",
+  "argument_hint": ""
+ },
+ {
+  "name": "ns-ideate",
+  "description": "exploration capture | explore sketch spike spec capture",
+  "argument_hint": ""
+ },
+ {
+  "name": "ns-manage",
+  "description": "config workspace | workstreams thread update ship inbox",
+  "argument_hint": ""
+ },
+ {
+  "name": "ns-project",
+  "description": "project lifecycle | milestones audits summary",
+  "argument_hint": ""
+ },
+ {
+  "name": "ns-review",
+  "description": "quality gates | code review debug audit security eval ui",
+  "argument_hint": ""
+ },
+ {
+  "name": "ns-workflow",
+  "description": "workflow | discuss plan execute verify phase progress",
+  "argument_hint": ""
+ },
+ {
+  "name": "onboard",
+  "description": "Guide existing codebase onboarding through mapping, doc ingest, and planning setup",
+  "argument_hint": "[--fast] [--text]"
+ },
+ {
+  "name": "pause-work",
+  "description": "Create context handoff when pausing work mid-phase",
+  "argument_hint": "[--report]"
+ },
+ {
+  "name": "phase",
+  "description": "Multi-phase management — add, insert, remove, or edit phases in ROADMAP.md (roadmap phase CRUD)",
+  "argument_hint": "[--insert | --remove | --edit] <phase-name-or-number>"
+ },
+ {
+  "name": "plan-phase",
+  "description": "Create detailed phase plan (PLAN.md) with verification loop",
+  "argument_hint": "[phase] [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--skip-ui] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--bounce] [--skip-bounce] [--chunked] [--tdd] [--mvp] [--granularity <coarse|standard|fine>] [--no-tracer] [--no-reversibility-gates]"
+ },
+ {
+  "name": "plan-review-convergence",
+  "description": "Cross-AI plan convergence - replan until review concerns are resolved.",
+  "argument_hint": "<phase> [--claude] [--codex] [--coderabbit] [--opencode] [--qwen] [--cursor] [--antigravity] [--agy] [--ollama] [--lm-studio] [--llama-cpp] [--kimi-code] [--text] [--ws <name>] [--all] [--max-cycles N]"
+ },
+ {
+  "name": "pr-branch",
+  "description": "Create a clean PR branch by filtering out .planning/ commits — ready for code review",
+  "argument_hint": "[target branch, default: main]"
+ },
+ {
+  "name": "profile-user",
+  "description": "Generate developer behavioral profile and create Claude-discoverable artifacts",
+  "argument_hint": "[--questionnaire] [--refresh]"
+ },
+ {
+  "name": "progress",
+  "description": "Check progress, advance workflow, or dispatch freeform intent — the unified GSD situational command",
+  "argument_hint": "[--forensic | --next [--auto] [--converge] | --do \\\"task description\\\"]"
+ },
+ {
+  "name": "quick-batch",
+  "description": "Batch several `/gsd:quick`-shaped tasks together — planned, dispatched, and merged as one run",
+  "argument_hint": "[--file <path>] [--jobs auto|N] [--validate] [--research] [--resume <batch-id>] [task list]"
+ },
+ {
+  "name": "quick",
+  "description": "Execute a quick task with GSD guarantees (atomic commits, state tracking) but skip optional agents",
+  "argument_hint": "[list | status <slug> | resume <slug> | --full] [--validate] [--discuss] [--research] [task description]"
+ },
+ {
+  "name": "resume-work",
+  "description": "Resume work from previous session with full context restoration",
+  "argument_hint": null
+ },
+ {
+  "name": "review-backlog",
+  "description": "Review and promote backlog items to active milestone",
+  "argument_hint": null
+ },
+ {
+  "name": "review",
+  "description": "Request cross-AI peer review of phase plans from external AI CLIs",
+  "argument_hint": "--phase N [--claude] [--codex] [--opencode] [--qwen] [--cursor] [--agy] [--all]"
+ },
+ {
+  "name": "secure-phase",
+  "description": "Retroactively verify threat mitigations for a completed phase",
+  "argument_hint": "[phase number]"
+ },
+ {
+  "name": "settings",
+  "description": "Configure GSD workflow toggles and model profile",
+  "argument_hint": null
+ },
+ {
+  "name": "ship",
+  "description": "Create PR, run review, and prepare for merge after verification passes",
+  "argument_hint": "[phase number or milestone, e.g., '4' or 'v1.0']"
+ },
+ {
+  "name": "sketch",
+  "description": "Sketch UI/design ideas with throwaway HTML mockups, or propose what to sketch next (frontier mode)",
+  "argument_hint": "[design idea to explore] [--quick] [--text] [--wrap-up] or [frontier]"
+ },
+ {
+  "name": "spec-phase",
+  "description": "Clarify WHAT a phase delivers with ambiguity scoring; produces a SPEC.md before discuss-phase.",
+  "argument_hint": "<phase> [--auto] [--text]"
+ },
+ {
+  "name": "spike",
+  "description": "Spike an idea through experiential exploration, or propose what to spike next (frontier mode)",
+  "argument_hint": "[idea to validate] [--quick] [--text] [--wrap-up] or [frontier]"
+ },
+ {
+  "name": "stats",
+  "description": "Display project statistics — phases, plans, requirements, git metrics, and timeline",
+  "argument_hint": null
+ },
+ {
+  "name": "surface",
+  "description": "Toggle which skills are surfaced — apply a profile, list, or disable a cluster without reinstall",
+  "argument_hint": "[list|status|profile <name>|disable <cluster>|enable <cluster>|reset]"
+ },
+ {
+  "name": "thread",
+  "description": "Manage persistent context threads for cross-session work",
+  "argument_hint": "[list [--open | --resolved] | close <slug> | status <slug> | name | description]"
+ },
+ {
+  "name": "ui-phase",
+  "description": "Generate UI design contract (UI-SPEC.md) for frontend phases",
+  "argument_hint": "[phase]"
+ },
+ {
+  "name": "ui-review",
+  "description": "Retroactive 6-pillar visual audit of implemented frontend code",
+  "argument_hint": "[phase]"
+ },
+ {
+  "name": "ultraplan-phase",
+  "description": "[BETA] Offload plan phase to Claude Code's ultraplan cloud; review in browser and import back.",
+  "argument_hint": "[phase-number]"
+ },
+ {
+  "name": "undo",
+  "description": "Safe git revert. Roll back phase or plan commits using the phase manifest with dependency checks.",
+  "argument_hint": "--last N | --phase NN | --plan NN-MM"
+ },
+ {
+  "name": "update",
+  "description": "Update GSD to latest version with changelog display",
+  "argument_hint": "[--sync | --reapply | --next | --rc]"
+ },
+ {
+  "name": "validate-phase",
+  "description": "Retroactively audit and fill Nyquist validation gaps for a completed phase",
+  "argument_hint": "[phase number]"
+ },
+ {
+  "name": "verify-work",
+  "description": "Validate built features through conversational UAT",
+  "argument_hint": "[phase number, e.g., '4'] [--ws <name>]"
+ },
+ {
+  "name": "workspace",
+  "description": "Manage GSD workspaces — create, list, or remove isolated workspace environments",
+  "argument_hint": "[--new | --list | --remove] [name]"
+ },
+ {
+  "name": "workstreams",
+  "description": "Manage parallel workstreams — list, create, switch, status, progress, complete, and resume",
+  "argument_hint": null
+ }
+]

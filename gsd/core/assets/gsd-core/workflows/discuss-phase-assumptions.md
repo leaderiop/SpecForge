@@ -203,7 +203,7 @@ Read the project-level methodology file if it exists. This must happen before as
 so that active lenses shape how assumptions are generated and evaluated.
 
 ```bash
-specforge query "$PROJECT" --kinds methodology --format context 2>/dev/null || true
+specforge export --kinds methodology --format context 2>/dev/null || true
 ```
 
 **If METHODOLOGY.md exists:**
@@ -647,7 +647,7 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
    if [[ ! "$GSD_ARGS" =~ --auto ]]; then
-     specforge settings set @gsd/core workflow._auto_chain_active false || true
+     : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
    fi
    ```
 3. Read consolidated auto-mode (`active` = chain flag OR user preference):
@@ -658,7 +658,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 
 **If `--auto` flag present AND `AUTO_MODE` is not true:**
 ```bash
-specforge settings set @gsd/core workflow._auto_chain_active true
+: # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
 ```
 
 <!-- gsd:section id="auto-advance-dispatch" when="state:auto-advance-active" -->

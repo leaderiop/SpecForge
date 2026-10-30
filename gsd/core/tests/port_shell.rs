@@ -155,3 +155,45 @@ fn no_bash_code_line_carries_prose_for_a_path() {
         found.join("\n")
     );
 }
+
+/// REVIEW-r43 Minor 1: `the spec` joined to the word or path after it (`the specquick/`, `the spec.continue-here.md`,
+/// `the `phase` entities03-auth`), in prose and in inline code as well as in a fence. The pattern is not `\bthe spec\b`:
+/// the join has no word boundary after `spec`.
+#[test]
+fn no_text_joins_the_spec_to_a_path() {
+    let joined = Regex::new(
+        r"\bthe spec(?:[A-Za-z]+/|[A-Za-z-]*\.md|\.[A-Za-z])|\)the spec|entit(?:y|ies)[0-9]",
+    )
+    .expect("a regex");
+    let mut found = Vec::new();
+    for (label, mine, _) in pairs() {
+        for (n, line) in mine.iter().enumerate() {
+            if joined.is_match(line) {
+                found.push(format!("{label}:{}: {line}", n + 2));
+            }
+        }
+    }
+    // the Rust side writes text too: its string literals
+    let mut sources = Vec::new();
+    walk_rs(&root().join("src"), &mut sources);
+    for path in sources {
+        let text = std::fs::read_to_string(&path).expect("a source");
+        for (n, line) in text.lines().enumerate() {
+            if joined.is_match(line) {
+                found.push(format!("{}:{}: {line}", path.display(), n + 1));
+            }
+        }
+    }
+    assert!(found.is_empty(), "joined words:\n{}", found.join("\n"));
+}
+
+fn walk_rs(dir: &Path, out: &mut Vec<PathBuf>) {
+    for entry in std::fs::read_dir(dir).expect("a directory").flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            walk_rs(&path, out);
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            out.push(path);
+        }
+    }
+}

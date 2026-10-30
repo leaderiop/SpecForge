@@ -101,7 +101,10 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
             ids = format!("`${var}` is `{id}`; {ids}");
         }
     }
-    tail = format!("\n\nIn the shell blocks above, {ids}{tail}");
+    // a router (`ns_*`) and `update` have no shell block of their own to bind the ids in
+    if !spec.id.starts_with("ns_") && spec.id != "update" {
+        tail = format!("\n\nIn the shell blocks above, {ids}{tail}");
+    }
     let text = render::render(&Input {
         command: spec.command,
         host: call.host().unwrap_or("claude-code"),
@@ -113,13 +116,13 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
 }
 
 /// The upstream file the prompt is ported from: its command, or the workflow when upstream has no command for it.
-fn source_path(spec: &Spec) -> String {
+fn source_path(spec: &Spec) -> Option<String> {
     let command = format!("commands/gsd/{}.md", spec.command);
     if super::assets::get(&command).is_some() {
-        command
-    } else {
-        format!("gsd-core/workflows/{}.md", spec.command)
+        return Some(command);
     }
+    let workflow = format!("gsd-core/workflows/{}.md", spec.command);
+    super::assets::get(&workflow).map(|_| workflow)
 }
 
 /// Declares the prompt of `spec` and, when it has one, its slash command.
@@ -127,8 +130,11 @@ pub fn declare(c: &mut ContributionsBuilder, spec: &'static Spec) {
     c.prompt(spec.id, |p| {
         p.title(spec.title)
             .reads_graph()
-            .description(spec.description)
-            .attribution(attribution(&source_path(spec)));
+            .description(spec.description);
+        // `update` is our text, not a port: its prompt names no upstream file (its slash binding does)
+        if let Some(path) = source_path(spec) {
+            p.attribution(attribution(&path));
+        }
         args::declare(p, spec.args);
         if let Some(subject) = spec.subject {
             p.subject(subject);

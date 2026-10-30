@@ -4,16 +4,16 @@
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::{Number, Phase, target};
+use super::{Number, Phase, find};
 use crate::commands::support::answer;
 
 /// The prefix of the names of a phase's own children: `05-01`, `05-CONTEXT`.
-fn prefix(number: Number) -> String {
+pub(super) fn prefix(number: Number) -> String {
     format!("{}-", number.name())
 }
 
 /// The entities a person wrote that sit in, or point into, one of `phases` (the ones deleted or renamed).
-fn human_blocker<'a>(
+pub(super) fn human_blocker<'a>(
     call: &CommandCall<'a>,
     phases: &[&Phase<'_>],
 ) -> Option<(&'static str, &'a GraphNode)> {
@@ -88,13 +88,55 @@ fn deletion_order<'a>(call: &CommandCall<'_>, mut left: Vec<&'a GraphNode>) -> V
     order
 }
 
+/// Renames the number-prefixed children of `phase` (`05-01`, `05-CONTEXT`, and what they hold) once the phase itself is
+/// renamed to `number`, whose id is `new_id`.
+pub(super) fn rename_children(
+    call: &CommandCall<'_>,
+    plan: &mut PlanBuilder,
+    phase: &Phase<'_>,
+    number: Number,
+    new_id: &str,
+) {
+    let (old, new) = (prefix(phase.number), prefix(number));
+    let children = format!("{}/", phase.node.id);
+    let mut below: Vec<&str> = call
+        .graph()
+        .nodes()
+        .iter()
+        .filter_map(|n| n.id.strip_prefix(&children))
+        .collect();
+    // Shallow first: a child is renamed before what it holds, whose path then carries the new name.
+    below.sort_by_key(|short| short.matches('/').count());
+    for short in below {
+        let swap = |seg: &str| match seg.strip_prefix(&old) {
+            Some(rest) => format!("{new}{rest}"),
+            None => seg.to_string(),
+        };
+        let (parent, last) = short.rsplit_once('/').unwrap_or(("", short));
+        if last.starts_with(&old) {
+            let parent: Vec<String> = parent
+                .split('/')
+                .filter(|s| !s.is_empty())
+                .map(swap)
+                .collect();
+            let at = [new_id]
+                .into_iter()
+                .chain(parent.iter().map(String::as_str))
+                .chain([last])
+                .collect::<Vec<_>>()
+                .join("/");
+            plan.rename(&at, &swap(last));
+        }
+    }
+}
+
 pub(super) fn remove(
     call: &CommandCall<'_>,
     ms: &GraphNode,
     all: &[Phase<'_>],
     name: &str,
 ) -> Result<CommandOutput, String> {
-    let gone = target(all, name)?;
+    let gone = find(all, name)?;
     if !call.flag("force") && started(call, gone) {
         return Err(format!(
             "phase {} has started (a plan has a summary, or a commit names one): --force removes it anyway",
@@ -155,39 +197,9 @@ pub(super) fn remove(
         )
     };
     for (phase, number) in &moves {
-        let (old, new) = (prefix(phase.number), prefix(*number));
         plan.rename(&phase.node.id, &number.name());
         let new_id = format!("{milestone}{}", number.name());
-        let children = format!("{}/", phase.node.id);
-        let mut below: Vec<&str> = call
-            .graph()
-            .nodes()
-            .iter()
-            .filter_map(|n| n.id.strip_prefix(&children))
-            .collect();
-        // Shallow first: a child is renamed before what it holds, whose path then carries the new name.
-        below.sort_by_key(|short| short.matches('/').count());
-        for short in below {
-            let swap = |seg: &str| match seg.strip_prefix(&old) {
-                Some(rest) => format!("{new}{rest}"),
-                None => seg.to_string(),
-            };
-            let (parent, last) = short.rsplit_once('/').unwrap_or(("", short));
-            if last.starts_with(&old) {
-                let parent: Vec<String> = parent
-                    .split('/')
-                    .filter(|s| !s.is_empty())
-                    .map(swap)
-                    .collect();
-                let at = [new_id.as_str()]
-                    .into_iter()
-                    .chain(parent.iter().map(String::as_str))
-                    .chain([last])
-                    .collect::<Vec<_>>()
-                    .join("/");
-                plan.rename(&at, &swap(last));
-            }
-        }
+        rename_children(call, &mut plan, phase, *number, &new_id);
         renamed.push(json!({ "from": phase.number.name(), "to": number.name() }));
     }
     // A phase that depended on the removed one inherits its dependencies, so the chain stays linear.

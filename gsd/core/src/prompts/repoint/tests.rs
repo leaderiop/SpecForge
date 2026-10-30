@@ -1,7 +1,7 @@
 use super::repoint;
 
 const EMBEDDED: &str = "references/verification-patterns.md";
-const LATER_WORKFLOW: &str = "workflows/ingest-docs.md";
+const LATER_WORKFLOW: &str = "workflows/update.md";
 
 #[test]
 fn an_at_line_becomes_the_command_that_serves_the_file() {
@@ -35,9 +35,7 @@ fn a_path_no_workflow_embeds_says_so() {
     let line = format!("@~/.claude/gsd-core/{LATER_WORKFLOW}");
     assert_eq!(
         repoint(&line),
-        format!(
-            "`specforge gsd reference gsd-core/{LATER_WORKFLOW}` (not installed by @gsd/core yet)"
-        )
+        format!("`specforge gsd reference gsd-core/{LATER_WORKFLOW}` (not part of @gsd/core)")
     );
 }
 

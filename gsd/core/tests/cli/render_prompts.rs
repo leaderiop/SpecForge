@@ -1,6 +1,6 @@
 //! Each lifecycle prompt rendered for the three hosts (T12): one golden per prompt and host (D-r42-21: the payload,
-//! the head of the text, its counts and its digest, never the whole text), every gate proved both ways, and the
-//! listing of the slash commands.
+//! the head of the text, the 60 lines after the preamble and the last 40, its counts and its digest, never the whole
+//! text), every gate proved both ways, and the listing of the slash commands.
 
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -14,10 +14,10 @@ const PHASE: &str = "v1.0/02";
 const PLAN: &str = "v1.0/02/02-01";
 
 /// A prompt, what it is asked about and the project that makes it render.
-struct Row {
-    id: &'static str,
-    args: &'static [&'static str],
-    setup: fn() -> Project,
+pub(super) struct Row {
+    pub(super) id: &'static str,
+    pub(super) args: &'static [&'static str],
+    pub(super) setup: fn() -> Project,
 }
 
 fn discuss() -> Project {
@@ -32,7 +32,7 @@ fn shipped() -> Project {
     p
 }
 
-const ROWS: [Row; 17] = [
+pub(super) const ROWS: [Row; 44] = [
     Row {
         id: "new_project",
         args: &["--auto"],
@@ -118,6 +118,141 @@ const ROWS: [Row; 17] = [
         args: &["v1.0/01"],
         setup: shipped,
     },
+    Row {
+        id: "next",
+        args: &[],
+        setup: twin,
+    },
+    Row {
+        id: "progress",
+        args: &["--next", "--auto"],
+        setup: twin,
+    },
+    Row {
+        id: "manager",
+        args: &[],
+        setup: twin,
+    },
+    Row {
+        id: "quick",
+        args: &["--task", "trim titles"],
+        setup: twin,
+    },
+    Row {
+        id: "quick_batch",
+        args: &["--tasks", "a; b"],
+        setup: twin,
+    },
+    Row {
+        id: "fast",
+        args: &["--task", "fix the typo"],
+        setup: twin,
+    },
+    Row {
+        id: "autonomous",
+        args: &["--from", "01", "--to", "02", "--converge"],
+        setup: twin,
+    },
+    Row {
+        id: "pause_work",
+        args: &["--report"],
+        setup: twin,
+    },
+    Row {
+        id: "resume_work",
+        args: &[],
+        setup: twin,
+    },
+    Row {
+        id: "review",
+        args: &[PHASE, "--codex"],
+        setup: twin,
+    },
+    Row {
+        id: "review_backlog",
+        args: &[],
+        setup: twin,
+    },
+    Row {
+        id: "settings",
+        args: &[],
+        setup: twin,
+    },
+    Row {
+        id: "undo",
+        args: &["--plan", "v1.0/01/01-01"],
+        setup: twin,
+    },
+    Row {
+        id: "pr_branch",
+        args: &["--target", "main"],
+        setup: twin,
+    },
+    Row {
+        id: "milestone_summary",
+        args: &["--milestone", "v1.0"],
+        setup: twin,
+    },
+    Row {
+        id: "extract_learnings",
+        args: &["v1.0/02"],
+        setup: twin,
+    },
+    Row {
+        id: "ingest_docs",
+        args: &["--dir", "docs", "--mode", "merge", "--resolve", "auto"],
+        setup: twin,
+    },
+    Row {
+        id: "onboard",
+        args: &["--fast"],
+        setup: empty,
+    },
+    Row {
+        id: "workspace",
+        args: &["--new", "--name", "feature-x"],
+        setup: twin,
+    },
+    Row {
+        id: "update",
+        args: &["--sync"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_context",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_ideate",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_manage",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_project",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_review",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_workflow",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "config",
+        args: &["--profile", "budget"],
+        setup: twin,
+    },
 ];
 
 fn golden(host: &str, id: &str, actual: &Value) {
@@ -147,6 +282,14 @@ fn render_goldens() {
             let rendered = payload(&prompt(&p, row.id, row.args, host));
             let text = text_of(&rendered);
             let head: Vec<&str> = text.lines().take(80).collect();
+            // the head is the same preamble in every prompt: the text after it and the end are what a change shows in
+            let lines: Vec<&str> = text.lines().collect();
+            let after = lines
+                .iter()
+                .position(|l| l.trim() == "</specforge_gsd_preamble>")
+                .map_or(0, |at| at + 1);
+            let body: Vec<&str> = lines.iter().skip(after).take(60).copied().collect();
+            let end: Vec<&str> = lines[lines.len().saturating_sub(40)..].to_vec();
             let digest = format!("{:x}", Sha256::digest(text.as_bytes()));
             golden(
                 host,
@@ -154,6 +297,8 @@ fn render_goldens() {
                 &json!({
                     "payload": rendered["payload"],
                     "head": head,
+                    "body": body,
+                    "end": end,
                     "lines": text.lines().count(),
                     "bytes": text.len(),
                     "sha256": digest,

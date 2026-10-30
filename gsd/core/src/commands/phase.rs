@@ -1,7 +1,9 @@
 //! `phase` (D-r41-8): the roadmap's phase CRUD behind `/gsd-phase`. The action is chosen by flag, as upstream's
 //! `[--insert X|--remove N|--edit N]`: none adds, `--insert` makes a decimal phase, `--remove` deletes a phase and
-//! renumbers the later ones in one plan, `--edit` sets fields.
+//! renumbers the later ones in one plan, `--edit` sets fields, `--promote` moves a backlog phase (999.x) into the
+//! numbered phases.
 
+mod promote;
 mod remove;
 
 use std::cmp::Ordering;
@@ -112,18 +114,23 @@ pub(super) fn phases<'a>(call: &CommandCall<'a>, milestone: &GraphNode) -> Vec<P
     found
 }
 
-/// The phase `name` names (`05`, `05.1`) among `phases`; a backlog phase is never a target.
-pub(super) fn target<'a, 'p>(phases: &'p [Phase<'a>], name: &str) -> Result<&'p Phase<'a>, String> {
+/// The phase `name` names (`05`, `05.1`, `999.1`) among `phases`.
+pub(super) fn find<'a, 'p>(phases: &'p [Phase<'a>], name: &str) -> Result<&'p Phase<'a>, String> {
     let number = Number::parse(name).ok_or_else(|| format!("'{name}' is not a phase number"))?;
-    if number.backlog() {
-        return Err(format!(
-            "phase '{name}' is a backlog phase: /gsd-phase leaves 999.x alone"
-        ));
-    }
     phases
         .iter()
         .find(|p| p.number == number)
         .ok_or_else(|| format!("no phase '{name}' in this milestone"))
+}
+
+/// The phase `name` names; a backlog phase is only a target of `--remove` and `--promote`.
+pub(super) fn target<'a, 'p>(phases: &'p [Phase<'a>], name: &str) -> Result<&'p Phase<'a>, String> {
+    if Number::parse(name).is_some_and(Number::backlog) {
+        return Err(format!(
+            "phase '{name}' is a backlog phase: only --remove and --promote act on 999.x"
+        ));
+    }
+    find(phases, name)
 }
 
 /// `--name` as the directory slug: lower case, runs of other characters as one dash.
@@ -175,7 +182,8 @@ fn create(
     ))
 }
 
-fn add(call: &CommandCall<'_>, ms: &GraphNode, all: &[Phase<'_>]) -> Result<CommandOutput, String> {
+/// The last integer phase and the number a new one takes after it.
+pub(super) fn next_number<'p, 'a>(all: &'p [Phase<'a>]) -> (Option<&'p Phase<'a>>, Number) {
     let last = all
         .iter()
         .filter(|p| !p.number.backlog() && p.number.decimal.is_none())
@@ -185,6 +193,11 @@ fn add(call: &CommandCall<'_>, ms: &GraphNode, all: &[Phase<'_>]) -> Result<Comm
         decimal: None,
         width: last.map_or(2, |p| p.number.width),
     };
+    (last, number)
+}
+
+fn add(call: &CommandCall<'_>, ms: &GraphNode, all: &[Phase<'_>]) -> Result<CommandOutput, String> {
+    let (last, number) = next_number(all);
     create(
         call,
         ms,
@@ -261,7 +274,7 @@ fn edit(
 fn phase(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let ms = milestone(call)?;
     let all = phases(call, ms);
-    let chosen: Vec<&str> = ["insert", "remove", "edit"]
+    let chosen: Vec<&str> = ["insert", "remove", "edit", "promote"]
         .into_iter()
         .filter(|a| call.str(a).is_some())
         .collect();
@@ -270,13 +283,14 @@ fn phase(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         ["insert"] => insert(call, ms, &all, required(call, "insert")?),
         ["remove"] => remove::remove(call, ms, &all, required(call, "remove")?),
         ["edit"] => edit(call, ms, &all, required(call, "edit")?),
+        ["promote"] => promote::promote(call, ms, &all, required(call, "promote")?),
         many => Err(format!("one action at a time: {}", many.join(", "))),
     }
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("phase", |cmd| {
-        cmd.description("Add, insert, remove or edit a phase of the roadmap; a removal renumbers the later phases in one edit plan")
+        cmd.description("Add, insert, remove, edit or promote a phase of the roadmap; a removal renumbers the later phases in one edit plan")
             .writes()
             .arg("milestone", |a| {
                 a.description("the milestone (default: the only one still open)");
@@ -289,6 +303,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
             })
             .arg("edit", |a| {
                 a.description("edit this phase: --name, --goal, --criteria, --depends-on");
+            })
+            .arg("promote", |a| {
+                a.description("promote this backlog phase (999.1) to the next number of the milestone, children included");
             })
             .arg("name", |a| {
                 a.description("the phase's name (required to add or insert)");

@@ -68,8 +68,8 @@ You are the precedence-enforcing layer. Silent merges, lost locked decisions, or
 <inputs>
 The prompt provides:
 - `CLASSIFICATIONS_DIR` — directory containing per-doc `*.json` files produced by `gsd-doc-classifier`
-- `INTEL_DIR` — where to write synthesized intel (the intel files are not part of @gsd/core: return the synthesis in your reply)
-- `CONFLICTS_PATH` — where to write `INGEST-CONFLICTS.md` (ingest-docs is not part of @gsd/core yet: report the conflicts to the user)
+- `INTEL_DIR` — where to write synthesized intel (a scratch directory outside the project, absolute, given by the orchestrator; the intel files are staging only)
+- `CONFLICTS_PATH` — where to write `INGEST-CONFLICTS.md` (absolute, given by the orchestrator: it reads this file to gate the ingest, so always write it, with the three-bucket header)
 - `MODE` — `new` or `merge`
 - `EXISTING_CONTEXT` (merge mode only) — the existing project entities to check against (the `milestone`, `phase`, `requirement` and `decision` entities, read with `specforge query`)
 - `PRECEDENCE` — ordered list, default `["ADR", "SPEC", "PRD", "DOC"]`; may be overridden per-doc via the classification's `precedence` field

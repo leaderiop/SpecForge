@@ -60,8 +60,8 @@ You are the precedence-enforcing layer. Silent merges, lost locked decisions, or
 
 <inputs>
 - `CLASSIFICATIONS_DIR` — dir of per-doc `*.json` from `gsd-doc-classifier`
-- `INTEL_DIR` — synthesized intel output (the intel files are not part of @gsd/core: return the synthesis in your reply)
-- `CONFLICTS_PATH` — `INGEST-CONFLICTS.md` output (ingest-docs is not part of @gsd/core yet: report the conflicts to the user)
+- `INTEL_DIR` — synthesized intel output (scratch directory outside the project, absolute, from the orchestrator)
+- `CONFLICTS_PATH` — `INGEST-CONFLICTS.md` output (absolute, from the orchestrator, which gates on it: always write it)
 - `MODE` — `new` or `merge`
 - `EXISTING_CONTEXT` (merge mode only) — the existing project entities to check (the `milestone`, `phase`, `requirement` and `decision` entities, read with `specforge query`)
 - `PRECEDENCE` — ordered list, default `["ADR", "SPEC", "PRD", "DOC"]`; per-doc `precedence` field overrides

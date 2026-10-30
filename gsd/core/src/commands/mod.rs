@@ -10,6 +10,7 @@ mod phase;
 mod refactor;
 mod reference;
 mod reports;
+pub mod smart_entry;
 mod state;
 mod support;
 pub(crate) use support::natural;
@@ -75,5 +76,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     help::declare(c);
     reports::declare(c);
     reference::declare(c);
+    smart_entry::declare(c);
     surface::declare(c);
 }
