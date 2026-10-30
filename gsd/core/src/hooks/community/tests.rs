@@ -3,8 +3,9 @@
 //! The two suites spawn the shell script; here the verdict is a function of the message. What they test of the verdict
 //! (a conforming and a non-conforming commit, an unknown type, a configured type, the last of a very long list) is
 //! ported; what they test of bash, node, the environment and the copying of the hooks directory is skipped with its
-//! reason. The script's own branches (the types, the scope, the limit, `hooks.commit_types`, fixup and squash) and the
-//! two hooks that have no suite follow.
+//! reason. Tests of our own follow for the script's branches that no upstream suite covers (the types, the scope, the
+//! limit, `hooks.commit_types`, fixup and squash) and for `phase_boundary` and `session_state`. The opt-in suite
+//! (`hooks-opt-in.test.cjs`) is accounted in `opt_in.rs`, and `resolveCommitSubject`'s cases in `isolation/tests.rs`.
 
 use serde_json::json;
 

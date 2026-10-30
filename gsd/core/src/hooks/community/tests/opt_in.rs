@@ -329,11 +329,11 @@ const SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "hook execution when enabled > KNOWN LIMIT",
-        "diverges: upstream's capture cannot deliver the <<\"TAG\" body and blocks it; the kernel's words can, so this port resolves it (more permissive, and what git records)",
+        "diverges: [dquoted-heredoc-tag] upstream's capture cannot deliver the <<\"TAG\" body and blocks it; the kernel's words can, so this port resolves it (more permissive, and what git records)",
     ),
     (
         "hook execution when enabled > validate-commit leaves every non-heredoc form",
-        "diverges: upstream's regex needs a quoted -m, so an unquoted `-m WIP` and `-m \"\" -m \"fix: x\"` pass; the kernel hands a message for both and this port judges it (stricter)",
+        "diverges: [unquoted-m] upstream's regex needs a quoted -m, so an unquoted `-m WIP` and `-m \"\" -m \"fix: x\"` pass; the kernel hands a message for both and this port judges it (stricter)",
     ),
     (
         "hook execution when enabled > the adjacency guard is scoped to the span",

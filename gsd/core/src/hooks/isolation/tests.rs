@@ -129,7 +129,7 @@ const AGENT_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "gsd-agent-isolation-guard.js: applicability matrix (#3045) > row 9",
-        "fs: whether .planning/config.json exists; the hook's `when` is the setting",
+        "fs: whether .planning/config.json exists; the guard allows every dispatch (REVIEW-r44 C1)",
     ),
     (
         "gsd-agent-isolation-guard.js: applicability matrix (#3045) > row 12",
@@ -149,15 +149,15 @@ const AGENT_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "#3045 CORE REDESIGN — dispatch-isolation records as an unconditional side effect",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
+        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the guard allows every dispatch (REVIEW-r44 C1)",
     ),
     (
         "#3045 MAJOR — --harness-flag can now accept a bare CLI-flag value (Cursor real registry value + generalized parsing)",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
+        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the guard allows every dispatch (REVIEW-r44 C1)",
     ),
     (
         "#3045 MINOR — writer/reader sentinel path derivation now agrees for a linked worktree without its own .planning/",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
+        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the guard allows every dispatch (REVIEW-r44 C1)",
     ),
     (
         "gsd-agent-isolation-guard.js: #3045 BLOCKER 2 — default-install fail-open (isolated two-review finding)",
@@ -201,19 +201,19 @@ const AGENT_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "gsd-agent-isolation-guard.js: #4594 rows 15/28-32 — prompt-first extraction + sentinel-discard reporting",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
+        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the guard allows every dispatch (REVIEW-r44 C1)",
     ),
     (
         "guard fallback — worktreesOptedOut ladder (#3972)",
-        "fs: the config ladder (workstream and root use_worktrees); the hook's `when` is the resolved setting",
+        "fs: the config ladder (workstream and root use_worktrees); the guard allows every dispatch (REVIEW-r44 C1)",
     ),
     (
         "hooks/lib/isolation-deny-reason.js — sanitizeForReason (#4594 F2/F5/F6)",
-        "diverges: the reason here interpolates only the subagent type, which is one of a fixed set; nothing from a sentinel to sanitise",
+        "diverges: [sanitize-reason] the reason here interpolates only the subagent type, which is one of a fixed set; nothing from a sentinel to sanitise",
     ),
     (
         "worktreesOptedOut — ladder unit semantics (#3972)",
-        "fs: the config ladder; the hook's `when` is the resolved setting",
+        "fs: the config ladder; the guard allows every dispatch (REVIEW-r44 C1)",
     ),
     (
         "gsd-agent-isolation-guard.js: applicability matrix (#3045) > row 1:",
@@ -561,7 +561,7 @@ const SAFETY_SKIPPED: &[(&str, &str)] = block![
     "git-cmd.js isGitSubcommand: should NOT match commit" => "runtime: git-cmd.js is validate-commit's shell parser (a loop of non-commit spellings, each a title `desc`); the kernel's commit fact replaces it (D-r44-14)",
     "git-cmd.js tokenize" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
     "gsd-validate-commit.sh delegates to git-cmd.js" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
-    "git-cmd.js resolveCommitSubject > MAJOR 3: a TRUNCATED capture" => "diverges: upstream's `-m` capture truncates at a quote and its resolver reads a complete first line of a cut body; the kernel hands the whole message, and a heredoc with no terminator is judged by its opener (stricter)",
+    "git-cmd.js resolveCommitSubject > MAJOR 3: a TRUNCATED capture" => "diverges: [truncated-heredoc] upstream's `-m` capture truncates at a quote and its resolver reads a complete first line of a cut body; the kernel hands the whole message, and a heredoc with no terminator is judged by its opener (stricter)",
     "git-cmd.js resolveCommitSubject > property:" => "env: fast-check properties over generated heredocs; the cases above are the examples they generalise",
     "git-cmd.js extractBranchArgument" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
 ];

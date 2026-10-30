@@ -16,6 +16,9 @@ const REASONS: [&str; 7] = [
     "diverges:",
 ];
 
+/// The "Known divergences" section of ACCEPTANCE.md, which every `diverges: [tag]` skip must name by its tag.
+const DIVERGENCES: &str = include_str!("../../../parity/ACCEPTANCE.md");
+
 /// A case of a suite: the `describe` titles around a `test`, and its title.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Case {
@@ -146,6 +149,25 @@ pub fn account(suite: &str, ported: &[String], skipped: &[(&str, &str)]) {
             REASONS.iter().any(|r| reason.starts_with(r)),
             "skip '{entry}': the reason '{reason}' is none of {REASONS:?}"
         );
+    }
+    let section = DIVERGENCES
+        .split("## Known divergences")
+        .nth(1)
+        .and_then(|s| s.split("\n## ").next())
+        .expect("ACCEPTANCE.md has a Known divergences section");
+    for (entry, reason) in skipped {
+        if let Some(rest) = reason.strip_prefix("diverges: [") {
+            let tag = rest.split(']').next().unwrap_or_default();
+            assert!(
+                section.contains(&format!("[{tag}]")),
+                "skip '{entry}': the divergence [{tag}] is not listed under Known divergences in ACCEPTANCE.md"
+            );
+        } else {
+            assert!(
+                !reason.starts_with("diverges:"),
+                "skip '{entry}': a `diverges:` reason starts with its [tag]"
+            );
+        }
     }
     let mut problems = Vec::new();
     let ported: BTreeSet<&str> = ported.iter().map(String::as_str).collect();

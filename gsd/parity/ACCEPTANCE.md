@@ -68,10 +68,10 @@ Not verified:
 - No real project of gsd-core's was run through both sides; the twin is the fixture `taskboard`.
 - The commands the program docs name were checked with `--help` only (`publish` needs the network), not each on a
   temp project.
-- The "ported" lists of the guards, read-guard and write-guard suites (`hooks/guards/tests.rs`) are written by hand
-  next to their assertions; the isolation, community, opt-in and secret-guard suites derive theirs from the assertions
-  (`port(...)` after each one). An accounted skip carries one of D-r44-2's six reasons or `diverges:`, the one
-  amendment, for a difference listed under "Known divergences".
+- The "ported" lists of every hook suite are written by hand next to their assertions (`port(...)` after each one);
+  `accounting::account` checks each list against the vendored suite's titles, both ways. An accounted skip carries one
+  of D-r44-2's six reasons or `diverges: [tag]`, the one amendment, for a difference listed under "Known divergences"
+  by the same `[tag]`; the accounting fails on a tag that section does not hold.
 - `hooks-opt-in.test.cjs` (80 cases) is vendored and accounted: a case is ported when it decides a `validate_commit` verdict,
   and skipped with a reason when it tests the installer, the opt-in, bash's word handling, or one of two divergences.
 - A `statusline.rs.bak` was committed in `0ba3b8c0b` and removed in `d665cd81b`; it is absent at HEAD and the history
@@ -80,17 +80,24 @@ Not verified:
 ## Known divergences (named, not fixed)
 
 - The statusline is plain text (no colour: the kernel escapes control characters). `show_git` and
-  `show_state_freshness` are inert.
+  `show_state_freshness` are inert. `[update-banner]` The update banner is dropped (D-r44-13): specforge updates
+  extensions through its lockfile. `[statusline-metrics]` Upstream's context monitor reads metrics the statusline
+  writes to a bridge file; here the statusline computes them and the meter's arithmetic is tested with the statusline.
 - Injection scanning is advisory; `security.injection_blocking` belongs to `@gsd/security`, which a hook cannot read.
-- The context monitor has no stopped-at record and no Stop or SubagentStop rows; the workflow marker lasts the session.
-- `write_guard` measures bytes, not lines; `worktree_path_guard` is path based (case and relative paths are seen; a
+- The context monitor has no stopped-at record (`[stopped-at]`: /gsd-pause-work records it) and no Stop or SubagentStop rows; the workflow marker lasts the session.
+- `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` is path based (case and relative paths are seen; a
   symlink into the main checkout is not: K20).
 - `agent_isolation_guard` allows every dispatch: `@gsd/core` runs its executors one after another in the checkout, as
   upstream's sentinel `none` does, so there is no worktree isolation to demand (REVIEW-r44 C1). Its line is written for
   Cursor too and does nothing there.
+- `[no-sentinel]` The write, read and workflow guards have no override environment variable and no sentinel file
+  (D-r44-7).
+- `[sanitize-reason]` The isolation guard's reason interpolates only a subagent type from a fixed set, so upstream's
+  `sanitizeForReason` has nothing to do.
 - `validate_commit` lets `-F` and `--fixup` commits through (they have no message on the command line); a literal
   `fixup! ...` subject is allowed, which upstream does not do; `git commit -m $MSG` (unquoted) is blocked where
-  upstream lets it through. A heredoc message with no terminator line is judged by its opener (upstream's capture can
+  upstream lets it through (`[unquoted-m]`, which also covers `-m "" -m "fix: x"`). `[dquoted-heredoc-tag]` A `<<"TAG"`
+  heredoc resolves, where upstream's capture cannot deliver it and blocks it. `[truncated-heredoc]` A heredoc message with no terminator line is judged by its opener (upstream's capture can
   hand a cut body whose first line is complete, and resolves it).
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
