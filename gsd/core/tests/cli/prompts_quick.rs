@@ -177,3 +177,102 @@ fn quick_skips_the_code_reviewer() {
     let steps = rendered["payload"]["steps"].as_array().expect("steps");
     assert!(steps.iter().all(|s| s["id"] != "code_review"));
 }
+
+/// REVIEW-r43 M12: each batch item gets its own quick id (`<yymmdd>-<3 base-36>`, what `gsd/W323` checks) and keeps its
+/// task text without the list marker; a batch of fewer than two items is refused.
+#[test]
+fn the_batch_makes_one_quick_id_per_item() {
+    // the step file is read on demand by the agent, so it is not part of the render: read the asset itself
+    let step = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/gsd-core/workflows/quick-batch/steps/batch-init.md"
+    ))
+    .expect("the batch-init step");
+    let line = step
+        .lines()
+        .find(|l| l.starts_with("QB_ITEMS="))
+        .expect("the batch-init line")
+        .to_string();
+    let run = |items: &str| {
+        let dir = tempfile::tempdir().expect("a dir");
+        std::fs::write(dir.path().join("tasks.txt"), items).expect("write");
+        std::process::Command::new("bash")
+            .args([
+                "-c",
+                &format!("TASK_FILE=tasks.txt\n{line}\necho \"$QB_CREATE_JSON\""),
+            ])
+            .current_dir(dir.path())
+            .output()
+            .expect("bash")
+    };
+    let out = run("- Fix login\n* Add search\n\n1. Trim titles\n");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout)
+        .unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&out.stdout)));
+    let items = json["manifest"]["items"].as_array().expect("items");
+    let tasks: Vec<&str> = items
+        .iter()
+        .map(|i| i["task"].as_str().expect("a task"))
+        .collect();
+    assert_eq!(tasks, ["Fix login", "Add search", "Trim titles"]);
+    let id = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
+    for item in items {
+        assert!(
+            id.is_match(item["quickId"].as_str().expect("an id")),
+            "{item}"
+        );
+    }
+    let one = run("- Only one\n");
+    assert!(
+        String::from_utf8_lossy(&one.stdout).trim().is_empty(),
+        "{one:?}"
+    );
+}
+
+/// REVIEW-r43 M7: the typed arguments render as options (`--list`, `--status "abc"`), so the dispatch reads options, and
+/// `--task` / `--tasks` are named as the description and the task list.
+#[test]
+fn quick_dispatches_on_the_option_forms() {
+    let p = twin();
+    for (args, shown) in [
+        (vec!["--list"], "<arguments>--list</arguments>"),
+        (
+            vec!["--status", "abc"],
+            "<arguments>--status \"abc\"</arguments>",
+        ),
+        (
+            vec!["--resume", "abc"],
+            "<arguments>--resume \"abc\"</arguments>",
+        ),
+        (
+            vec!["--task", "trim"],
+            "<arguments>--task \"trim\"</arguments>",
+        ),
+    ] {
+        let text = text_of(&payload(&prompt(&p, "quick", &args, "claude-code")));
+        assert!(text.contains(shown), "{args:?}: no {shown}");
+        for word in [
+            "holds `--list`",
+            "holds `--status \"<slug>\"`",
+            "holds `--resume \"<slug>\"`",
+            "`--task \"...\"` carries the description",
+            "`--task \"<text>\"` → use its value as `$DESCRIPTION`",
+        ] {
+            assert!(text.contains(word), "{args:?}: no {word}");
+        }
+        assert!(!text.contains("starts with \"list\""));
+    }
+    let batch = text_of(&payload(&prompt(
+        &p,
+        "quick_batch",
+        &["--tasks", "a; b"],
+        "claude-code",
+    )));
+    assert!(batch.contains("the value of `--tasks \"<text>\"`"));
+    let fast = text_of(&payload(&prompt(
+        &p,
+        "fast",
+        &["--task", "x"],
+        "claude-code",
+    )));
+    assert!(fast.contains("the value of `--task \"<text>\"`"));
+}

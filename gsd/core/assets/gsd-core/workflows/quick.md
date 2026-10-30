@@ -35,7 +35,7 @@ Parse `$ARGUMENTS` for:
 - `--validate` flag → store `$VALIDATE_MODE=true`
 - `--discuss` flag → store `$DISCUSS_MODE=true`
 - `--research` flag → store `$RESEARCH_MODE=true`
-- Remaining text → use as `$DESCRIPTION` if non-empty
+- `--task "<text>"` → use its value as `$DESCRIPTION` (text outside the options counts too, if non-empty)
 
 After parsing, normalize: if `$DISCUSS_MODE` and `$RESEARCH_MODE` and `$VALIDATE_MODE` are all true, set `$FULL_MODE=true`. This ensures `--discuss --research --validate` is treated identically to `--full`.
 

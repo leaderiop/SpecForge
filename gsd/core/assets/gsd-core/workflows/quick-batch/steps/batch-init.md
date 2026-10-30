@@ -12,7 +12,7 @@ grammar `parseTaskList` enforces).
 If `$TASK_FILE` is set:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-QB_CREATE_JSON=$(jq -Rn --arg id "$(date -u +%y%m%d)-batch" --rawfile items "$TASK_FILE" '{batchId: $id, manifest: {items: ($items|split("\n")|map(select(length>0))|map({quickId: ., status: "pending", wave: 0}))}}')   # quick-batch create: the batch router is not part of @gsd/core; the items are the task list, one quick plan each
+QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_JSON=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done | jq -Rn --arg id "$(date -u +%y%m%d)-batch" '{batchId: $id, manifest: {items: [inputs|split("\t")|{quickId: .[0], task: .[1], status: "pending", wave: 0}]}}')   # list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
 ```
 
 Otherwise, the inline list must land on disk first — `quick-batch create`
@@ -23,7 +23,7 @@ calling the verb.
 TASK_FILE="$(mktemp)"
 mkdir -p "$(dirname "$TASK_FILE")"
 printf '%s\n' "$INLINE_TASK_LIST" > "$TASK_FILE"
-QB_CREATE_JSON=$(jq -Rn --arg id "$(date -u +%y%m%d)-batch" --rawfile items "$TASK_FILE" '{batchId: $id, manifest: {items: ($items|split("\n")|map(select(length>0))|map({quickId: ., status: "pending", wave: 0}))}}')   # quick-batch create: the batch router is not part of @gsd/core; the items are the task list, one quick plan each
+QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_JSON=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done | jq -Rn --arg id "$(date -u +%y%m%d)-batch" '{batchId: $id, manifest: {items: [inputs|split("\t")|{quickId: .[0], task: .[1], status: "pending", wave: 0}]}}')   # list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
 rm -f "$TASK_FILE"
 ```
 
