@@ -2,7 +2,8 @@
 //! graph, and a query at the default depth of 1 returns nothing for a kind two or three hops away. Each line is run on
 //! the taskboard twin, and it must find the kinds the twin has around its subject.
 
-use std::collections::BTreeSet;
+use std::cell::RefCell;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -128,12 +129,18 @@ fn a_query_reaches_the_kinds_it_asks_for() {
         Regex::new(r#"specforge query +"?([^\s"|)`]+)"?((?: +--[a-z-]+(?: +[^\s|)`"]+)?)*)"#)
             .expect("a regex");
     let option = Regex::new(r"--([a-z-]+)(?: +([^\s|)`]+))?").expect("a regex");
+    // The assets repeat their queries: each distinct one runs once.
+    let seen = RefCell::new(HashMap::<Vec<String>, Vec<(String, String)>>::new());
     let nodes_of = |args: &[&str]| -> Vec<(String, String)> {
+        let key: Vec<String> = args.iter().map(ToString::to_string).collect();
+        if let Some(nodes) = seen.borrow().get(&key) {
+            return nodes.clone();
+        }
         let mut all = vec!["query"];
         all.extend_from_slice(args);
         all.extend_from_slice(&["--format", "brief"]);
         let run = p.run(&all);
-        json(&run)["nodes"]
+        let nodes: Vec<(String, String)> = json(&run)["nodes"]
             .as_array()
             .expect("nodes")
             .iter()
@@ -143,7 +150,9 @@ fn a_query_reaches_the_kinds_it_asks_for() {
                     n["kind"].as_str().expect("a kind").to_string(),
                 )
             })
-            .collect()
+            .collect();
+        seen.borrow_mut().insert(key, nodes.clone());
+        nodes
     };
     let kinds_of = |args: &[&str]| -> BTreeSet<String> {
         nodes_of(args).into_iter().map(|(_, kind)| kind).collect()

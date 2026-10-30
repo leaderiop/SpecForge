@@ -112,6 +112,7 @@ pub fn run_installed(p: &Project, command: &str, stdin: &str, home: &Home) -> Ru
         .arg(command)
         .current_dir(p.root())
         .env("HOME", home.path())
+        .env("SPECFORGE_WASMTIME_CACHE", super::harness::compile_cache())
         .env("PATH", path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

@@ -279,35 +279,42 @@ fn golden(host: &str, id: &str, actual: &Value) {
 
 #[test]
 fn render_goldens() {
-    for row in &ROWS {
-        let p = (row.setup)();
-        for host in HOSTS {
-            let rendered = payload(&prompt(&p, row.id, row.args, host));
-            let text = text_of(&rendered);
-            let head: Vec<&str> = text.lines().take(80).collect();
-            // the head is the same preamble in every prompt: the text after it and the end are what a change shows in
-            let lines: Vec<&str> = text.lines().collect();
-            let after = lines
-                .iter()
-                .position(|l| l.trim() == "</specforge_gsd_preamble>")
-                .map_or(0, |at| at + 1);
-            let body: Vec<&str> = lines.iter().skip(after).take(60).copied().collect();
-            let end: Vec<&str> = lines[lines.len().saturating_sub(40)..].to_vec();
-            let digest = format!("{:x}", Sha256::digest(text.as_bytes()));
-            golden(
-                host,
-                row.id,
-                &json!({
-                    "payload": rendered["payload"],
-                    "head": head,
-                    "body": body,
-                    "end": end,
-                    "lines": text.lines().count(),
-                    "bytes": text.len(),
-                    "sha256": digest,
-                }),
-            );
+    // One thread per prompt: each renders on a project of its own.
+    std::thread::scope(|scope| {
+        for row in &ROWS {
+            scope.spawn(move || render_golden(row));
         }
+    });
+}
+
+fn render_golden(row: &Row) {
+    let p = (row.setup)();
+    for host in HOSTS {
+        let rendered = payload(&prompt(&p, row.id, row.args, host));
+        let text = text_of(&rendered);
+        let head: Vec<&str> = text.lines().take(80).collect();
+        // the head is the same preamble in every prompt: the text after it and the end are what a change shows in
+        let lines: Vec<&str> = text.lines().collect();
+        let after = lines
+            .iter()
+            .position(|l| l.trim() == "</specforge_gsd_preamble>")
+            .map_or(0, |at| at + 1);
+        let body: Vec<&str> = lines.iter().skip(after).take(60).copied().collect();
+        let end: Vec<&str> = lines[lines.len().saturating_sub(40)..].to_vec();
+        let digest = format!("{:x}", Sha256::digest(text.as_bytes()));
+        golden(
+            host,
+            row.id,
+            &json!({
+                "payload": rendered["payload"],
+                "head": head,
+                "body": body,
+                "end": end,
+                "lines": text.lines().count(),
+                "bytes": text.len(),
+                "sha256": digest,
+            }),
+        );
     }
 }
 
@@ -327,29 +334,36 @@ fn every_gated_prompt_refuses_and_allows() {
         "add_tests",
         "audit_milestone",
     ];
-    for id in gated {
-        let row = ROWS.iter().find(|r| r.id == id).expect("a row");
-        let p = (row.setup)();
-        // The `discuss` project is not the twin: the stale verdict is planted on the twin's plan.
-        let p = if id == "plan_phase" || id == "ultraplan_phase" {
-            twin()
-        } else {
-            p
-        };
-        stale_plan_check(&p);
-        plus(&p);
-        let run = prompt(&p, id, row.args, "claude-code");
-        assert_ne!(run.code, 0, "{id}: {}", run.all());
-        assert!(run.all().contains("E516"), "{id}: {}", run.all());
-        p.settings(json!({}));
-        let rendered = payload(&prompt(&p, id, row.args, "claude-code"));
-        assert!(
-            rendered["payload"]["prompt"]
-                .as_str()
-                .is_some_and(|s| s.ends_with(id)),
-            "{id}"
-        );
-    }
+    // One thread per prompt: each gates a project of its own.
+    std::thread::scope(|scope| {
+        for id in gated {
+            scope.spawn(move || refuses_and_allows(id));
+        }
+    });
+}
+
+fn refuses_and_allows(id: &str) {
+    let row = ROWS.iter().find(|r| r.id == id).expect("a row");
+    let p = (row.setup)();
+    // The `discuss` project is not the twin: the stale verdict is planted on the twin's plan.
+    let p = if id == "plan_phase" || id == "ultraplan_phase" {
+        twin()
+    } else {
+        p
+    };
+    stale_plan_check(&p);
+    plus(&p);
+    let run = prompt(&p, id, row.args, "claude-code");
+    assert_ne!(run.code, 0, "{id}: {}", run.all());
+    assert!(run.all().contains("E516"), "{id}: {}", run.all());
+    p.settings(json!({}));
+    let rendered = payload(&prompt(&p, id, row.args, "claude-code"));
+    assert!(
+        rendered["payload"]["prompt"]
+            .as_str()
+            .is_some_and(|s| s.ends_with(id)),
+        "{id}"
+    );
 }
 
 #[test]
