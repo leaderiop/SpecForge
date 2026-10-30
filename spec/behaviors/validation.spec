@@ -348,6 +348,9 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "history reads the commits files through a port"
   verify unit "history reads named files at a commit in one question"
   verify unit "history reads only the specs and the ledger of a commit"
+  verify unit "a compute pass at the baseline reads the commit's files"
+  verify unit "a glob read at the baseline lists the commit's tree"
+  verify unit "the baseline reads a source file through git, and a link at the commit is unreadable"
   verify unit "check since judges history against the merge-base and refuses an unknown revision"
   verify unit "validate since judges per request"
 }

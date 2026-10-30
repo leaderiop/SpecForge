@@ -6,6 +6,7 @@
 mod agent_context;
 mod analyze;
 mod asking;
+mod baseline_sources;
 mod beside;
 mod check_surfaces;
 mod cli;

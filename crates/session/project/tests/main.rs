@@ -4,6 +4,7 @@
 )]
 
 mod assembled;
+mod baseline_reads;
 mod buffers;
 mod builtin_vocabulary;
 mod builtins;
