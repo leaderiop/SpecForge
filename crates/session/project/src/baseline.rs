@@ -411,6 +411,27 @@ impl Baseline {
                     Vec::new()
                 };
                 let failed = std::cell::RefCell::new(None);
+                // A file the tree lists and git cannot give: the baseline is used, but not cached (it may be whole later).
+                let incomplete = std::cell::Cell::new(false);
+                let sizes = |keys: &[String]| -> Vec<(String, Option<u64>)> {
+                    let asked = crate::baseline_judged::paths(within, keys);
+                    match history.sizes(place, commit, &asked) {
+                        Ok(found) => {
+                            let found: Vec<_> = keys
+                                .iter()
+                                .cloned()
+                                .zip(found.into_iter().map(|(_, size)| size))
+                                .collect();
+                            incomplete
+                                .set(incomplete.get() || found.iter().any(|(_, s)| s.is_none()));
+                            found
+                        }
+                        Err(error) => {
+                            *failed.borrow_mut() = Some(error.to_string());
+                            keys.iter().map(|key| (key.clone(), None)).collect()
+                        }
+                    }
+                };
                 let fetch = |keys: &[String]| -> Vec<(String, Option<Vec<u8>>)> {
                     let asked = crate::baseline_judged::paths(within, keys);
                     match history.blobs(place, commit, &asked) {
@@ -425,13 +446,18 @@ impl Baseline {
                         }
                     }
                 };
-                let compiled = Self::compile(env, commit.clone(), within, files, tree, &fetch);
+                let compiled =
+                    Self::compile(env, commit.clone(), within, files, tree, &sizes, &fetch);
                 // Files git could not give are not files it lacks: nothing is cached, and the baseline is unreadable.
                 if let Some(why) = failed.into_inner() {
                     return Err(format!(
                         "the files the judged rules and the compute passes read could not be read at {}: {why}",
                         commit.as_str()
                     ));
+                }
+                // Used now, read again next time: a sparse or blobless checkout may hold the missing blobs later.
+                if incomplete.get() {
+                    return Ok(Arc::new(compiled));
                 }
                 // shortcut: the cache is best effort and never pruned; prune by age if it grows.
                 if let Ok(json) = serde_json::to_vec(&compiled) {
@@ -463,6 +489,7 @@ impl Baseline {
         within: &Path,
         files: Vec<CommitFile>,
         tree: Vec<TreeEntry>,
+        sizes: crate::baseline_reads::Sizes<'_>,
         fetch: crate::baseline_judged::Fetch<'_>,
     ) -> Baseline {
         let mut texts: BTreeMap<String, String> = BTreeMap::new();
@@ -510,7 +537,7 @@ impl Baseline {
             Some(runtime) if env.registries().compute_passes().next().is_some() => {
                 let tree = tree
                     .into_iter()
-                    .filter_map(|(path, size)| Some((key_of(&path)?, size)))
+                    .filter_map(|(path, file)| Some((key_of(&path)?, file)))
                     .collect();
                 crate::baseline_reads::compute_at(
                     env,
@@ -519,7 +546,7 @@ impl Baseline {
                     &judged,
                     &tree,
                     seeded,
-                    fetch,
+                    crate::baseline_reads::Git { sizes, fetch },
                 )
             }
             _ => Default::default(),

@@ -625,6 +625,7 @@ fn re_verification_reads_the_baselines_judgements() {
             Path::new(""),
             files,
             Vec::new(),
+            &|_: &[String]| Vec::new(),
             &fetch,
         )
     };

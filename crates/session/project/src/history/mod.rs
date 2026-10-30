@@ -78,9 +78,13 @@ pub type CommitFile = (PathBuf, Vec<u8>);
 /// A file asked of a commit by name: its path, and its bytes when the commit holds it as a file.
 pub type Blob = (PathBuf, Option<Vec<u8>>);
 
-/// An entry of a commit's tree: its path from the repository's top, and its size in bytes when it is a regular file
-/// (`None` for a link or a submodule, which the host does not read at a commit).
-pub type TreeEntry = (PathBuf, Option<u64>);
+/// A file asked of a commit by name: its path, and its size in bytes when the commit holds it as a file.
+pub type Sized = (PathBuf, Option<u64>);
+
+/// An entry of a commit's tree: its path from the repository's top, and whether it is a regular file (`false` for a
+/// link or a submodule, which the host does not read at a commit). No size: a listing never looks a blob up, so it
+/// cannot fetch one (ADR 0300 D5); [`History::sizes`] asks for the few files a pass reads.
+pub type TreeEntry = (PathBuf, bool);
 
 /// What the host asks of version control. Every method is read-only, and none runs unless a project declares
 /// history.
@@ -98,13 +102,22 @@ pub trait History: Send + Sync {
         commit: &Sha,
         dir: &Path,
     ) -> Result<Vec<CommitFile>, HistoryError>;
-    /// Every entry under `dir` (from the repository's top) at `commit`, with no content: one question (ADR 0300).
+    /// Every entry under `dir` (from the repository's top) at `commit`, with no content and no size: one question
+    /// (ADR 0300).
     fn tree(
         &self,
         place: &GitPlace,
         commit: &Sha,
         dir: &Path,
     ) -> Result<Vec<TreeEntry>, HistoryError>;
+    /// The sizes of the named files (from the repository's top) at `commit`, in the order asked: `None` for one the
+    /// commit does not hold as a file or git cannot give. One question for all of them.
+    fn sizes(
+        &self,
+        place: &GitPlace,
+        commit: &Sha,
+        paths: &[PathBuf],
+    ) -> Result<Vec<Sized>, HistoryError>;
     /// The named files (from the repository's top) at `commit`, in the order asked: `None` for one the commit does
     /// not hold as a file. One question for all of them (a judged rule's file inputs, ADR 0290).
     fn blobs(

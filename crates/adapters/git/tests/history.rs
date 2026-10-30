@@ -138,7 +138,7 @@ fn history_reads_named_files_at_a_commit() {
 
 #[specforge_test(
     behavior = "read_git_baseline",
-    verify = "history lists a commit's tree with each file's size and no content"
+    verify = "history lists a commit's tree with no content and no size"
 )]
 fn history_lists_a_commits_tree() {
     if !has_git() {
@@ -162,14 +162,151 @@ fn history_lists_a_commits_tree() {
     let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
     let mut all = cli.tree(&place, &head, Path::new("")).unwrap();
     all.sort();
-    let mut expected = vec![
-        ("spec/a.spec".into(), Some(4)),
-        ("src/a.ts".into(), Some(5)),
-    ];
+    let mut expected = vec![("spec/a.spec".into(), true), ("src/a.ts".into(), true)];
     #[cfg(unix)]
-    expected.push(("src/l.ts".into(), None));
+    expected.push(("src/l.ts".into(), false));
     assert_eq!(all, expected);
     let mut under = cli.tree(&place, &head, Path::new("src")).unwrap();
     under.sort();
     assert_eq!(under, expected[1..]);
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "history gives the sizes of the named files, and a missing blob is not fetched"
+)]
+fn history_gives_the_sizes_of_the_named_files() {
+    if !has_git() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("src/a.ts"), "four\n").unwrap();
+    std::fs::write(root.join("src/b c.ts"), "xy").unwrap();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["add", "-A"]);
+    git(root, &["commit", "-q", "-m", "c1"]);
+    let cli = GitCli::default();
+    let Located::Repo(place) = cli.locate(root) else {
+        panic!("a repository");
+    };
+    let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
+    let asked: Vec<std::path::PathBuf> = ["src/a.ts", "gone.txt", "src", "src/b c.ts", "src/x\ny"]
+        .iter()
+        .map(Into::into)
+        .collect();
+    let sizes: Vec<Option<u64>> = cli
+        .sizes(&place, &head, &asked)
+        .unwrap()
+        .into_iter()
+        .map(|(_, size)| size)
+        .collect();
+    assert_eq!(sizes, [Some(5), None, None, Some(2), None]);
+}
+
+/// A blobless clone of a repository with `src/a.ts` and `src/b.ts`, with the blobs of `HEAD` removed from the checkout
+/// (`--no-checkout`): its objects count and git's version.
+fn blobless_clone(parent: &Path) -> Option<std::path::PathBuf> {
+    let origin = parent.join("origin");
+    std::fs::create_dir_all(origin.join("src")).unwrap();
+    std::fs::write(origin.join("src/a.ts"), "one\n").unwrap();
+    std::fs::write(origin.join("src/b.ts"), "three\n").unwrap();
+    git(&origin, &["init", "-q", "-b", "main"]);
+    git(&origin, &["config", "uploadpack.allowFilter", "true"]);
+    git(&origin, &["add", "-A"]);
+    git(&origin, &["commit", "-q", "-m", "c1"]);
+    let clone = parent.join("clone");
+    let url = format!("file://{}", origin.display());
+    let status = Command::new("git")
+        .args(["clone", "-q", "--no-checkout", "--filter=blob:none", &url])
+        .arg(&clone)
+        .status()
+        .ok()?;
+    status.success().then_some(clone)
+}
+
+fn missing_objects(repo: &Path) -> usize {
+    let out = Command::new("git")
+        .args(["rev-list", "--objects", "--missing=print", "HEAD"])
+        .current_dir(repo)
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter(|l| l.starts_with('?'))
+        .count()
+}
+
+/// Whether `git` knows `GIT_NO_LAZY_FETCH` (2.44).
+fn git_forbids_lazy_fetch() -> bool {
+    let out = Command::new("git").arg("--version").output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    let mut parts = text.trim().trim_start_matches("git version ").split('.');
+    let number = |p: Option<&str>| p.and_then(|p| p.parse::<u32>().ok()).unwrap_or(0);
+    (number(parts.next()), number(parts.next())) >= (2, 44)
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "history gives the sizes of the named files, and a missing blob is not fetched"
+)]
+fn a_listing_never_fetches_a_missing_blob() {
+    if !has_git() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let Some(clone) = blobless_clone(dir.path()) else {
+        return; // a git that cannot filter a clone (or file:// is refused): nothing to test
+    };
+    let before = missing_objects(&clone);
+    assert!(before >= 2, "the clone is blobless: {before}");
+    let cli = GitCli::default();
+    let Located::Repo(place) = cli.locate(&clone) else {
+        panic!("a repository");
+    };
+    let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
+    // the tree lists the files with their blobs missing, and fetches none (on any git: `ls-tree` has no `-l`)
+    let mut tree = cli.tree(&place, &head, Path::new("")).unwrap();
+    tree.sort();
+    assert_eq!(tree, [("src/a.ts".into(), true), ("src/b.ts".into(), true)]);
+    assert_eq!(missing_objects(&clone), before);
+    // asking a size looks one blob up: with GIT_NO_LAZY_FETCH (git 2.44) git answers "missing" and fetches nothing;
+    // an older git may fetch the files asked, and only those (ADR 0300 D5)
+    let asked = vec!["src/a.ts".into()];
+    let sizes = cli.sizes(&place, &head, &asked).unwrap();
+    if git_forbids_lazy_fetch() {
+        assert_eq!(sizes, [("src/a.ts".into(), None)]);
+        assert_eq!(missing_objects(&clone), before);
+    } else {
+        assert!(missing_objects(&clone) >= before - 1);
+    }
+}
+
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "git refuses a project directory that is not valid UTF-8"
+)]
+fn a_directory_that_is_not_utf8_is_refused() {
+    use std::os::unix::ffi::OsStrExt;
+    if !has_git() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("a.spec"), "one\n").unwrap();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["add", "-A"]);
+    git(root, &["commit", "-q", "-m", "c1"]);
+    let cli = GitCli::default();
+    let Located::Repo(place) = cli.locate(root) else {
+        panic!("a repository");
+    };
+    let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
+    // a mangled pathspec would list nothing, and every file would read as absent
+    let odd = Path::new(std::ffi::OsStr::from_bytes(b"caf\xe9"));
+    let why = cli.files(&place, &head, odd).expect_err("refused");
+    assert!(why.0.contains("UTF-8"), "{why}");
+    cli.tree(&place, &head, odd).expect_err("refused");
 }

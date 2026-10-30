@@ -154,6 +154,10 @@ fn a_file_git_cannot_give_is_unreadable_at_the_baseline() {
     let runtime = Arc::new(scan_runtime());
     baseline_of(&project, &runtime, &fake);
     let input = pass_input(&runtime, "scan");
+    // A file over the cap is sized, never fetched; a file git cannot give is asked once.
+    let asked = fake.blobs_paths.lock().unwrap().clone();
+    assert!(!asked.contains(&PathBuf::from("src/big.bin")), "{asked:?}");
+    assert!(asked.contains(&PathBuf::from("src/lost.rs")), "{asked:?}");
     let facts = input["files"]["modified"]["facts"].as_array().unwrap();
     let seen: Vec<(&str, bool, &str)> = facts
         .iter()
@@ -198,9 +202,25 @@ fn a_baseline_compiles_to_the_same_bytes_twice() {
                 .zip(found.into_iter().map(|(_, bytes)| bytes))
                 .collect::<Vec<_>>()
         };
+        let sizes = |keys: &[String]| {
+            let asked: Vec<PathBuf> = keys.iter().map(PathBuf::from).collect();
+            let found = History::sizes(&fake, &place, &sha, &asked).unwrap();
+            keys.iter()
+                .cloned()
+                .zip(found.into_iter().map(|(_, size)| size))
+                .collect::<Vec<_>>()
+        };
         let files = History::files(&fake, &place, &sha, Path::new("")).unwrap();
         let tree = History::tree(&fake, &place, &sha, Path::new("")).unwrap();
-        let baseline = Baseline::compile(&env, sha.clone(), Path::new(""), files, tree, &fetch);
+        let baseline = Baseline::compile(
+            &env,
+            sha.clone(),
+            Path::new(""),
+            files,
+            tree,
+            &sizes,
+            &fetch,
+        );
         (
             serde_json::to_vec(&baseline).unwrap(),
             pass_input(&runtime, "scan"),
@@ -212,5 +232,156 @@ fn a_baseline_compiles_to_the_same_bytes_twice() {
     assert_eq!(
         first_input["files"]["modified"],
         second_input["files"]["modified"]
+    );
+}
+
+/// `Baseline::at` of `fake`'s `HEAD` in `project`, as a result.
+fn at(
+    project: &TestProject,
+    runtime: &Arc<InProcessRuntime>,
+    fake: &FakeHistory,
+) -> Result<(), String> {
+    let env = project.environment_in(runtime.clone());
+    let Located::Repo(place) = History::locate(fake, project.root()) else {
+        panic!("a repository")
+    };
+    Baseline::at(&env, fake, &place, &Sha::new("c".repeat(40))).map(|_| ())
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a baseline git could not fully read is used and not cached, and a tree error is not cached"
+)]
+fn a_baseline_git_could_not_fully_read_is_not_cached() {
+    let project = gsd_facts_project();
+    let spec = project.read("a.spec").replace(
+        "[\"src/lib.rs\", \"docs/gone.md\"]",
+        "[\"src/lib.rs\", \"src/lost.rs\"]",
+    );
+    project.write("a.spec", &spec);
+    let runtime = Arc::new(scan_runtime());
+    let mut fake = commit(&project);
+    // the tree lists a file whose blob git does not have (a blobless clone)
+    fake.lost = vec![PathBuf::from("src/lost.rs")];
+    at(&project, &runtime, &fake).expect("a baseline");
+    at(&project, &runtime, &fake).expect("a baseline");
+    assert_eq!(fake.trees_asked(), 2, "read again: the blob may come later");
+    // a tree git could not list is an unreadable baseline, never an empty one
+    let project = gsd_facts_project();
+    let mut fake = commit(&project);
+    fake.tree_fail = Some(specforge_project::history::HistoryError("no tree".into()));
+    let why = at(&project, &runtime, &fake).expect_err("an unreadable baseline");
+    assert!(why.contains("no tree"), "{why}");
+    at(&project, &runtime, &fake).expect_err("still unreadable");
+    assert_eq!(fake.trees_asked(), 2);
+    // a complete baseline is read once
+    let project = gsd_facts_project();
+    let fake = commit(&project);
+    at(&project, &runtime, &fake).expect("a baseline");
+    at(&project, &runtime, &fake).expect("a baseline");
+    assert_eq!(fake.trees_asked(), 1);
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a project in a subdirectory of the repository reads its own files at the baseline"
+)]
+fn a_subdirectory_project_reads_its_own_files() {
+    let project = gsd_facts_project();
+    let top = project.root().parent().unwrap().to_path_buf();
+    let dir = PathBuf::from(project.root().file_name().unwrap());
+    let mut fake = FakeHistory::repo(
+        &top,
+        &"c".repeat(40),
+        vec![(dir.join("a.spec"), project.read("a.spec").into_bytes())],
+    );
+    fake.blobs = vec![(dir.join("src/lib.rs"), b"pub fn old() {}\n".to_vec())];
+    // another project's file at the same relative path is not ours
+    fake.listed = vec![(PathBuf::from("other/src/lib.rs"), Some(1))];
+    let runtime = Arc::new(scan_runtime());
+    at(&project, &runtime, &fake).expect("a baseline");
+    let input = pass_input(&runtime, "scan");
+    let lib = &input["files"]["modified"]["facts"][1];
+    assert_eq!(lib["path"], "src/lib.rs");
+    assert_eq!(lib["text"], "pub fn old() {}\n", "{lib}");
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a path only a computed value names is read in a later run, and a short answer ends the loop"
+)]
+fn a_path_only_a_computed_value_names_is_read_in_a_later_run() {
+    let project = gsd_facts_project();
+    let wire = json!([
+        {"name": "phase", "keyword": "phase", "fields": [{"name": "criteria", "field_type": "string_list"}]},
+        {"name": "plan", "keyword": "plan", "fields": [
+            {"name": "phase", "field_type": "reference", "target_kind": "phase"},
+            {"name": "files_modified", "field_type": "string_list"},
+            {"name": "touched", "field_type": "string_list", "writer": "computed"},
+        ]},
+    ]);
+    let passes = json!([
+        {"name": "first", "phase": "compute", "baseline": ["plan"], "computes": ["plan.touched"]},
+        {"name": "second", "phase": "compute", "baseline": ["plan"], "reads": [
+            {"name": "touched", "field": "plan.touched", "text": true},
+        ]},
+    ]);
+    let none = json!({"diagnostics": [], "summary": {}, "values": []});
+    let first = json!({"diagnostics": [], "summary": {}, "values": [
+        {"entity": "pl1", "field": "touched", "value": ["src/lib.rs"]},
+    ]});
+    let ok = |value: &Value| specforge_wasm::WasmCallResult::Ok(value.to_string().into_bytes());
+    let runtime = Arc::new(
+        InProcessRuntime::new()
+            .with(move || {
+                let mut c = specforge_extension_sdk::prelude::ContributionsBuilder::new(
+                    specforge_extension_sdk::prelude::ExtensionMeta::new("@t/facts", "1.0.0"),
+                );
+                c.raw_category(
+                    specforge_extension_sdk::DeclaredCategory::Entities,
+                    wire.clone(),
+                );
+                c.raw_category(
+                    specforge_extension_sdk::DeclaredCategory::Passes,
+                    passes.clone(),
+                );
+                c
+            })
+            .answer_raw("@t/facts", "__pass_first", ok(&first))
+            .answer_raw("@t/facts", "__pass_second", ok(&none)),
+    );
+    let fake = commit(&project);
+    at(&project, &runtime, &fake).expect("a baseline");
+    let input = pass_input(&runtime, "second");
+    let lib = &input["files"]["touched"]["facts"][0];
+    assert_eq!(lib["path"], "src/lib.rs");
+    assert_eq!(lib["text"], "pub fn old() {}\n", "{lib}");
+    assert_eq!(fake.blobs_asked(), 1);
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a path only a computed value names is read in a later run, and a short answer ends the loop"
+)]
+fn a_short_answer_from_git_ends_the_loop() {
+    let project = gsd_facts_project();
+    let runtime = Arc::new(scan_runtime());
+    let env = project.environment_in(runtime.clone());
+    let files = vec![("a.spec".into(), project.read("a.spec").into_bytes())];
+    let tree = vec![("a.spec".into(), true), ("src/lib.rs".into(), true)];
+    // sizes and bytes both answer nothing for the file asked: it reads unreadable, and the run ends
+    Baseline::compile(
+        &env,
+        Sha::new("c".repeat(40)),
+        Path::new(""),
+        files,
+        tree,
+        &|_: &[String]| Vec::new(),
+        &|_: &[String]| Vec::new(),
+    );
+    let input = pass_input(&runtime, "scan");
+    assert_eq!(
+        input["files"]["modified"]["facts"][1]["error"],
+        "unreadable"
     );
 }
