@@ -79,10 +79,3 @@ pub const HOOK_ROSTER: &[(&str, Disposition)] = &[
     ),
     ("gsd-write-guard.js", Hooks(&["write_guard"])),
 ];
-
-/// The ported files whose hooks are not declared yet. Each ticket deletes its rows; the last one deletes the const.
-pub const NOT_YET_HOOKED: &[&str] = &[
-    "gsd-phase-boundary.sh",
-    "gsd-session-state.sh",
-    "gsd-validate-commit.sh",
-];

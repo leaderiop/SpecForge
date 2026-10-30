@@ -548,3 +548,15 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook and its t
 | `tests/gsd-statusline.test.cjs` | `9c32c96b38c83c242440d40c76a7399422cab3367c1ba349510d86640f7cf9c3` |
 | `tests/gsd-statusline-state.property.test.cjs` | `53b9ab7bb6b293de821b75d4488c9c31c530efeaeda6840c4e80b80d6dee43e6` |
 | `tests/gsd-statusline-git.property.test.cjs` | `51b79c73a60510cc905027f56d1d8407462eed110a5b1d50e0ad966920f64c54` |
+
+## r44 T7: validate-commit, phase-boundary, session-state
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three opt-in community scripts and the two suites that spawn the commit validator (read by `gsd/core/src/hooks/community/tests.rs`). The scripts have no unit suite of their own; their branches are the cases of that module. The validator's `lib/git-cmd.js` is not vendored: the host classifies the command (`pre_commit`) and hands the hook the message.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-validate-commit.sh` | `75ab1d087f17f7e57cf7cf7e8a54ebe2b11503868ae6aaa1b5c6aacbfa24c55b` |
+| `hooks/gsd-phase-boundary.sh` | `ff5a1f242b31f689dc8c856d508b5a9bc4a9c4713c096745f429aa7bab22237d` |
+| `hooks/gsd-session-state.sh` | `e7c8f2a8a973e95463804234c87c563bb86678209f5275494fcbe3095f4033cb` |
+| `tests/gsd-validate-commit-crash-policy.test.cjs` | `ff75f854974e02751cdff9a432a96c2c488bfbf6f96d58fd13d90b68939dfc92` |
+| `tests/gsd-validate-commit-sigpipe.test.cjs` | `715248bb17b0ed93c4ec04a9acdc47e60a5809695b776171c96a346716d6f78b` |

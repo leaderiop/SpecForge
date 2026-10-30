@@ -25,6 +25,7 @@ mod execute_rules;
 mod execute_status;
 mod gates;
 mod harness;
+mod hooks_community;
 mod hooks_context;
 mod hooks_guards;
 mod hooks_isolation;

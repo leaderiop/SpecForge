@@ -32,6 +32,8 @@ pub struct Facts<'a> {
     pub now: String,
     /// `user_prompt`: what the user typed.
     pub prompt: Option<String>,
+    /// `pre_commit`: the message `-m` gives; none when the commit takes it from elsewhere.
+    pub commit_message: Option<String>,
     /// A hook that declares `reads_state`: the session's state (none: no session, or none sent).
     pub session_state: Option<serde_json::Map<String, Value>>,
     /// The host's session, if it names one.
@@ -70,6 +72,7 @@ impl<'a> Facts<'a> {
             response: f.response.clone(),
             now: call.now().to_string(),
             prompt: f.prompt.clone(),
+            commit_message: f.commit.as_ref().and_then(|c| c.message.clone()),
             session_state: f.state.as_ref().and_then(|s| s.session.clone()),
             session: f.session.clone(),
             status: f.status.clone(),

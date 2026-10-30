@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use gsd_core::build;
-use gsd_core::hooks::roster::{Disposition, HOOK_ROSTER, NOT_YET_HOOKED};
+use gsd_core::hooks::roster::{Disposition, HOOK_ROSTER};
 use gsd_core::prompts::roster::ROSTER;
 use specforge_extension_sdk::SettingsItem;
 use specforge_extension_sdk::testing::MockHost;
@@ -62,22 +62,12 @@ fn the_hook_roster_matches_upstreams_hooks() {
             assert!(why.len() > 10, "{file}: a reason");
         }
     }
-    for file in NOT_YET_HOOKED {
-        assert!(
-            matches!(
-                HOOK_ROSTER.iter().find(|(f, _)| f == file),
-                Some((_, Disposition::Hooks(_)))
-            ),
-            "{file}"
-        );
-    }
 }
 
-/// The ids every ported file's row names, but the files not hooked yet.
+/// The ids every ported file's row names.
 fn rostered() -> BTreeSet<String> {
     HOOK_ROSTER
         .iter()
-        .filter(|(f, _)| !NOT_YET_HOOKED.contains(f))
         .flat_map(|(_, d)| match d {
             Disposition::Hooks(ids) => ids.to_vec(),
             _ => Vec::new(),

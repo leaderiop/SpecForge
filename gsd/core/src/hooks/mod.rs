@@ -3,6 +3,7 @@
 
 #[cfg(test)]
 mod accounting;
+mod community;
 mod context;
 #[cfg(test)]
 mod corpus;
@@ -25,4 +26,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     workflow::declare(c);
     context::declare(c);
     statusline::declare(c);
+    community::declare(c);
 }
