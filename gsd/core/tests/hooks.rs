@@ -44,12 +44,12 @@ fn the_hook_roster_matches_upstreams_hooks() {
     let count = |f: fn(&Disposition) -> bool| HOOK_ROSTER.iter().filter(|(_, d)| f(d)).count();
     assert_eq!(
         count(|d| matches!(d, Disposition::Hooks(_))),
-        13,
+        12,
         "ported files"
     );
     assert_eq!(
         count(|d| matches!(d, Disposition::Dropped(_))),
-        10,
+        11,
         "dropped files (7 not ported, and the 3 Cursor renderings no hook feeds)"
     );
     assert_eq!(
@@ -245,16 +245,14 @@ fn no_hook_names_an_unknown_command() {
 #[test]
 fn a_cursor_rendering_row_has_its_line_in_the_cursor_install() {
     const GOLDEN: &str = include_str!("golden/install/cursor/hooks.json");
-    const COMMUNITY: &str = include_str!("../src/hooks/community.rs");
     for (file, d) in HOOK_ROSTER {
         if let Disposition::Rendering("cursor") = d {
             match *file {
                 "gsd-cursor-pre-tool.js" => assert!(GOLDEN.contains("\"preToolUse\""), "{file}"),
                 "gsd-cursor-post-tool.js" => assert!(GOLDEN.contains("\"postToolUse\""), "{file}"),
-                // the session start is the community hook's, off at install and so not in the golden
-                "gsd-cursor-session-start.js" => {
-                    assert!(COMMUNITY.contains("HookEvent::SessionStart"), "{file}")
-                }
+                // the session start is the community hook's, off at install: `cursor_renders_the_session_start_of_the_community_hook`
+                // (cli/install_hosts.rs) installs with it on and reads the installed hooks.json
+                "gsd-cursor-session-start.js" => {}
                 other => panic!("{other}: a Cursor row with no rendered event"),
             }
         }

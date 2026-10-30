@@ -24,7 +24,9 @@ const WINDSURF: &str = "windsurf";
 pub const HOOK_ROSTER: &[(&str, Disposition)] = &[
     (
         "gsd-agent-isolation-guard.js",
-        Hooks(&["agent_isolation_guard"]),
+        Dropped(
+            "no worktree isolation until the `specforged` harness: @gsd/core runs its executors in the checkout, so the guard would always allow",
+        ),
     ),
     ("gsd-check-update-worker.js", Dropped(UPDATES)),
     ("gsd-check-update.js", Dropped(UPDATES)),

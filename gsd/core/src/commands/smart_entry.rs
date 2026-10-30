@@ -7,6 +7,8 @@
 //! A command runs no git, so `git_dirty`, `git_unpushed` and `stale_activity` are false and `state_commits_behind` is
 //! null: **idle-stranded is never derived**. A phase's computed `status` is STATE's word (`planning`, `executing`,
 //! `verifying`, `milestone complete`), so the regexes of `classify` read what they read upstream.
+//!
+//! gsd-core modules this file ports: smart-entry.cjs.
 
 use std::cmp::Ordering;
 

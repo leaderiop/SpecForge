@@ -3,8 +3,7 @@
 
 pub(super) const SKIP_FS: &str = "fs: a bridge, sentinel or watermark file's permissions, symlinks and sizes; the state is the kernel's";
 pub(super) const SKIP_EVENT: &str = "runtime: the event name and envelope a host wants are the host adapter's; this hook is post_tool only";
-pub(super) const SKIP_U53: &str =
-    "diverges: the stopped-at record is not written by a hook (U53); /gsd-pause-work records it";
+pub(super) const SKIP_U53: &str = "diverges: [stopped-at] the stopped-at record is not written by a hook (U53); /gsd-pause-work records it";
 
 pub(super) const MONITOR_SKIPPED: &[(&str, &str)] = &[
     (
@@ -26,7 +25,7 @@ pub(super) const MONITOR_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "bug #2451, #4985: bridge counts down to compaction and carries the /context tokens > ",
-        "diverges: the statusline writes the metrics; its meter arithmetic is checked with the statusline",
+        "diverges: [statusline-metrics] the statusline writes the metrics; its meter arithmetic is checked with the statusline",
     ),
     (
         "bug #925: context monitor echoes the invoking hook event name (superseded for non-injection events by #2289) > ",

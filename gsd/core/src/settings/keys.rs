@@ -6,6 +6,8 @@
 //! A default is GSD's own (`config-defaults.manifest.json`, then the capability's, then the docs); a key GSD leaves
 //! unset, or marks unset with an empty string or `-1` in a capability, has none (a `-1` lane setting is still accepted). Nothing here reads a setting: each
 //! is inert until the round that gives its behaviour (README, "Build order").
+//!
+//! gsd-core modules this file ports: config-schema.cjs.
 
 use specforge_extension_sdk::SettingBuilder;
 

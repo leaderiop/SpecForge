@@ -11,7 +11,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 |---|---|---|---|---|---|---|
 | Commands | 72 | 50 | 22 | 0 | 0 | `core/src/prompts/roster.rs` |
 | Agents | 64 | 25 | 39 | 0 | 0 | `core/src/agents/roster.rs` |
-| Hooks | 28 | 16 | 0 | 10 | 2 | `core/src/hooks/roster.rs` |
+| Hooks | 28 | 15 | 0 | 11 | 2 | `core/src/hooks/roster.rs` |
 | Capabilities | 45 | 17 | 10 | 0 | 18 | `core/README.md` capability table |
 | Workflows and references | 295 | 233 | 53 | 9 | 0 | `core/tests/parity_roster/assets.rs` |
 | CLI modules | 282 | 168 | 22 | 92 | 0 | `core/tests/parity_roster/modules.rs` |
@@ -28,8 +28,9 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   to the other extensions. The `parity_roster` check fails on a command the snapshot has and the roster lacks.
 - Agents: 25 of the 64 items (the core agents and their compact forms) are embedded and installed; the other 39 belong
   to `@gsd/ai`, `@gsd/ui`, `@gsd/codebase` and `@gsd/ops`.
-- Hooks: 16 of the 28 upstream hook items are built (13 files ported as 15 hooks of `@gsd/core`, and the 3 Cursor
-  renderings of events they port); 10 are dropped, each with its reason in `hooks/roster.rs` (7 not ported, and the
+- Hooks: 15 of the 28 upstream hook items are built (12 files ported as 14 hooks of `@gsd/core`, and the 3 Cursor
+  renderings of events they port); 11 are dropped, each with its reason in `hooks/roster.rs` (8 not ported, among them the
+  agent isolation guard, and the
   Cursor `stop`, `subagent-start` and `subagent-stop` files, which no hook of ours feeds); the 2 Windsurf files are
   named and open (Windsurf is a later host). `core.spec_guard` is the kernel's and is
   wired by every install.
@@ -68,29 +69,46 @@ Not verified:
 - No real project of gsd-core's was run through both sides; the twin is the fixture `taskboard`.
 - The commands the program docs name were checked with `--help` only (`publish` needs the network), not each on a
   temp project.
-- The "ported" lists of the guards, read-guard and write-guard suites (`hooks/guards/tests.rs`) are written by hand
-  next to their assertions; the isolation, community, opt-in and secret-guard suites derive theirs from the assertions
-  (`port(...)` after each one). An accounted skip carries one of D-r44-2's six reasons or `diverges:`, the one
-  amendment, for a difference listed under "Known divergences".
+- The "ported" lists of every hook suite are written by hand next to their assertions (`port(...)` after each one);
+  `accounting::account` checks each list against the vendored suite's titles, both ways. An accounted skip carries one
+  of D-r44-2's six reasons or `diverges: [tag]`, the one amendment, for a difference listed under "Known divergences"
+  by the same `[tag]`; the accounting fails on a tag that section does not hold.
 - `hooks-opt-in.test.cjs` (80 cases) is vendored and accounted: a case is ported when it decides a `validate_commit` verdict,
   and skipped with a reason when it tests the installer, the opt-in, bash's word handling, or one of two divergences.
+- Known limits of the checks (r44 post-fix minors): `secrets.rs`'s 1 MiB limit counts bytes, not UTF-16 units, and errs
+  toward refusing; the Codex and Cursor agents and skills (130 files) are pinned by `{bytes, sha256}` in `tree.json`
+  only, with no full-text golden read by a person (a drift is caught, a wrong first blessing is not);
+  `config_keys_match_the_snapshot` checks a count, and the membership of the 211 keys is accounted by
+  `settings_roster.rs`; a refused install can still write `.mcp.json` (claude) or `hooks.json` (codex), and the kernel's
+  error and hint text for a wrong-shape host config or an edited file on uninstall is not ours (kernel, K20).
 - A `statusline.rs.bak` was committed in `0ba3b8c0b` and removed in `d665cd81b`; it is absent at HEAD and the history
   is not rewritten.
 
 ## Known divergences (named, not fixed)
 
 - The statusline is plain text (no colour: the kernel escapes control characters). `show_git` and
-  `show_state_freshness` are inert.
+  `show_state_freshness` are inert. `[update-banner]` The update banner is dropped (D-r44-13): specforge updates
+  extensions through its lockfile. `[statusline-metrics]` Upstream's context monitor reads metrics the statusline
+  writes to a bridge file; here the statusline computes them and the meter's arithmetic is tested with the statusline.
 - Injection scanning is advisory; `security.injection_blocking` belongs to `@gsd/security`, which a hook cannot read.
-- The context monitor has no stopped-at record and no Stop or SubagentStop rows; the workflow marker lasts the session.
-- `write_guard` measures bytes, not lines; `worktree_path_guard` is path based (case and relative paths are seen; a
+- The context monitor has no stopped-at record (`[stopped-at]`: /gsd-pause-work records it) and no Stop or SubagentStop rows; the workflow marker lasts the session.
+- `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` is path based (case is seen; a
   symlink into the main checkout is not: K20).
-- `agent_isolation_guard` allows every dispatch: `@gsd/core` runs its executors one after another in the checkout, as
-  upstream's sentinel `none` does, so there is no worktree isolation to demand (REVIEW-r44 C1). Its line is written for
-  Cursor too and does nothing there.
+- `[stricter-relative-path]` `worktree_path_guard` also refuses a relative path that climbs out of the worktree into the
+  main checkout (`../../../src/a.ts`), which upstream allows (its guard lets every relative `file_path` through); this
+  is deliberate, for the bug the guard exists for (#260), and stricter than upstream. (REVIEW-r44 M4 had said upstream
+  denies it; it does not.)
+- `[no-isolation-guard]` There is no `agent_isolation_guard`: `@gsd/core` runs its executors one after another in the
+  checkout, as upstream's sentinel `none` does, so there is no worktree isolation to demand and the guard would always
+  allow (REVIEW-r44 C1). Not installing it saves every `Agent`/`Task` dispatch a process; `gsd-agent-isolation-guard.js`
+  is dropped in the roster, until the `specforged` harness runs executors in worktrees.
+- `[no-sentinel]` The write, read and workflow guards have no override environment variable and no sentinel file
+  (D-r44-7).
 - `validate_commit` lets `-F` and `--fixup` commits through (they have no message on the command line); a literal
   `fixup! ...` subject is allowed, which upstream does not do; `git commit -m $MSG` (unquoted) is blocked where
-  upstream lets it through.
+  upstream lets it through (`[unquoted-m]`, which also covers `-m "" -m "fix: x"`). `[dquoted-heredoc-tag]` A `<<"TAG"`
+  heredoc resolves, where upstream's capture cannot deliver it and blocks it. `[truncated-heredoc]` A heredoc message with no terminator line is judged by its opener (upstream's capture can
+  hand a cut body whose first line is complete, and resolves it).
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
   RED before it and is silent otherwise) and `prohibition-enforcement-request-file-judgment-mode` (upstream flags a

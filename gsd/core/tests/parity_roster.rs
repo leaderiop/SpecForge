@@ -311,8 +311,7 @@ fn cli_modules_match_the_snapshot() {
                     .take_while(|l| l.starts_with("//!") || l.is_empty())
                     .collect::<Vec<_>>()
                     .join("\n");
-                let stem = pattern.trim_end_matches('*').trim_end_matches(".cjs");
-                if !header.contains(stem) {
+                if !header_names(&header, pattern) {
                     uncited.push(format!("{pattern} -> {file}"));
                 }
             }
@@ -396,6 +395,43 @@ fn config_keys_match_the_snapshot() {
     assert_eq!(keys.len(), 211);
 }
 
+/// Whether `header` names the module `pattern` (`phase.cjs`, or a prefix row `profile*`) as a whole file name: the
+/// file name stands at a word start (after a space, `/`, a backtick or a comma) and, for an exact row, ends there too
+/// (REVIEW-r44 post-fix N4: a substring matched prose words and other modules).
+fn header_names(header: &str, pattern: &str) -> bool {
+    let (stem, prefix) = match pattern.strip_suffix('*') {
+        Some(p) => (p, true),
+        None => (pattern, false),
+    };
+    header.match_indices(stem).any(|(at, _)| {
+        let before = header[..at].chars().next_back();
+        let after = header[at + stem.len()..].chars().next();
+        before.is_none_or(|c| matches!(c, ' ' | '/' | '`' | ',' | '(' | '\n'))
+            && (prefix
+                || after.is_none_or(|c| !(c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))))
+    })
+}
+
+#[test]
+fn a_header_names_a_module_as_a_whole_file_name() {
+    let header = "//! Ported from gsd-core v1.18.0 bin/lib/state.cjs and phase.cjs, MIT; the phase of a plan";
+    assert!(header_names(header, "phase.cjs") && header_names(header, "state.cjs"));
+    assert!(!header_names(header, "verify.cjs") && !header_names(header, "phas.cjs"));
+    assert!(
+        !header_names("//! the phase.cjsx file", "phase.cjs")
+            && !header_names("//! the phase-id.cjs", "phase.cjs")
+    );
+    assert!(header_names("//! ports phase.cjs.", "phase.cjs"));
+    assert!(header_names(
+        "//! Ported from profile-output.cjs",
+        "profile*"
+    ));
+    assert!(
+        !header_names("//! a profile of the user", "profile.cjs")
+            && !header_names("//! the phase of it", "phase.cjs")
+    );
+}
+
 const ACCEPTANCE: &str = include_str!("../../parity/ACCEPTANCE.md");
 const PARITY_README: &str = include_str!("../../parity/README.md");
 
@@ -431,7 +467,7 @@ fn the_acceptance_counts_match() {
         );
     }
     // the totals the plan names
-    assert_eq!(accept::hooks(), [28, 16, 0, 10, 2]);
+    assert_eq!(accept::hooks(), [28, 15, 0, 11, 2]);
     assert_eq!(accept::capabilities(), [45, 17, 10, 0, 18]);
     assert_eq!(accept::gate_cutover(), [171, 92, 51, 14, 14]);
     assert_eq!(accept::codes(), [63, 61, 0, 0, 2]);

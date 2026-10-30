@@ -1,5 +1,7 @@
 //! The milestone audit (`spec/verify.md`): what `/gsd-audit-milestone` found. Its gaps, counts and status are
 //! computed; only a person accepts its tech debt. `integration` is the integration checker's verdict (gsd/E518).
+//!
+//! gsd-core modules this file ports: audit.cjs.
 
 use super::dsl::*;
 

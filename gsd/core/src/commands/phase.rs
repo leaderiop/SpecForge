@@ -5,6 +5,8 @@
 //!
 //! Also ports gsd-core bin/lib modules: phase-estimation.cjs, phase-id-card.cjs, phase-id-display.cjs, phase-
 //! id.cjs, phase-lifecycle.cjs, phase-locator.cjs, phase-status.cjs.
+//!
+//! gsd-core modules this file ports: phase-id.cjs, phase.cjs.
 
 mod promote;
 mod remove;

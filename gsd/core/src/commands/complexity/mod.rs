@@ -6,6 +6,8 @@
 //! in the disposed `refactor_proposal`s and the files in the plan's `files_modified`.
 //!
 //! Also ports gsd-core bin/lib modules: clusters.cjs, estimate-cli.cjs.
+//!
+//! gsd-core modules this file ports: complexity-trigger.cjs.
 
 mod scan;
 mod strip;

@@ -3,6 +3,8 @@
 //! the audit it closed on and, when the milestone has none, creates its retrospective.
 //!
 //! Also ports gsd-core bin/lib modules: milestone-lock.cjs.
+//!
+//! gsd-core modules this file ports: milestone.cjs.
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;

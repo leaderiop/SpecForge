@@ -1,6 +1,8 @@
 //! `surface` (D-r41-13, U31): which skills are shown. Upstream's `/gsd:surface` switches a cluster without a
 //! reinstall; a SpecForge command cannot write a setting, so `list` and `status` report each cluster's setting and
 //! the others print the exact `specforge settings` and `specforge install` lines that do it.
+//!
+//! gsd-core modules this file ports: surface.cjs.
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;

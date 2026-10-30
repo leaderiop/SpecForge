@@ -3,8 +3,9 @@
 //! The two suites spawn the shell script; here the verdict is a function of the message. What they test of the verdict
 //! (a conforming and a non-conforming commit, an unknown type, a configured type, the last of a very long list) is
 //! ported; what they test of bash, node, the environment and the copying of the hooks directory is skipped with its
-//! reason. The script's own branches (the types, the scope, the limit, `hooks.commit_types`, fixup and squash) and the
-//! two hooks that have no suite follow.
+//! reason. Tests of our own follow for the script's branches that no upstream suite covers (the types, the scope, the
+//! limit, `hooks.commit_types`, fixup and squash) and for `phase_boundary` and `session_state`. The opt-in suite
+//! (`hooks-opt-in.test.cjs`) is accounted in `opt_in.rs`, and `resolveCommitSubject`'s cases in `isolation/tests.rs`.
 
 use serde_json::json;
 
@@ -452,4 +453,147 @@ fn without_a_project_a_session_is_pointed_at_new_project() {
         );
         assert!(ctx.contains("\"mode\": \"interactive\""), "{ctx}");
     }
+}
+
+/// Upstream's `resolveCommitSubject` cases (worktree-safety.test.cjs, `git-cmd.js resolveCommitSubject`): what the
+/// helper returns is `subject_of` here. Returned for `isolation/tests.rs`, which accounts that suite.
+pub(in crate::hooks) fn resolve_subject_ported() -> Vec<String> {
+    const D: &str = "git-cmd.js resolveCommitSubject > ";
+    let mut ported = Vec::new();
+    let mut port = |title: &str| ported.push(format!("{D}{title}"));
+    let sub = |open: &str, body: &str, close: &str| format!("$(cat {open}\n{body}\n{close}\n)");
+    let r = |m: &str| subject_of(m, "").to_string();
+
+    assert_eq!(
+        r(&sub("<<'EOF'", "feat(auth): add login flow", "EOF")),
+        "feat(auth): add login flow"
+    );
+    port("resolves the heredoc body rather than the opener");
+    assert_eq!(r("$(cat<<'EOF'\nfix: nospace\nEOF\n)"), "fix: nospace");
+    assert_eq!(r(&sub("<<\"EOF\"", "fix: dquoted", "EOF")), "fix: dquoted");
+    assert_eq!(
+        r(&sub("<<'END-MSG'", "fix: hyphen tag", "END-MSG")),
+        "fix: hyphen tag"
+    );
+    port("accepts the QUOTED opener spellings, which bash does not expand");
+    for prog in ["./cat", "../evil/cat", "x/cat"] {
+        let m = format!("$({prog} <<'EOF'\nfix: body\nEOF\n)");
+        assert_eq!(r(&m), format!("$({prog} <<'EOF'"), "{prog}");
+    }
+    port("round 4: a RELATIVE path ending in cat is not recognised");
+    assert_eq!(
+        r("$(/bin/cat <<'EOF'\nfix: pathed cat\nEOF\n)"),
+        "fix: pathed cat"
+    );
+    port("a path-qualified cat is still the same form");
+    assert_eq!(
+        r("$(cat <<-'EOF'\n\tfix(parser): strip heredoc tabs\n\tEOF\n)"),
+        "fix(parser): strip heredoc tabs"
+    );
+    port("<<- strips the leading tabs bash strips");
+    assert_eq!(r("$(cat <<'EOF'\nEOF\n)"), "");
+    assert_eq!(r("$(cat <<-'EOF'\n\tEOF\n)"), "");
+    port("an immediately-following terminator is an EMPTY message, not a subject");
+    assert_eq!(
+        r("WIP notes <<EOF\nfix: smuggled subject"),
+        "WIP notes <<EOF"
+    );
+    port("a message ENDING in <<WORD is not a heredoc — this was an enforcement bypass");
+    assert_eq!(
+        r("fix(parser): preserve literal <<EOF"),
+        "fix(parser): preserve literal <<EOF"
+    );
+    assert_eq!(
+        r("fix(parser): handle a << b shifts"),
+        "fix(parser): handle a << b shifts"
+    );
+    port("a message merely containing << is untouched");
+    for (m, opener) in [
+        (
+            "$(id;/bin/cat <<'EOF'\nfix: smuggled\nEOF\n)",
+            "$(id;/bin/cat <<'EOF'",
+        ),
+        (
+            "$(x&&/bin/cat <<'EOF'\nfix: smuggled\nEOF\n)",
+            "$(x&&/bin/cat <<'EOF'",
+        ),
+        (
+            "$(a|b/cat <<'EOF'\nfix: smuggled\nEOF\n)",
+            "$(a|b/cat <<'EOF'",
+        ),
+        (
+            "$(\u{a0}/bin/cat <<'EOF'\nfix: smuggled\nEOF\n)",
+            "$(\u{a0}/bin/cat <<'EOF'",
+        ),
+    ] {
+        assert_eq!(r(m), opener);
+    }
+    assert_eq!(
+        r("$(/usr/bin/cat <<'EOF'\nfix: pathed\nEOF\n)"),
+        "fix: pathed"
+    );
+    port("a COMMAND smuggled before the cat is not a path — recognition must fail closed");
+    assert_eq!(r("$(cat <<'EOF'\n\u{a0}\nfix: smuggled\nEOF\n)"), "\u{a0}");
+    port("a Unicode-blank first line is the SUBJECT — git keeps what trim() skips");
+    let tail = "a".repeat(200);
+    for m in [
+        format!("$(cat <<'EOF'\nfeat: ok\nEOF\n) {tail}"),
+        "$(cat <<'EOF'\nfeat: ok\nEOF\n)$(printf x)".to_string(),
+        "$(cat <<'EOF'\nEOF\n)feat: sneaky".to_string(),
+        "$(cat <<'EOF'\nfeat: ok\nEOF".to_string(),
+    ] {
+        assert_eq!(r(&m), "$(cat <<'EOF'", "{m}");
+    }
+    assert_eq!(r("$(cat <<'EOF'\nfeat: ok\nEOF\n)"), "feat: ok");
+    assert_eq!(r("$(cat <<'EOF'\nfeat: ok\nEOF\n\t) "), "feat: ok");
+    port("BLOCKER (round 3): text after the terminator is part of the real message");
+    assert_eq!(
+        r("$(cat <<'EOF'\n\nfeat: after blank\nEOF\n)"),
+        "feat: after blank"
+    );
+    assert_eq!(
+        r("$(cat <<'EOF'\n\n\n  \nfeat: after several\nEOF\n)"),
+        "feat: after several"
+    );
+    port("MINOR 1: leading blank body lines are skipped, as git does");
+    assert_eq!(
+        r("$(cat <<\\EOF\nfix: backslash tag\nEOF\n)"),
+        "fix: backslash tag"
+    );
+    port("a backslash-escaped delimiter is the same delimiter");
+    for (open, body, opener) in [
+        ("<<EOF", "fix: bare", "$(cat <<EOF"),
+        ("<< EOF", "fix: spaced", "$(cat << EOF"),
+        ("<<-EOF", "\tfix: dashed bare", "$(cat <<-EOF"),
+        ("<<EOF", "feat: $UNSET_VAR", "$(cat <<EOF"),
+    ] {
+        assert_eq!(r(&sub(open, body, "EOF")), opener, "{open}");
+    }
+    port("BLOCKER (round 4): a BARE delimiter is not resolved — bash expands that body");
+    let s72 = format!("feat: {}", "x".repeat(66));
+    assert_eq!(r(&sub("<<'EOF'", &format!("{s72}   "), "EOF")), s72);
+    assert_eq!(
+        r(&sub("<<'EOF'", "feat: tab tail\t \t", "EOF")),
+        "feat: tab tail"
+    );
+    port("MAJOR 2: trailing whitespace is stripped, as git cleanup=whitespace does");
+    assert_eq!(
+        r("$(cat <<'EOF'\r\nfeat: crlf subject\r\nEOF\r\n)"),
+        "feat: crlf subject"
+    );
+    assert_eq!(r("$(cat <<'EOF'\r\nEOF\r\n)"), "");
+    assert_eq!(r("$(cat <<'EOF'\r\nfeat: aaaa"), "$(cat <<'EOF'");
+    port("MINOR 3: CRLF bodies resolve identically to LF bodies");
+    assert_eq!(
+        r("feat(auth): add login flow"),
+        "feat(auth): add login flow"
+    );
+    assert_eq!(r("feat: subject\n\nBody paragraph."), "feat: subject");
+    port("ordinary messages pass through as their first line");
+    ported
+}
+
+#[test]
+fn resolve_commit_subject_cases_hold() {
+    assert!(resolve_subject_ported().len() > 10);
 }

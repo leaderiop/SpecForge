@@ -8,6 +8,8 @@
 //! and deviations and the subjects of its commits. `GSD_SKIP_SCHEMA_CHECK` has no counterpart: `workflow.schema_drift_gate` is it.
 //!
 //! Also ports gsd-core bin/lib modules: gate-schema-drift.cjs.
+//!
+//! gsd-core modules this file ports: schema-detect.cjs.
 
 use std::collections::BTreeMap;
 

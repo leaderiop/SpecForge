@@ -4,6 +4,8 @@
 //!
 //! As upstream: no context in the artifact's phase, or an artifact that records no digest, is not judged, and the
 //! project's research (no phase) has no context to drift from.
+//!
+//! gsd-core modules this file ports: gate-context-drift.cjs.
 
 use std::collections::BTreeMap;
 

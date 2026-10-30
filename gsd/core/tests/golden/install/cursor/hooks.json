@@ -14,9 +14,6 @@
         "command": "specforge hook gsd.prompt_guard --host cursor --event pre_tool --tools write,edit --paths 'spec/**' # specforge-install"
       },
       {
-        "command": "specforge hook gsd.agent_isolation_guard --host cursor --event pre_tool --tools agent # specforge-install"
-      },
-      {
         "command": "specforge hook gsd.worktree_path_guard --host cursor --event pre_tool --tools write,edit # specforge-install"
       },
       {

@@ -1,6 +1,8 @@
 //! The lexical part of the verifier's file checks (`agents/gsd-verifier.md:404-422`): debt markers, cleanup comments,
 //! placeholder phrases and a key link's `pattern`. Hand-written: the matching is a deterministic subset of
 //! upstream's `grep`, and says where it differs.
+//!
+//! gsd-core modules this file ports: pattern.cjs.
 
 /// How serious an anti-pattern is.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
