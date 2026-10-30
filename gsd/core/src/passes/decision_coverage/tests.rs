@@ -55,7 +55,7 @@ fn a_decision_nothing_shipped_is_w506_on_the_decision() {
 }
 
 #[test]
-fn a_summary_or_a_commit_that_names_the_decision_covers_it() {
+fn w506_a_summary_or_a_commit_that_names_the_decision_covers_it() {
     assert!(check(&input("passed", "Implements D-03", None)).is_empty());
     assert!(
         check(&input(

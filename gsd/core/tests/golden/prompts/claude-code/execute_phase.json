@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:46c84422b2c16f761737e2b6591f939c4340cb8e2385746a34894d9a52fc2da3",
-    "prompt": "@gsd/core@0.1.0:execute_phase",
+    "prompt": "@gsd/core@VERSION:execute_phase",
     "steps": [
       {
         "id": "execute",

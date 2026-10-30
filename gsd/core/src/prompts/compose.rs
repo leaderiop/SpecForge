@@ -1,6 +1,8 @@
 //! `composeWorkflow` (upstream's install, ADR-1671): a workflow is installed without its `<!-- gsd:section id=".."
 //! when=".." -->` and `<!-- /gsd:section -->` marker lines, on every runtime and before any other rewrite. Only files
 //! under `gsd-core/workflows/` are composed. The sections themselves stay: the workflow's own text says which to read.
+//!
+//! Also ports gsd-core bin/lib modules: context-predicates.cjs, prompt-budget.cjs.
 
 /// The text of the embedded file `path`, as upstream installs it: workflows lose their section marker lines.
 pub fn composed(path: &str, text: &str) -> String {

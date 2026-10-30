@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.11.0); `@gsd/core` has its foundation and its discuss, specify, research, plan and execute kinds (kinds, code book, settings, roadmap, discuss, research, plan and execute checks, and the `gsd-git` and `gsd-junit` collectors) and the other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.11.0); `@gsd/core` 1.0.0 is built and tracks gsd-core 1.18.0: its model, checks, 15 agents, 30 commands, 44 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: `gsd/W514` and `gsd/E515` are not built, hooks are 16 of 28, the `specforged` harness is later, Codex and Cursor are unrun). The other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -69,7 +69,7 @@ list fields as items, **K14** a writing call knows the time (`now`), **K15** a j
 | Parity means | The same **concepts**, the same **commands** (`/gsd-*`, by exact name) and the same **agent behaviour**. Not the same files: no `.planning/`, no export. |
 | Parity and more | Parity is the floor. The default profile `gsd-compat` behaves as GSD does; `gsd-strict` and `gsd-plus` switch on what SpecForge can do beyond GSD. |
 | Versions | Our extensions keep their own semver and declare what they track: the crate's `[package.metadata.gsd] tracks = "gsd-core@1.18.0"` and the handshake keyword `tracks:gsd-core@1.18.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
-| Upgrades | Per upstream release a diff tool (inventory manifest, `capability.json`, templates, prompts, gates) writes a parity backlog; `tracks` moves only when the [parity suite](parity/) passes. |
+| Upgrades | `gsd/parity/upgrade.sh <gsd-core-dir> <tag>` diffs the tracked tag against the new one (inventory manifest, capability ids, config manifest, changed files) and writes a parity backlog, `gsd/parity/backlog/<tag>.md`, one row per change with the table that owns it; `tracks` moves only when the [parity suite](parity/) passes. |
 | Adoption | `specforge gsd import` reads an existing `.planning/` once and writes `.spec` (edit plans). The parity suite uses it too. |
 
 ### Model
@@ -115,7 +115,7 @@ spec/gsd/
 └── ops/                              debug, threads, todos, seeds, backlog, committed pause and handoff
 specforge-harness                     digests of applied harness values (K4), committed, kept canonical by the host
 .gitattributes                        specforge-harness merge=union
-.specforge/state/gsd/                 session cursor, active workstream, harness checkpoints (git-ignored; written by the host, K9)
+.specforge/state/gsd__core/                 session cursor, active workstream, harness checkpoints (git-ignored; written by the host, K9)
 ```
 
 A plan's results are written to its own file and every edit names the revision it was planned on, so parallel
@@ -130,7 +130,7 @@ Every `capabilities/*/capability.json` of gsd-core 1.18.0 and where it lands.
 |---|---|---|
 | research, gap-analysis, pattern-mapper, assumption-delta, nyquist, tdd, schema-gate, refactor-trigger, broken-windows, audit | feature | `@gsd/core` settings and rules; broken windows also adds the `broken_window` kind |
 | drift | feature | `@gsd/codebase` (codebase drift reads the codebase map) |
-| claude-orchestration, external-job | feature | `@gsd/core` harness (`specforged`) |
+| claude-orchestration, external-job | feature | `@gsd/core` harness (`specforged`), later: only their settings keys exist |
 | code-review, mempalace, profile-pipeline | feature | `@gsd/ops` |
 | security | feature | `@gsd/security` |
 | ai-integration | feature | `@gsd/ai` |
@@ -203,8 +203,12 @@ still waits for kernel work (K19):
   is r43's). A reference is the id as written, so `3` and `03` are different spellings of the same phase.
 - **The remaining prompts (r43) leave these (K19).** A prompt cannot see other extensions' contributions, so the routers' route table and `/gsd-next` read a static roster (`src/prompts/roster.rs`) that says which extension owns a command. A prompt argument cannot be named `path` or `format` (the host reads them wherever they stand), so `/gsd-ingest-docs [path]` is `--dir`, and `/gsd-workspace` has no `--path`, `--repos`, `--strategy`, `--branch` or `--auto`. A command's answer is not host-converted, so `smart_entry` takes `--runtime`. `when` takes one setting, so `/gsd-review`, `/gsd-update` and `/gsd-ns-ideate` follow their first cluster only. A command cannot read state, so `/gsd-progress` and `/gsd-resume-work` cannot name the active workstream.
 - **What r43 leaves open.** Reports, summaries and cross-AI reviews are shown, not stored. A lesson has no phase field. `/gsd-review` has no reviewer lane machinery or prompt budget (the agent reads each reviewer CLI's `--help`). `/gsd-quick-batch`'s dispatcher, estimate calibration, sub-repository branches and workspaces are prose. `/gsd-undo` selects the commits recorded as `commit` entities, and `git revert` bypasses the host's checks, so it asks before reverting a `.spec` change that removes a person's value. `smart_entry` never says idle-stranded (a command has no git).
-- **The hooks wait for five host items (K19)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
-  a full compile, Cursor's `beforeSubmitPrompt`, and a hook reading another extension's settings.
+- **The hooks wait for five host items (K19)**: git facts in `HookInput` (the workflow guard cannot see a
+  `git add -f`, nor `validate_commit` the staged files), a `file_changed` event (settings are read on every compile instead), a hook that runs
+  without a full compile (every hook pays one), Cursor's `beforeSubmitPrompt` (`workflow_marker` is not rendered for
+  Cursor), and a hook reading another extension's settings (`injection_scanner` is advisory, because
+  `security.injection_blocking` is `@gsd/security`'s). Also open: `specforge uninstall` leaves the empty host root
+  directory (the install crate).
 - **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is
   untriaged (it answers `nothing new` and writes nothing, so a hook may call it on every phase event), as upstream
   freezes the anchor. It does not port upstream's anchor on first observation: the baseline is the score of the latest
@@ -243,9 +247,29 @@ still waits for kernel work (K19):
   field flips). K19: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
   with the predicate E502 uses; key E080's pairing by subject for pass codes; make `verification` human-only or
   harness-only.
+- **Hook facts and the install path (K19).** A hook is told the name of an out-of-project path, not its real path, so a
+  symlink into the main checkout passes `worktree_path_guard`; it is not told a commit's `--cleanup`; a hook
+  contribution cannot name its hosts (Cursor gets the isolation guard's line, which does nothing there). A broken
+  `specforge.json` makes `specforge install` strip every gsd hook, agent and skill silently with exit 0 (`check` says
+  E069); uninstall removes a user's empty `settings.json`, empty `agents/` and `skills/` directories and
+  `"mcpServers": {}`. A host without `specforge` on its PATH runs no guard.
 - **A judged code reused by a pass (K19).** The registry refuses a declarative rule that shares a judged rule's code, not
   a pass that `reports` it, nor a guard's fail-closed error for it: E080 exempts those findings (ADR 0297 D1b). No gsd
   pass reports a judged code.
+
+## What is not in the program
+
+| Not built | Why | Where it is named |
+|---|---|---|
+| The other `@gsd/*` extensions (ai, ui, codebase, ops, security and the rest) | each is its own program; the 10 capabilities, 51 gate-cutover verdicts and 35 config keys they own are listed, not built | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| Renderers for the other hosts (16 capabilities) | later install renderers | the capability table above |
+| W514 and E515 | no rule behind them yet | [ACCEPTANCE.md](parity/ACCEPTANCE.md), Codes |
+| 14 gate-cutover verdicts | 11 no twin reaches, 3 a twin answers differently | `core/tests/parity_rules/cutover.rs`, [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| Baseline re-verification | `re_verification.previous_*` and the baseline file view (K19, ADR 0300) | the K19 list above |
+| The `specforged` harness | `/gsd-autonomous` unattended; `claude-orchestration` and `external-job` have settings keys only | the capability table above |
+| The other extensions' commands and agents | 22 commands and 39 agents are owned by them | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| Codex and Cursor verified in the host | drafts until run there | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| Publishing | `specforge publish` is a user action | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 
 ## Credit
 

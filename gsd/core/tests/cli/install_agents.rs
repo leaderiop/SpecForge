@@ -6,6 +6,7 @@ use std::path::Path;
 
 use super::agents::{claude_agent, installed, split};
 use super::harness::project;
+use super::install_hosts::normalised;
 use gsd_core::agents::repointed;
 use gsd_core::agents::roster::AGENTS;
 
@@ -38,7 +39,7 @@ fn golden_of(file: &str) -> String {
     let body = body(file);
     let digest = Sha256::digest(body.as_bytes());
     out += &format!("\nbody sha256: {digest:x}\nbody bytes: {}\n", body.len());
-    out
+    normalised(&out)
 }
 
 fn check_golden(id: &str, actual: &str) {

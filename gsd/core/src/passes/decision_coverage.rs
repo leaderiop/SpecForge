@@ -3,6 +3,8 @@
 //! context`, as E310 counts them) must be mentioned by one of the phase's summaries (their text fields) or by the
 //! subject of one of its commits. It matches the way E310 does (`cross_plan::mentions`). `workflow.context_coverage_gate`
 //! off turns it off (the setting gates the code). Reading the shipped files is not done (U39).
+//!
+//! Also ports gsd-core bin/lib modules: decision-coverage-support.cjs, decisions.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

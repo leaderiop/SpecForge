@@ -1,5 +1,7 @@
 //! `update` (D-r43-16): GSD here is a SpecForge extension, so the update is `specforge update`, not the npm install
 //! upstream's workflow runs. The text is ours, English; the slash binding keeps upstream's description, hint and tools.
+//!
+//! Also ports gsd-core bin/lib modules: update-context.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

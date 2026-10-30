@@ -9,7 +9,7 @@ const PHASE: &str = "v1.0/01";
 /// The twin with its phase 01 verified (E511 passes) and an open window found in it.
 fn with_open_window() -> super::harness::Project {
     let p = taskboard();
-    assert!(p.verify_phase(PHASE) > 0);
+    assert_eq!(p.verify_phase(PHASE), 0);
     let run = gsd(
         &p,
         "record-window",
@@ -73,7 +73,7 @@ fn complete_milestone_renders_for_three_hosts() {
 #[test]
 fn ship_renders_for_three_hosts() {
     let p = taskboard();
-    assert!(p.verify_phase(PHASE) > 0);
+    assert_eq!(p.verify_phase(PHASE), 0);
     render_three_hosts(&p, "ship", &[PHASE], "01", "<objective>");
 }
 

@@ -9,7 +9,7 @@ mod milestone;
 mod phase;
 mod refactor;
 mod reference;
-mod reports;
+pub(crate) mod reports;
 pub mod smart_entry;
 mod state;
 mod support;

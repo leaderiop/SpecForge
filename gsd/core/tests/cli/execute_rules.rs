@@ -6,13 +6,13 @@ use serde_json::json;
 use crate::harness::{Project, project};
 
 const SUMMARY: &str = "v1.0/01/01-01/01-01-SUMMARY";
-const T0: &str = "2026-10-29T09:00:00Z";
-const T1: &str = "2026-10-29T09:30:00Z";
+pub(super) const T0: &str = "2026-10-29T09:00:00Z";
+pub(super) const T1: &str = "2026-10-29T09:30:00Z";
 const REQUIREMENTS: &str = "requirements_completed [TASK-01]";
 const FILES: &str = "files_modified [\"src/tasks.js\", \"test/tasks.test.js\"]";
 const STATUS: &str = "status                 complete";
 
-fn repository() -> Project {
+pub(super) fn repository() -> Project {
     let p = project("execute");
     p.commit();
     p
@@ -65,7 +65,7 @@ fn each_execute_code_fires_on_its_fixture() {
     assert_eq!(codes(&p), Vec::<String>::new());
 }
 
-fn tdd(p: &Project) {
+pub(super) fn tdd(p: &Project) {
     p.edit(
         "spec/plans.spec",
         "task T1 \"Store module\" {\n  plan   v1.0/01/01-01\n  type   auto",
@@ -159,7 +159,7 @@ fn e403_is_clean_with_a_test_commit_first() {
     assert_eq!(codes(&p), Vec::<String>::new());
 }
 
-fn touch_schema(p: &Project) {
+pub(super) fn touch_schema(p: &Project) {
     p.edit(
         "spec/plans.spec",
         FILES,
@@ -297,7 +297,7 @@ fn w407_is_on_under_gsd_strict() {
 const CHECKS: &str = "{ kind unit ref \"test/tasks.test.js#adds a task\" }";
 
 /// A JUnit report whose tests are named by `names`, each linked to the deliverable by the file it ran in.
-fn junit(p: &Project, cases: &[(&str, bool)]) {
+pub(super) fn junit(p: &Project, cases: &[(&str, bool)]) {
     let file = format!(
         "{}/test/tasks.test.js",
         p.root().canonicalize().expect("root").display()

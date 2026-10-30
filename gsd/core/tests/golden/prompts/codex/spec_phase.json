@@ -218,7 +218,7 @@
         "rule": "gsd/W203"
       }
     ],
-    "prompt": "@gsd/core@0.1.0:spec_phase",
+    "prompt": "@gsd/core@VERSION:spec_phase",
     "steps": [
       {
         "cli": "specforge gsd record-spec",

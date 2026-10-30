@@ -180,7 +180,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:ae3178987022fb5b8a2c233a655970b03492d89a6a4be2e3b2047de6a2de7e02",
-    "prompt": "@gsd/core@0.1.0:ns_project"
+    "prompt": "@gsd/core@VERSION:ns_project"
   },
   "sha256": "ae3178987022fb5b8a2c233a655970b03492d89a6a4be2e3b2047de6a2de7e02"
 }

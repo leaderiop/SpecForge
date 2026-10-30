@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:879a14c2e5a993af7a4f6ac8561e43918c54cb818b9fd5061cac045bdb3ceaf0",
-    "prompt": "@gsd/core@0.1.0:plan_phase",
+    "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
         "id": "research",

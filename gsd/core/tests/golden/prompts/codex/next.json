@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:a8854513a8d9557d6426a57f09b24218fab2a3b861ba86f5077b2451f62600a0",
-    "prompt": "@gsd/core@0.1.0:next",
+    "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
         "cli": "specforge gsd smart-entry",

@@ -1,4 +1,6 @@
 //! `retrospective`, `lesson` and `methodology` (`spec/project.md`).
+//!
+//! Also ports gsd-core bin/lib modules: learnings.cjs.
 
 use super::dsl::*;
 

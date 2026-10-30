@@ -9,7 +9,7 @@
  task ─1──*─ commit                    (collected from git by the gsd-git collector)
  phase ─0..1─ pause ─0..1─ handoff     (committed: what a teammate must see)
  project ─*─ blocker
- .specforge/state/gsd/                 (session state: never committed)
+ .specforge/state/gsd__core/                 (session state: never committed)
 ```
 
 ## summary
@@ -146,7 +146,7 @@ is not RFC 3339 UTC (`2026-10-29T10:00:00Z`).
 
 ## Session state
 
-Not committed, not `.spec`: the host keeps it under `.specforge/state/gsd/` (git-ignored), as it keeps its compiled baselines.
+Not committed, not `.spec`: the host keeps it under `.specforge/state/gsd__core/` (git-ignored), as it keeps its compiled baselines.
 It is what one person's session is doing.
 
 | GSD | Here |

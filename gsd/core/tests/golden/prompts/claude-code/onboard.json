@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:acc681d8e08b05f0d851b373adc6b80b4101b0997f2c53e62e8d5ea33a7e5d09",
-    "prompt": "@gsd/core@0.1.0:onboard",
+    "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
         "id": "ingest",

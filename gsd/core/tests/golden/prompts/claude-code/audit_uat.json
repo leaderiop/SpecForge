@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:f9c973bcb31f24b3708e8a8c8fe330a97d23e4767e077f386dc4e3433db6b27f",
-    "prompt": "@gsd/core@0.1.0:audit_uat",
+    "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
         "cli": "specforge gsd set-uat-result",

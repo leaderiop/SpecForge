@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:1dc365f49290fb7dbad09ff58288b69ea77b5bbae078dd70a4e7046f857ed436",
-    "prompt": "@gsd/core@0.1.0:review_backlog",
+    "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
         "cli": "specforge gsd phase",

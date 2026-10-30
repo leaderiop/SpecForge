@@ -28,7 +28,7 @@ fn empty() -> Project {
 }
 fn shipped() -> Project {
     let p = taskboard();
-    assert!(p.verify_phase("v1.0/01") > 0);
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     p
 }
 
@@ -260,7 +260,10 @@ fn golden(host: &str, id: &str, actual: &Value) {
         .join("tests/golden/prompts")
         .join(host);
     let path = dir.join(format!("{id}.json"));
-    let text = serde_json::to_string_pretty(actual).expect("JSON prints") + "\n";
+    // The prompt id names the extension's version (`@gsd/core@<version>:<id>`): a bump moves no golden (D-r44-23).
+    let text = super::install_hosts::normalised(
+        &(serde_json::to_string_pretty(actual).expect("JSON prints") + "\n"),
+    );
     if std::env::var_os("GSD_BLESS").is_some() {
         std::fs::create_dir_all(&dir).expect("a golden directory");
         std::fs::write(&path, &text).expect("write the golden");

@@ -1,5 +1,7 @@
 //! A lifecycle prompt as data (D-r42-1): its arguments, subject, gates and steps, and the slash command it is bound
 //! to. `declare` turns the row into a prompt whose handler is the one render pipeline.
+//!
+//! Also ports gsd-core bin/lib modules: workflow-fragments.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

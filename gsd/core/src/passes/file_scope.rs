@@ -6,6 +6,8 @@
 //! The wave is the computed `plan.wave` (a check pass sees the snapshot merged with computed values); a plan with no
 //! wave (a quick plan, a phase with a cycle) is not compared. W306 is SpecForge's own: a task's files are among its
 //! plan's.
+//!
+//! Also ports gsd-core bin/lib modules: write-set.cjs.
 
 use std::collections::BTreeSet;
 

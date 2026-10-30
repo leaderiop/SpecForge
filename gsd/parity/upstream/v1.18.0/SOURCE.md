@@ -23,7 +23,8 @@ without the snapshot.
 Verdicts of gsd-core's deterministic `gsd-tools` gates, copied unchanged by `git -C <gsd-core> show
 v1.18.0:tests/fixtures/gate-cutover/<file>.json`. The fixtures that produced them are built by
 `tests/fixtures/gate-cutover/arms.cjs` (`dc`, `vp`, `gap`); `gsd/core/tests/projects/gate_cutover/` is their twin, and
-the tests in `tests/cli/parity_plans.rs` and the passes' native tests reproduce the verdicts.
+the tests in `tests/cli/parity_plans.rs` and the passes' native tests reproduce the verdicts. r44 T10 vendors the rest
+(171 in all; see "r44 T10" below).
 
 | File | Read by |
 |---|---|
@@ -470,3 +471,110 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-ns-context`, `/gsd-ns-ide
 | `commands/gsd/ns-project.md` | `2965014b60f6951e8b10526dd16c2dfa7e1e737c414384efff6f5bb495fa718f` |
 | `commands/gsd/ns-review.md` | `5af65e411b1cc5baa6a2fbf3cfdf9452f671c11a72c21d5b88e89ee78dfbcfd5` |
 | `commands/gsd/ns-workflow.md` | `9492a9cdcb4ea148f598688a252b45ee9b695e83b997bfe56834d701ec369c2d` |
+
+## r44 T1: the read, write and secret-read guards
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three guard scripts, the filename classifier the secret guard requires, their test suites (read by `gsd/core/src/hooks/{guards,secrets}/tests.rs` for the accounting of every case), and the inventory manifest the hook roster is compared with. `hook-cases/` holds the calls these suites make, recorded by `gsd/parity/record-hook-cases.cjs`.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-read-guard.js` | `87dcd4118921ed7de1a9db420f558fa86e713178fc242e83f5898c1ab0564d14` |
+| `hooks/gsd-write-guard.js` | `1ec4bb014724ee3e7c636658decb96ec2e271867e1356e38e4a6b87fc8cddbae` |
+| `hooks/gsd-secret-read-guard.js` | `1396e7b4a62c5dd4899a8786b0d3af6de2da5bb0a83b27cee79c02a59c3e516f` |
+| `hooks/lib/filename-classification.js` | `7888ff56ec697c4e4988f14d34eb54cd2616546ab9f13484fec6339df22c3527` |
+| `tests/read-guard.test.cjs` | `1200523c46e2362f9f81bec83363a3e6e15b2b3bc012b24083d5e016dae2fcd4` |
+| `tests/gsd-write-guard.test.cjs` | `04848f2efa144efef768f0ff0cdf63b4a95700ebf83c520e15e8ebc8289a9520` |
+| `tests/gsd-write-guard.property.test.cjs` | `be3f162aacfd6cf26e8a36d73b17fff4bbba925d1154b1851aa6850fa130dcab` |
+| `tests/gsd-secret-read-guard.test.cjs` | `980fa5a261f18bd0cf2fd24dd53e64a5c1a8e5f70729ab8b12ad2e6464c1075c` |
+| `INVENTORY-MANIFEST.json` (taken from `docs/INVENTORY-MANIFEST.json`) | `f735971fd00f69058c80053128450fd68fa6b5e5f1068cd84293678c71968727` |
+| `hook-cases/gsd-secret-read-guard.json` (recorded by `gsd/parity/record-hook-cases.cjs`, not upstream bytes) | `2cc44c73230f8ee3811aeb392cb2ec5fcd23a03682c595cd7f6bf7cddeaeb26c` |
+
+## r44 T2: the injection scanner and the prompt guard
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the two hook scripts and their shared pattern list, and the five suites that test them (read by `gsd/core/src/hooks/injection/tests.rs`; `prompt-injection-scan.security.test.cjs` and `injection-blocking-config.test.cjs` call no hook and are skipped case by case). `hook-cases/` holds the calls the suites make to a hook script and the answers upstream gave, recorded by `gsd/parity/record-hook-cases.cjs` with `REC_KEEP=100000 REC_INPUT_MAX=100000`.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-read-injection-scanner.js` | `89d8b1a2aa73f80c85385398c40ce4a56fb6bb20cb5c17ec3090e8e31b3d987a` |
+| `hooks/gsd-prompt-guard.js` | `f7a5da2130d76cec3d08eb30156f17721ac954e90d18685b620abbf2ab701cab` |
+| `hooks/lib/injection-patterns.js` | `f99dc1db23291adf7e3f46f9fb20ad475d7747e8293b2322d1e2d0c94ef1dd70` |
+| `tests/read-injection-scanner.security.test.cjs` | `0e68499e2538f476fc6828feea8ca041963564b370f1053f37c4c141d3477ca3` |
+| `tests/read-injection-scanner.property.test.cjs` | `eefb42758f39ca42d607ae5445a1a853bc4802f91198bebbbea66710dc22d063` |
+| `tests/injection-patterns-parity.security.test.cjs` | `0e6665ecd027b0af65ad97abe72a32f6eb589d0fa9c35a543a885e6f3b5e8d51` |
+| `tests/prompt-injection-scan.security.test.cjs` | `d55c81bcba829b2b5bb2cb5727e8cfb1f19646613f291c78accc69d060f085ff` |
+| `tests/injection-blocking-config.test.cjs` | `8a4b6136de66b43419e401dd13a9549179073d2ba3e0d8b5924da8f329b151b4` |
+| `hook-cases/read-injection-scanner.security.json` (recorded by `gsd/parity/record-hook-cases.cjs`, not upstream bytes) | `c936059a4a3b6745f83216993e9f995de55f83d5016935e16f949e32767b2e6f` |
+| `hook-cases/read-injection-scanner.property.json` (recorded, not upstream bytes) | `e7084608eea38bee907e00e81532fcee0955a907a70fde5222493892f5cd6080` |
+| `hook-cases/injection-patterns-parity.security.json` (recorded, not upstream bytes) | `05fd1d62197f9201985aa783493fe57b48044f6242c823de2cc9bb2bae07320e` |
+
+## r44 T3: the agent isolation and worktree path guards
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the two hook scripts, the reason codes the isolation guard requires, and their suites (read by `gsd/core/src/hooks/isolation/tests.rs`). `worktree-safety.test.cjs` is vendored whole (389 cases); only its `bug #260: gsd-worktree-path-guard.js` and `#1342` blocks are in scope, and every other top-level block is one skipped prefix.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-agent-isolation-guard.js` | `e20e092621419441230d7f63a3fa358fac67004327d047c5cc4ca9743a412b6e` |
+| `hooks/gsd-worktree-path-guard.js` | `6771fd74a1d554548b140f7f7246ef9ca69e2934fde75c9090e61a2fa4da78cc` |
+| `hooks/lib/isolation-deny-reason.js` | `4cbff1576f05e4aae4978b2acd5bdff875f462fe73587a15dda96713d0e657f4` |
+| `tests/gsd-agent-isolation-guard.test.cjs` | `3ce007cb340b5b0888e4a50f7f9df4441c492f16ab4b5322d70a857daaec6c6a` |
+| `tests/worktree-safety.test.cjs` | `3aef69377df585672d96ec2047a1cb6e7f8e49be055c10060fc9eb1bc17892ac` |
+
+## r44 T4: the workflow marker and guard
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the guard hook and its two suites (read by `gsd/core/src/hooks/workflow/tests.rs`). The hook requires `lib/git-cmd.js`, `lib/git-probe.js` and others for its `git add -f` block, which is dropped (K19 git facts), so those libs are not vendored.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-workflow-guard.js` | `adf4fa7ee6439467b6d784e7846ae15e80cb7b576ddbd8b61a654130602e094a` |
+| `tests/workflow-guard.test.cjs` | `069e9baf3f610f353d2edd322f02ea214403b1eabb058e16d1e30c64afe68e9b` |
+| `tests/workflow-guard-registration.test.cjs` | `256e8ac2fb230ca75ee6186204bcffb04d003a27f62d88c9120be44b6c877458` |
+
+## r44 T5: the context monitor
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook and its two suites (read by `gsd/core/src/hooks/context/tests.rs`). `perf-317-context-monitor-fs.test.cjs` is vendored whole (the home of every monitor case); its fs-hardening, #1974, #4905 and event-name blocks are skipped by prefix.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-context-monitor.js` | `5bb3e7b98c705fe5542019c130bc76eef34f183f5fad851f5804fc3c161d5a66` |
+| `tests/context-monitor-host-contract.test.cjs` | `7cc3595646c897d270b2643278ec969b7bca5af8e68e5cc6b632894699d189ea` |
+| `tests/perf-317-context-monitor-fs.test.cjs` | `b29a632fb2a4888fb89f102a65b9a3254b4d78124cb1268bc554b5bd32a47669` |
+
+## r44 T6: the statusline
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook and its three suites (read by `gsd/core/src/hooks/statusline/tests.rs`). `gsd-statusline.test.cjs` is vendored whole; its STATE.md reading, git, todo, update-banner, environment and other-runtime blocks are skipped by prefix with their reasons, and `gsd-statusline-git.property.test.cjs` is wholly skipped (git).
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-statusline.js` | `4d0894eefefbac4b6ea20b39900b33bd0f7b88f645939794a8b702b0b74a3594` |
+| `tests/gsd-statusline.test.cjs` | `9c32c96b38c83c242440d40c76a7399422cab3367c1ba349510d86640f7cf9c3` |
+| `tests/gsd-statusline-state.property.test.cjs` | `53b9ab7bb6b293de821b75d4488c9c31c530efeaeda6840c4e80b80d6dee43e6` |
+| `tests/gsd-statusline-git.property.test.cjs` | `51b79c73a60510cc905027f56d1d8407462eed110a5b1d50e0ad966920f64c54` |
+
+## r44 T7: validate-commit, phase-boundary, session-state
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three opt-in community scripts and the three suites that spawn them: the two suites of the commit validator and `tests/hooks-opt-in.test.cjs` (80 cases, about 60 of them validate-commit verdicts; read by `gsd/core/src/hooks/community/tests.rs` and `tests/opt_in.rs`, every case ported or skipped with a reason). Upstream's own test file for phase-boundary and session-state is that same `hooks-opt-in` suite; the module's own cases follow it. The validator's `lib/git-cmd.js` is not vendored: the host classifies the command (`pre_commit`) and hands the hook the message.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-validate-commit.sh` | `75ab1d087f17f7e57cf7cf7e8a54ebe2b11503868ae6aaa1b5c6aacbfa24c55b` |
+| `hooks/gsd-phase-boundary.sh` | `ff5a1f242b31f689dc8c856d508b5a9bc4a9c4713c096745f429aa7bab22237d` |
+| `hooks/gsd-session-state.sh` | `e7c8f2a8a973e95463804234c87c563bb86678209f5275494fcbe3095f4033cb` |
+| `tests/gsd-validate-commit-crash-policy.test.cjs` | `ff75f854974e02751cdff9a432a96c2c488bfbf6f96d58fd13d90b68939dfc92` |
+| `tests/gsd-validate-commit-sigpipe.test.cjs` | `715248bb17b0ed93c4ec04a9acdc47e60a5809695b776171c96a346716d6f78b` |
+| `tests/hooks-opt-in.test.cjs` | `345fc9f0b4b5dc6c824fb62d001b05dfdaa93d712dadde65403b337dbf921b75` |
+
+## r44 T9: capability ids
+
+`capability-ids.json` is the sorted list of the 45 directory names of `capabilities/` at the tag (`git ls-tree --name-only v1.18.0 capabilities/`, the `capabilities/` prefix removed). The vendored `capabilities.json` holds only the 32 capabilities that have a `config` block, so it cannot say which capabilities exist; `gsd/core/tests/parity_roster.rs` reads this file against the README's capability table.
+
+| File | sha256 |
+|---|---|
+| `capability-ids.json` | `15994a8e3bb35fcaf05b513b811ee8a809dbdd64ee3316c69b8565c5ba5d178d` |
+
+## r44 T10: all of `gate-cutover/`
+
+All 171 verdicts of `tests/fixtures/gate-cutover/` at the tag, copied byte for byte (`git show v1.18.0:tests/fixtures/gate-cutover/<file>.json`, each compared with `cmp`); the 161 new ones are the `ui-*`, `api-coverage-*`, `verify-*-drift*`, `tdd-*`, `prohibition-*`, `predicate-*`, `auto-mode-*`, `r2-*`, `r4-*` and remaining `decision-coverage-*` files. `arms.cjs`, which builds their fixture projects, is not vendored: the twins are `gsd/core/tests/projects/`. `gsd/core/tests/parity_rules/cutover.rs` classifies every file once, and `parity_rules.rs` requires the table and this directory to name the same 171.
+
+| Set | sha256 |
+|---|---|
+| `sha256sum gate-cutover/*.json \| sha256sum` (sorted by name) | `037ca7bbe1f52abda41e97eaf58d83b8bff5a49a2f9fdb28fe7b23c8e11286f9` |

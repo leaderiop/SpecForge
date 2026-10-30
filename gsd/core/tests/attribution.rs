@@ -62,6 +62,16 @@ fn every_ported_source_is_attributed() {
     let entry = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/commands/smart_entry");
     files(&entry, &mut all);
     all.push(entry.with_extension("rs"));
+    // the hooks (r44) port upstream's `hooks/` scripts; only the modules that port nothing say nothing
+    let hooks = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/hooks");
+    let mut ported_hooks = Vec::new();
+    files(&hooks, &mut ported_hooks);
+    all.extend(ported_hooks.into_iter().filter(|p| {
+        !matches!(
+            p.file_name().and_then(|n| n.to_str()),
+            Some("mod.rs" | "roster.rs" | "facts.rs" | "accounting.rs" | "corpus.rs")
+        )
+    }));
     for path in all {
         let text = std::fs::read_to_string(&path).expect("a source");
         let first = text.lines().next().unwrap_or_default();

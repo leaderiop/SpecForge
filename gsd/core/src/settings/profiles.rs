@@ -1,5 +1,7 @@
 //! The `profile` setting, what each value presets, the one other preset of this round, and the search secrets
 //! ([Profiles](../../spec/settings.md#profiles)).
+//!
+//! Also ports gsd-core bin/lib modules: model-profiles.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

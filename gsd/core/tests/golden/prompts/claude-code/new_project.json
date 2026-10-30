@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:38040a6199a49c9f31bc9bb210a51d66845ff3c05ec44d8e80ef56db79305294",
-    "prompt": "@gsd/core@0.1.0:new_project",
+    "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
         "id": "research",

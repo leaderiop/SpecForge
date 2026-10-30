@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:342529cd0c7cbc1d40c30ee380b7c5b14acf471a32b8faccbc813640ae14ad7d",
-    "prompt": "@gsd/core@0.1.0:resume_work",
+    "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
         "cli": "specforge gsd resume",

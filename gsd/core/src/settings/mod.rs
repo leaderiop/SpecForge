@@ -1,4 +1,7 @@
 //! The typed settings of `@gsd/core` (K6): GSD's `.planning/config.json` keys as `specforge.json` settings.
+//!
+//! Also ports gsd-core bin/lib modules: config-loader.cjs, config-types.cjs, configuration.cjs,
+//! federated-config.cjs.
 
 mod gates;
 mod keys;

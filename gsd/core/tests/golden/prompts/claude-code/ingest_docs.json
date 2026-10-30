@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:51ce4e5efeb51dd176ebacdf5305617650b0a2246d276e4d29bc776347b24ce5",
-    "prompt": "@gsd/core@0.1.0:ingest_docs",
+    "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
         "id": "classify",

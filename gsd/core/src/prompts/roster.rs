@@ -2,6 +2,8 @@
 //! commands" as code. A rendered text may name a `/gsd-<x>` only when `x` is a row here, the routers' route table
 //! says which rows this install serves, and `tests/roster.rs` checks the rows against the vendored `commands.json`
 //! and the README's Commands table.
+//!
+//! Also ports gsd-core bin/lib modules: command-roster.cjs.
 
 /// Who serves an upstream command.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

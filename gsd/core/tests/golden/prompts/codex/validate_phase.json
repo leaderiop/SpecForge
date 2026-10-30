@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:f44f70a6b43bae8ea118329a9a4dfa2905638e8d8123857dcf0ef56e2b7a0c1f",
-    "prompt": "@gsd/core@0.1.0:validate_phase",
+    "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
         "id": "audit",

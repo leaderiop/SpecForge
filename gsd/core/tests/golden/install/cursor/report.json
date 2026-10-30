@@ -1,0 +1,293 @@
+{
+  "hosts": [
+    {
+      "host": "cursor",
+      "files": [
+        {
+          "path": ".cursor/agents/gsd-advisor-researcher.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-assumptions-analyzer.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-doc-classifier.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-doc-synthesizer.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-executor.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-integration-checker.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-nyquist-auditor.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-pattern-mapper.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-phase-researcher.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-plan-checker.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-planner.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-project-researcher.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-research-synthesizer.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-roadmapper.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/agents/gsd-verifier.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/hooks.json",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/mcp.json",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-add-tests/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-audit-milestone/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-audit-uat/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-autonomous/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-cleanup/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-complete-milestone/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-config/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-discuss-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-execute-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-extract-learnings/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-fast/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-health/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-help/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-ingest-docs/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-manager/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-milestone-summary/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-mvp-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-new-milestone/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-new-project/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-next/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-ns-context/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-ns-ideate/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-ns-manage/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-ns-project/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-ns-review/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-ns-workflow/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-onboard/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-pause-work/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-plan-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-plan-review-convergence/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-pr-branch/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-progress/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-quick-batch/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-quick/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-resume-work/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-review-backlog/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-review/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-settings/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-ship/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-spec-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-stats/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-surface/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-ultraplan-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-undo/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-update/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-validate-phase/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-verify-work/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-workspace/SKILL.md",
+          "action": "created"
+        },
+        {
+          "path": ".cursor/skills/gsd-workstreams/SKILL.md",
+          "action": "created"
+        }
+      ],
+      "not_rendered": [
+        {
+          "what": "hook gsd.workflow_marker",
+          "why": "Cursor has no user_prompt event this adapter can verify"
+        },
+        {
+          "what": "hook gsd.context_compacted",
+          "why": "Cursor has no pre_compact event this adapter can verify"
+        },
+        {
+          "what": "hook gsd.statusline",
+          "why": "Cursor has no statusline event this adapter can verify"
+        }
+      ]
+    }
+  ],
+  "refused": [],
+  "dry_run": false
+}

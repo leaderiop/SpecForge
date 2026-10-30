@@ -2,6 +2,9 @@
 //! `[--insert X|--remove N|--edit N]`: none adds, `--insert` makes a decimal phase, `--remove` deletes a phase and
 //! renumbers the later ones in one plan, `--edit` sets fields, `--promote` moves a backlog phase (999.x) into the
 //! numbered phases.
+//!
+//! Also ports gsd-core bin/lib modules: phase-estimation.cjs, phase-id-card.cjs, phase-id-display.cjs, phase-
+//! id.cjs, phase-lifecycle.cjs, phase-locator.cjs, phase-status.cjs.
 
 mod promote;
 mod remove;

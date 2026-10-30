@@ -171,7 +171,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:b6e918816b1ff739e2d89b13d3d65029d1911246cba19ea51ac916c2eb0df6ec",
-    "prompt": "@gsd/core@0.1.0:ns_ideate"
+    "prompt": "@gsd/core@VERSION:ns_ideate"
   },
   "sha256": "b6e918816b1ff739e2d89b13d3d65029d1911246cba19ea51ac916c2eb0df6ec"
 }

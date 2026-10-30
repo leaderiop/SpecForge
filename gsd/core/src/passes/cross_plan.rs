@@ -2,6 +2,8 @@
 //! plan, plan checker D1), `gsd/E310` (a context decision cited by no plan, `gate-decision-coverage-plan`) and
 //! `gsd/I321` (the deterministic half of D3b: a justified coupling). Each judges a phase only once it has a plan:
 //! GSD runs them at `plan:post`, and before that a phase has nothing to cover.
+//!
+//! Also ports gsd-core bin/lib modules: gate-gap-analysis-plan-post.cjs.
 
 use std::collections::BTreeSet;
 

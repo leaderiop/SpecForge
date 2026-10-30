@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:c1003a246b7fe901c57dde3b21a14fe635630ce97016e7b2f0530d837eb145a0",
-    "prompt": "@gsd/core@0.1.0:extract_learnings",
+    "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
   "sha256": "c1003a246b7fe901c57dde3b21a14fe635630ce97016e7b2f0530d837eb145a0"

@@ -85,6 +85,8 @@ pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
 /// A copy of `tests/projects/<name>/` in a temp dir, with `@gsd/core` loaded from `GSD_CORE_WASM`.
 pub struct Project {
     dir: tempfile::TempDir,
+    /// The project's root: the temp dir, or a directory inside it.
+    root: PathBuf,
     wasm: PathBuf,
 }
 
@@ -101,11 +103,26 @@ pub fn taskboard() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"))
 }
 
+/// [`taskboard`] under `inside` of its temp dir.
+pub fn taskboard_at(inside: &str) -> Project {
+    from_dir_at(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"),
+        inside,
+    )
+}
+
 fn from_dir(source: &Path) -> Project {
+    from_dir_at(source, "")
+}
+
+/// [`from_dir`] with the project `inside` the temp dir (`.claude/worktrees/agent-x`: a subagent's worktree).
+fn from_dir_at(source: &Path, inside: &str) -> Project {
     let wasm = required("GSD_CORE_WASM");
     let dir = tempfile::tempdir().expect("a temp dir");
-    copy_dir(source, dir.path());
-    let p = Project { dir, wasm };
+    let root = dir.path().join(inside);
+    std::fs::create_dir_all(&root).expect("the project's directory");
+    copy_dir(source, &root);
+    let p = Project { dir, root, wasm };
     p.settings(serde_json::json!({}));
     p
 }
@@ -113,10 +130,15 @@ fn from_dir(source: &Path) -> Project {
 impl Project {
     /// Rewrites `specforge.json`: `@gsd/core` loaded from the built component, with `settings` under its name.
     pub fn settings(&self, settings: serde_json::Value) {
+        self.settings_in("spec", settings);
+    }
+
+    /// [`Self::settings`] with the manifest's `spec_root` (`.`: the spec root is the project root).
+    pub fn settings_in(&self, spec_root: &str, settings: serde_json::Value) {
         let manifest = serde_json::json!({
             "name": "gsd-test",
             "version": "0.1.0",
-            "spec_root": "spec",
+            "spec_root": spec_root,
             "extensions": [format!("@gsd/core={}", self.wasm.display())],
             "settings": { "@gsd/core": settings },
         });
@@ -154,7 +176,7 @@ impl Project {
         let mut child = Command::new(required("SPECFORGE_BIN"))
             .args(args)
             .envs(env.iter().copied())
-            .current_dir(self.dir.path())
+            .current_dir(&self.root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -176,7 +198,7 @@ impl Project {
 
     /// The project's root, as an absolute path.
     pub fn root(&self) -> &Path {
-        self.dir.path()
+        &self.root
     }
 
     /// `(code, message)` of every `gsd/` diagnostic of `specforge check --format json`, sorted, the judged rules'
@@ -224,7 +246,8 @@ impl Project {
 
     /// The `(code, entity)` pairs every judged rule reports on a project that records no verdict, sorted: one for each
     /// entity of each kind the rule targets (the graph says which, not the judged diagnostics), except the rules in
-    /// `off` (a gate that is off) and an entity that writes a field the target says to skip.
+    /// `off` (a gate that is off), an entity that writes a field the target says to skip and an entity that already
+    /// carries a fresh passing verdict of the rule.
     pub fn expected_judged(&self, off: &[&str]) -> Vec<(String, String)> {
         let mut out = Vec::new();
         for rule in gsd_core::judged::JUDGED
@@ -237,7 +260,15 @@ impl Project {
                         .unless_set
                         .iter()
                         .any(|f| node["fields"].get(f).is_some_and(|v| !v.is_null()));
-                    if !skipped {
+                    // A fresh passing verdict on the node (the twin carries its verifier's) answers the rule.
+                    let judged = node["judgements"].as_array().is_some_and(|all| {
+                        all.iter().any(|j| {
+                            j["rule"] == format!("gsd/{}", rule.code).as_str()
+                                && j["state"] == "fresh"
+                                && j["passed"] == true
+                        })
+                    });
+                    if !skipped && !judged {
                         let id = node["id"].as_str().expect("an id").to_string();
                         out.push((format!("gsd/{}", rule.code), id));
                     }
@@ -335,7 +366,7 @@ impl Project {
     }
 
     fn ensure_repository(&self) {
-        if !self.dir.path().join(".git").exists() {
+        if !self.root.join(".git").exists() {
             self.git(&["init", "-q", "-b", "main"], BASELINE_AT);
         }
     }
@@ -366,7 +397,7 @@ impl Project {
             .env("GIT_AUTHOR_DATE", at)
             // The committer's date differs from the author's, so `%at` is told from `%ct`.
             .env("GIT_COMMITTER_DATE", "2030-01-01T00:00:00Z")
-            .current_dir(self.dir.path())
+            .current_dir(&self.root)
             .output()
             .expect("run git");
         assert!(
@@ -420,13 +451,43 @@ impl Project {
             .collect()
     }
 
+    /// The project as it was before its verifier ran: every `verdict gsd/E501` block of `spec/` and its ledger line
+    /// removed. The taskboard twin carries those verdicts (D-r44-21); a test that needs phase 01 unverified strips them.
+    pub fn strip_verdicts(&self) {
+        let dir = self.root.join("spec");
+        for entry in std::fs::read_dir(&dir).expect("the spec dir") {
+            let path = entry.expect("an entry").path();
+            let text = std::fs::read_to_string(&path).expect("a spec file");
+            let mut kept = Vec::new();
+            let mut skipping: Option<String> = None;
+            for line in text.lines() {
+                match &skipping {
+                    Some(close) if line == close => skipping = None,
+                    Some(_) => {}
+                    None if line.trim_start().starts_with("verdict gsd/E501 ") => {
+                        let indent = line.len() - line.trim_start().len();
+                        skipping = Some(format!("{}}}", " ".repeat(indent)));
+                    }
+                    None => kept.push(line),
+                }
+            }
+            std::fs::write(&path, format!("{}\n", kept.join("\n"))).expect("a spec file");
+        }
+        let ledger = self.read("specforge-harness");
+        let kept: Vec<&str> = ledger
+            .lines()
+            .filter(|l| !l.contains(" verdict:gsd/E501 "))
+            .collect();
+        self.write("specforge-harness", &format!("{}\n", kept.join("\n")));
+    }
+
     /// Records `value_json` (compact JSON) as the harness value `field` of `entity` in `specforge-harness`, as the
     /// host's ledger writes it: `path key sha256(path NUL key NUL value)`, sorted, under the header.
     pub fn record_harness(&self, entity: &str, field: &str, value_json: &str) {
         use sha2::{Digest, Sha256};
         let file = "specforge-harness";
         let header = "# specforge-harness 1";
-        let mut lines: Vec<String> = std::fs::read_to_string(self.dir.path().join(file))
+        let mut lines: Vec<String> = std::fs::read_to_string(self.root.join(file))
             .map(|text| text.lines().skip(1).map(String::from).collect())
             .unwrap_or_default();
         let digest = Sha256::digest(format!("{entity}\0{field}\0{value_json}").as_bytes());
@@ -507,18 +568,18 @@ impl Project {
 
     /// Whether a path of the project exists.
     pub fn exists(&self, relative: &str) -> bool {
-        self.dir.path().join(relative).exists()
+        self.root.join(relative).exists()
     }
 
     /// A file of the project, as it is now.
     pub fn read(&self, relative: &str) -> String {
-        std::fs::read_to_string(self.dir.path().join(relative))
+        std::fs::read_to_string(self.root.join(relative))
             .unwrap_or_else(|e| panic!("read {relative}: {e}"))
     }
 
     /// Writes (or replaces) a file of the project, creating its folders.
     pub fn write(&self, relative: &str, text: &str) {
-        let path = self.dir.path().join(relative);
+        let path = self.root.join(relative);
         std::fs::create_dir_all(path.parent().expect("a file has a parent")).expect("create dirs");
         std::fs::write(path, text).expect("write file");
     }

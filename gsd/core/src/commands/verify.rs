@@ -1,5 +1,7 @@
 //! The commands of verification (D-r41-1 rows 5-6): a person's answer to a UAT test, and the approval of a
 //! validation. A UAT result is the person's own: the command writes what they said, never a sanitised copy.
+//!
+//! Also ports gsd-core bin/lib modules: verify.cjs.
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;

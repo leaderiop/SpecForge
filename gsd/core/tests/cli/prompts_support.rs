@@ -96,7 +96,7 @@ pub fn render_three_hosts(
         let text = text_of(&rendered);
         assert_eq!(
             rendered["payload"]["prompt"],
-            format!("@gsd/core@0.1.0:{id}"),
+            format!("@gsd/core@{}:{id}", env!("CARGO_PKG_VERSION")),
             "{host}"
         );
         assert!(

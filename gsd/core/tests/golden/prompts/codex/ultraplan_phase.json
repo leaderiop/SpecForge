@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:8dd5b578ce80cf3451ae08e9a1e63cb0359fe3afe167e9f33ac12f8160cb00fd",
-    "prompt": "@gsd/core@0.1.0:ultraplan_phase",
+    "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
         "id": "check",

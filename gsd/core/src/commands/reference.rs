@@ -1,6 +1,8 @@
 //! `reference` (D-r42-14): the read-only door to the ported workflows, references and templates a prompt does not
 //! inline. Its answer is the embedded file as a model reads it: re-pointed (D-r42-5), without the attribution line,
 //! and, for a template, with a first line that says which entities SpecForge keeps instead of the file.
+//!
+//! Also ports gsd-core bin/lib modules: resolution.cjs.
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;

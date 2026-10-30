@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:b3bd2192b994a503cbdb4e11775e72e5f66f27475c0214a2f9655f3e80f4153a",
-    "prompt": "@gsd/core@0.1.0:workspace"
+    "prompt": "@gsd/core@VERSION:workspace"
   },
   "sha256": "b3bd2192b994a503cbdb4e11775e72e5f66f27475c0214a2f9655f3e80f4153a"
 }

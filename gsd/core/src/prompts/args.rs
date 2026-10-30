@@ -1,6 +1,8 @@
 //! The typed arguments of a lifecycle prompt (D-r42-8). Upstream's argument hint becomes a table: each row declares one
 //! argument of the prompt, and the same table rebuilds the argument text the ported workflow reads as `$ARGUMENTS`, in
 //! upstream's order (`02 --research --granularity fine`).
+//!
+//! Also ports gsd-core bin/lib modules: command-arg-projection.cjs.
 
 use serde_json::Value;
 use specforge_extension_sdk::prelude::*;

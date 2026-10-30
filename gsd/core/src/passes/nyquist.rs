@@ -2,6 +2,8 @@
 //! automated verify or a wave-0 item (D8), and `gsd/W510`, a phase that needs a validation has one, validated before
 //! its verification. GSD skips D8 for a phase without a validation, and `validate-phase` is opt-in, so a plain planned
 //! phase is not warned.
+//!
+//! Also ports gsd-core bin/lib modules: gate-tdd-*, tdd-*.
 
 use std::collections::BTreeSet;
 

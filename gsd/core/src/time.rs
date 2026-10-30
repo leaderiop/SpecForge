@@ -1,4 +1,6 @@
 //! UTC times as RFC 3339 text, and back, by the days-from-civil algorithm (no dependency).
+//!
+//! Also ports gsd-core bin/lib modules: clock.cjs.
 
 /// `seconds` since the epoch as `YYYY-MM-DDTHH:MM:SSZ`.
 pub fn utc(seconds: i64) -> String {

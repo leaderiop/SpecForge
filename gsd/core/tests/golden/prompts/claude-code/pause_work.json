@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:69a78d6248db0a3a643299688f4099eade34be0e1b2098e8a48624d55484aea3",
-    "prompt": "@gsd/core@0.1.0:pause_work",
+    "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
         "cli": "specforge gsd pause",

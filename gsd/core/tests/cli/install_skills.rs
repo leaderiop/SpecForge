@@ -58,6 +58,8 @@ const SKILLS: [&str; 50] = [
 ];
 
 fn check_golden(id: &str, actual: &str) {
+    let actual = super::install_hosts::normalised(actual);
+    let actual = actual.as_str();
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/golden/install/claude-code/skills")
         .join(format!("{id}.md"));

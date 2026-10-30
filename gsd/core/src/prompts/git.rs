@@ -1,5 +1,7 @@
 //! `undo` and `pr_branch` (D-r43-1 rows 14-15): the two prompts that run `git` in the person's repository. Undo
 //! reverts the commits the graph records for a plan or a phase; pr-branch rebuilds the branch without the spec.
+//!
+//! Also ports gsd-core bin/lib modules: pr-branch-patterns.cjs, undo-commit-selection.cjs.
 
 use specforge_extension_sdk::prelude::*;
 

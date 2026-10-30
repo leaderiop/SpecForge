@@ -196,7 +196,7 @@
       "version": "v1.18.0"
     },
     "digest": "sha256:8ab22484585379e53cec9a9969dc6b5a57df3b1f81bb03678a369206aad44f4f",
-    "prompt": "@gsd/core@0.1.0:review",
+    "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
   "sha256": "8ab22484585379e53cec9a9969dc6b5a57df3b1f81bb03678a369206aad44f4f"

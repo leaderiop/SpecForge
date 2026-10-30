@@ -1,5 +1,7 @@
 //! `review` and `review_backlog` (D-r43-1 rows 10-11): cross-AI review of a phase's plans, and the review of the
 //! backlog phases. The reviewers are external CLIs the shell runs; a backlog phase is promoted or removed by `phase`.
+//!
+//! Also ports gsd-core bin/lib modules: review-*, reviewer-step-dispatch.cjs.
 
 use specforge_extension_sdk::prelude::*;
 
