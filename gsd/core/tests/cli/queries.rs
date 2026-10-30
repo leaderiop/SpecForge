@@ -97,6 +97,7 @@ const UNBOUND: &[&str] = &[
     "${TARGET_PLAN}",
     "$((Z+1",
     "$MILESTONE/XX",
+    "$MILESTONE/N",
     "$PHASE_ID/${PHASE_NUM}-VERIFICATION",
     "v${VERSION}/{padded}",
     "{phase}-{plan}",
