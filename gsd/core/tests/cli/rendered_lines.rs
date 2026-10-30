@@ -256,14 +256,22 @@ fn concrete(word: &str) -> Option<String> {
 fn every_settings_line_is_accepted_by_the_host() {
     let p = twin();
     let (mut ran, mut bad) = (0, Vec::new());
+    let (mut with_json, mut unsets) = (0, 0);
     for (id, line, words) in settings_commands() {
+        // `set --value-json <json> @gsd/core <key>` carries its value as the flag's, not as a word after the key
+        let (json, words) = match words.as_slice() {
+            [verb, flag, json, rest @ ..] if flag == "--value-json" => {
+                (concrete(json), [&[verb.clone()], rest].concat())
+            }
+            _ => (None, words),
+        };
         let [verb, ext, key, values @ ..] = words.as_slice() else {
             continue;
         };
         if !matches!(verb.as_str(), "set" | "unset") || ext != "@gsd/core" {
             continue;
         }
-        if values.is_empty() {
+        if verb == "set" && values.is_empty() && json.is_none() {
             continue; // a table row or a mention of the command
         }
         let Some(key) = concrete(key) else { continue };
@@ -275,14 +283,14 @@ fn every_settings_line_is_accepted_by_the_host() {
             ));
             continue;
         }
-        let mut args = vec![
-            "settings",
-            verb.as_str(),
-            "--dry-run",
-            "@gsd/core",
-            key.as_str(),
-        ];
+        let mut args = vec!["settings", verb.as_str(), "--dry-run"];
+        if let Some(json) = &json {
+            args.extend(["--value-json", json.as_str()]);
+            with_json += 1;
+        }
+        args.extend(["@gsd/core", key.as_str()]);
         args.extend(values.iter().map(String::as_str));
+        unsets += usize::from(verb == "unset");
         let run = p.run(&args);
         ran += 1;
         let text = run.all();
@@ -292,6 +300,10 @@ fn every_settings_line_is_accepted_by_the_host() {
             bad.push(format!("{id}: {line}\n    -> {}", text.trim()));
         }
     }
+    assert!(
+        with_json >= 2 && unsets >= 3,
+        "{with_json} --value-json lines and {unsets} unset lines ran"
+    );
     assert!(ran >= 15, "{ran} lines ran");
     assert!(
         bad.is_empty(),
