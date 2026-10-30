@@ -521,7 +521,7 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the two hook scrip
 
 ## r44 T4: the workflow marker and guard
 
-Vendored byte for byte from gsd-core v1.18.0 with `git show`: the guard hook and its two suites (read by `gsd/core/src/hooks/workflow/tests.rs`). The hook requires `lib/git-cmd.js`, `lib/git-probe.js` and others for its `git add -f` block, which is dropped (K19 git facts), so those libs are not vendored.
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the guard hook and its two suites (read by `gsd/core/src/hooks/workflow/tests.rs`). The hook requires `lib/git-cmd.js`, `lib/git-probe.js` and others for its `git add -f` block, which is dropped (K20 git facts), so those libs are not vendored.
 
 | File | sha256 |
 |---|---|

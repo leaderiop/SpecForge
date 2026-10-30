@@ -284,6 +284,69 @@ fn a_baseline_git_could_not_fully_read_is_not_cached() {
 
 #[specforge_test(
     behavior = "read_git_baseline",
+    verify = "a baseline whose listed file git then gives no bytes for is not cached"
+)]
+fn a_sized_file_without_bytes_makes_the_baseline_uncached() {
+    let project = gsd_facts_project();
+    let spec = project.read("a.spec").replace(
+        "[\"src/lib.rs\", \"docs/gone.md\"]",
+        "[\"src/lib.rs\", \"src/lost.rs\"]",
+    );
+    project.write("a.spec", &spec);
+    let runtime = Arc::new(scan_runtime());
+    let mut fake = commit(&project);
+    // `sizes` answers, `blobs` then has nothing: the answer set is short at the end, not at the sizes
+    fake.listed = vec![(PathBuf::from("src/lost.rs"), Some(10))];
+    at(&project, &runtime, &fake).expect("a baseline");
+    at(&project, &runtime, &fake).expect("a baseline");
+    assert_eq!(fake.trees_asked(), 2, "read again: the blob may come later");
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a file git can never be asked for is permanently unreadable and the baseline is cached"
+)]
+fn a_name_git_cannot_be_asked_for_is_cached() {
+    let project = gsd_facts_project();
+    let spec = project.read("a.spec").replace(
+        "[\"src/lib.rs\", \"docs/gone.md\"]",
+        "[\"src/lib.rs\", \"src/new\\nline.rs\"]",
+    );
+    project.write("a.spec", &spec);
+    let runtime = Arc::new(scan_runtime());
+    let mut fake = commit(&project);
+    fake.lost = vec![PathBuf::from("src/new\nline.rs")];
+    at(&project, &runtime, &fake).expect("a baseline");
+    at(&project, &runtime, &fake).expect("a baseline");
+    assert_eq!(fake.trees_asked(), 1, "no later fetch can give that name");
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a spec a compute pass reads at the baseline is not asked of git again"
+)]
+fn a_spec_a_pass_reads_is_not_fetched_again() {
+    let project = gsd_facts_project();
+    let spec = project.read("a.spec").replace(
+        "[\"src/lib.rs\", \"docs/gone.md\"]",
+        "[\"src/lib.rs\", \"a.spec\"]",
+    );
+    project.write("a.spec", &spec);
+    let runtime = Arc::new(scan_runtime());
+    let mut fake = FakeHistory::repo(
+        project.root(),
+        &"c".repeat(40),
+        vec![("a.spec".into(), spec.clone().into_bytes())],
+    );
+    // git could give it (it has a size), so only the seeding keeps it from being asked
+    fake.blobs = vec![("a.spec".into(), spec.into_bytes())];
+    baseline_of(&project, &runtime, &fake);
+    let asked = fake.blobs_paths.lock().unwrap().clone();
+    assert!(!asked.contains(&PathBuf::from("a.spec")), "{asked:?}");
+}
+
+#[specforge_test(
+    behavior = "read_git_baseline",
     verify = "a project in a subdirectory of the repository reads its own files at the baseline"
 )]
 fn a_subdirectory_project_reads_its_own_files() {

@@ -581,7 +581,7 @@ Read ROADMAP.md to get the next phase's name and goal.
 Check if next phase has UI indicators:
 
 ```bash
-NEXT_PHASE_SECTION=$(specforge query "$((Z+1))" --depth 0 --format context 2>/dev/null)
+NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_PHASE_SECTION=$(specforge query "$MILESTONE/$NEXT_PHASE" --depth 0 --format context 2>/dev/null)
 NEXT_HAS_UI=$(echo "$NEXT_PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
 ```
 

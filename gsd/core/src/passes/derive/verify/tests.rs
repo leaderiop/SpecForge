@@ -340,7 +340,26 @@ fn a_fixed_item_with_no_verdict_yet_is_still_remaining_and_a_never_verified_one_
 }
 
 #[test]
-fn an_overridden_truth_is_not_compared_against_the_baseline() {
+fn an_override_that_holds_on_both_sides_changes_nothing() {
+    let tr = "v1.0/01/01-01/TR1";
+    let o = json!({ "id": format!("{V}/OV1"), "kind": "override", "fields": { "verification": V, "truth": tr } });
+    let failed = judgement("failed", "fresh", false);
+    let mut found = input(vec![truth(1, vec![failed.clone()])], vec![o]);
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(tr, "truth", json!({}), vec![failed]),
+        then(
+            &format!("{V}/OV1"),
+            "override",
+            json!({ "verification": V, "truth": tr }),
+            vec![],
+        ),
+    ]));
+    assert_eq!(of(&run(&found), "re_verification"), None);
+}
+
+#[test]
+fn an_override_added_since_the_baseline_closes_the_gap() {
     let tr = "v1.0/01/01-01/TR1";
     let o = json!({ "id": format!("{V}/OV1"), "kind": "override", "fields": { "verification": V, "truth": tr } });
     let failed = judgement("failed", "fresh", false);
@@ -349,8 +368,55 @@ fn an_overridden_truth_is_not_compared_against_the_baseline() {
         then(V, "verification", json!({}), vec![]),
         then(tr, "truth", json!({}), vec![failed]),
     ]));
-    // The override holds on both sides (the baseline's own run sees it too): nothing closes.
-    assert_eq!(of(&run(&found), "re_verification"), None);
+    assert_eq!(
+        of(&run(&found), "re_verification"),
+        Some(json!({ "gaps_closed": [tr] }))
+    );
+}
+
+#[test]
+fn an_override_removed_since_the_baseline_is_a_regression() {
+    let tr = "v1.0/01/01-01/TR1";
+    let failed = judgement("failed", "fresh", false);
+    let mut found = input(vec![truth(1, vec![failed.clone()])], vec![]);
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(tr, "truth", json!({}), vec![failed]),
+        then(
+            &format!("{V}/OV1"),
+            "override",
+            json!({ "verification": V, "truth": tr }),
+            vec![],
+        ),
+    ]));
+    assert_eq!(
+        of(&run(&found), "re_verification"),
+        Some(json!({ "regressions": [tr] }))
+    );
+}
+
+#[test]
+fn an_override_that_no_longer_matches_the_truth_text_is_a_regression() {
+    let tr = "v1.0/01/01-01/TR1";
+    let o = json!({ "id": format!("{V}/OV1"), "kind": "override",
+        "fields": { "verification": V, "truth": tr, "accepts": "old text" } });
+    let failed = judgement("failed", "fresh", false);
+    let mut found = input(vec![truth(1, vec![failed.clone()])], vec![o]);
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(tr, "truth", json!({ "text": "old text" }), vec![failed]),
+        then(
+            &format!("{V}/OV1"),
+            "override",
+            json!({ "verification": V, "truth": tr, "accepts": "old text" }),
+            vec![],
+        ),
+    ]));
+    // the truth is now "" (no text in the fixture), so the acceptance has lapsed
+    assert_eq!(
+        of(&run(&found), "re_verification"),
+        Some(json!({ "regressions": [tr] }))
+    );
 }
 
 #[test]

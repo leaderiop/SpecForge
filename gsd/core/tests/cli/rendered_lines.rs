@@ -256,14 +256,22 @@ fn concrete(word: &str) -> Option<String> {
 fn every_settings_line_is_accepted_by_the_host() {
     let p = twin();
     let (mut ran, mut bad) = (0, Vec::new());
+    let (mut with_json, mut unsets) = (0, 0);
     for (id, line, words) in settings_commands() {
+        // `set --value-json <json> @gsd/core <key>` carries its value as the flag's, not as a word after the key
+        let (json, words) = match words.as_slice() {
+            [verb, flag, json, rest @ ..] if flag == "--value-json" => {
+                (concrete(json), [std::slice::from_ref(verb), rest].concat())
+            }
+            _ => (None, words),
+        };
         let [verb, ext, key, values @ ..] = words.as_slice() else {
             continue;
         };
         if !matches!(verb.as_str(), "set" | "unset") || ext != "@gsd/core" {
             continue;
         }
-        if values.is_empty() {
+        if verb == "set" && values.is_empty() && json.is_none() {
             continue; // a table row or a mention of the command
         }
         let Some(key) = concrete(key) else { continue };
@@ -275,14 +283,14 @@ fn every_settings_line_is_accepted_by_the_host() {
             ));
             continue;
         }
-        let mut args = vec![
-            "settings",
-            verb.as_str(),
-            "--dry-run",
-            "@gsd/core",
-            key.as_str(),
-        ];
+        let mut args = vec!["settings", verb.as_str(), "--dry-run"];
+        if let Some(json) = &json {
+            args.extend(["--value-json", json.as_str()]);
+            with_json += 1;
+        }
+        args.extend(["@gsd/core", key.as_str()]);
         args.extend(values.iter().map(String::as_str));
+        unsets += usize::from(verb == "unset");
         let run = p.run(&args);
         ran += 1;
         let text = run.all();
@@ -292,6 +300,10 @@ fn every_settings_line_is_accepted_by_the_host() {
             bad.push(format!("{id}: {line}\n    -> {}", text.trim()));
         }
     }
+    assert!(
+        with_json >= 2 && unsets >= 3,
+        "{with_json} --value-json lines and {unsets} unset lines ran"
+    );
     assert!(ran >= 15, "{ran} lines ran");
     assert!(
         bad.is_empty(),
@@ -366,4 +378,32 @@ fn parse_json_lines_name_fields_the_command_prints() {
         "fields the command does not print:\n{}",
         bad.join("\n")
     );
+}
+
+fn workflow(name: &str) -> String {
+    std::fs::read_to_string(format!(
+        "{}/assets/gsd-core/workflows/{name}",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .unwrap_or_else(|e| panic!("{name}: {e}"))
+}
+
+/// REVIEW-r43 post-fix N5: the leftovers of the Minor 22 and M10 text mismatches.
+#[test]
+fn the_post_fix_text_leftovers_stay_fixed() {
+    // progress asks for the next phase of the milestone, padded as phase ids are
+    assert!(
+        workflow("progress.md").contains("NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_PHASE_SECTION=$(specforge query \"$MILESTONE/$NEXT_PHASE\"")
+    );
+    // the ingest staging directory holds the documents' text and is removed at the end
+    assert!(workflow("ingest-docs.md").contains("rm -rf \"$INTEL_DIR\""));
+    // `--dir` is where the documents are scanned
+    assert!(!text("onboard").contains("The project is read from the directory"));
+    // the integrations confirmation shows what is written: booleans, and no key at all
+    let integrations = workflow("settings-integrations.md");
+    assert!(
+        !integrations.contains("****<last-4>"),
+        "a masked key is shown"
+    );
+    assert!(!integrations.contains("written plaintext only to `config.json`"));
 }

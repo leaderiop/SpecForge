@@ -61,7 +61,7 @@
     "- `--branch` → `BRANCH_NAME` (defaults to `workspace/$WORKSPACE_NAME`)",
     "- `--auto` → skip interactive questions"
   ],
-  "bytes": 30960,
+  "bytes": 31009,
   "end": [
     "",
     "- Fixed-width runs of `━`, `─` or `═` as separators — they wrap in a narrow pane",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:f49378492ea4c199ba994bf988cc7630f94ece94fed72b932e8c1e046d18678e",
+    "digest": "sha256:b0a63a0828c44a720b5d45924d2674eb73e0820d1de5d055b40b871293117ddd",
     "prompt": "@gsd/core@VERSION:workspace"
   },
-  "sha256": "f49378492ea4c199ba994bf988cc7630f94ece94fed72b932e8c1e046d18678e"
+  "sha256": "b0a63a0828c44a720b5d45924d2674eb73e0820d1de5d055b40b871293117ddd"
 }
