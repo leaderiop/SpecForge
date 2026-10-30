@@ -239,10 +239,12 @@ fn then_state(input: &PassInput, id: &str) -> Option<Item> {
     ))
 }
 
-/// `re_verification`: the outcome against the baseline, over the items both views hold. An `Unknown` item on either
-/// side and a truth overridden now are not compared. Items are the phase's truths, artifacts and key links (by scan state and verdict, ADR 0300)
-/// and its verify gaps (by status: open there, closed now). `previous_status` and `previous_score` are the baseline
-/// verification's own computed values.
+/// `re_verification`: the outcome against the baseline, over the items both views hold. An `Unknown` item then and a
+/// truth overridden now are not compared. Failing then and not passing now is remaining, also for an item with no
+/// verdict yet (a file that came back still needs one); an item the scan only now fails and that was never verified
+/// there is no regression (it shows in `status`). Items are the phase's truths, artifacts and key links (by scan state
+/// and verdict, ADR 0300) and its verify gaps (by status: open there, closed now). `previous_status` and
+/// `previous_score` are the baseline verification's own computed values.
 fn re_verification(
     input: &PassInput,
     v: &PassEntity,
@@ -265,7 +267,6 @@ fn re_verification(
         };
         match (then, *state) {
             (Item::Failed, Item::Verified) => closed.push(e.id.clone()),
-            (Item::Failed, Item::Unknown) => {}
             (Item::Failed, _) => remaining.push(e.id.clone()),
             (Item::Verified, Item::Failed) => regressions.push(e.id.clone()),
             _ => {}

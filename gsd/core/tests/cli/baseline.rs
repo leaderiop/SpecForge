@@ -84,7 +84,8 @@ fn baseline_reverification_closes_and_regresses_by_scan() {
         }),
         "{verification}"
     );
-    // The file is back (01-02's link is wired: closed) and 01-01's link stops being wired (a regression).
+    // The file is back: 01-02's link is wired (closed), its artifact is present but has no verdict yet (still
+    // remaining); 01-01's link stops being wired (a regression).
     p.write("src/complete.js", &complete);
     p.edit("test/tasks.test.js", "add, list", "list, add");
     let verification = p.fields_of(VERIFICATION);
@@ -95,7 +96,7 @@ fn baseline_reverification_closes_and_regresses_by_scan() {
             "previous_status": "gaps_found",
             "previous_score": "1/2",
             "gaps_closed": ["v1.0/01/01-02/KL1"],
-            "gaps_remaining": [format!("{VERIFICATION}/VG1")],
+            "gaps_remaining": ["v1.0/01/01-02/AR1", format!("{VERIFICATION}/VG1")],
             "regressions": ["v1.0/01/01-01/KL1"]
         }),
         "{verification}"

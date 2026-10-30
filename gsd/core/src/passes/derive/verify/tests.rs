@@ -318,6 +318,28 @@ fn re_verification_compares_the_baselines_scan_state() {
 }
 
 #[test]
+fn a_fixed_item_with_no_verdict_yet_is_still_remaining_and_a_never_verified_one_is_no_regression() {
+    let ar = |n: u8| format!("v1.0/01/01-01/AR{n}");
+    let mut found = input(
+        vec![
+            artifact(1, "present", vec![]),
+            artifact(2, "missing", vec![]),
+        ],
+        vec![],
+    );
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(&ar(1), "artifact", json!({ "state": "missing" }), vec![]),
+        then(&ar(2), "artifact", json!({ "state": "present" }), vec![]),
+    ]));
+    // AR1 was failing and is not passing yet (it has no verdict); AR2 was never verified, so it is no regression
+    assert_eq!(
+        of(&run(&found), "re_verification"),
+        Some(json!({ "gaps_remaining": [ar(1)] }))
+    );
+}
+
+#[test]
 fn an_overridden_truth_is_not_compared_against_the_baseline() {
     let tr = "v1.0/01/01-01/TR1";
     let o = json!({ "id": format!("{V}/OV1"), "kind": "override", "fields": { "verification": V, "truth": tr } });
