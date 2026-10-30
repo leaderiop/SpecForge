@@ -360,6 +360,7 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "a baseline git could not fully read is used and not cached, and a tree error is not cached"
   verify unit "a baseline whose listed file git then gives no bytes for is not cached"
   verify unit "a file git can never be asked for is permanently unreadable and the baseline is cached"
+  verify unit "a spec a compute pass reads at the baseline is not asked of git again"
   verify unit "a project in a subdirectory of the repository reads its own files at the baseline"
   verify unit "a path only a computed value names is read in a later run, and a short answer ends the loop"
   verify unit "a baseline asks for the commit's tree only when a compute pass reads, and runs each compute pass once"
