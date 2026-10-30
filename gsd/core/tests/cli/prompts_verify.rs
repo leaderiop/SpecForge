@@ -19,6 +19,12 @@ fn verify_work_renders() {
     assert_eq!(steps, ["uat", "plan_gaps", "check"]);
     let text = text_of(&rendered);
     assert!(text.contains("specforge gsd set-uat-result"));
+    // REVIEW-r42 Minor 9: a skipped needs --reason and a blocked needs --blocked-by, or the command refuses
+    assert!(text.contains("--reason"), "a skipped takes --reason");
+    assert!(
+        text.contains("--blocked-by"),
+        "a blocked takes --blocked-by"
+    );
 }
 
 #[test]

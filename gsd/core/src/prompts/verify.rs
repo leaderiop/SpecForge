@@ -47,7 +47,9 @@ const VALIDATE_STEPS: &[Step] = &[
 /// The UAT file is the `uat_session` entity: a person's answer to a test is recorded with the command.
 fn uat(_: &PromptCall<'_>) -> String {
     "\n\nRecord each answer of the person with `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> \
-     --by <who>` (an issue takes `--reported \"<their words>\"`): the UAT file's `result:` lines are not edited by hand.\n"
+     --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes \
+     `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`): the UAT file's `result:` lines are not \
+     edited by hand.\n"
         .to_string()
 }
 

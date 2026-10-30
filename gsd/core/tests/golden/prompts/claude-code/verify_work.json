@@ -61,7 +61,7 @@
     "02",
     "GSD_ARGS_END"
   ],
-  "bytes": 65356,
+  "bytes": 65487,
   "end": [
     "skipped: 0",
     "",
@@ -102,7 +102,7 @@
     "",
     "In the shell blocks above, `$PHASE_ID` is `v1.0/02`; `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
     "",
-    "Record each answer of the person with `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`): the UAT file's `result:` lines are not edited by hand."
+    "Record each answer of the person with `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`): the UAT file's `result:` lines are not edited by hand."
   ],
   "head": [
     "<specforge_gsd_preamble>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:71b1f16f92e8143d1b41ce0cb090dada1b1c09318dc6ced7f66671f58d3aaab9",
+    "digest": "sha256:0e050f2b83f9179afe8c37d03358f48f8f1a688f99288b5b573d4dcf27859afd",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "71b1f16f92e8143d1b41ce0cb090dada1b1c09318dc6ced7f66671f58d3aaab9"
+  "sha256": "0e050f2b83f9179afe8c37d03358f48f8f1a688f99288b5b573d4dcf27859afd"
 }
