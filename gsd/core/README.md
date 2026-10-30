@@ -35,7 +35,7 @@ Cargo reads the SDK patch from `gsd/.cargo/config.toml`, so run it **in `gsd/`**
 ```sh
 cd gsd
 cargo build -p gsd-core --release --target wasm32-wasip2      # target/wasm32-wasip2/release/gsd_core.wasm
-(cd .. && cargo build -p specforge-cli)                        # the binary the black-box tests drive
+(cd .. && cargo build --profile test -p specforge-cli)        # the binary the black-box tests drive (optimised deps)
 SPECFORGE_BIN=<repo target>/debug/specforge \
 GSD_CORE_WASM=$PWD/target/wasm32-wasip2/release/gsd_core.wasm \
   cargo test                                                   # declaration, roster, profile and CLI tests

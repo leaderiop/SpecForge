@@ -6,13 +6,26 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build -p specforge-cli) and (cd gsd && cargo build -p gsd-core --release --target wasm32-wasip2), then set SPECFORGE_BIN and GSD_CORE_WASM to the two artifacts";
+const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core --release --target wasm32-wasip2), then set SPECFORGE_BIN and GSD_CORE_WASM to the two artifacts";
 
 fn required(var: &str) -> PathBuf {
     match std::env::var_os(var).map(|value| existing_file(var, &value)) {
         Some(Ok(path)) => path,
         Some(Err(why)) => panic!("{why}; {HOW_TO_BUILD}"),
         None => panic!("{var} is not set; {HOW_TO_BUILD}"),
+    }
+}
+
+/// The compile cache every run shares, whatever its `HOME` (an install's temp home would compile `@gsd/core` and
+/// every builtin again): the test process's own, as `specforge_component::user_compile_cache_dir` finds it.
+pub fn compile_cache() -> std::ffi::OsString {
+    match (
+        std::env::var_os("SPECFORGE_WASMTIME_CACHE"),
+        std::env::var_os("HOME"),
+    ) {
+        (Some(set), _) => set,
+        (None, Some(home)) => Path::new(&home).join(".cache/specforge/wasmtime").into(),
+        (None, None) => "off".into(),
     }
 }
 
@@ -153,6 +166,7 @@ impl Project {
         use std::process::Stdio;
         let mut child = Command::new(required("SPECFORGE_BIN"))
             .args(args)
+            .env("SPECFORGE_WASMTIME_CACHE", compile_cache())
             .envs(env.iter().copied())
             .current_dir(self.dir.path())
             .stdin(Stdio::piped())
