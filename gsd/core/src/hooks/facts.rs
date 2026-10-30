@@ -23,6 +23,8 @@ pub struct Facts<'a> {
     pub tool: String,
     pub input: Value,
     pub paths: Vec<PathFact>,
+    /// `post_tool`: the host's tool response.
+    pub response: Option<Value>,
     /// The call's lifetime, for the facts later hooks borrow (the graph).
     pub call: std::marker::PhantomData<&'a ()>,
 }
@@ -48,6 +50,7 @@ impl<'a> Facts<'a> {
                     new_bytes: p.new_bytes,
                 })
                 .collect(),
+            response: f.response.clone(),
             call: std::marker::PhantomData,
         }
     }

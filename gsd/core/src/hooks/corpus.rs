@@ -8,6 +8,8 @@ use super::facts::Facts;
 /// One recorded call: the case it belongs to, the payload upstream's hook was given, and what it answered.
 pub struct Call {
     pub path: String,
+    /// The hook script the call went to, when the recording says (a suite that calls several).
+    pub hook: String,
     /// The payload, when it was recorded and is JSON.
     pub input: Option<Value>,
     pub status: i64,
@@ -34,6 +36,7 @@ pub fn calls(recording: &str) -> Vec<Call> {
             );
             Call {
                 path: path.join(" > "),
+                hook: c["hook"].as_str().unwrap_or_default().to_string(),
                 input: c["input"]
                     .as_str()
                     .and_then(|s| serde_json::from_str(s).ok()),
@@ -70,6 +73,46 @@ pub fn claude_facts(payload: &Value) -> Option<Facts<'static>> {
         input: payload["tool_input"].clone(),
         ..Facts::default()
     })
+}
+
+/// The facts of any Claude Code payload: the class is empty for a tool no class covers, and a path under upstream's
+/// `.planning/` is a path in the spec root.
+pub fn claude_event(payload: &Value) -> Facts<'static> {
+    let class = payload["tool_name"].as_str().map_or("", claude_class);
+    let file = payload["tool_input"]["file_path"].as_str();
+    Facts {
+        host: "claude-code".into(),
+        class: class.into(),
+        tool: payload["tool_name"].as_str().unwrap_or_default().into(),
+        input: payload["tool_input"].clone(),
+        response: payload.get("tool_response").cloned(),
+        paths: file
+            .map(|p| super::facts::PathFact {
+                path: p.into(),
+                in_spec_root: p.contains(".planning/") || p.contains(".planning\\"),
+                ..Default::default()
+            })
+            .into_iter()
+            .collect(),
+        ..Facts::default()
+    }
+}
+
+/// Whether `answer` is what an advisory hook of upstream said: its `additionalContext` word for word, or nothing.
+pub fn advises_as(
+    call: &Call,
+    answer: &specforge_extension_sdk::prelude::HookOutput,
+) -> Result<(), String> {
+    use specforge_extension_sdk::prelude::Decision;
+    let said = call.out["hookSpecificOutput"]["additionalContext"].as_str();
+    let silent = answer.context.is_none() && answer.decision != Some(Decision::Deny);
+    match (said, silent) {
+        (None, true) => Ok(()),
+        (None, false) => Err(format!("upstream was silent, we said {:?}", answer.context)),
+        (Some(_), _) if answer.decision == Some(Decision::Deny) => Err("we denied".into()),
+        (Some(want), _) if answer.context.as_deref() == Some(want) => Ok(()),
+        (Some(want), _) => Err(format!("upstream said {want:?}, we {:?}", answer.context)),
+    }
 }
 
 /// Replays a recording against its suite: `check` judges one call (`None`: it cannot be replayed, `Some(Err)`: our hook

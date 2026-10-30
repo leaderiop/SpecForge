@@ -85,8 +85,6 @@ pub const NOT_YET_HOOKED: &[&str] = &[
     "gsd-agent-isolation-guard.js",
     "gsd-context-monitor.js",
     "gsd-phase-boundary.sh",
-    "gsd-prompt-guard.js",
-    "gsd-read-injection-scanner.js",
     "gsd-session-state.sh",
     "gsd-statusline.js",
     "gsd-validate-commit.sh",

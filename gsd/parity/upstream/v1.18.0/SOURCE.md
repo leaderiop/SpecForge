@@ -486,4 +486,22 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three guard sc
 | `tests/gsd-write-guard.property.test.cjs` | `be3f162aacfd6cf26e8a36d73b17fff4bbba925d1154b1851aa6850fa130dcab` |
 | `tests/gsd-secret-read-guard.test.cjs` | `980fa5a261f18bd0cf2fd24dd53e64a5c1a8e5f70729ab8b12ad2e6464c1075c` |
 | `INVENTORY-MANIFEST.json` (taken from `docs/INVENTORY-MANIFEST.json`) | `f735971fd00f69058c80053128450fd68fa6b5e5f1068cd84293678c71968727` |
-| `hook-cases/gsd-secret-read-guard.json` (recorded by `gsd/parity/record-hook-cases.cjs`, not upstream bytes) | `3a955df2bcc7fd9cdd335ba23f3d9e512fcb70a4813c8219ec56790539c31b2c` |
+| `hook-cases/gsd-secret-read-guard.json` (recorded by `gsd/parity/record-hook-cases.cjs`, not upstream bytes) | `2cc44c73230f8ee3811aeb392cb2ec5fcd23a03682c595cd7f6bf7cddeaeb26c` |
+
+## r44 T2: the injection scanner and the prompt guard
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the two hook scripts and their shared pattern list, and the five suites that test them (read by `gsd/core/src/hooks/injection/tests.rs`; `prompt-injection-scan.security.test.cjs` and `injection-blocking-config.test.cjs` call no hook and are skipped case by case). `hook-cases/` holds the calls the suites make to a hook script and the answers upstream gave, recorded by `gsd/parity/record-hook-cases.cjs` with `REC_KEEP=100000 REC_INPUT_MAX=100000`.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-read-injection-scanner.js` | `89d8b1a2aa73f80c85385398c40ce4a56fb6bb20cb5c17ec3090e8e31b3d987a` |
+| `hooks/gsd-prompt-guard.js` | `f7a5da2130d76cec3d08eb30156f17721ac954e90d18685b620abbf2ab701cab` |
+| `hooks/lib/injection-patterns.js` | `f99dc1db23291adf7e3f46f9fb20ad475d7747e8293b2322d1e2d0c94ef1dd70` |
+| `tests/read-injection-scanner.security.test.cjs` | `0e68499e2538f476fc6828feea8ca041963564b370f1053f37c4c141d3477ca3` |
+| `tests/read-injection-scanner.property.test.cjs` | `eefb42758f39ca42d607ae5445a1a853bc4802f91198bebbbea66710dc22d063` |
+| `tests/injection-patterns-parity.security.test.cjs` | `0e6665ecd027b0af65ad97abe72a32f6eb589d0fa9c35a543a885e6f3b5e8d51` |
+| `tests/prompt-injection-scan.security.test.cjs` | `d55c81bcba829b2b5bb2cb5727e8cfb1f19646613f291c78accc69d060f085ff` |
+| `tests/injection-blocking-config.test.cjs` | `8a4b6136de66b43419e401dd13a9549179073d2ba3e0d8b5924da8f329b151b4` |
+| `hook-cases/read-injection-scanner.security.json` (recorded by `gsd/parity/record-hook-cases.cjs`, not upstream bytes) | `c936059a4a3b6745f83216993e9f995de55f83d5016935e16f949e32767b2e6f` |
+| `hook-cases/read-injection-scanner.property.json` (recorded, not upstream bytes) | `e7084608eea38bee907e00e81532fcee0955a907a70fde5222493892f5cd6080` |
+| `hook-cases/injection-patterns-parity.security.json` (recorded, not upstream bytes) | `05fd1d62197f9201985aa783493fe57b48044f6242c823de2cc9bb2bae07320e` |

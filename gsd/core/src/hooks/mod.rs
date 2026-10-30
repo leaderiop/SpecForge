@@ -7,6 +7,7 @@ mod accounting;
 mod corpus;
 mod facts;
 mod guards;
+mod injection;
 pub mod roster;
 mod secrets;
 
@@ -15,4 +16,5 @@ use specforge_extension_sdk::prelude::*;
 pub fn declare(c: &mut ContributionsBuilder) {
     guards::declare(c);
     secrets::declare(c);
+    injection::declare(c);
 }
