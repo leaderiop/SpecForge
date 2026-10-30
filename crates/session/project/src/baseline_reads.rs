@@ -120,6 +120,12 @@ impl Disk for TreeDisk<'_> {
     }
 }
 
+/// A name git can be asked for: not one with a newline, nor one that is not UTF-8 (its key is lossy). Those are
+/// unreadable for good, so they never make a baseline incomplete.
+fn askable(key: &str) -> bool {
+    !key.contains(['\n', '\u{FFFD}'])
+}
+
 /// What the compute passes of `env` compute over `snapshot` (and the `judged` values) at a commit holding `tree`.
 /// `held` are the files already in hand (specs and ledger); `sizes` gives the size of each file a pass reads and
 /// `fetch` the bytes of those within the cap, once each.
@@ -131,8 +137,10 @@ pub(crate) fn compute_at(
     tree: &Tree,
     held: BTreeMap<String, Vec<u8>>,
     git: Git<'_>,
-) -> Computed {
+) -> (Computed, bool) {
     let Git { sizes, fetch } = git;
+    // a file git could not give though it can be asked for: the baseline may be whole later (a blobless clone)
+    let mut incomplete = false;
     let disk = TreeDisk {
         root: env.root(),
         tree,
@@ -165,6 +173,7 @@ pub(crate) fn compute_at(
         for key in wanted {
             match known.get(&key).copied().flatten() {
                 None => {
+                    incomplete |= askable(&key);
                     disk.fetched.borrow_mut().insert(key, None);
                 }
                 Some(size) if size > MAX_FILE_BYTES => {
@@ -180,6 +189,7 @@ pub(crate) fn compute_at(
         };
         for key in ask {
             let bytes = got.get(&key).cloned().flatten();
+            incomplete |= bytes.is_none();
             disk.fetched.borrow_mut().insert(key, bytes);
         }
         let (computed, _) = crate::compute::run(
@@ -196,7 +206,7 @@ pub(crate) fn compute_at(
         );
         // a pass read a path only a value computed before it names: fetch it and run again
         if disk.wanted.borrow().is_empty() {
-            return computed;
+            return (computed, incomplete);
         }
     }
 }
