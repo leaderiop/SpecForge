@@ -28,6 +28,12 @@ pub struct Facts<'a> {
     pub paths: Vec<PathFact>,
     /// `post_tool`: the host's tool response.
     pub response: Option<Value>,
+    /// The host's clock when the hook fired (RFC 3339 UTC); empty when it passed none.
+    pub now: String,
+    /// `user_prompt`: what the user typed.
+    pub prompt: Option<String>,
+    /// A hook that declares `reads_state`: the session's state (none: no session, or none sent).
+    pub session_state: Option<serde_json::Map<String, Value>>,
     /// The call's lifetime, for the facts later hooks borrow (the graph).
     pub call: std::marker::PhantomData<&'a ()>,
 }
@@ -56,6 +62,9 @@ impl<'a> Facts<'a> {
                 })
                 .collect(),
             response: f.response.clone(),
+            now: call.now().to_string(),
+            prompt: f.prompt.clone(),
+            session_state: f.state.as_ref().and_then(|s| s.session.clone()),
             call: std::marker::PhantomData,
         }
     }
@@ -68,5 +77,16 @@ impl<'a> Facts<'a> {
     /// The last path component of `path`.
     pub fn base(path: &str) -> &str {
         path.rsplit(['/', '\\']).next().unwrap_or(path)
+    }
+}
+
+/// JavaScript's truthiness of a JSON value.
+pub fn truthy(v: &Value) -> bool {
+    match v {
+        Value::Null => false,
+        Value::Bool(b) => *b,
+        Value::Number(n) => n.as_f64().is_some_and(|f| f != 0.0),
+        Value::String(s) => !s.is_empty(),
+        Value::Array(_) | Value::Object(_) => true,
     }
 }

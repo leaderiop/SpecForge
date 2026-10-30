@@ -10,7 +10,7 @@ mod regex;
 use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
-use super::facts::Facts;
+use super::facts::{Facts, truthy};
 use patterns::{
     DATA_LINK_START, DATA_URI_SAFE, INJECTION_PATTERNS, LINK_RULES, SUMMARISATION_PATTERNS,
     describe,
@@ -49,17 +49,6 @@ fn js_string(v: &Value) -> Option<String> {
         Value::Object(o) if o.contains_key("toString") => return None,
         Value::Object(_) => "[object Object]".into(),
     })
-}
-
-/// JavaScript's truthiness of a JSON value.
-fn truthy(v: &Value) -> bool {
-    match v {
-        Value::Null => false,
-        Value::Bool(b) => *b,
-        Value::Number(n) => n.as_f64().is_some_and(|f| f != 0.0),
-        Value::String(s) => !s.is_empty(),
-        Value::Array(_) | Value::Object(_) => true,
-    }
 }
 
 /// `path.basename` of the posix path module.

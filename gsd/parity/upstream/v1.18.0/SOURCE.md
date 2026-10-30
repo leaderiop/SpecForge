@@ -517,3 +517,13 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the two hook scrip
 | `hooks/lib/isolation-deny-reason.js` | `4cbff1576f05e4aae4978b2acd5bdff875f462fe73587a15dda96713d0e657f4` |
 | `tests/gsd-agent-isolation-guard.test.cjs` | `3ce007cb340b5b0888e4a50f7f9df4441c492f16ab4b5322d70a857daaec6c6a` |
 | `tests/worktree-safety.test.cjs` | `3aef69377df585672d96ec2047a1cb6e7f8e49be055c10060fc9eb1bc17892ac` |
+
+## r44 T4: the workflow marker and guard
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the guard hook and its two suites (read by `gsd/core/src/hooks/workflow/tests.rs`). The hook requires `lib/git-cmd.js`, `lib/git-probe.js` and others for its `git add -f` block, which is dropped (K19 git facts), so those libs are not vendored.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-workflow-guard.js` | `adf4fa7ee6439467b6d784e7846ae15e80cb7b576ddbd8b61a654130602e094a` |
+| `tests/workflow-guard.test.cjs` | `069e9baf3f610f353d2edd322f02ea214403b1eabb058e16d1e30c64afe68e9b` |
+| `tests/workflow-guard-registration.test.cjs` | `256e8ac2fb230ca75ee6186204bcffb04d003a27f62d88c9120be44b6c877458` |

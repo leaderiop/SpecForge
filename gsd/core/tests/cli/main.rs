@@ -29,6 +29,7 @@ mod hooks_guards;
 mod hooks_isolation;
 mod hooks_scan;
 mod hooks_support;
+mod hooks_workflow;
 mod install_agents;
 mod install_skills;
 mod judged;

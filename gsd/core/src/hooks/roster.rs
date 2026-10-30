@@ -87,5 +87,4 @@ pub const NOT_YET_HOOKED: &[&str] = &[
     "gsd-session-state.sh",
     "gsd-statusline.js",
     "gsd-validate-commit.sh",
-    "gsd-workflow-guard.js",
 ];
