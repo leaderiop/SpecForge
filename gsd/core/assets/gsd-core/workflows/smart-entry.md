@@ -57,7 +57,7 @@ Parse `SNAPSHOT` as JSON. It has the shape:
 **Fallback (never strand the user):** `smart-entry --json` can fail for two reasons, and each has a different recovery. Parse `SNAPSHOT`; if it is empty, not valid JSON, or missing `actions`, apply the first matching recovery below — do NOT error.
 
 1. **`specforge` itself fails** (the failure is a `command not found` / crash, not just an empty result). Probe by running `specforge gsd progress-report` — if THAT also errors, the whole tool layer is down and routing to `/gsd:progress` would dead-end too (it also needs specforge). **Recover by reading state directly:**
-   - Read the computed project state with `specforge query "$MILESTONE" --depth 1 --format context`. Extract: the milestone `state`, the current phase and its `status`, the plan and summary counts, and any open blockers.
+   - Read the spec files directly with the Read tool (`spec/*.spec`; `specforge query` is down too). Extract: the open `milestone`, its `phase` entities (not the `999.x` backlog), which of their `plan` entities have a `summary`, and any `blocker` or `pause`. The computed `status` is not in the files, so judge it from those plans and summaries.
    - Synthesize a minimal result: `situation` = your best guess from the status text (`executing`/`verifying`/`planning`/`complete`/`paused`), `summary` = a one-line read ("Phase N of M · status"), and an `actions` list built from status (e.g. verifying → `/gsd:verify-work`, executing → `/gsd:execute-phase`, else `/gsd:progress`), always including `/gsd:quick` and `/gsd:help`.
    - Print one line first: `smart-entry unavailable (the CLI failed) — reading state directly.`
    - Proceed to the `present` step with this synthesized result.

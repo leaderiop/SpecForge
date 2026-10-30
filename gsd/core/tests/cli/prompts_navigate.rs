@@ -121,3 +121,22 @@ fn manager_steps_into_the_lifecycle_prompts() {
         assert_eq!(step["prompt"], format!("specforge.gsd.{prompt}"), "{step}");
     }
 }
+
+/// REVIEW-r43 Minor 17 and 22: when `specforge` itself fails, `next` does not recover by running `specforge query`; and
+/// its resume scan counts the `plan` and `summary` nodes the query answers, not `plans` and `summaries` arrays.
+#[test]
+fn next_recovers_without_specforge_and_counts_nodes() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(&p, "next", &[], "claude-code")));
+    let recovery = text
+        .split("**`specforge` itself fails**")
+        .nth(1)
+        .and_then(|t| t.split("\n2. ").next())
+        .expect("the first recovery");
+    assert!(recovery.contains("`spec/*.spec`"), "{recovery}");
+    assert!(
+        !recovery.contains("Read the computed project state with `specforge query"),
+        "{recovery}"
+    );
+    assert!(!text.contains("(.plans // [])") && !text.contains("(.summaries // [])"));
+}

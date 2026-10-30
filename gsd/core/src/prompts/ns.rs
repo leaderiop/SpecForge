@@ -1,6 +1,6 @@
 //! The six `/gsd-ns-*` routers (D-r43-15): each renders upstream's body, which matches the user's intent to one skill
 //! of its cluster, followed by the route table of this install. A prompt cannot ask the host which skills are served,
-//! so the table reads the roster (`roster.rs`): a target is installed when `@gsd/core` owns it.
+//! so the table reads the roster (`roster.rs`): a target is served when `@gsd/core` owns it.
 
 use specforge_extension_sdk::prelude::*;
 
@@ -18,10 +18,15 @@ fn table(targets: &[&str]) -> String {
     for target in targets {
         let what = match owner(target) {
             Some(Owner::CorePrompt) => {
-                format!("prompt `gsd.{}` (installed)", target.replace('-', "_"))
+                format!(
+                    "prompt `gsd.{}` (served by @gsd/core)",
+                    target.replace('-', "_")
+                )
             }
-            Some(Owner::CoreCommand) => format!("command `specforge gsd {target}` (installed)"),
-            Some(Owner::Router) => "router (installed)".to_string(),
+            Some(Owner::CoreCommand) => {
+                format!("command `specforge gsd {target}` (served by @gsd/core)")
+            }
+            Some(Owner::Router) => "router (served by @gsd/core)".to_string(),
             Some(Owner::Extension(extension)) => format!(
                 "not installed: `{extension}` serves it. Say so and stop; do not run another skill in its place."
             ),

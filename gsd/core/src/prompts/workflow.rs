@@ -101,7 +101,10 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
             ids = format!("`${var}` is `{id}`; {ids}");
         }
     }
-    tail = format!("\n\nIn the shell blocks above, {ids}{tail}");
+    // a router (`ns_*`) and `update` have no shell block of their own to bind the ids in
+    if !spec.id.starts_with("ns_") && spec.id != "update" {
+        tail = format!("\n\nIn the shell blocks above, {ids}{tail}");
+    }
     let text = render::render(&Input {
         command: spec.command,
         host: call.host().unwrap_or("claude-code"),

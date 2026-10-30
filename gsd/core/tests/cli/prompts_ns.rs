@@ -80,9 +80,15 @@ fn ns_skills_route() {
                         assert!(what.starts_with("not installed"), "{name}: {what}");
                         assert!(what.contains(extension), "{name}: {what}");
                     }
-                    _ => assert!(what.ends_with("(installed)"), "{name}: {what}"),
+                    _ => assert!(what.ends_with("(served by @gsd/core)"), "{name}: {what}"),
                 }
             }
+            // REVIEW-r43 Minor 18: a router has no shell block and does not know what is installed on the host
+            assert!(
+                !text.contains("In the shell blocks above"),
+                "{router} {host}"
+            );
+            assert!(!text.contains("(installed)"), "{router} {host}");
             assert!(
                 rendered["payload"]["steps"]
                     .as_array()
