@@ -39,6 +39,8 @@ milestone to sit in; the test asserts both so a change to either is noticed.
 
 `core/tests/cli/parity_scenario.rs` (r44) is the scenario check: its `SCENARIO` table names, for each of the 19 goldens of `goldens/taskboard/`, the one test that compares the twin with it and the text that test reads it by. `every_taskboard_golden_is_compared_once` fails when a golden is added, removed or left unread, or when a named test is deleted or stops reading its golden; a golden that several tests read (`progress-json.json`) is named once, by its main comparison.
 
+`upgrade.sh <gsd-core-dir> <tag>` (r44) is the upgrade check. It extracts the tag's inventory manifest, capability ids, config manifest and the list of files changed since the tracked tag (`git diff --name-status`), then runs `core/tests/upgrade.rs`'s `write_the_backlog`, which writes `backlog/<tag>.md`: one row per change, with its family, the upstream path and the table of `@gsd/core` it lands in (`ROSTER`, `AGENTS`, `HOOK_ROSTER`, the asset table, `NOT_EMBEDDED`, `MODULES`, the README capability table, `spec/settings.md`, `GATE_CUTOVER`), the files of `gsd/core/src` whose header cites the path, or `unowned`. It needs git and cargo, not the network, and reads the checkout without writing to it. Its other tests run offline on the vendored snapshot: the diff of the tracked tag against itself is empty, every path a header cites is in the snapshot, and `core/tests/declaration.rs` requires `tracks` to name the one vendored directory, so moving it fails the build until every check reads the new snapshot.
+
 ### Re-recording
 
 ```sh

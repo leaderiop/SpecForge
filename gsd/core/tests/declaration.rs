@@ -52,6 +52,66 @@ fn the_tracked_release_is_the_manifests() {
     );
 }
 
+/// Every `.rs` file under `dir`.
+fn rust_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("read {}: {e}", dir.display())) {
+        let path = entry.expect("an entry").path();
+        if path.is_dir() {
+            rust_files(&path, out);
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            out.push(path);
+        }
+    }
+}
+
+/// D-r44-20: `tracks` names the snapshot that is vendored. Moving it fails the build until every check reads the new
+/// snapshot, which is the README's "moves only when the suite passes".
+#[test]
+fn tracks_names_the_vendored_snapshot() {
+    let version = gsd_core::TRACKS
+        .strip_prefix("gsd-core@")
+        .expect("TRACKS is gsd-core@<version>");
+    let core = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut snapshots: Vec<String> = std::fs::read_dir(core.join("../parity/upstream"))
+        .expect("the vendored snapshots")
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    snapshots.sort();
+    assert_eq!(
+        snapshots,
+        [format!("v{version}")],
+        "one snapshot, the tracked one"
+    );
+    // Every path in src and tests that names a snapshot directory names that one. (The needle is built, so this file
+    // does not match itself.)
+    let needle = ["parity/upstream/", "v"].concat();
+    let mut files = Vec::new();
+    for dir in ["src", "tests"] {
+        rust_files(&core.join(dir), &mut files);
+    }
+    let mut named = 0;
+    for file in files {
+        let text = std::fs::read_to_string(&file).expect("a source file");
+        for (at, _) in text.match_indices(&needle) {
+            let rest = &text[at + needle.len()..];
+            let found: String = rest
+                .chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.')
+                .collect();
+            assert_eq!(
+                found.trim_end_matches('.'),
+                version,
+                "{} names another snapshot",
+                file.display()
+            );
+            named += 1;
+        }
+    }
+    assert!(named > 10, "the checks read the snapshot: {named}");
+}
+
 #[test]
 fn the_code_book_matches_rules_md() {
     let rows = common::rules_md();
