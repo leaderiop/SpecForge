@@ -141,8 +141,12 @@ fn gsd_skills(p: &super::harness::Project, dir: &str) -> Vec<String> {
         .expect("a skills folder")
         .flatten()
         .map(|e| e.file_name().to_string_lossy().to_string())
-        .filter(|n| n.starts_with("gsd-"))
         .collect();
+    // a stray `gsd:x` or unprefixed directory is a failure, not something to filter away
+    assert!(
+        names.iter().all(|n| n.starts_with("gsd-")),
+        "{dir}: {names:?}"
+    );
     names.sort();
     names
 }
@@ -167,6 +171,7 @@ fn fifty_host_names() {
         assert_eq!(gsd_skills(&p, dir), want, "{dir}");
     }
     let rewritten = ["pr-branch", "ingest-docs"];
+    let mut verbatim = 0;
     for (name, description) in upstream_descriptions() {
         let skill = format!("gsd-{name}");
         // the seven command-backed slash commands (r41) describe what the command does here, not upstream's text
@@ -177,9 +182,14 @@ fn fifty_host_names() {
         if !want.contains(&skill) || rewritten.contains(&name.as_str()) || command_backed {
             continue;
         }
-        let text = p.read(&format!(".claude/skills/{skill}/SKILL.md"));
-        assert_eq!(description_of(&text), description, "{skill}");
+        for dir in [".claude", ".codex", ".cursor"] {
+            let text = p.read(&format!("{dir}/skills/{skill}/SKILL.md"));
+            assert_eq!(description_of(&text), description, "{dir}/{skill}");
+        }
+        verbatim += 1;
     }
+    // 50 = 41 with upstream's text + 2 port-rewritten + 7 command-backed (the command's text)
+    assert_eq!(verbatim, 41);
 }
 
 #[test]

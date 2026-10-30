@@ -113,13 +113,21 @@ fn the_roster_matches_contributions_readme() {
 /// The stems of the slash commands this extension declares.
 fn served() -> BTreeSet<String> {
     let declaration = gsd_core::build().declaration();
-    declaration
+    let all: Vec<String> = declaration
         .surfaces
         .slash_commands
         .iter()
         .filter_map(|s| s.prompt.as_deref().or(s.command.as_deref()))
         .map(|id| id.replace('_', "-"))
-        .collect()
+        .collect();
+    let set: BTreeSet<String> = all.iter().cloned().collect();
+    // a binding declared twice would collapse in the set: each command is served once
+    assert_eq!(
+        all.len(),
+        set.len(),
+        "a slash command is bound twice: {all:?}"
+    );
+    set
 }
 
 #[test]

@@ -362,11 +362,14 @@ fn promote_refuses_a_phase_that_is_not_backlog() {
 fn promote_refuses_a_phase_holding_a_human_value() {
     let p = backlogged();
     let mut text = p.read("spec/m.spec");
+    text.push_str("\nverification 999.1-VERIFICATION \"v\" {\n  phase v1.0/999.1\n}\n");
     text.push_str("\noverride OV9 \"Accepted\" {\n  verification v1.0/999.1/999.1-VERIFICATION\n  truth        TRUTH\n  reason       \"by hand\"\n  by           \"ada\"\n  at           2026-10-29\n}\n");
     p.write("spec/m.spec", &text);
+    let before = bytes(&p);
     let run = gsd(&p, "phase", &["--promote", "999.1", "--format", "json"]);
     assert_eq!(run.code, 1, "{}", run.all());
     assert!(run.all().contains("human_only"), "{}", run.all());
+    unchanged(&p, &before);
 }
 
 #[test]

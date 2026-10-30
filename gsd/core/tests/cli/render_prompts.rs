@@ -1,6 +1,6 @@
 //! Each lifecycle prompt rendered for the three hosts (T12): one golden per prompt and host (D-r42-21: the payload,
-//! the head of the text, its counts and its digest, never the whole text), every gate proved both ways, and the
-//! listing of the slash commands.
+//! the head of the text, the 60 lines after the preamble and the last 40, its counts and its digest, never the whole
+//! text), every gate proved both ways, and the listing of the slash commands.
 
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -282,6 +282,14 @@ fn render_goldens() {
             let rendered = payload(&prompt(&p, row.id, row.args, host));
             let text = text_of(&rendered);
             let head: Vec<&str> = text.lines().take(80).collect();
+            // the head is the same preamble in every prompt: the text after it and the end are what a change shows in
+            let lines: Vec<&str> = text.lines().collect();
+            let after = lines
+                .iter()
+                .position(|l| l.trim() == "</specforge_gsd_preamble>")
+                .map_or(0, |at| at + 1);
+            let body: Vec<&str> = lines.iter().skip(after).take(60).copied().collect();
+            let end: Vec<&str> = lines[lines.len().saturating_sub(40)..].to_vec();
             let digest = format!("{:x}", Sha256::digest(text.as_bytes()));
             golden(
                 host,
@@ -289,6 +297,8 @@ fn render_goldens() {
                 &json!({
                     "payload": rendered["payload"],
                     "head": head,
+                    "body": body,
+                    "end": end,
                     "lines": text.lines().count(),
                     "bytes": text.len(),
                     "sha256": digest,
