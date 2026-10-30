@@ -3,6 +3,7 @@
 
 #[cfg(test)]
 mod accounting;
+mod context;
 #[cfg(test)]
 mod corpus;
 mod facts;
@@ -21,4 +22,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     injection::declare(c);
     isolation::declare(c);
     workflow::declare(c);
+    context::declare(c);
 }

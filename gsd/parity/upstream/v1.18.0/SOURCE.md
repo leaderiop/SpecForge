@@ -527,3 +527,13 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the guard hook and
 | `hooks/gsd-workflow-guard.js` | `adf4fa7ee6439467b6d784e7846ae15e80cb7b576ddbd8b61a654130602e094a` |
 | `tests/workflow-guard.test.cjs` | `069e9baf3f610f353d2edd322f02ea214403b1eabb058e16d1e30c64afe68e9b` |
 | `tests/workflow-guard-registration.test.cjs` | `256e8ac2fb230ca75ee6186204bcffb04d003a27f62d88c9120be44b6c877458` |
+
+## r44 T5: the context monitor
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook and its two suites (read by `gsd/core/src/hooks/context/tests.rs`). `perf-317-context-monitor-fs.test.cjs` is vendored whole (the home of every monitor case); its fs-hardening, #1974, #4905 and event-name blocks are skipped by prefix.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-context-monitor.js` | `5bb3e7b98c705fe5542019c130bc76eef34f183f5fad851f5804fc3c161d5a66` |
+| `tests/context-monitor-host-contract.test.cjs` | `7cc3595646c897d270b2643278ec969b7bca5af8e68e5cc6b632894699d189ea` |
+| `tests/perf-317-context-monitor-fs.test.cjs` | `b29a632fb2a4888fb89f102a65b9a3254b4d78124cb1268bc554b5bd32a47669` |

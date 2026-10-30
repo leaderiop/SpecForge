@@ -82,7 +82,6 @@ pub const HOOK_ROSTER: &[(&str, Disposition)] = &[
 
 /// The ported files whose hooks are not declared yet. Each ticket deletes its rows; the last one deletes the const.
 pub const NOT_YET_HOOKED: &[&str] = &[
-    "gsd-context-monitor.js",
     "gsd-phase-boundary.sh",
     "gsd-session-state.sh",
     "gsd-statusline.js",
