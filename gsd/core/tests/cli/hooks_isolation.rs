@@ -6,6 +6,7 @@ use super::harness::{Project, taskboard, taskboard_at};
 use super::hooks_support::{
     HOSTS, Home, has_command, install_in, run_hook, tool_event, tool_name, verdict,
 };
+use super::prompts_support::{payload, prompt, text_of};
 
 fn installed(p: &Project) -> Home {
     let home = Home::new();
@@ -32,22 +33,31 @@ fn isolation(p: &Project, home: &Home, input: &Value) -> (bool, String) {
     (denied, reason)
 }
 
+/// C1: @gsd/core runs its executors one after another in the checkout, and its execute prompts say to omit
+/// `isolation="worktree"`; the installed guard must let that dispatch through under default settings.
 #[test]
-fn an_executor_without_a_worktree_is_denied() {
+fn the_dispatch_the_execute_prompts_tell_the_agent_to_make_passes_the_guard() {
     let p = taskboard();
     let home = installed(&p);
+    for (id, args) in [
+        ("execute_phase", vec!["v1.0/01"]),
+        ("execute_plan", vec!["v1.0/02/02-01"]),
+    ] {
+        let text = text_of(&payload(&prompt(&p, id, &args, "claude-code")));
+        assert!(
+            text.contains("Omit `isolation=\"worktree\"`")
+                || text.contains("no worktree isolation")
+                || text.contains("not part of @gsd/core"),
+            "{id} no longer says the executors run in the checkout"
+        );
+    }
     for input in [
-        json!({"subagent_type": "gsd-executor"}),
+        json!({"subagent_type": "gsd-executor", "description": "Execute plan 02-01", "prompt": "go"}),
         json!({"subagent_type": "gsd-executor", "isolation": "none"}),
         json!({"subagent_type": "gsd-executor", "isolation": ""}),
     ] {
         let (denied, reason) = isolation(&p, &home, &input);
-        assert!(denied, "{input}");
-        assert!(
-            reason.contains("Add isolation=\"worktree\" to the Agent() call"),
-            "{reason}"
-        );
-        assert!(reason.contains("gsd.agent_isolation_guard"), "{reason}");
+        assert!(!denied, "{input}: {reason}");
     }
 }
 
@@ -98,16 +108,6 @@ fn the_isolation_guard_is_rendered_where_the_host_has_a_dispatch_tool() {
         &home,
     );
     assert!(!verdict("cursor", &run).0, "{}", run.all());
-}
-
-#[test]
-fn isolation_is_absent_while_use_worktrees_is_off() {
-    let p = taskboard();
-    let home = installed(&p);
-    let input = json!({"subagent_type": "gsd-executor"});
-    assert!(isolation(&p, &home, &input).0, "on by default");
-    p.settings(json!({"workflow.use_worktrees": false}));
-    assert!(!isolation(&p, &home, &input).0, "off: the hook is a no-op");
 }
 
 /// A project that is a subagent's worktree: `<tmp>/.claude/worktrees/agent-x`, with the main checkout above it.

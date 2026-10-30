@@ -229,6 +229,15 @@ fn configured_types_extend_the_built_in_ones() {
     assert!(denied("Deps: bump", &["Deps"]));
 }
 
+/// `validate_commit` on a message with the command line it came from.
+fn with_command(message: &str, command: &str) -> bool {
+    let f = Facts {
+        input: serde_json::json!({ "command": command }),
+        ..commit(Some(message))
+    };
+    validate_commit(&f, &[]).decision == Some(Decision::Deny)
+}
+
 #[test]
 fn a_heredoc_message_is_judged_by_its_body() {
     let heredoc = |body: &str| format!("$(cat <<'EOF'\n{body}\nEOF\n)");
@@ -236,7 +245,7 @@ fn a_heredoc_message_is_judged_by_its_body() {
     assert!(!denied(&heredoc("\nfeat: leading blank line"), &[]));
     assert!(denied(&heredoc("added stuff"), &[]));
     assert!(denied(&heredoc(&format!("feat: {}", "a".repeat(80))), &[]));
-    for opener in ["<<EOF", "<<\"EOF\"", "<<-EOF", "<<\\EOF"] {
+    for opener in ["<<\"EOF\"", "<<-'EOF'", "<<\\EOF"] {
         assert!(
             !denied(&format!("$(cat {opener}\nfeat: x\nEOF\n)"), &[]),
             "{opener}"
@@ -245,6 +254,46 @@ fn a_heredoc_message_is_judged_by_its_body() {
     // an opener that is not one word is just a first line, and not a subject
     assert!(denied("$(cat <<'A B'\nfeat: x\nA B\n)", &[]));
     assert!(denied("$(cat <<\nfeat: x", &[]));
+}
+
+/// REVIEW-r44 M2: the shapes upstream blocks, because git does not get the body the text shows.
+#[test]
+fn a_heredoc_the_shell_would_change_is_judged_by_its_opener() {
+    // a bare delimiter: bash expands the body (`$UNSET`, `${LONG}`), so git gets something else
+    for opener in ["<<EOF", "<<-EOF"] {
+        assert!(
+            denied(&format!("$(cat {opener}\nfeat: $UNSET\nEOF\n)"), &[]),
+            "{opener}"
+        );
+    }
+    // something after the closing paren (upstream's adjacency guard)
+    assert!(denied("$(cat <<'EOF'\nfeat: x\nEOF\n)$(echo junk)", &[]));
+    assert!(denied("$(cat <<'EOF'\nfeat: x\nEOF\n)junk", &[]));
+    // the body never closes
+    assert!(denied("$(cat <<'EOF'\nfeat: x", &[]));
+    let ok = "$(cat <<'EOF'\n\nfeat: x\nEOF\n)";
+    assert!(!with_command(
+        ok,
+        "git commit -m \"$(cat <<'EOF'\n\nfeat: x\nEOF\n)\""
+    ));
+    // `--cleanup=verbatim` keeps the blank first line, so git's subject is empty; `whitespace`/`default` strip it
+    assert!(with_command(
+        ok,
+        "git commit --cleanup=verbatim -m \"$(cat <<'EOF'\n\nfeat: x\nEOF\n)\""
+    ));
+    assert!(!with_command(
+        ok,
+        "git commit --cleanup=whitespace -m \"$(cat <<'EOF'\n\nfeat: x\nEOF\n)\""
+    ));
+    // a single-quoted `-m` hands git the literal opener
+    assert!(with_command(
+        ok,
+        "git commit -m '$(cat <<'\\''EOF'\\''\n\nfeat: x\nEOF\n)'"
+    ));
+    assert!(with_command(
+        ok,
+        "git commit -m '$(cat <<\"EOF\"\nfeat: x\nEOF\n)'"
+    ));
 }
 
 #[test]

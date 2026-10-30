@@ -63,7 +63,9 @@ impl<'a> Facts<'a> {
                 .map(|p| PathFact {
                     path: p.path.clone(),
                     in_project: p.in_project,
-                    in_spec_root: p.in_spec_root,
+                    // The kernel calls every project path "in the spec root" when the spec root is the project (`.`), and
+                    // a hook cannot tell that case from `spec/`: only a `.spec` file is one then (REVIEW-r44 M1).
+                    in_spec_root: p.in_spec_root && p.path.ends_with(".spec"),
                     exists: p.exists,
                     bytes: p.bytes,
                     new_bytes: p.new_bytes,

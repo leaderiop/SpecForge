@@ -43,19 +43,19 @@ fn executor(isolation: Option<&str>) -> Value {
 }
 
 /// The titles of the agent suite this module runs (each asserted where it is written).
+///
+/// @gsd/core runs its executors one after another in the checkout (its execute workflow sets `USE_WORKTREES="false"`,
+/// which upstream records as a sentinel of `isolation=none`), so the guard allows every dispatch (REVIEW-r44 C1).
+/// What upstream decides by "deny" needs a `harness-worktree` isolation that nothing here sets: those cases are
+/// skipped with that reason, and the cases that end in "allow" are ported.
 fn agent_ported() -> Vec<String> {
     let mut ported = Vec::new();
     let mut port = |title: &str| ported.push(title.to_string());
     let claude = |tool: &str, input: Value| dispatch("claude-code", tool, input);
+    let blocker = |t: &str| format!("{BLOCKER}{t}");
 
-    assert!(denied(&claude("Agent", executor(None))));
-    port("row 1: absent isolation param, harness-worktree, GSD project -> DENY");
     assert!(!denied(&claude("Agent", executor(Some("worktree")))));
     port("row 2: isolation=\"worktree\" present -> allow");
-    assert!(denied(&claude("Agent", executor(Some("")))));
-    port("row 3: isolation=\"\" (empty) -> DENY");
-    assert!(denied(&claude("Agent", executor(Some("none")))));
-    port("row 4: isolation=\"none\" -> DENY");
     assert!(!denied(&claude(
         "Agent",
         json!({"subagent_type": "gsd-code-reviewer"})
@@ -73,61 +73,38 @@ fn agent_ported() -> Vec<String> {
     assert!(!denied(&claude("Agent", Value::Null)));
     port("row 11c: tool_input entirely absent -> allow, must not throw");
 
-    let reason = agent_isolation_guard(&claude("Agent", executor(None)))
-        .reason
-        .unwrap_or_default();
-    assert!(
-        reason.contains("Add isolation=\"worktree\" to the Agent() call"),
-        "{reason}"
-    );
-    port("reason names the exact parameter to add (self-correction requirement)");
-
-    // The property: for any string, blocked unless it is exactly "worktree".
-    let mut values: Vec<String> = [
-        "",
-        "none",
-        "worktree",
-        "Worktree",
-        "WORKTREE",
-        " worktree",
-        "worktree ",
-        "worktree\n",
-        "worktrees",
-        "work",
-        "tree",
-        "harness-worktree",
-        "orchestrator-worktree",
-        "0",
-        "null",
-        "true",
-        "\u{0}",
-        "worktree\u{0}",
-        "\u{200b}worktree",
-        "wörktree",
-    ]
-    .map(String::from)
-    .to_vec();
-    values.extend((0..="worktree".len()).map(|n| "worktree"[..n].to_string()));
-    for v in &values {
-        assert_eq!(
-            denied(&claude("Agent", executor(Some(v)))),
-            v != "worktree",
-            "{v:?}"
-        );
-        assert_eq!(
-            denied(&claude("Task", executor(Some(v)))),
-            v != "worktree",
-            "Task {v:?}"
-        );
+    // The sequential dispatch (sentinel `none`, `workflow.use_worktrees` off, a project that is no repository):
+    // the executor with no `isolation`, or one that is not "worktree", is allowed, on `Agent` and `Task` alike.
+    for tool in ["Agent", "Task"] {
+        for v in [None, Some(""), Some("none"), Some("orchestrator-worktree")] {
+            assert!(!denied(&claude(tool, executor(v))), "{tool} {v:?}");
+        }
     }
-    port("for any string value, dispatch is blocked unless the value is exactly \"worktree\"");
-
-    assert!(denied(&claude("Task", executor(None))));
-    port("tool_name=\"Task\" behaves identically to \"Agent\" (#3045 MAJOR 1)");
+    port(&blocker(
+        "sentinel says isolation=none -> ALLOW even though registry resolves harness-worktree (the BLOCKER)",
+    ));
+    port(&blocker(
+        "sentinel says isolation=orchestrator-worktree -> ALLOW",
+    ));
+    port(&blocker(
+        "sentinel says isolation=harness-worktree + dispatch carries the flag -> ALLOW",
+    ));
+    port(&blocker(
+        "no sentinel + workflow.use_worktrees=false -> ALLOW (project-level opt-out, case (a) from the BLOCKER)",
+    ));
+    port(&format!(
+        "{N4734} > no sentinel (fallback path) + registry harness-worktree + non-git root → ALLOW a flag-less dispatch"
+    ));
+    port(&format!(
+        "{N4734} > stale sentinel lying \"none\" + non-git root → the fallback re-derives and still allows"
+    ));
     assert!(!denied(&claude("Task", executor(Some("worktree")))));
     port("tool_name=\"Task\" with isolation=\"worktree\" present -> allow, same as \"Agent\"");
     ported
 }
+
+const N4734: &str = "gsd-agent-isolation-guard.js: #4734 — a non-git project root is never demanded worktree isolation";
+const BLOCKER: &str = "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > ";
 
 /// Every host but Claude Code is let through: its dispatch tool has no `isolation` parameter (D-r44-5).
 #[test]
@@ -187,36 +164,20 @@ const AGENT_SKIPPED: &[(&str, &str)] = &[
         "env: the runtime identity read from ~/.gsd/defaults.json and the sentinel; the guard is Claude Code's",
     ),
     (
-        "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > sentinel says isolation=none",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
-    ),
-    (
-        "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > sentinel says isolation=orchestrator-worktree",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
-    ),
-    (
         "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > sentinel says isolation=harness-worktree + dispatch missing",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
-    ),
-    (
-        "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > sentinel says isolation=harness-worktree + dispatch carries",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
     ),
     (
         "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > STALE sentinel",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
     ),
     (
         "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > MALFORMED sentinel",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
-    ),
-    (
-        "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > no sentinel + workflow.use_worktrees=false",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
     ),
     (
         "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > no sentinel + workflow.use_worktrees absent",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
     ),
     (
         "gsd-agent-isolation-guard.js: #3045 MAJOR — clock seam boundary coverage (in-process, no subprocess wall-clock race)",
@@ -228,7 +189,7 @@ const AGENT_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "gsd-agent-isolation-guard.js: #3045 SECURITY F2 — sentinel bound to phase/plan, mismatch is \"no applicable sentinel\"",
-        "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
     ),
     (
         "gsd-agent-isolation-guard.js: #3566 — per-install .gsd-runtime marker rung (in-process)",
@@ -243,10 +204,6 @@ const AGENT_SKIPPED: &[(&str, &str)] = &[
         "fs: the dispatch-isolation sentinel file (gsd-tools record-dispatch-isolation), which no hook reads; the hook's `when` is workflow.use_worktrees (D-r44-10)",
     ),
     (
-        "gsd-agent-isolation-guard.js: #4734 — a non-git project root is never demanded worktree isolation",
-        "git: whether the project root is a repository; the hook's `when` is the setting (K19 git facts)",
-    ),
-    (
         "guard fallback — worktreesOptedOut ladder (#3972)",
         "fs: the config ladder (workstream and root use_worktrees); the hook's `when` is the resolved setting",
     ),
@@ -257,6 +214,38 @@ const AGENT_SKIPPED: &[(&str, &str)] = &[
     (
         "worktreesOptedOut — ladder unit semantics (#3972)",
         "fs: the config ladder; the hook's `when` is the resolved setting",
+    ),
+    (
+        "gsd-agent-isolation-guard.js: applicability matrix (#3045) > row 1:",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
+    ),
+    (
+        "gsd-agent-isolation-guard.js: applicability matrix (#3045) > row 3:",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
+    ),
+    (
+        "gsd-agent-isolation-guard.js: applicability matrix (#3045) > row 4:",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
+    ),
+    (
+        "gsd-agent-isolation-guard.js: #4734 — a non-git project root is never demanded worktree isolation > positive control: the same shape in a git-inited root still DENIES (the repository is the differentiator)",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
+    ),
+    (
+        "gsd-agent-isolation-guard.js: #4734 — a non-git project root is never demanded worktree isolation > #4734 scope: a FRESH sentinel still governs a non-git root — the fix is fallback-only",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
+    ),
+    (
+        "gsd-agent-isolation-guard.js: property",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
+    ),
+    (
+        "gsd-agent-isolation-guard.js: #3045 BLOCKER regression — sentinel is authoritative over registry capability > tool_name=\"Task\" behaves identically",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
+    ),
+    (
+        "gsd-agent-isolation-guard.js: applicability matrix (#3045) > reason names the exact parameter",
+        "runtime: the deny needs a `harness-worktree` dispatch isolation, which @gsd/core never sets (its executors run in the checkout; REVIEW-r44 C1)",
     ),
 ];
 
@@ -583,4 +572,34 @@ fn worktree_path_guard_accounts_for_every_upstream_case() {
             .map(|b| (*b, WORKTREE_LIBRARY)),
     );
     accounting::account(SAFETY_SUITE, &safety_ported(), &skipped);
+}
+
+/// REVIEW-r44 M4: the main checkout under another spelling or by a relative path is still the main checkout.
+#[test]
+fn the_main_checkout_is_refused_by_case_and_by_a_relative_path() {
+    let outside = |path: &str| Facts {
+        host: "claude-code".into(),
+        cwd: WT.into(),
+        class: "write".into(),
+        input: json!({ "file_path": path }),
+        paths: vec![PathFact {
+            path: path.into(),
+            in_project: false,
+            ..PathFact::default()
+        }],
+        ..Facts::default()
+    };
+    assert!(refused(&outside("/t/repo/src/a.ts")));
+    assert!(refused(&outside("/t/REPO/src/a.ts")), "case");
+    assert!(refused(&outside("/T/Repo/SRC/a.ts")), "case");
+    assert!(
+        refused(&outside("../../../src/a.ts")),
+        "relative, out of the worktree"
+    );
+    assert!(refused(&outside("../../../../repo/src/a.ts")));
+    assert!(!refused(&outside("../../../../elsewhere/a.ts")));
+    assert!(
+        !refused(&outside("/t/repository/a.ts")),
+        "a sibling that shares a prefix"
+    );
 }

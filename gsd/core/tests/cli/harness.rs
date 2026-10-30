@@ -130,10 +130,15 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
 impl Project {
     /// Rewrites `specforge.json`: `@gsd/core` loaded from the built component, with `settings` under its name.
     pub fn settings(&self, settings: serde_json::Value) {
+        self.settings_in("spec", settings);
+    }
+
+    /// [`Self::settings`] with the manifest's `spec_root` (`.`: the spec root is the project root).
+    pub fn settings_in(&self, spec_root: &str, settings: serde_json::Value) {
         let manifest = serde_json::json!({
             "name": "gsd-test",
             "version": "0.1.0",
-            "spec_root": "spec",
+            "spec_root": spec_root,
             "extensions": [format!("@gsd/core={}", self.wasm.display())],
             "settings": { "@gsd/core": settings },
         });

@@ -66,18 +66,46 @@ fn type_of(subject: &str) -> Option<&str> {
     matched.then_some(kind)
 }
 
-/// The subject of a message: its first line, or the first line of the body when the message is the command-substituted
-/// heredoc form `$(cat <<'EOF' … EOF)`, whose first line is the opener (upstream's #3802).
-fn subject_of(message: &str) -> &str {
+/// The delimiter of a heredoc opener `$(cat <<[-]'X'`, when it is quoted (`'X'`, `"X"`, `\X`): the shell leaves the body
+/// alone only then. A bare delimiter lets the shell expand the body, so what git receives is not what is written.
+fn quoted_delimiter(opener: &str) -> Option<&str> {
+    let d = opener
+        .strip_prefix("$(cat <<")?
+        .trim_start_matches('-')
+        .trim();
+    let inner = [('\'', '\''), ('"', '"')]
+        .iter()
+        .find_map(|(l, r)| d.strip_prefix(*l)?.strip_suffix(*r))
+        .or_else(|| d.strip_prefix('\\'))?;
+    (!inner.is_empty() && !inner.contains(char::is_whitespace)).then_some(inner)
+}
+
+/// The subject of a message: its first line, or, for the command-substituted heredoc form
+/// `$(cat <<'EOF' … EOF)` (upstream's #3802), the first line of the body. Upstream blocks every other shape, so those
+/// are judged as they are written: the opener line is the subject. The body is resolved only when the delimiter is
+/// quoted, the `)` closes the message with nothing after it, the `-m` word is not single-quoted (git would receive the
+/// literal opener) and `command` has no `--cleanup` that keeps a blank first line (REVIEW-r44 M2).
+fn subject_of<'a>(message: &'a str, command: &str) -> &'a str {
     let mut lines = message.lines();
     let first = lines.next().unwrap_or_default();
-    let opener = first
-        .strip_prefix("$(cat <<")
-        .map(|o| o.trim_start_matches('-').trim());
-    if opener.is_some_and(|o| !o.is_empty() && !o.contains(char::is_whitespace)) {
-        return lines.find(|l| !l.trim().is_empty()).unwrap_or_default();
+    let cleanup_kept = command
+        .split_whitespace()
+        .any(|w| w.starts_with("--cleanup") && !w.contains("whitespace") && !w.contains("default"));
+    let Some(delim) = quoted_delimiter(first) else {
+        return first;
+    };
+    let rest: Vec<&str> = lines.collect();
+    let closes = rest
+        .iter()
+        .position(|l| l.trim_start_matches('\t') == delim);
+    let clean = closes.is_some_and(|at| matches!(rest[at + 1..], [")"]));
+    if cleanup_kept || command.contains("'$(cat <<") || !clean {
+        return first;
     }
-    first
+    rest.iter()
+        .find(|l| !l.trim().is_empty())
+        .copied()
+        .unwrap_or_default()
 }
 
 /// The verdict on a commit's message, given the types the config adds.
@@ -85,7 +113,8 @@ pub(super) fn validate_commit(f: &Facts, extra: &[String]) -> HookOutput {
     let Some(message) = f.commit_message.as_deref().filter(|m| !m.is_empty()) else {
         return HookOutput::allow();
     };
-    let subject = subject_of(message);
+    let command = f.input_str("command").unwrap_or_default();
+    let subject = subject_of(message, command);
     if subject.starts_with("fixup! ") || subject.starts_with("squash! ") {
         return HookOutput::allow();
     }

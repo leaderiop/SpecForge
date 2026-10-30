@@ -4,43 +4,25 @@
 //!
 //! Upstream resolves the dispatch isolation from a sentinel file, the runtime registry and `.planning/config.json`, and
 //! finds a GSD worktree from `git rev-parse` and the branch name. A hook here reads none of them, so:
-//! - the isolation guard is Claude Code's, whose `Agent` tool takes the `isolation` parameter, and runs while
-//!   `workflow.use_worktrees` is on (the hook's `when`, a no-op otherwise);
+//! - the isolation guard allows every dispatch. Upstream denies an executor without `isolation:"worktree"` only when
+//!   the isolation is `harness-worktree`, and in sequential mode (`USE_WORKTREES=false`) the sentinel says `none` and
+//!   it allows. @gsd/core has no worktree isolation: its execute workflows set `USE_WORKTREES="false"` and tell the
+//!   agent to omit `isolation`, so every dispatch it makes is the sequential one (REVIEW-r44 C1). The hook stays
+//!   declared (Claude Code's only) so that a future harness with worktrees has its place;
 //! - the path guard knows a GSD worktree by where it is: a project under `<repo>/.claude/worktrees/agent-*` (Claude
 //!   Code's own place for a subagent's worktree, whose branch is upstream's `worktree-agent-*`) or `wf_*`. It refuses
-//!   an absolute path into `<repo>`, the main checkout, which is the bug it exists for (#260); upstream lets a path
-//!   outside every repository through, and so does this one.
+//!   a path into `<repo>`, the main checkout, which is the bug it exists for (#260), in any case and as a relative
+//!   path; upstream lets a path outside every repository through, and so does this one. A path that reaches `<repo>`
+//!   through a symlink is not seen (the kernel hands a hook the name, not the real path: K19), where upstream asks
+//!   git for the toplevel of the target's real directory.
 
 use specforge_extension_sdk::prelude::*;
 
 use super::facts::Facts;
 
-/// The subagent types that write code and so need their own checkout.
-const EXECUTORS: [&str; 1] = ["gsd-executor"];
-
-/// Refuses to start an executor in the checkout the orchestrator is in.
-pub(super) fn agent_isolation_guard(f: &Facts) -> HookOutput {
-    if f.host != "claude-code" || f.class != "agent" || !matches!(f.tool.as_str(), "Agent" | "Task")
-    {
-        return HookOutput::default();
-    }
-    let Some(kind) = f
-        .input
-        .get("subagent_type")
-        .and_then(|v| v.as_str())
-        .filter(|k| EXECUTORS.contains(k))
-    else {
-        return HookOutput::default();
-    };
-    if f.input.get("isolation").and_then(|v| v.as_str()) == Some("worktree") {
-        return HookOutput::default();
-    }
-    HookOutput::deny(format!(
-        "Agent isolation guard (gsd.agent_isolation_guard): this project's dispatch isolation is \"harness-worktree\" \
-         (workflow.use_worktrees is on), but the Agent() dispatch for subagent_type=\"{kind}\" is missing \
-         isolation=\"worktree\". Add isolation=\"worktree\" to the Agent() call so the executor runs in an isolated \
-         worktree instead of the primary checkout (see the execute-phase prompt)."
-    ))
+/// Lets the dispatch through: @gsd/core's executors run sequentially in the checkout (see the module doc).
+pub(super) fn agent_isolation_guard(_: &Facts) -> HookOutput {
+    HookOutput::default()
 }
 
 /// A directory name that is a GSD agent's worktree: upstream's branch `worktree-agent-*` and `worktree-wf_*`.
@@ -83,8 +65,10 @@ fn resolved(path: &str) -> String {
     format!("/{}", parts.join("/"))
 }
 
+/// Whether `path` is `root` or inside it, ignoring case: APFS and NTFS name one directory with several spellings.
 fn under(path: &str, root: &str) -> bool {
-    path == root || path.strip_prefix(root).is_some_and(|r| r.starts_with('/'))
+    let (path, root) = (path.to_lowercase(), root.to_lowercase());
+    path == root || path.strip_prefix(&root).is_some_and(|r| r.starts_with('/'))
 }
 
 /// Refuses an absolute path into the main checkout from inside an agent's worktree.
@@ -95,12 +79,14 @@ pub(super) fn worktree_path_guard(f: &Facts) -> HookOutput {
     let Some((main, worktree)) = agent_worktree(&f.cwd) else {
         return HookOutput::default();
     };
-    for p in f
-        .paths
-        .iter()
-        .filter(|p| !p.in_project && p.path.starts_with('/'))
-    {
-        let path = resolved(&p.path);
+    for p in f.paths.iter().filter(|p| !p.in_project) {
+        // A relative path leaves the project from the host's directory (`../../../src/a.ts`).
+        let named = if p.path.starts_with('/') {
+            p.path.clone()
+        } else {
+            format!("{}/{}", f.cwd.replace('\\', "/"), p.path)
+        };
+        let path = resolved(&named);
         if under(&path, &worktree) || !under(&path, &main) {
             continue;
         }
@@ -118,10 +104,11 @@ pub(super) fn worktree_path_guard(f: &Facts) -> HookOutput {
 
 pub(super) fn declare(c: &mut ContributionsBuilder) {
     c.hook("agent_isolation_guard", HookEvent::PreTool, |h| {
-        h.description("Refuses to start a gsd-executor outside a worktree while worktrees are on")
-            .tools(&["agent"])
-            .when("workflow.use_worktrees")
-            .handler(|call| Ok(agent_isolation_guard(&Facts::of(call))));
+        h.description(
+            "Lets a gsd-executor start in the checkout: @gsd/core runs its executors sequentially",
+        )
+        .tools(&["agent"])
+        .handler(|call| Ok(agent_isolation_guard(&Facts::of(call))));
     });
     c.hook("worktree_path_guard", HookEvent::PreTool, |h| {
         h.description(
