@@ -2,7 +2,7 @@
 
 use super::commands_support::{gsd, strict, twin};
 use super::harness::taskboard;
-use super::prompts_support::{payload, prompt, render_three_hosts};
+use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
 const PHASE: &str = "v1.0/01";
 
@@ -86,4 +86,20 @@ fn complete_milestone_names_close_milestone() {
         .as_str()
         .expect("a title");
     assert!(title.contains("specforge gsd close-milestone"), "{title}");
+}
+
+/// REVIEW-r42 N5: the ship text reads the milestone's ledger (every phase of it), as `contributions/README.md` says,
+/// not one phase's windows and not a "project root" file.
+#[test]
+fn ship_reads_the_ledger_of_the_milestone() {
+    let p = with_open_window();
+    let text = text_of(&payload(&prompt(&p, "ship", &[PHASE], "claude-code")));
+    assert!(
+        text.contains("specforge query \"$MILESTONE\" --depth 2 --kinds broken_window"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("project root"),
+        "the ledger is the milestone's"
+    );
 }

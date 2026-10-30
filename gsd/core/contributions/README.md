@@ -156,7 +156,7 @@ The assets are upstream's text; where the spec has no counterpart a line was def
 - `init` JSON fields (`phase_dir`, `plan_count`, ...) have no counterpart: the text reads the graph (`specforge query`)
   and the ids named at the end of the text (`$PHASE_ID`, `$MILESTONE`, `$PROJECT`).
 - `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
-- The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's, not upstream's.
+- The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
   an agent's effort to `high` as upstream does (`tests/golden/host/` holds the probe and both conversions, made with
   upstream's converters).
