@@ -218,7 +218,7 @@ fn a_write_into_the_spec_root_is_scanned_and_allowed() {
 #[test]
 fn injection_is_never_blocked() {
     let (p, home, _) = installed();
-    p.settings(json!({"security": {"injection_blocking": true}}));
+    p.settings(json!({"security.injection_blocking": true}));
     for host in HOSTS {
         let run = run_hook(
             &p,

@@ -85,6 +85,8 @@ pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
 /// A copy of `tests/projects/<name>/` in a temp dir, with `@gsd/core` loaded from `GSD_CORE_WASM`.
 pub struct Project {
     dir: tempfile::TempDir,
+    /// The project's root: the temp dir, or a directory inside it.
+    root: PathBuf,
     wasm: PathBuf,
 }
 
@@ -101,11 +103,26 @@ pub fn taskboard() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"))
 }
 
+/// [`taskboard`] under `inside` of its temp dir.
+pub fn taskboard_at(inside: &str) -> Project {
+    from_dir_at(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"),
+        inside,
+    )
+}
+
 fn from_dir(source: &Path) -> Project {
+    from_dir_at(source, "")
+}
+
+/// [`from_dir`] with the project `inside` the temp dir (`.claude/worktrees/agent-x`: a subagent's worktree).
+fn from_dir_at(source: &Path, inside: &str) -> Project {
     let wasm = required("GSD_CORE_WASM");
     let dir = tempfile::tempdir().expect("a temp dir");
-    copy_dir(source, dir.path());
-    let p = Project { dir, wasm };
+    let root = dir.path().join(inside);
+    std::fs::create_dir_all(&root).expect("the project's directory");
+    copy_dir(source, &root);
+    let p = Project { dir, root, wasm };
     p.settings(serde_json::json!({}));
     p
 }
@@ -154,7 +171,7 @@ impl Project {
         let mut child = Command::new(required("SPECFORGE_BIN"))
             .args(args)
             .envs(env.iter().copied())
-            .current_dir(self.dir.path())
+            .current_dir(&self.root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -176,7 +193,7 @@ impl Project {
 
     /// The project's root, as an absolute path.
     pub fn root(&self) -> &Path {
-        self.dir.path()
+        &self.root
     }
 
     /// `(code, message)` of every `gsd/` diagnostic of `specforge check --format json`, sorted, the judged rules'
@@ -335,7 +352,7 @@ impl Project {
     }
 
     fn ensure_repository(&self) {
-        if !self.dir.path().join(".git").exists() {
+        if !self.root.join(".git").exists() {
             self.git(&["init", "-q", "-b", "main"], BASELINE_AT);
         }
     }
@@ -366,7 +383,7 @@ impl Project {
             .env("GIT_AUTHOR_DATE", at)
             // The committer's date differs from the author's, so `%at` is told from `%ct`.
             .env("GIT_COMMITTER_DATE", "2030-01-01T00:00:00Z")
-            .current_dir(self.dir.path())
+            .current_dir(&self.root)
             .output()
             .expect("run git");
         assert!(
@@ -426,7 +443,7 @@ impl Project {
         use sha2::{Digest, Sha256};
         let file = "specforge-harness";
         let header = "# specforge-harness 1";
-        let mut lines: Vec<String> = std::fs::read_to_string(self.dir.path().join(file))
+        let mut lines: Vec<String> = std::fs::read_to_string(self.root.join(file))
             .map(|text| text.lines().skip(1).map(String::from).collect())
             .unwrap_or_default();
         let digest = Sha256::digest(format!("{entity}\0{field}\0{value_json}").as_bytes());
@@ -507,18 +524,18 @@ impl Project {
 
     /// Whether a path of the project exists.
     pub fn exists(&self, relative: &str) -> bool {
-        self.dir.path().join(relative).exists()
+        self.root.join(relative).exists()
     }
 
     /// A file of the project, as it is now.
     pub fn read(&self, relative: &str) -> String {
-        std::fs::read_to_string(self.dir.path().join(relative))
+        std::fs::read_to_string(self.root.join(relative))
             .unwrap_or_else(|e| panic!("read {relative}: {e}"))
     }
 
     /// Writes (or replaces) a file of the project, creating its folders.
     pub fn write(&self, relative: &str, text: &str) {
-        let path = self.dir.path().join(relative);
+        let path = self.root.join(relative);
         std::fs::create_dir_all(path.parent().expect("a file has a parent")).expect("create dirs");
         std::fs::write(path, text).expect("write file");
     }

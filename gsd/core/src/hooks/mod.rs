@@ -8,6 +8,7 @@ mod corpus;
 mod facts;
 mod guards;
 mod injection;
+mod isolation;
 pub mod roster;
 mod secrets;
 
@@ -17,4 +18,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     guards::declare(c);
     secrets::declare(c);
     injection::declare(c);
+    isolation::declare(c);
 }

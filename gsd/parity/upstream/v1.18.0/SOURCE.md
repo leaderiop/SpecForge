@@ -505,3 +505,15 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the two hook scrip
 | `hook-cases/read-injection-scanner.security.json` (recorded by `gsd/parity/record-hook-cases.cjs`, not upstream bytes) | `c936059a4a3b6745f83216993e9f995de55f83d5016935e16f949e32767b2e6f` |
 | `hook-cases/read-injection-scanner.property.json` (recorded, not upstream bytes) | `e7084608eea38bee907e00e81532fcee0955a907a70fde5222493892f5cd6080` |
 | `hook-cases/injection-patterns-parity.security.json` (recorded, not upstream bytes) | `05fd1d62197f9201985aa783493fe57b48044f6242c823de2cc9bb2bae07320e` |
+
+## r44 T3: the agent isolation and worktree path guards
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the two hook scripts, the reason codes the isolation guard requires, and their suites (read by `gsd/core/src/hooks/isolation/tests.rs`). `worktree-safety.test.cjs` is vendored whole (389 cases); only its `bug #260: gsd-worktree-path-guard.js` and `#1342` blocks are in scope, and every other top-level block is one skipped prefix.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-agent-isolation-guard.js` | `e20e092621419441230d7f63a3fa358fac67004327d047c5cc4ca9743a412b6e` |
+| `hooks/gsd-worktree-path-guard.js` | `6771fd74a1d554548b140f7f7246ef9ca69e2934fde75c9090e61a2fa4da78cc` |
+| `hooks/lib/isolation-deny-reason.js` | `4cbff1576f05e4aae4978b2acd5bdff875f462fe73587a15dda96713d0e657f4` |
+| `tests/gsd-agent-isolation-guard.test.cjs` | `3ce007cb340b5b0888e4a50f7f9df4441c492f16ab4b5322d70a857daaec6c6a` |
+| `tests/worktree-safety.test.cjs` | `3aef69377df585672d96ec2047a1cb6e7f8e49be055c10060fc9eb1bc17892ac` |

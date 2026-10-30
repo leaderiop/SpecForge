@@ -39,6 +39,7 @@ fn file(path: &str, exists: bool) -> PathFact {
 fn spec(old: Option<u64>, new: Option<u64>) -> PathFact {
     PathFact {
         path: "spec/roadmap.spec".into(),
+        in_project: true,
         in_spec_root: true,
         exists: old.is_some(),
         bytes: old,

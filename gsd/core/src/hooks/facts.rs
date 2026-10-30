@@ -8,6 +8,7 @@ use specforge_extension_sdk::prelude::*;
 #[derive(Debug, Clone, Default)]
 pub struct PathFact {
     pub path: String,
+    pub in_project: bool,
     pub in_spec_root: bool,
     pub exists: bool,
     pub bytes: Option<u64>,
@@ -18,6 +19,8 @@ pub struct PathFact {
 #[derive(Debug, Clone, Default)]
 pub struct Facts<'a> {
     pub host: String,
+    /// The directory the host ran in.
+    pub cwd: String,
     /// The tool's host-neutral class (`write`, `shell`, `agent`) and the host's name for it (`Write`, `Bash`).
     pub class: String,
     pub tool: String,
@@ -36,6 +39,7 @@ impl<'a> Facts<'a> {
         let tool = f.tool.as_ref();
         Facts {
             host: f.host.clone(),
+            cwd: f.cwd.clone(),
             class: tool.map(|t| t.class.clone()).unwrap_or_default(),
             tool: tool.map(|t| t.name.clone()).unwrap_or_default(),
             input: tool.map(|t| t.input.clone()).unwrap_or_default(),
@@ -44,6 +48,7 @@ impl<'a> Facts<'a> {
                 .iter()
                 .map(|p| PathFact {
                     path: p.path.clone(),
+                    in_project: p.in_project,
                     in_spec_root: p.in_spec_root,
                     exists: p.exists,
                     bytes: p.bytes,
