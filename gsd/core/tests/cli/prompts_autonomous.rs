@@ -62,3 +62,52 @@ fn autonomous_names_code_review_and_the_ui_gate_as_not_installed() {
     assert!(text.contains("ui-plan-gate"), "{text}");
     assert!(text.contains("not installed"), "{text}");
 }
+
+/// REVIEW-r43 Minor 3: the skip-discuss `specforge new context` carries `canonical_refs` in the same line (the entity is
+/// refused without them), so the line is accepted as written.
+#[test]
+fn the_skip_discuss_context_line_is_accepted() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(&p, "autonomous", &[], "claude-code")));
+    let start = text.find("`specforge new context ").expect("the line") + 1;
+    let line = &text[start..start + text[start..].find('`').expect("an end")];
+    let line = line
+        .replace("${padded_phase}", "09")
+        .replace("{Phase Name}", "Docs")
+        .replace("${PHASE_NUM}", "01")
+        .replace("$MILESTONE", "v1.0")
+        .replace("{date}", "2026-10-30")
+        .replace("{goal}", "docs");
+    let words = shell_split(&line);
+    let mut args: Vec<&str> = words.iter().skip(1).map(String::as_str).collect();
+    args.push("--dry-run");
+    let run = p.run(&args);
+    assert_eq!(run.code, 0, "{line}\n{}", run.all());
+}
+
+/// The words of a shell line (quotes honoured and dropped).
+fn shell_split(line: &str) -> Vec<String> {
+    let (mut out, mut word, mut any) = (Vec::new(), String::new(), false);
+    let mut quote: Option<char> = None;
+    for c in line.chars() {
+        match (quote, c) {
+            (Some(q), c) if c == q => quote = None,
+            (Some(_), c) => word.push(c),
+            (None, '"' | '\'') => {
+                quote = Some(c);
+                any = true;
+            }
+            (None, c) if c.is_whitespace() => {
+                if any || !word.is_empty() {
+                    out.push(std::mem::take(&mut word));
+                    any = false;
+                }
+            }
+            (None, c) => word.push(c),
+        }
+    }
+    if any || !word.is_empty() {
+        out.push(word);
+    }
+    out
+}

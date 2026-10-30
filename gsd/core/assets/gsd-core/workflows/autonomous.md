@@ -291,7 +291,7 @@ Write a minimal CONTEXT.md so downstream plan-phase has valid input. Get phase d
 DETAIL=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 0 --format json)
 ```
 
-Read `gsd-core/workflows/autonomous/templates/minimal-context.md` and write it as the phase's `context` entity (`specforge new context ${padded_phase}-CONTEXT "{Phase Name}" --in spec/context.spec --phase "$MILESTONE/${PHASE_NUM}" --gathered {date} --boundary "{goal}"`; add its `canonical_refs` block through the MCP tool `specforge.edit`), filling its placeholders (`{PHASE_NUM}`, `{Phase Name}`, `{date}`, the goal) from the roadmap phase.
+Read `gsd-core/workflows/autonomous/templates/minimal-context.md` and write it as the phase's `context` entity (`specforge new context ${padded_phase}-CONTEXT "{Phase Name}" --in spec/context.spec --phase "$MILESTONE/${PHASE_NUM}" --gathered {date} --boundary "{goal}" --canonical_refs '[{"topic":"No external specs: the roadmap phase goal and success criteria","paths":[]}]'`; the entity is refused without `canonical_refs`), filling its placeholders (`{PHASE_NUM}`, `{Phase Name}`, `{date}`, the goal) from the roadmap phase.
 
 Commit the minimal context:
 

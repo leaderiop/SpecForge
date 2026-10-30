@@ -16,7 +16,7 @@ Set `WORKSPACE_NAME` to the `--name` value in $ARGUMENTS.
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; DIRTY_REPOS=$(for r in "$WORKSPACE_PATH"/*/; do [ -n "$(git -C "$r" status --porcelain 2>/dev/null)" ] && basename "$r"; done)
+case "$WORKSPACE_NAME" in */*|*..*) echo "Invalid workspace name: $WORKSPACE_NAME" >&2; exit 1;; esac; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ -n "$WORKSPACE_NAME" ] && [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(for r in "$WORKSPACE_PATH"/*/; do [ -n "$(git -C "$r" status --porcelain 2>/dev/null)" ] && basename "$r"; done)
 STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
 ```
 
@@ -76,7 +76,7 @@ REMOVE_FAILED=false
 For each repo in the workspace:
 
 ```bash
-cd "$SOURCE_REPO_PATH"
+SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1; then
   echo "Warning: Could not remove worktree for $REPO_NAME — source repo may have been moved, deleted, locked, or dirty." >&2
   REMOVE_FAILED=true
