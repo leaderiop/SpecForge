@@ -1,29 +1,25 @@
 //! Ported from gsd-core v1.18.0 hooks/gsd-agent-isolation-guard.js and hooks/gsd-worktree-path-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
-//! `agent_isolation_guard` and `worktree_path_guard` (D-r44-10), both heuristics where upstream reads files and git.
+//! `worktree_path_guard` (D-r44-10), a heuristic where upstream reads files and git. There is no `agent_isolation_guard`.
 //!
 //! Upstream resolves the dispatch isolation from a sentinel file, the runtime registry and `.planning/config.json`, and
 //! finds a GSD worktree from `git rev-parse` and the branch name. A hook here reads none of them, so:
-//! - the isolation guard allows every dispatch. Upstream denies an executor without `isolation:"worktree"` only when
-//!   the isolation is `harness-worktree`, and in sequential mode (`USE_WORKTREES=false`) the sentinel says `none` and
-//!   it allows. @gsd/core has no worktree isolation: its execute workflows set `USE_WORKTREES="false"` and tell the
-//!   agent to omit `isolation`, so every dispatch it makes is the sequential one (REVIEW-r44 C1). The hook stays
-//!   declared (Claude Code's only) so that a future harness with worktrees has its place;
+//! - there is no isolation guard. Upstream denies an executor without `isolation:"worktree"` only when the isolation is
+//!   `harness-worktree`, and in sequential mode (`USE_WORKTREES=false`) the sentinel says `none` and it allows.
+//!   @gsd/core has no worktree isolation: its execute workflows set `USE_WORKTREES="false"` and tell the agent to omit
+//!   `isolation`, so every dispatch it makes is the sequential one (REVIEW-r44 C1). A hook that always allows would
+//!   cost every `Agent`/`Task` dispatch a process, so none is installed (r44 post-fix N7) until the `specforged`
+//!   harness runs executors in worktrees;
 //! - the path guard knows a GSD worktree by where it is: a project under `<repo>/.claude/worktrees/agent-*` (Claude
 //!   Code's own place for a subagent's worktree, whose branch is upstream's `worktree-agent-*`) or `wf_*`. It refuses
 //!   a path into `<repo>`, the main checkout, which is the bug it exists for (#260), in any case and as a relative
-//!   path; upstream lets a path outside every repository through, and so does this one. A path that reaches `<repo>`
+//!   path that climbs into it (stricter than upstream, which allows every relative path: ACCEPTANCE's divergences); upstream lets a path outside every repository through, and so does this one. A path that reaches `<repo>`
 //!   through a symlink is not seen (the kernel hands a hook the name, not the real path: K20), where upstream asks
 //!   git for the toplevel of the target's real directory.
 
 use specforge_extension_sdk::prelude::*;
 
 use super::facts::Facts;
-
-/// Lets the dispatch through: @gsd/core's executors run sequentially in the checkout (see the module doc).
-pub(super) fn agent_isolation_guard(_: &Facts) -> HookOutput {
-    HookOutput::default()
-}
 
 /// A directory name that is a GSD agent's worktree: upstream's branch `worktree-agent-*` and `worktree-wf_*`.
 fn is_agent_dir(name: &str) -> bool {
@@ -103,13 +99,6 @@ pub(super) fn worktree_path_guard(f: &Facts) -> HookOutput {
 }
 
 pub(super) fn declare(c: &mut ContributionsBuilder) {
-    c.hook("agent_isolation_guard", HookEvent::PreTool, |h| {
-        h.description(
-            "Lets a gsd-executor start in the checkout: @gsd/core runs its executors sequentially",
-        )
-        .tools(&["agent"])
-        .handler(|call| Ok(agent_isolation_guard(&Facts::of(call))));
-    });
     c.hook("worktree_path_guard", HookEvent::PreTool, |h| {
         h.description(
             "Refuses a write from an agent's worktree to an absolute path in the main checkout",

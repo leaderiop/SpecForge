@@ -1,4 +1,4 @@
-//! The agent isolation and worktree path guards through the command the install wrote (D-r44-16).
+//! The worktree path guard (and the absence of an isolation guard) through the command the install wrote (D-r44-16).
 
 use serde_json::{Value, json};
 
@@ -16,29 +16,11 @@ fn installed(p: &Project) -> Home {
     home
 }
 
-fn dispatch(p: &Project, host: &str, input: &Value) -> String {
-    tool_event(p, host, "pre", tool_name(host, "agent"), input, None)
-}
-
-/// The decision of the isolation guard for `input`, on claude-code.
-fn isolation(p: &Project, home: &Home, input: &Value) -> (bool, String) {
-    let run = run_hook(
-        p,
-        "claude-code",
-        "gsd.agent_isolation_guard",
-        &dispatch(p, "claude-code", input),
-        home,
-    );
-    let (denied, reason, _) = verdict("claude-code", &run);
-    (denied, reason)
-}
-
 /// C1: @gsd/core runs its executors one after another in the checkout, and its execute prompts say to omit
-/// `isolation="worktree"`; the installed guard must let that dispatch through under default settings.
+/// `isolation="worktree"`.
 #[test]
-fn the_dispatch_the_execute_prompts_tell_the_agent_to_make_passes_the_guard() {
+fn the_execute_prompts_tell_the_agent_to_run_the_executors_in_the_checkout() {
     let p = taskboard();
-    let home = installed(&p);
     for (id, args) in [
         ("execute_phase", vec!["v1.0/01"]),
         ("execute_plan", vec!["v1.0/02/02-01"]),
@@ -51,63 +33,20 @@ fn the_dispatch_the_execute_prompts_tell_the_agent_to_make_passes_the_guard() {
             "{id} no longer says the executors run in the checkout"
         );
     }
-    for input in [
-        json!({"subagent_type": "gsd-executor", "description": "Execute plan 02-01", "prompt": "go"}),
-        json!({"subagent_type": "gsd-executor", "isolation": "none"}),
-        json!({"subagent_type": "gsd-executor", "isolation": ""}),
-    ] {
-        let (denied, reason) = isolation(&p, &home, &input);
-        assert!(!denied, "{input}: {reason}");
-    }
 }
 
+/// N7: there is no isolation guard to install while every dispatch is allowed; a hook that always allows would cost
+/// each `Agent`/`Task` dispatch a process. The roster drops `gsd-agent-isolation-guard.js`.
 #[test]
-fn an_executor_in_a_worktree_is_allowed() {
+fn no_host_installs_an_isolation_guard() {
     let p = taskboard();
-    let home = installed(&p);
-    assert!(
-        !isolation(
-            &p,
-            &home,
-            &json!({"subagent_type": "gsd-executor", "isolation": "worktree"})
-        )
-        .0
-    );
-}
-
-#[test]
-fn a_planner_is_never_denied() {
-    let p = taskboard();
-    let home = installed(&p);
-    for kind in [
-        "gsd-planner",
-        "gsd-code-reviewer",
-        "gsd-verifier",
-        "general-purpose",
-    ] {
+    installed(&p);
+    for host in HOSTS {
         assert!(
-            !isolation(&p, &home, &json!({"subagent_type": kind})).0,
-            "{kind}"
+            !has_command(&p, host, "gsd.agent_isolation_guard"),
+            "{host}"
         );
     }
-}
-
-/// The guard is Claude Code's: Cursor's dispatch tool has no `isolation` parameter, and Codex has no such tool.
-#[test]
-fn the_isolation_guard_is_rendered_where_the_host_has_a_dispatch_tool() {
-    let p = taskboard();
-    let home = installed(&p);
-    assert!(has_command(&p, "claude-code", "gsd.agent_isolation_guard"));
-    assert!(has_command(&p, "cursor", "gsd.agent_isolation_guard"));
-    assert!(!has_command(&p, "codex", "gsd.agent_isolation_guard"));
-    let run = run_hook(
-        &p,
-        "cursor",
-        "gsd.agent_isolation_guard",
-        &dispatch(&p, "cursor", &json!({"subagent_type": "gsd-executor"})),
-        &home,
-    );
-    assert!(!verdict("cursor", &run).0, "{}", run.all());
 }
 
 /// A project that is a subagent's worktree: `<tmp>/.claude/worktrees/agent-x`, with the main checkout above it.

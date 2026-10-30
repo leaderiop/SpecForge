@@ -296,11 +296,7 @@ fn install_tree_golden_claude_code() {
 
 #[test]
 fn install_tree_golden_codex() {
-    golden_install(
-        "codex",
-        8,
-        &["injection_scanner", "agent_isolation_guard", "statusline"],
-    );
+    golden_install("codex", 8, &["injection_scanner", "statusline"]);
 }
 
 #[test]
@@ -381,7 +377,8 @@ fn uninstall_leaves_only_what_the_user_wrote() {
         let run = install(&q, &qhome, &["uninstall", host, "--format", "json"]);
         assert_eq!(run.code, 0, "{host}: {}", run.all());
         assert_eq!(tree(&q).len(), 0, "{host}: {:?}", tree(&q).keys());
-        // finding: uninstall removes the directories it filled, but not the host's own folder it created
+        // known limit (K20, ACCEPTANCE): uninstall removes the directories it filled, but not the host's own folder it created;
+        // when it is fixed, this expectation becomes an empty list
         let roots: Vec<String> = owned(host)
             .iter()
             .filter(|o| o.starts_with('.') && !o.ends_with(".json"))
@@ -440,6 +437,27 @@ fn an_unmarked_skill_is_foreign() {
         assert_eq!(refused[0]["path"], file, "{host}");
         assert_eq!(read(&p, file), "a skill the user wrote\n", "{host}");
     }
+}
+
+/// REVIEW-r44 post-fix N5: the Cursor rendering of the session start is a `sessionStart` entry of the installed
+/// `hooks.json`, present once `hooks.community` is on and absent by default (the roster's `gsd-cursor-session-start.js`).
+#[test]
+fn cursor_renders_the_session_start_of_the_community_hook() {
+    let (p, home, _) = first_install("cursor");
+    assert!(!read(&p, ".cursor/hooks.json").contains("sessionStart"));
+    p.settings(json!({"hooks.community": true}));
+    let run = install(&p, &home, &["install", "cursor", "--format", "json"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let hooks: Value = serde_json::from_str(&read(&p, ".cursor/hooks.json")).expect("json");
+    let entries = hooks["hooks"]["sessionStart"]
+        .as_array()
+        .expect("a sessionStart list");
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.to_string().contains("session_state")),
+        "{entries:?}"
+    );
 }
 
 #[test]
