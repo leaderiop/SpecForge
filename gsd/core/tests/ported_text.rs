@@ -282,3 +282,28 @@ fn a_claude_render_has_no_section_markers_and_no_copilot_notes() {
     }
     assert!(seen > 17, "{seen} renders");
 }
+
+/// No text removes a phase on the normal path (REVIEW-r42 N1): phases of a completed milestone stay with it (ids are
+/// milestone-scoped), so `phase --remove` and `--unlink-references` appear only in review-backlog's 999.x case. Scans
+/// every asset (what `reference` serves) and every rendered prompt.
+#[test]
+fn no_text_tells_the_agent_to_remove_a_phase() {
+    let rx = Regex::new(r"phase --remove|--unlink-references").expect("a regex");
+    let backlog = |line: &str| line.contains("999.x");
+    for path in asset_paths() {
+        for line in asset(path).expect("an asset").lines() {
+            assert!(
+                !rx.is_match(line) || backlog(line),
+                "{path} removes a phase: {line}"
+            );
+        }
+    }
+    for (command, host, _, text) in sweep() {
+        for line in text.lines() {
+            assert!(
+                !rx.is_match(line) || backlog(line),
+                "{command} on {host} removes a phase: {line}"
+            );
+        }
+    }
+}
