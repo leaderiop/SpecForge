@@ -32,6 +32,9 @@ jobs:
           # The @gsd workspace on a runner of its own: its builds and black-box tests run beside lint and specs.
           - shard: gsd
             checks: gsd
+            # A key of its own: rust-cache never saves over a key it restored whole, so the old one would never hold
+            # the workspace crates.
+            cache: gsd-crates
             workspaces: |
               . -> target
               gsd -> target/gsd
