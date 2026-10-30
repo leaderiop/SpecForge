@@ -560,3 +560,11 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three opt-in c
 | `hooks/gsd-session-state.sh` | `e7c8f2a8a973e95463804234c87c563bb86678209f5275494fcbe3095f4033cb` |
 | `tests/gsd-validate-commit-crash-policy.test.cjs` | `ff75f854974e02751cdff9a432a96c2c488bfbf6f96d58fd13d90b68939dfc92` |
 | `tests/gsd-validate-commit-sigpipe.test.cjs` | `715248bb17b0ed93c4ec04a9acdc47e60a5809695b776171c96a346716d6f78b` |
+
+## r44 T9: capability ids
+
+`capability-ids.json` is the sorted list of the 45 directory names of `capabilities/` at the tag (`git ls-tree --name-only v1.18.0 capabilities/`, the `capabilities/` prefix removed). The vendored `capabilities.json` holds only the 32 capabilities that have a `config` block, so it cannot say which capabilities exist; `gsd/core/tests/parity_roster.rs` reads this file against the README's capability table.
+
+| File | sha256 |
+|---|---|
+| `capability-ids.json` | `15994a8e3bb35fcaf05b513b811ee8a809dbdd64ee3316c69b8565c5ba5d178d` |
