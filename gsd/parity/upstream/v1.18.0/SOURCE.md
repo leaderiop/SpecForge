@@ -23,7 +23,8 @@ without the snapshot.
 Verdicts of gsd-core's deterministic `gsd-tools` gates, copied unchanged by `git -C <gsd-core> show
 v1.18.0:tests/fixtures/gate-cutover/<file>.json`. The fixtures that produced them are built by
 `tests/fixtures/gate-cutover/arms.cjs` (`dc`, `vp`, `gap`); `gsd/core/tests/projects/gate_cutover/` is their twin, and
-the tests in `tests/cli/parity_plans.rs` and the passes' native tests reproduce the verdicts.
+the tests in `tests/cli/parity_plans.rs` and the passes' native tests reproduce the verdicts. r44 T10 vendors the rest
+(171 in all; see "r44 T10" below).
 
 | File | Read by |
 |---|---|
@@ -568,3 +569,11 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three opt-in c
 | File | sha256 |
 |---|---|
 | `capability-ids.json` | `15994a8e3bb35fcaf05b513b811ee8a809dbdd64ee3316c69b8565c5ba5d178d` |
+
+## r44 T10: all of `gate-cutover/`
+
+All 171 verdicts of `tests/fixtures/gate-cutover/` at the tag, copied byte for byte (`git show v1.18.0:tests/fixtures/gate-cutover/<file>.json`, each compared with `cmp`); the 161 new ones are the `ui-*`, `api-coverage-*`, `verify-*-drift*`, `tdd-*`, `prohibition-*`, `predicate-*`, `auto-mode-*`, `r2-*`, `r4-*` and remaining `decision-coverage-*` files. `arms.cjs`, which builds their fixture projects, is not vendored: the twins are `gsd/core/tests/projects/`. `gsd/core/tests/parity_rules/cutover.rs` classifies every file once, and `parity_rules.rs` requires the table and this directory to name the same 171.
+
+| Set | sha256 |
+|---|---|
+| `sha256sum gate-cutover/*.json \| sha256sum` (sorted by name) | `037ca7bbe1f52abda41e97eaf58d83b8bff5a49a2f9fdb28fe7b23c8e11286f9` |

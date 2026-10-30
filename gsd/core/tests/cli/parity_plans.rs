@@ -25,7 +25,7 @@ fn golden(name: &str) -> Value {
 }
 
 /// What a gate-cutover golden printed on stdout.
-fn printed(name: &str) -> Value {
+pub(super) fn printed(name: &str) -> Value {
     let file = json(
         &parity(&format!("upstream/v1.18.0/gate-cutover/{name}.json")),
         name,
@@ -44,7 +44,7 @@ fn neighbours(p: &Project, name: &str) -> Vec<Value> {
 }
 
 /// `(code, entity, message)` of every `gsd/` diagnostic of `check`.
-fn diagnostics(p: &Project) -> Vec<(String, String, String)> {
+pub(super) fn diagnostics(p: &Project) -> Vec<(String, String, String)> {
     let run = p.run(&["check", "--format", "json"]);
     json(&run.stdout, "check")
         .as_array()
@@ -190,7 +190,7 @@ fn taskboard_plan_verdicts_match() {
 }
 
 /// `p` without the first `decision <name> ` block of `spec/discuss.spec`.
-fn without_decision(p: &Project, name: &str) {
+pub(super) fn without_decision(p: &Project, name: &str) {
     let text = p.read("spec/discuss.spec");
     let start = text
         .find(&format!("decision {name} "))
@@ -203,7 +203,7 @@ fn without_decision(p: &Project, name: &str) {
     );
 }
 
-fn e310_ids(p: &Project) -> Vec<String> {
+pub(super) fn e310_ids(p: &Project) -> Vec<String> {
     diagnostics(p)
         .iter()
         .filter(|(c, ..)| c == "gsd/E310")

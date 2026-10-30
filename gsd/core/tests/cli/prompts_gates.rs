@@ -23,7 +23,7 @@ fn gate_failed(run: &Run) -> Value {
 
 /// The prompt is refused with `code` among its failing diagnostics and the gate marked as not passing, and nothing is
 /// written.
-fn refused_by(p: &Project, id: &str, args: &[&str], code: &str) {
+pub(super) fn refused_by(p: &Project, id: &str, args: &[&str], code: &str) {
     let before = bytes(p);
     let found = gate_failed(&prompt(p, id, args, "claude-code"));
     let full = format!("gsd/{code}");
@@ -45,7 +45,7 @@ fn refused_by(p: &Project, id: &str, args: &[&str], code: &str) {
 }
 
 /// The prompt renders.
-fn renders(p: &Project, id: &str, args: &[&str]) {
+pub(super) fn renders(p: &Project, id: &str, args: &[&str]) {
     let rendered = payload(&prompt(p, id, args, "claude-code"));
     assert!(
         rendered["payload"]["prompt"]
@@ -55,7 +55,7 @@ fn renders(p: &Project, id: &str, args: &[&str]) {
     );
 }
 
-const PHASE: &str = "v1.0/02";
+pub(super) const PHASE: &str = "v1.0/02";
 const PLANNING: [&str; 3] = ["plan_phase", "plan_review_convergence", "ultraplan_phase"];
 
 fn discuss_file(file: &str) -> String {
@@ -125,7 +125,20 @@ fn e206_a_second_research_in_the_phase_refuses_the_planning_prompts() {
 }
 
 /// The digest `compute` gave the context of phase 02, recorded on its research, then a decision of the context edited.
-fn research_against_a_stale_context(p: &Project) {
+pub(super) fn research_against_a_stale_context(p: &Project) {
+    research_in_step_with_its_context(p);
+    let decisions = p.read("spec/discuss.spec");
+    p.write(
+        "spec/discuss.spec",
+        &decisions.replace(
+            "Tasks are kept in a single JSON file",
+            "Tasks are kept in SQLite",
+        ),
+    );
+}
+
+/// The digest of the context of phase 02, recorded on its research: the research is in step with its context.
+pub(super) fn research_in_step_with_its_context(p: &Project) {
     let query = p.run(&[
         "query",
         "v1.0/02/02-CONTEXT",
@@ -149,14 +162,6 @@ fn research_against_a_stale_context(p: &Project) {
         "v1.0/02/02-RESEARCH",
         "context_digest",
         &format!("{digest:?}"),
-    );
-    let decisions = p.read("spec/discuss.spec");
-    p.write(
-        "spec/discuss.spec",
-        &decisions.replace(
-            "Tasks are kept in a single JSON file",
-            "Tasks are kept in SQLite",
-        ),
     );
 }
 
