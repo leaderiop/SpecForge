@@ -3,6 +3,8 @@
 //! gate guard (r39).
 //!
 //! Also ports gsd-core bin/lib modules: gap-checker.cjs, roadmap-parser.cjs, roadmap-upgrade.cjs.
+//!
+//! gsd-core modules this file ports: roadmap.cjs.
 
 mod criteria;
 pub(crate) mod numbering;
