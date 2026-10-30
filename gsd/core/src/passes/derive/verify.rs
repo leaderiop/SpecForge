@@ -220,8 +220,8 @@ fn covered(group: &Group) -> Vec<String> {
 
 /// The state of an item at the baseline: its scan state and its verdicts, as `entity_item` reads them now. The
 /// baseline's compute passes read the files the commit holds (ADR 0300), so its scan states are the commit's own.
-/// Nothing overrides at the baseline (`override` is not a baseline kind): a truth overridden then and now is `Unknown`
-/// there and is not compared.
+/// Nothing overrides at the baseline (`override` is not a baseline kind), so `re_verification` does not compare a truth
+/// that is overridden now: its override stands on both sides, as upstream's "PASSED (override)".
 fn then_state(input: &PassInput, id: &str) -> Option<Item> {
     let e = input.previous.as_ref()?.entities.get(id)?;
     Some(item_state(
@@ -240,7 +240,7 @@ fn then_state(input: &PassInput, id: &str) -> Option<Item> {
 }
 
 /// `re_verification`: the outcome against the baseline, over the items both views hold. An `Unknown` item on either
-/// side is not compared. Items are the phase's truths, artifacts and key links (by scan state and verdict, ADR 0300)
+/// side and a truth overridden now are not compared. Items are the phase's truths, artifacts and key links (by scan state and verdict, ADR 0300)
 /// and its verify gaps (by status: open there, closed now). `previous_status` and `previous_score` are the baseline
 /// verification's own computed values.
 fn re_verification(
@@ -248,6 +248,7 @@ fn re_verification(
     v: &PassEntity,
     group: &Group,
     now: &[Item],
+    overridden: &BTreeSet<&str>,
     statuses: &Statuses,
 ) -> Option<Value> {
     let previous = input.previous.as_ref()?;
@@ -256,6 +257,9 @@ fn re_verification(
     let mut remaining = Vec::new();
     let mut regressions = Vec::new();
     for (e, state) in group.entities.iter().zip(now) {
+        if overridden.contains(e.id.as_str()) {
+            continue;
+        }
         let Some(then) = then_state(input, &e.id) else {
             continue;
         };
@@ -305,6 +309,7 @@ struct Assessment<'a> {
     verification: &'a PassEntity,
     group: Group<'a>,
     now: Vec<Item>,
+    overridden: BTreeSet<&'a str>,
     status: &'static str,
 }
 
@@ -340,6 +345,7 @@ fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
             verification: v,
             group,
             now,
+            overridden,
             status,
         });
     }
@@ -393,7 +399,7 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
         if let Some(digest) = covered_digest(&a.group) {
             found.push(value(&v.id, "covered_digest", digest));
         }
-        if let Some(block) = re_verification(input, v, &a.group, &a.now, statuses) {
+        if let Some(block) = re_verification(input, v, &a.group, &a.now, &a.overridden, statuses) {
             found.push(value(&v.id, "re_verification", block));
         }
     }

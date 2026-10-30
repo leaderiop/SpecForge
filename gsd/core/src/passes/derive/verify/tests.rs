@@ -318,6 +318,20 @@ fn re_verification_compares_the_baselines_scan_state() {
 }
 
 #[test]
+fn an_overridden_truth_is_not_compared_against_the_baseline() {
+    let tr = "v1.0/01/01-01/TR1";
+    let o = json!({ "id": format!("{V}/OV1"), "kind": "override", "fields": { "verification": V, "truth": tr } });
+    let failed = judgement("failed", "fresh", false);
+    let mut found = input(vec![truth(1, vec![failed.clone()])], vec![o]);
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(tr, "truth", json!({}), vec![failed]),
+    ]));
+    // The override holds on both sides (the baseline's own run sees it too): nothing closes.
+    assert_eq!(of(&run(&found), "re_verification"), None);
+}
+
+#[test]
 fn re_verification_closes_and_reopens_verify_gaps() {
     let gap = |n: u8| format!("{V}/VG{n}");
     let entity =

@@ -101,3 +101,21 @@ fn baseline_reverification_closes_and_regresses_by_scan() {
         "{verification}"
     );
 }
+
+#[test]
+fn baseline_reverification_does_not_reopen_an_overridden_truth() {
+    let p = project("verify");
+    // 01-01/TR1 is overridden; its fresh verdict is `failed`, which the person accepted.
+    let run = p.record("v1.0/01/01-01/TR1", "E501", "failed", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    p.commit();
+    // The override holds at the baseline too, so the unchanged tree closes nothing.
+    assert_eq!(
+        re(&p, VERIFICATION),
+        serde_json::json!({
+            "previous_status": "human_needed",
+            "previous_score": "1/2",
+            "gaps_remaining": [format!("{VERIFICATION}/VG1")]
+        })
+    );
+}
