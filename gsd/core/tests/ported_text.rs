@@ -25,7 +25,6 @@ const NOT_COMMANDS: &[&str] = &[
     "alternative-2",
     "discuss-milestone",
     "research-phase",
-    "set-profile",
     "settings-advanced",
     "transition",
 ];

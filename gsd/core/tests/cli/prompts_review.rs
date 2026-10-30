@@ -67,6 +67,10 @@ fn the_backlog_review_lists_and_promotes_across_milestones() {
         "milestone v1.1 \"N\" {\n  name \"N\"\n}\n\nphase 01 \"P01\" {\n  milestone v1.1\n  name \"P01\"\n  slug \"p01\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n",
     );
     let text = text_of(&payload(&prompt(&p, "review_backlog", &[], "claude-code")));
+    assert!(
+        text.contains("If it refuses with E080"),
+        "the E080 refusal is not explained"
+    );
     let line = |start: &str| {
         text.lines()
             .map(str::trim)

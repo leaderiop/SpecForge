@@ -32,7 +32,7 @@ milestone sequence or remove stale entries.
    - The accumulated artifacts move with it (the command renames them)
    - The phase leaves the backlog by taking its new number
    - The backlog flag is computed from the number: there is no marker to remove
-   - The command sets `depends_on` to the previous phase
+   - The command sets `depends_on` to the previous phase. If it refuses with E080, the backlog subtree already has errors of its own (`gsd/E310` fires once it is numbered): run `specforge check`, fix them, then promote again
 
 5. **For items to REMOVE:**
    - Delete the phase with `specforge gsd phase --remove "999.x" --milestone "<its milestone>"`: it removes the phase and its artifacts and renumbers nothing

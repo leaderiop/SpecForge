@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the five command-backed slash commands (r41), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -161,8 +161,38 @@ The assets are upstream's text; where the spec has no counterpart a line was def
   an agent's effort to `high` as upstream does (`tests/golden/host/` holds the probe and both conversions, made with
   upstream's converters).
 - The twin has no commit, broken-window, human-item, methodology or lesson data, so the query tests do not reach them.
-- The goldens (`tests/golden/prompts/`) are hashes plus the first 80 lines and counts, not the whole text.
+- The goldens (`tests/golden/prompts/`) are hashes plus the first 80 lines, the 60 lines after the preamble, the last 40 and
+  the counts, not the whole text.
 - `cargo gate full` is the check for all of it; a revendor or a kernel change is K19, not done here.
+
+### What the r43 prompts do not do (known, not fixed)
+
+Found by REVIEW-r43 and kept, each on purpose or as a kernel limit (K19):
+
+- `update` has no upstream attribution: its text is ours (upstream's installs upstream GSD over this one), D-r43-16.
+- `smart_entry` differs from upstream in three signals, all read from the computed graph (K18):
+  - `progress` is the plan percent (summaries over plans), upstream's is STATE's percent (the twin reads 67% against 0%);
+  - `verify_failed` means the current phase's `verification.status == gaps_found`; upstream's `detectVerifyFailed`
+    fires only on `STATUS: blocked|failed`, so on gaps_found the port recommends `/gsd-verify-work` where upstream
+    goes to `/gsd-progress --next`;
+  - the current milestone is "the one in progress, else the last by id string" (`reports.rs`): v1.9 sorts after
+    v1.10, a declared v1.1 wins over a not-started v1.0, and a shipped last milestone re-reports `complete`.
+- The reviewer settings `review.models.*`, `review.timeouts.*`, `review.effort.*` and `review.max_prompt_tokens*` are
+  declared and inert: `review` runs each CLI from its own `--help` (no lane manifest, no runner).
+- `phase --promote` finds a backlog phase (`999.x`) in any milestone and moves it under the target one (its id follows
+  its milestone, so does a `999.x` child); upstream's backlog is roadmap-wide. Whether a `commit` entity's `plan`
+  reference follows is not checked.
+- E080 counts the errors a backlog subtree already has as new ones, so a promote or an edit of it is refused until
+  `specforge check` is clean; `gsd/E310` is silent on `999.x` and fires once the phase is numbered. This is the kernel's
+  E080 (K19), not changed here; `review-backlog` tells the user to run `specforge check` first.
+- A commit step of `autonomous`, `quick`, `review-backlog`, `pause-work` and `next` runs `git add spec && git commit`
+  where upstream commits named files: spec edits the user has not committed are swept in.
+- A lesson id `L-<phase>-<n>` is not unique across milestones: with `--reset-phase-numbers` the re-run rule (`specforge
+  set` an existing id) overwrites an earlier milestone's lesson.
+- `/gsd-settings` writes no `~/.gsd/defaults.json` (it is upstream GSD's store and nothing here reads it): there are no
+  global defaults. `/gsd-config --integrations` never takes an API key in the conversation: the user sets the variable
+  in their own shell profile.
+- `workspace` takes `--name` only; `--repos`, `--strategy`, `--branch` and `--auto` are asked for or absent.
 
 The other rows of the roster above are r43's. A rendered text may name them (the preamble says to skip what is not
 installed); `tests/ported_text.rs` lists every such name.
