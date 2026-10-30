@@ -196,6 +196,66 @@ fn ported() -> Vec<String> {
         "validate-commit refuses to resolve under a non-default cleanup mode (round-4 Codex BLOCKER)",
     );
 
+    // the options are read the way bash hands them to git (hooks-opt-in.test.cjs "option scans read the command")
+    let long72 = format!("feat: {}   ", "x".repeat(66));
+    let hd = quoted(&long72);
+    let hd_ok = quoted("fix: a perfectly ordinary conforming subject");
+    for spelling in ["--cle", "--clea", "--clean", "--cleanu", "--cleanup"] {
+        assert!(
+            with_command(
+                &hd,
+                &format!("git commit --allow-empty -m \"{hd}\" {spelling}=verbatim")
+            ),
+            "{spelling}"
+        );
+    }
+    assert!(!with_command(
+        &hd,
+        &format!("git commit --allow-empty -m \"{hd}\" --clean=whitespace")
+    ));
+    assert!(with_command(
+        &hd,
+        &format!("git commit --allow-empty -m \"{hd}\" --clean\"\"up=verbatim")
+    ));
+    port("option scans read the command the way bash hands it to git (round-6 accept direction)");
+    // `-m A --cleanup=verbatim -m B`: the flag sits between two heredocs
+    let two = format!("{hd}\n\n{hd_ok}");
+    assert!(with_command(
+        &two,
+        &format!("git commit -m \"{hd}\" --cleanup=verbatim -m \"{hd_ok}\"")
+    ));
+    // the wide scan: a separator inside an argument hides nothing
+    for author in ["\"a&b\"", "\"a|b\"", "\"a;b\"", "a\\&b", "a\\|b", "a\\;b"] {
+        assert!(
+            with_command(
+                &hd,
+                &format!(
+                    "git commit --allow-empty -m \"{hd}\" --author {author} --cleanup=verbatim"
+                )
+            ),
+            "{author}"
+        );
+    }
+    assert!(with_command(
+        &quoted("fix: a perfectly ordinary conforming subject"),
+        &format!("git commit -m \"{hd_ok}\" && echo --cleanup=verbatim")
+    ));
+    port("the cleanup guard scans wide on purpose — narrowing it reopened a length hole");
+    // the last directive is not told from the first: any non-default one refuses
+    assert!(with_command(
+        &hd,
+        &format!("git commit --allow-empty --cleanup=whitespace -m \"{hd}\" --cleanup=verbatim")
+    ));
+    assert!(!with_command(
+        &hd_ok,
+        &format!("git commit --cleanup=whitespace -m \"{hd_ok}\"")
+    ));
+    assert!(with_command(
+        &hd,
+        &format!("git commit --allow-empty --cleanup=verbatim -m \"{hd}\"")
+    ));
+    port("more than one cleanup directive is unresolvable — git applies the LAST (round 7)");
+
     // a commit with no message on the command line, and a command that is no commit, have none to judge
     assert_eq!(validate_commit(&Facts::default(), &[]), HookOutput::allow());
     port("validate-commit allows non-commit commands");
@@ -280,14 +340,6 @@ const SKIPPED: &[(&str, &str)] = &[
         "runtime: how bash hands words to git (option scans, continuations, expansions in option names); the kernel's `facts::commit` reads the words, and the hook is a function of the message and the raw command",
     ),
     (
-        "hook execution when enabled > the cleanup guard scans wide",
-        "runtime: how bash hands words to git (option scans, continuations, expansions in option names); the kernel's `facts::commit` reads the words, and the hook is a function of the message and the raw command",
-    ),
-    (
-        "hook execution when enabled > option scans read",
-        "runtime: how bash hands words to git (option scans, continuations, expansions in option names); the kernel's `facts::commit` reads the words, and the hook is a function of the message and the raw command",
-    ),
-    (
         "hook execution when enabled > the two reported chained-before",
         "runtime: how bash hands words to git (option scans, continuations, expansions in option names); the kernel's `facts::commit` reads the words, and the hook is a function of the message and the raw command",
     ),
@@ -313,10 +365,6 @@ const SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "hook execution when enabled > a newline is a command separator",
-        "runtime: how bash hands words to git (option scans, continuations, expansions in option names); the kernel's `facts::commit` reads the words, and the hook is a function of the message and the raw command",
-    ),
-    (
-        "hook execution when enabled > more than one cleanup directive",
         "runtime: how bash hands words to git (option scans, continuations, expansions in option names); the kernel's `facts::commit` reads the words, and the hook is a function of the message and the raw command",
     ),
     (

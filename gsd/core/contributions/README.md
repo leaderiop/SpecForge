@@ -311,7 +311,7 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
   another extension's settings.
 - `validate_commit` lets `-F`, `--fixup` and similar commits through (no message on the command line), and a literal
   `fixup! ...` subject; the heredoc form `$(cat <<'EOF' ... EOF)` is read only for a quoted delimiter, nothing after the
-  closing paren, no `--cleanup` but default or whitespace and an `-m` that is not single-quoted (as upstream blocks the
+  closing paren, no `--cleanup` but default or whitespace (git's abbreviations and spliced quotes are read, and every word of the command is scanned) and an `-m` that is not single-quoted (as upstream blocks the
   others). It blocks `git commit -m $MSG` (unquoted) and `-m "" -m "feat: x"`, which upstream lets through.
 - The milestone-choice weakness (`v1.9` sorts after `v1.10`, id-string order) is in `smart_entry`, the statusline and
   `session_state`.
