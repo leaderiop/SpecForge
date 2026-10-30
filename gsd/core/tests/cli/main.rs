@@ -34,6 +34,7 @@ mod hooks_statusline;
 mod hooks_support;
 mod hooks_workflow;
 mod install_agents;
+mod install_hosts;
 mod install_skills;
 mod judged;
 mod judged_flow;
