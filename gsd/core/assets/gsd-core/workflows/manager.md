@@ -30,11 +30,11 @@ INIT=$(specforge gsd progress-report --format json)
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
-Parse JSON for: `milestone_version`, `milestone_name`, `phase_count`, `completed_count`, `in_progress_count`, `phases`, `recommended_actions`, `all_complete`, `waiting_signal`, `manager_flags`, `response_language`, and the optional trio `queued_milestone_version`, `queued_milestone_name`, `queued_phases` (added in SDK fix `2495-2496-2497` — may be absent on older SDK versions, treat missing as empty).
+Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints; each phase has `number`, `name`, `plans`, `summaries`, `status`). The rest is derived, there is no init JSON: `phase_count` is the length of `phases`; `completed_count` counts status `Complete`; `in_progress_count` counts `In Progress`; `all_complete` is `completed_count == phase_count`; `recommended_actions` has one entry per phase that is not `Complete`, in order (`Pending` → `/gsd-discuss-phase N`, or `/gsd-plan-phase N` once a `context` entity exists, `specforge query "$MILESTONE/N" --depth 1 --kinds context`; `Planned` or `In Progress` → `/gsd-execute-phase N`); `waiting_signal` is always absent (no background-work signal here); `queued_milestone_version`, `queued_milestone_name` and `queued_phases` are absent (skip the Queued section); `response_language` is `{{setting:response_language|}}`; `manager_flags` are the settings `{{setting:manager.flags.discuss|}}`, `{{setting:manager.flags.plan|}}` and `{{setting:manager.flags.execute|}}`.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated. Subagent dispatches (discuss/plan/execute) stay in English at the prompt level; include `response_language` in their spawn args per the workflow being dispatched.
 
-`manager_flags` contains per-step passthrough flags from config:
+`manager_flags` are the per-step passthrough flags from the settings:
 - `manager_flags.discuss` — appended to `/gsd:discuss-phase` args (e.g. `"--auto --analyze"`)
 - `manager_flags.plan` — appended to plan agent init command
 - `manager_flags.execute` — appended to execute agent init command

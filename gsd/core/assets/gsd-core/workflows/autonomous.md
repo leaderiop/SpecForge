@@ -124,7 +124,7 @@ fi
 If `section_manifest` is `null` or `"converge-fail-fast"` is in its `included` list: read and execute `gsd-core/workflows/autonomous/steps/converge-fail-fast.md`. Otherwise skip — do not read the file.
 <!-- /gsd:section -->
 
-Parse JSON for: `milestone_version`, `milestone_name`, `phase_count`, `completed_phases`, `roadmap_exists`, `state_exists`, `commit_docs`.
+Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent` (what `progress-report` prints). `phase_count` is the length of `phases` and `completed_phases` counts those with status `Complete`; `roadmap_exists` is `phases` non-empty and `state_exists` is `milestone_version` non-null (the project state is computed); `commit_docs` is read where it is used.
 
 **If `roadmap_exists` is false:** Error — "No ROADMAP.md found. Run `/gsd:new-milestone` first."
 **If `state_exists` is false:** Error — "No STATE.md found. Run `/gsd:new-milestone` first."

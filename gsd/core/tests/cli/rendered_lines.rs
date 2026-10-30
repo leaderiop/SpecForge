@@ -321,3 +321,49 @@ fn no_prompt_writes_the_global_defaults_or_takes_a_key() {
         "do not ask for the key and do not take it in this conversation",
     );
 }
+
+/// REVIEW-r43 M11: a "Parse JSON for:" line that follows `specforge gsd progress-report --format json` may name only
+/// fields that command prints (`roadmap_exists` or `manager_flags` decided routing and were never there). The fields
+/// are the top-level keys of the real output on the twin.
+#[test]
+fn parse_json_lines_name_fields_the_command_prints() {
+    let p = twin();
+    let out = p.run(&["gsd", "progress-report", "--format", "json"]);
+    let real: serde_json::Value = serde_json::from_str(&out.stdout).expect("progress-report JSON");
+    let keys: Vec<&str> = real
+        .as_object()
+        .expect("an object")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    let name = Regex::new(r"`([a-z_]+)(?:\[\])?`").expect("a regex");
+    let (mut checked, mut bad) = (0, Vec::new());
+    for (id, text) in rendered() {
+        let lines: Vec<&str> = text.lines().collect();
+        for (n, l) in lines.iter().enumerate() {
+            if !l.starts_with("Parse JSON for:") {
+                continue;
+            }
+            let from = n.saturating_sub(60);
+            if !lines[from..n]
+                .iter()
+                .any(|c| c.contains("specforge gsd progress-report --format json"))
+            {
+                continue;
+            }
+            let fields = l.split('(').next().unwrap_or(l); // the parenthesis explains
+            for cap in name.captures_iter(fields) {
+                checked += 1;
+                if !keys.contains(&&cap[1]) {
+                    bad.push(format!("{id}:{n}: `{}` is not in {keys:?}", &cap[1]));
+                }
+            }
+        }
+    }
+    assert!(checked >= 10, "{checked} fields checked");
+    assert!(
+        bad.is_empty(),
+        "fields the command does not print:\n{}",
+        bad.join("\n")
+    );
+}
