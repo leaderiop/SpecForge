@@ -343,7 +343,7 @@ The entities are written through `specforge new` and `specforge set`, so there i
 
 ```bash
 : # no commit: the entities are written by the roadmapper, the staged intel is not committed
-
+[ -n "$INTEL_DIR" ] && rm -rf "$INTEL_DIR"   # it holds the documents' text; the conflict report was shown at the gate
 
 
 
@@ -364,7 +364,7 @@ Show:
 - Mode ran (new, new (intel only), or merge)
 - Docs ingested (count + type breakdown)
 - Decisions locked, requirements created, constraints captured
-- Conflict report (`{conflicts_path}`, shown above)
+- Conflict report (shown at the gate; the staging directory is removed)
 - Next step: `/gsd:plan-phase 1` (new) or `/gsd:plan-phase N` (merge, pointing at the first newly-added phase); for intel-only runs there is no roadmap yet — point at `/gsd:new-project` (or a later re-run with `--mode merge` once scaffold files exist), never `/gsd:plan-phase`
 
 </step>

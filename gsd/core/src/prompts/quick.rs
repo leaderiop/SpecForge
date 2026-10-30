@@ -55,12 +55,22 @@ const QUICK_STEPS: &[Step] = &[
 /// How a quick plan is made, started and completed through the typed tools: the id is `<yymmdd>-<3 base-36>`, which
 /// `gsd/W323` checks, and the plan has no phase.
 fn quick_plan(_call: &PromptCall<'_>) -> String {
-    "\n\n## The quick plan\n\n\
+    quick_plan_text("the one the init block above made: a second one would name another plan")
+}
+
+/// The batch has no init block: each item of its manifest already carries the id.
+fn quick_batch_plan(_call: &PromptCall<'_>) -> String {
+    quick_plan_text("each manifest item's `quickId`: a second one would name another plan")
+}
+
+fn quick_plan_text(quick_id_is: &str) -> String {
+    format!(
+        "\n\n## The quick plan\n\n\
      A quick task is a plan with no phase, named by its quick id: the day as `yymmdd`, a dash and three base-36 \
      characters (`261029-a1b`). `gsd/W323` checks the name; `gsd/E302` and `gsd/E401` do not apply to a plan with no \
      phase. Write the plan, its truths and its artifacts through the host, not by hand:\n\n\
      ```bash\n\
-     # $quick_id is the one the init block above made: a second one would name another plan\n\
+     # $quick_id is {quick_id_is}\n\
      specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\"\n\
      specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"\n\
      # an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`\n\
@@ -71,7 +81,7 @@ fn quick_plan(_call: &PromptCall<'_>) -> String {
      `start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps \
      both of its times. The project state is computed, so no task row is written. \
      `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so.\n"
-        .to_string()
+    )
 }
 
 const QUICK_ARGS: &[Arg] = &[
@@ -125,7 +135,7 @@ static QUICK_BATCH: Spec = Spec {
         tools: &["read", "write", "edit", "search", "shell", "agent"],
         effort: None,
     }),
-    tail: Some(quick_plan),
+    tail: Some(quick_batch_plan),
 };
 
 static FAST: Spec = Spec {

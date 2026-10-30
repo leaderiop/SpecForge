@@ -11,7 +11,7 @@ use super::workflow::{self, Do, Slash, Spec, Step};
 /// Ingestion writes entities, not the files GSD wrote.
 fn ingested(_call: &PromptCall<'_>) -> String {
     "\n\n## Where the ingest goes\n\n\
-     The project is read from the directory `--dir` names (`--path` is the host's own option and does not reach this \
+     The documents are scanned under the directory `--dir` names (`--path` is the host's own option and does not reach this \
      prompt). The classifier and the synthesizer write their staging files to a scratch directory outside the project: \
      the intel files and the conflict report are not part of the spec, and the report is shown to the user. Wherever \
      the text above says `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md` or `STATE.md` is written, read that the \

@@ -142,12 +142,12 @@ fn undo_keeps_the_milestone_of_the_phase_it_was_given() {
         &text,
         "MILESTONE=v1.0; TARGET_PHASE=v2.0/01",
         &[
-            "case \"$TARGET_PHASE\"",
-            "PHASE_DIR=$(specforge query \"$MILESTONE/${TARGET_PHASE}\"",
+            "UNDO_MILESTONE=$MILESTONE; case \"$TARGET_PHASE\"",
+            "PHASE_DIR=$(specforge query \"$UNDO_MILESTONE/${TARGET_PHASE}\"",
         ],
-        "echo \"$MILESTONE $TARGET_PHASE $PHASE_DIR\"",
+        "echo \"$UNDO_MILESTONE $MILESTONE $TARGET_PHASE $PHASE_DIR\"",
     );
-    assert_eq!(got, "v2.0 01 v2.0/01");
+    assert_eq!(got, "v2.0 v1.0 01 v2.0/01");
     let plan = text_of(&payload(&prompt(
         &p,
         "undo",
@@ -158,10 +158,10 @@ fn undo_keeps_the_milestone_of_the_phase_it_was_given() {
         &p,
         &plan,
         "MILESTONE=v2.0; TARGET_PLAN=v1.0/01/01-01",
-        &["case \"$TARGET_PLAN\""],
-        "echo \"$MILESTONE $TARGET_PLAN $TARGET_PLAN_ID $PLAN_PHASE\"",
+        &["UNDO_MILESTONE=$MILESTONE; case \"$TARGET_PLAN\""],
+        "echo \"$UNDO_MILESTONE $MILESTONE $TARGET_PLAN $TARGET_PLAN_ID $PLAN_PHASE\"",
     );
-    assert_eq!(got, "v1.0 01-01 v1.0/01/01-01 01");
+    assert_eq!(got, "v1.0 v2.0 01-01 v1.0/01/01-01 01");
 }
 
 /// Upstream refuses a phase of an archived milestone; a closed milestone is the archive here.
@@ -178,9 +178,10 @@ fn undo_refuses_a_phase_of_a_closed_milestone() {
         let got = undo_shell(
             &p,
             &text,
-            "MILESTONE=v2.0; PHASE_DIR=v2.0/01",
+            // a fresh shell: only the open milestone is bound, so the phase id must name the milestone
+            "MILESTONE=v1.0; PHASE_DIR=v2.0/01",
             &[
-                "MILESTONE_STATE=$(specforge query \"$MILESTONE\" --depth 0",
+                "MILESTONE_STATE=$(specforge query \"${UNDO_MILESTONE",
                 "PHASE_DIR_ARCHIVED=\"\"; case",
             ],
             "echo \"$PHASE_DIR_ARCHIVED\"",

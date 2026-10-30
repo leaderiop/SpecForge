@@ -57,9 +57,13 @@ fn no_query_lacks_its_entity() {
 fn bound(subject: &str) -> Option<&'static str> {
     Some(match subject {
         "$PROJECT" => "taskboard",
-        "$MILESTONE" | "${MILESTONE}" | "v${VERSION}" | "v{version}" | "${milestone_version}" => {
-            "v1.0"
-        }
+        "$MILESTONE"
+        | "${MILESTONE}"
+        | "$UNDO_MILESTONE"
+        | "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}"
+        | "v${VERSION}"
+        | "v{version}"
+        | "${milestone_version}" => "v1.0",
         "$PHASE_ID"
         | "${PHASE_ID}"
         | "${PHASE}"
@@ -70,10 +74,15 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "${PARENT_PHASE}"
         | "$MILESTONE/${PHASE_NUM}"
         | "$MILESTONE/01"
+        | "$MILESTONE/$NEXT_PHASE"
         | "$MILESTONE/${TARGET_PHASE}"
+        | "$UNDO_MILESTONE/${TARGET_PHASE}"
         | "$MILESTONE/${PLAN_PHASE}"
+        | "$UNDO_MILESTONE/${PLAN_PHASE}"
         | "$MILESTONE/${NN}"
-        | "$MILESTONE/${N}" => "v1.0/01",
+        | "$UNDO_MILESTONE/${NN}"
+        | "$MILESTONE/${N}"
+        | "$UNDO_MILESTONE/${N}" => "v1.0/01",
         "$PLAN_ID" | "${TARGET_PLAN_ID}" => "v1.0/01/01-01",
         _ => return None,
     })
