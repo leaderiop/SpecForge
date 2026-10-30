@@ -652,7 +652,7 @@ Select top 2-4 phases. Skip phases with no relevance signal.
 
 **Step 3 — Read full SUMMARYs for selected phases:**
 ```bash
-specforge query "{selected-phase}" --kinds summary --format context > /tmp/summaries.txt; _SUMMARIES=( /tmp/summaries.txt )
+specforge query "{selected-phase}" --depth 2 --kinds summary --format context > /tmp/summaries.txt; _SUMMARIES=( /tmp/summaries.txt )
 if [ -e "${_SUMMARIES[0]}" ]; then cat "${_SUMMARIES[@]}"; fi
 ```
 
