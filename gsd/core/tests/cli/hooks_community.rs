@@ -176,7 +176,7 @@ fn started(p: &Project, home: &Home, host: &str) -> String {
 #[test]
 fn session_start_injects_the_progress_line() {
     let p = community(json!({"mode": "yolo"}));
-    assert_eq!(p.verify_phase("v1.0/01"), 7);
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     for args in [
         &[
             "workstreams",

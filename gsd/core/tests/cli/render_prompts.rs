@@ -28,7 +28,7 @@ fn empty() -> Project {
 }
 fn shipped() -> Project {
     let p = taskboard();
-    assert!(p.verify_phase("v1.0/01") > 0);
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     p
 }
 

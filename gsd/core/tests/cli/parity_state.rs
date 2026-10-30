@@ -51,7 +51,7 @@ fn label_of(p: &Project, number: &str) -> String {
 fn verified_taskboard() -> Project {
     let p = taskboard();
     // Every truth, artifact and key link of phase 01 (the exact count, so a dropped item is noticed).
-    assert_eq!(p.verify_phase("v1.0/01"), 7);
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     p
 }
 
@@ -95,11 +95,13 @@ fn taskboard_progress_matches_gsd_tools() {
 fn phase_01_is_complete_as_upstream_says() {
     let progress = golden("progress-json");
     assert_eq!(progress["phases"][0]["status"], "Complete");
-    let p = taskboard();
     // Without the verifier's verdicts the phase stops at Executed.
+    let p = taskboard();
+    p.strip_verdicts();
     assert_eq!(label_of(&p, "01"), "Executed");
-    let p = verified_taskboard();
-    assert_eq!(label_of(&p, "01"), "Complete");
+    // The twin as committed carries them.
+    assert_eq!(label_of(&taskboard(), "01"), "Complete");
+    assert_eq!(label_of(&verified_taskboard(), "01"), "Complete");
 }
 
 #[test]
@@ -344,6 +346,8 @@ fn taskboard_coverage_matches_recorded_tests() {
             assert_eq!(given, expected, "{id}/{}", d.id);
         }
     }
+    // A report goes stale the verdicts recorded over `none` tests: the verifier looks again.
+    assert!(p.verify_phase("v1.0/01") > 0);
     p.check_exact(&[]);
     let check = p.run(&["check"]);
     assert!(!check.all().contains("I205"), "{}", check.all());
@@ -362,6 +366,8 @@ fn the_twin_reports_only_unrecorded_verdicts_with_and_without_a_report() {
         &report.display().to_string(),
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
+    // A report goes stale the verdicts recorded over `none` tests: the verifier looks again.
+    assert!(p.verify_phase("v1.0/01") > 0);
     p.check_exact(&[]);
     // With a report the harness hides I205 for every project: a stray one would be invisible, so count it raw.
     let check = p.run(&["check"]);

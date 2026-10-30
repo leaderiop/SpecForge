@@ -209,7 +209,7 @@ fn e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus() {
     renders(&p, "complete_milestone", &["v1.0"]);
     // ship: the twin with its phase 01 verified
     let t = twin();
-    assert!(t.verify_phase("v1.0/01") > 0);
+    assert_eq!(t.verify_phase("v1.0/01"), 0);
     stale_verdict(&t, "v1.0/01/01-02");
     renders(&t, "ship", &["v1.0/01"]);
     plus(&t);

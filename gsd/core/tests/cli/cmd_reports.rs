@@ -24,7 +24,7 @@ fn report(p: &super::harness::Project, command: &str) -> Value {
 /// The twin with the verifier's verdicts on phase 01 (its status is `Complete`).
 fn verified() -> super::harness::Project {
     let p = twin();
-    assert_eq!(p.verify_phase("v1.0/01"), 7);
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     p
 }
 
@@ -48,9 +48,23 @@ fn progress_report_equals_the_golden_on_the_verified_twin() {
     assert_eq!(got, want);
 }
 
+/// The twin as committed, with no `record-verdict` run, is what gsd-tools says: phase 01 is complete.
+#[test]
+fn phase_01_is_complete_on_disk() {
+    let mut got = report(&twin(), "progress-report");
+    let mut want = golden("progress-json");
+    for side in [&mut got, &mut want] {
+        side["milestone_version"] = Value::Null;
+        side["milestone_name"] = Value::Null;
+    }
+    assert_eq!(got, want);
+}
+
 #[test]
 fn progress_report_on_the_unverified_twin_differs_only_in_phase_01() {
-    let got = report(&twin(), "progress-report");
+    let p = twin();
+    p.strip_verdicts();
+    let got = report(&p, "progress-report");
     let mut want = golden("progress-json");
     want["milestone_version"] = json!("v1.0");
     want["milestone_name"] = json!("Taskboard 1.0");

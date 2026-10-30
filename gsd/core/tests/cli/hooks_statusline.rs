@@ -76,7 +76,7 @@ fn state(p: &Project) -> Value {
 /// A twin whose phase 01 passed verification: one phase of four is complete.
 fn verified() -> Project {
     let p = taskboard();
-    assert_eq!(p.verify_phase("v1.0/01"), 7);
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     p
 }
 

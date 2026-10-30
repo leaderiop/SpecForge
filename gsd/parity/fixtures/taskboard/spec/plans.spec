@@ -32,6 +32,18 @@ task T2 "Tests for add" {
 truth TR1 "A task added to a board has the next integer id" {
   plan v1.0/01/01-01
   text "A task added to a board has the next integer id and keeps its title"
+  verdict gsd/E501 verified {
+    judge "gsd-verifier@0.1.0"
+    model "test-model"
+    at    "2026-10-30"
+    inputs {
+      cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
+      phase "sha256:c76e530da600fb14ee69f0793892a7a8f0c915f5bb56c4dcdeff3a58da1cb08b"
+      plan  "sha256:a73012da223baefa37b909dd67fed561650d994c4eaf9dc52c2a91844616c88d"
+      tests "none"
+      truth "sha256:82e482debddf8b2d7881c81af042596716d39fb4b88eb8d8b6155e74f1495887"
+    }
+  }
 }
 
 artifact AR1 "createBoard and addTask" {
@@ -39,6 +51,16 @@ artifact AR1 "createBoard and addTask" {
   path     "src/tasks.js"
   provides "createBoard and addTask"
   contains "export function addTask"
+  verdict gsd/E501 verified {
+    judge "gsd-verifier@0.1.0"
+    model "test-model"
+    at    "2026-10-30"
+    inputs {
+      artifact "sha256:2c2662f92037f318a2e106bb106ae80b92c215d6bfe23b2aca2ad23daae190fb"
+      cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
+      plan     "sha256:a73012da223baefa37b909dd67fed561650d994c4eaf9dc52c2a91844616c88d"
+    }
+  }
 }
 
 key_link KL1 "The tests import addTask" {
@@ -46,6 +68,16 @@ key_link KL1 "The tests import addTask" {
   from "test/tasks.test.js"
   to   "src/tasks.js"
   via  "import { addTask }"
+  verdict gsd/E501 verified {
+    judge "gsd-verifier@0.1.0"
+    model "test-model"
+    at    "2026-10-30"
+    inputs {
+      cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
+      link  "sha256:ac9f142b8d23cab68b4d076cabe7d0df94354f2b1a4c4aa00e85945d4d56e828"
+      plan  "sha256:a73012da223baefa37b909dd67fed561650d994c4eaf9dc52c2a91844616c88d"
+    }
+  }
 }
 
 plan 01-02 "complete and the command line" {
@@ -87,11 +119,35 @@ task T2 "The command line" {
 truth TR1 "A task is completed by its id" {
   plan v1.0/01/01-02
   text "A task is completed by its id"
+  verdict gsd/E501 verified {
+    judge "gsd-verifier@0.1.0"
+    model "test-model"
+    at    "2026-10-30"
+    inputs {
+      cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
+      phase "sha256:c76e530da600fb14ee69f0793892a7a8f0c915f5bb56c4dcdeff3a58da1cb08b"
+      plan  "sha256:ad32ca70e953cf81437b8978f35f775c5ac2fa9a8f671dfdc64e214f24c99bd7"
+      tests "none"
+      truth "sha256:763b12751147077b109fe5950ae9ccea81adcecaa06af3f56dd2f730795ef2a6"
+    }
+  }
 }
 
 truth TR2 "Completing a missing id fails with a message naming it" {
   plan v1.0/01/01-02
   text "Completing an id that does not exist fails with a message naming the id"
+  verdict gsd/E501 verified {
+    judge "gsd-verifier@0.1.0"
+    model "test-model"
+    at    "2026-10-30"
+    inputs {
+      cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
+      phase "sha256:c76e530da600fb14ee69f0793892a7a8f0c915f5bb56c4dcdeff3a58da1cb08b"
+      plan  "sha256:ad32ca70e953cf81437b8978f35f775c5ac2fa9a8f671dfdc64e214f24c99bd7"
+      tests "none"
+      truth "sha256:918969b1bd1300b0825039eecced772755e43bc0b1fd3ed67cda32a3381d9411"
+    }
+  }
 }
 
 artifact AR1 "taskboard add and taskboard done" {
@@ -99,6 +155,16 @@ artifact AR1 "taskboard add and taskboard done" {
   path     "src/cli.js"
   provides "taskboard add and taskboard done"
   contains "completeTask"
+  verdict gsd/E501 verified {
+    judge "gsd-verifier@0.1.0"
+    model "test-model"
+    at    "2026-10-30"
+    inputs {
+      artifact "sha256:43db50d0eafcf823c83ca4a8561f1b0739fd042cba54aa5c95e3dc5e9287e932"
+      cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
+      plan     "sha256:ad32ca70e953cf81437b8978f35f775c5ac2fa9a8f671dfdc64e214f24c99bd7"
+    }
+  }
 }
 
 key_link KL1 "The command line imports the board" {
@@ -106,6 +172,16 @@ key_link KL1 "The command line imports the board" {
   from "src/cli.js"
   to   "src/tasks.js"
   via  "import { addTask, completeTask, createBoard }"
+  verdict gsd/E501 verified {
+    judge "gsd-verifier@0.1.0"
+    model "test-model"
+    at    "2026-10-30"
+    inputs {
+      cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
+      link  "sha256:78fd2324b294cb6722a07bdd4dd258712425a93a3ff881ec3ddf3283d210f737"
+      plan  "sha256:ad32ca70e953cf81437b8978f35f775c5ac2fa9a8f671dfdc64e214f24c99bd7"
+    }
+  }
 }
 
 plan 02-01 "Save and load tasks.json" {

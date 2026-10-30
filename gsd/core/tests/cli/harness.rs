@@ -241,7 +241,8 @@ impl Project {
 
     /// The `(code, entity)` pairs every judged rule reports on a project that records no verdict, sorted: one for each
     /// entity of each kind the rule targets (the graph says which, not the judged diagnostics), except the rules in
-    /// `off` (a gate that is off) and an entity that writes a field the target says to skip.
+    /// `off` (a gate that is off), an entity that writes a field the target says to skip and an entity that already
+    /// carries a fresh passing verdict of the rule.
     pub fn expected_judged(&self, off: &[&str]) -> Vec<(String, String)> {
         let mut out = Vec::new();
         for rule in gsd_core::judged::JUDGED
@@ -254,7 +255,15 @@ impl Project {
                         .unless_set
                         .iter()
                         .any(|f| node["fields"].get(f).is_some_and(|v| !v.is_null()));
-                    if !skipped {
+                    // A fresh passing verdict on the node (the twin carries its verifier's) answers the rule.
+                    let judged = node["judgements"].as_array().is_some_and(|all| {
+                        all.iter().any(|j| {
+                            j["rule"] == format!("gsd/{}", rule.code).as_str()
+                                && j["state"] == "fresh"
+                                && j["passed"] == true
+                        })
+                    });
+                    if !skipped && !judged {
                         let id = node["id"].as_str().expect("an id").to_string();
                         out.push((format!("gsd/{}", rule.code), id));
                     }
@@ -435,6 +444,36 @@ impl Project {
             .filter(|n| n["kind"] == kind)
             .cloned()
             .collect()
+    }
+
+    /// The project as it was before its verifier ran: every `verdict gsd/E501` block of `spec/` and its ledger line
+    /// removed. The taskboard twin carries those verdicts (D-r44-21); a test that needs phase 01 unverified strips them.
+    pub fn strip_verdicts(&self) {
+        let dir = self.root.join("spec");
+        for entry in std::fs::read_dir(&dir).expect("the spec dir") {
+            let path = entry.expect("an entry").path();
+            let text = std::fs::read_to_string(&path).expect("a spec file");
+            let mut kept = Vec::new();
+            let mut skipping: Option<String> = None;
+            for line in text.lines() {
+                match &skipping {
+                    Some(close) if line == close => skipping = None,
+                    Some(_) => {}
+                    None if line.trim_start().starts_with("verdict gsd/E501 ") => {
+                        let indent = line.len() - line.trim_start().len();
+                        skipping = Some(format!("{}}}", " ".repeat(indent)));
+                    }
+                    None => kept.push(line),
+                }
+            }
+            std::fs::write(&path, format!("{}\n", kept.join("\n"))).expect("a spec file");
+        }
+        let ledger = self.read("specforge-harness");
+        let kept: Vec<&str> = ledger
+            .lines()
+            .filter(|l| !l.contains(" verdict:gsd/E501 "))
+            .collect();
+        self.write("specforge-harness", &format!("{}\n", kept.join("\n")));
     }
 
     /// Records `value_json` (compact JSON) as the harness value `field` of `entity` in `specforge-harness`, as the
