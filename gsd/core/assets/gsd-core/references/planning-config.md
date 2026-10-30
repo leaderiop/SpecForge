@@ -30,7 +30,7 @@ Configuration options for spec behavior.
 | Option | Default | Description |
 |--------|---------|-------------|
 | `commit_docs` | `true` | Whether to commit planning artifacts to git |
-| `pr_strict` | `false` | Filter mode for `/gsd:pr-branch`. `false` keeps structural planning state (STATE.md, ROADMAP.md, MILESTONES.md, PROJECT.md, REQUIREMENTS.md, milestones/) in the PR branch; `true` drops every the spec path |
+| `pr_strict` | `false` | Filter mode for `/gsd:pr-branch`. `false` keeps structural planning state (STATE.md, ROADMAP.md, MILESTONES.md, PROJECT.md, REQUIREMENTS.md, milestones/) in the PR branch; `true` drops every spec path |
 | `search_gitignored` | `false` | Add `--no-ignore` to broad rg searches |
 | `git.branching_strategy` | `"none"` | Git branching approach: `"none"`, `"phase"`, or `"milestone"` |
 | `git.base_branch` | `null` (auto-detect) | Target branch for PRs and merges (e.g. `"master"`, `"develop"`). When `null`, auto-detects from `git symbolic-ref refs/remotes/origin/HEAD`, falling back to `"main"`. |
@@ -81,7 +81,7 @@ still apply.
 
 **When `commit_docs: false`:**
 - Skip all `git add`/`git commit` for the spec files
-- User must add the spec to `.gitignore`
+- The spec stays tracked (never `.gitignore` it); keep it out of a pull request with `/gsd-pr-branch`
 - Useful for: OSS contributions, client projects, keeping planning private
 
 **Using `specforge` (preferred):**
@@ -142,16 +142,16 @@ To use uncommitted mode:
    }
    ```
 
-2. **Add to .gitignore:**
-   ```
-   spec/
-   ```
+2. **Do not add the spec to `.gitignore`, and do not untrack it.** The spec is the project here, not a planning
+   folder next to it: `spec/` is what `specforge check` reads and what a collaborator pulls. To keep planning out of a
+   pull request, use `/gsd-pr-branch`, which filters the spec out of the PR branch and leaves your history alone.
 
-3. **Existing tracked files:** If the spec was previously tracked:
-   ```bash
-   git rm -r --cached spec/
-   git commit -m "chore: stop tracking planning docs"
-   ```
+3. **Existing tracked files:** keep them tracked. `git rm -r --cached spec/` would stage the deletion of the whole spec.
+
+
+
+
+
 
 4. **Branch merges:** When using `branching_strategy: phase` or `milestone`, the `complete-milestone` workflow automatically strips the spec files from staging before merge commits when `commit_docs: false`.
 
@@ -388,7 +388,7 @@ Set via `intel.*` namespace (e.g., `"intel": { "enabled": true }`). Controls the
 
 | Key | Type | Default | Allowed Values | Description |
 |-----|------|---------|----------------|-------------|
-| `intel.enabled` | boolean | `false` | `true`, `false` | Enable queryable codebase intelligence system. When `true`, `/gsd:map-codebase --query` builds and queries a JSON index in the specintel/`. |
+| `intel.enabled` | boolean | `false` | `true`, `false` | Enable queryable codebase intelligence system. When `true`, `/gsd:map-codebase --query` builds and queries a JSON index (map-codebase is not part of @gsd/core). |
 
 ### Manager Fields
 

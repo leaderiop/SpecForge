@@ -14,10 +14,10 @@ const PHASE: &str = "v1.0/02";
 const PLAN: &str = "v1.0/02/02-01";
 
 /// A prompt, what it is asked about and the project that makes it render.
-struct Row {
-    id: &'static str,
-    args: &'static [&'static str],
-    setup: fn() -> Project,
+pub(super) struct Row {
+    pub(super) id: &'static str,
+    pub(super) args: &'static [&'static str],
+    pub(super) setup: fn() -> Project,
 }
 
 fn discuss() -> Project {
@@ -32,7 +32,7 @@ fn shipped() -> Project {
     p
 }
 
-const ROWS: [Row; 44] = [
+pub(super) const ROWS: [Row; 44] = [
     Row {
         id: "new_project",
         args: &["--auto"],

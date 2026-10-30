@@ -1,5 +1,5 @@
 {
-  "bytes": 19561,
+  "bytes": 19605,
   "head": [
     "<specforge_gsd_preamble>",
     "You are running a GSD workflow inside SpecForge (the extension `@gsd/core`). The workflow text below is GSD's own. The",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:ed3c2eef4a7257265a6ef060957c2b79dafd6846e1409eaa7338f9c8be73e6e1",
+    "digest": "sha256:45c50e9197217bb61cec66a66fa05b38193cd61c5287e555e853860a5abb8817",
     "prompt": "@gsd/core@0.1.0:milestone_summary",
     "steps": [
       {
@@ -103,5 +103,5 @@
       }
     ]
   },
-  "sha256": "ed3c2eef4a7257265a6ef060957c2b79dafd6846e1409eaa7338f9c8be73e6e1"
+  "sha256": "45c50e9197217bb61cec66a66fa05b38193cd61c5287e555e853860a5abb8817"
 }

@@ -62,9 +62,9 @@ fn quick_plan(_call: &PromptCall<'_>) -> String {
      specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\"\n\
      specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"\n\
      # an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`\n\
-     specforge gsd start-plan \"$quick_id\"\n\
+     STARTED=$(specforge gsd start-plan \"$quick_id\" --format json | jq -r .started)\n\
      specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"\n\
-     specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\" --started <the time start-plan answered>\n\
+     specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\" --started \"$STARTED\"\n\
      ```\n\n\
      `start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps \
      both of its times. The project state is computed, so no task row is written. \

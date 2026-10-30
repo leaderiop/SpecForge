@@ -2,7 +2,7 @@
 @~/.claude/gsd-core/references/response-language-directive.md
 
 <purpose>
-Generate a post-session summary document capturing work performed, outcomes achieved, and estimated resource usage. Writes SESSION_REPORT.md to the specreports/ for human review and stakeholder sharing.
+Generate a post-session summary document capturing work performed, outcomes achieved, and estimated resource usage. Writes SESSION_REPORT.md to `reports/` in the repository for human review and stakeholder sharing.
 </purpose>
 
 <required_reading>
@@ -143,7 +143,7 @@ If this is the first report, mention:
 
 <success_criteria>
 - [ ] Session data gathered from STATE.md, git log, and plan files
-- [ ] Report written to the specreports/
+- [ ] Report written to `reports/`
 - [ ] Report includes work summary, outcomes, and file changes
 - [ ] Filename includes date to prevent overwrites
 - [ ] Result summary displayed to user

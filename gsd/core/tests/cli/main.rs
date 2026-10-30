@@ -63,6 +63,7 @@ mod prompts_workspace;
 mod queries;
 mod reference;
 mod render_prompts;
+mod rendered_lines;
 mod roadmap;
 mod scan;
 mod settings;

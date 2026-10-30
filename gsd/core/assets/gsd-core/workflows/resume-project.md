@@ -78,7 +78,7 @@ Look for incomplete work that needs attention:
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 # Check for structured handoff (preferred — machine-readable)
-specforge query "$PROJECT" --depth 4 --kinds pause,handoff,blocker --format json || true   # the pauses, their handoffs and the open blockers
+specforge export --kinds pause,handoff,blocker --format graph || true   # the pauses, their handoffs and the blockers, by kind (a project is linked to none of them)
 
 # Pauses and handoffs are entities: the query above finds them wherever they sit.
 # Entities, not files (#4805, #3689):
@@ -297,7 +297,7 @@ Resume-specific exception: do **not** emit `/clear then:` here. Resume is alread
   ---
   ```
 - **Advance to next phase** → ./transition.md (internal workflow, invoked inline — NOT a user command)
-- **Check todos** → Read the spectodos/pending/, present summary
+- **Check todos** → Read the pending todos, present summary
 - **Review alignment** → Read PROJECT.md, compare to current state
 - **Something else** → Ask what they need
 </step>

@@ -24,9 +24,9 @@ Read STATE.md `status` / `stopped_at` fields (from the STATE snapshot already lo
 
 Check for existence of:
 ```bash
-specforge query "$PROJECT" --depth 4 --kinds pause,handoff --format json | jq -r '.nodes[]|.id' || true
+specforge export --kinds pause,handoff --format brief | jq -r '.nodes[]|.id' || true   # by kind: a pause or handoff outside a phase is linked to nothing
 ```
-Also check the speccontinue-here.md`.
+A `pause` entity is the handoff marker (`.continue-here.md` is not a file here).
 
 Emit:
 - ✓ `No orphaned handoff files` — if none found
@@ -47,9 +47,9 @@ Emit:
 
 **Check 4 — Memory-flagged pending work**
 
-Check if the specMEMORY.md` or the specmemory/` exists:
+Check whether a `lesson` entity records pending work (there is no MEMORY.md here):
 ```bash
-specforge query "$PROJECT" --depth 2 --kinds lesson --format json | jq -r '.nodes[]|.id' || true
+specforge export --kinds lesson --format brief | jq -r '.nodes[]|.id' || true
 ```
 
 If found, grep for entries containing: `pending`, `status`, `deferred`, `not yet run`, `backfill`, `blocking`.
@@ -119,7 +119,7 @@ Then for each failed check, add a concrete next action:
 - Check 2 (orphaned handoff): `Read the handoff file(s) and resume from where work was paused: /gsd:resume-work ${GSD_WS}`
 - Check 3 (deferred scope): `Add the missing phases to ROADMAP.md or update the deferred references`
 - Check 4 (memory pending): `Review the flagged memory entries and resolve or clear them`
-- Check 5 (blocking todos): `Complete the operational steps in the spectodos/pending/ before continuing`
+- Check 5 (blocking todos): `Complete the operational steps in the pending todos before continuing`
 - Check 6 (uncommitted code): `Commit or stash the uncommitted changes before advancing`
 - Check 7 (unresolved deferred items): `Address each deferred item and mark it status: resolved in its deferred-items.md, or fold it into the roadmap`
 - Check 1 (STATE inconsistency): `Run /gsd:verify-work ${PHASE} ${GSD_WS} to reconcile state`

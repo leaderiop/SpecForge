@@ -203,7 +203,7 @@ Read the project-level methodology file if it exists. This must happen before as
 so that active lenses shape how assumptions are generated and evaluated.
 
 ```bash
-specforge query "$PROJECT" --kinds methodology --format context 2>/dev/null || true
+specforge export --kinds methodology --format context 2>/dev/null || true
 ```
 
 **If METHODOLOGY.md exists:**

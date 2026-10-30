@@ -18,7 +18,7 @@ QUICK_PLAN_PARENT=""
 QUICK_PLAN_COMMIT=""
 if [ "${USE_WORKTREES}" != "false" ]; then
   QUICK_PLAN_PARENT=$(git rev-parse HEAD)
-  COMMIT_DOCS="{{setting:commit_docs|}}"   # commit_docs (the settings)
+  COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
   if [ "$COMMIT_DOCS" != "false" ]; then
     # pre-dispatch plan commit — PLAN.md is always in scope. CONTEXT.md/RESEARCH.md
     # join it only when their phase actually ran AND actually produced a file — a

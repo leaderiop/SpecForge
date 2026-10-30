@@ -1,6 +1,6 @@
 <!-- Ported from gsd-core v1.18.0 gsd-core/workflows/quick.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
-Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks tasks in the specquick/`, and updates STATE.md's "Quick Tasks Completed" table.
+Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks each task as a plan of `spec/quick.spec`, and updates STATE.md's "Quick Tasks Completed" table.
 
 With `--full` flag: enables the complete quality pipeline — discussion + research + plan-checking + verification. One flag for everything.
 
@@ -141,7 +141,7 @@ Parse JSON for: `planner_model`, `executor_model`, `checker_model`, `verifier_mo
 `init.quick` does not emit dedicated `state_path`/`project_path` fields, so derive them from the already-absolute `quick_dir` (#2376 — files handed to a spawned subagent must resolve regardless of that subagent's own cwd):
 ```bash
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
-PROJECT_PATH=""   # the project is an entity: specforge query "$PROJECT"
+PROJECT_PATH=""   # the project is an entity: specforge query "$PROJECT" --depth 0
 ```
 
 ```bash
@@ -782,7 +782,7 @@ Ready for next task: /gsd:quick ${GSD_WS}
 - [ ] `--full` sets all booleans (`$FULL_MODE`, `$DISCUSS_MODE`, `$RESEARCH_MODE`, `$VALIDATE_MODE`)
 - [ ] Slug generated (lowercase, hyphens, max 40 chars)
 - [ ] Quick ID generated (YYMMDD-xxx format, 2s Base36 precision)
-- [ ] Directory created at the specquick/YYMMDD-xxx-slug/`
+- [ ] Plan `${quick_id}` created in `spec/quick.spec`
 - [ ] (--discuss) Gray areas identified and presented, decisions captured in `${quick_id}-CONTEXT.md`
 - [ ] (--research) Research agent spawned, `${quick_id}-RESEARCH.md` created
 - [ ] `${quick_id}-PLAN.md` created by planner (honors CONTEXT.md decisions when --discuss, uses RESEARCH.md findings when --research)

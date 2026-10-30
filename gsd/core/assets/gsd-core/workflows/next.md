@@ -46,9 +46,9 @@ Print a one-line warning: `⚠ --force: skipping safety gates`
 Then proceed directly to `determine_next_action`. (Route 0 and `prior_phase_completeness` are NOT reached under `--force`.)
 
 **Gate 1: Unresolved checkpoint**
-Check if the spec.continue-here.md` exists:
+Check whether a `pause` entity exists:
 ```bash
-[ -n "$(specforge query "$PROJECT" --depth 4 --kinds pause --format json | jq -r '.nodes[]|select(.kind=="pause")|.id')" ]   # an unresolved pause
+[ -n "$(specforge export --kinds pause --format brief | jq -r '.nodes[]|.id')" ]   # an unresolved pause (a pause outside a phase is linked to nothing: list by kind)
 ```
 If found:
 ```

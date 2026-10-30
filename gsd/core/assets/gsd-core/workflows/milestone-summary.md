@@ -20,7 +20,7 @@ VERSION=$(echo "$GSD_ARGS" | sed -nE 's/.*--milestone[[:space:]]+v?([A-Za-z0-9._
 
 If `--milestone` is not given:
 1. Take the milestone the run is about (`$MILESTONE`: the one still open, else the last)
-2. Else take the latest closed milestone (`specforge query "$PROJECT" --depth 1 --kinds milestone --format json`)
+2. Else take the latest closed milestone (`specforge export --kinds milestone --format graph | jq -r '[.nodes[]|select(.fields.state=="shipped")]|last|.id'`)
 3. A milestone with no phases yet is mid-build: the summary adapts to what it has
 4. If nothing found: error "No milestone found. Run /gsd:new-project or /gsd:new-milestone first."
 

@@ -115,7 +115,7 @@ Use this instead of manually reading/parsing ROADMAP.md.
 - Use `current_phase` and `next_phase` from `$ROADMAP`
 - Note `paused_at` if work was paused (from `$STATE`)
 - Count pending todos: use `init todos` or `list-todos`
-- Check for active debug sessions: `(ls the specdebug/*.md 2>/dev/null || true) | grep -v '/knowledge-base\.md$' | wc -l`
+- Check for active debug sessions: `/gsd-debug` keeps its sessions outside @gsd/core, so none is counted here
   </step>
 
 <step name="report">
@@ -251,7 +251,7 @@ Get plan/summary counts for the current phase from the single owner (#3218 — L
 counts, i.e. `status: superseded` plans excluded, matching "outstanding work"):
 
 ```bash
-PHASE_COUNTS=$(specforge query "${CURRENT_PHASE}" --depth 1 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
+PHASE_COUNTS=$(specforge query "${CURRENT_PHASE}" --depth 2 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
 X=$(echo "$PHASE_COUNTS" | jq -r '.plan_count // 0')
 Y=$(echo "$PHASE_COUNTS" | jq -r '.summary_count // 0')
 specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --format json | jq -r '.nodes[]|select(.kind=="uat_test")|.id' | wc -l

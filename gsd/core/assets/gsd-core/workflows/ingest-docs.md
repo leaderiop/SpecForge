@@ -53,8 +53,8 @@ Read the state the run starts from:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-INIT=$(specforge query "$PROJECT" --depth 2 --kinds requirement,decision --format json 2>/dev/null)   # empty when there is no project yet (leave this command out then)
-if [ -n "$INIT" ]; then PROJECT_EXISTS=1; else PROJECT_EXISTS=0; fi   # 1 when the project already exists
+INIT=$(specforge export --kinds project,requirement,decision --format brief 2>/dev/null)   # a project is not linked to its requirements, so the listing is by kind
+if echo "$INIT" | jq -e '[.nodes[]|select(.kind=="project")]|length > 0' >/dev/null 2>&1; then PROJECT_EXISTS=1; else PROJECT_EXISTS=0; fi   # 1 when the project already exists
 : # model resolution: the installed agents carry their model
 
 
@@ -324,7 +324,7 @@ Agent({
 
 **Applies only when MODE=merge.**
 
-Load the existing roadmap (`specforge query "$PROJECT" --depth 2 --kinds milestone,phase --format context`), the `project` entity, the `requirement` entities, and all `context` entities of the phases.
+Load the existing roadmap (`specforge export --kinds milestone,phase,context --format context`: the milestones, the phases and the `context` entities of the phases), the `project` entity (`specforge query "$PROJECT" --depth 0 --format context`) and the `requirement` entities (`specforge export --kinds requirement --format context`). A project is not linked to its milestones or requirements, so a query from it would read only the project.
 
 The synthesizer has already hard-blocked on any LOCKED-in-ingest vs LOCKED-in-existing contradiction; if we reach this step, no such blockers remain.
 
