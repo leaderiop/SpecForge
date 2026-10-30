@@ -47,6 +47,9 @@ pub struct Baseline {
     /// The text of `specforge-harness` at the baseline commit: the move records it already held are not applied again.
     #[serde(default)]
     pub ledger: String,
+    /// A file git could be asked for gave no bytes: used now, never cached (not serialised).
+    #[serde(skip)]
+    pub incomplete: bool,
 }
 
 /// Whether the loaded extensions declare anything that reads history.
@@ -411,8 +414,6 @@ impl Baseline {
                     Vec::new()
                 };
                 let failed = std::cell::RefCell::new(None);
-                // A file the tree lists and git cannot give: the baseline is used, but not cached (it may be whole later).
-                let incomplete = std::cell::Cell::new(false);
                 let sizes = |keys: &[String]| -> Vec<(String, Option<u64>)> {
                     let asked = crate::baseline_judged::paths(within, keys);
                     match history.sizes(place, commit, &asked) {
@@ -422,8 +423,6 @@ impl Baseline {
                                 .cloned()
                                 .zip(found.into_iter().map(|(_, size)| size))
                                 .collect();
-                            incomplete
-                                .set(incomplete.get() || found.iter().any(|(_, s)| s.is_none()));
                             found
                         }
                         Err(error) => {
@@ -456,7 +455,7 @@ impl Baseline {
                     ));
                 }
                 // Used now, read again next time: a sparse or blobless checkout may hold the missing blobs later.
-                if incomplete.get() {
+                if compiled.incomplete {
                     return Ok(Arc::new(compiled));
                 }
                 // shortcut: the cache is best effort and never pruned; prune by age if it grows.
@@ -533,7 +532,7 @@ impl Baseline {
             ledger.as_bytes(),
             fetch,
         );
-        let computed = match env.runtime() {
+        let (computed, incomplete) = match env.runtime() {
             Some(runtime) if env.registries().compute_passes().next().is_some() => {
                 let tree = tree
                     .into_iter()
@@ -561,6 +560,7 @@ impl Baseline {
             revision,
             entities,
             ledger,
+            incomplete,
         }
     }
 }
@@ -611,6 +611,7 @@ impl Baseline {
                 project.judgements(),
             ),
             ledger: String::new(),
+            incomplete: false,
         }
     }
 }

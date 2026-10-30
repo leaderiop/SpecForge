@@ -238,15 +238,21 @@ fn missing_objects(repo: &Path) -> usize {
         .count()
 }
 
-/// Whether `git` knows `GIT_NO_LAZY_FETCH` (2.44).
-fn git_forbids_lazy_fetch() -> bool {
-    let out = Command::new("git").arg("--version").output().unwrap();
-    let text = String::from_utf8_lossy(&out.stdout).into_owned();
-    let mut parts = text.trim().trim_start_matches("git version ").split('.');
-    let number = |p: Option<&str>| p.and_then(|p| p.parse::<u32>().ok()).unwrap_or(0);
-    (number(parts.next()), number(parts.next())) >= (2, 44)
+/// A `git` that forgets `GIT_NO_LAZY_FETCH` (the adapter sets it), so any git behaves as one older than 2.44.
+#[cfg(unix)]
+fn old_git(dir: &Path) -> GitCli {
+    use std::os::unix::fs::PermissionsExt;
+    let script = dir.join("old-git");
+    std::fs::write(
+        &script,
+        "#!/bin/sh\nunset GIT_NO_LAZY_FETCH\nexec git \"$@\"\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    GitCli::with_program(script)
 }
 
+#[cfg(unix)]
 #[specforge_test(
     behavior = "read_git_baseline",
     verify = "history gives the sizes of the named files, and a missing blob is not fetched"
@@ -261,26 +267,44 @@ fn a_listing_never_fetches_a_missing_blob() {
     };
     let before = missing_objects(&clone);
     assert!(before >= 2, "the clone is blobless: {before}");
+    // an old git may fetch lazily: the listing must still ask for no blob (it has no `-l`)
+    let cli = old_git(dir.path());
+    let Located::Repo(place) = cli.locate(&clone) else {
+        panic!("a repository");
+    };
+    let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
+    let mut tree = cli.tree(&place, &head, Path::new("")).unwrap();
+    tree.sort();
+    assert_eq!(tree, [("src/a.ts".into(), true), ("src/b.ts".into(), true)]);
+    assert_eq!(missing_objects(&clone), before);
+    // asking a size looks one blob up; an old git fetches that file and only that one (ADR 0300 D5)
+    let sizes = cli.sizes(&place, &head, &["src/a.ts".into()]).unwrap();
+    assert_eq!(sizes.len(), 1);
+    assert_eq!(missing_objects(&clone), before - 1);
+    // with the adapter's own GIT_NO_LAZY_FETCH (git 2.44) it answers "missing" and fetches nothing
+    let dir = tempfile::tempdir().unwrap();
+    let Some(clone) = blobless_clone(dir.path()) else {
+        return;
+    };
     let cli = GitCli::default();
     let Located::Repo(place) = cli.locate(&clone) else {
         panic!("a repository");
     };
     let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
-    // the tree lists the files with their blobs missing, and fetches none (on any git: `ls-tree` has no `-l`)
-    let mut tree = cli.tree(&place, &head, Path::new("")).unwrap();
-    tree.sort();
-    assert_eq!(tree, [("src/a.ts".into(), true), ("src/b.ts".into(), true)]);
-    assert_eq!(missing_objects(&clone), before);
-    // asking a size looks one blob up: with GIT_NO_LAZY_FETCH (git 2.44) git answers "missing" and fetches nothing;
-    // an older git may fetch the files asked, and only those (ADR 0300 D5)
-    let asked = vec!["src/a.ts".into()];
-    let sizes = cli.sizes(&place, &head, &asked).unwrap();
+    let sizes = cli.sizes(&place, &head, &["src/a.ts".into()]).unwrap();
     if git_forbids_lazy_fetch() {
         assert_eq!(sizes, [("src/a.ts".into(), None)]);
         assert_eq!(missing_objects(&clone), before);
-    } else {
-        assert!(missing_objects(&clone) >= before - 1);
     }
+}
+
+/// Whether `git` knows `GIT_NO_LAZY_FETCH` (2.44).
+fn git_forbids_lazy_fetch() -> bool {
+    let out = Command::new("git").arg("--version").output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    let mut parts = text.trim().trim_start_matches("git version ").split('.');
+    let number = |p: Option<&str>| p.and_then(|p| p.parse::<u32>().ok()).unwrap_or(0);
+    (number(parts.next()), number(parts.next())) >= (2, 44)
 }
 
 #[cfg(unix)]
