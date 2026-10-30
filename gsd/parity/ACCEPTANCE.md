@@ -106,7 +106,6 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 - `specforge uninstall` leaves the empty host root directory (install crate).
 - Hosts other than Claude Code, Codex and Cursor (the 16 named renderers).
 - Git facts for hooks (`git add -f` blocking) need a host query the protocol lacks.
-- Baseline re-verification (`re_verification.previous_*` and the baseline file view, `baseline-format` 3, ADR 0300).
 - The hook facts: the real path of an out-of-project target (a symlink into the main checkout is not seen), `--cleanup`
   on a commit, and a host filter for a hook contribution (Cursor gets the isolation guard's line).
 - A broken `specforge.json` makes `specforge install <host>` strip every gsd hook, agent and skill silently with exit 0

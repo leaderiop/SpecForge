@@ -13,6 +13,9 @@ branch against where it left its base instead:
 - run: specforge check --strict --since origin/main
 ```
 
+A blobless partial clone (`--filter=blob:none`) has no file contents to read at the baseline: what a compute pass reads
+there is not checked, or the baseline is W164. Clone with blobs where a pass reads files.
+
 `--since <rev>` compares with the merge-base of `<rev>` and `HEAD`. An unknown revision is refused (exit 2). Without
 git, or before a first commit, the check says so with I204 and judges nothing.
 

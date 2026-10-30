@@ -196,16 +196,10 @@ output outside the spec tree.
 ADR 0299 put the computed values and judgements in the graph a call receives, so a command reads a phase's `status`
 and a context's `digest`, and `record_research`, `record_spec`, `record_validation`, `/gsd-health`, `/gsd-stats` and the progress
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
-human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them. What
-still waits for kernel work (K19):
+human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
+ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
+`previous_score` and compares scan states (r39 T13 is built). What still waits for kernel work (K19):
 
-- **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
-  baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
-  commit, so at the baseline every source file reads as absent (`exists: false`): the scan says `missing`, never
-  `unchecked`, and the baseline's status and score are wrong. `re_verification` therefore compares fresh verdicts and
-  verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
-  (with `baseline-format` 3, ADR 0300 when it is built). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
-  synthetic baselines, not black-box (the judgement list is empty on a baseline).
 - **A person's answer is recorded by the caller (K19).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
   `approve_validation`, `waive_window`, `dispose_refactor` and `pause` write the `H` fields of a person's reply, as
   upstream's agent transcribes the conversation. Each requires a non-empty `--by` (an empty one is refused), but `--by`

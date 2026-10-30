@@ -128,10 +128,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   `gsd/E517` is built (r41) and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
 
-- **Not built, waiting on the kernel (K19).** Baseline re-verification (T13): the baseline compile sees only a commit's
-  `*.spec` files, so its source files read as missing; `previous_status`/`previous_score` are not computed and
-  `re_verification` compares verdicts and verify gaps only (`regressions` is tested on synthetic baselines, not
-  black-box). `gsd/W514` (above). The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297): a failing verdict, the replacement of a pass, the creation of a judged target and an edit that stales a pass are written (`tests/cli/judged_refusals.rs`). The human-only guarantee holds for every existing entity of a human-only kind and against deleting a person's value (K17, ADR 0298): an agent cannot change an `override` or delete a `milestone_audit` that carries a `debt_accepted`. T13 and W514 wait for K19.
+- **Not built, waiting on the kernel (K19).** `gsd/W514` (above). The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297): a failing verdict, the replacement of a pass, the creation of a judged target and an edit that stales a pass are written (`tests/cli/judged_refusals.rs`). The human-only guarantee holds for every existing entity of a human-only kind and against deleting a person's value (K17, ADR 0298): an agent cannot change an `override` or delete a `milestone_audit` that carries a `debt_accepted`. W514 waits for K19; T13 is built (ADR 0300, `tests/cli/baseline.rs`).
 
 ## Setting-gated rules
 

@@ -31,7 +31,7 @@ so `@gsd/core` ships its own JUnit test collector instead of relying on a test-r
 
 ## Decisions
 
-Settled in a design interview on 2026-10-26. The kernel changes they need, K1–K10, K11–K16, K17 and the call graph of ADR 0299, are built and accepted as ADRs;
+Settled in a design interview on 2026-10-26. The kernel changes they need, K1–K10, K11–K16, K17, the call graph of ADR 0299 and the baseline's source files (K19), are built and accepted as ADRs;
 the rest of this folder keeps their K names.
 
 | Draft | ADR | Kernel change |
@@ -54,6 +54,7 @@ the rest of this folder keeps their K names.
 | K16 | [0296](../docs/adr/0296-settings-are-set-and-unset-through-specforge-settings.md) | settings are set and unset through `specforge settings` |
 | K17 | [0297](../docs/adr/0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md), [0298](../docs/adr/0298-an-agent-does-not-change-or-delete-what-a-person-wrote.md) | a judged rule's finding is not an error a write adds, a collector's plan is judged with its report, and an agent does not change a human-only entity or delete a person's value |
 | K18 | [0299](../docs/adr/0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) | the graph a call receives carries the computed values and judgements every surface shows |
+| K19 | [0300](../docs/adr/0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) | a compute pass at the baseline reads the files the commit holds |
 
 Building `@gsd/core` against them found six more gaps no model fix closes. They are a second kernel round (r35,
 protocol 1.11.0, now in the kernel), and the model cites them where it relies on them: **K11** a pass or command reads the project files
@@ -169,16 +170,10 @@ The packaging (one Cargo workspace, built on demand, tested through the `specfor
 ADR 0299 put the computed values and judgements in the graph a call receives, so a command reads a phase's `status`
 and a context's `digest`, and `record_research`, `record_spec`, `record_validation`, `/gsd-health`, `/gsd-stats` and the progress
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
-human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them. What
-still waits for kernel work (K19):
+human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
+ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
+`previous_score` and compares scan states (r39 T13 is built). What still waits for kernel work (K19):
 
-- **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
-  baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
-  commit, so at the baseline every source file reads as absent (`exists: false`): the scan says `missing`, never
-  `unchecked`, and the baseline's status and score are wrong. `re_verification` therefore compares fresh verdicts and
-  verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
-  (with `baseline-format` 3, ADR 0300 when it is built). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
-  synthetic baselines, not black-box (the judgement list is empty on a baseline).
 - **A person's answer is recorded by the caller (K19).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
   `approve_validation`, `waive_window`, `dispose_refactor` and `pause` write the `H` fields of a person's reply, as
   upstream's agent transcribes the conversation. Each requires a non-empty `--by` (an empty one is refused), but `--by`
@@ -265,7 +260,6 @@ still waits for kernel work (K19):
 | Renderers for the other hosts (16 capabilities) | later install renderers | the capability table above |
 | W514 and E515 | no rule behind them yet | [ACCEPTANCE.md](parity/ACCEPTANCE.md), Codes |
 | 14 gate-cutover verdicts | 11 no twin reaches, 3 a twin answers differently | `core/tests/parity_rules/cutover.rs`, [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
-| Baseline re-verification | `re_verification.previous_*` and the baseline file view (K19, ADR 0300) | the K19 list above |
 | The `specforged` harness | `/gsd-autonomous` unattended; `claude-orchestration` and `external-job` have settings keys only | the capability table above |
 | The other extensions' commands and agents | 22 commands and 39 agents are owned by them | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 | Codex and Cursor verified in the host | drafts until run there | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |

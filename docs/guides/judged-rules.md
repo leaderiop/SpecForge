@@ -91,7 +91,8 @@ the verdicts with their state and a code lens says whether each is fresh, failed
 ## History
 
 `re_verification` compares statuses at the baseline: the judged rules are evaluated at the baseline commit over that
-commit's own files (and ledger), so a verdict stale at the commit is not "passing there".
+commit's own files (and ledger), so a verdict stale at the commit is not "passing there". The compute passes read that
+commit's files too (ADR 0300), so a pass's `previous` carries the values the commit had.
 
 ## Declaring one (SDK)
 
