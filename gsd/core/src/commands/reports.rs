@@ -38,7 +38,7 @@ impl Phase {
 }
 
 /// The milestone a report is about: the one in progress, else the last.
-pub(super) fn current(graph: &CommandGraph) -> Option<&GraphNode> {
+pub(crate) fn current(graph: &CommandGraph) -> Option<&GraphNode> {
     let milestones: Vec<&GraphNode> = graph.nodes_of_kind("milestone").collect();
     milestones
         .iter()

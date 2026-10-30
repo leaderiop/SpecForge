@@ -84,6 +84,5 @@ pub const HOOK_ROSTER: &[(&str, Disposition)] = &[
 pub const NOT_YET_HOOKED: &[&str] = &[
     "gsd-phase-boundary.sh",
     "gsd-session-state.sh",
-    "gsd-statusline.js",
     "gsd-validate-commit.sh",
 ];

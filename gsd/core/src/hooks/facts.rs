@@ -34,8 +34,14 @@ pub struct Facts<'a> {
     pub prompt: Option<String>,
     /// A hook that declares `reads_state`: the session's state (none: no session, or none sent).
     pub session_state: Option<serde_json::Map<String, Value>>,
-    /// The call's lifetime, for the facts later hooks borrow (the graph).
-    pub call: std::marker::PhantomData<&'a ()>,
+    /// The host's session, if it names one.
+    pub session: Option<String>,
+    /// `statusline`: the host's status JSON.
+    pub status: Option<Value>,
+    /// A hook that declares `reads_state`: the project's state.
+    pub project_state: serde_json::Map<String, Value>,
+    /// A hook that declares `reads_graph`.
+    pub graph: Option<&'a CommandGraph>,
 }
 
 impl<'a> Facts<'a> {
@@ -65,7 +71,14 @@ impl<'a> Facts<'a> {
             now: call.now().to_string(),
             prompt: f.prompt.clone(),
             session_state: f.state.as_ref().and_then(|s| s.session.clone()),
-            call: std::marker::PhantomData,
+            session: f.session.clone(),
+            status: f.status.clone(),
+            project_state: f
+                .state
+                .as_ref()
+                .map(|s| s.project.clone())
+                .unwrap_or_default(),
+            graph: f.graph.as_ref(),
         }
     }
 

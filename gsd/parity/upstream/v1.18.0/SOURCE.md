@@ -537,3 +537,14 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook and its t
 | `hooks/gsd-context-monitor.js` | `5bb3e7b98c705fe5542019c130bc76eef34f183f5fad851f5804fc3c161d5a66` |
 | `tests/context-monitor-host-contract.test.cjs` | `7cc3595646c897d270b2643278ec969b7bca5af8e68e5cc6b632894699d189ea` |
 | `tests/perf-317-context-monitor-fs.test.cjs` | `b29a632fb2a4888fb89f102a65b9a3254b4d78124cb1268bc554b5bd32a47669` |
+
+## r44 T6: the statusline
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook and its three suites (read by `gsd/core/src/hooks/statusline/tests.rs`). `gsd-statusline.test.cjs` is vendored whole; its STATE.md reading, git, todo, update-banner, environment and other-runtime blocks are skipped by prefix with their reasons, and `gsd-statusline-git.property.test.cjs` is wholly skipped (git).
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-statusline.js` | `4d0894eefefbac4b6ea20b39900b33bd0f7b88f645939794a8b702b0b74a3594` |
+| `tests/gsd-statusline.test.cjs` | `9c32c96b38c83c242440d40c76a7399422cab3367c1ba349510d86640f7cf9c3` |
+| `tests/gsd-statusline-state.property.test.cjs` | `53b9ab7bb6b293de821b75d4488c9c31c530efeaeda6840c4e80b80d6dee43e6` |
+| `tests/gsd-statusline-git.property.test.cjs` | `51b79c73a60510cc905027f56d1d8407462eed110a5b1d50e0ad966920f64c54` |

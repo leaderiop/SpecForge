@@ -12,6 +12,7 @@ mod injection;
 mod isolation;
 pub mod roster;
 mod secrets;
+mod statusline;
 mod workflow;
 
 use specforge_extension_sdk::prelude::*;
@@ -23,4 +24,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     isolation::declare(c);
     workflow::declare(c);
     context::declare(c);
+    statusline::declare(c);
 }
