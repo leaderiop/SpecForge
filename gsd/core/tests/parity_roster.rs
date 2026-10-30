@@ -3,8 +3,22 @@
 //! `roster.rs`, configuration keys by `settings_roster.rs`; this file maps those families to their tables so the
 //! whole snapshot is accounted together, and holds the tables of the rest.
 
+#[path = "parity_roster/accept.rs"]
+mod accept;
 #[path = "parity_roster/assets.rs"]
 mod assets;
+#[allow(
+    dead_code,
+    reason = "a shared table: the acceptance counts read its classes, not their reasons"
+)]
+#[path = "parity_rules/cutover.rs"]
+mod cutover;
+#[allow(
+    dead_code,
+    reason = "a shared table: the acceptance counts read its kinds, not the test names"
+)]
+#[path = "parity_rules/evidence.rs"]
+mod evidence;
 #[path = "parity_roster/modules.rs"]
 mod modules;
 
@@ -362,19 +376,75 @@ fn config_keys_match_the_snapshot() {
     assert_eq!(keys.len(), 211);
 }
 
+const ACCEPTANCE: &str = include_str!("../../parity/ACCEPTANCE.md");
+const PARITY_README: &str = include_str!("../../parity/README.md");
+
 #[test]
 fn the_acceptance_counts_match() {
-    let counts: Vec<(&str, usize)> = families()
-        .iter()
-        .map(|f| (f.as_str(), family(f).len()))
-        .map(|(f, n)| (Box::leak(f.to_string().into_boxed_str()) as &str, n))
+    let by: BTreeMap<String, usize> = families()
+        .into_iter()
+        .map(|f| (f.clone(), family(&f).len()))
         .collect();
-    let by: BTreeMap<&str, usize> = counts.into_iter().collect();
     assert_eq!(by["commands"], ROSTER.len());
     assert_eq!(by["hooks"], HOOK_ROSTER.len());
     assert_eq!(by["cli_modules"], 282);
-    let assets: usize = ASSET_FAMILIES.iter().map(|f| by[f]).sum();
+    let assets: usize = ASSET_FAMILIES.iter().map(|f| by[*f]).sum();
     assert_eq!(assets, 295);
     assert_eq!(by["agents"], 64);
     assert_eq!(by.values().sum::<usize>(), 72 + 64 + 28 + 282 + 295);
+    let rows: [(&str, accept::Counts); 9] = [
+        ("Commands", accept::commands()),
+        ("Agents", accept::agents()),
+        ("Hooks", accept::hooks()),
+        ("Capabilities", accept::capabilities()),
+        ("Workflows and references", accept::assets()),
+        ("CLI modules", accept::cli_modules()),
+        ("Config keys", accept::config_keys()),
+        ("Gate-cutover verdicts", accept::gate_cutover()),
+        ("Codes", accept::codes()),
+    ];
+    for (name, computed) in rows {
+        assert_eq!(
+            accept::row(ACCEPTANCE, name),
+            computed,
+            "{name}: ACCEPTANCE.md against the tables"
+        );
+    }
+    // the totals the plan names
+    assert_eq!(accept::capabilities(), [45, 19, 10, 0, 16]);
+    assert_eq!(accept::gate_cutover(), [171, 92, 51, 14, 14]);
+    assert_eq!(accept::codes(), [63, 61, 0, 0, 2]);
+    assert_eq!(accept::config_keys()[0], 211);
+}
+
+#[test]
+fn the_program_docs_shell_blocks_parse() {
+    for (name, doc) in [
+        ("ACCEPTANCE.md", ACCEPTANCE),
+        ("parity/README.md", PARITY_README),
+    ] {
+        let mut blocks = 0;
+        for block in doc.split("```").skip(1).step_by(2) {
+            let (lang, body) = block.split_once('\n').unwrap_or((block, ""));
+            if !matches!(lang.trim(), "sh" | "bash") {
+                continue;
+            }
+            blocks += 1;
+            let out = std::process::Command::new("bash")
+                .arg("-n")
+                .arg("-c")
+                .arg(body)
+                .output()
+                .expect("bash");
+            assert!(
+                out.status.success(),
+                "{name}: {body}\n{}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
+        assert!(
+            blocks > 0 || name == "parity/README.md",
+            "{name} has no shell block"
+        );
+    }
 }

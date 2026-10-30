@@ -1,6 +1,6 @@
 # Parity suite
 
-**Status: the config roster, the taskboard roadmap, the taskboard's discussed and researched phase, its plans, and its executed phase (summaries, progress and the recorded tests) and its UAT are built; the rest is being designed.** What makes "1:1 with GSD, version by version" a check rather than a hope.
+**Status: the four checks are built and run in the gate (r44): the roster, the rules (every code and the 171 gate-cutover verdicts), the scenario over the taskboard twin and the upgrade; [ACCEPTANCE.md](ACCEPTANCE.md) counts what they cover.** What makes "1:1 with GSD, version by version" a check rather than a hope.
 
 | Check | Proves |
 |---|---|
