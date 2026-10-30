@@ -19,7 +19,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/pause-work.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host cursor`",
     "",
     "<purpose>",
     "Create a `handoff` entity and a `pause` entity to preserve complete work state across sessions. The `handoff` holds the structured state and the human-readable context; `/gsd-resume-work` reads both.",
@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 19701,
+  "bytes": 19729,
   "end": [
     "To resume: /gsd-resume-work",
     "",
@@ -87,7 +87,7 @@
     "",
     "<process>",
     "If `--report` is in the `<arguments>` block:",
-    "Read and execute `specforge gsd reference gsd-core/workflows/session-report.md` end-to-end.",
+    "Read and execute `specforge gsd reference gsd-core/workflows/session-report.md --host cursor` end-to-end.",
     "",
     "**Follow the pause-work workflow**.",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:33dfb24205a01e50a27bda09c5c15db8a2e85ca583cf031037cc3178eab98e30",
+    "digest": "sha256:4714b1c9725dc00027b32a78925a19def0bf6578d6b884ed841e82d442adce65",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "33dfb24205a01e50a27bda09c5c15db8a2e85ca583cf031037cc3178eab98e30"
+  "sha256": "4714b1c9725dc00027b32a78925a19def0bf6578d6b884ed841e82d442adce65"
 }

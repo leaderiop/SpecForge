@@ -22,8 +22,8 @@
     "</purpose>",
     "",
     "<required_reading>",
-    "`specforge gsd reference gsd-core/references/ui-brand.md`",
-    "`specforge gsd reference gsd-core/references/gate-prompts.md`",
+    "`specforge gsd reference gsd-core/references/ui-brand.md --host codex`",
+    "`specforge gsd reference gsd-core/references/gate-prompts.md --host codex`",
     "</required_reading>",
     "",
     "<process>",
@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 55586,
+  "bytes": 55612,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:b23b153458669c63da7f3dc598f78e8d60c862ea765fea226d8f3b765ca0b577",
+    "digest": "sha256:4bd68c7752f1e0f0ddce42debdf4544c57f545fe00800b2b7454570587cea90b",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "b23b153458669c63da7f3dc598f78e8d60c862ea765fea226d8f3b765ca0b577"
+  "sha256": "4bd68c7752f1e0f0ddce42debdf4544c57f545fe00800b2b7454570587cea90b"
 }

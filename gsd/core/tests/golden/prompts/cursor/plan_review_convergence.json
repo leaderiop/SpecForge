@@ -30,9 +30,9 @@
     "<required_reading>",
     "Read all files referenced by the invoking prompt's execution_context before starting.",
     "",
-    "`specforge gsd reference gsd-core/references/revision-loop.md`",
-    "`specforge gsd reference gsd-core/references/gates.md`",
-    "`specforge gsd reference gsd-core/references/agent-contracts.md`",
+    "`specforge gsd reference gsd-core/references/revision-loop.md --host cursor`",
+    "`specforge gsd reference gsd-core/references/gates.md --host cursor`",
+    "`specforge gsd reference gsd-core/references/agent-contracts.md --host cursor`",
     "</required_reading>",
     "",
     "<process>",
@@ -61,7 +61,7 @@
     "echo \"$GSD_ARGS\" | grep -qE '\\-\\-ws\\s+\\S+' && GSD_WS=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-ws\\s+\\S+')",
     "```"
   ],
-  "bytes": 76705,
+  "bytes": 76747,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:97f5cef21892a2552e9b11859c29c37998a427fe7470e98ecd6dbef5bf2056f1",
+    "digest": "sha256:bae596058b5861f269eb2376ace6f2ac5a729cb9d88286765980ff458d9e0ddc",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -210,5 +210,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "97f5cef21892a2552e9b11859c29c37998a427fe7470e98ecd6dbef5bf2056f1"
+  "sha256": "bae596058b5861f269eb2376ace6f2ac5a729cb9d88286765980ff458d9e0ddc"
 }

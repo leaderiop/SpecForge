@@ -94,3 +94,57 @@ fn a_reference_reads_the_setting_it_names() {
     assert!(set.contains("COMPACT_CONTENT=\"true\""), "{set}");
     assert!(!set.contains("{{setting:"), "an unfilled token");
 }
+
+/// REVIEW-r42 N2: a file read through `reference` is converted for the host that asks, like the inlined text.
+#[test]
+fn reference_converts_the_text_for_the_host() {
+    let p = twin();
+    let read = |file: &str, host: &str| {
+        let run = gsd(&p, "reference", &[file, "--host", host]);
+        assert_eq!(run.code, 0, "{}", run.all());
+        run.stdout
+    };
+    let claude = read("workflows/discuss-phase.md", "claude-code");
+    assert!(!claude.contains("/gsd:"), "claude-code keeps a colon name");
+    assert!(
+        claude.contains("/gsd-plan-phase"),
+        "claude-code has no hyphen name"
+    );
+    let codex = read("workflows/discuss-phase.md", "codex");
+    assert!(
+        !codex.contains("/gsd:") && !codex.contains("/gsd-plan-phase"),
+        "codex keeps a slash name"
+    );
+    assert!(codex.contains("$gsd-"), "codex has no $gsd- name");
+    let cursor = read("workflows/discuss-phase.md", "cursor");
+    assert!(
+        !cursor.contains("/gsd:") && !cursor.contains("AskUserQuestion"),
+        "cursor keeps a Claude name"
+    );
+    assert!(
+        cursor.contains("/gsd-plan-phase"),
+        "cursor has no hyphen name"
+    );
+    // the nested references carry the host on, and the `@host` fallback is the host's runtime, not "claude"
+    assert!(
+        codex.contains("specforge gsd reference gsd-core/") && codex.contains("--host codex"),
+        "{codex}"
+    );
+    for (host, runtime) in [
+        ("claude-code", "claude"),
+        ("codex", "codex"),
+        ("cursor", "cursor"),
+    ] {
+        let text = read("workflows/smart-entry.md", host);
+        assert!(
+            text.contains(&format!("RUNTIME=\"{runtime}\"")),
+            "{host}: {text}"
+        );
+    }
+    let run = gsd(
+        &p,
+        "reference",
+        &["workflows/smart-entry.md", "--host", "vim"],
+    );
+    assert_ne!(run.code, 0, "{}", run.all());
+}

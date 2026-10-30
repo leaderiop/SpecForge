@@ -46,7 +46,7 @@
     "</philosophy>",
     "",
     "<template>",
-    "`specforge gsd reference gsd-core/templates/UAT.md`",
+    "`specforge gsd reference gsd-core/templates/UAT.md --host cursor`",
     "</template>",
     "",
     "<process>",
@@ -61,7 +61,7 @@
     "02",
     "GSD_ARGS_END"
   ],
-  "bytes": 66250,
+  "bytes": 66278,
   "end": [
     "skipped: 0",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:73433cd9731b837a86363bff5d8bceca7126889339ffcb3c7f283cd81e7b6c6b",
+    "digest": "sha256:219168d370e1aefebb6faafdb0f8f46018e210f2cbf8267ee6e4bd06c15a4a3f",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "73433cd9731b837a86363bff5d8bceca7126889339ffcb3c7f283cd81e7b6c6b"
+  "sha256": "219168d370e1aefebb6faafdb0f8f46018e210f2cbf8267ee6e4bd06c15a4a3f"
 }

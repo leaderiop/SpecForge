@@ -6,7 +6,7 @@
 //! (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths. The host's adapter
 //! header goes in front, unconverted.
 
-use super::{assets, compose, host, preamble, repoint::repoint, setting};
+use super::{assets, compose, host, preamble, repoint::repoint_for, setting};
 
 pub struct Input<'a> {
     /// The upstream command file's stem: `plan-phase` for `commands/gsd/plan-phase.md`.
@@ -127,12 +127,12 @@ fn assemble(command: &str, input: &Input<'_>) -> String {
         text.push_str("\n\n");
         text.push_str(input.tail);
     }
-    let converted = host::convert(input.host, &repoint(&text));
+    let converted = host::convert(input.host, &repoint_for(&text, input.host));
     format!("{}{converted}", header(input.host))
 }
 
 /// The runtime a host is called in the settings: `claude-code` is `claude`.
-fn runtime(host: &str) -> &str {
+pub(crate) fn runtime(host: &str) -> &str {
     host.strip_suffix("-code").unwrap_or(host)
 }
 

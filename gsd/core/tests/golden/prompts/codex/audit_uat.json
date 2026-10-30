@@ -7,7 +7,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/audit-uat.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host codex`",
     "",
     "<purpose>",
     "Cross-phase audit of all UAT and verification files. Finds every outstanding item (pending, skipped, blocked, human_needed), optionally verifies against the codebase to detect stale docs, and produces a prioritized human test plan.",
@@ -61,7 +61,7 @@
     "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:",
     "```"
   ],
-  "bytes": 22182,
+  "bytes": 22195,
   "end": [
     "<step name=\"test_plan\">",
     "Generate a human UAT test plan for \"Testable Now\" + \"active\" items only:",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:4297f8219df3eb0187fdaee0c15a867ff50d8f4a584274055dae584b7d2d16d2",
+    "digest": "sha256:20686512fbb38db2f06fc32ca6724ea4649e25086c4d2715734f6c476670fa3a",
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "4297f8219df3eb0187fdaee0c15a867ff50d8f4a584274055dae584b7d2d16d2"
+  "sha256": "20686512fbb38db2f06fc32ca6724ea4649e25086c4d2715734f6c476670fa3a"
 }

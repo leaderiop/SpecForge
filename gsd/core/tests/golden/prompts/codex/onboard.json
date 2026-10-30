@@ -26,7 +26,7 @@
     "One-command onboarding for an existing or unknown repo. This workflow is a thin",
     "renderer around a projection computed in Step 1 from the spec and the repository; the routing is its `next_action`.",
     "",
-    "`specforge gsd reference gsd-core/references/gsd-run-resolver.md`",
+    "`specforge gsd reference gsd-core/references/gsd-run-resolver.md --host codex`",
     "",
     "## 1. Render the Onboarding Projection",
     "",
@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `AskUserQuestion` call below with a plain-text numbered list and ask the user to type their choice number — required for non-the agent runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available."
   ],
-  "bytes": 38631,
+  "bytes": 38644,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:ab1b128eb6ce4d47a5e35bad601bab2c7fb93b2eaf8a27dd94655c4c1b0bc045",
+    "digest": "sha256:f040eb670110a6e1fb50356fcb72153e1c633a84183fd01b57057b944f1aba2a",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "ab1b128eb6ce4d47a5e35bad601bab2c7fb93b2eaf8a27dd94655c4c1b0bc045"
+  "sha256": "f040eb670110a6e1fb50356fcb72153e1c633a84183fd01b57057b944f1aba2a"
 }

@@ -37,11 +37,11 @@
     "<required_reading>",
     "Read all files referenced by the invoking prompt's execution_context before starting.",
     "",
-    "`specforge gsd reference gsd-core/references/ui-brand.md`",
-    "`specforge gsd reference gsd-core/references/revision-loop.md`",
-    "`specforge gsd reference gsd-core/references/gate-prompts.md`",
-    "`specforge gsd reference gsd-core/references/agent-contracts.md`",
-    "`specforge gsd reference gsd-core/references/gates.md`",
+    "`specforge gsd reference gsd-core/references/ui-brand.md --host codex`",
+    "`specforge gsd reference gsd-core/references/revision-loop.md --host codex`",
+    "`specforge gsd reference gsd-core/references/gate-prompts.md --host codex`",
+    "`specforge gsd reference gsd-core/references/agent-contracts.md --host codex`",
+    "`specforge gsd reference gsd-core/references/gates.md --host codex`",
     "</required_reading>",
     "",
     "<available_agent_types>",
@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 120388,
+  "bytes": 120544,
   "end": [
     "- Random emoji (`🚀`, `✨`, `💫`)",
     "- Missing Next Up block after completions",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:1f263cacc0cb5e3fb643ca6cf5c05e9caaa4539bba692fd7fe470e376cfba47a",
+    "digest": "sha256:0e5a289081010e4d8e2b074b6190ab1533d6b67fdf13f567031f1ddda1c663bb",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -236,5 +236,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "1f263cacc0cb5e3fb643ca6cf5c05e9caaa4539bba692fd7fe470e376cfba47a"
+  "sha256": "0e5a289081010e4d8e2b074b6190ab1533d6b67fdf13f567031f1ddda1c663bb"
 }

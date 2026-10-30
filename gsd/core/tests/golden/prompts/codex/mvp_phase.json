@@ -24,9 +24,9 @@
     "</purpose>",
     "",
     "<required_reading>",
-    "`specforge gsd reference gsd-core/references/user-story-template.md`",
-    "`specforge gsd reference gsd-core/references/spidr-splitting.md`",
-    "`specforge gsd reference gsd-core/references/planner-mvp-mode.md`",
+    "`specforge gsd reference gsd-core/references/user-story-template.md --host codex`",
+    "`specforge gsd reference gsd-core/references/spidr-splitting.md --host codex`",
+    "`specforge gsd reference gsd-core/references/planner-mvp-mode.md --host codex`",
     "</required_reading>",
     "",
     "<runtime_note>",
@@ -48,7 +48,7 @@
     "```",
     "Exit.",
     "",
-    "Normalize per `specforge gsd reference gsd-core/references/phase-argument-parsing.md` (zero-pad integer phases to two digits).",
+    "Normalize per `specforge gsd reference gsd-core/references/phase-argument-parsing.md --host codex` (zero-pad integer phases to two digits).",
     "",
     "## 2. Validate phase exists and check status",
     "",
@@ -61,7 +61,7 @@
     "PHASE_GOAL=$(echo \"$PHASE_INFO\" | jq -r '.goal')",
     "PHASE_MODE=$(echo \"$PHASE_INFO\" | jq -r '.mode // \"\"')"
   ],
-  "bytes": 34909,
+  "bytes": 35000,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
@@ -95,7 +95,7 @@
     "</context>",
     "",
     "<process>",
-    "Execute the mvp-phase workflow from `specforge gsd reference gsd-core/workflows/mvp-phase.md` end-to-end.",
+    "Execute the mvp-phase workflow from `specforge gsd reference gsd-core/workflows/mvp-phase.md --host codex` end-to-end.",
     "Preserve all gates: phase existence, status guard (refuse in_progress/completed), user-story format validation, SPIDR splitting check, ROADMAP write confirmation, plan-phase delegation.",
     "</process>",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:058c6d66c018aa115c9b5004db611e6044dbc97d8116a8d543c0d1778937ab88",
+    "digest": "sha256:46c639efb522607228209af493c81b5882327d0534e458e32fc4d4d1e0236c6c",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "058c6d66c018aa115c9b5004db611e6044dbc97d8116a8d543c0d1778937ab88"
+  "sha256": "46c639efb522607228209af493c81b5882327d0534e458e32fc4d4d1e0236c6c"
 }

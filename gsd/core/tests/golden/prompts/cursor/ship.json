@@ -61,7 +61,7 @@
     "CONFIG=$(specforge settings)",
     "```"
   ],
-  "bytes": 43379,
+  "bytes": 43393,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -97,7 +97,7 @@
     "</file>",
     "</execution_context>",
     "",
-    "Execute the ship workflow from `specforge gsd reference gsd-core/workflows/ship.md` end-to-end.",
+    "Execute the ship workflow from `specforge gsd reference gsd-core/workflows/ship.md --host cursor` end-to-end.",
     "",
     "",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:e3df5f7332a1341e51a582aa6f2bb11c9782c858ae811d04df08a63cffa68eda",
+    "digest": "sha256:2729308fe790df4685469115de41ea01321628f380f74f0031c527962f32e81f",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "e3df5f7332a1341e51a582aa6f2bb11c9782c858ae811d04df08a63cffa68eda"
+  "sha256": "2729308fe790df4685469115de41ea01321628f380f74f0031c527962f32e81f"
 }

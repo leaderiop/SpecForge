@@ -18,7 +18,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/fast.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host codex`",
     "",
     "<purpose>",
     "Execute a trivial task inline without subagent overhead. No PLAN.md, no Task spawning,",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 20992,
+  "bytes": 21005,
   "end": [
     "",
     "<step name=\"done\">",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:b9826be70ea9d573b7a6c6879542f0bd760518af46dc15eab4271c84bfff6b9a",
+    "digest": "sha256:c6eca063a97d33dc10d0efcd5b0184f2184b25a8f59d791673cb5a1a8eb1b733",
     "prompt": "@gsd/core@VERSION:fast"
   },
-  "sha256": "b9826be70ea9d573b7a6c6879542f0bd760518af46dc15eab4271c84bfff6b9a"
+  "sha256": "c6eca063a97d33dc10d0efcd5b0184f2184b25a8f59d791673cb5a1a8eb1b733"
 }

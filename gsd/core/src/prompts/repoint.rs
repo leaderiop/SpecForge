@@ -20,6 +20,17 @@ fn is_path(c: char) -> bool {
 
 /// `text` with each `[@]<prefix>.claude/gsd-core/<path>` replaced by `` `specforge gsd reference gsd-core/<path>` ``.
 pub fn repoint(text: &str) -> String {
+    repoint_for(text, "claude-code")
+}
+
+/// [`repoint`] for the text of `host`: the calls it writes carry `--host` unless the host is Claude Code (the default),
+/// so a file read through `reference` is converted for the host that asked.
+pub fn repoint_for(text: &str, host: &str) -> String {
+    let flag = if host == "claude-code" {
+        String::new()
+    } else {
+        format!(" --host {host}")
+    };
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(at) = rest.find(MARKER) {
@@ -55,7 +66,7 @@ pub fn repoint(text: &str) -> String {
             == 1;
         let wrapped = rest[..start].ends_with('`') && rest[end..].starts_with('`');
         out.push_str(&rest[..start - usize::from(wrapped)]);
-        let command = format!("specforge gsd reference {full}");
+        let command = format!("specforge gsd reference {full}{flag}");
         let tick = if quoted { "" } else { "`" };
         out.push_str(&format!("{tick}{command}{tick}"));
         if !quoted && assets::get(&full).is_none() {

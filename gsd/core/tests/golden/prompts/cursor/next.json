@@ -61,7 +61,7 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 23240,
+  "bytes": 23254,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -92,7 +92,7 @@
     "</context>",
     "",
     "<process>",
-    "Follow `specforge gsd reference gsd-core/workflows/smart-entry.md`. Detect the situation, present the menu, and dispatch exactly one command. Then stop.",
+    "Follow `specforge gsd reference gsd-core/workflows/smart-entry.md --host cursor`. Detect the situation, present the menu, and dispatch exactly one command. Then stop.",
     "</process>",
     "",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:f4b1c0ddbc8c259a06badf64b254119d4069997cd6fe7c65672549c3e275a254",
+    "digest": "sha256:4f3119b8f9ae7ab59d3aa4e37b2ba847662d2ad0e72bf9675f3e624989e94530",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "f4b1c0ddbc8c259a06badf64b254119d4069997cd6fe7c65672549c3e275a254"
+  "sha256": "4f3119b8f9ae7ab59d3aa4e37b2ba847662d2ad0e72bf9675f3e624989e94530"
 }

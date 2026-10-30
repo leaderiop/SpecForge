@@ -19,7 +19,9 @@ fn render_order_repoints_before_the_host_conversion() {
         format!("Read @~/.claude/gsd-core/{EMBEDDED} and ~/.claude/gsd-core/{EMBEDDED}.\n");
     let out = assemble(&command, &input("codex", ""));
     assert!(
-        out.contains(&format!("`specforge gsd reference gsd-core/{EMBEDDED}`")),
+        out.contains(&format!(
+            "`specforge gsd reference gsd-core/{EMBEDDED} --host codex`"
+        )),
         "{out}"
     );
     assert!(
