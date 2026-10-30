@@ -82,7 +82,7 @@ const READ_PORTED: &[&str] = &[
 const READ_SKIPPED: &[(&str, &str)] = &[
     (
         "gsd-read-guard hook > exits cleanly on invalid JSON input",
-        "host: the kernel reads the event; an unreadable one is on_failure's",
+        "runtime: the kernel reads the event; an unreadable one is on_failure's",
     ),
     (
         "gsd-read-guard hook > hook is registered in build-hooks.js HOOKS_TO_COPY",
@@ -203,7 +203,7 @@ const PROPERTY_PORTED: &[&str] = &[
 const WRITE_SKIPPED: &[(&str, &str)] = &[
     (
         "gsd-write-guard.js: catastrophic shrink of curated artifacts > block output names the documented override",
-        "decision: the override env var and the sentinel are dropped (D-r44-7)",
+        "fs: the override env var and the sentinel are dropped (D-r44-7)",
     ),
     (
         "gsd-write-guard.js: catastrophic shrink of curated artifacts > GSD_ALLOW_PLANNING_SHRINK=1 bypasses",
@@ -211,11 +211,11 @@ const WRITE_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "gsd-write-guard.js: catastrophic shrink of curated artifacts > milestone roadmap",
-        "decision: .planning/ paths are not involved; the guarded files are the spec files (D-r44-7)",
+        "fs: .planning/ paths are not involved; the guarded files are the spec files (D-r44-7)",
     ),
     (
         "gsd-write-guard.js: catastrophic shrink of curated artifacts > STATE.md under .planning/",
-        "decision: .planning/ paths are not involved (D-r44-7)",
+        "fs: .planning/ paths are not involved (D-r44-7)",
     ),
     (
         "gsd-write-guard.js: catastrophic shrink of curated artifacts > non-ENOENT read error",
@@ -235,15 +235,15 @@ const WRITE_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "round 9: symlink resolution, CRLF counting, and denial-content pins > the denial prose does NOT publish the sentinel recipe",
-        "decision: no sentinel (D-r44-7)",
+        "fs: no sentinel (D-r44-7)",
     ),
     (
         "round 9: symlink resolution, CRLF counting, and denial-content pins > CRLF content counts lines correctly",
-        "decision: bytes, not lines (D-r44-7, U52)",
+        "diverges: bytes, not lines (D-r44-7, U52)",
     ),
     (
         "gsd-write-guard.js: deliberately narrow trigger (no-op paths) > malformed JSON on stdin fails open",
-        "host: the kernel reads the event; an unreadable one is on_failure's",
+        "runtime: the kernel reads the event; an unreadable one is on_failure's",
     ),
     (
         "#2304: Kimi tool vocabulary engages the write guard > Kimi WriteFile catastrophic shrink",
@@ -275,27 +275,27 @@ const WRITE_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "single-use sentinel exemption",
-        "decision: the sentinel is dropped (D-r44-7)",
+        "fs: the sentinel is dropped (D-r44-7)",
     ),
     (
         "guard <-> complete-milestone workflow binding",
-        "decision: the sentinel is dropped, so no workflow arms it (D-r44-7)",
+        "fs: the sentinel is dropped, so no workflow arms it (D-r44-7)",
     ),
     (
         "workstream-scoped curated paths (#4455)",
-        "decision: .planning/ workstream paths are not involved (D-r44-7)",
+        "fs: .planning/ workstream paths are not involved (D-r44-7)",
     ),
     (
         "project-only-scoped curated paths (#4455 follow-up)",
-        "decision: .planning/ project paths are not involved (D-r44-7)",
+        "fs: .planning/ project paths are not involved (D-r44-7)",
     ),
     (
         "the shipped claim matches the shipped guarantee (round 10 Major 2)",
-        "docs: upstream's README and docs claims about its sentinel",
+        "fs: upstream's README and docs claims about its sentinel",
     ),
     (
         "guard <-> gsd-roadmapper binding",
-        "decision: the sentinel is dropped, so no agent arms it (D-r44-7)",
+        "fs: the sentinel is dropped, so no agent arms it (D-r44-7)",
     ),
 ];
 

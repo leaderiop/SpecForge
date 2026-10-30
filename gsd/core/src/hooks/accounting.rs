@@ -4,17 +4,16 @@
 
 use std::collections::BTreeSet;
 
-/// Why a case is not ported. Each reason starts with one of these.
-const REASONS: [&str; 9] = [
+/// Why a case is not ported. Each reason starts with one of these: D-r44-2's six, and `diverges:`, the one amendment
+/// (REVIEW-r44 M5): a deliberate difference that `gsd/parity/ACCEPTANCE.md` lists under "Known divergences".
+const REASONS: [&str; 7] = [
     "git:",
     "env:",
     "fs:",
     "runtime:",
     "installer:",
     "security:",
-    "host:",
-    "decision:",
-    "docs:",
+    "diverges:",
 ];
 
 /// A case of a suite: the `describe` titles around a `test`, and its title.
@@ -63,7 +62,12 @@ pub fn cases(src: &str) -> Vec<Case> {
         if rest.trim().is_empty() {
             rest = lines.get(n + 1).copied().unwrap_or_default();
         }
-        let Some(title) = literal(rest) else { continue };
+        // A title that is not a literal is still a case (REVIEW-r44 M5): it is named by its expression and must be
+        // ported or skipped like any other, never dropped.
+        let title = literal(rest).unwrap_or_else(|| {
+            let expr = rest.split([',', ')']).next().unwrap_or_default().trim();
+            format!("<non-literal title: {expr}>")
+        });
         while stack.last().is_some_and(|(i, _)| *i >= indent) {
             stack.pop();
         }
@@ -223,4 +227,11 @@ fn a_case_in_neither_list_fails() {
 fn a_skip_naming_no_case_fails() {
     let src = "test('one', () => {});\n";
     account(src, &["one".into()], &[("z", "env: nothing")]);
+}
+
+#[test]
+fn a_title_that_is_not_a_literal_is_a_case() {
+    let src = "for (const [desc] of cases) {\n  test(desc, () => {});\n}\ntest('one', () => {});\n";
+    let all: Vec<String> = cases(src).into_iter().map(|c| c.path).collect();
+    assert_eq!(all, ["<non-literal title: desc>", "one"]);
 }

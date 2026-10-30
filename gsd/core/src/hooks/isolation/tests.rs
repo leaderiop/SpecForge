@@ -137,11 +137,11 @@ const AGENT_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "gsd-agent-isolation-guard.js: applicability matrix (#3045) > row 11d",
-        "host: the kernel reads the event; a payload that is not a tool event never reaches a hook",
+        "runtime: the kernel reads the event; a payload that is not a tool event never reaches a hook",
     ),
     (
         "gsd-agent-isolation-guard.js: applicability matrix (#3045) > row 11e",
-        "host: the kernel reads the event; a payload that is not a tool event never reaches a hook",
+        "runtime: the kernel reads the event; a payload that is not a tool event never reaches a hook",
     ),
     (
         "#2486 regression: inspect-dispatch-isolation is the sentinel-free read",
@@ -209,7 +209,7 @@ const AGENT_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "hooks/lib/isolation-deny-reason.js — sanitizeForReason (#4594 F2/F5/F6)",
-        "decision: the reason here interpolates only the subagent type, which is one of a fixed set; nothing from a sentinel to sanitise",
+        "diverges: the reason here interpolates only the subagent type, which is one of a fixed set; nothing from a sentinel to sanitise",
     ),
     (
         "worktreesOptedOut — ladder unit semantics (#3972)",
@@ -547,7 +547,7 @@ const WORKTREE_LIBRARY_BLOCKS: [&str; 39] = [
 
 const SAFETY_SKIPPED: &[(&str, &str)] = block![
     "bug-3542: stash pushed in main checkout is visible inside a linked worktree" => "git: a stash in a linked worktree; git's, and no hook",
-    "bug-3542: gsd-executor.md prohibits `git stash` family inside worktrees" => "docs: it reads upstream's executor agent text; the port's agent texts are pinned by the agent goldens",
+    "bug-3542: gsd-executor.md prohibits `git stash` family inside worktrees" => "fs: it reads upstream's executor agent text; the port's agent texts are pinned by the agent goldens",
     "bug #260: gsd-worktree-path-guard.js > #2547: malformed Kimi edit list" => "runtime: Kimi's tool vocabulary has no renderer here",
     "bug #260: gsd-worktree-path-guard.js > #2547: a spurious file_path does not shadow Kimi's authoritative path > ${label} still blocks" => "runtime: Kimi's tool vocabulary has no renderer here",
     "bug #260: gsd-worktree-path-guard.js > #2547: a spurious file_path does not shadow Kimi's authoritative path > a spurious file_path on an in-worktree write" => "runtime: Kimi's tool vocabulary has no renderer here",
@@ -557,10 +557,12 @@ const SAFETY_SKIPPED: &[(&str, &str)] = block![
     "#2304 \u{2014} Kimi tool vocabulary engages the guard" => "runtime: Kimi's tool vocabulary has no renderer here",
     "install.js guard for gsd-worktree-path-guard.js" => "installer: upstream's installer registers the guard; install_hosts and the hooks tests pin what SpecForge's install writes",
     "bug #261: workflow guard blocks forced git add" => "git: the forced `git add -f` block needs shell and git (D-r44-11); T4 names it",
-    "git-cmd.js tokenize" => "decision: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
-    "gsd-validate-commit.sh delegates to git-cmd.js" => "decision: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
-    "git-cmd.js resolveCommitSubject" => "decision: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
-    "git-cmd.js extractBranchArgument" => "decision: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
+    "git-cmd.js isGitSubcommand: should match commit" => "runtime: git-cmd.js is validate-commit's shell parser (a loop of ~10 commit spellings, each a title `desc`); the kernel's commit fact replaces it (D-r44-14)",
+    "git-cmd.js isGitSubcommand: should NOT match commit" => "runtime: git-cmd.js is validate-commit's shell parser (a loop of non-commit spellings, each a title `desc`); the kernel's commit fact replaces it (D-r44-14)",
+    "git-cmd.js tokenize" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
+    "gsd-validate-commit.sh delegates to git-cmd.js" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
+    "git-cmd.js resolveCommitSubject" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
+    "git-cmd.js extractBranchArgument" => "runtime: git-cmd.js is validate-commit's shell parser; the kernel's commit fact replaces it (D-r44-14)",
 ];
 
 #[test]

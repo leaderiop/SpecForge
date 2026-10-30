@@ -80,17 +80,36 @@ fn quoted_delimiter(opener: &str) -> Option<&str> {
     (!inner.is_empty() && !inner.contains(char::is_whitespace)).then_some(inner)
 }
 
+/// Whether a word outside the message asks for a `--cleanup` mode that keeps what the message says as it is (anything but
+/// `default` and `whitespace`): `--cleanup=verbatim`, `-c commit.cleanup=verbatim`. The message's own text is not
+/// scanned: a subject may talk about `--cleanup=verbatim`. The heredoc's `$(cat <<` up to its closing `)` is the message.
+fn cleanup_kept(command: &str) -> bool {
+    let (before, after) = match command.find("$(cat <<") {
+        Some(at) => (
+            &command[..at],
+            command[at..]
+                .rfind("\n)")
+                .map_or("", |i| &command[at + i + 2..]),
+        ),
+        None => (command, ""),
+    };
+    format!("{before} {after}").split_whitespace().any(|w| {
+        (w.starts_with("--cleanup") || w.starts_with("commit.cleanup="))
+            && !w.contains("whitespace")
+            && !w.contains("default")
+    })
+}
+
 /// The subject of a message: its first line, or, for the command-substituted heredoc form
-/// `$(cat <<'EOF' … EOF)` (upstream's #3802), the first line of the body. Upstream blocks every other shape, so those
-/// are judged as they are written: the opener line is the subject. The body is resolved only when the delimiter is
-/// quoted, the `)` closes the message with nothing after it, the `-m` word is not single-quoted (git would receive the
-/// literal opener) and `command` has no `--cleanup` that keeps a blank first line (REVIEW-r44 M2).
+/// `$(cat <<'EOF' ... EOF)` (upstream's #3802), the first non-blank line of the body. Upstream blocks every other
+/// shape, so those are judged as they are written: the opener line is the subject. The body is resolved only when the
+/// delimiter is quoted, the `)` closes the substitution with nothing glued after it, the `-m` word is not
+/// single-quoted (git would receive the literal opener) and `command` has no `--cleanup` that keeps a blank first
+/// line or trailing blanks (REVIEW-r44 M2). A `<<-` heredoc loses its leading tabs; the resolved subject loses its
+/// trailing blanks, as git strips them under the default cleanup.
 fn subject_of<'a>(message: &'a str, command: &str) -> &'a str {
     let mut lines = message.lines();
     let first = lines.next().unwrap_or_default();
-    let cleanup_kept = command
-        .split_whitespace()
-        .any(|w| w.starts_with("--cleanup") && !w.contains("whitespace") && !w.contains("default"));
     let Some(delim) = quoted_delimiter(first) else {
         return first;
     };
@@ -98,14 +117,22 @@ fn subject_of<'a>(message: &'a str, command: &str) -> &'a str {
     let closes = rest
         .iter()
         .position(|l| l.trim_start_matches('\t') == delim);
-    let clean = closes.is_some_and(|at| matches!(rest[at + 1..], [")"]));
-    if cleanup_kept || command.contains("'$(cat <<") || !clean {
+    // after the closing delimiter: `)`, then nothing, or another message after a blank line
+    let clean = closes.is_some_and(|at| matches!(rest[at + 1..], [")"] | [")", "", ..]));
+    if !clean || command.contains("'$(cat <<") || cleanup_kept(command) {
         return first;
     }
-    rest.iter()
+    let subject = rest
+        .iter()
         .find(|l| !l.trim().is_empty())
         .copied()
-        .unwrap_or_default()
+        .unwrap_or_default();
+    let subject = if first.contains("<<-") {
+        subject.trim_start_matches('\t')
+    } else {
+        subject
+    };
+    subject.trim_end()
 }
 
 /// The verdict on a commit's message, given the types the config adds.

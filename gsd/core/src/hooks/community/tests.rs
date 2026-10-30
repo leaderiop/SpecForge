@@ -12,13 +12,15 @@ use super::*;
 use crate::hooks::accounting;
 use crate::hooks::facts::PathFact;
 
+mod opt_in;
+
 const CRASH_SUITE: &str = include_str!(
     "../../../../parity/upstream/v1.18.0/tests/gsd-validate-commit-crash-policy.test.cjs"
 );
 const SIGPIPE_SUITE: &str =
     include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-validate-commit-sigpipe.test.cjs");
 
-fn commit(message: Option<&str>) -> Facts<'static> {
+pub(super) fn commit(message: Option<&str>) -> Facts<'static> {
     Facts {
         class: "shell".into(),
         commit_message: message.map(str::to_string),
@@ -26,16 +28,16 @@ fn commit(message: Option<&str>) -> Facts<'static> {
     }
 }
 
-fn verdict(message: &str, extra: &[&str]) -> HookOutput {
+pub(super) fn verdict(message: &str, extra: &[&str]) -> HookOutput {
     let extra: Vec<String> = extra.iter().map(|t| t.to_string()).collect();
     validate_commit(&commit(Some(message)), &extra)
 }
 
-fn denied(message: &str, extra: &[&str]) -> bool {
+pub(super) fn denied(message: &str, extra: &[&str]) -> bool {
     verdict(message, extra).decision == Some(Decision::Deny)
 }
 
-fn reason(message: &str) -> String {
+pub(super) fn reason(message: &str) -> String {
     verdict(message, &[]).reason.unwrap_or_default()
 }
 
@@ -230,7 +232,7 @@ fn configured_types_extend_the_built_in_ones() {
 }
 
 /// `validate_commit` on a message with the command line it came from.
-fn with_command(message: &str, command: &str) -> bool {
+pub(super) fn with_command(message: &str, command: &str) -> bool {
     let f = Facts {
         input: serde_json::json!({ "command": command }),
         ..commit(Some(message))
@@ -306,7 +308,7 @@ fn fixup_squash_and_a_missing_message_are_let_through() {
     assert_eq!(validate_commit(&commit(None), &[]), HookOutput::allow());
 }
 
-fn spec_write(class: &str, in_spec_root: bool) -> Facts<'static> {
+pub(super) fn spec_write(class: &str, in_spec_root: bool) -> Facts<'static> {
     Facts {
         class: class.into(),
         paths: vec![PathFact {

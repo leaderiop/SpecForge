@@ -66,6 +66,16 @@ Not verified:
 - Codex and Cursor rendering are drafts. They are golden-tested against our own output, not run in those hosts.
 - The published artefact: `specforge publish` is a user action and was not run.
 - No real project of gsd-core's was run through both sides; the twin is the fixture `taskboard`.
+- The commands the program docs name were checked with `--help` only (`publish` needs the network), not each on a
+  temp project.
+- The "ported" lists of the guards, read-guard and write-guard suites (`hooks/guards/tests.rs`) are written by hand
+  next to their assertions; the isolation, community, opt-in and secret-guard suites derive theirs from the assertions
+  (`port(...)` after each one). An accounted skip carries one of D-r44-2's six reasons or `diverges:`, the one
+  amendment, for a difference listed under "Known divergences".
+- `hooks-opt-in.test.cjs` (80 cases) is vendored and accounted: a case is ported when it decides a `validate_commit` verdict,
+  and skipped with a reason when it tests the installer, the opt-in, bash's word handling, or one of two divergences.
+- A `statusline.rs.bak` was committed in `0ba3b8c0b` and removed in `d665cd81b`; it is absent at HEAD and the history
+  is not rewritten.
 
 ## Known divergences (named, not fixed)
 

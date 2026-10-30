@@ -363,7 +363,7 @@ const SECURITY_SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "gsd-read-injection-scanner: edge cases > EDGE-05",
-        "host: the kernel reads the event; a payload that is not JSON never reaches a hook",
+        "runtime: the kernel reads the event; a payload that is not JSON never reaches a hook",
     ),
     (
         "#2304: Kimi tool vocabulary engages the scanner > ReadFile with tool_input.path",

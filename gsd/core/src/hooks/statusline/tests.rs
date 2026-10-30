@@ -128,8 +128,8 @@ fn all_ported() -> Vec<String> {
 const GIT: &str = "git: needs git status, which the kernel's facts do not carry (K19)";
 const ENV: &str = "env: the auto-compact window overrides read the environment and Claude Code's settings files; the meter uses the model window";
 const FS: &str = "fs: reads STATE.md, a transcript, a todo file or the update cache; the graph replaces STATE.md";
-const BANNER: &str = "decision: the update banner is dropped (D-r44-13)";
-const SETTING: &str = "decision: the kernel validates a setting against its declared domain";
+const BANNER: &str = "diverges: the update banner is dropped (D-r44-13)";
+const SETTING: &str = "runtime: the kernel validates a setting against its declared domain";
 
 const SKIPPED: &[(&str, &str)] = &[
     (

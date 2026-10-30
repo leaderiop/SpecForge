@@ -552,7 +552,7 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook and its t
 
 ## r44 T7: validate-commit, phase-boundary, session-state
 
-Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three opt-in community scripts and the two suites that spawn the commit validator (read by `gsd/core/src/hooks/community/tests.rs`). The scripts have no unit suite of their own; their branches are the cases of that module. The validator's `lib/git-cmd.js` is not vendored: the host classifies the command (`pre_commit`) and hands the hook the message.
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three opt-in community scripts and the three suites that spawn them: the two suites of the commit validator and `tests/hooks-opt-in.test.cjs` (80 cases, about 60 of them validate-commit verdicts; read by `gsd/core/src/hooks/community/tests.rs` and `tests/opt_in.rs`, every case ported or skipped with a reason). Upstream's own test file for phase-boundary and session-state is that same `hooks-opt-in` suite; the module's own cases follow it. The validator's `lib/git-cmd.js` is not vendored: the host classifies the command (`pre_commit`) and hands the hook the message.
 
 | File | sha256 |
 |---|---|
@@ -561,6 +561,7 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three opt-in c
 | `hooks/gsd-session-state.sh` | `e7c8f2a8a973e95463804234c87c563bb86678209f5275494fcbe3095f4033cb` |
 | `tests/gsd-validate-commit-crash-policy.test.cjs` | `ff75f854974e02751cdff9a432a96c2c488bfbf6f96d58fd13d90b68939dfc92` |
 | `tests/gsd-validate-commit-sigpipe.test.cjs` | `715248bb17b0ed93c4ec04a9acdc47e60a5809695b776171c96a346716d6f78b` |
+| `tests/hooks-opt-in.test.cjs` | `345fc9f0b4b5dc6c824fb62d001b05dfdaa93d712dadde65403b337dbf921b75` |
 
 ## r44 T9: capability ids
 

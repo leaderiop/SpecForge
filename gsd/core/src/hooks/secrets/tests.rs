@@ -27,11 +27,11 @@ const SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "gsd-secret-read-guard: scope and crash policy > non-object payloads and a missing tool_name exit 0",
-        "host: the kernel reads the event; a payload with no tool is no tool event",
+        "runtime: the kernel reads the event; a payload with no tool is no tool event",
     ),
     (
         "gsd-secret-read-guard: scope and crash policy > malformed JSON fails OPEN (declared HOOK_ON_CRASH.ALLOW)",
-        "host: the kernel reads the event and applies on_failure (allow)",
+        "runtime: the kernel reads the event and applies on_failure (allow)",
     ),
 ];
 
