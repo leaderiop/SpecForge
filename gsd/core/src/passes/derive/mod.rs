@@ -36,6 +36,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 "artifact",
                 "key_link",
                 "verify_gap",
+                "override",
             ])
             .run(derive);
     });
