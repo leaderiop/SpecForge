@@ -18,7 +18,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/ultraplan-phase.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host cursor`",
     "",
     "# Ultraplan Phase Workflow [BETA]",
     "",
@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 20806,
+  "bytes": 20820,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:ae2c9f6c38059e2f784a6bd11d44d5a4a85b4bc63cda28528df494cbe90d0e52",
+    "digest": "sha256:530561e127083db289e0482a2bb511ae3bc016bdeccb4cb1ee41e003f8922300",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
@@ -212,5 +212,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "ae2c9f6c38059e2f784a6bd11d44d5a4a85b4bc63cda28528df494cbe90d0e52"
+  "sha256": "530561e127083db289e0482a2bb511ae3bc016bdeccb4cb1ee41e003f8922300"
 }

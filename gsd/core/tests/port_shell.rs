@@ -162,7 +162,7 @@ fn no_bash_code_line_carries_prose_for_a_path() {
 #[test]
 fn no_text_joins_the_spec_to_a_path() {
     let joined = Regex::new(
-        r"\bthe spec(?:[A-Za-z]+/|[A-Za-z-]*\.md|\.[A-Za-z])|\)the spec|entit(?:y|ies)[0-9]",
+        r"\bthe spec(?:[A-Za-z]+/|[A-Za-z-]*\.md|\.[A-Za-z])|\)the spec|\bthe spec\]|entit(?:y|ies)[0-9]",
     )
     .expect("a regex");
     let mut found = Vec::new();

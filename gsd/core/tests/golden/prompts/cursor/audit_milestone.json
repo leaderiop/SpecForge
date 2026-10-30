@@ -14,7 +14,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/audit-milestone.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host cursor`",
     "",
     "<purpose>",
     "Verify milestone achieved its definition of done by aggregating phase verifications, checking cross-phase integration, and assessing requirements coverage. Reads existing VERIFICATION.md files (phases already verified during execute-phase), aggregates tech debt and deferred gaps, then spawns integration checker for cross-phase wiring.",
@@ -61,7 +61,7 @@
     "",
     "- Parse version from arguments or detect current from ROADMAP.md"
   ],
-  "bytes": 25270,
+  "bytes": 25284,
   "end": [
     "",
     "<success_criteria>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:02567b4e6601d7b378b6e87a5d83dee589d6d7ab7762659d0928b0680b542356",
+    "digest": "sha256:f2b23aae4a17d92351af5dc3d284ef7af975dbae42c6adc65a03201b426e79c9",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -217,5 +217,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "02567b4e6601d7b378b6e87a5d83dee589d6d7ab7762659d0928b0680b542356"
+  "sha256": "f2b23aae4a17d92351af5dc3d284ef7af975dbae42c6adc65a03201b426e79c9"
 }

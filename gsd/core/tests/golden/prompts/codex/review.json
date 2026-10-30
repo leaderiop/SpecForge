@@ -16,7 +16,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/review.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host codex`",
     "",
     "<purpose>",
     "Cross-AI peer review — invoke external AI CLIs to independently review phase plans.",
@@ -61,7 +61,7 @@
     "# jq prerequisite (#2589). The config/model/budget lookups in this workflow no",
     "# longer need jq — they use the native --raw/--pick flags. But the lanes listed"
   ],
-  "bytes": 69332,
+  "bytes": 69345,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:51c46db89c49f007fd8b58bc9c80a7e52fd7cfed9c84cfc0e4d96db11791a41a",
+    "digest": "sha256:b25edca15cba426e3d770f904209b4c66d380da5157d203a156c2a2b7e127fe4",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "51c46db89c49f007fd8b58bc9c80a7e52fd7cfed9c84cfc0e4d96db11791a41a"
+  "sha256": "b25edca15cba426e3d770f904209b4c66d380da5157d203a156c2a2b7e127fe4"
 }

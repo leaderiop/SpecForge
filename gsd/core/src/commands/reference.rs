@@ -7,8 +7,10 @@
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, required, run};
-use crate::prompts::{assets, compose, repoint::repoint, setting};
+use super::support::{answer, required, run, text as text_arg};
+use crate::prompts::{
+    assets, compose, convert_for_host, render::runtime, repoint::repoint_for, setting,
+};
 use crate::settings;
 
 /// What a template becomes: `(file name or folder, kinds)`; no kinds means the template has no entity.
@@ -100,16 +102,23 @@ fn reference(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .strip_prefix("<!-- Ported from")
         .and_then(|rest| rest.split_once('\n'))
         .map_or(text, |(_, body)| body);
+    let host = text_arg(call, "host")?.unwrap_or("claude-code");
+    if !["claude-code", "codex", "cursor"].contains(&host) {
+        return Err(format!(
+            "unknown host '{host}': claude-code, codex or cursor"
+        ));
+    }
     let mut answered = String::new();
     if let Some(line) = kind_line(path) {
         answered.push_str(&line);
         answered.push_str("\n\n");
     }
-    answered.push_str(&setting::fill(
-        &repoint(&compose::composed(path, body)),
+    let filled = setting::fill(
+        &compose::composed(path, body),
         &settings::block(),
-        "claude",
-    ));
+        runtime(host),
+    );
+    answered.push_str(&convert_for_host(host, &repoint_for(&filled, host)));
     Ok(answer(
         call,
         json!({ "path": path, "text": answered }),
@@ -123,6 +132,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
         cmd.description("Print one ported GSD workflow, reference or template by its path (gsd-core/references/x.md; the gsd-core/ may be left out)")
             .arg("file", |a| {
                 a.required().description("the file, as the text that names it writes it");
+            })
+            .arg("host", |a| {
+                a.description("the host that reads the text: claude-code (the default), codex or cursor");
             })
             .handler(|call| run(call, reference));
     });

@@ -61,7 +61,7 @@
     "```bash",
     "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true"
   ],
-  "bytes": 82016,
+  "bytes": 82030,
   "end": [
     "| AUTH-03 | Phase 1 | Pending |",
     "| AUTH-04 | Phase 1 | Pending |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:4ff206d0e9605d91f07df41226b85365515075a4256a0ed9b945d05237b27459",
+    "digest": "sha256:a8ff9cbf0fd1ed8eba782a71d16fc687edd556faf15ff446fcae737c4449c9ae",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -224,5 +224,5 @@
       }
     ]
   },
-  "sha256": "4ff206d0e9605d91f07df41226b85365515075a4256a0ed9b945d05237b27459"
+  "sha256": "a8ff9cbf0fd1ed8eba782a71d16fc687edd556faf15ff446fcae737c4449c9ae"
 }

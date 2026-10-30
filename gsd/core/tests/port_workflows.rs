@@ -33,6 +33,10 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/complete-milestone.md", 220),
     ("gsd-core/workflows/complete-milestone.md", 254),
     ("gsd-core/workflows/transition.md", 222),
+    // REVIEW-r42 N1: upstream clears the previous milestone's phase directories; the phases stay with their milestone.
+    ("gsd-core/workflows/new-milestone.md", 245),
+    // REVIEW-r42 N5: the ship ledger is the milestone's, as the query below it reads.
+    ("gsd-core/workflows/ship.md", 135),
 ];
 
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not

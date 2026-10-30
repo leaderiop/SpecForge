@@ -21,7 +21,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/autonomous.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host cursor`",
     "",
     "<purpose>",
     "",
@@ -61,7 +61,7 @@
     "  TO_PHASE=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-to\\s+[0-9]+[A-Z]?(\\.[0-9]+)*' | awk '{print $2}')",
     "fi"
   ],
-  "bytes": 57629,
+  "bytes": 57713,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:63bff95dba9dd17c502323b123c5e47cbf6cd0fb4ef7c8c7102e47e155843216",
+    "digest": "sha256:407b0c0f83098028f38db410c5cbb02acff1dc4bc7df1f6505bc6450b4a1776a",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "63bff95dba9dd17c502323b123c5e47cbf6cd0fb4ef7c8c7102e47e155843216"
+  "sha256": "407b0c0f83098028f38db410c5cbb02acff1dc4bc7df1f6505bc6450b4a1776a"
 }

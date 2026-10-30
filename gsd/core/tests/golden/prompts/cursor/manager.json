@@ -61,7 +61,7 @@
     "- `manager_flags.execute` — appended to execute agent init command",
     ""
   ],
-  "bytes": 39026,
+  "bytes": 39040,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -93,7 +93,7 @@
     "",
     "<process>",
     "If `--analyze-deps` is in the `<arguments>` block:",
-    "Read and execute `specforge gsd reference gsd-core/workflows/analyze-dependencies.md` end-to-end.",
+    "Read and execute `specforge gsd reference gsd-core/workflows/analyze-dependencies.md --host cursor` end-to-end.",
     "",
     "Execute end-to-end.",
     "Maintain the dashboard refresh loop until the user exits or all phases complete.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:5ad3e16c614612778f0802a8214819bbb45605436bb2cce9fadaaa5ca5fe3f12",
+    "digest": "sha256:d438d38141da9fc607e540b680e0758bafd8fc5095f6c1e2e2d07a0ea27c623b",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "5ad3e16c614612778f0802a8214819bbb45605436bb2cce9fadaaa5ca5fe3f12"
+  "sha256": "d438d38141da9fc607e540b680e0758bafd8fc5095f6c1e2e2d07a0ea27c623b"
 }

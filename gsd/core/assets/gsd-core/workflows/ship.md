@@ -134,10 +134,10 @@ Verify the work is ready to ship:
        Resolve open threats (or re-run /gsd:secure-phase {phase}) before shipping.
        ```
 
-   - **`capId == "broken-windows"`** (issue #1950) — enforce against the ledger's typed status. The ledger lives at the **project root** (cross-phase, not phase-scoped):
+   - **`capId == "broken-windows"`** (issue #1950) — enforce against the ledger's typed status. The ledger is the milestone's (cross-phase: the windows of every phase of the milestone, not this phase's alone):
 
      ```bash
-     WINDOWS_STATUS_JSON=$(specforge query "$PHASE_ID" --kinds broken_window --format json | jq -c '{ledger: {open_count: ([.nodes[]|select(.kind=="broken_window")|select(.fields.status == "open")]|length)}}' 2>/dev/null || echo '')
+     WINDOWS_STATUS_JSON=$(specforge query "$MILESTONE" --depth 2 --kinds broken_window --format json | jq -c '{ledger: {open_count: ([.nodes[]|select(.kind=="broken_window")|select(.fields.status == "open")]|length)}}' 2>/dev/null || echo '')
      WINDOWS_OPEN_COUNT=$(printf '%s' "$WINDOWS_STATUS_JSON" | jq -r '.ledger.open_count // "?"' 2>/dev/null || echo '?')
      ```
 
@@ -153,7 +153,7 @@ Verify the work is ready to ship:
      - **`WINDOWS_OPEN_COUNT` is `"?"`, empty, or non-numeric** → **fail closed** with `block: true` and `WINDOWS_SHIP_GATE_READ_FAILED` (the gate is strict equality to `0`; never ship on an unreadable ledger):
        ```
        ⚠ Broken-windows ship gate: could not read open_count from the spec
-       Inspect the file or run `specforge query "$PHASE_ID" --kinds broken_window` to diagnose. The ledger
+       Inspect the file or run `specforge query "$MILESTONE" --depth 2 --kinds broken_window` to diagnose. The ledger
        may be malformed; fix it before shipping (an unparseable ledger is a broken window).
        ```
 

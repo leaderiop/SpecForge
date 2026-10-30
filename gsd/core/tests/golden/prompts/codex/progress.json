@@ -27,7 +27,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/progress.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host codex`",
     "",
     "<purpose>",
     "Check project progress, summarize recent work and what's ahead, then intelligently route to the next action — either executing an existing plan or creating the next one. Provides situational awareness before continuing work.",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 78271,
+  "bytes": 78297,
   "end": [
     "| 1     | ✓      | 3/3   | 100%     |",
     "| 2     | ◆      | 1/4   | 25%      |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:995605f7c359f7917a42522d4750e31e7650fa95ea20fd0ec32383b11831377a",
+    "digest": "sha256:9a5d0750a9c34f770a931f983fde9e3c462830838235e931cbeb778edab2c139",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "995605f7c359f7917a42522d4750e31e7650fa95ea20fd0ec32383b11831377a"
+  "sha256": "9a5d0750a9c34f770a931f983fde9e3c462830838235e931cbeb778edab2c139"
 }

@@ -10,10 +10,10 @@ If `phase_dir_count > 0` and `phase_archive_path` is available:
 
 ```bash
 mkdir -p "${phase_archive_path}"
-# phases are entities: archive them by removing each with `specforge gsd phase --remove` (the run keeps its record)
+: # nothing to archive: phases stay with their milestone, and ids are milestone-scoped, so new 01-* phases cannot collide with the old ones
 ```
 
-Then verify `specforge query "$MILESTONE" --kinds phase` no longer lists old milestone phases before continuing.
+Then continue: the new milestone gets its own phases, numbered from 1; the completed milestone keeps its phases.
 
 If `phase_dir_count > 0` but `phase_archive_path` is missing:
 - Stop and explain that reset numbering is unsafe without a completed milestone archive target.

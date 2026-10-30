@@ -46,3 +46,7 @@ tests/spec/
 # Planning rounds in progress; each is committed to the planning repository (docs/agents/architecture-rounds.md)
 /.planning/
 *.snap.new
+
+# Run logs of the gsd harness
+/gsd/last.log
+/gsd/*.log

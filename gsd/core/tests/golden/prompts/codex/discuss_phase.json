@@ -41,14 +41,14 @@
     "```",
     "",
     "If `--assumptions` is in the `<arguments>` block:",
-    "Read and execute `specforge gsd reference gsd-core/workflows/list-phase-assumptions.md` end-to-end.",
+    "Read and execute `specforge gsd reference gsd-core/workflows/list-phase-assumptions.md --host codex` end-to-end.",
     "Stop here.",
     "",
     "Otherwise, if `DISCUSS_MODE` is `\"assumptions\"`:",
-    "Read and execute `specforge gsd reference gsd-core/workflows/discuss-phase-assumptions.md` end-to-end.",
+    "Read and execute `specforge gsd reference gsd-core/workflows/discuss-phase-assumptions.md --host codex` end-to-end.",
     "",
     "Otherwise (`\"discuss\"` / unset / any other value):",
-    "Read and execute `specforge gsd reference gsd-core/workflows/discuss-phase.md` end-to-end.",
+    "Read and execute `specforge gsd reference gsd-core/workflows/discuss-phase.md --host codex` end-to-end.",
     "",
     "**MANDATORY:** Read the appropriate workflow file BEFORE taking any action. The objective and success_criteria sections in this command file are summaries — the workflow file contains the complete step-by-step process with all required behaviors, config checks, and interaction patterns. Do not improvise from the summary.",
     "",
@@ -61,7 +61,7 @@
     "- User chose which areas to discuss",
     "- Each selected area explored until satisfied"
   ],
-  "bytes": 19886,
+  "bytes": 19925,
   "end": [
     "",
     "Context files are resolved in-workflow using `init phase-op` and roadmap/state tool calls.",
@@ -75,14 +75,14 @@
     "```",
     "",
     "If `--assumptions` is in the `<arguments>` block:",
-    "Read and execute `specforge gsd reference gsd-core/workflows/list-phase-assumptions.md` end-to-end.",
+    "Read and execute `specforge gsd reference gsd-core/workflows/list-phase-assumptions.md --host codex` end-to-end.",
     "Stop here.",
     "",
     "Otherwise, if `DISCUSS_MODE` is `\"assumptions\"`:",
-    "Read and execute `specforge gsd reference gsd-core/workflows/discuss-phase-assumptions.md` end-to-end.",
+    "Read and execute `specforge gsd reference gsd-core/workflows/discuss-phase-assumptions.md --host codex` end-to-end.",
     "",
     "Otherwise (`\"discuss\"` / unset / any other value):",
-    "Read and execute `specforge gsd reference gsd-core/workflows/discuss-phase.md` end-to-end.",
+    "Read and execute `specforge gsd reference gsd-core/workflows/discuss-phase.md --host codex` end-to-end.",
     "",
     "**MANDATORY:** Read the appropriate workflow file BEFORE taking any action. The objective and success_criteria sections in this command file are summaries — the workflow file contains the complete step-by-step process with all required behaviors, config checks, and interaction patterns. Do not improvise from the summary.",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:9258c2875ae6642780b69fed2a8df05c4a16c3b11c715f51284df6ab00957b88",
+    "digest": "sha256:5a8c461ba9b0ca892404de6da500dea364b340f9f8e1555d9eb7d408727b282c",
     "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
@@ -214,5 +214,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "9258c2875ae6642780b69fed2a8df05c4a16c3b11c715f51284df6ab00957b88"
+  "sha256": "5a8c461ba9b0ca892404de6da500dea364b340f9f8e1555d9eb7d408727b282c"
 }

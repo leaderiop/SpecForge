@@ -15,7 +15,7 @@
     "Read STATE.md before any operation to load project context.",
     "Read config.json for planning behavior settings.",
     "",
-    "`specforge gsd reference gsd-core/references/git-integration.md`",
+    "`specforge gsd reference gsd-core/references/git-integration.md --host cursor`",
     "</required_reading>",
     "",
     "<atomic_close_out_invariant>",
@@ -51,7 +51,7 @@
     "<step name=\"init_context\" priority=\"first\">",
     "Load execution context (paths only to minimize orchestrator context):",
     "",
-    "`specforge gsd reference gsd-core/references/gsd-run-resolver.md`",
+    "`specforge gsd reference gsd-core/references/gsd-run-resolver.md --host cursor`",
     "",
     "```bash",
     "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
@@ -61,7 +61,7 @@
     "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)"
   ],
-  "bytes": 49375,
+  "bytes": 49501,
   "end": [
     "",
     "| Condition | Route | Action |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:047094ed7c1b96457688c1a4f67aebae8ed6b00dff97da4f1c4c33793e50d9c0",
+    "digest": "sha256:b9a2f9793e160809d3f129e91b4ca7c83aad32367ce5a523e6a78618f689e954",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -257,5 +257,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "047094ed7c1b96457688c1a4f67aebae8ed6b00dff97da4f1c4c33793e50d9c0"
+  "sha256": "b9a2f9793e160809d3f129e91b4ca7c83aad32367ce5a523e6a78618f689e954"
 }

@@ -12,7 +12,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/extract-learnings.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host cursor`",
     "",
     "<purpose>",
     "Extract decisions, lessons learned, patterns discovered, and surprises encountered from completed phase artifacts into `lesson` entities. Captures institutional knowledge that would otherwise be lost between phases.",
@@ -61,7 +61,7 @@
     "- the phase's `verification` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds verification --format context`) — verification results",
     "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results"
   ],
-  "bytes": 21447,
+  "bytes": 21475,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -93,7 +93,7 @@
     "</file>",
     "</execution_context>",
     "",
-    "Execute the extract-learnings workflow from `specforge gsd reference gsd-core/workflows/extract-learnings.md` end-to-end.",
+    "Execute the extract-learnings workflow from `specforge gsd reference gsd-core/workflows/extract-learnings.md --host cursor` end-to-end.",
     "",
     "",
     "",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:c1003a246b7fe901c57dde3b21a14fe635630ce97016e7b2f0530d837eb145a0",
+    "digest": "sha256:3c5a1b59648a8a89d0edc621c800e4e754489f26a91a282b10ee704393b3f791",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "c1003a246b7fe901c57dde3b21a14fe635630ce97016e7b2f0530d837eb145a0"
+  "sha256": "3c5a1b59648a8a89d0edc621c800e4e754489f26a91a282b10ee704393b3f791"
 }

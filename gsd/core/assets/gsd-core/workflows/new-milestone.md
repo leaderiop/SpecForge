@@ -244,7 +244,7 @@ SDK handler above — do not hand-edit STATE.md here.
 
 Delete MILESTONE-CONTEXT.md if exists (consumed).
 
-Clear leftover phase directories from the previous milestone. Read the outgoing version
+Nothing is cleared from the previous milestone: its phases stay with it. Read the outgoing version
 persisted in Step 5 back into a shell variable and pass it as `--archive-version` so the
 archive lands under the *previous* milestone's label — the switch in Step 5 has already
 advanced current-milestone state, so without this override the archive would be mislabeled
@@ -256,9 +256,9 @@ shell:
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 OUTGOING_MILESTONE="<the outgoing milestone noted in Step 3>"
 if [ -n "$OUTGOING_MILESTONE" ]; then
-  : # no bulk clear: remove each phase with `specforge gsd phase --remove`, archiving under "$OUTGOING_MILESTONE"
+  : # nothing to clear: the phases stay with "$OUTGOING_MILESTONE"; ids are milestone-scoped, so numbering restarts at 1 without a collision
 else
-  : # no bulk clear: remove each phase with `specforge gsd phase --remove`
+  : # nothing to clear: phases stay with their milestone
 fi
 # nothing to clean up: no scratch file was written
 ```

@@ -39,7 +39,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/quick-batch.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host codex`",
     "<purpose>",
     "Batch several `$gsd-quick`-shaped tasks together (#3676, epic #3344, ADR-1239",
     "\"Quick-batch binding\"). ONE coordinator (this workflow) owns every shared",
@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 34666,
+  "bytes": 34679,
   "end": [
     "**Otherwise:** proceed to the workflow's normal path — parse the task list",
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:2536b2c1a8b7d4b666a77a27626ffcd3d722e2448367ab2ad7a530500bb272b0",
+    "digest": "sha256:e075e0399d98d13d7708cc72f7f11ba36ce62a489e8d6c29b31a452913fcf84d",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -258,5 +258,5 @@
       }
     ]
   },
-  "sha256": "2536b2c1a8b7d4b666a77a27626ffcd3d722e2448367ab2ad7a530500bb272b0"
+  "sha256": "e075e0399d98d13d7708cc72f7f11ba36ce62a489e8d6c29b31a452913fcf84d"
 }

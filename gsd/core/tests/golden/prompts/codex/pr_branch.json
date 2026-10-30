@@ -16,7 +16,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/pr-branch.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host codex`",
     "",
     "<purpose>",
     "Create a clean branch for pull requests by filtering spec paths out of the",
@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 42549,
+  "bytes": 42562,
   "end": [
     "",
     "Or use $gsd-ship to create the PR automatically.",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:396c86acd64d4c4064c44eef3d4627cc0f49de445fc23d09d6d272ae87a588b9",
+    "digest": "sha256:cafdc52f2b553ffdc76ccb2662960edb551386dea0aa3401be1c939a0b99de06",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "396c86acd64d4c4064c44eef3d4627cc0f49de445fc23d09d6d272ae87a588b9"
+  "sha256": "cafdc52f2b553ffdc76ccb2662960edb551386dea0aa3401be1c939a0b99de06"
 }

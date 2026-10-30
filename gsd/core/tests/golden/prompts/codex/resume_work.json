@@ -16,7 +16,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/resume-project.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host codex`",
     "",
     "<trigger>",
     "Use this workflow when:",
@@ -31,7 +31,7 @@
     "</purpose>",
     "",
     "<required_reading>",
-    "`specforge gsd reference gsd-core/references/continuation-format.md`",
+    "`specforge gsd reference gsd-core/references/continuation-format.md --host codex`",
     "</required_reading>",
     "",
     "<process>",
@@ -61,7 +61,7 @@
     "",
     "<step name=\"load_state\">"
   ],
-  "bytes": 28938,
+  "bytes": 28964,
   "end": [
     "",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:342529cd0c7cbc1d40c30ee380b7c5b14acf471a32b8faccbc813640ae14ad7d",
+    "digest": "sha256:51429edbac94d907313ec3dfd091d6265b810944edf6ca2f96ff1d8df1ecc397",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "342529cd0c7cbc1d40c30ee380b7c5b14acf471a32b8faccbc813640ae14ad7d"
+  "sha256": "51429edbac94d907313ec3dfd091d6265b810944edf6ca2f96ff1d8df1ecc397"
 }

@@ -22,7 +22,7 @@
     "</purpose>",
     "",
     "<required_reading>",
-    "`specforge gsd reference gsd-core/references/ui-brand.md`",
+    "`specforge gsd reference gsd-core/references/ui-brand.md --host cursor`",
     "</required_reading>",
     "",
     "<available_agent_types>",
@@ -61,7 +61,7 @@
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via /gsd-settings.\""
   ],
-  "bytes": 18841,
+  "bytes": 18869,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:7e4274b758dcc3df16fab607d3cf8188d658901dabbecf2d636474f237ff937b",
+    "digest": "sha256:03190dd7b5389038ff0f12037539180725a9e9d4dea43e1b458d21691ea86caf",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -219,5 +219,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "7e4274b758dcc3df16fab607d3cf8188d658901dabbecf2d636474f237ff937b"
+  "sha256": "03190dd7b5389038ff0f12037539180725a9e9d4dea43e1b458d21691ea86caf"
 }

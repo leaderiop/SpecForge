@@ -16,8 +16,8 @@
     "<execution_context>",
     "**Load these files NOW (before proceeding):**",
     "",
-    "- `specforge gsd reference gsd-core/workflows/complete-milestone.md` (main workflow)",
-    "- `specforge gsd reference gsd-core/templates/milestone-archive.md` (archive template)",
+    "- `specforge gsd reference gsd-core/workflows/complete-milestone.md --host codex` (main workflow)",
+    "- `specforge gsd reference gsd-core/templates/milestone-archive.md --host codex` (archive template)",
     "  </execution_context>",
     "",
     "<context>",
@@ -61,7 +61,7 @@
     "   chain. Or proceed anyway to accept the gaps as tech debt.",
     ""
   ],
-  "bytes": 21863,
+  "bytes": 21889,
   "end": [
     "",
     "7. **Commit and tag:**",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:77cae8979069a46cdc489805f6fe09df402b373d9db87fba87b5d1889ef0ae29",
+    "digest": "sha256:1c75511d8cdf15cd2355b9dd9ffdfd191671f325e8cb0ebfd2e2eefcaa3a1955",
     "prompt": "@gsd/core@VERSION:complete_milestone",
     "steps": [
       {
@@ -224,5 +224,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "77cae8979069a46cdc489805f6fe09df402b373d9db87fba87b5d1889ef0ae29"
+  "sha256": "1c75511d8cdf15cd2355b9dd9ffdfd191671f325e8cb0ebfd2e2eefcaa3a1955"
 }

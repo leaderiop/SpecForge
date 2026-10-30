@@ -81,6 +81,7 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "$UNDO_MILESTONE/${PLAN_PHASE}"
         | "$MILESTONE/${NN}"
         | "$UNDO_MILESTONE/${NN}"
+        | "{selected-phase}"
         | "$MILESTONE/${N}"
         | "$UNDO_MILESTONE/${N}" => "v1.0/01",
         "$PLAN_ID" | "${TARGET_PLAN_ID}" => "v1.0/01/01-01",
@@ -112,7 +113,6 @@ const UNBOUND: &[&str] = &[
     "v${VERSION}/{padded}",
     "{phase}-{plan}",
     "{phase_number}-{plan_padded}",
-    "{selected-phase}",
     "{dir}",
     "<N>",
     "<phase>",

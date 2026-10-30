@@ -15,7 +15,7 @@
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/milestone-summary.md\">",
-    "`specforge gsd reference gsd-core/references/response-language-directive.md`",
+    "`specforge gsd reference gsd-core/references/response-language-directive.md --host cursor`",
     "",
     "# Milestone Summary Workflow",
     "",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 20341,
+  "bytes": 20355,
   "end": [
     "```",
     "</file>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:280a01e66c53100ab0feb066b7b776c8c7774a5bdecc9ea21fbc16029a070a82",
+    "digest": "sha256:3fef6da689f28702f496b435b3283a30cc965583cf99710d2f493b869b9f753c",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "280a01e66c53100ab0feb066b7b776c8c7774a5bdecc9ea21fbc16029a070a82"
+  "sha256": "3fef6da689f28702f496b435b3283a30cc965583cf99710d2f493b869b9f753c"
 }

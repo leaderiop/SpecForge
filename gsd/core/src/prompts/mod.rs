@@ -54,6 +54,8 @@ pub fn render_text(command: &str, host: &str, arguments: &str) -> Result<String,
 pub use assets::get as asset;
 /// The paths of every embedded asset.
 pub use assets::paths as asset_paths;
+/// `text` as `host` reads it (command names, tool names, paths).
+pub(crate) use host::convert as convert_for_host;
 /// The attribution line of an asset is a notice, not text a model reads.
 pub use render::without_notice;
 /// `text` with its install paths re-pointed at `specforge gsd reference`.
