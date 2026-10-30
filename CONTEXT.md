@@ -1618,7 +1618,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   merge-bases and lists files at one; the git CLI is its only adapter (ADR 0287).
 - **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
   read through the `History` port only when something declares history; what an immutable or append-only value is
-  judged against and what a pass receives as `previous` (ADR 0287). The old build cache and `lifecycle_field` are gone.
+  judged against and what a pass receives as `previous` (ADR 0287); a compute pass's declared reads see the files the commit holds (ADR 0300). The old build cache and `lifecycle_field` are gone.
 - **Edit plan**: what a writing command or collector answers to write (`EditPlan`, protocol 1.9.0): ordered typed ops
   the host checks, plans with the typed edit engine, judges (E080, guard passes included) and applies all or nothing;
   an extension never writes a file (ADR 0289).

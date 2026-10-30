@@ -5,7 +5,7 @@
 (a check's reads are its inputs), [ADR 0287](0287-who-writes-a-field-is-declared.md) (compute and check passes),
 [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (the file digest a judged rule and a verdict
 already use) and [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (the hook globs and
-`PathFact`). Takes extension protocol 1.11.0.
+`PathFact`). Takes extension protocol 1.11.0. Extended by [ADR 0300](0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) (a compute pass at the baseline reads the commit's files).
 
 ## Context
 
@@ -77,7 +77,7 @@ and a hook alone is told the facts of the paths its tool names (`PathFact`, ADR 
 The test report a `reads_tests` pass receives is the one recorded now. The baseline view (`previous`) is computed from
 the commit's files without it (`tests: None`), so a computed field derived from tests is unknown in `previous` and known
 in the current view; a compute pass that compares the two must not derive from tests. Reading the commit's own
-`specforge-report.json` is the upgrade when a pass needs it. Nothing in r35 declares such a pass.
+`specforge-report.json` is the upgrade when a pass needs it. Nothing in r35 declares such a pass. The commit's files are read from its tree and fetched on demand (ADR 0300).
 
 ## Rejected
 
