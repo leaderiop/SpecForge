@@ -1,6 +1,6 @@
 //! The worktree path guard (and the absence of an isolation guard) through the command the install wrote (D-r44-16).
 
-use serde_json::{Value, json};
+use serde_json::json;
 
 use super::harness::{Project, taskboard, taskboard_at};
 use super::hooks_support::{
