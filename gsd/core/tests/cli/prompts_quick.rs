@@ -211,7 +211,7 @@ fn the_batch_makes_one_quick_id_per_item() {
     let items = json["manifest"]["items"].as_array().expect("items");
     let tasks: Vec<&str> = items
         .iter()
-        .map(|i| i["task"].as_str().expect("a task"))
+        .map(|i| i["description"].as_str().expect("a description"))
         .collect();
     assert_eq!(tasks, ["Fix login", "Add search", "Trim titles"]);
     let id = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
@@ -300,4 +300,16 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
     let said = String::from_utf8_lossy(&out.stdout);
     let (id, branch) = said.trim().split_once(' ').expect("two words");
     assert_eq!(branch, format!("quick/{id}-{{slug}}"), "{said}");
+}
+
+/// REVIEW-r43 post-fix N2: the steps read each item's `description`, and quick-batch has no init block to make the
+/// quick id: its tail says `$quick_id` is the item's `quickId`.
+#[test]
+fn quick_batch_names_where_its_quick_id_comes_from() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(&p, "quick_batch", &[], "claude-code")));
+    assert!(text.contains("$quick_id is each manifest item's `quickId`"));
+    assert!(!text.contains("init block above"));
+    let quick = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
+    assert!(quick.contains("init block above"));
 }
