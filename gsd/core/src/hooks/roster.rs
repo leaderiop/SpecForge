@@ -31,7 +31,7 @@ pub const HOOK_ROSTER: &[(&str, Disposition)] = &[
     (
         "gsd-config-reload.js",
         Dropped(
-            "a FileChanged event has no hook event here (K19); settings are read on every compile",
+            "a FileChanged event has no hook event here (K20); settings are read on every compile",
         ),
     ),
     (

@@ -1,12 +1,13 @@
 # Who writes a field is declared, and history is the git baseline
 
-**Status:** accepted (2026-10-27, architecture round 31, plan K4). Supersedes [ADR 0009](0009-host-passes-read-declarations.md)
+**Status:** accepted (2026-10-27, architecture round 31, plan K4). Supersedes
+[ADR 0009](0009-host-passes-read-declarations.md)
 C (the build cache and `lifecycle_field`). Extends [ADR 0014](0014-the-session-keeps-itself-current.md),
 [ADR 0019](0019-one-entity-snapshot-per-compile.md), [ADR 0030](0030-a-sessions-inputs-are-one-value.md),
 [ADR 0047](0047-the-compiled-project-is-the-sessions-core.md), [ADR 0128](0128-one-project-change-over-held-files.md),
 [ADR 0133](0133-recorded-inputs-are-one-table.md), [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md),
 [ADR 0184](0184-a-typed-edit-and-a-rename-write-one-planned-change.md) and
-[ADR 0282](0282-an-unknown-type-name-is-the-hosts-e004-and-a-project-has-one-spec-block.md). Takes extension protocol 1.8.0. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (a `verdict` writer, the `verdict:<rule>` ledger key, baseline judgements) and by [ADR 0299](0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) (the graph a call receives carries them).
+[ADR 0282](0282-an-unknown-type-name-is-the-hosts-e004-and-a-project-has-one-spec-block.md). Takes extension protocol 1.8.0. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (a `verdict` writer, the `verdict:<rule>` ledger key, baseline judgements) and by [ADR 0299](0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) (the graph a call receives carries them) and by [ADR 0300](0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) (a compute pass at the baseline reads the commit's files).
 
 ## Context
 

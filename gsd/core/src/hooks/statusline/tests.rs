@@ -125,7 +125,7 @@ fn all_ported() -> Vec<String> {
     ported
 }
 
-const GIT: &str = "git: needs git status, which the kernel's facts do not carry (K19)";
+const GIT: &str = "git: needs git status, which the kernel's facts do not carry (K20)";
 const ENV: &str = "env: the auto-compact window overrides read the environment and Claude Code's settings files; the meter uses the model window";
 const FS: &str = "fs: reads STATE.md, a transcript, a todo file or the update cache; the graph replaces STATE.md";
 const BANNER: &str = "diverges: the update banner is dropped (D-r44-13)";

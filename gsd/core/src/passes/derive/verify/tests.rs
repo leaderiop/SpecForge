@@ -266,6 +266,93 @@ fn re_verification_closes_keeps_and_regresses_truths_by_verdict() {
     );
 }
 
+fn scanned(kind: &str, n: u8, state: &str) -> serde_json::Value {
+    let tag = if kind == "artifact" { "AR" } else { "KL" };
+    json!({ "id": format!("v1.0/01/01-01/{tag}{n}"), "kind": kind, "fields": { "state": state } })
+}
+
+fn artifact(n: u8, state: &str, judgements: Vec<serde_json::Value>) -> serde_json::Value {
+    let mut item = scanned("artifact", n, state);
+    item["judgements"] = json!(judgements);
+    item
+}
+
+fn key_link(n: u8, state: &str) -> serde_json::Value {
+    scanned("key_link", n, state)
+}
+
+#[test]
+fn re_verification_reports_the_baselines_status_and_score() {
+    let mut found = input(vec![], vec![]);
+    found.previous = baseline(merged(vec![then(
+        V,
+        "verification",
+        json!({ "status": "gaps_found", "score": "1/3" }),
+        vec![],
+    )]));
+    let block = of(&run(&found), "re_verification").expect("a re_verification block");
+    assert_eq!(
+        block,
+        json!({ "previous_status": "gaps_found", "previous_score": "1/3" })
+    );
+}
+
+#[test]
+fn re_verification_compares_the_baselines_scan_state() {
+    let ar = "v1.0/01/01-01/AR1";
+    let kl = "v1.0/01/01-01/KL1";
+    let mut found = input(
+        vec![
+            artifact(1, "present", vec![judgement("verified", "fresh", true)]),
+            key_link(1, "not_wired"),
+        ],
+        vec![],
+    );
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(ar, "artifact", json!({ "state": "missing" }), vec![]),
+        then(kl, "key_link", json!({ "state": "wired" }), vec![]),
+    ]));
+    let block = of(&run(&found), "re_verification").expect("a re_verification block");
+    assert_eq!(block, json!({ "gaps_closed": [ar], "regressions": [kl] }));
+}
+
+#[test]
+fn a_fixed_item_with_no_verdict_yet_is_still_remaining_and_a_never_verified_one_is_no_regression() {
+    let ar = |n: u8| format!("v1.0/01/01-01/AR{n}");
+    let mut found = input(
+        vec![
+            artifact(1, "present", vec![]),
+            artifact(2, "missing", vec![]),
+        ],
+        vec![],
+    );
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(&ar(1), "artifact", json!({ "state": "missing" }), vec![]),
+        then(&ar(2), "artifact", json!({ "state": "present" }), vec![]),
+    ]));
+    // AR1 was failing and is not passing yet (it has no verdict); AR2 was never verified, so it is no regression
+    assert_eq!(
+        of(&run(&found), "re_verification"),
+        Some(json!({ "gaps_remaining": [ar(1)] }))
+    );
+}
+
+#[test]
+fn an_overridden_truth_is_not_compared_against_the_baseline() {
+    let tr = "v1.0/01/01-01/TR1";
+    let o = json!({ "id": format!("{V}/OV1"), "kind": "override", "fields": { "verification": V, "truth": tr } });
+    let failed = judgement("failed", "fresh", false);
+    let mut found = input(vec![truth(1, vec![failed.clone()])], vec![o]);
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(tr, "truth", json!({}), vec![failed]),
+    ]));
+    // The override holds on both sides (the baseline's own run sees it too): nothing closes.
+    assert_eq!(of(&run(&found), "re_verification"), None);
+}
+
 #[test]
 fn re_verification_closes_and_reopens_verify_gaps() {
     let gap = |n: u8| format!("{V}/VG{n}");

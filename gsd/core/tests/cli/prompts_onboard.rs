@@ -66,7 +66,7 @@ fn ingest_docs_renders_for_three_hosts() {
         "INGEST DOCS",
     ) {
         let got = steps(&rendered);
-        // a rendered step carries no agent (K19): the title names it
+        // a rendered step carries no agent (K20): the title names it
         for (id, agent) in [
             ("classify", "gsd-doc-classifier"),
             ("synthesize", "gsd-doc-synthesizer"),

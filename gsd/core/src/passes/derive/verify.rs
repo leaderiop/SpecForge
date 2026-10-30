@@ -218,46 +218,55 @@ fn covered(group: &Group) -> Vec<String> {
     files.into_iter().map(String::from).collect()
 }
 
-/// The state of an item at the baseline, from its verdicts only. The baseline's compute passes do get file facts, but
-/// the git adapter loads only a commit's `*.spec` files and `specforge-harness`, so every source file reads as absent
-/// there and the scan says `missing` (not `unchecked`) for a file the commit holds: a scan state computed at the
-/// baseline says nothing about the commit, and neither does the status derived from it. Verdicts are judged at the
-/// commit through an on-demand blob fetch, so they can be compared.
+/// The state of an item at the baseline: its scan state and its verdicts, as `entity_item` reads them now. The
+/// baseline's compute passes read the files the commit holds (ADR 0300), so its scan states are the commit's own.
+/// Nothing overrides at the baseline (`override` is not a baseline kind), so `re_verification` does not compare a truth
+/// that is overridden now: its override stands on both sides, as upstream's "PASSED (override)".
 fn then_state(input: &PassInput, id: &str) -> Option<Item> {
     let e = input.previous.as_ref()?.entities.get(id)?;
-    Some(judged(e.judgements.iter().map(|j| {
-        (
-            j.rule.as_str(),
-            j.state.as_str(),
-            j.passed,
-            j.outcome.as_deref(),
-        )
-    })))
+    Some(item_state(
+        &e.kind,
+        e.fields.get("state").and_then(Value::as_str),
+        judged(e.judgements.iter().map(|j| {
+            (
+                j.rule.as_str(),
+                j.state.as_str(),
+                j.passed,
+                j.outcome.as_deref(),
+            )
+        })),
+        false,
+    ))
 }
 
-/// `re_verification`: the outcome against the baseline, over the items both views hold. An `Unknown` item on either
-/// side is not compared. Items are the phase's truths, artifacts and key links (by verdict) and its verify gaps (by
-/// status: open there, closed now). `previous_status` and `previous_score` are not built, for the reason above: they
-/// wait for the kernel to serve a commit's source files to the baseline compile (K19), not for r40.
+/// `re_verification`: the outcome against the baseline, over the items both views hold. An `Unknown` item then and a
+/// truth overridden now are not compared. Failing then and not passing now is remaining, also for an item with no
+/// verdict yet (a file that came back still needs one); an item the scan only now fails and that was never verified
+/// there is no regression (it shows in `status`). Items are the phase's truths, artifacts and key links (by scan state
+/// and verdict, ADR 0300) and its verify gaps (by status: open there, closed now). `previous_status` and
+/// `previous_score` are the baseline verification's own computed values.
 fn re_verification(
     input: &PassInput,
     v: &PassEntity,
     group: &Group,
     now: &[Item],
+    overridden: &BTreeSet<&str>,
     statuses: &Statuses,
 ) -> Option<Value> {
     let previous = input.previous.as_ref()?;
-    previous.entities.get(&v.id)?;
+    let was = previous.entities.get(&v.id)?;
     let mut closed = Vec::new();
     let mut remaining = Vec::new();
     let mut regressions = Vec::new();
     for (e, state) in group.entities.iter().zip(now) {
+        if overridden.contains(e.id.as_str()) {
+            continue;
+        }
         let Some(then) = then_state(input, &e.id) else {
             continue;
         };
         match (then, *state) {
             (Item::Failed, Item::Verified) => closed.push(e.id.clone()),
-            (Item::Failed, Item::Unknown) => {}
             (Item::Failed, _) => remaining.push(e.id.clone()),
             (Item::Verified, Item::Failed) => regressions.push(e.id.clone()),
             _ => {}
@@ -279,6 +288,11 @@ fn re_verification(
         }
     }
     let mut block = serde_json::Map::new();
+    for name in ["status", "score"] {
+        if let Some(value) = was.fields.get(name).filter(|v| v.is_string()) {
+            block.insert(format!("previous_{name}"), value.clone());
+        }
+    }
     for (name, ids) in [
         ("gaps_closed", closed),
         ("gaps_remaining", remaining),
@@ -296,6 +310,7 @@ struct Assessment<'a> {
     verification: &'a PassEntity,
     group: Group<'a>,
     now: Vec<Item>,
+    overridden: BTreeSet<&'a str>,
     status: &'static str,
 }
 
@@ -331,6 +346,7 @@ fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
             verification: v,
             group,
             now,
+            overridden,
             status,
         });
     }
@@ -384,7 +400,7 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
         if let Some(digest) = covered_digest(&a.group) {
             found.push(value(&v.id, "covered_digest", digest));
         }
-        if let Some(block) = re_verification(input, v, &a.group, &a.now, statuses) {
+        if let Some(block) = re_verification(input, v, &a.group, &a.now, &a.overridden, statuses) {
             found.push(value(&v.id, "re_verification", block));
         }
     }

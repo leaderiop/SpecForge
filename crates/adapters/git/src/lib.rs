@@ -1,6 +1,10 @@
 //! The adapter behind `specforge-project`'s [`History`] port: the git command line (ADR 0287). Read-only, and
-//! hardened: no stdin, no prompt, no lazy fetch, no optional lock, no fsmonitor, a fixed locale, the repository the
-//! directory is in and not the one the caller's environment names, and a deadline on every call.
+//! hardened: no stdin, no prompt, no optional lock, no fsmonitor, a fixed locale, the repository the directory is in
+//! and not the one the caller's environment names, and a deadline on every call.
+//!
+//! Lazy fetch (ADR 0300 D5): a tree listing never looks a blob up, so it fetches nothing on any git. Sizes and bytes
+//! are asked only for the files a pass reads; from git 2.44 `GIT_NO_LAZY_FETCH=1` makes git answer "missing" for a
+//! blob a partial clone lacks. An older git does not know the variable and fetches those files, and only those.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -8,7 +12,9 @@ use std::process::Command;
 use std::time::Duration;
 
 use specforge_common::process::{Ran, RunError, run_with};
-use specforge_project::history::{Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha};
+use specforge_project::history::{
+    Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha, Sized, TreeEntry,
+};
 
 /// Runs `git` from `PATH`.
 pub struct GitCli {
@@ -97,6 +103,27 @@ impl GitCli {
             Err(Failed::Other(why)) => Err(HistoryError(why)),
         }
     }
+
+    /// `git ls-tree -r -z --full-tree` of `commit` under `dir` (from the top). Never `-l`: that looks up every blob's
+    /// size, and in a partial clone git older than 2.44 fetches each missing blob to answer.
+    fn ls_tree(&self, place: &GitPlace, commit: &Sha, dir: &Path) -> Result<Vec<u8>, HistoryError> {
+        let mut args = vec!["ls-tree", "-r", "-z", "--full-tree", commit.as_str()];
+        let pathspec = if dir.as_os_str().is_empty() {
+            None
+        } else {
+            // a pathspec that is not UTF-8 would be mangled into another one and list nothing: refuse it instead
+            let dir = dir.to_str().ok_or_else(|| {
+                HistoryError(
+                    "the project's directory is not valid UTF-8, so git cannot list it".into(),
+                )
+            })?;
+            Some(format!("{dir}/"))
+        };
+        if let Some(pathspec) = &pathspec {
+            args.extend(["--", pathspec]);
+        }
+        self.ok(&place.toplevel, &args, None)
+    }
 }
 
 impl History for GitCli {
@@ -171,16 +198,7 @@ impl History for GitCli {
         commit: &Sha,
         dir: &Path,
     ) -> Result<Vec<CommitFile>, HistoryError> {
-        let mut args = vec!["ls-tree", "-r", "-z", "--full-tree", commit.as_str()];
-        let pathspec = if dir.as_os_str().is_empty() {
-            None
-        } else {
-            Some(format!("{}/", dir.to_string_lossy()))
-        };
-        if let Some(pathspec) = &pathspec {
-            args.extend(["--", pathspec]);
-        }
-        let listing = self.ok(&place.toplevel, &args, None)?;
+        let listing = self.ls_tree(place, commit, dir)?;
         // `<mode> SP <type> SP <object> TAB <path> NUL`; a symlink or a submodule is no file.
         let mut blobs: Vec<(PathBuf, String)> = Vec::new();
         for entry in listing.split(|b| *b == 0).filter(|e| !e.is_empty()) {
@@ -232,6 +250,69 @@ impl History for GitCli {
             at = end + 1 + size + 1;
         }
         Ok(files)
+    }
+
+    fn tree(
+        &self,
+        place: &GitPlace,
+        commit: &Sha,
+        dir: &Path,
+    ) -> Result<Vec<TreeEntry>, HistoryError> {
+        let listing = self.ls_tree(place, commit, dir)?;
+        // `<mode> SP <type> SP <object> TAB <path> NUL`
+        let mut entries = Vec::new();
+        for entry in listing.split(|b| *b == 0).filter(|e| !e.is_empty()) {
+            let text = String::from_utf8_lossy(entry);
+            let Some((meta, path)) = text.split_once('\t') else {
+                continue;
+            };
+            let parts: Vec<&str> = meta.split_whitespace().collect();
+            let [mode, kind, _] = parts[..] else {
+                continue;
+            };
+            entries.push((PathBuf::from(path), kind == "blob" && mode != "120000"));
+        }
+        Ok(entries)
+    }
+
+    fn sizes(
+        &self,
+        place: &GitPlace,
+        commit: &Sha,
+        paths: &[PathBuf],
+    ) -> Result<Vec<Sized>, HistoryError> {
+        // `--batch-check` prints `<object> blob <size>` or `<name> missing`; one line per name asked
+        let askable = |path: &&PathBuf| !path.to_string_lossy().contains('\n');
+        let request: String = paths
+            .iter()
+            .filter(askable)
+            .map(|p| format!("{}:{}\n", commit.as_str(), p.to_string_lossy()))
+            .collect();
+        if request.is_empty() {
+            return Ok(paths.iter().map(|p| (p.clone(), None)).collect());
+        }
+        let answer = self.ok(
+            &place.toplevel,
+            &["cat-file", "--batch-check"],
+            Some(request.into_bytes()),
+        )?;
+        let text = String::from_utf8_lossy(&answer);
+        let mut lines = text.lines();
+        let short = || HistoryError("git cat-file answered a short reply".into());
+        let mut found = Vec::with_capacity(paths.len());
+        for path in paths {
+            if !askable(&path) {
+                found.push((path.clone(), None));
+                continue;
+            }
+            let line = lines.next().ok_or_else(short)?;
+            let size = match line.rsplit(' ').collect::<Vec<_>>()[..] {
+                [size, "blob", _] => size.parse::<u64>().ok(),
+                _ => None,
+            };
+            found.push((path.clone(), size));
+        }
+        Ok(found)
     }
 
     fn blobs(

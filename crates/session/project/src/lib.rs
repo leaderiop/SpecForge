@@ -21,6 +21,7 @@
 
 pub mod baseline;
 mod baseline_judged;
+mod baseline_reads;
 mod buffers;
 mod check_passes;
 mod compiled;

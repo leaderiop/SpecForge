@@ -84,7 +84,7 @@ Not verified:
 - Injection scanning is advisory; `security.injection_blocking` belongs to `@gsd/security`, which a hook cannot read.
 - The context monitor has no stopped-at record and no Stop or SubagentStop rows; the workflow marker lasts the session.
 - `write_guard` measures bytes, not lines; `worktree_path_guard` is path based (case and relative paths are seen; a
-  symlink into the main checkout is not: K19).
+  symlink into the main checkout is not: K20).
 - `agent_isolation_guard` allows every dispatch: `@gsd/core` runs its executors one after another in the checkout, as
   upstream's sentinel `none` does, so there is no worktree isolation to demand (REVIEW-r44 C1). Its line is written for
   Cursor too and does nothing there.
@@ -99,14 +99,13 @@ Not verified:
 - The "silent" evidence of 38 of the 61 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 
-## Needs a change outside `gsd/` (K19)
+## Needs a change outside `gsd/` (K20)
 
 Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is done here:
 
 - `specforge uninstall` leaves the empty host root directory (install crate).
 - Hosts other than Claude Code, Codex and Cursor (the 16 named renderers).
 - Git facts for hooks (`git add -f` blocking) need a host query the protocol lacks.
-- Baseline re-verification (`re_verification.previous_*` and the baseline file view, `baseline-format` 3, ADR 0300).
 - The hook facts: the real path of an out-of-project target (a symlink into the main checkout is not seen), `--cleanup`
   on a commit, and a host filter for a hook contribution (Cursor gets the isolation guard's line).
 - A broken `specforge.json` makes `specforge install <host>` strip every gsd hook, agent and skill silently with exit 0
@@ -126,8 +125,8 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 | The `specforged` harness | `/gsd-autonomous` unattended, `claude-orchestration`, `external-job` |
 | More host renderers | opencode, copilot, windsurf, kilo, kimi, kimi-code, antigravity, cline, trae, qwen, hermes, codebuddy, augment, zcode, vscode, pi |
 | Running Codex and Cursor | their goldens are the kernel's rendering, cross-checked against upstream's installer only |
-| `gsd/W514`, `gsd/E515` | no rule behind them (K19) |
-| The K19 items | the list above |
+| `gsd/W514`, `gsd/E515` | no rule behind them (K20) |
+| The K20 items | the list above |
 | Publishing | `specforge publish`, done by the user |
 
 ## Publishing
