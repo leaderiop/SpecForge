@@ -34,7 +34,7 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 # the commands below are specforge commands: there is no launcher to define
    if [[ ! "$GSD_ARGS" =~ --auto ]] && [[ ! "$GSD_ARGS" =~ --chain ]]; then
-     specforge settings set @gsd/core workflow._auto_chain_active false || true
+     : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
    fi
    ```
 
@@ -47,7 +47,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 4. **If `--auto` or `--chain` flag present AND `AUTO_MODE` is not true:**
    Persist chain flag to config (handles direct usage without new-project):
    ```bash
-   specforge settings set @gsd/core workflow._auto_chain_active true
+   : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
    ```
 
 5. **If `--auto` flag present OR `--chain` flag present OR `AUTO_MODE` is

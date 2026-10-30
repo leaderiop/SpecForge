@@ -192,7 +192,7 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 # REQUIRED: prevents stale auto-chain from previous --auto runs
 if [[ ! "$GSD_ARGS" =~ --auto ]]; then
-  specforge settings set @gsd/core workflow._auto_chain_active false || true
+  : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
 fi
 ```
 

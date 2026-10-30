@@ -492,12 +492,12 @@ AskUserQuestion([
 
 For each tier where the user chose "Enter model ID":
 ```bash
-specforge settings set @gsd/core model_profile_overrides.<runtime>.<tier> "<model-id>"
+specforge settings set --value-json '{"model":"<model-id>"}' @gsd/core "model_profile_overrides.<runtime>.<tier>"
 ```
 
-For each tier where the user chose "Clear override", remove the key by setting it to null:
+For each tier where the user chose "Clear override", remove the key:
 ```bash
-specforge settings set @gsd/core model_profile_overrides.<runtime>.<tier> null
+specforge settings unset @gsd/core "model_profile_overrides.<runtime>.<tier>"
 ```
 
 "Keep current" selections are skipped entirely. Never write a key the user did not explicitly
@@ -523,8 +523,8 @@ specforge settings set @gsd/core context_window 1000000
 # Runtime model tier examples (antigravity ships no built-in tier defaults, so
 # overrides are how you pin its models):
 specforge settings set @gsd/core runtime antigravity
-specforge settings set @gsd/core model_profile_overrides.antigravity.opus gemini-3.1-pro-preview
-specforge settings set @gsd/core model_profile_overrides.antigravity.haiku null
+specforge settings set --value-json '{"model":"gemini-3.1-pro-preview"}' @gsd/core model_profile_overrides.antigravity.opus
+specforge settings unset @gsd/core model_profile_overrides.antigravity.haiku
 ```
 
 Conceptual shape after merge (unchanged top-level keys like `model_profile`,
@@ -753,7 +753,7 @@ specforge settings set @gsd/core model_policy.low      "<low-id>"
 
 # Generic-provider path — write only tiers the user changed ("Keep current" skipped):
 specforge settings set @gsd/core model_policy.provider "custom"
-specforge settings set @gsd/core model_policy.budget   null
+specforge settings unset @gsd/core model_policy.budget
 # Per-tier writes for each non-"Keep current" answer:
 specforge settings set @gsd/core model_policy.high     "<high-id>"   # omit if user chose "Keep current"
 specforge settings set @gsd/core model_policy.medium   "<medium-id>" # omit if user chose "Keep current"

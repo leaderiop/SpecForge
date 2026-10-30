@@ -102,7 +102,7 @@ lane somebody asked for is an error.* A user who wants "whatever is available" h
 user who wants a preferred set has `review.default_reviewers`. Both stay lenient below.
 
 `review.default_reviewers` behavior:
-- Value must be a non-empty array of slug strings (configured via `specforge settings set @gsd/core review.default_reviewers '["codex","claude"]'`)
+- Value must be a non-empty array of slug strings (configured via `specforge settings set @gsd/core review.default_reviewers codex claude`)
 - Unknown slugs warn and are ignored
 - Known-but-undetected slugs emit an info note and are ignored — a configured default is a
   preference evaluated across many hosts, so a subset being present is expected, not an error
