@@ -21,6 +21,7 @@ fn accept(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let graph = call.graph();
     if let Some(done) = graph
         .nodes_of_kind("accepted_risk")
+        .filter(|r| r.fields.contains_key("at"))
         .find(|r| target(graph, &r.id, "threat") == Some(threat.id.as_str()))
     {
         return Err(format!(

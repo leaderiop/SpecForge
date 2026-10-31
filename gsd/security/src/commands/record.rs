@@ -96,6 +96,7 @@ fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .collect();
     let accepted: BTreeSet<&str> = graph
         .nodes_of_kind("accepted_risk")
+        .filter(|r| r.fields.contains_key("at"))
         .filter_map(|r| target(graph, &r.id, "threat"))
         .collect();
     let held: Vec<Held> = graph

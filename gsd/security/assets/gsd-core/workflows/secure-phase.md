@@ -97,7 +97,7 @@ Build: `{ threat_id, category, component, severity, disposition, status, evidenc
 **Text mode (`workflow.text_mode: true` in config or `--text` flag):** Set `TEXT_MODE=true` if `--text` is present in `$ARGUMENTS` OR `text_mode` from init JSON is `true`. When TEXT_MODE is active, replace every `AskUserQuestion` call with a plain-text numbered list and ask the user to type their choice number. This is required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available.
 Call AskUserQuestion with threat table and options:
 1. "Verify all open threats" → Step 5
-2. "Accept all open — document in accepted risks log" → ask the person to run `accept_risk` for each (accepted risks log), set all CLOSED, Step 6
+2. "Accept all open — document in accepted risks log" → ask the person to run `accept_risk` for each (accepted risks log); an accepted threat leaves `threats_open` by itself, so do not record it closed. Step 6
 3. "Cancel" → exit
 
 ## 5. Spawn gsd-security-auditor

@@ -21,7 +21,7 @@ for a phase with open threats at or above `workflow.security_block_on`. Peer: `@
 ## Divergences from upstream
 
 Named in ACCEPTANCE under Known divergences, by tag: `[blocking-needs-security]`, `[fragment-repointed]`,
-`[audit-advisory-every-check]`, `[accept-risk-human]`, `[accepted-risk-agent-creatable]`, `[no-superseded-plans]`,
+`[audit-advisory-every-check]`, `[accept-risk-human]`, `[accepted-risk-not-human-kind]`, `[no-superseded-plans]`,
 `[stride-enum]`, `[retro-threat-in-plan]`, `[threats-open-live]`, `[security-absent-off]`, `[verify-post-produces]`,
 `[skipped-hooks-empty]`, `[injection-key-explicit]`, `[surface-peer-setting]`.
 
@@ -32,7 +32,8 @@ as upstream's is without `--after-fingerprint`.
 ## What stays open
 
 - `accepted_risk` is not a human-only kind. The host refuses a human command's plan when it would create a human-only
-  entity, so `accept_risk` is human-attested while an agent can still `specforge new accepted_risk`. A candidate kernel
+  entity, so `accept_risk` is human-attested through its `at`, a harness field only it writes, which an
+  agent's `specforge new accepted_risk` cannot set (a risk without `at` accepts nothing). A candidate kernel
   round would let a human command create a human-only kind.
 - The slash has no `when` gate (`[surface-peer-setting]`); it is available whenever the extension is loaded.
 - Codex and Cursor installs are drafts, as core's (goldens only, unrun).

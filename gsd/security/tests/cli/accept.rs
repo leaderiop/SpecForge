@@ -82,3 +82,71 @@ fn accepting_twice_is_refused() {
     assert_eq!(other.code, 0, "{}", other.all());
     assert_eq!(p.fields_of("v1.0/01/01-SECURITY/AR2")["accepted_by"], "bob");
 }
+
+/// REVIEW-security-part2 M1: U4 holds. `at` is a harness field, so an agent cannot write a person's acceptance.
+fn agent_accepts(p: &Project, extra: &[&str]) -> harness::Run {
+    let mut args = vec![
+        "new",
+        "accepted_risk",
+        "AR2",
+        "agent accepts",
+        "--audit",
+        "v1.0/01/01-SECURITY",
+        "--threat",
+        "v1.0/01/01-01/T-01-01",
+        "--rationale",
+        "agent says fine",
+        "--accepted_by",
+        "alice",
+        "--in",
+        "spec/security.spec",
+    ];
+    args.extend_from_slice(extra);
+    p.run(&args)
+}
+
+fn gate(p: &Project) -> serde_json::Value {
+    let run = p.run(&["gsd", "security-gate", "01", "--format", "json"]);
+    serde_json::from_str(&run.stdout).unwrap_or_else(|e| panic!("JSON ({e}): {}", run.all()))
+}
+
+#[test]
+fn an_agent_cannot_record_an_accepted_risk() {
+    let p = recording();
+    let made = p.run(&[
+        "new",
+        "security_audit",
+        "01-SECURITY",
+        "Phase 01 security",
+        "--phase",
+        "v1.0/01",
+        "--in",
+        "spec/security.spec",
+    ]);
+    assert_eq!(made.code, 0, "{}", made.all());
+    let before = p.read("spec/security.spec");
+    // with `--at`: refused, nothing written
+    let run = agent_accepts(&p, &["--at", "2026-10-31"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("harness_field"), "{}", run.all());
+    assert_eq!(p.read("spec/security.spec"), before);
+    // without `--at`: the entity exists, but is no acceptance, and the gate still blocks
+    let run = agent_accepts(&p, &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of("v1.0/01/01-01/T-01-01")["blocking"], true);
+    assert_eq!(gate(&p)["block"], true);
+}
+
+#[test]
+fn a_person_s_acceptance_clears_the_gate() {
+    let p = recording();
+    assert_eq!(gate(&p)["block"], true);
+    assert_eq!(accept(&p, "01-01/T-01-01", "fine", "alice").code, 0);
+    assert_eq!(
+        p.fields_of("v1.0/01/01-SECURITY/AR1")["at"]
+            .as_str()
+            .map(str::len),
+        Some(10)
+    );
+    assert_eq!(p.fields_of("v1.0/01/01-01/T-01-01")["blocking"], false);
+}

@@ -393,15 +393,16 @@
         },
         {
           "default_value": null,
-          "description": "`Date`",
+          "description": "`Date`: set by `accept_risk` with its ledger line; a risk without it is no acceptance",
           "edge": null,
           "field_type": "date",
           "file_reference": false,
           "immutable": true,
           "inverse_of": null,
           "name": "at",
-          "required": true,
-          "target_kind": null
+          "required": false,
+          "target_kind": null,
+          "writer": "harness"
         }
       ],
       "has_body_parser": false,

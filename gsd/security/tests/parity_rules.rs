@@ -224,7 +224,7 @@ pub fn gsd_divergences() -> [&'static str; 14] {
         "fragment-repointed",
         "audit-advisory-every-check",
         "accept-risk-human",
-        "accepted-risk-agent-creatable",
+        "accepted-risk-not-human-kind",
         "no-superseded-plans",
         "stride-enum",
         "retro-threat-in-plan",

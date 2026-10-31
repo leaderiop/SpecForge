@@ -13,14 +13,16 @@ by a command (a harness field), `U` a person's. Codes are `gsd.security/<letter>
 | `trust_boundary` | `TB1` | its plan | `plan → plan R I`, `boundary str R`, `description str R`, `data_crossing str` | `<threat_model>` Trust Boundaries; SECURITY.md Trust Boundaries |
 | `threat` | `T-03-01`, `T-03-SC` | its plan | `plan → plan R I`, `category enum{spoofing, tampering, repudiation, information_disclosure, denial_of_service, elevation_of_privilege} R`, `component str R`, `severity enum{critical, high, medium, low} R`, `disposition enum{mitigate, accept, transfer} R`, `mitigation str R`, `files strs`, `status enum{open, closed} H`, `evidence str H`, `retroactive bool H`, `blocking bool C` | STRIDE register row |
 | `security_audit` | `03-SECURITY` | its phase | `phase → phase R I`, `asvs_level int{1..3} H`, `created ts H`, `threats_open int C`, `status enum{draft, verified} C`, `register_planned bool C` | `NN-SECURITY.md` frontmatter |
-| `accepted_risk` | `AR1` | its audit | `audit → security_audit R I`, `threat → threat R I`, `rationale str R I`, `accepted_by str R I`, `at date R I`; append-only | Accepted Risks Log |
+| `accepted_risk` | `AR1` | its audit | `audit → security_audit R I`, `threat → threat R I`, `rationale str R I`, `accepted_by str R I`, `at date H I`; append-only | Accepted Risks Log |
 | `audit_run` | `AU1` | its audit | `audit → security_audit R I`, `at ts H I`, `total int H I`, `closed int H I`, `open int H I`, `run_by str H I`; append-only | Security Audit Trail / `## Security Audit` |
 | enhancement of core's `validation_row` | | | `threat → threat`, `secure_behavior str` | VALIDATION.md Threat Ref, Secure Behavior |
 
 `accepted_risk` is **not** a human-only kind (plan 16 said it would be): the host refuses a human command's plan to
-create a human-only entity, so `accept_risk` could not write it. The person is the command's guard
-(`[accept-risk-human]`), not the kind's; an agent can still create one with `specforge new accepted_risk`. A kernel
-round that lets a human command write a human kind would close that.
+create a human-only entity, so `accept_risk` could not write it. Its `at` is a harness field instead, written only by
+`accept_risk` with its ledger line, and only a risk with an `at` counts (`[accepted-risk-not-human-kind]`): an agent's
+`specforge new accepted_risk` is refused `harness_field` with `--at` and accepts nothing without it. What is left is a
+hand edit of the `.spec` file with a forged ledger line (the digest has no secret). A kernel round that lets a human
+command write a human kind would close that.
 
 Every column of upstream's `templates/SECURITY.md` is a field above (`declaration.rs` pins the map).
 

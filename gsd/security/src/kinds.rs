@@ -97,8 +97,8 @@ pub const SECURITY_AUDIT: Kind = Kind::new(
 /// A line of the Accepted Risks Log, named `AR1` and scoped by its audit. A person's record: `accept_risk` is the
 /// human-attested command that writes it. The kind is not `human` (plan 16 said it would be): the host refuses a human
 /// command's plan to create a human-only entity ("write it in your editor"), so the command could not write it.
-/// `[accept-risk-human]` is therefore the command's guard, not the kind's; a kernel round could let a human command
-/// write a human kind.
+/// Instead `at` is a harness field only `accept_risk` writes, and only a risk with an `at` counts (`passes.rs`), so an
+/// agent's `specforge new accepted_risk` is no acceptance. A kernel round could let a human command write a human kind.
 pub const ACCEPTED_RISK: Kind = Kind::new(
     "accepted_risk",
     "A threat a person accepted (GSD Accepted Risks Log)",
@@ -107,7 +107,9 @@ pub const ACCEPTED_RISK: Kind = Kind::new(
         rf("threat", "threat").r().i().doc("`Threat Ref`"),
         str("rationale").r().i().doc("`Rationale`"),
         str("accepted_by").r().i().doc("`Accepted By`"),
-        date("at").r().i().doc("`Date`"),
+        date("at").h().i().doc(
+            "`Date`: set by `accept_risk` with its ledger line; a risk without it is no acceptance",
+        ),
     ],
 )
 .scoped_by("audit")

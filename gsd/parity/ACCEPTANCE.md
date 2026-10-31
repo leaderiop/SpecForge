@@ -119,10 +119,14 @@ Not verified:
   - `[blocking-needs-security]` the key `security.injection_blocking` belongs to `@gsd/security`; upstream lets any project set it.
   - `[fragment-repointed]` the planner's threat-model fragment names the kinds `trust_boundary` and `threat`, not a `<threat_model>` block of a PLAN.md.
   - `[audit-advisory-every-check]` `gsd.security/W301` fires on every `check`, not once at close (core has no close verb).
-  - `[accept-risk-human]` `accept_risk` is run by the person at a terminal (ADR 0301). `[accepted-risk-agent-creatable]`
+  - `[accept-risk-human]` `accept_risk` is run by the person at a terminal (ADR 0301). `[accepted-risk-not-human-kind]`
     `accepted_risk` is not a human-only kind: the host refuses a human command's plan when it would create a
-    human-only entity, so an agent can still `specforge new accepted_risk`. The attestation is the command's, not the
-    kind's; a candidate kernel change would let a human command create a human-only kind.
+    human-only entity. Its `at` is a harness field instead, set only by `accept_risk` with its ledger line, and only a risk
+    with an `at` counts: an agent's `specforge new accepted_risk` is refused `harness_field` with `--at` and accepts
+    nothing without it, so the ship gate stays shut (REVIEW-security-part2 M1). The limit left is a hand edit of the
+    `.spec` file plus a forged ledger line (the ledger digest has no secret, so it is an integrity check, not
+    authentication). A candidate kernel change, narrower than a new kind: a `human` command's plan may write a
+    human-only kind (`agent_facing` treats every command's plan as an agent's, `flags.rs`).
   - `[no-superseded-plans]` no superseded-plan exclusion in the duplicate scan: a superseded plan is removed in the core model.
   - `[stride-enum]` the STRIDE category is an enum of six words, not free text; the importer maps letters.
   - `[retro-threat-in-plan]` a retroactive threat is written into a plan of the phase with `retroactive: true`, not held in SECURITY.md only.

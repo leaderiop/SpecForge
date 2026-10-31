@@ -157,7 +157,9 @@ fn compute(input: &PassInput) -> PassOutput {
     let block_on = settings
         .string("workflow.security_block_on")
         .unwrap_or("high");
+    // only `accept_risk` sets `at`, so a risk without it is an agent's stub and accepts nothing
     let accepted: BTreeSet<&str> = of_kind(input, "accepted_risk")
+        .filter(|r| r.fields.contains_key("at"))
         .filter_map(|r| link(input, &r.id, "threat"))
         .collect();
     let mut values = Vec::new();

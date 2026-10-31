@@ -14,6 +14,8 @@ pub fn model() -> Project {
     p.record_harness(&run, "closed", "1");
     p.record_harness(&run, "open", "1");
     p.record_harness(&run, "run_by", "\"gsd-security-auditor\"");
+    // the accepted risk counts because `accept_risk` recorded its `at`
+    p.record_harness(&format!("{AUDIT}/AR1"), "at", "\"2026-10-30\"");
     p
 }
 

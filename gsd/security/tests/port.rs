@@ -199,3 +199,16 @@ fn the_hooks_line_asks_the_capability_extensions() {
         "VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" verify:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')"
     ));
 }
+
+/// REVIEW-security-part2 M1: step 4 option 2 must not tell the agent to close threats the person did not accept.
+#[test]
+fn the_secure_phase_text_does_not_close_accepted_threats() {
+    let workflow =
+        gsd_security::prompts::asset("gsd-core/workflows/secure-phase.md").expect("the workflow");
+    let option = workflow
+        .lines()
+        .find(|l| l.starts_with("2. \"Accept all open"))
+        .expect("option 2");
+    assert!(!option.contains("set all CLOSED"), "{option}");
+    assert!(option.contains("do not record it closed"), "{option}");
+}
