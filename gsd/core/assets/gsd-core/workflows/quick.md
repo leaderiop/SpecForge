@@ -443,35 +443,35 @@ ${ISOLATION === "harness-worktree" ? `
 ORCHESTRATOR build-time embed (NOT a sub-agent runtime step): before this dispatch, read \`gsd-core/references/worktree-branch-check.md\`, substitute \`{EXPECTED_BASE}\` with the base SHA captured above (${EXPECTED_BASE}), substitute \`{EXPECTED_BASE_ALTERNATE}\` with \`${QUICK_PLAN_PARENT}\` when it differs from \`${EXPECTED_BASE}\` (otherwise empty), and replace this note with that fragment's \`<worktree_branch_check>\` block so the dispatched prompt carries the runnable guard verbatim — do not pass this instruction through in its place.
 </worktree_branch_check>
 
-FIRST ACTION after the worktree branch check: confirm the quick plan reached this worktree before any Read/Edit/Write path can be primed. The plan is the entity \`plan ${quick_id}\` in \`spec/quick.spec\`, committed before dispatch, so the worktree inherits it through git and nothing is materialized. If \`spec/quick.spec\` at \`${QUICK_PLAN_COMMIT}\` does not declare it, stop:
+FIRST ACTION after the worktree branch check: make sure this worktree's own \`spec/quick.spec\` declares the quick plan \`plan ${quick_id}\` before any Read/Edit/Write path can be primed. The executor's graph is the worktree's \`spec/\`, so a plan that is only in the object store does not count: when the worktree was forked before the plan commit, restore \`spec/\` from \`${QUICK_PLAN_COMMIT}\`, and stop if the plan is still absent:
 
 \`\`\`bash
 QUICK_PLAN_COMMIT="${QUICK_PLAN_COMMIT}"
-if ! git show "${QUICK_PLAN_COMMIT}:spec/quick.spec" 2>/dev/null | grep -q "plan ${quick_id}"; then
-  echo "FATAL: spec/quick.spec at ${QUICK_PLAN_COMMIT} declares no plan ${quick_id}; refusing to continue." >&2
+QUICK_PLAN_DECL="^plan ${quick_id} "
+# The quick plan is the entity "plan ${quick_id}" in spec/quick.spec, read from this
+# worktree's own copy. A worktree forked from QUICK_PLAN_COMMIT has it already. One
+# forked from the alternate base QUICK_PLAN_PARENT (a stale origin/HEAD, #1265)
+# predates the pre-dispatch commit: restore spec/ from QUICK_PLAN_COMMIT, which brings
+# exactly that commit's spec delta, as upstream materializes its PLAN.md from the
+# shared object store (#4996). The anchored pattern matches the declaration only,
+# not another entity's "plan ${quick_id}" reference.
+if ! grep -q "$QUICK_PLAN_DECL" spec/quick.spec 2>/dev/null; then
+  git restore --source="${QUICK_PLAN_COMMIT}" --worktree -- spec 2>/dev/null &&
+    echo "restored spec/ from ${QUICK_PLAN_COMMIT}: this worktree predates the plan commit"
+fi
+# Still absent: the plan commit holds no plan either, so there is nothing to execute.
+if ! grep -q "$QUICK_PLAN_DECL" spec/quick.spec 2>/dev/null; then
+  echo "FATAL: spec/quick.spec declares no plan ${quick_id}, in this worktree or at ${QUICK_PLAN_COMMIT}; refusing to continue." >&2
   exit 42
 fi
-${DISCUSS_MODE ? `# --discuss: the context is entities in spec/, inherited by the worktree; nothing to materialize.
-` : ''}${RESEARCH_MODE ? `# --research: the findings are entities in spec/, inherited by the worktree; nothing to materialize.
+echo "plan ${quick_id}: $(git rev-parse --show-toplevel)/spec/quick.spec"
+# From here on, read the plan at that worktree-rooted path (or specforge query), never
+# through a path into the main checkout (CC #36182 path-resolution drift).
+${DISCUSS_MODE ? `# --discuss: the locked decisions are entities under spec/ (there is no CONTEXT.md),
+# committed with the plan: this worktree has them, or the restore above brought them.
+` : ''}${RESEARCH_MODE ? `# --research: the findings are entities under spec/ (there is no RESEARCH.md),
+# committed with the plan: this worktree has them, or the restore above brought them.
 ` : ''}\`\`\`
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ` : `
 <sequential_execution>
 You are running as a SEQUENTIAL executor agent on the main working tree (set SEQUENTIAL=true in your Step 0 commit guard; a linked worktree on the configured branch is allowed, #4799).

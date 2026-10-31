@@ -389,10 +389,10 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 141, 142),
     ("gsd-core/workflows/quick.md", 254, 254),
     ("gsd-core/workflows/quick.md", 265, 265),
-    // F8 (plan 02): the quick plan is `plan <id>` in spec/quick.spec, not a PLAN.md; the worktree steps commit `spec`
-    // and the executor checks the entity at QUICK_PLAN_COMMIT (nothing to materialize).
+    // F8 (plan 02): the quick plan is `plan <id>` in spec/quick.spec, not a PLAN.md; the worktree steps commit `spec`,
+    // and the executor checks its own spec/quick.spec, restoring spec/ from QUICK_PLAN_COMMIT when it lacks the plan.
     ("gsd-core/workflows/quick.md", 444, 444),
-    ("gsd-core/workflows/quick.md", 448, 472),
+    ("gsd-core/workflows/quick.md", 448, 471),
     ("gsd-core/workflows/quick.md", 637, 637),
     ("gsd-core/workflows/quick.md", 639, 639),
     ("gsd-core/workflows/quick.md", 641, 641),

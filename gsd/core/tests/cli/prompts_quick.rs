@@ -498,11 +498,8 @@ mod worktree {
         assert_eq!(parent, "", "a base was found for a plan no commit wrote");
     }
 
-    #[test]
-    fn the_executor_finds_the_plan_in_its_worktree_and_stops_without_it() {
-        if no_bash() {
-            return;
-        }
+    /// The executor's first-action block, from the rendered quick prompt.
+    fn first_action() -> String {
         let text = text_of(&payload(&prompt(&twin(), "quick", &[], "claude-code")));
         let lines: Vec<&str> = text.lines().collect();
         let first = lines
@@ -514,34 +511,50 @@ mod worktree {
                 .iter()
                 .position(|l| *l == "\\`\\`\\`bash")
                 .expect("its block");
-        let block = lines[open + 1..]
+        lines[open + 1..]
             .iter()
             .take_while(|l| !l.starts_with("${DISCUSS_MODE"))
             .copied()
             .collect::<Vec<_>>()
-            .join("\n");
+            .join("\n")
+    }
+
+    /// A `git worktree add` of `p` at `commit`, under `trees`.
+    fn worktree(p: &Project, trees: &Path, name: &str, commit: &str) -> std::path::PathBuf {
+        let tree = trees.join(name);
+        let tree_arg = tree.to_string_lossy().into_owned();
+        p.git(
+            &["worktree", "add", "-q", "-b", name, &tree_arg, commit],
+            AT,
+        );
+        tree
+    }
+
+    /// Runs the first-action `block` in `tree` with `QUICK_PLAN_COMMIT` = `commit`.
+    fn run_first_action(tree: &Path, block: &str, commit: &str) -> Output {
+        bash(
+            tree,
+            block,
+            &[
+                ("QUICK_PLAN_COMMIT", commit),
+                ("quick_id", ID),
+                ("QUICK_DIR", ID),
+            ],
+        )
+    }
+
+    #[test]
+    fn the_executor_finds_the_plan_in_its_worktree_and_stops_without_it() {
+        if no_bash() {
+            return;
+        }
+        let block = first_action();
         let p = project("empty");
         p.git_commit("chore: start", &[("README.md", "taskboard\n")], AT);
         let with = p.git_commit("docs: the plan", &[("spec/quick.spec", PLAN)], AT);
         let trees = tempfile::tempdir().expect("a temp dir");
-        let tree = trees.path().join("agent");
-        let tree_arg = tree.to_string_lossy().into_owned();
-        p.git(
-            &["worktree", "add", "-q", "-b", "agent", &tree_arg, &with],
-            AT,
-        );
-        let first_action = |commit: &str| {
-            bash(
-                &tree,
-                &block,
-                &[
-                    ("QUICK_PLAN_COMMIT", commit),
-                    ("quick_id", ID),
-                    ("QUICK_DIR", ID),
-                ],
-            )
-        };
-        let passed = first_action(&with);
+        let tree = worktree(&p, trees.path(), "agent", &with);
+        let passed = run_first_action(&tree, &block, &with);
         assert_eq!(
             passed.status.code(),
             Some(0),
@@ -559,7 +572,35 @@ mod worktree {
             "a file was written"
         );
         let without = p.git_commit("docs: no plan", &[("spec/quick.spec", "")], AT);
-        let refused = first_action(&without);
+        let bare = worktree(&p, trees.path(), "bare", &without);
+        let refused = run_first_action(&bare, &block, &without);
         assert_eq!(refused.status.code(), Some(42), "{refused:?}");
+    }
+
+    /// Review F8 item 1: a worktree forked from the alternate base (`QUICK_PLAN_PARENT`, a stale `origin/HEAD`) has no
+    /// plan in its own `spec/`; the first action restores it from the plan commit.
+    #[test]
+    fn a_worktree_forked_from_the_alternate_base_gets_the_plan_restored() {
+        if no_bash() {
+            return;
+        }
+        let block = first_action();
+        let p = project("empty");
+        let parent = p.git_commit("chore: start", &[("README.md", "taskboard\n")], AT);
+        let with = p.git_commit("docs: the plan", &[("spec/quick.spec", PLAN)], AT);
+        let trees = tempfile::tempdir().expect("a temp dir");
+        let tree = worktree(&p, trees.path(), "agent", &parent);
+        let passed = run_first_action(&tree, &block, &with);
+        assert_eq!(
+            passed.status.code(),
+            Some(0),
+            "{}",
+            String::from_utf8_lossy(&passed.stderr)
+        );
+        let own = std::fs::read_to_string(tree.join("spec/quick.spec")).unwrap_or_default();
+        assert!(
+            own.contains(&format!("plan {ID} ")),
+            "the worktree's own spec/quick.spec has no plan: {own:?}"
+        );
     }
 }
