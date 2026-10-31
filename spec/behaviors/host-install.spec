@@ -74,7 +74,7 @@ behavior run_a_hook "Run a Hook" {
     maps the answer to the host's protocol (ADR 0292). A trap, a timeout or a malformed answer applies the hook's
     on_failure policy. A hook that reads no graph and writes nothing is answered over the loaded environment, without a
     compile (ADR 0324). A hook that declares reads_git is told its repository's head (and status), and every path its
-    real path (ADR 0320).
+    real path (ADR 0320). file_changed fires when a file a hook names changes; Claude Code wires it (ADR 0321).
   """
   verify unit "the human guard denies a shell call that runs a human-attested command, from the served descriptors"
   verify unit "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the porcelain status"
@@ -100,6 +100,8 @@ behavior run_a_hook "Run a Hook" {
   verify unit "a refused state patch is reported and the files its command's plan wrote stay written"
   verify unit "each host reads its hook stdin into the neutral event and writes the neutral answer as the host expects it"
   verify unit "the SDK's hook builder declares hosts, git facts and other extensions' settings, and a call reads them"
+  verify unit "Claude Code wires a file_changed hook on FileChanged, matching the files by name, and reads the changed file and what happened"
+  verify unit "a file_changed hook fires for the file it names, with what happened to it"
   verify unit "Cursor wires a user_prompt hook on beforeSubmitPrompt and answers a denied prompt with continue false"
   verify unit "Cursor answers a denied tool call with permission deny, its reason to the user and the agent"
   verify unit "a hook whose event does not match exits before loading anything"

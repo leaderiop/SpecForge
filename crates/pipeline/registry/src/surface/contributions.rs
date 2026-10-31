@@ -202,11 +202,23 @@ impl Ctx<'_> {
                 hook.timeout_ms, self.ceiling_ms
             ));
         }
-        if !hook.event.takes_tools() && (!hook.tools.is_empty() || !hook.paths.is_empty()) {
+        if (!hook.event.takes_tools() && !hook.tools.is_empty())
+            || (!hook.event.takes_paths() && !hook.paths.is_empty())
+        {
             return Err(format!(
                 "the event '{}' takes no tools or paths",
                 hook.event.as_str()
             ));
+        }
+        if hook.event == specforge_protocol_types::HookEvent::FileChanged {
+            if hook.paths.is_empty() {
+                return Err("a file_changed hook names the files it watches in paths".into());
+            }
+            if let Some(glob) = hook.paths.iter().find(|p| p.contains(['*', '?', '[', '{'])) {
+                return Err(format!(
+                    "a file_changed hook's paths are file names, not globs: '{glob}'"
+                ));
+            }
         }
         self.tools(&hook.tools)?;
         if hook.writes && !hook.event.can_write() {

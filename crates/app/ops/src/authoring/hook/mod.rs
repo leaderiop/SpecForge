@@ -112,9 +112,13 @@ pub fn run(
             input: t.input.clone(),
         }),
         paths: {
-            let mut paths = tool
-                .map(|t| facts::path_facts(root, &cwd, &spec, &t.input))
-                .unwrap_or_default();
+            let mut paths = match (tool, &event.file) {
+                (Some(t), _) => facts::path_facts(root, &cwd, &spec, &t.input),
+                (None, Some(file)) => {
+                    facts::path_facts(root, &cwd, &spec, &serde_json::json!({ "file_path": file }))
+                }
+                (None, None) => Vec::new(),
+            };
             if let Some(history) = &history {
                 for fact in paths.iter_mut().filter(|f| !f.in_project) {
                     facts::outside_git(&**history, fact);
@@ -125,6 +129,7 @@ pub fn run(
         git: history
             .as_ref()
             .and_then(|h| facts::git(&**h, &cwd, declared.reads_git_status)),
+        change: event.change.clone(),
         shell: tool
             .filter(|t| t.class == "shell")
             .and_then(|t| facts::shell_words(&t.input)),

@@ -31,6 +31,7 @@ pub fn read(
         Some("SubagentStart") => HookEvent::SubagentStart,
         Some("SubagentStop") => HookEvent::SubagentStop,
         Some("PreCompact") => HookEvent::PreCompact,
+        Some("FileChanged") => HookEvent::FileChanged,
         Some(other) => {
             return Err(HookReadError(format!(
                 "{label} event '{other}' is not one a hook handles"
@@ -51,6 +52,8 @@ pub fn read(
         prompt: text("prompt"),
         response: v.get("tool_response").cloned(),
         status: (event == HookEvent::Statusline).then(|| v.clone()),
+        file: text("file_path").filter(|_| event == HookEvent::FileChanged),
+        change: text("event").filter(|_| event == HookEvent::FileChanged),
     })
 }
 
@@ -74,6 +77,7 @@ pub fn answer(event: &HostHookEvent, answer: &HookAnswer) -> HostReply {
         HookEvent::Stop => "Stop",
         HookEvent::SubagentStart => "SubagentStart",
         HookEvent::SubagentStop => "SubagentStop",
+        HookEvent::FileChanged => "FileChanged",
         _ => "",
     };
     let mut out = serde_json::Map::new();

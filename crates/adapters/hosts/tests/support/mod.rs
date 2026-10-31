@@ -134,6 +134,12 @@ pub fn fixture(host: Host) -> Rendered {
             hook("context_monitor", HookEvent::PostTool, &[], &[]),
             hook("session_cursor", HookEvent::SessionStart, &[], &[]),
             hook("record_hook", HookEvent::PostTool, &["write"], &["**"]),
+            hook(
+                "settings_reload",
+                HookEvent::FileChanged,
+                &[],
+                &["specforge.json"],
+            ),
             // The host's own hook, wired by every install (ADR 0292); the spec root is the project root here.
             RenderedHook {
                 route: "core.spec_guard".into(),

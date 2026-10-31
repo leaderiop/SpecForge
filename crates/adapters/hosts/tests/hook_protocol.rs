@@ -181,3 +181,40 @@ fn cursor_denies_a_tool_call_with_permission_deny() {
         );
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "run_a_hook",
+    verify = "Claude Code wires a file_changed hook on FileChanged, matching the files by name, and reads the changed file and what happened"
+)]
+fn claude_code_reads_and_answers_file_changed() {
+    let adapter = renderer(Host::ClaudeCode).unwrap();
+    let read = adapter
+        .read_event(
+            br#"{"hook_event_name":"FileChanged","cwd":"/p","session_id":"s","file_path":"/p/specforge.json","event":"change"}"#,
+        )
+        .unwrap();
+    assert_eq!(read.event, HookEvent::FileChanged);
+    assert_eq!(read.file.as_deref(), Some("/p/specforge.json"));
+    assert_eq!(read.change.as_deref(), Some("change"));
+    assert_eq!(
+        adapter.event_name(HookEvent::FileChanged),
+        Some("FileChanged")
+    );
+    let reply = answer_of(
+        Host::ClaudeCode,
+        HookEvent::FileChanged,
+        Decision::Allow,
+        "r",
+        "c",
+    );
+    assert_eq!(
+        reply,
+        serde_json::json!({"hookSpecificOutput": {"additionalContext": "c", "hookEventName": "FileChanged"}})
+    );
+    for host in [Host::Codex, Host::Cursor] {
+        assert_eq!(
+            renderer(host).unwrap().event_name(HookEvent::FileChanged),
+            None
+        );
+    }
+}

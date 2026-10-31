@@ -191,6 +191,8 @@ impl HostRenderer for Cursor {
             prompt: text("prompt"),
             response: v.get("tool_output").cloned(),
             status: None,
+            file: None,
+            change: None,
         })
     }
 

@@ -65,6 +65,14 @@ fn matcher(hook: &RenderedHook) -> Option<String> {
     if hook.event == HookEvent::PreCommit {
         return Some("Bash".into());
     }
+    if hook.event == HookEvent::FileChanged {
+        // Claude Code watches literal file names: the base name of each path (ADR 0321).
+        let bases = hook
+            .paths
+            .iter()
+            .map(|p| p.rsplit('/').next().unwrap_or(p).to_string());
+        return Some(unique(bases).join("|"));
+    }
     if !hook.event.takes_tools() || hook.tools.is_empty() {
         return None;
     }
@@ -224,7 +232,8 @@ impl HostRenderer for ClaudeCode {
             HookEvent::SubagentStop => "SubagentStop",
             HookEvent::PreCompact => "PreCompact",
             HookEvent::Statusline => "statusLine",
-            HookEvent::SubagentStart | HookEvent::FileChanged => return None,
+            HookEvent::FileChanged => "FileChanged",
+            HookEvent::SubagentStart => return None,
         })
     }
 

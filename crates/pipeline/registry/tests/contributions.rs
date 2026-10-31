@@ -144,6 +144,10 @@ fn a_contribution_the_registry_refuses_is_w021() {
             hook("wrong_export", "pre_tool", json!({"export": "cmd__wrong_export"})),
             hook("elsewhere", "pre_tool", json!({"hosts": ["windsurf"]})),
             hook("cursor_only", "pre_tool", json!({"hosts": ["cursor"]})),
+            hook("watch_nothing", "file_changed", json!({})),
+            hook("watch_with_tools", "file_changed", json!({"paths": ["specforge.json"], "tools": ["write"]})),
+            hook("watch_a_glob", "file_changed", json!({"paths": ["*.json"]})),
+            hook("watch_a_file", "file_changed", json!({"paths": ["specforge.json"]})),
         ],
     }))]);
     let messages = w021(&build);
@@ -161,6 +165,9 @@ fn a_contribution_the_registry_refuses_is_w021() {
         "not_bool",
         "wrong_export",
         "elsewhere",
+        "watch_nothing",
+        "watch_with_tools",
+        "watch_a_glob",
     ] {
         let hits = messages
             .iter()
@@ -175,7 +182,20 @@ fn a_contribution_the_registry_refuses_is_w021() {
             .any(|m| m.contains("its host 'windsurf' is not claude-code, codex or cursor")),
         "{messages:#?}"
     );
-    assert_eq!(asked::hooks(&build), ["fine", "cursor_only"]);
+    assert_eq!(
+        asked::hooks(&build),
+        ["fine", "cursor_only", "watch_a_file"]
+    );
+    for why in [
+        "a file_changed hook names the files it watches in paths",
+        "the event 'file_changed' takes no tools",
+        "a file_changed hook's paths are file names, not globs: '*.json'",
+    ] {
+        assert!(
+            messages.iter().any(|m| m.contains(why)),
+            "{why}: {messages:#?}"
+        );
+    }
 }
 
 #[specforge_test(

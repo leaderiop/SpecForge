@@ -208,3 +208,26 @@ fn a_hook_is_told_the_real_path_and_toplevel_of_an_outside_path() {
     let path = &run.input.unwrap()["paths"][0];
     assert_eq!(path["in_git_dir"], true, "{path}");
 }
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "a file_changed hook fires for the file it names, with what happened to it"
+)]
+fn a_file_changed_hook_fires_for_its_file_only() {
+    let project = project(json!({}), json!({}));
+    let args = ["--event", "file_changed", "--paths", "specforge.json"];
+    let changed = |file: &str| {
+        let event = json!({"hook_event_name": "FileChanged", "cwd": project.root(),
+                           "file_path": project.root().join(file), "event": "change"});
+        hook(&project, "t.settings_reload", "claude-code", &args, &event)
+    };
+    let run = changed("specforge.json");
+    assert_eq!(run.out.code, 0, "{}", run.out.stderr);
+    assert_eq!(
+        run.out.json()["hookSpecificOutput"]["additionalContext"],
+        "change specforge.json"
+    );
+    let run = changed("other.json");
+    assert_eq!(run.out.stdout, "");
+    assert!(run.exports.is_empty(), "{:?}", run.exports);
+}

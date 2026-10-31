@@ -10,7 +10,8 @@
 //!   `plan_phase` and the command `stats`; and the hooks `write_guard` (pre_tool write, `on_failure: deny`),
 //!   `injection_scan` (post_tool read), `isolation` (pre_tool agent, Claude Code only), `validate_commit` (pre_commit), `statusline`
 //!   (reads the graph and the state, patches the session), `context_monitor` (post_tool, reads the state),
-//!   `session_cursor` (session_start, patches the project state) and `record_hook` (post_tool write, answers a plan)
+//!   `session_cursor` (session_start, patches the project state), `record_hook` (post_tool write, answers a plan) and
+//!   `settings_reload` (file_changed `specforge.json`, answers what happened to which file)
 //! - [`UI`] (`@t/ui`, short name `t`, a peer of core): the agent `t-ui-checker` under `when: workflow.ui_phase`
 //!
 //! Every export answers from its input: `render__` answers a body naming the agent, the host and the variant (never
@@ -107,6 +108,7 @@ fn surfaces() -> Value {
             hook("context_monitor", "post_tool", json!({"reads_state": true, "reads_git_status": true})),
             hook("session_cursor", "session_start", json!({})),
             hook("record_hook", "post_tool", json!({"tools": ["write"], "writes": true, "paths": ["{spec_root}/**"]})),
+            hook("settings_reload", "file_changed", json!({"paths": ["specforge.json"]})),
         ],
     }])
 }
@@ -201,6 +203,11 @@ fn handle(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         },
         "hook__session_cursor" => json!({"state": {"project": {"cursor": "03"}}}),
         "hook__record_hook" => json!({}),
+        "hook__settings_reload" => json!({"context": format!(
+            "{} {}",
+            input["change"].as_str().unwrap_or(""),
+            input["paths"][0]["path"].as_str().unwrap_or("")
+        )}),
         "cmd__stats" => {
             json!({"exit_code": 0, "stdout": format!("{}\n", input["state"]), "stderr": ""})
         }

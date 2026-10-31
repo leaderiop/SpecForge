@@ -93,6 +93,18 @@
           }
         ]
       }
+    ],
+    "FileChanged": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.settings_reload --host claude-code --event file_changed --paths specforge.json # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "specforge.json"
+      }
     ]
   },
   "statusLine": {

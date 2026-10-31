@@ -249,6 +249,12 @@ pub struct HostHookEvent {
     pub response: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<Value>,
+    /// `file_changed`: the absolute path of the file that changed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
+    /// `file_changed`: what happened to it (`change`, `add` or `unlink`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change: Option<String>,
 }
 
 /// A hook's answer, neutral: what every adapter writes as its host expects.

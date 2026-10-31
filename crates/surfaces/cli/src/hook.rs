@@ -33,7 +33,7 @@ pub(crate) struct Args {
     host: String,
 
     /// The event the hook is wired to: pre_tool, post_tool, pre_commit, user_prompt, session_start, stop,
-    /// subagent_start, subagent_stop, pre_compact or statusline
+    /// subagent_start, subagent_stop, pre_compact, statusline or file_changed
     #[arg(long)]
     event: String,
 
