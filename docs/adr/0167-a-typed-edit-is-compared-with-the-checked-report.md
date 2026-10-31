@@ -1,6 +1,6 @@
 # A typed edit is compared with the checked report
 
-**Status:** accepted (2026-10-19, round 17, plan 03). Amends [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) D3 (what the edited project is compared with) and [ADR 0136](0136-every-session-update-goes-through-one-bracket.md) D4 (who may read the skipped-checks state). Keeps [ADR 0032](0032-one-graph-build.md)'s cold build for the edited compile and [ADR 0158](0158-an-edited-compile-and-a-migration-read-no-source-past-the-bound.md) D1. Amended by [ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) (a judged rule's finding is not an added error).
+**Status:** accepted (2026-10-19, round 17, plan 03). Amends [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) D3 (what the edited project is compared with) and [ADR 0136](0136-every-session-update-goes-through-one-bracket.md) D4 (who may read the skipped-checks state). Keeps [ADR 0032](0032-one-graph-build.md)'s cold build for the edited compile and [ADR 0158](0158-an-edited-compile-and-a-migration-read-no-source-past-the-bound.md) D1. Amended by [ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) (a judged rule's finding is not an added error). Amended by [ADR 0302](0302-a-judged-finding-is-the-judged-evaluations-own-and-an-extensions-finding-is-paired-by-its-subject.md) (E080 pairs an extension's finding by its subject).
 
 ## Context
 

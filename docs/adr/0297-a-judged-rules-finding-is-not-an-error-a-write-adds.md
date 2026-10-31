@@ -3,7 +3,7 @@
 **Status:** accepted (2026-10-29, kernel round K17, plan 07b). Extends [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md)
 and [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md). Amends
 [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) (D3), [ADR 0167](0167-a-typed-edit-is-compared-with-the-checked-report.md)
-and [ADR 0211](0211-a-migration-is-judged-by-the-errors-it-adds-whatever-its-graph.md). No protocol change.
+and [ADR 0211](0211-a-migration-is-judged-by-the-errors-it-adds-whatever-its-graph.md). No protocol change. Amended by [ADR 0302](0302-a-judged-finding-is-the-judged-evaluations-own-and-an-extensions-finding-is-paired-by-its-subject.md) (a judged finding is the evaluation's own) and [ADR 0303](0303-a-collectors-plan-is-judged-for-host-errors-only.md) (a collector's plan is judged for host errors only).
 
 ## Context
 

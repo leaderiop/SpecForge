@@ -1,7 +1,7 @@
 # An agent's write does not change a human-only entity or delete a person's value
 
 **Status:** accepted (2026-10-29, kernel round K17, plan 07b). Extends [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md)
-(D7, who writes a field). No protocol change.
+(D7, who writes a field). No protocol change. Extended by [ADR 0301](0301-a-human-attested-command-runs-only-for-a-person-at-a-terminal.md) (an agent cannot run a human-attested command).
 
 ## Context
 

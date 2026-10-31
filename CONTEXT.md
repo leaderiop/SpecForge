@@ -1636,7 +1636,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Write journal**: the record of a commit in progress; the next writer rolls an interrupted one back, and W167 reports
   one that is pending (ADR 0289).
 - **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
-  a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288).
+  a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288). A setting may be a `number` (a decimal within inclusive
+  bounds) and a bool setting may declare `gates_when_on` codes (ADR 0305).
 - **Preset**: a declared map from each value of an enum or bool setting to settings and raised codes; it raises
   severities upward only (ADR 0288).
 - **Gate**: a bool setting's list of codes; while it is false no source reports them (ADR 0288).
@@ -1665,7 +1666,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   resolved; its views carry it (`ProjectView::bounded_by`) and its caller lends it (ADR 0183). The CLI's and the LSP's is
   every path.
 - **Judged rule**: a rule of `check: "judged"` that holds while a fresh verdict of a passing outcome says so; it names
-  its judge, outcomes and per-kind inputs (ADR 0290).
+  its judge, outcomes and per-kind inputs (ADR 0290). A finding the rule reports is the judged evaluation's own; only
+  such a finding is exempt from E080 (ADR 0302).
 - **Verdict**: a `verdict <rule> <outcome> { … }` statement, an entity's own member written by `set_verdict`; not the
   registry's custom-rule pass or fail, and not a coverage verdict.
 - **Judgement**: where one judged rule stands on one entity: `fresh`, `stale`, `missing`, `unrecorded` or `unreadable`,
@@ -1684,3 +1686,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Settings set**: `specforge settings set` and `unset`, MCP `specforge.settings_set`: one setting of `specforge.json`
   admitted by its form (`specforge_project::admit`), never a secret, spliced into the file's text and written as one
   change under the write lock and the journal (ADR 0296).
+- **Human-attested command**: a command declared `human` (`CommandDescriptor.human`); the host runs it only for a
+  person at a terminal and refuses an agent's call, on every surface, with `human_only` (ADR 0301).
+- **Install record**: `.specforge/install/<host>.json`, what `specforge install` created (directories, files and
+  containers); uninstall removes only that (ADR 0306).

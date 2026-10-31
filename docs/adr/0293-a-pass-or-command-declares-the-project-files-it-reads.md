@@ -7,7 +7,7 @@
 (a check's reads are its inputs), [ADR 0287](0287-who-writes-a-field-is-declared.md) (compute and check passes),
 [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (the file digest a judged rule and a verdict
 already use) and [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (the hook globs and
-`PathFact`). Takes extension protocol 1.11.0. Extended by [ADR 0300](0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) (a compute pass at the baseline reads the commit's files).
+`PathFact`). Takes extension protocol 1.11.0. Extended by [ADR 0300](0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) (a compute pass at the baseline reads the commit's files). Extended by [ADR 0304](0304-a-judged-input-reads-a-path-field-goes-on-past-a-reference-and-a-pass-sees-the-tests-a-verdict-cites.md) (a `file()` input may end at a string path).
 
 ## Context
 
