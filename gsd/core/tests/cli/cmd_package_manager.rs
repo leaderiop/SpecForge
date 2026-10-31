@@ -21,9 +21,16 @@ fn resolve_package_manager_reads_the_project_root() {
             .trim_end(),
         "yarn test"
     );
-    // The packageManager field beats the lockfile; a lockfile below the root is not consulted.
-    p.write("package.json", r#"{"packageManager": "bun@1.1.0"}"#);
+    // A lockfile below the root is not consulted, even with no packageManager field to decide: pnpm's would win.
     p.write("sub/pnpm-lock.yaml", "lockfileVersion: 9\n");
+    assert_eq!(
+        gsd(&p, "resolve-package-manager", &["test"])
+            .stdout
+            .trim_end(),
+        "yarn test"
+    );
+    // The packageManager field beats the lockfile.
+    p.write("package.json", r#"{"packageManager": "bun@1.1.0"}"#);
     assert_eq!(
         gsd(&p, "resolve-package-manager", &["test"])
             .stdout
