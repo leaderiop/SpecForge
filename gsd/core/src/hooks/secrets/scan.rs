@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use super::git::{name_only, scan_git_config};
 use super::names::{last_segment, names_secret};
-use super::shell::{Kind, Token, tokenize};
+use super::shell::{Kind, Reading, Token, tokenize, with_reading};
 
 pub(super) const MAX_NESTING_DEPTH: usize = 3;
 
@@ -509,4 +509,21 @@ pub(super) fn find_secret_read(command: &str, depth: usize) -> Option<String> {
         }
     }
     None
+}
+
+/// The same scan under the other readings of a heredoc (#5513): bash 3.2's `$( )` span, then the earlier tag
+/// reading. Only a command that opens a heredoc can read differently, so any other is not scanned again.
+pub(super) fn find_secret_read_under_other_readings(command: &str) -> Option<String> {
+    if !command.contains("<<") {
+        return None;
+    }
+    [(false, true), (true, false)].into_iter().find_map(
+        |(bodies_skipped_in_spans, tags_as_words)| {
+            let r = Reading {
+                bodies_skipped_in_spans,
+                tags_as_words,
+            };
+            with_reading(r, || find_secret_read(command, 0))
+        },
+    )
 }

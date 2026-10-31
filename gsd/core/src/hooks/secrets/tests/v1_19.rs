@@ -389,3 +389,66 @@ fn a_bundled_value_is_judged_like_the_same_value_unbundled() {
         "bundled and unbundled differ: {differ:?}"
     );
 }
+
+/// `describe heredoc inside a command substitution (#5513)`.
+#[test]
+fn a_heredoc_inside_a_substitution_is_read_as_bash_reads_it() {
+    let mut rows: Vec<(String, Want)> = Vec::new();
+    for denied in [
+        "echo \"$(cat <<E$(x)F\nx\nE$(x)F\n)\"; cat .env",
+        "echo \"$(cat <<EOF\r\nx\nEOF\r\n)\"; cat .env",
+        "echo \"$(cat <<EOF\n)\"; cat .env; \"\nEOF\n)\"",
+        "echo \"$(cat <<E`x`F\nx\nE`x`F\n)\"; cat .env",
+        "echo \"$(cat <<E${x}F\nx\nE${x}F\n)\"; cat .env",
+        // The earlier tag reading is kept: bash never ends this heredoc, but it was denied and stays denied.
+        "cat <<EOF\r\nx\nEOF\ncat .env",
+        "cat <<EOF\r\ndata\r\nEOF\r\ncat .env",
+        "cat <<E$(x)F\ndata\nE$(x)F\ncat .env",
+    ] {
+        rows.push((denied.into(), read(".env")));
+    }
+    for allowed in [
+        "echo \"$(cat <<E$(x)F\nx\nE$(x)F\n)\"; echo ok",
+        "echo \"$(cat <<EOF\r\nx\nEOF\r\n)\"; echo ok",
+        "echo \"$(cat <<EOF\n)\"; echo ok; \"\nEOF\n)\"",
+        "cat <<EOF\ncat .env\nEOF",
+        "cat <<EOF\r\ncat .env\r\nEOF\r\n",
+        "cat <<E$(x)F\ncat .env\nE$(x)F",
+        "git commit -m \"$(cat <<'EOF'\nfix: handle the empty case\n\nBody line (with parens).\nEOF\n)\"",
+        "git commit -m \"$(cat <<'EOF'\r\nfix: x\r\nEOF\r\n)\"",
+    ] {
+        rows.push((allowed.into(), Want::Allow));
+    }
+    holds(rows);
+}
+
+/// Only a command that opens a heredoc can read differently: any other is not scanned again (`cat .env` would be
+/// denied by any scan, so `None` means none ran).
+#[test]
+fn no_heredoc_runs_one_reading() {
+    assert_eq!(
+        scan::find_secret_read_under_other_readings("cat .env"),
+        None
+    );
+    assert_eq!(
+        scan::find_secret_read_under_other_readings("cat <<EOF\nx\nEOF\ncat .env"),
+        Some(".env".into())
+    );
+}
+
+#[test]
+fn the_reading_is_restored_after_a_panic() {
+    let other = shell::Reading {
+        bodies_skipped_in_spans: false,
+        tags_as_words: false,
+    };
+    let caught = std::panic::catch_unwind(|| {
+        shell::with_reading(other, || {
+            assert!(!shell::reading().tags_as_words);
+            panic!("inside the reading")
+        })
+    });
+    assert!(caught.is_err());
+    let now = shell::reading();
+    assert!(now.bodies_skipped_in_spans && now.tags_as_words);
+}
