@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.11.0); `@gsd/core` 1.0.0 is built and tracks gsd-core 1.18.0: its model, checks, 15 agents, 30 commands, 44 prompts, 50 slash commands and 14 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: `gsd/W514` and `gsd/E515` are not built, hooks are 15 of 28, the `specforged` harness is later, Codex and Cursor are unrun). The other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.12.0); `@gsd/core` 1.0.0 is built and tracks gsd-core 1.18.0: its model, checks, 15 agents, 30 commands, 44 prompts, 50 slash commands and 14 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: hooks are 15 of 28, the `specforged` harness is later, Codex and Cursor are unrun). The other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -56,8 +56,9 @@ the rest of this folder keeps their K names.
 | K17 | [0297](../docs/adr/0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md), [0298](../docs/adr/0298-an-agent-does-not-change-or-delete-what-a-person-wrote.md) | a judged rule's finding is not an error a write adds, a collector's plan is judged with its report, and an agent does not change a human-only entity or delete a person's value |
 | K18 | [0299](../docs/adr/0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) | the graph a call receives carries the computed values and judgements every surface shows |
 | K19 | [0300](../docs/adr/0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) | a compute pass at the baseline reads the files the commit holds |
+| K20a | [0301](../docs/adr/0301-a-human-attested-command-runs-only-for-a-person-at-a-terminal.md)-[0306](../docs/adr/0306-install-refuses-an-unusable-specforge-json-and-uninstall-removes-only-what-install-created.md) | trust, verdicts, rules, settings and install safety |
 
-K20 is the queue of kernel items that still wait ("What still waits for kernel work" below); none of them is built.
+K20a is built (protocol 1.12.0). K20b and K20c are the queue of kernel items that still wait ("What still waits for kernel work" below); none of them is built.
 
 Building `@gsd/core` against them found six more gaps no model fix closes. They are a second kernel round (r35,
 protocol 1.11.0, now in the kernel), and the model cites them where it relies on them: **K11** a pass or command reads the project files
@@ -175,20 +176,8 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). What still waits for kernel work (K20):
+`previous_score` and compares scan states (r39 T13 is built). K20a is built: the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, and install and uninstall are safe. What still waits for kernel work (K20b, K20c):
 
-- **A person's answer is recorded by the caller (K20).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
-  `approve_validation`, `waive_window`, `dispose_refactor` and `pause` write the `H` fields of a person's reply, as
-  upstream's agent transcribes the conversation. Each requires a non-empty `--by` (an empty one is refused), but `--by`
-  is the caller's **attestation**, not a proof of a person: an agent can record any name (`set_uat_result` echoes it and
-  stores it nowhere, a `uat_test` has no `by`). So a gate that such a record satisfies (`gsd/W404`'s answered
-  `tdd_review` checkpoint, and the sign-offs r42's gates read) is an honest-agent gate. `override` and `debt_accepted`
-  stay human-only because no command writes them. A human-attested command kind (the host refuses an agent-facing call
-  and records the caller) is a K20 item; the ignored tests `cmd_attest` carry the desired behaviour.
-- **`gsd/E516` is subject-scoped at a command gate (K20).** The host keeps only the diagnostics that name an entity
-  inside the gate's subject, and E516 names the stale entity itself. So `start_plan <plan>` is refused by a stale
-  verdict inside that plan only, and `close_milestone` by one under the milestone only, not project-wide as the rule
-  reads. The fix is for the guard to name the subject (K20); an ignored test carries it.
 - **A command or prompt cannot read its extension's state (K20).** The host sends `state` to a `reads_state` command or
   prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So
   `/gsd-workstreams status` cannot name the active workstream and `--ws` is text. The fix is an SDK change, so a re-vendor.
@@ -205,8 +194,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   `git add -f`, nor `validate_commit` the staged files), a `file_changed` event (settings are read on every compile instead), a hook that runs
   without a full compile (every hook pays one), Cursor's `beforeSubmitPrompt` (`workflow_marker` is not rendered for
   Cursor), and a hook reading another extension's settings (`injection_scanner` is advisory, because
-  `security.injection_blocking` is `@gsd/security`'s). Also open: `specforge uninstall` leaves the empty host root
-  directory (the install crate).
+  `security.injection_blocking` is `@gsd/security`'s).
 - **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is
   untriaged (it answers `nothing new` and writes nothing, so a hook may call it on every phase event), as upstream
   freezes the anchor. It does not port upstream's anchor on first observation: the baseline is the score of the latest
@@ -216,44 +204,15 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   `specforge gsd help` lists the commands.
 - **A slash command's `when` takes one setting (K20).** A skill in two clusters follows its first, so disabling
   `utility` leaves `/gsd-help` (also `core_loop`) shown.
-- **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
-  `SettingDescriptor.gates_when_on`.
-- **A `file()` input names a file-reference field only.** `gsd/E501` and the plan checks read no file as an input,
-  because a plan, an artifact and a key link name files that do not exist yet and the host checks every file-reference
-  field for existence (E016). The verifier cites the files it read (`cited`); a file it did not cite can change
-  without staling its verdict. Likewise `gsd/E518`'s `requirements` input is every requirement: a selector cannot go
-  on past a reference (`phase.milestone.requirements`).
-- **A `number` setting type**, so the settings that accept decimals (`hooks.context_*_threshold`) are whole numbers.
 - **A JSON number for a top-level integer plan op**: gsd writes the decimal text (`collectors/git.rs`).
 - **`collect` re-keys short ids**: `gsd-junit` resolves `[gsd:<id>]` itself.
 - **The SDK exports `TriggerKind`**: `gates.rs` reads the kind by name.
-- **A collector's plan judged for host errors only** (REVIEW-r38 M1), for `gsd/E515` (`gsd-plus` only).
-- **What stays after K17.** `cited` defaults to `[]` and code files are not E501 inputs, so a verdict that cites no file
-  never goes stale on a code change; `check` is red from planning on, since gsd/E501 is an Error from the first planned
-  truth until it is verified; an agent cannot create an artifact through the CLI (`--path` is the CLI's own option); and
-  the kernel reports `(0 findings)` in every judged message (it counts a list of values, not of blocks). `gsd/E502`
-  counts the tests recorded for a truth (its `[gsd:<id>]` link), not the tests a verdict cites: a pass is not sent
-  `cited_tests`.
-- **What E502 guarantees today, and what it does not.** `gsd/E502` is enforced only through E080: a plan that records
-  `verified` over tests that fail the truth is refused, and the verifier records `failed`. It does not hold when (a) one
-  plan holds two `set_verdict` ops that swap an E502 (one clears an existing one, the other adds one on another truth:
-  E080 matches diagnostics by message shape with the digits collapsed, so the multiset is unchanged), which a verdict
-  recorded before K17 or a hand edit can make reachable; (b) `derive` reads a fresh `verified` as `Verified` whether or
-  not E502 stands, so a verification can read `passed` while the Error is reported (gates still fail on the Error, but
-  anything reading `status` does not); (c) `verification` (`explicit` or `backstop`) is agent-writable, so an agent can
-  turn the guard off for a truth before it records `verified` (the diff shows it, and the verdict goes stale when the
-  field flips). K20: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
-  with the predicate E502 uses; key E080's pairing by subject for pass codes; make `verification` human-only or
-  harness-only.
+- **What stays after K17.** `check` is red from planning on, since gsd/E501 is an Error from the first planned truth
+  until it is verified, and an agent cannot create an artifact through the CLI (`--path` is the CLI's own option).
 - **Hook facts and the install path (K20).** A hook is told the name of an out-of-project path, not its real path, so a
   symlink into the main checkout passes `worktree_path_guard`; it is not told a commit's `--cleanup`; a hook
-  contribution cannot name its hosts (Cursor gets the isolation guard's line, which does nothing there). A broken
-  `specforge.json` makes `specforge install` strip every gsd hook, agent and skill silently with exit 0 (`check` says
-  E069); uninstall removes a user's empty `settings.json`, empty `agents/` and `skills/` directories and
-  `"mcpServers": {}`. A host without `specforge` on its PATH runs no guard.
-- **A judged code reused by a pass (K20).** The registry refuses a declarative rule that shares a judged rule's code, not
-  a pass that `reports` it, nor a guard's fail-closed error for it: E080 exempts those findings (ADR 0297 D1b). No gsd
-  pass reports a judged code.
+  contribution cannot name its hosts (Cursor gets the isolation guard's line, which does nothing there). A host
+  without `specforge` on its PATH runs no guard.
 
 ## What is not in the program
 
@@ -261,7 +220,6 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 |---|---|---|
 | The other `@gsd/*` extensions (ai, ui, codebase, ops, security and the rest) | each is its own program; the 10 capabilities, 51 gate-cutover verdicts and 35 config keys they own are listed, not built | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 | Renderers for the other hosts (16 capabilities) | later install renderers | the capability table above |
-| W514 and E515 | no rule behind them yet | [ACCEPTANCE.md](parity/ACCEPTANCE.md), Codes |
 | 14 gate-cutover verdicts | 11 no twin reaches, 3 a twin answers differently | `core/tests/parity_rules/cutover.rs`, [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 | The `specforged` harness | `/gsd-autonomous` unattended; `claude-orchestration` and `external-job` have settings keys only | the capability table above |
 | The other extensions' commands and agents | 22 commands and 39 agents are owned by them | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |

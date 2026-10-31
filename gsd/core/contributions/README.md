@@ -336,4 +336,3 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
 - A host without `specforge` on its PATH runs no guard (exit 127 does not block).
 - Hook latency (p50, 20 events, taskboard): `write_guard` 0.13 s, `spec_guard` 0.16 s; the budget is enforced by
   `hooks_guards.rs`.
-- Uninstall leaves the empty host root directory (the install crate).

@@ -1,6 +1,6 @@
 # `@gsd/core` model
 
-**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the sixteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/W205` is judged by the phase researcher and `gsd/E202` and `gsd/W203` by the `spec_phase` prompt (r40)) the nine kinds of [plan.md](plan.md) with their non-judged rules (r37) and the seven kinds of [execute.md](execute.md) with `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408` and the two collectors (r38); the fourteen kinds of [verify.md](verify.md) with their computed values, the scan pass and the rules and gate guards listed in [rules.md](rules.md) (r39; `gsd/W514` and E502 wait; E501 is judged by the verifier (r40)); the rest is being designed. Tracks gsd-core 1.18.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
+**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the sixteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/W205` is judged by the phase researcher and `gsd/E202` and `gsd/W203` by the `spec_phase` prompt (r40)) the nine kinds of [plan.md](plan.md) with their non-judged rules (r37) and the seven kinds of [execute.md](execute.md) with `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408` and the two collectors (r38); the fourteen kinds of [verify.md](verify.md) with their computed values, the scan pass and the rules and gate guards listed in [rules.md](rules.md) (r39; E501 is judged by the verifier (r40)); the rest is being designed. Tracks gsd-core 1.18.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
 file of `.planning/` maps to kinds here or in a capability extension ([the file table](#every-gsd-file-maps-to-a-kind));
 nothing is kept as Markdown.
 
@@ -198,20 +198,8 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). What still waits for kernel work (K20):
+`previous_score` and compares scan states (r39 T13 is built). K20a is built (protocol 1.12.0): the six answer commands are a person's, a verdict is trusted against its tests and files, and install and uninstall are safe. What still waits for kernel work (K20b, K20c):
 
-- **A person's answer is recorded by the caller (K20).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
-  `approve_validation`, `waive_window`, `dispose_refactor` and `pause` write the `H` fields of a person's reply, as
-  upstream's agent transcribes the conversation. Each requires a non-empty `--by` (an empty one is refused), but `--by`
-  is the caller's **attestation**, not a proof of a person: an agent can record any name (`set_uat_result` echoes it and
-  stores it nowhere, a `uat_test` has no `by`). So a gate that such a record satisfies (`gsd/W404`'s answered
-  `tdd_review` checkpoint, and the sign-offs r42's gates read) is an honest-agent gate. `override` and `debt_accepted`
-  stay human-only because no command writes them. A human-attested command kind (the host refuses an agent-facing call
-  and records the caller) is a K20 item; the ignored tests `cmd_attest` carry the desired behaviour.
-- **`gsd/E516` is subject-scoped at a command gate (K20).** The host keeps only the diagnostics that name an entity
-  inside the gate's subject, and E516 names the stale entity itself. So `start_plan <plan>` is refused by a stale
-  verdict inside that plan only, and `close_milestone` by one under the milestone only, not project-wide as the rule
-  reads. The fix is for the guard to name the subject (K20); an ignored test carries it.
 - **A command or prompt cannot read its extension's state (K20).** The host sends `state` to a `reads_state` command or
   prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So
   `/gsd-workstreams status` cannot name the active workstream and `--ws` is text. The fix is an SDK change, so a re-vendor.
@@ -238,35 +226,12 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   `specforge gsd help` lists the commands.
 - **A slash command's `when` takes one setting (K20).** A skill in two clusters follows its first, so disabling
   `utility` leaves `/gsd-help` (also `core_loop`) shown.
-- **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
-  `SettingDescriptor.gates_when_on`.
-- **A `file()` input names a file-reference field only.** `gsd/E501` and the plan checks read no file as an input,
-  because a plan, an artifact and a key link name files that do not exist yet and the host checks every file-reference
-  field for existence (E016). The verifier cites the files it read (`cited`); a file it did not cite can change
-  without staling its verdict. Likewise `gsd/E518`'s `requirements` input is every requirement: a selector cannot go
-  on past a reference (`phase.milestone.requirements`).
-- **A `number` setting type**, so the settings that accept decimals (`hooks.context_*_threshold`) are whole numbers.
 - **A JSON number for a top-level integer plan op**: gsd writes the decimal text (`collectors/git.rs`).
 - **`collect` re-keys short ids**: `gsd-junit` resolves `[gsd:<id>]` itself.
 - **The SDK exports `TriggerKind`**: `gates.rs` reads the kind by name.
-- **A collector's plan judged for host errors only** (REVIEW-r38 M1), for `gsd/E515` (`gsd-plus` only).
 - **What stays after K17.** `cited` defaults to `[]` and code files are not E501 inputs, so a verdict that cites no file
   never goes stale on a code change; `check` is red from planning on, since gsd/E501 is an Error from the first planned
   truth until it is verified; an agent cannot create an artifact through the CLI (`--path` is the CLI's own option); and
   the kernel reports `(0 findings)` in every judged message (it counts a list of values, not of blocks). `gsd/E502`
   counts the tests recorded for a truth (its `[gsd:<id>]` link), not the tests a verdict cites: a pass is not sent
   `cited_tests`.
-- **What E502 guarantees today, and what it does not.** `gsd/E502` is enforced only through E080: a plan that records
-  `verified` over tests that fail the truth is refused, and the verifier records `failed`. It does not hold when (a) one
-  plan holds two `set_verdict` ops that swap an E502 (one clears an existing one, the other adds one on another truth:
-  E080 matches diagnostics by message shape with the digits collapsed, so the multiset is unchanged), which a verdict
-  recorded before K17 or a hand edit can make reachable; (b) `derive` reads a fresh `verified` as `Verified` whether or
-  not E502 stands, so a verification can read `passed` while the Error is reported (gates still fail on the Error, but
-  anything reading `status` does not); (c) `verification` (`explicit` or `backstop`) is agent-writable, so an agent can
-  turn the guard off for a truth before it records `verified` (the diff shows it, and the verdict goes stale when the
-  field flips). K20: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
-  with the predicate E502 uses; key E080's pairing by subject for pass codes; make `verification` human-only or
-  harness-only.
-- **A judged code reused by a pass (K20).** The registry refuses a declarative rule that shares a judged rule's code, not
-  a pass that `reports` it, nor a guard's fail-closed error for it: E080 exempts those findings (ADR 0297 D1b). No gsd
-  pass reports a judged code.

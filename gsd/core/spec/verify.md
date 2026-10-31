@@ -27,7 +27,7 @@ the item and its plan, the code the item or its plan names, and every file the v
 
 | GSD per-item status | Here |
 |---|---|
-| truth `verified`, `failed`, `uncertain`, `present_behavior_unverified`, `verified_coincidental` | the verifier's verdict on the truth; `verified` needs a passing test recorded for an `explicit` truth (gsd/E502: its `[gsd:<id>]` link; honest verifier) |
+| truth `verified`, `failed`, `uncertain`, `present_behavior_unverified`, `verified_coincidental` | the verifier's verdict on the truth; `verified` needs a passing test recorded for an `explicit` truth (gsd/E502: its `[gsd:<id>]` link, or a test the verdict's `cited_tests` names); a verified truth the tests contradict derives as not verified |
 | truth `passed_override` | an `override` entity, written by a human |
 | artifact `verified`, `orphaned`, `stub`, `missing`; data flow `flowing`, `static`, `disconnected`, `hollow_prop` | `missing`, `min_lines`, `contains` and `exports` are a pass over the file's facts (the file is absent, too short by upstream's `split('\n')` count, lacks the text or a name it exports, found by substring as upstream does); the rest are the verdict |
 | key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched in `from`, and in `to`, as upstream) when `pattern` is set, else the verdict |
@@ -93,7 +93,7 @@ The test being asked now is session state.
 | expected | str | R | expected behaviour |
 | criterion | int | | the phase success criterion it proves |
 | from_task | → task | | a harvested `<human-check>` |
-| result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by the caller through `set_uat_result --by` (an attestation, not a proof of a person: K20) |
+| result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by a person through `set_uat_result --by` (a human-attested command, ADR 0301: refused to an agent) |
 | source | enum{human, automated} | H | written by `set_uat_result`: given, or `human` when a re-answer replaces an earlier `source`; an automated result is one the caller marks `--source automated` (a pass or an issue), as a collector (DOM, e2e) would. A re-answer unsets the members its result does not take |
 | reported | str | | the human's words, verbatim, when `issue` |
 | severity | enum{blocker, major, minor, cosmetic} | | major when absent |
@@ -186,7 +186,7 @@ A harness field is never `R` (the DSL refuses it); the trigger that writes `scor
 
 Under `refactor.trigger_strict` the proposal also records a `deviation` window, cleared when the proposal is
 dispositioned, never when the score improves. With `workflow.windows_enforce` off that window cannot block ship;
-reporting that is gsd/W514, NOT BUILT (kernel: `SettingDescriptor.gates_when_on`).
+reporting that is gsd/W514 (gated while the setting is on).
 
 ## Known differences from GSD
 
