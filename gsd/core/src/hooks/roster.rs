@@ -30,12 +30,7 @@ pub const HOOK_ROSTER: &[(&str, Disposition)] = &[
     ),
     ("gsd-check-update-worker.js", Dropped(UPDATES)),
     ("gsd-check-update.js", Dropped(UPDATES)),
-    (
-        "gsd-config-reload.js",
-        Dropped(
-            "a FileChanged event has no hook event here (K20); settings are read on every compile",
-        ),
-    ),
+    ("gsd-config-reload.js", Hooks(&["config_reload"])),
     (
         "gsd-context-monitor.js",
         Hooks(&["context_monitor", "context_compacted"]),

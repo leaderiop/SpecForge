@@ -47,12 +47,12 @@ fn the_hook_roster_matches_upstreams_hooks() {
     let count = |f: fn(&Disposition) -> bool| HOOK_ROSTER.iter().filter(|(_, d)| f(d)).count();
     assert_eq!(
         count(|d| matches!(d, Disposition::Hooks(_))),
-        12,
+        13,
         "ported files"
     );
     assert_eq!(
         count(|d| matches!(d, Disposition::Dropped(_))),
-        11,
+        10,
         "dropped files (7 not ported, and the 3 Cursor renderings no hook feeds)"
     );
     assert_eq!(
@@ -147,7 +147,7 @@ fn every_declared_hook_is_valid() {
             .to_string();
         if !pre_post.contains(&event.as_str()) {
             assert!(
-                h.tools.is_empty() && h.paths.is_empty(),
+                h.tools.is_empty() && (event == "file_changed" || h.paths.is_empty()),
                 "{id}: tools or paths on {event}"
             );
         }

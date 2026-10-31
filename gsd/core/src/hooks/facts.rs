@@ -63,6 +63,8 @@ pub struct Facts<'a> {
     pub status: Option<Value>,
     /// A hook that declares `reads_state`: the project's state.
     pub project_state: serde_json::Map<String, Value>,
+    /// `file_changed`: what happened to the file (`change`, `add` or `unlink`).
+    pub change: Option<String>,
     /// A hook that declares `reads_graph`.
     pub graph: Option<&'a CommandGraph>,
     /// A hook that declares `reads_git`: none outside a repository.
@@ -110,6 +112,7 @@ impl<'a> Facts<'a> {
             session_state: f.state.as_ref().and_then(|s| s.session.clone()),
             session: f.session.clone(),
             status: f.status.clone(),
+            change: f.change.clone(),
             project_state: f
                 .state
                 .as_ref()

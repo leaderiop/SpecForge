@@ -11,7 +11,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 |---|---|---|---|---|---|---|
 | Commands | 72 | 50 | 22 | 0 | 0 | `core/tests/common/roster.rs` |
 | Agents | 64 | 25 | 39 | 0 | 0 | `core/src/agents/roster.rs` |
-| Hooks | 28 | 15 | 0 | 11 | 2 | `core/src/hooks/roster.rs` |
+| Hooks | 28 | 16 | 0 | 10 | 2 | `core/src/hooks/roster.rs` |
 | Capabilities | 45 | 17 | 10 | 0 | 18 | `core/README.md` capability table |
 | Workflows and references | 295 | 233 | 53 | 9 | 0 | `core/tests/parity_roster/assets.rs` |
 | CLI modules | 282 | 168 | 22 | 92 | 0 | `core/tests/parity_roster/modules.rs` |
@@ -28,8 +28,8 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   to the other extensions. The `parity_roster` check fails on a command the snapshot has and the roster lacks.
 - Agents: 25 of the 64 items (the core agents and their compact forms) are embedded and installed; the other 39 belong
   to `@gsd/ai`, `@gsd/ui`, `@gsd/codebase` and `@gsd/ops`.
-- Hooks: 15 of the 28 upstream hook items are built (12 files ported as 14 hooks of `@gsd/core`, and the 3 Cursor
-  renderings of events they port); 11 are dropped, each with its reason in `hooks/roster.rs` (8 not ported, among them the
+- Hooks: 16 of the 28 upstream hook items are built (13 files ported as 15 hooks of `@gsd/core`, and the 3 Cursor
+  renderings of events they port); 10 are dropped, each with its reason in `hooks/roster.rs` (7 not ported, among them the
   agent isolation guard, and the
   Cursor `stop`, `subagent-start` and `subagent-stop` files, which no hook of ours feeds); the 2 Windsurf files are
   named and open (Windsurf is a later host). `core.spec_guard` is the kernel's and is

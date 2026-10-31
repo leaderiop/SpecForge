@@ -282,7 +282,7 @@ fn golden_install(host: &str, hooks: usize, missing: &[&str]) {
 /// P6: the install writes 67 paths and the gsd hook lines on each host.
 #[test]
 fn install_tree_golden_claude_code() {
-    golden_install("claude-code", 9, &[]);
+    golden_install("claude-code", 10, &[]);
     let (p, _home, _) = first_install("claude-code");
     let settings: Value = serde_json::from_str(&read(&p, ".claude/settings.json")).expect("JSON");
     assert!(settings["statusLine"].is_object(), "{settings}");
@@ -296,13 +296,21 @@ fn install_tree_golden_claude_code() {
 
 #[test]
 fn install_tree_golden_codex() {
-    golden_install("codex", 8, &["injection_scanner", "statusline"]);
+    golden_install(
+        "codex",
+        8,
+        &["config_reload", "injection_scanner", "statusline"],
+    );
 }
 
 #[test]
 fn install_tree_golden_cursor() {
     // The prompt marker is rendered since ADR 0322 (Cursor's beforeSubmitPrompt): 8 lines, 2 not taken.
-    golden_install("cursor", 8, &["context_compacted", "statusline"]);
+    golden_install(
+        "cursor",
+        8,
+        &["config_reload", "context_compacted", "statusline"],
+    );
 }
 
 #[test]

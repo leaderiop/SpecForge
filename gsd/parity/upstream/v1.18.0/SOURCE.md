@@ -579,3 +579,11 @@ All 171 verdicts of `tests/fixtures/gate-cutover/` at the tag, copied byte for b
 | Set | sha256 |
 |---|---|
 | `sha256sum gate-cutover/*.json \| sha256sum` (sorted by name) | `037ca7bbe1f52abda41e97eaf58d83b8bff5a49a2f9fdb28fe7b23c8e11286f9` |
+
+## K20c T18: the config reload
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook (read by `gsd/core/src/hooks/config.rs`'s header only; upstream has no suite for it). Its `lib/hook-exit.js` is not vendored: a hook here does not exit.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-config-reload.js` | `6a2c579e2709c76bd753e1de94ccc0d7bb16cefa47b0ef482f847add24315b6f` |

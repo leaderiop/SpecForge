@@ -289,6 +289,8 @@ fn event_for(p: &Project, host: &str, route: &str) -> String {
         "gsd.workflow_marker" => json!({"hook_event_name": "UserPromptSubmit", "session_id": "s1", "cwd": cwd, "prompt": "/gsd-fast x"}).to_string(),
         "gsd.context_compacted" => json!({"hook_event_name": "PreCompact", "session_id": "s1", "cwd": cwd}).to_string(),
         "gsd.session_state" => session_event(p, host),
+        "gsd.config_reload" => json!({"hook_event_name": "FileChanged", "session_id": "s1", "cwd": cwd, "event": "change",
+                                      "file_path": p.root().join("specforge.json")}).to_string(),
         "gsd.statusline" => json!({"session_id": "s1", "cwd": cwd, "model": {"display_name": "Opus 4"}}).to_string(),
         _ => tool("pre", "write", &file),
     }
@@ -303,7 +305,7 @@ fn every_installed_hook_answers() {
         "workflow.use_worktrees": true,
     }));
     let home = installed(&p);
-    for (host, lines) in [("claude-code", 13), ("codex", 12), ("cursor", 12)] {
+    for (host, lines) in [("claude-code", 14), ("codex", 12), ("cursor", 12)] {
         let commands: Vec<String> = all_commands(&p, host)
             .into_iter()
             .filter(|c| c.contains("specforge hook gsd."))

@@ -280,6 +280,10 @@
         {
           "what": "hook gsd.statusline",
           "why": "Cursor has no statusline event this adapter can verify"
+        },
+        {
+          "what": "hook gsd.config_reload",
+          "why": "Cursor has no file_changed event this adapter can verify"
         }
       ]
     }

@@ -4,6 +4,7 @@
 #[cfg(test)]
 mod accounting;
 mod community;
+mod config;
 mod context;
 #[cfg(test)]
 mod corpus;
@@ -27,4 +28,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     context::declare(c);
     statusline::declare(c);
     community::declare(c);
+    config::declare(c);
 }
