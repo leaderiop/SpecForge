@@ -1,11 +1,10 @@
 //! `specforge prompt <short>.<id> [arguments]`: render an extension's prompt (ADR 0291). The words after the name are
 //! the prompt's arguments as its declaration reads them (`specforge_ops::extension::prompt::args`): a required
-//! argument is positional, any other is `--<name> <value>`, a bool is `--<name>`. The host's own options, `--host`,
-//! `--format` and `--path`, are read wherever they stand before the first `--`, except `--format` and `--path` of a prompt
-//! that declares an argument of that name (ADR 0314). `specforge <short> <id>` renders the same prompt when no
-//! command of the extension has the name ([`crate::extension_command`]).
-
-use std::path::Path;
+//! argument is positional, any other is `--<name> <value>`, a bool is `--<name>`. Two boundaries (ADR 0314): the
+//! host's own options, `--host`, `--format` and `--path`, stand before the first `--`, which ends them and is
+//! removed; everything after it is the prompt's input and can never set a host option. A second `--` is the
+//! prompt's own boundary, after which every word is plain text. `specforge <short> <id>` renders the same prompt
+//! when no command of the extension has the name ([`crate::extension_command`]).
 
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::project::ProjectArg;
@@ -24,8 +23,12 @@ pub(crate) struct Args {
     name: String,
 
     /// The prompt's arguments, as `specforge <extension> <command>` takes a command's
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    #[arg(allow_hyphen_values = true)]
     arguments: Vec<String>,
+
+    /// The prompt's input after the host's `--`; a second `--` ends the prompt's options too
+    #[arg(last = true)]
+    text: Vec<String>,
 
     /// The host to render for: claude-code, codex or cursor
     #[arg(long)]
@@ -39,53 +42,44 @@ pub(crate) struct Args {
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let mut rest = self.arguments;
-        // The options the host owns stand before the first `--`; after it every word is the prompt's.
-        let before = rest.iter().position(|w| w == "--").unwrap_or(rest.len());
-        let named_path = rest[..before]
+    /// The words after the name as the prompt's renderer reads them ([`served`]): clap takes a leading `--` for its
+    /// own, so it is put back, and `--host` stands before the first `--`, the host's boundary.
+    pub(crate) fn words(&self) -> Vec<String> {
+        let mut rest = self.arguments.clone();
+        if !self.text.is_empty() {
+            rest.push("--".to_string());
+            rest.extend(self.text.iter().cloned());
+        }
+        if let Some(host) = &self.host {
+            let before = rest.iter().position(|w| w == "--").unwrap_or(rest.len());
+            rest.splice(before..before, ["--host".to_string(), host.clone()]);
+        }
+        rest
+    }
+
+    /// The project: the one a `--path` before the first `--` names, else the leading `--path` clap read. A `--path`
+    /// after the `--` is the prompt's, and never moves the project (ADR 0314).
+    pub(crate) fn project_of(&self, words: &[String]) -> ProjectArg {
+        let before = words.iter().position(|w| w == "--").unwrap_or(words.len());
+        let host = &words[..before];
+        if host
             .iter()
-            .any(|w| w == "--path" || w.starts_with("--path="));
-        // A prompt that declares `path` owns `--path`: the project is then the one `--path` did not name.
-        let project = if named_path {
-            match self.project.compile() {
-                Ok(project) if declares(&project, &self.name, "path") => Ok(project),
-                _ => ProjectArg::scan(&rest[..before]).compile(),
-            }
-        } else if self.project.path() != Path::new(".") {
-            // A `--path` that opens the arguments is read by clap as the host's: the current directory's prompt that
-            // declares `path` owns it, and gets it back as its own argument.
-            match ProjectArg::scan(&[]).compile() {
-                Ok(project) if declares(&project, &self.name, "path") => {
-                    let given = self.project.path().display().to_string();
-                    rest.splice(0..0, ["--path".to_string(), given]);
-                    Ok(project)
-                }
-                _ => self.project.compile(),
-            }
+            .any(|w| w == "--path" || w.starts_with("--path="))
+        {
+            ProjectArg::scan(host)
         } else {
-            self.project.compile()
-        };
-        let before = rest.iter().position(|w| w == "--").unwrap_or(rest.len());
-        let project = match project {
+            self.project.clone()
+        }
+    }
+
+    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+        let rest = self.words();
+        let project = match self.project_of(&rest).compile() {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
-        if let Some(host) = self.host {
-            rest.splice(before..before, ["--host".to_string(), host]);
-        }
         run_in(&project, &self.name, rest, self.output.format, terminal)
     }
-}
-
-/// Whether the prompt `name` (`<short>.<id>`) of `project` declares an argument `arg`.
-fn declares(project: &CompiledProject, name: &str, arg: &str) -> bool {
-    let view = ProjectView::of(project);
-    let (short, id) = name.split_once('.').unwrap_or(("", name));
-    let cli_name = specforge_protocol_types::command_args::option_name(id);
-    ExtensionPrompts::build(&view)
-        .by_cli_name(short, &cli_name)
-        .is_some_and(|p| p.declaration().args.iter().any(|a| a.name == arg))
 }
 
 /// Remove `--<name> <value>` or `--<name>=<value>` from `words` before the first `--`, and give the value; `Err`
@@ -144,17 +138,11 @@ pub(crate) fn served(
         }
         return Exit::Unjudged;
     };
-    // A prompt's own `path` and `format` arguments are left to it (ADR 0314).
-    let declared = |name: &str| prompt.declaration().args.iter().any(|a| a.name == name);
+    // The host's options stand before the first `--`; that `--` is the host's, and ends them (ADR 0314). A second
+    // one is the prompt's own, and is left for it.
     let mut options = || -> Result<(Option<String>, Option<String>), String> {
-        if !declared("path") {
-            take(&mut rest, "path")?;
-        }
-        let chosen = if declared("format") {
-            None
-        } else {
-            take(&mut rest, "format")?
-        };
+        take(&mut rest, "path")?;
+        let chosen = take(&mut rest, "format")?;
         Ok((chosen, take(&mut rest, "host")?))
     };
     let (chosen, host) = match options() {
@@ -185,6 +173,9 @@ pub(crate) fn served(
         },
         None => None,
     };
+    if let Some(at) = rest.iter().position(|w| w == "--") {
+        rest.remove(at);
+    }
     match render(&view, prompt, PromptArgs::Words(&rest), host) {
         Ok(rendered) => {
             match format {

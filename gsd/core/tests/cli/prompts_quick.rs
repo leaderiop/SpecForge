@@ -94,7 +94,7 @@ fn quick_renders_for_three_hosts() {
         &twin(),
         "quick",
         &args,
-        "--full --validate --discuss --research trim titles",
+        "trim titles --full --validate --discuss --research",
         "<purpose>",
     );
 }
@@ -141,7 +141,7 @@ fn quick_takes_its_task_bare() {
         &twin(),
         "quick",
         &["--full", "fix", "it"],
-        "<arguments>--full fix it</arguments>",
+        "<arguments>fix it --full</arguments>",
         "<purpose>",
     );
     // by name it is the same tail
@@ -271,6 +271,45 @@ fn quick_dispatches_on_the_subcommand_words() {
     }
     let run = prompt(&p, "quick", &["--list"], "claude-code");
     assert_ne!(run.code, 0, "list is a word, not an option: {}", run.all());
+}
+
+/// REVIEW-k20b m9: a flag does not move the subcommand words, so the block still starts with `resume`.
+#[test]
+fn quick_dispatches_on_a_subcommand_with_a_flag() {
+    let p = twin();
+    for (args, shown) in [
+        (
+            vec!["resume", "abc", "--research"],
+            "<arguments>resume abc --research</arguments>",
+        ),
+        (
+            vec!["status", "abc", "--full"],
+            "<arguments>status abc --full</arguments>",
+        ),
+    ] {
+        let text = text_of(&payload(&prompt(&p, "quick", &args, "claude-code")));
+        assert!(text.contains(shown), "{args:?}: no {shown}");
+    }
+}
+
+/// REVIEW-k20b m9: a task that names an option is text after the prompt's own `--` (the second one, the first being
+/// the host's), and is refused without it.
+#[test]
+fn a_task_naming_an_option_is_taken_after_the_prompt_boundary() {
+    let p = twin();
+    let run = |words: &[&str]| prompt(&p, "quick", words, "claude-code");
+    let text = text_of(&payload(&run(&["add", "a", "--", "--dry-run", "flag"])));
+    assert!(
+        text.contains("<arguments>add a --dry-run flag</arguments>"),
+        "{text}"
+    );
+    let refused = run(&["add", "a", "--dry-run", "flag"]);
+    assert_eq!(refused.code, 2, "{}", refused.all());
+    assert!(
+        refused.stderr.contains("no such option"),
+        "{}",
+        refused.all()
+    );
 }
 
 /// REVIEW-r43 Minor 7: the quick id is made once (the init block's), and a `git.quick_branch_template` has its `{num}`

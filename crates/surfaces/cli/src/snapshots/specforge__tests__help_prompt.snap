@@ -4,7 +4,7 @@ expression: command.clone().render_long_help().to_string()
 ---
 Render an extension's prompt: `specforge prompt <extension>.<prompt> [arguments]`
 
-Usage: specforge prompt [OPTIONS] <NAME> [ARGUMENTS]...
+Usage: specforge prompt [OPTIONS] <NAME> [ARGUMENTS]... [-- <TEXT>...]
 
 Arguments:
   <NAME>
@@ -12,6 +12,9 @@ Arguments:
 
   [ARGUMENTS]...
           The prompt's arguments, as `specforge <extension> <command>` takes a command's
+
+  [TEXT]...
+          The prompt's input after the host's `--`; a second `--` ends the prompt's options too
 
 Options:
       --host <HOST>

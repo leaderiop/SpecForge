@@ -146,7 +146,6 @@ fn quoted(value: &str) -> String {
 /// The argument text for `values` (name -> JSON), in the order of `args`.
 pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> String {
     let mut words: Vec<String> = Vec::new();
-    let mut tail = None;
     for arg in args {
         let Some(value) = values(arg.name) else {
             continue;
@@ -167,12 +166,11 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
             }
             (Kind::Integer, Value::Number(n)) => words.push(format!("{option} {n}")),
             (Kind::OneOf(_), Value::String(word)) => words.push(format!("{option} {word}")),
-            // Bare and last, wherever the argument stands in the table.
-            (Kind::Rest, Value::String(text)) if !text.is_empty() => tail = Some(text.clone()),
+            // Bare, where the argument stands in the table: quick's is first, so `resume abc` still opens the block.
+            (Kind::Rest, Value::String(text)) if !text.is_empty() => words.push(text.clone()),
             _ => {}
         }
     }
-    words.extend(tail);
     words.join(" ")
 }
 

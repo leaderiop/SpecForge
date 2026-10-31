@@ -117,6 +117,8 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "the SDK declares a prompt's free-text tail as a string argument"
   verify unit "a prompt's own path and format arguments reach it on the command line"
   verify unit "the host reads its options before the first double dash only"
+  verify unit "the fallback line an install writes leaves the host's options in the text to the prompt"
+  verify unit "a path in the prompt's text never moves the project, and a leading path names it"
   verify unit "a prompt with an optional subject and none given renders for the subject its export picks"
   verify unit "a picked subject meets the prompt's gate, and a given subject wins over the pick"
   verify unit "a picked subject must be an entity of the subject argument's kind, else the answer is E028"

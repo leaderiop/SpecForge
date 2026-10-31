@@ -85,11 +85,11 @@ fn quick_plan_text(quick_id_is: &str) -> String {
 }
 
 const QUICK_ARGS: &[Arg] = &[
+    Arg::rest("task"),
     Arg::flag("full"),
     Arg::flag("validate"),
     Arg::flag("discuss"),
     Arg::flag("research"),
-    Arg::rest("task"),
 ];
 
 static QUICK: Spec = Spec {

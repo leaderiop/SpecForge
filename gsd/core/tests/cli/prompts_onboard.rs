@@ -62,7 +62,7 @@ fn ingest_docs_renders_for_three_hosts() {
         &p,
         "ingest_docs",
         &args,
-        "--mode merge --resolve auto docs",
+        "docs --mode merge --resolve auto",
         "INGEST DOCS",
     ) {
         let got = steps(&rendered);
@@ -102,6 +102,67 @@ fn ingest_docs_takes_a_path() {
         "{}",
         run.stdout
     );
+}
+
+/// REVIEW-k20b m1: a `--path` names the project whatever the current directory is. Here the current directory is a
+/// project whose `ingest_docs` declares `path`, which once took the option for its own argument.
+#[test]
+fn a_path_names_the_project_when_the_cwd_is_another() {
+    let (here, other) = (twin(), twin());
+    let root = other.root().display().to_string();
+    let run = here.run(&[
+        "prompt",
+        "--path",
+        &root,
+        "gsd.ingest_docs",
+        "--host",
+        "claude-code",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        !run.stdout.contains(&root),
+        "the path became an argument: {}",
+        run.stdout
+    );
+    let run = here.run(&[
+        "gsd",
+        "ingest-docs",
+        "--path",
+        &root,
+        "--host",
+        "claude-code",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        !run.stdout.contains(&root),
+        "the path became an argument: {}",
+        run.stdout
+    );
+    // The prompt's own path is the text after the host's `--`.
+    let run = here.run(&[
+        "prompt",
+        "gsd.ingest_docs",
+        "--host",
+        "claude-code",
+        "--",
+        "docs/adr",
+    ]);
+    assert!(
+        run.stdout.contains("<arguments>docs/adr</arguments>"),
+        "{}",
+        run.all()
+    );
+}
+
+/// REVIEW-k20b m1: a command with `--path` loads the project it names only; a current directory whose
+/// `specforge.json` is broken does not refuse it.
+#[test]
+fn a_command_with_path_loads_one_project() {
+    let (here, other) = (twin(), twin());
+    here.write("specforge.json", "{ not json");
+    let root = other.root().display().to_string();
+    let run = here.run(&["gsd", "smart-entry", "--path", &root]);
+    assert_eq!(run.code, 0, "{}", run.all());
 }
 
 #[test]

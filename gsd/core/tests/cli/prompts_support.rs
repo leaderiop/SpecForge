@@ -20,12 +20,20 @@ const FORBIDDEN: [&str; 7] = [
     "$HOME/.claude/gsd-core",
 ];
 
-/// `specforge prompt gsd.<id> <args> --host <host> --format json`.
+/// `specforge prompt gsd.<id> --host <host> --format json -- <args>`: the line an installed skill writes, whose first
+/// `--` ends the host's options (REVIEW-k20b M2).
 pub fn prompt(p: &Project, id: &str, args: &[&str], host: &str) -> Run {
     let name = format!("gsd.{id}");
-    let mut all = vec!["prompt", name.as_str()];
+    let mut all = vec![
+        "prompt",
+        name.as_str(),
+        "--host",
+        host,
+        "--format",
+        "json",
+        "--",
+    ];
     all.extend_from_slice(args);
-    all.extend_from_slice(&["--host", host, "--format", "json"]);
     p.run(&all)
 }
 
