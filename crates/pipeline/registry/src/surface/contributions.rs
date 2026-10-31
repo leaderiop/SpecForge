@@ -227,6 +227,21 @@ impl Ctx<'_> {
             }
         }
         self.tools(&hook.tools)?;
+        for entry in &hook.reads_settings {
+            match entry.split_once(':') {
+                Some((own, _)) if own == self.extension => {
+                    return Err(format!(
+                        "its reads_settings '{entry}' names its own extension: read it with Settings::current"
+                    ));
+                }
+                Some((ext, name)) if !ext.is_empty() && !name.is_empty() => {}
+                _ => {
+                    return Err(format!(
+                        "its reads_settings '{entry}' is not <extension>:<setting>"
+                    ));
+                }
+            }
+        }
         if hook.writes && !hook.event.can_write() {
             return Err(format!(
                 "the event '{}' cannot answer a plan, yet it declares writes",

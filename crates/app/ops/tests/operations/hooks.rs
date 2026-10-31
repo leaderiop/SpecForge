@@ -328,3 +328,22 @@ fn a_shell_tool_is_told_its_commands() {
     );
     assert!(input["commit"].get("cleanup").is_none());
 }
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "a hook is sent the value of another extension's setting it names, and nothing of a setting or extension that is absent"
+)]
+fn a_hook_reads_another_extensions_setting() {
+    let task = |settings| {
+        let hosted = hosted(hosts_project(json!({}), settings), GsdHosts::new());
+        let event = json!({"event": "pre_tool", "host": "claude-code", "session": "s1",
+                           "tool": {"class": "agent", "name": "Task", "input": {}}});
+        run_hook(&hosted, "isolation", &event);
+        hosted.input("hook__isolation")["other_settings"].clone()
+    };
+    assert_eq!(
+        task(json!({"workflow.ui_phase": true})),
+        json!({"@t/ui:workflow.ui_phase": true})
+    );
+    assert_eq!(task(json!({})), json!({"@t/ui:workflow.ui_phase": false}));
+}

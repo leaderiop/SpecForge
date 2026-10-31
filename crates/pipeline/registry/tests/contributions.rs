@@ -148,6 +148,9 @@ fn a_contribution_the_registry_refuses_is_w021() {
             hook("watch_with_tools", "file_changed", json!({"paths": ["specforge.json"], "tools": ["write"]})),
             hook("watch_a_glob", "file_changed", json!({"paths": ["*.json"]})),
             hook("watch_nested", "file_changed", json!({"paths": ["config/app.json"]})),
+            hook("reads_no_setting", "pre_tool", json!({"reads_settings": ["@t/ui"]})),
+            hook("reads_own_setting", "pre_tool", json!({"reads_settings": ["@t/core:models.planner"]})),
+            hook("reads_a_peer_setting", "pre_tool", json!({"reads_settings": ["@t/ui:workflow.ui_phase"]})),
             hook("watch_a_file", "file_changed", json!({"paths": ["specforge.json"]})),
         ],
     }))]);
@@ -170,6 +173,8 @@ fn a_contribution_the_registry_refuses_is_w021() {
         "watch_with_tools",
         "watch_a_glob",
         "watch_nested",
+        "reads_no_setting",
+        "reads_own_setting",
     ] {
         let hits = messages
             .iter()
@@ -186,11 +191,18 @@ fn a_contribution_the_registry_refuses_is_w021() {
     );
     assert_eq!(
         asked::hooks(&build),
-        ["fine", "cursor_only", "watch_a_file"]
+        [
+            "fine",
+            "cursor_only",
+            "reads_a_peer_setting",
+            "watch_a_file"
+        ]
     );
     for why in [
         "a file_changed hook names the files it watches in paths",
         "the event 'file_changed' takes no tools",
+        "its reads_settings '@t/ui' is not <extension>:<setting>",
+        "its reads_settings '@t/core:models.planner' names its own extension: read it with Settings::current",
         "a file_changed hook's paths are file names, not globs: '*.json'",
         "a file_changed hook's paths are bare file names of the project root, not 'config/app.json'",
     ] {

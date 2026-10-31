@@ -130,6 +130,14 @@ pub fn run(
             .as_ref()
             .and_then(|h| facts::git(&**h, &cwd, declared.reads_git_status)),
         change: event.change.clone(),
+        other_settings: declared
+            .reads_settings
+            .iter()
+            .filter_map(|entry| {
+                let (ext, name) = entry.split_once(':')?;
+                crate::host::render::setting(view, ext, name).map(|v| (entry.clone(), v))
+            })
+            .collect(),
         shell: tool
             .filter(|t| t.class == "shell")
             .and_then(|t| facts::shell_words(&t.input)),
