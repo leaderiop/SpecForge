@@ -17,6 +17,7 @@ use super::port::{
     ModelChoice, Rendered, RenderedAgent, RenderedHook, RenderedSkill, RenderedSlash, SlashCall,
     Source,
 };
+use crate::authoring::hook::human_guard;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
@@ -297,6 +298,9 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
         })
         .collect::<Vec<_>>();
     hooks.push(spec_guard(view));
+    if human_guard::wanted(view) {
+        hooks.push(human_guard());
+    }
 
     Ok(Rendered {
         host,
@@ -322,6 +326,23 @@ fn spec_guard(view: &ProjectView<'_>) -> RenderedHook {
         event: specforge_protocol_types::HookEvent::PreTool,
         tools: SPEC_GUARD_TOOLS.iter().map(|t| (*t).to_string()).collect(),
         paths: vec![spec_root_spelled(view, SPEC_GUARD_PATHS)],
+        timeout_ms: 10_000,
+        on_failure: OnFailure::Deny,
+    }
+}
+
+/// The host's second own hook, wired while the project routes a human-attested command: a shell call that runs one is
+/// denied (ADR 0301). Its logic is `authoring::hook::human_guard`.
+fn human_guard() -> RenderedHook {
+    RenderedHook {
+        route: human_guard::HUMAN_GUARD.into(),
+        description: "Deny a shell call that runs a human-attested command".into(),
+        event: specforge_protocol_types::HookEvent::PreTool,
+        tools: human_guard::HUMAN_GUARD_TOOLS
+            .iter()
+            .map(|t| (*t).to_string())
+            .collect(),
+        paths: Vec::new(),
         timeout_ms: 10_000,
         on_failure: OnFailure::Deny,
     }

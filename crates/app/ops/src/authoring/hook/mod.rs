@@ -5,6 +5,7 @@
 
 mod facts;
 mod filter;
+pub mod human_guard;
 pub mod patch;
 pub mod spec_guard;
 
@@ -53,6 +54,9 @@ pub fn run(
 ) -> Outcome {
     if route == crate::host::render::SPEC_GUARD {
         return spec_guard::run(view, event);
+    }
+    if route == human_guard::HUMAN_GUARD {
+        return human_guard::run(view, event);
     }
     let build = view.registries();
     let Some(hook) = build.hook(route) else {
@@ -192,7 +196,7 @@ pub fn run(
 /// routed `route`, as for a hook that trapped. The spec guard denies; a route the project does not declare cannot be
 /// known to object and allows.
 pub fn unreadable(view: &ProjectView<'_>, route: &str, why: &str) -> HookAnswer {
-    let policy = if route == crate::host::render::SPEC_GUARD {
+    let policy = if route == crate::host::render::SPEC_GUARD || route == human_guard::HUMAN_GUARD {
         OnFailure::Deny
     } else {
         view.registries()

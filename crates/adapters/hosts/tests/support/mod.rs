@@ -145,6 +145,16 @@ pub fn fixture(host: Host) -> Rendered {
                 timeout_ms: 10_000,
                 on_failure: OnFailure::Deny,
             },
+            // The host's second own hook, wired while a command is human-attested (ADR 0301).
+            RenderedHook {
+                route: "core.human_guard".into(),
+                description: "Deny a shell call that runs a human-attested command".into(),
+                event: HookEvent::PreTool,
+                tools: vec!["shell".into()],
+                paths: Vec::new(),
+                timeout_ms: 10_000,
+                on_failure: OnFailure::Deny,
+            },
         ]
         .into_iter()
         // The isolation guard names Claude Code only (ADR 0322).

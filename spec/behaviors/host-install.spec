@@ -21,7 +21,7 @@ behavior install_into_a_host "Install Into a Host" {
     It refuses to overwrite an unmarked file (foreign_file) or a marked file edited since (edited_file, unless
     forced), removes what no extension contributes any more and reports what a host cannot take. A project whose
     extensions contribute nothing to a host declares and runs as it did. A hook whose policy is deny is written so that a
-    host without `specforge` on its PATH blocks (exit 2); an allow hook's line fails open (ADR 0324). A hook may name the hosts it is installed on (ADR 0322).
+    host without `specforge` on its PATH blocks (exit 2); an allow hook's line fails open (ADR 0324). A hook may name the hosts it is installed on (ADR 0322). While a command is human-attested, install also wires the human guard, which denies a shell call that runs one (ADR 0301).
   """
   verify unit "a hook that names its hosts is installed on those only, and is a no-op on another"
   verify unit "a hook whose policy is deny blocks with exit 2 when specforge is not on PATH, and an allow hook's line is the plain command"
@@ -75,6 +75,7 @@ behavior run_a_hook "Run a Hook" {
     on_failure policy. A hook that reads no graph and writes nothing is answered over the loaded environment, without a
     compile (ADR 0324).
   """
+  verify unit "the human guard denies a shell call that runs a human-attested command, from the served descriptors"
   verify unit "a hook that reads no graph and writes nothing is answered without compiling the project"
   verify unit "a command without state has a byte-equal input"
   verify unit "a hook is given the facts of every path its tool names that a guest cannot read"

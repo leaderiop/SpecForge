@@ -39,9 +39,11 @@ MCP serving no tool (the agent gets "unknown tool" and no remedy).
 
 An agent that fakes a terminal (`script(1)`) is outside the guarantee (ADR 0289 D7's bound: who typed is not proven).
 The check is that stdin is a terminal. It holds where the agent's shell has no tty, as in Claude Code's Bash tool. It
-does not hold where the agent's own shell is a pty: Cursor's agent terminal and Codex's pty exec pass it, so there the
-gate is an honest-agent gate again. `script(1)` is the same bound. A PreToolUse shell guard that refuses a
-human-attested command from an agent's shell tool is planned in K20c (beside `core.spec_guard`); it is not built.
+does not hold where the agent's own shell is a pty (Cursor's agent terminal, Codex's pty exec); K20c closes that with
+`core.human_guard`, a deny-policy PreToolUse hook on the shell tool, installed on every host while the project routes
+a `human` command. It refuses a command line that runs `specforge <short> <command>` for one, reading the commands
+from the served descriptors and naming the person's route. What is left is `script(1)` typed by a person on the
+agent's behalf, an indirection the guard does not split (a script, `eval`, a variable), and a host with no shell hook.
 MCP elicitation as a person path is ADR 0110's reopen and is not built.
 
 ## Consequences

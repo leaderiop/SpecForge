@@ -60,6 +60,16 @@
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook core.human_guard cannot run, so it denies' >&2; exit 2; }; specforge hook core.human_guard --host claude-code --event pre_tool --tools shell # specforge-install",
+            "timeout": 15,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
       }
     ],
     "PostToolUse": [

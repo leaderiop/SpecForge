@@ -73,6 +73,9 @@ fn surfaces() -> Value {
         "commands": [{
             "id": "stats", "title": "Stats", "description": "Show the project's statistics", "export": "cmd__stats",
             "args": [], "reads_state": true,
+        }, {
+            "id": "approve", "title": "Approve", "description": "Record a person's approval",
+            "export": "cmd__approve", "args": [], "writes": true, "human": true,
         }],
         "prompts": [{
             "id": "plan_phase", "title": "Plan a phase", "description": "Plan the phase, then check the plans",
