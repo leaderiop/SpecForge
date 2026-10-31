@@ -185,7 +185,6 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   `specforge.edit` creates it. It is a CLI change.
 - **The lifecycle prompts (r42) leave three kernel items (K20).** The claude-code skill writer does not write a skill's
   `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested.
-- **The remaining prompts (r43) leave these (K20).** A command's answer is not host-converted, so `smart_entry` takes `--runtime`.
 - **What r43 leaves open.** Reports, summaries and cross-AI reviews are shown, not stored. A lesson has no phase field. `/gsd-review` has no reviewer lane machinery or prompt budget (the agent reads each reviewer CLI's `--help`). `/gsd-quick-batch`'s dispatcher, estimate calibration, sub-repository branches and workspaces are prose. `/gsd-undo` selects the commits recorded as `commit` entities, and `git revert` bypasses the host's checks, so it asks before reverting a `.spec` change that removes a person's value. `smart_entry` never says idle-stranded (a command has no git).
 - **The hooks wait for five host items (K20)**: git facts in `HookInput` (the workflow guard cannot see a
   `git add -f`, nor `validate_commit` the staged files), a `file_changed` event (settings are read on every compile instead), a hook that runs

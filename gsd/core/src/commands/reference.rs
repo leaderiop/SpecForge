@@ -7,7 +7,7 @@
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, required, run, text as text_arg};
+use super::support::{answer, required, run};
 use crate::prompts::{
     assets, compose, convert_for_host, render::runtime, repoint::repoint_for, setting,
 };
@@ -102,7 +102,7 @@ fn reference(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .strip_prefix("<!-- Ported from")
         .and_then(|rest| rest.split_once('\n'))
         .map_or(text, |(_, body)| body);
-    let host = text_arg(call, "host")?.unwrap_or("claude-code");
+    let host = call.host().unwrap_or("claude-code");
     if !["claude-code", "codex", "cursor"].contains(&host) {
         return Err(format!(
             "unknown host '{host}': claude-code, codex or cursor"
@@ -129,12 +129,9 @@ fn reference(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("reference", |cmd| {
-        cmd.description("Print one ported GSD workflow, reference or template by its path (gsd-core/references/x.md; the gsd-core/ may be left out)")
+        cmd.description("Print one ported GSD workflow, reference or template by its path (gsd-core/references/x.md; the gsd-core/ may be left out), converted for the calling host")
             .arg("file", |a| {
                 a.required().description("the file, as the text that names it writes it");
-            })
-            .arg("host", |a| {
-                a.description("the host that reads the text: claude-code (the default), codex or cursor");
             })
             .handler(|call| run(call, reference));
     });

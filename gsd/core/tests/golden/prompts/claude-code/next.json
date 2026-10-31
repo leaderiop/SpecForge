@@ -47,7 +47,7 @@
     "```bash",
     "RUNTIME=\"claude\"   # runtime (the settings); the commands below are specforge commands: there is no launcher to define",
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
-    "SNAPSHOT=$(specforge gsd smart-entry --runtime \"$RUNTIME\" --format json 2>/dev/null)",
+    "SNAPSHOT=$(specforge gsd smart-entry --format json 2>/dev/null)",
     "```",
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
@@ -61,7 +61,7 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 22550,
+  "bytes": 22529,
   "end": [
     "## Anti-Patterns",
     "",
@@ -195,17 +195,17 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:40eaaccf28292865a43528150791d6afffa17d9697f0530148b857cce1a97ad6",
+    "digest": "sha256:2d42847e3d532d165be4e0f2804848e48a5d87e31bb58c1a8047f3567843e671",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
         "cli": "specforge gsd smart-entry",
         "gate": [],
         "id": "detect",
-        "title": "Detect the situation and its next actions (specforge gsd smart-entry --runtime <host>)",
+        "title": "Detect the situation and its next actions (specforge gsd smart-entry)",
         "tool": "specforge.gsd.smart_entry"
       }
     ]
   },
-  "sha256": "40eaaccf28292865a43528150791d6afffa17d9697f0530148b857cce1a97ad6"
+  "sha256": "2d42847e3d532d165be4e0f2804848e48a5d87e31bb58c1a8047f3567843e671"
 }

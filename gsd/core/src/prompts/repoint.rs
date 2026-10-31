@@ -75,7 +75,11 @@ pub fn repoint_for(text: &str, host: &str) -> String {
         rest = &rest[end + usize::from(wrapped)..];
     }
     out.push_str(rest);
-    out
+    // `smart-entry` names its commands for the host that asks
+    out.replace(
+        "specforge gsd smart-entry",
+        &format!("specforge gsd smart-entry{flag}"),
+    )
 }
 
 #[cfg(test)]

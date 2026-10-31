@@ -10,7 +10,7 @@ use super::workflow::{self, Do, Slash, Spec, Step};
 
 const NEXT_STEPS: &[Step] = &[Step {
     id: "detect",
-    title: "Detect the situation and its next actions (specforge gsd smart-entry --runtime <host>)",
+    title: "Detect the situation and its next actions (specforge gsd smart-entry)",
     does: Do::Command("smart_entry"),
 }];
 

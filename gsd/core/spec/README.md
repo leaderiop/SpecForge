@@ -207,9 +207,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   `specforge.edit` creates it. It is a CLI change.
 - **The lifecycle prompts (r42) leave three kernel items (K20).** The claude-code skill writer does not write a skill's
   `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested.
-- **A command's answer is not host-converted (K20).** `smart_entry` names the next actions as `/gsd-x`, `$gsd-x` for
-  codex, so it takes upstream's own `--runtime` option; a prompt that runs it says which host it is rendered for. It
-  never says `idle-stranded`: a command runs no git, so the dirty, unpushed and stale signals are false. A phase's
+- **`smart_entry` never says `idle-stranded`**: a command runs no git, so the dirty, unpushed and stale signals are false. A phase's
   computed `status` stands for STATE.md's words (`planning`, `executing`, `verifying`, `milestone complete`), and
   a milestone's phase counts are the roadmap's.
 - **The hooks wait for five host items (K20)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without

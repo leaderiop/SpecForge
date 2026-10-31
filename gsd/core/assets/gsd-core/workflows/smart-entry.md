@@ -32,7 +32,7 @@ The commands below are specforge commands on PATH: nothing is searched for and n
 ```bash
 RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings); the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-SNAPSHOT=$(specforge gsd smart-entry --runtime "$RUNTIME" --format json 2>/dev/null)
+SNAPSHOT=$(specforge gsd smart-entry --format json 2>/dev/null)
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
