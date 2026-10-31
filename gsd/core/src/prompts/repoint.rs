@@ -11,6 +11,9 @@ const PREFIXES: [&str; 4] = ["${HOME}/", "$HOME/", "~/", "./"];
 /// Said after a path that no ported workflow embeds: upstream has it, `@gsd/core` does not.
 const LATER: &str = " (not part of @gsd/core)";
 
+/// The call whose menu is written for the host that asks.
+const SMART_ENTRY: &str = "specforge gsd smart-entry";
+
 /// A file the user's own profile run writes there: not an asset, so its path stays what it says.
 const USER_FILES: [&str; 1] = ["USER-PROFILE.md"];
 
@@ -76,10 +79,7 @@ pub fn repoint_for(text: &str, host: &str) -> String {
     }
     out.push_str(rest);
     // `smart-entry` names its commands for the host that asks
-    out.replace(
-        "specforge gsd smart-entry",
-        &format!("specforge gsd smart-entry{flag}"),
-    )
+    out.replace(SMART_ENTRY, &format!("{SMART_ENTRY}{flag}"))
 }
 
 #[cfg(test)]
