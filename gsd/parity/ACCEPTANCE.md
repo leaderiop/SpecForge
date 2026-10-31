@@ -49,6 +49,28 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   reason, in `core/tests/parity_rules/cutover.rs`.
 - Codes: 63 of the 63 codes fire and stay silent in a named test.
 
+## `@gsd/security` 1.0.0 against gsd-core 1.18.0
+
+Plan 16. The same families for the security items of the vendored inventory; `security/tests/parity_roster.rs`
+(`the_acceptance_counts_match`) computes every number from its tables and `security/tests/parity_rules.rs` checks the
+codes and the divergence tags below. The first table above counts `@gsd/core` and counts these items as owned later.
+
+| Security family | Total | Built | Owned elsewhere | Not applicable | Named open | Where |
+|---|---|---|---|---|---|---|
+| Commands | 1 | 1 | 0 | 0 | 0 | `security/src/prompts.rs` |
+| Agents | 2 | 2 | 0 | 0 | 0 | `security/src/agents.rs` |
+| Workflows and references | 2 | 1 | 1 | 0 | 0 | `security/tests/parity_roster.rs` |
+| CLI modules | 1 | 0 | 0 | 1 | 0 | `security/tests/parity_roster.rs` |
+| Capabilities | 1 | 1 | 0 | 0 | 0 | `security/spec/README.md` |
+| Hooks | 3 | 3 | 0 | 0 | 0 | `security/src/commands/hooks.rs` |
+| Config keys | 4 | 4 | 0 | 0 | 0 | `security/src/settings.rs` |
+| Codes | 2 | 2 | 0 | 0 | 0 | `security/tests/parity/evidence.rs` |
+
+Suites: 74 cases are accounted, 67 of `secure-phase.test.cjs`, 5 of `injection-blocking-config.test.cjs` (#1577) and 2 of
+`secure-phase-single-writer.test.cjs` (`security/tests/accounting.rs`, `security/tests/port.rs`). The suites and files of
+the upstream tree about the node CLI's hardening library, its CI scans and its documentation are not applicable, each
+with a reason in `parity_roster.rs`. Gate-cutover verdicts of security: 0.
+
 ## The four checks
 
 Three run in the gate: `parity_roster` (what exists; a Ported module's file names it in its `//!` header),
@@ -89,10 +111,29 @@ Not verified:
   `show_state_freshness` is inert (there is no STATE.md stamp). `[update-banner]` The update banner is dropped (D-r44-13): specforge updates
   extensions through its lockfile. `[statusline-metrics]` Upstream's context monitor reads metrics the statusline
   writes to a bridge file; here the statusline computes them and the meter's arithmetic is tested with the statusline.
-- Injection scanning answers a block for a HIGH scan only when `@gsd/security` sets `security.injection_blocking`;
-  `@gsd/security` is not built, so it is advisory in every project today (ADR 0323). The block never stops the read:
+- Injection scanning answers a block for a HIGH scan only when `@gsd/security` is loaded and sets
+  `security.injection_blocking`; without it the scan is advisory. The block never stops the read:
   on Claude Code it lands after the tool ran, as upstream's does, and Cursor cannot deny after a tool runs, so there it
   is advisory context (`[injection-after-read]`).
+- `@gsd/security` (plan 16), by tag:
+  - `[blocking-needs-security]` the key `security.injection_blocking` belongs to `@gsd/security`; upstream lets any project set it.
+  - `[fragment-repointed]` the planner's threat-model fragment names the kinds `trust_boundary` and `threat`, not a `<threat_model>` block of a PLAN.md.
+  - `[audit-advisory-every-check]` `gsd.security/W301` fires on every `check`, not once at close (core has no close verb).
+  - `[accept-risk-human]` `accept_risk` is run by the person at a terminal (ADR 0301). `[accepted-risk-agent-creatable]`
+    `accepted_risk` is not a human-only kind: the host refuses a human command's plan when it would create a
+    human-only entity, so an agent can still `specforge new accepted_risk`. The attestation is the command's, not the
+    kind's; a candidate kernel change would let a human command create a human-only kind.
+  - `[no-superseded-plans]` no superseded-plan exclusion in the duplicate scan: a superseded plan is removed in the core model.
+  - `[stride-enum]` the STRIDE category is an enum of six words, not free text; the importer maps letters.
+  - `[retro-threat-in-plan]` a retroactive threat is written into a plan of the phase with `retroactive: true`, not held in SECURITY.md only.
+  - `[threats-open-live]` `threats_open` is computed from the threats and the current `block_on`, not frozen at audit time.
+  - `[security-absent-off]` without `@gsd/security` loaded there is no threat model, where upstream's agents read an absent `security_enforcement` as enabled.
+  - `[verify-post-produces]` the `verify:post` step keeps upstream's `produces: ["SECURITY.md"]`, although plan 16's parity
+    table said `security_audit`: the hook text is upstream's and agents read the name from it.
+  - `[skipped-hooks-empty]` `skippedHooks` is always empty, as upstream's is without `--after-fingerprint`.
+  - `[injection-key-explicit]` the vault fixture sets `security.injection_blocking: false` explicitly, because upstream errors on an unset key.
+  - `[surface-peer-setting]` the slash `/gsd-secure-phase` has no `when`: a slash's `when` must be a setting of its own
+    extension (W021) and the `audit_review` surface belongs to `@gsd/core`; the command is available whenever the extension is.
 - The context monitor has no stopped-at record (`[stopped-at]`: /gsd-pause-work records it) and no Stop or SubagentStop rows; the workflow marker lasts the session.
 - `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` compares git toplevels as upstream does, so a symlink into
   the main checkout is refused (ADR 0320).
@@ -156,7 +197,7 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 
 | Not in the program | What it would hold |
 |---|---|
-| `@gsd/security`, `@gsd/ai`, `@gsd/ui`, `@gsd/codebase`, `@gsd/ops` | 21 commands (ops 13, codebase 3, ai 2, ui 2, security 1), 20 agents, their capabilities, `security.injection_blocking`, the ui and codebase-drift gate-cutover verdicts, graphify |
+| `@gsd/ai`, `@gsd/ui`, `@gsd/codebase`, `@gsd/ops` | 20 commands (ops 13, codebase 3, ai 2, ui 2), 18 agents, their capabilities, the ui and codebase-drift gate-cutover verdicts, graphify |
 | `@gsd/import` | the 22nd command, `/gsd-import` |
 | `@gsd/path`, `@gsd/loop` | the gsd-path and gsd-loop profiles |
 | The `specforged` harness | `/gsd-autonomous` unattended, `claude-orchestration`, `external-job` |
