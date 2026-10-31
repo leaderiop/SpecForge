@@ -14,7 +14,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | Hooks | 29 | 16 | 0 | 11 | 2 | `core/src/hooks/roster.rs` |
 | Capabilities | 45 | 17 | 10 | 0 | 18 | `core/README.md` capability table |
 | Workflows and references | 297 | 234 | 53 | 10 | 0 | `core/tests/parity_roster/assets.rs` |
-| CLI modules | 288 | 169 | 21 | 98 | 0 | `core/tests/parity_roster/modules.rs` |
+| CLI modules | 288 | 170 | 21 | 97 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 92 | 51 | 14 | 14 | `core/tests/parity_rules/cutover.rs` |
 | Codes | 63 | 63 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
@@ -39,7 +39,7 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   `specforged` harness (only their settings keys exist).
 - Workflows and references: 234 are embedded or replaced by a typed command, 53 are owned, 10 do not apply; each of the
   78 not embedded names why in `assets.rs`.
-- CLI modules: 169 are ported or are the host half of a `specforge` command, 21 are owned, 98 do not apply (the argv
+- CLI modules: 170 are ported or are the host half of a `specforge` command, 21 are owned, 97 do not apply (the argv
   router, the capability loader, the runtimes SpecForge does not install for, `security.cjs`, the per-repository release
   tags).
 - Config keys: of 212, 161 are declared in `@gsd/core`, 35 are owned by an extension and 16 do not apply, in
