@@ -410,7 +410,7 @@ fn drop_agents_md_instruction(content: &str) -> String {
     out
 }
 
-/// `convertClaudeToCodexMarkdown`, but for `$ARGUMENTS`: the arguments are substituted before this runs (D-r42-8).
+/// `convertClaudeToCodexMarkdown`, but for `$ARGUMENTS` (literal here, substituted after, #5637).
 pub fn to_codex(content: &str) -> String {
     let mut c = codex_skill_mentions(&filter_runtime_notes(content, "codex"));
     c = drop_clear(&c);
@@ -454,7 +454,7 @@ fn drop_lines_starting(content: &str, marker: &str) -> String {
     out
 }
 
-/// `convertClaudeToCursorMarkdown`, but for `$ARGUMENTS` (substituted before this runs, D-r42-8).
+/// `convertClaudeToCursorMarkdown`, but for `$ARGUMENTS` (literal here, substituted after, #5637).
 pub fn to_cursor(content: &str) -> String {
     let filtered = filter_runtime_notes(content, "cursor");
     // `gsd:` -> `gsd-` in any case, keeping a leading slash.
