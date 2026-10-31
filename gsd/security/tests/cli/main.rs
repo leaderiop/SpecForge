@@ -8,11 +8,19 @@
 #[path = "../../../core/tests/cli/harness.rs"]
 mod harness;
 
+#[allow(
+    dead_code,
+    reason = "core's hook helpers serve every extension; each test crate uses part of them"
+)]
+#[path = "../../../core/tests/cli/hooks_support.rs"]
+mod hooks_support;
+
 mod accept;
 mod advisory;
 mod compute;
 mod gate;
 mod hooks;
+mod injection;
 mod model;
 mod record;
 mod settings;
