@@ -171,8 +171,8 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .tools(&[
                 "read", "write", "edit", "shell", "search", "agent", "ask_user",
             ])
-            .attribution(gsd_kit::agent::attribution("commands/gsd/secure-phase.md"));
-        // shortcut: upstream's `audit_review` cluster would hide it (`specforge.surface.audit_review`), but a slash's
-        // `when` must be a setting of its own extension (W021) and the cluster is core's; upgrade with a kernel round.
+            .attribution(gsd_kit::agent::attribution("commands/gsd/secure-phase.md"))
+            // upstream's `audit_review` cluster hides it: an own setting that follows core's (`settings.rs`)
+            .when(settings::SURFACE_SETTING);
     });
 }

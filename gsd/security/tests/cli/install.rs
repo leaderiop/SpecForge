@@ -217,3 +217,19 @@ fn the_installed_auditor_names_no_upstream_install_path() {
         }
     }
 }
+
+/// REVIEW-security-part2 m5: `/gsd-secure-phase` is in core's `audit_review` cluster, so hiding the cluster (a setting
+/// of `@gsd/core`) hides the skill too; the auditor stays.
+#[test]
+fn hiding_the_audit_review_cluster_hides_the_secure_phase_skill() {
+    for host in HOSTS {
+        let (p, home) = (both(), Home::new());
+        p.settings_of(
+            "@gsd/core",
+            json!({ "specforge.surface.audit_review": false }),
+        );
+        install(&p, &home, host);
+        assert!(!p.exists(owned(host)[1]), "{host}: the skill is installed");
+        assert!(p.exists(owned(host)[0]), "{host}: the auditor is not");
+    }
+}

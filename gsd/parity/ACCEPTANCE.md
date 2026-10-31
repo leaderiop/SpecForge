@@ -145,8 +145,10 @@ Not verified:
     file (#5105), so verify-work and autonomous do not run the auditor a second time. Without the flag `skippedHooks` is
     `[]` where upstream omits the key; core's jq fold absorbs both (REVIEW-security-part2 M3).
   - `[injection-key-explicit]` the vault fixture sets `security.injection_blocking: false` explicitly, because upstream errors on an unset key.
-  - `[surface-peer-setting]` the slash `/gsd-secure-phase` has no `when`: a slash's `when` must be a setting of its own
-    extension (W021) and the `audit_review` surface belongs to `@gsd/core`; the command is available whenever the extension is.
+  - `[surface-peer-setting]` the slash `/gsd-secure-phase` is hidden by `@gsd/security`'s own `specforge.surface.audit_review`
+    (a slash's `when` must be a setting of its own extension, W021), which follows `@gsd/core`'s setting of the same name
+    through a preset when it is `false` (`/gsd-surface` writes core's). The two can be set apart by hand
+    (REVIEW-security-part2 m5).
 - The context monitor has no stopped-at record (`[stopped-at]`: /gsd-pause-work records it) and no Stop or SubagentStop rows; the workflow marker lasts the session.
 - `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` compares git toplevels as upstream does, so a symlink into
   the main checkout is refused (ADR 0320).

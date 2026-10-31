@@ -22,7 +22,21 @@ const TIERS: &[(&str, &str)] = &[
     ("adaptive", "heavy"),
 ];
 
+/// The setting that shows `/gsd-secure-phase`: its own, following `@gsd/core`'s `audit_review` cluster (a slash's `when`
+/// must be a setting of its own extension, W021, and a preset may follow a peer's bool).
+pub const SURFACE_SETTING: &str = "specforge.surface.audit_review";
+
 pub fn declare(c: &mut ContributionsBuilder) {
+    c.setting(SURFACE_SETTING, |s| {
+        s.bool().default(true).describe(
+            "Show /gsd-secure-phase; follows @gsd/core's audit_review cluster (/gsd-surface).",
+        );
+    });
+    c.preset("@gsd/core:specforge.surface.audit_review", |p| {
+        p.when("false", |e| {
+            e.set(SURFACE_SETTING, false);
+        });
+    });
     c.setting("workflow.security_enforcement", |s| {
         s.bool().default(true).gates(&["W301"]).describe(
             "Verify threat mitigations at phase close and block shipping while threats are open.",

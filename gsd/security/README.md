@@ -36,5 +36,4 @@ stands for the audit.
   entity, so `accept_risk` is human-attested through its `at`, a harness field only it writes, which an
   agent's `specforge new accepted_risk` cannot set (a risk without `at` accepts nothing). A candidate kernel
   round would let a human command create a human-only kind.
-- The slash has no `when` gate (`[surface-peer-setting]`); it is available whenever the extension is loaded.
 - Codex and Cursor installs are drafts, as core's (goldens only, unrun).
