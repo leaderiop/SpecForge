@@ -73,7 +73,7 @@ impl Judgements {
     /// Whether `d` is a finding the judged evaluation made (ADR 0302): the same code, message, origin, subject and file
     /// (not the severity: a preset may raise it). A pass or guard that reuses a judged rule's code is not one.
     pub fn is_finding(&self, d: &Diagnostic) -> bool {
-        let file = |d: &Diagnostic| d.span.as_ref().map(|s| s.file.clone());
+        let file = |d: &Diagnostic| d.span.as_ref().map(|s| s.file);
         self.findings.iter().any(|f| {
             f.code == d.code
                 && f.message == d.message

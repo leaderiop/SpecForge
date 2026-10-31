@@ -138,7 +138,7 @@ is off while the setting is false, whatever the profile; a profile only presets 
 
 | Setting | Default (gsd-compat) | gsd-strict, gsd-plus | Rules |
 |---|---|---|---|
-| `workflow.windows_enforce` | false | true | gsd/E512 (gated while on: gsd/W514, reported while off) |
+| `workflow.windows_enforce` | false | true | gsd/E512 |
 | `workflow.tdd_mode` | false | false | gsd/W403, gsd/W404 |
 | `workflow.nyquist_validation` | true | true | gsd/E314, gsd/W510 |
 | `workflow.plan_check` | true | true | gsd/W311, gsd/W313, gsd/W315, gsd/W316, gsd/W318 |
@@ -150,6 +150,8 @@ is off while the setting is false, whatever the profile; a profile only presets 
 | `specforge.traceability_gate` | false | false (gsd-plus: true) | gsd/E515 |
 | `specforge.stale_verdict_gate` | false | false (gsd-plus: true) | gsd/E516 |
 | `specforge.cross_workstream_conflicts` | false | false (gsd-plus: true) | gsd/E517 |
+
+`gsd/W514` is gated the other way (`gates_when_on`, ADR 0305): `workflow.windows_enforce` silences it while it is on, and it is reported while the setting is off.
 
 ## Judged rules' inputs
 

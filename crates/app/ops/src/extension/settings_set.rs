@@ -109,7 +109,7 @@ fn read_words(kind: Option<FieldType>, words: &[String]) -> Result<Value, OpErro
                 .ok()
                 .filter(|n| n.is_finite())
                 .and_then(|n| serde_json::Number::from_f64(n).map(Value::Number))
-                .map_or_else(|| json!(word), |n| n)
+                .unwrap_or_else(|| json!(word))
         }
         Some(FieldType::Bool) => match one()? {
             "true" => json!(true),

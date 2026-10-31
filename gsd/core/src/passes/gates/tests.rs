@@ -386,11 +386,12 @@ fn traced(
     let mut value = json!({ "entities": entities, "edges": [], "trigger": ship(subject) });
     let mut results = serde_json::Map::new();
     for (entity, status) in tests {
-        results
+        let recorded = results
             .entry(entity.to_string())
-            .or_insert_with(|| json!({ "tests": [] }))["tests"]
-            .as_array_mut()
-            .map(|all| all.push(json!({ "name": "t", "status": status })));
+            .or_insert_with(|| json!({ "tests": [] }));
+        if let Some(all) = recorded["tests"].as_array_mut() {
+            all.push(json!({ "name": "t", "status": status }));
+        }
     }
     value["test_results"] = json!({ "results": results });
     serde_json::from_value(crate::passes::plans::with_field_edges(value)).expect("a pass input")

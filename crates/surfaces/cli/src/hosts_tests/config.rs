@@ -4,6 +4,7 @@
 use std::collections::BTreeSet;
 
 use serde_json::json;
+use specforge_diagnostics::codes;
 use specforge_project::testing::TestProject;
 use specforge_test_macros::test as specforge_test;
 
@@ -58,7 +59,11 @@ fn install_refuses_an_unusable_specforge_json_and_writes_nothing() {
         ] {
             assert_eq!(out.code, 1, "{bad}: {name}: {}", out.stdout);
             let body = out.json();
-            assert_eq!(body["code"], "E069", "{bad}: {name}: {body}");
+            assert_eq!(
+                body["code"],
+                codes::E069.to_string(),
+                "{bad}: {name}: {body}"
+            );
             assert_eq!(
                 body["suggestion"],
                 "fix specforge.json; `specforge explain E069` says what it must be",

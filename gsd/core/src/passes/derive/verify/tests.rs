@@ -496,9 +496,9 @@ fn reported(tier: &str, results: Option<&[&str]>, extra: Vec<serde_json::Value>)
             .collect();
         value["test_results"] = json!({ "results": { "v1.0/01/01-01/TR1": { "tests": tests } } });
     }
-    value["entities"]
-        .as_array_mut()
-        .map(|all| all.extend(extra));
+    if let Some(all) = value["entities"].as_array_mut() {
+        all.extend(extra);
+    }
     let input: PassInput =
         serde_json::from_value(crate::passes::plans::with_field_edges(value)).expect("input");
     run(&input)

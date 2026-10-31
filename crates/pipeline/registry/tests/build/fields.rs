@@ -60,6 +60,10 @@ fn every_kinds_fields_and_shared_fields_are_registered() {
 /// The field names a type is declared under: its own, and (but for the types that have no older spelling:
 /// `identifier`, `date`, `enum_list` and `block_list`) the one a `_type` alias is tried on.
 fn spellings(field_type: FieldType) -> Vec<String> {
+    // A kind field of type `number` is W021 and dropped (a setting's type only: `a_kind_field_of_type_number_is_w021`).
+    if field_type == FieldType::Number {
+        return Vec::new();
+    }
     let name = field_type.as_str();
     let mut names = vec![name.to_string()];
     if !matches!(
