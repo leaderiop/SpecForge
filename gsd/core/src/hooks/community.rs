@@ -3,10 +3,11 @@
 //! The three community hooks (D-r44-14, D-r44-15), each off until `hooks.community` is on.
 //!
 //! `validate_commit` refuses a commit whose subject is not a Conventional Commit of a known type or is longer than 72
-//! characters. The host reads the message (`-m`; the heredoc form arrives as its `$(cat <<'EOF'` text) and hands it over; a commit that takes its
-//! message from elsewhere (`-F`, `-C`, `--fixup`, the editor) has none and is let through, as upstream lets an
-//! unreadable message through. A `fixup!` or `squash!` subject is let through too. The subject rule is upstream's
-//! `^([a-z][a-z0-9-]*)(\(.+\))?:[[:space:]].+`, matched by hand: the crate has no regex dependency.
+//! characters. The host reads the message (`-m`; the heredoc form arrives as its `$(cat <<'EOF'` text) and hands
+//! it over; a commit that takes its message from elsewhere (`-F`, `-C`, `--fixup`, the editor) has none and is let
+//! through, as upstream lets an unreadable message through. A `fixup!` or `squash!` subject is let through too. The
+//! subject rule is upstream's `^([a-z][a-z0-9-]*)(\(.+\))?:[[:space:]].+`, matched by hand: the crate has no regex
+//! dependency.
 //!
 //! `phase_boundary` reminds, after a write of a spec file, that a phase's status and progress are computed from the
 //! spec: upstream asks whether STATE.md should be updated, and there is no STATE.md to update.
@@ -69,8 +70,8 @@ fn type_of(subject: &str) -> Option<&str> {
     matched.then_some(kind)
 }
 
-/// The delimiter of a heredoc opener `$(cat <<[-]'X'`, when it is quoted (`'X'`, `"X"`, `\X`): the shell leaves the body
-/// alone only then. A bare delimiter lets the shell expand the body, so what git receives is not what is written.
+/// The delimiter of a heredoc opener `$(cat <<[-]'X'`, when it is quoted (`'X'`, `"X"`, `\X`): the shell leaves the
+/// body alone only then. A bare delimiter lets the shell expand the body, so what git receives is not what is written.
 /// Upstream's grammar: blanks (space, tab) after `$(`, `cat`, `/bin/cat` or `/usr/bin/cat` (a relative path or a
 /// command before it is not a known cat), blanks or none before `<<`.
 fn quoted_delimiter(opener: &str) -> Option<&str> {
@@ -101,9 +102,9 @@ fn cleanup_kept(cleanup: &[String]) -> bool {
 /// `$(cat <<'EOF' ... EOF)` (upstream's #3802), the first non-blank line of the body. Upstream blocks every other
 /// shape, so those are judged as they are written: the opener line is the subject. The body is resolved only when the
 /// delimiter is quoted, the `)` closes the substitution with nothing glued after it, the `-m` word is not
-/// single-quoted (git would receive the literal opener) and the commit has no cleanup directive that keeps a blank first
-/// line or trailing blanks (REVIEW-r44 M2). A `<<-` heredoc loses its leading tabs; the resolved subject loses its
-/// trailing blanks, as git strips them under the default cleanup.
+/// single-quoted (git would receive the literal opener) and the commit has no cleanup directive that keeps a blank
+/// first line or trailing blanks (REVIEW-r44 M2). A `<<-` heredoc loses its leading tabs; the resolved subject loses
+/// its trailing blanks, as git strips them under the default cleanup.
 fn subject_of<'a>(message: &'a str, command: &str, cleanup: &[String]) -> &'a str {
     let mut lines = message.lines();
     let first = lines.next().unwrap_or_default();

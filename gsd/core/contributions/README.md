@@ -274,7 +274,7 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 |---|---|
 | gsd-read-guard, gsd-write-guard | `read_guard`, `write_guard` (`pre_tool`): the paths a workflow may touch; `write_guard` measures bytes, not lines |
 | gsd-secret-read-guard | `secret_read_guard` (`pre_tool`) |
-| gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only (see below) |
+| gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only, and a block would land after the read (see below) |
 | gsd-prompt-guard | `prompt_guard` (`pre_tool`): scans content written to spec files |
 | gsd-agent-isolation-guard | none: dropped in the roster, because `@gsd/core` runs its executors sequentially in the checkout and the guard would always allow (r44 post-fix N7; ACCEPTANCE's divergences) |
 | gsd-worktree-path-guard | `worktree_path_guard` (`pre_tool`): path based; refuses a path whose git toplevel is not the worktree's, so also through a symlink into the main checkout, and a relative path that climbs into it (stricter than upstream, which allows every relative path; see ACCEPTANCE's divergences) |
@@ -306,16 +306,20 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
 | Codex `[features] hooks = true` | written by install | changeset 3566, `bin/install.js` | agrees |
 | Codex event set | the events of `CODEX_EXTENDED_HOOK_EVENTS` (nine, with SessionStart), five used here | `bin/install.js:162` | agrees for the five used |
 | Codex hook copies | 8 of the 15 hook ids (`config_reload`, `injection_scanner` and `statusline` are not rendered; the community hooks only when on) | upstream copies two (`CODEX_HOOKS_TO_COPY`) | divergence: more here |
+| Cursor `postToolUse` block | `injection_scanner`'s block is dropped to `additional_context` (Cursor cannot deny after a tool runs); on Claude Code it lands after the read | `gsd-read-injection-scanner.js` answers `decision: block` | divergence: advisory on Cursor |
 | Codex and Cursor agent and skill files | as the kernel renders | not compared | unverified |
 
 ### What the hooks do not do (known, not fixed)
 
+- The statusline's git status read is declared statically, so the host runs `git status` on every render even while
+  `statusline.show_git` is off (upstream spawns nothing then, and drops the segment at 1.5 s).
 - The context monitor has no stopped-at record and no Stop or SubagentStop rows.
 - A `git -C <dir> add -f` is judged by the branch of the hook's cwd, not of `<dir>` (`[cwd-branch]`).
 - The statusline is plain text (the kernel escapes control characters); `show_state_freshness` is
   inert (no STATE.md stamp); phase counts read completed over total; the milestone shown is the one `reports::current` chooses.
-- Injection scanning blocks a HIGH scan only when `@gsd/security` sets `security.injection_blocking`; it is not built, so
-  the scanner is advisory today (ADR 0323).
+- Injection scanning answers a block for a HIGH scan only when `@gsd/security` sets `security.injection_blocking`; it is
+  not built, so the scanner is advisory today (ADR 0323). Even then the block cannot stop the read: on Claude Code it
+  lands after the tool ran (as upstream's does), and on Cursor, which cannot deny after a tool runs, it stays advisory.
 - `validate_commit` lets `-F`, `--fixup` and similar commits through (no message on the command line), and a literal
   `fixup! ...` subject; the heredoc form `$(cat <<'EOF' ... EOF)` is read only for a quoted delimiter, nothing after the
   closing paren, no cleanup directive but `whitespace` (the host reads git's abbreviations and spliced quotes, from the commit's own words) and an `-m` that is not single-quoted (as upstream blocks the

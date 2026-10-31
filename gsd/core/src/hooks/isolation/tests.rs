@@ -404,8 +404,8 @@ fn worktree_path_guard_accounts_for_every_upstream_case() {
     accounting::account(SAFETY_SUITE, &ported, &skipped);
 }
 
-/// REVIEW-r44 M4: the main checkout by a relative path is still the main checkout. The kernel resolves the real path and
-/// the repository (so the case of the path no longer matters: git names the repository, not a prefix).
+/// REVIEW-r44 M4: the main checkout by a relative path is still the main checkout. The kernel resolves the real path
+/// and the repository (so the case of the path no longer matters: git names the repository, not a prefix).
 #[test]
 fn the_main_checkout_is_refused_by_a_relative_path() {
     let outside = |path: &str| touch(WT, WT, "Edit", json!(path));

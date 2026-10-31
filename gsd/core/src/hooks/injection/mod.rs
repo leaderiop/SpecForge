@@ -1,8 +1,10 @@
 //! Ported from gsd-core v1.18.0 hooks/gsd-read-injection-scanner.js and hooks/gsd-prompt-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `injection_scanner` (post_tool on read, web_fetch, web_search) and `prompt_guard` (pre_tool on write and edit under
-//! the spec root), D-r44-9. Both are advisory. A HIGH scan of `injection_scanner` blocks when `@gsd/security`'s
-//! `security.injection_blocking` is true (ADR 0323). `@gsd/security` is not built, so in every project today the
+//! the spec root), D-r44-9. Both are advisory. A HIGH scan of `injection_scanner` answers a block when
+//! `@gsd/security`'s `security.injection_blocking` is true (ADR 0323), but a `post_tool` block cannot undo the read:
+//! on Claude Code it reaches the model after the tool ran, as upstream's does, and on Cursor `postToolUse` has no
+//! block, so the answer stays advisory context there. `@gsd/security` is not built, so in every project today the
 //! setting is absent and the scanner is advisory.
 
 mod patterns;

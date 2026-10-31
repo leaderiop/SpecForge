@@ -2,7 +2,8 @@
 //!
 //! Upstream's guard cases run the hook in a temp git repo. The advisory cases decide on facts (the tool, the path, the
 //! session) and are ported, and so is the `git add -f` block over the commands and the branch the host reads; the node
-//! hook's crash posture is skipped with its reason. The registration suite drives upstream's installer, which the install goldens replace.
+//! hook's crash posture is skipped with its reason. The registration suite drives upstream's installer, which the
+//! install goldens replace.
 
 use serde_json::{Map, Value, json};
 

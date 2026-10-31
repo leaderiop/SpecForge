@@ -29,8 +29,8 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
 - Agents: 25 of the 64 items (the core agents and their compact forms) are embedded and installed; the other 39 belong
   to `@gsd/ai`, `@gsd/ui`, `@gsd/codebase` and `@gsd/ops`.
 - Hooks: 16 of the 28 upstream hook items are built (13 files ported as 15 hooks of `@gsd/core`, and the 3 Cursor
-  renderings of events they port); 10 are dropped, each with its reason in `hooks/roster.rs` (7 not ported, among them the
-  agent isolation guard, and the
+  renderings of events they port); 10 are dropped, each with its reason in `hooks/roster.rs` (7 not ported, among them
+  the agent isolation guard, and the
   Cursor `stop`, `subagent-start` and `subagent-stop` files, which no hook of ours feeds); the 2 Windsurf files are
   named and open (Windsurf is a later host). `core.spec_guard` is the kernel's and is
   wired by every install.
@@ -89,7 +89,10 @@ Not verified:
   `show_state_freshness` is inert (there is no STATE.md stamp). `[update-banner]` The update banner is dropped (D-r44-13): specforge updates
   extensions through its lockfile. `[statusline-metrics]` Upstream's context monitor reads metrics the statusline
   writes to a bridge file; here the statusline computes them and the meter's arithmetic is tested with the statusline.
-- Injection scanning blocks a HIGH scan only when `@gsd/security` sets `security.injection_blocking`; `@gsd/security` is not built, so it is advisory in every project today (ADR 0323).
+- Injection scanning answers a block for a HIGH scan only when `@gsd/security` sets `security.injection_blocking`;
+  `@gsd/security` is not built, so it is advisory in every project today (ADR 0323). The block never stops the read:
+  on Claude Code it lands after the tool ran, as upstream's does, and Cursor cannot deny after a tool runs, so there it
+  is advisory context (`[injection-after-read]`).
 - The context monitor has no stopped-at record (`[stopped-at]`: /gsd-pause-work records it) and no Stop or SubagentStop rows; the workflow marker lasts the session.
 - `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` compares git toplevels as upstream does, so a symlink into
   the main checkout is refused (ADR 0320).
@@ -108,8 +111,9 @@ Not verified:
   upstream lets it through (`[unquoted-m]`, which also covers `-m "" -m "fix: x"`). `[dquoted-heredoc-tag]` A `<<"TAG"`
   heredoc resolves, where upstream's capture cannot deliver it and blocks it. `[truncated-heredoc]` A heredoc message with no terminator line is judged by its opener (upstream's capture can
   hand a cut body whose first line is complete, and resolves it).
-- `[cleanup-exact]` `validate_commit` reads the cleanup directives of the commit's own words, not of the whole command line
-  (`... && echo --cleanup=verbatim` resolves, which upstream refuses), and refuses `--cleanup=default` (D-K20c-3).
+- `[cleanup-exact]` `validate_commit` reads the cleanup directives of the commit's own words, not of the whole
+  command line (`... && echo --cleanup=verbatim` resolves, which upstream refuses). Refusing `--cleanup=default` is
+  upstream's own rule (any single mode but `whitespace` refuses), a change from the old gsd behaviour (D-K20c-3).
 - `[cwd-branch]` `workflow_guard` judges a `git -C <dir> add -f` by the branch of the hook's cwd, not of `<dir>` (upstream
   probes the target); upgrade when the host can be asked another directory's branch (ADR 0320).
 - The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,

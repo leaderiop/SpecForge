@@ -4,10 +4,10 @@
 //!
 //! There is no `agent_isolation_guard`. Upstream resolves the dispatch isolation from a sentinel file, the runtime
 //! registry and `.planning/config.json`, and denies an executor without `isolation:"worktree"` only when the isolation
-//! is `harness-worktree`; in sequential mode (`USE_WORKTREES=false`) it allows. @gsd/core has no worktree isolation: its
-//! execute workflows set `USE_WORKTREES="false"` and tell the agent to omit `isolation`, so every dispatch it makes is
-//! the sequential one (REVIEW-r44 C1). A hook that always allows would cost every `Agent`/`Task` dispatch a process,
-//! so none is installed (r44 post-fix N7) until the `specforge` harness runs executors in worktrees.
+//! is `harness-worktree`; in sequential mode (`USE_WORKTREES=false`) it allows. @gsd/core has no worktree isolation:
+//! its execute workflows set `USE_WORKTREES="false"` and tell the agent to omit `isolation`, so every dispatch it
+//! makes is the sequential one (REVIEW-r44 C1). A hook that always allows would cost every `Agent`/`Task` dispatch a
+//! process, so none is installed (r44 post-fix N7) until the `specforge` harness runs executors in worktrees.
 //!
 //! The path guard reads git's answer as upstream does: the cwd's linked worktree (its git directory holds
 //! `/.git/worktrees/`) on an agent branch (`^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$`), each target's real

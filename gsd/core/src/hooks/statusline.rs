@@ -6,13 +6,17 @@
 //! session's state for the context monitor.
 //!
 //! `statusline.show_git` adds the branch and the work-state markers after the directory, from the status the host reads
-//! (`git status --porcelain=v2 --branch`, ADR 0320): `main+2~1?3↑1`, or `main✓` when clean.
+//! (`git status --porcelain=v2 --branch`, ADR 0320): `main+2~1?3↑1`, or `main✓` when clean. Known cost
+//! (REVIEW-k20c-part2 m1): the hook declares the status read statically, so the host runs `git status` on every render
+//! even while `show_git` is off, under the git adapter's deadline. Upstream spawns nothing then and drops the segment
+//! at 1.5 s. A fact flag gated by a setting, and a shorter deadline, are the kernel's to add.
 //!
 //! Dropped: the environment and `autoCompactWindow` overrides of the auto-compact threshold (no environment),
 //! state freshness (`show_state_freshness` stays declared and inert: there is no STATE.md stamp),
 //! the current-task segment (a file under `~/.claude`) and the update banner (a lockfile), and the colours: the
-//! kernel writes a hook's control characters out as text (ADR 0230, 0231), so the line is plain. One more difference: the
-//! phase counts read `completed/total`, the milestone's computed counters, where upstream reads `current/total`.
+//! kernel writes a hook's control characters out as text (ADR 0230, 0231), so the line is plain. One more
+//! difference: the phase counts read `completed/total`, the milestone's computed counters, where upstream reads
+//! `current/total`.
 //!
 //! Also ports gsd-core bin/lib modules: context-utilization.cjs.
 
