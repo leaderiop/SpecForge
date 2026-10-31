@@ -41,9 +41,12 @@ An agent that fakes a terminal (`script(1)`) is outside the guarantee (ADR 0289 
 The check is that stdin is a terminal. It holds where the agent's shell has no tty, as in Claude Code's Bash tool. It
 does not hold where the agent's own shell is a pty (Cursor's agent terminal, Codex's pty exec); K20c closes that with
 `core.human_guard`, a deny-policy PreToolUse hook on the shell tool, installed on every host while the project routes
-a `human` command. It refuses a command line that runs `specforge <short> <command>` for one, reading the commands
-from the served descriptors and naming the person's route. What is left is `script(1)` typed by a person on the
-agent's behalf, an indirection the guard does not split (a script, `eval`, a variable), and a host with no shell hook.
+a `human` command. It matches the whole line, case-insensitively: any word that is `specforge` (a path, `.exe`, inside
+`$(…)`) followed anywhere by `<short> <command>` or the CLI's `<short>:<command>` for one, so a wrapper with options
+(`env -i`, `sudo -u`, `nice -n`, `timeout`), a shell keyword or a brace does not hide it. The text of a shell's `-c` and
+of `eval` is read once more, and a line that names specforge but cannot be read is refused. It names the person's
+route. A false positive (`echo specforge t approve`) is refused: the safe direction. What is left is `script(1)` typed
+by a person on the agent's behalf, a script file or a variable that holds the command, and a host with no shell hook.
 MCP elicitation as a person path is ADR 0110's reopen and is not built.
 
 ## Consequences

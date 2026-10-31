@@ -219,6 +219,10 @@ fn a_hook_off_by_its_setting_is_a_no_op() {
     behavior = "run_a_hook",
     verify = "the human guard denies a shell call that runs a human-attested command, from the served descriptors"
 )]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one table of the spellings the guard must refuse"
+)]
 fn the_human_guard_denies_a_shell_call_running_a_human_command() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     for (host, tool) in [
@@ -235,6 +239,23 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
             "cd x && /usr/local/bin/specforge --path . t approve",
             "FOO=1 specforge t approve",
             "bash -c 'specforge t approve --by me'",
+            "specforge t:approve",
+            "env -i specforge t approve",
+            "sudo -u me specforge t approve",
+            "nice -n 5 specforge t approve",
+            "command -p specforge t approve",
+            "timeout 5 specforge t approve",
+            "{ specforge t approve; }",
+            "if true; then specforge t approve; fi",
+            "! specforge t approve",
+            "f(){ specforge t approve; }; f",
+            "$(command -v specforge) t approve",
+            "/opt/x/SpecForge t approve",
+            "specforge.exe t approve",
+            "SPECFORGE.EXE T APPROVE",
+            "bash -lc \"specforge t:approve\"",
+            "eval \"specforge t approve\"",
+            "echo specforge t approve",
         ] {
             let run = run_hook(&hosted, "core.human_guard", &shell(line));
             assert_eq!(run.answer["decision"], "deny", "{host} {line}: {run:?}");
@@ -247,8 +268,8 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
         }
         for line in [
             "specforge t stats",
-            "echo specforge t approve",
             "git status && ls",
+            "git commit -m \"run specforge t approve later\"",
             "specforge t approve-not-a-command",
         ] {
             let run = run_hook(&hosted, "core.human_guard", &shell(line));
@@ -346,4 +367,31 @@ fn a_hook_reads_another_extensions_setting() {
         json!({"@t/ui:workflow.ui_phase": true})
     );
     assert_eq!(task(json!({})), json!({"@t/ui:workflow.ui_phase": false}));
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "the human guard denies a line that names specforge and cannot be read"
+)]
+fn the_human_guard_denies_a_line_it_cannot_read() {
+    let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
+    let shell = |command: &str| {
+        json!({"event": "pre_tool", "host": "claude-code", "session": "s1",
+               "tool": {"name": "Bash", "class": "shell", "input": {"command": command}}})
+    };
+    let run = run_hook(
+        &hosted,
+        "core.human_guard",
+        &shell("specforge t approve #it's mine"),
+    );
+    assert_eq!(run.answer["decision"], "deny", "{run:?}");
+    assert!(
+        run.answer["reason"]
+            .as_str()
+            .unwrap()
+            .contains("cannot be read"),
+        "{run:?}"
+    );
+    let run = run_hook(&hosted, "core.human_guard", &shell("echo it's"));
+    assert!(run.answer["decision"].is_null(), "{run:?}");
 }

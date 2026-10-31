@@ -32,6 +32,7 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "a hook whose policy is deny blocks with exit 2 when specforge is not on PATH, and an allow hook's line is the plain command"
   verify unit "a deny hook is fail-closed without sh syntax on Windows: Claude Code's handler carries onFailure block, Codex's carries commandWindows, Cursor's Windows line is the plain command"
   verify unit "a stop or subagent_stop hook never gets the fail-closed line"
+  verify unit "no human guard is installed while no command is human-attested"
   verify unit "an uninstall removes every rendered form of a hook line and keeps the user's own"
   verify unit "a project whose extensions contribute nothing to a host declares and runs as it did"
   verify unit "hand-written host files are never read or written by any command"
@@ -86,6 +87,7 @@ behavior run_a_hook "Run a Hook" {
     file_changed fires when a file a hook names changes; Claude Code wires it (ADR 0321).
   """
   verify unit "the human guard denies a shell call that runs a human-attested command, from the served descriptors"
+  verify unit "the human guard denies a line that names specforge and cannot be read"
   verify unit "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the porcelain status"
   verify unit "a hook is told an outside path's real path, and with reads_git its toplevel and whether it is inside a git directory"
   verify unit "history answers the branch and the porcelain status of a repository"

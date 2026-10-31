@@ -283,3 +283,21 @@ fn a_hook_names_its_hosts() {
         run.exports
     );
 }
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "no human guard is installed while no command is human-attested"
+)]
+fn no_human_guard_is_installed_without_a_human_command() {
+    let with = project(json!({}), json!({}));
+    install(&with, &["claude-code"], &[]);
+    assert!(
+        with.read(".claude/settings.json")
+            .contains("core.human_guard")
+    );
+    let without = crate::hosts_tests::TestProject::new();
+    assert_eq!(install(&without, &["claude-code"], &[]).code, 0);
+    let settings = without.read(".claude/settings.json");
+    assert!(settings.contains("core.spec_guard"), "{settings}");
+    assert!(!settings.contains("core.human_guard"), "{settings}");
+}
