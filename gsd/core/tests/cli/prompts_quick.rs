@@ -454,7 +454,6 @@ mod worktree {
     }
 
     #[test]
-    #[ignore = "F8: plan 02 T2"]
     fn the_pre_dispatch_commit_holds_the_plan_and_the_base_is_its_parent() {
         if no_bash() {
             return;
@@ -484,7 +483,6 @@ mod worktree {
     }
 
     #[test]
-    #[ignore = "F8: plan 02 T2"]
     fn without_a_plan_there_is_no_alternate_base() {
         if no_bash() {
             return;
@@ -501,7 +499,6 @@ mod worktree {
     }
 
     #[test]
-    #[ignore = "F8: plan 02 T2"]
     fn the_executor_finds_the_plan_in_its_worktree_and_stops_without_it() {
         if no_bash() {
             return;
