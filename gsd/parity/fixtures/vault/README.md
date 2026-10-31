@@ -11,13 +11,18 @@ An encrypted store for secrets on the command line: `VAULT_KEY=<hex> node src/cl
     `## Threat Flags` table; `01-SECURITY.md` in state A: three threats (one closed, one open and high, one accepted
     risk `AR-1`) and one audit trail block (2026-10-29: 3 found, 1 closed, 2 open, so the recorded
     `verification.append-audit` of 3/2/1 appends).
-  - Phase 2 (planned): one plan without a threat register, no `SECURITY.md` (state B, the retroactive case).
+  - Phase 2 (planned): one plan without a threat register, no summary and no `SECURITY.md`. Upstream's state B needs a
+    summary (`secure-phase.md` step 1), so it calls this state C, "not executed"; the retroactive case is exercised by
+    the `record_security_audit` tests, not by this phase.
 - `src/`, `test/`: what phase 1 built. `npm test` runs `node --test`.
 - `spec/`: the SpecForge twin: the phases and plans, and the security model's entities for them (trust boundaries,
   threats, the audit, the accepted risk and the audit run). It checks with `@gsd/core` and `@gsd/security` loaded and
   reports one thing, the duplicate `T-01-02` (`gsd.security/E101`, once per claim) that the fixture exists to carry.
+  The twin has no `summary` entities (the summaries stay in `.planning/`), so the ported state detection
+  (`specforge query v1.0/01 --depth 2 --kinds summary`) finds none and `/gsd-secure-phase 01` on it exits at state C.
   A threat's `status` and `evidence` and the audit run's counts are harness fields (written by
   `record-security-audit`, never by hand); the twin holds them as the audit left them, and `specforge-harness` vouches
   for each, as the taskboard's verdicts are. The threats' statuses are `01-SECURITY.md`'s (`T-01-02` of plan 01-02 open,
   the rest closed), so the audit's computed `threats_open` is 1, the frontmatter's.
-- `.planning/config.json` sets `security.injection_blocking: false` explicitly: gsd-tools errors on a key that is unset.
+- `.planning/config.json` sets `security.injection_blocking: false` explicitly. That is a recording choice, not a product
+  divergence: gsd-tools' `config-get` errors on a key that is unset, while `specforge settings` answers the default.

@@ -144,7 +144,8 @@ Not verified:
     `skippedHooks` (`reason: produces-present`) once the audit exists, as upstream's `producesEntryPresent` does for the
     file (#5105), so verify-work and autonomous do not run the auditor a second time. Without the flag `skippedHooks` is
     `[]` where upstream omits the key; core's jq fold absorbs both (REVIEW-security-part2 M3).
-  - `[injection-key-explicit]` the vault fixture sets `security.injection_blocking: false` explicitly, because upstream errors on an unset key.
+  - `[injection-key-explicit]` the vault fixture sets `security.injection_blocking: false` explicitly, because gsd-tools' `config-get`
+    errors on an unset key where `specforge settings` answers the default: a recording choice, not a product divergence.
   - `[surface-peer-setting]` the slash `/gsd-secure-phase` is hidden by `@gsd/security`'s own `specforge.surface.audit_review`
     (a slash's `when` must be a setting of its own extension, W021), which follows `@gsd/core`'s setting of the same name
     through a preset when it is `false` (`/gsd-surface` writes core's). The two can be set apart by hand

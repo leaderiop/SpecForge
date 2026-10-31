@@ -39,7 +39,7 @@ Computed, severity order critical > high > medium > low, `none` blocks nothing:
 | Code | Kind | Severity | Gated by | Says | Upstream |
 |---|---|---|---|---|---|
 | `gsd.security/E101` | threat | error | none (upstream applies it whatever the hook) | "threat ID `<id>` is claimed by more than one plan of phase `<p>`: `<plans>`; renumber after the phase's highest `T-<p>-NN`" (digit-suffixed IDs only; `-SC` never) | #4683 |
-| `gsd.security/W301` | phase | warning | `workflow.security_enforcement` | "`<p>-SECURITY` is missing / is still draft / has `<n>` threat(s) open: run /gsd-secure-phase `<p>`", on a phase whose status is `complete` | #4972 |
+| `gsd.security/W301` | phase | warning | `workflow.security_enforcement` | "`<p>-SECURITY` is missing / is still draft / has `<n>` threat(s) open: run /gsd-secure-phase `<p>`", on a phase whose status is `complete`; one line per phase (open threats before draft), where upstream can say both | #4972 |
 
 ## Settings
 

@@ -163,7 +163,7 @@ specforge gsd record-security-audit "$PHASE_ID" \
 GSD > PHASE {N} SECURITY BLOCKED
 {K} blocking threats open — phase advancement blocked until threats_open: 0
 ▶ Fix mitigations then re-run: /gsd:secure-phase {N}
-▶ Or document accepted risks in SECURITY.md and re-run.
+▶ Or ask the person to run `accept_risk` for the risks they accept, and re-run.
 ```
 
 Do NOT emit next-phase routing. Stop here.
