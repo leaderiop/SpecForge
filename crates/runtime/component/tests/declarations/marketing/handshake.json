@@ -1,5 +1,5 @@
 {
-  "protocol_version": "1.13.0",
+  "protocol_version": "1.14.0",
   "name": "@example/marketing",
   "version": "0.1.0",
   "peer_dependencies": [],
