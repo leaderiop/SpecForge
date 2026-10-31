@@ -214,6 +214,12 @@ impl Ctx<'_> {
             if hook.paths.is_empty() {
                 return Err("a file_changed hook names the files it watches in paths".into());
             }
+            if let Some(nested) = hook.paths.iter().find(|p| p.contains(['/', '\\'])) {
+                // Claude Code's watch list is literal names in the working directory (ADR 0321).
+                return Err(format!(
+                    "a file_changed hook's paths are bare file names of the project root, not '{nested}'"
+                ));
+            }
             if let Some(glob) = hook.paths.iter().find(|p| p.contains(['*', '?', '[', '{'])) {
                 return Err(format!(
                     "a file_changed hook's paths are file names, not globs: '{glob}'"
