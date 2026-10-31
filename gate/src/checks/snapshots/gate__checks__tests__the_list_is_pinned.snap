@@ -30,7 +30,7 @@ builtins          quick      computed: a file some blob's inputs.json records
 guests            quick      extensions/**, examples/*/extension/**, crates/**, integrations/rust/**, Cargo.toml
                              each guest's tests pass and it is clippy-clean for wasm and native, and each example's extension is clippy-clean for wasm
 gsd               quick      gsd/**, crates/**, Cargo.toml, Cargo.lock (after rustfmt) [compiles]
-                             the @gsd workspace is clippy-clean for native and wasm, @gsd/core builds to wasm32-wasip2, and its unit, declaration and black-box tests pass against the specforge binary
+                             the @gsd workspace is clippy-clean for native and wasm, @gsd/core and @gsd/security build to wasm32-wasip2, and their unit, declaration and black-box tests pass against the specforge binary
 audit             quick      **/Cargo.lock
                              no lockfile holds an unsound or yanked dependency
 build             quick      computed: a workspace member; the root manifest, lockfile or nextest config [compiles]

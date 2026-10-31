@@ -1,0 +1,33 @@
+[package]
+name = "gsd-security"
+version = "1.0.0"
+edition.workspace = true
+license.workspace = true
+description = "@gsd/security: GSD's security capability (threat models, the security audit and the ship gate) for SpecForge"
+publish = false
+
+# `rlib` lets the native tests link the crate; the wasm component is the cdylib.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+specforge-extension-sdk = "0.3.0"
+gsd-kit = { path = "../kit" }
+
+[dev-dependencies]
+specforge-extension-sdk = { version = "0.3.0", features = ["testing"] }
+# The black-box harness is core's (`#[path]`), and it reads core's judged rules and codes; never a `src` dependency.
+gsd-core = { path = "../core" }
+serde_json = "1.0"
+tempfile = "3"
+regex = "1"
+sha2 = "0.10"
+# The harness's pty for stdin.
+rustix = { version = "1", features = ["pty", "fs"] }
+
+# The gsd-core release this crate tracks (the handshake carries it as the keyword `tracks:gsd-core@<version>`).
+[package.metadata.gsd]
+tracks = "gsd-core@1.18.0"
+
+[lints]
+workspace = true

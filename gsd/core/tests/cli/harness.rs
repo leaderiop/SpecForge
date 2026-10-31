@@ -1,12 +1,13 @@
-//! Runs the `specforge` binary on a project that loads the built `@gsd/core`.
+//! Runs the `specforge` binary on a project that loads the built `@gsd/core`, and with [`Project::with_extension`]
+//! another `@gsd/*` beside it.
 //!
-//! `SPECFORGE_BIN` is the binary and `GSD_CORE_WASM` the component; a missing one fails the test naming the command
-//! that builds it.
+//! `SPECFORGE_BIN` is the binary and `GSD_CORE_WASM` the component (`GSD_SECURITY_WASM` for `@gsd/security`); a
+//! missing one fails the test naming the command that builds it.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core --release --target wasm32-wasip2), then set SPECFORGE_BIN and GSD_CORE_WASM to the two artifacts";
+const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN, GSD_CORE_WASM and GSD_SECURITY_WASM to the artifacts";
 
 fn required(var: &str) -> PathBuf {
     match std::env::var_os(var).map(|value| existing_file(var, &value)) {
@@ -100,7 +101,8 @@ pub struct Project {
     dir: tempfile::TempDir,
     /// The project's root: the temp dir, or a directory inside it.
     root: PathBuf,
-    wasm: PathBuf,
+    /// The loaded extensions as `(name, component)`, `@gsd/core` first.
+    extensions: Vec<(String, PathBuf)>,
 }
 
 pub fn project(name: &str) -> Project {
@@ -135,7 +137,11 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
     let root = dir.path().join(inside);
     std::fs::create_dir_all(&root).expect("the project's directory");
     copy_dir(source, &root);
-    let p = Project { dir, root, wasm };
+    let p = Project {
+        dir,
+        root,
+        extensions: vec![("@gsd/core".to_string(), wasm)],
+    };
     p.settings(serde_json::json!({}));
     p
 }
@@ -148,14 +154,59 @@ impl Project {
 
     /// [`Self::settings`] with the manifest's `spec_root` (`.`: the spec root is the project root).
     pub fn settings_in(&self, spec_root: &str, settings: serde_json::Value) {
+        // another extension's block survives a rewrite of core's
+        let mut manifest = self.manifest();
+        let mut blocks = manifest["settings"].take();
+        if !blocks.is_object() {
+            blocks = serde_json::json!({});
+        }
+        blocks["@gsd/core"] = settings;
+        let extensions: Vec<String> = self
+            .extensions
+            .iter()
+            .map(|(name, wasm)| format!("{name}={}", wasm.display()))
+            .collect();
         let manifest = serde_json::json!({
             "name": "gsd-test",
             "version": "0.1.0",
             "spec_root": spec_root,
-            "extensions": [format!("@gsd/core={}", self.wasm.display())],
-            "settings": { "@gsd/core": settings },
+            "extensions": extensions,
+            "settings": blocks,
         });
         self.write("specforge.json", &manifest.to_string());
+    }
+
+    /// Loads `name` too, from the component the environment variable `var` names (`@gsd/core` stays first).
+    #[allow(
+        dead_code,
+        reason = "@gsd/security's tests include this file and use it; core's do not"
+    )]
+    pub fn with_extension(mut self, name: &str, var: &str) -> Self {
+        self.extensions.push((name.to_string(), required(var)));
+        let manifest = self.manifest();
+        let spec_root = manifest["spec_root"].as_str().unwrap_or("spec").to_string();
+        let core = manifest["settings"]["@gsd/core"].clone();
+        self.settings_in(&spec_root, core);
+        self
+    }
+
+    /// Sets the settings block of `extension` (`@gsd/security`) in `specforge.json`.
+    #[allow(
+        dead_code,
+        reason = "@gsd/security's tests include this file and use it; core's do not"
+    )]
+    pub fn settings_of(&self, extension: &str, settings: serde_json::Value) {
+        let mut manifest = self.manifest();
+        manifest["settings"][extension] = settings;
+        self.write("specforge.json", &manifest.to_string());
+    }
+
+    /// `specforge.json` as written; an empty object before the first write.
+    fn manifest(&self) -> serde_json::Value {
+        std::fs::read_to_string(self.root.join("specforge.json"))
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default()
     }
 
     /// Runs `specforge <args>` in the project's root.

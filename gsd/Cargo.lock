@@ -145,6 +145,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "gsd-security"
+version = "1.0.0"
+dependencies = [
+ "gsd-core",
+ "gsd-kit",
+ "regex",
+ "rustix",
+ "serde_json",
+ "sha2",
+ "specforge-extension-sdk",
+ "tempfile",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
