@@ -70,7 +70,7 @@ pub fn run(
         .as_deref()
         .map_or_else(|| root.to_path_buf(), Into::into);
     // A stale install: the host reads the hook's line, which carries the host it was installed for (ADR 0322).
-    if !declared.hosts.is_empty() && !declared.hosts.iter().any(|h| *h == event.host) {
+    if !declared.hosts.is_empty() && !declared.hosts.contains(&event.host) {
         return Outcome::default();
     }
     if !on(view, extension, &declared.when) {
