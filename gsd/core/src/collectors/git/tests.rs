@@ -466,3 +466,41 @@ fn a_commit_already_recorded_is_an_ancestor_but_is_not_written_again() {
     assert_eq!(made.len(), 1, "{made:?}");
     assert_eq!(made[0].1["descends_from"], serde_json::json!([name('b')]));
 }
+
+/// The plan graph with a `project` entity whose `project_code` is `code`.
+fn coded_graph(code: Option<&str>) -> Option<GraphWire> {
+    let mut graph = plan_graph()?;
+    let mut project = GraphNode {
+        id: "project".into(),
+        kind: "project".into(),
+        ..Default::default()
+    };
+    if let Some(code) = code {
+        project.fields.insert("project_code".into(), json!(code));
+    }
+    graph.nodes.push(project);
+    Some(graph)
+}
+
+fn recorded_plans(code: Option<&str>, subject: &str) -> Vec<Value> {
+    let input = CollectInput {
+        stdout: Some(line('a', &[], 10, subject)),
+        graph: coded_graph(code),
+        ..Default::default()
+    };
+    created(&collect(&input).expect("an answer"))
+        .into_iter()
+        .map(|(_, fields)| fields["plan"].clone())
+        .collect()
+}
+
+#[test]
+fn a_scope_with_the_configured_project_code_resolves_its_plan() {
+    let plan = [json!("v1.0/01/01-01")];
+    assert_eq!(recorded_plans(Some("PRJ"), "feat(PRJ-01-01): x"), plan);
+    assert_eq!(recorded_plans(Some("PRJ"), "feat(01-01): x"), plan);
+    // Only the configured code is stripped, case-sensitively: an id that only looks coded is matched literally.
+    assert!(recorded_plans(Some("PRJ"), "feat(AUTH-01-01): x").is_empty());
+    assert!(recorded_plans(Some("PRJ"), "feat(prj-01-01): x").is_empty());
+    assert!(recorded_plans(None, "feat(PRJ-01-01): x").is_empty());
+}

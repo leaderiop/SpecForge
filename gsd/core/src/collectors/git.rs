@@ -308,12 +308,19 @@ fn fields(
 }
 
 /// The header of `commit` and the plan it is (or would be) recorded under: a merge is read for its parents only.
+/// `code` is the project's `project_code`.
 fn plan_of<'a, 'n>(
     nodes: &'n [GraphNode],
+    code: Option<&str>,
     commit: &'a Commit,
 ) -> Option<(subject::Header<'a>, &'n GraphNode)> {
     let header = subject::parse(&commit.subject)?;
-    let plan = find_kind(nodes, header.scope?, "plan")?;
+    let scope = header.scope?;
+    // Only the configured code is stripped: an id that only looks coded is matched literally (#5271).
+    let plan = find_kind(nodes, scope, "plan").or_else(|| {
+        let rest = scope.strip_prefix(code?)?.strip_prefix('-')?;
+        find_kind(nodes, rest, "plan")
+    })?;
     (commit.parents.len() < 2 && plan.file.is_some()).then_some((header, plan))
 }
 
@@ -327,13 +334,18 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let mut builder = PlanBuilder::for_collect(input);
     let mut recorded = 0;
     let (commits, mut skipped) = parse_all(input.stdout.as_deref().unwrap_or(""));
+    let code = nodes
+        .iter()
+        .find(|n| n.kind == "project")
+        .and_then(|n| n.text("project_code"))
+        .filter(|c| !c.is_empty());
     let parents: HashMap<&str, &[String]> = commits
         .iter()
         .map(|c| (c.hash.as_str(), &c.parents[..]))
         .collect();
     let plans: HashMap<&str, &str> = commits
         .iter()
-        .filter_map(|c| Some((c.hash.as_str(), plan_of(nodes, c)?.1.id.as_str())))
+        .filter_map(|c| Some((c.hash.as_str(), plan_of(nodes, code, c)?.1.id.as_str())))
         .collect();
     // Oldest first, so the entities land in the order the commits were made.
     for commit in commits.iter().rev() {
@@ -341,7 +353,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         if known.contains(&name) {
             continue;
         }
-        let Some((header, plan)) = plan_of(nodes, commit) else {
+        let Some((header, plan)) = plan_of(nodes, code, commit) else {
             continue;
         };
         let file = plan.file.as_deref().unwrap_or_default();
