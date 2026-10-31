@@ -6,8 +6,6 @@
 )]
 
 pub const PENDING_RESYNC: &[&str] = &[
-    "gsd-core/workflows/execute-phase/steps/post-merge-gate.md",
-    "gsd-core/workflows/execute-phase/steps/regression-gate-run.md",
     "gsd-core/workflows/review.md",
     "tests/gsd-secret-read-guard.test.cjs",
 ];
