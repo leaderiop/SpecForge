@@ -63,6 +63,8 @@ pub struct Facts<'a> {
     pub status: Option<Value>,
     /// A hook that declares `reads_state`: the project's state.
     pub project_state: serde_json::Map<String, Value>,
+    /// `@gsd/security`'s `security.injection_blocking` is true (a hook that declares it; ADR 0323).
+    pub injection_blocking: bool,
     /// `file_changed`: what happened to the file (`change`, `add` or `unlink`).
     pub change: Option<String>,
     /// A hook that declares `reads_graph`.
@@ -113,6 +115,8 @@ impl<'a> Facts<'a> {
             session: f.session.clone(),
             status: f.status.clone(),
             change: f.change.clone(),
+            injection_blocking: call.other_setting("@gsd/security", "security.injection_blocking")
+                == Some(&Value::Bool(true)),
             project_state: f
                 .state
                 .as_ref()
