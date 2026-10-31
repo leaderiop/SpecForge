@@ -39,7 +39,6 @@ fn dirs(project: &TestProject) -> BTreeSet<String> {
     behavior = "install_into_a_host",
     verify = "install, uninstall and install --check refuse a specforge.json the compile reports as E069 and write nothing"
 )]
-#[ignore = "pins K20a; T10 un-ignores"]
 fn install_refuses_an_unusable_specforge_json_and_writes_nothing() {
     let p = project(json!({}), json!({}));
     assert_eq!(install(&p, &HOSTS, &[]).code, 0);

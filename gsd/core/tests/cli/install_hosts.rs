@@ -594,3 +594,16 @@ fn the_marker_version_is_normalised() {
         );
     }
 }
+
+#[test]
+fn a_broken_specforge_json_refuses_install_and_keeps_every_guard() {
+    for host in HOSTS {
+        let (p, home, _) = first_install(host);
+        p.write("specforge.json", "{bad");
+        let before = tree(&p);
+        let run = install(&p, &home, &["install", host, "--format", "json"]);
+        assert_eq!(run.code, 1, "{host}: {}", run.all());
+        assert_eq!(report(&run)["code"], "E069", "{host}: {}", run.all());
+        assert_eq!(tree(&p), before, "{host}: install wrote");
+    }
+}

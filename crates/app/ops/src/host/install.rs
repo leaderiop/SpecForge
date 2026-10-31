@@ -11,7 +11,7 @@ use super::port::{HostRenderer, HostTree};
 use super::render::rendered;
 use crate::change::locked;
 use crate::view::ProjectView;
-use crate::{Caller, Held, OpError, Wrote};
+use crate::{Caller, Held, OpError, OpErrorKind, Wrote};
 
 /// What an install or uninstall planned, and whether it wrote.
 #[derive(Debug, Clone)]
@@ -211,6 +211,14 @@ fn run(
     caller: Caller<'_>,
 ) -> Result<Outcome, OpError> {
     view.project_root()?;
+    // ADR 0306: a specforge.json the compile cannot use loads no extension, so the plan would strip every host file
+    // it contributed. Any problem refuses: a mistyped `spec_root` or `settings` changes what install writes.
+    if let Some(problem) = view.env().config_problems().first() {
+        return Err(OpError::of(
+            OpErrorKind::SchemaMismatch,
+            problem.diagnostic(),
+        ));
+    }
     let sources = view.env().sources().clone();
     let disk = ContainedHostDisk {
         caller,
