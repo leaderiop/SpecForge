@@ -8,6 +8,7 @@
 #[path = "../../../core/tests/cli/harness.rs"]
 mod harness;
 
+mod accept;
 mod advisory;
 mod compute;
 mod gate;

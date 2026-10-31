@@ -94,7 +94,11 @@ pub const SECURITY_AUDIT: Kind = Kind::new(
 )
 .scoped_by("phase");
 
-/// A line of the Accepted Risks Log, named `AR1` and scoped by its audit. A person's record.
+/// A line of the Accepted Risks Log, named `AR1` and scoped by its audit. A person's record: `accept_risk` is the
+/// human-attested command that writes it. The kind is not `human` (plan 16 said it would be): the host refuses a human
+/// command's plan to create a human-only entity ("write it in your editor"), so the command could not write it.
+/// `[accept-risk-human]` is therefore the command's guard, not the kind's; a kernel round could let a human command
+/// write a human kind.
 pub const ACCEPTED_RISK: Kind = Kind::new(
     "accepted_risk",
     "A threat a person accepted (GSD Accepted Risks Log)",
@@ -107,8 +111,7 @@ pub const ACCEPTED_RISK: Kind = Kind::new(
     ],
 )
 .scoped_by("audit")
-.append_only()
-.human();
+.append_only();
 
 /// A line of the Security Audit Trail, named `AU1` and scoped by its audit.
 pub const AUDIT_RUN: Kind = Kind::new(

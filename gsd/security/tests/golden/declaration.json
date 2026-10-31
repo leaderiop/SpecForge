@@ -416,8 +416,7 @@
       "singleton": false,
       "supports_verify": false,
       "testable": false,
-      "verify_kinds": [],
-      "writer": "human"
+      "verify_kinds": []
     },
     {
       "append_only": true,

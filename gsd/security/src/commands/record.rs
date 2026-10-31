@@ -47,7 +47,7 @@ fn choice<'a>(item: &'a Value, key: &str, allowed: &[&str]) -> Result<&'a str, S
 
 /// The file the phase's audit and its runs live in: the `security.spec` beside the phase's first plan, else that plan's
 /// file. A new file would not round-trip (the host leaves an emptied file behind when its last entity is deleted).
-fn audit_file(graph: &CommandGraph, phase: &GraphNode, plans: &[&GraphNode]) -> String {
+pub(super) fn audit_file(graph: &CommandGraph, phase: &GraphNode, plans: &[&GraphNode]) -> String {
     let existing = graph
         .nodes_of_kind("security_audit")
         .filter_map(|a| a.file.as_deref())

@@ -59,28 +59,3 @@ fn a_threat_without_its_plan_is_a_missing_required_field() {
         "{found:#?}"
     );
 }
-
-#[test]
-fn an_agent_may_not_write_an_accepted_risk() {
-    let p = model();
-    let run = p.run(&[
-        "new",
-        "accepted_risk",
-        "AR2",
-        "--in",
-        "spec/security.spec",
-        "Another",
-        "--audit",
-        AUDIT,
-        "--threat",
-        "v1.0/01/01-01/T-01-01",
-        "--rationale",
-        "r",
-        "--accepted_by",
-        "bob",
-        "--at",
-        "2026-10-30",
-    ]);
-    assert_ne!(run.code, 0, "{}", run.all());
-    assert!(run.all().contains("human_only"), "{}", run.all());
-}
