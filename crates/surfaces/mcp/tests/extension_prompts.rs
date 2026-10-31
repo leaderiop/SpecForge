@@ -362,7 +362,8 @@ fn an_mcp_prompt_takes_its_own_path_argument() {
     );
     assert!(text(&tool).contains("\"path\":\"docs/adr\""), "{tool}");
     assert!(text(&tool).contains("\"format\":\"md\""), "{tool}");
-    // A prompt that declares `path` owns it: `prompts/get` hands it to the prompt and opens no project by it (ADR 0314).
+    // A prompt that declares `path` owns it: `prompts/get` hands it to the prompt and opens no project by it (ADR
+    // 0314).
     let got = rpc::call(
         &mut served,
         "prompts/get",
