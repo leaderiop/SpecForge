@@ -6,7 +6,7 @@
 //! opt-in (the hook's `when`, tested black-box in `tests/cli/hooks_community.rs`) or how bash hands words to git (the
 //! kernel's `facts::commit` reads them). Each ported case is asserted where its upstream title is written.
 
-use super::{denied, reason, spec_write, with_command};
+use super::{denied, reason, spec_write, with_cleanup, with_command};
 use crate::hooks::accounting;
 use crate::hooks::community::{phase_boundary, validate_commit};
 use crate::hooks::facts::Facts;
@@ -171,27 +171,19 @@ fn ported() -> Vec<String> {
     // the cleanup mode changes the subject git records
     let padded = format!("feat: {}   ", "x".repeat(66));
     let msg = quoted(&padded);
-    let cmd =
-        |flags: &str, after: &str| format!("git commit --allow-empty {flags} -m \"{msg}\"{after}");
-    assert!(with_command(&msg, &cmd("--cleanup=verbatim", "")));
-    assert!(with_command(
-        &msg,
-        &format!("git -c commit.cleanup=verbatim commit -m \"{msg}\"")
-    ));
-    assert!(!with_command(&msg, &cmd("--cleanup=whitespace", "")));
-    assert!(!with_command(&msg, &cmd("", "")));
+    // The host reads the directives (`facts::commit`): `--cleanup=verbatim`, `-c commit.cleanup=verbatim`, a prefix of
+    // `--cleanup`, a spliced spelling and the value as the next word all arrive as the mode.
+    assert!(with_cleanup(&msg, &["verbatim"]));
+    assert!(!with_cleanup(&msg, &["whitespace"]));
+    assert!(!with_cleanup(&msg, &[]));
     for subject in [
         "fix: document commit.cleanup=strip behavior",
         "docs: explain --cleanup=verbatim in the hook guide",
         "fix: correct the guard scope\n\nIt scanned --cleanup=verbatim in the body.",
     ] {
         let m = quoted(subject);
-        assert!(
-            !with_command(&m, &format!("git commit -m \"{m}\"")),
-            "{subject}"
-        );
+        assert!(!with_cleanup(&m, &[]), "{subject}");
     }
-    assert!(with_command(&msg, &cmd("", " --cleanup=verbatim")));
     port(
         "validate-commit refuses to resolve under a non-default cleanup mode (round-4 Codex BLOCKER)",
     );
@@ -200,61 +192,24 @@ fn ported() -> Vec<String> {
     let long72 = format!("feat: {}   ", "x".repeat(66));
     let hd = quoted(&long72);
     let hd_ok = quoted("fix: a perfectly ordinary conforming subject");
-    for spelling in ["--cle", "--clea", "--clean", "--cleanu", "--cleanup"] {
-        assert!(
-            with_command(
-                &hd,
-                &format!("git commit --allow-empty -m \"{hd}\" {spelling}=verbatim")
-            ),
-            "{spelling}"
-        );
-    }
-    assert!(!with_command(
-        &hd,
-        &format!("git commit --allow-empty -m \"{hd}\" --clean=whitespace")
-    ));
-    assert!(with_command(
-        &hd,
-        &format!("git commit --allow-empty -m \"{hd}\" --clean\"\"up=verbatim")
-    ));
+    assert!(with_cleanup(&hd, &["verbatim"]));
+    assert!(!with_cleanup(&hd, &["whitespace"]));
     port("option scans read the command the way bash hands it to git (round-6 accept direction)");
     // `-m A --cleanup=verbatim -m B`: the flag sits between two heredocs
     let two = format!("{hd}\n\n{hd_ok}");
+    assert!(with_cleanup(&two, &["verbatim"]));
+    // the last directive is not told from the first: more than one mode refuses
+    assert!(with_cleanup(&hd, &["whitespace", "verbatim"]));
+    assert!(!with_cleanup(&hd_ok, &["whitespace"]));
+    assert!(with_cleanup(&hd, &["verbatim"]));
+    port("more than one cleanup directive is unresolvable \u{2014} git applies the LAST (round 7)");
+
+    // The kernel hands the directives of the commit's own words: another command's `--cleanup` is not one.
+    assert!(!with_cleanup(&hd_ok, &[]));
     assert!(with_command(
-        &two,
-        &format!("git commit -m \"{hd}\" --cleanup=verbatim -m \"{hd_ok}\"")
-    ));
-    // the wide scan: a separator inside an argument hides nothing
-    for author in ["\"a&b\"", "\"a|b\"", "\"a;b\"", "a\\&b", "a\\|b", "a\\;b"] {
-        assert!(
-            with_command(
-                &hd,
-                &format!(
-                    "git commit --allow-empty -m \"{hd}\" --author {author} --cleanup=verbatim"
-                )
-            ),
-            "{author}"
-        );
-    }
-    assert!(with_command(
-        &quoted("fix: a perfectly ordinary conforming subject"),
-        &format!("git commit -m \"{hd_ok}\" && echo --cleanup=verbatim")
-    ));
-    port("the cleanup guard scans wide on purpose — narrowing it reopened a length hole");
-    // the last directive is not told from the first: any non-default one refuses
-    assert!(with_command(
-        &hd,
-        &format!("git commit --allow-empty --cleanup=whitespace -m \"{hd}\" --cleanup=verbatim")
-    ));
-    assert!(!with_command(
         &hd_ok,
-        &format!("git commit --cleanup=whitespace -m \"{hd_ok}\"")
+        "git commit -m '$(cat <<'\\''EOF'\\''\nfix: a\nEOF\n)'"
     ));
-    assert!(with_command(
-        &hd,
-        &format!("git commit --allow-empty --cleanup=verbatim -m \"{hd}\"")
-    ));
-    port("more than one cleanup directive is unresolvable — git applies the LAST (round 7)");
 
     // a commit with no message on the command line, and a command that is no commit, have none to judge
     assert_eq!(validate_commit(&Facts::default(), &[]), HookOutput::allow());
@@ -291,6 +246,10 @@ fn hooks_opt_in_accounts_for_every_upstream_case() {
 }
 
 const SKIPPED: &[(&str, &str)] = &[
+    (
+        "hook execution when enabled > the cleanup guard scans wide on purpose \u{2014} narrowing it reopened a length hole",
+        "diverges: [cleanup-exact] upstream scans every word of the command for a cleanup directive, so `git commit -m ... && echo --cleanup=verbatim` refuses to resolve; the kernel hands the directives of the commit's own words, so only the commit's decide (more permissive, and what git records)",
+    ),
     (
         "hook file validation",
         "installer: the upstream hook files, their modes and the installer's lists; `specforge install` pins what it writes (tests/cli/install_hosts.rs)",

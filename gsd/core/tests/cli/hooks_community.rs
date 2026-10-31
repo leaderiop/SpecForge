@@ -75,6 +75,32 @@ fn bad_commit_subject_is_refused() {
     }
 }
 
+/// T16: the cleanup directives of the commit reach `validate_commit` from the host; a heredoc subject with trailing
+/// blanks is not resolved under `verbatim` (its opener is judged) and is 72 characters under `whitespace`.
+#[test]
+fn cleanup_directives_reach_validate_commit() {
+    let p = community(json!({}));
+    let home = installed(&p);
+    let message = format!("$(cat <<'EOF'\nfeat: {}   \nEOF\n)", "x".repeat(66));
+    for host in HOSTS {
+        let with = |flags: &str| {
+            commit(
+                &p,
+                &home,
+                host,
+                &format!("git commit {flags} -m \"{message}\""),
+            )
+        };
+        let (denied, reason) = with("--clean=verbatim");
+        assert!(denied, "{host}: {reason}");
+        assert!(!with("--cleanup=whitespace").0, "{host}");
+        assert!(!with("").0, "{host}");
+        // another command's directive is not this commit's
+        let chained = format!("git commit -m \"{message}\" && echo --cleanup=verbatim");
+        assert!(!commit(&p, &home, host, &chained).0, "{host}");
+    }
+}
+
 #[test]
 fn a_commit_without_a_message_is_allowed() {
     let p = community(json!({}));

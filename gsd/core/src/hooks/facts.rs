@@ -51,6 +51,8 @@ pub struct Facts<'a> {
     pub prompt: Option<String>,
     /// `pre_commit`: the message `-m` gives; none when the commit takes it from elsewhere.
     pub commit_message: Option<String>,
+    /// `pre_commit`: the mode of each cleanup directive of the commit, in order.
+    pub commit_cleanup: Vec<String>,
     /// A hook that declares `reads_state`: the session's state (none: no session, or none sent).
     pub session_state: Option<serde_json::Map<String, Value>>,
     /// The host's session, if it names one.
@@ -98,6 +100,11 @@ impl<'a> Facts<'a> {
             now: call.now().to_string(),
             prompt: f.prompt.clone(),
             commit_message: f.commit.as_ref().and_then(|c| c.message.clone()),
+            commit_cleanup: f
+                .commit
+                .as_ref()
+                .map(|c| c.cleanup.clone())
+                .unwrap_or_default(),
             session_state: f.state.as_ref().and_then(|s| s.session.clone()),
             session: f.session.clone(),
             status: f.status.clone(),

@@ -241,6 +241,15 @@ pub(super) fn with_command(message: &str, command: &str) -> bool {
     validate_commit(&f, &[]).decision == Some(Decision::Deny)
 }
 
+/// `validate_commit` on a message with the cleanup directives the host read (ADR 0320).
+pub(super) fn with_cleanup(message: &str, cleanup: &[&str]) -> bool {
+    let f = Facts {
+        commit_cleanup: cleanup.iter().map(|m| m.to_string()).collect(),
+        ..commit(Some(message))
+    };
+    validate_commit(&f, &[]).decision == Some(Decision::Deny)
+}
+
 #[test]
 fn a_heredoc_message_is_judged_by_its_body() {
     let heredoc = |body: &str| format!("$(cat <<'EOF'\n{body}\nEOF\n)");
@@ -275,19 +284,13 @@ fn a_heredoc_the_shell_would_change_is_judged_by_its_opener() {
     // the body never closes
     assert!(denied("$(cat <<'EOF'\nfeat: x", &[]));
     let ok = "$(cat <<'EOF'\n\nfeat: x\nEOF\n)";
-    assert!(!with_command(
-        ok,
-        "git commit -m \"$(cat <<'EOF'\n\nfeat: x\nEOF\n)\""
-    ));
-    // `--cleanup=verbatim` keeps the blank first line, so git's subject is empty; `whitespace`/`default` strip it
-    assert!(with_command(
-        ok,
-        "git commit --cleanup=verbatim -m \"$(cat <<'EOF'\n\nfeat: x\nEOF\n)\""
-    ));
-    assert!(!with_command(
-        ok,
-        "git commit --cleanup=whitespace -m \"$(cat <<'EOF'\n\nfeat: x\nEOF\n)\""
-    ));
+    assert!(!with_cleanup(ok, &[]));
+    // `--cleanup=verbatim` keeps the blank first line, so git's subject is empty; `whitespace` strips it, and
+    // `default` is refused (upstream's rule: only `whitespace` resolves)
+    assert!(with_cleanup(ok, &["verbatim"]));
+    assert!(!with_cleanup(ok, &["whitespace"]));
+    assert!(with_cleanup(ok, &["default"]));
+    assert!(with_cleanup(ok, &["whitespace", "whitespace"]));
     // a single-quoted `-m` hands git the literal opener
     assert!(with_command(
         ok,
@@ -462,7 +465,7 @@ pub(in crate::hooks) fn resolve_subject_ported() -> Vec<String> {
     let mut ported = Vec::new();
     let mut port = |title: &str| ported.push(format!("{D}{title}"));
     let sub = |open: &str, body: &str, close: &str| format!("$(cat {open}\n{body}\n{close}\n)");
-    let r = |m: &str| subject_of(m, "").to_string();
+    let r = |m: &str| subject_of(m, "", &[]).to_string();
 
     assert_eq!(
         r(&sub("<<'EOF'", "feat(auth): add login flow", "EOF")),

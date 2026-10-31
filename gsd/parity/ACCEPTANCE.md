@@ -108,6 +108,8 @@ Not verified:
   upstream lets it through (`[unquoted-m]`, which also covers `-m "" -m "fix: x"`). `[dquoted-heredoc-tag]` A `<<"TAG"`
   heredoc resolves, where upstream's capture cannot deliver it and blocks it. `[truncated-heredoc]` A heredoc message with no terminator line is judged by its opener (upstream's capture can
   hand a cut body whose first line is complete, and resolves it).
+- `[cleanup-exact]` `validate_commit` reads the cleanup directives of the commit's own words, not of the whole command line
+  (`... && echo --cleanup=verbatim` resolves, which upstream refuses), and refuses `--cleanup=default` (D-K20c-3).
 - `[cwd-branch]` `workflow_guard` judges a `git -C <dir> add -f` by the branch of the hook's cwd, not of `<dir>` (upstream
   probes the target); upgrade when the host can be asked another directory's branch (ADR 0320).
 - The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,

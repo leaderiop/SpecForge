@@ -90,104 +90,21 @@ fn quoted_delimiter(opener: &str) -> Option<&str> {
     (!inner.is_empty() && !inner.contains(char::is_whitespace)).then_some(inner)
 }
 
-/// The end (byte offset, after the terminator line) of the heredoc a `$(cat <<'EOF'` opens at the start of `text`.
-fn heredoc_end(text: &str) -> Option<usize> {
-    let mut lines = text.split_inclusive('\n');
-    let delim = quoted_delimiter(lines.next()?.trim_end_matches('\n'))?;
-    let mut at = text.find('\n')? + 1;
-    for line in lines {
-        at += line.len();
-        if line.trim_end_matches('\n').trim_start_matches('\t') == delim {
-            return Some(at - usize::from(line.ends_with('\n')));
-        }
-    }
-    None
-}
-
-/// The words of `command` as bash hands them over: quotes removed and spliced, a backslash keeping its next character,
-/// a heredoc body kept inside its word. None when a quote is left open.
-// shortcut: no expansions, no `$(...)` other than the heredoc, no operators; the words of a chained command are all
-// scanned, which refuses a `--cleanup` of another command (upstream's pinned false positive).
-fn shell_words(command: &str) -> Option<Vec<String>> {
-    let (mut words, mut word, mut live, mut quote, mut i) =
-        (Vec::new(), String::new(), false, None, 0);
-    while let Some(c) = command[i..].chars().next() {
-        let mut step = c.len_utf8();
-        if c == '$'
-            && quote != Some('\'')
-            && let Some(end) = heredoc_end(&command[i..])
-        {
-            word.push_str(&command[i..i + end]);
-            (live, step) = (true, end);
-        } else if c == '\\' && quote != Some('\'') {
-            let next = command[i + 1..].chars().next();
-            match next {
-                Some('\n') => {}
-                Some(d) if quote.is_none() || matches!(d, '"' | '\\' | '$' | '`') => word.push(d),
-                Some(d) => word.extend(['\\', d]),
-                None => word.push('\\'),
-            }
-            live = true;
-            step += next.map_or(0, char::len_utf8);
-        } else if quote == Some(c) {
-            quote = None;
-        } else if quote.is_none() && matches!(c, '\'' | '"') {
-            (quote, live) = (Some(c), true);
-        } else if quote.is_none() && c.is_whitespace() {
-            if live {
-                words.push(std::mem::take(&mut word));
-                live = false;
-            }
-        } else {
-            word.push(c);
-            live = true;
-        }
-        i += step;
-    }
-    if quote.is_some() {
-        return None;
-    }
-    if live {
-        words.push(word);
-    }
-    Some(words)
-}
-
-/// Whether the command asks for a `--cleanup` mode that keeps what the message says as it is (anything but `default` and
-/// `whitespace`): `--cleanup=verbatim`, git's unambiguous abbreviations of it (`--clean=verbatim`), a spliced spelling
-/// (`--clean""up=verbatim`), `--cleanup verbatim`, `-c commit.cleanup=verbatim`. Every word of the command is read (the
-/// message words are single words that do not start with `--`, so a subject may talk about `--cleanup=verbatim`), and
-/// the first non-default mode refuses: git applies the last, and this does not tell which. A command that cannot be
-/// split into words is refused.
-fn cleanup_kept(command: &str) -> bool {
-    let Some(words) = shell_words(command) else {
-        return true;
-    };
-    words.iter().enumerate().any(|(i, w)| {
-        let (name, value) = w
-            .split_once('=')
-            .map_or((w.as_str(), None), |(n, v)| (n, Some(v)));
-        let abbreviation = name.len() >= "--cle".len() && "--cleanup".starts_with(name);
-        if !abbreviation && name != "commit.cleanup" {
-            return false;
-        }
-        let value = value.or_else(|| {
-            abbreviation
-                .then(|| words.get(i + 1).map(String::as_str))
-                .flatten()
-        });
-        !matches!(value, Some("whitespace" | "default"))
-    })
+/// Whether the commit's own cleanup directives let `message` be resolved: git applies the last directive and the
+/// host hands them all, so more than one mode, or one that is not `whitespace` (the mode the default is), keeps
+/// something the resolved subject drops. Upstream's rule.
+fn cleanup_kept(cleanup: &[String]) -> bool {
+    cleanup.len() > 1 || cleanup.first().is_some_and(|m| m != "whitespace")
 }
 
 /// The subject of a message: its first line, or, for the command-substituted heredoc form
 /// `$(cat <<'EOF' ... EOF)` (upstream's #3802), the first non-blank line of the body. Upstream blocks every other
 /// shape, so those are judged as they are written: the opener line is the subject. The body is resolved only when the
 /// delimiter is quoted, the `)` closes the substitution with nothing glued after it, the `-m` word is not
-/// single-quoted (git would receive the literal opener) and `command` has no `--cleanup` that keeps a blank first
+/// single-quoted (git would receive the literal opener) and the commit has no cleanup directive that keeps a blank first
 /// line or trailing blanks (REVIEW-r44 M2). A `<<-` heredoc loses its leading tabs; the resolved subject loses its
 /// trailing blanks, as git strips them under the default cleanup.
-fn subject_of<'a>(message: &'a str, command: &str) -> &'a str {
+fn subject_of<'a>(message: &'a str, command: &str, cleanup: &[String]) -> &'a str {
     let mut lines = message.lines();
     let first = lines.next().unwrap_or_default();
     let Some(delim) = quoted_delimiter(first) else {
@@ -204,7 +121,7 @@ fn subject_of<'a>(message: &'a str, command: &str) -> &'a str {
         [p, next, ..] => paren(p) && next.is_empty(),
         [] => false,
     });
-    if !clean || command.contains("'$(cat <<") || cleanup_kept(command) {
+    if !clean || command.contains("'$(cat <<") || cleanup_kept(cleanup) {
         return first;
     }
     // git's blank is the ASCII space and tab, not Unicode white space
@@ -227,7 +144,7 @@ pub(super) fn validate_commit(f: &Facts, extra: &[String]) -> HookOutput {
         return HookOutput::allow();
     };
     let command = f.input_str("command").unwrap_or_default();
-    let subject = subject_of(message, command);
+    let subject = subject_of(message, command, &f.commit_cleanup);
     if subject.starts_with("fixup! ") || subject.starts_with("squash! ") {
         return HookOutput::allow();
     }
