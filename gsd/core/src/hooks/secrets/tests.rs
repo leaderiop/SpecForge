@@ -11,6 +11,8 @@ use serde_json::Value;
 use super::*;
 use crate::hooks::{accounting, corpus};
 
+mod v1_19;
+
 const SUITE: &str =
     include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-secret-read-guard.test.cjs");
 const RECORDING: &str =

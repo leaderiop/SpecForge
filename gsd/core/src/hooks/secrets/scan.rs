@@ -3,6 +3,10 @@
 //! Which operand of which command of a shell line reads a secret file, and the spawn of the debugger as a CLI process.
 //! Anything that runs a nested script (`eval`, `sh -c`, `source <(…)`, `xargs`, `git -c alias.x=!…`, a piped `sh`)
 //! is scanned again, three levels deep.
+//!
+//! gsd-core v1.19.0 (#5627): the command word is found past each wrapper's own options (`WRAPPERS`). What stays
+//! open, as upstream says: a wrapper, or a wrapper option taking a separate value, the table does not list, and
+//! `env -S 'script'` (the split string is skipped as the option's value).
 
 use std::collections::BTreeMap;
 
@@ -11,7 +15,98 @@ use super::names::{last_segment, names_secret};
 use super::shell::{Kind, Token, tokenize};
 
 pub(super) const MAX_NESTING_DEPTH: usize = 3;
-const CMD_PREFIXES: [&str; 7] = ["sudo", "env", "command", "nice", "nohup", "time", "doas"];
+
+/// What `resolve` steps over after a wrapper: `short` letters and `long` options that take a separate value word,
+/// leading `VAR=value` words (`assigns`) and positional `operands` (timeout's DURATION). From the man pages; a wrong
+/// entry fails open (the option's value becomes the command word).
+struct Wrapper {
+    short: &'static str,
+    long: &'static [&'static str],
+    assigns: bool,
+    operands: usize,
+}
+
+const BARE: Wrapper = Wrapper {
+    short: "",
+    long: &[],
+    assigns: false,
+    operands: 0,
+};
+const WRAPPERS: [(&str, Wrapper); 11] = [
+    (
+        "sudo",
+        Wrapper {
+            short: "CDghpRrTtUu",
+            long: &[
+                "--close-from",
+                "--chdir",
+                "--group",
+                "--host",
+                "--prompt",
+                "--chroot",
+                "--role",
+                "--command-timeout",
+                "--type",
+                "--other-user",
+                "--user",
+            ],
+            ..BARE
+        },
+    ),
+    (
+        "doas",
+        Wrapper {
+            short: "Cu",
+            ..BARE
+        },
+    ),
+    (
+        "env",
+        Wrapper {
+            short: "uCSaP",
+            long: &["--unset", "--chdir", "--split-string", "--argv0"],
+            assigns: true,
+            ..BARE
+        },
+    ),
+    (
+        "nice",
+        Wrapper {
+            short: "n",
+            long: &["--adjustment"],
+            ..BARE
+        },
+    ),
+    ("nohup", BARE),
+    ("command", BARE),
+    (
+        "time",
+        Wrapper {
+            short: "fo",
+            long: &["--format", "--output"],
+            ..BARE
+        },
+    ),
+    (
+        "timeout",
+        Wrapper {
+            short: "sk",
+            long: &["--signal", "--kill-after"],
+            operands: 1,
+            ..BARE
+        },
+    ),
+    (
+        "stdbuf",
+        Wrapper {
+            short: "ioe",
+            long: &["--input", "--output", "--error"],
+            ..BARE
+        },
+    ),
+    ("setsid", BARE),
+    ("exec", Wrapper { short: "a", ..BARE }),
+];
 const NON_READING: [&str; 16] = [
     "test", "[", "[[", "ls", "stat", "touch", "rm", "chmod", "chown", "mkdir", "basename",
     "dirname", "realpath", "file", "echo", "printf",
@@ -43,22 +138,57 @@ pub(super) struct Command<'a> {
     pub operands: Vec<&'a Token>,
 }
 
+/// How many words the wrapper option `word` occupies: 2 when it takes a separate value word, else 1.
+fn option_width(word: &str, w: &Wrapper) -> usize {
+    if word.starts_with("--") {
+        // getopt_long accepts any unambiguous prefix (`--adj 5`).
+        let valued =
+            !word.contains('=') && word.len() > 2 && w.long.iter().any(|l| l.starts_with(word));
+        return if valued { 2 } else { 1 };
+    }
+    let valued = word
+        .char_indices()
+        .skip(1)
+        .find(|&(_, c)| w.short.contains(c));
+    // `-n5` carries its value; a valued letter last takes the next word.
+    1 + usize::from(valued.is_some_and(|(i, _)| i + 1 == word.len()))
+}
+
+/// The index of the first word after a wrapper's own options, assignments and operands (`-n 5`, `-i A=1`, `--`).
+fn skip_wrapper_args(words: &[&Token], start: usize, w: &Wrapper) -> usize {
+    let (mut idx, mut options_ended) = (start, false);
+    while let Some(word) = words.get(idx) {
+        let text = word.text.as_str();
+        if w.assigns && is_assignment(text) {
+            idx += 1;
+        } else if !options_ended && text == "--" {
+            options_ended = true;
+            idx += 1;
+        } else if !options_ended && text.len() > 1 && text.starts_with('-') {
+            idx += option_width(text, w);
+        } else {
+            break;
+        }
+    }
+    if w.operands == 0 {
+        return idx;
+    }
+    idx = (idx + w.operands).min(words.len());
+    // `timeout 5 -- cmd`: some getopt builds still accept `--` after DURATION.
+    idx + usize::from(words.get(idx).is_some_and(|t| t.text == "--"))
+}
+
 pub(super) fn resolve<'a>(words: &[&'a Token]) -> Option<Command<'a>> {
     let mut idx = 0;
     while idx < words.len() && is_assignment(&words[idx].text) {
         idx += 1;
     }
-    while idx < words.len() {
-        let base = last_segment(&words[idx].text).to_lowercase();
-        if !CMD_PREFIXES.contains(&base.as_str()) {
+    while let Some(word) = words.get(idx) {
+        let base = last_segment(&word.text).to_lowercase();
+        let Some((_, w)) = WRAPPERS.iter().find(|(name, _)| *name == base) else {
             break;
-        }
-        idx += 1;
-        if base == "env" {
-            while idx < words.len() && is_assignment(&words[idx].text) {
-                idx += 1;
-            }
-        }
+        };
+        idx = skip_wrapper_args(words, idx + 1, w);
     }
     let first = words.get(idx)?;
     Some(Command {
