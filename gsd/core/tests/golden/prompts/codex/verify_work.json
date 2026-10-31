@@ -61,10 +61,8 @@
     "02",
     "GSD_ARGS_END"
   ],
-  "bytes": 74067,
+  "bytes": 74320,
   "end": [
-    "skipped: 0",
-    "",
     "## Gaps",
     "",
     "- truth: \"Comment appears immediately after submission in list\"",
@@ -101,6 +99,8 @@
     "",
     "",
     "In the shell blocks above, `$PHASE_ID` is `v1.0/02`; `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
+    "",
+    "A test that passing tests already cover is not put to the person: record it yourself with `specforge gsd record-automated-uat <uat_test> <pass|issue> --by <who>` (an issue takes `--reported \"<what the run showed>\"`); it is written `source: automated`.",
     "",
     "For each answer of the person, ask them to run `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`) in their terminal (an agent's call is refused: it records what a person says): the UAT file's `result:` lines are not edited by hand."
   ],
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1555,
+  "lines": 1557,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:5e2ba9b8c0a8cf99bbfcd24e9b32b53388bcbf38431d9afd8167390b1a6eaf97",
+    "digest": "sha256:8be355ff477b5c7f1d0d2b94e9fb70b59cbbc831328adffcc3db366a82c85830",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "5e2ba9b8c0a8cf99bbfcd24e9b32b53388bcbf38431d9afd8167390b1a6eaf97"
+  "sha256": "8be355ff477b5c7f1d0d2b94e9fb70b59cbbc831328adffcc3db366a82c85830"
 }

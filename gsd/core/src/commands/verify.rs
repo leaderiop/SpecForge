@@ -1,5 +1,5 @@
 //! The commands of verification (D-r41-1 rows 5-6): a person's answer to a UAT test, and the approval of a
-//! validation. A UAT result is the person's own: the command writes what they said, never a sanitised copy.
+//! validation, and an automated UAT result an agent or CI records. A UAT result of a person is their own: the command writes what they said, never a sanitised copy.
 //!
 //! Also ports gsd-core bin/lib modules: verify.cjs.
 //!
@@ -22,17 +22,38 @@ const BLOCKED_BY: &[&str] = &[
 
 /// `set_uat_result <uat_test> <result> --by <who> [--source] [--reported] [--severity] [--reason] [--blocked-by]`.
 fn set_uat_result(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    if call.str("source") == Some("automated") {
+        return Err("--source automated is refused here: a person's answer is never automated. An agent or CI records an automated result with \
+             `specforge gsd record-automated-uat <uat_test> <pass|issue> --by <who>`"
+            .to_string());
+    }
+    write_result(call, false)
+}
+
+/// `record_automated_uat <uat_test> <pass|issue> --by <who> [--reported] [--severity]`: a result a test run produced,
+/// which upstream's agent records without asking the person (verify-work.md, `auto_passed`). Agent-callable.
+fn record_automated_uat(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    write_result(call, true)
+}
+
+/// The write both commands share; `automated` marks the result `source: automated` and takes no reason or blocker.
+fn write_result(call: &CommandCall<'_>, automated: bool) -> Result<CommandOutput, String> {
     let test = node(call, "uat_test", required(call, "uat_test")?)?;
     let result = required(call, "result")?;
     // The caller's attestation of whose answer this is. No field holds it (a uat_test has no `by`): it is refused
     // empty and echoed, never stored (the command is human-attested: ADR 0301).
     let by = required(call, "by")?;
-    let source = call.str("source");
+    let source = automated.then_some("automated");
     // What the predicate (gsd/E509) asks of a result: the words, the reason, the blocker, here or already there.
     let given = |arg: &str| text(call, arg);
     let kept = |arg: &str| test.has_field(arg);
-    let (reported, reason) = (given("reported")?, given("reason")?);
-    let (severity, blocked_by) = (call.str("severity"), call.str("blocked_by"));
+    let reported = given("reported")?;
+    let severity = call.str("severity");
+    let (reason, blocked_by) = if automated {
+        (None, None)
+    } else {
+        (given("reason")?, call.str("blocked_by"))
+    };
     for (needed, result_of, name, have) in [
         (
             "issue",
@@ -59,11 +80,6 @@ fn set_uat_result(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
                 name.replace('_', "-")
             ));
         }
-    }
-    if source == Some("automated") && !["pass", "issue"].contains(&result) {
-        return Err(format!(
-            "--source automated is for a pass or an issue, not '{result}'"
-        ));
     }
     let id = &test.id;
     let mut plan = call.plan();
@@ -138,7 +154,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("required; whose answer it is (typed by the person at their terminal; echoed, not stored)");
             })
             .arg("source", |a| {
-                a.one_of(&["human", "automated"]).description("who produced the result; only given for an automated pass or issue");
+                a.one_of(&["human", "automated"]).description("a person's answer is `human`; `automated` is refused here (use record_automated_uat)");
             })
             .arg("reported", |a| {
                 a.description("the person's words, kept verbatim (required for an issue)");
@@ -153,6 +169,26 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.one_of(BLOCKED_BY).description("what blocks the test (required for a blocked)");
             })
             .handler(|call| run(call, set_uat_result));
+    });
+    c.command("record_automated_uat", |cmd| {
+        cmd.description("Record an automated UAT result (a pass or an issue) that a test run produced, without asking the person")
+            .writes()
+            .arg("uat_test", |a| {
+                a.required().description("the UAT test (its path, or a short form that is not ambiguous)");
+            })
+            .arg("result", |a| {
+                a.required().one_of(&["pass", "issue"]).description("the automated result");
+            })
+            .arg("by", |a| {
+                a.description("required; what produced it (for example ci; echoed, not stored)");
+            })
+            .arg("reported", |a| {
+                a.description("what the run showed, kept verbatim (required for an issue)");
+            })
+            .arg("severity", |a| {
+                a.one_of(SEVERITIES).description("how bad the issue is (major when absent)");
+            })
+            .handler(|call| run(call, record_automated_uat));
     });
     c.command("approve_validation", |cmd| {
         cmd.description("Record who approved a phase's validation, with the host's clock")

@@ -194,9 +194,10 @@ fn approve_validation_writes_by_and_at() {
 fn a_re_answer_leaves_no_member_of_the_earlier_one() {
     let p = unanswered();
     let u2 = "v1.0/01/01-UAT/U2";
-    let run = gsd_as_person(
+    // An automated result is an agent's (or CI's) call, not a person's (REVIEW-k20a M1).
+    let run = gsd(
         &p,
-        "set-uat-result",
+        "record-automated-uat",
         &[
             u2,
             "issue",
@@ -204,8 +205,6 @@ fn a_re_answer_leaves_no_member_of_the_earlier_one() {
             "slow",
             "--severity",
             "minor",
-            "--source",
-            "automated",
             "--by",
             "ci",
         ],
@@ -233,4 +232,51 @@ fn a_re_answer_leaves_no_member_of_the_earlier_one() {
         &["--reason belongs to a 'skipped' result"],
     );
     unchanged(&p, &before);
+}
+
+#[test]
+fn an_agent_records_an_automated_uat_pass() {
+    let p = unanswered();
+    let u2 = "v1.0/01/01-UAT/U2";
+    let run = gsd(&p, "record-automated-uat", &[u2, "pass", "--by", "ci"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let fields = p.fields_of(u2);
+    assert_eq!(fields["result"], "pass");
+    assert_eq!(fields["source"], "automated");
+    // Only a pass or an issue is an automated result.
+    let run = gsd(&p, "record-automated-uat", &[u2, "skipped", "--by", "ci"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+}
+
+#[test]
+fn an_agents_human_uat_answer_is_refused() {
+    let p = unanswered();
+    let before = bytes(&p);
+    let run = gsd(
+        &p,
+        "set-uat-result",
+        &["v1.0/01/01-UAT/U1", "pass", "--by", "ada"],
+    );
+    refused(&run, "human_only", &[]);
+    assert_eq!(bytes(&p), before);
+}
+
+#[test]
+fn a_persons_command_refuses_source_automated_and_names_the_agents() {
+    let p = unanswered();
+    let before = bytes(&p);
+    let run = gsd_as_person(
+        &p,
+        "set-uat-result",
+        &[
+            "v1.0/01/01-UAT/U2",
+            "pass",
+            "--source",
+            "automated",
+            "--by",
+            "ci",
+        ],
+    );
+    refused(&run, "invalid_input", &["record-automated-uat"]);
+    assert_eq!(bytes(&p), before);
 }

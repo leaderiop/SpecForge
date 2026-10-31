@@ -94,7 +94,7 @@ The test being asked now is session state.
 | criterion | int | | the phase success criterion it proves |
 | from_task | → task | | a harvested `<human-check>` |
 | result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by a person through `set_uat_result --by` (a human-attested command, ADR 0301: refused to an agent) |
-| source | enum{human, automated} | H | written by `set_uat_result`: given, or `human` when a re-answer replaces an earlier `source`; an automated result is one the caller marks `--source automated` (a pass or an issue), as a collector (DOM, e2e) would. A re-answer unsets the members its result does not take |
+| source | enum{human, automated} | H | written by `set_uat_result` (`human` when a re-answer replaces an earlier `source`) or by `record_automated_uat` (`automated`, a pass or an issue, an agent's or CI's call: `set_uat_result --source automated` is refused). A re-answer unsets the members its result does not take |
 | reported | str | | the human's words, verbatim, when `issue` |
 | severity | enum{blocker, major, minor, cosmetic} | | major when absent |
 | reason | str | | why skipped; `Deferred follow-up…` counts as passing |
