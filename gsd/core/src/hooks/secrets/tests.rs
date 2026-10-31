@@ -92,6 +92,11 @@ fn ported() -> Vec<String> {
         assert_eq!(secret_read_guard(&big(n)).decision, None, "{n} bytes");
     }
     ported.push("gsd-secret-read-guard: Bash allows > allows benign commands at exactly 1 MiB and 1 MiB - 1".into());
+    ported.extend(
+        v1_19::PORTED
+            .iter()
+            .flat_map(|(_, cases)| cases.iter().map(ToString::to_string)),
+    );
     ported
 }
 
