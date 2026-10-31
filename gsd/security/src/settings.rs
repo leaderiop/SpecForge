@@ -26,7 +26,28 @@ const TIERS: &[(&str, &str)] = &[
 /// `when` must be a setting of its own extension, W021, and a preset may follow a peer's bool).
 pub const SURFACE_SETTING: &str = "specforge.surface.audit_review";
 
+/// Core's `workflow.text_mode` and `response_language`, which `/gsd-secure-phase` reads: a prompt sees only its own
+/// extension's settings, so each is declared here. The bool follows core's through a preset.
+// shortcut: a preset follows only an enum or a bool (W021), so the free-text `response_language` is not followed: set
+// it under `@gsd/security` too. Upgrade when a prompt can read a peer's setting.
+pub const TEXT_MODE: &str = "workflow.text_mode";
+pub const RESPONSE_LANGUAGE: &str = "response_language";
+
 pub fn declare(c: &mut ContributionsBuilder) {
+    c.setting(TEXT_MODE, |s| {
+        s.bool().default(false).describe(
+            "Replace AskUserQuestion menus with numbered lists; follows @gsd/core's workflow.text_mode.",
+        );
+    });
+    c.preset("@gsd/core:workflow.text_mode", |p| {
+        p.when("true", |e| {
+            e.set(TEXT_MODE, true);
+        });
+    });
+    c.setting(RESPONSE_LANGUAGE, |s| {
+        s.string()
+            .describe("Language of agent responses for /gsd-secure-phase; set it as @gsd/core's response_language.");
+    });
     c.setting(SURFACE_SETTING, |s| {
         s.bool().default(true).describe(
             "Show /gsd-secure-phase; follows @gsd/core's audit_review cluster (/gsd-surface).",

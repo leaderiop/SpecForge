@@ -229,3 +229,18 @@ fn the_preamble_is_security_s_not_cores() {
         assert!(head.contains("`trust_boundary`, `threat`"), "{host}");
     }
 }
+
+/// REVIEW-security-part2 m1: core's `response_language` and `workflow.text_mode` reach `/gsd-secure-phase` as they
+/// reach core's prompts (a prompt reads only its own extension's settings, so `@gsd/security` follows them).
+#[test]
+fn the_prompt_honours_core_response_language() {
+    let p = model();
+    // text mode follows core's setting
+    p.settings_of("@gsd/core", json!({"workflow.text_mode": true}));
+    let text = text_of(&render(&p, &[PHASE], "claude-code"));
+    assert!(text.contains("\"workflow.text_mode\": true"), "{text}");
+    // a free-text setting cannot be followed (W021): it is set under `@gsd/security`
+    p.settings_of("@gsd/security", json!({"response_language": "French"}));
+    let text = text_of(&render(&p, &[PHASE], "claude-code"));
+    assert!(text.contains("RESPONSE_LANGUAGE=\"French\""), "{text}");
+}

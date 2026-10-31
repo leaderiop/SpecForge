@@ -61,7 +61,7 @@
     "",
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"secure-phase\"`."
   ],
-  "bytes": 19967,
+  "bytes": 19998,
   "end": [
     "## Threat Register",
     "",
@@ -166,6 +166,7 @@
     "",
     "```json",
     "{",
+    "  \"workflow.text_mode\": false,",
     "  \"workflow.security_enforcement\": true,",
     "  \"workflow.security_asvs_level\": 1,",
     "  \"workflow.security_block_on\": \"high\"",
@@ -183,10 +184,9 @@
     "- (A) SECURITY.md exists — audit and verify mitigations",
     "- (B) No SECURITY.md, PLAN.md with threat model exists — run from artifacts",
     "- (C) Phase not executed — exit with guidance",
-    "",
-    "Output: updated SECURITY.md."
+    ""
   ],
-  "lines": 380,
+  "lines": 381,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:02833f89e2e6a9c69de00ee00e3fff21a1ce1e7990be2062da7a7bfe7f11b647",
+    "digest": "sha256:bdc7d5ca4297a1de7a0f6ca5bf26682dead896872b26475b4b6c39842bba7411",
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "02833f89e2e6a9c69de00ee00e3fff21a1ce1e7990be2062da7a7bfe7f11b647"
+  "sha256": "bdc7d5ca4297a1de7a0f6ca5bf26682dead896872b26475b4b6c39842bba7411"
 }

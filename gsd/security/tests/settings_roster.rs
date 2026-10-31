@@ -51,7 +51,9 @@ fn the_security_keys_match_gsd_core() {
         .iter()
         .filter(|i| i["kind"] == "setting")
         .map(|i| i["name"].as_str().expect("name").to_string())
+        // `workflow.text_mode` is core's, mirrored for the prompt (`settings.rs`)
         .filter(|n| n.starts_with("workflow.") || n.starts_with("security."))
+        .filter(|n| n != "workflow.text_mode")
         .collect();
     declared.sort();
     assert_eq!(declared, want);
