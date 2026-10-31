@@ -587,3 +587,20 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook (read by 
 | File | sha256 |
 |---|---|
 | `hooks/gsd-config-reload.js` | `6a2c579e2709c76bd753e1de94ccc0d7bb16cefa47b0ef482f847add24315b6f` |
+
+## Plan 16 T19: the security capability
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show v1.18.0:<path>`, except `src/security.exports.txt`, which is **not upstream bytes**: the `export` lines of `src/security.cts` (`rg '^export'`) under a one-line header, the roster of the hardening library that `@gsd/security` does not port (plan 16). `gsd/security/tests/port.rs` compares the two agent bodies with the ports under `gsd/security/assets/agents/`.
+
+| File | sha256 |
+|---|---|
+| `agents/gsd-security-auditor.md` | `3399f81791d4579138dd77ccc232cb267e5e6f1419aaebbb8f374627019e3872` |
+| `agents/gsd-security-auditor.compact.md` | `7b9d83288d6ec1014a87469347480da3304f9917f5757766e0e4213e9ee64582` |
+| `commands/gsd/secure-phase.md` | `1bc5b11bf6222fba66685d0f5e5632ba14707e17e0f750df316c02ccf7bb97ca` |
+| `gsd-core/workflows/secure-phase.md` | `8f2b8fb4a56b0c85e42c94f5b88fb82159708f039bf8de5febfdabf4443129a8` |
+| `gsd-core/templates/SECURITY.md` | `4a60dd6efdc4667584afca619d360de22ee7cb7986abe3d6e268cd09b19eeb45` |
+| `capabilities/security/capability.json` | `e7bd14976f5023b904f941bb36ff386efbe5decb80c2b543517eed191c69b8ea` |
+| `tests/secure-phase.test.cjs` | `f9b8493d3ded82e23d1922eaaa2cfba593b1bf00c05c942f46dc8b7a32e6f62f` |
+| `tests/secure-phase-single-writer.test.cjs` | `bfa5f71fc15bf56a826a9c90f7c31ac5c2d9c4d08c0cc9897de973b0e5cda389` |
+| `tests/injection-blocking-config.test.cjs` | `8a4b6136de66b43419e401dd13a9549179073d2ba3e0d8b5924da8f329b151b4` |
+| `src/security.exports.txt` | `17ecb705bb1b1001f1ffc606d8962d37f695b4377853340370dfb81590bd6a12` |
