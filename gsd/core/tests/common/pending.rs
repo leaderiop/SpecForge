@@ -9,7 +9,6 @@ pub const PENDING_RESYNC: &[&str] = &[
     "gsd-core/references/git-integration.md",
     "gsd-core/references/loop-hook-dispatch.md",
     "gsd-core/references/planning-config.md",
-    "gsd-core/workflows/complete-milestone.md",
     "gsd-core/workflows/diagnose-issues.md",
     "gsd-core/workflows/discuss-phase-assumptions.md",
     "gsd-core/workflows/discuss-phase-power.md",

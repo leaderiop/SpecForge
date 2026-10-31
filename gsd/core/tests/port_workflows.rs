@@ -23,22 +23,23 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/references/mvp-concepts.md", 4),
     // REVIEW-r42 C1: upstream deletes REQUIREMENTS.md after archiving it; the requirement entities stay.
     ("gsd-core/workflows/complete-milestone.md", 23),
-    ("gsd-core/workflows/complete-milestone.md", 279),
     (
         "gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md",
         33,
     ),
-    ("gsd-core/workflows/complete-milestone.md", 544),
-    ("gsd-core/workflows/complete-milestone.md", 555),
-    ("gsd-core/workflows/complete-milestone.md", 556),
-    ("gsd-core/workflows/complete-milestone.md", 663),
-    ("gsd-core/workflows/complete-milestone.md", 666),
-    ("gsd-core/workflows/complete-milestone.md", 669),
-    ("gsd-core/workflows/complete-milestone.md", 743),
-    ("gsd-core/workflows/complete-milestone.md", 744),
+    ("gsd-core/workflows/complete-milestone.md", 422),
+    ("gsd-core/workflows/complete-milestone.md", 433),
+    ("gsd-core/workflows/complete-milestone.md", 434),
+    ("gsd-core/workflows/complete-milestone.md", 547),
+    ("gsd-core/workflows/complete-milestone.md", 550),
+    ("gsd-core/workflows/complete-milestone.md", 553),
+    ("gsd-core/workflows/complete-milestone.md", 629),
+    ("gsd-core/workflows/complete-milestone.md", 630),
     // REVIEW-r42 M4: a shell line whose path had been swapped for prose.
     ("gsd-core/workflows/complete-milestone.md", 220),
-    ("gsd-core/workflows/complete-milestone.md", 254),
+    // Plan 04 T2: no sub-repositories, so no release map (git.repo_tagging is not applicable).
+    ("gsd-core/workflows/complete-milestone.md", 275),
+    ("gsd-core/workflows/complete-milestone.md", 313),
     (
         "gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md",
         8,
