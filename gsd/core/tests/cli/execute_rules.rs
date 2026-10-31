@@ -159,6 +159,67 @@ fn e403_is_clean_with_a_test_commit_first() {
     assert_eq!(codes(&p), Vec::<String>::new());
 }
 
+#[test]
+fn w403_follows_commit_ancestry_through_a_merge() {
+    let p = repository();
+    p.settings(json!({ "workflow.tdd_mode": true }));
+    tdd(&p);
+    // RED on a side branch, merged, then GREEN made with an earlier clock: GREEN descends from RED (#5275).
+    p.git(&["checkout", "-q", "-b", "side"], T1);
+    p.git_commit(
+        "test(01-01): Store module",
+        &[("test/tasks.test.js", "t\n")],
+        T1,
+    );
+    p.git(&["checkout", "-q", "main"], T1);
+    p.git(
+        &[
+            "merge",
+            "-q",
+            "--no-ff",
+            "-m",
+            "Merge branch 'side'",
+            "side",
+        ],
+        T1,
+    );
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.nodes_of("commit").len(), 2, "the merge is not recorded");
+    junit(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
+
+    // A RED on a branch never merged, made before GREEN: the clock is not evidence.
+    let p = repository();
+    p.settings(json!({ "workflow.tdd_mode": true }));
+    tdd(&p);
+    p.git(&["checkout", "-q", "-b", "side"], T0);
+    p.git_commit(
+        "test(01-01): Store module",
+        &[("test/tasks.test.js", "t\n")],
+        T0,
+    );
+    p.git(&["checkout", "-q", "main"], T0);
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
+    p.git(
+        &[
+            "merge",
+            "-q",
+            "--no-ff",
+            "-m",
+            "Merge branch 'side'",
+            "side",
+        ],
+        T1,
+    );
+    assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
+    junit(&p, &[("adds a task", true)]);
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W403"], "{found:?}");
+    assert!(found[0].1.contains("green_before_red"), "{found:?}");
+}
+
 pub(super) fn touch_schema(p: &Project) {
     p.edit(
         "spec/plans.spec",

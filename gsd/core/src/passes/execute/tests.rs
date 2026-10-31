@@ -104,6 +104,46 @@ fn w403_needs_a_red_commit_before_the_green_one() {
     assert!(red_before_green(&input, &[]).is_empty());
 }
 
+/// `commit` with the recorded ancestry the collector wrote (`descends_from`).
+fn descending(kind: &str, from: &[&Commit]) -> Commit {
+    Commit {
+        descends_from: Some(from.iter().map(|c| c.id.clone()).collect()),
+        ..commit(kind, Some("P/T1"))
+    }
+}
+
+#[test]
+fn w403_follows_ancestry_when_it_was_collected() {
+    let input = tdd_input(&["tdd"]);
+    // RED on a parallel branch, made earlier than GREEN but not its ancestor: the clock is not evidence.
+    let red = descending("test", &[]);
+    let green = descending("feat", &[]);
+    let found = red_before_green(&input, &[red.clone(), green]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].message.contains(
+            "GREEN 'feat0123456789' does not descend from any RED (`test`) commit of task 'P/T1' (green_before_red)"
+        ),
+        "{}",
+        found[0].message
+    );
+    // RED merged before GREEN, with a later clock (skew): GREEN descends from it, so it is clean.
+    let green = descending("feat", &[&red]);
+    assert!(red_before_green(&input, &[green.clone(), red.clone()]).is_empty());
+    // Any GREEN of the task that descends from a RED is enough; a `fix` counts as GREEN.
+    let early = descending("fix", &[]);
+    assert!(red_before_green(&input, &[early, red.clone(), green]).is_empty());
+    // A GREEN with no RED at all keeps the plain message.
+    let alone = red_before_green(&input, &[descending("feat", &[])]);
+    assert!(
+        alone[0]
+            .message
+            .contains("with no RED `test(…)` commit before it"),
+        "{}",
+        alone[0].message
+    );
+}
+
 #[test]
 fn a_plan_commit_counts_only_for_the_plans_only_task() {
     // A lone tdd task: a commit naming only the plan is its own.

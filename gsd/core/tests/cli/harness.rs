@@ -480,7 +480,7 @@ impl Project {
     }
 
     /// `git <args>` in the project with a pinned identity and pinned dates; it answers standard output.
-    fn git(&self, args: &[&str], at: &str) -> String {
+    pub fn git(&self, args: &[&str], at: &str) -> String {
         let output = Command::new("git")
             .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
             .args([

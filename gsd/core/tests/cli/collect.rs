@@ -53,13 +53,15 @@ fn a_commit_naming_a_plan_is_written_into_its_plan_file() {
     assert_eq!(fields["insertions"], 1, "{fields}");
     assert_eq!(fields["deletions"], 0, "{fields}");
     assert_eq!(fields["at"], T0, "{fields}");
+    // The baseline names no plan: nothing recorded to descend from, and that is written.
+    assert_eq!(fields["descends_from"], serde_json::json!([]), "{fields}");
     // It is in the plan's own file, with a ledger line per field, and the project checks clean.
     let node = &p.nodes_of("commit")[0];
     assert_eq!(node["file"], "spec/plans.spec", "{node}");
     let ledger = p.read("specforge-harness");
     assert_eq!(
         ledger.lines().filter(|l| l.starts_with(name)).count(),
-        10,
+        11,
         "{ledger}"
     );
     p.passing_tests();

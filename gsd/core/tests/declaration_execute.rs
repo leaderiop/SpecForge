@@ -168,7 +168,8 @@ fn the_commit_kind_is_harness_written() {
             "files",
             "created",
             "insertions",
-            "deletions"
+            "deletions",
+            "descends_from"
         ]
     );
     for field in fields_of("commit") {
@@ -310,7 +311,7 @@ fn the_model_counts_its_fields() {
     .iter()
     .map(|k| fields_of(k).len())
     .sum();
-    assert_eq!(total, 22 + 6 + 5 + 10 + 6 + 10 + 5);
+    assert_eq!(total, 22 + 6 + 5 + 11 + 6 + 10 + 5);
 }
 
 #[test]
@@ -327,7 +328,12 @@ fn the_git_collector_runs_git_log_and_writes_a_plan() {
     assert!(
         git.run.contains(&"--numstat".to_string()) && git.run.contains(&"--summary".to_string())
     );
-    assert!(git.run.contains(&"log".to_string()) && git.run.contains(&"--no-merges".to_string()));
+    // Merges are read (for the parents a commit descends through), not recorded.
+    assert!(git.run.contains(&"log".to_string()) && !git.run.contains(&"--no-merges".to_string()));
+    assert!(
+        git.run
+            .contains(&"--format=%x00%H%x1f%P%x1f%at%x1f%s".to_string())
+    );
     // Named explicitly (`--runner gsd-git`): a detected collector would be selected by a plain `specforge collect`.
     assert!(git.auto_detect.is_none());
     assert_eq!(git.input_formats, ["git-log"]);
