@@ -296,4 +296,15 @@ This stages `src/api/users.ts` and `src/types/user.ts` in the `backend/` repo, a
 
 Files that don't match any configured sub-repo are reported as unmatched.
 
+### Milestone Tagging Across Sub-Repos
+
+A GSD milestone version names planned work in the spec; it is not any repository's release version. Per-repository tagging (`git.repo_tagging: "per_repo"`, one release map entry per repository) is not part of @gsd/core: a SpecForge project has no sub-repositories, so `/gsd:complete-milestone` creates one `v[X.Y]` tag in the current directory. Upstream's flow, for reference:
+
+1. `milestone release-tags --map <tags.json> --dry-run` (not part of @gsd/core: no sub-repositories) checks every requested tag (repository listed in `sub_repos`, ref resolves, tag name valid, no tag at a different commit) before anything is written.
+2. After one consolidated confirmation, `milestone release-tags --map <tags.json>` (not part of @gsd/core) creates the annotated tags, each with the target repository as its working directory. Re-running the same map is idempotent (`already_tagged`).
+3. `milestone complete <version> --release-map <file>` archives the map by recorded value.
+4. Nothing is pushed by default. Each repository's tag has its own confirmation naming the repository and its remote.
+
+With `git.create_tag: false` the map is still recorded and no tag is created. See [How to tag a multi-repository milestone](https://github.com/open-gsd/gsd-core/blob/v1.19.0/docs/how-to/tag-a-multi-repo-milestone.md).
+
 </sub_repos_support>

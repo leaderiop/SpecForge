@@ -86,7 +86,7 @@ Spawning parallel debug agents to investigate root causes:
 | Delete removes comment | blocker |
 
 Each agent will:
-1. Create DEBUG-{slug}.md with symptoms pre-filled
+1. Create a debug session in the spec with symptoms pre-filled
 2. Investigate autonomously (read code, form hypotheses, test)
 3. Return root cause
 
@@ -148,7 +148,32 @@ return before spawning the next. Fanning out unisolated debuggers is the outcome
 `orchestrator-worktree` degrade exists to avoid; degrading the flag while keeping the
 parallelism would announce sequential mode and then do the opposite.
 
-For each gap, fill the debug-subagent-prompt template and spawn:
+For each gap, fill this prompt (the `Template placeholders` below define every `{…}` field) as `filled_debug_prompt`, then spawn:
+
+```markdown
+<objective>
+Investigate issue: {slug}
+
+**Summary:** {truth}
+</objective>
+
+<symptoms>
+expected: {expected}
+actual: {actual}
+errors: {errors}
+reproduction: {reproduction}
+timeline: {timeline}
+</symptoms>
+
+<mode>
+symptoms_prefilled: true
+goal: find_root_cause_only
+</mode>
+
+<debug_file>
+Create: a debug session in the spec ({slug})
+</debug_file>
+```
 
 Print: `◆ Spawning diagnostics agent... (each runs in a subagent — no output until they return, ~1–5 min; expected, not a freeze)`
 
@@ -174,7 +199,7 @@ placeholder, not a shell variable.
 
 ```
 Agent(
-  prompt=filled_debug_subagent_prompt + "\n\n" + WORKTREE_GUARD + "\n\n<required_reading>\n- {phase_dir}/{phase_num}-UAT.md\n- {state_path}\n</required_reading>\n${AGENT_SKILLS_DEBUGGER}",
+  prompt=filled_debug_prompt + "\n\n" + WORKTREE_GUARD + "\n\n<required_reading>\n- {phase_dir}/{phase_num}-UAT.md\n- {state_path}\n</required_reading>\n${AGENT_SKILLS_DEBUGGER}",
   subagent_type="gsd-debugger",
   model="{DEBUGGER_MODEL}",
   {harnessFlag}
@@ -193,7 +218,6 @@ Template placeholders:
 - `{errors}`: Any error messages from UAT (or "None reported")
 - `{reproduction}`: "Test {test_num} in UAT"
 - `{timeline}`: "Discovered during UAT"
-- `{goal}`: `find_root_cause_only` (UAT flow - plan-phase --gaps handles fixes)
 - `{slug}`: Generated from truth
 </step>
 
@@ -299,7 +323,7 @@ Agents only diagnose—plan-phase --gaps handles fixes (no fix application).
 - Report incomplete diagnosis
 
 **Agent times out:**
-- Check DEBUG-{slug}.md for partial progress
+- Check the debug session in the spec ({slug}) for partial progress
 - Can resume with /gsd:debug
 
 **All agents fail:**

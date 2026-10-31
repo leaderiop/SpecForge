@@ -61,7 +61,7 @@
     "- `workflow.plan_check` — spawn plan checker during plan-phase",
     "- `workflow.verifier` — spawn verifier during execute-phase"
   ],
-  "bytes": 45358,
+  "bytes": 45530,
   "end": [
     "These settings apply to future /gsd-plan-phase and /gsd-execute-phase runs.",
     "",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 882,
+  "lines": 883,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ab706285975ffd58bc90dda62dcedb81fb3cc75855f27a449689b637a6e4f1f5",
+    "digest": "sha256:a5551ab36cfa3b5be6bf9146895e37509c242ccdc59be0122483034afc049d25",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "ab706285975ffd58bc90dda62dcedb81fb3cc75855f27a449689b637a6e4f1f5"
+  "sha256": "a5551ab36cfa3b5be6bf9146895e37509c242ccdc59be0122483034afc049d25"
 }
