@@ -3,17 +3,20 @@
 //! anything is loaded, and, if it is one the hook fires on, answered by the hook in the project the event's `cwd`
 //! is in; the answer is written in the host's protocol. A hook never fails its host: whatever goes wrong answers by the
 //! hook's own policy (`on_failure`; the spec guard denies), and allows only where no hook of the project is known to
-//! object: outside a project, or for a route the project does not declare.
+//! object: outside a project, or for a route the project does not declare. A hook that reads no graph and writes
+//! nothing is answered over the loaded environment, without reading the project's sources (ADR 0324).
 
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::outcome::Exit;
 use crate::terminal::{Terminal, err, errln, out};
 use specforge_ops::authoring::hook::{self, Filter};
+use specforge_ops::host::render::SPEC_GUARD;
 use specforge_ops::host::{Host, HostHookEvent, HostRenderer, HostReply};
 use specforge_ops::view::ProjectView;
-use specforge_project::CompiledProject;
+use specforge_project::{CompiledProject, Environment};
 use specforge_protocol_types::HookEvent;
 
 /// The most stdin a host may send; more is a failure of the hook, not a truncated event.
@@ -51,15 +54,15 @@ impl Args {
             .take(STDIN_LIMIT + 1)
             .read_to_end(&mut stdin);
         let cwd = std::env::current_dir().unwrap_or_default();
-        self.run_with(&stdin, &cwd, crate::project::compile_dir, terminal)
+        self.run_with(&stdin, &cwd, crate::project::load_dir, terminal)
     }
 
-    /// Over `stdin`; `compile` loads the project at a root, and is called only for an event the hook fires on.
+    /// Over `stdin`; `load` loads the environment at a root, and is called only for an event the hook fires on.
     pub(crate) fn run_with(
         self,
         stdin: &[u8],
         cwd: &Path,
-        compile: impl FnOnce(&Path) -> CompiledProject,
+        load: impl FnOnce(&Path) -> Environment,
         terminal: &Terminal,
     ) -> Exit {
         let (Some(host), Some(event)) =
@@ -76,7 +79,7 @@ impl Args {
         let Some(adapter) = specforge_hosts::renderer(host) else {
             return Exit::Passed;
         };
-        let reply = answer(&*adapter, &self, event, stdin, cwd, compile, terminal);
+        let reply = answer(&*adapter, &self, event, stdin, cwd, load, terminal);
         out!(terminal, "{}", reply.stdout);
         if !reply.stderr.is_empty() {
             err!(terminal, "{}", reply.stderr);
@@ -102,7 +105,7 @@ fn answer(
     event: HookEvent,
     stdin: &[u8],
     process_cwd: &Path,
-    compile: impl FnOnce(&Path) -> CompiledProject,
+    load: impl FnOnce(&Path) -> Environment,
     terminal: &Terminal,
 ) -> HostReply {
     let nothing = HostReply::default();
@@ -122,7 +125,7 @@ fn answer(
             let Some(root) = project_at(process_cwd) else {
                 return nothing;
             };
-            let project = compile(&root);
+            let project = CompiledProject::unread(Arc::new(load(&root)));
             let view = ProjectView::of(&project);
             let event = HostHookEvent {
                 event,
@@ -152,7 +155,18 @@ fn answer(
     }
     // The event is the hook's: a commit is the host's pre event.
     read.event = event;
-    let project = compile(&root);
+    let env = load(&root);
+    // The spec guard reads the graph for the spec root; an unknown route is answered from the registries alone.
+    let compile = args.route == SPEC_GUARD
+        || env
+            .registries()
+            .hook(&args.route)
+            .is_some_and(|h| h.item.reads_graph || h.item.writes);
+    let project = if compile {
+        CompiledProject::of(env)
+    } else {
+        CompiledProject::unread(Arc::new(env))
+    };
     let view = ProjectView::of(&project);
     let caller = crate::caller::of(false, crate::outcome::OutputFormat::Human, terminal);
     let outcome = hook::run(&view, &args.route, &read, caller);

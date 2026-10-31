@@ -82,6 +82,39 @@ fn a_guard_hook_denies_on_claude_code_codex_and_cursor() {
 
 #[specforge_test(
     behavior = "run_a_hook",
+    verify = "a hook that reads no graph and writes nothing is answered without compiling the project"
+)]
+fn a_hook_that_reads_no_graph_runs_without_a_compile() {
+    let project = project(json!({}), json!({}));
+    let write = json!({"hook_event_name": "PreToolUse", "tool_name": "Write", "session_id": "s1",
+                       "cwd": project.root(),
+                       "tool_input": {"file_path": project.root().join("m.spec"), "content": "x"}});
+    let run = hook(
+        &project,
+        "t.write_guard",
+        "claude-code",
+        &["--event", "pre_tool", "--tools", "write"],
+        &write,
+    );
+    let reply = run.out.json();
+    assert_eq!(
+        reply["hookSpecificOutput"]["permissionDecision"], "deny",
+        "{reply}"
+    );
+    assert_eq!(run.passes, 0, "the project was compiled: {:?}", run.exports);
+    let status = json!({"model": {"display_name": "M"}, "cwd": project.root()});
+    let run = hook(
+        &project,
+        "t.statusline",
+        "claude-code",
+        &["--event", "statusline"],
+        &status,
+    );
+    assert!(run.passes >= 1, "a graph-reading hook compiles the project");
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
     verify = "an event over the size limit or not the host's JSON is answered by the hook's failure policy"
 )]
 fn an_unreadable_event_applies_the_failure_policy() {

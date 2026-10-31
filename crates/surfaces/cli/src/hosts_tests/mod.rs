@@ -149,6 +149,8 @@ pub fn uninstall(project: &TestProject, hosts: &[&str], flags: &[&str]) -> Out {
 pub struct Hooked {
     pub out: Out,
     pub exports: Vec<String>,
+    /// The `__pass_*` calls the run made at all: the compile's checks.
+    pub passes: usize,
 }
 
 #[derive(clap::Parser)]
@@ -158,7 +160,7 @@ struct HookCli {
 }
 
 /// `specforge hook <route> --host <host> --event <event> …` over `project` with `stdin`. The project is compiled only
-/// if the hook asks for it, and `exports` are the calls made after that compile.
+/// if the hook asks for it (ADR 0324), and `exports` are the calls made after that compile.
 pub fn hook(project: &TestProject, id: &str, host: &str, args: &[&str], stdin: &Value) -> Hooked {
     hook_bytes(project, id, host, args, stdin.to_string().as_bytes())
 }
@@ -186,9 +188,9 @@ pub fn hook_bytes(
         stdin,
         project.root(),
         |_| {
-            let compiled = project.compile_in(Arc::clone(&runtime) as SharedRuntime);
+            let env = project.environment_in(Arc::clone(&runtime) as SharedRuntime);
             compiled_at.set(Some(runtime.calls().len()));
-            compiled
+            env
         },
         &terminal,
     );
@@ -210,6 +212,11 @@ pub fn hook_bytes(
             stderr: capture.stderr(),
         },
         exports,
+        passes: runtime
+            .calls()
+            .iter()
+            .filter(|c| c.export.starts_with("__pass_"))
+            .count(),
     }
 }
 

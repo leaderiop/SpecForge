@@ -69,8 +69,10 @@ behavior run_a_hook "Run a Hook" {
     anything when the event, tool class and paths do not match, and otherwise loads only the hook's extension and its
     peers, computes the facts a sandboxed guest cannot read, calls the hook's export within its declared timeout and
     maps the answer to the host's protocol (ADR 0292). A trap, a timeout or a malformed answer applies the hook's
-    on_failure policy.
+    on_failure policy. A hook that reads no graph and writes nothing is answered over the loaded environment, without a
+    compile (ADR 0324).
   """
+  verify unit "a hook that reads no graph and writes nothing is answered without compiling the project"
   verify unit "a command without state has a byte-equal input"
   verify unit "a hook is given the facts of every path its tool names that a guest cannot read"
   verify unit "a hook that times out or traps applies its failure policy: allow is a no-op with the E028 line, deny is a deny with its text"

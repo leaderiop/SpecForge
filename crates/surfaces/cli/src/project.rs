@@ -9,7 +9,7 @@ use std::sync::Arc;
 use specforge_common::ProjectRoot;
 use specforge_component::ComponentRuntime;
 use specforge_ops::OpError;
-use specforge_project::{CompiledProject, SharedRuntime};
+use specforge_project::{CompiledProject, Environment, SharedRuntime};
 
 /// The help of `--path`.
 const PATH_HELP: &str = "A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)";
@@ -96,12 +96,12 @@ impl ProjectArg {
     }
 }
 
-/// The project at the directory `dir`, compiled as [`ProjectArg::compile`] does.
-pub(crate) fn compile_dir(dir: &Path) -> CompiledProject {
-    ProjectRoot::of(dir).map_or_else(
-        |_| compile_at(&ProjectRoot::of(Path::new(".")).expect("the current directory is a root")),
-        |root| compile_at(&root),
-    )
+/// The environment of the project at `dir`, its root falling back to the current directory, its sources not read.
+pub(crate) fn load_dir(dir: &Path) -> Environment {
+    let root = ProjectRoot::of(dir).unwrap_or_else(|_| {
+        ProjectRoot::of(Path::new(".")).expect("the current directory is a root")
+    });
+    Environment::load(&root, Some(Arc::new(ComponentRuntime::with_user_cache())))
 }
 
 /// [`ProjectArg::compile`] for a root already resolved.
