@@ -70,7 +70,7 @@ If an active secure-phase step hook exists AND the audit exists: check `details.
 
 **Capability gate:**
 ```bash
-EXECUTE_POST_HOOKS_JSON=${EXECUTE_POST_HOOKS_JSON:-[]}
+EXECUTE_POST_HOOKS_JSON=${EXECUTE_POST_HOOKS_JSON:-$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')}
 ```
 
 Dispatch `kind == "step"` hooks per @gsd-core/references/loop-hook-dispatch.md. `ref.skill == "code-review"`:

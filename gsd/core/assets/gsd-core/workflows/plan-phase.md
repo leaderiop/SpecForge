@@ -512,7 +512,7 @@ Continue to step 5.6. Security config is passed to the planner in step 8.
 > **Config semantics (cutover fix):** `workflow.ui_phase` gates UI-SPEC *generation* (step); `workflow.ui_safety_gate` gates the *planning block* (gate). Both-on = identical to OLD §5.6. Intended change: `{ui_phase:true, ui_safety_gate:false}` now auto-generates in pipelines but does NOT block manual planning (each key controls exactly what its description says).
 
 ```bash
-PLAN_PRE_HOOKS_JSON=${PLAN_PRE_HOOKS_JSON:-[]}
+PLAN_PRE_HOOKS_JSON=${PLAN_PRE_HOOKS_JSON:-$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')}
 HOOKS_JSON="$PLAN_PRE_HOOKS_JSON"
 ```
 
