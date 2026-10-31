@@ -7,7 +7,7 @@
 use serde_json::Value;
 use specforge_protocol_types::command_args::option_name;
 use specforge_protocol_types::{
-    CommandArgType, ExtensionDeclaration, PromptArgDescriptor, RenderInput, RenderKind,
+    CommandArgType, ExtensionDeclaration, OnFailure, PromptArgDescriptor, RenderInput, RenderKind,
     ServedSlash, SlashCommandDescriptor,
 };
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
@@ -291,6 +291,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
                 .map(|p| spec_root_spelled(view, p))
                 .collect(),
             timeout_ms: h.item.timeout_ms,
+            on_failure: h.item.on_failure,
         })
         .collect::<Vec<_>>();
     hooks.push(spec_guard(view));
@@ -320,6 +321,7 @@ fn spec_guard(view: &ProjectView<'_>) -> RenderedHook {
         tools: SPEC_GUARD_TOOLS.iter().map(|t| (*t).to_string()).collect(),
         paths: vec![spec_root_spelled(view, SPEC_GUARD_PATHS)],
         timeout_ms: 10_000,
+        on_failure: OnFailure::Deny,
     }
 }
 

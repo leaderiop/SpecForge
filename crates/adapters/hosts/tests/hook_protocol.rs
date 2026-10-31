@@ -9,7 +9,8 @@ use std::path::Path;
 
 use serde_json::Value;
 use specforge_hosts::renderer;
-use specforge_ops::host::{HookAnswer, Host};
+use specforge_ops::host::{HookAnswer, Host, RenderedHook};
+use specforge_protocol_types::{HookEvent, OnFailure};
 
 fn check(host: Host) {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -75,4 +76,47 @@ fn codex_reads_and_answers_its_hook_protocol() {
 #[test]
 fn cursor_reads_and_answers_its_hook_protocol() {
     check(Host::Cursor);
+}
+
+fn write_guard(on_failure: OnFailure) -> RenderedHook {
+    RenderedHook {
+        route: "t.write_guard".into(),
+        description: String::new(),
+        event: HookEvent::PreTool,
+        tools: vec!["write".into()],
+        paths: Vec::new(),
+        timeout_ms: 5_000,
+        on_failure,
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "a hook whose policy is deny blocks with exit 2 when specforge is not on PATH, and an allow hook's line is the plain command"
+)]
+fn a_deny_hook_line_fails_closed_without_the_binary() {
+    let line = write_guard(OnFailure::Deny).command(Host::ClaudeCode);
+    assert!(
+        line.starts_with(
+            "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.write_guard cannot run, so it denies' >&2; exit 2; }; specforge hook t.write_guard --host claude-code"
+        ),
+        "{line}"
+    );
+    assert!(line.ends_with("# specforge-install"), "{line}");
+    #[cfg(unix)]
+    {
+        let ran = std::process::Command::new("/bin/sh")
+            .arg("-c")
+            .arg(&line)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert_eq!(ran.status.code(), Some(2));
+        assert_eq!(
+            String::from_utf8_lossy(&ran.stderr),
+            "specforge is not on PATH: the hook t.write_guard cannot run, so it denies\n"
+        );
+    }
+    let plain = write_guard(OnFailure::Allow).command(Host::ClaudeCode);
+    assert!(plain.starts_with("specforge hook "), "{plain}");
 }

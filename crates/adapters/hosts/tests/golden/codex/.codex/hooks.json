@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.write_guard --host codex --event pre_tool --tools write # specforge-install",
+            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.write_guard cannot run, so it denies' >&2; exit 2; }; specforge hook t.write_guard --host codex --event pre_tool --tools write # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -14,7 +14,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.validate_commit --host codex --event pre_commit # specforge-install",
+            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.validate_commit cannot run, so it denies' >&2; exit 2; }; specforge hook t.validate_commit --host codex --event pre_commit # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -24,7 +24,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook core.spec_guard --host codex --event pre_tool --tools write,edit --paths '**/*.spec' # specforge-install",
+            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook core.spec_guard cannot run, so it denies' >&2; exit 2; }; specforge hook core.spec_guard --host codex --event pre_tool --tools write,edit --paths '**/*.spec' # specforge-install",
             "timeout": 15,
             "type": "command"
           }

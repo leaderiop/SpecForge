@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use specforge_protocol_types::{Attribution, Decision, HookEvent, ToolClass};
+use specforge_protocol_types::{Attribution, Decision, HookEvent, OnFailure, ToolClass};
 
 use super::Host;
 
@@ -92,11 +92,17 @@ pub struct RenderedHook {
     /// Project-relative globs, `{spec_root}` already the spec root.
     pub paths: Vec<String>,
     pub timeout_ms: u32,
+    /// What the hook's own policy does when it cannot answer, a missing binary included (ADR 0324).
+    pub on_failure: OnFailure,
 }
 
 /// The shell comment that ends every hook command install writes: it marks the entry as install's, so a user's own
 /// hook, even one that also starts `specforge hook `, is never taken for it.
 pub const HOOK_MARK: &str = "# specforge-install";
+
+/// What a deny-policy hook's line starts with: a host whose PATH lacks `specforge` runs `exit 2`, which all three hosts
+/// read as a block, instead of the exit 127 they read as a non-blocking failure (ADR 0324).
+pub const MISSING_GUARD: &str = "command -v specforge >/dev/null 2>&1 || ";
 
 impl RenderedHook {
     /// The command a host runs: `specforge hook <route> --host <host> --event <event> [--tools …] [--paths …]`.
@@ -120,7 +126,16 @@ impl RenderedHook {
             }
         }
         words.push(HOOK_MARK.to_string());
-        words.join(" ")
+        let line = words.join(" ");
+        if self.on_failure == OnFailure::Deny {
+            // The route is snake_case and dots (registry-checked): it needs no quoting.
+            format!(
+                "{MISSING_GUARD}{{ echo 'specforge is not on PATH: the hook {} cannot run, so it denies' >&2; exit 2; }}; {line}",
+                self.route
+            )
+        } else {
+            line
+        }
     }
 
     /// The seconds a host that takes seconds is told to wait: the call's budget and five more for the process, so the
@@ -321,6 +336,7 @@ mod tests {
             tools: Vec::new(),
             paths: vec!["specs/**/*.{spec,md}".into(), "a b/*.spec".into()],
             timeout_ms: 1000,
+            on_failure: OnFailure::Allow,
         };
         assert_eq!(
             hook.command(Host::ClaudeCode),

@@ -16,9 +16,9 @@ pub mod state;
 
 pub use owned::{config_path, layout_dir, link_in, owned_path};
 pub use port::{
-    HOOK_MARK, HookAnswer, HookReadError, HostHookEvent, HostRenderer, HostReply, HostTree, Merged,
-    MergedEntry, MergedFile, ModelChoice, NotRendered, OwnedFile, Rendered, RenderedAgent,
-    RenderedHook, RenderedSkill, RenderedSlash, SlashCall, Source, ToolUse,
+    HOOK_MARK, HookAnswer, HookReadError, HostHookEvent, HostRenderer, HostReply, HostTree,
+    MISSING_GUARD, Merged, MergedEntry, MergedFile, ModelChoice, NotRendered, OwnedFile, Rendered,
+    RenderedAgent, RenderedHook, RenderedSkill, RenderedSlash, SlashCall, Source, ToolUse,
 };
 
 /// A host an extension renders for.

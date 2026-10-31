@@ -5,7 +5,7 @@ use specforge_ops::host::{
     Host, ModelChoice, Rendered, RenderedAgent, RenderedHook, RenderedSkill, RenderedSlash,
     SlashCall, Source,
 };
-use specforge_protocol_types::{Attribution, HookEvent};
+use specforge_protocol_types::{Attribution, HookEvent, OnFailure};
 
 fn source(extension: &str, version: &str, kind: &'static str, id: &str) -> Source {
     Source {
@@ -31,6 +31,12 @@ fn attribution() -> Attribution {
 }
 
 fn hook(id: &str, event: HookEvent, tools: &[&str], paths: &[&str]) -> RenderedHook {
+    // The CLI fixture's deny-policy hooks (`gsd_hosts.rs`).
+    let on_failure = if matches!(id, "write_guard" | "validate_commit") {
+        OnFailure::Deny
+    } else {
+        OnFailure::Allow
+    };
     RenderedHook {
         route: format!("t.{id}"),
         description: id.into(),
@@ -38,6 +44,7 @@ fn hook(id: &str, event: HookEvent, tools: &[&str], paths: &[&str]) -> RenderedH
         tools: tools.iter().map(|t| (*t).to_string()).collect(),
         paths: paths.iter().map(|t| (*t).to_string()).collect(),
         timeout_ms: 5_000,
+        on_failure,
     }
 }
 
@@ -136,6 +143,7 @@ pub fn fixture(host: Host) -> Rendered {
                 tools: vec!["write".into(), "edit".into()],
                 paths: vec!["**/*.spec".into()],
                 timeout_ms: 10_000,
+                on_failure: OnFailure::Deny,
             },
         ],
     }

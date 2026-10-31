@@ -289,7 +289,7 @@ fn install_tree_golden_claude_code() {
     assert!(
         all_commands(&p, "claude-code")
             .iter()
-            .any(|c| c.starts_with("specforge hook core.spec_guard ")),
+            .any(|c| c.contains("specforge hook core.spec_guard ")),
         "core.spec_guard"
     );
 }

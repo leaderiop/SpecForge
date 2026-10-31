@@ -4,13 +4,13 @@
 //! parsed into a value and written back, which would reflow it.
 //!
 //! What is ours is told by a mark and a place, never by a word a user may write too. A hook handler is ours when its
-//! `command` starts `specforge hook ` and ends with [`HOOK_MARK`], and only below `hooks.<Event>[]`: alone, or inside a
+//! `command` starts `specforge hook ` (or [`MISSING_GUARD`], a deny hook's) and ends with [`HOOK_MARK`], and only below `hooks.<Event>[]`: alone, or inside a
 //! matcher group, from which only it is cut (the group goes when nothing else is left in it). A named entry (an MCP
 //! server, the statusline) is ours only at the place the adapter names, when its `command` is `specforge` or a marked
 //! hook. Nothing else is ever removed or replaced.
 
 use serde_json::Value;
-use specforge_ops::host::{HOOK_MARK, Merged, MergedEntry, NotRendered};
+use specforge_ops::host::{HOOK_MARK, MISSING_GUARD, Merged, MergedEntry, NotRendered};
 
 /// A place a named entry of ours may stand: the keys down to its container, and its name.
 pub type Named<'a> = (&'a [&'a str], &'a str);
@@ -191,7 +191,10 @@ fn marked_hook(value: &Value) -> bool {
     value
         .get("command")
         .and_then(Value::as_str)
-        .is_some_and(|c| c.starts_with("specforge hook ") && c.ends_with(HOOK_MARK))
+        .is_some_and(|c| {
+            (c.starts_with("specforge hook ") || c.starts_with(MISSING_GUARD))
+                && c.ends_with(HOOK_MARK)
+        })
 }
 
 /// Whether `value`, standing at a named place, is an entry install wrote there.

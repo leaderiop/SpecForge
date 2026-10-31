@@ -50,7 +50,7 @@ pub fn install_in(p: &Project, host: &str, home: &Home) -> Run {
 /// Every string of `v` that is a hook command line (`specforge hook <route> …`).
 fn commands_of(v: &Value, out: &mut Vec<String>) {
     match v {
-        Value::String(s) if s.starts_with("specforge hook ") => out.push(s.clone()),
+        Value::String(s) if s.contains("specforge hook ") => out.push(s.clone()),
         Value::Array(a) => a.iter().for_each(|x| commands_of(x, out)),
         Value::Object(o) => o.values().for_each(|x| commands_of(x, out)),
         _ => {}
@@ -80,7 +80,7 @@ pub fn installed_command(p: &Project, host: &str, route: &str) -> String {
     let want = format!("specforge hook {route} ");
     let found: Vec<String> = all_commands(p, host)
         .into_iter()
-        .filter(|c| c.starts_with(&want))
+        .filter(|c| c.contains(&want))
         .collect();
     assert_eq!(
         found.len(),
@@ -95,7 +95,7 @@ pub fn installed_command(p: &Project, host: &str, route: &str) -> String {
 /// Whether the install wrote a line for `route` on `host`.
 pub fn has_command(p: &Project, host: &str, route: &str) -> bool {
     let want = format!("specforge hook {route} ");
-    all_commands(p, host).iter().any(|c| c.starts_with(&want))
+    all_commands(p, host).iter().any(|c| c.contains(&want))
 }
 
 /// Runs the installed `command` through `sh -c`, as the host does: the project root as the directory, `HOME` the

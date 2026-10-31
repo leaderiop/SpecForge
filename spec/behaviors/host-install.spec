@@ -20,8 +20,10 @@ behavior install_into_a_host "Install Into a Host" {
     generated-by marker holding its source and digest, a config entry it owns is the one marked `# specforge-install` (a hook) or named specforge (the MCP server). It never follows a link.
     It refuses to overwrite an unmarked file (foreign_file) or a marked file edited since (edited_file, unless
     forced), removes what no extension contributes any more and reports what a host cannot take. A project whose
-    extensions contribute nothing to a host declares and runs as it did.
+    extensions contribute nothing to a host declares and runs as it did. A hook whose policy is deny is written so that a
+    host without `specforge` on its PATH blocks (exit 2); an allow hook's line fails open (ADR 0324).
   """
+  verify unit "a hook whose policy is deny blocks with exit 2 when specforge is not on PATH, and an allow hook's line is the plain command"
   verify unit "a project whose extensions contribute nothing to a host declares and runs as it did"
   verify unit "hand-written host files are never read or written by any command"
   verify unit "doctor reports a host file edited since install and an install stale against the project, and nothing for a directory without a marker"
