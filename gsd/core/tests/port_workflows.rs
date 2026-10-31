@@ -37,6 +37,8 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 245),
     // REVIEW-r42 N5: the ship ledger is the milestone's, as the query below it reads.
     ("gsd-core/workflows/ship.md", 135),
+    // REVIEW-security-part1 M2: an unreadable security gate is a block, and step 1a says so.
+    ("gsd-core/workflows/ship.md", 177),
     // Plan 16 T6 [security-absent-off]: the threat-ID numbering rule applies when @gsd/security is loaded.
     ("gsd-core/references/planner-gap-closure.md", 63),
     // Plan 16 T5: the security branches read @gsd/security's gate and threat-ID answers, not a SECURITY.md file.
@@ -618,4 +620,24 @@ fn every_hook_stub_asks_the_capability_extensions() {
             "gsd-core/workflows/verify-work.md"
         ]
     );
+}
+
+/// REVIEW-security-part1 M2: an empty or unparseable `SECURITY_GATE_JSON` (the command failed) is a block in every
+/// workflow that reads it, and ship.md's step 1a no longer says the named branches cannot reach a failed check.
+#[test]
+fn a_security_gate_that_cannot_be_read_blocks() {
+    let read = |path: &str| {
+        std::fs::read_to_string(root().join("assets/gsd-core/workflows").join(path))
+            .expect("a workflow")
+    };
+    let ship = read("ship.md");
+    assert!(ship.contains("`SECURITY_SHIP_GATE_READ_FAILED`"));
+    assert!(!ship.contains("cannot reach this state — their failure modes"));
+    for path in ["verify-work.md", "execute-phase/steps/verify-phase-goal.md"] {
+        let text = read(path);
+        assert!(
+            text.contains("`SECURITY_GATE_JSON` is empty") && text.contains("treat it as blocking"),
+            "{path}: no rule for an unreadable gate"
+        );
+    }
 }

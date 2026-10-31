@@ -604,14 +604,14 @@ nonzero but every one is a verified gap resolution, #4983)
 
 ```bash
 VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --after-fingerprint "$PHASE_ID" --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
-SECURITY_GATE_JSON=$(specforge gsd security-gate "$PHASE_ID" --format json)
+SECURITY_GATE_JSON=$(case "$VERIFY_POST_HOOKS_JSON" in *'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
 ```
 
 **Generic step dispatch:** dispatch every `kind == "step"` hook from `VERIFY_POST_HOOKS_JSON` per @gsd-core/references/loop-hook-dispatch.md (skip silently when none). Each step is advisory and best-effort — honor `onError` and continue. The secure-phase handling below is an additional specialization of one such hook, not a replacement for the generic dispatch. `--after-fingerprint "$PHASE_ID"` (#5105) moves a step whose declared artifact the phase already has (the capability extension decides: `@gsd/security` maps `SECURITY.md` to the phase having a `security_audit`) into `skippedHooks` instead of `activeHooks` — execute-phase already dispatched it before its own fingerprint (`execute-phase.md:1202`), so this re-dispatch is a no-op for that step and is not repeated here.
 
 Resolve whether the secure-phase step hook is enabled: an entry with `kind == "step"` and `ref.skill == "secure-phase"` present in `activeHooks` OR `skippedHooks` of `VERIFY_POST_HOOKS_JSON` both count as enabled. `--after-fingerprint` moves this hook into `skippedHooks` once the phase already has its declared artifact (`SECURITY.md`, the phase's `security_audit`; #5105) — the hook is still enabled, only its re-dispatch is skipped. Each `skippedHooks` entry carries `capId`, `kind`, and `ref.skill` for exactly this resolution.
 
-If the secure-phase step hook is enabled AND `details.exists` of `SECURITY_GATE_JSON` is `false`, dispatch the registry-provided skill stem:
+If the secure-phase step hook is enabled AND `SECURITY_GATE_JSON` is empty or not JSON (the command failed), or its `details.exists` is neither `false` nor `true`, treat it as blocking: stop before phase advancement and present `⚠ Security enforcement enabled — the security gate for this phase could not be read ({message|empty answer}). Run \`specforge gsd security-gate {phase}\` and \`specforge check\` to diagnose (a spec file with a syntax error can hide a threat) before advancing.` Otherwise, if the secure-phase step hook is enabled AND `details.exists` of `SECURITY_GATE_JSON` is `false`, dispatch the registry-provided skill stem:
 
 ```
 Skill(skill="gsd-${ref.skill}", args="{phase}")
@@ -620,7 +620,7 @@ Skill(skill="gsd-${ref.skill}", args="{phase}")
 After the skill returns, refresh `SECURITY_GATE_JSON`:
 
 ```bash
-SECURITY_GATE_JSON=$(specforge gsd security-gate "$PHASE_ID" --format json)
+SECURITY_GATE_JSON=$(specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}')
 ```
 
 If `details.exists` is still `false`, stop before phase advancement and present:

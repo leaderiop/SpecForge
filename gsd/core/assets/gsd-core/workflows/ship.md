@@ -111,7 +111,7 @@ Verify the work is ready to ship:
 
    ```bash
    SHIP_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" ship:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
-   SECURITY_GATE_JSON=$(specforge gsd security-gate "$PHASE_ID" --format json)
+   SECURITY_GATE_JSON=$(case "$SHIP_PRE_HOOKS_JSON" in *'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
    ```
 
    Read the `activeHooks` array from `SHIP_PRE_HOOKS_JSON` in-context (do NOT pipe it through a shell parser).
@@ -122,7 +122,7 @@ Verify the work is ready to ship:
 
    **Step 1 — evaluate the gate's `check`.** Dispatch by check shape; read the hook's `check` object in-context to pick the branch (the registry validates exactly one of `query`/`predicate`/`agentVerdict`). Two capability IDs carry a bespoke evaluation whose fail-closed semantics the declared predicate alone does not reproduce — take their branch, then rejoin at step 2:
 
-   - **`capId == "security"`** — enforce against `SECURITY_GATE_JSON` (`block` is `false` when security enforcement is off):
+   - **`capId == "security"`** — enforce against `SECURITY_GATE_JSON` (`block` is `false` when security enforcement is off). If `SECURITY_GATE_JSON` is empty or not JSON (the command failed), or `details.exists` is neither `false` nor `true`, **fail closed** with `block: true` and `SECURITY_SHIP_GATE_READ_FAILED`, and print `⚠ Security ship gate: could not read the security gate for this phase ({message|empty answer}). Run \`specforge gsd security-gate {phase}\` and \`specforge check\` to diagnose (a spec file with a syntax error can hide a threat), and fix it before shipping.` Otherwise:
      - **`details.exists` is `false`** → `block: true`, `SECURITY_SHIP_GATE_NO_REVIEW`:
        ```
        ⚠ Security enforcement is enabled but no security audit exists for this phase.
@@ -176,7 +176,7 @@ Verify the work is ready to ship:
      ```
      A gate carrying neither — including an `agentVerdict` check, which has no runner at `ship:pre` — cannot be evaluated here. Record a warning naming the `capId` and treat it as a check-command failure routed per step 1a, **never** as a silent pass.
 
-   **Step 1a — did the CHECK COMMAND itself fail?** (non-zero `CHECK_EXIT`, empty output, or unparseable JSON). The two named branches above cannot reach this state — their failure modes are already folded into a fail-closed `block: true`.
+   **Step 1a — did the CHECK COMMAND itself fail?** (non-zero `CHECK_EXIT`, empty output, or unparseable JSON). The two named branches above cannot reach this state: a command that fails or answers nothing is their own fail-closed block (`SECURITY_SHIP_GATE_READ_FAILED`, `WINDOWS_SHIP_GATE_READ_FAILED`), not a skip.
    - **`onError == "halt"`** → stop the ship. Do NOT push, do NOT create a PR. Surface: `⚠ Gate check command failed ({hook.capId}): command error. Resolve before shipping.`
    - **`onError == "skip"`** → record a warning naming the `capId`, then continue to the next gate. Do NOT read `GATE_RESULT.block`.
 

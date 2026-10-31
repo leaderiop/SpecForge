@@ -44,14 +44,14 @@ in `scripts/lint-verify-lifecycle-writes.allowlist.json`).
 
 ```bash
 VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
-SECURITY_GATE_JSON=$(specforge gsd security-gate "$PHASE_ID" --format json)
+SECURITY_GATE_JSON=$(case "$VERIFY_POST_HOOKS_JSON" in *'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
 ```
 
 Dispatch every `kind == "step"` hook per @gsd-core/references/loop-hook-dispatch.md (skip when none). The secure-phase routing below applies when that specific hook is active.
 
 If no active secure-phase step hook exists: skip.
 
-If an active secure-phase step hook exists AND `details.exists` of `SECURITY_GATE_JSON` is `false` (no security audit yet):
+If an active secure-phase step hook exists AND `SECURITY_GATE_JSON` is empty or not JSON (the command failed), or its `details.exists` is neither `false` nor `true`, treat it as blocking: include in the next-steps routing output `⚠ Security enforcement enabled — the security gate for this phase could not be read ({message|empty answer}). Run \`specforge gsd security-gate {phase}\` and \`specforge check\` to diagnose (a spec file with a syntax error can hide a threat) before advancing.` Otherwise, if an active secure-phase step hook exists AND `details.exists` of `SECURITY_GATE_JSON` is `false` (no security audit yet):
 Include in the next-steps routing output:
 ```
 ⚠ Security enforcement enabled — run before advancing:

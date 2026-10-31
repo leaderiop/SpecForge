@@ -50,6 +50,16 @@ fn the_hook_line_is_empty_without_a_capability() {
 /// `line` (the first line of `workflow` that starts with `var=`) run under `bash -c` in an empty project, with `bin`
 /// first on the `PATH`: the stdout of `echo "$var"` and the stderr of the whole run.
 fn run_line(workflow: &str, var: &str, bin: &std::path::Path) -> Option<(String, String)> {
+    run_after("", workflow, var, bin)
+}
+
+/// [`run_line`] after `before` (shell that sets what the line reads).
+fn run_after(
+    before: &str,
+    workflow: &str,
+    var: &str,
+    bin: &std::path::Path,
+) -> Option<(String, String)> {
     let has = |tool: &str| Command::new(tool).arg("--version").output().is_ok();
     if !has("bash") || !has("jq") {
         eprintln!("skipped: bash or jq is absent");
@@ -72,7 +82,7 @@ fn run_line(workflow: &str, var: &str, bin: &std::path::Path) -> Option<(String,
     let out = Command::new("bash")
         .current_dir(project("empty").root())
         .env("PATH", path)
-        .args(["-c", &format!("{line}\necho \"${var}\"")])
+        .args(["-c", &format!("{before}\n{line}\necho \"${var}\"")])
         .output()
         .expect("bash runs");
     Some((
@@ -117,4 +127,49 @@ fn a_jq_that_fails_is_warned_about() {
     };
     assert_eq!(json, "");
     assert!(err.contains("jq failed"), "{err}");
+}
+
+/// REVIEW-security-part1 M2 and m3: the `security-gate` line of every workflow that has one fails closed when the
+/// command fails, and does not spawn it (or print an error) when no security hook is active, e.g. `@gsd/security`
+/// is not loaded.
+#[test]
+fn the_security_gate_line_fails_closed_and_stays_quiet_when_off() {
+    for (workflow, hooks) in [
+        ("ship.md", "SHIP_PRE_HOOKS_JSON"),
+        ("verify-work.md", "VERIFY_POST_HOOKS_JSON"),
+        (
+            "execute-phase/steps/verify-phase-goal.md",
+            "VERIFY_POST_HOOKS_JSON",
+        ),
+    ] {
+        let bin = tempfile::tempdir().expect("a bin dir");
+        let marker = bin.path().join("spawned");
+        shim(
+            bin.path(),
+            "specforge",
+            &format!(
+                "echo \"$@\" >> {}; echo 'no phase' >&2; exit 1",
+                marker.display()
+            ),
+        );
+        let active = format!(
+            r#"{hooks}='{{"activeHooks":[{{"capId":"security","kind":"gate"}}],"skippedHooks":[]}}'"#
+        );
+        let Some((json, _)) = run_after(&active, workflow, "SECURITY_GATE_JSON", bin.path()) else {
+            return;
+        };
+        let answer: serde_json::Value =
+            serde_json::from_str(&json).unwrap_or_else(|e| panic!("{workflow}: {e}: {json}"));
+        assert_eq!(answer["block"], true, "{workflow}: {json}");
+        assert!(answer["details"]["exists"].is_null(), "{workflow}: {json}");
+        assert!(marker.exists(), "{workflow}: the gate was not asked");
+        std::fs::remove_file(&marker).expect("the marker");
+        let off = format!(r#"{hooks}='{{"activeHooks":[],"skippedHooks":[]}}'"#);
+        let (json, err) = run_after(&off, workflow, "SECURITY_GATE_JSON", bin.path()).expect("ran");
+        assert_eq!((json.as_str(), err.as_str()), ("", ""), "{workflow}");
+        assert!(
+            !marker.exists(),
+            "{workflow}: spawned with no security hook"
+        );
+    }
 }
