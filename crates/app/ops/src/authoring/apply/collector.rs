@@ -1,4 +1,5 @@
-//! The plans writing collectors answered (ADR 0289), applied after the collect wrote its report.
+//! The plans writing collectors answered (ADR 0289), applied after the collect wrote its report. ADR 0303: an
+//! extension's error refuses no collected fact; a host error does.
 
 use super::{Origin, UNDECLARED_WRITE, apply_plan};
 use crate::view::ProjectView;

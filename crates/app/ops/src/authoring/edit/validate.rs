@@ -59,11 +59,13 @@ pub(crate) fn judged_finding(post: &CompiledProject) -> impl Fn(&Diagnostic) -> 
 
 /// The diagnostics of `after` that `before` does not have, one by one: (errors, warnings and infos). A diagnostic
 /// `judged` names is never an error here, whatever its severity. `moved` relocates the subjects of `before`.
+/// `host_only`: an extension's diagnostic is never an error here either (ADR 0303).
 pub(crate) fn added(
     before: &[Diagnostic],
     after: Vec<Diagnostic>,
     judged: impl Fn(&Diagnostic) -> bool,
     moved: &Moves,
+    host_only: bool,
 ) -> (Vec<Diagnostic>, Vec<Diagnostic>) {
     let mut had: HashMap<Key, usize> = HashMap::new();
     for d in before {
@@ -77,7 +79,12 @@ pub(crate) fn added(
         }
         match had.get_mut(&key(&d, &[])) {
             Some(n) if *n > 0 => *n -= 1,
-            _ if d.severity == Severity::Error && !judged(&d) => errors.push(d),
+            _ if d.severity == Severity::Error
+                && !judged(&d)
+                && !(host_only && d.origin().is_some()) =>
+            {
+                errors.push(d)
+            }
             _ => rest.push(d),
         }
     }
@@ -90,8 +97,15 @@ pub(crate) fn refuse_new_errors(
     after: &CompiledProject,
     registries: &RegistryBuild,
     moved: &Moves,
+    host_only: bool,
 ) -> Result<(), Refusal<EditField>> {
-    let (errors, _) = added(before, after.diagnostics(), judged_finding(after), moved);
+    let (errors, _) = added(
+        before,
+        after.diagnostics(),
+        judged_finding(after),
+        moved,
+        host_only,
+    );
     if errors.is_empty() {
         Ok(())
     } else {
@@ -108,6 +122,7 @@ pub fn check(
     declared: &Declared,
     ledger: Option<&[u8]>,
     moved: &Moves,
+    host_only: bool,
 ) -> Result<Vec<Diagnostic>, Refusal<EditField>> {
     let before = view.project().judged_diagnostics();
     // The project the write would leave, judged: the guard passes read it and the project before it (ADR 0289).
@@ -115,7 +130,13 @@ pub fn check(
         .project()
         .edited_with(texts, ledger)
         .judged_against(view.project());
-    let (errors, rest) = added(&before, post.diagnostics(), judged_finding(&post), moved);
+    let (errors, rest) = added(
+        &before,
+        post.diagnostics(),
+        judged_finding(&post),
+        moved,
+        host_only,
+    );
     if !errors.is_empty() {
         return Err(new_errors(errors, view.registries().codes()));
     }
@@ -198,7 +219,7 @@ mod tests {
         let mut pending = Diagnostic::new(codes::W167, "an interrupted write is pending rollback");
         // A preset that raises W167 makes it an error of the edited project.
         pending.severity = Severity::Error;
-        let (errors, rest) = added(&[], vec![pending], |_| false, &[]);
+        let (errors, rest) = added(&[], vec![pending], |_| false, &[], false);
         assert!(errors.is_empty() && rest.is_empty());
     }
 
@@ -214,13 +235,25 @@ mod tests {
             d
         };
         let judged = |d: &Diagnostic| d.code == "gsd/E501";
-        let (errors, rest) = added(&[], vec![error("gsd/E501"), error("gsd/E999")], judged, &[]);
+        let (errors, rest) = added(
+            &[],
+            vec![error("gsd/E501"), error("gsd/E999")],
+            judged,
+            &[],
+            false,
+        );
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].code, "gsd/E999");
         assert_eq!(rest.len(), 1);
         assert_eq!(rest[0].code, "gsd/E501");
         // Already reported, it is paired and reported once, as an error of the project's own.
-        let (errors, rest) = added(&[error("gsd/E501")], vec![error("gsd/E501")], judged, &[]);
+        let (errors, rest) = added(
+            &[error("gsd/E501")],
+            vec![error("gsd/E501")],
+            judged,
+            &[],
+            false,
+        );
         assert!(errors.is_empty() && rest.is_empty());
     }
 
@@ -254,7 +287,13 @@ mod tests {
     )]
     fn a_pass_finding_on_another_entity_is_an_added_error() {
         let before = [finding("v1.0/01/01-01/TR1")];
-        let (errors, _) = added(&before, vec![finding("v1.0/01/01-01/TR2")], |_| false, &[]);
+        let (errors, _) = added(
+            &before,
+            vec![finding("v1.0/01/01-01/TR2")],
+            |_| false,
+            &[],
+            false,
+        );
         assert_eq!(errors.len(), 1);
     }
 
@@ -268,11 +307,11 @@ mod tests {
         let moves = [("v1.0/01".to_string(), "v1.0/02".to_string())];
         let after = vec![finding("v1.0/02/01-01/TR1")];
         assert!(
-            added(&before, after.clone(), |_| false, &moves)
+            added(&before, after.clone(), |_| false, &moves, false)
                 .0
                 .is_empty()
         );
-        assert_eq!(added(&before, after, |_| false, &[]).0.len(), 1);
+        assert_eq!(added(&before, after, |_| false, &[], false).0.len(), 1);
     }
 
     fn finding(entity: &str) -> Diagnostic {
@@ -285,6 +324,19 @@ mod tests {
         .with_data(specforge_common::DiagnosticData::Subject {
             entity: entity.to_string(),
         })
+    }
+
+    #[specforge_test(
+        behavior = "answer_edit_plan",
+        verify = "a collector's plan is judged for host errors only"
+    )]
+    fn host_only_ignores_an_extensions_error_and_keeps_a_host_one() {
+        let host = Diagnostic::untyped("E003", Severity::Error, "unresolved");
+        let ext = finding("v1.0/01/01-01/TR1");
+        let (errors, _) = added(&[], vec![host, ext.clone()], |_| false, &[], true);
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code, "E003");
+        assert_eq!(added(&[], vec![ext], |_| false, &[], false).0.len(), 1);
     }
 
     #[specforge_test(

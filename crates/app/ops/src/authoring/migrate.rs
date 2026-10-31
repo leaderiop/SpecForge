@@ -373,6 +373,7 @@ pub fn judge(
         verdict.post_diagnostics.clone(),
         judged,
         &[],
+        false,
     )
     .0
     .len();

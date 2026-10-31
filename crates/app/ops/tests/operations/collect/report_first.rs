@@ -178,7 +178,6 @@ fn a_collectors_plan_is_judged_against_the_report_it_wrote() {
     behavior = "answer_edit_plan",
     verify = "a collector's plan is judged for host errors only"
 )]
-#[ignore = "pins K20a; T5 un-ignores"]
 fn a_collectors_plan_is_not_refused_for_an_extensions_error() {
     // The recorded commit makes the extension's E901 stand: reported after the write, not a refusal of it.
     let p = project();
