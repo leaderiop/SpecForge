@@ -221,33 +221,39 @@ fn a_hook_off_by_its_setting_is_a_no_op() {
 )]
 fn the_human_guard_denies_a_shell_call_running_a_human_command() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
-    let shell = |command: &str| {
-        json!({"event": "pre_tool", "host": "cursor", "session": "s1",
-               "tool": {"name": "Shell", "class": "shell", "input": {"command": command}}})
-    };
-    for line in [
-        "specforge t approve --by me",
-        "cd x && /usr/local/bin/specforge --path . t approve",
-        "FOO=1 specforge t approve",
-        "bash -c 'specforge t approve --by me'",
+    for (host, tool) in [
+        ("claude-code", "Bash"),
+        ("codex", "Bash"),
+        ("cursor", "Shell"),
     ] {
-        let run = run_hook(&hosted, "core.human_guard", &shell(line));
-        assert_eq!(run.answer["decision"], "deny", "{line}: {run:?}");
-        let reason = run.answer["reason"].as_str().unwrap();
-        assert!(
-            reason.contains("`specforge t approve`") && reason.contains("their own terminal"),
-            "{line}: {reason}"
-        );
-        assert!(run.exports.is_empty(), "no guest is called");
-    }
-    for line in [
-        "specforge t stats",
-        "echo specforge t approve",
-        "git status && ls",
-        "specforge t approve-not-a-command",
-    ] {
-        let run = run_hook(&hosted, "core.human_guard", &shell(line));
-        assert!(run.answer["decision"].is_null(), "{line}: {run:?}");
+        let shell = |command: &str| {
+            json!({"event": "pre_tool", "host": host, "session": "s1",
+               "tool": {"name": tool, "class": "shell", "input": {"command": command}}})
+        };
+        for line in [
+            "specforge t approve --by me",
+            "cd x && /usr/local/bin/specforge --path . t approve",
+            "FOO=1 specforge t approve",
+            "bash -c 'specforge t approve --by me'",
+        ] {
+            let run = run_hook(&hosted, "core.human_guard", &shell(line));
+            assert_eq!(run.answer["decision"], "deny", "{host} {line}: {run:?}");
+            let reason = run.answer["reason"].as_str().unwrap();
+            assert!(
+                reason.contains("`specforge t approve`") && reason.contains("their own terminal"),
+                "{line}: {reason}"
+            );
+            assert!(run.exports.is_empty(), "no guest is called");
+        }
+        for line in [
+            "specforge t stats",
+            "echo specforge t approve",
+            "git status && ls",
+            "specforge t approve-not-a-command",
+        ] {
+            let run = run_hook(&hosted, "core.human_guard", &shell(line));
+            assert!(run.answer["decision"].is_null(), "{host} {line}: {run:?}");
+        }
     }
 }
 
