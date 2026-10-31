@@ -349,6 +349,8 @@ impl FieldForm {
                 }
                 _ => Err(Refusal::none()),
             },
+            // A number is a setting's, read from JSON: the `.spec` grammar has no decimal literal.
+            FieldType::Number => Err(Refusal::none()),
             FieldType::Bool => match shape {
                 ValueShape::Boolean => Ok(()),
                 _ => Err(Refusal::with("use true or false")),
@@ -468,6 +470,20 @@ impl FieldForm {
         Ok(())
     }
 
+    /// `Ok` when the number `x` lies within the declared bounds (a `number` setting's).
+    pub(crate) fn in_number_bounds(&self, x: f64) -> Result<(), Refusal> {
+        let (minimum, maximum) = self.bounds;
+        if minimum.is_some_and(|m| x < m as f64) || maximum.is_some_and(|m| x > m as f64) {
+            return Err(Refusal::with(&match (minimum, maximum) {
+                (Some(low), Some(high)) => format!("write a number from {low} to {high}"),
+                (Some(low), None) => format!("write a number of at least {low}"),
+                (None, Some(high)) => format!("write a number of at most {high}"),
+                (None, None) => unreachable!("an unbounded number is in bounds"),
+            }));
+        }
+        Ok(())
+    }
+
     /// The JSON Schema of what [`write`] writes for every value
     /// [`Self::admit`] takes: `{"type":"string"}` for `string`, `reference`
     /// and a valueless `enum`; `{"type":"string","enum":[…]}` for an `enum`;
@@ -487,6 +503,16 @@ impl FieldForm {
             FieldType::Enum => json!({"type": "string", "enum": self.enum_values}),
             FieldType::Integer => {
                 let mut schema = json!({"type": "integer"});
+                if let Some(minimum) = self.bounds.0 {
+                    schema["minimum"] = json!(minimum);
+                }
+                if let Some(maximum) = self.bounds.1 {
+                    schema["maximum"] = json!(maximum);
+                }
+                schema
+            }
+            FieldType::Number => {
+                let mut schema = json!({"type": "number"});
                 if let Some(minimum) = self.bounds.0 {
                     schema["minimum"] = json!(minimum);
                 }

@@ -425,7 +425,6 @@ fn the_edit_that_would_not_round_trip_writes_nothing() {
     behavior = "load_extension_settings",
     verify = "a number setting takes a decimal within its bounds"
 )]
-#[ignore = "pins K20a; T16 un-ignores"]
 fn settings_set_reads_a_decimal_word() {
     let dir = TempDir::new().unwrap();
     let config =

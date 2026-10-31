@@ -8,7 +8,7 @@ use super::{FieldForm, FieldJson, Refusal, ValueShape};
 
 impl FieldForm {
     /// `value` as this field takes it, or why not. A scalar is the JSON of its type (`string`, `enum`, `identifier`,
-    /// `reference` and `date` a string; `integer` an integer within its bounds; `bool` a boolean), a list an array
+    /// `reference` and `date` a string; `integer` an integer and `number` a number, within their bounds; `bool` a boolean), a list an array
     /// of strings, a `block` an object and a `block_list` an array of objects, each entry admitted by its member's
     /// form; a member the block does not declare is refused. The same rules `admit` and `refuse_item` apply to a
     /// written value.
@@ -23,6 +23,10 @@ impl FieldForm {
             (FieldType::Integer, Value::Number(n)) => {
                 let n = n.as_i64().ok_or_else(wrong)?;
                 self.admit(ValueShape::Integer, &n.to_string())
+            }
+            (FieldType::Number, Value::Number(n)) => {
+                let x = n.as_f64().ok_or_else(wrong)?;
+                self.in_number_bounds(x)
             }
             (FieldType::Bool, Value::Bool(_)) => Ok(()),
             (FieldType::Date, Value::String(s)) => self.admit(ValueShape::Date, s),

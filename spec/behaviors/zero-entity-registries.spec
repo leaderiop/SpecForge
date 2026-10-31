@@ -442,6 +442,7 @@ behavior registry_build_fields "Registry Build Registers Fields" {
   verify unit "a field of a type the protocol does not define is W019 and not registered"
   verify unit "a field's normative flag reaches its registry entry"
   verify unit "a field's proof_role reaches the field registry"
+  verify unit "a kind field of type number is W021 and dropped, since the .spec grammar has no decimal literal"
   verify unit "a proof_role other than bound or claim is refused"
   verify unit "a field's declared descriptor reaches its registry entry whole"
   verify unit "a registry entry is built only from a descriptor whose type the host reads"

@@ -387,12 +387,13 @@ fn read(
     }
     if (declared.minimum.is_some() || declared.maximum.is_some())
         && field_type != FieldType::Integer
+        && field_type != FieldType::Number
     {
         refuse(
             problems,
             path,
             format!(
-                "declares a minimum or maximum, but its type is '{ty}': only an integer has bounds"
+                "declares a minimum or maximum, but its type is '{ty}': only an integer or a number has bounds"
             ),
         );
         (declared.minimum, declared.maximum) = (None, None);

@@ -37,6 +37,10 @@ impl SettingBuilder {
     pub fn integer(&mut self) -> &mut Self {
         self.typed(FieldType::Integer)
     }
+    /// A whole or decimal number, within [`minimum`](Self::minimum) and [`maximum`](Self::maximum) (ADR 0305).
+    pub fn number(&mut self) -> &mut Self {
+        self.typed(FieldType::Number)
+    }
     pub fn string_list(&mut self) -> &mut Self {
         self.typed(FieldType::StringList)
     }

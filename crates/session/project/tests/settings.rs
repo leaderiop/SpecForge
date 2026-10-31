@@ -446,7 +446,6 @@ fn ratio_items() -> Value {
     behavior = "load_extension_settings",
     verify = "a number setting takes a decimal within its bounds"
 )]
-#[ignore = "pins K20a; T16 un-ignores"]
 fn a_number_setting_takes_a_decimal() {
     let (resolved, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": 30.5}}));
     assert!(found.is_empty(), "{found:?}");
@@ -465,7 +464,6 @@ fn a_number_setting_takes_a_decimal() {
     behavior = "load_extension_settings",
     verify = "a number setting takes a decimal within its bounds"
 )]
-#[ignore = "pins K20a; T16 un-ignores"]
 fn a_number_setting_keeps_its_bounds() {
     let (_, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": 100.5}}));
     assert_eq!(codes_of(&found), ["E086"], "{found:?}");

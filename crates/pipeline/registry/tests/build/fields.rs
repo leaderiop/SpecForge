@@ -510,3 +510,30 @@ fn a_blocks_members_register_by_path() {
         .collect();
     assert_eq!(names, ["phase", "score", "path"], "in declared order");
 }
+
+#[spec(
+    behavior = "registry_build_fields",
+    verify = "a kind field of type number is W021 and dropped, since the .spec grammar has no decimal literal"
+)]
+fn a_kind_field_of_type_number_is_w021() {
+    let build = build([declare("@test/ext", |c| {
+        c.kind("Task", |k| {
+            k.keyword("task");
+            k.field("ratio", |f| {
+                f.field_type(FieldType::Number);
+            });
+            k.field("estimate", |f| {
+                f.field_type(FieldType::Integer);
+            });
+        });
+    })]);
+    let refused = coded(&build, "W021");
+    assert_eq!(refused.len(), 1, "{:?}", diagnostics(&build));
+    assert!(
+        refused[0].message.contains("'ratio'") && refused[0].message.contains("decimal literal"),
+        "{}",
+        refused[0].message
+    );
+    assert!(!build.fields().contains("task", "ratio"));
+    assert!(build.fields().contains("task", "estimate"));
+}
