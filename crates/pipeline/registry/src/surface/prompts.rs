@@ -184,19 +184,23 @@ impl Ctx<'_> {
             }
             self.arg(arg)?;
         }
-        if prompt.args.iter().filter(|a| a.rest).count() > 1 {
-            return Err("a prompt takes one free-text tail, and it declares more".to_string());
+        let tails: Vec<String> = (prompt.args.iter().filter(|a| a.rest))
+            .map(|a| format!("'{}'", a.name))
+            .collect();
+        if tails.len() > 1 {
+            return Err(format!(
+                "a prompt takes one free-text tail, and it declares {}",
+                tails.join(" and ")
+            ));
         }
-        if let Some(tail) = prompt.args.iter().find(|a| a.rest) {
-            if tail.field_type != FieldType::String.as_str() {
-                return Err(format!(
-                    "its free-text tail '{}' is not a string argument",
-                    tail.name
-                ));
-            }
-            if prompt.subject.as_deref() == Some(tail.name.as_str()) {
-                return Err(format!("its free-text tail '{}' is its subject", tail.name));
-            }
+        // A subject is a reference and a tail a string, so no argument is both.
+        if let Some(tail) = prompt.args.iter().find(|a| a.rest)
+            && tail.field_type != FieldType::String.as_str()
+        {
+            return Err(format!(
+                "its free-text tail '{}' is not a string argument",
+                tail.name
+            ));
         }
         self.gates(&prompt.gates)?;
         if let Some(subject) = &prompt.subject {

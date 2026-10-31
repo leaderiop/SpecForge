@@ -148,7 +148,7 @@ fn a_human_command_that_does_not_write_is_dropped() {
 
 #[specforge_test(
     behavior = "register_surface_contributions",
-    verify = "the registry refuses a second free-text tail, a tail that is not text, and a tail that is the subject"
+    verify = "the registry refuses a second free-text tail and a tail that is not text, naming the arguments"
 )]
 fn a_prompt_takes_one_tail_of_text() {
     let arg = |name: &str, field_type: &str, rest: bool| {
@@ -167,10 +167,6 @@ fn a_prompt_takes_one_tail_of_text() {
             json!({"args": [arg("a", "string", true), arg("b", "string", true)]}),
         ),
         ("number_tail", json!({"args": [arg("n", "integer", true)]})),
-        (
-            "subject_tail",
-            json!({"args": [arg("p", "reference", true)], "subject": "p"}),
-        ),
     ];
     let mut prompts = vec![prompt("fine")];
     let mut fine = prompt("one_tail");
@@ -193,9 +189,14 @@ fn a_prompt_takes_one_tail_of_text() {
     )]);
     let w021 = messages(&build, "W021");
     for (id, named) in [
-        ("two_tails", "one free-text tail"),
-        ("number_tail", "'n'"),
-        ("subject_tail", "'p'"),
+        (
+            "two_tails",
+            "a prompt takes one free-text tail, and it declares 'a' and 'b'",
+        ),
+        (
+            "number_tail",
+            "its free-text tail 'n' is not a string argument",
+        ),
     ] {
         let found: Vec<_> = w021
             .iter()

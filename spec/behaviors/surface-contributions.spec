@@ -87,7 +87,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
   verify unit "two prompts of one route are E039 and the later is not routed"
   verify unit "a prompt whose step names a command the registry dropped is dropped too, with a W021"
   verify contract "Register Surface Contributions: surface contribution registration holds — manifest_loaded_fired, all_surfaces_registered, duplicates_detected, unparsed_fails_load"
-  verify unit "the registry refuses a second free-text tail, a tail that is not text, and a tail that is the subject"
+  verify unit "the registry refuses a second free-text tail and a tail that is not text, naming the arguments"
   verify unit "a prompt argument may be named path or format, never host, argv, help, settings or secrets"
   verify unit "an optional subject follows the required positional arguments"
   verify unit "every setting a when names must be a bool setting of the extension"
