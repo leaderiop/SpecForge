@@ -43,4 +43,6 @@ pub fn build() -> ContributionsBuilder {
     specforge_extension_build()
 }
 
+// Only the component exports `call`: a native test binary links `@gsd/core` too, whose guest exports the same symbol.
+#[cfg(target_arch = "wasm32")]
 specforge_extension_sdk::component_guest!(build = build);
