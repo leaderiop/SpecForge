@@ -275,7 +275,12 @@ pub const MODULES: &[(&str, Module)] = &[
     ("schema-detect.cjs", Ported("src/passes/schema_drift.rs")),
     ("secrets.cjs", Ported("src/hooks/secrets.rs")),
     ("section-manifest.cjs", NotApplicable(DOCUMENT)),
-    ("security.cjs", Owned("@gsd/security")),
+    (
+        "security.cjs",
+        NotApplicable(
+            "gsd-tools' hardening library: path containment is the host's (file facts are project-relative, ADR 0293), arguments are typed, display text is escaped by the kernel; scanForInjection is upstream's CI scanner",
+        ),
+    ),
     (
         "semver-compare.cjs",
         NotApplicable(
