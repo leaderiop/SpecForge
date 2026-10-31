@@ -58,7 +58,7 @@ Computed, severity order critical > high > medium > low, `none` blocks nothing:
 
 | Id | Writes | Answers | Upstream twin |
 |---|---|---|---|
-| `security_hooks <point>` | no | `{activeHooks, skippedHooks}`: the capability's hooks at `<point>`, `when` read from the settings, `configValues` filled; `skippedHooks` is always empty | `loop render-hooks <point>` (the `capId: security` entries) |
+| `security_hooks <point>` | no | `{activeHooks, skippedHooks}`: the capability's hooks at `<point>`, `when` read from the settings, `configValues` filled; `--after-fingerprint <phase>` moves the `verify:post` step to `skippedHooks` once the phase has its audit, as upstream (#5105) | `loop render-hooks <point>` (the `capId: security` entries) |
 | `security_gate <phase>` | no | `{block, message, details: {code, exists, status, threats_open}}`; blocks with no audit (`SECURITY_SHIP_GATE_NO_REVIEW`) or `threats_open != 0` (`SECURITY_SHIP_GATE_OPEN_THREATS`); `block: false` when enforcement is off | `check predicate` and ship.md's security branch |
 | `threat_ids <phase>` | no | `{threat_id_duplicates: [{id, plans}], threat_id_duplicate_count}` | `init execute-phase` / `init plan-phase` fields |
 | `record_security_audit <phase> --verdict '<json>' [--run-by <who>]` | yes | `{appended, threats_open}`; creates the audit, writes each named threat's `status` and `evidence`, creates retroactive threats in a plan of the phase, appends an `audit_run` only if (total, closed, open) changed | workflow step 6 and `verification.append-audit` |

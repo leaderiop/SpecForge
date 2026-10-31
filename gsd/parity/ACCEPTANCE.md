@@ -139,8 +139,11 @@ Not verified:
   - `[threats-open-live]` `threats_open` is computed from the threats and the current `block_on`, not frozen at audit time.
   - `[security-absent-off]` without `@gsd/security` loaded there is no threat model, where upstream's agents read an absent `security_enforcement` as enabled.
   - `[verify-post-produces]` the `verify:post` step keeps upstream's `produces: ["SECURITY.md"]`, although plan 16's parity
-    table said `security_audit`: the hook text is upstream's and agents read the name from it.
-  - `[skipped-hooks-empty]` `skippedHooks` is always empty, as upstream's is without `--after-fingerprint`.
+    table said `security_audit`: the hook text is upstream's and agents read the name from it. `SECURITY.md` there
+    stands for the phase's `security_audit`: `security-hooks verify:post --after-fingerprint <phase>` moves the step to
+    `skippedHooks` (`reason: produces-present`) once the audit exists, as upstream's `producesEntryPresent` does for the
+    file (#5105), so verify-work and autonomous do not run the auditor a second time. Without the flag `skippedHooks` is
+    `[]` where upstream omits the key; core's jq fold absorbs both (REVIEW-security-part2 M3).
   - `[injection-key-explicit]` the vault fixture sets `security.injection_blocking: false` explicitly, because upstream errors on an unset key.
   - `[surface-peer-setting]` the slash `/gsd-secure-phase` has no `when`: a slash's `when` must be a setting of its own
     extension (W021) and the `audit_review` surface belongs to `@gsd/core`; the command is available whenever the extension is.

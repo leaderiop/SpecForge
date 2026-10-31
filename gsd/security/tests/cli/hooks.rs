@@ -89,3 +89,71 @@ fn another_point_has_no_hook_and_a_bad_point_is_refused() {
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("Invalid loop point"), "{}", run.all());
 }
+
+fn hooks_after(p: &super::harness::Project, point: &str, fingerprint: &str) -> Value {
+    let run = p.run(&[
+        "gsd",
+        "security-hooks",
+        point,
+        "--after-fingerprint",
+        fingerprint,
+        "--format",
+        "json",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    serde_json::from_str(&run.stdout).unwrap_or_else(|e| panic!("JSON ({e}): {}", run.all()))
+}
+
+/// REVIEW-security-part2 M3 (upstream #5105 R2): `--after-fingerprint <phase>` moves the `verify:post` step to
+/// `skippedHooks` once the phase's audit (`SECURITY.md`) exists, and keeps it active before.
+#[test]
+fn after_fingerprint_skips_the_step_once_the_phases_audit_exists() {
+    // phase 02 has no audit: the step stays active
+    let model = super::model::model();
+    let before = hooks_after(&model, "verify:post", "02");
+    assert_eq!(
+        before["activeHooks"][0]["ref"]["skill"], "secure-phase",
+        "{before}"
+    );
+    assert_eq!(before["skippedHooks"], json!([]));
+    // phase 01 has one: skipped, in upstream's shape, whatever way the phase is named
+    for fingerprint in ["01", "v1.0/01", ".planning/phases/01-setup"] {
+        let after = hooks_after(&model, "verify:post", fingerprint);
+        assert_eq!(after["activeHooks"], json!([]), "{fingerprint}: {after}");
+        assert_eq!(
+            after["skippedHooks"],
+            json!([{
+                "capId": "security", "kind": "step", "ref": { "skill": "secure-phase" },
+                "reason": "produces-present", "artifacts": ["SECURITY.md"]
+            }]),
+            "{fingerprint}"
+        );
+    }
+}
+
+#[test]
+fn after_fingerprint_leaves_the_other_points_and_unproducing_hooks_alone() {
+    let model = super::model::model();
+    for point in ["plan:pre", "ship:pre"] {
+        assert_eq!(
+            hooks_after(&model, point, "01"),
+            hooks(&model, point),
+            "{point}"
+        );
+    }
+}
+
+#[test]
+fn an_unknown_fingerprint_is_refused_not_ignored() {
+    let run = super::model::model().run(&[
+        "gsd",
+        "security-hooks",
+        "verify:post",
+        "--after-fingerprint",
+        "99",
+        "--format",
+        "json",
+    ]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("--after-fingerprint"), "{}", run.all());
+}
