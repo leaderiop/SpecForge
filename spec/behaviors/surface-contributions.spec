@@ -260,6 +260,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "args serialized as JSON to cmd__ export"
   verify unit "a command is told the host that calls it, and nothing when none does"
   verify unit "the host option reaches a command on the command line, and a host that is none is refused"
+  verify unit "a command that declares a host argument keeps it as its own and is not told the calling host"
   verify unit "an MCP command call is told the host the session's client named"
   verify unit "a cmd__ export is granted no capability, whatever sandbox its declaration asks for"
   verify unit "Wasm trap caught and reported as ExtensionError"

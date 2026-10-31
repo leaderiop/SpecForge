@@ -335,3 +335,39 @@ fn a_multi_line_prompt_message_reaches_the_agent_whole() {
         "{got}"
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "an mcp prompt takes its own path argument through specforge.prompt, and prompts/get reads path as the project"
+)]
+fn an_mcp_prompt_takes_its_own_path_argument() {
+    let fixture = GsdPrompts::new().prompting(json!({
+        "id": "ingest", "title": "Ingest", "description": "Ingest documents", "export": "prompt__ingest",
+        "args": [
+            {"name": "path", "field_type": "string", "rest": true},
+            {"name": "format", "field_type": "enum", "enum_values": ["md", "txt"]},
+        ],
+    }));
+    let mut served = gsd_using(fixture, "fine", "ok", json!({}), json!({}));
+    let text = |reply: &Value| {
+        reply["messages"][0]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string()
+    };
+    let tool = rpc::tool(
+        &mut served,
+        "specforge.prompt",
+        json!({"name": "specforge.t.ingest", "arguments": {"path": "docs/adr", "format": "md"}}),
+    );
+    assert!(text(&tool).contains("\"path\":\"docs/adr\""), "{tool}");
+    assert!(text(&tool).contains("\"format\":\"md\""), "{tool}");
+    // `prompts/get` reads `path` as the project to open (the target argument every MCP entry takes), so a prompt's own
+    // `path` is reachable by `specforge.prompt` only (ADR 0314 Limits).
+    let got = rpc::call(
+        &mut served,
+        "prompts/get",
+        json!({"name": "specforge.t.ingest", "arguments": {"path": "docs/adr"}}),
+    );
+    assert_eq!(got["error"]["data"]["code"], "file_not_found", "{got}");
+}

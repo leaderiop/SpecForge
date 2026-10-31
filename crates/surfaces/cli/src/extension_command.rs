@@ -220,10 +220,12 @@ pub(crate) fn run_in(
         command,
         &given,
         format,
+        // A command that declares its own `host` arg is not told the calling host by it (REVIEW-k20b N12).
         matches
             .try_get_one::<String>(HOST)
             .ok()
             .flatten()
+            .filter(|_| !command.args().iter().any(|a| a.name == HOST))
             .and_then(|h| Host::from_flag(h)),
         dry_run,
         crate::caller::of(false, output_format, terminal),

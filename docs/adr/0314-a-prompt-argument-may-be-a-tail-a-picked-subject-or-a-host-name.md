@@ -18,7 +18,7 @@ An implicit `$ARGUMENTS` arg; renaming gsd's args; the host picks the subject.
 
 ## Limits
 
-A `--path` before the first `--` always names the project, from any current directory; a prompt that declares `path` takes it after the `--`. A free-text tail is rendered where its argument stands in the prompt's table (quick's first), so a subcommand word still opens `$ARGUMENTS`. An optional subject and a tail together: the first word goes to the subject. The export runs before the gate when the subject is absent; prompts are read-only (ADR 0291).
+A `--path` before the first `--` always names the project, from any current directory; a prompt that declares `path` takes it after the `--`. Over MCP, `specforge.prompt` hands a prompt its own `path`; `prompts/get` reads `path` as the project to open, as every MCP entry does, so a prompt's `path` is not reachable there (a later round may give a prompt that declares it the argument). A free-text tail is rendered where its argument stands in the prompt's table (quick's first), so a subcommand word still opens `$ARGUMENTS`. An optional subject and a tail together: the first word goes to the subject. The export runs before the gate when the subject is absent; prompts are read-only (ADR 0291).
 
 ## Consequences
 

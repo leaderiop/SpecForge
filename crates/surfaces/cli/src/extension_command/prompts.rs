@@ -375,3 +375,15 @@ fn the_host_option_reaches_a_command() {
     assert_eq!(code, 2, "{err}");
     assert!(err.contains("vim"), "{err}");
 }
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "a command that declares a host argument keeps it as its own and is not told the calling host"
+)]
+fn a_command_declaring_host_keeps_its_own_argument() {
+    let p = project("fine", "fine");
+    let (code, out, err) = extension(&p, "t", &["name-host", "--host", "codex"]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("\"host\":\"codex\""), "its own arg: {out}");
+    assert!(!out.contains("\nhost "), "not told the calling host: {out}");
+}

@@ -153,6 +153,8 @@ fn surfaces(extra: &[Value]) -> Value {
             command("record_plan", phase_arg(), &[], None),
             command("execute_phase", phase_arg(), &["E902", "W904"], Some("phase")),
             command("ship", json!([]), &["E903"], None),
+            // Declares an arg named `host`, which the CLI's own `--host` must leave to it.
+            command("name_host", json!([{"name": "host", "arg_type": "string"}]), &[], None),
         ],
         "prompts": prompts,
         "agents": [{"id": "checker", "description": "Checks the plans"}],
@@ -263,7 +265,9 @@ fn handle(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         "__pass_ship_guard" => {
             json!({"diagnostics": ship_guard(&input), "summary": {}, "values": []})
         }
-        "cmd__record_plan" | "cmd__execute_phase" | "cmd__ship" => command_output(&input),
+        "cmd__record_plan" | "cmd__execute_phase" | "cmd__ship" | "cmd__name_host" => {
+            command_output(&input)
+        }
         export if export.starts_with("prompt__") => prompt_output(export, &input),
         _ => return None,
     };
