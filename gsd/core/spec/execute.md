@@ -91,8 +91,8 @@ holds is not recorded again, so a second run changes nothing. The collector is n
 or `Revert "…"` layer is unwrapped, then `type[(scope)][!]: description`, case-insensitively; the scope is the plan's GSD
 id (`03-02`, `03.1-01`, a quick id), resolved over the graph as a path, a rooted path or a unique short form. A scope that
 names no plan, several plans (`01-01` in two milestones: write the full path) or a non-plan is skipped, except that a
-scope that starts with the project's `project_code` and a dash (`feat(PRJ-01-01)` with `project_code "PRJ"`) is resolved
-again without them (#5271): only the configured code, case-sensitively, so `AUTH-01-01` stays literal. The task is the one
+scope that starts with the project's `project_code` (the setting, else the `project` entity's field) and a dash
+(`feat(PRJ-01-01)` with `project_code "PRJ"`) is resolved again without them (#5271): only the configured code, case-sensitively, so `AUTH-01-01` stays literal. The task is the one
 of that plan whose title equals the description, trimmed, case-folded and with whitespace runs collapsed; none, or two,
 leaves the commit naming its plan. A plan op refused `stale_revision` (the plan's file changed since the compile) writes
 nothing, and the next run records the same commits. Merges are read for their parents and never recorded.

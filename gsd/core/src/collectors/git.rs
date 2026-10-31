@@ -361,7 +361,7 @@ fn fields(
 }
 
 /// The header of `commit` and the plan it is (or would be) recorded under: a merge is read for its parents only.
-/// `code` is the project's `project_code`.
+/// `code` is the project's `project_code` (the setting, else the project entity's field).
 fn plan_of<'a, 'n>(
     nodes: &'n [GraphNode],
     code: Option<&str>,
@@ -387,11 +387,18 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let mut builder = PlanBuilder::for_collect(input);
     let mut recorded = 0;
     let (commits, mut skipped) = parse_all(input.stdout.as_deref().unwrap_or(""));
-    let code = nodes
-        .iter()
-        .find(|n| n.kind == "project")
-        .and_then(|n| n.text("project_code"))
-        .filter(|c| !c.is_empty());
+    // The `project_code` setting (what GSD users set and `specforge settings` shows), else the project entity's field.
+    let settings = Settings::current();
+    let code = settings
+        .string("project_code")
+        .filter(|c| !c.is_empty())
+        .or_else(|| {
+            nodes
+                .iter()
+                .find(|n| n.kind == "project")
+                .and_then(|n| n.text("project_code"))
+                .filter(|c| !c.is_empty())
+        });
     let plans: HashMap<&str, &str> = commits
         .iter()
         .filter_map(|c| Some((c.hash.as_str(), plan_of(nodes, code, c)?.1.id.as_str())))
