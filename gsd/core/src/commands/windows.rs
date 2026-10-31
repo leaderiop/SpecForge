@@ -30,8 +30,8 @@ fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .transpose()?;
     let at = now(call)?;
     let name = next_id(call.graph(), "broken_window", "", "BW");
-    // Integers go as decimal text: the host's plan op reads a top-level integer from text.
-    let line = call.count("line").map(|n| json!(n.to_string()));
+    // A JSON number: the host's plan op reads it for an integer field (ADR 0311).
+    let line = call.count("line").map(|n| json!(n));
     let mut plan = call.plan();
     plan.create(
         "broken_window",
