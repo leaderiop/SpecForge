@@ -63,6 +63,7 @@ mod prompts_discuss;
 mod prompts_execute;
 mod prompts_gates;
 mod prompts_git;
+mod prompts_heredoc;
 mod prompts_learning;
 mod prompts_navigate;
 mod prompts_ns;

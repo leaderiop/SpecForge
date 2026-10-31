@@ -100,6 +100,46 @@ fn substitute_arguments(text: &str, arguments: &str) -> String {
     out
 }
 
+/// The terminators of the heredocs the assets capture the typed text with: opened `<<'T'`, closed by a line `T`.
+pub(crate) const ARGS_TERMINATORS: [&str; 2] = ["GSD_ARGS_END", "GSD_QUICK_BATCH_ARGS_END"];
+
+/// `token` when no line of `arguments` starts with it, else `token_<n>` for the smallest `n` no line starts with.
+fn terminator_for(token: &str, arguments: &str) -> String {
+    // a prefix test also sees through a line's trailing `\r`
+    let taken = |t: &str| arguments.lines().any(|line| line.starts_with(t));
+    if !taken(token) {
+        return token.to_string();
+    }
+    (1..)
+        .map(|n| format!("{token}_{n}"))
+        .find(|t| !taken(t))
+        .expect("finitely many lines block finitely many suffixes")
+}
+
+/// `command` with each terminator an argument line could equal renamed: its quoted opener and its closing lines.
+fn stamp_terminators(command: &str, arguments: &str) -> String {
+    let mut text = command.to_string();
+    for token in ARGS_TERMINATORS {
+        let stamp = terminator_for(token, arguments);
+        if stamp == token {
+            continue;
+        }
+        text = text
+            .replace(&format!("<<'{token}'"), &format!("<<'{stamp}'"))
+            .split_inclusive('\n')
+            .map(|line| {
+                let body = line.strip_suffix('\n').unwrap_or(line);
+                if body.strip_suffix('\r').unwrap_or(body) == token {
+                    format!("{stamp}{}", &line[token.len()..])
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect();
+    }
+    text
+}
+
 /// The text of the prompt, or why it cannot be built.
 pub fn render(input: &Input<'_>) -> Result<String, String> {
     let path = format!("commands/gsd/{}.md", input.command);
@@ -122,10 +162,15 @@ fn wrapper(workflow: &str) -> String {
 /// [`render`] over the text of the command file.
 pub fn assemble(command: &str, input: &Input<'_>) -> String {
     let mut text = preamble::text(input.host, input.settings, input.extension, input.files);
-    text.push_str(&setting::fill(
-        &inline_includes(command, input.asset),
-        input.settings,
-        runtime(input.host),
+    // the render knows the arguments, so the terminator is chosen to be one they cannot contain (#5637; upstream stamps
+    // a per-install nonce because its installed files hold the heredoc)
+    text.push_str(&stamp_terminators(
+        &setting::fill(
+            &inline_includes(command, input.asset),
+            input.settings,
+            runtime(input.host),
+        ),
+        input.arguments,
     ));
     text = substitute_arguments(&text, input.arguments);
     if !input.tail.is_empty() {
@@ -147,3 +192,6 @@ fn header(host: &str) -> String {
         header => format!("{header}\n\n"),
     }
 }
+
+#[cfg(test)]
+mod tests;
