@@ -32,6 +32,7 @@ use specforge_protocol_types::{
 };
 
 use crate::operations::Wire;
+use crate::{ServedSlash, StateView};
 
 /// The export that renders the prompt `id`.
 pub fn prompt_export(id: &str) -> String {
@@ -108,9 +109,16 @@ impl PromptBuilder {
         self
     }
 
-    /// The prompt is served while the bool setting `setting` of the extension is not false.
+    /// The handler receives the slash commands the project serves ([`PromptCall::slash_commands`], ADR 0316).
+    pub fn reads_slash_commands(&mut self) -> &mut Self {
+        self.descriptor.reads_slash_commands = true;
+        self
+    }
+
+    /// The prompt is served while the bool setting `setting` of the extension is not false; each call adds a setting,
+    /// and all must be on (ADR 0317).
     pub fn when(&mut self, setting: &str) -> &mut Self {
-        self.descriptor.when = Some(setting.to_string());
+        self.descriptor.when.push(setting.to_string());
         self
     }
 
@@ -194,6 +202,12 @@ impl PromptArgBuilder {
         self.0.description = Some(text.to_string());
         self
     }
+    /// The free-text tail: a string that takes the words no positional argument or option takes (ADR 0314). One per
+    /// prompt, never the subject.
+    pub fn rest(&mut self) -> &mut Self {
+        self.0.rest = true;
+        self.typed("string")
+    }
 
     fn typed(&mut self, field_type: &str) -> &mut Self {
         self.0.field_type = field_type.to_string();
@@ -263,6 +277,16 @@ impl PromptCall<'_> {
     /// The host's date, UTC, `YYYY-MM-DD`.
     pub fn today(&self) -> &str {
         &self.0.today
+    }
+    /// The extension's state, for a prompt that declares [`PromptBuilder::reads_state`]; `None` otherwise: the host
+    /// sends nothing (ADR 0310).
+    pub fn state(&self) -> Option<&StateView> {
+        self.0.state.as_ref()
+    }
+    /// The slash commands the project serves, for a prompt that declares [`PromptBuilder::reads_slash_commands`];
+    /// empty otherwise.
+    pub fn slash_commands(&self) -> &[ServedSlash] {
+        &self.0.slash_commands
     }
     /// The project's graph, for a prompt that declares [`PromptBuilder::reads_graph`].
     pub fn graph(&self) -> Option<&GraphWire> {

@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 120544,
+  "bytes": 120584,
   "end": [
     "- Random emoji (`🚀`, `✨`, `💫`)",
     "- Missing Next Up block after completions",
@@ -195,34 +195,38 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:0e5a289081010e4d8e2b074b6190ab1533d6b67fdf13f567031f1ddda1c663bb",
+    "digest": "sha256:801af37da75a4bfeb9bcd497109626c5e204b00132a03684d8f4648fb3d977e6",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
+        "agent": "gsd-phase-researcher",
         "id": "research",
-        "title": "Research how to implement the phase (gsd-phase-researcher)"
+        "title": "Research how to implement the phase"
       },
       {
-        "cli": "specforge gsd record-research",
+        "cli": "specforge gsd record-research --host codex",
         "gate": [],
         "id": "record_research",
         "title": "Record the research's digest (specforge gsd record-research <research>)",
         "tool": "specforge.gsd.record_research"
       },
       {
+        "agent": "gsd-pattern-mapper",
         "id": "patterns",
-        "title": "Map the closest existing patterns (gsd-pattern-mapper)"
+        "title": "Map the closest existing patterns"
       },
       {
+        "agent": "gsd-planner",
         "id": "plan",
-        "title": "Create the phase's plans (gsd-planner)"
+        "title": "Create the phase's plans"
       },
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the plans against the phase goal (gsd-plan-checker)"
+        "title": "Check the plans against the phase goal"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host codex",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the plan checker's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",
@@ -236,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "0e5a289081010e4d8e2b074b6190ab1533d6b67fdf13f567031f1ddda1c663bb"
+  "sha256": "801af37da75a4bfeb9bcd497109626c5e204b00132a03684d8f4648fb3d977e6"
 }

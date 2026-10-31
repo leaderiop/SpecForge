@@ -95,11 +95,11 @@ fn execute_plan_renders_with_its_plan_subject() {
     assert_eq!(
         cli,
         [
-            "specforge gsd start-plan",
-            "specforge gsd answer-checkpoint",
-            "specforge gsd confirm-setup",
-            "specforge gsd raise-blocker",
-            "specforge gsd complete-plan"
+            "specforge gsd start-plan --host claude-code",
+            "specforge gsd answer-checkpoint --host claude-code",
+            "specforge gsd confirm-setup --host claude-code",
+            "specforge gsd raise-blocker --host claude-code",
+            "specforge gsd complete-plan --host claude-code"
         ]
     );
     let text = text_of(&rendered);

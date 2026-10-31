@@ -89,8 +89,8 @@ where each thing went; where it and the workflow disagree, this section wins.
 {table}
 Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).
 Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,
-`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through
-`specforge.edit` (the command line's `--path` option is its own).
+`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with
+`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).
 
 ## How to work
 

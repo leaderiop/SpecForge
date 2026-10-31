@@ -200,7 +200,7 @@ pub(super) const ROWS: [Row; 44] = [
     },
     Row {
         id: "ingest_docs",
-        args: &["--dir", "docs", "--mode", "merge", "--resolve", "auto"],
+        args: &["docs", "--mode", "merge", "--resolve", "auto"],
         setup: twin,
     },
     Row {

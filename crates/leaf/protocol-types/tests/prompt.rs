@@ -105,3 +105,49 @@ fn a_pass_input_trigger_is_absent_for_a_write_and_round_trips_for_a_gate() {
         "no trigger is a write"
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt argument that is not a tail serializes as it did, and a tail round-trips"
+)]
+fn a_rest_false_argument_has_no_rest_key() {
+    use specforge_protocol_types::PromptArgDescriptor;
+
+    let arg = PromptArgDescriptor {
+        name: "task".into(),
+        field_type: "string".into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        serde_json::to_string(&arg).unwrap(),
+        r#"{"name":"task","field_type":"string"}"#
+    );
+    let tail = PromptArgDescriptor { rest: true, ..arg };
+    let wire = serde_json::to_value(&tail).unwrap();
+    assert_eq!(wire["rest"], true);
+    assert_eq!(
+        serde_json::from_value::<PromptArgDescriptor>(wire).unwrap(),
+        tail
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt answer without a subject serializes as it did, and a picked subject round-trips"
+)]
+fn a_prompt_output_subject_is_absent_unless_picked() {
+    use specforge_protocol_types::PromptOutput;
+
+    let plain = PromptOutput::user("hi");
+    assert_eq!(
+        serde_json::to_string(&plain).unwrap(),
+        r#"{"messages":[{"role":"user","text":"hi"}]}"#
+    );
+    let picked = plain.with_subject("v1.0/03");
+    let wire = serde_json::to_value(&picked).unwrap();
+    assert_eq!(wire["subject"], "v1.0/03");
+    assert_eq!(
+        serde_json::from_value::<PromptOutput>(wire).unwrap(),
+        picked
+    );
+}

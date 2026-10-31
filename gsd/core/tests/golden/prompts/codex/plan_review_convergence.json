@@ -61,7 +61,7 @@
     "echo \"$GSD_ARGS\" | grep -qE '\\-\\-ws\\s+\\S+' && GSD_WS=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-ws\\s+\\S+')",
     "```"
   ],
-  "bytes": 84461,
+  "bytes": 84501,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:fbe93321625a4cceb60d3f8b60e06887c31608743f000ea03199f276f9050fa9",
+    "digest": "sha256:e04bc783d756e5aa826823033d5e00747a0d37a135e1857ff57334c775af01d1",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -204,11 +204,12 @@
         "title": "Replan with the reviewers' feedback (the prompt plan_phase, --reviews)"
       },
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the revised plans against the phase goal (gsd-plan-checker)"
+        "title": "Check the revised plans against the phase goal"
       }
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "fbe93321625a4cceb60d3f8b60e06887c31608743f000ea03199f276f9050fa9"
+  "sha256": "e04bc783d756e5aa826823033d5e00747a0d37a135e1857ff57334c775af01d1"
 }

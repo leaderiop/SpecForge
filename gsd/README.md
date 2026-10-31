@@ -57,8 +57,9 @@ the rest of this folder keeps their K names.
 | K18 | [0299](../docs/adr/0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) | the graph a call receives carries the computed values and judgements every surface shows |
 | K19 | [0300](../docs/adr/0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) | a compute pass at the baseline reads the files the commit holds |
 | K20a | [0301](../docs/adr/0301-a-human-attested-command-runs-only-for-a-person-at-a-terminal.md)-[0306](../docs/adr/0306-install-refuses-an-unusable-specforge-json-and-uninstall-removes-only-what-install-created.md) | trust, verdicts, rules, settings and install safety |
+| K20b | [0310](../docs/adr/0310-a-command-and-a-prompt-read-their-extensions-state.md)-[0319](../docs/adr/0319-specforge-new-sets-any-field.md) | a command and a prompt read their state, the host and the served slash commands; a prompt takes a tail and picks its subject; `when` names several settings; `collect` and `find` accept short ids; `new --field` |
 
-K20a is built (protocol 1.12.0). K20b and K20c are the queue of kernel items that still wait ("What still waits for kernel work" below); none of them is built.
+K20a (protocol 1.12.0) and K20b (protocol 1.13.0) are built. K20c is the queue of kernel items that still waits ("What still waits for kernel work" below); none of it is built.
 
 Building `@gsd/core` against them found six more gaps no model fix closes. They are a second kernel round (r35,
 protocol 1.11.0, now in the kernel), and the model cites them where it relies on them: **K11** a pass or command reads the project files
@@ -176,19 +177,13 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). K20a is built: the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, and install and uninstall are safe. One divergence from upstream: a truth's `verification` tier is a person's, so `/gsd-phase --remove` of a phase whose truth holds one is refused `human_only` until the person deletes that line in their editor (upstream deletes regardless; REVIEW-k20a M3). What still waits for kernel work (K20b, K20c):
+`previous_score` and compares scan states (r39 T13 is built). K20a and K20b are built (protocol 1.13.0): the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). One divergence from upstream: a truth's `verification` tier is a person's, so `/gsd-phase --remove` of a phase whose truth holds one is refused `human_only` until the person deletes that line in their editor (upstream deletes regardless; REVIEW-k20a M3). What still waits for kernel work (K20c):
 
-- **A command or prompt cannot read its extension's state (K20).** The host sends `state` to a `reads_state` command or
-  prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So
-  `/gsd-workstreams status` cannot name the active workstream and `--ws` is text. The fix is an SDK change, so a re-vendor.
-- **A rendered step has no agent field (K20)**: the step's title carries the agent. **There is no free-text tail for a
-  prompt's arguments (K20)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
-  (K20)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
-- **The lifecycle prompts (r42) leave three kernel items (K20).** The claude-code skill writer does not write a skill's
-  `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested. A prompt's
-  subject is required, so `/gsd-plan-phase` without a phase is refused where upstream picks the next one (`/gsd-next`
-  is r43's). A reference is the id as written, so `3` and `03` are different spellings of the same phase.
-- **The remaining prompts (r43) leave these (K20).** A prompt cannot see other extensions' contributions, so the routers' route table and `/gsd-next` read a static roster (`src/prompts/roster.rs`) that says which extension owns a command. A prompt argument cannot be named `path` or `format` (the host reads them wherever they stand), so `/gsd-ingest-docs [path]` is `--dir`, and `/gsd-workspace` has no `--path`, `--repos`, `--strategy`, `--branch` or `--auto`. A command's answer is not host-converted, so `smart_entry` takes `--runtime`. `when` takes one setting, so `/gsd-review`, `/gsd-update` and `/gsd-ns-ideate` follow their first cluster only. A command cannot read state, so `/gsd-progress` and `/gsd-resume-work` cannot name the active workstream.
+- **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
+  status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
+  text.
+- **A skill's `effort` is declared, not installed.** `/gsd-plan-phase` and `/gsd-execute-phase` declare `max`, and Claude
+  Code leaves it out of the installed skill as upstream does (#3151); only the declaration is tested.
 - **What r43 leaves open.** Reports, summaries and cross-AI reviews are shown, not stored. A lesson has no phase field. `/gsd-review` has no reviewer lane machinery or prompt budget (the agent reads each reviewer CLI's `--help`). `/gsd-quick-batch`'s dispatcher, estimate calibration, sub-repository branches and workspaces are prose. `/gsd-undo` selects the commits recorded as `commit` entities, and `git revert` bypasses the host's checks, so it asks before reverting a `.spec` change that removes a person's value. `smart_entry` never says idle-stranded (a command has no git).
 - **The hooks wait for five host items (K20)**: git facts in `HookInput` (the workflow guard cannot see a
   `git add -f`, nor `validate_commit` the staged files), a `file_changed` event (settings are read on every compile instead), a hook that runs
@@ -202,13 +197,8 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`specforge <ext> help <cmd>` is gone for every extension.** T17 turned off clap's `help` subcommand on an
   extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
   `specforge gsd help` lists the commands.
-- **A slash command's `when` takes one setting (K20).** A skill in two clusters follows its first, so disabling
-  `utility` leaves `/gsd-help` (also `core_loop`) shown.
-- **A JSON number for a top-level integer plan op**: gsd writes the decimal text (`collectors/git.rs`).
-- **`collect` re-keys short ids**: `gsd-junit` resolves `[gsd:<id>]` itself.
-- **The SDK exports `TriggerKind`**: `gates.rs` reads the kind by name.
 - **What stays after K17.** `check` is red from planning on, since gsd/E501 is an Error from the first planned truth
-  until it is verified, and an agent cannot create an artifact through the CLI (`--path` is the CLI's own option).
+  until it is verified.
 - **Hook facts and the install path (K20).** A hook is told the name of an out-of-project path, not its real path, so a
   symlink into the main checkout passes `worktree_path_guard`; it is not told a commit's `--cleanup`; a hook
   contribution cannot name its hosts (Cursor gets the isolation guard's line, which does nothing there). A host

@@ -34,9 +34,9 @@ pub use specforge_protocol_types::{
     DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
     ExtensionDeclaration, FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor,
     HandshakeResponse, PeerDependency, PromptDescriptor, ProtocolError, SandboxPolicy,
-    SecretDescriptor, SettingDescriptor, SettingsItem, ValidationRuleDescriptor,
-    ValidationSeverity, ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod,
-    ValidatorParam, ValidatorRef, ValidatorVerdict,
+    SecretDescriptor, ServedSlash, SettingDescriptor, SettingsItem, StateView, Trigger,
+    TriggerKind, ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorEntity,
+    ValidatorField, ValidatorMethod, ValidatorParam, ValidatorRef, ValidatorVerdict,
 };
 
 use specforge_protocol_types::{DescribeResponse, pass_export};
@@ -620,7 +620,8 @@ pub mod prelude {
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{
-        Attribution, Decision, HookEvent, HookOutput, PromptOutput, RenderKind, StatePatch,
+        Attribution, Decision, HookEvent, HookOutput, PromptOutput, RenderKind, ServedSlash,
+        StatePatch, StateView, Trigger, TriggerKind,
     };
     pub use specforge_protocol_types::{
         SandboxPolicy, ValidationSeverity, ValidatorContext, ValidatorVerdict,

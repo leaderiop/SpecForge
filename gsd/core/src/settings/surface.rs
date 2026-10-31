@@ -127,12 +127,11 @@ pub fn setting(cluster: &str) -> String {
     format!("specforge.surface.{cluster}")
 }
 
-/// The first cluster that lists the skill `stem`, upstream's order: the one whose setting hides it (a slash command
-/// takes one `when`, upstream hides a skill in any disabled cluster).
-pub fn first_cluster(stem: &str) -> Option<&'static str> {
+/// The clusters that list the skill `stem`, in upstream's order: a slash command is shown while every one is on.
+pub fn clusters(stem: &str) -> impl Iterator<Item = &'static str> + '_ {
     CLUSTERS
         .iter()
-        .find(|(_, members)| members.contains(&stem))
+        .filter(move |(_, members)| members.contains(&stem))
         .map(|(name, _)| *name)
 }
 

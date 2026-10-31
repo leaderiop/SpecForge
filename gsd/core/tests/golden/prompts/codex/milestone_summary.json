@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 28087,
+  "bytes": 28127,
   "end": [
     "```",
     "</file>",
@@ -195,11 +195,11 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:7adade1d8cd353c69b068530b7f4291d6dc9f92907e30240f77d1ee4499be47a",
+    "digest": "sha256:518ae80d4624e03094acf13c9960777635bf8da4b5183f4c3c464332fbe937c1",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
-        "cli": "specforge gsd progress-report",
+        "cli": "specforge gsd progress-report --host codex",
         "gate": [],
         "id": "report",
         "title": "Read the progress of the milestone (specforge gsd progress-report)",
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "7adade1d8cd353c69b068530b7f4291d6dc9f92907e30240f77d1ee4499be47a"
+  "sha256": "518ae80d4624e03094acf13c9960777635bf8da4b5183f4c3c464332fbe937c1"
 }

@@ -6,7 +6,10 @@
 
 use serde_json::Value;
 use specforge_protocol_types::command_args::option_name;
-use specforge_protocol_types::{CommandArgType, PromptArgDescriptor, RenderInput, RenderKind};
+use specforge_protocol_types::{
+    CommandArgType, ExtensionDeclaration, PromptArgDescriptor, RenderInput, RenderKind,
+    ServedSlash, SlashCommandDescriptor,
+};
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 
 use super::Host;
@@ -26,9 +29,10 @@ pub(crate) fn setting(view: &ProjectView<'_>, extension: &str, name: &str) -> Op
         .and_then(|s| s.value.clone())
 }
 
-/// Whether the contribution whose `when` is `when` is on: no setting named, or one that is not false.
-pub(crate) fn on(view: &ProjectView<'_>, extension: &str, when: Option<&String>) -> bool {
-    when.is_none_or(|name| setting(view, extension, name) != Some(Value::Bool(false)))
+/// Whether the contribution whose `when` is `when` is on: every setting named is not false (ADR 0317).
+pub(crate) fn on(view: &ProjectView<'_>, extension: &str, when: &[String]) -> bool {
+    when.iter()
+        .all(|name| setting(view, extension, name) != Some(Value::Bool(false)))
 }
 
 /// A word that is a setting's current value when it reads `setting:<name>`.
@@ -78,10 +82,89 @@ fn hint<'a>(args: impl Iterator<Item = (&'a str, bool, bool)>) -> Option<String>
 }
 
 fn prompt_hint(args: &[PromptArgDescriptor]) -> Option<String> {
-    hint(
+    let named = hint(
         args.iter()
+            .filter(|a| !a.rest)
             .map(|a| (a.name.as_str(), a.required, a.field_type == "bool")),
-    )
+    );
+    // A free-text tail is written last, as upstream's hint writes the task description.
+    let tail = args
+        .iter()
+        .find(|a| a.rest)
+        .map(|a| format!("[<{}>\u{2026}]", option_name(&a.name)));
+    match (named, tail) {
+        (Some(named), Some(tail)) => Some(format!("{named} {tail}")),
+        (named, tail) => named.or(tail),
+    }
+}
+
+/// What the slash command `s` of the extension `declaration` (short name `short`) calls: the target's id and
+/// description, the hint derived from its arguments, and the call; none when the target is not declared.
+fn slash_target(
+    declaration: &ExtensionDeclaration,
+    s: &SlashCommandDescriptor,
+    short: &str,
+) -> Option<(String, String, Option<String>, SlashCall)> {
+    match (&s.prompt, &s.command) {
+        (Some(id), _) => {
+            let prompt = declaration.surfaces.prompts.iter().find(|p| p.id == *id)?;
+            Some((
+                id.clone(),
+                prompt.description.clone(),
+                prompt_hint(&prompt.args),
+                SlashCall::Prompt {
+                    mcp_name: format!("specforge.{short}.{id}"),
+                    cli: format!("specforge prompt {short}.{id}"),
+                },
+            ))
+        }
+        (None, Some(id)) => {
+            let command = declaration.surfaces.commands.iter().find(|c| c.id == *id)?;
+            Some((
+                id.clone(),
+                command.description.clone(),
+                hint(command.args.iter().map(|a| {
+                    (
+                        a.name.as_str(),
+                        a.required,
+                        matches!(a.arg_type, CommandArgType::Bool),
+                    )
+                })),
+                SlashCall::Command {
+                    mcp_tool: format!("specforge.{short}.{id}"),
+                    cli: format!("specforge {short} {}", option_name(id)),
+                },
+            ))
+        }
+        (None, None) => None,
+    }
+}
+
+/// The slash commands the project serves, sorted by name: what an install writes for a host, as a prompt that
+/// reads them is sent (ADR 0316). A slash is served while its `when` setting is on and its target is declared.
+pub fn served_slashes(view: &ProjectView<'_>) -> Vec<ServedSlash> {
+    let build = view.registries();
+    let mut served: Vec<ServedSlash> = build
+        .slash_commands()
+        .filter(|slash| on(view, slash.extension, &slash.item.when))
+        .filter_map(|slash| {
+            let declaration = build.declaration(slash.extension)?;
+            let (_, _, _, call) = slash_target(declaration, slash.item, &slash.short)?;
+            let (prompt, tool, cli) = match call {
+                SlashCall::Prompt { mcp_name, cli } => (Some(mcp_name), None, cli),
+                SlashCall::Command { mcp_tool, cli } => (None, Some(mcp_tool), cli),
+            };
+            Some(ServedSlash {
+                name: slash.name(),
+                extension: slash.extension.to_string(),
+                prompt,
+                tool,
+                cli,
+            })
+        })
+        .collect();
+    served.sort_by(|a, b| a.name.cmp(&b.name));
+    served
 }
 
 /// The project's contributions for `host`, with every body rendered.
@@ -128,7 +211,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
     let mut agents = Vec::new();
     for agent in build.agents() {
         let (ext, a) = (agent.extension, agent.item);
-        if !on(view, ext, a.when.as_ref()) {
+        if !on(view, ext, &a.when) {
             continue;
         }
         let variant = a
@@ -154,7 +237,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
     let mut skills = Vec::new();
     for skill in build.skills() {
         let (ext, s) = (skill.extension, skill.item);
-        if !on(view, ext, s.when.as_ref()) {
+        if !on(view, ext, &s.when) {
             continue;
         }
         skills.push(RenderedSkill {
@@ -171,50 +254,15 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
     let mut slashes = Vec::new();
     for slash in build.slash_commands() {
         let (ext, s) = (slash.extension, slash.item);
-        if !on(view, ext, s.when.as_ref()) {
+        if !on(view, ext, &s.when) {
             continue;
         }
         let Some(declaration) = build.declaration(ext) else {
             continue;
         };
-        let short = &slash.short;
-        let (id, description, derived, call) = match (&s.prompt, &s.command) {
-            (Some(id), _) => {
-                let Some(prompt) = declaration.surfaces.prompts.iter().find(|p| p.id == *id) else {
-                    continue;
-                };
-                (
-                    id.clone(),
-                    prompt.description.clone(),
-                    prompt_hint(&prompt.args),
-                    SlashCall::Prompt {
-                        mcp_name: format!("specforge.{short}.{id}"),
-                        cli: format!("specforge prompt {short}.{id}"),
-                    },
-                )
-            }
-            (None, Some(id)) => {
-                let Some(command) = declaration.surfaces.commands.iter().find(|c| c.id == *id)
-                else {
-                    continue;
-                };
-                (
-                    id.clone(),
-                    command.description.clone(),
-                    hint(command.args.iter().map(|a| {
-                        (
-                            a.name.as_str(),
-                            a.required,
-                            matches!(a.arg_type, CommandArgType::Bool),
-                        )
-                    })),
-                    SlashCall::Command {
-                        mcp_tool: format!("specforge.{short}.{id}"),
-                        cli: format!("specforge {short} {}", option_name(id)),
-                    },
-                )
-            }
-            (None, None) => continue,
+        let Some((id, description, derived, call)) = slash_target(declaration, s, &slash.short)
+        else {
+            continue;
         };
         slashes.push(RenderedSlash {
             source: source(ext, "slash", &id),
@@ -230,7 +278,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
 
     let mut hooks = build
         .hooks()
-        .filter(|h| on(view, h.extension, h.item.when.as_ref()))
+        .filter(|h| on(view, h.extension, &h.item.when))
         .map(|h| RenderedHook {
             route: h.route(),
             description: h.item.description.clone(),
@@ -305,4 +353,32 @@ fn judged_section(view: &ProjectView<'_>, agent: &str) -> String {
         ));
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[specforge_test_macros::test(
+        behavior = "install_into_a_host",
+        verify = "a slash command's hint writes a prompt's free-text tail last"
+    )]
+    fn a_free_text_tail_is_written_last_in_the_hint() {
+        let arg = |name: &str, field_type: &str, required: bool, rest: bool| PromptArgDescriptor {
+            name: name.into(),
+            field_type: field_type.into(),
+            required,
+            rest,
+            ..Default::default()
+        };
+        let args = [
+            arg("task", "string", false, true),
+            arg("full", "bool", false, false),
+        ];
+        assert_eq!(
+            prompt_hint(&args).as_deref(),
+            Some("[--full] [<task>\u{2026}]")
+        );
+        assert_eq!(prompt_hint(&args[..1]).as_deref(), Some("[<task>\u{2026}]"));
+    }
 }

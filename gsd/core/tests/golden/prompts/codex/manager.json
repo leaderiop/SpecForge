@@ -61,7 +61,7 @@
     "- `manager_flags.execute` — appended to execute agent init command",
     ""
   ],
-  "bytes": 46702,
+  "bytes": 46742,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -195,11 +195,11 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:66dedd356db28614537eb921acf53e6ca9ba34b78bf42c450fadce210915d0a4",
+    "digest": "sha256:a531cf0c94b4c05e77a1cdfb89eb86fb9dd4da8a760e4d3cd43bc2fb89579721",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
-        "cli": "specforge gsd progress-report",
+        "cli": "specforge gsd progress-report --host codex",
         "gate": [],
         "id": "dashboard",
         "title": "Read the phases and what each needs next (specforge gsd progress-report)",
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "66dedd356db28614537eb921acf53e6ca9ba34b78bf42c450fadce210915d0a4"
+  "sha256": "a531cf0c94b4c05e77a1cdfb89eb86fb9dd4da8a760e4d3cd43bc2fb89579721"
 }

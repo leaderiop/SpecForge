@@ -84,8 +84,8 @@
     "sha256": "9d2e9e56e79f0b3983d74253a330055586d0636aa69692f6ff97e275183fa89f"
   },
   ".codex/skills/gsd-cleanup/SKILL.md": {
-    "bytes": 1055,
-    "sha256": "c5d365cbecae72c3aca49c0ed5f178e652ddc8bd6a83d5a8eea1332dbf0f68d4"
+    "bytes": 1068,
+    "sha256": "52d0bf1bdba6b03286a7dc8090d88c6161737e375b3dc0d36ffc19d4be943e84"
   },
   ".codex/skills/gsd-complete-milestone/SKILL.md": {
     "bytes": 1021,
@@ -112,12 +112,12 @@
     "sha256": "ae2b94d7fcdfe64e7b70c36722ef0486f9384001f88c7bd44ce2bb3eb486b8c2"
   },
   ".codex/skills/gsd-health/SKILL.md": {
-    "bytes": 1100,
-    "sha256": "bec30ae36170984b7f9c006222a3dfcd66ecda14d63f3657e14295be4c45f115"
+    "bytes": 1113,
+    "sha256": "ed7f2b73d2683bc583d327fa3c0ff0f83c7e4c9609cc33ff9f340e054d2fb3c8"
   },
   ".codex/skills/gsd-help/SKILL.md": {
-    "bytes": 1026,
-    "sha256": "d06acd27ef641193e99683e4d45a349fda5621e3ad3d622e5cdd4d6d65f671dc"
+    "bytes": 1039,
+    "sha256": "a2f25a9c1a9653335f4f7966b0ba09a2ca13a62a57c21b4d7dabc46a940fca13"
   },
   ".codex/skills/gsd-ingest-docs/SKILL.md": {
     "bytes": 1062,
@@ -180,8 +180,8 @@
     "sha256": "25694a66798f6022ceb264f4755e516befc42a4b2a34cdf62c3c93effb84c0c0"
   },
   ".codex/skills/gsd-phase/SKILL.md": {
-    "bytes": 1081,
-    "sha256": "ff4dd9bd405f347995c0baf81ecdeaa12b1629758cdecb2b674954c4745b8d1c"
+    "bytes": 1094,
+    "sha256": "bff3d394aa9b7d3b5ff08ae477de4efd39dc558bc714e6025f90fb302681bff8"
   },
   ".codex/skills/gsd-plan-phase/SKILL.md": {
     "bytes": 987,
@@ -232,12 +232,12 @@
     "sha256": "8a01188e8d703f8f3b7a9b29da434fbad0a0914966d94e91aaa8e840af45cc75"
   },
   ".codex/skills/gsd-stats/SKILL.md": {
-    "bytes": 1093,
-    "sha256": "cbe48b819feb3f9ff08307b5145ed2e5fa62161007d9746a5ab0b2d093d9826c"
+    "bytes": 1106,
+    "sha256": "cfb85f101aeff2798efd3df5828fcc71ca6ab0339a5faf067d553cfc3545853a"
   },
   ".codex/skills/gsd-surface/SKILL.md": {
-    "bytes": 1077,
-    "sha256": "27525527bb808028997eb21a0fcc01fb0b06e10de511be93d36df65b84d74cef"
+    "bytes": 1090,
+    "sha256": "711729fce99eb1404ad8f7e00d53cd4dd3173bb5c231b85c39b566c637e39d19"
   },
   ".codex/skills/gsd-ultraplan-phase/SKILL.md": {
     "bytes": 1086,
@@ -264,7 +264,7 @@
     "sha256": "a794d0258ef76e21c6775025c44a049a309fcbee3093a0e9b26152dc08d9a087"
   },
   ".codex/skills/gsd-workstreams/SKILL.md": {
-    "bytes": 1127,
-    "sha256": "57da5ce4559a7a9b08e4e7d361f8dc03589aa828ad74f86962e857c930cf09e2"
+    "bytes": 1140,
+    "sha256": "8b0a9db774b9b2c1c1de45b0b5f05986d27e757d5f4c56508ae8d53df06a800b"
   }
 }

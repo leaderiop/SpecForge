@@ -128,9 +128,9 @@ fn smart_entry_is_blocked_by_an_open_blocker() {
 }
 
 #[test]
-fn smart_entry_names_commands_for_the_runtime() {
+fn smart_entry_names_commands_for_the_host() {
     let p = twin();
-    let codex = entry(&p, &["--runtime", "codex"]);
+    let codex = entry(&p, &["--host", "codex"]);
     for action in codex["actions"].as_array().expect("actions") {
         assert!(
             action["command"]
@@ -139,19 +139,18 @@ fn smart_entry_names_commands_for_the_runtime() {
             "{action}"
         );
     }
-    let cursor = entry(&p, &["--runtime", "cursor"]);
+    let cursor = entry(&p, &["--host", "cursor"]);
     assert!(
         cursor["actions"][0]["command"]
             .as_str()
             .is_some_and(|c| c.starts_with("/gsd-"))
     );
-    // a runtime the setting can hold but upstream has no slash form for falls through to `/gsd-x`
-    let other = entry(&p, &["--runtime", "vim"]);
-    assert!(
-        other["actions"][0]["command"]
-            .as_str()
-            .is_some_and(|c| c.starts_with("/gsd-"))
-    );
+    // a host the kernel does not know is refused, and the old option is gone
+    let vim = gsd(&p, "smart-entry", &["--host", "vim"]);
+    assert_ne!(vim.code, 0, "{}", vim.all());
+    let old = gsd(&p, "smart-entry", &["--runtime", "codex"]);
+    assert_ne!(old.code, 0, "{}", old.all());
+    assert!(old.all().contains("--runtime"), "{}", old.all());
 }
 
 #[test]
@@ -159,7 +158,7 @@ fn smart_entry_writes_nothing() {
     let p = twin();
     let before = bytes(&p);
     entry(&p, &[]);
-    entry(&p, &["--runtime", "codex"]);
+    entry(&p, &["--host", "codex"]);
     unchanged(&p, &before);
 }
 

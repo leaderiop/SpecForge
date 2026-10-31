@@ -7,7 +7,10 @@ use std::path::{Path, PathBuf};
 
 use gsd_core::build;
 use gsd_core::hooks::roster::{Disposition, HOOK_ROSTER};
-use gsd_core::prompts::roster::ROSTER;
+use roster::ROSTER;
+
+#[path = "common/roster.rs"]
+mod roster;
 use specforge_extension_sdk::SettingsItem;
 use specforge_extension_sdk::testing::MockHost;
 
@@ -151,7 +154,7 @@ fn every_declared_hook_is_valid() {
         if event == "statusline" {
             assert!(!h.writes, "{id}: a statusline writes no plan");
         }
-        if let Some(when) = &h.when {
+        for when in &h.when {
             assert!(
                 bools.contains(when.as_str()),
                 "{id}: when '{when}' is no bool setting of the extension"

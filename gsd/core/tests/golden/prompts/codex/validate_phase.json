@@ -61,7 +61,7 @@
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via $gsd-settings.\""
   ],
-  "bytes": 26586,
+  "bytes": 26626,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -195,22 +195,23 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:e078efad31653fcfa96f2982a1c69e5da483245766b81a4188bcc4e5e35acb87",
+    "digest": "sha256:f9b10b7a98795208ecc32acd49df3144fffacb1350d9c32c684e269f44a43223",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
+        "agent": "gsd-nyquist-auditor",
         "id": "audit",
-        "title": "Audit the validation and fill its gaps (gsd-nyquist-auditor)"
+        "title": "Audit the validation and fill its gaps"
       },
       {
-        "cli": "specforge gsd record-validation",
+        "cli": "specforge gsd record-validation --host codex",
         "gate": [],
         "id": "record",
         "title": "Record the validation's context digest (specforge gsd record-validation <validation>)",
         "tool": "specforge.gsd.record_validation"
       },
       {
-        "cli": "specforge gsd approve-validation",
+        "cli": "specforge gsd approve-validation --host codex",
         "gate": [],
         "id": "approve",
         "title": "Ask the person to run `specforge gsd approve-validation <validation> <who>` in their terminal (an agent's call is refused: it records what a person says)",
@@ -219,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "e078efad31653fcfa96f2982a1c69e5da483245766b81a4188bcc4e5e35acb87"
+  "sha256": "f9b10b7a98795208ecc32acd49df3144fffacb1350d9c32c684e269f44a43223"
 }

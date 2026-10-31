@@ -55,6 +55,8 @@ behavior create_entity "Create an Entity" {
   verify integration "new refuses a field given twice that takes one value"
   verify integration "new refuses an unknown kind as unknown_kind"
   verify unit "a kind's field named like one of new's options is no flag of new, and the kind's help says to set it with set"
+  verify unit "a kind's field named like one of new's options is set with --field"
+  verify unit "new --field sets a field of the kind by name, refuses a name the kind lacks and a field given twice"
   verify integration "new --help begins with what new does"
   verify integration "new's help and its usage errors name the program as specforge new"
   verify integration "new refuses one of its options given twice, wherever each stands"
@@ -349,6 +351,8 @@ behavior apply_edit_plan "Apply an Edit Plan" {
   verify unit "set_verdict refuses a finding whose member name a spec block cannot write"
   verify unit "format does not overwrite a concurrent write"
   verify unit "format locks a project with a writing extension and not one that merely has a .specforge directory"
+  verify unit "a plan op sets an integer field from a JSON number and a bool field from a JSON boolean"
+  verify unit "a plan op refuses a fraction on an integer field and a number on a text field"
 }
 
 behavior refuse_stale_revision "Refuse a Stale Revision" {

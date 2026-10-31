@@ -254,13 +254,9 @@ fn fields(commit: &Commit, kind: &str, plan: &str, task: Option<&str>) -> BTreeM
     if !commit.created.is_empty() {
         fields.insert("created".to_string(), json!(commit.created));
     }
-    // The host's plan op refuses a JSON number for a top-level integer field (`edit/write.rs`: "takes text") and
-    // reads the decimal text, as `specforge set <id> insertions 10` does.
-    fields.insert(
-        "insertions".to_string(),
-        json!(commit.insertions.to_string()),
-    );
-    fields.insert("deletions".to_string(), json!(commit.deletions.to_string()));
+    // JSON numbers: the host's plan op reads them for an integer field (ADR 0311).
+    fields.insert("insertions".to_string(), json!(commit.insertions));
+    fields.insert("deletions".to_string(), json!(commit.deletions));
     fields
 }
 

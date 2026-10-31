@@ -129,6 +129,7 @@ impl HostRenderer for ClaudeCode {
                 front += &field("argument-hint", h);
             }
             front += &list("allowed-tools", &with_specforge(&s.tools));
+            // `effort` is not written: upstream #3151, ADR 0317 D2.
             tree.owned.push(file(
                 host,
                 &s.source,

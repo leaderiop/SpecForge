@@ -29,6 +29,7 @@ use specforge_common::ProjectRoot;
 use specforge_ops::extension::command::{
     ArgShape, ArgValue, CommandFormat, ExtensionArg, ExtensionCommand, ExtensionCommands, RunError,
 };
+use specforge_ops::host::Host;
 use specforge_ops::view::ProjectView;
 use specforge_project::{CompiledProject, Environment};
 use specforge_protocol_types::command_args::{ArgError, normalize_arg};
@@ -37,6 +38,9 @@ use std::sync::Arc;
 
 /// The host's own option on every extension command: the output asked for.
 const FORMAT: &str = "format";
+
+/// The host's option on every extension command that declares no arg of the name: the host calling it (ADR 0318).
+const HOST: &str = "host";
 
 /// The host's option on a writing command: show its plan, write nothing.
 const DRY_RUN: &str = "dry-run";
@@ -63,7 +67,10 @@ pub fn run(argv: &[String], builtins: &[String], terminal: &Terminal) -> i32 {
         None => (first.clone(), rest.to_vec()),
     };
 
-    let root = match ProjectArg::scan(&rest).root() {
+    // The host reads `--path` before the first `--` only; after it every word is the command's or prompt's
+    // (ADR 0314).
+    let before = rest.iter().position(|w| w == "--").unwrap_or(rest.len());
+    let root = match ProjectArg::scan(&rest[..before]).root() {
         Ok(root) => root,
         Err(error) => {
             let format = if asks_for_json(&rest) {
@@ -213,6 +220,13 @@ pub(crate) fn run_in(
         command,
         &given,
         format,
+        // A command that declares its own `host` arg is not told the calling host by it (REVIEW-k20b N12).
+        matches
+            .try_get_one::<String>(HOST)
+            .ok()
+            .flatten()
+            .filter(|_| !command.args().iter().any(|a| a.name == HOST))
+            .and_then(|h| Host::from_flag(h)),
         dry_run,
         crate::caller::of(false, output_format, terminal),
         specforge_ops::authoring::apply::Surface::Cli {
@@ -513,6 +527,15 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .default_value(CommandFormat::Human.as_str())
                     .help("Output format"),
             );
+        if !command.args().iter().any(|a| a.name == HOST) {
+            sub = sub.arg(
+                Arg::new(HOST)
+                    .long(HOST)
+                    .value_name("HOST")
+                    .value_parser(PossibleValuesParser::new(Host::ALL.map(Host::as_str)))
+                    .help("The host calling the command: claude-code, codex or cursor"),
+            );
+        }
         if command.writes() {
             sub = sub.arg(
                 Arg::new(DRY_RUN)

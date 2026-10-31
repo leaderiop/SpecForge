@@ -387,3 +387,42 @@ fn a_command_graph_node_lists_its_judgements() {
     let wire = serde_json::to_value(&node).unwrap();
     assert_eq!(wire["judgements"][0]["state"], "missing", "{wire}");
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "the SDK reads a number setting as a decimal, a whole number included"
+)]
+fn the_sdk_reads_a_number_setting() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/num", "1.0.0"));
+    c.setting("ratio", |s| {
+        s.number().default(0.5);
+    });
+    c.setting("name", |s| {
+        s.string();
+    });
+    c.pass("read", |p| {
+        p.run(|_: &PassInput| {
+            let settings = Settings::current();
+            vec![PassDiagnostic::new(
+                "W1",
+                PassSeverity::Warning,
+                format!(
+                    "{:?} {:?}",
+                    settings.number("ratio"),
+                    settings.number("name")
+                ),
+            )]
+        });
+    });
+    let message = |input: &str| -> String {
+        let answer = c
+            .dispatch_export(&pass_export("read"), input.as_bytes())
+            .unwrap()
+            .unwrap();
+        let answered: serde_json::Value = serde_json::from_slice(&answer).unwrap();
+        answered[0]["message"].as_str().unwrap().to_string()
+    };
+    assert_eq!(message(r#"{"entities":[],"edges":[]}"#), "Some(0.5) None");
+    let carried = r#"{"entities":[],"edges":[],"settings":{"ratio":75,"name":"x"}}"#;
+    assert_eq!(message(carried), "Some(75.0) None");
+}

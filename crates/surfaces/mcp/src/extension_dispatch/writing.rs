@@ -8,6 +8,7 @@ use specforge_common::shape::Shape;
 use specforge_ops::authoring::apply::{CommandRun, PlanOutcome, Surface, execute};
 use specforge_ops::authoring::edit::EditDocument;
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommand, RunError};
+use specforge_ops::host::Host;
 use specforge_ops::{Writes, Wrote};
 
 use super::{elapsed_ms, failed_call, failed_run, refused_args};
@@ -60,7 +61,7 @@ pub(super) fn run(
         }
     };
     let (mutation, dispatched) = match call.project() {
-        Ok(project) => attempt(&project, command, &given, dry_run),
+        Ok(project) => attempt(&project, command, &given, call.host(), dry_run),
         Err(refused) => return mutation::refused(&entry.name, dry_run, refused, call.events()),
     };
     if let Some(event) = dispatched {
@@ -74,6 +75,7 @@ fn attempt(
     project: &ProjectRef<'_>,
     command: &ExtensionCommand,
     given: &serde_json::Map<String, Value>,
+    host: Option<Host>,
     dry_run: bool,
 ) -> (Mutation<CommandReply>, Option<McpEvent>) {
     let started = std::time::Instant::now();
@@ -82,6 +84,7 @@ fn attempt(
         command,
         given,
         CommandFormat::Json,
+        host,
         dry_run,
         project.caller(),
         Surface::Mcp,

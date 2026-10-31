@@ -87,6 +87,10 @@ behavior register_surface_contributions "Register Surface Contributions" {
   verify unit "two prompts of one route are E039 and the later is not routed"
   verify unit "a prompt whose step names a command the registry dropped is dropped too, with a W021"
   verify contract "Register Surface Contributions: surface contribution registration holds — manifest_loaded_fired, all_surfaces_registered, duplicates_detected, unparsed_fails_load"
+  verify unit "the registry refuses a second free-text tail and a tail that is not text, naming the arguments"
+  verify unit "a prompt argument may be named path or format, never host, argv, help, settings or secrets"
+  verify unit "an optional subject follows the required positional arguments"
+  verify unit "every setting a when names must be a bool setting of the extension"
 }
 
 behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
@@ -254,6 +258,10 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   """
   verify unit "the command runs in the runtime that read the project's declarations, which loaded only the extensions the project enables"
   verify unit "args serialized as JSON to cmd__ export"
+  verify unit "a command is told the host that calls it, and nothing when none does"
+  verify unit "the host option reaches a command on the command line, and a host that is none is refused"
+  verify unit "a command that declares a host argument keeps it as its own and is not told the calling host"
+  verify unit "an MCP command call is told the host the session's client named"
   verify unit "a cmd__ export is granted no capability, whatever sandbox its declaration asks for"
   verify unit "Wasm trap caught and reported as ExtensionError"
   verify unit "exit code, stdout, stderr returned to CLI"
@@ -278,6 +286,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "over MCP a command's JSON object output is the tool's structured content, and output that is not one object is text"
   verify unit "the command line shows each declared arg by its shape, with its values, default and description, beside the host's --path and --format"
   verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host, evidence_carried, one_operation"
+  verify unit "a command reads the state the host sends it, and none when it sent none"
 }
 
 behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {

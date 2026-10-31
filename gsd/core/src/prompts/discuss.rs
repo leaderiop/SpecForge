@@ -21,12 +21,12 @@ const ARGS: &[Arg] = &[
 const STEPS: &[Step] = &[
     Step {
         id: "analyze_assumptions",
-        title: "Analyze the codebase for the phase's assumptions (gsd-assumptions-analyzer), in assumptions mode",
+        title: "Analyze the codebase for the phase's assumptions, in assumptions mode",
         does: Do::Agent("gsd-assumptions-analyzer"),
     },
     Step {
         id: "research_gray_areas",
-        title: "Research a gray area for the advisor table (gsd-advisor-researcher), in advisor mode",
+        title: "Research a gray area for the advisor table, in advisor mode",
         does: Do::Agent("gsd-advisor-researcher"),
     },
     Step {
@@ -59,6 +59,8 @@ static DISCUSS_PHASE: Spec = Spec {
         ],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 

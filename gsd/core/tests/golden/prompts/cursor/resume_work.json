@@ -61,10 +61,8 @@
     "",
     "<step name=\"load_state\">"
   ],
-  "bytes": 21241,
+  "bytes": 21307,
   "end": [
-    "",
-    "",
     "",
     "",
     "",
@@ -102,7 +100,9 @@
     "",
     "",
     "",
-    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
+    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
+    "",
+    "No workstream is active."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -157,8 +157,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 584,
+  "lines": 586,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,11 +195,11 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:7c957695b75d1b5962c9ac9752b5051c78d330f579aaabbb738ea3be535c95ca",
+    "digest": "sha256:b6069a33f5c84b04fe5255a0ae9033e0c77797f6ee374d81c3f29cc6efbd264c",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
-        "cli": "specforge gsd resume",
+        "cli": "specforge gsd resume --host cursor",
         "gate": [],
         "id": "resume",
         "title": "Remove the pause and its handoff once the work is resumed (specforge gsd resume <pause>)",
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "7c957695b75d1b5962c9ac9752b5051c78d330f579aaabbb738ea3be535c95ca"
+  "sha256": "b6069a33f5c84b04fe5255a0ae9033e0c77797f6ee374d81c3f29cc6efbd264c"
 }

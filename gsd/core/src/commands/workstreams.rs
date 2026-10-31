@@ -1,14 +1,14 @@
 //! `workstreams` and `cleanup` (D-r41-9, D-r41-11): the workstreams behind `/gsd-workstreams` and the report behind
-//! `/gsd-cleanup`. A command cannot read the project's state, so a workstream is
-//! `complete` when each of its milestones has a `completion` (what the computed status says), its progress counts the
-//! plans that have a summary, and which workstream is active is written (`switch`) but not answered (`status`).
+//! `/gsd-cleanup`. A workstream is `complete` when each of its milestones has a `completion` (what the computed status
+//! says), its progress counts the plans that have a summary, and which workstream is active is written by `switch` and
+//! answered by `status` and `list`, which read the project's state (ADR 0310).
 //!
 //! Also ports gsd-core bin/lib modules: active-workstream-store.cjs.
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, fields, node, required, run, text, title};
+use super::support::{active_workstream, answer, fields, node, required, run, text, title};
 
 const ACTIONS: &[&str] = &[
     "list", "status", "progress", "create", "complete", "switch", "resume",
@@ -86,6 +86,7 @@ fn report(call: &CommandCall<'_>, action: &str) -> Result<CommandOutput, String>
         .filter(|n| n.kind == "workstream")
         .filter(|n| chosen.is_none_or(|c| c.id == n.id))
         .collect();
+    let active = (action == "progress").then(|| active_workstream(call.state()));
     let mut rows = Vec::new();
     let mut human = String::new();
     for w in &all {
@@ -111,15 +112,32 @@ fn report(call: &CommandCall<'_>, action: &str) -> Result<CommandOutput, String>
                 ));
             }
         }
-        rows.push(json!({
+        let mut row = json!({
             "workstream": w.id, "complete": complete, "purpose": w.text("purpose"),
             "milestones": ms.iter().map(Milestone::json).collect::<Vec<_>>(),
-        }));
+        });
+        if let Some(active) = active {
+            row["active"] = json!(active == Some(w.id.as_str()));
+        }
+        rows.push(row);
     }
     if all.is_empty() {
         human.push_str("no workstreams\n");
     }
-    Ok(answer(call, json!({ "workstreams": rows }), human, None))
+    // Only `progress` says which workstream is active, as upstream's does (`reads_state`).
+    let Some(active) = active else {
+        return Ok(answer(call, json!({ "workstreams": rows }), human, None));
+    };
+    human.insert_str(
+        0,
+        &format!("active workstream: {}\n", active.unwrap_or("none")),
+    );
+    Ok(answer(
+        call,
+        json!({ "active": active, "workstreams": rows }),
+        human,
+        None,
+    ))
 }
 
 fn create(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
@@ -240,6 +258,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.command("workstreams", |cmd| {
         cmd.description("Manage workstreams: list them, show their status and progress, create one, say whether one is complete, or switch to one")
             .writes()
+            .reads_state()
             .arg("action", |a| {
                 a.required().one_of(ACTIONS).description("what to do");
             })

@@ -13,6 +13,7 @@ fn args_reach_the_export_as_json_with_the_graph() {
         &listing(),
         args.as_object().unwrap(),
         CommandFormat::Json,
+        None,
         at("2026-10-03"),
     )
     .unwrap();
@@ -39,6 +40,7 @@ fn run_sends_todays_utc_date() {
         &routed("ok"),
         &Map::new(),
         CommandFormat::Json,
+        None,
     )
     .unwrap();
 
@@ -61,6 +63,7 @@ fn the_input_carries_the_format_and_the_date() {
             &routed("ok"),
             &Map::new(),
             format,
+            None,
             at("2026-10-03"),
         )
         .unwrap();
@@ -91,6 +94,7 @@ fn one_operation_runs_a_command_over_the_view() {
         &ordered_ok(),
         json!({"milestone": "m1"}).as_object().unwrap(),
         CommandFormat::Json,
+        None,
         at("2026-10-03"),
     )
     .unwrap();
@@ -118,6 +122,7 @@ fn a_refused_arg_runs_nothing() {
         &ordered_ok(),
         json!({"milestone": "m1", "limit": -1}).as_object().unwrap(),
         CommandFormat::Json,
+        None,
     )
     .unwrap_err();
 
@@ -140,6 +145,7 @@ fn a_rootless_view_runs_nothing() {
         &routed("ok"),
         &Map::new(),
         CommandFormat::Json,
+        None,
     )
     .unwrap_err();
 
@@ -163,7 +169,7 @@ fn the_root_a_command_receives_is_canonical() {
         .graph(graph());
     let view = fixture.view();
 
-    run(&view, &routed("ok"), &Map::new(), CommandFormat::Json).unwrap();
+    run(&view, &routed("ok"), &Map::new(), CommandFormat::Json, None).unwrap();
 
     assert_eq!(
         last_input(&runtime)["cwd"],
@@ -223,6 +229,7 @@ fn a_trapping_command_is_an_extension_error() {
         &routed("boom"),
         &Map::new(),
         CommandFormat::Json,
+        None,
     )
     .unwrap_err();
     let RunError::Call(err) = err else {
@@ -259,6 +266,7 @@ fn a_command_whose_output_is_not_a_command_output_is_an_extension_error() {
             &routed("ok"),
             &Map::new(),
             CommandFormat::Json,
+            None,
         )
         .unwrap_err();
         let RunError::Call(err) = err else {
@@ -338,6 +346,7 @@ fn a_command_runs_in_the_runtime_that_read_the_declarations() {
         features,
         &Map::new(),
         CommandFormat::Json,
+        None,
     )
     .unwrap();
     assert_eq!(out.exit_code, 0, "{}", out.stderr);
@@ -375,6 +384,7 @@ fn an_export_the_guest_does_not_route_is_an_extension_error() {
         &ExtensionCommand::new("@specforge/product", "product", &unrouted),
         &Map::new(),
         CommandFormat::Json,
+        None,
     )
     .unwrap_err();
     let RunError::Call(err) = err else {
@@ -404,6 +414,7 @@ fn the_command_input_is_the_wire_golden() {
         &listing(),
         args.as_object().unwrap(),
         CommandFormat::Json,
+        None,
         at("2026-10-03"),
     )
     .unwrap();

@@ -11,6 +11,9 @@ use specforge_extension_sdk::prelude::*;
 pub enum Kind {
     /// An entity of the kind (several as `a|b`): positional, and the prompt's subject.
     Reference(&'static str),
+    /// An optional entity of the kind, positional: the prompt's subject, which the handler may pick when it is absent
+    /// (ADR 0314).
+    Subject(&'static str),
     /// An entity of the kind, written `--name <number>`: a bound inside the milestone the run is about (`--from 02`),
     /// so only its last segment is shown.
     Bound(&'static str),
@@ -22,6 +25,8 @@ pub enum Kind {
     Integer,
     /// `--name value`, one of these.
     OneOf(&'static [&'static str]),
+    /// The free-text tail: bare words after the options, as upstream's `[task description]` (ADR 0314).
+    Rest,
 }
 
 pub struct Arg {
@@ -37,6 +42,14 @@ impl Arg {
             name,
             kind: Kind::Reference(kind),
             required: true,
+        }
+    }
+    /// An optional positional subject: absent, the handler picks it (`/gsd-plan-phase`).
+    pub const fn subject(name: &'static str, kind: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Subject(kind),
+            required: false,
         }
     }
     /// An optional reference, written `--name <id>` with its full id (`--phase v2.0/01`): the milestone is part of
@@ -77,6 +90,14 @@ impl Arg {
             required: false,
         }
     }
+    /// The free-text tail of the command line, written bare and last.
+    pub const fn rest(name: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Rest,
+            required: false,
+        }
+    }
     pub const fn one_of(name: &'static str, values: &'static [&'static str]) -> Arg {
         Arg {
             name,
@@ -96,11 +117,14 @@ pub fn declare(p: &mut PromptBuilder, args: &[Arg]) {
     for arg in args {
         p.arg(arg.name, |a| {
             match &arg.kind {
-                Kind::Reference(kind) | Kind::Bound(kind) => a.reference(kind),
+                Kind::Reference(kind) | Kind::Subject(kind) | Kind::Bound(kind) => {
+                    a.reference(kind)
+                }
                 Kind::Flag => a.bool(),
                 Kind::Text => a.string(),
                 Kind::Integer => a.integer(),
                 Kind::OneOf(values) => a.one_of(values),
+                Kind::Rest => a.rest(),
             };
             if arg.required {
                 a.required();
@@ -128,6 +152,7 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
         };
         let option = format!("--{}", option_name(arg.name));
         match (&arg.kind, &value) {
+            (Kind::Subject(_), Value::String(path)) => words.push(written(path).to_string()),
             (Kind::Reference(_), Value::String(path)) if arg.required => {
                 words.push(written(path).to_string());
             }
@@ -141,6 +166,8 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
             }
             (Kind::Integer, Value::Number(n)) => words.push(format!("{option} {n}")),
             (Kind::OneOf(_), Value::String(word)) => words.push(format!("{option} {word}")),
+            // Bare, where the argument stands in the table: quick's is first, so `resume abc` still opens the block.
+            (Kind::Rest, Value::String(text)) if !text.is_empty() => words.push(text.clone()),
             _ => {}
         }
     }

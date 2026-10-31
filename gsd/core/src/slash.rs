@@ -5,7 +5,7 @@
 
 use specforge_extension_sdk::prelude::*;
 
-use crate::settings::surface::{first_cluster, setting};
+use crate::settings::surface::{clusters, setting};
 
 /// The notice of `commands/gsd/<name>.md`, the file whose hint and description a binding keeps.
 fn attribution(name: &str) -> Attribution {
@@ -18,16 +18,15 @@ fn attribution(name: &str) -> Attribution {
     }
 }
 
-/// Binds `command` to `/gsd-<command>`, shown while the setting of the first cluster that lists it is on.
+/// Binds `command` to `/gsd-<command>`, shown while the setting of every cluster that lists it is on.
 fn bind(c: &mut ContributionsBuilder, command: &str, hint: Option<&str>) {
     let stem = command.replace('_', "-");
-    let when = first_cluster(&stem).map(setting);
     c.slash_command(command, |s| {
         if let Some(hint) = hint {
             s.argument_hint(hint);
         }
-        if let Some(when) = &when {
-            s.when(when);
+        for cluster in clusters(&stem) {
+            s.when(&setting(cluster));
         }
         s.tools(&[]).attribution(attribution(&stem));
     });

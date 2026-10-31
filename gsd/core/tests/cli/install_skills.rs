@@ -162,7 +162,7 @@ fn fifty_host_names() {
         let run = p.install(host, &[]);
         assert_eq!(run.code, 0, "{host}: {}", run.all());
     }
-    let mut want: Vec<String> = gsd_core::prompts::roster::ROSTER
+    let mut want: Vec<String> = crate::roster::ROSTER
         .iter()
         .filter(|(_, o)| o.is_core())
         .map(|(n, _)| format!("gsd-{n}"))
@@ -178,8 +178,8 @@ fn fifty_host_names() {
         let skill = format!("gsd-{name}");
         // the seven command-backed slash commands (r41) describe what the command does here, not upstream's text
         let command_backed = matches!(
-            gsd_core::prompts::roster::owner(&name),
-            Some(gsd_core::prompts::roster::Owner::CoreCommand)
+            crate::roster::owner(&name),
+            Some(crate::roster::Owner::CoreCommand)
         );
         if !want.contains(&skill) || rewritten.contains(&name.as_str()) || command_backed {
             continue;
@@ -200,4 +200,20 @@ fn install_writes_50_skills_on_claude_code() {
     assert_eq!(p.install("claude-code", &[]).code, 0);
     assert_eq!(gsd_skills(&p, ".claude").len(), 50);
     assert_eq!(SKILLS.len(), 50);
+}
+
+/// Upstream's installed skills carry no `effort` (#3151): the declaration keeps it, the Claude Code writer leaves it out.
+#[test]
+fn an_installed_skill_has_no_effort_line() {
+    let p = super::commands_support::twin();
+    assert_eq!(p.install("claude-code", &[]).code, 0);
+    let skills = gsd_skills(&p, ".claude");
+    assert_eq!(skills.len(), 50);
+    for skill in skills {
+        let text = p.read(&format!(".claude/skills/{skill}/SKILL.md"));
+        assert!(
+            !text.lines().any(|l| l.starts_with("effort:")),
+            "{skill} has an effort line"
+        );
+    }
 }

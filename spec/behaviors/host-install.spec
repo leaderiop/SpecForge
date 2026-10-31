@@ -28,6 +28,8 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "an agent, a skill, a slash command and a hook round-trip through the protocol"
   verify unit "a host name claimed twice is E039 and the later claimant is not rendered"
   verify unit "a contribution the registry refuses is W021 and dropped, and the rest is kept"
+  verify unit "a command slash's CLI fallback names the host it was written for"
+  verify unit "Claude Code's slash skill leaves effort out, as upstream does"
   verify unit "the registry answers an agent by its id, with the extension that declares it"
   verify unit "a judged rule whose judge is no agent of its extension or a declared peer is W112"
   verify unit "Claude Code gets the agents, skills, slash commands, hooks, statusline and MCP entry of the fixture"
@@ -52,6 +54,11 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "uninstall removes the empty host directories install created, the host's root included"
   verify unit "an install made without a record uninstalls its files and keeps its containers, directories and config files"
   verify unit "a re-install keeps the record, so the uninstall after it still removes the host roots"
+  verify unit "the slash commands a prompt is sent are the ones an install writes"
+  verify unit "a slash command's hint writes a prompt's free-text tail last"
+  verify unit "when reads a name or a list and writes one name as a string, several as a list and none as nothing"
+  verify unit "a contribution whose when names several settings is served only while all of them are on"
+  verify unit "the SDK's when appends a setting, and a declaration with one is written as a string"
 }
 
 behavior run_a_hook "Run a Hook" {

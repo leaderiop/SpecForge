@@ -32,9 +32,16 @@ pub struct PromptDescriptor {
     /// The export receives the extension's state (protocol 1.10.0, ADR 0292).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reads_state: bool,
-    /// A bool setting of the extension: while it is false the prompt is not served.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<String>,
+    /// The export receives the slash commands the project serves, as `slash_commands` (protocol 1.13.0, ADR 0316).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reads_slash_commands: bool,
+    /// Bool settings of the extension: while one is false the prompt is not served.
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        with = "crate::contrib::when_names"
+    )]
+    pub when: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution: Option<Attribution>,
 }
@@ -60,6 +67,10 @@ pub struct PromptArgDescriptor {
     pub default: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The free-text tail: the words no positional argument or option takes, joined by one space (protocol 1.13.0,
+    /// ADR 0314). A string argument; one per prompt, never the subject.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rest: bool,
 }
 
 /// One step of a workflow. At most one of `command`, `agent`, `prompt`; none is a step the agent does itself.
@@ -106,12 +117,37 @@ pub struct PromptInput<G = GraphWire> {
     /// A prompt that declares `reads_state`: the extension's state, read only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::StateView>,
+    /// A prompt that declares `reads_slash_commands`: the slash commands the project serves, sorted by name
+    /// (protocol 1.13.0, ADR 0316).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slash_commands: Vec<ServedSlash>,
+}
+
+/// One slash command a project serves: what an install writes for a host, as a prompt reads it.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServedSlash {
+    /// The host's name for it (`gsd-plan-phase`).
+    pub name: String,
+    /// The extension that declares it.
+    pub extension: String,
+    /// The MCP prompt it calls, when it is bound to a prompt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    /// The MCP tool it calls, when it is bound to a command.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool: Option<String>,
+    /// The same on the command line.
+    pub cli: String,
 }
 
 /// What a `prompt__*` export answers: at least one message.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PromptOutput {
     pub messages: Vec<PromptMessage>,
+    /// The entity the prompt is about, as its full path, when the caller gave none and the prompt's subject argument
+    /// is optional (protocol 1.13.0, ADR 0314). Ignored when the caller gave one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject: Option<String>,
 }
 
 /// One message of a rendered prompt.
@@ -138,6 +174,13 @@ impl PromptOutput {
                 role: PromptRole::User,
                 text: text.into(),
             }],
+            subject: None,
         }
+    }
+
+    /// The answer names the entity the prompt is about, for a caller that gave no subject.
+    pub fn with_subject(mut self, path: impl Into<String>) -> Self {
+        self.subject = Some(path.into());
+        self
     }
 }

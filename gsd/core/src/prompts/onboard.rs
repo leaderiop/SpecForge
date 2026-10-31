@@ -11,8 +11,8 @@ use super::workflow::{self, Do, Slash, Spec, Step};
 /// Ingestion writes entities, not the files GSD wrote.
 fn ingested(_call: &PromptCall<'_>) -> String {
     "\n\n## Where the ingest goes\n\n\
-     The documents are scanned under the directory `--dir` names (`--path` is the host's own option and does not reach this \
-     prompt). The classifier and the synthesizer write their staging files to a scratch directory outside the project: \
+     The documents are scanned under the directory the first positional word names (`[path]`, default the project). The \
+     classifier and the synthesizer write their staging files to a scratch directory outside the project: \
      the intel files and the conflict report are not part of the spec, and the report is shown to the user. Wherever \
      the text above says `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md` or `STATE.md` is written, read that the \
      roadmapper writes the `project`, `requirement`, `milestone` and `phase` entities (`specforge new`, `specforge \
@@ -35,7 +35,7 @@ static INGEST_DOCS: Spec = Spec {
     description: "Bootstrap or merge a SpecForge spec setup from existing ADRs, PRDs, SPECs, and docs in a repo.",
     command: "ingest-docs",
     args: &[
-        Arg::text("dir"),
+        Arg::rest("path"),
         Arg::one_of("mode", &["new", "merge"]),
         Arg::text("manifest"),
         Arg::one_of("resolve", &["auto", "interactive"]),
@@ -45,27 +45,29 @@ static INGEST_DOCS: Spec = Spec {
     steps: &[
         Step {
             id: "classify",
-            title: "Classify each document in parallel (gsd-doc-classifier)",
+            title: "Classify each document in parallel",
             does: Do::Agent("gsd-doc-classifier"),
         },
         Step {
             id: "synthesize",
-            title: "Synthesize the classifications and detect conflicts (gsd-doc-synthesizer)",
+            title: "Synthesize the classifications and detect conflicts",
             does: Do::Agent("gsd-doc-synthesizer"),
         },
         Step {
             id: "roadmap",
-            title: "Write the project, requirements and roadmap (gsd-roadmapper)",
+            title: "Write the project, requirements and roadmap",
             does: Do::Agent("gsd-roadmapper"),
         },
     ],
     slash: Some(Slash {
-        hint: "[--dir <path>] [--mode new|merge] [--manifest <file>] [--resolve auto|interactive]",
+        hint: "[path] [--mode new|merge] [--manifest <file>] [--resolve auto|interactive]",
         tools: &[
             "read", "write", "edit", "shell", "search", "ask_user", "agent",
         ],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: Some(ingested),
 };
 
@@ -99,6 +101,8 @@ static ONBOARD: Spec = Spec {
         tools: &["read", "shell", "write", "search", "agent", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: Some(onboarding),
 };
 

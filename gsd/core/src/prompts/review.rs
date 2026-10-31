@@ -55,6 +55,8 @@ static REVIEW: Spec = Spec {
         tools: &["read", "write", "shell", "search"],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: Some(shown),
 };
 
@@ -78,6 +80,8 @@ static REVIEW_BACKLOG: Spec = Spec {
         tools: &["read", "write", "shell", "search", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 

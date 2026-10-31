@@ -61,7 +61,7 @@
     "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:",
     "```"
   ],
-  "bytes": 22195,
+  "bytes": 22235,
   "end": [
     "<step name=\"test_plan\">",
     "Generate a human UAT test plan for \"Testable Now\" + \"active\" items only:",
@@ -195,11 +195,11 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:20686512fbb38db2f06fc32ca6724ea4649e25086c4d2715734f6c476670fa3a",
+    "digest": "sha256:feadd83e619e6db94031f0a562dc6ce5f2f81f774e6b77c2c7720e3bcb5b7f05",
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
-        "cli": "specforge gsd set-uat-result",
+        "cli": "specforge gsd set-uat-result --host codex",
         "gate": [],
         "id": "uat",
         "title": "Ask the person to run `specforge gsd set-uat-result <uat_test> <result> --by <who>` in their terminal (an agent's call is refused: it records what a person says)",
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "20686512fbb38db2f06fc32ca6724ea4649e25086c4d2715734f6c476670fa3a"
+  "sha256": "feadd83e619e6db94031f0a562dc6ce5f2f81f774e6b77c2c7720e3bcb5b7f05"
 }

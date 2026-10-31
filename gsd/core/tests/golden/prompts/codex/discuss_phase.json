@@ -61,7 +61,7 @@
     "- User chose which areas to discuss",
     "- Each selected area explored until satisfied"
   ],
-  "bytes": 19925,
+  "bytes": 19965,
   "end": [
     "",
     "Context files are resolved in-workflow using `init phase-op` and roadmap/state tool calls.",
@@ -195,16 +195,18 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:5a8c461ba9b0ca892404de6da500dea364b340f9f8e1555d9eb7d408727b282c",
+    "digest": "sha256:1531c2f91b35d5d426cad921c64a266a459c1a2f1670a913cefa491586b7ef4c",
     "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
+        "agent": "gsd-assumptions-analyzer",
         "id": "analyze_assumptions",
-        "title": "Analyze the codebase for the phase's assumptions (gsd-assumptions-analyzer), in assumptions mode"
+        "title": "Analyze the codebase for the phase's assumptions, in assumptions mode"
       },
       {
+        "agent": "gsd-advisor-researcher",
         "id": "research_gray_areas",
-        "title": "Research a gray area for the advisor table (gsd-advisor-researcher), in advisor mode"
+        "title": "Research a gray area for the advisor table, in advisor mode"
       },
       {
         "id": "plan",
@@ -214,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "5a8c461ba9b0ca892404de6da500dea364b340f9f8e1555d9eb7d408727b282c"
+  "sha256": "1531c2f91b35d5d426cad921c64a266a459c1a2f1670a913cefa491586b7ef4c"
 }

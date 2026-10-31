@@ -30,7 +30,7 @@ fn autonomous_renders() {
         ]
     );
     assert_eq!(steps[7]["id"], "cleanup");
-    assert_eq!(steps[7]["cli"], "specforge gsd cleanup");
+    assert_eq!(steps[7]["cli"], "specforge gsd cleanup --host claude-code");
 }
 
 #[test]

@@ -31,7 +31,7 @@ fn next_routes_by_state() {
     assert_eq!(step_ids(&rendered), ["detect"]);
     assert_eq!(
         rendered["payload"]["steps"][0]["cli"],
-        "specforge gsd smart-entry"
+        "specforge gsd smart-entry --host claude-code"
     );
     let text = text_of(&rendered);
     assert!(text.contains("specforge gsd smart-entry"), "{text}");
@@ -41,9 +41,11 @@ fn next_routes_by_state() {
         "/gsd-capture",
         "/gsd-map-codebase",
     ] {
-        assert!(text.contains(stem), "{stem}");
+        assert!(
+            text.contains(&format!("- `{stem}`: not served on this project")),
+            "{stem}"
+        );
     }
-    assert!(text.contains("does not have"), "{text}");
     // The command the step names answers differently on different projects.
     let paused = twin();
     let pause = gsd(&paused, "pause", &["--by", "me", "stopped for lunch"]);
@@ -73,6 +75,24 @@ fn progress_renders_for_three_hosts() {
         "<purpose>",
     );
     assert_eq!(step_ids(&out[0].1), ["report"]);
+}
+
+#[test]
+fn progress_names_the_active_workstream() {
+    let p = project("workstreams");
+    let said =
+        |p: &super::harness::Project| text_of(&payload(&prompt(p, "progress", &[], "claude-code")));
+    assert!(
+        said(&p).contains("No workstream is active."),
+        "{}",
+        said(&p)
+    );
+    gsd(&p, "workstreams", &["switch", "--name", "auth"]);
+    assert!(
+        said(&p).contains("Active workstream: auth."),
+        "{}",
+        said(&p)
+    );
 }
 
 #[test]
@@ -110,7 +130,10 @@ fn manager_steps_into_the_lifecycle_prompts() {
         ]
     );
     let steps = rendered["payload"]["steps"].as_array().expect("steps");
-    assert_eq!(steps[0]["cli"], "specforge gsd progress-report");
+    assert_eq!(
+        steps[0]["cli"],
+        "specforge gsd progress-report --host claude-code"
+    );
     for (step, prompt) in steps[1..].iter().zip([
         "discuss_phase",
         "plan_phase",

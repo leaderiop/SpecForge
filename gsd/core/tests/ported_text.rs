@@ -3,9 +3,12 @@
 
 use std::collections::BTreeSet;
 
-use gsd_core::prompts::roster::ROSTER;
 use gsd_core::prompts::{asset, asset_paths, render_text, repoint, without_notice};
 use regex::Regex;
+use roster::ROSTER;
+
+#[path = "common/roster.rs"]
+mod roster;
 
 const FORBIDDEN: [&str; 7] = [
     ".planning",

@@ -61,7 +61,7 @@
     "  TO_PHASE=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-to\\s+[0-9]+[A-Z]?(\\.[0-9]+)*' | awk '{print $2}')",
     "fi"
   ],
-  "bytes": 65398,
+  "bytes": 65438,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:9265f6e040bb12e49e84636221e4863309fcab5f89508a95e7a34e0560383198",
+    "digest": "sha256:2fbc586a46be39ed325bc7aa707773d3a457be1ecb965655f66ecba671ae1e73",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -234,7 +234,7 @@
         "title": "Complete the milestone"
       },
       {
-        "cli": "specforge gsd cleanup",
+        "cli": "specforge gsd cleanup --host codex",
         "gate": [],
         "id": "cleanup",
         "title": "Archive the closed milestone's phases (specforge gsd cleanup)",
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "9265f6e040bb12e49e84636221e4863309fcab5f89508a95e7a34e0560383198"
+  "sha256": "2fbc586a46be39ed325bc7aa707773d3a457be1ecb965655f66ecba671ae1e73"
 }

@@ -10,8 +10,8 @@ fn workspace_renders() {
     for (host, rendered) in render_three_hosts(
         &p,
         "workspace",
-        &["--new", "--name", "feature-x"],
-        "--new --name \"feature-x\"",
+        &["--new", "feature-x"],
+        "--new feature-x",
         "workspace",
     ) {
         let text = text_of(&rendered);
@@ -20,11 +20,44 @@ fn workspace_renders() {
             "specforge init",
             "specforge add @gsd/core",
             "specforge install",
-            "are not accepted by the slash command",
+            "`--strategy worktree|clone`",
         ] {
             assert!(text.contains(word), "{host}: no '{word}'");
         }
     }
+}
+
+#[test]
+fn workspace_takes_upstreams_flags() {
+    let p = twin();
+    render_three_hosts(
+        &p,
+        "workspace",
+        &[
+            "--new",
+            "--name",
+            "w",
+            "--path",
+            "../w",
+            "--repos",
+            "a,b",
+            "--strategy",
+            "clone",
+            "--branch",
+            "feat",
+            "--auto",
+        ],
+        "--new --repos \"a,b\" --path \"../w\" --strategy clone --branch \"feat\" --auto w",
+        "workspace",
+    );
+    let run = prompt(
+        &p,
+        "workspace",
+        &["--new", "--strategy", "copy"],
+        "claude-code",
+    );
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("strategy"), "{}", run.all());
 }
 
 #[test]
@@ -34,8 +67,8 @@ fn workspace_renders_for_three_hosts() {
     render_three_hosts(
         &p,
         "workspace",
-        &["--remove", "--name", "x"],
-        "--remove --name \"x\"",
+        &["--remove", "x"],
+        "--remove x",
         "workspace",
     );
 }

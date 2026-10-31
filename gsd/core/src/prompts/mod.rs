@@ -23,7 +23,6 @@ mod quick;
 pub(crate) mod render;
 pub(crate) mod repoint;
 mod review;
-pub mod roster;
 mod session;
 pub(crate) mod setting;
 mod ship;

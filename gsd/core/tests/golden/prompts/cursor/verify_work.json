@@ -61,7 +61,7 @@
     "02",
     "GSD_ARGS_END"
   ],
-  "bytes": 66618,
+  "bytes": 66658,
   "end": [
     "## Gaps",
     "",
@@ -157,8 +157,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,26 +195,28 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:97be5b04931dced8a3e6a2f902eec63733e0c89334655c94a41294a8b8ad7a1c",
+    "digest": "sha256:9c6abdac56f32e9d004ef72afbfda771a0f25c2a205896a14029c5c4fe539ebc",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
-        "cli": "specforge gsd set-uat-result",
+        "cli": "specforge gsd set-uat-result --host cursor",
         "gate": [],
         "id": "uat",
         "title": "Ask the person to run `specforge gsd set-uat-result <uat_test> <result> --by <who>` in their terminal (an agent's call is refused: it records what a person says)",
         "tool": "specforge.gsd.set_uat_result"
       },
       {
+        "agent": "gsd-planner",
         "id": "plan_gaps",
-        "title": "Plan the fixes of the gaps the tests found (gsd-planner)"
+        "title": "Plan the fixes of the gaps the tests found"
       },
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the fix plans (gsd-plan-checker)"
+        "title": "Check the fix plans"
       }
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "97be5b04931dced8a3e6a2f902eec63733e0c89334655c94a41294a8b8ad7a1c"
+  "sha256": "9c6abdac56f32e9d004ef72afbfda771a0f25c2a205896a14029c5c4fe539ebc"
 }

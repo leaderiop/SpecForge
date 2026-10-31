@@ -8,6 +8,11 @@ use specforge_extension_sdk::prelude::*;
 
 pub const INVALID: &str = "invalid_input";
 
+/// The workstream the project's state names as active (`switch` wrote it), if any.
+pub fn active_workstream(state: Option<&StateView>) -> Option<&str> {
+    state?.project.get("active_workstream")?.as_str()
+}
+
 /// Runs a command's body: its `Err` is the refusal, reported as `invalid_input`.
 pub fn run(
     call: &CommandCall<'_>,

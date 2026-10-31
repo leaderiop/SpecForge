@@ -61,7 +61,7 @@
     "echo \"$GSD_ARGS\" | grep -qE '\\-\\-ws\\s+\\S+' && GSD_WS=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-ws\\s+\\S+')",
     "```"
   ],
-  "bytes": 75947,
+  "bytes": 75987,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -138,8 +138,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:e85ecb063849fe90e81bc67f518b1aaea705586f74d646ee1c8a5734482986ba",
+    "digest": "sha256:0f89b47ef50f9f426fe2ff57d10fcca7425deafccd783e6d718b71c4300434b4",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -204,11 +204,12 @@
         "title": "Replan with the reviewers' feedback (the prompt plan_phase, --reviews)"
       },
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the revised plans against the phase goal (gsd-plan-checker)"
+        "title": "Check the revised plans against the phase goal"
       }
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "e85ecb063849fe90e81bc67f518b1aaea705586f74d646ee1c8a5734482986ba"
+  "sha256": "0f89b47ef50f9f426fe2ff57d10fcca7425deafccd783e6d718b71c4300434b4"
 }

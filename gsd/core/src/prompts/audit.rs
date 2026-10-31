@@ -15,7 +15,7 @@ const UAT_STEPS: &[Step] = &[Step {
 const MILESTONE_STEPS: &[Step] = &[
     Step {
         id: "integrate",
-        title: "Check the wiring across the phases (gsd-integration-checker)",
+        title: "Check the wiring across the phases",
         does: Do::Agent("gsd-integration-checker"),
     },
     Step {
@@ -51,6 +51,8 @@ static AUDIT_UAT: Spec = Spec {
         tools: &["read", "search", "shell"],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 
@@ -68,6 +70,8 @@ static AUDIT_MILESTONE: Spec = Spec {
         tools: &["read", "search", "shell", "agent", "write"],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: Some(integration),
 };
 

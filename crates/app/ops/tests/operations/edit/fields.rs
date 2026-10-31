@@ -377,3 +377,61 @@ fn retitle_to_a_blank_title_is_refused_as_create_is() {
     .collect();
     assert!(failures.is_empty(), "{failures:#?}");
 }
+
+const FAILURE_MODES: &str = r#"failure_mode slow_disk "Slow Disk" {
+  cause    "Old hardware"
+  effect   "Slow reads"
+  severity high
+  rpn      10
+}
+"#;
+
+fn failure_modes() -> Compiled {
+    compile(&["@specforge/governance"], &[("fm.spec", FAILURE_MODES)])
+}
+
+#[specforge_test_macros::test(
+    behavior = "apply_edit_plan",
+    verify = "a plan op sets an integer field from a JSON number and a bool field from a JSON boolean"
+)]
+fn a_number_sets_an_integer_field() {
+    let c = failure_modes();
+    let number = |n: i64| Input::Number(n.into());
+    let text = after(&c, "fm.spec", &[set("slow_disk", "rpn", number(42))]);
+    assert_eq!(text, FAILURE_MODES.replace("rpn      10", "rpn      42"));
+    // A whole number written with a fraction part (JSON `42.0`) is the same number (REVIEW-k20b N7).
+    let whole = Input::Number(serde_json::Number::from_f64(42.0).unwrap());
+    let text = after(&c, "fm.spec", &[set("slow_disk", "rpn", whole)]);
+    assert_eq!(text, FAILURE_MODES.replace("rpn      10", "rpn      42"));
+    let behaviors = compile(
+        &[SOFTWARE, &["@specforge/formal"]].concat(),
+        &[("tasks.spec", TASKS)],
+    );
+    let text = after(
+        &behaviors,
+        "tasks.spec",
+        &[set("list_tasks", "abstract", Input::Bool(true))],
+    );
+    assert!(text.contains("abstract") && text.contains("true"), "{text}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "apply_edit_plan",
+    verify = "a plan op refuses a fraction on an integer field and a number on a text field"
+)]
+fn a_fraction_on_an_integer_field_is_refused() {
+    let c = failure_modes();
+    let fraction = Input::Number(serde_json::Number::from_f64(4.5).unwrap());
+    let (_, message) = refused(&c, &[set("slow_disk", "rpn", fraction)]);
+    assert!(message.contains("takes a whole number"), "{message}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "apply_edit_plan",
+    verify = "a plan op refuses a fraction on an integer field and a number on a text field"
+)]
+fn a_number_on_a_text_field_is_still_refused() {
+    let c = failure_modes();
+    let (_, message) = refused(&c, &[set("slow_disk", "cause", Input::Number(7.into()))]);
+    assert!(message.contains("takes text; give a string"), "{message}");
+}

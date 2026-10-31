@@ -25,11 +25,11 @@ Quick mode is the same system with a shorter path:
 Granular flags are composable: `--discuss --research --validate` gives the same result as `--full`.
 
 **Subcommands:**
-- `--list` — List all quick tasks with status
-- `--status "<slug>"` — Show status of a specific quick task
-- `--resume "<slug>"` — Resume a specific quick task by slug
-- `--task "<description>"` — the task to run (its value is the description)
+- `list` — List all quick tasks with status
+- `status <slug>` — Show status of a specific quick task
+- `resume <slug>` — Resume a specific quick task by slug
 </objective>
+
 <execution_context>
 @~/.claude/gsd-core/workflows/quick.md
 </execution_context>
@@ -44,10 +44,10 @@ Context files are resolved inside the workflow (`init quick`) and delegated via 
 
 **Parse the `<arguments>` block for subcommands FIRST:**
 
-- If the `<arguments>` block holds `--list`: SUBCMD=list
-- If it holds `--status "<slug>"`: SUBCMD=status, SLUG=the value (strip whitespace, sanitize)
-- If it holds `--resume "<slug>"`: SUBCMD=resume, SLUG=the value (strip whitespace, sanitize)
-- Otherwise: SUBCMD=run, pass the full contents of the `<arguments>` block to the quick workflow as-is; `--task "..."` carries the description
+- If the `<arguments>` block starts with "list": SUBCMD=list
+- If the `<arguments>` block starts with "status ": SUBCMD=status, SLUG=remainder (strip whitespace, sanitize)
+- If the `<arguments>` block starts with "resume ": SUBCMD=resume, SLUG=remainder (strip whitespace, sanitize)
+- Otherwise: SUBCMD=run, pass the full contents of the `<arguments>` block to the quick workflow as-is
 
 **Slug sanitization (for status and resume):** Strip any characters not matching `[a-z0-9-]`. Reject slugs longer than 60 chars or containing `..` or `/`. If invalid, output "Invalid session slug." and stop.
 
@@ -114,7 +114,7 @@ Description: {first non-empty line from PLAN.md after frontmatter}
 Last action: {last meaningful line of SUMMARY.md, or "none"}
 
 ---
-Resume with: /gsd:quick --resume "{slug}"
+Resume with: /gsd:quick resume {slug}
 ```
 
 No agent spawn. STOP after printing.

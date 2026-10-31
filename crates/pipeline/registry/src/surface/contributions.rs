@@ -137,12 +137,15 @@ impl Ctx<'_> {
         }
     }
 
-    fn when(&self, when: Option<&String>) -> Result<(), String> {
-        match when {
-            Some(setting) if self.setting_type(setting) != Some(FieldType::Bool) => Err(format!(
+    fn when(&self, when: &[String]) -> Result<(), String> {
+        match when
+            .iter()
+            .find(|s| self.setting_type(s) != Some(FieldType::Bool))
+        {
+            Some(setting) => Err(format!(
                 "its 'when' '{setting}' is not a bool setting of the extension"
             )),
-            _ => Ok(()),
+            None => Ok(()),
         }
     }
 
@@ -172,7 +175,7 @@ impl Ctx<'_> {
             }
             _ => {}
         }
-        self.when(agent.when.as_ref())
+        self.when(&agent.when)
     }
 
     fn skill(&self, skill: &SkillDescriptor) -> Result<(), String> {
@@ -180,7 +183,7 @@ impl Ctx<'_> {
             return Err("its id is not kebab-case".into());
         }
         self.tools(&skill.tools)?;
-        self.when(skill.when.as_ref())
+        self.when(&skill.when)
     }
 
     fn hook(&self, hook: &HookDescriptor) -> Result<(), String> {
@@ -212,7 +215,7 @@ impl Ctx<'_> {
                 hook.event.as_str()
             ));
         }
-        self.when(hook.when.as_ref())
+        self.when(&hook.when)
     }
 
     fn slash(
@@ -240,7 +243,7 @@ impl Ctx<'_> {
         if let Some(effort) = &slash.effort {
             self.word_or_setting("effort", effort, &EFFORTS)?;
         }
-        self.when(slash.when.as_ref())
+        self.when(&slash.when)
     }
 }
 

@@ -2,10 +2,10 @@
 
 use serde_json::json;
 
-use gsd_core::prompts::roster::{Owner, owner};
+use crate::roster::{Owner, owner};
 
 use super::commands_support::twin;
-use super::harness::project;
+use super::harness::{Project, project};
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
 const ROUTERS: [&str; 6] = [
@@ -62,7 +62,7 @@ fn ns_skills_route() {
             &p,
             &id,
             &args,
-            "--intent \"plan the next phase\"",
+            "plan the next phase",
             "Route to the appropriate",
         ) {
             let text = text_of(&rendered);
@@ -76,9 +76,8 @@ fn ns_skills_route() {
             assert_eq!(names, wanted, "{router} {host}");
             for (name, what) in &rows {
                 match owner(name).expect("a roster row") {
-                    Owner::Extension(extension) => {
-                        assert!(what.starts_with("not installed"), "{name}: {what}");
-                        assert!(what.contains(extension), "{name}: {what}");
+                    Owner::Extension(_) => {
+                        assert_eq!(what, "not served on this project", "{name}");
                     }
                     _ => assert!(what.ends_with("(served by @gsd/core)"), "{name}: {what}"),
                 }
@@ -97,6 +96,44 @@ fn ns_skills_route() {
             );
         }
     }
+}
+
+#[test]
+fn a_router_lists_the_served_commands() {
+    let p = twin();
+    let rows = |p: &Project| {
+        route_rows(&text_of(&payload(&prompt(
+            p,
+            "ns_workflow",
+            &[],
+            "claude-code",
+        ))))
+    };
+    let what = |rows: &[(String, String)], name: &str| {
+        rows.iter()
+            .find(|(n, _)| n == name)
+            .expect("a row")
+            .1
+            .clone()
+    };
+    let served = rows(&p);
+    assert!(
+        what(&served, "plan-phase").contains("served by @gsd/core"),
+        "{served:?}"
+    );
+    // another extension's command is not served here
+    assert_eq!(
+        what(&served, "ai-integration-phase"),
+        "not served on this project"
+    );
+    // a surface that is off serves no slash command of it
+    p.settings(json!({ "specforge.surface.core_loop": false }));
+    let off = rows(&p);
+    assert_eq!(
+        what(&off, "plan-phase"),
+        "not served on this project",
+        "{off:?}"
+    );
 }
 
 /// The targets of each router are upstream's `requires:`, and every one is a command of the roster.
@@ -156,6 +193,18 @@ fn an_ns_skill_has_the_read_and_skill_tools_only() {
             .collect();
         assert_eq!(tools, ["Read", "Skill"], "{router}");
     }
+}
+
+#[test]
+fn a_router_takes_its_intent_bare() {
+    let p = twin();
+    render_three_hosts(
+        &p,
+        "ns_workflow",
+        &["plan", "the", "next", "phase"],
+        "plan the next phase",
+        "Route to the appropriate",
+    );
 }
 
 #[test]

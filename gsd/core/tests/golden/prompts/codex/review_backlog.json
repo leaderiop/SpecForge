@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 19582,
+  "bytes": 19622,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -195,11 +195,11 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:b6b231814e540f619bd0679c8ea3dedace7e5630b183f08a6d9c3d3eef27049d",
+    "digest": "sha256:bc4f71c987718328f52fb7922ba6dcefc63765ed55919190c12c4e531fff7451",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
-        "cli": "specforge gsd phase",
+        "cli": "specforge gsd phase --host codex",
         "gate": [],
         "id": "phase",
         "title": "Promote a backlog phase into the milestone, or remove it (specforge gsd phase)",
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "b6b231814e540f619bd0679c8ea3dedace7e5630b183f08a6d9c3d3eef27049d"
+  "sha256": "bc4f71c987718328f52fb7922ba6dcefc63765ed55919190c12c4e531fff7451"
 }

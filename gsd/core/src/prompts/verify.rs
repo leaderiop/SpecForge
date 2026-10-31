@@ -16,12 +16,12 @@ const VERIFY_STEPS: &[Step] = &[
     },
     Step {
         id: "plan_gaps",
-        title: "Plan the fixes of the gaps the tests found (gsd-planner)",
+        title: "Plan the fixes of the gaps the tests found",
         does: Do::Agent("gsd-planner"),
     },
     Step {
         id: "check",
-        title: "Check the fix plans (gsd-plan-checker)",
+        title: "Check the fix plans",
         does: Do::Agent("gsd-plan-checker"),
     },
 ];
@@ -29,7 +29,7 @@ const VERIFY_STEPS: &[Step] = &[
 const VALIDATE_STEPS: &[Step] = &[
     Step {
         id: "audit",
-        title: "Audit the validation and fill its gaps (gsd-nyquist-auditor)",
+        title: "Audit the validation and fill its gaps",
         does: Do::Agent("gsd-nyquist-auditor"),
     },
     Step {
@@ -69,6 +69,8 @@ static VERIFY_WORK: Spec = Spec {
         tools: &["read", "shell", "search", "edit", "write", "agent"],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: Some(uat),
 };
 
@@ -88,6 +90,8 @@ static VALIDATE_PHASE: Spec = Spec {
         ],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 
@@ -96,17 +100,19 @@ static ADD_TESTS: Spec = Spec {
     title: "Add tests for a phase",
     description: "Generate tests for a completed phase based on UAT criteria and implementation",
     command: "add-tests",
-    args: &[Arg::reference("phase", "phase"), Arg::text("instructions")],
+    args: &[Arg::reference("phase", "phase"), Arg::rest("instructions")],
     subject: Some("phase"),
     gates: GATES,
     steps: &[],
     slash: Some(Slash {
-        hint: "<phase> [--instructions \"...\"]",
+        hint: "<phase> [additional instructions]",
         tools: &[
             "read", "write", "edit", "shell", "search", "agent", "ask_user",
         ],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 

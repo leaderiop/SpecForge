@@ -380,7 +380,7 @@ impl<'v> Planner<'v> {
     /// The path `id` names in the project as the plan leaves it: the entity by its path or a unique short form;
     /// refused when a short form names several. `id` itself when it names none (the caller refuses it).
     fn path_of(&self, id: &str) -> Result<String, Refusal<EditField>> {
-        match self.scopes.resolve(None, id, &|_| true) {
+        match self.scopes.find(id) {
             Found::One(path) => Ok(path.to_string()),
             Found::Ambiguous(paths) => {
                 Err(crate::view::ambiguous(id, &paths).about(EditField::Entity))

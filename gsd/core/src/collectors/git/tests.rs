@@ -351,3 +351,19 @@ fn a_task_is_named_as_the_executor_words_it() {
     assert_eq!(revert["type"], "revert");
     assert!(!revert.contains_key("task"));
 }
+
+#[test]
+fn git_collector_writes_line_counts_as_numbers() {
+    let commit = Commit {
+        hash: "a".repeat(40),
+        at: "2026-10-01T00:00:00Z".into(),
+        subject: "feat(01-01): x".into(),
+        files: Vec::new(),
+        created: Vec::new(),
+        insertions: 12,
+        deletions: 3,
+    };
+    let written = fields(&commit, "feat", "v1.0/01/01-01", None);
+    assert_eq!(written["insertions"], serde_json::json!(12));
+    assert_eq!(written["deletions"], serde_json::json!(3));
+}

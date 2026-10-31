@@ -245,6 +245,31 @@ fn a_gated_command_is_refused_over_mcp() {
 }
 
 #[specforge_test_macros::test(
+    behavior = "dispatch_surface_command",
+    verify = "an MCP command call is told the host the session's client named"
+)]
+fn an_mcp_command_call_is_told_the_session_host() {
+    let init = json!({"clientInfo": {"name": "claude-code", "version": "2"}});
+    let mut named = gsd_for("fine", "ok", json!({}), init);
+    let reply = rpc::call_tool(
+        &mut named,
+        "specforge.t.record_plan",
+        json!({"phase": "03"}),
+    );
+    assert!(
+        rpc::tool_text(&reply).contains("host claude-code"),
+        "{reply}"
+    );
+    let mut unnamed = gsd("fine", "ok", json!({}));
+    let reply = rpc::call_tool(
+        &mut unnamed,
+        "specforge.t.record_plan",
+        json!({"phase": "03"}),
+    );
+    assert!(!rpc::tool_text(&reply).contains("host "), "{reply}");
+}
+
+#[specforge_test_macros::test(
     behavior = "serve_extension_prompt",
     verify = "prompts/get of a prompt whose gate fails is a JSON-RPC error naming gate_failed, and its export is not called"
 )]
@@ -309,4 +334,40 @@ fn a_multi_line_prompt_message_reaches_the_agent_whole() {
         got["result"]["messages"][0]["content"]["text"], "# Plan\n\n- one\n\t- two\\u{1b}[0m",
         "{got}"
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "an mcp prompt takes its own path argument through specforge.prompt, and prompts/get reads path as the project"
+)]
+fn an_mcp_prompt_takes_its_own_path_argument() {
+    let fixture = GsdPrompts::new().prompting(json!({
+        "id": "ingest", "title": "Ingest", "description": "Ingest documents", "export": "prompt__ingest",
+        "args": [
+            {"name": "path", "field_type": "string", "rest": true},
+            {"name": "format", "field_type": "enum", "enum_values": ["md", "txt"]},
+        ],
+    }));
+    let mut served = gsd_using(fixture, "fine", "ok", json!({}), json!({}));
+    let text = |reply: &Value| {
+        reply["messages"][0]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string()
+    };
+    let tool = rpc::tool(
+        &mut served,
+        "specforge.prompt",
+        json!({"name": "specforge.t.ingest", "arguments": {"path": "docs/adr", "format": "md"}}),
+    );
+    assert!(text(&tool).contains("\"path\":\"docs/adr\""), "{tool}");
+    assert!(text(&tool).contains("\"format\":\"md\""), "{tool}");
+    // `prompts/get` reads `path` as the project to open (the target argument every MCP entry takes), so a prompt's own
+    // `path` is reachable by `specforge.prompt` only (ADR 0314 Limits).
+    let got = rpc::call(
+        &mut served,
+        "prompts/get",
+        json!({"name": "specforge.t.ingest", "arguments": {"path": "docs/adr"}}),
+    );
+    assert_eq!(got["error"]["data"]["code"], "file_not_found", "{got}");
 }

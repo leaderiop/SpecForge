@@ -4,8 +4,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use gsd_core::prompts::roster::{Owner, ROSTER};
 use regex::Regex;
+use roster::{Owner, ROSTER};
+
+#[path = "common/roster.rs"]
+mod roster;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
@@ -142,4 +145,12 @@ fn every_core_row_is_served() {
             "{name} is served but is no core row"
         );
     }
+}
+
+#[test]
+fn a_core_command_and_an_extension_command_are_told_apart() {
+    assert_eq!(roster::owner("phase"), Some(Owner::CoreCommand));
+    assert_eq!(roster::owner("debug"), Some(Owner::Extension("@gsd/ops")));
+    assert!(roster::owner("plan-phase").is_some_and(Owner::is_core));
+    assert_eq!(roster::owner("no-such-command"), None);
 }

@@ -113,6 +113,7 @@ pub fn run_command(
         command,
         &Map::new(),
         CommandFormat::Json,
+        None,
         false,
         specforge_ops::testing::caller(),
         Surface::Cli { interactive: false },

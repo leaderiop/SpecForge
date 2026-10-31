@@ -137,3 +137,94 @@ fn a_prompt_declared_twice_or_without_a_handler_panics() {
     });
     assert!(bare.is_err());
 }
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt reads the state the host sends it"
+)]
+fn a_prompt_reads_the_state_it_is_sent() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
+    c.prompt("status", |p| {
+        p.title("Status")
+            .description("Status")
+            .reads_state()
+            .handler(|call| {
+                let active = call
+                    .state()
+                    .and_then(|state| state.project.get("active"))
+                    .and_then(Value::as_str);
+                Ok(PromptOutput::user(format!("active {active:?}")))
+            });
+    });
+    let text = |input: Value| -> String {
+        let answer = c
+            .dispatch_export("prompt__status", input.to_string().as_bytes())
+            .unwrap()
+            .unwrap();
+        let answer: Value = serde_json::from_slice(&answer).unwrap();
+        answer["messages"][0]["text"].as_str().unwrap().to_string()
+    };
+    let base = json!({"args": {}, "cwd": "/p", "today": "2026-10-31"});
+    let mut sent = base.clone();
+    sent["state"] = json!({"project": {"active": "a"}});
+    assert_eq!(text(sent), r#"active Some("a")"#);
+    assert_eq!(text(base), "active None");
+}
+
+#[specforge_test(
+    behavior = "gate_a_command",
+    verify = "an extension compares a pass's trigger kind to the SDK's TriggerKind"
+)]
+fn the_prelude_names_the_trigger_kind() {
+    assert_eq!(TriggerKind::default(), TriggerKind::Write);
+    let input = PassInput {
+        trigger: Some(Trigger::gate("execute_phase", None)),
+        ..Default::default()
+    };
+    assert!(input.trigger.is_some_and(|t| t.kind == TriggerKind::Gate));
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "the SDK declares a prompt's free-text tail as a string argument"
+)]
+fn a_rest_argument_is_a_string_tail_on_the_wire() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
+    c.prompt("quick", |p| {
+        p.title("Quick")
+            .description("Quick")
+            .arg("task", |a| {
+                a.rest();
+            })
+            .handler(|_| Ok(PromptOutput::user("x")));
+    });
+    let wire = serde_json::to_value(&c.declaration().surfaces.prompts[0].args).unwrap();
+    assert_eq!(
+        wire,
+        json!([{"name": "task", "field_type": "string", "rest": true}])
+    );
+}
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "the SDK's when appends a setting, and a declaration with one is written as a string"
+)]
+fn when_appends_a_setting_and_one_is_written_as_a_name() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
+    c.prompt("one", |p| {
+        p.title("One")
+            .description("One")
+            .when("a")
+            .handler(|_| Ok(PromptOutput::user("x")));
+    });
+    c.prompt("two", |p| {
+        p.title("Two")
+            .description("Two")
+            .when("a")
+            .when("b")
+            .handler(|_| Ok(PromptOutput::user("x")));
+    });
+    let prompts = serde_json::to_value(&c.declaration().surfaces.prompts).unwrap();
+    assert_eq!(prompts[0]["when"], "a");
+    assert_eq!(prompts[1]["when"], json!(["a", "b"]));
+}

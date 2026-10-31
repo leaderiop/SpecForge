@@ -217,6 +217,7 @@ fn context() -> ValidatorContext {
 
 fn command_input() -> specforge_protocol_types::CommandInput<specforge_protocol_types::RawGraph> {
     specforge_protocol_types::CommandInput {
+        host: None,
         args: Default::default(),
         cwd: String::new(),
         format: Default::default(),

@@ -61,7 +61,7 @@
     "CONFIG=$(specforge settings)",
     "```"
   ],
-  "bytes": 42621,
+  "bytes": 42661,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -138,8 +138,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,18 +195,18 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:3207994bbd38e7180f93f82311be894f1aea53f34ecb0edb6cbd0b361ef39698",
+    "digest": "sha256:ef379a68e7a034da0735a6eb17b929fd94218afd2261a0a96c45b9d0645faa8b",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
-        "cli": "specforge gsd fix-window",
+        "cli": "specforge gsd fix-window --host claude-code",
         "gate": [],
         "id": "fix_window",
         "title": "Record that a broken window was fixed (specforge gsd fix-window <window>)",
         "tool": "specforge.gsd.fix_window"
       },
       {
-        "cli": "specforge gsd waive-window",
+        "cli": "specforge gsd waive-window --host claude-code",
         "gate": [],
         "id": "waive_window",
         "title": "Ask the person to run `specforge gsd waive-window <window> <reason> <who>` in their terminal (an agent's call is refused: it records what a person says)",
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "3207994bbd38e7180f93f82311be894f1aea53f34ecb0edb6cbd0b361ef39698"
+  "sha256": "ef379a68e7a034da0735a6eb17b929fd94218afd2261a0a96c45b9d0645faa8b"
 }

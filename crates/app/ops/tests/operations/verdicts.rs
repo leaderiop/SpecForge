@@ -135,6 +135,7 @@ fn run_with_rules(
         command,
         &Map::new(),
         CommandFormat::Json,
+        None,
         dry_run,
         specforge_ops::testing::caller(),
         Surface::Cli { interactive: true },

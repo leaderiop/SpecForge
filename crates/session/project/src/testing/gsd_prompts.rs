@@ -10,8 +10,10 @@
 //!   `strict`, which raises `W904` to an error); the commands `record_plan`, `execute_phase` (gates `E902` and `W904`, subject
 //!   `phase`) and `ship` (gate `E903`); the prompts `plan_phase` (a required `phase` reference, a `research`
 //!   flag, a `depth` from 1 to 3, a `mode` and `labels`; gate `E901`, subject `phase`; a step that runs `record_plan`, one that runs `execute_phase` and one the
-//!   agent does itself; the attribution of `gsd-core/workflows/plan-phase.md` at 1.18.0) and `research_phase`
+//!   agent `checker` does; the attribution of `gsd-core/workflows/plan-phase.md` at 1.18.0) and `research_phase`
 //!   (served while `workflow.research` is not false)
+//!   and the slash commands `t-plan-phase` and `t-research-phase` (the latter served while `workflow.research`
+//!   and `workflow.gates` are both on)
 //! - [`OTHER`] (`@t/other`, short name `t`): a command `plan_phase`, which a prompt of that route meets (E039)
 //!
 //! Every export answers from its input, so a test sees what the host sent: a command prints its `args`, a prompt
@@ -125,7 +127,7 @@ fn prompts() -> Value {
             "steps": [
                 {"id": "plan", "title": "Write the plans", "command": "record_plan"},
                 {"id": "execute", "title": "Execute the plans", "command": "execute_phase"},
-                {"id": "check", "title": "Check the plans"},
+                {"id": "check", "title": "Check the plans", "agent": "checker"},
             ],
             "attribution": {
                 "upstream": "gsd-core", "path": "gsd-core/workflows/plan-phase.md", "version": "1.18.0",
@@ -141,18 +143,30 @@ fn prompts() -> Value {
     ])
 }
 
-fn surfaces() -> Value {
+fn surfaces(extra: &[Value]) -> Value {
+    let mut prompts = prompts();
+    prompts
+        .as_array_mut()
+        .expect("a list")
+        .extend(extra.iter().cloned());
     json!([{
         "commands": [
             command("record_plan", phase_arg(), &[], None),
             command("execute_phase", phase_arg(), &["E902", "W904"], Some("phase")),
             command("ship", json!([]), &["E903"], None),
+            // Declares an arg named `host`, which the CLI's own `--host` must leave to it.
+            command("name_host", json!([{"name": "host", "arg_type": "string"}]), &[], None),
         ],
-        "prompts": prompts(),
+        "prompts": prompts,
+        "agents": [{"id": "checker", "description": "Checks the plans"}],
+        "slash_commands": [
+            {"prompt": "plan_phase"},
+            {"prompt": "research_phase", "when": ["workflow.research", "workflow.gates"]},
+        ],
     }])
 }
 
-fn core() -> ContributionsBuilder {
+fn core(extra: &[Value]) -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta {
         short: Some("t".into()),
         ..ExtensionMeta::new(CORE, "0.4.0")
@@ -161,7 +175,7 @@ fn core() -> ContributionsBuilder {
     c.raw_category(DeclaredCategory::Codes, codes());
     c.raw_category(DeclaredCategory::Settings, settings());
     c.raw_category(DeclaredCategory::Passes, passes());
-    c.raw_category(DeclaredCategory::Surfaces, surfaces());
+    c.raw_category(DeclaredCategory::Surfaces, surfaces(extra));
     c
 }
 
@@ -223,15 +237,25 @@ fn ship_guard(input: &Value) -> Vec<Value> {
         .collect()
 }
 
+/// The args a command got, one line; and, when it was told the host that called it, `host <name>`.
 fn command_output(input: &Value) -> Value {
-    json!({"exit_code": 0, "stdout": format!("{}\n", input["args"]), "stderr": ""})
+    let host = input["host"]
+        .as_str()
+        .map_or(String::new(), |h| format!("host {h}\n"));
+    json!({"exit_code": 0, "stdout": format!("{}\n{host}", input["args"]), "stderr": ""})
 }
 
 fn prompt_output(export: &str, input: &Value) -> Value {
-    let echoed = json!({
+    let mut echoed = json!({
         "args": input["args"], "host": input["host"], "settings": input["settings"],
         "graph": input.get("graph").is_some(),
     });
+    // What a prompt that reads state or the served slash commands was sent; absent otherwise.
+    for key in ["state", "slash_commands"] {
+        if let Some(value) = input.get(key) {
+            echoed[key] = value.clone();
+        }
+    }
     json!({"messages": [{"role": "user", "text": format!("{export} {echoed}")}]})
 }
 
@@ -242,8 +266,10 @@ fn handle(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         "__pass_ship_guard" => {
             json!({"diagnostics": ship_guard(&input), "summary": {}, "values": []})
         }
-        "cmd__record_plan" | "cmd__execute_phase" | "cmd__ship" => command_output(&input),
-        "prompt__plan_phase" | "prompt__research_phase" => prompt_output(export, &input),
+        "cmd__record_plan" | "cmd__execute_phase" | "cmd__ship" | "cmd__name_host" => {
+            command_output(&input)
+        }
+        export if export.starts_with("prompt__") => prompt_output(export, &input),
         _ => return None,
     };
     Some(Ok(answer.to_string().into_bytes()))
@@ -252,13 +278,21 @@ fn handle(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
 /// The two extensions, served in process.
 pub struct GsdPrompts {
     answers: Vec<(String, String, WasmCallResult)>,
+    prompts: Vec<Value>,
 }
 
 impl GsdPrompts {
     pub fn new() -> Self {
         GsdPrompts {
             answers: Vec::new(),
+            prompts: Vec::new(),
         }
+    }
+
+    /// [`CORE`] also declares the prompt `descriptor` (as the wire carries it); its export echoes what it is sent.
+    pub fn prompting(mut self, descriptor: Value) -> Self {
+        self.prompts.push(descriptor);
+        self
     }
 
     /// `export` of `extension` answers `result`, whatever it is sent.
@@ -270,8 +304,9 @@ impl GsdPrompts {
 
     /// The runtime serving [`CORE`] and [`OTHER`] and the answers given.
     pub fn runtime(self) -> InProcessRuntime {
+        let extra = self.prompts;
         let mut runtime = InProcessRuntime::new()
-            .with_handler(core, handle)
+            .with_handler(move || core(&extra), handle)
             .with(other);
         for (extension, export, result) in self.answers {
             runtime = runtime.answer_raw(&extension, &export, result);

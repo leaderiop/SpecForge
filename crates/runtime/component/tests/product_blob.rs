@@ -52,6 +52,7 @@ fn run(
     format: CommandFormat,
 ) -> CommandOutput {
     let input = CommandInput {
+        host: None,
         args,
         cwd: "/p".into(),
         format,

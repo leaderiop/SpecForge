@@ -32,6 +32,8 @@ static PAUSE_WORK: Spec = Spec {
         tools: &["read", "write", "shell", "search"],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 
@@ -49,7 +51,9 @@ static RESUME_WORK: Spec = Spec {
         tools: &["read", "shell", "search", "write", "ask_user", "skill"],
         effort: None,
     }),
-    tail: None,
+    reads_state: true,
+    reads_slash_commands: false,
+    tail: Some(workflow::workstream_tail),
 };
 
 pub fn declare(c: &mut ContributionsBuilder) {

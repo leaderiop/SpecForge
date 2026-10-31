@@ -30,3 +30,32 @@ fn host_contributions_round_trip() {
     let parsed: SurfaceDescriptor = serde_json::from_value(wire.clone()).unwrap();
     assert_eq!(serde_json::to_value(&parsed).unwrap(), wire);
 }
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "when reads a name or a list and writes one name as a string, several as a list and none as nothing"
+)]
+fn when_reads_a_name_or_a_list_and_writes_one_as_a_name() {
+    use specforge_protocol_types::{AgentDescriptor, PromptDescriptor};
+
+    let agent = |when: serde_json::Value| -> AgentDescriptor {
+        serde_json::from_value(json!({"id": "t-a", "description": "A", "when": when})).unwrap()
+    };
+    assert_eq!(agent(json!("a")).when, ["a"]);
+    assert_eq!(agent(json!(["a", "b"])).when, ["a", "b"]);
+    assert_eq!(agent(json!(null)).when, Vec::<String>::new());
+    let written = |a: &AgentDescriptor| serde_json::to_value(a).unwrap();
+    assert_eq!(written(&agent(json!("a")))["when"], "a");
+    assert_eq!(
+        written(&agent(json!(["a", "b"])))["when"],
+        json!(["a", "b"])
+    );
+    let none: AgentDescriptor =
+        serde_json::from_value(json!({"id": "t-a", "description": "A"})).unwrap();
+    assert!(written(&none).get("when").is_none());
+    let prompt: PromptDescriptor = serde_json::from_value(
+        json!({"id": "p", "title": "P", "description": "P", "export": "prompt__p", "when": ["x", "y"]}),
+    )
+    .unwrap();
+    assert_eq!(prompt.when, ["x", "y"]);
+}

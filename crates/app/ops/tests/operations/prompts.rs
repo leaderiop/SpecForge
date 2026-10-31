@@ -11,7 +11,7 @@ use specforge_ops::extension::prompt::{
 };
 use specforge_ops::view::ProjectView;
 use specforge_package::Sha256;
-use specforge_project::testing::{CORE, GsdPrompts, NO_CONTEXT};
+use specforge_project::testing::{CORE, GsdPrompts, NO_CONTEXT, TestProject};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::{WasmCallResult, WasmTrapInfo};
 
@@ -34,6 +34,16 @@ pub struct Rendered {
 
 /// Render the prompt `id` of the fixture over `served`.
 pub fn render(served: &Served, id: &str, args: Args<'_>) -> Result<Rendered, Refused> {
+    render_for(served, id, args, None)
+}
+
+/// [`render`] for `host`.
+pub fn render_for(
+    served: &Served,
+    id: &str,
+    args: Args<'_>,
+    host: Option<specforge_ops::host::Host>,
+) -> Result<Rendered, Refused> {
     let view = ProjectView::of(&served.compiled);
     let prompts = ExtensionPrompts::build(&view);
     let prompt = prompts
@@ -50,7 +60,7 @@ pub fn render(served: &Served, id: &str, args: Args<'_>) -> Result<Rendered, Ref
             PromptArgs::Words(&words)
         }
     };
-    let rendered = render_prompt(&view, prompt, given, None).map_err(|error| match error {
+    let rendered = render_prompt(&view, prompt, given, host).map_err(|error| match error {
         RenderError::Refused(e) | RenderError::Gate(e) => Refused {
             code: if e.kind == OpErrorKind::EntityNotFound {
                 "entity_not_found".into()
@@ -193,7 +203,7 @@ fn a_rendered_prompt_shows_each_steps_gate_and_its_attribution() {
                     {"code": "t/E902", "off": false, "passes": false},
                     {"code": "t/W904", "off": false, "passes": true},
                 ]},
-                {"id": "check", "title": "Check the plans"},
+                {"id": "check", "title": "Check the plans", "agent": "checker"},
             ],
         })
     );
@@ -202,6 +212,37 @@ fn a_rendered_prompt_shows_each_steps_gate_and_its_attribution() {
         again.payload["digest"], rendered.payload["digest"],
         "the digest is stable"
     );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a command step's cli names the host the prompt is rendered for"
+)]
+fn a_command_steps_cli_names_the_host() {
+    use specforge_ops::host::Host;
+    let served = served(project("fine", "ok", json!({})));
+    let cli = |host| {
+        let args = Args::Named(json!({"phase": "03"}));
+        let rendered = render_for(&served, "plan_phase", args, host).unwrap();
+        rendered.payload["steps"][0]["cli"].clone()
+    };
+    assert_eq!(
+        cli(Some(Host::Codex)),
+        "specforge t record-plan --host codex"
+    );
+    assert_eq!(cli(None), "specforge t record-plan");
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a rendered step names the agent that runs it, and a step without one has no agent key"
+)]
+fn a_step_without_an_agent_has_no_agent_key() {
+    let served = served(project("fine", "ok", json!({})));
+    let rendered = plan_phase(&served, Args::Named(json!({"phase": "03"}))).unwrap();
+    let steps = rendered.payload["steps"].as_array().unwrap();
+    assert!(steps[0].get("agent").is_none(), "{:?}", steps[0]);
+    assert_eq!(steps[2]["agent"], "checker");
 }
 
 #[specforge_test(
@@ -277,4 +318,234 @@ fn the_words_of_a_command_line_are_read_exactly() {
     assert_eq!(sent(&served), json!({"phase": "v1.0/03"}));
     let required = plan_phase(&served, Args::Named(json!({"phase": null}))).unwrap_err();
     assert_eq!(required.code, "invalid_input", "{required:?}");
+}
+
+/// The fixture with the prompt `quick`: a `--full` flag and a free-text tail `task`.
+fn quick() -> Served {
+    let quick = json!({
+        "id": "quick", "title": "Quick", "description": "A quick task", "export": "prompt__quick",
+        "args": [
+            {"name": "full", "field_type": "bool"},
+            {"name": "task", "field_type": "string", "rest": true},
+        ],
+    });
+    served_with(
+        project("fine", "ok", json!({})),
+        GsdPrompts::new().prompting(quick),
+    )
+}
+
+fn quick_args(served: &Served, argv: &str) -> Result<Value, Refused> {
+    render(served, "quick", Args::Argv(argv))?;
+    Ok(served.input("prompt__quick")["args"].clone())
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt's free-text tail takes the words no option takes, joined by one space"
+)]
+fn the_tail_takes_the_words_no_option_takes() {
+    let served = quick();
+    assert_eq!(
+        quick_args(&served, "--full fix the login bug").unwrap(),
+        json!({"full": true, "task": "fix the login bug"})
+    );
+    assert_eq!(
+        quick_args(&served, r#""fix  it" now"#).unwrap(),
+        json!({"task": "fix  it now"})
+    );
+    assert_eq!(
+        quick_args(&served, "fix --full it").unwrap(),
+        json!({"full": true, "task": "fix it"})
+    );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt's tail given by name and by words is refused, an unknown option is not tail, and after -- every word is tail"
+)]
+fn the_tail_given_twice_or_swallowing_an_option_is_refused() {
+    let served = quick();
+    let twice = quick_args(&served, "--task a b").unwrap_err();
+    assert_eq!(twice.code, "invalid_input");
+    assert_eq!(twice.data["argument"], "task");
+    let unknown = quick_args(&served, "--nope x").unwrap_err();
+    assert_eq!(unknown.code, "invalid_input");
+    assert_eq!(unknown.data["argument"], "nope");
+    assert_eq!(
+        quick_args(&served, "-- --full x").unwrap(),
+        json!({"task": "--full x"})
+    );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a named (MCP) tail is an ordinary string"
+)]
+fn a_named_tail_is_an_ordinary_string() {
+    let served = quick();
+    render(&served, "quick", Args::Named(json!({"task": "do it"}))).unwrap();
+    assert_eq!(
+        served.input("prompt__quick")["args"],
+        json!({"task": "do it"})
+    );
+}
+
+/// The fixture with the prompt `next_phase`: an optional `phase` subject (gate `E901`) its export may pick.
+fn next_phase(project: TestProject, answer: Option<Value>) -> Served {
+    let descriptor = json!({
+        "id": "next_phase", "title": "Next", "description": "Plan the next phase",
+        "export": "prompt__next_phase",
+        "args": [{"name": "phase", "field_type": "reference", "target_kind": "phase"}],
+        "gates": ["E901"], "subject": "phase",
+    });
+    let mut fixture = GsdPrompts::new().prompting(descriptor);
+    if let Some(answer) = answer {
+        let bytes = answer.to_string().into_bytes();
+        fixture = fixture.answering(CORE, "prompt__next_phase", WasmCallResult::Ok(bytes));
+    }
+    served_with(project, fixture)
+}
+
+fn picks(subject: Option<&str>) -> Option<Value> {
+    let mut answer = json!({"messages": [{"role": "user", "text": "next"}]});
+    if let Some(subject) = subject {
+        answer["subject"] = json!(subject);
+    }
+    Some(answer)
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt with an optional subject and none given renders for the subject its export picks"
+)]
+fn an_absent_subject_is_picked_by_the_export() {
+    let served = next_phase(project("fine", "ok", json!({})), picks(Some("v1.0/03")));
+    let rendered = render(&served, "next_phase", Args::Named(json!({}))).unwrap();
+    assert_eq!(rendered.payload["subject"], "v1.0/03");
+    assert!(
+        served.input("prompt__next_phase")["args"]
+            .get("phase")
+            .is_none(),
+        "the export is asked before a subject is known"
+    );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a picked subject meets the prompt's gate, and a given subject wins over the pick"
+)]
+fn a_picked_subject_meets_its_gate_and_a_given_one_wins() {
+    let blocked = next_phase(project(NO_CONTEXT, "ok", json!({})), picks(Some("v1.0/03")));
+    let refused = render(&blocked, "next_phase", Args::Named(json!({}))).unwrap_err();
+    assert_eq!(refused.code, "gate_failed", "{refused:?}");
+    assert!(refused.data.to_string().contains("t/E901"), "{refused:?}");
+
+    let served = next_phase(project("fine", "ok", json!({})), picks(Some("v1.0/04")));
+    let rendered = render(&served, "next_phase", Args::Named(json!({"phase": "03"}))).unwrap();
+    assert_eq!(rendered.payload["subject"], "v1.0/03");
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a picked subject must be an entity of the subject argument's kind, else the answer is E028"
+)]
+fn a_picked_subject_must_be_of_the_subjects_kind() {
+    for wrong in ["v1.0/03/03-01", "v1.0/99"] {
+        let served = next_phase(project("fine", "ok", json!({})), picks(Some(wrong)));
+        let refused = render(&served, "next_phase", Args::Named(json!({}))).unwrap_err();
+        assert_eq!(refused.code, "E028", "{wrong}: {refused:?}");
+    }
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt with an optional subject and no pick is project-wide, and the first word is the subject"
+)]
+fn no_picked_subject_is_project_wide_and_a_word_is_the_subject() {
+    let served = next_phase(project("fine", "ok", json!({})), picks(None));
+    let rendered = render(&served, "next_phase", Args::Named(json!({}))).unwrap();
+    assert!(rendered.payload.get("subject").is_none(), "{rendered:?}");
+
+    let echo = next_phase(project("fine", "ok", json!({})), None);
+    let rendered = render(&echo, "next_phase", Args::Argv("03")).unwrap();
+    assert_eq!(rendered.payload["subject"], "v1.0/03");
+    assert_eq!(echo.input("prompt__next_phase")["args"]["phase"], "v1.0/03");
+}
+
+/// The fixture with the prompt `router`, which reads the slash commands the project serves.
+fn router(settings: Value) -> Served {
+    let descriptor = json!({
+        "id": "router", "title": "Router", "description": "Routes", "export": "prompt__router",
+        "args": [], "reads_slash_commands": true,
+    });
+    served_with(
+        project("fine", "ok", settings),
+        GsdPrompts::new().prompting(descriptor),
+    )
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt that reads the slash commands is sent the ones the project serves, as an install writes them"
+)]
+fn a_prompt_reads_the_served_slash_commands() {
+    let served = router(json!({}));
+    render(&served, "router", Args::Named(json!({}))).unwrap();
+    assert_eq!(
+        served.input("prompt__router")["slash_commands"],
+        json!([
+            {"name": "t-plan-phase", "extension": "@t/core", "prompt": "specforge.t.plan_phase",
+             "cli": "specforge prompt t.plan_phase"},
+            {"name": "t-research-phase", "extension": "@t/core", "prompt": "specforge.t.research_phase",
+             "cli": "specforge prompt t.research_phase"},
+        ])
+    );
+    // A slash whose `when` setting is off is not served.
+    let off = router(json!({"workflow.research": false}));
+    render(&off, "router", Args::Named(json!({}))).unwrap();
+    let sent = off.input("prompt__router");
+    let names: Vec<&str> = sent["slash_commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["t-plan-phase"]);
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt that does not ask for the slash commands is sent none"
+)]
+fn a_prompt_that_does_not_ask_gets_none() {
+    let served = served(project("fine", "ok", json!({})));
+    plan_phase(&served, Args::Named(json!({"phase": "03"}))).unwrap();
+    assert!(
+        served
+            .input("prompt__plan_phase")
+            .get("slash_commands")
+            .is_none()
+    );
+}
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "a contribution whose when names several settings is served only while all of them are on"
+)]
+fn a_slash_is_served_while_every_when_setting_is_on() {
+    let names = |settings: Value| -> Vec<String> {
+        let served = router(settings);
+        render(&served, "router", Args::Named(json!({}))).unwrap();
+        served.input("prompt__router")["slash_commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["name"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let both = ["t-plan-phase", "t-research-phase"];
+    assert_eq!(names(json!({})), both);
+    assert_eq!(names(json!({"workflow.research": false})), ["t-plan-phase"]);
+    assert_eq!(names(json!({"workflow.gates": false})), ["t-plan-phase"]);
 }

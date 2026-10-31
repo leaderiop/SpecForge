@@ -61,7 +61,7 @@
     "  Code), you MUST spawn gsd-executor agents — inline execution is not authorized. Check for",
     "  actual tool availability, not runtime name."
   ],
-  "bytes": 116562,
+  "bytes": 116602,
   "end": [
     "- Random emoji (`🚀`, `✨`, `💫`)",
     "- Missing Next Up block after completions",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:1649da9627ee273b93c23e0d20d3ef0d04c519d76bfc63ea309ee729e9d07f62",
+    "digest": "sha256:b58e0e342385bb8cb3f9dd9976441773fbec85eaa0b6eed29be7c402ba0182db",
     "prompt": "@gsd/core@VERSION:execute_phase",
     "steps": [
       {
@@ -204,18 +204,19 @@
         "title": "Execute each plan of the wave (the prompt execute_plan)"
       },
       {
+        "agent": "gsd-verifier",
         "id": "verify",
-        "title": "Verify the phase goal (gsd-verifier)"
+        "title": "Verify the phase goal"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host codex",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the verifier's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",
         "tool": "specforge.gsd.record_verdict"
       },
       {
-        "cli": "specforge gsd record-window",
+        "cli": "specforge gsd record-window --host codex",
         "gate": [],
         "id": "record_window",
         "title": "Record a window of the phase (specforge gsd record-window <kind> <phase> <description> ...)",
@@ -229,5 +230,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "1649da9627ee273b93c23e0d20d3ef0d04c519d76bfc63ea309ee729e9d07f62"
+  "sha256": "b58e0e342385bb8cb3f9dd9976441773fbec85eaa0b6eed29be7c402ba0182db"
 }

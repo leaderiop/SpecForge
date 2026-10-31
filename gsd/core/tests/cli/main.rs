@@ -78,6 +78,8 @@ mod reference;
 mod render_prompts;
 mod rendered_lines;
 mod roadmap;
+#[path = "../common/roster.rs"]
+mod roster;
 mod rules_silent;
 mod scan;
 mod settings;

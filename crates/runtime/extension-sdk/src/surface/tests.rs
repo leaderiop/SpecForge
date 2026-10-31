@@ -424,3 +424,41 @@ fn tools_and_resources_are_described_and_routed() {
         json!({"content": "read specforge://ext/acme/d1", "mime_type": "text/plain"})
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "dispatch_surface_command",
+    verify = "a command reads the state the host sends it, and none when it sent none"
+)]
+fn a_command_reads_the_state_it_is_sent() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/widgets", "1.0.0"));
+    c.command_prefix("acme");
+    c.command("active", |cmd| {
+        cmd.title("Active")
+            .description("The active widget")
+            .category("query")
+            .reads_state()
+            .handler(|call| {
+                let active = call
+                    .state()
+                    .and_then(|state| state.project.get("active"))
+                    .and_then(|v| v.as_str());
+                call.render(
+                    &json!({"active": active, "state": call.state().is_some()}),
+                    |_| {},
+                )
+            });
+    });
+    let run = |state: Option<crate::StateView>| {
+        let input = CommandInput {
+            format: CommandFormat::Json,
+            state,
+            ..Default::default()
+        };
+        let out = c.call_command("cmd__acme_active", &input).unwrap();
+        serde_json::from_str::<serde_json::Value>(&out.stdout).unwrap()
+    };
+    let mut view = crate::StateView::default();
+    view.project.insert("active".into(), json!("a"));
+    assert_eq!(run(Some(view)), json!({"active": "a", "state": true}));
+    assert_eq!(run(None), json!({"active": null, "state": false}));
+}

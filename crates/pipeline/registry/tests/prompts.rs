@@ -145,3 +145,136 @@ fn a_human_command_that_does_not_write_is_dropped() {
         .collect();
     assert_eq!(routed, ["confirm"]);
 }
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "the registry refuses a second free-text tail and a tail that is not text, naming the arguments"
+)]
+fn a_prompt_takes_one_tail_of_text() {
+    let arg = |name: &str, field_type: &str, rest: bool| {
+        let mut arg = json!({"name": name, "field_type": field_type});
+        if field_type == "reference" {
+            arg["target_kind"] = json!("phase");
+        }
+        if rest {
+            arg["rest"] = json!(true);
+        }
+        arg
+    };
+    let defects = [
+        (
+            "two_tails",
+            json!({"args": [arg("a", "string", true), arg("b", "string", true)]}),
+        ),
+        ("number_tail", json!({"args": [arg("n", "integer", true)]})),
+    ];
+    let mut prompts = vec![prompt("fine")];
+    let mut fine = prompt("one_tail");
+    fine["args"] = json!([arg("full", "bool", false), arg("task", "string", true)]);
+    prompts.push(fine);
+    for (id, defect) in &defects {
+        let mut broken = prompt(id);
+        for (key, value) in defect.as_object().unwrap() {
+            broken[key] = value.clone();
+        }
+        prompts.push(broken);
+    }
+    let build = build_registries(vec![declaration(
+        "@t/core",
+        "t",
+        json!({
+            "surfaces": {"prompts": prompts},
+            "entities": [{"name": "phase", "keyword": "phase"}],
+        }),
+    )]);
+    let w021 = messages(&build, "W021");
+    for (id, named) in [
+        (
+            "two_tails",
+            "a prompt takes one free-text tail, and it declares 'a' and 'b'",
+        ),
+        (
+            "number_tail",
+            "its free-text tail 'n' is not a string argument",
+        ),
+    ] {
+        let found: Vec<_> = w021
+            .iter()
+            .filter(|m| m.contains(&format!("'{id}'")))
+            .collect();
+        assert_eq!(found.len(), 1, "{id}: {w021:#?}");
+        assert!(found[0].contains(named), "{id}: {}", found[0]);
+    }
+    assert!(w021.iter().all(|m| !m.contains("'one_tail'")), "{w021:#?}");
+}
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "a prompt argument may be named path or format, never host, argv, help, settings or secrets"
+)]
+fn a_prompt_may_name_an_argument_path_or_format() {
+    let with = |id: &str, name: &str| {
+        let mut p = prompt(id);
+        p["args"] = json!([{"name": name, "field_type": "string"}]);
+        p
+    };
+    let build = build_registries(vec![declaration(
+        "@t/core",
+        "t",
+        json!({"surfaces": {"prompts": [
+            with("has_path", "path"), with("has_format", "format"),
+            with("has_host", "host"), with("has_argv", "argv"), with("has_help", "help"),
+            with("has_settings", "settings"), with("has_secrets", "secrets"),
+        ]}}),
+    )]);
+    let w021 = messages(&build, "W021");
+    for refused in [
+        "has_host",
+        "has_argv",
+        "has_help",
+        "has_settings",
+        "has_secrets",
+    ] {
+        assert_eq!(
+            w021.iter()
+                .filter(|m| m.contains(&format!("'{refused}'")))
+                .count(),
+            1,
+            "{refused}: {w021:#?}"
+        );
+    }
+    assert!(
+        w021.iter()
+            .all(|m| !m.contains("'has_path'") && !m.contains("'has_format'")),
+        "{w021:#?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "an optional subject follows the required positional arguments"
+)]
+fn an_optional_subject_follows_the_required_positionals() {
+    let phase = json!({"name": "phase", "field_type": "reference", "target_kind": "phase"});
+    let name = json!({"name": "name", "field_type": "string", "required": true});
+    let mut before = prompt("before");
+    before["args"] = json!([phase, name]);
+    before["subject"] = json!("phase");
+    let mut after = prompt("after");
+    after["args"] = json!([name, phase]);
+    after["subject"] = json!("phase");
+    let build = build_registries(vec![declaration(
+        "@t/core",
+        "t",
+        json!({
+            "surfaces": {"prompts": [before, after]},
+            "entities": [{"name": "phase", "keyword": "phase"}],
+        }),
+    )]);
+    let w021 = messages(&build, "W021");
+    assert_eq!(w021.len(), 1, "{w021:#?}");
+    assert!(
+        w021[0].contains("'before'") && w021[0].contains("'phase'"),
+        "{w021:#?}"
+    );
+}

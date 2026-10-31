@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 28577,
+  "bytes": 28617,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -195,15 +195,16 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:55bc83a4a2c941a937244b5ff7ed665b147723e9d7dac47d924ad4313a0ff798",
+    "digest": "sha256:907ac3121ee94436221205cd64bbe7cd94f06e1c0382583a88d0a924a85abb73",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the imported plans against the phase goal (gsd-plan-checker)"
+        "title": "Check the imported plans against the phase goal"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host codex",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the plan checker's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",
@@ -212,5 +213,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "55bc83a4a2c941a937244b5ff7ed665b147723e9d7dac47d924ad4313a0ff798"
+  "sha256": "907ac3121ee94436221205cd64bbe7cd94f06e1c0382583a88d0a924a85abb73"
 }

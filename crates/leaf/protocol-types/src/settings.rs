@@ -39,7 +39,7 @@ enum Written<'a> {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum Read {
-    Setting(SettingDescriptor),
+    Setting(Box<SettingDescriptor>),
     Preset(PresetDescriptor),
     Secret(SecretDescriptor),
 }
@@ -62,7 +62,7 @@ impl<'de> Deserialize<'de> for SettingsItem {
             None => "the item has no kind".to_string(),
             Some(kind @ ("setting" | "preset" | "secret")) => {
                 match serde_json::from_value::<Read>(raw.clone()) {
-                    Ok(Read::Setting(s)) => return Ok(SettingsItem::Setting(s)),
+                    Ok(Read::Setting(s)) => return Ok(SettingsItem::Setting(*s)),
                     Ok(Read::Preset(p)) => return Ok(SettingsItem::Preset(p)),
                     Ok(Read::Secret(s)) => return Ok(SettingsItem::Secret(s)),
                     Err(e) => format!("the {kind} does not decode: {e}"),

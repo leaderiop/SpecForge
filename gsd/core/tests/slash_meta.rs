@@ -6,48 +6,19 @@ use std::path::Path;
 
 /// `(command stem, our hint)`: upstream's hint says `[phase]` or takes free text where the prompt has typed arguments.
 const ADAPTED: &[(&str, &str)] = &[
-    (
-        "new-milestone",
-        "[--name \"...\"] [--ws <name>] [--reset-phase-numbers]",
-    ),
-    (
-        "plan-phase",
-        "<phase> [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--skip-ui] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--bounce] [--skip-bounce] [--chunked] [--tdd] [--mvp] [--granularity <coarse|standard|fine>] [--no-tracer] [--no-reversibility-gates]",
-    ),
     ("extract-learnings", "<phase>"),
-    (
-        "ingest-docs",
-        "[--dir <path>] [--mode new|merge] [--manifest <file>] [--resolve auto|interactive]",
-    ),
     ("milestone-summary", "[--milestone <version>]"),
-    ("ns-context", "[--intent \"what you want\"]"),
-    ("ns-ideate", "[--intent \"what you want\"]"),
-    ("ns-manage", "[--intent \"what you want\"]"),
-    ("ns-project", "[--intent \"what you want\"]"),
-    ("ns-review", "[--intent \"what you want\"]"),
-    ("ns-workflow", "[--intent \"what you want\"]"),
     ("pr-branch", "[--target <branch>]"),
-    ("workspace", "[--new | --list | --remove] [--name <name>]"),
     (
         "review",
         "<phase> [--claude] [--codex] [--opencode] [--qwen] [--cursor] [--agy] [--all]",
     ),
-    (
-        "quick",
-        "[--list | --status <slug> | --resume <slug> | --full] [--validate] [--discuss] [--research] [--task \"task description\"]",
-    ),
-    (
-        "quick-batch",
-        "[--file <path>] [--jobs auto|N] [--validate] [--research] [--resume <batch-id>] [--tasks \"task list\"]",
-    ),
-    ("fast", "[--task \"task description\"]"),
     ("ultraplan-phase", "<phase>"),
     ("verify-work", "<phase> [--ws <name>]"),
     ("validate-phase", "<phase>"),
     ("audit-milestone", "<milestone>"),
     ("complete-milestone", "<milestone>"),
     ("ship", "<phase>"),
-    ("add-tests", "<phase> [--instructions \"...\"]"),
     (
         "execute-phase",
         "<phase> [--wave N] [--gaps-only] [--interactive] [--tdd]",
@@ -187,7 +158,7 @@ fn every_prompt_slash_keeps_its_upstream_metadata() {
             Some((_, ours)) => assert_eq!(hint, *ours, "{id}: adapted hint"),
             None => assert_eq!(
                 Some(hint).filter(|h| !h.is_empty()),
-                scalar(&fm, "argument-hint"),
+                scalar(&fm, "argument-hint").filter(|h| !h.is_empty()),
                 "{id}: hint"
             ),
         }

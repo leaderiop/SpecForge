@@ -111,6 +111,7 @@ fn a_command_patches_its_state() {
         stats,
         &args,
         specforge_ops::extension::command::CommandFormat::Json,
+        None,
     )
     .unwrap();
     assert_eq!(

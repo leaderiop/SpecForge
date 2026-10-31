@@ -259,7 +259,7 @@ pub(crate) fn entity_revision(
 
 /// The file `entity` is written in, in the project `view` reads.
 pub(crate) fn file_of(view: &ProjectView<'_>, entity: &str) -> Option<String> {
-    match view.graph().scopes().resolve(None, entity, &|_| true) {
+    match view.graph().scopes().find(entity) {
         specforge_graph::Found::One(path) => view
             .graph()
             .node(path.as_str())

@@ -61,7 +61,7 @@
     "  Code), you MUST spawn gsd-executor agents — inline execution is not authorized. Check for",
     "  actual tool availability, not runtime name."
   ],
-  "bytes": 108634,
+  "bytes": 108674,
   "end": [
     "- Random emoji (`🚀`, `✨`, `💫`)",
     "- Missing Next Up block after completions",
@@ -157,8 +157,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:c4414c56e25c653e3fc0cae495a740d129c4b524ddd6ef3a54b12dfec7a3bc3f",
+    "digest": "sha256:b246b5759889fd920e94671e4666e9fa025c02a539998e02712290bd3cbbca66",
     "prompt": "@gsd/core@VERSION:execute_phase",
     "steps": [
       {
@@ -204,18 +204,19 @@
         "title": "Execute each plan of the wave (the prompt execute_plan)"
       },
       {
+        "agent": "gsd-verifier",
         "id": "verify",
-        "title": "Verify the phase goal (gsd-verifier)"
+        "title": "Verify the phase goal"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host cursor",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the verifier's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",
         "tool": "specforge.gsd.record_verdict"
       },
       {
-        "cli": "specforge gsd record-window",
+        "cli": "specforge gsd record-window --host cursor",
         "gate": [],
         "id": "record_window",
         "title": "Record a window of the phase (specforge gsd record-window <kind> <phase> <description> ...)",
@@ -229,5 +230,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "c4414c56e25c653e3fc0cae495a740d129c4b524ddd6ef3a54b12dfec7a3bc3f"
+  "sha256": "b246b5759889fd920e94671e4666e9fa025c02a539998e02712290bd3cbbca66"
 }

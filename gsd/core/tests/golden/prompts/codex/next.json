@@ -9,13 +9,13 @@
     "<objective>",
     "GSD smart entry — the state-aware front door. Detect what's going on in this project, then present a short menu of the right next actions and dispatch to one.",
     "",
-    "This is a launcher/router only. It never does the work itself. It reads project + workflow state via `specforge gsd smart-entry --format json`, shows a situation-appropriate menu, and hands off to an existing GSD command.",
+    "This is a launcher/router only. It never does the work itself. It reads project + workflow state via `specforge gsd smart-entry --host codex --format json`, shows a situation-appropriate menu, and hands off to an existing GSD command.",
     "</objective>",
     "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/smart-entry.md\">",
     "<purpose>",
-    "GSD smart entry — the state-aware front door. Detect the current project situation via `specforge gsd smart-entry --format json`, present a short menu of the right next actions, and dispatch to exactly one existing GSD command. This is a launcher/router only; it never does the work itself.",
+    "GSD smart entry — the state-aware front door. Detect the current project situation via `specforge gsd smart-entry --host codex --format json`, present a short menu of the right next actions, and dispatch to exactly one existing GSD command. This is a launcher/router only; it never does the work itself.",
     "",
     "This is a *menu* front door, not a second router. For in-project forward motion (planning → executing → verify-pending) the recommended action is `$gsd-progress --next`, which delegates to the single gated advancement engine (`workflows/next.md`: Route 0 resume-incomplete-phase + Gates 1-3). smart-entry adds value only where `--next` cannot reach: pre-project, remediation (paused/blocked/verify-failed), and lifecycle exits (idle-stranded/complete). See `docs/adr/1787-gsd-next-smart-entry.md`.",
     "</purpose>",
@@ -47,7 +47,7 @@
     "```bash",
     "RUNTIME=\"codex\"   # runtime (the settings); the commands below are specforge commands: there is no launcher to define",
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
-    "SNAPSHOT=$(specforge gsd smart-entry --runtime \"$RUNTIME\" --format json 2>/dev/null)",
+    "SNAPSHOT=$(specforge gsd smart-entry --host codex --format json 2>/dev/null)",
     "```",
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
@@ -61,15 +61,8 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 30944,
+  "bytes": 31092,
   "end": [
-    "| 3     | ○      | 0/2   | 0%       |",
-    "```",
-    "",
-    "Table rules use ASCII `-`, never box-drawing characters.",
-    "",
-    "---",
-    "",
     "## Anti-Patterns",
     "",
     "- Fixed-width runs of `━`, `─` or `═` as separators — they wrap in a narrow pane",
@@ -100,9 +93,16 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
     "",
-    "## Commands this install does not have",
+    "## Commands this install may not serve",
     "",
-    "The menu may name `$gsd-debug` (@gsd/ops), `$gsd-code-review` (@gsd/ops), `$gsd-capture` (@gsd/ops), `$gsd-map-codebase` (@gsd/codebase). They are served by another extension, which is not installed. When the recommended action is one of them, say so and offer the next action that is installed: `specforge gsd resolve-blocker` or `$gsd-verify-work` for a blocked project, the next phase prompt otherwise."
+    "The menu may name these commands; this is how the project serves each:",
+    "",
+    "- `$gsd-debug`: not served on this project",
+    "- `$gsd-code-review`: not served on this project",
+    "- `$gsd-capture`: not served on this project",
+    "- `$gsd-map-codebase`: not served on this project",
+    "",
+    "When the recommended action is one that is not served on this project, say so and offer the next action that is: `specforge gsd resolve-blocker` or `$gsd-verify-work` for a blocked project, the next phase prompt otherwise."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 656,
+  "lines": 663,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,17 +195,17 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:a93af585cdb3952b9cf90201c1ccec2ca406aa1514d62348c4ff3f8410c1218f",
+    "digest": "sha256:94f5efc2e1f56044fa528d365bfd476d552e1d9df084baad147cb35b4ed229fc",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
-        "cli": "specforge gsd smart-entry",
+        "cli": "specforge gsd smart-entry --host codex",
         "gate": [],
         "id": "detect",
-        "title": "Detect the situation and its next actions (specforge gsd smart-entry --runtime <host>)",
+        "title": "Detect the situation and its next actions (specforge gsd smart-entry)",
         "tool": "specforge.gsd.smart_entry"
       }
     ]
   },
-  "sha256": "a93af585cdb3952b9cf90201c1ccec2ca406aa1514d62348c4ff3f8410c1218f"
+  "sha256": "94f5efc2e1f56044fa528d365bfd476d552e1d9df084baad147cb35b4ed229fc"
 }

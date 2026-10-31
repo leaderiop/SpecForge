@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 20820,
+  "bytes": 20860,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -157,8 +157,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,15 +195,16 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:530561e127083db289e0482a2bb511ae3bc016bdeccb4cb1ee41e003f8922300",
+    "digest": "sha256:9f2f78adca4f3e0f1336f77120415fc6e8fea419338700a7a2f9b9ab538b648c",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the imported plans against the phase goal (gsd-plan-checker)"
+        "title": "Check the imported plans against the phase goal"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host cursor",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the plan checker's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",
@@ -212,5 +213,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "530561e127083db289e0482a2bb511ae3bc016bdeccb4cb1ee41e003f8922300"
+  "sha256": "9f2f78adca4f3e0f1336f77120415fc6e8fea419338700a7a2f9b9ab538b648c"
 }

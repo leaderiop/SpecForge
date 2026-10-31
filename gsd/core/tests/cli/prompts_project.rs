@@ -34,7 +34,10 @@ fn new_project_renders() {
         "specforge.gsd.discuss_phase"
     );
     let record = &rendered["payload"]["steps"][3];
-    assert_eq!(record["cli"], "specforge gsd record-research");
+    assert_eq!(
+        record["cli"],
+        "specforge gsd record-research --host claude-code"
+    );
     assert_eq!(record["tool"], "specforge.gsd.record_research");
     let text = text_of(&rendered);
     assert!(text.contains("<arguments>--auto</arguments>") || text.contains("--auto"));
@@ -79,13 +82,13 @@ fn new_milestone_renders_for_three_hosts() {
     let out = render_three_hosts(
         &p,
         "new_milestone",
-        &["--name", "v2 search", "--reset-phase-numbers"],
-        "--name \"v2 search\" --reset-phase-numbers",
+        &["--reset-phase-numbers", "v2", "search"],
+        "--reset-phase-numbers v2 search",
         "<objective>",
     );
     assert_eq!(out.len(), 3);
     for (host, rendered) in out {
-        assert!(text_of(&rendered).contains("--name"), "{host}");
+        assert!(text_of(&rendered).contains("milestone name"), "{host}");
         assert_eq!(
             step_ids(&rendered),
             [
@@ -101,17 +104,26 @@ fn new_milestone_renders_for_three_hosts() {
 }
 
 #[test]
-fn new_milestone_refuses_a_bare_name_word() {
+fn new_milestone_takes_its_name_bare() {
     let p = project("empty");
-    let run = prompt(
+    let bare = text_of(&payload(&prompt(
         &p,
         "new_milestone",
-        &["--name", "v2", "search"],
+        &["v2", "search"],
         "claude-code",
+    )));
+    assert!(
+        bare.contains("<arguments>v2 search</arguments>") || bare.contains("v2 search"),
+        "{bare}"
     );
-    assert_ne!(run.code, 0, "{}", run.all());
-    assert!(run.all().contains("invalid_input"), "{}", run.all());
-    assert!(run.all().contains("search"), "{}", run.all());
+    // by name it is the same tail
+    let named = text_of(&payload(&prompt(
+        &p,
+        "new_milestone",
+        &["--name", "v2 search"],
+        "claude-code",
+    )));
+    assert_eq!(bare, named);
 }
 
 fn skill_files(p: &Project, host_dir: &str, skill: &str) -> String {

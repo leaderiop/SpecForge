@@ -7,7 +7,7 @@
 [ADR 0198](0198-a-typed-edit-is-judged-by-the-graph-change-it-makes.md) and
 [ADR 0103](0103-a-core-mcp-resource-is-one-module.md) and
 [ADR 0282](0282-an-unknown-type-name-is-the-hosts-e004-and-a-project-has-one-spec-block.md) (E004 and the type-name
-edge read one resolution; a `spec` block is never scoped). Builds on ADR 0283 (a name may hold `-` and `.`).
+edge read one resolution; a `spec` block is never scoped). Builds on ADR 0283 (a name may hold `-` and `.`). Extended by [ADR 0312](0312-collect-re-keys-a-test-id-as-the-test-report-does.md) (`collect` re-keys a test id; a numeric segment finds its entity).
 
 ## Context
 

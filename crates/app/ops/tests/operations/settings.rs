@@ -143,7 +143,14 @@ fn a_command_sees_secret_presence_not_its_value() {
     let view = ProjectView::of(&compiled);
     let commands = ExtensionCommands::build(view.registries());
     let hello = commands.all().iter().find(|c| c.id() == "hello").unwrap();
-    run(&view, hello, &serde_json::Map::new(), CommandFormat::Json).unwrap();
+    run(
+        &view,
+        hello,
+        &serde_json::Map::new(),
+        CommandFormat::Json,
+        None,
+    )
+    .unwrap();
     let call = runtime
         .calls()
         .into_iter()

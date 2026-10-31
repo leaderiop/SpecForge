@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, RunError, run};
+use specforge_ops::host::Host;
 use specforge_ops::view::ProjectView;
 use specforge_project::testing::{CORE, GsdPrompts, TestProject, gsd_prompts_sources};
 use specforge_project::{CompiledProject, SharedRuntime};
@@ -108,6 +109,16 @@ pub fn refusal(error: RunError) -> Refused {
 
 /// Run command `id` of the fixture over `served`, with `args`.
 pub fn run_command(served: &Served, id: &str, args: Value) -> Result<CommandOutput, Refused> {
+    run_command_on(served, id, args, None)
+}
+
+/// [`run_command`], called from `host`.
+pub fn run_command_on(
+    served: &Served,
+    id: &str,
+    args: Value,
+    host: Option<Host>,
+) -> Result<CommandOutput, Refused> {
     let view = ProjectView::of(&served.compiled);
     let commands = ExtensionCommands::build(view.registries());
     let command = commands
@@ -119,6 +130,7 @@ pub fn run_command(served: &Served, id: &str, args: Value) -> Result<CommandOutp
         command,
         args.as_object().unwrap(),
         CommandFormat::Json,
+        host,
     )
     .map_err(refusal)
 }
@@ -384,6 +396,7 @@ fn a_gated_writing_command_is_refused_as_a_dry_run() {
             command,
             &serde_json::Map::new(),
             CommandFormat::Json,
+            None,
             dry_run,
             specforge_ops::testing::caller(),
             specforge_ops::authoring::apply::Surface::Cli { interactive: false },

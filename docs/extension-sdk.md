@@ -404,6 +404,8 @@ descriptor, and routes the export to the handler. The CLI runs it as `specforge 
 
 A command's `call.now()` is the host's clock when it was called, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds; protocol 1.11.0, ADR 0294), the same instant as `call.today()`; a hook's `call.now()` and a writing collector's input carry it too. A prompt and a pass are not told the time.
 
+A command's `call.host()` is the host that called it (`claude-code`, `codex` or `cursor`, when known; protocol 1.13.0, ADR 0318): on the command line it is `--host <host>`, which the host adds to every extension command, so a command declares no arg of that name. After `cmd.reads_state()` (a command or a prompt), `call.state()` holds the extension's `StateView` (ADR 0310). `Trigger` and `TriggerKind` are in the prelude, and `Settings::number(key)` reads a number setting.
+
 An arg is a string unless its builder says otherwise:
 
 | Arg builder | On the wire | Read with |
@@ -488,8 +490,11 @@ c.prompt("plan_phase", |p| {
 ```
 
 `PromptCall` reads the typed arguments (`str`, `bool`, `integer`, `list`), `host()` (`claude-code`, `codex` or
-`cursor` when known), `cwd()`, `today()` and, after `p.reads_graph()`, `graph()`. `p.when("setting")` serves the prompt
-only while a bool setting of the extension is not false. An argument is `string`, `integer`, `bool`, `date`,
+`cursor` when known), `cwd()`, `today()` and, after `p.reads_graph()`, `graph()`, after `p.reads_state()`, `state()`, and
+after `p.reads_slash_commands()`, `slash_commands()` (the project's served slash commands). `p.when("setting")` serves
+the prompt only while a bool setting of the extension is not false; call it again to require another (all must be on).
+`a.rest()` makes a string argument the free-text tail; an argument that is not `required()` and is the `subject` is
+optional, and the handler answers `PromptOutput::user(..).with_subject(path)` for the entity it picked. An argument is `string`, `integer`, `bool`, `date`,
 `string_list`, `one_of(..)`, `many_of(..)`, `reference(kind)` or `reference_list(kind)`; there is no path argument.
 A step runs a `command(id)` of the extension, an `agent(id)` or a `prompt(id)`, or nothing.
 

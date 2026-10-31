@@ -131,19 +131,32 @@ fn a_disabled_cluster_hides_its_skills_on_install() {
     p.settings(json!({ "specforge.surface.utility": false }));
     let run = p.install("claude-code", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
-    // `utility` lists phase, cleanup and surface first; `help` is first in core_loop and `workstreams` in workspace_state.
     for gone in ["gsd-phase", "gsd-cleanup", "gsd-surface"] {
         assert!(
             !p.exists(&format!(".claude/skills/{gone}/SKILL.md")),
             "{gone} is hidden"
         );
     }
-    for kept in ["gsd-help", "gsd-workstreams"] {
+    assert!(p.exists(".claude/skills/gsd-workstreams/SKILL.md"));
+}
+
+/// Upstream hides a skill in any disabled cluster: `help`, `update` and `review` are in `utility` and in another.
+#[test]
+fn a_skill_in_two_clusters_is_hidden_by_either() {
+    let utility = project("empty");
+    utility.settings(json!({ "specforge.surface.utility": false }));
+    assert_eq!(utility.install("claude-code", &[]).code, 0);
+    for gone in ["gsd-help", "gsd-update", "gsd-review"] {
         assert!(
-            p.exists(&format!(".claude/skills/{kept}/SKILL.md")),
-            "{kept} is shown"
+            !utility.exists(&format!(".claude/skills/{gone}/SKILL.md")),
+            "{gone} is hidden by utility"
         );
     }
+    let ideate = project("empty");
+    ideate.settings(json!({ "specforge.surface.research_ideate": false }));
+    assert_eq!(ideate.install("claude-code", &[]).code, 0);
+    assert!(!ideate.exists(".claude/skills/gsd-ns-ideate/SKILL.md"));
+    assert!(ideate.exists(".claude/skills/gsd-help/SKILL.md"));
 }
 
 /// The members of each cluster of the vendored `clusters.cts`, in its order.

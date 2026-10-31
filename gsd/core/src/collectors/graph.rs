@@ -1,6 +1,6 @@
 //! Resolving an id over the graph a writing collector is handed, as the host's `EntitySnapshot::find` does: a path, a
-//! rooted path (`/D-01`), or a unique suffix of one on a `/` boundary. The host's `collect` keeps only full paths (a
-//! short form is W115), so a collector that is given a short form resolves it before it answers.
+//! rooted path (`/D-01`), or a unique suffix of one on a `/` boundary. A plan op names an entity by its full path, so a
+//! collector that writes one resolves the id it was given first. (A test tag is the host's to resolve, ADR 0312.)
 
 use specforge_extension_sdk::prelude::*;
 

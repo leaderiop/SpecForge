@@ -9,17 +9,17 @@ use super::workflow::{self, Do, Slash, Spec, Step};
 const STEPS: &[Step] = &[
     Step {
         id: "research",
-        title: "Research the domain with the project researcher (gsd-project-researcher), one agent per dimension",
+        title: "Research the domain with the project researcher, one agent per dimension",
         does: Do::Agent("gsd-project-researcher"),
     },
     Step {
         id: "synthesize",
-        title: "Synthesize the research (gsd-research-synthesizer)",
+        title: "Synthesize the research",
         does: Do::Agent("gsd-research-synthesizer"),
     },
     Step {
         id: "roadmap",
-        title: "Create the roadmap (gsd-roadmapper)",
+        title: "Create the roadmap",
         does: Do::Agent("gsd-roadmapper"),
     },
     Step {
@@ -37,9 +37,9 @@ const STEPS: &[Step] = &[
 const NEW_PROJECT_ARGS: &[Arg] = &[Arg::flag("auto"), Arg::text("idea")];
 
 const NEW_MILESTONE_ARGS: &[Arg] = &[
-    Arg::text("name"),
     Arg::text("ws"),
     Arg::flag("reset_phase_numbers"),
+    Arg::rest("name"),
 ];
 
 fn idea(call: &PromptCall<'_>) -> String {
@@ -53,7 +53,7 @@ fn idea(call: &PromptCall<'_>) -> String {
 
 fn name(call: &PromptCall<'_>) -> String {
     match call.str("name").filter(|n| !n.is_empty()) {
-        Some(_) => "\n\nThe text after `--name` is the milestone name (upstream's free-text argument); \
+        Some(_) => "\n\nThe words that stand without an option are the milestone name (upstream's free-text argument); \
                     `--ws` names a workstream and `--reset-phase-numbers` restarts phase numbering at 1.\n"
             .to_string(),
         None => String::new(),
@@ -74,6 +74,8 @@ static NEW_PROJECT: Spec = Spec {
         tools: &["read", "shell", "search", "write", "agent", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: Some(idea),
 };
 
@@ -87,10 +89,12 @@ static NEW_MILESTONE: Spec = Spec {
     gates: &[],
     steps: STEPS,
     slash: Some(Slash {
-        hint: "[--name \"...\"] [--ws <name>] [--reset-phase-numbers]",
+        hint: "[milestone name, e.g., 'v1.1 Notifications'] [--ws <name>] [--reset-phase-numbers]",
         tools: &["read", "write", "shell", "search", "agent", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: Some(name),
 };
 

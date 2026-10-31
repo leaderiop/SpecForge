@@ -25,7 +25,7 @@ const PHASE_STEPS: &[Step] = &[
     },
     Step {
         id: "verify",
-        title: "Verify the phase goal (gsd-verifier)",
+        title: "Verify the phase goal",
         does: Do::Agent("gsd-verifier"),
     },
     Step {
@@ -53,7 +53,7 @@ const PLAN_STEPS: &[Step] = &[
     },
     Step {
         id: "execute",
-        title: "Execute the plan's tasks (gsd-executor)",
+        title: "Execute the plan's tasks",
         does: Do::Agent("gsd-executor"),
     },
     Step {
@@ -96,6 +96,8 @@ static EXECUTE_PLAN: Spec = Spec {
     gates: GATES,
     steps: PLAN_STEPS,
     slash: None,
+    reads_state: false,
+    reads_slash_commands: false,
     tail: Some(sequential),
 };
 
@@ -115,6 +117,8 @@ static EXECUTE_PHASE: Spec = Spec {
         ],
         effort: Some("max"),
     }),
+    reads_state: false,
+    reads_slash_commands: false,
     tail: Some(sequential),
 };
 

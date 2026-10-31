@@ -168,6 +168,7 @@ pub fn command_document(
         command,
         given.as_object().expect("args are an object"),
         specforge_ops::extension::command::CommandFormat::Json,
+        None,
     )
     .unwrap_or_else(|e| panic!("{short} {id} refused: {e:?}"));
     (output.exit_code, parse(&output.stdout))

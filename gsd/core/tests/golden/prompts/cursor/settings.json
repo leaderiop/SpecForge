@@ -61,7 +61,7 @@
     "- `workflow.plan_check` — spawn plan checker during plan-phase",
     "- `workflow.verifier` — spawn verifier during execute-phase"
   ],
-  "bytes": 46172,
+  "bytes": 46212,
   "end": [
     "These settings apply to future /gsd-plan-phase and /gsd-execute-phase runs.",
     "",
@@ -157,8 +157,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:afbac0e3c0906f4e58ef1e7c9fd69e8b47d33649c44847ab6128e0148d59743f",
+    "digest": "sha256:1149115e10fa49b75543bd5800ab753823b986b0f619f24407ea06186f391680",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "afbac0e3c0906f4e58ef1e7c9fd69e8b47d33649c44847ab6128e0148d59743f"
+  "sha256": "1149115e10fa49b75543bd5800ab753823b986b0f619f24407ea06186f391680"
 }

@@ -14,7 +14,7 @@ Use /gsd:quick for anything that needs multi-step planning or research.
 <process>
 
 <step name="parse_task">
-Parse `$ARGUMENTS` for the task description: the value of `--task "<text>"` (any other text counts too).
+Parse `$ARGUMENTS` for the task description.
 
 If empty, ask:
 ```

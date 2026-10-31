@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 47315,
+  "bytes": 47355,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -138,8 +138,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:0af57884e0c1cea5dd13a3e6e82c9dc58c94f3b3f814eaf4b2e3bcc818f879e3",
+    "digest": "sha256:f846e20ef27c7ab05110528c8bbc9e4a1386e447bb61c86d391533592f1674fd",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "0af57884e0c1cea5dd13a3e6e82c9dc58c94f3b3f814eaf4b2e3bcc818f879e3"
+  "sha256": "f846e20ef27c7ab05110528c8bbc9e4a1386e447bb61c86d391533592f1674fd"
 }

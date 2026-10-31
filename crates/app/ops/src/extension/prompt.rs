@@ -13,7 +13,8 @@ use serde_json::Value;
 use specforge_package::Sha256;
 use specforge_protocol_types::command_args::option_name;
 use specforge_protocol_types::{
-    Attribution, PromptDescriptor, PromptInput, PromptMessage, PromptStep, RawGraph,
+    Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptStep,
+    RawGraph,
 };
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 
@@ -82,15 +83,14 @@ pub struct ExtensionPrompts {
 impl ExtensionPrompts {
     /// The prompts `view`'s registry build routes whose `when` setting is not false, in its order.
     pub fn build(view: &ProjectView<'_>) -> Self {
-        let served = |extension: &str, when: &Option<String>| {
-            let Some(setting) = when else {
-                return true;
-            };
-            let value = view
-                .runtime()
-                .and_then(|r| r.settings_of(extension))
-                .and_then(|s| s.values.get(setting).cloned());
-            value != Some(Value::Bool(false))
+        let served = |extension: &str, when: &[String]| {
+            when.iter().all(|setting| {
+                let value = view
+                    .runtime()
+                    .and_then(|r| r.settings_of(extension))
+                    .and_then(|s| s.values.get(setting).cloned());
+                value != Some(Value::Bool(false))
+            })
         };
         ExtensionPrompts {
             prompts: view
@@ -130,6 +130,10 @@ impl ExtensionPrompts {
 pub struct RenderedStep {
     pub id: String,
     pub title: String,
+    /// The agent that does the step, as an installed agent file names it (ADR 0313); none when the step names none or
+    /// the registry dropped it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<String>,
     /// The MCP tool a command step runs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool: Option<String>,
@@ -200,9 +204,11 @@ impl From<OpError> for RenderError {
 }
 
 /// Render `prompt` over the project `view` describes, for `host`, with the arguments `given`. In order: the
-/// arguments are read and admitted; the entry gate is evaluated in the subject's scope (a failing gate is
-/// [`RenderError::Gate`], and the export is not called); the export is called with the typed arguments, the project
-/// root, today, the host and, if the prompt reads it, the graph; the payload is built from the answer.
+/// arguments are read and admitted; when the prompt's optional subject is absent the export is called first, to pick
+/// it (ADR 0314); the entry gate is evaluated in the subject's scope (a failing gate is [`RenderError::Gate`], and a
+/// given subject's export is not called); the export is called with the typed arguments, the project root, today, the
+/// host and, if the prompt reads them, the graph, its extension's state and the served slash commands; the payload
+/// is built from the answer.
 pub fn render(
     view: &ProjectView<'_>,
     prompt: &ExtensionPrompt,
@@ -211,13 +217,69 @@ pub fn render(
 ) -> Result<RenderedPrompt, RenderError> {
     let declared = &prompt.declaration;
     let root = view.project_root().map_err(RenderError::from)?;
-    let args = args::read(view, &declared.args, given)?;
-    let subject = declared
+    let args = args::read(view, &declared.args, declared.subject.as_deref(), given)?;
+    let mut subject = declared
         .subject
         .as_ref()
         .and_then(|name| args.get(name))
         .and_then(Value::as_str)
         .map(str::to_string);
+    let input = PromptInput::<RawGraph> {
+        args,
+        cwd: canonical(root).display().to_string(),
+        today: today(),
+        graph: declared.reads_graph.then(|| {
+            RawGraph::new(graph_export(view)).expect("the graph export is one JSON value")
+        }),
+        host: host.map(|h| h.as_str().to_string()),
+        state: declared
+            .reads_state
+            .then(|| crate::host::state::read(view, &prompt.extension, None)),
+        slash_commands: if declared.reads_slash_commands {
+            crate::host::render::served_slashes(view)
+        } else {
+            Vec::new()
+        },
+    };
+    let call = || {
+        let Some(runtime) = view.runtime() else {
+            return Err(RenderError::Call(CallError::new(
+                Operation::Prompt,
+                &prompt.extension,
+                &declared.export,
+                CallFailure::NotLoaded,
+            )));
+        };
+        ExtensionCalls::new(runtime.as_ref())
+            .render_prompt(&prompt.extension, &declared.export, &input)
+            .map_err(RenderError::Call)
+    };
+    // An optional subject the caller left out is picked by the export, which is therefore called before the gate
+    // (ADR 0314); a given subject is gated first.
+    let mut answered = None;
+    if subject.is_none()
+        && let Some(arg) = declared
+            .subject
+            .as_ref()
+            .and_then(|name| declared.args.iter().find(|a| a.name == *name))
+    {
+        let output = call()?;
+        if let Some(picked) = &output.subject {
+            picked_subject(view, arg, picked).map_err(|reason| {
+                RenderError::Call(CallError::new(
+                    Operation::Prompt,
+                    &prompt.extension,
+                    &declared.export,
+                    CallFailure::Malformed {
+                        expected: "PromptOutput",
+                        reason,
+                    },
+                ))
+            })?;
+            subject = Some(picked.clone());
+        }
+        answered = Some(output);
+    }
     if !declared.gates.is_empty() {
         let states = Gate {
             extension: &prompt.extension,
@@ -233,35 +295,16 @@ pub fn render(
             ))));
         }
     }
-    let input = PromptInput::<RawGraph> {
-        args,
-        cwd: canonical(root).display().to_string(),
-        today: today(),
-        graph: declared.reads_graph.then(|| {
-            RawGraph::new(graph_export(view)).expect("the graph export is one JSON value")
-        }),
-        host: host.map(|h| h.as_str().to_string()),
-        state: declared
-            .reads_state
-            .then(|| crate::host::state::read(view, &prompt.extension, None)),
+    let output = match answered {
+        Some(output) => output,
+        None => call()?,
     };
-    let Some(runtime) = view.runtime() else {
-        return Err(RenderError::Call(CallError::new(
-            Operation::Prompt,
-            &prompt.extension,
-            &declared.export,
-            CallFailure::NotLoaded,
-        )));
-    };
-    let output = ExtensionCalls::new(runtime.as_ref())
-        .render_prompt(&prompt.extension, &declared.export, &input)
-        .map_err(RenderError::Call)?;
     let texts: String = output.messages.iter().map(|m| m.text.as_str()).collect();
     let payload = ExtensionPromptPayload {
         prompt: prompt.qualified(),
         digest: format!("sha256:{}", Sha256::of(texts.as_bytes())),
         attribution: declared.attribution.clone(),
-        steps: steps(view, prompt, subject.as_deref()),
+        steps: steps(view, prompt, subject.as_deref(), host),
         judged: judged::of(view, prompt),
         subject,
     };
@@ -271,11 +314,34 @@ pub fn render(
     })
 }
 
+/// Whether `path` is the full path of an entity of one of the kinds the subject argument `arg` names.
+fn picked_subject(
+    view: &ProjectView<'_>,
+    arg: &PromptArgDescriptor,
+    path: &str,
+) -> Result<(), String> {
+    let kind = view.graph().node(path).map(|n| n.kind.raw.to_string());
+    let kinds: Vec<&str> = arg
+        .target_kind
+        .iter()
+        .flat_map(|k| k.split('|').map(str::trim))
+        .collect();
+    match kind {
+        Some(kind) if kinds.contains(&kind.as_str()) => Ok(()),
+        Some(kind) => Err(format!(
+            "its subject '{path}' is a {kind}, not a {}",
+            kinds.join(" or ")
+        )),
+        None => Err(format!("its subject '{path}' is no entity of the project")),
+    }
+}
+
 /// `prompt`'s steps with each command step's gate evaluated now.
 fn steps(
     view: &ProjectView<'_>,
     prompt: &ExtensionPrompt,
     subject: Option<&str>,
+    host: Option<Host>,
 ) -> Vec<RenderedStep> {
     let commands = ExtensionCommands::build(view.registries());
     let prompts = ExtensionPrompts::build(view);
@@ -283,7 +349,7 @@ fn steps(
         .declaration
         .steps
         .iter()
-        .map(|step| rendered(view, (&commands, &prompts), prompt, step, subject))
+        .map(|step| rendered(view, (&commands, &prompts), prompt, step, (subject, host)))
         .collect()
 }
 
@@ -292,11 +358,16 @@ fn rendered(
     (commands, prompts): (&ExtensionCommands, &ExtensionPrompts),
     prompt: &ExtensionPrompt,
     step: &PromptStep,
-    subject: Option<&str>,
+    (subject, host): (Option<&str>, Option<Host>),
 ) -> RenderedStep {
     let mut out = RenderedStep {
         id: step.id.clone(),
         title: step.title.clone(),
+        // `<peer>:<id>` names an agent of a peer; the installed file carries the bare id.
+        agent: step
+            .agent
+            .as_deref()
+            .map(|a| a.split_once(':').map_or(a, |(_, id)| id).to_string()),
         tool: None,
         cli: None,
         prompt: None,
@@ -320,11 +391,11 @@ fn rendered(
             .find(|c| c.id() == id && owned(c.extension(), c.short()));
         if let Some(command) = found {
             out.tool = Some(command.tool_name());
-            out.cli = Some(format!(
-                "specforge {} {}",
-                command.short(),
-                command.cli_name()
-            ));
+            // The host's own spelling of the next command, as the trampoline's fallback line asks for it (ADR 0318).
+            let name = command.cli_name();
+            let mut line = vec!["specforge", command.short(), name.as_str()];
+            line.extend(host.iter().flat_map(|h| ["--host", h.as_str()]));
+            out.cli = Some(line.join(" "));
             out.gate = Some(command_gate(view, command, subject));
         }
     } else if let Some(sub) = prompts

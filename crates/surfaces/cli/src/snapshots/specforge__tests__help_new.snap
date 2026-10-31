@@ -23,6 +23,9 @@ Options:
       --in <FILE>
           The file, relative to the project root; created when missing
 
+      --field <NAME=VALUE>
+          Any field of the kind, by name: `--field path=src/a.rs`; the way to set one named like an option; repeat for several
+
       --verify <KIND:TEXT>
           A `verify` obligation: `kind:text` when the kind is one of the new kind's verify kinds, else the whole text; repeat for several
 

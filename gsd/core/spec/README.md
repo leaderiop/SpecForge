@@ -198,21 +198,14 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). K20a is built (protocol 1.12.0): the six answer commands are a person's, a verdict is trusted against its tests and files, and install and uninstall are safe. What still waits for kernel work (K20b, K20c):
+`previous_score` and compares scan states (r39 T13 is built). K20a and K20b are built (protocol 1.13.0): the six answer commands are a person's, a verdict is trusted against its tests and files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). What still waits for kernel work (K20c):
 
-- **A command or prompt cannot read its extension's state (K20).** The host sends `state` to a `reads_state` command or
-  prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So
-  `/gsd-workstreams status` cannot name the active workstream and `--ws` is text. The fix is an SDK change, so a re-vendor.
-- **A rendered step has no agent field (K20)**: the step's title carries the agent. **There is no free-text tail for a
-  prompt's arguments (K20)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
-  (K20)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
-- **The lifecycle prompts (r42) leave three kernel items (K20).** The claude-code skill writer does not write a skill's
-  `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested. A prompt's
-  subject is required, so `/gsd-plan-phase` without a phase is refused where upstream picks the next one (`/gsd-next`
-  is r43's). A reference is the id as written, so `3` and `03` are different spellings of the same phase.
-- **A command's answer is not host-converted (K20).** `smart_entry` names the next actions as `/gsd-x`, `$gsd-x` for
-  codex, so it takes upstream's own `--runtime` option; a prompt that runs it says which host it is rendered for. It
-  never says `idle-stranded`: a command runs no git, so the dirty, unpushed and stale signals are false. A phase's
+- **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
+  status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
+  text.
+- **A skill's `effort` is declared, not installed.** `/gsd-plan-phase` and `/gsd-execute-phase` declare `max`, and Claude
+  Code leaves it out of the installed skill as upstream does (#3151); only the declaration is tested.
+- **`smart_entry` never says `idle-stranded`**: a command runs no git, so the dirty, unpushed and stale signals are false. A phase's
   computed `status` stands for STATE.md's words (`planning`, `executing`, `verifying`, `milestone complete`), and
   a milestone's phase counts are the roadmap's.
 - **The hooks wait for five host items (K20)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
@@ -224,14 +217,9 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`specforge <ext> help <cmd>` is gone for every extension.** T17 turned off clap's `help` subcommand on an
   extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
   `specforge gsd help` lists the commands.
-- **A slash command's `when` takes one setting (K20).** A skill in two clusters follows its first, so disabling
-  `utility` leaves `/gsd-help` (also `core_loop`) shown.
-- **A JSON number for a top-level integer plan op**: gsd writes the decimal text (`collectors/git.rs`).
-- **`collect` re-keys short ids**: `gsd-junit` resolves `[gsd:<id>]` itself.
-- **The SDK exports `TriggerKind`**: `gates.rs` reads the kind by name.
 - **What stays after K17.** `cited` defaults to `[]` and code files are not E501 inputs, so a verdict that cites no file
   never goes stale on a code change; `check` is red from planning on, since gsd/E501 is an Error from the first planned
-  truth until it is verified; an agent cannot create an artifact through the CLI (`--path` is the CLI's own option); and
+  truth until it is verified; and
   the kernel reports `(0 findings)` in every judged message (it counts a list of values, not of blocks). `gsd/E502`
   counts the tests recorded for a truth (its `[gsd:<id>]` link), not the tests a verdict cites: a pass is not sent
   `cited_tests`.

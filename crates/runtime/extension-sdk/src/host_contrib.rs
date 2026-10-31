@@ -79,9 +79,9 @@ impl AgentBuilder {
         self.0.variant_setting = Some(setting.to_string());
         self
     }
-    /// The agent is rendered while the bool setting `setting` is not false.
+    /// The agent is rendered while the bool setting `setting` is not false. Each call adds a setting; all must be on.
     pub fn when(&mut self, setting: &str) -> &mut Self {
-        self.0.when = Some(setting.to_string());
+        self.0.when.push(setting.to_string());
         self
     }
     pub fn attribution(&mut self, attribution: Attribution) -> &mut Self {
@@ -107,7 +107,7 @@ impl SkillBuilder {
         self
     }
     pub fn when(&mut self, setting: &str) -> &mut Self {
-        self.0.when = Some(setting.to_string());
+        self.0.when.push(setting.to_string());
         self
     }
     pub fn attribution(&mut self, attribution: Attribution) -> &mut Self {
@@ -133,7 +133,7 @@ impl SlashBuilder {
         self
     }
     pub fn when(&mut self, setting: &str) -> &mut Self {
-        self.0.when = Some(setting.to_string());
+        self.0.when.push(setting.to_string());
         self
     }
     pub fn attribution(&mut self, attribution: Attribution) -> &mut Self {
@@ -234,7 +234,7 @@ impl HookBuilder {
         self
     }
     pub fn when(&mut self, setting: &str) -> &mut Self {
-        self.descriptor.when = Some(setting.to_string());
+        self.descriptor.when.push(setting.to_string());
         self
     }
     /// The function that answers the event.

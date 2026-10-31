@@ -215,6 +215,7 @@ behavior load_extension_settings "Load Extension Settings" {
   verify integration "settings set writes a value its setting's form admits and leaves the rest of specforge.json as it was"
   verify integration "settings set refuses a secret, an unknown setting and a value the form refuses before it writes"
   verify integration "settings unset removes the member and an interrupted set is rolled back"
+  verify unit "the SDK reads a number setting as a decimal, a whole number included"
 }
 
 behavior load_extension_declaration "Load Extension Declaration" {

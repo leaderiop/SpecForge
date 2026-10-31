@@ -18,6 +18,11 @@ const KINDS: &[&str] = &[
     "deviation",
 ];
 
+/// The window's `line` as the plan op's value: a JSON number, which the host reads for an integer field (ADR 0311).
+fn line_value(line: Option<usize>) -> Value {
+    line.map_or(Value::Null, |n| json!(n))
+}
+
 /// `record_window <kind> <phase> <description> [--file] [--line] [--refactor]`: a window, `BWn` in the project.
 fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let kind = required(call, "kind")?;
@@ -30,8 +35,7 @@ fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .transpose()?;
     let at = now(call)?;
     let name = next_id(call.graph(), "broken_window", "", "BW");
-    // Integers go as decimal text: the host's plan op reads a top-level integer from text.
-    let line = call.count("line").map(|n| json!(n.to_string()));
+    let line = line_value(call.count("line"));
     let mut plan = call.plan();
     plan.create(
         "broken_window",
@@ -43,7 +47,7 @@ fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             ("phase", json!(phase.id)),
             ("description", json!(description)),
             ("file", file.map_or(Value::Null, |f| json!(f))),
-            ("line", line.unwrap_or(Value::Null)),
+            ("line", line),
             ("refactor", proposal.map_or(Value::Null, |r| json!(r.id))),
             ("recorded_at", json!(at)),
         ]),
@@ -174,4 +178,17 @@ pub fn declare(c: &mut ContributionsBuilder) {
         })
         .handler(|call| run(call, fix));
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::line_value;
+    use serde_json::{Value, json};
+
+    #[test]
+    fn record_window_writes_its_line_as_a_number() {
+        assert_eq!(line_value(Some(7)), json!(7));
+        assert!(line_value(Some(7)).is_number());
+        assert_eq!(line_value(None), Value::Null);
+    }
 }

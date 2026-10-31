@@ -29,8 +29,11 @@ use assets::{NOT_EMBEDDED, Why};
 use gsd_core::agents::roster::AGENTS;
 use gsd_core::hooks::roster::HOOK_ROSTER;
 use gsd_core::prompts::asset_paths as paths;
-use gsd_core::prompts::roster::{Owner, ROSTER};
 use modules::{MODULES, Module};
+use roster::{Owner, ROSTER};
+
+#[path = "common/roster.rs"]
+mod roster;
 use serde_json::Value;
 
 const MANIFEST: &str = include_str!("../../parity/upstream/v1.18.0/INVENTORY-MANIFEST.json");
@@ -472,6 +475,25 @@ fn the_acceptance_counts_match() {
     assert_eq!(accept::gate_cutover(), [171, 92, 51, 14, 14]);
     assert_eq!(accept::codes(), [63, 63, 0, 0, 0]);
     assert_eq!(accept::config_keys()[0], 211);
+}
+
+/// REVIEW-k20b m5: each family's "Where" file in ACCEPTANCE.md exists.
+#[test]
+fn each_acceptance_where_path_exists() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut checked = 0;
+    for line in ACCEPTANCE
+        .lines()
+        .skip_while(|l| !l.starts_with("| Family | Total"))
+        .skip(2)
+        .take_while(|l| l.starts_with('|'))
+    {
+        let where_ = line.split('|').nth(7).unwrap_or_default();
+        let path = where_.split('`').nth(1).expect("a `path` in Where");
+        assert!(root.join(path).is_file(), "{path}: no such file");
+        checked += 1;
+    }
+    assert_eq!(checked, 9);
 }
 
 #[test]

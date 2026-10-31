@@ -1,9 +1,11 @@
 //! The 72 commands of gsd-core v1.18.0 and who serves each (D-r43-14): the table "Who owns each of upstream's 72
-//! commands" as code. A rendered text may name a `/gsd-<x>` only when `x` is a row here, the routers' route table
-//! says which rows this install serves, and `tests/roster.rs` checks the rows against the vendored `commands.json`
-//! and the README's Commands table.
+//! commands" as code. A rendered text may name a `/gsd-<x>` only when `x` is a row here, and `tests/roster.rs` checks
+//! the rows against the vendored `commands.json` and the README's Commands table. The routers and `/gsd-next` read the
+//! slash commands the project serves, not this table (ADR 0316).
 //!
 //! Also ports gsd-core bin/lib modules: command-roster.cjs.
+
+#![allow(dead_code, reason = "each test binary uses some of it")]
 
 /// Who serves an upstream command.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,17 +106,4 @@ pub static ROSTER: &[(&str, Owner)] = &[
 /// The owner of the upstream command `stem` (`plan-phase`).
 pub fn owner(stem: &str) -> Option<Owner> {
     ROSTER.iter().find(|(n, _)| *n == stem).map(|(_, o)| *o)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Owner, owner};
-
-    #[test]
-    fn a_core_command_and_an_extension_command_are_told_apart() {
-        assert_eq!(owner("phase"), Some(Owner::CoreCommand));
-        assert_eq!(owner("debug"), Some(Owner::Extension("@gsd/ops")));
-        assert!(owner("plan-phase").is_some_and(Owner::is_core));
-        assert_eq!(owner("no-such-command"), None);
-    }
 }

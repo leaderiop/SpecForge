@@ -7,6 +7,7 @@ use super::{
 };
 use crate::authoring::edit::Edited;
 use crate::extension::command::{CommandFormat, ExtensionCommand, RunError, called, settle};
+use crate::host::Host;
 use crate::view::ProjectView;
 use crate::{Caller, OpError, OpErrorKind};
 use serde_json::{Map, Value};
@@ -39,11 +40,16 @@ pub struct CommandRun {
 /// Run `command` over the project `view` describes ([`run`]) and apply the plan it answered, unless `dry_run`. A plan
 /// from a command that does not declare `writes` is refused (`undeclared_write`), and one from a call that failed
 /// is not applied.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the command, its inputs, the calling host, how it is applied and who applies it are each one thing"
+)]
 pub fn execute(
     view: &ProjectView<'_>,
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
+    host: Option<Host>,
     dry_run: bool,
     caller: Caller<'_>,
     surface: Surface,
@@ -54,6 +60,7 @@ pub fn execute(
         command,
         given,
         format,
+        host,
         dry_run,
         caller,
         surface,
@@ -72,6 +79,7 @@ pub fn execute_with(
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
+    host: Option<Host>,
     dry_run: bool,
     caller: Caller<'_>,
     surface: Surface,
@@ -95,7 +103,7 @@ pub fn execute_with(
         ));
         return Err(RunError::Gate(Box::new(refused)));
     }
-    let mut output = called(view, command, given, format)?;
+    let mut output = called(view, command, given, format, host)?;
     let Some(plan) = &output.plan else {
         let state_refused = if dry_run {
             None

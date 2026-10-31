@@ -51,8 +51,8 @@ fn add_tests_renders_for_three_hosts() {
     render_three_hosts(
         &p,
         "add_tests",
-        &[PHASE, "--instructions", "cover the empty list"],
-        "01 --instructions \"cover the empty list\"",
+        &[PHASE, "cover", "the", "empty", "list"],
+        "01 cover the empty list",
         "<objective>",
     );
 }

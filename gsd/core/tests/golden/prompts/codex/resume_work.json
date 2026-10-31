@@ -61,10 +61,8 @@
     "",
     "<step name=\"load_state\">"
   ],
-  "bytes": 28964,
+  "bytes": 29030,
   "end": [
-    "",
-    "",
     "",
     "",
     "",
@@ -102,7 +100,9 @@
     "",
     "",
     "",
-    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
+    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
+    "",
+    "No workstream is active."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 683,
+  "lines": 685,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,11 +195,11 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:51429edbac94d907313ec3dfd091d6265b810944edf6ca2f96ff1d8df1ecc397",
+    "digest": "sha256:022eb39d1ad5ca015deff8bcd2b4d4cad3c018963e7ec6da453fb24020942747",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
-        "cli": "specforge gsd resume",
+        "cli": "specforge gsd resume --host codex",
         "gate": [],
         "id": "resume",
         "title": "Remove the pause and its handoff once the work is resumed (specforge gsd resume <pause>)",
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "51429edbac94d907313ec3dfd091d6265b810944edf6ca2f96ff1d8df1ecc397"
+  "sha256": "022eb39d1ad5ca015deff8bcd2b4d4cad3c018963e7ec6da453fb24020942747"
 }

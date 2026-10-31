@@ -22,20 +22,36 @@ fn project(goal: &str, state: &str) -> TestProject {
     project
 }
 
+/// The fixture, with the prompt `ingest`: its own `path` (the tail) and `format` arguments.
+fn fixture() -> GsdPrompts {
+    GsdPrompts::new().prompting(serde_json::json!({
+        "id": "ingest", "title": "Ingest", "description": "Ingest documents", "export": "prompt__ingest",
+        "args": [
+            {"name": "path", "field_type": "string", "rest": true},
+            {"name": "format", "field_type": "enum", "enum_values": ["md", "txt"]},
+        ],
+    }))
+}
+
 /// `specforge <ext> <rest…>` over `project`: its exit code, stdout and stderr.
 fn extension(project: &TestProject, ext: &str, rest: &[&str]) -> (i32, String, String) {
-    let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
-    let env = project.environment_in(runtime);
-    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
     let mut rest: Vec<String> = rest.iter().map(ToString::to_string).collect();
     rest.extend(["--path".to_string(), project.root().display().to_string()]);
+    extension_here(project, ext, rest)
+}
+
+/// [`extension`] with the project as the current directory: the command line names no `--path` of its own.
+fn extension_here(project: &TestProject, ext: &str, rest: Vec<String>) -> (i32, String, String) {
+    let runtime: SharedRuntime = Arc::new(fixture().runtime());
+    let env = project.environment_in(runtime);
+    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
     let code = run_in(env, &project.project_root(), ext, rest, &[], &terminal);
     (code, capture.stdout(), capture.stderr())
 }
 
 /// `specforge prompt <rest…>` over `project`: its exit code, stdout and stderr.
 fn prompt(project: &TestProject, rest: &[&str]) -> (i32, String, String) {
-    let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
+    let runtime: SharedRuntime = Arc::new(fixture().runtime());
     let compiled = CompiledProject::of(project.environment_in(runtime));
     let (terminal, capture) = Terminal::captured("", Facts::PIPED);
     let mut words: Vec<String> = rest.iter().map(ToString::to_string).collect();
@@ -205,4 +221,169 @@ fn specforge_prompt_refuses_what_it_cannot_render() {
             "{words:?}: {out} {err}"
         );
     }
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt's own path and format arguments reach it on the command line"
+)]
+fn a_prompts_own_path_and_format_reach_it() {
+    let ok = project("fine", "ok");
+    // After the host's `--` every word is the prompt's.
+    let (code, out, err) = prompt(
+        &ok,
+        &["t.ingest", "--", "--path", "docs/adr", "--format", "md"],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("\"path\":\"docs/adr\""), "{out}");
+    assert!(out.contains("\"format\":\"md\""), "{out}");
+
+    let words = |list: &[&str]| list.iter().map(ToString::to_string).collect::<Vec<_>>();
+    let (code, out, err) = extension_here(&ok, "t", words(&["ingest", "docs/adr"]));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("\"path\":\"docs/adr\""), "{out}");
+    // `--format md` after the `--` is the prompt's: the output stays human, not JSON.
+    let (code, out, err) = extension_here(&ok, "t", words(&["ingest", "--", "--format", "md"]));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.starts_with("prompt__ingest "), "{out}");
+    // Before it, `--format` is the host's.
+    let (code, _, err) = extension_here(&ok, "t", words(&["ingest", "--format", "md"]));
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("unknown format 'md'"), "{err}");
+}
+
+/// `specforge prompt <line…>` as clap reads it: the words the renderer is given, and the project it names.
+fn fallback(line: &[&str]) -> (Vec<String>, String) {
+    use clap::Parser;
+    #[derive(clap::Parser)]
+    struct Line {
+        #[command(flatten)]
+        args: crate::prompt::Args,
+    }
+    let parsed = Line::try_parse_from(std::iter::once("prompt").chain(line.iter().copied()))
+        .unwrap_or_else(|e| panic!("{line:?}: {e}"));
+    let words = parsed.args.words();
+    let path = parsed.args.project_of(&words).path().display().to_string();
+    (words, path)
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "the host reads its options before the first double dash only"
+)]
+fn the_host_reads_its_options_before_double_dash_only() {
+    let ok = project("fine", "ok");
+    let (code, _, err) = prompt(&ok, &["t.plan_phase", "03", "--", "--host", "codex"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        err.contains("no such option") || err.contains("no positional argument takes this word"),
+        "{err}"
+    );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "the fallback line an install writes leaves the host's options in the text to the prompt"
+)]
+fn the_fallback_line_leaves_host_options_in_the_text_to_the_prompt() {
+    let ok = project("fine", "ok");
+    // The line a skill writes: `--host`, then `--`, then the user's text. Clap drops a leading `--`; it is put back.
+    let (words, path) = fallback(&[
+        "t.ingest",
+        "--host",
+        "claude-code",
+        "--",
+        "docs",
+        "--",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(path, ".");
+    let (code, out, err) = prompt(&ok, &named("t.ingest", &words));
+    assert_eq!(code, 0, "{err}");
+    // Human output, the text a tail: the second `--` is the prompt's boundary.
+    assert!(out.starts_with("prompt__ingest "), "{out}");
+    assert!(out.contains("\"path\":\"docs --format json\""), "{out}");
+
+    // A prompt flag before the second `--` still works.
+    let (words, _) = fallback(&["t.plan_phase", "--host", "codex", "--", "--research", "03"]);
+    let (code, out, err) = prompt(&ok, &named("t.plan_phase", &words));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("\"research\":true"), "{out}");
+
+    // Without the second `--` a host option in the text is the prompt's to refuse: no JSON, no other project.
+    let (words, path) = fallback(&[
+        "t.plan_phase",
+        "--host",
+        "codex",
+        "--",
+        "03",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(path, ".");
+    let (code, out, err) = prompt(&ok, &named("t.plan_phase", &words));
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        out.is_empty() && err.contains("no such option"),
+        "{out}{err}"
+    );
+}
+
+/// `name` and the `words` clap handed the renderer, as [`prompt`] takes them.
+fn named<'a>(name: &'a str, words: &'a [String]) -> Vec<&'a str> {
+    std::iter::once(name)
+        .chain(words.iter().map(String::as_str))
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a path in the prompt's text never moves the project, and a leading path names it"
+)]
+fn a_path_in_the_text_never_moves_the_project() {
+    let (_, path) = fallback(&[
+        "t.plan_phase",
+        "--host",
+        "claude-code",
+        "--",
+        "03",
+        "--path",
+        "/etc",
+    ]);
+    assert_eq!(path, ".");
+    // Before the `--` it is the host's, wherever it stands.
+    let (_, path) = fallback(&["t.plan_phase", "03", "--path", "/other", "--", "--research"]);
+    assert_eq!(path, "/other");
+    // A leading `--path` names the project and is not handed to the prompt (REVIEW-k20b m1).
+    let (words, path) = fallback(&["--path", "/other", "t.ingest"]);
+    assert_eq!(path, "/other");
+    assert!(!words.iter().any(|w| w == "--path"), "{words:?}");
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "the host option reaches a command on the command line, and a host that is none is refused"
+)]
+fn the_host_option_reaches_a_command() {
+    let p = project("fine", "fine");
+    let (code, out, err) = extension(&p, "t", &["record-plan", "03", "--host", "codex"]);
+    assert_eq!((code, out.contains("host codex")), (0, true), "{out}{err}");
+    let (code, out, _) = extension(&p, "t", &["record-plan", "03"]);
+    assert_eq!((code, out.contains("host ")), (0, false), "{out}");
+    let (code, _, err) = extension(&p, "t", &["record-plan", "03", "--host", "vim"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("vim"), "{err}");
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "a command that declares a host argument keeps it as its own and is not told the calling host"
+)]
+fn a_command_declaring_host_keeps_its_own_argument() {
+    let p = project("fine", "fine");
+    let (code, out, err) = extension(&p, "t", &["name-host", "--host", "codex"]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("\"host\":\"codex\""), "its own arg: {out}");
+    assert!(!out.contains("\nhost "), "not told the calling host: {out}");
 }
