@@ -135,6 +135,96 @@ fn the_recording_section_matches_k17() {
     assert!(text.contains("replaces an earlier pass"), "{text}");
 }
 
+/// Plan 03 (F9) V8: the `node` lines a shell block keeps, as `(asset, trimmed line)`. Each runs the user's own
+/// JavaScript project, where node is that project's runtime and the prompt's reader is not SpecForge.
+const KEEP: &[(&str, &str)] = &[
+    // the user's dev server (`npm run dev` above it): its readiness probe, as upstream wrote it
+    (
+        "gsd-core/references/checkpoints.md",
+        r#"for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done"#,
+    ),
+    // loads a module of the user's project to check what it exports
+    (
+        "agents/gsd-verifier.md",
+        r#"node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function""#,
+    ),
+];
+
+/// Assets whose `node` lines plan 03 has not rewritten yet: a listed asset may keep them, and a listed asset with none
+/// left fails, so the list cannot go stale.
+const PENDING_NODE: &[&str] = &[
+    "agents/gsd-verifier.md",
+    "gsd-core/references/dispatch-isolation-gate.md",
+    "gsd-core/references/specless-probe-fallback.md",
+    "gsd-core/workflows/autonomous.md",
+    "gsd-core/workflows/complete-milestone.md",
+    "gsd-core/workflows/execute-phase.md",
+    "gsd-core/workflows/execute-phase/steps/code-review-disposition.md",
+    "gsd-core/workflows/execute-phase/steps/completion-reconciliation.md",
+    "gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md",
+    "gsd-core/workflows/execute-plan.md",
+    "gsd-core/workflows/new-milestone.md",
+    "gsd-core/workflows/plan-phase.md",
+    "gsd-core/workflows/pr-branch.md",
+    "gsd-core/workflows/quick-batch/steps/batch-init.md",
+    "gsd-core/workflows/quick-batch/steps/planner-wave.md",
+    "gsd-core/workflows/quick-batch/steps/research-phase.md",
+    "gsd-core/workflows/quick-batch/steps/resume-mode.md",
+    "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+    "gsd-core/workflows/quick.md",
+    "gsd-core/workflows/review.md",
+    "gsd-core/workflows/ship.md",
+    "gsd-core/workflows/spec-phase.md",
+];
+
+/// Plan 03 (F9): a shell block reads SpecForge's JSON (and its own state files) with `jq`, never `node -e` / `node -p`:
+/// a project that uses SpecForge may have no node at all. Only code counts: a line inside a fence that is not a `#`
+/// comment. Prose about a node script is not code.
+#[test]
+fn a_shell_block_reads_json_with_jq_never_node() {
+    let mut found = Vec::new();
+    let mut kept = vec![0; KEEP.len()];
+    let mut pending = vec![false; PENDING_NODE.len()];
+    for (path, lines, _) in every_asset() {
+        let mut fenced = false;
+        for (n, line) in lines.iter().enumerate() {
+            let code = line.trim();
+            if code.starts_with("```") {
+                fenced = !fenced;
+                continue;
+            }
+            if !fenced
+                || code.starts_with('#')
+                || !(code.contains("node -e") || code.contains("node -p"))
+            {
+                continue;
+            }
+            if let Some(k) = KEEP.iter().position(|(p, l)| *p == path && *l == code) {
+                kept[k] += 1;
+            } else if let Some(p) = PENDING_NODE.iter().position(|p| *p == path) {
+                pending[p] = true;
+            } else {
+                // the asset's line number: its line 1 is the attribution header
+                found.push(format!("{path}:{}: {code}", n + 2));
+            }
+        }
+    }
+    assert!(
+        found.is_empty(),
+        "node reads in shell blocks:\n{}",
+        found.join("\n")
+    );
+    for ((path, line), count) in KEEP.iter().zip(&kept) {
+        assert_eq!(*count, 1, "KEEP ({path}, {line}) matches {count} lines");
+    }
+    for (path, has) in PENDING_NODE.iter().zip(&pending) {
+        assert!(
+            has,
+            "{path} is in PENDING_NODE but has no node line left: take it off the list"
+        );
+    }
+}
+
 /// One declared command as `(name, positionals in order, options and flags with their kind)`.
 struct Shape {
     positionals: Vec<String>,
