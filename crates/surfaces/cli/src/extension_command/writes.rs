@@ -128,7 +128,6 @@ fn a_writing_commands_plan_agrees_on_both_surfaces() {
     behavior = "refuse_human_only_write",
     verify = "a human-attested command runs from a terminal and is refused to an agent's call"
 )]
-#[ignore = "pins K20a; T14 un-ignores"]
 fn a_human_command_runs_only_from_a_terminal() {
     let p = project();
     let revision = revision(&p);

@@ -122,7 +122,6 @@ fn a_writing_collectors_plan_is_previewed_with_dry_run() {
     behavior = "refuse_human_only_write",
     verify = "a human-attested command runs from a terminal and is refused to an agent's call"
 )]
-#[ignore = "pins K20a; T14 un-ignores"]
 fn a_human_commands_tool_is_refused() {
     let ops = json!([{"op": "set", "entity": "v1.0/03/U1", "field": "result", "value": "pass",
         "revision": revision_of(U.as_bytes())}]);

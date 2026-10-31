@@ -215,6 +215,9 @@ pub(crate) fn run_in(
         format,
         dry_run,
         crate::caller::of(false, output_format, terminal),
+        specforge_ops::authoring::apply::Surface::Cli {
+            interactive: terminal.facts().interactive,
+        },
     );
     match outcome {
         Ok(run) => plan::ended(run, format, root.dir(), terminal),

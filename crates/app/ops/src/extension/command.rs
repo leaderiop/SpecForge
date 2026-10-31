@@ -203,6 +203,11 @@ impl ExtensionCommand {
         self.declaration.writes
     }
 
+    /// Whether it records what a person says: only a person at a terminal runs it (ADR 0301).
+    pub fn human(&self) -> bool {
+        self.declaration.human
+    }
+
     /// The declaring extension's short name, which routes its commands.
     pub fn short(&self) -> &str {
         &self.short
@@ -405,8 +410,9 @@ pub enum RunError {
     /// does not route it, its answer is not one, or its extension is not
     /// loaded in the runtime (E028, ADR 0013 D4).
     Call(CallError),
-    /// The command's gate fails, or its subject names no entity (`gate_failed`, `entity_not_found`,
-    /// `invalid_input`; ADR 0291). The export was not called, and nothing was written.
+    /// The command's gate fails, its subject names no entity, or its caller may not run it (`gate_failed`,
+    /// `entity_not_found`, `invalid_input`, `human_only`; ADRs 0291, 0301). The export was not called, and nothing
+    /// was written.
     Gate(Box<OpError>),
     /// The state patch the command answered would break the 64 KiB cap, or is not a patch of an object
     /// (`state_refused`, ADR 0292). The command ran, and the state is unchanged.

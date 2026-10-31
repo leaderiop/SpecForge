@@ -5,7 +5,7 @@
 use serde::Serialize;
 use serde_json::Value;
 use specforge_common::shape::Shape;
-use specforge_ops::authoring::apply::{CommandRun, PlanOutcome, execute};
+use specforge_ops::authoring::apply::{CommandRun, PlanOutcome, Surface, execute};
 use specforge_ops::authoring::edit::EditDocument;
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommand, RunError};
 use specforge_ops::{Writes, Wrote};
@@ -84,6 +84,7 @@ fn attempt(
         CommandFormat::Json,
         dry_run,
         project.caller(),
+        Surface::Mcp,
     ) {
         Ok(run) => run,
         Err(RunError::Args(refused)) => return (Err(refused_args(&refused).into()), None),

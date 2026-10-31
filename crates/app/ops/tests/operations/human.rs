@@ -3,12 +3,14 @@
 
 use std::sync::Arc;
 
-use serde_json::json;
+use serde_json::{Map, json};
+use specforge_ops::authoring::apply::{PlanOutcome, Surface, execute};
+use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, RunError};
 use specforge_ops::view::ProjectView;
 use specforge_project::testing::{CORE, GsdWrites};
 use specforge_test_macros::test as specforge_test;
 
-use crate::plans::{project, refused};
+use crate::plans::{compiled, project, refused, revision, serving, set};
 
 const OVERRIDE: &str = "override O1 \"O\" {\n  phase 03\n}\n";
 
@@ -322,4 +324,50 @@ fn an_agent_still_writes_a_non_human_field_of_a_non_human_kind() {
     };
     assert_eq!(typed(&p, &[append]), None, "append");
     assert_eq!(typed(&p, &[unset("N", "approvals")]), None, "unset");
+}
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "a human-attested command is refused on every agent surface and runs for a person at a terminal"
+)]
+fn a_human_command_is_refused_on_every_agent_surface() {
+    let p = project();
+    let ops = json!([set(
+        "v1.0/03/U1",
+        "result",
+        json!("pass"),
+        &revision(&p, "03-01.spec")
+    )]);
+    let runtime = serving(&[(CORE, "cmd__attest", 0, ops)]);
+    let built = compiled(&p, &runtime);
+    let view = ProjectView::of(&built);
+    let commands = ExtensionCommands::build(view.registries());
+    let command = commands
+        .of("core")
+        .find(|c| c.id() == "attest")
+        .expect("the human command is served");
+    let run = |surface| {
+        execute(
+            &view,
+            command,
+            &Map::new(),
+            CommandFormat::Json,
+            false,
+            specforge_ops::testing::caller(),
+            surface,
+        )
+    };
+    for surface in [Surface::Mcp, Surface::Cli { interactive: false }] {
+        match run(surface) {
+            Err(RunError::Gate(error)) => assert_eq!(error.code, "human_only", "{surface:?}"),
+            other => panic!("{surface:?}: {other:?}"),
+        }
+    }
+    assert!(runtime.calls().iter().all(|c| c.export != "cmd__attest"));
+    assert!(p.read("03-01.spec").find("result").is_none());
+    let person = run(Surface::Cli { interactive: true }).expect("a person at a terminal");
+    assert!(
+        matches!(person.plan, Some(PlanOutcome::Applied(_))),
+        "{person:?}"
+    );
 }

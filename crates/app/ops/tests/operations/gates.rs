@@ -386,6 +386,7 @@ fn a_gated_writing_command_is_refused_as_a_dry_run() {
             CommandFormat::Json,
             dry_run,
             specforge_ops::testing::caller(),
+            specforge_ops::authoring::apply::Surface::Cli { interactive: false },
         );
         let Err(error) = result else {
             panic!("dry_run {dry_run}: a failing gate refuses a writing command");

@@ -6,7 +6,8 @@ use std::sync::Arc;
 use serde_json::{Map, Value, json};
 use specforge_ops::authoring::apply::testing::FakeJudgedRules;
 use specforge_ops::authoring::apply::{
-    HostJudgedRules, JudgedRules, Origin, PlanOutcome, SystemClock, apply_plan_with, execute_with,
+    HostJudgedRules, JudgedRules, Origin, PlanOutcome, Surface, SystemClock, apply_plan_with,
+    execute_with,
 };
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommands};
 use specforge_ops::view::ProjectView;
@@ -136,6 +137,7 @@ fn run_with_rules(
         CommandFormat::Json,
         dry_run,
         specforge_ops::testing::caller(),
+        Surface::Cli { interactive: true },
         &rules,
         &SystemClock,
     )

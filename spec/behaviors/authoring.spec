@@ -413,4 +413,7 @@ behavior refuse_human_only_write "Refuse a Human-Only Write" {
   verify unit "an agent still writes a non-human field of a non-human kind"
   verify unit "a set_verdict on a human-only entity is still refused"
   verify unit "a human-attested command runs from a terminal and is refused to an agent's call"
+  verify unit "a human command that does not write is dropped"
+  verify unit "a human-attested command is refused on every agent surface and runs for a person at a terminal"
+  verify unit "human sets writes"
 }

@@ -115,3 +115,33 @@ fn a_prompt_declaration_the_registry_refuses_is_w021() {
     }
     assert!(w021.iter().all(|m| !m.contains("'fine'")), "{w021:#?}");
 }
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "a human command that does not write is dropped"
+)]
+fn a_human_command_that_does_not_write_is_dropped() {
+    let mut mute = command("attest");
+    mute["human"] = json!(true);
+    let mut writing = command("confirm");
+    writing["human"] = json!(true);
+    writing["writes"] = json!(true);
+    let build = build_registries(vec![declaration(
+        "@t/core",
+        "t",
+        json!({"surfaces": {"commands": [mute, writing]}}),
+    )]);
+    let w021 = messages(&build, "W021");
+    assert_eq!(w021.len(), 1, "{w021:#?}");
+    assert!(
+        w021[0].contains("'attest'") && w021[0].contains("human and does not write"),
+        "{w021:#?}"
+    );
+    let routed: Vec<_> = build
+        .commands()
+        .routed()
+        .iter()
+        .map(|r| r.declaration().id.clone())
+        .collect();
+    assert_eq!(routed, ["confirm"]);
+}
