@@ -44,7 +44,8 @@
       {
         "hooks": [
           {
-            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook core.spec_guard cannot run, so it denies' >&2; exit 2; }; specforge hook core.spec_guard --host claude-code --event pre_tool --tools write,edit --paths 'spec/**/*.spec' # specforge-install",
+            "command": "specforge hook core.spec_guard --host claude-code --event pre_tool --tools write,edit --paths 'spec/**/*.spec' # specforge-install",
+            "onFailure": "block",
             "timeout": 15,
             "type": "command"
           }
@@ -54,7 +55,8 @@
       {
         "hooks": [
           {
-            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook core.human_guard cannot run, so it denies' >&2; exit 2; }; specforge hook core.human_guard --host claude-code --event pre_tool --tools shell # specforge-install",
+            "command": "specforge hook core.human_guard --host claude-code --event pre_tool --tools shell # specforge-install",
+            "onFailure": "block",
             "timeout": 15,
             "type": "command"
           }

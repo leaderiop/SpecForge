@@ -1,6 +1,7 @@
 # A hook reads the settings of another extension it names
 
-**Status:** accepted (2026-10-31, kernel round K20c, plan 15). Extends [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md).
+**Status:** accepted (2026-10-31, kernel round K20c, plan 15). Extends [ADR
+0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md).
 Amends [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) (a call carries only its
 extension's settings: a hook may name others'). Takes extension protocol 1.14.0.
 
@@ -21,6 +22,9 @@ Upstream's injection scanner blocks a HIGH scan when `security.injection_blockin
 
 `@gsd/security` does not exist, so `injection_scanner` stays advisory in every real project; the mechanism is built and
 tested.
+
+One extension reads another's non-secret settings without the owner's consent: naming `<extension>:<setting>` in
+`reads_settings` is enough. Secrets are never sent.
 
 ## Rejected
 

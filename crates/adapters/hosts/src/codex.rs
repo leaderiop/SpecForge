@@ -164,10 +164,12 @@ impl HostRenderer for Codex {
             if let Some(m) = matcher {
                 group.insert("matcher".into(), Value::String(m));
             }
-            group.insert(
-                "hooks".into(),
-                json!([{"type": "command", "command": h.command(Host::Codex), "timeout": h.host_timeout_seconds()}]),
-            );
+            let mut handler = json!({"type": "command", "command": h.command(Host::Codex), "timeout": h.host_timeout_seconds()});
+            if h.fail_closed() {
+                // The sh guard is no Windows syntax (ADR 0324).
+                handler["commandWindows"] = json!(h.plain_command(Host::Codex));
+            }
+            group.insert("hooks".into(), json!([handler]));
             hooks.push(MergedEntry {
                 keys: vec!["hooks".into(), event.into()],
                 name: None,

@@ -1,6 +1,7 @@
 # A hook names its hosts and Cursor wires its prompt event
 
-**Status:** accepted (2026-10-31, kernel round K20c, plan 15). Extends [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md). Takes extension protocol 1.14.0.
+**Status:** accepted (2026-10-31, kernel round K20c, plan 15). Extends [ADR
+0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md). Takes extension protocol 1.14.0.
 
 ## Context
 

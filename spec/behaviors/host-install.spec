@@ -17,14 +17,22 @@ behavior install_into_a_host "Install Into a Host" {
     specforge install <host> renders every agent, skill and slash command the project's extensions contribute, their
     hooks, SpecForge's MCP server entry and its spec guard into the host's project-local files (ADR 0292). It is
     idempotent, all or nothing under the write lock, and owns exactly what it marked: a file it writes starts with a
-    generated-by marker holding its source and digest, a config entry it owns is the one marked `# specforge-install` (a hook) or named specforge (the MCP server). It never follows a link.
+    generated-by marker holding its source and digest, a config entry it owns is the one marked
+    `# specforge-install` (a hook) or named specforge (the MCP server). It never follows a link.
     It refuses to overwrite an unmarked file (foreign_file) or a marked file edited since (edited_file, unless
     forced), removes what no extension contributes any more and reports what a host cannot take. A project whose
-    extensions contribute nothing to a host declares and runs as it did. A hook whose policy is deny is written so that a
-    host without `specforge` on its PATH blocks (exit 2); an allow hook's line fails open (ADR 0324). A hook may name the hosts it is installed on (ADR 0322). While a command is human-attested, install also wires the human guard, which denies a shell call that runs one (ADR 0301).
+    extensions contribute nothing to a host declares and runs as it did. A deny hook on an event whose exit 2 refuses an
+    action (pre_tool, pre_commit, user_prompt) fails closed when `specforge` is not on the host's PATH, rendered per host:
+    the sh guard on Unix, Claude Code's `onFailure: block`, Codex's plain `commandWindows`, Cursor's plain line on
+    Windows; an allow hook, and a stop hook, fail open (ADR 0324). A hook may name the hosts it is installed on (ADR
+    0322). While a command is human-attested, install also wires the human guard, which denies a shell call that runs
+    one (ADR 0301).
   """
   verify unit "a hook that names its hosts is installed on those only, and is a no-op on another"
   verify unit "a hook whose policy is deny blocks with exit 2 when specforge is not on PATH, and an allow hook's line is the plain command"
+  verify unit "a deny hook is fail-closed without sh syntax on Windows: Claude Code's handler carries onFailure block, Codex's carries commandWindows, Cursor's Windows line is the plain command"
+  verify unit "a stop or subagent_stop hook never gets the fail-closed line"
+  verify unit "an uninstall removes every rendered form of a hook line and keeps the user's own"
   verify unit "a project whose extensions contribute nothing to a host declares and runs as it did"
   verify unit "hand-written host files are never read or written by any command"
   verify unit "doctor reports a host file edited since install and an install stale against the project, and nothing for a directory without a marker"

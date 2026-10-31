@@ -4,7 +4,8 @@
       {
         "hooks": [
           {
-            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.write_guard cannot run, so it denies' >&2; exit 2; }; specforge hook t.write_guard --host claude-code --event pre_tool --tools write # specforge-install",
+            "command": "specforge hook t.write_guard --host claude-code --event pre_tool --tools write # specforge-install",
+            "onFailure": "block",
             "timeout": 10,
             "type": "command"
           }
@@ -24,7 +25,8 @@
       {
         "hooks": [
           {
-            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.validate_commit cannot run, so it denies' >&2; exit 2; }; specforge hook t.validate_commit --host claude-code --event pre_commit # specforge-install",
+            "command": "specforge hook t.validate_commit --host claude-code --event pre_commit # specforge-install",
+            "onFailure": "block",
             "timeout": 10,
             "type": "command"
           }
@@ -34,7 +36,8 @@
       {
         "hooks": [
           {
-            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook core.spec_guard cannot run, so it denies' >&2; exit 2; }; specforge hook core.spec_guard --host claude-code --event pre_tool --tools write,edit --paths '**/*.spec' # specforge-install",
+            "command": "specforge hook core.spec_guard --host claude-code --event pre_tool --tools write,edit --paths '**/*.spec' # specforge-install",
+            "onFailure": "block",
             "timeout": 15,
             "type": "command"
           }
@@ -44,7 +47,8 @@
       {
         "hooks": [
           {
-            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook core.human_guard cannot run, so it denies' >&2; exit 2; }; specforge hook core.human_guard --host claude-code --event pre_tool --tools shell # specforge-install",
+            "command": "specforge hook core.human_guard --host claude-code --event pre_tool --tools shell # specforge-install",
+            "onFailure": "block",
             "timeout": 15,
             "type": "command"
           }

@@ -9,7 +9,7 @@ use std::path::Path;
 
 use serde_json::Value;
 use specforge_hosts::renderer;
-use specforge_ops::host::{HookAnswer, Host, RenderedHook};
+use specforge_ops::host::{HookAnswer, Host, MISSING_GUARD, Rendered, RenderedHook};
 use specforge_protocol_types::{Decision, HookEvent, OnFailure};
 
 fn check(host: Host) {
@@ -79,10 +79,14 @@ fn cursor_reads_and_answers_its_hook_protocol() {
 }
 
 fn write_guard(on_failure: OnFailure) -> RenderedHook {
+    on_event(HookEvent::PreTool, on_failure)
+}
+
+fn on_event(event: HookEvent, on_failure: OnFailure) -> RenderedHook {
     RenderedHook {
         route: "t.write_guard".into(),
         description: String::new(),
-        event: HookEvent::PreTool,
+        event,
         tools: vec!["write".into()],
         paths: Vec::new(),
         timeout_ms: 5_000,
@@ -90,18 +94,15 @@ fn write_guard(on_failure: OnFailure) -> RenderedHook {
     }
 }
 
+const GUARD: &str = "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.write_guard cannot run, so it denies' >&2; exit 2; }; specforge hook t.write_guard --host codex";
+
 #[specforge_test_macros::test(
     behavior = "install_into_a_host",
     verify = "a hook whose policy is deny blocks with exit 2 when specforge is not on PATH, and an allow hook's line is the plain command"
 )]
 fn a_deny_hook_line_fails_closed_without_the_binary() {
-    let line = write_guard(OnFailure::Deny).command(Host::ClaudeCode);
-    assert!(
-        line.starts_with(
-            "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.write_guard cannot run, so it denies' >&2; exit 2; }; specforge hook t.write_guard --host claude-code"
-        ),
-        "{line}"
-    );
+    let line = write_guard(OnFailure::Deny).command(Host::Codex);
+    assert!(line.starts_with(GUARD), "{line}");
     assert!(line.ends_with("# specforge-install"), "{line}");
     #[cfg(unix)]
     {
@@ -117,8 +118,146 @@ fn a_deny_hook_line_fails_closed_without_the_binary() {
             "specforge is not on PATH: the hook t.write_guard cannot run, so it denies\n"
         );
     }
-    let plain = write_guard(OnFailure::Allow).command(Host::ClaudeCode);
+    let plain = write_guard(OnFailure::Allow).command(Host::Codex);
     assert!(plain.starts_with("specforge hook "), "{plain}");
+}
+
+/// The guarded line with a stub `specforge` on PATH passes the binary's stdout and exit through, in every sh-like
+/// shell this machine has.
+#[cfg(unix)]
+#[test]
+fn a_deny_hook_line_runs_the_binary_when_it_is_present() {
+    let dir = std::env::temp_dir().join(format!("specforge-stub-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let stub = dir.join("specforge");
+    std::fs::write(&stub, "#!/bin/sh\necho stub-ran\nexit 0\n").unwrap();
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let line = write_guard(OnFailure::Deny).command(Host::Codex);
+    let path = format!("{}:/usr/bin:/bin", dir.display());
+    for shell in ["/bin/sh", "/bin/bash", "/bin/zsh"] {
+        if !Path::new(shell).exists() {
+            continue;
+        }
+        let ran = std::process::Command::new(shell)
+            .args(["-f", "-c"]) // -f: zsh skips the user's rc files, which reset PATH
+            .arg(&line)
+            .env("PATH", &path)
+            .output()
+            .unwrap();
+        assert_eq!(ran.status.code(), Some(0), "{shell}");
+        assert_eq!(
+            String::from_utf8_lossy(&ran.stdout),
+            "stub-ran\n",
+            "{shell}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "a deny hook is fail-closed without sh syntax on Windows: Claude Code's handler carries onFailure block, Codex's carries commandWindows, Cursor's Windows line is the plain command"
+)]
+fn a_deny_hook_is_fail_closed_without_sh_syntax_on_windows() {
+    let deny = write_guard(OnFailure::Deny);
+    let plain = |host: Host| format!("specforge hook t.write_guard --host {}", host.as_str());
+    // Claude Code: the plain line on every OS; the handler asks the host to block on failure.
+    assert!(
+        deny.command_on(Host::ClaudeCode, false)
+            .starts_with(&plain(Host::ClaudeCode))
+    );
+    assert!(
+        deny.command_on(Host::ClaudeCode, true)
+            .starts_with(&plain(Host::ClaudeCode))
+    );
+    // Cursor: the guard on Unix, the plain line when install runs on Windows.
+    assert!(
+        deny.command_on(Host::Cursor, false)
+            .starts_with(MISSING_GUARD)
+    );
+    assert!(
+        deny.command_on(Host::Cursor, true)
+            .starts_with(&plain(Host::Cursor))
+    );
+    // Codex: the guard in `command`, the plain line in `commandWindows`.
+    assert!(
+        deny.command_on(Host::Codex, true)
+            .starts_with(MISSING_GUARD)
+    );
+    assert_eq!(
+        deny.plain_command(Host::Codex).split(' ').next(),
+        Some("specforge")
+    );
+    let handler = |host: Host, file: &str| {
+        let tree = renderer(host).unwrap().render(&Rendered {
+            host,
+            agents: Vec::new(),
+            skills: Vec::new(),
+            slashes: Vec::new(),
+            hooks: vec![deny.clone()],
+        });
+        let merged = tree.merged.iter().find(|m| m.path == file).unwrap();
+        merged
+            .entries
+            .iter()
+            .find_map(|e| e.value.get("hooks").map(|h| h[0].clone()))
+            .unwrap()
+    };
+    let claude = handler(Host::ClaudeCode, ".claude/settings.json");
+    assert_eq!(claude["onFailure"], "block");
+    assert!(
+        claude["command"]
+            .as_str()
+            .unwrap()
+            .starts_with("specforge hook ")
+    );
+    let codex = handler(Host::Codex, ".codex/hooks.json");
+    assert!(
+        codex["command"]
+            .as_str()
+            .unwrap()
+            .starts_with(MISSING_GUARD)
+    );
+    assert_eq!(codex["commandWindows"], deny.plain_command(Host::Codex));
+    // An allow hook gets neither field.
+    let allow = write_guard(OnFailure::Allow);
+    assert!(
+        allow
+            .command_on(Host::Codex, false)
+            .starts_with("specforge hook ")
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "a stop or subagent_stop hook never gets the fail-closed line"
+)]
+fn a_deny_stop_hook_line_is_the_plain_command() {
+    for event in [
+        HookEvent::Stop,
+        HookEvent::SubagentStop,
+        HookEvent::PostTool,
+        HookEvent::SessionStart,
+    ] {
+        let hook = on_event(event, OnFailure::Deny);
+        assert!(!hook.fail_closed(), "{event:?}");
+        for host in Host::ALL {
+            assert!(
+                hook.command_on(host, false).starts_with("specforge hook "),
+                "{host:?} {event:?}"
+            );
+        }
+    }
+    for event in [
+        HookEvent::PreTool,
+        HookEvent::PreCommit,
+        HookEvent::UserPrompt,
+    ] {
+        assert!(on_event(event, OnFailure::Deny).fail_closed(), "{event:?}");
+    }
 }
 
 fn answer_of(

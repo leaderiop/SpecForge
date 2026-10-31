@@ -105,8 +105,44 @@ pub const HOOK_MARK: &str = "# specforge-install";
 pub const MISSING_GUARD: &str = "command -v specforge >/dev/null 2>&1 || ";
 
 impl RenderedHook {
-    /// The command a host runs: `specforge hook <route> --host <host> --event <event> [--tools …] [--paths …]`.
+    /// Whether a missing binary must block this hook: a deny policy on an event whose exit 2 refuses an action. On
+    /// `stop` and `subagent_stop` exit 2 keeps the agent working, so the line stays plain there (ADR 0324).
+    pub fn fail_closed(&self) -> bool {
+        self.on_failure == OnFailure::Deny
+            && matches!(
+                self.event,
+                HookEvent::PreTool | HookEvent::PreCommit | HookEvent::UserPrompt
+            )
+    }
+
+    /// The command a host runs, with the sh guard where the host runs sh. Claude Code gets the plain line (its
+    /// handler carries `"onFailure": "block"` instead), Cursor on Windows runs PowerShell and gets the plain line,
+    /// Codex gets the guard here and the plain line in `commandWindows` (ADR 0324).
     pub fn command(&self, host: Host) -> String {
+        self.command_on(host, cfg!(windows))
+    }
+
+    /// [`Self::command`] for an install that runs on Windows (`windows`) or not.
+    pub fn command_on(&self, host: Host, windows: bool) -> String {
+        let plain = self.plain_command(host);
+        let sh_host = match host {
+            Host::ClaudeCode => false,
+            Host::Cursor => !windows,
+            Host::Codex => true,
+        };
+        if self.fail_closed() && sh_host {
+            // The route is snake_case and dots (registry-checked): it needs no quoting.
+            format!(
+                "{MISSING_GUARD}{{ echo 'specforge is not on PATH: the hook {} cannot run, so it denies' >&2; exit 2; }}; {plain}",
+                self.route
+            )
+        } else {
+            plain
+        }
+    }
+
+    /// `specforge hook <route> --host <host> --event <event> [--tools …] [--paths …]`, with no guard.
+    pub fn plain_command(&self, host: Host) -> String {
         let mut words = vec![
             "specforge".to_string(),
             "hook".to_string(),
@@ -126,16 +162,7 @@ impl RenderedHook {
             }
         }
         words.push(HOOK_MARK.to_string());
-        let line = words.join(" ");
-        if self.on_failure == OnFailure::Deny {
-            // The route is snake_case and dots (registry-checked): it needs no quoting.
-            format!(
-                "{MISSING_GUARD}{{ echo 'specforge is not on PATH: the hook {} cannot run, so it denies' >&2; exit 2; }}; {line}",
-                self.route
-            )
-        } else {
-            line
-        }
+        words.join(" ")
     }
 
     /// The seconds a host that takes seconds is told to wait: the call's budget and five more for the process, so the

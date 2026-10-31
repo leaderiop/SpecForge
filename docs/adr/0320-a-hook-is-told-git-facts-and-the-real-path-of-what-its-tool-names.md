@@ -1,6 +1,7 @@
 # A hook is told git facts and the real path of what its tool names
 
-**Status:** accepted (2026-10-31, kernel round K20c, plan 15). Extends [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md).
+**Status:** accepted (2026-10-31, kernel round K20c, plan 15). Extends [ADR
+0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md).
 Extends [ADR 0287](0287-who-writes-a-field-is-declared.md) (the history port gains `branch` and `status`).
 Takes extension protocol 1.14.0.
 
@@ -36,7 +37,8 @@ pub struct GitFacts {
 - **D-K20c-2.** Every `PathFact` carries `real`: the path made absolute against `cwd`, `.` and `..` resolved, links
   followed as far as it exists. A `reads_git` hook also gets, for each out-of-project path, `toplevel` (the repository
   of the real path's nearest existing directory) and `in_git_dir` (a component of `real` is `.git`).
-- **D-K20c-3.** `HookInput.commands` is a shell tool's command split at its control operators. `CommitFact.cleanup` lists
+- **D-K20c-3.** `HookInput.commands` is a shell tool's command split at its control operators. `CommitFact.cleanup`
+  lists
   the mode of every cleanup directive of the commit's own words, in order (a word whose name is a prefix of
   `--cleanup` of at least `--cl`, its value after `=` or in the next word, and a global `-c commit.cleanup=<mode>`).
   The kernel reports the list, not a policy. **Divergence `[cleanup-exact]`:** upstream scans the whole command minus

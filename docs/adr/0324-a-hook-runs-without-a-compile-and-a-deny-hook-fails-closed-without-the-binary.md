@@ -1,6 +1,7 @@
 # A hook runs without a compile and a deny hook fails closed without the binary
 
-**Status:** accepted (2026-10-31, kernel round K20c, plan 15). Extends [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md). Takes extension protocol 1.14.0.
+**Status:** accepted (2026-10-31, kernel round K20c, plan 15). Extends [ADR
+0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md). Takes extension protocol 1.14.0.
 
 ## Context
 
@@ -14,10 +15,28 @@ silently skipped.
 - **D-K20c-8.** `specforge hook` loads the environment, looks the route up in its registries, and builds the view over
   `CompiledProject::unread` when the hook declares neither `reads_graph` nor `writes` and is not `core.spec_guard`;
   otherwise it compiles in that same load. An unreadable event uses `unread` too.
-- **D-K20c-9.** A rendered hook whose policy is `deny` (`on_failure: deny`, and `core.spec_guard`) runs
-  `command -v specforge >/dev/null 2>&1 || { echo '…' >&2; exit 2; }; specforge hook … # specforge-install`. Exit 2 with
-  the reason on stderr blocks on all three hosts. A hook whose policy is `allow` keeps the plain line and fails open,
-  as upstream's hooks do. Install recognises both prefixes as its own, so an old install is replaced.
+- **D-K20c-9.** A rendered hook whose policy is `deny` (`on_failure: deny`, and `core.spec_guard`) on `pre_tool`,
+  `pre_commit` or `user_prompt` fails closed when `specforge` is missing, rendered per host because the hosts do not
+  all run `sh`:
+  - **Claude Code:** the plain line, and `"onFailure": "block"` on the handler (shell-neutral; it also covers a crash
+    and a timeout).
+  - **Codex:** `command` is `command -v specforge >/dev/null 2>&1 || { echo '…' >&2; exit 2; }; specforge hook …`,
+    and `commandWindows` is the plain line.
+  - **Cursor:** the same guarded line, and the plain line when install runs on Windows (PowerShell has no `||` or
+    `command`).
+  - A hook whose policy is `allow`, and any `stop`, `subagent_stop` or other event, keeps the plain line and fails
+    open: exit 2 on a stop event keeps the agent working, and Claude Code ignores `onFailure` there.
+  - Install recognises the guarded and the plain line as its own and removes either, so an old install is replaced.
+- **D-K20c-9a.** `specforge hook` never exits 2 on its own refusals (an unknown host or event, a usage error): it
+  exits 1, which every host reads as a non-blocking failure. Exit 2 is the hook's own deny.
+
+## Limits
+
+- A `specforge` on the host's PATH older than the install may exit 2 (clap's usage error) and block; an old binary
+  cannot be fixed.
+- Git Bash and PowerShell on Claude Code, and fish as a login shell on Cursor or Codex, never see the sh line; the
+  Windows rows above cover PowerShell, and a fish user has the plain line's fail-open behaviour at worst.
+- A Cursor install made on Unix and run on Windows keeps the sh line; re-install there.
 
 ## Rejected
 

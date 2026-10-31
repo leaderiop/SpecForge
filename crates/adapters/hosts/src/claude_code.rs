@@ -169,10 +169,13 @@ impl HostRenderer for ClaudeCode {
             if let Some(m) = matcher(h) {
                 group.insert("matcher".into(), Value::String(m));
             }
-            group.insert(
-                "hooks".into(),
-                json!([{"type": "command", "command": command, "timeout": h.host_timeout_seconds()}]),
-            );
+            let mut handler =
+                json!({"type": "command", "command": command, "timeout": h.host_timeout_seconds()});
+            if h.fail_closed() {
+                // Shell-neutral, so it holds under Git Bash and PowerShell too (ADR 0324).
+                handler["onFailure"] = json!("block");
+            }
+            group.insert("hooks".into(), json!([handler]));
             settings.push(MergedEntry {
                 keys: vec!["hooks".into(), event.into()],
                 name: None,
