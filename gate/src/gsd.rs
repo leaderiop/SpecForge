@@ -11,9 +11,9 @@ use crate::run::Ctx;
 pub const TRIGGER: &[&str] = &["gsd/**", "crates/**", "Cargo.toml", "Cargo.lock"];
 
 /// Stops at the first failing step: clippy for native and wasm, the release wasm build, the `specforge` CLI build,
-/// then `cargo nextest run` (every test binary at once; `cargo test` runs them one after another) with `SPECFORGE_BIN`
-/// `GSD_CORE_WASM` and `GSD_SECURITY_WASM` set to the three artifacts. Cargo runs in `gsd/`: it reads `.cargo/config.toml` (the SDK patch)
-/// from its working directory, not from `--manifest-path`.
+/// then `cargo nextest run` (every test binary at once; `cargo test` runs them one after another) with
+/// `SPECFORGE_BIN`, `GSD_CORE_WASM` and `GSD_SECURITY_WASM` set to the three artifacts. Cargo runs in `gsd/`: it reads
+/// `.cargo/config.toml` (the SDK patch) from its working directory, not from `--manifest-path`.
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let target = ctx.repo.target_dir.join("gsd");
     let wasm = |name: &str| target.join("wasm32-wasip2/release").join(name);

@@ -1,6 +1,6 @@
-//! Re-pointing (D-r42-5), shared by the extensions that port a workflow: upstream's text reads its references through `~/.claude/gsd-core/<path>`, a directory this
-//! port does not install. At render time every such path becomes the command that serves the embedded file, so the
-//! assets stay byte-equal to upstream's.
+//! Re-pointing (D-r42-5), shared by the extensions that port a workflow: upstream's text reads its references through
+//! `~/.claude/gsd-core/<path>`, a directory this port does not install. At render time every such path becomes the
+//! command that serves the embedded file, so the assets stay byte-equal to upstream's.
 
 /// The directory name every upstream install path ends in, after its prefix.
 const MARKER: &str = ".claude/gsd-core/";
@@ -20,9 +20,9 @@ fn is_path(c: char) -> bool {
 }
 
 /// `text` for `host` with each `[@]<prefix>.claude/gsd-core/<path>` replaced by `` `specforge gsd reference
-/// gsd-core/<path>` ``: the calls it writes carry `--host` unless the host is Claude Code (the default), so a file read
-/// through `reference` is converted for the host that asked. `served` says whether `reference` serves `gsd-core/<path>`;
-/// a path it does not is marked [`LATER`].
+/// gsd-core/<path>` ``: the calls it writes carry `--host` unless the host is Claude Code (the default), so a file
+/// read through `reference` is converted for the host that asked. `served` says whether `reference` serves
+/// `gsd-core/<path>`; a path it does not is marked [`LATER`].
 pub fn repoint(text: &str, host: &str, served: &dyn Fn(&str) -> bool) -> String {
     let flag = if host == "claude-code" {
         String::new()
