@@ -41,9 +41,11 @@ fn next_routes_by_state() {
         "/gsd-capture",
         "/gsd-map-codebase",
     ] {
-        assert!(text.contains(stem), "{stem}");
+        assert!(
+            text.contains(&format!("- `{stem}`: not served on this project")),
+            "{stem}"
+        );
     }
-    assert!(text.contains("does not have"), "{text}");
     // The command the step names answers differently on different projects.
     let paused = twin();
     let pause = gsd(&paused, "pause", &["--by", "me", "stopped for lunch"]);

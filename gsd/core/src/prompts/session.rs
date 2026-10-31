@@ -33,6 +33,7 @@ static PAUSE_WORK: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 
@@ -51,6 +52,7 @@ static RESUME_WORK: Spec = Spec {
         effort: None,
     }),
     reads_state: true,
+    reads_slash_commands: false,
     tail: Some(workflow::workstream_tail),
 };
 

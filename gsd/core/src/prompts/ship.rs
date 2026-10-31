@@ -40,6 +40,7 @@ static COMPLETE_MILESTONE: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 
@@ -58,6 +59,7 @@ static SHIP: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 

@@ -26,17 +26,17 @@
     "",
     "## Route table on this install",
     "",
-    "Invoke the matched skill from this table. A target that is not installed is named with the extension that serves it.",
+    "Invoke the matched skill from this table. A target that is not served on this project is named so: say so and stop; do not run another skill in its place.",
     "",
     "| Target | On this install |",
     "|---|---|",
-    "| `/gsd-capture` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-explore` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-sketch` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-spike` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-spec-phase` | prompt `gsd.spec_phase` (served by @gsd/core) |"
+    "| `/gsd-capture` | not served on this project |",
+    "| `/gsd-explore` | not served on this project |",
+    "| `/gsd-sketch` | not served on this project |",
+    "| `/gsd-spike` | not served on this project |",
+    "| `/gsd-spec-phase` | prompt `specforge.gsd.spec_phase` (served by @gsd/core) |"
   ],
-  "bytes": 10031,
+  "bytes": 9815,
   "end": [
     "  \"parallelization.skip_checkpoints\": true,",
     "  \"parallelization.task_level\": false",
@@ -69,15 +69,15 @@
     "",
     "## Route table on this install",
     "",
-    "Invoke the matched skill from this table. A target that is not installed is named with the extension that serves it.",
+    "Invoke the matched skill from this table. A target that is not served on this project is named so: say so and stop; do not run another skill in its place.",
     "",
     "| Target | On this install |",
     "|---|---|",
-    "| `/gsd-capture` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-explore` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-sketch` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-spike` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-spec-phase` | prompt `gsd.spec_phase` (served by @gsd/core) |"
+    "| `/gsd-capture` | not served on this project |",
+    "| `/gsd-explore` | not served on this project |",
+    "| `/gsd-sketch` | not served on this project |",
+    "| `/gsd-spike` | not served on this project |",
+    "| `/gsd-spec-phase` | prompt `specforge.gsd.spec_phase` (served by @gsd/core) |"
   ],
   "head": [
     "<specforge_gsd_preamble>",
@@ -170,8 +170,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:83adf7a83a8bed14c44e7a1ef1e394ca2cd9ade18ba92f95de34e992e5e33220",
+    "digest": "sha256:ff8ab9c6f5c198815cd635b98608a96e4956906ee8809c96f8f1bdac31fee834",
     "prompt": "@gsd/core@VERSION:ns_ideate"
   },
-  "sha256": "83adf7a83a8bed14c44e7a1ef1e394ca2cd9ade18ba92f95de34e992e5e33220"
+  "sha256": "ff8ab9c6f5c198815cd635b98608a96e4956906ee8809c96f8f1bdac31fee834"
 }

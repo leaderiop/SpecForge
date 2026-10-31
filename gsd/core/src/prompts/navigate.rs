@@ -5,7 +5,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::roster::{Owner, owner};
+use super::ns::served;
 use super::workflow::{self, Do, Slash, Spec, Step};
 
 const NEXT_STEPS: &[Step] = &[Step {
@@ -53,21 +53,20 @@ const MANAGER_STEPS: &[Step] = &[
     },
 ];
 
-/// The commands `smart_entry` can recommend that another extension serves: said, so the person is not sent to a
+/// The commands `smart_entry` can recommend that this project may not serve: said, so the person is not sent to a
 /// command this install does not have (D-r43-20).
-fn not_installed(_call: &PromptCall<'_>) -> String {
-    let named = |stem: &str| match owner(stem) {
-        Some(Owner::Extension(ext)) => format!("`/gsd-{stem}` ({ext})"),
-        _ => format!("`/gsd-{stem}`"),
-    };
-    let names = ["debug", "code-review", "capture", "map-codebase"].map(named);
+fn not_installed(call: &PromptCall<'_>) -> String {
+    let lines: Vec<String> = ["debug", "code-review", "capture", "map-codebase"]
+        .iter()
+        .map(|stem| format!("- `/gsd-{stem}`: {}", served(call, stem)))
+        .collect();
     format!(
-        "\n\n## Commands this install does not have\n\n\
-         The menu may name {}. They are served by another extension, which is not installed. When the \
-         recommended action is one of them, say so and offer the next action that is installed: \
-         `specforge gsd resolve-blocker` or `/gsd-verify-work` for a blocked project, the next phase prompt \
-         otherwise.\n",
-        names.join(", ")
+        "\n\n## Commands this install may not serve\n\n\
+         The menu may name these commands; this is how the project serves each:\n\n{}\n\n\
+         When the recommended action is one that is not served on this project, say so and offer the next action \
+         that is: `specforge gsd resolve-blocker` or `/gsd-verify-work` for a blocked project, the next phase \
+         prompt otherwise.\n",
+        lines.join("\n")
     )
 }
 
@@ -86,6 +85,7 @@ static NEXT: Spec = Spec {
         effort: Some("low"),
     }),
     reads_state: false,
+    reads_slash_commands: true,
     tail: Some(not_installed),
 };
 
@@ -110,6 +110,7 @@ static PROGRESS: Spec = Spec {
         effort: Some("low"),
     }),
     reads_state: true,
+    reads_slash_commands: false,
     tail: Some(workflow::workstream_tail),
 };
 
@@ -130,6 +131,7 @@ static MANAGER: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 

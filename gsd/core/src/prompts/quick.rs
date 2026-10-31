@@ -109,6 +109,7 @@ static QUICK: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(quick_plan),
 };
 
@@ -134,6 +135,7 @@ static QUICK_BATCH: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(quick_batch_plan),
 };
 
@@ -152,6 +154,7 @@ static FAST: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 

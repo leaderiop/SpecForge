@@ -87,6 +87,7 @@ static AUTONOMOUS: Spec = Spec {
         effort: Some("max"),
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(unattended),
 };
 

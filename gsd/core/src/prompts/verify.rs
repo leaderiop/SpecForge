@@ -70,6 +70,7 @@ static VERIFY_WORK: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(uat),
 };
 
@@ -90,6 +91,7 @@ static VALIDATE_PHASE: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 
@@ -110,6 +112,7 @@ static ADD_TESTS: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 

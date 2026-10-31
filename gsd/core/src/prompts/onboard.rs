@@ -67,6 +67,7 @@ static INGEST_DOCS: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(ingested),
 };
 
@@ -101,6 +102,7 @@ static ONBOARD: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(onboarding),
 };
 

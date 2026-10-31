@@ -82,6 +82,7 @@ static SPEC_PHASE: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(judging),
 };
 
@@ -108,6 +109,7 @@ static MVP_PHASE: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 

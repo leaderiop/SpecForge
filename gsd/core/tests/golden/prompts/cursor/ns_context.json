@@ -27,18 +27,18 @@
     "",
     "## Route table on this install",
     "",
-    "Invoke the matched skill from this table. A target that is not installed is named with the extension that serves it.",
+    "Invoke the matched skill from this table. A target that is not served on this project is named so: say so and stop; do not run another skill in its place.",
     "",
     "| Target | On this install |",
     "|---|---|",
-    "| `/gsd-map-codebase` | not installed: `@gsd/codebase` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-graphify` | not installed: `@gsd/codebase` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-docs-update` | not installed: `@gsd/codebase` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-extract-learnings` | prompt `gsd.extract_learnings` (served by @gsd/core) |",
-    "| `/gsd-mempalace-recall` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-mempalace-capture` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |"
+    "| `/gsd-map-codebase` | not served on this project |",
+    "| `/gsd-graphify` | not served on this project |",
+    "| `/gsd-docs-update` | not served on this project |",
+    "| `/gsd-extract-learnings` | prompt `specforge.gsd.extract_learnings` (served by @gsd/core) |",
+    "| `/gsd-mempalace-recall` | not served on this project |",
+    "| `/gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 11034,
+  "bytes": 10737,
   "end": [
     "}",
     "```",
@@ -70,16 +70,16 @@
     "",
     "## Route table on this install",
     "",
-    "Invoke the matched skill from this table. A target that is not installed is named with the extension that serves it.",
+    "Invoke the matched skill from this table. A target that is not served on this project is named so: say so and stop; do not run another skill in its place.",
     "",
     "| Target | On this install |",
     "|---|---|",
-    "| `/gsd-map-codebase` | not installed: `@gsd/codebase` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-graphify` | not installed: `@gsd/codebase` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-docs-update` | not installed: `@gsd/codebase` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-extract-learnings` | prompt `gsd.extract_learnings` (served by @gsd/core) |",
-    "| `/gsd-mempalace-recall` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |",
-    "| `/gsd-mempalace-capture` | not installed: `@gsd/ops` serves it. Say so and stop; do not run another skill in its place. |"
+    "| `/gsd-map-codebase` | not served on this project |",
+    "| `/gsd-graphify` | not served on this project |",
+    "| `/gsd-docs-update` | not served on this project |",
+    "| `/gsd-extract-learnings` | prompt `specforge.gsd.extract_learnings` (served by @gsd/core) |",
+    "| `/gsd-mempalace-recall` | not served on this project |",
+    "| `/gsd-mempalace-capture` | not served on this project |"
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:9cbf5af913d84dc3c7c7566e571992d6faf01cf0f00291bef5f0902a176497dc",
+    "digest": "sha256:4b8bf5d54f4299604e4bdb381dbfcac4c953b25d308d8d251318a09d27cf65c4",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "9cbf5af913d84dc3c7c7566e571992d6faf01cf0f00291bef5f0902a176497dc"
+  "sha256": "4b8bf5d54f4299604e4bdb381dbfcac4c953b25d308d8d251318a09d27cf65c4"
 }

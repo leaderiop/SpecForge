@@ -52,6 +52,7 @@ static AUDIT_UAT: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 
@@ -70,6 +71,7 @@ static AUDIT_MILESTONE: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(integration),
 };
 

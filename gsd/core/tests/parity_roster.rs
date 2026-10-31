@@ -29,8 +29,11 @@ use assets::{NOT_EMBEDDED, Why};
 use gsd_core::agents::roster::AGENTS;
 use gsd_core::hooks::roster::HOOK_ROSTER;
 use gsd_core::prompts::asset_paths as paths;
-use gsd_core::prompts::roster::{Owner, ROSTER};
 use modules::{MODULES, Module};
+use roster::{Owner, ROSTER};
+
+#[path = "common/roster.rs"]
+mod roster;
 use serde_json::Value;
 
 const MANIFEST: &str = include_str!("../../parity/upstream/v1.18.0/INVENTORY-MANIFEST.json");

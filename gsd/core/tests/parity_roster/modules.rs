@@ -77,7 +77,7 @@ pub const MODULES: &[(&str, Module)] = &[
     ("codex-agent-toml.cjs", Host("specforge install")),
     ("command-aliases.cjs", Ported("src/slash.rs")),
     ("command-arg-projection.cjs", Ported("src/prompts/args.rs")),
-    ("command-roster.cjs", Ported("src/prompts/roster.rs")),
+    ("command-roster.cjs", Ported("tests/common/roster.rs")),
     ("command-routing-hub.cjs", NotApplicable(ROUTER)),
     ("commands.cjs", NotApplicable(ROUTER)),
     (

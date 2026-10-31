@@ -61,15 +61,8 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 23254,
+  "bytes": 23331,
   "end": [
-    "| 3     | ○      | 0/2   | 0%       |",
-    "```",
-    "",
-    "Table rules use ASCII `-`, never box-drawing characters.",
-    "",
-    "---",
-    "",
     "## Anti-Patterns",
     "",
     "- Fixed-width runs of `━`, `─` or `═` as separators — they wrap in a narrow pane",
@@ -100,9 +93,16 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
     "",
-    "## Commands this install does not have",
+    "## Commands this install may not serve",
     "",
-    "The menu may name `/gsd-debug` (@gsd/ops), `/gsd-code-review` (@gsd/ops), `/gsd-capture` (@gsd/ops), `/gsd-map-codebase` (@gsd/codebase). They are served by another extension, which is not installed. When the recommended action is one of them, say so and offer the next action that is installed: `specforge gsd resolve-blocker` or `/gsd-verify-work` for a blocked project, the next phase prompt otherwise."
+    "The menu may name these commands; this is how the project serves each:",
+    "",
+    "- `/gsd-debug`: not served on this project",
+    "- `/gsd-code-review`: not served on this project",
+    "- `/gsd-capture`: not served on this project",
+    "- `/gsd-map-codebase`: not served on this project",
+    "",
+    "When the recommended action is one that is not served on this project, say so and offer the next action that is: `specforge gsd resolve-blocker` or `/gsd-verify-work` for a blocked project, the next phase prompt otherwise."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 559,
+  "lines": 566,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:4f3119b8f9ae7ab59d3aa4e37b2ba847662d2ad0e72bf9675f3e624989e94530",
+    "digest": "sha256:b624b628262f172cc5d500ef4d9ac01a7469a004f0b27439c329874a4caa7836",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "4f3119b8f9ae7ab59d3aa4e37b2ba847662d2ad0e72bf9675f3e624989e94530"
+  "sha256": "b624b628262f172cc5d500ef4d9ac01a7469a004f0b27439c329874a4caa7836"
 }

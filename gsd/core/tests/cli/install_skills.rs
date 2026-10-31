@@ -162,7 +162,7 @@ fn fifty_host_names() {
         let run = p.install(host, &[]);
         assert_eq!(run.code, 0, "{host}: {}", run.all());
     }
-    let mut want: Vec<String> = gsd_core::prompts::roster::ROSTER
+    let mut want: Vec<String> = crate::roster::ROSTER
         .iter()
         .filter(|(_, o)| o.is_core())
         .map(|(n, _)| format!("gsd-{n}"))
@@ -178,8 +178,8 @@ fn fifty_host_names() {
         let skill = format!("gsd-{name}");
         // the seven command-backed slash commands (r41) describe what the command does here, not upstream's text
         let command_backed = matches!(
-            gsd_core::prompts::roster::owner(&name),
-            Some(gsd_core::prompts::roster::Owner::CoreCommand)
+            crate::roster::owner(&name),
+            Some(crate::roster::Owner::CoreCommand)
         );
         if !want.contains(&skill) || rewritten.contains(&name.as_str()) || command_backed {
             continue;

@@ -60,6 +60,7 @@ static DISCUSS_PHASE: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 

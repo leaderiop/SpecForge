@@ -61,15 +61,8 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 22473,
+  "bytes": 22550,
   "end": [
-    "| 3     | ○      | 0/2   | 0%       |",
-    "```",
-    "",
-    "Table rules use ASCII `-`, never box-drawing characters.",
-    "",
-    "---",
-    "",
     "## Anti-Patterns",
     "",
     "- Fixed-width runs of `━`, `─` or `═` as separators — they wrap in a narrow pane",
@@ -100,9 +93,16 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
     "",
-    "## Commands this install does not have",
+    "## Commands this install may not serve",
     "",
-    "The menu may name `/gsd-debug` (@gsd/ops), `/gsd-code-review` (@gsd/ops), `/gsd-capture` (@gsd/ops), `/gsd-map-codebase` (@gsd/codebase). They are served by another extension, which is not installed. When the recommended action is one of them, say so and offer the next action that is installed: `specforge gsd resolve-blocker` or `/gsd-verify-work` for a blocked project, the next phase prompt otherwise."
+    "The menu may name these commands; this is how the project serves each:",
+    "",
+    "- `/gsd-debug`: not served on this project",
+    "- `/gsd-code-review`: not served on this project",
+    "- `/gsd-capture`: not served on this project",
+    "- `/gsd-map-codebase`: not served on this project",
+    "",
+    "When the recommended action is one that is not served on this project, say so and offer the next action that is: `specforge gsd resolve-blocker` or `/gsd-verify-work` for a blocked project, the next phase prompt otherwise."
   ],
   "head": [
     "<specforge_gsd_preamble>",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 540,
+  "lines": 547,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:c8809d0a85f80957df82f49eb332384849e54d8a871271db23d62bd493257b02",
+    "digest": "sha256:40eaaccf28292865a43528150791d6afffa17d9697f0530148b857cce1a97ad6",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "c8809d0a85f80957df82f49eb332384849e54d8a871271db23d62bd493257b02"
+  "sha256": "40eaaccf28292865a43528150791d6afffa17d9697f0530148b857cce1a97ad6"
 }

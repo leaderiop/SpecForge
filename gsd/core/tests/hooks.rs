@@ -7,7 +7,10 @@ use std::path::{Path, PathBuf};
 
 use gsd_core::build;
 use gsd_core::hooks::roster::{Disposition, HOOK_ROSTER};
-use gsd_core::prompts::roster::ROSTER;
+use roster::ROSTER;
+
+#[path = "common/roster.rs"]
+mod roster;
 use specforge_extension_sdk::SettingsItem;
 use specforge_extension_sdk::testing::MockHost;
 

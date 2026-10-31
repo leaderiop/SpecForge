@@ -75,6 +75,7 @@ static NEW_PROJECT: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(idea),
 };
 
@@ -93,6 +94,7 @@ static NEW_MILESTONE: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(name),
 };
 

@@ -1,46 +1,41 @@
 //! The six `/gsd-ns-*` routers (D-r43-15): each renders upstream's body, which matches the user's intent to one skill
-//! of its cluster, followed by the route table of this install. A prompt cannot ask the host which skills are served,
-//! so the table reads the roster (`roster.rs`): a target is served when `@gsd/core` owns it.
+//! of its cluster, followed by the route table of this install. The table reads the slash commands the project serves
+//! (`PromptCall::slash_commands`, ADR 0316): a target is served when a slash command named `gsd-<target>` is.
 
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::roster::{Owner, owner};
 use super::workflow::{self, Slash, Spec};
 
 /// The route table: one row per target, in the order of upstream's `requires:`.
-fn table(targets: &[&str]) -> String {
+fn table(call: &PromptCall<'_>, targets: &[&str]) -> String {
     let mut out = String::from(
         "\n\n## Route table on this install\n\n\
-         Invoke the matched skill from this table. A target that is not installed is named with the extension that \
-         serves it.\n\n| Target | On this install |\n|---|---|\n",
+         Invoke the matched skill from this table. A target that is not served on this project is named so: say so \
+         and stop; do not run another skill in its place.\n\n| Target | On this install |\n|---|---|\n",
     );
     for target in targets {
-        let what = match owner(target) {
-            Some(Owner::CorePrompt) => {
-                format!(
-                    "prompt `gsd.{}` (served by @gsd/core)",
-                    target.replace('-', "_")
-                )
-            }
-            Some(Owner::CoreCommand) => {
-                format!("command `specforge gsd {target}` (served by @gsd/core)")
-            }
-            Some(Owner::Router) => "router (served by @gsd/core)".to_string(),
-            Some(Owner::Extension(extension)) => format!(
-                "not installed: `{extension}` serves it. Say so and stop; do not run another skill in its place."
-            ),
-            None => "not a GSD command".to_string(),
-        };
-        out.push_str(&format!("| `/gsd-{target}` | {what} |\n"));
+        out.push_str(&format!("| `/gsd-{target}` | {} |\n", served(call, target)));
     }
     out
 }
 
+/// What the install says of `/gsd-<stem>`: how it is served, or that it is not.
+pub(super) fn served(call: &PromptCall<'_>, stem: &str) -> String {
+    let name = format!("gsd-{stem}");
+    match call.slash_commands().iter().find(|s| s.name == name) {
+        Some(s) => match (&s.prompt, &s.tool) {
+            (Some(prompt), _) => format!("prompt `{prompt}` (served by {})", s.extension),
+            (None, _) => format!("command `{}` (served by {})", s.cli, s.extension),
+        },
+        None => "not served on this project".to_string(),
+    }
+}
+
 macro_rules! router {
     ($spec:ident, $tail:ident, $id:literal, $command:literal, $title:literal, $description:literal, $targets:expr) => {
-        fn $tail(_call: &PromptCall<'_>) -> String {
-            table($targets)
+        fn $tail(call: &PromptCall<'_>) -> String {
+            table(call, $targets)
         }
 
         static $spec: Spec = Spec {
@@ -58,6 +53,7 @@ macro_rules! router {
                 effort: None,
             }),
             reads_state: false,
+            reads_slash_commands: true,
             tail: Some($tail),
         };
     };

@@ -49,6 +49,7 @@ static MILESTONE_SUMMARY: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(shown),
 };
 
@@ -67,6 +68,7 @@ static EXTRACT_LEARNINGS: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(recorded),
 };
 

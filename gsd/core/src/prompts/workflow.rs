@@ -49,6 +49,8 @@ pub struct Spec {
     pub slash: Option<Slash>,
     /// The prompt reads the extension's state (`call.state()`).
     pub reads_state: bool,
+    /// The prompt receives the slash commands the project serves (`PromptCall::slash_commands`, ADR 0316).
+    pub reads_slash_commands: bool,
     /// A closing section of the prompt's own (`spec_phase`'s judging text).
     pub tail: Option<fn(&PromptCall<'_>) -> String>,
 }
@@ -198,6 +200,9 @@ pub fn declare(c: &mut ContributionsBuilder, spec: &'static Spec) {
         }
         if spec.reads_state {
             p.reads_state();
+        }
+        if spec.reads_slash_commands {
+            p.reads_slash_commands();
         }
         args::declare(p, spec.args);
         if let Some(subject) = spec.subject {

@@ -56,6 +56,7 @@ static REVIEW: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: Some(shown),
 };
 
@@ -80,6 +81,7 @@ static REVIEW_BACKLOG: Spec = Spec {
         effort: None,
     }),
     reads_state: false,
+    reads_slash_commands: false,
     tail: None,
 };
 
