@@ -25,6 +25,7 @@ fn a_command_with_reads_gets_files_and_one_without_gets_none() {
         &reading(json!([{"name": "docs", "glob": "*.txt", "text": true}])),
         &Map::new(),
         CommandFormat::Json,
+        None,
         at("2026-10-03"),
     )
     .unwrap();
@@ -41,6 +42,7 @@ fn a_command_with_reads_gets_files_and_one_without_gets_none() {
         &routed("ok"),
         &Map::new(),
         CommandFormat::Json,
+        None,
         at("2026-10-03"),
     )
     .unwrap();

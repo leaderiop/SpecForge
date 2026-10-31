@@ -101,6 +101,10 @@ pub struct CommandInput<G = GraphWire> {
     /// The facts of the files the command's `reads` name, by read name (protocol 1.11.0, ADR 0293).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub files: crate::FileMap,
+    /// The host that called the command (`claude-code`, `codex`, `cursor`), when it is known; absent otherwise
+    /// (protocol 1.13.0, ADR 0318).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
 }
 
 impl<G> CommandInput<G> {

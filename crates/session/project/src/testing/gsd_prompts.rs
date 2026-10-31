@@ -234,8 +234,12 @@ fn ship_guard(input: &Value) -> Vec<Value> {
         .collect()
 }
 
+/// The args a command got, one line; and, when it was told the host that called it, `host <name>`.
 fn command_output(input: &Value) -> Value {
-    json!({"exit_code": 0, "stdout": format!("{}\n", input["args"]), "stderr": ""})
+    let host = input["host"]
+        .as_str()
+        .map_or(String::new(), |h| format!("host {h}\n"));
+    json!({"exit_code": 0, "stdout": format!("{}\n{host}", input["args"]), "stderr": ""})
 }
 
 fn prompt_output(export: &str, input: &Value) -> Value {

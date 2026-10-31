@@ -90,3 +90,22 @@ fn codex_golden_is_the_fixture_rendered() {
 fn cursor_golden_is_the_fixture_rendered() {
     check(Host::Cursor);
 }
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "a command slash's CLI fallback names the host it was written for"
+)]
+fn a_command_fallback_names_the_host() {
+    for host in Host::ALL {
+        let files = written(host);
+        let skill = files
+            .iter()
+            .find(|(path, _)| path.contains("t-stats"))
+            .unwrap_or_else(|| panic!("{host:?} has the t-stats skill"));
+        let want = format!(
+            "run `specforge t stats --host {} <that text>`",
+            host.as_str()
+        );
+        assert!(skill.1.contains(&want), "{host:?}: {}", skill.1);
+    }
+}

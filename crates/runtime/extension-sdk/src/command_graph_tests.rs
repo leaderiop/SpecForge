@@ -33,6 +33,7 @@ fn a_command_input_is_built_by_its_fields() {
     // The alias of the protocol's generic input builds and defaults as
     // the SDK's own struct did.
     let input = CommandInput {
+        host: None,
         args: serde_json::Map::new(),
         cwd: "/p".to_string(),
         graph: CommandGraph::default(),

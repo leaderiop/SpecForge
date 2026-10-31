@@ -7,6 +7,7 @@ use super::{
 };
 use crate::authoring::edit::Edited;
 use crate::extension::command::{CommandFormat, ExtensionCommand, RunError, called, settle};
+use crate::host::Host;
 use crate::view::ProjectView;
 use crate::{Caller, OpError, OpErrorKind};
 use serde_json::{Map, Value};
@@ -44,6 +45,7 @@ pub fn execute(
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
+    host: Option<Host>,
     dry_run: bool,
     caller: Caller<'_>,
     surface: Surface,
@@ -54,6 +56,7 @@ pub fn execute(
         command,
         given,
         format,
+        host,
         dry_run,
         caller,
         surface,
@@ -72,6 +75,7 @@ pub fn execute_with(
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
+    host: Option<Host>,
     dry_run: bool,
     caller: Caller<'_>,
     surface: Surface,
@@ -95,7 +99,7 @@ pub fn execute_with(
         ));
         return Err(RunError::Gate(Box::new(refused)));
     }
-    let mut output = called(view, command, given, format)?;
+    let mut output = called(view, command, given, format, host)?;
     let Some(plan) = &output.plan else {
         let state_refused = if dry_run {
             None

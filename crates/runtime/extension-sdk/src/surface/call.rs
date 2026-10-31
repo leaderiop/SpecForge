@@ -72,6 +72,12 @@ impl<'a> CommandCall<'a> {
         self.input.state.as_ref()
     }
 
+    /// The host that called the command (`claude-code`, `codex`, `cursor`); `None` when the host does not know it
+    /// (ADR 0318).
+    pub fn host(&self) -> Option<&'a str> {
+        self.input.host.as_deref()
+    }
+
     /// The host's date, `YYYY-MM-DD`, UTC; empty when the host passed none.
     pub fn today(&self) -> &'a str {
         &self.input.today

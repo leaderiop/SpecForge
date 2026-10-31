@@ -8,6 +8,7 @@
 
 use serde_json::{Value, json};
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommand, RunError};
+use specforge_ops::host::Host;
 use specforge_protocol_types::command_args::ArgError;
 use specforge_protocol_types::{CommandError, CommandOutput};
 use specforge_wasm::runtime::WasmRuntime;
@@ -48,7 +49,7 @@ pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value
             return writing::run(call, entry, command, arguments);
         }
         ToolKind::Command(command) => match call.project() {
-            Ok(project) => command_adapter(&project, command, arguments),
+            Ok(project) => command_adapter(&project, command, arguments, call.host()),
             Err(refused) => (refused.into(), None),
         },
     };
@@ -144,6 +145,7 @@ fn command_adapter(
     project: &ProjectRef<'_>,
     command: &ExtensionCommand,
     arguments: &Value,
+    host: Option<Host>,
 ) -> (ToolOutcome, Option<McpEvent>) {
     let given = arguments.as_object().cloned().unwrap_or_default();
     let started = std::time::Instant::now();
@@ -152,6 +154,7 @@ fn command_adapter(
         command,
         &given,
         CommandFormat::Json,
+        host,
     ) {
         Ok(output) => {
             let event = McpEvent::SurfaceCommandDispatched {

@@ -257,3 +257,18 @@ fn the_host_reads_its_options_before_double_dash_only() {
         "{err}"
     );
 }
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "the host option reaches a command on the command line, and a host that is none is refused"
+)]
+fn the_host_option_reaches_a_command() {
+    let p = project("fine", "fine");
+    let (code, out, err) = extension(&p, "t", &["record-plan", "03", "--host", "codex"]);
+    assert_eq!((code, out.contains("host codex")), (0, true), "{out}{err}");
+    let (code, out, _) = extension(&p, "t", &["record-plan", "03"]);
+    assert_eq!((code, out.contains("host ")), (0, false), "{out}");
+    let (code, _, err) = extension(&p, "t", &["record-plan", "03", "--host", "vim"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("vim"), "{err}");
+}

@@ -245,6 +245,31 @@ fn a_gated_command_is_refused_over_mcp() {
 }
 
 #[specforge_test_macros::test(
+    behavior = "dispatch_surface_command",
+    verify = "an MCP command call is told the host the session's client named"
+)]
+fn an_mcp_command_call_is_told_the_session_host() {
+    let init = json!({"clientInfo": {"name": "claude-code", "version": "2"}});
+    let mut named = gsd_for("fine", "ok", json!({}), init);
+    let reply = rpc::call_tool(
+        &mut named,
+        "specforge.t.record_plan",
+        json!({"phase": "03"}),
+    );
+    assert!(
+        rpc::tool_text(&reply).contains("host claude-code"),
+        "{reply}"
+    );
+    let mut unnamed = gsd("fine", "ok", json!({}));
+    let reply = rpc::call_tool(
+        &mut unnamed,
+        "specforge.t.record_plan",
+        json!({"phase": "03"}),
+    );
+    assert!(!rpc::tool_text(&reply).contains("host "), "{reply}");
+}
+
+#[specforge_test_macros::test(
     behavior = "serve_extension_prompt",
     verify = "prompts/get of a prompt whose gate fails is a JSON-RPC error naming gate_failed, and its export is not called"
 )]

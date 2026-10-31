@@ -116,6 +116,7 @@ pub fn call_every_command_with(
                 graph: graph.clone(),
                 format: CommandFormat::Json,
                 today: today.to_string(),
+                host: None,
                 // Midnight of that date unless the feed has an instant: the harness has a date.
                 now: match (&feed.now, today.is_empty()) {
                     (Some(now), _) => now.clone(),

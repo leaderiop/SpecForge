@@ -286,8 +286,14 @@ mod evidence {
                 ..Default::default()
             },
         );
-        run(&project.view(), &command, &Map::new(), CommandFormat::Json)
-            .expect("the export answers");
+        run(
+            &project.view(),
+            &command,
+            &Map::new(),
+            CommandFormat::Json,
+            None,
+        )
+        .expect("the export answers");
         let input = runtime
             .calls()
             .last()
@@ -437,7 +443,7 @@ mod the_views_runtime {
             .iter()
             .find(|c| c.id() == "hello")
             .expect("the extension declares `hello`");
-        run(&view, hello, &Map::new(), CommandFormat::Json).expect("the export answers");
+        run(&view, hello, &Map::new(), CommandFormat::Json, None).expect("the export answers");
 
         let exports: Vec<String> = rt.calls().into_iter().map(|c| c.export).collect();
         assert!(exports.contains(&"__pass_scan".to_string()), "{exports:?}");
@@ -456,7 +462,7 @@ mod the_views_runtime {
         let bare = compile_at(dir.path(), None);
         let view = ProjectView::of(&bare);
         let RunError::Call(error) =
-            run(&view, hello, &Map::new(), CommandFormat::Json).unwrap_err()
+            run(&view, hello, &Map::new(), CommandFormat::Json, None).unwrap_err()
         else {
             panic!("a command over an environment with no runtime is a failed call");
         };

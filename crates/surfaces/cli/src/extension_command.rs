@@ -29,6 +29,7 @@ use specforge_common::ProjectRoot;
 use specforge_ops::extension::command::{
     ArgShape, ArgValue, CommandFormat, ExtensionArg, ExtensionCommand, ExtensionCommands, RunError,
 };
+use specforge_ops::host::Host;
 use specforge_ops::view::ProjectView;
 use specforge_project::{CompiledProject, Environment};
 use specforge_protocol_types::command_args::{ArgError, normalize_arg};
@@ -37,6 +38,9 @@ use std::sync::Arc;
 
 /// The host's own option on every extension command: the output asked for.
 const FORMAT: &str = "format";
+
+/// The host's option on every extension command that declares no arg of the name: the host calling it (ADR 0318).
+const HOST: &str = "host";
 
 /// The host's option on a writing command: show its plan, write nothing.
 const DRY_RUN: &str = "dry-run";
@@ -244,6 +248,11 @@ pub(crate) fn run_in(
         command,
         &given,
         format,
+        matches
+            .try_get_one::<String>(HOST)
+            .ok()
+            .flatten()
+            .and_then(|h| Host::from_flag(h)),
         dry_run,
         crate::caller::of(false, output_format, terminal),
         specforge_ops::authoring::apply::Surface::Cli {
@@ -557,6 +566,15 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .default_value(CommandFormat::Human.as_str())
                     .help("Output format"),
             );
+        if !command.args().iter().any(|a| a.name == HOST) {
+            sub = sub.arg(
+                Arg::new(HOST)
+                    .long(HOST)
+                    .value_name("HOST")
+                    .value_parser(PossibleValuesParser::new(Host::ALL.map(Host::as_str)))
+                    .help("The host calling the command: claude-code, codex or cursor"),
+            );
+        }
         if command.writes() {
             sub = sub.arg(
                 Arg::new(DRY_RUN)

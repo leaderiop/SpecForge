@@ -37,6 +37,7 @@ fn a_command_input_carries_now() {
         &routed("ok"),
         &Map::new(),
         CommandFormat::Json,
+        None,
         instant("2026-10-03T23:59:59.900Z"),
     )
     .unwrap();

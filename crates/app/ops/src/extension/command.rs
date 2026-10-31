@@ -21,6 +21,7 @@
 //! "One operation runs a command").
 
 use crate::OpError;
+use crate::host::Host;
 use crate::view::ProjectView;
 use serde_json::{Map, Value, json};
 use specforge_protocol_types::command_args::{self, ArgError, normalize_arg, option_name};
@@ -466,7 +467,7 @@ impl RunError {
 ///    gate is [`RunError::Gate`] and the export is not called (ADR 0291);
 /// 6. the view's graph is rendered as the graph export, with its computed values and judgements (ADR 0299)
 ///    (`specforge_emitter::emit`, at the project's versioned schema version, in the view's registry build)
-///    and the `cmd__` export called with that `CommandInput`.
+///    and the `cmd__` export called with that `CommandInput`, which names the calling `host` when there is one (ADR 0318).
 ///
 /// A command the host refuses ([`ExtensionCommand::refusal`]) is not routed
 /// on either surface; `run` does not check it again (ADR 0011, "One
@@ -476,8 +477,9 @@ pub fn run(
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
+    host: Option<Host>,
 ) -> Result<CommandOutput, RunError> {
-    let mut output = called(view, command, given, format)?;
+    let mut output = called(view, command, given, format, host)?;
     settle(view, command, &mut output)?;
     Ok(output)
 }
@@ -488,8 +490,9 @@ pub(crate) fn called(
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
+    host: Option<Host>,
 ) -> Result<CommandOutput, RunError> {
-    run_on(view, command, given, format, instant())
+    run_on(view, command, given, format, host, instant())
 }
 
 /// Keep the state `output` patched (and take it out of `output`), unless the command failed.
@@ -549,6 +552,7 @@ fn run_on(
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
+    host: Option<Host>,
     at: chrono::DateTime<chrono::Utc>,
 ) -> Result<CommandOutput, RunError> {
     let mut args = command.normalize(given).map_err(RunError::Args)?;
@@ -562,6 +566,7 @@ fn run_on(
         now: now_of(at),
         graph: RawGraph::new(graph_export(view)).expect("the graph export is one JSON value"),
         evidence: evidence(view),
+        host: host.map(|h| h.as_str().to_string()),
         revisions: if command.writes() {
             crate::revision::of_project(view.project())
         } else {
