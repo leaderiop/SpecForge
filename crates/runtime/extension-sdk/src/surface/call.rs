@@ -3,6 +3,7 @@
 use super::Command;
 use crate::{
     CommandError, CommandEvidence, CommandFormat, CommandGraph, CommandInput, CommandOutput,
+    StateView,
 };
 use serde_json::Value;
 use specforge_protocol_types::command_args::normalize_args;
@@ -63,6 +64,12 @@ impl<'a> CommandCall<'a> {
     /// Whether the caller asked for `json`.
     pub fn is_json(&self) -> bool {
         self.input.is_json()
+    }
+
+    /// The extension's state, for a command that declares `reads_state`; `None` otherwise: the host sends nothing
+    /// (ADR 0310).
+    pub fn state(&self) -> Option<&'a StateView> {
+        self.input.state.as_ref()
     }
 
     /// The host's date, `YYYY-MM-DD`, UTC; empty when the host passed none.

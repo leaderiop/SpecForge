@@ -278,6 +278,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "over MCP a command's JSON object output is the tool's structured content, and output that is not one object is text"
   verify unit "the command line shows each declared arg by its shape, with its values, default and description, beside the host's --path and --format"
   verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host, evidence_carried, one_operation"
+  verify unit "a command reads the state the host sends it, and none when it sent none"
 }
 
 behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {

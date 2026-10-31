@@ -108,6 +108,7 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "prompts/get of a prompt whose gate fails is a JSON-RPC error naming gate_failed, and its export is not called"
   verify unit "specforge.prompt refuses an unknown host, an unknown prompt (naming the served ones) and argv for a core prompt"
   verify unit "a prompt's multi-line message reaches the agent with its lines, and other controls escaped"
+  verify unit "a prompt reads the state the host sends it"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

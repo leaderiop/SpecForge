@@ -31,6 +31,7 @@ use specforge_protocol_types::{
     PromptStep,
 };
 
+use crate::StateView;
 use crate::operations::Wire;
 
 /// The export that renders the prompt `id`.
@@ -263,6 +264,11 @@ impl PromptCall<'_> {
     /// The host's date, UTC, `YYYY-MM-DD`.
     pub fn today(&self) -> &str {
         &self.0.today
+    }
+    /// The extension's state, for a prompt that declares [`PromptBuilder::reads_state`]; `None` otherwise: the host
+    /// sends nothing (ADR 0310).
+    pub fn state(&self) -> Option<&StateView> {
+        self.0.state.as_ref()
     }
     /// The project's graph, for a prompt that declares [`PromptBuilder::reads_graph`].
     pub fn graph(&self) -> Option<&GraphWire> {
