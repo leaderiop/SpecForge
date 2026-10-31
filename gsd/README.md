@@ -176,7 +176,7 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). K20a is built: the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, and install and uninstall are safe. What still waits for kernel work (K20b, K20c):
+`previous_score` and compares scan states (r39 T13 is built). K20a is built: the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, and install and uninstall are safe. One divergence from upstream: a truth's `verification` tier is a person's, so `/gsd-phase --remove` of a phase whose truth holds one is refused `human_only` until the person deletes that line in their editor (upstream deletes regardless; REVIEW-k20a M3). What still waits for kernel work (K20b, K20c):
 
 - **A command or prompt cannot read its extension's state (K20).** The host sends `state` to a `reads_state` command or
   prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So

@@ -175,8 +175,22 @@ pub(super) fn remove(
             gone.number.name()
         ));
     }
-    let mut plan = call.plan();
     let under = format!("{}/", gone.node.id);
+    // A tier is a person's (`truth.verification` is `U`, D-K20a-4), so deleting its truth is the host's `human_only`:
+    // say which line to delete. Upstream deletes regardless (REVIEW-k20a M3).
+    if let Some(truth) = call
+        .graph()
+        .nodes()
+        .iter()
+        .find(|n| n.kind == "truth" && n.id.starts_with(&under) && n.has_field("verification"))
+    {
+        return Err(format!(
+            "human_only: 'verification' of truth '{}' was written by a person: delete that line in your editor, then run `/gsd-phase --remove {}` again",
+            truth.id,
+            gone.number.name()
+        ));
+    }
+    let mut plan = call.plan();
     let subtree: Vec<&GraphNode> = call
         .graph()
         .nodes()

@@ -94,7 +94,7 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 
 | Kind | Fields |
 |---|---|
-| truth | `plan R I`, `text str R` (user-observable), `verification enum{explicit, backstop} H` (a person's to write), `criterion int` (the phase success criterion it proves). Name `TR1`. |
+| truth | `plan R I`, `text str R` (user-observable), `verification enum{explicit, backstop} U` (a person's to write), `criterion int` (the phase success criterion it proves). Name `TR1`. |
 | artifact | `plan R I`, `path str R` (a path the plan creates: not existence-checked), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
 | key_link | `plan R I`, `from str R`, `to str R` (paths the plan creates: not existence-checked), `via str R`, `pattern str`. Name `KL1`. |
 | prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |

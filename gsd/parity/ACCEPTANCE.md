@@ -117,6 +117,10 @@ Not verified:
   (Cursor's agent terminal, Codex's pty exec) passes it, and so does `script(1)`; there the gate is an honest-agent
   gate. A PreToolUse shell guard that refuses these commands from an agent's shell tool is planned in K20c, not built
   (REVIEW-k20a M2).
+- `/gsd-phase --remove` of a phase whose truth holds a `verification` tier is refused `human_only`, for an agent and for
+  a person's run of the command alike: the tier is a person's (`U`, D-K20a-4), so the person deletes that line in their
+  editor and runs the remove again. Upstream deletes the phase regardless (REVIEW-k20a M3). A human-attested remove is
+  not built.
 - A threshold's bounds are whole numbers (D-K20a-9): `hooks.context_critical_threshold` takes `99.5`, which GSD refuses.
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
