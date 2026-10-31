@@ -109,6 +109,7 @@ mod schema_notices;
 mod scopes;
 mod search;
 mod selection;
+mod served_slashes;
 mod settings;
 mod settings_set;
 mod setup;

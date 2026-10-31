@@ -32,6 +32,9 @@ pub struct PromptDescriptor {
     /// The export receives the extension's state (protocol 1.10.0, ADR 0292).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reads_state: bool,
+    /// The export receives the slash commands the project serves, as `slash_commands` (protocol 1.13.0, ADR 0316).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reads_slash_commands: bool,
     /// A bool setting of the extension: while it is false the prompt is not served.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub when: Option<String>,
@@ -110,6 +113,27 @@ pub struct PromptInput<G = GraphWire> {
     /// A prompt that declares `reads_state`: the extension's state, read only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::StateView>,
+    /// A prompt that declares `reads_slash_commands`: the slash commands the project serves, sorted by name
+    /// (protocol 1.13.0, ADR 0316).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slash_commands: Vec<ServedSlash>,
+}
+
+/// One slash command a project serves: what an install writes for a host, as a prompt reads it.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServedSlash {
+    /// The host's name for it (`gsd-plan-phase`).
+    pub name: String,
+    /// The extension that declares it.
+    pub extension: String,
+    /// The MCP prompt it calls, when it is bound to a prompt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    /// The MCP tool it calls, when it is bound to a command.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool: Option<String>,
+    /// The same on the command line.
+    pub cli: String,
 }
 
 /// What a `prompt__*` export answers: at least one message.

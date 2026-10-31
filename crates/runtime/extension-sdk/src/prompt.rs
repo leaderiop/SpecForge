@@ -31,8 +31,8 @@ use specforge_protocol_types::{
     PromptStep,
 };
 
-use crate::StateView;
 use crate::operations::Wire;
+use crate::{ServedSlash, StateView};
 
 /// The export that renders the prompt `id`.
 pub fn prompt_export(id: &str) -> String {
@@ -106,6 +106,12 @@ impl PromptBuilder {
     /// The handler receives the graph ([`PromptCall::graph`]); a workflow usually reads through tools.
     pub fn reads_graph(&mut self) -> &mut Self {
         self.descriptor.reads_graph = true;
+        self
+    }
+
+    /// The handler receives the slash commands the project serves ([`PromptCall::slash_commands`], ADR 0316).
+    pub fn reads_slash_commands(&mut self) -> &mut Self {
+        self.descriptor.reads_slash_commands = true;
         self
     }
 
@@ -275,6 +281,11 @@ impl PromptCall<'_> {
     /// sends nothing (ADR 0310).
     pub fn state(&self) -> Option<&StateView> {
         self.0.state.as_ref()
+    }
+    /// The slash commands the project serves, for a prompt that declares [`PromptBuilder::reads_slash_commands`];
+    /// empty otherwise.
+    pub fn slash_commands(&self) -> &[ServedSlash] {
+        &self.0.slash_commands
     }
     /// The project's graph, for a prompt that declares [`PromptBuilder::reads_graph`].
     pub fn graph(&self) -> Option<&GraphWire> {

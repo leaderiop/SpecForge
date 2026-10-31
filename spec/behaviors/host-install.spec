@@ -52,6 +52,8 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "uninstall removes the empty host directories install created, the host's root included"
   verify unit "an install made without a record uninstalls its files and keeps its containers, directories and config files"
   verify unit "a re-install keeps the record, so the uninstall after it still removes the host roots"
+  verify unit "the slash commands a prompt is sent are the ones an install writes"
+  verify unit "a slash command's hint writes a prompt's free-text tail last"
 }
 
 behavior run_a_hook "Run a Hook" {

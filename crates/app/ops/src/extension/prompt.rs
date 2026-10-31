@@ -234,6 +234,11 @@ pub fn render(
         state: declared
             .reads_state
             .then(|| crate::host::state::read(view, &prompt.extension, None)),
+        slash_commands: if declared.reads_slash_commands {
+            crate::host::render::served_slashes(view)
+        } else {
+            Vec::new()
+        },
     };
     let call = || {
         let Some(runtime) = view.runtime() else {

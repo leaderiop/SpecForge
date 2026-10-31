@@ -56,7 +56,7 @@ pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgem
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
 pub use prompt::{
     Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptOutput,
-    PromptRole, PromptStep,
+    PromptRole, PromptStep, ServedSlash,
 };
 pub use reads::{FileFact, FileFacts, FileMap, FileRead};
 pub use settings::{

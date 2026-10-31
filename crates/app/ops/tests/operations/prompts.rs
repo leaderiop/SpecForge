@@ -443,3 +443,59 @@ fn no_picked_subject_is_project_wide_and_a_word_is_the_subject() {
     assert_eq!(rendered.payload["subject"], "v1.0/03");
     assert_eq!(echo.input("prompt__next_phase")["args"]["phase"], "v1.0/03");
 }
+
+/// The fixture with the prompt `router`, which reads the slash commands the project serves.
+fn router(settings: Value) -> Served {
+    let descriptor = json!({
+        "id": "router", "title": "Router", "description": "Routes", "export": "prompt__router",
+        "args": [], "reads_slash_commands": true,
+    });
+    served_with(
+        project("fine", "ok", settings),
+        GsdPrompts::new().prompting(descriptor),
+    )
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt that reads the slash commands is sent the ones the project serves, as an install writes them"
+)]
+fn a_prompt_reads_the_served_slash_commands() {
+    let served = router(json!({}));
+    render(&served, "router", Args::Named(json!({}))).unwrap();
+    assert_eq!(
+        served.input("prompt__router")["slash_commands"],
+        json!([
+            {"name": "t-plan-phase", "extension": "@t/core", "prompt": "specforge.t.plan_phase",
+             "cli": "specforge prompt t.plan_phase"},
+            {"name": "t-research-phase", "extension": "@t/core", "prompt": "specforge.t.research_phase",
+             "cli": "specforge prompt t.research_phase"},
+        ])
+    );
+    // A slash whose `when` setting is off is not served.
+    let off = router(json!({"workflow.research": false}));
+    render(&off, "router", Args::Named(json!({}))).unwrap();
+    let sent = off.input("prompt__router");
+    let names: Vec<&str> = sent["slash_commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["t-plan-phase"]);
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt that does not ask for the slash commands is sent none"
+)]
+fn a_prompt_that_does_not_ask_gets_none() {
+    let served = served(project("fine", "ok", json!({})));
+    plan_phase(&served, Args::Named(json!({"phase": "03"}))).unwrap();
+    assert!(
+        served
+            .input("prompt__plan_phase")
+            .get("slash_commands")
+            .is_none()
+    );
+}

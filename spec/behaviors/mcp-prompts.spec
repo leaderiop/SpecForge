@@ -122,6 +122,8 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "a picked subject must be an entity of the subject argument's kind, else the answer is E028"
   verify unit "a prompt with an optional subject and no pick is project-wide, and the first word is the subject"
   verify unit "a prompt answer without a subject serializes as it did, and a picked subject round-trips"
+  verify unit "a prompt that reads the slash commands is sent the ones the project serves, as an install writes them"
+  verify unit "a prompt that does not ask for the slash commands is sent none"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

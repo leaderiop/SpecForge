@@ -63,6 +63,7 @@ fn a_prompt_call_sends_the_golden_input_and_reads_the_golden_output() {
         graph: None,
         host: plain.host,
         state: None,
+        slash_commands: Vec::new(),
     })
     .unwrap();
     let output = ExtensionCalls::new(&runtime)
