@@ -123,9 +123,11 @@ Not verified:
   `source: automated`, and `set_uat_result --source automated` is refused with a hint naming it (REVIEW-k20a M1).
 - Limit of the human-attested commands: the proof is that stdin is a terminal, and the kernel's `core.human_guard`
   (a deny-policy PreToolUse hook on the shell tool, installed on every host while a command is `human`) refuses a shell
-  call that runs one, so an agent shell that is itself a pty (Cursor's agent terminal, Codex's pty exec) is stopped
-  there. What is left is `script(1)` typed by a person on the agent's behalf and an indirection the guard does not split
-  (a script, `eval`, a variable) (REVIEW-k20a M2).
+  call that runs one (whole line, any case, `.exe`, `ext:command`, behind wrappers with options, keywords, braces,
+  `$(…)`, `-c` and `eval`; an unreadable line that names specforge is refused), so an agent shell that is itself a pty
+  (Cursor's agent terminal, Codex's pty exec) is stopped there. What is left is `script(1)` typed by a person on the
+  agent's behalf, a script file or a variable that holds the command, and a host with no shell hook (REVIEW-k20a M2,
+  REVIEW-k20c-part2 M1).
 - `/gsd-phase --remove` of a phase whose truth holds a `verification` tier is refused `human_only`, for an agent and for
   a person's run of the command alike: the tier is a person's (`U`, D-K20a-4), so the person deletes that line in their
   editor and runs the remove again. Upstream deletes the phase regardless (REVIEW-k20a M3). A human-attested remove is
