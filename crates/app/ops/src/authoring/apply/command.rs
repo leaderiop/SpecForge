@@ -40,6 +40,10 @@ pub struct CommandRun {
 /// Run `command` over the project `view` describes ([`run`]) and apply the plan it answered, unless `dry_run`. A plan
 /// from a command that does not declare `writes` is refused (`undeclared_write`), and one from a call that failed
 /// is not applied.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the command, its inputs, the calling host, how it is applied and who applies it are each one thing"
+)]
 pub fn execute(
     view: &ProjectView<'_>,
     command: &ExtensionCommand,
