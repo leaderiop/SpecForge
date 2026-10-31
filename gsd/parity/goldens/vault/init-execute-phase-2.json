@@ -1,0 +1,64 @@
+{
+  "executor_model": "sonnet",
+  "verifier_model": "sonnet",
+  "tdd_mode": false,
+  "commit_docs": true,
+  "sub_repos": [],
+  "parallelization": false,
+  "context_window": 200000,
+  "branching_strategy": "none",
+  "phase_branch_template": "gsd/phase-{phase}-{slug}",
+  "milestone_branch_template": "gsd/{milestone}-{slug}",
+  "verifier_enabled": true,
+  "phase_found": true,
+  "phase_dir": "<project>/.planning/phases/02-sharing",
+  "phase_number": "02",
+  "padded_phase": "02",
+  "phase_name": "Sharing",
+  "phase_slug": "sharing",
+  "phase_req_ids": "SHARE-01",
+  "plans": [
+    "02-01-PLAN.md"
+  ],
+  "summaries": [],
+  "incomplete_plans": [
+    "02-01-PLAN.md"
+  ],
+  "plan_count": 1,
+  "incomplete_count": 1,
+  "threat_id_duplicates": [],
+  "threat_id_duplicate_count": 0,
+  "halted_plans": [],
+  "blocked_by": {},
+  "runnable_plans": [
+    "02-01-PLAN.md"
+  ],
+  "runnable_count": 1,
+  "branch_name": null,
+  "milestone_version": null,
+  "milestone_name": null,
+  "milestone_slug": null,
+  "state_exists": true,
+  "roadmap_exists": true,
+  "config_exists": true,
+  "state_path": "<project>/.planning/STATE.md",
+  "roadmap_path": "<project>/.planning/ROADMAP.md",
+  "config_path": "<project>/.planning/config.json",
+  "requirements_path": "<project>/.planning/REQUIREMENTS.md",
+  "section_manifest": {
+    "workflow": "execute-phase",
+    "included": [],
+    "excluded": [
+      "partial-wave",
+      "gap-closure-artifacts",
+      "regression-gate"
+    ],
+    "read": []
+  },
+  "project_root": "<project>",
+  "agents_installed": true,
+  "missing_agents": [],
+  "agents_dir": "<gsd-core>/agents",
+  "agent_runtime": "claude",
+  "project_title": "Vault"
+}

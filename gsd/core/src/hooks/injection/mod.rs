@@ -4,8 +4,8 @@
 //! the spec root), D-r44-9. Both are advisory. A HIGH scan of `injection_scanner` answers a block when
 //! `@gsd/security`'s `security.injection_blocking` is true (ADR 0323), but a `post_tool` block cannot undo the read:
 //! on Claude Code it reaches the model after the tool ran, as upstream's does, and on Cursor `postToolUse` has no
-//! block, so the answer stays advisory context there. `@gsd/security` is not built, so in every project today the
-//! setting is absent and the scanner is advisory.
+//! block, so the answer stays advisory context there. The block is reachable when `@gsd/security` is loaded and its
+//! setting is on (`gsd/security/tests/cli/injection.rs`); without it the setting is absent and the scanner is advisory.
 
 mod patterns;
 mod regex;

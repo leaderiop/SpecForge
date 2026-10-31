@@ -1,0 +1,12 @@
+{
+  "rows": [
+    {
+      "action": "created",
+      "path": ".codex/agents/gsd-security-auditor.toml"
+    },
+    {
+      "action": "created",
+      "path": ".codex/skills/gsd-secure-phase/SKILL.md"
+    }
+  ]
+}

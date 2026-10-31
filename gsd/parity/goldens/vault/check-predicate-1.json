@@ -1,0 +1,10 @@
+{
+  "block": true,
+  "message": "Frontmatter field \"threats_open\" in SECURITY.md is 1, expected 0",
+  "details": {
+    "kind": "artifact-frontmatter-equals",
+    "match": false,
+    "actual": "1",
+    "expected": 0
+  }
+}

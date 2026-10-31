@@ -117,7 +117,7 @@ GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-val
 **validation_row**: the Per-Task Verification Map. Name `VR1`. `validation R`, `task → task R`, `requirement → requirement`,
 `test_type enum{unit, integration, smoke, e2e, manual} R`,
 `command str`, `file str` (the row's test file; a `str`, as wave 0 may create it); `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
-enhancement declared by `@gsd/security` on this kind.
+enhancement declared by `@gsd/security` on this kind (built).
 
 **wave0_item** (name `W0-1`): `validation R`, `path str R` (a `file` would be E016 on the file wave 0 creates), `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
 `done bool C` (the file exists and the collector saw it run).

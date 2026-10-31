@@ -1,7 +1,7 @@
 //! The kinds of verification (`spec/verify.md`): a phase's verification, its gaps, a human's overrides and the items
 //! only a human can check. The statuses are computed (`passes::derive::verify`), never written.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const VERIFICATION_STATUS: &[&str] = &["pending", "passed", "gaps_found", "human_needed"];
 const SEVERITY: &[&str] = &["blocker", "warning", "info"];

@@ -165,7 +165,7 @@ For each REQ-ID, determine status using all three sources:
 Skip if the Nyquist capability is inactive.
 
 ```bash
-VERIFY_POST_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
 ```
 
 Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == "step"` and `ref.skill == "validate-phase"`.
@@ -319,7 +319,7 @@ or `5.2` if `5.1` exists), never `<after-phase>`.
 
 For Nyquist-coverage gaps flagged in the table above, prefer running
 `/gsd:validate-phase <N>` for each flagged phase (and `/gsd:secure-phase
-<N>` if SECURITY.md was flagged) before inserting a new closure phase —
+<N>` if the security audit was flagged) before inserting a new closure phase —
 they may close the gap retroactively without a new phase.
 
 ---

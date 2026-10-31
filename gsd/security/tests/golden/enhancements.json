@@ -1,0 +1,32 @@
+{
+  "category": "enhancements",
+  "items": [
+    {
+      "fields": [
+        {
+          "default_value": null,
+          "description": "`Threat Ref`: the threat the row's test secures",
+          "edge": "ValidationRowThreat",
+          "field_type": "reference",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "threat",
+          "required": false,
+          "target_kind": "threat"
+        },
+        {
+          "default_value": null,
+          "description": "`Secure Behavior`: what the test shows",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "secure_behavior",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "target_kind": "validation_row"
+    }
+  ]
+}

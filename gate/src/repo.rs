@@ -72,6 +72,7 @@ pub const PROJECTS: &[&str] = &[
 /// fixtures the black-box tests and the parity twin read (a pattern as in [`OUTSIDE_WORKSPACE`]).
 pub const FIXTURE_SPEC_DIRS: &[&str] = &[
     "gsd/core/tests/projects/*/spec",
+    "gsd/security/tests/projects/*/spec",
     "gsd/parity/fixtures/*/spec",
 ];
 

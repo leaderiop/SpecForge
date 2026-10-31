@@ -1,4 +1,4 @@
-//! `gsd/parity/record.sh` records a golden only from a `gsd-tools` run that succeeded.
+//! `gsd/parity/record.sh` and `record-security.sh` record a golden only from a `gsd-tools` run that succeeded.
 
 use std::path::Path;
 use std::process::Command;
@@ -21,10 +21,9 @@ fn goldens(dir: &Path) -> Vec<(String, String)> {
     found
 }
 
-#[test]
-fn a_failing_gsd_tools_that_still_prints_json_records_nothing() {
+fn check(script: &str, goldens_dir: &str) {
     if Command::new("node").arg("--version").output().is_err() {
-        eprintln!("node is not installed: record.sh cannot run, nothing to check");
+        eprintln!("node is not installed: {script} cannot run, nothing to check");
         return;
     }
     let fake = tempfile::tempdir().expect("a temp dir");
@@ -38,19 +37,29 @@ fn a_failing_gsd_tools_that_still_prints_json_records_nothing() {
     .expect("write");
 
     let parity = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity");
-    let before = goldens(&parity.join("goldens/taskboard"));
+    let before = goldens(&parity.join(goldens_dir));
     let run = Command::new("sh")
-        .arg(parity.join("record.sh"))
+        .arg(parity.join(script))
         .env("GSD_CORE_DIR", fake.path())
         .output()
-        .expect("run record.sh");
+        .expect("run the script");
     assert!(
         !run.status.success(),
         "a failing gsd-tools fails the script"
     );
     assert_eq!(
-        goldens(&parity.join("goldens/taskboard")),
+        goldens(&parity.join(goldens_dir)),
         before,
         "no golden changed"
     );
+}
+
+#[test]
+fn a_failing_gsd_tools_that_still_prints_json_records_nothing() {
+    check("record.sh", "goldens/taskboard");
+}
+
+#[test]
+fn record_security_records_nothing_from_a_failing_gsd_tools_either() {
+    check("record-security.sh", "goldens/vault");
 }

@@ -1,6 +1,7 @@
 # The @gsd family is one Cargo workspace under gsd/, built on demand and tested through the specforge binary
 
-**Status:** accepted (2026-10-28, `@gsd/core` round r34). Extends
+**Status:** accepted (2026-10-28, `@gsd/core` round r34). Extended by
+[ADR gsd/0002](0002-a-capability-extension-plugs-into-core-at-its-hook-points.md) (the capability extensions). Extends
 [ADR 0277](../../docs/adr/0277-a-scaffold-builds-where-it-is-written.md) (an extension names the SDK as crates.io would
 and builds against an unreleased one with `[patch.crates-io]`) and
 [ADR 0292](../../docs/adr/0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (a prompt or a body has no

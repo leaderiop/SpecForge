@@ -1,7 +1,7 @@
 //! The kinds of Nyquist validation (`spec/verify.md`): a phase's validation, its per-task rows, its wave-0 items and
 //! its manual checks. Statuses are computed. `validation_row.threat` is `@gsd/security`'s.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const VALIDATION_STATUS: &[&str] = &["draft", "validated"];
 const TEST_TYPE: &[&str] = &["unit", "integration", "smoke", "e2e", "manual"];

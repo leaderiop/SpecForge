@@ -112,7 +112,7 @@ pub static CHECKS: &[Check] = &[
         trigger: Trigger::Paths(&["**/*.rs"]),
         compiles: false,
         after: &[],
-        fix: "cargo fmt --all; a guest, fixture, example extension or gsd/: cargo fmt --manifest-path <its Cargo.toml>",
+        fix: "cargo fmt --all; a guest, fixture, example extension or gsd/: cargo fmt --manifest-path <its Cargo.toml> (gsd/: --all)",
         run: steps::rustfmt,
     },
     Check {
@@ -245,7 +245,7 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "gsd",
-        proves: "the @gsd workspace is clippy-clean for native and wasm, @gsd/core builds to wasm32-wasip2, and its unit, declaration and black-box tests pass against the specforge binary",
+        proves: "the @gsd workspace is clippy-clean for native and wasm, @gsd/core and @gsd/security build to wasm32-wasip2, and their unit, declaration and black-box tests pass against the specforge binary",
         reach: Reach::Quick,
         trigger: Trigger::Paths(crate::gsd::TRIGGER),
         compiles: true,

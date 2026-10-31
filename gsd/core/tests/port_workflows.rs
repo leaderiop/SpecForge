@@ -37,6 +37,53 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 245),
     // REVIEW-r42 N5: the ship ledger is the milestone's, as the query below it reads.
     ("gsd-core/workflows/ship.md", 135),
+    // REVIEW-security-part1 M2: an unreadable security gate is a block, and step 1a says so.
+    ("gsd-core/workflows/ship.md", 177),
+    // REVIEW-security-part1 m5: the duplicate scan is `threat-ids`, not `init`.
+    ("gsd-core/workflows/execute-phase.md", 100),
+    (
+        "gsd-core/workflows/execute-phase/steps/threat-id-gate.md",
+        25,
+    ),
+    // Plan 16 T6 [security-absent-off]: the threat-ID numbering rule applies when @gsd/security is loaded.
+    ("gsd-core/references/planner-gap-closure.md", 63),
+    // Plan 16 T5: the security branches read @gsd/security's gate and threat-ID answers, not a SECURITY.md file.
+    ("gsd-core/workflows/ship.md", 112),
+    ("gsd-core/workflows/ship.md", 123),
+    ("gsd-core/workflows/ship.md", 124),
+    ("gsd-core/workflows/ship.md", 126),
+    ("gsd-core/workflows/ship.md", 129),
+    ("gsd-core/workflows/ship.md", 131),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        45,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        52,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        59,
+    ),
+    ("gsd-core/workflows/verify-work.md", 605),
+    // REVIEW-security-part1 M1: --after-fingerprint takes the phase's id, and the extension decides what "has it" means.
+    ("gsd-core/workflows/verify-work.md", 608),
+    ("gsd-core/workflows/verify-work.md", 610),
+    ("gsd-core/workflows/autonomous.md", 552),
+    ("gsd-core/workflows/verify-work.md", 612),
+    ("gsd-core/workflows/verify-work.md", 618),
+    ("gsd-core/workflows/verify-work.md", 621),
+    ("gsd-core/workflows/verify-work.md", 624),
+    ("gsd-core/workflows/verify-work.md", 627),
+    ("gsd-core/workflows/verify-work.md", 630),
+    ("gsd-core/workflows/verify-work.md", 636),
+    ("gsd-core/workflows/verify-work.md", 642),
+    ("gsd-core/workflows/execute-phase.md", 102),
+    ("gsd-core/workflows/execute-phase.md", 401),
+    ("gsd-core/workflows/plan-phase.md", 107),
+    ("gsd-core/workflows/plan-phase.md", 488),
+    ("gsd-core/workflows/audit-milestone.md", 320),
 ];
 
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
@@ -477,6 +524,16 @@ fn workflow_assets_diff_only_in_ported_passages() {
     assert!(checked > 0, "no workflow asset was checked");
 }
 
+/// The files `@gsd/security` embeds that upstream's `gsd-core/` and `commands/` trees hold (its agents and capability
+/// file are not read from those trees).
+fn security_assets() -> Vec<String> {
+    let base = root().join("../security/assets");
+    let mut all = Vec::new();
+    files(&base, &base, &mut all);
+    all.retain(|p| p.starts_with("gsd-core/") || p.starts_with("commands/"));
+    all
+}
+
 /// Vendored for its metadata alone: the prompt renders text of ours (D-r43-16), so the file is not an asset.
 const VENDORED_ONLY: &[&str] = &["commands/gsd/update.md"];
 
@@ -492,8 +549,9 @@ fn the_vendored_tree_lists_every_asset() {
         .iter()
         .map(|p| p.strip_suffix(".txt").unwrap_or(p).to_string())
         .collect();
+    let security = security_assets();
     let assets = assets();
-    for path in &assets {
+    for path in assets.iter().chain(&security) {
         assert!(named.contains(path), "{path} has no vendored copy");
         assert!(
             source.contains(path.as_str()),
@@ -502,8 +560,116 @@ fn the_vendored_tree_lists_every_asset() {
     }
     for path in &named {
         assert!(
-            assets.contains(path) || VENDORED_ONLY.contains(&path.as_str()),
-            "{path} is vendored but not an asset"
+            assets.contains(path)
+                || security.contains(path)
+                || VENDORED_ONLY.contains(&path.as_str()),
+            "{path} is vendored but not an asset of @gsd/core or @gsd/security"
         );
+    }
+}
+
+/// Plan 16 T4: every upstream `X=$(gsd_run loop render-hooks <point> --raw)` line (or its `${X:-$(...)}` twin) is, here,
+/// the line that asks each capability extension for its hooks; no stub is left. REVIEW-security-part1 m2: the
+/// `${X:-$(...)}` form asks too, not `${X:-[]}`. m1: a capability that fails is warned about, not hidden (exit 2 is "not loaded" and stays silent). M1: upstream's `--after-fingerprint "$PHASE_DIR"` stays, with the
+/// phase's id for the directory.
+#[test]
+fn every_hook_stub_asks_the_capability_extensions() {
+    let twin = Regex::new(
+        r"^(\s*)(\w+)=(\$\{\w+:-)?\$\(gsd_run loop render-hooks (\S+?)(?: --after-fingerprint (\S+))? --raw\)\}?$",
+    )
+    .expect("a regex");
+    let mut asked = 0;
+    let mut fingerprinted = Vec::new();
+    for path in assets().into_iter().filter(|p| p.ends_with(".md")) {
+        let asset = std::fs::read_to_string(root().join("assets").join(&path)).expect("an asset");
+        assert!(
+            !asset.contains("no hooks to render"),
+            "{path}: a stub is left"
+        );
+        let mine: Vec<&str> = asset.split('\n').skip(1).collect();
+        for (n, theirs) in body(&path).iter().enumerate() {
+            let Some(c) = twin.captures(theirs) else {
+                continue;
+            };
+            let flag = match c.get(5).map(|m| m.as_str()) {
+                None => String::new(),
+                Some(dir) => {
+                    fingerprinted.push(path.clone());
+                    // the phase's id stands for its directory; autonomous.md's shell blocks name it `${PHASE_NUM}`
+                    let phase = if path.ends_with("autonomous.md") {
+                        "$MILESTONE/${PHASE_NUM}"
+                    } else {
+                        "$PHASE_ID"
+                    };
+                    format!(
+                        " --after-fingerprint {}",
+                        dir.replace("${PHASE_DIR}", phase)
+                            .replace("$PHASE_DIR", phase)
+                    )
+                }
+            };
+            let call = format!(
+                "$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" {}{flag} --format json 2>/dev/null || [ $? -eq 2 ] || echo \"⚠ $c-hooks failed: its hooks are left out\" >&2; done | jq -sc '{{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}}' || echo \"⚠ jq failed: no capability hooks were read\" >&2)",
+                &c[4]
+            );
+            let want = match c.get(3) {
+                Some(open) => format!("{}{}={}{call}}}", &c[1], &c[2], open.as_str()),
+                None => format!("{}{}={call}", &c[1], &c[2]),
+            };
+            assert_eq!(mine[n], want, "{path}:{n}");
+            asked += 1;
+        }
+    }
+    assert_eq!(asked, 24);
+    // upstream passes the flag at exactly these two sites (verify-phase-goal.md omits it on purpose)
+    fingerprinted.sort();
+    assert_eq!(
+        fingerprinted,
+        [
+            "gsd-core/workflows/autonomous.md",
+            "gsd-core/workflows/verify-work.md"
+        ]
+    );
+}
+
+/// REVIEW-security-part1 M2: an empty or unparseable `SECURITY_GATE_JSON` (the command failed) is a block in every
+/// workflow that reads it, and ship.md's step 1a no longer says the named branches cannot reach a failed check.
+#[test]
+fn a_security_gate_that_cannot_be_read_blocks() {
+    let read = |path: &str| {
+        std::fs::read_to_string(root().join("assets/gsd-core/workflows").join(path))
+            .expect("a workflow")
+    };
+    let ship = read("ship.md");
+    assert!(ship.contains("`SECURITY_SHIP_GATE_READ_FAILED`"));
+    assert!(!ship.contains("cannot reach this state — their failure modes"));
+    for path in ["verify-work.md", "execute-phase/steps/verify-phase-goal.md"] {
+        let text = read(path);
+        assert!(
+            text.contains("`SECURITY_GATE_JSON` is empty") && text.contains("treat it as blocking"),
+            "{path}: no rule for an unreadable gate"
+        );
+    }
+}
+
+/// REVIEW-security-part1 m5: the threat-ID duplicates come from `threat-ids`, not from `INIT` (a `specforge query`).
+#[test]
+fn the_threat_id_gate_names_threat_ids_not_init() {
+    let read = |path: &str| {
+        std::fs::read_to_string(root().join("assets/gsd-core/workflows").join(path))
+            .expect("a workflow")
+    };
+    let execute = read("execute-phase.md");
+    let parse = execute
+        .lines()
+        .find(|l| l.starts_with("Parse JSON for:"))
+        .expect("the INIT field list");
+    assert!(!parse.contains("threat_id_duplicate_count"), "{parse}");
+    let gate = read("execute-phase/steps/threat-id-gate.md");
+    assert!(!gate.contains("re-running init"));
+    // a loaded @gsd/security that fails is not "no duplicates" (exit 2 is "not loaded")
+    for text in [execute, read("plan-phase.md")] {
+        assert!(text.contains(r#""error":"threat-ids failed""#));
+        assert!(text.contains("never read it as no duplicates"));
     }
 }

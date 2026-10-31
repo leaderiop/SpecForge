@@ -1,6 +1,6 @@
 //! `commit` (`spec/execute.md`): a git commit that names a task or a plan, recorded by the `gsd-git` collector.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 /// A commit of the project's repository, named by the first 12 hex digits of its hash and recorded in its plan's own
 /// file. Every field is written by the collector (`H`): the host refuses any other writer. The `hash` is not required

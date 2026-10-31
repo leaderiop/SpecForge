@@ -38,7 +38,7 @@
     "| `/gsd-mempalace-recall` | not served on this project |",
     "| `/gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 10046,
+  "bytes": 10022,
   "end": [
     "}",
     "```",
@@ -129,8 +129,8 @@
     "  orchestrator never records a verdict on a judge's behalf.",
     "- **A refused call** (`gate_failed`, `human_only`, `stale_revision`, `invalid_input`) is reported to the user with its",
     "  message. Never edit the spec to get around it.",
-    "- **An agent that `@gsd/core` does not install** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
-    "  `gsd-security-auditor`, `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
+    "- **An agent this host does not have installed** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
+    "  `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
     "- **Spawning an agent** on this host: `Task(subagent_type=\"gsd-<name>\", ...)` (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:5b80541bbcaf192e24cf7a2e5fb018efe64ceb56f9ab8f4e064b59a620e1fe06",
+    "digest": "sha256:1369b1477f82f0c4e8cf29b429675554609dca1efa1639b6824f5e5dcde2e64f",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "5b80541bbcaf192e24cf7a2e5fb018efe64ceb56f9ab8f4e064b59a620e1fe06"
+  "sha256": "1369b1477f82f0c4e8cf29b429675554609dca1efa1639b6824f5e5dcde2e64f"
 }

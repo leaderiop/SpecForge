@@ -1,0 +1,66 @@
+{
+  "researcher_model": "sonnet",
+  "planner_model": "opus",
+  "checker_model": "sonnet",
+  "tdd_mode": false,
+  "granularity": "coarse",
+  "research_enabled": false,
+  "plan_checker_enabled": true,
+  "nyquist_validation_enabled": false,
+  "commit_docs": true,
+  "text_mode": false,
+  "auto_advance": false,
+  "auto_chain_active": false,
+  "mode": "yolo",
+  "phase_found": true,
+  "phase_dir": "<project>/.planning/phases/01-core",
+  "expected_phase_dir": null,
+  "phase_number": "01",
+  "phase_name": "Core",
+  "phase_slug": "core",
+  "padded_phase": "01",
+  "phase_req_ids": "SEC-01, SEC-02",
+  "phase_status": "Executed",
+  "has_research": false,
+  "has_context": false,
+  "context_scope": "complete",
+  "has_reviews": false,
+  "has_plans": true,
+  "plan_count": 2,
+  "threat_id_duplicates": [
+    {
+      "id": "T-01-02",
+      "plans": [
+        "01-01-PLAN.md",
+        "01-02-PLAN.md"
+      ]
+    }
+  ],
+  "threat_id_duplicate_count": 1,
+  "planning_exists": true,
+  "roadmap_exists": true,
+  "state_path": "<project>/.planning/STATE.md",
+  "roadmap_path": "<project>/.planning/ROADMAP.md",
+  "requirements_path": "<project>/.planning/REQUIREMENTS.md",
+  "patterns_path": null,
+  "section_manifest": {
+    "workflow": "plan-phase",
+    "included": [],
+    "excluded": [
+      "reviews-prerequisite",
+      "prd-express-gate",
+      "adr-ingest-express-path",
+      "research-only-modifiers",
+      "research-only-early-exit",
+      "chunked-planning-mode"
+    ],
+    "read": []
+  },
+  "prior_verify_commands": [],
+  "project_root": "<project>",
+  "agents_installed": true,
+  "missing_agents": [],
+  "agents_dir": "<gsd-core>/agents",
+  "agent_runtime": "claude",
+  "project_title": "Vault"
+}

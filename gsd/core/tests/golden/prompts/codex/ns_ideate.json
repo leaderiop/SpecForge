@@ -36,7 +36,7 @@
     "| `$gsd-spike` | not served on this project |",
     "| `$gsd-spec-phase` | prompt `specforge.gsd.spec_phase` (served by @gsd/core) |"
   ],
-  "bytes": 18324,
+  "bytes": 18300,
   "end": [
     "  \"parallelization.skip_checkpoints\": true,",
     "  \"parallelization.task_level\": false",
@@ -170,8 +170,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:0ac769e6995f4d5e5e9071053bc37bb733099df9fbc1eb1f75bcab3a0fae31ee",
+    "digest": "sha256:7d33d1368e0107dfcf58fb9029bba57cae81564a264f849b74399e3386c6149f",
     "prompt": "@gsd/core@VERSION:ns_ideate"
   },
-  "sha256": "0ac769e6995f4d5e5e9071053bc37bb733099df9fbc1eb1f75bcab3a0fae31ee"
+  "sha256": "7d33d1368e0107dfcf58fb9029bba57cae81564a264f849b74399e3386c6149f"
 }

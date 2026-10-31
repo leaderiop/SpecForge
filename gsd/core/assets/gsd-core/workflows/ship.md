@@ -110,8 +110,8 @@ Verify the work is ready to ship:
    Resolve active `ship:pre` hooks from the capability registry — the registry evaluates each hook's `when` condition, so do **not** read `workflow.security_enforcement` or `workflow.windows_enforce` directly:
 
    ```bash
-   SHIP_PRE_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
-   SECURITY_FILE=$(ls "${PHASE_DIR}"/*-SECURITY.md 2>/dev/null | head -1)
+   SHIP_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" ship:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+   SECURITY_GATE_JSON=$(case "$SHIP_PRE_HOOKS_JSON" in *'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
    ```
 
    Read the `activeHooks` array from `SHIP_PRE_HOOKS_JSON` in-context (do NOT pipe it through a shell parser).
@@ -122,15 +122,15 @@ Verify the work is ready to ship:
 
    **Step 1 — evaluate the gate's `check`.** Dispatch by check shape; read the hook's `check` object in-context to pick the branch (the registry validates exactly one of `query`/`predicate`/`agentVerdict`). Two capability IDs carry a bespoke evaluation whose fail-closed semantics the declared predicate alone does not reproduce — take their branch, then rejoin at step 2:
 
-   - **`capId == "security"`** — enforce against `SECURITY_FILE`:
-     - **`SECURITY_FILE` is empty** → `block: true`, `SECURITY_SHIP_GATE_NO_REVIEW`:
+   - **`capId == "security"`** — enforce against `SECURITY_GATE_JSON` (`block` is `false` when security enforcement is off). If `SECURITY_GATE_JSON` is empty or not JSON (the command failed), or `details.exists` is neither `false` nor `true`, **fail closed** with `block: true` and `SECURITY_SHIP_GATE_READ_FAILED`, and print `⚠ Security ship gate: could not read the security gate for this phase ({message|empty answer}). Run \`specforge gsd security-gate {phase}\` and \`specforge check\` to diagnose (a spec file with a syntax error can hide a threat), and fix it before shipping.` Otherwise:
+     - **`details.exists` is `false`** → `block: true`, `SECURITY_SHIP_GATE_NO_REVIEW`:
        ```
-       ⚠ Security enforcement is enabled but no SECURITY.md exists for this phase.
+       ⚠ Security enforcement is enabled but no security audit exists for this phase.
        Run /gsd:secure-phase {phase} and resolve findings before shipping.
        ```
-     - **`SECURITY_FILE` exists** → read its frontmatter `threats_open`. The gate passes **only** when `threats_open` is exactly `0`. For any other value — `threats_open` > 0, or a missing / non-numeric / unparsable field — **fail closed** with `block: true` and `SECURITY_SHIP_GATE_OPEN_THREATS` (the predicate is strict equality to `0`; never ship on an ambiguous value):
+     - **`details.exists` is `true`** → read `details.threats_open`. The gate passes **only** when it is exactly `0`. For any other value — `threats_open` > 0, or a missing / non-numeric field — **fail closed** with `block: true` and `SECURITY_SHIP_GATE_OPEN_THREATS` (the predicate is strict equality to `0`; never ship on an ambiguous value):
        ```
-       ⚠ Security ship gate: SECURITY.md does not assert threats_open == 0 (found: {threats_open|unset}).
+       ⚠ Security ship gate: the security audit does not assert threats_open == 0 (found: {threats_open|unset}).
        Resolve open threats (or re-run /gsd:secure-phase {phase}) before shipping.
        ```
 
@@ -176,7 +176,7 @@ Verify the work is ready to ship:
      ```
      A gate carrying neither — including an `agentVerdict` check, which has no runner at `ship:pre` — cannot be evaluated here. Record a warning naming the `capId` and treat it as a check-command failure routed per step 1a, **never** as a silent pass.
 
-   **Step 1a — did the CHECK COMMAND itself fail?** (non-zero `CHECK_EXIT`, empty output, or unparseable JSON). The two named branches above cannot reach this state — their failure modes are already folded into a fail-closed `block: true`.
+   **Step 1a — did the CHECK COMMAND itself fail?** (non-zero `CHECK_EXIT`, empty output, or unparseable JSON). The two named branches above cannot reach this state: a command that fails or answers nothing is their own fail-closed block (`SECURITY_SHIP_GATE_READ_FAILED`, `WINDOWS_SHIP_GATE_READ_FAILED`), not a skip.
    - **`onError == "halt"`** → stop the ship. Do NOT push, do NOT create a PR. Surface: `⚠ Gate check command failed ({hook.capId}): command error. Resolve before shipping.`
    - **`onError == "skip"`** → record a warning naming the `capId`, then continue to the next gate. Do NOT read `GATE_RESULT.block`.
 
@@ -535,7 +535,7 @@ fi
 > Capability-driven dispatch. Resolves active `ship:post` hooks via the capability registry; each hook's `when` is evaluated by the registry — no inline `config-get`. All `ship:post` hooks are post-ship and additive (`onError: skip`); a failure here never affects the already-created PR.
 
 ```bash
-SHIP_POST_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+SHIP_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" ship:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
 ```
 
 Read the `activeHooks` array directly from `SHIP_POST_HOOKS_JSON` in-context (do NOT pipe it through a shell parser).

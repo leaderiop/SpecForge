@@ -99,7 +99,7 @@ Every `/gsd-*` command of v1.18.0 has one owner and one round (`tests/roster.rs`
 | `/gsd-resume-work` | r43 | prompt `resume_work` over the command `resume` |
 | `/gsd-review-backlog` | r43 | prompt `review_backlog` over `phase --promote` |
 | `/gsd-review` | r43 | prompt `review` |
-| `/gsd-secure-phase` | after r44 | @gsd/security |
+| `/gsd-secure-phase` | built: @gsd/security 1.0.0 | @gsd/security |
 | `/gsd-settings` | r43 | prompt `settings` |
 | `/gsd-ship` | r42 | prompt `ship` |
 | `/gsd-sketch` | after r44 | @gsd/ops |
@@ -163,7 +163,7 @@ The assets are upstream's text; where the spec has no counterpart a line was def
 - `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
-  an agent's effort to `high` as upstream does (`tests/golden/host/` holds the probe and both conversions, made with
+  an agent's effort to `high` as upstream does (`gsd/kit/tests/golden/host/` holds the probe and both conversions, made with
   upstream's converters).
 - The twin has no commit, broken-window, human-item, methodology or lesson data, so the query tests do not reach them.
 - The goldens (`tests/golden/prompts/`) are hashes plus the first 80 lines, the 60 lines after the preamble, the last 40 and

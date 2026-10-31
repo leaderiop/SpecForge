@@ -1,6 +1,6 @@
 //! `context`, `decision`, `deferred_idea` and `discussion` (`spec/discuss.md`).
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const CANONICAL_REF: &[Field] = &[str("topic"), files("paths")];
 const CONTEXT_STATUS: &[&str] = &["gathering", "ready_for_planning"];

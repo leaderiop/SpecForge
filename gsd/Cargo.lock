@@ -124,8 +124,32 @@ dependencies = [
 
 [[package]]
 name = "gsd-core"
+version = "1.1.0"
+dependencies = [
+ "gsd-kit",
+ "regex",
+ "rustix",
+ "serde_json",
+ "sha2",
+ "specforge-extension-sdk",
+ "tempfile",
+]
+
+[[package]]
+name = "gsd-kit"
 version = "1.0.0"
 dependencies = [
+ "regex",
+ "serde_json",
+ "specforge-extension-sdk",
+]
+
+[[package]]
+name = "gsd-security"
+version = "1.0.0"
+dependencies = [
+ "gsd-core",
+ "gsd-kit",
  "regex",
  "rustix",
  "serde_json",

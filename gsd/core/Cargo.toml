@@ -1,6 +1,6 @@
 [package]
 name = "gsd-core"
-version = "1.0.0"
+version = "1.1.0"
 edition.workspace = true
 license.workspace = true
 description = "@gsd/core: the unified GSD meta-model for SpecForge"
@@ -13,6 +13,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 specforge-extension-sdk = "0.3.0"
 serde_json = "1.0"
+gsd-kit = { path = "../kit" }
 
 [dev-dependencies]
 specforge-extension-sdk = { version = "0.3.0", features = ["testing"] }

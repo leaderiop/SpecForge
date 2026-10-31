@@ -2,7 +2,7 @@
 //!
 //! Also ports gsd-core bin/lib modules: task-content-resolution.cjs.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const PLAN_TYPE: &[&str] = &["execute", "tdd"];
 const PLAN_STATUS: &[&str] = &[

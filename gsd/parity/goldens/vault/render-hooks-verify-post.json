@@ -1,0 +1,36 @@
+{
+  "point": "verify:post",
+  "activeHooks": [
+    {
+      "capId": "security",
+      "kind": "step",
+      "ref": {
+        "skill": "secure-phase"
+      },
+      "when": "workflow.security_enforcement",
+      "produces": [
+        "SECURITY.md"
+      ],
+      "consumes": [
+        "SUMMARY.md"
+      ],
+      "onError": "halt"
+    },
+    {
+      "capId": "ui",
+      "kind": "step",
+      "ref": {
+        "skill": "ui-review"
+      },
+      "when": "workflow.ui_review",
+      "produces": [
+        "UI-REVIEW.md"
+      ],
+      "consumes": [
+        "UI-SPEC.md"
+      ],
+      "onError": "skip"
+    }
+  ],
+  "rendered": "### Step 1: skill:secure-phase (security)\n- produces: SECURITY.md\n- consumes: SUMMARY.md\n- when: `workflow.security_enforcement`\n- onError: halt\n\n### Step 2: skill:ui-review (ui)\n- produces: UI-REVIEW.md\n- consumes: UI-SPEC.md\n- when: `workflow.ui_review`\n- onError: skip"
+}

@@ -2,29 +2,28 @@
 //! `repoint` points its references at the command that serves them, `render` builds the text a model reads for a host,
 //! and each family of prompts is a table of `workflow::Spec` rows.
 
-mod args;
+use gsd_kit::prompt::args;
 pub(crate) mod assets;
 mod audit;
 mod autonomous;
-pub(crate) mod compose;
+pub(crate) use gsd_kit::prompt::compose;
 mod configure;
 mod discuss;
 mod execute;
 mod git;
-mod host;
+use gsd_kit::prompt::host;
 mod learning;
 mod navigate;
 mod ns;
 mod onboard;
 mod plan;
-mod preamble;
 mod project;
 mod quick;
 pub(crate) mod render;
 pub(crate) mod repoint;
 mod review;
 mod session;
-pub(crate) mod setting;
+pub(crate) use gsd_kit::prompt::setting;
 mod ship;
 mod slash;
 mod spec;

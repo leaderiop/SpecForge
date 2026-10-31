@@ -5,7 +5,6 @@
 mod audit;
 mod commit;
 mod discuss;
-mod dsl;
 mod execute;
 mod learning;
 mod must_haves;
@@ -19,7 +18,7 @@ mod validation;
 mod verify;
 mod windows;
 
-use dsl::Kind;
+use gsd_kit::dsl::{self, Kind};
 use specforge_extension_sdk::prelude::*;
 
 /// Every kind declared so far, in the order of the model's files.

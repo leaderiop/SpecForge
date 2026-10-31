@@ -1,0 +1,8 @@
+{
+  "block": true,
+  "message": "Artifact matching SECURITY.md not found in <project>/.planning/phases/02-sharing",
+  "details": {
+    "kind": "artifact-frontmatter-equals",
+    "artifactNotFound": true
+  }
+}

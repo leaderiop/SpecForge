@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 47355,
+  "bytes": 47331,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -152,8 +152,8 @@
     "  orchestrator never records a verdict on a judge's behalf.",
     "- **A refused call** (`gate_failed`, `human_only`, `stale_revision`, `invalid_input`) is reported to the user with its",
     "  message. Never edit the spec to get around it.",
-    "- **An agent that `@gsd/core` does not install** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
-    "  `gsd-security-auditor`, `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
+    "- **An agent this host does not have installed** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
+    "  `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
     "- **Spawning an agent** on this host: `Task(subagent_type=\"gsd-<name>\", ...)` (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:f846e20ef27c7ab05110528c8bbc9e4a1386e447bb61c86d391533592f1674fd",
+    "digest": "sha256:76142a11a275c296825a21f267068174500a8cadde023eb41607a4412d63b297",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "f846e20ef27c7ab05110528c8bbc9e4a1386e447bb61c86d391533592f1674fd"
+  "sha256": "76142a11a275c296825a21f267068174500a8cadde023eb41607a4412d63b297"
 }

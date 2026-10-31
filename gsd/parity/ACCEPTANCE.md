@@ -1,4 +1,4 @@
-# Acceptance: `@gsd/core` 1.0.0 against gsd-core 1.18.0
+# Acceptance: `@gsd/core` 1.1.0 against gsd-core 1.18.0
 
 This is the checklist for the core program (r36 to r44). Each row counts the items of one family of the vendored
 inventory (`parity/upstream/v1.18.0/`): how many `@gsd/core` builds, how many another `@gsd/*` extension owns, how many
@@ -14,7 +14,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | Hooks | 28 | 16 | 0 | 10 | 2 | `core/src/hooks/roster.rs` |
 | Capabilities | 45 | 17 | 10 | 0 | 18 | `core/README.md` capability table |
 | Workflows and references | 295 | 233 | 53 | 9 | 0 | `core/tests/parity_roster/assets.rs` |
-| CLI modules | 282 | 168 | 22 | 92 | 0 | `core/tests/parity_roster/modules.rs` |
+| CLI modules | 282 | 168 | 21 | 93 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 211 | 161 | 35 | 15 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 92 | 51 | 14 | 14 | `core/tests/parity_rules/cutover.rs` |
 | Codes | 63 | 63 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
@@ -39,8 +39,8 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   `specforged` harness (only their settings keys exist).
 - Workflows and references: 233 are embedded or replaced by a typed command, 53 are owned, 9 do not apply; each of the
   77 not embedded names why in `assets.rs`.
-- CLI modules: 168 are ported or are the host half of a `specforge` command, 22 are owned, 92 do not apply (the argv
-  router, the capability loader, the runtimes SpecForge does not install for).
+- CLI modules: 168 are ported or are the host half of a `specforge` command, 21 are owned, 93 do not apply (the argv
+  router, the capability loader, the runtimes SpecForge does not install for, `security.cjs`).
 - Config keys: of 211, 161 are declared in `@gsd/core`, 35 are owned by an extension and 15 do not apply, in
   `core/spec/settings.md`.
 - Gate-cutover verdicts: 92 of the 171 are reproduced by a test or by construction (the typed commands refuse the
@@ -48,6 +48,28 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
 - Codes: 63 of the 63 codes fire and stay silent in a named test.
+
+## `@gsd/security` 1.0.0 against gsd-core 1.18.0
+
+Plan 16. The same families for the security items of the vendored inventory; `security/tests/parity_roster.rs`
+(`the_acceptance_counts_match`) computes every number from its tables and `security/tests/parity_rules.rs` checks the
+codes and the divergence tags below. The first table above counts `@gsd/core` and counts these items as owned later.
+
+| Security family | Total | Built | Owned elsewhere | Not applicable | Named open | Where |
+|---|---|---|---|---|---|---|
+| Commands | 1 | 1 | 0 | 0 | 0 | `security/src/prompts.rs` |
+| Agents | 2 | 2 | 0 | 0 | 0 | `security/src/agents.rs` |
+| Workflows and references | 2 | 1 | 1 | 0 | 0 | `security/tests/parity_roster.rs` |
+| CLI modules | 1 | 0 | 0 | 1 | 0 | `security/tests/parity_roster.rs` |
+| Capabilities | 1 | 1 | 0 | 0 | 0 | `security/spec/README.md` |
+| Hooks | 3 | 3 | 0 | 0 | 0 | `security/src/commands/hooks.rs` |
+| Config keys | 4 | 4 | 0 | 0 | 0 | `security/src/settings.rs` |
+| Codes | 2 | 2 | 0 | 0 | 0 | `security/tests/parity/evidence.rs` |
+
+Suites: 74 cases are accounted, 67 of `secure-phase.test.cjs`, 5 of `injection-blocking-config.test.cjs` (#1577) and 2 of
+`secure-phase-single-writer.test.cjs` (`security/tests/accounting.rs`, `security/tests/port.rs`). The suites and files of
+the upstream tree about the node CLI's hardening library, its CI scans and its documentation are not applicable, each
+with a reason in `parity_roster.rs`. Gate-cutover verdicts of security: 0.
 
 ## The four checks
 
@@ -89,10 +111,52 @@ Not verified:
   `show_state_freshness` is inert (there is no STATE.md stamp). `[update-banner]` The update banner is dropped (D-r44-13): specforge updates
   extensions through its lockfile. `[statusline-metrics]` Upstream's context monitor reads metrics the statusline
   writes to a bridge file; here the statusline computes them and the meter's arithmetic is tested with the statusline.
-- Injection scanning answers a block for a HIGH scan only when `@gsd/security` sets `security.injection_blocking`;
-  `@gsd/security` is not built, so it is advisory in every project today (ADR 0323). The block never stops the read:
+- Injection scanning answers a block for a HIGH scan only when `@gsd/security` is loaded and sets
+  `security.injection_blocking`; without it the scan is advisory. The block never stops the read:
   on Claude Code it lands after the tool ran, as upstream's does, and Cursor cannot deny after a tool runs, so there it
   is advisory context (`[injection-after-read]`).
+- `@gsd/security` (plan 16), by tag:
+  - `[blocking-needs-security]` the key `security.injection_blocking` belongs to `@gsd/security`; upstream lets any project set it.
+  - `[fragment-repointed]` the planner's threat-model fragment names the kinds `trust_boundary` and `threat`, not a `<threat_model>` block of a PLAN.md.
+  - `[audit-advisory-every-check]` `gsd.security/W301` fires on every `check`, not once at close (core has no close verb).
+  - `[accept-risk-human]` `accept_risk` is run by the person at a terminal (ADR 0301). `[accepted-risk-not-human-kind]`
+    `accepted_risk` is not a human-only kind: the host refuses a human command's plan when it would create a
+    human-only entity. Its `at` is a harness field instead, set only by `accept_risk` with its ledger line, and only a risk
+    with an `at` counts: an agent's `specforge new accepted_risk` is refused `harness_field` with `--at` and accepts
+    nothing without it, so the ship gate stays shut (REVIEW-security-part2 M1). The limit left is a hand edit of the
+    `.spec` file plus a forged ledger line (the ledger digest has no secret, so it is an integrity check, not
+    authentication). A candidate kernel change, narrower than a new kind: a `human` command's plan may write a
+    human-only kind (`agent_facing` treats every command's plan as an agent's, `flags.rs`).
+  - `[gate-parity-plus]` `security_gate` blocks more than upstream's gate: an audit that never ran (status `draft`, so
+    not `verified`) blocks `SECURITY_SHIP_GATE_OPEN_THREATS` where upstream passes a `SECURITY.md` whose frontmatter says
+    `threats_open: 0`, and a security model that does not load or check clean (an invalid enum, a reference that does not
+    resolve, fewer threats than the last audit run counted) blocks `SECURITY_SHIP_GATE_UNREADABLE` with the reasons in
+    `details.problems`. A `.spec` file that does not parse is seen only through what it takes with it; `specforge check`
+    reports it (REVIEW-security-part2 m3 and the fail-closed contract).
+  - `[audit-counts-per-entity]` an audit run's `total`, `closed` and `open` count threat entities: the supply-chain row
+    `T-NN-SC`, which every plan keeps, is counted once per plan, and so is a duplicated ID, where upstream's register holds
+    the supply-chain row once per phase (the vault twin: 6 against upstream's 3). The decision to append a run is the same
+    (REVIEW-security-part2 N4).
+  - `[no-superseded-plans]` no superseded-plan exclusion in the duplicate scan: a superseded plan is removed in the core model.
+  - `[stride-enum]` the STRIDE category is an enum of six words, not free text; the importer maps letters.
+  - `[retro-threat-in-plan]` a retroactive threat is written into a plan of the phase with `retroactive: true`, not held in SECURITY.md only.
+  - `[threats-open-live]` `threats_open` is computed from the threats and the current `block_on`, not frozen at audit time.
+  - `[security-absent-off]` without `@gsd/security` loaded there is no threat model, where upstream's agents read an absent `security_enforcement` as enabled.
+  - `[verify-post-produces]` the `verify:post` step keeps upstream's `produces: ["SECURITY.md"]`, although plan 16's parity
+    table said `security_audit`: the hook text is upstream's and agents read the name from it. `SECURITY.md` there
+    stands for the phase's `security_audit`: `security-hooks verify:post --after-fingerprint <phase>` moves the step to
+    `skippedHooks` (`reason: produces-present`) once the audit exists, as upstream's `producesEntryPresent` does for the
+    file (#5105), so verify-work and autonomous do not run the auditor a second time. Without the flag `skippedHooks` is
+    `[]` where upstream omits the key; core's jq fold absorbs both (REVIEW-security-part2 M3).
+  - `[injection-key-explicit]` the vault fixture sets `security.injection_blocking: false` explicitly, because gsd-tools' `config-get`
+    errors on an unset key where `specforge settings` answers the default: a recording choice, not a product divergence.
+  - `[surface-peer-setting]` the slash `/gsd-secure-phase` is hidden by `@gsd/security`'s own `specforge.surface.audit_review`
+    (a slash's `when` must be a setting of its own extension, W021), which follows `@gsd/core`'s setting of the same name
+    through a preset when it is `false` (`/gsd-surface` writes core's). The two can be set apart by hand
+    (REVIEW-security-part2 m5).
+  - `[response-language-own]` `/gsd-secure-phase` reads `@gsd/security`'s own `response_language`, not `@gsd/core`'s: a
+    prompt sees only its own extension's settings, and a preset follows only an enum or a bool (W021), so a person sets
+    the language under both extensions. `workflow.text_mode` follows core's through a preset (REVIEW-security-part2 m1).
 - The context monitor has no stopped-at record (`[stopped-at]`: /gsd-pause-work records it) and no Stop or SubagentStop rows; the workflow marker lasts the session.
 - `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` compares git toplevels as upstream does, so a symlink into
   the main checkout is refused (ADR 0320).
@@ -156,7 +220,7 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 
 | Not in the program | What it would hold |
 |---|---|
-| `@gsd/security`, `@gsd/ai`, `@gsd/ui`, `@gsd/codebase`, `@gsd/ops` | 21 commands (ops 13, codebase 3, ai 2, ui 2, security 1), 20 agents, their capabilities, `security.injection_blocking`, the ui and codebase-drift gate-cutover verdicts, graphify |
+| `@gsd/ai`, `@gsd/ui`, `@gsd/codebase`, `@gsd/ops` | 20 commands (ops 13, codebase 3, ai 2, ui 2), 18 agents, their capabilities, the ui and codebase-drift gate-cutover verdicts, graphify |
 | `@gsd/import` | the 22nd command, `/gsd-import` |
 | `@gsd/path`, `@gsd/loop` | the gsd-path and gsd-loop profiles |
 | The `specforged` harness | `/gsd-autonomous` unattended, `claude-orchestration`, `external-job` |

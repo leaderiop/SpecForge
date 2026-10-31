@@ -24,6 +24,6 @@ then re-run /gsd:execute-phase {phase}.
 ```
 
 Do not offer to execute anyway. The only forward paths are renumbering the colliding registers
-or (if a plan was superseded after the check) re-running init so the stale plan drops out of the
+or (if a plan was superseded after the check, so it is removed from the spec) re-running `specforge gsd threat-ids "$PHASE_ID"` so the stale plan drops out of the
 scan — superseded plans never hold IDs against their replacements (#2349).
 </step>

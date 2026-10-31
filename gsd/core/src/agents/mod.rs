@@ -6,13 +6,7 @@ use specforge_extension_sdk::prelude::*;
 
 /// The notice every ported agent carries: its upstream file, version and licence.
 pub fn attribution(file: &str) -> Attribution {
-    Attribution {
-        upstream: "gsd-core".to_string(),
-        path: format!("agents/{file}"),
-        version: "v1.18.0".to_string(),
-        license: "MIT".to_string(),
-        copyright: "Copyright (c) 2026 Open GSD".to_string(),
-    }
+    gsd_kit::agent::attribution(&format!("agents/{file}"))
 }
 
 /// The enum setting that picks an agent's body: `full` or `compact` (see `settings::profiles`).

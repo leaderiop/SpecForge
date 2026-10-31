@@ -369,7 +369,7 @@ Threat IDs are unique within a phase. Before numbering, read the `<threat_model>
 | T-{phase}-02 | {category} | {component} | low | accept | {rationale for acceptance} |
 | T-{phase}-SC | Tampering | npm/pip/cargo installs | high | mitigate | package-legitimacy gate + blocking human checkpoint for [ASSUMED]/[SUS] |
 </threat_model>
-
+With `@gsd/security` loaded, each trust boundary is a `trust_boundary` and each threat a `threat` entity: `specforge new threat T-{phase}-01 "<title>" --in <the plan's file> --plan <plan> --category <stride> --component <c> --severity <s> --disposition <d> --mitigation "<m>"`.
 <verification>
 [Overall phase checks]
 </verification>
@@ -443,7 +443,7 @@ Only include what Claude literally cannot do.
 **Step 0: Extract Requirement IDs**
 Read ROADMAP.md `**Requirements:**` line for this phase. Strip brackets if present (e.g., `[AUTH-01, AUTH-02]` → `AUTH-01, AUTH-02`). Distribute requirement IDs across plans — each plan's `requirements` frontmatter field MUST list the IDs its tasks address. **CRITICAL:** Every requirement ID MUST appear in at least one plan. Plans with an empty `requirements` field are invalid.
 
-**Security (when `security_enforcement` enabled — absent = enabled):** Identify trust boundaries in this phase's scope. Map STRIDE categories to applicable tech stack from RESEARCH.md security domain. For each threat: assign a **severity** (critical|high|medium|low) based on impact × likelihood, and a disposition (`mitigate`/`accept`/`transfer`) per the configured OWASP ASVS level — see @~/.claude/gsd-core/references/security-asvs-levels.md. Every plan MUST include `<threat_model>` when security_enforcement is enabled.
+**Security (when `@gsd/security` is loaded and `workflow.security_enforcement` is on):** Identify trust boundaries in this phase's scope. Map STRIDE categories to applicable tech stack from RESEARCH.md security domain. For each threat: assign a **severity** (critical|high|medium|low) based on impact × likelihood, and a disposition (`mitigate`/`accept`/`transfer`) per the configured OWASP ASVS level — see @~/.claude/gsd-core/references/security-asvs-levels.md. Every plan MUST include `<threat_model>` when `@gsd/security` is loaded and `workflow.security_enforcement` is on.
 
 **Package legitimacy gate (npm/pip/cargo only):**
 - Require RESEARCH.md `## Package Legitimacy Audit` before package-manager install tasks.
@@ -977,7 +977,7 @@ Phase planning complete when:
 - [ ] Wave structure maximizes parallelism
 - [ ] PLAN file(s) committed to git
 - [ ] User knows next steps and wave structure
-- [ ] `<threat_model>` present with STRIDE register (when `security_enforcement` enabled)
+- [ ] `<threat_model>` present with STRIDE register (when `@gsd/security` is loaded and `workflow.security_enforcement` is on)
 - [ ] Every threat has a disposition (mitigate / accept / transfer)
 - [ ] Every threat has a Severity (critical|high|medium|low)
 - [ ] Mitigations reference specific implementation (not generic advice)

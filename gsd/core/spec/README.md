@@ -171,7 +171,7 @@ the plan's summary, written by the executor at the end, lands in the same file.
 | `NN-REFACTOR.md` | refactor_proposal | core |
 | `quick/*` | plan, summary (a quick plan has no phase) | core |
 | `workstreams/*` | workstream (a scope) | core |
-| `SECURITY.md`, threat model | threat, trust_boundary, accepted_risk, audit_run | security |
+| `SECURITY.md`, threat model | threat, trust_boundary, security_audit, accepted_risk, audit_run | security |
 | `AI-SPEC.md`, `NN-EVAL-REVIEW.md` | ai_spec, ai_failure, eval_dimension, guardrail, eval_review | ai |
 | `NN-UI-SPEC.md`, `NN-UI-REVIEW.md` | ui_spec, tokens, components, ui_review, findings | ui |
 | `codebase/*`, `intel/*`, `NN-PATTERNS.md` | codebase kinds, pattern_map | codebase |

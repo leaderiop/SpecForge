@@ -474,7 +474,7 @@ const CODEBASE_SKIPPED: &[(&str, &str)] = &[
 
 const BLOCKING_SKIPPED: &[(&str, &str)] = &[(
     "#1577 \u{2014} security.injection_blocking config key",
-    "security: the config key and its schema are @gsd/security's (K20)",
+    "security: ported by @gsd/security (gsd/security/tests/accounting.rs)",
 )];
 
 #[test]

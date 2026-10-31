@@ -1,6 +1,6 @@
 //! `project` and `requirement` (`spec/project.md`).
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const CONSTRAINT_KINDS: &[&str] = &[
     "tech_stack",

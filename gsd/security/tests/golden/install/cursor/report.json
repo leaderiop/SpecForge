@@ -1,0 +1,12 @@
+{
+  "rows": [
+    {
+      "action": "created",
+      "path": ".cursor/agents/gsd-security-auditor.md"
+    },
+    {
+      "action": "created",
+      "path": ".cursor/skills/gsd-secure-phase/SKILL.md"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 use super::*;
-use crate::prompts::preamble::{self, FILES, MARKER};
+use gsd_kit::prompt::preamble::{self, FILES, MARKER};
 
 const EMBEDDED: &str = "references/verification-patterns.md";
 
@@ -113,7 +113,7 @@ fn the_preamble_table_matches_spec_readme() {
         .map(|(a, b)| (a.to_string(), b.to_string()))
         .collect();
     assert_eq!(ours, rows);
-    let text = preamble::text("claude-code", "{}");
+    let text = preamble::text("claude-code", "{}", "@gsd/core", FILES);
     for forbidden in [".planning", "gsd-tools", "gsd_run", "gsd-sdk", "gsd.cjs"] {
         assert!(!text.contains(forbidden), "the preamble names {forbidden}");
     }
@@ -130,7 +130,7 @@ fn the_preamble_settings_block_lists_the_gsd_settings() {
     let parsed: serde_json::Value = serde_json::from_str(&block).expect("a JSON object");
     assert_eq!(parsed["workflow.discuss_mode"], "assumptions");
     assert_eq!(parsed.as_object().map(|o| o.len()), Some(2));
-    assert!(preamble::text("claude-code", &block).contains(&block));
+    assert!(preamble::text("claude-code", &block, "@gsd/core", FILES).contains(&block));
 }
 
 /// The two rows in the roster's order, whatever that is.

@@ -32,11 +32,12 @@ fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// `(name, body)` of every `#[test]` fn under `tests/` and `src/`. A body runs from the `fn` line to the first line
+/// `(name, body)` of every `#[test]` fn under `tests/`, `src/` and the kit's `src/`. A body runs from the `fn` line to the first line
 /// that is a lone `}` at the fn's own indentation.
 fn test_fns() -> Vec<(String, String)> {
     let mut files = Vec::new();
-    for dir in ["tests", "src"] {
+    // the kind DSL (and its E107 test) moved to the kit
+    for dir in ["tests", "src", "../kit/src"] {
         rust_files(&core_dir().join(dir), &mut files);
     }
     let mut found = Vec::new();
