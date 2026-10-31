@@ -25,7 +25,7 @@ in wave 0 before any signal exists).
 3. **Capability gate** (mirrors `/gsd:quick`'s own):
    ```bash
 # the commands below are specforge commands: there is no launcher to define
-   PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
+   PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
    ```
    In registry order, inject only active entries with `kind == "contribution"`
    and `into == "planner"` into each planner prompt below, using

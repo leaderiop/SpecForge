@@ -562,7 +562,7 @@ fn the_vendored_tree_lists_every_asset() {
 
 /// Plan 16 T4: every upstream `X=$(gsd_run loop render-hooks <point> --raw)` line (or its `${X:-$(...)}` twin) is, here,
 /// the line that asks each capability extension for its hooks; no stub is left. REVIEW-security-part1 m2: the
-/// `${X:-$(...)}` form asks too, not `${X:-[]}`. M1: upstream's `--after-fingerprint "$PHASE_DIR"` stays, with the
+/// `${X:-$(...)}` form asks too, not `${X:-[]}`. m1: a capability that fails is warned about, not hidden (exit 2 is "not loaded" and stays silent). M1: upstream's `--after-fingerprint "$PHASE_DIR"` stays, with the
 /// phase's id for the directory.
 #[test]
 fn every_hook_stub_asks_the_capability_extensions() {
@@ -597,7 +597,7 @@ fn every_hook_stub_asks_the_capability_extensions() {
                 }
             };
             let call = format!(
-                "$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" {}{flag} --format json 2>/dev/null; done | jq -sc '{{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}}')",
+                "$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" {}{flag} --format json 2>/dev/null || [ $? -eq 2 ] || echo \"⚠ $c-hooks failed: its hooks are left out\" >&2; done | jq -sc '{{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}}' || echo \"⚠ jq failed: no capability hooks were read\" >&2)",
                 &c[4]
             );
             let want = match c.get(3) {
