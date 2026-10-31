@@ -1011,6 +1011,7 @@ behavior answer_edit_plan "Answer an Edit Plan" {
   """
   verify unit "a writing collector receives the graph and its plan is applied after the report"
   verify unit "a writing collectors plan is judged against the report its collect wrote"
+  verify unit "a collector's plan is judged for host errors only"
   verify unit "a writing collectors plan is applied within its calls containment"
 }
 

@@ -24,21 +24,40 @@ fn tests_extension() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(TESTS, "1.0.0"));
     c.raw_category(
         DeclaredCategory::Codes,
-        json!([{"code": "E900", "title": "A test failed", "explanation": "A recorded result failed."}]),
+        json!([
+            {"code": "E900", "title": "A test failed", "explanation": "A recorded result failed."},
+            {"code": "E901", "title": "A commit is recorded", "explanation": "A commit entity exists."},
+        ]),
     );
     c.raw_category(
         DeclaredCategory::Passes,
-        json!([{"name": "failures", "phase": "check", "reads_tests": true, "reports": ["E900"]}]),
+        json!([
+            {"name": "failures", "phase": "check", "reads_tests": true, "reports": ["E900"]},
+            {"name": "commits", "phase": "check", "reports": ["E901"]},
+        ]),
     );
     c
 }
 
 /// E900 once a report with a failed result is sent; nothing before.
 fn handle(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    let input: Value = serde_json::from_slice(input).unwrap_or(Value::Null);
+    if export == "__pass_commits" {
+        // E901 once the commit `c9` is in the project; nothing before (the other tests record `c1`).
+        let recorded = input["entities"].as_array().into_iter().flatten().any(|e| {
+            e["kind"] == "commit" && e["id"].as_str().is_some_and(|id| id.ends_with("c9"))
+        });
+        let diagnostics = if recorded {
+            json!([{"code": "E901", "severity": "Error", "message": "a commit is recorded"}])
+        } else {
+            json!([])
+        };
+        let output = json!({"diagnostics": diagnostics, "summary": {}, "values": []});
+        return Some(Ok(output.to_string().into_bytes()));
+    }
     if export != "__pass_failures" {
         return None;
     }
-    let input: Value = serde_json::from_slice(input).unwrap_or(Value::Null);
     let failed = input["test_results"]["results"]
         .as_object()
         .into_iter()
@@ -129,7 +148,11 @@ fn collect_and_apply_in(
 }
 
 fn commit(phase: &str) -> Value {
-    json!([{"op": "create", "kind": "commit", "id": "c1", "title": "C", "file": "commits.spec",
+    commit_as("c1", phase)
+}
+
+fn commit_as(id: &str, phase: &str) -> Value {
+    json!([{"op": "create", "kind": "commit", "id": id, "title": "C", "file": "commits.spec",
         "revision": "absent", "fields": {"phase": phase, "sha": "abc"}}])
 }
 
@@ -147,6 +170,25 @@ fn a_collectors_plan_is_judged_against_the_report_it_wrote() {
     let reported = compiled(&p, &runtime).diagnostics();
     assert!(
         reported.iter().any(|d| d.code.ends_with("E900")),
+        "{reported:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "answer_edit_plan",
+    verify = "a collector's plan is judged for host errors only"
+)]
+#[ignore = "pins K20a; T5 un-ignores"]
+fn a_collectors_plan_is_not_refused_for_an_extensions_error() {
+    // The recorded commit makes the extension's E901 stand: reported after the write, not a refusal of it.
+    let p = project();
+    let (applied, runtime) = collect_and_apply(&p, commit_as("c9", "03"));
+    applied.unwrap_or_else(|refusal| panic!("{refusal}"));
+    let written = std::fs::read_to_string(p.root().join("commits.spec")).unwrap();
+    assert!(written.contains("commit c9 \"C\""), "{written}");
+    let reported = compiled(&p, &runtime).diagnostics();
+    assert!(
+        reported.iter().any(|d| d.code.ends_with("E901")),
         "{reported:?}"
     );
 }
