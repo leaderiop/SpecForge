@@ -3,10 +3,10 @@
 
 use super::harness::{self, Project};
 
-const AUDIT: &str = "v1.0/01/01-SECURITY";
+pub const AUDIT: &str = "v1.0/01/01-SECURITY";
 
 /// The `model` project with the audit run's harness values recorded as the command that writes them would.
-fn model() -> Project {
+pub fn model() -> Project {
     let p = harness::project("model").with_extension("@gsd/security", "GSD_SECURITY_WASM");
     let run = format!("{AUDIT}/AU1");
     p.record_harness(&run, "at", "\"2026-10-30T09:00:00Z\"");
