@@ -93,30 +93,39 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     found
 }
 
+/// Why recorded tests contradict a verdict on an explicit truth: a test recorded for it, or one its fresh passing
+/// `gsd/E501` judgement cites by name (`cited_tests`, anywhere in the report), failed, or none passed. `None` for a
+/// backstop truth, without a report or without such a verdict. `derive` reads the same predicate (`verify.rs`).
+pub(crate) fn contradicted(input: &PassInput, t: &PassEntity) -> Option<&'static str> {
+    let report = input.test_results.as_ref()?;
+    if text(t, "verification") != Some("explicit") {
+        return None;
+    }
+    let verdict = t
+        .judgements
+        .iter()
+        .find(|j| j.rule == "gsd/E501" && j.state == "fresh" && j.passed)?;
+    let cited = report
+        .results
+        .values()
+        .flat_map(|r| &r.tests)
+        .filter(|r| verdict.cited_tests.contains(&r.name));
+    let mut tests = report.of(&t.id).iter().chain(cited).peekable();
+    if tests.clone().any(|r| r.status == TestStatus::Failed) {
+        Some("a test recorded for it failed")
+    } else if !tests.any(|r| r.status == TestStatus::Passed) {
+        Some("no passing test is recorded for it")
+    } else {
+        None
+    }
+}
+
 /// E502: an explicit truth whose fresh passing E501 verdict stands over recorded tests that hold no passed result or a
 /// failed one. A backstop truth is never E502, and no report is no finding.
 fn e502(input: &PassInput) -> Vec<PassDiagnostic> {
-    let Some(report) = &input.test_results else {
-        return Vec::new();
-    };
     of_kind(input, "truth")
-        .filter(|t| text(t, "verification") == Some("explicit"))
-        .filter(|t| {
-            t.judgements
-                .iter()
-                .any(|j| j.rule == "gsd/E501" && j.state == "fresh" && j.passed)
-        })
         .filter_map(|t| {
-            let tests = report.of(&t.id);
-            let failed = tests.iter().any(|r| r.status == TestStatus::Failed);
-            let passed = tests.iter().any(|r| r.status == TestStatus::Passed);
-            let why = if failed {
-                "a test recorded for it failed"
-            } else if !passed {
-                "no passing test is recorded for it"
-            } else {
-                return None;
-            };
+            let why = contradicted(input, t)?;
             Some(
                 PassDiagnostic::new(
                     "E502",
@@ -131,3 +140,6 @@ fn e502(input: &PassInput) -> Vec<PassDiagnostic> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests;
