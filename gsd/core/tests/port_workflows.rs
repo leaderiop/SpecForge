@@ -39,6 +39,12 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/ship.md", 135),
     // REVIEW-security-part1 M2: an unreadable security gate is a block, and step 1a says so.
     ("gsd-core/workflows/ship.md", 177),
+    // REVIEW-security-part1 m5: the duplicate scan is `threat-ids`, not `init`.
+    ("gsd-core/workflows/execute-phase.md", 100),
+    (
+        "gsd-core/workflows/execute-phase/steps/threat-id-gate.md",
+        25,
+    ),
     // Plan 16 T6 [security-absent-off]: the threat-ID numbering rule applies when @gsd/security is loaded.
     ("gsd-core/references/planner-gap-closure.md", 63),
     // Plan 16 T5: the security branches read @gsd/security's gate and threat-ID answers, not a SECURITY.md file.
@@ -640,4 +646,21 @@ fn a_security_gate_that_cannot_be_read_blocks() {
             "{path}: no rule for an unreadable gate"
         );
     }
+}
+
+/// REVIEW-security-part1 m5: the threat-ID duplicates come from `threat-ids`, not from `INIT` (a `specforge query`).
+#[test]
+fn the_threat_id_gate_names_threat_ids_not_init() {
+    let read = |path: &str| {
+        std::fs::read_to_string(root().join("assets/gsd-core/workflows").join(path))
+            .expect("a workflow")
+    };
+    let execute = read("execute-phase.md");
+    let parse = execute
+        .lines()
+        .find(|l| l.starts_with("Parse JSON for:"))
+        .expect("the INIT field list");
+    assert!(!parse.contains("threat_id_duplicate_count"), "{parse}");
+    let gate = read("execute-phase/steps/threat-id-gate.md");
+    assert!(!gate.contains("re-running init"));
 }
