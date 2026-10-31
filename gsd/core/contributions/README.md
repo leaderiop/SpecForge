@@ -346,8 +346,11 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
 - Hooks of the injection family judge a file as in the spec root only when it is a `.spec` file (the kernel calls
   every path "in the spec root" when `spec_root` is `.`).
 - `write_guard` continues when an existing file's bytes are unreadable; upstream fails closed. `secret_read_guard`
-  reads the raw `command`, not shell words. `prompt_guard` does not scan a Codex `apply_patch`. The Codex "any
-  `session_id` is silent" rule of `read_guard` does not hold: Codex payloads carry one and the advice names the Read tool.
+  reads the raw `command`, not shell words, and denies a command nested past 128 `$( )` spans (in double quotes or in
+  a heredoc tag) as `command-too-nested`: upstream's reader recurses without a cap, and a stack overflow lands in its
+  fail-open catch (`ON_CRASH = HOOK_ON_CRASH.ALLOW`, `hooks/gsd-secret-read-guard.js:138-140`). `prompt_guard` does
+  not scan a Codex `apply_patch`. The Codex "any `session_id` is silent" rule of `read_guard` does not hold: Codex
+  payloads carry one and the advice names the Read tool.
 - A host without `specforge` on its PATH runs no guard (exit 127 does not block).
 - Hook latency (p50, 20 events, taskboard): `write_guard` 0.13 s, `spec_guard` 0.16 s; the budget is enforced by
   `hooks_guards.rs`.
