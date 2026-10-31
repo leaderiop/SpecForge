@@ -1,0 +1,73 @@
+//! The settings of `@gsd/security`: the three `workflow.security_*` keys of the security capability and the core
+//! manifest's `security.injection_blocking` (read by `@gsd/core`'s injection scanner), plus the auditor's model and
+//! variant, which follow `@gsd/core`'s `model_profile` and `workflow.compact_content`.
+
+use specforge_extension_sdk::prelude::*;
+
+/// The auditor, as the model catalog names it (`gsd/parity/upstream/v1.18.0/model-catalog.json`).
+pub const AGENT: &str = "gsd-security-auditor";
+
+/// The setting that overrides the auditor's model.
+pub const MODEL_SETTING: &str = "model_overrides.gsd-security-auditor";
+
+/// The setting that picks the auditor's body (full or compact); the name `@gsd/core`'s agents use.
+pub const VARIANT_SETTING: &str = "specforge.agent_variant";
+
+/// `(profile, host tier)`: the catalog row is quality opus, balanced sonnet, budget sonnet, routing tier heavy;
+/// `inherit` presets nothing.
+const TIERS: &[(&str, &str)] = &[
+    ("quality", "heavy"),
+    ("balanced", "standard"),
+    ("budget", "standard"),
+    ("adaptive", "heavy"),
+];
+
+pub fn declare(c: &mut ContributionsBuilder) {
+    c.setting("workflow.security_enforcement", |s| {
+        s.bool().default(true).gates(&["W301"]).describe(
+            "Verify threat mitigations at phase close and block shipping while threats are open.",
+        );
+    });
+    c.setting("workflow.security_asvs_level", |s| {
+        s.integer()
+            .minimum(1)
+            .maximum(3)
+            .default(1)
+            .describe("OWASP ASVS verification level (1 to 3) the security audit runs at.");
+    });
+    c.setting("workflow.security_block_on", |s| {
+        s.enum_values(&["critical", "high", "medium", "low", "none"])
+            .default("high")
+            .describe(
+                "The lowest severity of an open threat that blocks the phase; none blocks nothing.",
+            );
+    });
+    c.setting("security.injection_blocking", |s| {
+        s.bool().default(false).describe(
+            "Block (not just warn) when a file the agent reads carries a prompt-injection payload.",
+        );
+    });
+    c.setting(MODEL_SETTING, |s| {
+        s.enum_values(&["heavy", "standard", "light"])
+            .describe("The host tier of the security auditor's model; set by model_profile.");
+    });
+    c.setting(VARIANT_SETTING, |s| {
+        s.enum_values(&["full", "compact"])
+            .default("full")
+            .describe(
+                "Which body the security auditor renders: full, or compact (codex and cursor).",
+            );
+    });
+    c.preset("@gsd/core:model_profile", |p| {
+        for (profile, tier) in TIERS {
+            p.when(profile, |e| {
+                e.set(MODEL_SETTING, *tier);
+            });
+        }
+    });
+    c.preset("@gsd/core:workflow.compact_content", |p| {
+        p.when("true", |e| {
+            e.set(VARIANT_SETTING, "compact");
+        });
+    });
+}

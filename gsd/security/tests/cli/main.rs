@@ -8,6 +8,8 @@
 #[path = "../../../core/tests/cli/harness.rs"]
 mod harness;
 
+mod settings;
+
 use specforge_extension_sdk::testing::MockHost;
 
 /// A project that loads both extensions: core's `empty` project plus `@gsd/security` from `GSD_SECURITY_WASM`.

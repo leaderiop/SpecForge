@@ -1,6 +1,9 @@
 //! `@gsd/security`: GSD's security capability for SpecForge (plan 16): the threat model as kinds, the security audit,
 //! `/gsd-secure-phase` and the ship gate. A capability extension of `@gsd/core` (ADR gsd/0002).
 
+pub mod codes;
+pub mod settings;
+
 use specforge_extension_sdk::prelude::*;
 
 /// The gsd-core release this crate tracks; `[package.metadata.gsd] tracks` in `Cargo.toml` says the same.
@@ -21,6 +24,8 @@ impl Contributions for GsdSecurity {
     fn contribute(c: &mut ContributionsBuilder) {
         c.meta.keywords.push(format!("tracks:{TRACKS}"));
         c.peer("@gsd/core", CORE_RANGE);
+        settings::declare(c);
+        codes::declare(c);
     }
 }
 
