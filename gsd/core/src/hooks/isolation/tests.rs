@@ -421,3 +421,20 @@ fn the_main_checkout_is_refused_by_a_relative_path() {
         "a sibling that shares a prefix is in no repository"
     );
 }
+
+/// REVIEW-k20c-part2 M2: the kernel calls a path in-project by where the project is, and upstream compares the
+/// toplevel of every target. A project root above the worktree, or a link the lexical name hides, puts the main
+/// checkout "in the project" while its real path is outside the worktree.
+#[test]
+fn an_in_project_path_that_is_really_in_the_main_checkout_is_refused() {
+    let mut f = touch(WT, WT, "Write", json!("mainsrc/new/a.ts"));
+    f.paths[0].real = format!("{MAIN}/src/new/a.ts");
+    assert!(refused(&f), "the link's real path is in the main checkout");
+    let mut above = touch(WT, MAIN, "Write", json!(format!("{MAIN}/src/a.ts")));
+    above.git = Some(git_of(WT));
+    assert!(refused(&above), "the project root is above the worktree");
+    assert!(!refused(&touch(WT, WT, "Write", json!("src/a.ts"))));
+    let mut sibling = touch(WT, WT, "Write", json!("src/a.ts"));
+    sibling.paths[0].real = format!("{WT}-2/src/a.ts");
+    assert!(refused(&sibling), "a prefix is not containment");
+}

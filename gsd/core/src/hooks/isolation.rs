@@ -16,6 +16,8 @@
 //! repository is let through. A relative path that leaves the project is judged by where it lands, which upstream
 //! does not (it allows every relative path: ACCEPTANCE's `[stricter-relative-path]`).
 
+use std::path::Path;
+
 use specforge_extension_sdk::prelude::*;
 
 use super::facts::Facts;
@@ -50,7 +52,19 @@ pub(super) fn worktree_path_guard(f: &Facts) -> HookOutput {
     else {
         return HookOutput::default();
     };
-    for p in f.paths.iter().filter(|p| !p.in_project) {
+    for p in &f.paths {
+        if p.in_project {
+            // In the project by name, yet really elsewhere: a link, or a project root above the worktree.
+            if !p.real.is_empty() && !Path::new(&p.real).starts_with(&git.toplevel) {
+                return HookOutput::deny(format!(
+                    "Worktree path guard (gsd.worktree_path_guard): '{}' is named inside the project but lies outside \
+                     the active worktree root '{}' (a symlink, or a project root above the worktree). Use a path \
+                     inside the worktree (hook cwd: '{}').",
+                    p.real, git.toplevel, f.cwd
+                ));
+            }
+            continue;
+        }
         match &p.toplevel {
             None if p.in_git_dir => {
                 return HookOutput::deny(format!(

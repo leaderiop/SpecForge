@@ -223,6 +223,30 @@ fn a_symlink_into_the_main_checkout_is_refused() {
         let ((denied, ..), all) = run(main.join("src/a.ts"));
         assert!(denied, "{host}: {all}");
         let ((denied, reason, _), all) = run(main.join(".git/config"));
-        assert!(denied && reason.contains(".git"), "{host}: {all}");
+        assert!(
+            denied && reason.contains("inside a git internal (.git) directory"),
+            "{host}: {all}"
+        );
+    }
+}
+
+/// REVIEW-k20c-part2 M2: when the worktree has no `specforge.json` of its own the project is the main checkout, and
+/// the main checkout's files are "in the project". Upstream compares the toplevel of every target and denies.
+#[test]
+fn a_worktree_without_its_own_specforge_json_still_guards_the_main_checkout() {
+    let Some((p, home, main)) = in_worktree() else {
+        return;
+    };
+    std::fs::rename(p.root().join("specforge.json"), main.join("specforge.json"))
+        .expect("the manifest moves to the main checkout");
+    for host in HOSTS {
+        let run = run_hook(
+            &p,
+            host,
+            "gsd.worktree_path_guard",
+            &write_to(&p, host, &main.join("src/a.ts")),
+            &home,
+        );
+        assert!(verdict(host, &run).0, "{host}: {}", run.all());
     }
 }
