@@ -199,7 +199,7 @@
     "prompt": "@gsd/core@VERSION:complete_milestone",
     "steps": [
       {
-        "cli": "specforge gsd close-milestone",
+        "cli": "specforge gsd close-milestone --host cursor",
         "gate": [
           {
             "code": "gsd/E106",

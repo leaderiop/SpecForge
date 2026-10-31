@@ -31,7 +31,7 @@ fn next_routes_by_state() {
     assert_eq!(step_ids(&rendered), ["detect"]);
     assert_eq!(
         rendered["payload"]["steps"][0]["cli"],
-        "specforge gsd smart-entry"
+        "specforge gsd smart-entry --host claude-code"
     );
     let text = text_of(&rendered);
     assert!(text.contains("specforge gsd smart-entry"), "{text}");
@@ -130,7 +130,10 @@ fn manager_steps_into_the_lifecycle_prompts() {
         ]
     );
     let steps = rendered["payload"]["steps"].as_array().expect("steps");
-    assert_eq!(steps[0]["cli"], "specforge gsd progress-report");
+    assert_eq!(
+        steps[0]["cli"],
+        "specforge gsd progress-report --host claude-code"
+    );
     for (step, prompt) in steps[1..].iter().zip([
         "discuss_phase",
         "plan_phase",

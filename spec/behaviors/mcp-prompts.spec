@@ -110,6 +110,7 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "a prompt's multi-line message reaches the agent with its lines, and other controls escaped"
   verify unit "a prompt reads the state the host sends it"
   verify unit "a rendered step names the agent that runs it, and a step without one has no agent key"
+  verify unit "a command step's cli names the host the prompt is rendered for"
   verify unit "a prompt's free-text tail takes the words no option takes, joined by one space"
   verify unit "a prompt's tail given by name and by words is refused, an unknown option is not tail, and after -- every word is tail"
   verify unit "a named (MCP) tail is an ordinary string"

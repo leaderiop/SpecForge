@@ -199,7 +199,7 @@
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
-        "cli": "specforge gsd pause",
+        "cli": "specforge gsd pause --host codex",
         "gate": [],
         "id": "pause",
         "title": "Record the pause: why, who and the handoff (specforge gsd pause <reason> --by <who> --handoff <handoff>)",

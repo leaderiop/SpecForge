@@ -181,9 +181,18 @@ fn quick_steps_name_the_judges_and_record_verdict() {
             .find(|s| s["id"] == id)
             .and_then(|s| s["cli"].as_str())
     };
-    assert_eq!(cli("record_verdict"), Some("specforge gsd record-verdict"));
-    assert_eq!(cli("start"), Some("specforge gsd start-plan"));
-    assert_eq!(cli("complete"), Some("specforge gsd complete-plan"));
+    assert_eq!(
+        cli("record_verdict"),
+        Some("specforge gsd record-verdict --host claude-code")
+    );
+    assert_eq!(
+        cli("start"),
+        Some("specforge gsd start-plan --host claude-code")
+    );
+    assert_eq!(
+        cli("complete"),
+        Some("specforge gsd complete-plan --host claude-code")
+    );
 }
 
 #[test]

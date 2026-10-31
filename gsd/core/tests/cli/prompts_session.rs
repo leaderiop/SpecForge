@@ -14,7 +14,10 @@ fn pause_resume_render() {
     let p = twin();
     let paused = payload(&prompt(&p, "pause_work", &[], "claude-code"));
     assert_eq!(paused["payload"]["steps"][0]["id"], "pause");
-    assert_eq!(paused["payload"]["steps"][0]["cli"], "specforge gsd pause");
+    assert_eq!(
+        paused["payload"]["steps"][0]["cli"],
+        "specforge gsd pause --host claude-code"
+    );
     let text = text_of(&paused);
     assert!(text.contains("--by"), "{text}");
     assert!(text.contains("`handoff` entity"), "{text}");
@@ -23,7 +26,7 @@ fn pause_resume_render() {
     assert_eq!(resumed["payload"]["steps"][0]["id"], "resume");
     assert_eq!(
         resumed["payload"]["steps"][0]["cli"],
-        "specforge gsd resume"
+        "specforge gsd resume --host claude-code"
     );
     let text = text_of(&resumed);
     assert!(text.contains("`handoff` entity"), "{text}");

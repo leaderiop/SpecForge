@@ -51,7 +51,7 @@ fn review_backlog_step_is_the_phase_command() {
     assert_eq!(rendered["payload"]["steps"][0]["id"], "phase");
     assert_eq!(
         rendered["payload"]["steps"][0]["cli"],
-        "specforge gsd phase"
+        "specforge gsd phase --host claude-code"
     );
 }
 

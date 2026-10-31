@@ -304,7 +304,7 @@ pub fn render(
         prompt: prompt.qualified(),
         digest: format!("sha256:{}", Sha256::of(texts.as_bytes())),
         attribution: declared.attribution.clone(),
-        steps: steps(view, prompt, subject.as_deref()),
+        steps: steps(view, prompt, subject.as_deref(), host),
         judged: judged::of(view, prompt),
         subject,
     };
@@ -341,6 +341,7 @@ fn steps(
     view: &ProjectView<'_>,
     prompt: &ExtensionPrompt,
     subject: Option<&str>,
+    host: Option<Host>,
 ) -> Vec<RenderedStep> {
     let commands = ExtensionCommands::build(view.registries());
     let prompts = ExtensionPrompts::build(view);
@@ -348,7 +349,7 @@ fn steps(
         .declaration
         .steps
         .iter()
-        .map(|step| rendered(view, (&commands, &prompts), prompt, step, subject))
+        .map(|step| rendered(view, (&commands, &prompts), prompt, step, (subject, host)))
         .collect()
 }
 
@@ -357,7 +358,7 @@ fn rendered(
     (commands, prompts): (&ExtensionCommands, &ExtensionPrompts),
     prompt: &ExtensionPrompt,
     step: &PromptStep,
-    subject: Option<&str>,
+    (subject, host): (Option<&str>, Option<Host>),
 ) -> RenderedStep {
     let mut out = RenderedStep {
         id: step.id.clone(),
@@ -390,11 +391,11 @@ fn rendered(
             .find(|c| c.id() == id && owned(c.extension(), c.short()));
         if let Some(command) = found {
             out.tool = Some(command.tool_name());
-            out.cli = Some(format!(
-                "specforge {} {}",
-                command.short(),
-                command.cli_name()
-            ));
+            // The host's own spelling of the next command, as the trampoline's fallback line asks for it (ADR 0318).
+            let name = command.cli_name();
+            let mut line = vec!["specforge", command.short(), name.as_str()];
+            line.extend(host.iter().flat_map(|h| ["--host", h.as_str()]));
+            out.cli = Some(line.join(" "));
             out.gate = Some(command_gate(view, command, subject));
         }
     } else if let Some(sub) = prompts

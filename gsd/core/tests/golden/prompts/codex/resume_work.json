@@ -199,7 +199,7 @@
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
-        "cli": "specforge gsd resume",
+        "cli": "specforge gsd resume --host codex",
         "gate": [],
         "id": "resume",
         "title": "Remove the pause and its handoff once the work is resumed (specforge gsd resume <pause>)",

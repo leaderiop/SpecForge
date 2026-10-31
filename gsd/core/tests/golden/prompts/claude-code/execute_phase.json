@@ -209,14 +209,14 @@
         "title": "Verify the phase goal"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host claude-code",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the verifier's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",
         "tool": "specforge.gsd.record_verdict"
       },
       {
-        "cli": "specforge gsd record-window",
+        "cli": "specforge gsd record-window --host claude-code",
         "gate": [],
         "id": "record_window",
         "title": "Record a window of the phase (specforge gsd record-window <kind> <phase> <description> ...)",

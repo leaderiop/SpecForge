@@ -204,7 +204,7 @@
         "title": "Research how to implement the phase"
       },
       {
-        "cli": "specforge gsd record-research",
+        "cli": "specforge gsd record-research --host codex",
         "gate": [],
         "id": "record_research",
         "title": "Record the research's digest (specforge gsd record-research <research>)",
@@ -226,7 +226,7 @@
         "title": "Check the plans against the phase goal"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host codex",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the plan checker's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",

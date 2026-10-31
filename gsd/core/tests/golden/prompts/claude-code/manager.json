@@ -199,7 +199,7 @@
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
-        "cli": "specforge gsd progress-report",
+        "cli": "specforge gsd progress-report --host claude-code",
         "gate": [],
         "id": "dashboard",
         "title": "Read the phases and what each needs next (specforge gsd progress-report)",

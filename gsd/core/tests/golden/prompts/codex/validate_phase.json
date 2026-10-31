@@ -204,14 +204,14 @@
         "title": "Audit the validation and fill its gaps"
       },
       {
-        "cli": "specforge gsd record-validation",
+        "cli": "specforge gsd record-validation --host codex",
         "gate": [],
         "id": "record",
         "title": "Record the validation's context digest (specforge gsd record-validation <validation>)",
         "tool": "specforge.gsd.record_validation"
       },
       {
-        "cli": "specforge gsd approve-validation",
+        "cli": "specforge gsd approve-validation --host codex",
         "gate": [],
         "id": "approve",
         "title": "Ask the person to run `specforge gsd approve-validation <validation> <who>` in their terminal (an agent's call is refused: it records what a person says)",

@@ -34,6 +34,16 @@ pub struct Rendered {
 
 /// Render the prompt `id` of the fixture over `served`.
 pub fn render(served: &Served, id: &str, args: Args<'_>) -> Result<Rendered, Refused> {
+    render_for(served, id, args, None)
+}
+
+/// [`render`] for `host`.
+pub fn render_for(
+    served: &Served,
+    id: &str,
+    args: Args<'_>,
+    host: Option<specforge_ops::host::Host>,
+) -> Result<Rendered, Refused> {
     let view = ProjectView::of(&served.compiled);
     let prompts = ExtensionPrompts::build(&view);
     let prompt = prompts
@@ -50,7 +60,7 @@ pub fn render(served: &Served, id: &str, args: Args<'_>) -> Result<Rendered, Ref
             PromptArgs::Words(&words)
         }
     };
-    let rendered = render_prompt(&view, prompt, given, None).map_err(|error| match error {
+    let rendered = render_prompt(&view, prompt, given, host).map_err(|error| match error {
         RenderError::Refused(e) | RenderError::Gate(e) => Refused {
             code: if e.kind == OpErrorKind::EntityNotFound {
                 "entity_not_found".into()
@@ -202,6 +212,25 @@ fn a_rendered_prompt_shows_each_steps_gate_and_its_attribution() {
         again.payload["digest"], rendered.payload["digest"],
         "the digest is stable"
     );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a command step's cli names the host the prompt is rendered for"
+)]
+fn a_command_steps_cli_names_the_host() {
+    use specforge_ops::host::Host;
+    let served = served(project("fine", "ok", json!({})));
+    let cli = |host| {
+        let args = Args::Named(json!({"phase": "03"}));
+        let rendered = render_for(&served, "plan_phase", args, host).unwrap();
+        rendered.payload["steps"][0]["cli"].clone()
+    };
+    assert_eq!(
+        cli(Some(Host::Codex)),
+        "specforge t record-plan --host codex"
+    );
+    assert_eq!(cli(None), "specforge t record-plan");
 }
 
 #[specforge_test(

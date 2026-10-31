@@ -234,7 +234,7 @@
         "title": "Complete the milestone"
       },
       {
-        "cli": "specforge gsd cleanup",
+        "cli": "specforge gsd cleanup --host cursor",
         "gate": [],
         "id": "cleanup",
         "title": "Archive the closed milestone's phases (specforge gsd cleanup)",

@@ -199,7 +199,7 @@
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
-        "cli": "specforge gsd phase",
+        "cli": "specforge gsd phase --host codex",
         "gate": [],
         "id": "phase",
         "title": "Promote a backlog phase into the milestone, or remove it (specforge gsd phase)",

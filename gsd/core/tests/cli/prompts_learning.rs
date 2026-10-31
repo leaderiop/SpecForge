@@ -16,7 +16,7 @@ fn summary_renders() {
     assert_eq!(rendered["payload"]["steps"][0]["id"], "report");
     assert_eq!(
         rendered["payload"]["steps"][0]["cli"],
-        "specforge gsd progress-report"
+        "specforge gsd progress-report --host claude-code"
     );
     let text = text_of(&rendered);
     for word in [

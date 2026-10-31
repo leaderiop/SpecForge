@@ -199,7 +199,7 @@
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
-        "cli": "specforge gsd set-uat-result",
+        "cli": "specforge gsd set-uat-result --host cursor",
         "gate": [],
         "id": "uat",
         "title": "Ask the person to run `specforge gsd set-uat-result <uat_test> <result> --by <who>` in their terminal (an agent's call is refused: it records what a person says)",

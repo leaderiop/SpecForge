@@ -221,7 +221,7 @@
     "prompt": "@gsd/core@VERSION:spec_phase",
     "steps": [
       {
-        "cli": "specforge gsd record-spec",
+        "cli": "specforge gsd record-spec --host cursor",
         "gate": [],
         "id": "record_spec",
         "title": "Record the spec's digest once it is written (specforge gsd record-spec <phase_spec>)",

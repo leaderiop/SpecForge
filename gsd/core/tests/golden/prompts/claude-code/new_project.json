@@ -214,7 +214,7 @@
         "title": "Create the roadmap"
       },
       {
-        "cli": "specforge gsd record-research",
+        "cli": "specforge gsd record-research --host claude-code",
         "gate": [],
         "id": "record_research",
         "title": "Record each research entity's digest (specforge gsd record-research <research>)",

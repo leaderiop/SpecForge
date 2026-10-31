@@ -204,7 +204,7 @@
         "title": "Check the wiring across the phases"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host claude-code",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the integration checker's verdicts (specforge gsd record-verdict <phase> E518 <outcome> <model> '<basis>')",

@@ -34,7 +34,10 @@ fn new_project_renders() {
         "specforge.gsd.discuss_phase"
     );
     let record = &rendered["payload"]["steps"][3];
-    assert_eq!(record["cli"], "specforge gsd record-research");
+    assert_eq!(
+        record["cli"],
+        "specforge gsd record-research --host claude-code"
+    );
     assert_eq!(record["tool"], "specforge.gsd.record_research");
     let text = text_of(&rendered);
     assert!(text.contains("<arguments>--auto</arguments>") || text.contains("--auto"));

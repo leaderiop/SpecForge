@@ -199,7 +199,7 @@
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
-        "cli": "specforge gsd start-plan",
+        "cli": "specforge gsd start-plan --host claude-code",
         "gate": [
           {
             "code": "gsd/W318",
@@ -222,28 +222,28 @@
         "title": "Execute the plan's tasks"
       },
       {
-        "cli": "specforge gsd answer-checkpoint",
+        "cli": "specforge gsd answer-checkpoint --host claude-code",
         "gate": [],
         "id": "checkpoint",
         "title": "Ask the person to run `specforge gsd answer-checkpoint <checkpoint> ...` in their terminal (an agent's call is refused: it records what a person says)",
         "tool": "specforge.gsd.answer_checkpoint"
       },
       {
-        "cli": "specforge gsd confirm-setup",
+        "cli": "specforge gsd confirm-setup --host claude-code",
         "gate": [],
         "id": "setup",
         "title": "Ask the person to run `specforge gsd confirm-setup <user_setup> --by <who>` in their terminal (an agent's call is refused: it records what a person says)",
         "tool": "specforge.gsd.confirm_setup"
       },
       {
-        "cli": "specforge gsd raise-blocker",
+        "cli": "specforge gsd raise-blocker --host claude-code",
         "gate": [],
         "id": "blocker",
         "title": "Raise a blocker (specforge gsd raise-blocker <text>)",
         "tool": "specforge.gsd.raise_blocker"
       },
       {
-        "cli": "specforge gsd complete-plan",
+        "cli": "specforge gsd complete-plan --host claude-code",
         "gate": [
           {
             "code": "gsd/W404",

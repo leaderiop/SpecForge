@@ -199,7 +199,7 @@
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
-        "cli": "specforge gsd smart-entry",
+        "cli": "specforge gsd smart-entry --host claude-code",
         "gate": [],
         "id": "detect",
         "title": "Detect the situation and its next actions (specforge gsd smart-entry)",

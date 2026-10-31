@@ -214,14 +214,14 @@
         "title": "Check the quick plan"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host cursor",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the plan checker's verdict (specforge gsd record-verdict <plan> <code> <outcome> <model> <basis>)",
         "tool": "specforge.gsd.record_verdict"
       },
       {
-        "cli": "specforge gsd start-plan",
+        "cli": "specforge gsd start-plan --host cursor",
         "gate": [
           {
             "code": "gsd/W318",
@@ -244,7 +244,7 @@
         "title": "Execute the quick plan"
       },
       {
-        "cli": "specforge gsd complete-plan",
+        "cli": "specforge gsd complete-plan --host cursor",
         "gate": [
           {
             "code": "gsd/W404",

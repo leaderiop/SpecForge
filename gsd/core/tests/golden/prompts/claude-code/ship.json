@@ -199,14 +199,14 @@
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
-        "cli": "specforge gsd fix-window",
+        "cli": "specforge gsd fix-window --host claude-code",
         "gate": [],
         "id": "fix_window",
         "title": "Record that a broken window was fixed (specforge gsd fix-window <window>)",
         "tool": "specforge.gsd.fix_window"
       },
       {
-        "cli": "specforge gsd waive-window",
+        "cli": "specforge gsd waive-window --host claude-code",
         "gate": [],
         "id": "waive_window",
         "title": "Ask the person to run `specforge gsd waive-window <window> <reason> <who>` in their terminal (an agent's call is refused: it records what a person says)",

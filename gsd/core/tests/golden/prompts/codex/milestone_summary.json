@@ -199,7 +199,7 @@
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
-        "cli": "specforge gsd progress-report",
+        "cli": "specforge gsd progress-report --host codex",
         "gate": [],
         "id": "report",
         "title": "Read the progress of the milestone (specforge gsd progress-report)",

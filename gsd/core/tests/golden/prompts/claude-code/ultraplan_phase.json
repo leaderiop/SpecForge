@@ -204,7 +204,7 @@
         "title": "Check the imported plans against the phase goal"
       },
       {
-        "cli": "specforge gsd record-verdict",
+        "cli": "specforge gsd record-verdict --host claude-code",
         "gate": [],
         "id": "record_verdict",
         "title": "Record the plan checker's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",
