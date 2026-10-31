@@ -36,7 +36,7 @@ fn harness_fields() -> BTreeSet<(String, String)> {
 #[test]
 fn every_h_field_has_one_writer() {
     let declared = harness_fields();
-    assert_eq!(declared.len(), 33, "the 33 harness fields of the model");
+    assert_eq!(declared.len(), 34, "the 34 harness fields of the model");
     let rows: Vec<(String, String)> = WRITERS
         .iter()
         .map(|(k, f, _)| (k.to_string(), f.to_string()))
@@ -44,7 +44,7 @@ fn every_h_field_has_one_writer() {
     let listed: BTreeSet<(String, String)> = rows.iter().cloned().collect();
     assert_eq!(listed.len(), rows.len(), "a field has two writer rows");
     assert_eq!(listed, declared, "the rows and the H fields differ");
-    assert_eq!(WRITERS.len(), 33, "every H field has a writer");
+    assert_eq!(WRITERS.len(), 34, "every H field has a writer");
 }
 
 #[test]

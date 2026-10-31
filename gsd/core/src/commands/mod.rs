@@ -60,6 +60,7 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("commit", "created", "gsd-git"),
     ("commit", "insertions", "gsd-git"),
     ("commit", "deletions", "gsd-git"),
+    ("commit", "descends_from", "gsd-git"),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

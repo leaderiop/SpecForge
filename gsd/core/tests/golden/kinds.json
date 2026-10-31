@@ -520,6 +520,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "CommitDescendsFrom",
+        "source_kind": "commit",
+        "target_kind": "commit"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "PausePhase",
         "source_kind": "pause",
         "target_kind": "phase"
@@ -5982,6 +5991,18 @@
             "name": "deletions",
             "required": false,
             "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "the recorded commits of its plan it descends from, through merges; absent when never collected",
+            "edge": "CommitDescendsFrom",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "descends_from",
+            "required": false,
+            "target_kind": "commit",
             "writer": "harness"
           }
         ],

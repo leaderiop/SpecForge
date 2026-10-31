@@ -78,9 +78,10 @@ write the same file), in the project scope, named by the first 12 hex digits of 
 | files | strs | H | repository-relative paths, as git prints them; text, not `files`, since a later commit may delete one |
 | created | strs | H | the paths `git log --summary` reports `create mode` for (GSD's `key-files.created`) |
 | insertions, deletions | int | H | `git log --numstat` |
+| descends_from | →* commit | H | the recorded commits of the same plan this one reaches through its parents (`%P`, merges included), oldest first; `[]` for none, absent on a commit recorded before ancestry was collected. W403 reads it (#5275) |
 
 **Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs
-`git -c core.quotepath=off log --no-merges --no-renames --numstat --summary --format=%x1e%H%x1f%at%x1f%s` once in the
+`git -c core.quotepath=off log --no-renames --numstat --summary --format=%x00%H%x1f%P%x1f%at%x1f%s` once in the
 project root and hands the captured output to the collector, which is a *writing* one: it is also given the graph, and
 answers an edit plan (`Record N commits`) that creates the new `commit` entities in their plans' files, oldest first.
 The host applies the plan and records each field in `specforge-harness`. A commit whose 12-hex name the graph already
@@ -92,7 +93,7 @@ id (`03-02`, `03.1-01`, a quick id), resolved over the graph as a path, a rooted
 names no plan, several plans (`01-01` in two milestones: write the full path) or a non-plan is skipped. The task is the one
 of that plan whose title equals the description, trimmed, case-folded and with whitespace runs collapsed; none, or two,
 leaves the commit naming its plan. A plan op refused `stale_revision` (the plan's file changed since the compile) writes
-nothing, and the next run records the same commits.
+nothing, and the next run records the same commits. Merges are read for their parents and never recorded.
 
 Schema drift reads the subjects, and a milestone's `stats.loc` the line counts. `/gsd-undo` reads the commits of a plan or a
 phase from here instead of a manifest file.
