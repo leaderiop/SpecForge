@@ -79,6 +79,8 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a respelling stales nothing and a rename stales the verdicts that read it"
   verify unit "a file input reads from its field's base and an absent file digests as absent"
   verify unit "a file input that is a spec source digests as what it declares"
+  verify unit "a file input may name a path held in a string field"
+  verify unit "a referrer selector goes on past its reference"
   verify unit "a missing report hides no change to a cited entity or file"
   verify unit "cited tests are an input of their own, judged once a report exists"
   verify unit "the tests of a report digest sorted, whatever order they ran in"
