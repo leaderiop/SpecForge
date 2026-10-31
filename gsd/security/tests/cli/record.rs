@@ -227,3 +227,55 @@ fn a_suffixed_id_names_one_threat() {
     assert_eq!(p.fields_of("v1.0/01/01-02/T-01-02")["status"], "closed");
     assert!(p.fields_of(T2).get("status").is_none());
 }
+
+/// REVIEW-security-part2 m2: a phase's audit is written beside that phase's plans, not in the file of whichever audit
+/// came first.
+#[test]
+fn each_phases_audit_lands_beside_its_own_plans() {
+    let p = recording();
+    answered(&record(&p, &first()));
+    assert!(
+        p.read("spec/security.spec")
+            .contains("security_audit 01-SECURITY")
+    );
+    let milestone = p.read("spec/v1.0.spec");
+    p.write(
+        "spec/v1.0.spec",
+        &format!(
+            "{milestone}\nphase 03 \"Later\" {{\n  milestone v1.0\n  name \"Later\"\n  slug \"later\"\n  goal \"Later\"\n}}\n"
+        ),
+    );
+    p.write(
+        "spec/phases/03/plans.spec",
+        r#"plan 03-01 "Later plan" {
+  phase          v1.0/03
+  type           execute
+  files_modified ["src/later.js"]
+  objective      "Later"
+}
+
+threat T-03-01 "Later threat" {
+  plan        v1.0/03/03-01
+  category    tampering
+  component   "src/later.js"
+  severity    high
+  disposition mitigate
+  mitigation  "Checked"
+}
+"#,
+    );
+    let run = p.run(&[
+        "gsd",
+        "record-security-audit",
+        "03",
+        "--verdict",
+        &json!({ "threats": [{ "id": "T-03-01", "status": "closed" }] }).to_string(),
+        "--format",
+        "json",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let later = p.read("spec/phases/03/plans.spec");
+    assert!(later.contains("security_audit 03-SECURITY"), "{later}");
+    assert!(later.contains("audit_run AU1"), "{later}");
+    assert!(!p.read("spec/security.spec").contains("03-SECURITY"));
+}

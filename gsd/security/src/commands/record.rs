@@ -50,8 +50,8 @@ fn choice<'a>(item: &'a Value, key: &str, allowed: &[&str]) -> Result<&'a str, S
 pub(super) fn audit_file(graph: &CommandGraph, phase: &GraphNode, plans: &[&GraphNode]) -> String {
     let existing = graph
         .nodes_of_kind("security_audit")
-        .filter_map(|a| a.file.as_deref())
-        .next();
+        .find(|a| target(graph, &a.id, "phase") == Some(phase.id.as_str()))
+        .and_then(|a| a.file.as_deref());
     let anchor = plans
         .first()
         .and_then(|p| p.file.as_deref())

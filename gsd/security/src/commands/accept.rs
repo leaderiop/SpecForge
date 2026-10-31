@@ -48,16 +48,18 @@ fn accept(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         |a| a.id.clone(),
     );
     let mut edit = call.plan();
+    let plans: Vec<&GraphNode> = graph
+        .nodes_of_kind("plan")
+        .filter(|p| target(graph, &p.id, "phase") == Some(phase.id.as_str()))
+        .collect();
+    // the audit's file, or where `audit_file` puts a new one: the risk goes beside it
+    let file = audit_file(graph, phase, &plans);
     if existing.is_none() {
-        let plans: Vec<&GraphNode> = graph
-            .nodes_of_kind("plan")
-            .filter(|p| target(graph, &p.id, "phase") == Some(phase.id.as_str()))
-            .collect();
         edit.create(
             "security_audit",
             &format!("{number}-SECURITY"),
             &format!("Phase {number} security"),
-            &audit_file(graph, phase, &plans),
+            &file,
             BTreeMap::from([
                 ("phase".to_string(), json!(phase.id)),
                 (
@@ -74,10 +76,6 @@ fn accept(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         );
     }
     let name = next_id(graph, "accepted_risk", &format!("{audit_id}/"), "AR");
-    let file = graph
-        .node(&audit_id)
-        .and_then(|a| a.file.clone())
-        .unwrap_or_else(|| "spec/security.spec".to_string());
     let day = at.chars().take(10).collect::<String>();
     edit.create(
         "accepted_risk",
@@ -109,7 +107,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
         cmd.description("Accept a threat's risk with a rationale and who accepts it, at the host's clock; a person's record")
             .human()
             .arg("threat", |a| {
-                a.required().description("the threat (its id, or a short form that is not ambiguous)");
+                a.required().description("the threat (its id, or a short form that is not ambiguous: a supply-chain threat T-<phase>-SC is one per plan, so name its plan: 01-02/T-01-SC)");
             })
             .arg("rationale", |a| {
                 a.required().description("why the risk is accepted, in the person's words");
