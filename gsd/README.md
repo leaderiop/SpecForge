@@ -181,8 +181,6 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
   status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
   text.
-- **An agent cannot create an artifact through the CLI (K20)**: `--path` is the CLI's own option, MCP's
-  `specforge.edit` creates it. It is a CLI change.
 - **A skill's `effort` is declared, not installed.** `/gsd-plan-phase` and `/gsd-execute-phase` declare `max`, and Claude
   Code leaves it out of the installed skill as upstream does (#3151); only the declaration is tested.
 - **What r43 leaves open.** Reports, summaries and cross-AI reviews are shown, not stored. A lesson has no phase field. `/gsd-review` has no reviewer lane machinery or prompt budget (the agent reads each reviewer CLI's `--help`). `/gsd-quick-batch`'s dispatcher, estimate calibration, sub-repository branches and workspaces are prose. `/gsd-undo` selects the commits recorded as `commit` entities, and `git revert` bypasses the host's checks, so it asks before reverting a `.spec` change that removes a person's value. `smart_entry` never says idle-stranded (a command has no git).
@@ -199,7 +197,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
   `specforge gsd help` lists the commands.
 - **What stays after K17.** `check` is red from planning on, since gsd/E501 is an Error from the first planned truth
-  until it is verified, and an agent cannot create an artifact through the CLI (`--path` is the CLI's own option).
+  until it is verified.
 - **Hook facts and the install path (K20).** A hook is told the name of an out-of-project path, not its real path, so a
   symlink into the main checkout passes `worktree_path_guard`; it is not told a commit's `--cleanup`; a hook
   contribution cannot name its hosts (Cursor gets the isolation guard's line, which does nothing there). A host

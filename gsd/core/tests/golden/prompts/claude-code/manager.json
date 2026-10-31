@@ -61,7 +61,7 @@
     "- `manager_flags.execute` — appended to execute agent init command",
     ""
   ],
-  "bytes": 38233,
+  "bytes": 38273,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -138,8 +138,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:bb32249f61ce20c8ba1b70196d4ab26ca201eca23e9ab5f011e64649cefb11a1",
+    "digest": "sha256:60c1b351537fec1e362b12676c4ee9b9964ef28ab8522cccb33c73dc0add35ae",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "bb32249f61ce20c8ba1b70196d4ab26ca201eca23e9ab5f011e64649cefb11a1"
+  "sha256": "60c1b351537fec1e362b12676c4ee9b9964ef28ab8522cccb33c73dc0add35ae"
 }

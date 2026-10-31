@@ -61,7 +61,7 @@
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via $gsd-settings.\""
   ],
-  "bytes": 26586,
+  "bytes": 26626,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:e078efad31653fcfa96f2982a1c69e5da483245766b81a4188bcc4e5e35acb87",
+    "digest": "sha256:f9b10b7a98795208ecc32acd49df3144fffacb1350d9c32c684e269f44a43223",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "e078efad31653fcfa96f2982a1c69e5da483245766b81a4188bcc4e5e35acb87"
+  "sha256": "f9b10b7a98795208ecc32acd49df3144fffacb1350d9c32c684e269f44a43223"
 }

@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `AskUserQuestion` call below with a plain-text numbered list and ask the user to type their choice number — required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available."
   ],
-  "bytes": 30172,
+  "bytes": 30212,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -138,8 +138,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:acc681d8e08b05f0d851b373adc6b80b4101b0997f2c53e62e8d5ea33a7e5d09",
+    "digest": "sha256:8c22427a17475ad011bd4a6cbd580955e4c7aeaf3de58e86c5f53880c38f2ae0",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "acc681d8e08b05f0d851b373adc6b80b4101b0997f2c53e62e8d5ea33a7e5d09"
+  "sha256": "8c22427a17475ad011bd4a6cbd580955e4c7aeaf3de58e86c5f53880c38f2ae0"
 }

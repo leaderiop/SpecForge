@@ -61,7 +61,7 @@
     "- the phase's `verification` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds verification --format context`) — verification results",
     "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results"
   ],
-  "bytes": 21475,
+  "bytes": 21515,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -157,8 +157,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:3c5a1b59648a8a89d0edc621c800e4e754489f26a91a282b10ee704393b3f791",
+    "digest": "sha256:7a99a83361539755be1a818bddd3fc483e6b87058d2abe9ef2ff2b56fe68193e",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "3c5a1b59648a8a89d0edc621c800e4e754489f26a91a282b10ee704393b3f791"
+  "sha256": "7a99a83361539755be1a818bddd3fc483e6b87058d2abe9ef2ff2b56fe68193e"
 }

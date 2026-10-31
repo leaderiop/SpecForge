@@ -61,7 +61,7 @@
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via /gsd-settings.\""
   ],
-  "bytes": 18869,
+  "bytes": 18909,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -157,8 +157,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:03190dd7b5389038ff0f12037539180725a9e9d4dea43e1b458d21691ea86caf",
+    "digest": "sha256:c7f9b5e5d2ba35c1d0db0b7a4b4302ac1606501fc895d20c523d9ecdf0f98da3",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "03190dd7b5389038ff0f12037539180725a9e9d4dea43e1b458d21691ea86caf"
+  "sha256": "c7f9b5e5d2ba35c1d0db0b7a4b4302ac1606501fc895d20c523d9ecdf0f98da3"
 }

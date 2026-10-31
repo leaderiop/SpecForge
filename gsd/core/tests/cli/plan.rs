@@ -326,3 +326,34 @@ fn a_dependency_on_another_phase_leaves_the_wave_alone() {
     );
     assert_eq!(fields_of(&p, "v1.0/02/02-01")["wave"], 1);
 }
+
+/// K20b: `specforge new --field` sets a field the command line owns (`path`), so an agent creates an artifact.
+#[test]
+fn an_agent_creates_an_artifact_through_the_cli() {
+    let p = super::commands_support::twin();
+    let preamble = super::prompts_support::text_of(&super::prompts_support::payload(
+        &super::prompts_support::prompt(&p, "plan_phase", &["v1.0/02"], "claude-code"),
+    ));
+    assert!(
+        preamble.contains(
+            "specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>"
+        ),
+        "the preamble tells it"
+    );
+    let run = p.run(&[
+        "new",
+        "artifact",
+        "AR9",
+        "The store",
+        "--in",
+        "spec/plans.spec",
+        "--plan",
+        "v1.0/02/02-01",
+        "--provides",
+        "load and save",
+        "--field",
+        "path=src/x.js",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of("AR9")["path"], "src/x.js");
+}

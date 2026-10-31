@@ -100,8 +100,6 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
   status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
   text.
-- **An agent cannot create an artifact through the CLI (K20)**: `--path` is the CLI's own option, MCP's
-  `specforge.edit` creates it. It is a CLI change.
 - **The hooks wait for five host items (K20)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
   a full compile, Cursor's `beforeSubmitPrompt`, and a hook reading another extension's settings.
 - **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is
@@ -118,7 +116,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **The SDK exports `TriggerKind`**: `gates.rs` reads the kind by name.
 - **What stays after K17.** `cited` defaults to `[]` and code files are not E501 inputs, so a verdict that cites no file
   never goes stale on a code change; `check` is red from planning on, since gsd/E501 is an Error from the first planned
-  truth until it is verified; an agent cannot create an artifact through the CLI (`--path` is the CLI's own option); and
+  truth until it is verified; and
   the kernel reports `(0 findings)` in every judged message (it counts a list of values, not of blocks). `gsd/E502`
   counts the tests recorded for a truth (its `[gsd:<id>]` link), not the tests a verdict cites: a pass is not sent
   `cited_tests`.

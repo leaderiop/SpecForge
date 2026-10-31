@@ -47,7 +47,7 @@
     "| `/gsd-review` | prompt `specforge.gsd.review` (served by @gsd/core) |",
     "| `/gsd-ui-phase` | not served on this project |"
   ],
-  "bytes": 11151,
+  "bytes": 11191,
   "end": [
     "Route to the appropriate quality / review skill based on the user's intent.",
     "`gsd-code-review-fix` was absorbed by `gsd-code-review --fix` in #2790.",
@@ -143,8 +143,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -181,8 +181,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:ba5a65849c3408a42fe71e2aca55dd50429e7c35d75bcfe15837fda30375d2b5",
+    "digest": "sha256:3ebafcd5e3d7921283908a1167b5d92663ed02db0d3986f2a1b8564e16bb9e17",
     "prompt": "@gsd/core@VERSION:ns_review"
   },
-  "sha256": "ba5a65849c3408a42fe71e2aca55dd50429e7c35d75bcfe15837fda30375d2b5"
+  "sha256": "3ebafcd5e3d7921283908a1167b5d92663ed02db0d3986f2a1b8564e16bb9e17"
 }

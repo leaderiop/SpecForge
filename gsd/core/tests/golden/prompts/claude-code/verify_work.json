@@ -61,7 +61,7 @@
     "02",
     "GSD_ARGS_END"
   ],
-  "bytes": 65827,
+  "bytes": 65867,
   "end": [
     "## Gaps",
     "",
@@ -138,8 +138,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:6bfdebe293d8097c646274e7f1db65dba3c354d3653bd9e31ae0fd3898e76655",
+    "digest": "sha256:42054eaf1f96a4e384adf34af95a456b73cc4f129bc59b613985c8612db45404",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "6bfdebe293d8097c646274e7f1db65dba3c354d3653bd9e31ae0fd3898e76655"
+  "sha256": "42054eaf1f96a4e384adf34af95a456b73cc4f129bc59b613985c8612db45404"
 }

@@ -61,7 +61,7 @@
     "| `$gsd-mvp-phase` | prompt `specforge.gsd.mvp_phase` (served by @gsd/core) |",
     "| `$gsd-quick` | prompt `specforge.gsd.quick` (served by @gsd/core) |"
   ],
-  "bytes": 20147,
+  "bytes": 20187,
   "end": [
     "| Advance to the next logical step | gsd-progress |",
     "| Open the state-aware smart-entry launcher | gsd-next |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:1348d11ae43656e4872c1b6b2ff93e0893eec023d8433de9a8705c07b273966a",
+    "digest": "sha256:ab2d11652023d3b42db1975f7227ef30f886f8a59f90ba9ee682ec6ce78c9bd4",
     "prompt": "@gsd/core@VERSION:ns_workflow"
   },
-  "sha256": "1348d11ae43656e4872c1b6b2ff93e0893eec023d8433de9a8705c07b273966a"
+  "sha256": "ab2d11652023d3b42db1975f7227ef30f886f8a59f90ba9ee682ec6ce78c9bd4"
 }

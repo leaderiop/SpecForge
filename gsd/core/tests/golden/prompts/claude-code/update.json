@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 10430,
+  "bytes": 10470,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -103,8 +103,8 @@
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
-    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created through",
-    "`specforge.edit` (the command line's `--path` option is its own).",
+    "`specforge unset` and `specforge link`, or the MCP tool `specforge.edit`. An artifact is created with",
+    "`specforge new artifact <id> \"<title>\" --in <file> --plan <plan> --field path=<file>` (or `specforge.edit`).",
     "",
     "## How to work",
     "",
@@ -153,8 +153,8 @@
   ],
   "lines": 203,
   "payload": {
-    "digest": "sha256:ac51f9926f9c2889e7208b3dcb573d88b4a75b708b86caeabc9605707edceb0f",
+    "digest": "sha256:c75641822252385feebae1b8976e4b58601ff604feae0f0b99b328d1620cdc0d",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "ac51f9926f9c2889e7208b3dcb573d88b4a75b708b86caeabc9605707edceb0f"
+  "sha256": "c75641822252385feebae1b8976e4b58601ff604feae0f0b99b328d1620cdc0d"
 }
