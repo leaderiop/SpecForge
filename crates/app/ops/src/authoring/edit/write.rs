@@ -99,6 +99,28 @@ pub(super) fn one<'i>(
     }
 }
 
+/// The text of a scalar `input` for a field of `field_type`: an integer field takes a JSON whole number and a bool field
+/// a JSON boolean, as a block member does (ADR 0311); any other field takes what [`one`] takes.
+fn scalar<'i>(
+    input: &'i Input,
+    key: &str,
+    field_type: FieldType,
+    what: &str,
+) -> Result<std::borrow::Cow<'i, str>, Refusal<EditField>> {
+    use std::borrow::Cow;
+    match (field_type, input) {
+        (FieldType::Integer, Input::Number(n)) => match n.as_i64() {
+            Some(whole) => Ok(Cow::Owned(whole.to_string())),
+            None => Err(not_editable(
+                EditField::Value,
+                format!("'{key}' takes a whole number"),
+            )),
+        },
+        (FieldType::Bool, Input::Bool(b)) => Ok(Cow::Owned(b.to_string())),
+        _ => one(input, key, what).map(Cow::Borrowed),
+    }
+}
+
 /// The items `input` gives a list field of `field_type`: a reference list's items are split at commas wherever
 /// they stand (one text or several; an entity id holds no comma), a string list's are taken whole.
 pub(super) fn items_given(
@@ -185,7 +207,10 @@ pub fn written(
                     FieldType::Reference => "id",
                     _ => "word",
                 };
-                (spell::value(form, one(input, key, what)?), Expect::Any)
+                (
+                    spell::value(form, &scalar(input, key, form.field_type(), what)?),
+                    Expect::Any,
+                )
             }
             FieldType::ReferenceList => {
                 items = items_given(input, key, FieldType::ReferenceList)?;

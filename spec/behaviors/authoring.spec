@@ -349,6 +349,8 @@ behavior apply_edit_plan "Apply an Edit Plan" {
   verify unit "set_verdict refuses a finding whose member name a spec block cannot write"
   verify unit "format does not overwrite a concurrent write"
   verify unit "format locks a project with a writing extension and not one that merely has a .specforge directory"
+  verify unit "a plan op sets an integer field from a JSON number and a bool field from a JSON boolean"
+  verify unit "a plan op refuses a fraction on an integer field and a number on a text field"
 }
 
 behavior refuse_stale_revision "Refuse a Stale Revision" {
