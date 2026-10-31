@@ -369,7 +369,7 @@ Threat IDs are unique within a phase. Before numbering, read the `<threat_model>
 | T-{phase}-02 | {category} | {component} | low | accept | {rationale for acceptance} |
 | T-{phase}-SC | Tampering | npm/pip/cargo installs | high | mitigate | package-legitimacy gate + blocking human checkpoint for [ASSUMED]/[SUS] |
 </threat_model>
-With `@gsd/security` loaded, each trust boundary is a `trust_boundary` and each threat a `threat` entity: `specforge new threat T-{phase}-01 "<component>" --in <plan> ...`.
+With `@gsd/security` loaded, each trust boundary is a `trust_boundary` and each threat a `threat` entity: `specforge new threat T-{phase}-01 "<title>" --in <the plan's file> --plan <plan> --category <stride> --component <c> --severity <s> --disposition <d> --mitigation "<m>"`.
 <verification>
 [Overall phase checks]
 </verification>
