@@ -48,13 +48,12 @@ pub fn render(
         Some(_) => true,
     };
     let active = |hook: &Value| {
-        if let Some(when) = hook.get("when").filter(|w| !w.is_null()) {
-            if !when
+        if let Some(when) = hook.get("when").filter(|w| !w.is_null())
+            && !when
                 .as_str()
                 .is_some_and(|key| !key.is_empty() && truthy(key))
-            {
-                return false;
-            }
+        {
+            return false;
         }
         match hook.get("pointFrom").filter(|p| !p.is_null()) {
             None => true,
@@ -215,7 +214,7 @@ mod tests {
 
     #[test]
     fn a_falsy_when_leaves_the_hook_out_and_another_point_has_none() {
-        let off = |key: &str| (key == "demo.on").then(|| json!(false));
+        let off = |key: &str| (key == "demo.on").then_some(json!(false));
         for point in ["verify:post", "plan:pre", "ship:pre"] {
             assert!(active(point, &off).is_empty(), "{point}");
         }

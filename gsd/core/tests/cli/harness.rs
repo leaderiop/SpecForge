@@ -119,6 +119,10 @@ pub fn taskboard() -> Project {
 }
 
 /// The security parity suite's vault fixture: its `spec/` twin of the GSD project beside its `.planning/`.
+#[allow(
+    dead_code,
+    reason = "core's own tests do not use it; @gsd/security's include this harness"
+)]
 pub fn vault() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/vault"))
 }
