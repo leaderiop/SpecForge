@@ -323,8 +323,9 @@ fn rejudge(
         .judged_against(&before);
     crate::authoring::edit::validate::refuse_new_errors(
         &before.judged_diagnostics(),
-        after.diagnostics(),
+        &after,
         project.environment().registries(),
+        change.moved(),
     )
     .map_err(|refusal| refusal.error)
 }

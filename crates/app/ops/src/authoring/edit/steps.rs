@@ -60,7 +60,7 @@ pub(super) fn compose(moves: &mut Vec<(String, String)>, old: &str, new: &str) {
 }
 
 /// `path` once `moves`, made in order, are made.
-fn relocated(path: &str, moves: &[(String, String)]) -> String {
+pub(super) fn relocated(path: &str, moves: &[(String, String)]) -> String {
     let mut path = path.to_string();
     for (old, new) in moves {
         if path == *old {
@@ -228,11 +228,19 @@ fn conclude(view: &ProjectView<'_>, carry: Carry) -> Result<EditPlan, Refusal<Ed
             (key, before, line_break.write(&after).into_owned())
         }),
     );
-    let change = change.keeping_ledger(project, LedgerChange { set, moves });
+    let change = change
+        .moving(raw_moves.clone())
+        .keeping_ledger(project, LedgerChange { set, moves });
     let added = if change.is_empty() {
         Vec::new()
     } else {
-        validate::check(view, &change.after(), &declared, change.ledger_after())?
+        validate::check(
+            view,
+            &change.after(),
+            &declared,
+            change.ledger_after(),
+            change.moved(),
+        )?
     };
     let report = EditReport {
         entities: change.entities(),

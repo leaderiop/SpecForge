@@ -2,19 +2,25 @@
 //! project's checked report (`CompiledProject::checked_diagnostics`: every check run, even after an update that
 //! skipped them) does not have refuses the plan (E080), and so does a graph change its edits do not declare (ADR 0198). Diagnostics are matched without their positions: neither the
 //! span nor the digits of a message are in the key, since a message may name a position (E002, E078) and an inserted
-//! block moves every later one. A judged rule's finding is never such an error (ADR 0297): its judge settles it, not
-//! the edit.
+//! block moves every later one. An extension's finding is also keyed by its subject entity, relocated through the
+//! plan's moves, so a finding on another entity is another error (ADR 0302). A judged rule's finding is never such an
+//! error (ADR 0297): its judge settles it, not the edit; only a finding the judged evaluation made is one.
 
 use super::EditField;
 use super::declared::Declared;
+use super::steps::relocated;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
 use specforge_graph::{GraphDelta, compute_graph_delta_over};
+use specforge_project::CompiledProject;
 use specforge_registry::RegistryBuild;
 use std::collections::{BTreeMap, HashMap};
 
-type Key = (String, Severity, String, String);
+type Key = (String, Severity, String, String, String);
+
+/// Old entity path prefix → new, as a plan moves entities.
+pub(crate) type Moves = [(String, String)];
 
 /// The message with each run of ASCII digits collapsed, so a line that moved is the same diagnostic.
 fn shape(message: &str) -> String {
@@ -27,36 +33,41 @@ fn shape(message: &str) -> String {
     out
 }
 
-fn key(d: &Diagnostic) -> Key {
+/// The key of `d`; an extension's finding adds its subject, which `moved` relocates (the before side's).
+fn key(d: &Diagnostic, moved: &Moves) -> Key {
+    let subject = if d.origin().is_some() {
+        d.subject()
+            .map_or_else(String::new, |s| relocated(s, moved))
+    } else {
+        String::new()
+    };
     (
         d.code.clone(),
         d.severity,
         shape(&d.message),
         d.span.as_ref().map_or("", |s| s.file.as_str()).to_string(),
+        subject,
     )
 }
 
-/// Whether a diagnostic is a judged rule's finding (ADR 0297): no verdict, a stale one or a failing one. It carries
-/// the rule's code and names the extension that owns the rule as its origin (the host's own and another extension's
-/// diagnostics with that text are not).
-pub(crate) fn judged_finding(registries: &RegistryBuild) -> impl Fn(&Diagnostic) -> bool + '_ {
-    |d| {
-        registries
-            .judged_rule(&d.code)
-            .is_some_and(|rule| d.origin() == Some(rule.extension.as_str()))
-    }
+/// Whether a diagnostic is a judged rule's finding (ADR 0297): no verdict, a stale one or a failing one, made by the
+/// judged evaluation of `post`, the project the write leaves (ADR 0302). A pass or a guard that reuses the rule's code is
+/// not one.
+pub(crate) fn judged_finding(post: &CompiledProject) -> impl Fn(&Diagnostic) -> bool + '_ {
+    |d| post.judgements().is_finding(d)
 }
 
 /// The diagnostics of `after` that `before` does not have, one by one: (errors, warnings and infos). A diagnostic
-/// `judged` names is never an error here, whatever its severity.
+/// `judged` names is never an error here, whatever its severity. `moved` relocates the subjects of `before`.
 pub(crate) fn added(
     before: &[Diagnostic],
     after: Vec<Diagnostic>,
     judged: impl Fn(&Diagnostic) -> bool,
+    moved: &Moves,
 ) -> (Vec<Diagnostic>, Vec<Diagnostic>) {
     let mut had: HashMap<Key, usize> = HashMap::new();
     for d in before {
-        *had.entry(key(d)).or_default() += 1;
+        *had.entry(key(d, moved)).or_default() += 1;
     }
     let (mut errors, mut rest) = (Vec::new(), Vec::new());
     for d in after {
@@ -64,7 +75,7 @@ pub(crate) fn added(
         if d.code == codes::W167.to_string() {
             continue;
         }
-        match had.get_mut(&key(&d)) {
+        match had.get_mut(&key(&d, &[])) {
             Some(n) if *n > 0 => *n -= 1,
             _ if d.severity == Severity::Error && !judged(&d) => errors.push(d),
             _ => rest.push(d),
@@ -76,10 +87,11 @@ pub(crate) fn added(
 /// Refuse (E080) when `after` has an error `before` does not.
 pub(crate) fn refuse_new_errors(
     before: &[Diagnostic],
-    after: Vec<Diagnostic>,
+    after: &CompiledProject,
     registries: &RegistryBuild,
+    moved: &Moves,
 ) -> Result<(), Refusal<EditField>> {
-    let (errors, _) = added(before, after, judged_finding(registries));
+    let (errors, _) = added(before, after.diagnostics(), judged_finding(after), moved);
     if errors.is_empty() {
         Ok(())
     } else {
@@ -95,6 +107,7 @@ pub fn check(
     texts: &BTreeMap<String, String>,
     declared: &Declared,
     ledger: Option<&[u8]>,
+    moved: &Moves,
 ) -> Result<Vec<Diagnostic>, Refusal<EditField>> {
     let before = view.project().judged_diagnostics();
     // The project the write would leave, judged: the guard passes read it and the project before it (ADR 0289).
@@ -102,11 +115,7 @@ pub fn check(
         .project()
         .edited_with(texts, ledger)
         .judged_against(view.project());
-    let (errors, rest) = added(
-        &before,
-        post.diagnostics(),
-        judged_finding(view.registries()),
-    );
+    let (errors, rest) = added(&before, post.diagnostics(), judged_finding(&post), moved);
     if !errors.is_empty() {
         return Err(new_errors(errors, view.registries().codes()));
     }
@@ -189,7 +198,7 @@ mod tests {
         let mut pending = Diagnostic::new(codes::W167, "an interrupted write is pending rollback");
         // A preset that raises W167 makes it an error of the edited project.
         pending.severity = Severity::Error;
-        let (errors, rest) = added(&[], vec![pending], |_| false);
+        let (errors, rest) = added(&[], vec![pending], |_| false, &[]);
         assert!(errors.is_empty() && rest.is_empty());
     }
 
@@ -205,13 +214,13 @@ mod tests {
             d
         };
         let judged = |d: &Diagnostic| d.code == "gsd/E501";
-        let (errors, rest) = added(&[], vec![error("gsd/E501"), error("gsd/E999")], judged);
+        let (errors, rest) = added(&[], vec![error("gsd/E501"), error("gsd/E999")], judged, &[]);
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].code, "gsd/E999");
         assert_eq!(rest.len(), 1);
         assert_eq!(rest[0].code, "gsd/E501");
         // Already reported, it is paired and reported once, as an error of the project's own.
-        let (errors, rest) = added(&[error("gsd/E501")], vec![error("gsd/E501")], judged);
+        let (errors, rest) = added(&[error("gsd/E501")], vec![error("gsd/E501")], judged, &[]);
         assert!(errors.is_empty() && rest.is_empty());
     }
 
@@ -223,59 +232,72 @@ mod tests {
         use specforge_project::testing::{gsd_judged_project, gsd_judged_runtime};
         use std::sync::Arc;
         let compiled = gsd_judged_project("").compile_in(Arc::new(gsd_judged_runtime()));
-        let registries = crate::view::ProjectView::of(&compiled).registries();
-        let owner = registries
-            .judged_rule("gsd/E501")
-            .unwrap()
-            .extension
-            .clone();
-        let from = |origin: Option<&str>| {
-            let mut d = Diagnostic::new(codes::E080, "x");
-            d.code = "gsd/E501".to_string();
-            if let Some(origin) = origin {
-                d = Diagnostic::from_extension(origin, "gsd/E501", Severity::Error, "x");
-            }
-            d
-        };
-        let judged = judged_finding(registries);
-        assert!(judged(&from(Some(&owner))));
-        assert!(!judged(&from(Some("@other/x"))));
-        assert!(!judged(&from(None)));
+        let judged = judged_finding(&compiled);
+        // A truth with no verdict: the evaluation's own finding.
+        let own = compiled
+            .diagnostics()
+            .into_iter()
+            .find(|d| d.code == "gsd/E501")
+            .expect("a judged finding");
+        assert!(judged(&own));
+        let mut other = own.clone();
+        other.origin = Some("@other/x".into());
+        assert!(!judged(&other));
+        let mut host = own.clone();
+        host.origin = None;
+        assert!(!judged(&host));
     }
 
     #[specforge_test(
         behavior = "validate_typed_edit",
         verify = "an extension's finding is paired by its subject, through the plan's moves"
     )]
-    #[ignore = "pins K20a; T3 un-ignores"]
     fn a_pass_finding_on_another_entity_is_an_added_error() {
-        let finding = |entity: &str| {
-            Diagnostic::from_extension(
-                "@gsd/core",
-                "gsd/E502",
-                Severity::Error,
-                format!("explicit truth '{entity}' is verified, but a test recorded for it failed"),
-            )
-            .with_data(specforge_common::DiagnosticData::Subject {
-                entity: entity.to_string(),
-            })
-        };
         let before = [finding("v1.0/01/01-01/TR1")];
-        let (errors, _) = added(&before, vec![finding("v1.0/01/01-01/TR2")], |_| false);
+        let (errors, _) = added(&before, vec![finding("v1.0/01/01-01/TR2")], |_| false, &[]);
         assert_eq!(errors.len(), 1);
+    }
+
+    /// A guard, not red-first: it holds before and after, and fails if the relocation is dropped.
+    #[specforge_test(
+        behavior = "validate_typed_edit",
+        verify = "an extension's finding is paired by its subject, through the plan's moves"
+    )]
+    fn a_moved_entitys_finding_is_still_paired() {
+        let before = [finding("v1.0/01/01-01/TR1")];
+        let moves = [("v1.0/01".to_string(), "v1.0/02".to_string())];
+        let after = vec![finding("v1.0/02/01-01/TR1")];
+        assert!(
+            added(&before, after.clone(), |_| false, &moves)
+                .0
+                .is_empty()
+        );
+        assert_eq!(added(&before, after, |_| false, &[]).0.len(), 1);
+    }
+
+    fn finding(entity: &str) -> Diagnostic {
+        Diagnostic::from_extension(
+            "@gsd/core",
+            "gsd/E502",
+            Severity::Error,
+            format!("explicit truth '{entity}' is verified, but a test recorded for it failed"),
+        )
+        .with_data(specforge_common::DiagnosticData::Subject {
+            entity: entity.to_string(),
+        })
     }
 
     #[specforge_test(
         behavior = "validate_typed_edit",
         verify = "only a finding the judged rules made is exempt"
     )]
-    #[ignore = "pins K20a; T3 un-ignores"]
     fn a_finding_the_judged_evaluation_did_not_make_is_counted() {
         use specforge_project::testing::{gsd_judged_project, gsd_judged_runtime};
         use std::sync::Arc;
         let compiled = gsd_judged_project("").compile_in(Arc::new(gsd_judged_runtime()));
-        let registries = crate::view::ProjectView::of(&compiled).registries();
-        let owner = registries
+        let owner = compiled
+            .environment()
+            .registries()
             .judged_rule("gsd/E501")
             .unwrap()
             .extension
@@ -287,6 +309,6 @@ mod tests {
             Severity::Error,
             "guard pass 'g' could not be evaluated: x",
         );
-        assert!(!judged_finding(registries)(&reused));
+        assert!(!judged_finding(&compiled)(&reused));
     }
 }

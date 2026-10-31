@@ -328,6 +328,21 @@ pub(crate) fn consistency(
                 name, pass.name
             )));
         }
+        if pass.phase.as_deref() == Some(specforge_protocol_types::GUARD_PHASE) {
+            for code in &pass.reports {
+                if declaration
+                    .validation_rules
+                    .iter()
+                    .any(|rule| rule.check == "judged" && &rule.code == code)
+                {
+                    diagnostics.push(warn(format!(
+                        "extension '{}': guard pass '{}' reports '{}', the code of a judged rule of the extension: \
+                         a judged rule's finding is its verdict's, not a pass's",
+                        name, pass.name, code
+                    )));
+                }
+            }
+        }
         if !pass.computes.is_empty() && !compute {
             diagnostics.push(warn(format!(
                 "extension '{}': pass '{}' declares computes, but its phase is not 'compute'",

@@ -334,7 +334,9 @@ pub fn evaluate(
             }
             judgement.state = state.as_str().to_string();
             if !judgement.passed {
-                out.diagnostics.push(finding(rule, id, kind, &why, &span));
+                let finding = finding(rule, id, kind, &why, &span);
+                out.judgements.found(finding.clone());
+                out.diagnostics.push(finding);
             }
             out.judgements.insert(id, judgement);
         }

@@ -167,7 +167,6 @@ fn a_declarative_rule_cannot_share_a_judged_rules_code() {
     behavior = "declare_judged_rule",
     verify = "a guard pass cannot report a judged rule's code"
 )]
-#[ignore = "pins K20a; T3 un-ignores"]
 fn a_guard_pass_cannot_report_a_judged_rules_code() {
     let mut declaration = declaration_of(vec![descriptor(plan_check())]);
     declaration.passes = declare("@test", |c| {
