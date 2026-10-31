@@ -3,8 +3,9 @@
 //! The suite's every call to the hook is replayed: `parity/upstream/v1.19.0/hook-cases/gsd-secret-read-guard.json`
 //! holds the payloads upstream's tests sent and the answers upstream's hook gave (recorded by
 //! `gsd/parity/record-hook-cases.cjs`). Each is run through `secret_read_guard`, which must deny exactly where
-//! upstream blocked and name the same file. The cases that are not calls (the 1 MiB limit) are written out below;
-//! the rest are skipped by describe block, each with its reason.
+//! upstream blocked and name the same file. The calls too long to record (over 2000 characters: the 1 MiB limit,
+//! the 20000-unit dense values) are written out below and in `v1_19`; the rest are skipped by describe block, each
+//! with its reason.
 
 use serde_json::Value;
 
@@ -102,10 +103,14 @@ fn ported() -> Vec<String> {
 
 #[test]
 fn secret_read_guard_matches_upstreams_cases() {
-    let calls = corpus::calls(RECORDING).len();
+    // 1230 calls recorded: 10 over the input cap (`input: null`), 1 malformed JSON; 102 cases ported
+    let calls = corpus::calls(RECORDING)
+        .iter()
+        .filter(|c| c.input.is_some())
+        .count();
     let cases = ported();
-    assert!(calls >= 800, "{calls} recorded calls");
-    assert!(cases.len() >= 60, "{} cases ported", cases.len());
+    assert!(calls >= 1219, "{calls} recorded payloads");
+    assert!(cases.len() >= 102, "{} cases ported", cases.len());
 }
 
 #[path = "../../../tests/common/pending.rs"]
