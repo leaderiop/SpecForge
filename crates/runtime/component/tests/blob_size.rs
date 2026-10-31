@@ -17,7 +17,8 @@ use specforge_component::committed::COMMITTED;
 // under its cap, and the headroom under the total is 49,367 B: the next minor (1.14.0, hooks) will not fit, so K20c
 // raises the budget to 5,000,000 by the same rule (the measured total rounded up to the next 100,000). A build
 // without the profile is about 7 MB, well over it, so this still catches a profile regression.
-const TOTAL_BUDGET: usize = 4_900_000;
+// K20c raised it to 5,000,000 for protocol 1.14.0 (hooks); the re-vendored total is recorded below.
+const TOTAL_BUDGET: usize = 5_000_000;
 const BLOB_BUDGET: usize = 1_000_000;
 
 #[test]
