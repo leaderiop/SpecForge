@@ -6,7 +6,7 @@
 call), [ADR 0017](0017-one-extension-surface-table.md) and [ADR 0024](0024-one-mcp-request-pipeline.md) (the prompts
 adapter serves extension prompts), [ADR 0058](0058-every-mcp-message-is-a-spec-type.md) (`specforge.prompt`'s reply is
 a spec type) and [ADR 0097](0097-an-extension-commands-name-is-judged-by-its-route.md) (prompts share the commands'
-routes). Takes extension protocol 1.10.0. Extended by [ADR 0301](0301-a-human-attested-command-runs-only-for-a-person-at-a-terminal.md) (a command may be human-attested).
+routes). Takes extension protocol 1.10.0. Extended by [ADR 0301](0301-a-human-attested-command-runs-only-for-a-person-at-a-terminal.md) (a command may be human-attested). Extended by [ADR 0310](0310-a-command-and-a-prompt-read-their-extensions-state.md) (a command and a prompt read their state; a prompt takes a tail; the served slash commands).
 
 ## Context
 
