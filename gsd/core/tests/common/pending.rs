@@ -10,9 +10,6 @@ pub const PENDING_RESYNC: &[&str] = &[
     "gsd-core/references/loop-hook-dispatch.md",
     "gsd-core/references/planning-config.md",
     "gsd-core/workflows/diagnose-issues.md",
-    "gsd-core/workflows/discuss-phase-assumptions.md",
-    "gsd-core/workflows/discuss-phase-power.md",
-    "gsd-core/workflows/discuss-phase.md",
     "gsd-core/workflows/execute-phase/steps/post-merge-gate.md",
     "gsd-core/workflows/execute-phase/steps/regression-gate-run.md",
     "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
@@ -21,7 +18,6 @@ pub const PENDING_RESYNC: &[&str] = &[
     "gsd-core/workflows/review.md",
     "gsd-core/workflows/settings.md",
     "gsd-core/workflows/ship.md",
-    "gsd-core/workflows/spec-phase.md",
     "gsd-core/workflows/verify-work.md",
     "tests/gsd-secret-read-guard.test.cjs",
 ];

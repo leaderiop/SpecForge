@@ -96,6 +96,18 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/plan-phase.md", 107),
     ("gsd-core/workflows/plan-phase.md", 488),
     ("gsd-core/workflows/audit-milestone.md", 320),
+    // Plan 04 T3 (#5629): INIT is a `specforge query`, with no `has_spec` / `spec_path`; the spec is the phase's
+    // `phase_spec` entity.
+    ("gsd-core/workflows/discuss-phase.md", 127),
+    ("gsd-core/workflows/discuss-phase.md", 185),
+    ("gsd-core/workflows/discuss-phase-assumptions.md", 84),
+    ("gsd-core/workflows/discuss-phase-assumptions.md", 105),
+    ("gsd-core/workflows/discuss-phase-power.md", 13),
+    ("gsd-core/workflows/discuss-phase-power.md", 19),
+    ("gsd-core/workflows/discuss-phase/modes/power.md", 23),
+    ("gsd-core/workflows/spec-phase.md", 63),
+    ("gsd-core/workflows/spec-phase.md", 74),
+    ("gsd-core/workflows/plan-phase.md", 639),
 ];
 
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
