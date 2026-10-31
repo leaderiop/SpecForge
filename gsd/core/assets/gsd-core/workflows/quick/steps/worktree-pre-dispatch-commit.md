@@ -17,7 +17,6 @@ are committed in Step 8 as usual).
 QUICK_PLAN_PARENT=""
 QUICK_PLAN_COMMIT=""
 if [ "${USE_WORKTREES}" != "false" ]; then
-  QUICK_PLAN_PARENT=$(git rev-parse HEAD)
   COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
   if [ "$COMMIT_DOCS" != "false" ]; then
     # pre-dispatch plan commit — PLAN.md is always in scope. CONTEXT.md/RESEARCH.md
@@ -52,6 +51,14 @@ if [ "${USE_WORKTREES}" != "false" ]; then
   fi
   if [ -z "$QUICK_PLAN_COMMIT" ]; then
     QUICK_PLAN_COMMIT=$(git rev-parse HEAD)
+  fi
+  # #5209: the alternate base is the PLAN commit's immediate parent, read AFTER the
+  # commit attempt so it holds whether the planner already committed the plan or this
+  # step just did. Empty when docs commits are off and for a root commit.
+  if [ "$COMMIT_DOCS" != "false" ]; then
+    _GSD_PLAN_AT=$(git log -1 --format=%H -- "${QUICK_DIR}/${quick_id}-PLAN.md" 2>/dev/null || true)
+    [ -n "$_GSD_PLAN_AT" ] || _GSD_PLAN_AT="$QUICK_PLAN_COMMIT"
+    QUICK_PLAN_PARENT=$(git rev-parse --verify --quiet "${_GSD_PLAN_AT}^" 2>/dev/null || true)
   fi
 fi
 ```

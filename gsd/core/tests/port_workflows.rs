@@ -620,7 +620,7 @@ fn every_hook_stub_asks_the_capability_extensions() {
             "{path}: a stub is left"
         );
         let mine: Vec<&str> = asset.split('\n').skip(1).collect();
-        // a file waiting for its re-port still counts its sites; its lines are compared once it is re-ported
+        // a file waiting for its re-port has moved its lines: it must still hold each call, somewhere
         let pending = pending::is_pending(&path);
         for (n, theirs) in body(&path).iter().enumerate() {
             let Some(c) = twin.captures(theirs) else {
@@ -651,7 +651,12 @@ fn every_hook_stub_asks_the_capability_extensions() {
                 Some(open) => format!("{}{}={}{call}}}", &c[1], &c[2], open.as_str()),
                 None => format!("{}{}={call}", &c[1], &c[2]),
             };
-            if !pending {
+            if pending {
+                // upstream's identical lines (one hook point asked twice) each need their own call
+                let sites = body(&path).iter().filter(|l| *l == theirs).count();
+                let calls = mine.iter().filter(|l| **l == want).count();
+                assert!(calls >= sites, "{path}:{n}: the call is gone");
+            } else {
                 assert_eq!(mine[n], want, "{path}:{n}");
             }
             asked += 1;
