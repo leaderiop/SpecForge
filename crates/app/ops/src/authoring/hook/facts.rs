@@ -34,26 +34,24 @@ fn absolute(cwd: &Path, path: &str) -> PathBuf {
     } else {
         cwd.join(path)
     };
-    let mut lexical = PathBuf::new();
+    // Component by component, so a link is followed before a `..` after it (as the OS does) and a path that does not
+    // exist yet is its nearest existing ancestor's real path plus the rest.
+    let mut resolved = PathBuf::new();
     for part in joined.components() {
         match part {
             std::path::Component::ParentDir => {
-                lexical.pop();
+                resolved.pop();
             }
             std::path::Component::CurDir => {}
-            other => lexical.push(other),
+            other => {
+                resolved.push(other);
+                if let Ok(real) = std::fs::canonicalize(&resolved) {
+                    resolved = real;
+                }
+            }
         }
     }
-    if let Ok(real) = std::fs::canonicalize(&lexical) {
-        return real;
-    }
-    match (
-        lexical.parent().map(std::fs::canonicalize),
-        lexical.file_name(),
-    ) {
-        (Some(Ok(parent)), Some(name)) => parent.join(name),
-        _ => lexical,
-    }
+    resolved
 }
 
 /// `path` relative to `root` with `/`, when it lies inside.
@@ -312,6 +310,23 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn a_new_path_under_a_link_is_real_through_the_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = std::fs::canonicalize(dir.path()).unwrap();
+        std::fs::create_dir_all(base.join("main/src")).unwrap();
+        std::fs::create_dir_all(base.join("wt")).unwrap();
+        std::os::unix::fs::symlink(base.join("main/src"), base.join("wt/mainsrc")).unwrap();
+        let wt = base.join("wt");
+        assert_eq!(
+            absolute(&wt, "mainsrc/new/a.ts"),
+            base.join("main/src/new/a.ts")
+        );
+        // `..` after a link is the link target's parent, as the OS reads it.
+        assert_eq!(absolute(&wt, "mainsrc/../x.ts"), base.join("main/x.ts"));
+    }
 
     fn commit_of(command: &str) -> Option<CommitFact> {
         commit(&json!({"command": command}))
