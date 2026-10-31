@@ -86,6 +86,7 @@ fn report(call: &CommandCall<'_>, action: &str) -> Result<CommandOutput, String>
         .filter(|n| n.kind == "workstream")
         .filter(|n| chosen.is_none_or(|c| c.id == n.id))
         .collect();
+    let active = (action == "progress").then(|| active_workstream(call.state()));
     let mut rows = Vec::new();
     let mut human = String::new();
     for w in &all {
@@ -111,26 +112,29 @@ fn report(call: &CommandCall<'_>, action: &str) -> Result<CommandOutput, String>
                 ));
             }
         }
-        rows.push(json!({
+        let mut row = json!({
             "workstream": w.id, "complete": complete, "purpose": w.text("purpose"),
             "milestones": ms.iter().map(Milestone::json).collect::<Vec<_>>(),
-        }));
+        });
+        if let Some(active) = active {
+            row["active"] = json!(active == Some(w.id.as_str()));
+        }
+        rows.push(row);
     }
     if all.is_empty() {
         human.push_str("no workstreams\n");
     }
-    // `status` and `list` say which workstream is active, as `switch` wrote it (`reads_state`).
-    if action == "progress" {
+    // Only `progress` says which workstream is active, as upstream's does (`reads_state`).
+    let Some(active) = active else {
         return Ok(answer(call, json!({ "workstreams": rows }), human, None));
-    }
-    let active = active_workstream(call.state());
+    };
     human.insert_str(
         0,
         &format!("active workstream: {}\n", active.unwrap_or("none")),
     );
     Ok(answer(
         call,
-        json!({ "workstreams": rows, "active_workstream": active }),
+        json!({ "active": active, "workstreams": rows }),
         human,
         None,
     ))

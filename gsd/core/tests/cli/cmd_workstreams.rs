@@ -21,27 +21,31 @@ fn switch_writes_the_active_workstream_to_project_state() {
     assert_eq!(state["active_workstream"], "auth");
 }
 
+/// REVIEW-k20b m3: upstream's `progress` carries `active` (and a row's `active`); `list` and `status` carry none.
 #[test]
-fn status_names_the_active_workstream() {
+fn progress_names_the_active_workstream_per_row() {
     let p = project("workstreams");
-    let before = gsd(&p, "workstreams", &["status", "--format", "json"]);
-    assert_eq!(before.code, 0, "{}", before.all());
-    assert_eq!(json(&before)["active_workstream"], serde_json::Value::Null);
-    let human = gsd(&p, "workstreams", &["status"]);
+    let before = json(&gsd(&p, "workstreams", &["progress", "--format", "json"]));
+    assert_eq!(before["active"], serde_json::Value::Null, "{before}");
+    gsd(&p, "workstreams", &["switch", "--name", "auth"]);
+    let after = json(&gsd(&p, "workstreams", &["progress", "--format", "json"]));
+    assert_eq!(after["active"], "auth", "{after}");
+    for row in after["workstreams"].as_array().expect("rows") {
+        assert_eq!(row["active"], row["workstream"] == "auth", "{row}");
+    }
+    let human = gsd(&p, "workstreams", &["progress"]);
     assert!(
-        human.stdout.starts_with("active workstream: none\n"),
+        human.stdout.starts_with("active workstream: auth\n"),
         "{}",
         human.stdout
     );
-    gsd(&p, "workstreams", &["switch", "--name", "auth"]);
-    let after = gsd(&p, "workstreams", &["status", "--format", "json"]);
-    assert_eq!(json(&after)["active_workstream"], "auth");
-    let listed = gsd(&p, "workstreams", &["list"]);
-    assert!(
-        listed.stdout.starts_with("active workstream: auth\n"),
-        "{}",
-        listed.stdout
-    );
+    for action in ["list", "status"] {
+        let run = json(&gsd(&p, "workstreams", &[action, "--format", "json"]));
+        assert!(
+            run.get("active_workstream").is_none() && run.get("active").is_none(),
+            "{action}: {run}"
+        );
+    }
 }
 
 #[test]

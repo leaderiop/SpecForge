@@ -98,7 +98,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 `previous_score` and compares scan states (r39 T13 is built). K20a and K20b are built (protocol 1.13.0): the six answer commands are a person's, a verdict is trusted against its tests and files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). What still waits for kernel work (K20c):
 
 - **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
-  status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
+  progress` (as upstream's does), `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
   text.
 - **The hooks wait for five host items (K20)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
   a full compile, Cursor's `beforeSubmitPrompt`, and a hook reading another extension's settings.
