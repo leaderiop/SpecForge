@@ -2,5 +2,6 @@
 //! pipeline and the attribution of a ported agent. No guest: each extension exports its own.
 
 pub mod agent;
+pub mod capability;
 pub mod dsl;
 pub mod prompt;

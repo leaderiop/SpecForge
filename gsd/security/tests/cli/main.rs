@@ -10,6 +10,7 @@ mod harness;
 
 mod advisory;
 mod compute;
+mod hooks;
 mod model;
 mod settings;
 mod threat_ids;
