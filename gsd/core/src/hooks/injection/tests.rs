@@ -339,7 +339,8 @@ fn judge(call: &corpus::Call) -> Option<Result<(), String>> {
     let mut facts = corpus::claude_event(payload);
     // A block is the answer of `security.injection_blocking`: the recording says the config was on (ADR 0323).
     let blocked = call.out["decision"] == "block";
-    facts.injection_blocking = blocked;
+    // A case that names the config ("even with injection_blocking=true") ran with it on, block or not (T17 m4).
+    facts.injection_blocking = blocked || call.path.contains("injection_blocking=true");
     let answer = if call.hook == "gsd-prompt-guard.js" {
         prompt_guard(&facts)
     } else {
