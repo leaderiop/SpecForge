@@ -41,6 +41,29 @@ pub struct Scopes {
     by_name: HashMap<Sym, HashSet<Sym>>,
 }
 
+/// A numeric id (`^\d+[A-Za-z]?(\.\d+)*$`) as upstream's `normalizePhaseName` reads it: the integer part without its
+/// leading zeros, the letter, and the decimal parts exactly (`3` is `03`, `2.1` is `02.1`, `2.1` is not `2.01`).
+fn numeric_key(segment: &str) -> Option<(String, Option<char>, String)> {
+    let (head, decimals) = segment.split_once('.').unwrap_or((segment, ""));
+    let digits = head.trim_end_matches(|c: char| c.is_ascii_alphabetic());
+    let letter = head[digits.len()..]
+        .chars()
+        .next()
+        .filter(|_| head.len() == digits.len() + 1);
+    let well_formed = !digits.is_empty()
+        && digits.chars().all(|c| c.is_ascii_digit())
+        && (head.len() == digits.len() || letter.is_some())
+        && (decimals.is_empty() && !segment.contains('.')
+            || decimals
+                .split('.')
+                .all(|d| !d.is_empty() && d.chars().all(|c| c.is_ascii_digit())));
+    well_formed.then(|| {
+        let whole = digits.trim_start_matches('0');
+        let whole = if whole.is_empty() { "0" } else { whole };
+        (whole.to_string(), letter, decimals.to_string())
+    })
+}
+
 /// `path` without its scope's prefix.
 fn name_in(path: Sym, scope: Option<Sym>) -> Sym {
     match scope {
@@ -230,6 +253,44 @@ impl Scopes {
             .collect();
         found.sort();
         found
+    }
+
+    /// The entities `written` names when its numeric segments are read whatever their zero padding (ADR 0315): the
+    /// paths whose last segments, as many as `written` has, each equal the written one or are numeric ids that
+    /// normalize alike. One is [`Found::One`], several [`Found::Ambiguous`] (sorted), none [`Found::None`] with no
+    /// candidates. Called by a surface after an exact miss, never by the linker.
+    pub fn numeric(&self, written: &str) -> Found {
+        if written.contains(':') {
+            return Found::None(Vec::new());
+        }
+        let wanted: Vec<&str> = written.trim_start_matches('/').split('/').collect();
+        if wanted.iter().any(|s| s.is_empty()) {
+            return Found::None(Vec::new());
+        }
+        let alike = |segment: &str, written: &str| {
+            segment == written
+                || numeric_key(segment)
+                    .is_some_and(|key| numeric_key(written).as_ref() == Some(&key))
+        };
+        let mut found: Vec<Sym> = self
+            .placed
+            .keys()
+            .copied()
+            .filter(|path| {
+                let segments: Vec<&str> = path.as_str().split('/').collect();
+                segments.len() >= wanted.len()
+                    && segments[segments.len() - wanted.len()..]
+                        .iter()
+                        .zip(&wanted)
+                        .all(|(segment, written)| alike(segment, written))
+            })
+            .collect();
+        found.sort();
+        match found.as_slice() {
+            [] => Found::None(Vec::new()),
+            [path] => Found::One(*path),
+            _ => Found::Ambiguous(found),
+        }
     }
 
     /// What `written` names from `from`, an entity holding it by its scope chain: its own members, each enclosing

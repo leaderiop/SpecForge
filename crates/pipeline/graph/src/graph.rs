@@ -152,9 +152,16 @@ impl Graph {
     }
 
     /// The entity a surface's `spelling` names: a path, rooted or not, or a unique suffix of one (ADR 0284). A
-    /// surface holds no entity, so this is the one place besides a scope field that takes a suffix.
+    /// surface holds no entity, so this is the one place besides a scope field that takes a suffix, and the one that reads `3` as `03`.
     pub fn find(&self, spelling: &str) -> Found {
-        self.scopes.resolve(None, spelling, &|_| true)
+        match self.scopes.resolve(None, spelling, &|_| true) {
+            // After an exact miss a numeric segment is read whatever its zero padding (ADR 0315): `3` is `03`.
+            Found::None(near) => match self.scopes.numeric(spelling) {
+                Found::None(_) => Found::None(near),
+                found => found,
+            },
+            found => found,
+        }
     }
 
     /// Insert an edge. Idempotent on the (source, target, label) triple —

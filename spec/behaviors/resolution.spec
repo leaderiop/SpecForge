@@ -205,6 +205,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "a declaration's graph-build diagnostics name its entity in their data"
   verify unit "a reference inside a block is held by its entity, resolves outward from it and is labelled by its member path"
   verify unit "a reference field declaring several target kinds takes an entity of any of them and refuses another, naming each"
+  verify unit "a surface finds a numeric id whatever its zero padding, and a reference in the spec text does not"
 }
 
 behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension References" {

@@ -269,3 +269,78 @@ fn a_quoted_reference_is_e003_and_e022_at_its_id() {
         "{diagnostics:?}"
     );
 }
+
+fn placed(graph: &mut Graph, path: &str, kind: &str, scope: Option<&str>) {
+    use specforge_common::{SourceSpan, Sym};
+    use specforge_graph::Node;
+    use specforge_parser::{EntityId, EntityKind, FieldMap};
+    graph.add_node(Node {
+        id: EntityId {
+            raw: Sym::new(path),
+        },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
+        title: None,
+        fields: FieldMap::new(),
+        source_span: SourceSpan {
+            file: Sym::new("p.spec"),
+            start_line: 1,
+            start_col: 1,
+            end_line: 1,
+            end_col: 1,
+        },
+        methods: Vec::new(),
+        obligations: Vec::new(),
+        verdicts: Vec::new(),
+        scope: scope.map(Sym::new),
+    });
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a surface finds a numeric id whatever its zero padding, and a reference in the spec text does not"
+)]
+fn a_numeric_segment_matches_its_padded_form() {
+    use specforge_graph::Found;
+
+    let mut graph = Graph::new();
+    placed(&mut graph, "v1.0", "milestone", None);
+    for phase in ["03", "02.1", "03a"] {
+        placed(&mut graph, &format!("v1.0/{phase}"), "phase", Some("v1.0"));
+    }
+    placed(&mut graph, "v1.0/03/03-01", "plan", Some("v1.0/03"));
+    let one = |spelling: &str| match graph.find(spelling) {
+        Found::One(path) => Some(path.to_string()),
+        _ => None,
+    };
+    assert_eq!(one("3").as_deref(), Some("v1.0/03"));
+    assert_eq!(one("v1.0/3").as_deref(), Some("v1.0/03"));
+    assert_eq!(one("003").as_deref(), Some("v1.0/03"));
+    assert_eq!(one("2.1").as_deref(), Some("v1.0/02.1"));
+    assert_eq!(one("3a").as_deref(), Some("v1.0/03a"));
+    for none in ["3.1", "2.01", "3-1", "4"] {
+        assert!(matches!(graph.find(none), Found::None(_)), "{none}");
+    }
+    // The exact spelling is still found first.
+    assert_eq!(one("03").as_deref(), Some("v1.0/03"));
+
+    placed(&mut graph, "v2.0", "milestone", None);
+    placed(&mut graph, "v2.0/03", "phase", Some("v2.0"));
+    assert!(matches!(graph.find("3"), Found::Ambiguous(paths) if paths.len() == 2));
+    assert_eq!(
+        graph.find("v2.0/3"),
+        Found::One(specforge_common::Sym::new("v2.0/03"))
+    );
+
+    // A reference in the spec's text reads its name exactly.
+    let (_, diagnostics) = build(
+        "behavior 03 \"Three\" {}\n\nbehavior b \"B\" {\n  peers [3]\n}\n",
+        &["behavior"],
+        &[],
+    );
+    assert!(
+        diagnostics.iter().any(|d| d.code == "E003"),
+        "{diagnostics:?}"
+    );
+}
