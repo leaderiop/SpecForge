@@ -49,6 +49,7 @@ static UNDO: Spec = Spec {
         tools: &["read", "shell", "search", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
     tail: Some(revert),
 };
 
@@ -66,6 +67,7 @@ static PR_BRANCH: Spec = Spec {
         tools: &["shell", "search", "read", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
     tail: Some(filtered),
 };
 

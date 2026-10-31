@@ -178,9 +178,9 @@ human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and 
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
 `previous_score` and compares scan states (r39 T13 is built). K20a is built: the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, and install and uninstall are safe. One divergence from upstream: a truth's `verification` tier is a person's, so `/gsd-phase --remove` of a phase whose truth holds one is refused `human_only` until the person deletes that line in their editor (upstream deletes regardless; REVIEW-k20a M3). What still waits for kernel work (K20b, K20c):
 
-- **A command or prompt cannot read its extension's state (K20).** The host sends `state` to a `reads_state` command or
-  prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So
-  `/gsd-workstreams status` cannot name the active workstream and `--ws` is text. The fix is an SDK change, so a re-vendor.
+- **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
+  status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
+  text.
 - **A rendered step has no agent field (K20)**: the step's title carries the agent. **There is no free-text tail for a
   prompt's arguments (K20)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
   (K20)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
@@ -188,7 +188,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested. A prompt's
   subject is required, so `/gsd-plan-phase` without a phase is refused where upstream picks the next one (`/gsd-next`
   is r43's). A reference is the id as written, so `3` and `03` are different spellings of the same phase.
-- **The remaining prompts (r43) leave these (K20).** A prompt cannot see other extensions' contributions, so the routers' route table and `/gsd-next` read a static roster (`src/prompts/roster.rs`) that says which extension owns a command. A prompt argument cannot be named `path` or `format` (the host reads them wherever they stand), so `/gsd-ingest-docs [path]` is `--dir`, and `/gsd-workspace` has no `--path`, `--repos`, `--strategy`, `--branch` or `--auto`. A command's answer is not host-converted, so `smart_entry` takes `--runtime`. `when` takes one setting, so `/gsd-review`, `/gsd-update` and `/gsd-ns-ideate` follow their first cluster only. A command cannot read state, so `/gsd-progress` and `/gsd-resume-work` cannot name the active workstream.
+- **The remaining prompts (r43) leave these (K20).** A prompt cannot see other extensions' contributions, so the routers' route table and `/gsd-next` read a static roster (`src/prompts/roster.rs`) that says which extension owns a command. A prompt argument cannot be named `path` or `format` (the host reads them wherever they stand), so `/gsd-ingest-docs [path]` is `--dir`, and `/gsd-workspace` has no `--path`, `--repos`, `--strategy`, `--branch` or `--auto`. A command's answer is not host-converted, so `smart_entry` takes `--runtime`. `when` takes one setting, so `/gsd-review`, `/gsd-update` and `/gsd-ns-ideate` follow their first cluster only.
 - **What r43 leaves open.** Reports, summaries and cross-AI reviews are shown, not stored. A lesson has no phase field. `/gsd-review` has no reviewer lane machinery or prompt budget (the agent reads each reviewer CLI's `--help`). `/gsd-quick-batch`'s dispatcher, estimate calibration, sub-repository branches and workspaces are prose. `/gsd-undo` selects the commits recorded as `commit` entities, and `git revert` bypasses the host's checks, so it asks before reverting a `.spec` change that removes a person's value. `smart_entry` never says idle-stranded (a command has no git).
 - **The hooks wait for five host items (K20)**: git facts in `HookInput` (the workflow guard cannot see a
   `git add -f`, nor `validate_commit` the staged files), a `file_changed` event (settings are read on every compile instead), a hook that runs

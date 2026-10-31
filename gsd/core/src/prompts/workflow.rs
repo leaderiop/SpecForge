@@ -47,6 +47,8 @@ pub struct Spec {
     pub gates: &'static [&'static str],
     pub steps: &'static [Step],
     pub slash: Option<Slash>,
+    /// The prompt reads the extension's state (`call.state()`).
+    pub reads_state: bool,
     /// A closing section of the prompt's own (`spec_phase`'s judging text).
     pub tail: Option<fn(&PromptCall<'_>) -> String>,
 }
@@ -119,6 +121,14 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
     Ok(PromptOutput::user(text))
 }
 
+/// A prompt's closing line about the active workstream (`reads_state`).
+pub fn workstream_tail(call: &PromptCall<'_>) -> String {
+    match crate::commands::support::active_workstream(call.state()) {
+        Some(id) => format!("\n\nActive workstream: {id}."),
+        None => "\n\nNo workstream is active.".to_string(),
+    }
+}
+
 /// The upstream file the prompt is ported from: its command, or the workflow when upstream has no command for it.
 fn source_path(spec: &Spec) -> Option<String> {
     let command = format!("commands/gsd/{}.md", spec.command);
@@ -138,6 +148,9 @@ pub fn declare(c: &mut ContributionsBuilder, spec: &'static Spec) {
         // `update` is our text, not a port: its prompt names no upstream file (its slash binding does)
         if let Some(path) = source_path(spec) {
             p.attribution(attribution(&path));
+        }
+        if spec.reads_state {
+            p.reads_state();
         }
         args::declare(p, spec.args);
         if let Some(subject) = spec.subject {

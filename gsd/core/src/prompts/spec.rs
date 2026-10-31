@@ -81,6 +81,7 @@ static SPEC_PHASE: Spec = Spec {
         tools: &["read", "write", "shell", "search", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
     tail: Some(judging),
 };
 
@@ -106,6 +107,7 @@ static MVP_PHASE: Spec = Spec {
         tools: &["read", "write", "shell", "search", "agent", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
     tail: None,
 };
 

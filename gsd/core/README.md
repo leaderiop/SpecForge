@@ -97,9 +97,9 @@ human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and 
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
 `previous_score` and compares scan states (r39 T13 is built). K20a is built (protocol 1.12.0): the six answer commands are a person's, a verdict is trusted against its tests and files, and install and uninstall are safe. What still waits for kernel work (K20b, K20c):
 
-- **A command or prompt cannot read its extension's state (K20).** The host sends `state` to a `reads_state` command or
-  prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So
-  `/gsd-workstreams status` cannot name the active workstream and `--ws` is text. The fix is an SDK change, so a re-vendor.
+- **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
+  status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
+  text.
 - **A rendered step has no agent field (K20)**: the step's title carries the agent. **There is no free-text tail for a
   prompt's arguments (K20)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
   (K20)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.

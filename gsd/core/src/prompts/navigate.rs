@@ -85,6 +85,7 @@ static NEXT: Spec = Spec {
         tools: &["read", "shell", "search", "skill", "ask_user"],
         effort: Some("low"),
     }),
+    reads_state: false,
     tail: Some(not_installed),
 };
 
@@ -108,7 +109,8 @@ static PROGRESS: Spec = Spec {
         tools: &["read", "shell", "search", "skill", "ask_user"],
         effort: Some("low"),
     }),
-    tail: None,
+    reads_state: true,
+    tail: Some(workflow::workstream_tail),
 };
 
 static MANAGER: Spec = Spec {
@@ -127,6 +129,7 @@ static MANAGER: Spec = Spec {
         ],
         effort: None,
     }),
+    reads_state: false,
     tail: None,
 };
 

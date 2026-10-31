@@ -1,6 +1,7 @@
 //! `pause_work` and `resume_work` (T4): the session handoff round-trips through the lines the prompts give.
 
 use super::commands_support::{gsd, json, twin};
+use super::harness::{Project, project};
 use super::prompts_support::{command, payload, prompt, render_three_hosts, text_of};
 
 fn situation(p: &super::harness::Project) -> String {
@@ -27,6 +28,23 @@ fn pause_resume_render() {
     let text = text_of(&resumed);
     assert!(text.contains("`handoff` entity"), "{text}");
     assert!(!text.contains("HANDOFF.json"), "{text}");
+}
+
+#[test]
+fn resume_work_names_the_active_workstream() {
+    let p = project("workstreams");
+    let said = |p: &Project| text_of(&payload(&prompt(p, "resume_work", &[], "claude-code")));
+    assert!(
+        said(&p).contains("No workstream is active."),
+        "{}",
+        said(&p)
+    );
+    gsd(&p, "workstreams", &["switch", "--name", "auth"]);
+    assert!(
+        said(&p).contains("Active workstream: auth."),
+        "{}",
+        said(&p)
+    );
 }
 
 #[test]

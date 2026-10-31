@@ -61,10 +61,8 @@
     "```",
     ""
   ],
-  "bytes": 70055,
+  "bytes": 70081,
   "end": [
-    "| 1     | ✓      | 3/3   | 100%     |",
-    "| 2     | ◆      | 1/4   | 25%      |",
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
     "",
@@ -102,7 +100,9 @@
     "",
     "",
     "",
-    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
+    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
+    "",
+    "No workstream is active."
   ],
   "head": [
     "<specforge_gsd_preamble>",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 1657,
+  "lines": 1659,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:d6d5e236a6fb3e433aec6d60420e73bfe31ed0908495dfe52ab878bcad397829",
+    "digest": "sha256:bba9951973add16ae31e9a7081339cb3c6c2428a231739e1b9b8712a4cd9ec93",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "d6d5e236a6fb3e433aec6d60420e73bfe31ed0908495dfe52ab878bcad397829"
+  "sha256": "bba9951973add16ae31e9a7081339cb3c6c2428a231739e1b9b8712a4cd9ec93"
 }

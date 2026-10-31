@@ -48,6 +48,7 @@ static MILESTONE_SUMMARY: Spec = Spec {
         tools: &["read", "write", "shell", "search"],
         effort: None,
     }),
+    reads_state: false,
     tail: Some(shown),
 };
 
@@ -65,6 +66,7 @@ static EXTRACT_LEARNINGS: Spec = Spec {
         tools: &["read", "write", "shell", "search", "agent"],
         effort: None,
     }),
+    reads_state: false,
     tail: Some(recorded),
 };
 

@@ -61,10 +61,8 @@
     "",
     "<step name=\"load_state\">"
   ],
-  "bytes": 21241,
+  "bytes": 21267,
   "end": [
-    "",
-    "",
     "",
     "",
     "",
@@ -102,7 +100,9 @@
     "",
     "",
     "",
-    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
+    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
+    "",
+    "No workstream is active."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 584,
+  "lines": 586,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:7c957695b75d1b5962c9ac9752b5051c78d330f579aaabbb738ea3be535c95ca",
+    "digest": "sha256:c66bde28d493f3967bcf5a974fbcee7e37c64e8dcd40cf2221af6bb253fd0ecd",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "7c957695b75d1b5962c9ac9752b5051c78d330f579aaabbb738ea3be535c95ca"
+  "sha256": "c66bde28d493f3967bcf5a974fbcee7e37c64e8dcd40cf2221af6bb253fd0ecd"
 }

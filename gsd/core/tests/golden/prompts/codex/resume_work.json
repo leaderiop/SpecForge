@@ -61,10 +61,8 @@
     "",
     "<step name=\"load_state\">"
   ],
-  "bytes": 28964,
+  "bytes": 28990,
   "end": [
-    "",
-    "",
     "",
     "",
     "",
@@ -102,7 +100,9 @@
     "",
     "",
     "",
-    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
+    "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
+    "",
+    "No workstream is active."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 683,
+  "lines": 685,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:51429edbac94d907313ec3dfd091d6265b810944edf6ca2f96ff1d8df1ecc397",
+    "digest": "sha256:094a5a023fb92a27a8c9c8e0246f6f785d1f4d21e77c36eb703e282d25ea07ae",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "51429edbac94d907313ec3dfd091d6265b810944edf6ca2f96ff1d8df1ecc397"
+  "sha256": "094a5a023fb92a27a8c9c8e0246f6f785d1f4d21e77c36eb703e282d25ea07ae"
 }

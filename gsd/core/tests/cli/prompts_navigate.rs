@@ -76,6 +76,24 @@ fn progress_renders_for_three_hosts() {
 }
 
 #[test]
+fn progress_names_the_active_workstream() {
+    let p = project("workstreams");
+    let said =
+        |p: &super::harness::Project| text_of(&payload(&prompt(p, "progress", &[], "claude-code")));
+    assert!(
+        said(&p).contains("No workstream is active."),
+        "{}",
+        said(&p)
+    );
+    gsd(&p, "workstreams", &["switch", "--name", "auth"]);
+    assert!(
+        said(&p).contains("Active workstream: auth."),
+        "{}",
+        said(&p)
+    );
+}
+
+#[test]
 fn progress_names_progress_report_and_its_three_modes() {
     let text = text_of(&payload(&prompt(&twin(), "progress", &[], "claude-code")));
     assert!(text.contains("specforge gsd progress-report"), "{text}");

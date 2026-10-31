@@ -66,6 +66,7 @@ static INGEST_DOCS: Spec = Spec {
         ],
         effort: None,
     }),
+    reads_state: false,
     tail: Some(ingested),
 };
 
@@ -99,6 +100,7 @@ static ONBOARD: Spec = Spec {
         tools: &["read", "shell", "write", "search", "agent", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
     tail: Some(onboarding),
 };
 

@@ -44,6 +44,7 @@ static SETTINGS: Spec = Spec {
         tools: &["read", "write", "shell", "search", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
     tail: Some(writes),
 };
 
@@ -68,6 +69,7 @@ static CONFIG: Spec = Spec {
         tools: &["read", "write", "shell", "search", "ask_user"],
         effort: None,
     }),
+    reads_state: false,
     tail: Some(writes),
 };
 

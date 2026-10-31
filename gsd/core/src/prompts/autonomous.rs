@@ -86,6 +86,7 @@ static AUTONOMOUS: Spec = Spec {
         tools: &["read", "write", "shell", "search", "ask_user", "agent"],
         effort: Some("max"),
     }),
+    reads_state: false,
     tail: Some(unattended),
 };
 

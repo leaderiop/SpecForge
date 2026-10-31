@@ -95,6 +95,7 @@ static PLAN_PHASE: Spec = Spec {
         ],
         effort: Some("max"),
     }),
+    reads_state: false,
     tail: None,
 };
 
@@ -150,6 +151,7 @@ static PLAN_REVIEW_CONVERGENCE: Spec = Spec {
         ],
         effort: None,
     }),
+    reads_state: false,
     tail: None,
 };
 
@@ -180,6 +182,7 @@ static ULTRAPLAN_PHASE: Spec = Spec {
         tools: &["read", "shell", "search"],
         effort: None,
     }),
+    reads_state: false,
     tail: None,
 };
 

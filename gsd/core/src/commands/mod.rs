@@ -12,7 +12,7 @@ mod reference;
 pub(crate) mod reports;
 pub mod smart_entry;
 mod state;
-mod support;
+pub(crate) mod support;
 pub(crate) use support::natural;
 mod surface;
 mod verdict;

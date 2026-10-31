@@ -57,6 +57,7 @@ macro_rules! router {
                 tools: &["read", "skill"],
                 effort: None,
             }),
+            reads_state: false,
             tail: Some($tail),
         };
     };
