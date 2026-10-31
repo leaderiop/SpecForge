@@ -40,6 +40,7 @@ specforge query <id> --inputs <rule> [--cite <entity>] [--cite-file <path>] [--c
 
 # Editing entities (no hand-written .spec): each edit is checked, then written all or nothing (E080)
 specforge new behavior <id> "<title>" --in <file> --contract "…" --invariants a,b   # a new entity; its kind's fields are flags
+specforge new artifact <id> "<title>" --in <file> --plan <plan> --field path=src/a.rs   # --field NAME=VALUE sets any field, even one named like an option
 specforge set <id> <field> <value>   # set a field; `field.entry` edits one entry of a block field
 specforge set <id> --title "<title>" # change the header title
 specforge unset <id> <field>         # remove a field

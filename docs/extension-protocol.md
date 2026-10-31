@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.12.0" }
+{ "host_version": "1.13.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.12.0",
+  "protocol_version": "1.13.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -482,7 +482,7 @@ A `tools` item is a class, not a host's tool name: `read`, `write`, `edit`, `she
 `web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`. Each host's adapter maps a class to its
 own names. `model` is `heavy`, `standard`, `light` or `inherit`, or `setting:<name>` whose value is one of them (or,
 for Codex, a model id); `effort` is `minimal`, `low`, `medium`, `high`, `max` or `inherit`, or `setting:<name>`. A
-`when` names a bool setting of the extension: while it is false the agent, skill, slash command or hook is not
+`when` names a bool setting of the extension, or a list of them (1.13.0, ADR 0317): while any is false the agent, skill, slash command or hook is not
 rendered, and a hook is a no-op. A hook `event` is `pre_tool`, `post_tool`, `pre_commit`, `user_prompt`,
 `session_start`, `stop`, `subagent_start`, `subagent_stop`, `pre_compact` or `statusline`; only `pre_tool`,
 `post_tool` and `pre_commit` take `tools` and `paths`, and `{spec_root}/**` in a path names the spec root.
@@ -550,8 +550,8 @@ a command, commands first; a prompt whose name is taken is E039 and runs on no s
   `date`, `enum` (with `enum_values`), `string_list`, `enum_list`, `reference` or `reference_list` (with
   `target_kind`, or kinds as `a|b`); never `path`. A caller's value is read by its type (a word `2` is an integer,
   `a,b` a list) and admitted by the form every field of that type is admitted by; a reference is resolved by
-  `Graph::find` (a short form is accepted) and the export is sent its full path. An argument named `path`,
-  `format`, `help`, `settings`, `secrets`, `host` or `argv` is the host's, and a name is snake_case. Defaults fill an absent argument; an absent
+  `Graph::find` (a short form is accepted) and the export is sent its full path. An argument named `help`,
+  `settings`, `secrets`, `host` or `argv` is the host's (`path` and `format` are too, until a prompt declares them, 1.13.0), and a name is snake_case. Defaults fill an absent argument; an absent
   optional argument (or one given as `null` or `""`) is absent; on a command line a double-quoted run is one word and a
   quoted `--x` is a value, `--name=value` and `--` (the rest are positional) are read, and an unclosed quote is refused; a bool is not defaulted to `false`.
 - **Entry gate.** `gates` and `subject` are a command's: the prompt is refused `gate_failed` before its export runs
@@ -560,8 +560,10 @@ a command, commands first; a prompt whose name is taken is E039 and runs on no s
   declared peer), an `agent`, a sub-`prompt`, or none (the agent does it). The host renders a command step as its MCP
   tool and CLI line with the state of its gate now. A prompt is not a contract: an agent may skip a step, and only a
   command's own gate refuses.
-- **`when`** names a bool setting of the extension; while it is false the prompt is neither listed nor served.
+- **`when`** names a bool setting of the extension, or a list of them (1.13.0, ADR 0317); while any is false the prompt is neither listed nor served.
 - **`reads_graph`** sends the export the graph, as a command's, with its computed values and judgements (ADR 0299). Absent, a workflow reads through tools.
+- **`reads_slash_commands`** (1.13.0, ADR 0316) sends the export `slash_commands`, the list an install writes (`when` applied, sorted by name), so a router lists what the project serves.
+- **A tail and a picked subject (1.13.0, ADR 0314).** One `string` argument may declare `rest: true`, never the subject: a word no positional slot takes goes to it, joined by one space (given by name and by words it is "given twice"; an unknown `--option` is refused; after `--` every word is a tail word). The host reads `--path`, `--format` and `--host` only before the first `--`, and leaves `--path`/`--format` to a prompt that declares them. A subject that is not `required` is positional; absent, the host calls the export first and the answer's `subject` must be the path of an entity of the subject's kinds (else E028), and the gate then runs for it. A given subject wins. Prompts are read-only (ADR 0291), so the export runs before the gate.
 - **Rendering.** The `prompt__` export receives `PromptInput` and answers at least one message. The host appends one
   message of its own: the prompt as `@ext@version:id`, a `sha256:` digest of the export's message texts, the
   attribution, the subject's full path and each step with its tool, command line and gate. `specforge.prompt` returns
@@ -774,8 +776,8 @@ Every call but the handshake and describe also carries the extension's own `sett
 |---|---|---|---|
 | Handshake | `__handshake` | `HandshakeRequest` `{"host_version"}` | `HandshakeResponse` |
 | Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
-| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "now"?, "graph", "revisions"?, "files"?}`; `graph` carries computed values and judgements (ADR 0299); `cwd` is the project root, absolute and canonical; `now` is `YYYY-MM-DDTHH:MM:SSZ` (1.11.0, ADR 0294) and `files` holds the command's declared reads (1.11.0, ADR 0293) | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
-| Prompt | the prompt's `export` (`prompt__<id>`) | `PromptInput` `{"args", "cwd", "today", "graph"?, "host"?}`; `graph` carries computed values and judgements (ADR 0299); `args` are typed, a reference its full path; `host` is `claude-code`, `codex` or `cursor` when known | `PromptOutput` `{"messages": [{"role": "user" or "assistant", "text"}]}`, at least one |
+| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "now"?, "host"?, "graph", "revisions"?, "files"?}`; `graph` carries computed values and judgements (ADR 0299); `cwd` is the project root, absolute and canonical; `now` is `YYYY-MM-DDTHH:MM:SSZ` (1.11.0, ADR 0294) and `files` holds the command's declared reads (1.11.0, ADR 0293); `host` (1.13.0, ADR 0318) is `claude-code`, `codex` or `cursor` when known | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
+| Prompt | the prompt's `export` (`prompt__<id>`) | `PromptInput` `{"args", "cwd", "today", "graph"?, "host"?, "slash_commands"?}`; `graph` carries computed values and judgements (ADR 0299); `args` are typed, a reference its full path; `host` is `claude-code`, `codex` or `cursor` when known; `slash_commands` (1.13.0, ADR 0316) are the project's served slash commands `{"name", "extension", "prompt"?, "tool"?, "cli"}`, sent to a prompt that declares `reads_slash_commands` | `PromptOutput` `{"messages": [{"role": "user" or "assistant", "text"}], "subject"?}`, at least one message; `subject` (1.13.0, ADR 0314) is the full path of the entity picked when the caller gave none |
 | MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
 | MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
 | Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |
@@ -932,6 +934,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.10.0` | the same as `1.0.0` |
 | `1.11.0` | the same as `1.0.0` |
 | `1.12.0` | the same as `1.0.0` |
+| `1.13.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -959,6 +962,7 @@ or answered.
 | `1.10.0` | A `surfaces` item may declare `prompts` (a `PromptDescriptor`: typed `args`, `gates`, `subject`, `steps`, `when`, `reads_graph`, `attribution`) served as MCP prompts, `specforge prompt` and `specforge <short> <id>`, rendered by a `prompt__<id>` export (`PromptInput`, `PromptOutput`) with a host message appended (ADR 0291). A command may declare `gates` and `subject`: the host refuses the call `gate_failed` while a gated code fails in the subject's scope. A pass may declare `reports`, the codes it answers at a gate, and `PassInput.trigger` says whether it is asked to judge a write or a gate. A 1.9 host ignores the new keys, so a gated command runs ungated there. A `surfaces` item may also declare `agents`, `skills`, `slash_commands` and `hooks`, written into a host's files by `specforge install` (ADR 0292): the `render__` export writes an agent's or skill's body (`RenderInput`, `RenderOutput`), a `hook__<id>` export answers a host event (`HookInput`, `HookOutput`), and a command, hook or prompt that declares `reads_state` is sent, and may patch, its extension's state (`StateView`, `StatePatch`). A 1.9 host ignores the new keys and installs nothing. |
 | `1.11.0` | A pass or a command may declare `reads` (`name`, `field` or `glob`, `base`, `text`) and its input then carries `files`, the facts and capped text of the project files it names; a pass may declare `reads_tests` to be sent the recorded test report at compile (ADR 0293). A pass's `values` and a validator's carry every `string_list`, `reference_list` and `enum_list` field as an array of its items, and a command's, a collector's and a hook's input carries `now`, `YYYY-MM-DDTHH:MM:SSZ` (ADR 0294). A judged rule's `judge` may be `prompt:<id>`, a prompt of its own extension (ADR 0295). `specforge settings set` and `unset` write the settings an extension declares (ADR 0296). A 1.10 host ignores the new keys, so a guest that needs a file gets none there. |
 | `1.12.0` | A command may declare `human` (ADR 0301): the host runs it only for a person at a terminal. A setting may declare `gates_when_on` and be of type `number` (ADR 0305). A judgement a pass is sent carries `cited_tests`, the tests its verdict cites (ADR 0304). A 1.11 host ignores `human`, `gates_when_on` and `cited_tests`, and drops a `number` setting (W019). |
+| `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and reads a `when` list as an unknown setting (W021). |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.

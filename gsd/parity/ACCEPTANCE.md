@@ -134,7 +134,7 @@ Not verified:
 - The "silent" evidence of 38 of the 63 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 
-## Needs a change outside `gsd/` (K20b, K20c)
+## Needs a change outside `gsd/` (K20c)
 
 Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is done here:
 
@@ -155,7 +155,7 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 | The `specforged` harness | `/gsd-autonomous` unattended, `claude-orchestration`, `external-job` |
 | More host renderers | opencode, copilot, windsurf, kilo, kimi, kimi-code, antigravity, cline, trae, qwen, hermes, codebuddy, augment, zcode, vscode, pi |
 | Running Codex and Cursor | their goldens are the kernel's rendering, cross-checked against upstream's installer only |
-| The K20b and K20c items | the list above |
+| The K20c items | the list above |
 | Publishing | `specforge publish`, done by the user |
 
 ## Publishing

@@ -57,8 +57,9 @@ the rest of this folder keeps their K names.
 | K18 | [0299](../docs/adr/0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) | the graph a call receives carries the computed values and judgements every surface shows |
 | K19 | [0300](../docs/adr/0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) | a compute pass at the baseline reads the files the commit holds |
 | K20a | [0301](../docs/adr/0301-a-human-attested-command-runs-only-for-a-person-at-a-terminal.md)-[0306](../docs/adr/0306-install-refuses-an-unusable-specforge-json-and-uninstall-removes-only-what-install-created.md) | trust, verdicts, rules, settings and install safety |
+| K20b | [0310](../docs/adr/0310-a-command-and-a-prompt-read-their-extensions-state.md)-[0319](../docs/adr/0319-specforge-new-sets-any-field.md) | a command and a prompt read their state, the host and the served slash commands; a prompt takes a tail and picks its subject; `when` names several settings; `collect` and `find` accept short ids; `new --field` |
 
-K20a is built (protocol 1.12.0). K20b and K20c are the queue of kernel items that still wait ("What still waits for kernel work" below); none of them is built.
+K20a (protocol 1.12.0) and K20b (protocol 1.13.0) are built. K20c is the queue of kernel items that still waits ("What still waits for kernel work" below); none of it is built.
 
 Building `@gsd/core` against them found six more gaps no model fix closes. They are a second kernel round (r35,
 protocol 1.11.0, now in the kernel), and the model cites them where it relies on them: **K11** a pass or command reads the project files
@@ -176,7 +177,7 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). K20a is built: the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, and install and uninstall are safe. One divergence from upstream: a truth's `verification` tier is a person's, so `/gsd-phase --remove` of a phase whose truth holds one is refused `human_only` until the person deletes that line in their editor (upstream deletes regardless; REVIEW-k20a M3). What still waits for kernel work (K20b, K20c):
+`previous_score` and compares scan states (r39 T13 is built). K20a and K20b are built (protocol 1.13.0): the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). One divergence from upstream: a truth's `verification` tier is a person's, so `/gsd-phase --remove` of a phase whose truth holds one is refused `human_only` until the person deletes that line in their editor (upstream deletes regardless; REVIEW-k20a M3). What still waits for kernel work (K20c):
 
 - **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
   status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
