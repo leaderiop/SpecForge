@@ -602,10 +602,10 @@ If no active code-review step hook exists, skip with message "Code review skippe
 QUICK_SCOPE_RC=0
 QUICK_SCOPE_JSON=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --kinds commit --format json | jq -c '{status: "ok", files: ([.nodes[]|select(.kind=="commit")|.fields.files[]?]|unique)}') || QUICK_SCOPE_RC=$?
 if [ "$QUICK_SCOPE_RC" -ne 0 ] && [ "$QUICK_SCOPE_RC" -ne 69 ]; then QUICK_SCOPE_JSON=""; fi
-CHANGED_FILES=$(printf '%s' "$QUICK_SCOPE_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).files.join(' '))}catch{}})")
+CHANGED_FILES=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -r '.files | join(" ")' 2>/dev/null)
 if [ -z "$CHANGED_FILES" ]; then
   # Say WHY the scope is empty (no commits for this task, only excluded paths, or git could not be read).
-  QUICK_SCOPE_WHY=$(printf '%s' "$QUICK_SCOPE_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const v=JSON.parse(s);process.stdout.write(v.status+(v.reason?': '+v.reason:''))}catch{process.stdout.write('unresolvable: no resolver output')}})")
+  QUICK_SCOPE_WHY=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -er '.status + (if (.reason // "") != "" then ": " + .reason else "" end)' 2>/dev/null || echo 'unresolvable: no resolver output')
   echo "Quick-task review scope is empty (${QUICK_SCOPE_WHY})."
 fi
 ```

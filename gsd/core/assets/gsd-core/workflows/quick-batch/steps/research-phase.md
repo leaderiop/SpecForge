@@ -12,7 +12,7 @@ compute concurrency with `mutating=false`:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 QB_RESEARCH_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
-RESEARCH_CONCURRENCY=$(printf '%s' "$QB_RESEARCH_CONC_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(String(j.concurrency))}catch{process.stdout.write("1")}})')
+RESEARCH_CONCURRENCY=$(printf '%s' "$QB_RESEARCH_CONC_JSON" | jq -er '.concurrency // 1' 2>/dev/null || echo 1)
 ```
 
 For each item in `$BATCH_MANIFEST_JSON.items` whose

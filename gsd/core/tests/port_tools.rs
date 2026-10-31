@@ -153,24 +153,8 @@ const KEEP: &[(&str, &str)] = &[
 /// Assets whose `node` lines plan 03 has not rewritten yet: a listed asset may keep them, and a listed asset with none
 /// left fails, so the list cannot go stale.
 const PENDING_NODE: &[&str] = &[
-    "agents/gsd-verifier.md",
-    "gsd-core/references/dispatch-isolation-gate.md",
-    "gsd-core/references/specless-probe-fallback.md",
     "gsd-core/workflows/execute-phase.md",
     "gsd-core/workflows/execute-phase/steps/code-review-disposition.md",
-    "gsd-core/workflows/execute-phase/steps/completion-reconciliation.md",
-    "gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md",
-    "gsd-core/workflows/execute-plan.md",
-    "gsd-core/workflows/pr-branch.md",
-    "gsd-core/workflows/quick-batch/steps/batch-init.md",
-    "gsd-core/workflows/quick-batch/steps/planner-wave.md",
-    "gsd-core/workflows/quick-batch/steps/research-phase.md",
-    "gsd-core/workflows/quick-batch/steps/resume-mode.md",
-    "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
-    "gsd-core/workflows/quick.md",
-    "gsd-core/workflows/review.md",
-    "gsd-core/workflows/ship.md",
-    "gsd-core/workflows/spec-phase.md",
 ];
 
 /// Plan 03 (F9): a shell block reads SpecForge's JSON (and its own state files) with `jq`, never `node -e` / `node -p`:

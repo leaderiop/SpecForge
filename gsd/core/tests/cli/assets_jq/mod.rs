@@ -4,6 +4,9 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+mod readers;
+mod scripts;
+
 /// The tools the lines below call; nothing else is on the `PATH`.
 const TOOLS: &[&str] = &[
     "jq", "git", "cat", "mv", "rm", "mktemp", "grep", "head", "sed", "awk", "cut", "tr", "env",
@@ -61,18 +64,15 @@ impl Shell {
     }
 }
 
-/// The asset `path` (under `assets/gsd-core/`) as text.
+/// The asset `path` (under `assets/`) as text.
 fn asset(path: &str) -> String {
-    std::fs::read_to_string(format!(
-        "{}/assets/gsd-core/{path}",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .unwrap_or_else(|e| panic!("{path}: {e}"))
+    std::fs::read_to_string(format!("{}/assets/{path}", env!("CARGO_MANIFEST_DIR")))
+        .unwrap_or_else(|e| panic!("{path}: {e}"))
 }
 
-/// Upstream's copy of `path` (under `gsd-core/`) in the vendored snapshot: its own name, or `<name>.txt`.
+/// Upstream's copy of `path` in the vendored snapshot: its own name, or `<name>.txt`.
 fn upstream(path: &str) -> String {
-    let plain = format!("{}/gsd-core/{path}", gsd_kit::snapshot!());
+    let plain = format!("{}/{path}", gsd_kit::snapshot!());
     std::fs::read_to_string(&plain)
         .or_else(|_| std::fs::read_to_string(format!("{plain}.txt")))
         .unwrap_or_else(|e| panic!("{path}: {e}"))
@@ -105,10 +105,10 @@ fn run_with_node(script: &str) -> String {
 fn the_field_helper_reads_a_field_with_jq() {
     let Some(sh) = Shell::new() else { return };
     let copies: Vec<String> = [
-        "workflows/autonomous.md",
-        "workflows/complete-milestone.md",
-        "workflows/new-milestone.md",
-        "workflows/plan-phase.md",
+        "gsd-core/workflows/autonomous.md",
+        "gsd-core/workflows/complete-milestone.md",
+        "gsd-core/workflows/new-milestone.md",
+        "gsd-core/workflows/plan-phase.md",
     ]
     .iter()
     .flat_map(|p| {
@@ -122,7 +122,11 @@ fn the_field_helper_reads_a_field_with_jq() {
     assert_eq!(copies.len(), 12);
     assert!(copies.iter().all(|c| *c == copies[0]), "{copies:?}");
     let ours = &copies[0];
-    let theirs = line(&upstream("workflows/plan-phase.md"), "_gsd_field() {").to_string();
+    let theirs = line(
+        &upstream("gsd-core/workflows/plan-phase.md"),
+        "_gsd_field() {",
+    )
+    .to_string();
     let json = r#"{"s":"a b","n":0,"f":false,"t":true,"z":null,"o":{"a":1}}"#;
     let call = |helper: &str, key: &str| {
         format!("{helper}\nprintf '[%s]' \"$(_gsd_field '{json}' {key})\"")
@@ -153,4 +157,50 @@ fn the_field_helper_reads_a_field_with_jq() {
         )),
         "[]"
     );
+}
+
+/// Single-quotes `s` for bash.
+fn q(s: &str) -> String {
+    format!("'{}'", s.replace('\'', r"'\''"))
+}
+
+/// The lines of `text` from the first that starts (after its indent) with `start` through the first that contains
+/// `end`.
+fn block(text: &str, start: &str, end: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let a = lines
+        .iter()
+        .position(|l| l.trim_start().starts_with(start))
+        .unwrap_or_else(|| panic!("no line starts with {start}"));
+    let b = a + lines[a..]
+        .iter()
+        .position(|l| l.contains(end))
+        .unwrap_or_else(|| panic!("no line after {start} contains {end}"));
+    lines[a..=b].join("\n")
+}
+
+/// The line after the first that starts (after its indent) with `start`.
+fn after<'a>(text: &'a str, start: &str) -> &'a str {
+    let mut lines = text
+        .lines()
+        .skip_while(|l| !l.trim_start().starts_with(start));
+    lines.next();
+    lines
+        .next()
+        .unwrap_or_else(|| panic!("nothing after {start}"))
+}
+
+/// `setup`, then our `code` (no node on the `PATH`), then `show`, prints `want`; so does upstream's `theirs` (node on
+/// the `PATH`) where node is installed. A trailing newline does not count: the lines' callers read `$(…)`.
+fn both(sh: &Shell, setup: &str, ours: &str, theirs: Option<&str>, show: &str, want: &str) {
+    let script = |code: &str| format!("{setup}\n{code}\n{show}");
+    let trim = |s: String| s.trim_end_matches('\n').to_string();
+    assert_eq!(trim(sh.run(&script(ours))), want, "ours after {setup}");
+    if let Some(theirs) = theirs.filter(|_| has_node()) {
+        assert_eq!(
+            trim(run_with_node(&script(theirs))),
+            want,
+            "upstream's after {setup}"
+        );
+    }
 }

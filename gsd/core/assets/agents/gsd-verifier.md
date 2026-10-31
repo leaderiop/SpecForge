@@ -428,7 +428,7 @@ Anti-pattern scanning (Step 7) checks for code smells. Behavioral spot-checks go
 
 ```bash
 # API endpoint returns non-empty data
-curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | node -e "let b='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>b+=c);process.stdin.on('end',()=>{const d=JSON.parse(b);process.exit(Array.isArray(d)?(d.length>0?0:1):(Object.keys(d).length>0?0:1))})"
+curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | jq -e '(type == "array" or type == "object" or type == "string") and length > 0' >/dev/null
 
 # CLI command produces expected output
 node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"

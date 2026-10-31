@@ -144,6 +144,8 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-verifier.md", 372),
     ("gsd-verifier.md", 379),
     ("gsd-verifier.md", 381),
+    // Plan 03 (F9) T3: the API spot-check reads the answer with jq; upstream's runs node.
+    ("gsd-verifier.md", 429),
     ("gsd-verifier.md", 495),
     ("gsd-verifier.md", 598),
     ("gsd-verifier.md", 643),

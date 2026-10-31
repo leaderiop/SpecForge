@@ -37,7 +37,7 @@ in wave 0 before any signal exists).
    research):
    ```bash
 QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
-   PLAN_CONCURRENCY=$(printf '%s' "$QB_PLAN_CONC_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(String(j.concurrency))}catch{process.stdout.write("1")}})')
+   PLAN_CONCURRENCY=$(printf '%s' "$QB_PLAN_CONC_JSON" | jq -er '.concurrency // 1' 2>/dev/null || echo 1)
    ```
 
 5. **Dispatch one `Agent()` per message, `run_in_background: true`, up to
