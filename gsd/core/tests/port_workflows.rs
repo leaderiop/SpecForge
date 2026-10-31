@@ -126,6 +126,19 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/spec-phase.md", 63),
     ("gsd-core/workflows/spec-phase.md", 74),
     ("gsd-core/workflows/plan-phase.md", 639),
+    // Plan 03 (F9) T2: the `_gsd_field` helper reads its field with jq; upstream's runs node.
+    ("gsd-core/workflows/autonomous.md", 165),
+    ("gsd-core/workflows/autonomous.md", 612),
+    ("gsd-core/workflows/autonomous.md", 738),
+    ("gsd-core/workflows/complete-milestone.md", 341),
+    ("gsd-core/workflows/complete-milestone.md", 363),
+    ("gsd-core/workflows/complete-milestone.md", 406),
+    ("gsd-core/workflows/complete-milestone.md", 432),
+    ("gsd-core/workflows/new-milestone.md", 277),
+    ("gsd-core/workflows/new-milestone.md", 293),
+    ("gsd-core/workflows/new-milestone.md", 535),
+    ("gsd-core/workflows/new-milestone.md", 624),
+    ("gsd-core/workflows/plan-phase.md", 619),
 ];
 
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not

@@ -276,7 +276,7 @@ COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT_STAGE=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_STAGE" == @file:* ]]; then INIT_STAGE=$(cat "${INIT_STAGE#@file:}"); fi
-_gsd_field() { node -e "const o=JSON.parse(process.argv[1]); const v=o[process.argv[2]]; process.stdout.write(v==null?'':String(v))" "$1" "$2"; }
+_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
 ARCHIVE_DIR=$(_gsd_field "$INIT_STAGE" archive_dir)
 PHASES_DIR=$(_gsd_field "$INIT_STAGE" phases_dir)
 if [ "$COMMIT_DOCS" != "false" ]; then
@@ -292,7 +292,7 @@ Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT_COMMIT=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_COMMIT" == @file:* ]]; then INIT_COMMIT=$(cat "${INIT_COMMIT#@file:}"); fi
-_gsd_field() { node -e "const o=JSON.parse(process.argv[1]); const v=o[process.argv[2]]; process.stdout.write(v==null?'':String(v))" "$1" "$2"; }
+_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
 STATE_PATH=$(_gsd_field "$INIT_COMMIT" state_path)
 PROJECT_PATH=$(_gsd_field "$INIT_COMMIT" project_path)
 git add spec && git commit -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
@@ -534,7 +534,7 @@ If "adjust": Return to scoping.
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT_REQ=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_REQ" == @file:* ]]; then INIT_REQ=$(cat "${INIT_REQ#@file:}"); fi
-_gsd_field() { node -e "const o=JSON.parse(process.argv[1]); const v=o[process.argv[2]]; process.stdout.write(v==null?'':String(v))" "$1" "$2"; }
+_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
 REQUIREMENTS_PATH=$(_gsd_field "$INIT_REQ" requirements_path)
 git add spec && git commit -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
 ```
@@ -623,7 +623,7 @@ Success criteria:
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT_ROADMAP=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_ROADMAP" == @file:* ]]; then INIT_ROADMAP=$(cat "${INIT_ROADMAP#@file:}"); fi
-_gsd_field() { node -e "const o=JSON.parse(process.argv[1]); const v=o[process.argv[2]]; process.stdout.write(v==null?'':String(v))" "$1" "$2"; }
+_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
 ROADMAP_PATH=$(_gsd_field "$INIT_ROADMAP" roadmap_path)
 STATE_PATH=$(_gsd_field "$INIT_ROADMAP" state_path)
 REQUIREMENTS_PATH=$(_gsd_field "$INIT_ROADMAP" requirements_path)
