@@ -23,7 +23,7 @@ mod subject;
 #[cfg(test)]
 mod tests;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
@@ -245,34 +245,87 @@ fn task_of<'a>(nodes: &'a [GraphNode], plan: &str, description: &str) -> Option<
     }
 }
 
-/// The 12-hex names of the commits of `plan` (in `plans`) that `hash` reaches through its parents, oldest first.
-// shortcut: one walk per newly recorded commit, O(log × new records); the host's guest limit bounds it (`execute.md`).
-fn descends_from(
-    commits: &[Commit],
-    parents: &HashMap<&str, &[String]>,
-    plans: &HashMap<&str, &str>,
-    hash: &str,
-    plan: &str,
-) -> Vec<String> {
-    let mut seen: HashSet<&str> = HashSet::new();
-    let mut next: Vec<&str> = parents
-        .get(hash)
-        .map_or(Vec::new(), |p| p.iter().map(String::as_str).collect());
-    while let Some(at) = next.pop() {
-        if seen.insert(at) {
-            next.extend(
-                parents
-                    .get(at)
-                    .into_iter()
-                    .flat_map(|p| p.iter().map(String::as_str)),
-            );
+/// For each commit of `plans`, the 12-hex names of the commits of its plan it reaches through its parents, oldest
+/// first. Parents are resolved before their children, so a walk stops at a commit of its own plan and takes that
+/// commit's list: each commit is walked only down to its plan's nearest recorded commits (#5275).
+// shortcut: a plan's first commit still walks to the root, O(log × plans); carry every plan's nearest recorded commits
+// in one topological pass when a log of many plans nears the host's 30 s guest limit (`execute.md`).
+fn ancestry<'a>(
+    commits: &'a [Commit],
+    plans: &HashMap<&'a str, &'a str>,
+) -> HashMap<&'a str, Vec<String>> {
+    let count = commits.len();
+    let index: HashMap<&str, usize> = commits
+        .iter()
+        .enumerate()
+        .map(|(i, c)| (c.hash.as_str(), i))
+        .collect();
+    // By log position (newest is 0); a parent outside the log read is not walked.
+    let parents: Vec<Vec<usize>> = commits
+        .iter()
+        .map(|c| {
+            c.parents
+                .iter()
+                .filter_map(|p| index.get(p.as_str()).copied())
+                .collect()
+        })
+        .collect();
+    let plan: Vec<Option<&str>> = commits
+        .iter()
+        .map(|c| plans.get(c.hash.as_str()).copied())
+        .collect();
+    // git's own order is not topological under clock skew: an iterative post-order walk puts parents first.
+    let (mut order, mut done) = (Vec::with_capacity(count), vec![false; count]);
+    for start in (0..count).rev() {
+        let mut stack = vec![(start, false)];
+        while let Some((at, finished)) = stack.pop() {
+            if finished {
+                order.push(at);
+            } else if !done[at] {
+                done[at] = true;
+                stack.push((at, true));
+                stack.extend(
+                    parents[at]
+                        .iter()
+                        .filter(|&&p| !done[p])
+                        .map(|&p| (p, false)),
+                );
+            }
         }
     }
-    commits
-        .iter()
-        .rev()
-        .filter(|c| seen.contains(c.hash.as_str()) && plans.get(c.hash.as_str()) == Some(&plan))
-        .map(|c| c.hash.chars().take(12).collect())
+    // `seen[c]` is the walk that last reached `c`, so no set is cleared between walks.
+    let (mut memo, mut seen) = (vec![Vec::new(); count], vec![usize::MAX; count]);
+    for at in order {
+        let Some(own) = plan[at] else {
+            continue;
+        };
+        let mut found = BTreeSet::new();
+        let mut next = parents[at].clone();
+        while let Some(up) = next.pop() {
+            if seen[up] == at {
+                continue;
+            }
+            seen[up] = at;
+            if plan[up] == Some(own) {
+                found.insert(up);
+                found.extend(&memo[up]);
+            } else {
+                next.extend(&parents[up]);
+            }
+        }
+        memo[at] = found.into_iter().collect::<Vec<usize>>();
+    }
+    (0..count)
+        .filter(|&i| plan[i].is_some())
+        .map(|i| {
+            // Ascending positions are newest first.
+            let names = memo[i]
+                .iter()
+                .rev()
+                .map(|&a| commits[a].hash.chars().take(12).collect())
+                .collect();
+            (commits[i].hash.as_str(), names)
+        })
         .collect()
 }
 
@@ -308,7 +361,7 @@ fn fields(
 }
 
 /// The header of `commit` and the plan it is (or would be) recorded under: a merge is read for its parents only.
-/// `code` is the project's `project_code`.
+/// `code` is the project's `project_code` (the setting, else the project entity's field).
 fn plan_of<'a, 'n>(
     nodes: &'n [GraphNode],
     code: Option<&str>,
@@ -334,19 +387,23 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let mut builder = PlanBuilder::for_collect(input);
     let mut recorded = 0;
     let (commits, mut skipped) = parse_all(input.stdout.as_deref().unwrap_or(""));
-    let code = nodes
-        .iter()
-        .find(|n| n.kind == "project")
-        .and_then(|n| n.text("project_code"))
-        .filter(|c| !c.is_empty());
-    let parents: HashMap<&str, &[String]> = commits
-        .iter()
-        .map(|c| (c.hash.as_str(), &c.parents[..]))
-        .collect();
+    // The `project_code` setting (what GSD users set and `specforge settings` shows), else the project entity's field.
+    let settings = Settings::current();
+    let code = settings
+        .string("project_code")
+        .filter(|c| !c.is_empty())
+        .or_else(|| {
+            nodes
+                .iter()
+                .find(|n| n.kind == "project")
+                .and_then(|n| n.text("project_code"))
+                .filter(|c| !c.is_empty())
+        });
     let plans: HashMap<&str, &str> = commits
         .iter()
         .filter_map(|c| Some((c.hash.as_str(), plan_of(nodes, code, c)?.1.id.as_str())))
         .collect();
+    let mut descends = ancestry(&commits, &plans);
     // Oldest first, so the entities land in the order the commits were made.
     for commit in commits.iter().rev() {
         let name: String = commit.hash.chars().take(12).collect();
@@ -375,7 +432,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
                 kind,
                 &plan.id,
                 task,
-                &descends_from(&commits, &parents, &plans, &commit.hash, &plan.id),
+                &descends.remove(commit.hash.as_str()).unwrap_or_default(),
             ),
             Vec::new(),
         );

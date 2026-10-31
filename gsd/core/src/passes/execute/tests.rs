@@ -145,6 +145,23 @@ fn w403_follows_ancestry_when_it_was_collected() {
 }
 
 #[test]
+fn w403_judges_each_green_by_its_own_ancestry_or_by_time() {
+    let input = tdd_input(&["tdd"]);
+    // RED and GREEN recorded before the collector read parents, a later commit recorded after: the old pair is judged
+    // by time, so the upgrade raises nothing.
+    let red = commit("test", Some("P/T1"));
+    let green = commit("feat", Some("P/T1"));
+    let docs = descending("docs", &[&red, &green]);
+    assert!(red_before_green(&input, &[red.clone(), green.clone(), docs]).is_empty());
+    // An old GREEN with no RED before it still warns, whatever a newer commit carries.
+    let later = descending("test", &[&green]);
+    assert_eq!(red_before_green(&input, &[green, later]).len(), 1);
+    // A new GREEN is judged by its own list even when an old RED precedes it in time.
+    let new_green = descending("feat", &[]);
+    assert_eq!(red_before_green(&input, &[red, new_green]).len(), 1);
+}
+
+#[test]
 fn a_plan_commit_counts_only_for_the_plans_only_task() {
     // A lone tdd task: a commit naming only the plan is its own.
     assert_eq!(

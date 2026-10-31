@@ -92,6 +92,18 @@ fn an_unrelated_commit_is_skipped() {
 }
 
 #[test]
+fn the_project_code_setting_is_stripped_from_a_scope() {
+    // GSD users set `project_code` as a setting; the project entity has no such field here.
+    let p = repository();
+    p.settings(serde_json::json!({ "project_code": "PRJ" }));
+    let hash = p.git_commit("feat(PRJ-01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+    assert_eq!(p.fields_of(&hash[..12])["plan"], "v1.0/01/01-01");
+}
+
+#[test]
 fn a_metadata_commit_names_the_plan_only() {
     let p = repository();
     let hash = p.git_commit(
