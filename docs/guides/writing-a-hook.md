@@ -30,7 +30,7 @@ c.hook("write_guard", HookEvent::PreTool, |h| {
 
 `pre_tool`, `post_tool` and `pre_commit` fire for a tool and take `tools` (host-neutral classes; empty means every tool)
 and `paths` (project-relative globs a path of the tool's input must match, one `--paths` flag per glob in the installed
-command; a patch-text tool such as `apply_patch` names its files in the patch, which is read; `{spec_root}` is the spec root). The others
+command; a patch-text tool such as `apply_patch` names its files in the patch, which is read; `{spec_root}` is the spec root). `file_changed` fires when a project file your hook names in `paths` (bare file names, no globs) is changed, added or removed; the host sends what happened in `change`, and Claude Code wires it (see below). The others
 are `user_prompt`, `session_start`, `stop`, `subagent_start`, `subagent_stop`, `pre_compact` and `statusline`. A host
 that has no such event reports it as `not_rendered` at install. `pre_commit` fires only for a shell tool running
 `git commit`, with the commit's message (`-m`, `--message`, alone or in a cluster such as `-am`; found through `env`,
@@ -50,6 +50,43 @@ A sandboxed guest cannot read files or run commands, so the host computes what a
 - `commit`: the message (absent when it is not given with `-m`) and whether it amends;
 - `prompt`, `response`, `status`: what the host sent for those events;
 - `graph` (`reads_graph`; with computed values and judgements, ADR 0299), `revisions` (`writes`) and `state` (`reads_state`), only when declared.
+
+## Hosts, git, other settings and a file watch
+
+Each is a declaration on the hook; a hook that declares none is sent none of it.
+
+```rust
+c.hook("codex_only_tip", HookEvent::UserPrompt, |h| {
+    h.hosts(&["codex"]); // wired only on Codex; the host comes from the adapter, never from the event
+});
+c.hook("branch_note", HookEvent::PostTool, |h| {
+    h.reads_git_status() // or `.reads_git()` for the head alone
+        .handler(|call| {
+            let git = call.facts().git; // toplevel, git_dir, branch and, with status, the porcelain text
+            Ok(HookOutput::default())
+        });
+});
+c.hook("reload_notice", HookEvent::FileChanged, |h| {
+    h.paths(&["specforge.json"]).handler(|call| Ok(HookOutput::allow())); // `change`: change, add or unlink
+});
+c.hook("ui_gate", HookEvent::PreTool, |h| {
+    h.reads_setting("@acme/x", "x.y") // read it with `call.other_setting("@acme/x", "x.y")`
+        .handler(|call| Ok(HookOutput::allow()));
+});
+```
+
+- **`hosts`** (ADR 0322): install renders the hook only on the hosts named (`claude-code`, `codex`, `cursor`), and
+  `specforge hook` is a no-op on any other.
+- **`reads_git` / `reads_git_status`** (ADR 0320): the input carries the repository the working directory is in. Every
+  path outside the project also carries `real` (symlinks resolved), `toplevel` (the repository it is in) and
+  `in_git_dir`, so a guard compares repositories as git does, not by prefix.
+- **A shell tool's `commands`** are its command split at the control operators, each as words; a commit's `cleanup`
+  lists its cleanup modes in order.
+- **`reads_setting`** (ADR 0323): the value of one setting of another extension, or nothing when it is absent.
+- **`file_changed`** (ADR 0321): see Events. A hook that reads no graph and writes nothing is answered without a compile
+  (ADR 0324).
+- **Fail closed** (ADR 0324): a hook whose policy is `deny` fails closed when `specforge` is missing from the host's
+  PATH; an `allow` hook fails open.
 
 ## Answers
 
