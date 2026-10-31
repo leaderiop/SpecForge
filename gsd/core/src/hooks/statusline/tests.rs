@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/gsd-statusline.test.cjs, tests/gsd-statusline-state.property.test.cjs and tests/gsd-statusline-git.property.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/gsd-statusline.test.cjs, tests/gsd-statusline-state.property.test.cjs and tests/gsd-statusline-git.property.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The pure parts of the line (the two state formats, the status word, the bar, the token count, the model badge,
 //! the meter and the layout) are ported case for case. What read STATE.md, git, the todo files, the update cache or

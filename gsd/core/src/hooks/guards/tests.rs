@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/read-guard.test.cjs, tests/gsd-write-guard.test.cjs and tests/gsd-write-guard.property.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/read-guard.test.cjs, tests/gsd-write-guard.test.cjs and tests/gsd-write-guard.property.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Upstream's suites run the script against files on disk; here the file's size is a fact the host computed, so each
 //! case is restated as the facts of the call. The write guard's lines become bytes at 52 a line (40 lines are the

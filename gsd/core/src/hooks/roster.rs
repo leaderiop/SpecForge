@@ -1,4 +1,4 @@
-//! The 28 files of gsd-core 1.18.0's `hooks/` (the inventory manifest's `hooks` family), each with what became of it
+//! The 29 files of gsd-core 1.19.0's `hooks/` (the inventory manifest's `hooks` family), each with what became of it
 //! here (D-r44-1). `tests/hooks.rs` compares the rows with the vendored manifest and with what `declare` contributes.
 
 /// What became of one upstream hook file.
@@ -52,6 +52,12 @@ pub const HOOK_ROSTER: &[(&str, Disposition)] = &[
     (
         "gsd-node-runner.sh",
         Dropped("plumbing of the Node implementation"),
+    ),
+    (
+        "gsd-path-export.js",
+        Dropped(
+            "puts gsd-core's bin/ (gsd_run) on PATH through CLAUDE_ENV_FILE; @gsd/core renders no gsd_run",
+        ),
     ),
     ("gsd-phase-boundary.sh", Hooks(&["phase_boundary"])),
     ("gsd-prompt-guard.js", Hooks(&["prompt_guard"])),

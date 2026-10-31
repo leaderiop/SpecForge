@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/thinking-models-verification.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/thinking-models-verification.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Thinking Models: Verification Cluster
 
 Structured reasoning models for the **verifier** and **plan-checker** agents. Apply these during verification passes, not continuously. Each model counters a specific documented failure mode.

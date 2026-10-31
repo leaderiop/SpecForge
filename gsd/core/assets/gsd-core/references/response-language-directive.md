@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/response-language-directive.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/response-language-directive.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Response-Language Directive (#2529)
 
 **If `response_language` is set** (in the init JSON this workflow parses, or in the settings (`specforge settings`)): ALL user-facing output of this workflow MUST be in that language — narration between tool calls, status updates, progress notes, findings, banners, report prose, questions (AskUserQuestion or plain text), and summaries. Technical terms, code, file paths, commands, and identifiers stay in English.

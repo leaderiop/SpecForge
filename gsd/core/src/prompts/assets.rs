@@ -182,6 +182,7 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/workflows/complete-milestone.md"),
     asset!("gsd-core/workflows/complete-milestone/detail/elaboration.md"),
     asset!("gsd-core/workflows/complete-milestone/steps/git-tag.md"),
+    asset!("gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md"),
     asset!("gsd-core/workflows/diagnose-issues.md"),
     asset!("gsd-core/workflows/discuss-phase-assumptions.md"),
     asset!("gsd-core/workflows/discuss-phase-assumptions/steps/auto-advance-dispatch.md"),

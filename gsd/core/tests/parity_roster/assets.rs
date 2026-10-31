@@ -1,4 +1,4 @@
-//! The 77 workflow, reference, mode, step, detail and template items of the inventory manifest that `@gsd/core` does
+//! The 78 workflow, reference, mode, step, detail and template items of the inventory manifest that `@gsd/core` does
 //! not embed (D-r44-17): each has the extension that owns it, the typed command that replaced it, or a reason.
 
 /// Why an upstream prompt asset is not in `src/prompts/assets.rs`.
@@ -19,6 +19,7 @@ const AI: &str = "@gsd/ai";
 const CODEBASE: &str = "@gsd/codebase";
 const UI: &str = "@gsd/ui";
 const UPDATES: &str = "specforge updates extensions through its lockfile (/gsd-update, D-r43-16)";
+const SUB_REPOS: &str = "per-repository releases over planning.sub_repos; a sub-repository is another SpecForge project (settings.md)";
 
 /// `(family, item, why)`, in the manifest's order within each family.
 pub const NOT_EMBEDDED: &[(&str, &str, Why)] = &[
@@ -157,6 +158,11 @@ pub const NOT_EMBEDDED: &[(&str, &str, Why)] = &[
         "workflow_steps",
         "code-review/steps/structural-pre-pass.md",
         Owned(OPS),
+    ),
+    (
+        "workflow_steps",
+        "complete-milestone/steps/release-map.md",
+        NotApplicable(SUB_REPOS),
     ),
     (
         "workflow_steps",

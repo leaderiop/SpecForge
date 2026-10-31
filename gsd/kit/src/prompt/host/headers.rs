@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 src/runtime-artifact-conversion.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 src/runtime-artifact-conversion.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The two adapter headers (`getCodexSkillAdapterHeader`, `getCursorSkillAdapterHeader`). Section A of each, how the
 //! skill is invoked, is left out: the slash command's trampoline already invoked the prompt and its arguments are

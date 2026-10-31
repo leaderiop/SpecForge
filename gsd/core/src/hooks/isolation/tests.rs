@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/gsd-agent-isolation-guard.test.cjs and tests/worktree-safety.test.cjs (the `bug #260: gsd-worktree-path-guard.js` and `#1342` blocks), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/gsd-agent-isolation-guard.test.cjs and tests/worktree-safety.test.cjs (the `bug #260: gsd-worktree-path-guard.js` and `#1342` blocks), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Upstream's cases run the hook in a temp project with a sentinel file, the runtime registry and real git worktrees.
 //! None of those is a fact here, so a case is ported when what it decides is a fact (the tool, the `isolation`

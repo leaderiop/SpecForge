@@ -27,7 +27,7 @@ fn check(script: &str, goldens_dir: &str) {
         return;
     }
     let fake = tempfile::tempdir().expect("a temp dir");
-    std::fs::write(fake.path().join("package.json"), r#"{"version":"1.18.0"}"#).expect("write");
+    std::fs::write(fake.path().join("package.json"), r#"{"version":"1.19.0"}"#).expect("write");
     let bin = fake.path().join("gsd-core/bin");
     std::fs::create_dir_all(&bin).expect("dirs");
     std::fs::write(

@@ -11,7 +11,7 @@ pub mod prompt;
 #[macro_export]
 macro_rules! tracked_version {
     () => {
-        "1.18.0"
+        "1.19.0"
     };
 }
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Records what gsd-tools answers over the taskboard fixture, and what its own tests report, into goldens/taskboard/.
 #
-#   GSD_CORE_DIR=<a v1.18.0 checkout with its lib built> gsd/parity/record.sh
+#   GSD_CORE_DIR=<a v1.19.0 checkout with its lib built> gsd/parity/record.sh
 #
 # GSD_CORE_DIR is the root of a gsd-core checkout at the tracked tag (`npm ci && npm run build:lib` there). The verbs run
 # on a copy of the fixture that is its own git repository, so what they say about git (stale worktrees, commit hashes)
@@ -10,14 +10,14 @@
 # differently, and then the diff is the Node release, not the port.
 set -eu
 
-: "${GSD_CORE_DIR:?set GSD_CORE_DIR to a gsd-core v1.18.0 checkout whose lib is built}"
+: "${GSD_CORE_DIR:?set GSD_CORE_DIR to a gsd-core v1.19.0 checkout whose lib is built}"
 here=$(cd "$(dirname "$0")" && pwd)
 fixture="$here/fixtures/taskboard"
 out="$here/goldens/taskboard"
 tools="$GSD_CORE_DIR/gsd-core/bin/gsd-tools.cjs"
 
 version=$(node -p "require('$GSD_CORE_DIR/package.json').version")
-[ "$version" = "1.18.0" ] || { echo "record.sh: GSD_CORE_DIR is gsd-core $version, the tracked release is 1.18.0" >&2; exit 1; }
+[ "$version" = "1.19.0" ] || { echo "record.sh: GSD_CORE_DIR is gsd-core $version, the tracked release is 1.19.0" >&2; exit 1; }
 [ -f "$tools" ] || { echo "record.sh: $tools is missing" >&2; exit 1; }
 
 work=$(mktemp -d)

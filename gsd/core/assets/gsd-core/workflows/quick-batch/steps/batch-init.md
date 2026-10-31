@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/quick-batch/steps/batch-init.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick-batch/steps/batch-init.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 **Step 2b: Create a new batch (only when `$RESUME_BATCH_ID` is empty)**
 
 Skip this step entirely if `$RESUME_BATCH_ID` is set (resume-mode.md owns

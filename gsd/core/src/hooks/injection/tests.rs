@@ -1,6 +1,6 @@
-//! Ported from gsd-core v1.18.0 tests/read-injection-scanner.security.test.cjs, read-injection-scanner.property.test.cjs, injection-patterns-parity.security.test.cjs, prompt-injection-scan.security.test.cjs and injection-blocking-config.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/read-injection-scanner.security.test.cjs, read-injection-scanner.property.test.cjs, injection-patterns-parity.security.test.cjs, prompt-injection-scan.security.test.cjs and injection-blocking-config.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
-//! The suites' every call to a hook is replayed from `parity/upstream/v1.18.0/hook-cases/` (recorded by
+//! The suites' every call to a hook is replayed from `parity/upstream/v1.19.0/hook-cases/` (recorded by
 //! `gsd/parity/record-hook-cases.cjs`): the answer must be upstream's `additionalContext` word for word, or silence.
 //! The cases that call no hook are written out below, and the rest are skipped with a reason.
 

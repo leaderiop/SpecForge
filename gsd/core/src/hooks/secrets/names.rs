@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-secret-read-guard.js and hooks/lib/filename-classification.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-secret-read-guard.js and hooks/lib/filename-classification.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Which names are secret files (`.env`, `.env.<suffix>`, `.secrets`; not a template), and which Grep globs can select
 //! one. A glob is judged per brace alternative, against the names a secret file may take.

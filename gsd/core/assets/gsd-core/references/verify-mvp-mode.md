@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/verify-mvp-mode.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/verify-mvp-mode.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Verify-Work — MVP Mode UAT Framing
 
 > Loaded by `verify-work` workflow and `gsd-verifier` agent only when the phase under verification has `mode: mvp` in ROADMAP.md. Reframes UAT generation from technical checks to user-flow walk-throughs.

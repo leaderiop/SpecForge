@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/perf-317-context-monitor-fs.test.cjs and tests/context-monitor-host-contract.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/perf-317-context-monitor-fs.test.cjs and tests/context-monitor-host-contract.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Upstream drives the node hook through bridge files in the temp directory. Here the metrics, the debounce and the
 //! compaction watermark are the session's state, so a case is ported when it decides on those (a sequence of calls

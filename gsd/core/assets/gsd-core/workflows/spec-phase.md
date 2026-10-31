@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/spec-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/spec-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
 Clarify WHAT a phase delivers through a Socratic interview loop with quantitative ambiguity scoring.
 Produces a SPEC.md with falsifiable requirements that discuss-phase treats as locked decisions.

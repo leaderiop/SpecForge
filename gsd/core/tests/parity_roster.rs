@@ -269,7 +269,7 @@ fn prompt_assets_match_the_snapshot() {
             }
         }
     }
-    assert_eq!((items, not_embedded, NOT_EMBEDDED.len()), (295, 77, 77));
+    assert_eq!((items, not_embedded, NOT_EMBEDDED.len()), (297, 78, 78));
     let seen: BTreeSet<(&str, &str)> = NOT_EMBEDDED.iter().map(|(f, i, _)| (*f, *i)).collect();
     assert_eq!(seen.len(), NOT_EMBEDDED.len(), "a row twice");
     let commands: BTreeSet<&str> = ROSTER
@@ -295,7 +295,7 @@ fn prompt_assets_match_the_snapshot() {
 #[test]
 fn cli_modules_match_the_snapshot() {
     let modules = family("cli_modules");
-    assert_eq!(modules.len(), 282);
+    assert_eq!(modules.len(), 288);
     let owned: BTreeSet<&str> = EXTENSIONS.into_iter().collect();
     let mut uncited = Vec::new();
     for (pattern, module) in MODULES {
@@ -394,7 +394,7 @@ fn config_keys_match_the_snapshot() {
             .map(String::as_str),
     );
     // `settings_roster.rs` accounts each of them: declared, owned elsewhere or not applicable
-    assert_eq!(keys.len(), 211);
+    assert_eq!(keys.len(), 212);
 }
 
 /// Whether `header` names the module `pattern` (`phase.cjs`, or a prefix row `profile*`) as a whole file name: the
@@ -449,11 +449,11 @@ fn the_acceptance_counts_match() {
         .collect();
     assert_eq!(by["commands"], ROSTER.len());
     assert_eq!(by["hooks"], HOOK_ROSTER.len());
-    assert_eq!(by["cli_modules"], 282);
+    assert_eq!(by["cli_modules"], 288);
     let assets: usize = ASSET_FAMILIES.iter().map(|f| by[*f]).sum();
-    assert_eq!(assets, 295);
+    assert_eq!(assets, 297);
     assert_eq!(by["agents"], 64);
-    assert_eq!(by.values().sum::<usize>(), 72 + 64 + 28 + 282 + 295);
+    assert_eq!(by.values().sum::<usize>(), 72 + 64 + 29 + 288 + 297);
     let rows: [(&str, accept::Counts); 9] = [
         ("Commands", accept::commands()),
         ("Agents", accept::agents()),
@@ -473,11 +473,11 @@ fn the_acceptance_counts_match() {
         );
     }
     // the totals the plan names
-    assert_eq!(accept::hooks(), [28, 16, 0, 10, 2]);
+    assert_eq!(accept::hooks(), [29, 16, 0, 11, 2]);
     assert_eq!(accept::capabilities(), [45, 17, 10, 0, 18]);
     assert_eq!(accept::gate_cutover(), [171, 92, 51, 14, 14]);
     assert_eq!(accept::codes(), [63, 63, 0, 0, 0]);
-    assert_eq!(accept::config_keys()[0], 211);
+    assert_eq!(accept::config_keys()[0], 212);
 }
 
 /// REVIEW-k20b m5: each family's "Where" file in ACCEPTANCE.md exists.

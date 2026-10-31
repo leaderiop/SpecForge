@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/nyquist-compliance.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/nyquist-compliance.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Dimension 8 — Nyquist Compliance (checks 8a–8e)
 
 > Reference file for gsd-plan-checker agent. Loaded on-demand via `@` reference.

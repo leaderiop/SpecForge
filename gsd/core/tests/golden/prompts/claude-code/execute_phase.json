@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/execute-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:10583c4b514fe7cbd00964745821986e61e25985ea97b8121b6c8763a30c6f0f",
     "prompt": "@gsd/core@VERSION:execute_phase",

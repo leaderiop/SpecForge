@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/gsd-secret-read-guard.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/gsd-secret-read-guard.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The cases gsd-core v1.19.0 adds to that suite (#5627, #5628, #5046, #5513), written out by hand while the replay
 //! still reads the v1.18.0 recording (plan 06 T2 folds them into the v1.19.0 replay). Each row is a Bash command and

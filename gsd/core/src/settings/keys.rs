@@ -2,7 +2,7 @@
 //! default (model: `spec/settings.md`).
 //!
 //! The roster is the tracked gsd-core's: `config-schema.manifest.json` and the `config` of every capability, as
-//! frozen in `gsd/parity/upstream/v1.18.0/`, plus the keys only `docs/CONFIGURATION.md` lists (the last rows).
+//! frozen in `gsd/parity/upstream/v1.19.0/`, plus the keys only `docs/CONFIGURATION.md` lists (the last rows).
 //! A default is GSD's own (`config-defaults.manifest.json`, then the capability's, then the docs); a key GSD leaves
 //! unset, or marks unset with an empty string or `-1` in a capability, has none (a `-1` lane setting is still accepted). Nothing here reads a setting: each
 //! is inert until the round that gives its behaviour (README, "Build order").

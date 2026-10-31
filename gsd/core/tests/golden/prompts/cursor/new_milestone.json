@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/new-milestone.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:12c8539b04e7e95a06e41b2a8710551621354004baaac43055ad47aa0ea621ff",
     "prompt": "@gsd/core@VERSION:new_milestone",

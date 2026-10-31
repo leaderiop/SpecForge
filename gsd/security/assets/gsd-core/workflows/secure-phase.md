@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/secure-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/security/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/secure-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/security/LICENSE-GSD -->
 <purpose>
 Verify threat mitigations for a completed phase. Confirm the plans' threat dispositions are resolved. Update the phase's SECURITY.md, the security audit.
 </purpose>

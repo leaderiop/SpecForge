@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/resume-work.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:a052b34702ac4debe49e642217032574d248e83744fd77a23941760fa0782112",
     "prompt": "@gsd/core@VERSION:resume_work",

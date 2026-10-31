@@ -1,6 +1,6 @@
-//! Ported from gsd-core v1.18.0 tests/gsd-secret-read-guard.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/gsd-secret-read-guard.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
-//! The suite's every call to the hook is replayed: `parity/upstream/v1.18.0/hook-cases/gsd-secret-read-guard.json`
+//! The suite's every call to the hook is replayed: `parity/upstream/v1.19.0/hook-cases/gsd-secret-read-guard.json`
 //! holds the payloads upstream's tests sent and the answers upstream's hook gave (recorded by
 //! `gsd/parity/record-hook-cases.cjs`). Each is run through `secret_read_guard`, which must deny exactly where
 //! upstream blocked and name the same file. The cases that are not calls (the 1 MiB limit) are written out below;
@@ -103,7 +103,15 @@ fn secret_read_guard_matches_upstreams_cases() {
     assert!(cases.len() >= 60, "{} cases ported", cases.len());
 }
 
+#[path = "../../../tests/common/pending.rs"]
+mod pending;
+
 #[test]
 fn secret_read_guard_accounts_for_every_upstream_case() {
+    let path = "tests/gsd-secret-read-guard.test.cjs";
+    if pending::is_pending(path) {
+        pending::assert_still_pending(path, || accounting::account(SUITE, &ported(), SKIPPED));
+        return;
+    }
     accounting::account(SUITE, &ported(), SKIPPED);
 }

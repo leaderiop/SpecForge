@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/verify-work/steps/automated-ui-verification.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/verify-work/steps/automated-ui-verification.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <step name="automated_ui_verification">
 **Automated UI Verification (when Playwright-MCP is available)**
 

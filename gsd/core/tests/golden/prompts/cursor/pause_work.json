@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/pause-work.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:a307c4e77f00aab38c0047eae56d4826a624a3f70ef39f71785ba1d836e20c02",
     "prompt": "@gsd/core@VERSION:pause_work",

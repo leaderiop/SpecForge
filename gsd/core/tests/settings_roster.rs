@@ -1,6 +1,6 @@
 //! The configuration roster: every key of the tracked gsd-core is declared by `@gsd/core`, owned by another `@gsd/*`
 //! extension, or not applicable, per `spec/settings.md` (parity check "roster"). The snapshot is
-//! `gsd/parity/upstream/v1.18.0/`, so the check runs offline.
+//! `gsd/parity/upstream/v1.19.0/`, so the check runs offline.
 
 use std::collections::BTreeSet;
 
@@ -190,8 +190,8 @@ fn every_core_key_of_the_manifest_is_declared_with_its_default() {
     assert_eq!(doubly, Vec::<&str>::new(), "keys claimed twice");
     assert_eq!(
         (universe.len(), core.len()),
-        (211, 161),
-        "the roster of v{}: 211 keys, 161 of them core",
+        (212, 161),
+        "the roster of v{}: 212 keys, 161 of them core",
         gsd_kit::tracked_version!()
     );
 

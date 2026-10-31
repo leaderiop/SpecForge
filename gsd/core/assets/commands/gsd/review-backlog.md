@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 commands/gsd/review-backlog.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 commands/gsd/review-backlog.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <objective>
 Review all 999.x backlog items and optionally promote them into the active

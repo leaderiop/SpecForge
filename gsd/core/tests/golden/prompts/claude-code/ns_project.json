@@ -177,7 +177,7 @@
       "license": "MIT",
       "path": "commands/gsd/ns-project.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:17f214263ada403165560dbec02ffee0f72d7f081701c5065883f42a1f89c31a",
     "prompt": "@gsd/core@VERSION:ns_project"

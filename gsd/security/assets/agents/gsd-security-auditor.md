@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 agents/gsd-security-auditor.md, MIT, Copyright (c) 2026 Open GSD; see gsd/security/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 agents/gsd-security-auditor.md, MIT, Copyright (c) 2026 Open GSD; see gsd/security/LICENSE-GSD -->
 
 <role>
 An implemented phase has been submitted for security audit. Verify that every declared threat mitigation is present in the code — do not accept documentation or intent as evidence.

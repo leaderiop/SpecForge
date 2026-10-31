@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/gsd-validate-commit-crash-policy.test.cjs and tests/gsd-validate-commit-sigpipe.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/gsd-validate-commit-crash-policy.test.cjs and tests/gsd-validate-commit-sigpipe.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The two suites spawn the shell script; here the verdict is a function of the message. What they test of the verdict
 //! (a conforming and a non-conforming commit, an unknown type, a configured type, the last of a very long list) is

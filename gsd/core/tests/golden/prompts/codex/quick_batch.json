@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/quick-batch.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:b254bca257f98b62e639816d52ad26b5f0cfe82a5bfbae71926840ee1828b3dc",
     "prompt": "@gsd/core@VERSION:quick_batch",

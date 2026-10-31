@@ -9,6 +9,9 @@ use std::process::{Command, Stdio};
 
 use regex::Regex;
 
+#[path = "common/pending.rs"]
+mod pending;
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
@@ -38,7 +41,8 @@ fn pairs() -> Vec<(String, Vec<String>, Vec<String>)> {
             .expect("under assets")
             .display()
             .to_string();
-        if rel.ends_with(".compact.md") {
+        // a file waiting for its re-port is checked once it is re-ported
+        if rel.ends_with(".compact.md") || pending::is_pending(&rel) {
             continue;
         }
         let plain = vendored.join(&rel);

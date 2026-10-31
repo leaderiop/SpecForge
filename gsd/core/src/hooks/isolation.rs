@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-agent-isolation-guard.js and hooks/gsd-worktree-path-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-agent-isolation-guard.js and hooks/gsd-worktree-path-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `worktree_path_guard` (D-r44-10), upstream's guard on the git facts the kernel hands a hook (ADR 0320).
 //!

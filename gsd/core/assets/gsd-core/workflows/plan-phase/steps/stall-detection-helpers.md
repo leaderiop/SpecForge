@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Bounded Stall-Detection Helpers (#2650)
 
 `planner.stall_detection_enabled` controls the wait policy for the five scoped

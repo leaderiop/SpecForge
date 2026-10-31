@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 src/complexity-trigger.cts (`stripLiterals`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 src/complexity-trigger.cts (`stripLiterals`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Replaces comment and literal content with spaces, preserving length and every newline so line numbers survive.
 //! Handles `//`, `/* */`, `'`, `"`, backtick templates (`${...}` interpolations stay code), regex literals

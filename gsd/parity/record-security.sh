@@ -2,23 +2,23 @@
 # Records what gsd-tools answers over the vault fixture about its threats, into goldens/vault/. Run by hand (needs node
 # and a built gsd-core), never in CI.
 #
-#   git -C ~/Projects/OpenSource/gsd-core archive v1.18.0 | tar -x -C $TMP/gsd-core-1.18.0
-#   (cd $TMP/gsd-core-1.18.0 && npm ci && npm run build:lib)
-#   GSD_CORE_DIR=$TMP/gsd-core-1.18.0 gsd/parity/record-security.sh
+#   git -C ~/Projects/OpenSource/gsd-core archive v1.19.0 | tar -x -C $TMP/gsd-core-1.19.0
+#   (cd $TMP/gsd-core-1.19.0 && npm ci && npm run build:lib)
+#   GSD_CORE_DIR=$TMP/gsd-core-1.19.0 gsd/parity/record-security.sh
 #
 # As record.sh: the verbs run on a copy of the fixture that is its own git repository, timestamps, dates and hashes are
 # normalised, the goldens are replaced only when every verb succeeded, and a verb that errors fails the script: fix the
 # fixture, never a golden. The fixture's .planning/ is hand-written (plan 16, decision U3); the verbs vouch for it.
 set -eu
 
-: "${GSD_CORE_DIR:?set GSD_CORE_DIR to a gsd-core v1.18.0 checkout whose lib is built}"
+: "${GSD_CORE_DIR:?set GSD_CORE_DIR to a gsd-core v1.19.0 checkout whose lib is built}"
 here=$(cd "$(dirname "$0")" && pwd)
 fixture="$here/fixtures/vault"
 out="$here/goldens/vault"
 tools="$GSD_CORE_DIR/gsd-core/bin/gsd-tools.cjs"
 
 version=$(node -p "require('$GSD_CORE_DIR/package.json').version")
-[ "$version" = "1.18.0" ] || { echo "record-security.sh: GSD_CORE_DIR is gsd-core $version, the tracked release is 1.18.0" >&2; exit 1; }
+[ "$version" = "1.19.0" ] || { echo "record-security.sh: GSD_CORE_DIR is gsd-core $version, the tracked release is 1.19.0" >&2; exit 1; }
 [ -f "$tools" ] || { echo "record-security.sh: $tools is missing" >&2; exit 1; }
 
 work=$(mktemp -d)

@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-secret-read-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-secret-read-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `secret_read_guard` (D-r44-8): a Read, a Grep or a shell command that reads `.env`, `.env.<suffix>` or `.secrets`
 //! is refused, the templates (`.env.example`, `.sample`, `.template`, `.dist`) excepted. The shell command is read

@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/plan-phase/steps/auto-advance-check.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/plan-phase/steps/auto-advance-check.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Auto-Advance Check (plan-phase step 15)
 
 This file is Read, not textually substituted: wherever a snippet below shows `$ARGUMENTS`, write the parent command's original argument string there (#4772).

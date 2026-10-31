@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/spec-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:afbdf0a96307c9567d8226f839a25533440cea034cc102f0fcc14b254dd688e8",
     "judged": [

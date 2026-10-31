@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/lib/injection-patterns.js and hooks/gsd-read-injection-scanner.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/lib/injection-patterns.js and hooks/gsd-read-injection-scanner.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! A backtracking matcher for the JavaScript regular expressions of upstream's scanners, read from the very source
 //! text they have there (`patterns::INJECTION_PATTERNS` pins each). The `regex` crate has no look-ahead, which the

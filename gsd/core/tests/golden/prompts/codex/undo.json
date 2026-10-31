@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/undo.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:58f9b589e59e389b73de0d655c6c7c2ee6a8ebf6a473f173b02a20ba2196dbfd",
     "prompt": "@gsd/core@VERSION:undo"

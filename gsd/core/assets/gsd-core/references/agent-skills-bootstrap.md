@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/agent-skills-bootstrap.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/agent-skills-bootstrap.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Agent Skills Self-Load (Bootstrap)
 
 > **Shared contract.** Every `agent_skills` consumer agent self-loads its configured
@@ -8,7 +8,7 @@
 > delegation does not reliably execute the delegated workflow's bash, such as Cursor;
 > see open-gsd/gsd-core#1600 / #1601). This is the durable counterpart to the
 > orchestrator-side injection documented under
-> [Agent Skills Injection](https://github.com/open-gsd/gsd-core/blob/v1.18.0/docs/CONFIGURATION.md).
+> [Agent Skills Injection](https://github.com/open-gsd/gsd-core/blob/v1.19.0/docs/CONFIGURATION.md).
 
 ## When to run
 

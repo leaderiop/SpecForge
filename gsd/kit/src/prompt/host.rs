@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 src/runtime-artifact-conversion.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 src/runtime-artifact-conversion.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Upstream's runtime adapters (D-r42-12): the text rewrites `convertClaudeToCodexMarkdown` and
 //! `convertClaudeToCursorMarkdown` apply to a Claude Code workflow so it reads right on Codex and Cursor, and the two

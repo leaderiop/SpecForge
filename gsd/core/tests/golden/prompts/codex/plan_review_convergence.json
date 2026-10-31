@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/plan-review-convergence.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:27762488b77c1738267a9df6ad1725976838cdd0b6a74060c6cf1dd76724968f",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",

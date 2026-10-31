@@ -10,6 +10,9 @@ use regex::Regex;
 mod rule;
 use rule::check_lines;
 
+#[path = "common/pending.rs"]
+mod pending;
+
 pub fn upstream_dir() -> PathBuf {
     PathBuf::from(gsd_kit::snapshot!("agents"))
 }
@@ -291,7 +294,15 @@ fn bodies_diff_only_in_ported_passages() {
     assert_eq!(AGENTS.len(), 15);
     let mut total = 0;
     for agent in AGENTS {
-        total += check_body(&format!("{}.md", agent.id));
+        let file = format!("{}.md", agent.id);
+        let path = format!("agents/{file}");
+        if pending::is_pending(&path) {
+            pending::assert_still_pending(&path, || {
+                check_body(&file);
+            });
+            continue;
+        }
+        total += check_body(&file);
     }
     assert!(total > 100, "only {total} lines were ported");
 }

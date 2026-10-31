@@ -1,7 +1,7 @@
-# Acceptance: `@gsd/core` 1.1.0 against gsd-core 1.18.0
+# Acceptance: `@gsd/core` 1.1.0 against gsd-core 1.19.0
 
 This is the checklist for the core program (r36 to r44). Each row counts the items of one family of the vendored
-inventory (`parity/upstream/v1.18.0/`): how many `@gsd/core` builds, how many another `@gsd/*` extension owns, how many
+inventory (`parity/upstream/v1.19.0/`): how many `@gsd/core` builds, how many another `@gsd/*` extension owns, how many
 do not apply to SpecForge, and how many are named and not built. `core/tests/parity_roster.rs`
 (`the_acceptance_counts_match`) computes every number from the tables the checks already hold and fails when this file
 disagrees. Every row but Capabilities is computed from tables of code; Capabilities is parsed from the capability table of
@@ -11,11 +11,11 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 |---|---|---|---|---|---|---|
 | Commands | 72 | 50 | 22 | 0 | 0 | `core/tests/common/roster.rs` |
 | Agents | 64 | 25 | 39 | 0 | 0 | `core/src/agents/roster.rs` |
-| Hooks | 28 | 16 | 0 | 10 | 2 | `core/src/hooks/roster.rs` |
+| Hooks | 29 | 16 | 0 | 11 | 2 | `core/src/hooks/roster.rs` |
 | Capabilities | 45 | 17 | 10 | 0 | 18 | `core/README.md` capability table |
-| Workflows and references | 295 | 233 | 53 | 9 | 0 | `core/tests/parity_roster/assets.rs` |
-| CLI modules | 282 | 168 | 21 | 93 | 0 | `core/tests/parity_roster/modules.rs` |
-| Config keys | 211 | 161 | 35 | 15 | 0 | `core/spec/settings.md` |
+| Workflows and references | 297 | 234 | 53 | 10 | 0 | `core/tests/parity_roster/assets.rs` |
+| CLI modules | 288 | 169 | 21 | 98 | 0 | `core/tests/parity_roster/modules.rs` |
+| Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 92 | 51 | 14 | 14 | `core/tests/parity_rules/cutover.rs` |
 | Codes | 63 | 63 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
@@ -28,20 +28,21 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   to the other extensions. The `parity_roster` check fails on a command the snapshot has and the roster lacks.
 - Agents: 25 of the 64 items (the core agents and their compact forms) are embedded and installed; the other 39 belong
   to `@gsd/ai`, `@gsd/ui`, `@gsd/codebase` and `@gsd/ops`.
-- Hooks: 16 of the 28 upstream hook items are built (13 files ported as 15 hooks of `@gsd/core`, and the 3 Cursor
-  renderings of events they port); 10 are dropped, each with its reason in `hooks/roster.rs` (7 not ported, among them
-  the agent isolation guard, and the
+- Hooks: 16 of the 29 upstream hook items are built (13 files ported as 15 hooks of `@gsd/core`, and the 3 Cursor
+  renderings of events they port); 11 are dropped, each with its reason in `hooks/roster.rs` (8 not ported, among them
+  the agent isolation guard and the path export, and the
   Cursor `stop`, `subagent-start` and `subagent-stop` files, which no hook of ours feeds); the 2 Windsurf files are
   named and open (Windsurf is a later host). `core.spec_guard` is the kernel's and is
   wired by every install.
 - Capabilities: 17 built (14 in `@gsd/core`, 3 as install renderers), 10 owned by an extension, 18 named and open: 16
   renderers for hosts SpecForge does not install for yet, and `claude-orchestration` and `external-job`, which need the
   `specforged` harness (only their settings keys exist).
-- Workflows and references: 233 are embedded or replaced by a typed command, 53 are owned, 9 do not apply; each of the
-  77 not embedded names why in `assets.rs`.
-- CLI modules: 168 are ported or are the host half of a `specforge` command, 21 are owned, 93 do not apply (the argv
-  router, the capability loader, the runtimes SpecForge does not install for, `security.cjs`).
-- Config keys: of 211, 161 are declared in `@gsd/core`, 35 are owned by an extension and 15 do not apply, in
+- Workflows and references: 234 are embedded or replaced by a typed command, 53 are owned, 10 do not apply; each of the
+  78 not embedded names why in `assets.rs`.
+- CLI modules: 169 are ported or are the host half of a `specforge` command, 21 are owned, 98 do not apply (the argv
+  router, the capability loader, the runtimes SpecForge does not install for, `security.cjs`, the per-repository release
+  tags).
+- Config keys: of 212, 161 are declared in `@gsd/core`, 35 are owned by an extension and 16 do not apply, in
   `core/spec/settings.md`.
 - Gate-cutover verdicts: 92 of the 171 are reproduced by a test or by construction (the typed commands refuse the
   argument shape); 51 belong to an extension, 14 are the gate engine, and 14 are core codes whose verdict is not reproduced: 11
@@ -49,7 +50,7 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   reason, in `core/tests/parity_rules/cutover.rs`.
 - Codes: 63 of the 63 codes fire and stay silent in a named test.
 
-## `@gsd/security` 1.0.0 against gsd-core 1.18.0
+## `@gsd/security` 1.0.0 against gsd-core 1.19.0
 
 Plan 16. The same families for the security items of the vendored inventory; `security/tests/parity_roster.rs`
 (`the_acceptance_counts_match`) computes every number from its tables and `security/tests/parity_rules.rs` checks the
@@ -100,7 +101,7 @@ Not verified:
 - Known limits of the checks (r44 post-fix minors): `secrets.rs`'s 1 MiB limit counts bytes, not UTF-16 units, and errs
   toward refusing; the Codex and Cursor agents and skills (130 files) are pinned by `{bytes, sha256}` in `tree.json`
   only, with no full-text golden read by a person (a drift is caught, a wrong first blessing is not);
-  `config_keys_match_the_snapshot` checks a count, and the membership of the 211 keys is accounted by
+  `config_keys_match_the_snapshot` checks a count, and the membership of the 212 keys is accounted by
   `settings_roster.rs`; a refused install can still write `.mcp.json` (claude) or `hooks.json` (codex).
 - A `statusline.rs.bak` was committed in `0ba3b8c0b` and removed in `d665cd81b`; it is absent at HEAD and the history
   is not rewritten.

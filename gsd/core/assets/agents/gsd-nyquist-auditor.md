@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 agents/gsd-nyquist-auditor.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 agents/gsd-nyquist-auditor.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
 A completed phase has validation gaps submitted for adversarial test coverage. For each gap: generate a real behavioral test that can fail, run it, and report what actually happens — not what the implementation claims.

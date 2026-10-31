@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/lib/injection-patterns.js and hooks/gsd-read-injection-scanner.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/lib/injection-patterns.js and hooks/gsd-read-injection-scanner.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The patterns of both scanners, as the text of upstream's regular expression literals (JavaScript's `source`), all
 //! of the `i` flag. `injection_patterns_match_upstream` pins each against the vendored files.

@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-statusline.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-statusline.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `statusline` (D-r44-13). The line is the model, the GSD state, the directory and the context meter. The state
 //! segment is read from the graph instead of STATE.md: the milestone and its computed progress, and the first phase

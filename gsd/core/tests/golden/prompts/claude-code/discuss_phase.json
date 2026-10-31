@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/discuss-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:238866552f258eb89d16e479f8ae971b4b872f25ac8127a7863df5e3e2dca302",
     "prompt": "@gsd/core@VERSION:discuss_phase",

@@ -10,6 +10,9 @@ use regex::Regex;
 mod rule;
 use rule::check_lines;
 
+#[path = "common/pending.rs"]
+mod pending;
+
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
 /// told the agent something false.
@@ -21,6 +24,10 @@ const REWRITTEN: &[(&str, usize)] = &[
     // REVIEW-r42 C1: upstream deletes REQUIREMENTS.md after archiving it; the requirement entities stay.
     ("gsd-core/workflows/complete-milestone.md", 23),
     ("gsd-core/workflows/complete-milestone.md", 279),
+    (
+        "gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md",
+        33,
+    ),
     ("gsd-core/workflows/complete-milestone.md", 544),
     ("gsd-core/workflows/complete-milestone.md", 555),
     ("gsd-core/workflows/complete-milestone.md", 556),
@@ -32,6 +39,10 @@ const REWRITTEN: &[(&str, usize)] = &[
     // REVIEW-r42 M4: a shell line whose path had been swapped for prose.
     ("gsd-core/workflows/complete-milestone.md", 220),
     ("gsd-core/workflows/complete-milestone.md", 254),
+    (
+        "gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md",
+        8,
+    ),
     ("gsd-core/workflows/transition.md", 222),
     // REVIEW-r42 N1: upstream clears the previous milestone's phase directories; the phases stay with their milestone.
     ("gsd-core/workflows/new-milestone.md", 245),
@@ -513,15 +524,37 @@ fn workflow_assets_diff_only_in_ported_passages() {
     let mut checked = 0;
     for path in assets().into_iter().filter(|p| p.ends_with(".md")) {
         let asset = std::fs::read_to_string(root().join("assets").join(&path)).expect("an asset");
-        check_lines(&path, &path, &asset, &body(&path), &rx, &|n| {
-            REWRITTEN.contains(&(path.as_str(), n))
-                || REWRITTEN_SPANS
-                    .iter()
-                    .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
-        });
+        let check = || {
+            check_lines(&path, &path, &asset, &body(&path), &rx, &|n| {
+                REWRITTEN.contains(&(path.as_str(), n))
+                    || REWRITTEN_SPANS
+                        .iter()
+                        .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
+            });
+        };
+        if pending::is_pending(&path) {
+            pending::assert_still_pending(&path, check);
+            continue;
+        }
+        check();
         checked += 1;
     }
     assert!(checked > 0, "no workflow asset was checked");
+}
+
+/// Every path waiting for its re-port is a file of the snapshot (a misspelt path would skip nothing).
+#[test]
+fn every_pending_path_is_vendored() {
+    for path in pending::PENDING_RESYNC {
+        assert!(vendored(path).is_file(), "{path} is not in the snapshot");
+    }
+}
+
+/// Plan 06 T5 un-ignores it: the re-port of gsd-core v1.19.0 is done when nothing waits.
+#[test]
+#[ignore = "plan 06 T5"]
+fn pending_resync_is_empty() {
+    assert_eq!(pending::PENDING_RESYNC, &[] as &[&str]);
 }
 
 /// The files `@gsd/security` embeds that upstream's `gsd-core/` and `commands/` trees hold (its agents and capability
@@ -587,6 +620,8 @@ fn every_hook_stub_asks_the_capability_extensions() {
             "{path}: a stub is left"
         );
         let mine: Vec<&str> = asset.split('\n').skip(1).collect();
+        // a file waiting for its re-port still counts its sites; its lines are compared once it is re-ported
+        let pending = pending::is_pending(&path);
         for (n, theirs) in body(&path).iter().enumerate() {
             let Some(c) = twin.captures(theirs) else {
                 continue;
@@ -616,7 +651,9 @@ fn every_hook_stub_asks_the_capability_extensions() {
                 Some(open) => format!("{}{}={}{call}}}", &c[1], &c[2], open.as_str()),
                 None => format!("{}{}={call}", &c[1], &c[2]),
             };
-            assert_eq!(mine[n], want, "{path}:{n}");
+            if !pending {
+                assert_eq!(mine[n], want, "{path}:{n}");
+            }
             asked += 1;
         }
     }

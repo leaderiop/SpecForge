@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/progress/steps/forensic-audit.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/progress/steps/forensic-audit.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <step name="forensic_audit">
 **Forensic Integrity Audit** — only runs when `--forensic` is present in ARGUMENTS.
 

@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/config.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:110ab541cc7813353c68237efb0b8a54211578ee7bb3a7e50716a0d22e12ea87",
     "prompt": "@gsd/core@VERSION:config"
