@@ -113,7 +113,7 @@ fn a_prompt_the_surfaces_check_dropped_is_not_a_judge() {
     // An argument named for something the host owns drops the prompt whole (W021): it is not registered.
     let mut declarations = declarations("prompt:spec_phase");
     declarations[0].surfaces.prompts[0].args = serde_json::from_value(json!([
-        {"name": "path", "field_type": "string", "description": "reserved"},
+        {"name": "host", "field_type": "string", "description": "reserved"},
     ]))
     .unwrap();
 

@@ -101,7 +101,7 @@ fn each_refused_prompt_is_dropped_whole_and_the_rest_is_kept() {
         ),
         (
             "host_name",
-            json!({"args": [{"name": "path", "field_type": "string"}]}),
+            json!({"args": [{"name": "settings", "field_type": "string"}]}),
         ),
         (
             "host_arg",

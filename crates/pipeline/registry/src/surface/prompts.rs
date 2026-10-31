@@ -9,8 +9,6 @@ use std::collections::BTreeSet;
 use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::Codebook;
 use specforge_graph::FieldForm;
-use specforge_protocol_types::command_args::HOST_OPTIONS;
-use specforge_protocol_types::tool_input::HOST_ARGUMENTS;
 use specforge_protocol_types::{
     CommandArgType, CommandDescriptor, ExtensionDeclaration, FieldType, PromptArgDescriptor,
     PromptDescriptor, PromptStep,
@@ -18,12 +16,13 @@ use specforge_protocol_types::{
 
 use crate::{KindRegistry, SettingsRegistry};
 
-/// An argument name the host owns on every surface: its options, its tool arguments, the prompt's `host` and the
-/// raw `argv` string.
+/// The argument names the host owns on every surface of a prompt: its help, the tool arguments it never reads
+/// (`settings`, `secrets`), the prompt's `host` and the raw `argv` string. `path` and `format` are a command's
+/// options, not a prompt's: a prompt may declare them, and the command line leaves them to it (ADR 0314).
+const PROMPT_HOST_NAMES: [&str; 5] = ["help", "settings", "secrets", "host", "argv"];
+
 fn reserved(name: &str) -> bool {
-    HOST_OPTIONS.contains(&name)
-        || HOST_ARGUMENTS.contains(&name)
-        || ["host", "argv"].contains(&name)
+    PROMPT_HOST_NAMES.contains(&name)
 }
 
 pub(super) fn snake_case(id: &str) -> bool {

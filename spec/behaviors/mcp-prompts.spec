@@ -115,6 +115,8 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "a named (MCP) tail is an ordinary string"
   verify unit "a prompt argument that is not a tail serializes as it did, and a tail round-trips"
   verify unit "the SDK declares a prompt's free-text tail as a string argument"
+  verify unit "a prompt's own path and format arguments reach it on the command line"
+  verify unit "the host reads its options before the first double dash only"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

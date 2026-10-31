@@ -63,24 +63,50 @@ pub fn run(argv: &[String], builtins: &[String], terminal: &Terminal) -> i32 {
         None => (first.clone(), rest.to_vec()),
     };
 
-    let root = match ProjectArg::scan(&rest).root() {
-        Ok(root) => root,
-        Err(error) => {
-            let format = if asks_for_json(&rest) {
-                CommandFormat::Json
-            } else {
-                CommandFormat::Human
-            };
-            err!(terminal, "{}", written(&RunError::NoProject(error), format));
-            return Exit::Failed.code();
-        }
+    // The host reads `--path` before the first `--`; a prompt that declares `path` owns it (ADR 0314).
+    let before = rest.iter().position(|w| w == "--").unwrap_or(rest.len());
+    let named_path = rest[..before]
+        .iter()
+        .any(|w| w == "--path" || w.starts_with("--path="));
+    let here = ProjectArg::scan(&[]);
+    let load = |root: &ProjectRoot| {
+        Environment::load(
+            root,
+            Some(Arc::new(
+                specforge_component::ComponentRuntime::with_user_cache(),
+            )),
+        )
     };
-    let env = Environment::load(
-        &root,
-        Some(Arc::new(
-            specforge_component::ComponentRuntime::with_user_cache(),
-        )),
-    );
+    // The project `--path` names, else (when a prompt of the current directory's project declares `path`, and so
+    // owns the option) the current directory's.
+    let own_path = |root: ProjectRoot| {
+        let env = load(&root);
+        declares_path(&env, &ext, &rest).then_some((env, root))
+    };
+    let owned = || {
+        named_path
+            .then(|| here.root().ok().and_then(own_path))
+            .flatten()
+    };
+    let named = ProjectArg::scan(&rest[..before]).root();
+    let (env, root) = match named {
+        Ok(root) => match owned() {
+            Some(owned) => owned,
+            None => (load(&root), root),
+        },
+        Err(error) => match owned() {
+            Some(owned) => owned,
+            None => {
+                let format = if asks_for_json(&rest) {
+                    CommandFormat::Json
+                } else {
+                    CommandFormat::Human
+                };
+                err!(terminal, "{}", written(&RunError::NoProject(error), format));
+                return Exit::Failed.code();
+            }
+        },
+    };
     run_in(env, &root, &ext, rest, builtins, terminal)
 }
 
@@ -107,7 +133,12 @@ pub(crate) fn run_in(
     });
     if prompted {
         let name = rest.remove(0);
-        let format = if asks_for_json(&rest) {
+        let declares_format = env.registries().prompts().iter().any(|p| {
+            p.short() == ext
+                && p.cli_name() == name
+                && p.declaration().args.iter().any(|a| a.name == "format")
+        });
+        let format = if !declares_format && asks_for_json(&rest) {
             crate::outcome::OutputFormat::Json
         } else {
             crate::outcome::OutputFormat::Human
@@ -347,6 +378,19 @@ pub(crate) fn with_commands_of(mut cli: Command, env: &Environment) -> Command {
         }
     }
     cli
+}
+
+/// Whether the prompt `rest` names (a name no command has) declares an argument `path`.
+fn declares_path(env: &Environment, ext: &str, rest: &[String]) -> bool {
+    let routed = ExtensionCommands::build(env.registries());
+    rest.first().is_some_and(|name| {
+        !routed.of(ext).any(|c| c.cli_name() == *name)
+            && env.registries().prompts().iter().any(|p| {
+                p.short() == ext
+                    && p.cli_name() == name
+                    && p.declaration().args.iter().any(|a| a.name == "path")
+            })
+    })
 }
 
 /// The exit code of a usage error clap catches, `INVALID_INPUT`'s: the

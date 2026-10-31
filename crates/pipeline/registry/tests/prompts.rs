@@ -206,3 +206,45 @@ fn a_prompt_takes_one_tail_of_text() {
     }
     assert!(w021.iter().all(|m| !m.contains("'one_tail'")), "{w021:#?}");
 }
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "a prompt argument may be named path or format, never host, argv, help, settings or secrets"
+)]
+fn a_prompt_may_name_an_argument_path_or_format() {
+    let with = |id: &str, name: &str| {
+        let mut p = prompt(id);
+        p["args"] = json!([{"name": name, "field_type": "string"}]);
+        p
+    };
+    let build = build_registries(vec![declaration(
+        "@t/core",
+        "t",
+        json!({"surfaces": {"prompts": [
+            with("has_path", "path"), with("has_format", "format"),
+            with("has_host", "host"), with("has_argv", "argv"), with("has_help", "help"),
+            with("has_settings", "settings"), with("has_secrets", "secrets"),
+        ]}}),
+    )]);
+    let w021 = messages(&build, "W021");
+    for refused in [
+        "has_host",
+        "has_argv",
+        "has_help",
+        "has_settings",
+        "has_secrets",
+    ] {
+        assert_eq!(
+            w021.iter()
+                .filter(|m| m.contains(&format!("'{refused}'")))
+                .count(),
+            1,
+            "{refused}: {w021:#?}"
+        );
+    }
+    assert!(
+        w021.iter()
+            .all(|m| !m.contains("'has_path'") && !m.contains("'has_format'")),
+        "{w021:#?}"
+    );
+}

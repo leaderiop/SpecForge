@@ -22,20 +22,36 @@ fn project(goal: &str, state: &str) -> TestProject {
     project
 }
 
+/// The fixture, with the prompt `ingest`: its own `path` (the tail) and `format` arguments.
+fn fixture() -> GsdPrompts {
+    GsdPrompts::new().prompting(serde_json::json!({
+        "id": "ingest", "title": "Ingest", "description": "Ingest documents", "export": "prompt__ingest",
+        "args": [
+            {"name": "path", "field_type": "string", "rest": true},
+            {"name": "format", "field_type": "enum", "enum_values": ["md", "txt"]},
+        ],
+    }))
+}
+
 /// `specforge <ext> <rest…>` over `project`: its exit code, stdout and stderr.
 fn extension(project: &TestProject, ext: &str, rest: &[&str]) -> (i32, String, String) {
-    let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
-    let env = project.environment_in(runtime);
-    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
     let mut rest: Vec<String> = rest.iter().map(ToString::to_string).collect();
     rest.extend(["--path".to_string(), project.root().display().to_string()]);
+    extension_here(project, ext, rest)
+}
+
+/// [`extension`] with the project as the current directory: the command line names no `--path` of its own.
+fn extension_here(project: &TestProject, ext: &str, rest: Vec<String>) -> (i32, String, String) {
+    let runtime: SharedRuntime = Arc::new(fixture().runtime());
+    let env = project.environment_in(runtime);
+    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
     let code = run_in(env, &project.project_root(), ext, rest, &[], &terminal);
     (code, capture.stdout(), capture.stderr())
 }
 
 /// `specforge prompt <rest…>` over `project`: its exit code, stdout and stderr.
 fn prompt(project: &TestProject, rest: &[&str]) -> (i32, String, String) {
-    let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
+    let runtime: SharedRuntime = Arc::new(fixture().runtime());
     let compiled = CompiledProject::of(project.environment_in(runtime));
     let (terminal, capture) = Terminal::captured("", Facts::PIPED);
     let mut words: Vec<String> = rest.iter().map(ToString::to_string).collect();
@@ -205,4 +221,39 @@ fn specforge_prompt_refuses_what_it_cannot_render() {
             "{words:?}: {out} {err}"
         );
     }
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt's own path and format arguments reach it on the command line"
+)]
+fn a_prompts_own_path_and_format_reach_it() {
+    let ok = project("fine", "ok");
+    let (code, out, err) = prompt(&ok, &["t.ingest", "--path", "docs/adr", "--format", "md"]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("\"path\":\"docs/adr\""), "{out}");
+    assert!(out.contains("\"format\":\"md\""), "{out}");
+
+    let words = |list: &[&str]| list.iter().map(ToString::to_string).collect::<Vec<_>>();
+    let (code, out, err) = extension_here(&ok, "t", words(&["ingest", "docs/adr"]));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("\"path\":\"docs/adr\""), "{out}");
+    // `--format md` is the prompt's: the output stays human, not JSON.
+    let (code, out, err) = extension_here(&ok, "t", words(&["ingest", "--format", "md"]));
+    assert_eq!(code, 0, "{err}");
+    assert!(out.starts_with("prompt__ingest "), "{out}");
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "the host reads its options before the first double dash only"
+)]
+fn the_host_reads_its_options_before_double_dash_only() {
+    let ok = project("fine", "ok");
+    let (code, _, err) = prompt(&ok, &["t.plan_phase", "03", "--", "--host", "codex"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        err.contains("no positional argument takes this word"),
+        "{err}"
+    );
 }

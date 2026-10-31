@@ -1,7 +1,8 @@
 //! `specforge prompt <short>.<id> [arguments]`: render an extension's prompt (ADR 0291). The words after the name are
 //! the prompt's arguments as its declaration reads them (`specforge_ops::extension::prompt::args`): a required
 //! argument is positional, any other is `--<name> <value>`, a bool is `--<name>`. The host's own options, `--host`,
-//! `--format` and `--path`, are read wherever they stand. `specforge <short> <id>` renders the same prompt when no
+//! `--format` and `--path`, are read wherever they stand before the first `--`, except `--format` and `--path` of a prompt
+//! that declares an argument of that name (ADR 0314). `specforge <short> <id>` renders the same prompt when no
 //! command of the extension has the name ([`crate::extension_command`]).
 
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
@@ -38,30 +39,47 @@ pub(crate) struct Args {
 impl Args {
     pub(crate) fn run(self, terminal: &Terminal) -> Exit {
         let mut rest = self.arguments;
-        // The options the host owns, wherever they stand: after the first argument they are the trailing words.
-        let project = if rest
+        // The options the host owns stand before the first `--`; after it every word is the prompt's.
+        let before = rest.iter().position(|w| w == "--").unwrap_or(rest.len());
+        let named_path = rest[..before]
             .iter()
-            .any(|w| w == "--path" || w.starts_with("--path="))
-        {
-            ProjectArg::scan(&rest)
+            .any(|w| w == "--path" || w.starts_with("--path="));
+        // A prompt that declares `path` owns `--path`: the project is then the one `--path` did not name.
+        let project = if named_path {
+            match self.project.compile() {
+                Ok(project) if declares(&project, &self.name, "path") => Ok(project),
+                _ => ProjectArg::scan(&rest[..before]).compile(),
+            }
         } else {
-            self.project
+            self.project.compile()
         };
-        let project = match project.compile() {
+        let project = match project {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
         if let Some(host) = self.host {
-            rest.extend(["--host".to_string(), host]);
+            rest.splice(before..before, ["--host".to_string(), host]);
         }
         run_in(&project, &self.name, rest, self.output.format, terminal)
     }
 }
 
-/// Remove `--<name> <value>` or `--<name>=<value>` from `words`, and give the value; `Err` when it has none.
+/// Whether the prompt `name` (`<short>.<id>`) of `project` declares an argument `arg`.
+fn declares(project: &CompiledProject, name: &str, arg: &str) -> bool {
+    let view = ProjectView::of(project);
+    let (short, id) = name.split_once('.').unwrap_or(("", name));
+    let cli_name = specforge_protocol_types::command_args::option_name(id);
+    ExtensionPrompts::build(&view)
+        .by_cli_name(short, &cli_name)
+        .is_some_and(|p| p.declaration().args.iter().any(|a| a.name == arg))
+}
+
+/// Remove `--<name> <value>` or `--<name>=<value>` from `words` before the first `--`, and give the value; `Err`
+/// when it has none.
 fn take(words: &mut Vec<String>, name: &str) -> Result<Option<String>, String> {
     let flag = format!("--{name}");
-    let Some(at) = words
+    let before = words.iter().position(|w| w == "--").unwrap_or(words.len());
+    let Some(at) = words[..before]
         .iter()
         .position(|w| *w == flag || w.starts_with(&format!("{flag}=")))
     else {
@@ -112,9 +130,18 @@ pub(crate) fn served(
         }
         return Exit::Unjudged;
     };
+    // A prompt's own `path` and `format` arguments are left to it (ADR 0314).
+    let declared = |name: &str| prompt.declaration().args.iter().any(|a| a.name == name);
     let mut options = || -> Result<(Option<String>, Option<String>), String> {
-        take(&mut rest, "path")?;
-        Ok((take(&mut rest, "format")?, take(&mut rest, "host")?))
+        if !declared("path") {
+            take(&mut rest, "path")?;
+        }
+        let chosen = if declared("format") {
+            None
+        } else {
+            take(&mut rest, "format")?
+        };
+        Ok((chosen, take(&mut rest, "host")?))
     };
     let (chosen, host) = match options() {
         Ok(options) => options,
