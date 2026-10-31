@@ -618,7 +618,8 @@ fn a_large_log_resolves_its_ancestry_quickly() {
         .map(|id| node(&format!("v1.0/{}/{id}", &id[..2]), "plan", &id))
         .collect();
     nodes.dedup_by(|a, b| a.id == b.id);
-    let started = std::time::Instant::now();
+    let plans = nodes.len();
+    WALKED.with(|n| n.set(0));
     let got = ancestry_of(
         synthetic(&parents, &scopes),
         GraphWire {
@@ -626,11 +627,19 @@ fn a_large_log_resolves_its_ancestry_quickly() {
             edges: vec![],
         },
     );
-    let took = started.elapsed();
+    let walked = WALKED.with(std::cell::Cell::get);
+    // Work, not time (a 5 s clock bound flaked under the full gate). A plan's first commit walks at most the whole log;
+    // every other record stops near its plan's previous one, `gap` commits back on each of a merge's two sides. The
+    // walk to the root per record steps on 20 000 000 commits; this one on 5 563 800 (the history is fixed).
+    let (records, gap) = (count / 10, 10 * plans);
+    let bound = records * 2 * gap + plans * count;
+    assert!(
+        walked <= bound,
+        "walked {walked} commits (bound {bound}) of {count} for {plans} plans"
+    );
     assert_eq!(got.len(), 2_000);
     assert_eq!(
         got[&hash_of(19_995)[..12]].as_array().map(Vec::len),
         Some(19)
     );
-    assert!(took < std::time::Duration::from_secs(5), "{took:?}");
 }

@@ -245,6 +245,12 @@ fn task_of<'a>(nodes: &'a [GraphNode], plan: &str, description: &str) -> Option<
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    /// The commits `ancestry` stepped onto on this thread: a test bounds the walk's work by it, not by the clock.
+    pub(super) static WALKED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// For each commit of `plans`, the 12-hex names of the commits of its plan it reaches through its parents, oldest
 /// first. Parents are resolved before their children, so a walk stops at a commit of its own plan and takes that
 /// commit's list: each commit is walked only down to its plan's nearest recorded commits (#5275).
@@ -306,6 +312,8 @@ fn ancestry<'a>(
                 continue;
             }
             seen[up] = at;
+            #[cfg(test)]
+            WALKED.with(|n| n.set(n.get() + 1));
             if plan[up] == Some(own) {
                 found.insert(up);
                 found.extend(&memo[up]);
