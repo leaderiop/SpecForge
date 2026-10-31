@@ -104,27 +104,14 @@ fn every_code_fires_and_stays_silent() {
     assert_eq!(listed, book, "RULE_EVIDENCE lists the code book, in order");
     let mut bad = Vec::new();
     for (code, evidence) in RULE_EVIDENCE {
-        match evidence {
-            Evidence::Tests { fires, silent } => {
-                for (what, name) in [("fires", fires), ("silent", silent)] {
-                    if !names_code(&fns, name, code) {
-                        bad.push(format!("{code} {what}: no test `{name}` that names {code}"));
-                    }
-                }
-            }
-            Evidence::NotBuilt(reason) => {
-                assert!(reason.len() > 40, "{code}: say why: {reason}");
+        let Evidence::Tests { fires, silent } = evidence;
+        for (what, name) in [("fires", fires), ("silent", silent)] {
+            if !names_code(&fns, name, code) {
+                bad.push(format!("{code} {what}: no test `{name}` that names {code}"));
             }
         }
     }
     assert!(bad.is_empty(), "{bad:#?}");
-    // The codes with no rule are exactly the ones the plan names.
-    let unbuilt: Vec<&str> = RULE_EVIDENCE
-        .iter()
-        .filter(|(_, e)| matches!(e, Evidence::NotBuilt(_)))
-        .map(|(c, _)| *c)
-        .collect();
-    assert_eq!(unbuilt, ["E515"]);
 }
 
 fn snapshot_names() -> BTreeSet<String> {

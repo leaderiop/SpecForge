@@ -1,4 +1,4 @@
-//! The gate guards: `gsd/E106`, `E511`, `E512`, `W318`, `W404` and `E516` (D-r39-12). A command's or prompt's gate
+//! The gate guards: `gsd/E106`, `E511`, `E512`, `W318`, `W404`, `E515` and `E516` (D-r39-12, D-K20a-7). A command's or prompt's gate
 //! runs the guard passes that report its codes; a gate fails only on an Error.
 //!
 //! A guard also runs on every judged write, with no trigger. Every guard here answers nothing unless its trigger is a
@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 use specforge_extension_sdk::prelude::*;
 
 use super::derive::{ladder::window_status, verify::by_phase};
-use super::plans::{link, of_kind, phase_of, text};
+use super::plans::{link, links, of_kind, phase_of, text};
 use crate::digest::scope_of;
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
@@ -25,13 +25,19 @@ const GUARDS: &[(&str, &str, Check)] = &[
     ("gate_e512", "E512", e512),
     ("gate_w318", "W318", w318),
     ("gate_w404", "W404", w404),
+    ("gate_e515", "E515", e515),
     ("gate_e516", "E516", e516),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
     for (name, code, check) in GUARDS {
         c.pass(name, |p| {
-            p.guard().reports(&[code]).run(*check);
+            let guard = p.guard().reports(&[code]);
+            // Only E515 reads the recorded tests.
+            if *code == "E515" {
+                guard.reads_tests();
+            }
+            guard.run(*check);
         });
     }
 }
@@ -256,6 +262,72 @@ fn w404(input: &PassInput) -> Vec<PassDiagnostic> {
             )
         })
         .collect()
+}
+
+/// E515: each complete requirement of a phase in scope traces to a task, a commit and a passing test (gsd-plus).
+/// A task traces it when its plan names the requirement, it is not `manual`, a recorded commit names it and the
+/// report holds a passed result for the task or the requirement and no failed one. Like a window, a requirement is
+/// outside a phase's path, so the diagnostic names the gate's subject.
+fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
+    let Some(subject) = gate(input) else {
+        return Vec::new();
+    };
+    let commits = crate::passes::commits::commits(input);
+    let mut seen = BTreeSet::new();
+    let mut found = Vec::new();
+    for phase in phases(input, subject) {
+        for requirement in links(input, phase, "requirements") {
+            let complete = of_kind(input, "requirement")
+                .any(|r| r.id == requirement && text(r, "status") == Some("complete"));
+            if !complete || !seen.insert(requirement) {
+                continue;
+            }
+            let tasks: Vec<&PassEntity> = of_kind(input, "task")
+                .filter(|t| text(t, "type") != Some("manual"))
+                .filter(|t| {
+                    link(input, t, "plan")
+                        .and_then(|plan| of_kind(input, "plan").find(|p| p.id == plan))
+                        .is_some_and(|plan| {
+                            links(input, plan, "requirements").contains(&requirement)
+                        })
+                })
+                .collect();
+            let committed: Vec<&&PassEntity> = tasks
+                .iter()
+                .filter(|t| {
+                    commits
+                        .iter()
+                        .any(|c| c.task.as_deref() == Some(t.id.as_str()))
+                })
+                .collect();
+            let passing = |task: &PassEntity| {
+                input.test_results.as_ref().is_some_and(|report| {
+                    let results = || report.of(&task.id).iter().chain(report.of(requirement));
+                    results().any(|r| r.status == TestStatus::Passed)
+                        && !results().any(|r| r.status == TestStatus::Failed)
+                })
+            };
+            let missing = if tasks.is_empty() {
+                "no task of its plans"
+            } else if committed.is_empty() {
+                "no commit of its tasks"
+            } else if !committed.iter().any(|t| passing(t)) {
+                "no passing test of its tasks"
+            } else {
+                continue;
+            };
+            found.push(refuse(
+                "E515",
+                PassSeverity::Error,
+                subject.unwrap_or(requirement),
+                format!(
+                    "complete requirement '{requirement}' does not trace to a task, a commit and a passing test: {missing}"
+                ),
+                "link a passing test to the task with [gsd:<task id>] and record the commit",
+            ));
+        }
+    }
+    found
 }
 
 /// E516: no stale verdict is in scope.

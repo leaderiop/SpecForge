@@ -212,6 +212,11 @@
             "passes": true
           },
           {
+            "code": "gsd/E515",
+            "off": true,
+            "passes": true
+          },
+          {
             "code": "gsd/E516",
             "off": true,
             "passes": true
