@@ -202,6 +202,11 @@ const SKIPPED: &[(&str, &str)] = &[
         "state_format via renderStatusline > ",
         "env: runs the hook on a project directory with a STATE.md; state_of's tests below and tests/cli/hooks_statusline.rs run the formats on the graph",
     ),
+    // v1.19.0 adds, under this prefix, `read-only git spawns opt out of the optional index lock (#5048)`:
+    // 'readGitStatus passes GIT_OPTIONAL_LOCKS=0', 'the env inherits the parent environment, not a bare replacement'
+    // and 'the command and its bounds are unchanged'. The kernel's GitCli runs that `git status` and sets
+    // GIT_OPTIONAL_LOCKS=0 on every call (crates/adapters/git/src/lib.rs `call`), pinned by
+    // crates/adapters/git/tests/history.rs `every_git_call_opts_out_of_the_optional_index_lock`.
     (
         "readGitStatus + parseGitStatus against a real repo > ",
         GIT_REAL,

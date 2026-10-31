@@ -192,3 +192,81 @@ fn the_shell_ids_skip_an_abandoned_milestone() {
         &text[text.len().saturating_sub(400)..]
     );
 }
+
+/// The workflows that load the phase's spec (#5629), as `specforge gsd reference` serves them.
+const SPEC_READERS: [&str; 6] = [
+    "discuss-phase.md",
+    "discuss-phase-assumptions.md",
+    "discuss-phase-power.md",
+    "discuss-phase/modes/power.md",
+    "spec-phase.md",
+    "plan-phase.md",
+];
+
+/// The graph read that stands for upstream's `has_spec` / `spec_path` init facts.
+const PHASE_SPEC_READ: &str =
+    r#"jq -r '[.nodes[] | select(.kind == "phase_spec") | .id] | first // empty'"#;
+
+fn served(p: &super::harness::Project, file: &str) -> String {
+    let run = p.run(&["gsd", "reference", &format!("gsd-core/workflows/{file}")]);
+    assert_eq!(run.code, 0, "{file}: {}", run.all());
+    run.stdout
+}
+
+/// #5629: upstream's init emits `has_spec` / `spec_path`; SpecForge's INIT is a `specforge query`, which has
+/// neither, so a verbatim copy reads empty. The phase's spec is its `phase_spec` entity, never a `*-SPEC.md` glob.
+#[test]
+fn the_discuss_prompts_read_the_phase_spec_from_the_graph() {
+    let p = twin();
+    for file in SPEC_READERS {
+        let text = served(&p, file);
+        for upstream in [
+            "/*-SPEC.md 2>/dev/null",
+            "`has_spec`, `spec_path`",
+            "Init already resolved it",
+            "`has_spec` and `spec_path` from init",
+            "init facts `has_spec`",
+            "_gsd_field \"$INIT\" spec_path",
+        ] {
+            assert!(!text.contains(upstream), "{file}: `{upstream}`");
+        }
+        assert!(text.contains(PHASE_SPEC_READ), "{file}: no graph read");
+    }
+}
+
+/// The `check_spec` line of each discuss workflow, run in bash on the `discuss` project: phase 02 has a
+/// `phase_spec`, phase 01 has none.
+#[test]
+fn check_spec_finds_the_phase_spec_in_the_graph() {
+    let p = super::harness::project("discuss");
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    let path = format!(
+        "{}:{}",
+        bin.parent().expect("a directory").display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    for file in &SPEC_READERS[..5] {
+        let text = served(&p, file);
+        let at = text
+            .find("`SPEC_ID=$(")
+            .unwrap_or_else(|| panic!("{file}: no SPEC_ID line"))
+            + 1;
+        let code = &text[at..at + text[at..].find('`').expect("a closing backtick")];
+        for (phase, want) in [("v1.0/02", "true v1.0/02/02-SPEC"), ("v1.0/01", "false")] {
+            let out = std::process::Command::new("bash")
+                .args(["-c", &format!("{code}\necho $HAS_SPEC $SPEC_ID")])
+                .env("PATH", &path)
+                .env("PHASE_ID", phase)
+                .current_dir(p.root())
+                .output()
+                .expect("bash");
+            let got = String::from_utf8_lossy(&out.stdout);
+            assert_eq!(
+                got.trim(),
+                want,
+                "{file} {phase}: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
+    }
+}

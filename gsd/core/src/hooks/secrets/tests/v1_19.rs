@@ -6,6 +6,89 @@
 
 use super::*;
 
+/// The cases of v1.19.0's suite these hand tables run, by the test that runs them (plan 04 T8): the accounting counts
+/// them as ported until the v1.19.0 recording replays them (plan 06 T2).
+pub const PORTED: &[(&str, &[&str])] = &[
+    (
+        "a_mebibyte_of_wrappers_is_walked_in_linear_time",
+        &[
+            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > blocks: 1 MiB of leading timeout wrappers finishes inside the hook budget",
+            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > a ${bytes}-byte command is denied as ${code}",
+        ],
+    ),
+    (
+        "the_debugger_is_seen_through_stacked_wrappers",
+        &[
+            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > blocks: stacked timeouts",
+            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > blocks: timeout interleaved with prefix wrappers and flags",
+            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > allows: timeout wrappers that never reach the debugger (${command})",
+            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > property: stacked timeout wrappers only change the verdict through the final agent",
+        ],
+    ),
+    (
+        "a_nested_shell_behind_a_wrapper_with_flags_is_read",
+        &[
+            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > blocks ${w} bash -c",
+            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > blocks ${JSON.stringify(cmd)}",
+            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > allows ${JSON.stringify(cmd)}",
+            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > the debugger-spawn check still sees through timeout flags",
+        ],
+    ),
+    (
+        "any_wrapper_stack_in_front_of_a_nested_read_is_read",
+        &[
+            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > property: any wrapper stack in front of bash -c \"cat .env\" is blocked",
+        ],
+    ),
+    (
+        "every_cluster_shape_hides_no_secret_and_spares_the_templates",
+        &[
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > a bundled short-flag cluster hides no secret name, at any cluster length",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > the same cluster with a template or look-alike name stays allowed",
+        ],
+    ),
+    (
+        "a_secret_bundled_behind_short_flags_is_read",
+        &[
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > cluster boundary: grep ${cluster} reaches the secret name",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > cluster boundary: grep ${cluster} names nothing and stays allowed",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > an =-valued or quoted cluster is blocked: grep ${cluster}",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > a secret-named option value is blocked (new denial): ${cmd}",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > an alphanumeric-leading value ending in a secret name is blocked (documented class): ${cmd}",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > git log -S.env stays blocked (pre-existing denial, not new)",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > expansion form matches its unbundled form: ${clustered}",
+        ],
+    ),
+    (
+        "a_long_or_dense_cluster_is_judged_as_a_short_one",
+        &[
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > long single-dash word (${n} chars before the name) is blocked; no-dot form is allowed",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dot-dense word (${n} dots) is judged as on base",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dense value, ${n} units: `.env` x N + `.example` is allowed",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dense value, ${n} units: `.envrc` x N is allowed",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dense value, ${n} units: `.envrc` x N + `/.env` is blocked",
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dense value, ${n} units: `.env` x N is blocked",
+        ],
+    ),
+    (
+        "a_bundled_value_is_judged_like_the_same_value_unbundled",
+        &[
+            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > property: a bundled value is judged like the same value unbundled",
+        ],
+    ),
+    (
+        "a_heredoc_inside_a_substitution_is_read_as_bash_reads_it",
+        &[
+            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > denies the read after ${label}",
+            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > allows the twin with no read after ${label}",
+            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > still allows ${label}",
+            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > a read after a mixed-line-ending heredoc stays denied",
+            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > a read after a top-level CRLF heredoc is denied",
+            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > a read after a top-level heredoc whose tag holds a substitution is denied",
+        ],
+    ),
+];
+
 /// What upstream's test asserts of a command.
 enum Want {
     Allow,

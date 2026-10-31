@@ -5,38 +5,7 @@
     reason = "each test crate that includes this module uses some of it"
 )]
 
-pub const PENDING_RESYNC: &[&str] = &[
-    "agents/gsd-verifier.md",
-    "gsd-core/references/git-integration.md",
-    "gsd-core/references/loop-hook-dispatch.md",
-    "gsd-core/references/planning-config.md",
-    "gsd-core/references/tdd.md",
-    "gsd-core/templates/verification-report.md",
-    "gsd-core/workflows/complete-milestone.md",
-    "gsd-core/workflows/diagnose-issues.md",
-    "gsd-core/workflows/discuss-phase-assumptions.md",
-    "gsd-core/workflows/discuss-phase-power.md",
-    "gsd-core/workflows/discuss-phase.md",
-    "gsd-core/workflows/discuss-phase/modes/power.md",
-    "gsd-core/workflows/execute-phase.md",
-    "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
-    "gsd-core/workflows/execute-phase/steps/post-merge-gate.md",
-    "gsd-core/workflows/execute-phase/steps/regression-gate-run.md",
-    "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
-    "gsd-core/workflows/execute-phase/steps/wave-post-gate-hooks.md",
-    "gsd-core/workflows/plan-phase.md",
-    "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
-    "gsd-core/workflows/quick-batch/steps/plan-checker-loop.md",
-    "gsd-core/workflows/quick.md",
-    "gsd-core/workflows/quick/steps/plan-checker-loop.md",
-    "gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md",
-    "gsd-core/workflows/review.md",
-    "gsd-core/workflows/settings.md",
-    "gsd-core/workflows/ship.md",
-    "gsd-core/workflows/spec-phase.md",
-    "gsd-core/workflows/verify-work.md",
-    "tests/gsd-secret-read-guard.test.cjs",
-];
+pub const PENDING_RESYNC: &[&str] = &[];
 
 pub fn is_pending(path: &str) -> bool {
     PENDING_RESYNC.contains(&path)

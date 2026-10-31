@@ -6,6 +6,8 @@
 //! converted for the host (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths.
 //! Then the heredoc terminators are stamped and `$ARGUMENTS` replaced, last: the typed text is data no rewrite runs on
 //! (#5637). The host's adapter header goes in front, unconverted.
+//!
+//! Also ports gsd-core bin/lib modules: args-terminator.cjs (the collision-free terminator, stamped per render).
 
 use super::{compose, host, preamble, setting};
 

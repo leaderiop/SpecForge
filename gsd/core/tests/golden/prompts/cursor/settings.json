@@ -61,7 +61,7 @@
     "- `workflow.plan_check` — spawn plan checker during plan-phase",
     "- `workflow.verifier` — spawn verifier during execute-phase"
   ],
-  "bytes": 46188,
+  "bytes": 46360,
   "end": [
     "These settings apply to future /gsd-plan-phase and /gsd-execute-phase runs.",
     "",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 901,
+  "lines": 902,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c6aaf088319a112f532923afd8b689796b8cb45a421e451a1d659cd47729b016",
+    "digest": "sha256:04263f4ccbc112496a81ca3a20958cdf91ef5f636437e6996768d900be822aaf",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "c6aaf088319a112f532923afd8b689796b8cb45a421e451a1d659cd47729b016"
+  "sha256": "04263f4ccbc112496a81ca3a20958cdf91ef5f636437e6996768d900be822aaf"
 }

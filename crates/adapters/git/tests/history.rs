@@ -359,3 +359,34 @@ fn history_answers_the_branch_and_status() {
     git(root, &["checkout", "-q", "--detach"]);
     assert_eq!(cli.branch(&place).unwrap(), "");
 }
+
+/// gsd-core 1.19.0 (#5048, #5699): a read-only `git status` must not take the optional `.git/index.lock` a concurrent
+/// `git commit` needs. The adapter sets `GIT_OPTIONAL_LOCKS=0` on every call; a `git` that answers `status` with the
+/// value it was given shows it, and the hook's statusline asks through this call.
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "history answers the branch and the porcelain status of a repository"
+)]
+fn every_git_call_opts_out_of_the_optional_index_lock() {
+    use std::os::unix::fs::PermissionsExt;
+    if !has_git() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("repo");
+    std::fs::create_dir_all(&root).unwrap();
+    git(&root, &["init", "-q", "-b", "main"]);
+    let script = dir.path().join("env-git");
+    std::fs::write(
+        &script,
+        "#!/bin/sh\ncase \" $* \" in *\" status \"*) echo \"GIT_OPTIONAL_LOCKS=${GIT_OPTIONAL_LOCKS-unset}\"; exit 0;; esac\nexec git \"$@\"\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let cli = GitCli::with_program(script);
+    let Located::Repo(place) = cli.locate(&root) else {
+        panic!("a repository");
+    };
+    assert_eq!(cli.status(&place).unwrap(), "GIT_OPTIONAL_LOCKS=0\n");
+}

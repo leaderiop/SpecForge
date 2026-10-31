@@ -18,27 +18,28 @@ mod pending;
 /// told the agent something false.
 const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/references/agent-skills-bootstrap.md", 9),
-    ("gsd-core/references/loop-hook-dispatch.md", 133),
-    ("gsd-core/references/loop-hook-dispatch.md", 142),
+    ("gsd-core/references/loop-hook-dispatch.md", 140),
+    ("gsd-core/references/loop-hook-dispatch.md", 149),
     ("gsd-core/references/mvp-concepts.md", 4),
     // REVIEW-r42 C1: upstream deletes REQUIREMENTS.md after archiving it; the requirement entities stay.
     ("gsd-core/workflows/complete-milestone.md", 23),
-    ("gsd-core/workflows/complete-milestone.md", 279),
     (
         "gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md",
         33,
     ),
-    ("gsd-core/workflows/complete-milestone.md", 544),
-    ("gsd-core/workflows/complete-milestone.md", 555),
-    ("gsd-core/workflows/complete-milestone.md", 556),
-    ("gsd-core/workflows/complete-milestone.md", 663),
-    ("gsd-core/workflows/complete-milestone.md", 666),
-    ("gsd-core/workflows/complete-milestone.md", 669),
-    ("gsd-core/workflows/complete-milestone.md", 743),
-    ("gsd-core/workflows/complete-milestone.md", 744),
+    ("gsd-core/workflows/complete-milestone.md", 422),
+    ("gsd-core/workflows/complete-milestone.md", 433),
+    ("gsd-core/workflows/complete-milestone.md", 434),
+    ("gsd-core/workflows/complete-milestone.md", 547),
+    ("gsd-core/workflows/complete-milestone.md", 550),
+    ("gsd-core/workflows/complete-milestone.md", 553),
+    ("gsd-core/workflows/complete-milestone.md", 629),
+    ("gsd-core/workflows/complete-milestone.md", 630),
     // REVIEW-r42 M4: a shell line whose path had been swapped for prose.
     ("gsd-core/workflows/complete-milestone.md", 220),
-    ("gsd-core/workflows/complete-milestone.md", 254),
+    // Plan 04 T2: no sub-repositories, so no release map (git.repo_tagging is not applicable).
+    ("gsd-core/workflows/complete-milestone.md", 275),
+    ("gsd-core/workflows/complete-milestone.md", 313),
     (
         "gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md",
         8,
@@ -77,24 +78,43 @@ const REWRITTEN: &[(&str, usize)] = &[
         "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
         59,
     ),
-    ("gsd-core/workflows/verify-work.md", 605),
+    ("gsd-core/workflows/verify-work.md", 606),
     // REVIEW-security-part1 M1: --after-fingerprint takes the phase's id, and the extension decides what "has it" means.
-    ("gsd-core/workflows/verify-work.md", 608),
-    ("gsd-core/workflows/verify-work.md", 610),
+    ("gsd-core/workflows/verify-work.md", 609),
+    ("gsd-core/workflows/verify-work.md", 611),
     ("gsd-core/workflows/autonomous.md", 552),
-    ("gsd-core/workflows/verify-work.md", 612),
-    ("gsd-core/workflows/verify-work.md", 618),
-    ("gsd-core/workflows/verify-work.md", 621),
-    ("gsd-core/workflows/verify-work.md", 624),
-    ("gsd-core/workflows/verify-work.md", 627),
-    ("gsd-core/workflows/verify-work.md", 630),
-    ("gsd-core/workflows/verify-work.md", 636),
-    ("gsd-core/workflows/verify-work.md", 642),
+    ("gsd-core/workflows/verify-work.md", 613),
+    ("gsd-core/workflows/verify-work.md", 619),
+    ("gsd-core/workflows/verify-work.md", 622),
+    ("gsd-core/workflows/verify-work.md", 625),
+    ("gsd-core/workflows/verify-work.md", 628),
+    ("gsd-core/workflows/verify-work.md", 631),
+    ("gsd-core/workflows/verify-work.md", 637),
+    ("gsd-core/workflows/verify-work.md", 643),
     ("gsd-core/workflows/execute-phase.md", 102),
     ("gsd-core/workflows/execute-phase.md", 401),
     ("gsd-core/workflows/plan-phase.md", 107),
     ("gsd-core/workflows/plan-phase.md", 488),
     ("gsd-core/workflows/audit-milestone.md", 320),
+    // Plan 04 T6 (#5266, #5640): the hosts come from the settings; the check inlines pattern.cjs's helper.
+    ("gsd-core/workflows/review.md", 30),
+    ("gsd-core/workflows/review.md", 680),
+    // Plan 04 T4: the multi-repo tagging section links its how-to at the tag; git.repo_tagging is not applicable.
+    ("gsd-core/references/git-integration.md", 306),
+    ("gsd-core/references/planning-config.md", 37),
+    ("gsd-core/references/planning-config.md", 343),
+    // Plan 04 T3 (#5629): INIT is a `specforge query`, with no `has_spec` / `spec_path`; the spec is the phase's
+    // `phase_spec` entity.
+    ("gsd-core/workflows/discuss-phase.md", 127),
+    ("gsd-core/workflows/discuss-phase.md", 185),
+    ("gsd-core/workflows/discuss-phase-assumptions.md", 84),
+    ("gsd-core/workflows/discuss-phase-assumptions.md", 105),
+    ("gsd-core/workflows/discuss-phase-power.md", 13),
+    ("gsd-core/workflows/discuss-phase-power.md", 19),
+    ("gsd-core/workflows/discuss-phase/modes/power.md", 23),
+    ("gsd-core/workflows/spec-phase.md", 63),
+    ("gsd-core/workflows/spec-phase.md", 74),
+    ("gsd-core/workflows/plan-phase.md", 639),
 ];
 
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
@@ -108,7 +128,8 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/manager.md", 35, 35),
     ("gsd-core/workflows/manager.md", 31, 31),
     ("gsd-core/workflows/autonomous.md", 125, 125),
-    ("gsd-core/workflows/settings.md", 667, 667),
+    ("gsd-core/workflows/settings.md", 668, 668),
+    ("gsd-core/workflows/settings.md", 614, 614),
     ("gsd-core/workflows/settings.md", 613, 613),
     ("gsd-core/workflows/settings.md", 612, 612),
     ("gsd-core/workflows/settings.md", 611, 611),
@@ -147,11 +168,11 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/settings.md", 578, 578),
     ("gsd-core/workflows/settings.md", 577, 577),
     ("gsd-core/workflows/settings.md", 576, 576),
-    ("gsd-core/workflows/settings.md", 575, 575),
+    ("gsd-core/workflows/settings.md", 574, 574),
     ("gsd-core/workflows/settings.md", 573, 573),
     ("gsd-core/workflows/settings.md", 572, 572),
-    ("gsd-core/workflows/settings.md", 571, 571),
-    ("gsd-core/workflows/settings.md", 569, 569),
+    ("gsd-core/workflows/settings.md", 570, 570),
+    ("gsd-core/workflows/settings.md", 568, 568),
     ("gsd-core/workflows/settings.md", 567, 567),
     ("gsd-core/workflows/settings.md", 566, 566),
     ("gsd-core/workflows/settings.md", 565, 565),
@@ -166,7 +187,6 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/settings.md", 556, 556),
     ("gsd-core/workflows/settings.md", 555, 555),
     ("gsd-core/workflows/settings.md", 554, 554),
-    ("gsd-core/workflows/settings.md", 553, 553),
     // REVIEW-r43 M3, M4, M10, M13, M7, M12: settings lines the host accepts, no secret taken in chat, the roadmap-wide
     // backlog and the batch ids.
     ("gsd-core/workflows/settings-integrations.md", 150, 150),
@@ -222,13 +242,13 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/undo.md", 132, 132),
     ("gsd-core/workflows/undo.md", 30, 30),
     ("gsd-core/workflows/undo.md", 29, 29),
+    ("gsd-core/references/planning-config.md", 153, 153),
     ("gsd-core/references/planning-config.md", 152, 152),
-    ("gsd-core/references/planning-config.md", 151, 151),
-    ("gsd-core/references/planning-config.md", 149, 149),
+    ("gsd-core/references/planning-config.md", 150, 150),
+    ("gsd-core/references/planning-config.md", 148, 148),
     ("gsd-core/references/planning-config.md", 147, 147),
-    ("gsd-core/references/planning-config.md", 146, 146),
+    ("gsd-core/references/planning-config.md", 145, 145),
     ("gsd-core/references/planning-config.md", 144, 144),
-    ("gsd-core/references/planning-config.md", 143, 143),
     ("commands/gsd/config.md", 46, 46),
     ("commands/gsd/extract-learnings.md", 6, 6),
     ("commands/gsd/milestone-summary.md", 27, 27),
@@ -245,7 +265,7 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("commands/gsd/review-backlog.md", 36, 37),
     ("commands/gsd/review.md", 10, 10),
     ("commands/gsd/review.md", 7, 7),
-    ("gsd-core/references/planning-config.md", 372, 372),
+    ("gsd-core/references/planning-config.md", 374, 374),
     ("gsd-core/references/reviewer-instances.md", 5, 5),
     ("gsd-core/references/reviewer-instances.md", 76, 79),
     ("gsd-core/references/reviewer-instances.md", 82, 82),
@@ -411,29 +431,30 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/resume-project.md", 90, 91),
     ("gsd-core/workflows/resume-project.md", 93, 96),
     ("gsd-core/workflows/resume-project.md", 98, 99),
-    ("gsd-core/workflows/review.md", 103, 103),
-    ("gsd-core/workflows/review.md", 162, 162),
-    ("gsd-core/workflows/review.md", 173, 173),
-    ("gsd-core/workflows/review.md", 216, 216),
-    ("gsd-core/workflows/review.md", 274, 277),
-    ("gsd-core/workflows/review.md", 298, 300),
-    ("gsd-core/workflows/review.md", 324, 324),
-    ("gsd-core/workflows/review.md", 326, 326),
-    ("gsd-core/workflows/review.md", 328, 328),
-    ("gsd-core/workflows/review.md", 330, 330),
-    ("gsd-core/workflows/review.md", 346, 346),
-    ("gsd-core/workflows/review.md", 439, 444),
-    ("gsd-core/workflows/review.md", 449, 450),
-    ("gsd-core/workflows/review.md", 470, 471),
-    ("gsd-core/workflows/review.md", 493, 494),
+    ("gsd-core/workflows/review.md", 94, 94),
+    ("gsd-core/workflows/review.md", 153, 153),
+    ("gsd-core/workflows/review.md", 164, 164),
+    ("gsd-core/workflows/review.md", 207, 207),
+    ("gsd-core/workflows/review.md", 265, 268),
+    ("gsd-core/workflows/review.md", 289, 291),
+    ("gsd-core/workflows/review.md", 315, 315),
+    ("gsd-core/workflows/review.md", 317, 317),
+    ("gsd-core/workflows/review.md", 319, 319),
+    ("gsd-core/workflows/review.md", 321, 321),
+    ("gsd-core/workflows/review.md", 337, 337),
+    ("gsd-core/workflows/review.md", 430, 435),
+    ("gsd-core/workflows/review.md", 440, 441),
+    ("gsd-core/workflows/review.md", 461, 462),
+    ("gsd-core/workflows/review.md", 484, 485),
     ("gsd-core/workflows/review.md", 5, 5),
-    ("gsd-core/workflows/review.md", 705, 705),
-    ("gsd-core/workflows/review.md", 772, 772),
-    ("gsd-core/workflows/review.md", 819, 819),
+    ("gsd-core/workflows/review.md", 658, 669),
+    ("gsd-core/workflows/review.md", 708, 708),
+    ("gsd-core/workflows/review.md", 775, 775),
     ("gsd-core/workflows/review.md", 822, 822),
-    ("gsd-core/workflows/review.md", 836, 836),
-    ("gsd-core/workflows/review.md", 874, 874),
-    ("gsd-core/workflows/review.md", 938, 938),
+    ("gsd-core/workflows/review.md", 825, 825),
+    ("gsd-core/workflows/review.md", 839, 839),
+    ("gsd-core/workflows/review.md", 877, 877),
+    ("gsd-core/workflows/review.md", 941, 941),
     ("gsd-core/workflows/session-report.md", 57, 57),
     ("gsd-core/workflows/settings-integrations.md", 13, 13),
     ("gsd-core/workflows/settings-integrations.md", 15, 15),
@@ -620,7 +641,7 @@ fn every_hook_stub_asks_the_capability_extensions() {
             "{path}: a stub is left"
         );
         let mine: Vec<&str> = asset.split('\n').skip(1).collect();
-        // a file waiting for its re-port still counts its sites; its lines are compared once it is re-ported
+        // a file waiting for its re-port has moved its lines: it must still hold each call, somewhere
         let pending = pending::is_pending(&path);
         for (n, theirs) in body(&path).iter().enumerate() {
             let Some(c) = twin.captures(theirs) else {
@@ -651,7 +672,12 @@ fn every_hook_stub_asks_the_capability_extensions() {
                 Some(open) => format!("{}{}={}{call}}}", &c[1], &c[2], open.as_str()),
                 None => format!("{}{}={call}", &c[1], &c[2]),
             };
-            if !pending {
+            if pending {
+                // upstream's identical lines (one hook point asked twice) each need their own call
+                let sites = body(&path).iter().filter(|l| *l == theirs).count();
+                let calls = mine.iter().filter(|l| **l == want).count();
+                assert!(calls >= sites, "{path}:{n}: the call is gone");
+            } else {
                 assert_eq!(mine[n], want, "{path}:{n}");
             }
             asked += 1;

@@ -2,7 +2,8 @@
 //! neutralising cases are `tests/runtime-converters.test.cjs`' (`#4482`, `#766`). Both files are vendored beside the
 //! source. A case the port does not do is named and skipped: the frontmatter and file name of a skill or agent
 //! (`convertClaudeCommandToCursorSkill`'s `name:`, `convertClaudeAgentToCursorAgent`), and the install-side path rewrite
-//! `_applyRuntimeRewrites(cursor)`, which runs after references are re-pointed (D-r42-5).
+//! `_applyRuntimeRewrites(cursor)`, which runs after references are re-pointed (D-r42-5). v1.19.0's new cases are all
+//! `#5447` (Antigravity tool names and its block-list `tools` field): Antigravity is not a host here.
 
 use super::*;
 
@@ -248,4 +249,14 @@ fn the_conversions_equal_upstreams_compiled_converters_on_the_probe() {
         to_cursor(probe),
         include_str!("../../../tests/golden/host/cursor.md")
     );
+}
+
+/// #5501 (v1.19.0): `slash-tilde-restore` rewrites a bare `~/.claude` / `$HOME/.claude` for a `--config-dir` install
+/// only; with the default prefix `rewriteClaudeHomeForms` keeps the match. The host installs into the project's
+/// `.claude/`, never a config dir, so Claude's text keeps both forms byte for byte, as upstream's default install does.
+#[test]
+fn claude_keeps_a_bare_claude_home_as_a_default_install_does() {
+    let text = "falling back to git toplevel / $HOME/.claude.\n${CLAUDE_CONFIG_DIR:-$HOME/.claude} and ~/.claude\n";
+    assert_eq!(to_claude(text), text);
+    assert!(SOURCE.contains("if (normalizedPathPrefix === '$HOME/.claude') return match;"));
 }

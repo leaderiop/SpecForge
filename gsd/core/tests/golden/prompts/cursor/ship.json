@@ -61,7 +61,7 @@
     "CONFIG=$(specforge settings)",
     "```"
   ],
-  "bytes": 44781,
+  "bytes": 45157,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 840,
+  "lines": 839,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c9150db2bae08cc146fcd89d15b5cd5a2059be7a2f1aa9822504be64d0609cd4",
+    "digest": "sha256:026b07a7845b74845ff2f2f751e6e8fab5a60e17166b91ac3b089a30ef7876e3",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "c9150db2bae08cc146fcd89d15b5cd5a2059be7a2f1aa9822504be64d0609cd4"
+  "sha256": "026b07a7845b74845ff2f2f751e6e8fab5a60e17166b91ac3b089a30ef7876e3"
 }
