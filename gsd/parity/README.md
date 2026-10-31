@@ -53,8 +53,31 @@ git diff --exit-code gsd/parity/goldens
 
 The recipe needs node 24 or later (the tag's `engines.node`). The script refuses a `GSD_CORE_DIR` that is not 1.19.0, runs the verbs on a copy of the fixture that is its own git
 repository (so `validate health` does not report the machine's worktrees), runs the fixture's `npm test` (node's JUnit
-reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing. To track a newer release, change the tag in `upstream/` and here, re-record, and review
-the diff of the goldens: that diff is the parity backlog.
+reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing.
+
+### To track a newer release
+
+As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):
+
+1. **The backlog first.** `upgrade.sh ~/Projects/OpenSource/gsd-core <tag>` writes `backlog/<tag>.md` against the
+   tracked tag; every `unowned` row is new work (a missing roster row, an upstream path `locate` cannot place).
+2. **The version, once.** The release is the one literal `gsd_kit::tracked_version!()` (`kit/src/lib.rs`); `tracks` in
+   `core/Cargo.toml` and `security/Cargo.toml` and the version check of `record.sh` and `record-security.sh` follow it
+   (`core/tests/declaration.rs` requires `tracks` to name the one vendored directory).
+3. **The move, in one commit.** Rename `upstream/v<old>` to `upstream/v<new>` and re-vendor its files with
+   `git show "<tag>:<path>"` (SOURCE.md names each), bump the pins (`tracks`, the attribution headers, the roster rows
+   the backlog names, the settings keys), and re-bless the goldens that move only by the version. Every vendored asset
+   whose upstream text changed goes into `PENDING_RESYNC` (`core/tests/common/pending.rs`): the port tests skip a listed
+   path, and fail if its port already matches, so the gate stays green while the list is honest. That commit puts
+   `#[ignore]` on `pending_resync_is_empty` (`core/tests/port_workflows.rs`); nothing else is ignored.
+4. **The re-ports.** Each asset is re-ported line for line and taken off the list in the same commit; behaviour
+   changes are ported test first. The commit that empties the list removes the `#[ignore]`; a branch is not merged to
+   main while it is there.
+5. **Re-record** the taskboard goldens (above), the security goldens (`record-security.sh`) and the hook cases
+   (`record-hook-cases.cjs`) on the new tag. These run upstream under node; review the diff of the goldens.
+6. **Close the backlog.** `upgrade.sh <dir> <tag> <old-tag>` (the optional third argument is the tag to diff from,
+   needed once `tracks` names the new tag) re-writes `backlog/<tag>.md`; it must have no `unowned` row. Append by hand
+   what each upstream change meant and where it landed, and what stays open (`backlog/v1.19.0.md`).
 
 ### How the taskboard was made
 
