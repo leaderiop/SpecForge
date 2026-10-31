@@ -154,6 +154,9 @@ Not verified:
     (a slash's `when` must be a setting of its own extension, W021), which follows `@gsd/core`'s setting of the same name
     through a preset when it is `false` (`/gsd-surface` writes core's). The two can be set apart by hand
     (REVIEW-security-part2 m5).
+  - `[response-language-own]` `/gsd-secure-phase` reads `@gsd/security`'s own `response_language`, not `@gsd/core`'s: a
+    prompt sees only its own extension's settings, and a preset follows only an enum or a bool (W021), so a person sets
+    the language under both extensions. `workflow.text_mode` follows core's through a preset (REVIEW-security-part2 m1).
 - The context monitor has no stopped-at record (`[stopped-at]`: /gsd-pause-work records it) and no Stop or SubagentStop rows; the workflow marker lasts the session.
 - `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` compares git toplevels as upstream does, so a symlink into
   the main checkout is refused (ADR 0320).
