@@ -109,3 +109,20 @@ fn a_command_fallback_names_the_host() {
         assert!(skill.1.contains(&want), "{host:?}: {}", skill.1);
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "Claude Code's slash skill leaves effort out, as upstream does"
+)]
+fn a_slash_skill_carries_no_effort() {
+    let files = written(Host::ClaudeCode);
+    let skill = &files[".claude/skills/t-plan-phase/SKILL.md"];
+    assert!(!skill.lines().any(|l| l.starts_with("effort:")), "{skill}");
+    assert!(
+        support::fixture(Host::ClaudeCode)
+            .slashes
+            .iter()
+            .any(|s| s.name == "t-plan-phase" && s.effort.as_deref() == Some("max")),
+        "the fixture slash declares effort: max"
+    );
+}

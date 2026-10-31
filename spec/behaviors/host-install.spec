@@ -29,6 +29,7 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "a host name claimed twice is E039 and the later claimant is not rendered"
   verify unit "a contribution the registry refuses is W021 and dropped, and the rest is kept"
   verify unit "a command slash's CLI fallback names the host it was written for"
+  verify unit "Claude Code's slash skill leaves effort out, as upstream does"
   verify unit "the registry answers an agent by its id, with the extension that declares it"
   verify unit "a judged rule whose judge is no agent of its extension or a declared peer is W112"
   verify unit "Claude Code gets the agents, skills, slash commands, hooks, statusline and MCP entry of the fixture"
