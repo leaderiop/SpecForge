@@ -75,8 +75,15 @@ fails if one errors, so the verbs vouch for the hand-written files. Decision **U
 
 ### The command contract
 
-`<cap>_hooks <point>` (`specforge gsd <cap>-hooks <point> --format json`) is the contract every capability extension
-implements. It answers `{activeHooks, skippedHooks}` as upstream's `render-hooks --raw` does. A gate verb answers
+`<cap>_hooks <point> [--after-fingerprint <phase>]` (`specforge gsd <cap>-hooks <point> --format json`) is the contract
+every capability extension implements. It answers `{activeHooks, skippedHooks}` as upstream's `render-hooks --raw`
+does. With `--after-fingerprint`, a `step` hook whose `produces` the phase already has moves to `skippedHooks` with
+`reason: "produces-present"` and its `artifacts` (upstream's `partitionHooksByFingerprint`, #5105); the extension
+decides what "has" means (`@gsd/security` maps `SECURITY.md` to the phase having a `security_audit`). Core passes the
+flag where upstream does: `verify-work.md` and `autonomous.md` at `verify:post`, with the phase's id for the directory.
+`shortcut:` core's line passes the flag to every capability; one that does not accept it exits 2 (a usage error), which
+the line leaves out silently like "not loaded". Only `@gsd/security` exists today and takes it; upgrade, when a second
+extension lands, by making each one accept the flag. A gate verb answers
 `{block, message, details}` and exits 0 on a block, as `loop-hook-dispatch.md` says; the workflow reads `block`.
 `@gsd/core`'s capability points name the five capabilities (`ai`, `codebase`, `ops`, `security`, `ui`) so a later
 capability extension needs no core edit. A capability extension declares `@gsd/core` as a required peer, and its model

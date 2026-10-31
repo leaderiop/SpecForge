@@ -59,6 +59,10 @@ const REWRITTEN: &[(&str, usize)] = &[
         59,
     ),
     ("gsd-core/workflows/verify-work.md", 605),
+    // REVIEW-security-part1 M1: --after-fingerprint takes the phase's id, and the extension decides what "has it" means.
+    ("gsd-core/workflows/verify-work.md", 608),
+    ("gsd-core/workflows/verify-work.md", 610),
+    ("gsd-core/workflows/autonomous.md", 552),
     ("gsd-core/workflows/verify-work.md", 612),
     ("gsd-core/workflows/verify-work.md", 618),
     ("gsd-core/workflows/verify-work.md", 621),
@@ -558,14 +562,16 @@ fn the_vendored_tree_lists_every_asset() {
 
 /// Plan 16 T4: every upstream `X=$(gsd_run loop render-hooks <point> --raw)` line (or its `${X:-$(...)}` twin) is, here,
 /// the line that asks each capability extension for its hooks; no stub is left. REVIEW-security-part1 m2: the
-/// `${X:-$(...)}` form asks too, not `${X:-[]}`.
+/// `${X:-$(...)}` form asks too, not `${X:-[]}`. M1: upstream's `--after-fingerprint "$PHASE_DIR"` stays, with the
+/// phase's id for the directory.
 #[test]
 fn every_hook_stub_asks_the_capability_extensions() {
     let twin = Regex::new(
-        r"^(\s*)(\w+)=(\$\{\w+:-)?\$\(gsd_run loop render-hooks (\S+?)(?: --after-fingerprint \S+)? --raw\)\}?$",
+        r"^(\s*)(\w+)=(\$\{\w+:-)?\$\(gsd_run loop render-hooks (\S+?)(?: --after-fingerprint (\S+))? --raw\)\}?$",
     )
     .expect("a regex");
     let mut asked = 0;
+    let mut fingerprinted = Vec::new();
     for path in assets().into_iter().filter(|p| p.ends_with(".md")) {
         let asset = std::fs::read_to_string(root().join("assets").join(&path)).expect("an asset");
         assert!(
@@ -577,8 +583,21 @@ fn every_hook_stub_asks_the_capability_extensions() {
             let Some(c) = twin.captures(theirs) else {
                 continue;
             };
+            let flag = match c.get(5).map(|m| m.as_str()) {
+                None => String::new(),
+                Some(dir) => {
+                    fingerprinted.push(path.clone());
+                    // the phase's id stands for its directory; autonomous.md's shell blocks name it `${PHASE_NUM}`
+                    let id = if path.ends_with("autonomous.md") {
+                        "PHASE_NUM"
+                    } else {
+                        "PHASE_ID"
+                    };
+                    format!(" --after-fingerprint {}", dir.replace("PHASE_DIR", id))
+                }
+            };
             let call = format!(
-                "$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" {} --format json 2>/dev/null; done | jq -sc '{{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}}')",
+                "$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" {}{flag} --format json 2>/dev/null; done | jq -sc '{{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}}')",
                 &c[4]
             );
             let want = match c.get(3) {
@@ -590,4 +609,13 @@ fn every_hook_stub_asks_the_capability_extensions() {
         }
     }
     assert_eq!(asked, 24);
+    // upstream passes the flag at exactly these two sites (verify-phase-goal.md omits it on purpose)
+    fingerprinted.sort();
+    assert_eq!(
+        fingerprinted,
+        [
+            "gsd-core/workflows/autonomous.md",
+            "gsd-core/workflows/verify-work.md"
+        ]
+    );
 }
