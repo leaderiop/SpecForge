@@ -238,7 +238,7 @@ impl HostRenderer for Codex {
             HookEvent::SubagentStart => "SubagentStart",
             HookEvent::SubagentStop => "SubagentStop",
             HookEvent::PreCompact => "PreCompact",
-            HookEvent::Statusline => return None,
+            HookEvent::Statusline | HookEvent::FileChanged => return None,
         })
     }
 

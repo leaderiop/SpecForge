@@ -124,6 +124,7 @@ pub fn run(
         state: declared
             .reads_state
             .then(|| crate::host::state::read(view, extension, event.session.as_deref())),
+        ..HookInput::default()
     };
     let called = view.runtime().map(|runtime| {
         ExtensionCalls::new(runtime.as_ref()).run_hook(

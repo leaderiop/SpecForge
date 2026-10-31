@@ -1,5 +1,5 @@
 //! What an extension contributes to a host, and what the host sends the exports that serve it (ADR 0292, protocol
-//! 1.10.0): agents, skills, slash commands and hooks in an extension's surfaces, the `render__` export that writes
+//! 1.10.0; ADR 0320-0323, protocol 1.14.0): agents, skills, slash commands and hooks in an extension's surfaces, the `render__` export that writes
 //! an agent's or skill's body, the `hook__<id>` exports, and the state a hook or command keeps.
 
 use std::collections::BTreeMap;
@@ -140,9 +140,25 @@ pub struct HookDescriptor {
     /// A bool setting of the extension: while it is false the hook is a no-op.
     #[serde(default, skip_serializing_if = "Vec::is_empty", with = "when_names")]
     pub when: Vec<String>,
+    /// The hosts it is installed on, each one of [`HOOK_HOSTS`]; empty: every host (ADR 0322).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hosts: Vec<String>,
+    /// The input carries `git` (the repository the `cwd` is in) and, for an out-of-project path, its `toplevel` and
+    /// `in_git_dir` (ADR 0320).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reads_git: bool,
+    /// `git.status` too, `git status --porcelain=v2 --branch` as git wrote it; implies `reads_git`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reads_git_status: bool,
+    /// Settings of other extensions the input carries as `other_settings`, each `<extension>:<setting>` (ADR 0323).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads_settings: Vec<String>,
     /// `hook__<id>`.
     pub export: String,
 }
+
+/// The hosts a hook may name in `hosts` (ADR 0322).
+pub const HOOK_HOSTS: [&str; 3] = ["claude-code", "codex", "cursor"];
 
 fn five_seconds() -> u32 {
     5_000
@@ -167,11 +183,13 @@ pub enum HookEvent {
     SubagentStop,
     PreCompact,
     Statusline,
+    /// A named project file changed (ADR 0321, protocol 1.14.0).
+    FileChanged,
 }
 
 impl HookEvent {
     /// Every event.
-    pub const ALL: [HookEvent; 10] = [
+    pub const ALL: [HookEvent; 11] = [
         HookEvent::PreTool,
         HookEvent::PostTool,
         HookEvent::PreCommit,
@@ -182,6 +200,7 @@ impl HookEvent {
         HookEvent::SubagentStop,
         HookEvent::PreCompact,
         HookEvent::Statusline,
+        HookEvent::FileChanged,
     ];
 
     /// The wire name.
@@ -197,6 +216,7 @@ impl HookEvent {
             HookEvent::SubagentStop => "subagent_stop",
             HookEvent::PreCompact => "pre_compact",
             HookEvent::Statusline => "statusline",
+            HookEvent::FileChanged => "file_changed",
         }
     }
 
@@ -211,6 +231,11 @@ impl HookEvent {
             self,
             HookEvent::PreTool | HookEvent::PostTool | HookEvent::PreCommit
         )
+    }
+
+    /// Whether a hook of this event names `paths`: a tool's, or `file_changed`'s watch list.
+    pub const fn takes_paths(self) -> bool {
+        self.takes_tools() || matches!(self, HookEvent::FileChanged)
     }
 
     /// Whether a hook of this event may answer an edit plan.
@@ -283,9 +308,21 @@ pub struct HookInput<G = GraphWire> {
     /// A shell tool's command, split into words.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shell: Option<Vec<String>>,
+    /// A shell tool's command split at its control operators, each command its words (ADR 0320).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commands: Vec<Vec<String>>,
     /// `pre_commit`: the commit being made.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub commit: Option<CommitFact>,
+    /// `file_changed`: what happened to the file (`change`, `add` or `unlink`), its path in `paths` (ADR 0321).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change: Option<String>,
+    /// A hook that declares `reads_git` (ADR 0320): none outside a repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub git: Option<GitFacts>,
+    /// A hook that declares `reads_settings`: the value of each setting, keyed as the hook wrote it (ADR 0323).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub other_settings: BTreeMap<String, Value>,
     /// `user_prompt`: what the user typed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
@@ -328,6 +365,30 @@ pub struct PathFact {
     pub bytes: Option<u64>,
     /// A write's content size.
     pub new_bytes: Option<u64>,
+    /// The path made absolute against the `cwd`, `.` and `..` resolved, links followed as far as it exists (ADR 0320).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub real: String,
+    /// `reads_git`, outside the project: the top directory of the repository the real path is in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub toplevel: Option<String>,
+    /// `reads_git`, outside the project: a component of the real path is `.git`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub in_git_dir: bool,
+}
+
+/// What the host read of the repository a hook's `cwd` is in (ADR 0320, protocol 1.14.0).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GitFacts {
+    /// The working tree's top directory, canonical (`git rev-parse --show-toplevel`).
+    pub toplevel: String,
+    /// The git directory, absolute: a linked worktree's lies under `<common>/worktrees/<name>`.
+    pub git_dir: String,
+    /// `git branch --show-current`: empty when `HEAD` is detached.
+    #[serde(default)]
+    pub branch: String,
+    /// `reads_git_status`: `git status --porcelain=v2 --branch`, as git wrote it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
 }
 
 /// The commit a `pre_commit` hook fires on.
@@ -338,6 +399,11 @@ pub struct CommitFact {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     pub amend: bool,
+    /// The mode of every cleanup directive of the commit's own words, in order (git applies the last): `--cleanup=`
+    /// (or a prefix of it of at least `--cl`) and a global `-c commit.cleanup=`. A mode in git config is not read
+    /// (ADR 0320).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cleanup: Vec<String>,
 }
 
 /// What a hook or command reads of its extension's state (ADR 0292).

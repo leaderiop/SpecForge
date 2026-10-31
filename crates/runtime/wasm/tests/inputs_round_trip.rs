@@ -33,6 +33,7 @@ fn every_golden_encodes_byte_equal() {
     round_trips::<CommandInput>("command.writes.input.json", Some("graph"));
     round_trips::<CollectInput>("collect.input.json", None);
     round_trips::<HookInput>("hook.input.json", None);
+    round_trips::<HookInput>("hook.facts.input.json", None);
     for pass in [
         "pass.input.json",
         "pass.check.input.json",
@@ -88,4 +89,25 @@ fn a_collect_input_carries_now_only_when_it_has_one() {
         serde_json::to_value(&input).unwrap()["now"],
         "2026-10-28T09:30:00Z"
     );
+}
+
+#[test]
+fn a_1_13_hook_input_still_reads() {
+    let input: HookInput = serde_json::from_value(golden("hook.input.json")).unwrap();
+    assert!(input.commands.is_empty() && input.change.is_none() && input.git.is_none());
+    assert!(input.other_settings.is_empty());
+    let path = &input.paths[0];
+    assert!(path.real.is_empty() && path.toplevel.is_none() && !path.in_git_dir);
+}
+
+#[test]
+fn the_k20c_hook_members_round_trip() {
+    let input: HookInput = serde_json::from_value(golden("hook.facts.input.json")).unwrap();
+    assert_eq!(
+        input.event,
+        specforge_protocol_types::HookEvent::FileChanged
+    );
+    assert_eq!(input.git.as_ref().unwrap().branch, "worktree-agent-x");
+    assert_eq!(input.commit.as_ref().unwrap().cleanup, ["verbatim"]);
+    assert_eq!(input.commands[1], ["git", "add", "-f", "x"]);
 }

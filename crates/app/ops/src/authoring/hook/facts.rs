@@ -86,6 +86,7 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
                     exists: meta.is_some(),
                     bytes: meta.map(|m| m.len()),
                     new_bytes,
+                    ..PathFact::default()
                 }
             }
             None => PathFact {
@@ -95,6 +96,7 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
                 exists: false,
                 bytes: None,
                 new_bytes,
+                ..PathFact::default()
             },
         })
         .collect()
@@ -207,6 +209,7 @@ fn commit_fact(words: &[String]) -> CommitFact {
     CommitFact {
         message: (!elsewhere && !message.is_empty()).then(|| message.join("\n\n")),
         amend,
+        cleanup: Vec::new(),
     }
 }
 

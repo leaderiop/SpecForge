@@ -224,7 +224,7 @@ impl HostRenderer for ClaudeCode {
             HookEvent::SubagentStop => "SubagentStop",
             HookEvent::PreCompact => "PreCompact",
             HookEvent::Statusline => "statusLine",
-            HookEvent::SubagentStart => return None,
+            HookEvent::SubagentStart | HookEvent::FileChanged => return None,
         })
     }
 
