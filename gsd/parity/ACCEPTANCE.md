@@ -85,14 +85,14 @@ Not verified:
 
 ## Known divergences (named, not fixed)
 
-- The statusline is plain text (no colour: the kernel escapes control characters). `show_git` and
-  `show_state_freshness` are inert. `[update-banner]` The update banner is dropped (D-r44-13): specforge updates
+- The statusline is plain text (no colour: the kernel escapes control characters). `show_git` shows the branch and the work-state markers (plain) after the directory;
+  `show_state_freshness` is inert (there is no STATE.md stamp). `[update-banner]` The update banner is dropped (D-r44-13): specforge updates
   extensions through its lockfile. `[statusline-metrics]` Upstream's context monitor reads metrics the statusline
   writes to a bridge file; here the statusline computes them and the meter's arithmetic is tested with the statusline.
-- Injection scanning is advisory; `security.injection_blocking` belongs to `@gsd/security`, which a hook cannot read.
+- Injection scanning blocks a HIGH scan only when `@gsd/security` sets `security.injection_blocking`; `@gsd/security` is not built, so it is advisory in every project today (ADR 0323).
 - The context monitor has no stopped-at record (`[stopped-at]`: /gsd-pause-work records it) and no Stop or SubagentStop rows; the workflow marker lasts the session.
-- `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` is path based (case is seen; a
-  symlink into the main checkout is not: K20).
+- `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` compares git toplevels as upstream does, so a symlink into
+  the main checkout is refused (ADR 0320).
 - `[stricter-relative-path]` `worktree_path_guard` also refuses a relative path that climbs out of the worktree into the
   main checkout (`../../../src/a.ts`), which upstream allows (its guard lets every relative `file_path` through); this
   is deliberate, for the bug the guard exists for (#260), and stricter than upstream. (REVIEW-r44 M4 had said upstream
@@ -139,15 +139,11 @@ Not verified:
 - The "silent" evidence of 38 of the 63 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 
-## Needs a change outside `gsd/` (K20c)
+## Needs a change outside `gsd/`
 
 Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is done here:
 
 - Hosts other than Claude Code, Codex and Cursor (the 16 named renderers).
-- Git facts for hooks (`git add -f` blocking) need a host query the protocol lacks.
-- The hook facts: the real path of an out-of-project target (a symlink into the main checkout is not seen), `--cleanup`
-  on a commit, and a host filter for a hook contribution (Cursor gets the isolation guard's line).
-- A host without `specforge` on its PATH runs no guard (exit 127 does not block), as upstream's `node` lines do.
 - A black-box twin for the 14 verdicts above needs rules the kernel does not have.
 
 ## What is not in the program
@@ -160,7 +156,6 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 | The `specforged` harness | `/gsd-autonomous` unattended, `claude-orchestration`, `external-job` |
 | More host renderers | opencode, copilot, windsurf, kilo, kimi, kimi-code, antigravity, cline, trae, qwen, hermes, codebuddy, augment, zcode, vscode, pi |
 | Running Codex and Cursor | their goldens are the kernel's rendering, cross-checked against upstream's installer only |
-| The K20c items | the list above |
 | Publishing | `specforge publish`, done by the user |
 
 ## Publishing
