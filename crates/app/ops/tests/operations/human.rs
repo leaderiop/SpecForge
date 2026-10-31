@@ -371,3 +371,39 @@ fn a_human_command_is_refused_on_every_agent_surface() {
         "{person:?}"
     );
 }
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "a human-attested command is refused on every agent surface and runs for a person at a terminal"
+)]
+fn a_dry_run_of_a_human_command_is_refused_before_the_command_runs() {
+    let p = project();
+    let ops = json!([set(
+        "v1.0/03/U1",
+        "result",
+        json!("pass"),
+        &revision(&p, "03-01.spec")
+    )]);
+    let runtime = serving(&[(CORE, "cmd__attest", 0, ops)]);
+    let built = compiled(&p, &runtime);
+    let view = ProjectView::of(&built);
+    let commands = ExtensionCommands::build(view.registries());
+    let command = commands.of("core").find(|c| c.id() == "attest").unwrap();
+    for surface in [Surface::Mcp, Surface::Cli { interactive: false }] {
+        let run = execute(
+            &view,
+            command,
+            &Map::new(),
+            CommandFormat::Json,
+            true,
+            specforge_ops::testing::caller(),
+            surface,
+        );
+        match run {
+            Err(RunError::Gate(error)) => assert_eq!(error.code, "human_only", "{surface:?}"),
+            other => panic!("{surface:?}: {other:?}"),
+        }
+    }
+    // Refused before the command ran, not after it answered a plan.
+    assert!(runtime.calls().iter().all(|c| c.export != "cmd__attest"));
+}
