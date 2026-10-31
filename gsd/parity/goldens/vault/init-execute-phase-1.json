@@ -1,0 +1,72 @@
+{
+  "executor_model": "sonnet",
+  "verifier_model": "sonnet",
+  "tdd_mode": false,
+  "commit_docs": true,
+  "sub_repos": [],
+  "parallelization": false,
+  "context_window": 200000,
+  "branching_strategy": "none",
+  "phase_branch_template": "gsd/phase-{phase}-{slug}",
+  "milestone_branch_template": "gsd/{milestone}-{slug}",
+  "verifier_enabled": true,
+  "phase_found": true,
+  "phase_dir": "<project>/.planning/phases/01-core",
+  "phase_number": "01",
+  "padded_phase": "01",
+  "phase_name": "Core",
+  "phase_slug": "core",
+  "phase_req_ids": "SEC-01, SEC-02",
+  "plans": [
+    "01-01-PLAN.md",
+    "01-02-PLAN.md"
+  ],
+  "summaries": [
+    "01-01-SUMMARY.md",
+    "01-02-SUMMARY.md"
+  ],
+  "incomplete_plans": [],
+  "plan_count": 2,
+  "incomplete_count": 0,
+  "threat_id_duplicates": [
+    {
+      "id": "T-01-02",
+      "plans": [
+        "01-01-PLAN.md",
+        "01-02-PLAN.md"
+      ]
+    }
+  ],
+  "threat_id_duplicate_count": 1,
+  "halted_plans": [],
+  "blocked_by": {},
+  "runnable_plans": [],
+  "runnable_count": 0,
+  "branch_name": null,
+  "milestone_version": null,
+  "milestone_name": null,
+  "milestone_slug": null,
+  "state_exists": true,
+  "roadmap_exists": true,
+  "config_exists": true,
+  "state_path": "<project>/.planning/STATE.md",
+  "roadmap_path": "<project>/.planning/ROADMAP.md",
+  "config_path": "<project>/.planning/config.json",
+  "requirements_path": "<project>/.planning/REQUIREMENTS.md",
+  "section_manifest": {
+    "workflow": "execute-phase",
+    "included": [],
+    "excluded": [
+      "partial-wave",
+      "gap-closure-artifacts",
+      "regression-gate"
+    ],
+    "read": []
+  },
+  "project_root": "<project>",
+  "agents_installed": true,
+  "missing_agents": [],
+  "agents_dir": "<gsd-core>/agents",
+  "agent_runtime": "claude",
+  "project_title": "Vault"
+}

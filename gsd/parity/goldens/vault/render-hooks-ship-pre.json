@@ -1,0 +1,21 @@
+{
+  "point": "ship:pre",
+  "activeHooks": [
+    {
+      "capId": "security",
+      "kind": "gate",
+      "when": "workflow.security_enforcement",
+      "check": {
+        "predicate": {
+          "kind": "artifact-frontmatter-equals",
+          "artifact": "SECURITY.md",
+          "field": "threats_open",
+          "equals": 0
+        }
+      },
+      "blocking": true,
+      "onError": "halt"
+    }
+  ],
+  "rendered": "**Gate** (security): check={\"predicate\":{\"kind\":\"artifact-frontmatter-equals\",\"artifact\":\"SECURITY.md\",\"field\":\"threats_open\",\"equals\":0}}, blocking=true, onError=halt\n- when: `workflow.security_enforcement`"
+}

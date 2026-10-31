@@ -1,0 +1,15 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": null,
+  "phases": [
+    { "number": "1", "name": "Core", "status": "complete" },
+    { "number": "2", "name": "Sharing", "status": "pending" }
+  ],
+  "next": {
+    "command": "/gsd-progress --next",
+    "label": "Advance to the next step (execute phase 02)",
+    "reason": "Phase 2 of 2 — planned"
+  },
+  "updated_at": "2026-10-30T09:00:00.000Z"
+}

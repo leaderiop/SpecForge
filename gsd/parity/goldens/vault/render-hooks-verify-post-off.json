@@ -1,0 +1,21 @@
+{
+  "point": "verify:post",
+  "activeHooks": [
+    {
+      "capId": "ui",
+      "kind": "step",
+      "ref": {
+        "skill": "ui-review"
+      },
+      "when": "workflow.ui_review",
+      "produces": [
+        "UI-REVIEW.md"
+      ],
+      "consumes": [
+        "UI-SPEC.md"
+      ],
+      "onError": "skip"
+    }
+  ],
+  "rendered": "### Step 1: skill:ui-review (ui)\n- produces: UI-REVIEW.md\n- consumes: UI-SPEC.md\n- when: `workflow.ui_review`\n- onError: skip"
+}
