@@ -197,23 +197,31 @@ pub(super) fn resolve<'a>(words: &[&'a Token]) -> Option<Command<'a>> {
     })
 }
 
-/// An operand as the file it names: `@file`, `--opt=file`, `-Xfile`.
-pub(super) fn normalize_operand(text: &str) -> String {
-    let mut v = text.strip_prefix('@').unwrap_or(text).to_string();
+/// Whether an operand names a secret file: `@file`, `--opt=file`, and in a single-dash word (`-2if.env`) both the
+/// two-character strip and the value after the run of option characters (`-if.env`, `-nf=.env`; #5046). At most
+/// three name checks, whatever the word's length. The run also swallows a value's leading letters and digits, so
+/// `-fapp.env` is denied although `cat app.env` is not: upstream's fail-safe false positive, pinned in the tests.
+pub(super) fn operand_names_secret(text: &str) -> bool {
+    let v = text.strip_prefix('@').unwrap_or(text);
     if v.starts_with("--") {
-        if let Some((_, rest)) = v.clone().split_once('=') {
-            v = rest.to_string();
-        }
-    } else {
-        let mut cs = v.chars();
-        if cs.next() == Some('-')
-            && cs.next().is_some_and(|c| c.is_ascii_alphabetic())
-            && v.chars().count() > 2
-        {
-            v = v.chars().skip(2).collect();
-        }
+        return names_secret(v.split_once('=').map_or(v, |(_, value)| value));
     }
-    v
+    let mut cs = v.chars();
+    let (Some('-'), Some(second), Some(_)) = (cs.next(), cs.next(), cs.next()) else {
+        return names_secret(v);
+    };
+    if second == '-' {
+        return names_secret(v);
+    }
+    if names_secret(&v[1 + second.len_utf8()..]) {
+        return true;
+    }
+    // An ASCII run, so `end` is a char boundary.
+    let end = 1 + v[1..].bytes().take_while(u8::is_ascii_alphanumeric).count();
+    if end > 2 && names_secret(&v[end..]) {
+        return true;
+    }
+    v.as_bytes().get(end) == Some(&b'=') && names_secret(&v[end + 1..])
 }
 
 /// What `echo` or `printf` would print: a script some shell may read from a pipe or a process substitution.
@@ -380,7 +388,7 @@ fn scan_xargs(operands: &[&Token], s: usize, segs: &Segments, depth: usize) -> O
     prev_cmd
         .operands
         .iter()
-        .find(|w| names_secret(&normalize_operand(&w.text)))
+        .find(|w| operand_names_secret(&w.text))
         .map(|w| w.text.clone())
 }
 
@@ -459,7 +467,7 @@ pub(super) fn find_secret_read(command: &str, depth: usize) -> Option<String> {
                     {
                         return Some(hit);
                     }
-                } else if names_secret(&normalize_operand(&w.text)) {
+                } else if operand_names_secret(&w.text) {
                     return Some(w.text.clone());
                 }
             }
@@ -495,7 +503,7 @@ pub(super) fn find_secret_read(command: &str, depth: usize) -> Option<String> {
         }
         let exempt = name_only(base, operands);
         for (k, o) in operands.iter().enumerate() {
-            if !exempt.contains(&k) && names_secret(&normalize_operand(&o.text)) {
+            if !exempt.contains(&k) && operand_names_secret(&o.text) {
                 return Some(o.text.clone());
             }
         }

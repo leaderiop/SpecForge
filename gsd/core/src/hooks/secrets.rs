@@ -5,7 +5,8 @@
 //! from the tool's own `command` (upstream's tokenizer, ported), because the host's words lose where one command
 //! ends and the next begins. Starting `gsd-debugger` as a CLI process is refused too.
 //!
-//! gsd-core modules this file ports: secrets.cjs. With gsd-core v1.19.0's #5627 (wrapper options, linear walk).
+//! gsd-core modules this file ports: secrets.cjs. With gsd-core v1.19.0's #5627 (wrapper options, linear walk)
+//! and #5046 (bundled short flags).
 
 mod debugger;
 mod git;

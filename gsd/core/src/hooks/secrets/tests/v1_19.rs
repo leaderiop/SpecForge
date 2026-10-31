@@ -210,3 +210,182 @@ fn a_mebibyte_of_wrappers_is_walked_in_linear_time() {
         (padded(MAX_COMMAND_LENGTH + 1), Want::TooLarge),
     ]);
 }
+
+/// `describe Bash blocks` and `Bash allows` (#5046 rows), and `describe bundled short-flag clusters (#5046)`.
+#[test]
+fn a_secret_bundled_behind_short_flags_is_read() {
+    let mut rows: Vec<(String, Want)> = Vec::new();
+    for cluster in [
+        "-if.env",
+        "-nif.env",
+        "-if.secrets",
+        "-2if.env",
+        "-1f.env",
+        "-2f.env",
+        "-2if.secrets",
+        "-2.env",
+        "-1.env",
+        "-i.env",
+        "-2nif.env",
+        "-f=.env",
+        "-if=.env",
+        "-nf=.env",
+    ] {
+        rows.push((format!("grep {cluster} pat f"), read(cluster)));
+    }
+    // Quoted: the reported word is the one after quote removal.
+    rows.push(("grep -if'.env' pat f".into(), read("-if.env")));
+    rows.push(("grep -if\".env\" pat f".into(), read("-if.env")));
+    // New denials against v1.18.0: a secret-named value of a non-file option, and the documented fail-safe class
+    // where the option run swallows a value's leading letters and digits.
+    for (command, word) in [
+        ("git commit -am.env", "-am.env"),
+        ("head -n1.env", "-n1.env"),
+        ("grep -fapp.env pat f", "-fapp.env"),
+        ("grep -fprod.env pat f", "-fprod.env"),
+        ("grep -ofoo.env pat f", "-ofoo.env"),
+        ("git log -Sconfig.env", "-Sconfig.env"),
+        ("sort -k2.env f", "-k2.env"),
+        ("git log -S.env", "-S.env"),
+    ] {
+        rows.push((command.into(), read(word)));
+    }
+    for allowed in [
+        "grep -if.env.example pat f",
+        "grep -n.envrc pat f",
+        "grep -2if.env.example pat f",
+        "grep -1f.env.sample pat f",
+        "grep -2n.envrc pat f",
+        "grep -i pat f",
+        "grep -2 pat f",
+        "grep -12 pat f",
+        "grep -vvv pat f",
+    ] {
+        rows.push((allowed.into(), Want::Allow));
+    }
+    // Expansion forms: the clustered form is judged as its unbundled one, both allowed.
+    for (clustered, plain) in [
+        ("grep -if.env* pat f", "grep .env* f"),
+        ("grep -if.en? pat f", "grep .en? f"),
+        ("grep -if.env~ pat f", "grep .env~ f"),
+        ("grep -if$(echo .env) pat f", "grep $(echo .env) f"),
+        ("grep -if{.env,x} pat f", "grep {.env,x} f"),
+    ] {
+        rows.push((clustered.into(), Want::Allow));
+        rows.push((plain.into(), Want::Allow));
+    }
+    holds(rows);
+}
+
+/// The length rows: the verdict is the same at every length, and costs at most three name checks (the 20000-unit
+/// rows are over 80 000 characters, more than upstream's recorder stores, so they stay hand ports).
+#[test]
+fn a_long_or_dense_cluster_is_judged_as_a_short_one() {
+    let mut rows: Vec<(String, Want)> = Vec::new();
+    for n in [199, 200, 201] {
+        let a = "a".repeat(n);
+        rows.push((format!("grep -{a}.env pat f"), read(&format!("-{a}.env"))));
+        rows.push((format!("grep -{a} pat f"), Want::Allow));
+        let dots = ".".repeat(n);
+        rows.push((format!("grep -{dots}pat f"), Want::Allow));
+        rows.push((format!("grep -{dots}.env pat f"), Want::Allow));
+        rows.push((format!("grep -{} pat f", ".a".repeat(n)), Want::Allow));
+    }
+    for n in [199, 200, 201, 20000] {
+        rows.push((
+            format!("grep -i{}.example pat f", ".env".repeat(n)),
+            Want::Allow,
+        ));
+        rows.push((format!("grep -i{} pat f", ".envrc".repeat(n)), Want::Allow));
+        let word = format!("-i{}/.env", ".envrc".repeat(n));
+        rows.push((format!("grep {word} pat f"), read(&word)));
+        let word = format!("-if{}", ".env".repeat(n));
+        rows.push((format!("grep {word} pat f"), read(&word)));
+    }
+    holds(rows);
+}
+
+const CLUSTER_PREFIX: [&str; 16] = [
+    "i", "n", "v", "q", "c", "2", "1", "0", "i2", "2i", "n2", "if", "nf", "i1f", "vfq2", "c1n",
+];
+const SECRET: [&str; 5] = [
+    ".env",
+    ".env.local",
+    ".secrets",
+    "config/.env.production",
+    ".ENV",
+];
+const LOOKALIKE: [&str; 5] = [
+    ".env.example",
+    ".env.sample",
+    ".env.template",
+    ".env.dist",
+    ".envrc",
+];
+
+/// Upstream's two cluster properties, over every pair of their generators' constants.
+#[test]
+fn every_cluster_shape_hides_no_secret_and_spares_the_templates() {
+    let mut rows: Vec<(String, Want)> = Vec::new();
+    for prefix in CLUSTER_PREFIX {
+        for secret in SECRET {
+            let cluster = format!("-{prefix}{secret}");
+            rows.push((format!("grep {cluster} pat f"), read(&cluster)));
+        }
+        for lookalike in LOOKALIKE {
+            rows.push((format!("grep -{prefix}{lookalike} pat f"), Want::Allow));
+        }
+    }
+    holds(rows);
+}
+
+/// `property: a bundled value is judged like the same value unbundled`, over a fixed sample of its generators.
+#[test]
+fn a_bundled_value_is_judged_like_the_same_value_unbundled() {
+    const FLAG_RUN: [&str; 6] = ["i", "n", "f", "2A", "vf1", "Ain2"];
+    const LEAD: [&str; 8] = [
+        ".env",
+        ".envrc",
+        ".ENVRC",
+        ".secrets.bak",
+        ".env.example",
+        ".secretsx",
+        "/",
+        ".",
+    ];
+    const DENSE: [&str; 8] = [
+        ".env",
+        ".envrc",
+        ".ENVRC",
+        ".secrets.bak",
+        ".env.example",
+        ".secretsx",
+        "a",
+        "/",
+    ];
+    const TERMINAL: [&str; 11] = [
+        "", ".example", ".local", ".env", ".ENV", ".envrc", ".secrets", "/x", ".sample", ".env.",
+        ":x",
+    ];
+    let mut differ = Vec::new();
+    let mut k = 0;
+    for flags in FLAG_RUN {
+        for lead in LEAD {
+            for terminal in TERMINAL {
+                k += 1;
+                let units: String = (0..k % 4)
+                    .map(|u| DENSE[(k + u * 3) % DENSE.len()])
+                    .collect();
+                let value = format!("{lead}{units}{terminal}");
+                let denied = |command: String| bash(&command).decision == Some(Decision::Deny);
+                if denied(format!("grep -{flags}{value} pat f")) != denied(format!("cat {value}")) {
+                    differ.push(format!("-{flags}{value}"));
+                }
+            }
+        }
+    }
+    assert!(
+        differ.is_empty(),
+        "bundled and unbundled differ: {differ:?}"
+    );
+}
