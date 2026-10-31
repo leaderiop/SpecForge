@@ -15,9 +15,9 @@ pub const CODES: &[(&str, &str, &str)] = &[
     (
         "W301",
         "a completed phase has no verified security audit",
-        "A phase that is complete has no security audit, its audit is still a draft, or it has threats open at or above \
-     workflow.security_block_on: run /gsd-secure-phase for the phase. A warning, never a refusal (gsd-core #4972); \
-     switched off by workflow.security_enforcement.",
+        "A phase that is complete has no security audit, its audit is still a draft, or it has threats open at or \
+         above workflow.security_block_on: run /gsd-secure-phase for the phase. A warning, never a refusal (gsd-core \
+         #4972); switched off by workflow.security_enforcement.",
     ),
 ];
 

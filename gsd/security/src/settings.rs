@@ -22,8 +22,8 @@ const TIERS: &[(&str, &str)] = &[
     ("adaptive", "heavy"),
 ];
 
-/// The setting that shows `/gsd-secure-phase`: its own, following `@gsd/core`'s `audit_review` cluster (a slash's `when`
-/// must be a setting of its own extension, W021, and a preset may follow a peer's bool).
+/// The setting that shows `/gsd-secure-phase`: its own, following `@gsd/core`'s `audit_review` cluster (a slash's
+/// `when` must be a setting of its own extension, W021, and a preset may follow a peer's bool).
 pub const SURFACE_SETTING: &str = "specforge.surface.audit_review";
 
 pub fn declare(c: &mut ContributionsBuilder) {

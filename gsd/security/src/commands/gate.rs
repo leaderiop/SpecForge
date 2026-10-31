@@ -1,7 +1,7 @@
 //! `security_gate <phase>`: the ship gate's verdict, `check predicate` plus `ship.md`'s bespoke security branch
-//! (`SECURITY_SHIP_GATE_NO_REVIEW`, `SECURITY_SHIP_GATE_OPEN_THREATS`). Fail closed, as upstream's: no audit blocks, and
-//! so does a `threats_open` that is not exactly 0. Parity+ (REVIEW-security-part2 m3): an audit that never ran (`status`
-//! is not `verified`) blocks too, and so does a security model that does not load or check clean
+//! (`SECURITY_SHIP_GATE_NO_REVIEW`, `SECURITY_SHIP_GATE_OPEN_THREATS`). Fail closed, as upstream's: no audit blocks,
+//! and so does a `threats_open` that is not exactly 0. Parity+ (REVIEW-security-part2 m3): an audit that never ran
+//! (`status` is not `verified`) blocks too, and so does a security model that does not load or check clean
 //! (`SECURITY_SHIP_GATE_UNREADABLE`, the reasons in `details.problems`). The workflow runs it at `ship:pre`; it is the
 //! gate, a verb the workflow calls (decision U1), not a refusal of `/gsd-ship` by the kernel.
 

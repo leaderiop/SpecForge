@@ -153,13 +153,17 @@ fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
                     .ok_or_else(|| {
                         format!("threat {id}: plan '{plan_name}' is not a plan of phase {number}")
                     })?;
+                let needs = |key| {
+                    text(item, key)
+                        .ok_or_else(|| format!("threat {id}: a retroactive threat needs '{key}'"))
+                };
                 let mut fields = json!({
                     "plan": plan.id,
                     "category": choice(item, "category", CATEGORY)?,
-                    "component": text(item, "component").ok_or_else(|| format!("threat {id}: a retroactive threat needs 'component'"))?,
+                    "component": needs("component")?,
                     "severity": choice(item, "severity", SEVERITY)?,
                     "disposition": choice(item, "disposition", DISPOSITION)?,
-                    "mitigation": text(item, "mitigation").ok_or_else(|| format!("threat {id}: a retroactive threat needs 'mitigation'"))?,
+                    "mitigation": needs("mitigation")?,
                     "status": new_status,
                     "retroactive": true,
                 });
