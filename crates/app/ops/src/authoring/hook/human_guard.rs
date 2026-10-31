@@ -76,10 +76,8 @@ fn human_in(view: &ProjectView<'_>, line: &str, depth: u8) -> Option<Found> {
                     && words[..i - 1]
                         .iter()
                         .any(|w| SHELLS.contains(&program(w).as_str()))));
-        if runs_text {
-            if let Some(found) = human_in(view, word, depth + 1) {
-                return Some(found);
-            }
+        if runs_text && let Some(found) = human_in(view, word, depth + 1) {
+            return Some(found);
         }
     }
     None

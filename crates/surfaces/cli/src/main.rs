@@ -201,7 +201,7 @@ fn main() {
         // clap exits 2 on a usage error, which a host reads as a block; `hook` refuses with 1 (ADR 0324).
         let hook = std::env::args().nth(1).as_deref() == Some("hook");
         if hook && error.use_stderr() {
-            eprint!("{error}");
+            let _ = error.print();
             std::process::exit(1);
         }
         error.exit()
