@@ -186,6 +186,11 @@ impl Settings {
         self.get(name)?.as_i64()
     }
 
+    /// `name` as a number, whole or decimal (a `number` setting, ADR 0305), `None` when unset or not one.
+    pub fn number(&self, name: &str) -> Option<f64> {
+        self.get(name)?.as_f64()
+    }
+
     /// Every setting under `prefix.` (a family's keys), by the rest of its name.
     pub fn under<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Value)> {
         self.values.iter().filter_map(move |(name, value)| {
