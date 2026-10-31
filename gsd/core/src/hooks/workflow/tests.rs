@@ -309,10 +309,6 @@ fn only_a_git_add_with_a_force_flag_before_the_double_dash_is_a_force_add() {
         assert!(blocks("git add --force x", branch));
         assert!(blocks("/usr/bin/git add -f x", branch));
         assert!(blocks("git -C /r add -Af x", branch));
-        assert!(
-            blocks("git '-cuser.name=a b' add -f x", branch),
-            "a glued -c value may hold spaces"
-        );
     }
     for command in [
         "git add -- -f",
@@ -325,6 +321,14 @@ fn only_a_git_add_with_a_force_flag_before_the_double_dash_is_a_force_add() {
     ] {
         assert!(!blocks(command, "agent-1"), "{command}");
     }
+    // The splitter has unquoted the word, so the value holds a space: upstream's `/^-c\S*=/` still skips it.
+    let mut f = on_branch("agent-1", &[]);
+    f.commands = vec![
+        ["git", "-cuser.name=a b", "add", "-f", "x"]
+            .map(String::from)
+            .to_vec(),
+    ];
+    assert!(denied(&f), "a glued -c value may hold spaces");
     assert!(!blocks("git add -f x", "feature"), "not an agent branch");
     assert!(!blocks("git add -f x", ""), "detached");
     let mut f = on_branch("agent-1", &["git add -f x"]);
