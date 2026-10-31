@@ -179,6 +179,16 @@ fn the_capability_has_three_hooks_and_is_listed() {
     assert_eq!(cap["config"].as_object().expect("config").len(), 3);
 }
 
+/// The capability file the extension ships is the tracked release's, byte for byte: a snapshot move that leaves the
+/// shipped copy behind fails here.
+#[test]
+fn the_shipped_capability_is_the_snapshots() {
+    assert_eq!(
+        include_str!("../assets/capabilities/security/capability.json"),
+        CAPABILITY
+    );
+}
+
 /// The cells of the row of ACCEPTANCE's security table named `family`.
 fn row(family: &str) -> Vec<usize> {
     let table = ACCEPTANCE
