@@ -71,3 +71,33 @@ pub fn index(core: &Path) -> BTreeMap<String, Vec<String>> {
     }
     found
 }
+
+/// `upstream suite (tests/<name>.test.cjs) -> the files of gsd/ (relative to it) that name it`: who ports a copied
+/// suite, by reading it from the snapshot or by porting its cases. The extensions' sources and security's tests; not
+/// `core/tests`, where this check names suites of its own.
+pub fn suite_porters(gsd: &Path) -> BTreeMap<String, Vec<String>> {
+    let mut files = Vec::new();
+    for dir in ["core/src", "kit/src", "security/src", "security/tests"] {
+        rust_files(&gsd.join(dir), &mut files);
+    }
+    files.sort();
+    let mut found: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for file in files {
+        let text = std::fs::read_to_string(&file).expect("a source file");
+        let name = file
+            .strip_prefix(gsd)
+            .expect("under gsd/")
+            .display()
+            .to_string();
+        let suites = text
+            .split(|c: char| !(c.is_ascii_alphanumeric() || "._/-".contains(c)))
+            .filter(|t| t.starts_with("tests/") && t.ends_with(".test.cjs"));
+        for suite in suites {
+            let files = found.entry(suite.to_string()).or_default();
+            if !files.contains(&name) {
+                files.push(name.clone());
+            }
+        }
+    }
+    found
+}

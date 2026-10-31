@@ -76,7 +76,7 @@ list fields as items, **K14** a writing call knows the time (`now`), **K15** a j
 | Parity means | The same **concepts**, the same **commands** (`/gsd-*`, by exact name) and the same **agent behaviour**. Not the same files: no `.planning/`, no export. |
 | Parity and more | Parity is the floor. The default profile `gsd-compat` behaves as GSD does; `gsd-strict` and `gsd-plus` switch on what SpecForge can do beyond GSD. |
 | Versions | Our extensions keep their own semver and declare what they track: the crate's `[package.metadata.gsd] tracks = "gsd-core@1.19.0"` and the handshake keyword `tracks:gsd-core@1.19.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
-| Upgrades | `gsd/parity/upgrade.sh <gsd-core-dir> <tag>` diffs the tracked tag against the new one (inventory manifest, capability ids, config manifest, changed files) and writes a parity backlog, `gsd/parity/backlog/<tag>.md`, one row per change with the table that owns it; `tracks` moves only when the [parity suite](parity/) passes. |
+| Upgrades | `gsd/parity/upgrade.sh <gsd-core-dir> <tag> [<from-tag>]` diffs the tracked tag (or `<from-tag>`) against the new one (inventory manifest, capability ids, config manifest, changed files) and writes a parity backlog, `gsd/parity/backlog/<tag>.md`, one row per change with the table that owns it; `tracks` moves only when the [parity suite](parity/) passes. |
 | Adoption | `specforge gsd import` reads an existing `.planning/` once and writes `.spec` (edit plans). The parity suite uses it too. |
 
 ### Model

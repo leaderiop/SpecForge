@@ -62,15 +62,23 @@ pub fn changes(text: &str) -> Vec<Change> {
         .collect()
 }
 
-/// The family and item an upstream path stands for: the names of the inventory manifest, `gate_cutover` for a verdict
-/// and `other` for a path no family claims.
+/// The family and item an upstream path stands for: the names of the inventory manifest (a `src/**/*.cts` and its
+/// built `gsd-core/bin/lib/**/*.cjs` are one `cli_modules` item), `templates` for `gsd-core/templates/`, `suites` for a
+/// copied `tests/*.test.cjs`, `gate_cutover` for a verdict and `other` for a path no family claims.
 pub fn locate(path: &str) -> (String, String) {
     let (family, item) = if let Some(rest) = path.strip_prefix("commands/gsd/") {
         ("commands", format!("/gsd-{}", rest.trim_end_matches(".md")))
     } else if let Some(rest) = path.strip_prefix("agents/") {
         ("agents", rest.trim_end_matches(".md").to_string())
-    } else if let Some(rest) = path.strip_prefix("hooks/").filter(|r| !r.contains('/')) {
+    } else if let Some(rest) = path
+        .strip_prefix("hooks/")
+        .filter(|r| r.starts_with("gsd-") && !r.contains('/'))
+    {
         ("hooks", rest.to_string())
+    } else if let Some(rest) = path.strip_prefix("gsd-core/templates/") {
+        ("templates", rest.to_string())
+    } else if let Some(rest) = path.strip_prefix("gsd-core/bin/lib/") {
+        ("cli_modules", rest.to_string())
     } else if let Some(rest) = path.strip_prefix("gsd-core/workflows/") {
         let family = ["modes", "steps", "detail", "templates"]
             .iter()
@@ -79,11 +87,11 @@ pub fn locate(path: &str) -> (String, String) {
         return (family, rest.to_string());
     } else if let Some(rest) = path.strip_prefix("gsd-core/references/") {
         ("references", rest.to_string())
-    } else if let Some(rest) = path.strip_prefix("src/").filter(|r| !r.contains('/')) {
-        (
-            "cli_modules",
-            format!("{}.cjs", rest.trim_end_matches(".cts")),
-        )
+    } else if let Some(rest) = path
+        .strip_prefix("src/")
+        .and_then(|r| r.strip_suffix(".cts"))
+    {
+        ("cli_modules", format!("{rest}.cjs"))
     } else if let Some(rest) = path.strip_prefix("capabilities/") {
         (
             "capabilities",
@@ -91,6 +99,8 @@ pub fn locate(path: &str) -> (String, String) {
         )
     } else if let Some(rest) = path.strip_prefix("tests/fixtures/gate-cutover/") {
         ("gate_cutover", rest.trim_end_matches(".json").to_string())
+    } else if path.starts_with("tests/") && path.ends_with(".test.cjs") {
+        ("suites", path.to_string())
     } else {
         ("other", path.to_string())
     };
