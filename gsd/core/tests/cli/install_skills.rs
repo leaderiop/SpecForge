@@ -201,3 +201,19 @@ fn install_writes_50_skills_on_claude_code() {
     assert_eq!(gsd_skills(&p, ".claude").len(), 50);
     assert_eq!(SKILLS.len(), 50);
 }
+
+/// Upstream's installed skills carry no `effort` (#3151): the declaration keeps it, the Claude Code writer leaves it out.
+#[test]
+fn an_installed_skill_has_no_effort_line() {
+    let p = super::commands_support::twin();
+    assert_eq!(p.install("claude-code", &[]).code, 0);
+    let skills = gsd_skills(&p, ".claude");
+    assert_eq!(skills.len(), 50);
+    for skill in skills {
+        let text = p.read(&format!(".claude/skills/{skill}/SKILL.md"));
+        assert!(
+            !text.lines().any(|l| l.starts_with("effort:")),
+            "{skill} has an effort line"
+        );
+    }
+}

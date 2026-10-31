@@ -205,8 +205,8 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   text.
 - **An agent cannot create an artifact through the CLI (K20)**: `--path` is the CLI's own option, MCP's
   `specforge.edit` creates it. It is a CLI change.
-- **The lifecycle prompts (r42) leave three kernel items (K20).** The claude-code skill writer does not write a skill's
-  `effort`, so `/gsd-plan-phase` and `/gsd-execute-phase` declare `max` and only the declaration is tested.
+- **A skill's `effort` is declared, not installed.** `/gsd-plan-phase` and `/gsd-execute-phase` declare `max`, and Claude
+  Code leaves it out of the installed skill as upstream does (#3151); only the declaration is tested.
 - **`smart_entry` never says `idle-stranded`**: a command runs no git, so the dirty, unpushed and stale signals are false. A phase's
   computed `status` stands for STATE.md's words (`planning`, `executing`, `verifying`, `milestone complete`), and
   a milestone's phase counts are the roadmap's.
