@@ -129,6 +129,7 @@ pub(super) fn run_input(
         evidence,
         revisions: Default::default(),
         state: None,
+        host: None,
     };
     let export = format!("cmd__product_{id}");
     let output = ExtensionCalls::new(runtime)
