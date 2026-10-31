@@ -40,7 +40,7 @@ milestone to sit in; the test asserts both so a change to either is noticed.
 
 `core/tests/cli/parity_scenario.rs` (r44) is the scenario check: its `SCENARIO` table names, for each of the 19 goldens of `goldens/taskboard/`, the one test that compares the twin with it and the text that test reads it by. `every_taskboard_golden_is_compared_once` fails when a golden is added, removed or left unread, or when a named test is deleted or stops reading its golden; a golden that several tests read (`progress-json.json`) is named once, by its main comparison.
 
-`upgrade.sh <gsd-core-dir> <tag>` (r44) is the upgrade check. It extracts the tag's inventory manifest, capability ids, config manifest and the list of files changed since the tracked tag (`git diff --name-status`), then runs `core/tests/upgrade.rs`'s `write_the_backlog`, which writes `backlog/<tag>.md`: one row per change, with its family, the upstream path and the table of `@gsd/core` it lands in (`ROSTER`, `AGENTS`, `HOOK_ROSTER`, the asset table, `NOT_EMBEDDED`, `MODULES`, the README capability table, `spec/settings.md`, `GATE_CUTOVER`), the files of `gsd/core/src` whose header cites the path, or `unowned`. It needs git and cargo, not the network, and reads the checkout without writing to it. Its other tests run offline on the vendored snapshot: the diff of the tracked tag against itself is empty, every path a header cites is in the snapshot, and `core/tests/declaration.rs` requires `tracks` to name the one vendored directory, so moving it fails the build until every check reads the new snapshot.
+`upgrade.sh <gsd-core-dir> <tag> [<from-tag>]` (r44) is the upgrade check. It extracts the inventory manifest, capability ids and config manifest of `<tag>` and of `<from-tag>` (default: the tracked tag; name the previous one to re-write a backlog after `tracks` has moved), and the list of files changed between them (`git diff --name-status`) under the watched paths and the suites the snapshot copies (`upstream/<tracked>/tests/*.test.cjs`), then runs `core/tests/upgrade.rs`'s `write_the_backlog`, which writes `backlog/<tag>.md`: one row per change, with its family, the upstream path and the table of `@gsd/core` it lands in (`ROSTER`, `AGENTS`, `HOOK_ROSTER`, the asset table, `NOT_EMBEDDED`, `MODULES`, the README capability table, `spec/settings.md`, `GATE_CUTOVER`, and `upgrade.rs`'s `NOT_IN_MANIFEST` for the router, the config manifests, the hook registration, the section manifest and the unembedded templates), the files of `gsd/core/src` whose header cites the path, the files of `gsd/` that port a copied suite, or `unowned`. A `src/**/*.cts` and its built `gsd-core/bin/lib/**/*.cjs` are the same `MODULES` item. It needs git and cargo, not the network, and reads the checkout without writing to it. Its other tests run offline on the vendored snapshot: the diff of the tracked tag against itself is empty, every path a header cites is in the snapshot, and `core/tests/declaration.rs` requires `tracks` to name the one vendored directory, so moving it fails the build until every check reads the new snapshot.
 
 ### Re-recording
 
@@ -53,8 +53,31 @@ git diff --exit-code gsd/parity/goldens
 
 The recipe needs node 24 or later (the tag's `engines.node`). The script refuses a `GSD_CORE_DIR` that is not 1.19.0, runs the verbs on a copy of the fixture that is its own git
 repository (so `validate health` does not report the machine's worktrees), runs the fixture's `npm test` (node's JUnit
-reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing. To track a newer release, change the tag in `upstream/` and here, re-record, and review
-the diff of the goldens: that diff is the parity backlog.
+reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing.
+
+### To track a newer release
+
+As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):
+
+1. **The backlog first.** `upgrade.sh ~/Projects/OpenSource/gsd-core <tag>` writes `backlog/<tag>.md` against the
+   tracked tag; every `unowned` row is new work (a missing roster row, an upstream path `locate` cannot place).
+2. **The version, once.** The release is the one literal `gsd_kit::tracked_version!()` (`kit/src/lib.rs`); `tracks` in
+   `core/Cargo.toml` and `security/Cargo.toml` and the version check of `record.sh` and `record-security.sh` follow it
+   (`core/tests/declaration.rs` requires `tracks` to name the one vendored directory).
+3. **The move, in one commit.** Rename `upstream/v<old>` to `upstream/v<new>` and re-vendor its files with
+   `git show "<tag>:<path>"` (SOURCE.md names each), bump the pins (`tracks`, the attribution headers, the roster rows
+   the backlog names, the settings keys), and re-bless the goldens that move only by the version. Every vendored asset
+   whose upstream text changed goes into `PENDING_RESYNC` (`core/tests/common/pending.rs`): the port tests skip a listed
+   path, and fail if its port already matches, so the gate stays green while the list is honest. That commit puts
+   `#[ignore]` on `pending_resync_is_empty` (`core/tests/port_workflows.rs`); nothing else is ignored.
+4. **The re-ports.** Each asset is re-ported line for line and taken off the list in the same commit; behaviour
+   changes are ported test first. The commit that empties the list removes the `#[ignore]`; a branch is not merged to
+   main while it is there.
+5. **Re-record** the taskboard goldens (above), the security goldens (`record-security.sh`) and the hook cases
+   (`record-hook-cases.cjs`) on the new tag. These run upstream under node; review the diff of the goldens.
+6. **Close the backlog.** `upgrade.sh <dir> <tag> <old-tag>` (the optional third argument is the tag to diff from,
+   needed once `tracks` names the new tag) re-writes `backlog/<tag>.md`; it must have no `unowned` row. Append by hand
+   what each upstream change meant and where it landed, and what stays open (`backlog/v1.19.0.md`).
 
 ### How the taskboard was made
 
@@ -69,8 +92,7 @@ Phase 2's `02-CONTEXT.md`, `02-DISCUSSION-LOG.md` and `02-RESEARCH.md` (round r3
 ## Known limits of the checks (r44 review)
 
 - `upgrade.sh` does not extract the 86 capability-declared config keys, so a change to one shows only as a changed
-  file. `locate` files the nested `src/<dir>/` modules and `bin/lib/*.cjs` as "other", which can raise a false
-  "unowned" alarm. `upgrade_diff_of_the_tracked_release_is_empty` compares the snapshot with itself; a real extraction of the tag
+  file. `upgrade_diff_of_the_tracked_release_is_empty` compares the snapshot with itself; a real extraction of the tag
   was compared once by hand.
 - A "Reproduced" row passes when a test of that name contains the row's name, comments included; the pinned totals
   merge Reproduced and ByConstruction. The scenario check's needles are substrings. `GSD_BLESS=1` also rewrites

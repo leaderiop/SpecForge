@@ -77,13 +77,14 @@ with a reason in `parity_roster.rs`. Gate-cutover verdicts of security: 0.
 Three run in the gate: `parity_roster` (what exists; a Ported module's file names it in its `//!` header),
 `parity_rules` (every code fires and stays silent; the gate-cutover verdicts) and `parity_scenario` plus the goldens
 (the taskboard twin answers as gsd-tools did). The fourth, `upgrade` (what a newer gsd-core changes), is a procedure,
-not a gate step: `gsd/parity/upgrade.sh <gsd-core-dir> <tag>` writes
-`gsd/parity/backlog/<tag>.md`.
+not a gate step: `gsd/parity/upgrade.sh <gsd-core-dir> <tag> [<from-tag>]` writes
+`gsd/parity/backlog/<tag>.md`. `backlog/v1.19.0.md` holds the 173 changes of 1.19.0 against 1.18.0, none unowned, and
+what became of each.
 
 ## Verified and not verified
 
 Verified by tests in the gate: the roster counts above, the install goldens for Claude Code, Codex and Cursor, the
-taskboard goldens (19), the hook cases recorded from the upstream hook files, and the version marker (the install and render goldens hold `VERSION`; the crate and the handshake pin `1.0.0`).
+taskboard goldens (19), the hook cases recorded from the upstream hook files, and the version marker (the install and render goldens hold `VERSION`; the handshake carries the crate's version, `1.1.0`). The taskboard goldens, the security vault goldens (17) and the secret-read guard's hook cases are recorded on 1.19.0 (`backlog/v1.19.0.md`, "Re-recorded on 1.19.0"); the three injection recordings are 1.18.0's, which 1.19.0 did not change.
 
 Not verified:
 

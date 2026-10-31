@@ -582,9 +582,9 @@ fn every_pending_path_is_vendored() {
     }
 }
 
-/// Plan 06 T5 un-ignores it: the re-port of gsd-core v1.19.0 is done when nothing waits.
+/// The re-port of the tracked release is done when nothing waits. Ignored only between a snapshot move and its last
+/// re-port, never on main.
 #[test]
-#[ignore = "plan 06 T5"]
 fn pending_resync_is_empty() {
     assert_eq!(pending::PENDING_RESYNC, &[] as &[&str]);
 }
