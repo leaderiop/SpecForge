@@ -201,7 +201,7 @@
       {
         "agent": "gsd-integration-checker",
         "id": "integrate",
-        "title": "Check the wiring across the phases (gsd-integration-checker)"
+        "title": "Check the wiring across the phases"
       },
       {
         "cli": "specforge gsd record-verdict",

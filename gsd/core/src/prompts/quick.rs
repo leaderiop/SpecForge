@@ -12,17 +12,17 @@ use super::workflow::{self, Do, Slash, Spec, Step};
 const QUICK_STEPS: &[Step] = &[
     Step {
         id: "research",
-        title: "Research how to implement the task (gsd-phase-researcher)",
+        title: "Research how to implement the task",
         does: Do::Agent("gsd-phase-researcher"),
     },
     Step {
         id: "plan",
-        title: "Create the quick plan (gsd-planner)",
+        title: "Create the quick plan",
         does: Do::Agent("gsd-planner"),
     },
     Step {
         id: "check",
-        title: "Check the quick plan (gsd-plan-checker)",
+        title: "Check the quick plan",
         does: Do::Agent("gsd-plan-checker"),
     },
     Step {
@@ -37,7 +37,7 @@ const QUICK_STEPS: &[Step] = &[
     },
     Step {
         id: "execute",
-        title: "Execute the quick plan (gsd-executor)",
+        title: "Execute the quick plan",
         does: Do::Agent("gsd-executor"),
     },
     Step {
@@ -47,7 +47,7 @@ const QUICK_STEPS: &[Step] = &[
     },
     Step {
         id: "verify",
-        title: "Verify the quick plan's truths (gsd-verifier)",
+        title: "Verify the quick plan's truths",
         does: Do::Agent("gsd-verifier"),
     },
 ];

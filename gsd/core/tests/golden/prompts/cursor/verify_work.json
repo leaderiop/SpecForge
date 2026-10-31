@@ -208,12 +208,12 @@
       {
         "agent": "gsd-planner",
         "id": "plan_gaps",
-        "title": "Plan the fixes of the gaps the tests found (gsd-planner)"
+        "title": "Plan the fixes of the gaps the tests found"
       },
       {
         "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the fix plans (gsd-plan-checker)"
+        "title": "Check the fix plans"
       }
     ],
     "subject": "v1.0/02"

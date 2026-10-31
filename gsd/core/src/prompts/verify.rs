@@ -16,12 +16,12 @@ const VERIFY_STEPS: &[Step] = &[
     },
     Step {
         id: "plan_gaps",
-        title: "Plan the fixes of the gaps the tests found (gsd-planner)",
+        title: "Plan the fixes of the gaps the tests found",
         does: Do::Agent("gsd-planner"),
     },
     Step {
         id: "check",
-        title: "Check the fix plans (gsd-plan-checker)",
+        title: "Check the fix plans",
         does: Do::Agent("gsd-plan-checker"),
     },
 ];
@@ -29,7 +29,7 @@ const VERIFY_STEPS: &[Step] = &[
 const VALIDATE_STEPS: &[Step] = &[
     Step {
         id: "audit",
-        title: "Audit the validation and fill its gaps (gsd-nyquist-auditor)",
+        title: "Audit the validation and fill its gaps",
         does: Do::Agent("gsd-nyquist-auditor"),
     },
     Step {

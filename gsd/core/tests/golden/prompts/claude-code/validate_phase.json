@@ -201,7 +201,7 @@
       {
         "agent": "gsd-nyquist-auditor",
         "id": "audit",
-        "title": "Audit the validation and fill its gaps (gsd-nyquist-auditor)"
+        "title": "Audit the validation and fill its gaps"
       },
       {
         "cli": "specforge gsd record-validation",

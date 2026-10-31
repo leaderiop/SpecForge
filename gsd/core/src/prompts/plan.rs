@@ -34,7 +34,7 @@ const ARGS: &[Arg] = &[
 const STEPS: &[Step] = &[
     Step {
         id: "research",
-        title: "Research how to implement the phase (gsd-phase-researcher)",
+        title: "Research how to implement the phase",
         does: Do::Agent("gsd-phase-researcher"),
     },
     Step {
@@ -44,17 +44,17 @@ const STEPS: &[Step] = &[
     },
     Step {
         id: "patterns",
-        title: "Map the closest existing patterns (gsd-pattern-mapper)",
+        title: "Map the closest existing patterns",
         does: Do::Agent("gsd-pattern-mapper"),
     },
     Step {
         id: "plan",
-        title: "Create the phase's plans (gsd-planner)",
+        title: "Create the phase's plans",
         does: Do::Agent("gsd-planner"),
     },
     Step {
         id: "check",
-        title: "Check the plans against the phase goal (gsd-plan-checker)",
+        title: "Check the plans against the phase goal",
         does: Do::Agent("gsd-plan-checker"),
     },
     Step {
@@ -128,7 +128,7 @@ const CONVERGENCE_STEPS: &[Step] = &[
     },
     Step {
         id: "check",
-        title: "Check the revised plans against the phase goal (gsd-plan-checker)",
+        title: "Check the revised plans against the phase goal",
         does: Do::Agent("gsd-plan-checker"),
     },
 ];
@@ -158,7 +158,7 @@ static PLAN_REVIEW_CONVERGENCE: Spec = Spec {
 const ULTRAPLAN_STEPS: &[Step] = &[
     Step {
         id: "check",
-        title: "Check the imported plans against the phase goal (gsd-plan-checker)",
+        title: "Check the imported plans against the phase goal",
         does: Do::Agent("gsd-plan-checker"),
     },
     Step {

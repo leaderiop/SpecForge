@@ -9,17 +9,17 @@ use super::workflow::{self, Do, Slash, Spec, Step};
 const STEPS: &[Step] = &[
     Step {
         id: "research",
-        title: "Research the domain with the project researcher (gsd-project-researcher), one agent per dimension",
+        title: "Research the domain with the project researcher, one agent per dimension",
         does: Do::Agent("gsd-project-researcher"),
     },
     Step {
         id: "synthesize",
-        title: "Synthesize the research (gsd-research-synthesizer)",
+        title: "Synthesize the research",
         does: Do::Agent("gsd-research-synthesizer"),
     },
     Step {
         id: "roadmap",
-        title: "Create the roadmap (gsd-roadmapper)",
+        title: "Create the roadmap",
         does: Do::Agent("gsd-roadmapper"),
     },
     Step {

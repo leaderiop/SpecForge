@@ -181,7 +181,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
   status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
   text.
-- **A rendered step has no agent field (K20)**: the step's title carries the agent. **There is no free-text tail for a
+- **There is no free-text tail for a
   prompt's arguments (K20)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
   (K20)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
 - **The lifecycle prompts (r42) leave three kernel items (K20).** The claude-code skill writer does not write a skill's

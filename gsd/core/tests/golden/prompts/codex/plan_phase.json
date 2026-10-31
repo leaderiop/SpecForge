@@ -201,7 +201,7 @@
       {
         "agent": "gsd-phase-researcher",
         "id": "research",
-        "title": "Research how to implement the phase (gsd-phase-researcher)"
+        "title": "Research how to implement the phase"
       },
       {
         "cli": "specforge gsd record-research",
@@ -213,17 +213,17 @@
       {
         "agent": "gsd-pattern-mapper",
         "id": "patterns",
-        "title": "Map the closest existing patterns (gsd-pattern-mapper)"
+        "title": "Map the closest existing patterns"
       },
       {
         "agent": "gsd-planner",
         "id": "plan",
-        "title": "Create the phase's plans (gsd-planner)"
+        "title": "Create the phase's plans"
       },
       {
         "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the plans against the phase goal (gsd-plan-checker)"
+        "title": "Check the plans against the phase goal"
       },
       {
         "cli": "specforge gsd record-verdict",

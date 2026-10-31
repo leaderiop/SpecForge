@@ -21,6 +21,19 @@ fn declared_gates(id: &str) -> Vec<String> {
 }
 
 #[test]
+fn a_steps_agent_is_its_agent_field() {
+    let p = project("discuss");
+    let rendered = payload(&prompt(&p, "plan_phase", &[PHASE], "claude-code"));
+    let steps = rendered["payload"]["steps"].as_array().expect("steps");
+    assert!(
+        steps.iter().any(|s| s["agent"] == "gsd-planner"),
+        "{steps:?}"
+    );
+    let titled: Vec<&str> = steps.iter().filter_map(|s| s["title"].as_str()).collect();
+    assert!(titled.iter().all(|t| !t.contains("(gsd-")), "{titled:?}");
+}
+
+#[test]
 fn plan_phase_steps_and_gates() {
     let p = project("discuss");
     let rendered = payload(&prompt(&p, "plan_phase", &[PHASE], "claude-code"));
@@ -200,12 +213,7 @@ fn convergence_renders() {
     assert_eq!(steps[0]["id"], "replan");
     assert_eq!(steps[0]["prompt"], "specforge.gsd.plan_phase");
     assert_eq!(steps[1]["id"], "check");
-    assert!(
-        steps[1]["title"]
-            .as_str()
-            .expect("a title")
-            .contains("gsd-plan-checker")
-    );
+    assert_eq!(steps[1]["agent"], "gsd-plan-checker");
     assert!(text_of(&rendered).contains("02 --codex --max-cycles 3"));
 }
 

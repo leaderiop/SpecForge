@@ -201,17 +201,17 @@
       {
         "agent": "gsd-project-researcher",
         "id": "research",
-        "title": "Research the domain with the project researcher (gsd-project-researcher), one agent per dimension"
+        "title": "Research the domain with the project researcher, one agent per dimension"
       },
       {
         "agent": "gsd-research-synthesizer",
         "id": "synthesize",
-        "title": "Synthesize the research (gsd-research-synthesizer)"
+        "title": "Synthesize the research"
       },
       {
         "agent": "gsd-roadmapper",
         "id": "roadmap",
-        "title": "Create the roadmap (gsd-roadmapper)"
+        "title": "Create the roadmap"
       },
       {
         "cli": "specforge gsd record-research",

@@ -117,12 +117,11 @@ fn discuss_phase_steps_spawn_core_agents_only() {
     let steps = rendered["payload"]["steps"].as_array().expect("steps");
     // Two agent steps and the step into plan_phase.
     assert_eq!(steps.len(), 3);
-    let text = steps
-        .iter()
-        .map(|s| s["title"].as_str().unwrap_or_default())
-        .collect::<Vec<_>>()
-        .join(" ");
-    assert!(text.contains("gsd-assumptions-analyzer") && text.contains("gsd-advisor-researcher"));
+    let agents: Vec<&str> = steps.iter().filter_map(|s| s["agent"].as_str()).collect();
+    assert_eq!(
+        agents,
+        ["gsd-assumptions-analyzer", "gsd-advisor-researcher"]
+    );
     assert!(
         gsd_core::agents::roster::AGENTS
             .iter()

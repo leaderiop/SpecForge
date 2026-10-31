@@ -45,17 +45,17 @@ static INGEST_DOCS: Spec = Spec {
     steps: &[
         Step {
             id: "classify",
-            title: "Classify each document in parallel (gsd-doc-classifier)",
+            title: "Classify each document in parallel",
             does: Do::Agent("gsd-doc-classifier"),
         },
         Step {
             id: "synthesize",
-            title: "Synthesize the classifications and detect conflicts (gsd-doc-synthesizer)",
+            title: "Synthesize the classifications and detect conflicts",
             does: Do::Agent("gsd-doc-synthesizer"),
         },
         Step {
             id: "roadmap",
-            title: "Write the project, requirements and roadmap (gsd-roadmapper)",
+            title: "Write the project, requirements and roadmap",
             does: Do::Agent("gsd-roadmapper"),
         },
     ],

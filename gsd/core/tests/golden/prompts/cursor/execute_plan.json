@@ -219,7 +219,7 @@
       {
         "agent": "gsd-executor",
         "id": "execute",
-        "title": "Execute the plan's tasks (gsd-executor)"
+        "title": "Execute the plan's tasks"
       },
       {
         "cli": "specforge gsd answer-checkpoint",

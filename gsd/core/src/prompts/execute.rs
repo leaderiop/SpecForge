@@ -25,7 +25,7 @@ const PHASE_STEPS: &[Step] = &[
     },
     Step {
         id: "verify",
-        title: "Verify the phase goal (gsd-verifier)",
+        title: "Verify the phase goal",
         does: Do::Agent("gsd-verifier"),
     },
     Step {
@@ -53,7 +53,7 @@ const PLAN_STEPS: &[Step] = &[
     },
     Step {
         id: "execute",
-        title: "Execute the plan's tasks (gsd-executor)",
+        title: "Execute the plan's tasks",
         does: Do::Agent("gsd-executor"),
     },
     Step {

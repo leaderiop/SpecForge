@@ -12,7 +12,7 @@ use crate::settings;
 
 /// What one step of a prompt asks of the agent.
 pub enum Do {
-    /// Spawn the core agent `id` (a rendered step carries no agent field, so the title names it).
+    /// Spawn the core agent `id` (the rendered step's `agent` names it, ADR 0313).
     Agent(&'static str),
     /// Run the command `id` of this extension.
     Command(&'static str),

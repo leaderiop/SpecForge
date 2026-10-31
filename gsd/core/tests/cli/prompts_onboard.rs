@@ -66,7 +66,7 @@ fn ingest_docs_renders_for_three_hosts() {
         "INGEST DOCS",
     ) {
         let got = steps(&rendered);
-        // a rendered step carries no agent (K20): the title names it
+        // a step names its agent in its `agent` field (ADR 0313)
         for (id, agent) in [
             ("classify", "gsd-doc-classifier"),
             ("synthesize", "gsd-doc-synthesizer"),
@@ -77,10 +77,7 @@ fn ingest_docs_renders_for_three_hosts() {
                 .find(|(i, _)| i == id)
                 .unwrap_or_else(|| panic!("{host}: no {id}"))
                 .1;
-            assert!(
-                step["title"].as_str().unwrap_or_default().contains(agent),
-                "{host}: {step}"
-            );
+            assert_eq!(step["agent"], agent, "{host}: {step}");
         }
         assert!(text_of(&rendered).contains("mktemp -d"), "{host}");
     }

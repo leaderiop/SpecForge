@@ -206,7 +206,7 @@
       {
         "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the revised plans against the phase goal (gsd-plan-checker)"
+        "title": "Check the revised plans against the phase goal"
       }
     ],
     "subject": "v1.0/02"

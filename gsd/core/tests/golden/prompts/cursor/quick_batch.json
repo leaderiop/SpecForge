@@ -201,17 +201,17 @@
       {
         "agent": "gsd-phase-researcher",
         "id": "research",
-        "title": "Research how to implement the task (gsd-phase-researcher)"
+        "title": "Research how to implement the task"
       },
       {
         "agent": "gsd-planner",
         "id": "plan",
-        "title": "Create the quick plan (gsd-planner)"
+        "title": "Create the quick plan"
       },
       {
         "agent": "gsd-plan-checker",
         "id": "check",
-        "title": "Check the quick plan (gsd-plan-checker)"
+        "title": "Check the quick plan"
       },
       {
         "cli": "specforge gsd record-verdict",
@@ -241,7 +241,7 @@
       {
         "agent": "gsd-executor",
         "id": "execute",
-        "title": "Execute the quick plan (gsd-executor)"
+        "title": "Execute the quick plan"
       },
       {
         "cli": "specforge gsd complete-plan",
@@ -259,7 +259,7 @@
       {
         "agent": "gsd-verifier",
         "id": "verify",
-        "title": "Verify the quick plan's truths (gsd-verifier)"
+        "title": "Verify the quick plan's truths"
       }
     ]
   },

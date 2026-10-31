@@ -15,7 +15,7 @@ const UAT_STEPS: &[Step] = &[Step {
 const MILESTONE_STEPS: &[Step] = &[
     Step {
         id: "integrate",
-        title: "Check the wiring across the phases (gsd-integration-checker)",
+        title: "Check the wiring across the phases",
         does: Do::Agent("gsd-integration-checker"),
     },
     Step {
