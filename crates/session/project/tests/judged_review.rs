@@ -261,3 +261,42 @@ fn a_failed_blob_read_poisons_no_baseline() {
         baseline.entities[PLAN].judgements
     );
 }
+
+#[specforge_test(
+    behavior = "judge_rule_by_fresh_verdict",
+    verify = "a fresh verdict's message counts its findings"
+)]
+fn a_judged_message_counts_its_findings() {
+    let message = |findings: &str| {
+        let project = gsd_judged_project("");
+        let cites = if findings.is_empty() {
+            String::new()
+        } else {
+            format!("    findings [{findings}]\n")
+        };
+        record_citing(&project, PLAN, W311, "issues", &Cited::default(), &cites);
+        compile(&project)
+            .diagnostics()
+            .into_iter()
+            .find(|d| d.code == W311 && d.message.contains(PLAN) && d.message.contains("'issues'"))
+            .unwrap_or_else(|| panic!("a finding on {PLAN}"))
+            .message
+    };
+    let one = r#"{ severity "error" message "no wiring" }"#;
+    let two = format!(r#"{one}, {{ severity "warning" message "thin" }}"#);
+    assert!(
+        message(&two).contains("is 'issues' (2 findings)"),
+        "{}",
+        message(&two)
+    );
+    assert!(
+        message(one).contains("is 'issues' (1 finding)"),
+        "{}",
+        message(one)
+    );
+    assert!(
+        message("").contains("is 'issues' (0 findings)"),
+        "{}",
+        message("")
+    );
+}

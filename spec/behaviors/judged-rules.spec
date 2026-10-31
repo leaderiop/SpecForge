@@ -114,6 +114,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   verify unit "test inputs are not judged without a report"
   verify unit "a prompt-judged verdict is recorded and goes stale like an agent's, and its rendered prompt lists the rules it judges"
   verify unit "a verdict recorded without a report is stale once a report exists"
+  verify unit "a fresh verdict's message counts its findings"
   verify unit "a re-run that agrees on every status stales nothing"
   verify unit "a gated judged rule computes and reports nothing"
   verify unit "a verdict that cannot be read is W168"

@@ -195,8 +195,10 @@ fn a_failing_verdict_on_a_warning_rule_records() {
         .map(|(_, m)| m)
         .collect();
     assert_eq!(messages.len(), 1, "{messages:?}");
-    // (The kernel's count reads a list of values, not of blocks, so it says 0 for any findings.)
-    assert!(messages[0].contains("is 'issues'"), "{messages:?}");
+    assert!(
+        messages[0].contains("is 'issues' (1 finding)"),
+        "{messages:?}"
+    );
     assert!(p.read("spec/plans.spec").contains("message \"no wiring\""));
 }
 
