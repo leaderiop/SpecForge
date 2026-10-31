@@ -42,7 +42,7 @@ fn read(path: &str) -> Want {
     Want::Read(path.into())
 }
 
-fn bash(command: &str) -> HookOutput {
+pub(super) fn bash(command: &str) -> HookOutput {
     secret_read_guard(&Facts {
         class: "shell".into(),
         tool: "Bash".into(),

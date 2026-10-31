@@ -12,6 +12,7 @@ use serde_json::Value;
 use super::*;
 use crate::hooks::{accounting, corpus};
 
+mod depth;
 mod v1_19;
 
 const SUITE: &str = include_str!(gsd_kit::snapshot!("tests/gsd-secret-read-guard.test.cjs"));

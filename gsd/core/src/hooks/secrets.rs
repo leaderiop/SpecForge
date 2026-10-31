@@ -29,6 +29,12 @@ fn deny(code: &str, tool: &str, target: &str) -> HookOutput {
             "Secret read guard (gsd.secret_read_guard): this Bash command is over {MAX_COMMAND_LENGTH} characters and \
              cannot be checked for secret-file reads. Split it into smaller commands."
         ),
+        "command-too-nested" => format!(
+            "Secret read guard (gsd.secret_read_guard): this Bash command nests command substitutions or heredocs \
+             deeper than {} levels and is denied rather than read, because what it runs cannot be checked for \
+             secret-file reads. Split it into smaller commands.",
+            shell::MAX_SPAN_DEPTH
+        ),
         "glob-too-complex" => format!(
             "Secret read guard (gsd.secret_read_guard): the Grep glob '{target}' expands to more than 64 \
              alternatives and cannot be checked for secret-file matches. Use a narrower glob."
@@ -97,9 +103,15 @@ pub(super) fn secret_read_guard(f: &Facts) -> HookOutput {
             if command.len() > MAX_COMMAND_LENGTH {
                 return deny("command-too-large", tool, "");
             }
-            if let Some(hit) = scan::find_secret_read(&command, 0)
-                .or_else(|| scan::find_secret_read_under_other_readings(&command))
-            {
+            let (hit, too_nested) = shell::too_nested(|| {
+                scan::find_secret_read(&command, 0)
+                    .or_else(|| scan::find_secret_read_under_other_readings(&command))
+            });
+            // Judged before the read: past the cap the reader stopped, so no hit is no evidence.
+            if too_nested {
+                return deny("command-too-nested", tool, "");
+            }
+            if let Some(hit) = hit {
                 return deny("secret-read", tool, &hit);
             }
             if let Some(spawn) = debugger::find_debugger_spawn(&command, 0) {
