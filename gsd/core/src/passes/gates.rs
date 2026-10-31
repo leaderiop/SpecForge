@@ -44,11 +44,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
 
 /// The subject of a gate; `None` outside a gate, where every guard answers nothing.
 fn gate(input: &PassInput) -> Option<Option<&str>> {
-    // The protocol's discriminator is `kind`. The SDK does not export `TriggerKind`, so it is read by name.
     let trigger = input
         .trigger
         .as_ref()
-        .filter(|t| format!("{:?}", t.kind) == "Gate")?;
+        .filter(|t| t.kind == TriggerKind::Gate)?;
     Some(trigger.subject.as_deref())
 }
 

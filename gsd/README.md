@@ -206,7 +206,6 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   `utility` leaves `/gsd-help` (also `core_loop`) shown.
 - **A JSON number for a top-level integer plan op**: gsd writes the decimal text (`collectors/git.rs`).
 - **`collect` re-keys short ids**: `gsd-junit` resolves `[gsd:<id>]` itself.
-- **The SDK exports `TriggerKind`**: `gates.rs` reads the kind by name.
 - **What stays after K17.** `check` is red from planning on, since gsd/E501 is an Error from the first planned truth
   until it is verified, and an agent cannot create an artifact through the CLI (`--path` is the CLI's own option).
 - **Hook facts and the install path (K20).** A hook is told the name of an out-of-project path, not its real path, so a
