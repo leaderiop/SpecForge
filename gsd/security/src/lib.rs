@@ -12,7 +12,7 @@ pub mod settings;
 use specforge_extension_sdk::prelude::*;
 
 /// The gsd-core release this crate tracks; `[package.metadata.gsd] tracks` in `Cargo.toml` says the same.
-pub const TRACKS: &str = "gsd-core@1.18.0";
+pub const TRACKS: &str = concat!("gsd-core@", gsd_kit::tracked_version!());
 
 /// The `@gsd/core` releases this extension works with: 1.1.0 is the first whose workflows ask for hooks.
 pub const CORE_RANGE: &str = "^1.1.0";

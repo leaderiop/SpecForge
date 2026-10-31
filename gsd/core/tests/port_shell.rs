@@ -27,7 +27,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 /// `(label, ours, upstream's)` as body lines of every asset that has an upstream file of the same line count.
 fn pairs() -> Vec<(String, Vec<String>, Vec<String>)> {
     let base = root().join("assets");
-    let vendored = root().join("../parity/upstream/v1.18.0");
+    let vendored = Path::new(gsd_kit::snapshot!());
     let mut paths = Vec::new();
     walk(&base, &mut paths);
     paths.sort();

@@ -59,7 +59,7 @@ const UPSTREAM_CASES: &[&str] = &[
 
 #[test]
 fn every_ported_case_is_in_the_vendored_suite() {
-    let suite = include_str!("../../../../parity/upstream/v1.18.0/tests/smart-entry.unit.test.cjs");
+    let suite = include_str!(gsd_kit::snapshot!("tests/smart-entry.unit.test.cjs"));
     for title in UPSTREAM_CASES {
         assert!(
             suite.contains(title),

@@ -12,7 +12,7 @@ use rule::check_lines;
 const AGENT: &str = "gsd-security-auditor";
 
 fn upstream_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/upstream/v1.18.0")
+    PathBuf::from(gsd_kit::snapshot!())
 }
 
 fn read(path: &Path) -> String {
@@ -86,7 +86,10 @@ fn the_descriptor_is_upstreams_with_the_compact_variant() {
     assert_eq!(a["variants"], serde_json::json!(["compact"]));
     assert_eq!(a["variant_setting"], "specforge.agent_variant");
     assert_eq!(a["attribution"]["path"], "agents/gsd-security-auditor.md");
-    assert_eq!(a["attribution"]["version"], "v1.18.0");
+    assert_eq!(
+        a["attribution"]["version"],
+        concat!("v", gsd_kit::tracked_version!())
+    );
 }
 
 // Upstream `tests/secure-phase-single-writer.test.cjs` (#2119), 2 cases, both ported here.

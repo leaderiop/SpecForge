@@ -11,10 +11,10 @@ use super::*;
 use crate::hooks::accounting;
 use crate::hooks::facts::PathFact;
 
-const GUARD_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/workflow-guard.test.cjs");
-const REGISTRATION_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/workflow-guard-registration.test.cjs");
+const GUARD_SUITE: &str = include_str!(gsd_kit::snapshot!("tests/workflow-guard.test.cjs"));
+const REGISTRATION_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/workflow-guard-registration.test.cjs"
+));
 
 fn edit_of(class: &str, file: &str, session: Option<Value>) -> Facts<'static> {
     Facts {

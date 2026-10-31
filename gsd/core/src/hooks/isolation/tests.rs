@@ -11,10 +11,10 @@ use super::*;
 use crate::hooks::accounting;
 use crate::hooks::facts::{Git, PathFact};
 
-const AGENT_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-agent-isolation-guard.test.cjs");
-const SAFETY_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/worktree-safety.test.cjs");
+const AGENT_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/gsd-agent-isolation-guard.test.cjs"
+));
+const SAFETY_SUITE: &str = include_str!(gsd_kit::snapshot!("tests/worktree-safety.test.cjs"));
 
 /// Upstream's agent isolation guard has no hook here (r44 post-fix N7): every case of its suite is one divergence.
 #[test]

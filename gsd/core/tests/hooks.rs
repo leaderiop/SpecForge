@@ -20,9 +20,8 @@ fn root() -> PathBuf {
 
 /// The `hooks` family of the vendored inventory manifest.
 fn upstream_hooks() -> Vec<String> {
-    let text =
-        std::fs::read_to_string(root().join("../parity/upstream/v1.18.0/INVENTORY-MANIFEST.json"))
-            .expect("manifest");
+    let text = std::fs::read_to_string(Path::new(gsd_kit::snapshot!("INVENTORY-MANIFEST.json")))
+        .expect("manifest");
     let manifest: serde_json::Value = serde_json::from_str(&text).expect("JSON");
     manifest["families"]["hooks"]
         .as_array()

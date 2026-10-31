@@ -15,11 +15,12 @@ use crate::hooks::facts::PathFact;
 
 mod opt_in;
 
-const CRASH_SUITE: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/tests/gsd-validate-commit-crash-policy.test.cjs"
-);
-const SIGPIPE_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-validate-commit-sigpipe.test.cjs");
+const CRASH_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/gsd-validate-commit-crash-policy.test.cjs"
+));
+const SIGPIPE_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/gsd-validate-commit-sigpipe.test.cjs"
+));
 
 pub(super) fn commit(message: Option<&str>) -> Facts<'static> {
     Facts {

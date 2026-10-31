@@ -27,7 +27,10 @@ fn golden(name: &str) -> Value {
 /// What a gate-cutover golden printed on stdout.
 pub(super) fn printed(name: &str) -> Value {
     let file = json(
-        &parity(&format!("upstream/v1.18.0/gate-cutover/{name}.json")),
+        &parity(&format!(
+            "upstream/v{}/gate-cutover/{name}.json",
+            gsd_kit::tracked_version!()
+        )),
         name,
     );
     json(file["stdout"].as_str().expect("a stdout"), name)

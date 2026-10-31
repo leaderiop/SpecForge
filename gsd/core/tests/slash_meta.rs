@@ -26,9 +26,7 @@ const ADAPTED: &[(&str, &str)] = &[
 ];
 
 fn vendored(stem: &str) -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../parity/upstream/v1.18.0/commands/gsd")
-        .join(format!("{stem}.md"));
+    let path = Path::new(gsd_kit::snapshot!("commands/gsd")).join(format!("{stem}.md"));
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 

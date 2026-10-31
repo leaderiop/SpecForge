@@ -8,9 +8,9 @@ use gsd_core::build;
 use serde_json::Value;
 use specforge_extension_sdk::testing::MockHost;
 
-const MANIFEST: &str = include_str!("../../parity/upstream/v1.18.0/config-schema.manifest.json");
-const CAPABILITIES: &str = include_str!("../../parity/upstream/v1.18.0/capabilities.json");
-const DEFAULTS: &str = include_str!("../../parity/upstream/v1.18.0/config-defaults.manifest.json");
+const MANIFEST: &str = include_str!(gsd_kit::snapshot!("config-schema.manifest.json"));
+const CAPABILITIES: &str = include_str!(gsd_kit::snapshot!("capabilities.json"));
+const DEFAULTS: &str = include_str!(gsd_kit::snapshot!("config-defaults.manifest.json"));
 const SETTINGS_MD: &str = include_str!("../spec/settings.md");
 
 /// Keys only `docs/CONFIGURATION.md` lists (neither the manifest nor a capability does).
@@ -191,7 +191,8 @@ fn every_core_key_of_the_manifest_is_declared_with_its_default() {
     assert_eq!(
         (universe.len(), core.len()),
         (211, 161),
-        "the roster of v1.18.0: 211 keys, 161 of them core"
+        "the roster of v{}: 211 keys, 161 of them core",
+        gsd_kit::tracked_version!()
     );
 
     // Nothing else: every static setting is a key of the roster or listed as documented only, every family is one of

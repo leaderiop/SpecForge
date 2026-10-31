@@ -5,9 +5,9 @@ use gsd_security::build;
 use serde_json::Value;
 use specforge_extension_sdk::testing::MockHost;
 
-const CAPABILITIES: &str = include_str!("../../parity/upstream/v1.18.0/capabilities.json");
-const DEFAULTS: &str = include_str!("../../parity/upstream/v1.18.0/config-defaults.manifest.json");
-const CATALOG: &str = include_str!("../../parity/upstream/v1.18.0/model-catalog.json");
+const CAPABILITIES: &str = include_str!(gsd_kit::snapshot!("capabilities.json"));
+const DEFAULTS: &str = include_str!(gsd_kit::snapshot!("config-defaults.manifest.json"));
+const CATALOG: &str = include_str!(gsd_kit::snapshot!("model-catalog.json"));
 
 fn items() -> Vec<Value> {
     let host = MockHost::new(build());

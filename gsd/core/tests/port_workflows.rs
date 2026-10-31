@@ -451,7 +451,7 @@ fn root() -> PathBuf {
 }
 
 fn vendored_root() -> PathBuf {
-    root().join("../parity/upstream/v1.18.0")
+    PathBuf::from(gsd_kit::snapshot!())
 }
 
 /// The files under `dir` as paths relative to `base`, sorted.

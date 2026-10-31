@@ -14,13 +14,13 @@ use format::{
     format_tokens, progress_bar, short_status, token_suffix,
 };
 
-const SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-statusline.test.cjs");
-const STATE_SUITE: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/tests/gsd-statusline-state.property.test.cjs"
-);
-const GIT_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-statusline-git.property.test.cjs");
+const SUITE: &str = include_str!(gsd_kit::snapshot!("tests/gsd-statusline.test.cjs"));
+const STATE_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/gsd-statusline-state.property.test.cjs"
+));
+const GIT_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/gsd-statusline-git.property.test.cjs"
+));
 
 /// A state segment from `key, value` pairs named as upstream's state object names them.
 fn seg(pairs: &[(&str, &str)]) -> StateSeg {

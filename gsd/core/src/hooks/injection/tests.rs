@@ -11,33 +11,32 @@ use super::*;
 use crate::hooks::facts::PathFact;
 use crate::hooks::{accounting, corpus};
 
-const PATTERNS_JS: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/hooks/lib/injection-patterns.js");
-const SCANNER_JS: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/hooks/gsd-read-injection-scanner.js");
-const SECURITY: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/tests/read-injection-scanner.security.test.cjs"
-);
-const PROPERTY: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/tests/read-injection-scanner.property.test.cjs"
-);
-const PARITY: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/tests/injection-patterns-parity.security.test.cjs"
-);
-const CODEBASE_SCAN: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/tests/prompt-injection-scan.security.test.cjs"
-);
-const BLOCKING_CONFIG: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/injection-blocking-config.test.cjs");
-const SECURITY_CALLS: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/hook-cases/read-injection-scanner.security.json"
-);
-const PROPERTY_CALLS: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/hook-cases/read-injection-scanner.property.json"
-);
-const PARITY_CALLS: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/hook-cases/injection-patterns-parity.security.json"
-);
+const PATTERNS_JS: &str = include_str!(gsd_kit::snapshot!("hooks/lib/injection-patterns.js"));
+const SCANNER_JS: &str = include_str!(gsd_kit::snapshot!("hooks/gsd-read-injection-scanner.js"));
+const SECURITY: &str = include_str!(gsd_kit::snapshot!(
+    "tests/read-injection-scanner.security.test.cjs"
+));
+const PROPERTY: &str = include_str!(gsd_kit::snapshot!(
+    "tests/read-injection-scanner.property.test.cjs"
+));
+const PARITY: &str = include_str!(gsd_kit::snapshot!(
+    "tests/injection-patterns-parity.security.test.cjs"
+));
+const CODEBASE_SCAN: &str = include_str!(gsd_kit::snapshot!(
+    "tests/prompt-injection-scan.security.test.cjs"
+));
+const BLOCKING_CONFIG: &str = include_str!(gsd_kit::snapshot!(
+    "tests/injection-blocking-config.test.cjs"
+));
+const SECURITY_CALLS: &str = include_str!(gsd_kit::snapshot!(
+    "hook-cases/read-injection-scanner.security.json"
+));
+const PROPERTY_CALLS: &str = include_str!(gsd_kit::snapshot!(
+    "hook-cases/read-injection-scanner.property.json"
+));
+const PARITY_CALLS: &str = include_str!(gsd_kit::snapshot!(
+    "hook-cases/injection-patterns-parity.security.json"
+));
 
 // ---------------------------------------------------------------- the patterns, against upstream's files
 

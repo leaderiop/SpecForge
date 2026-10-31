@@ -6,8 +6,7 @@
 
 use super::*;
 
-const SOURCE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/src/runtime-artifact-conversion.cts");
+const SOURCE: &str = include_str!(crate::snapshot!("src/runtime-artifact-conversion.cts"));
 
 /// Cursor's `preserves slash for slash commands in markdown body`.
 #[test]

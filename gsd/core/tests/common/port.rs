@@ -20,7 +20,10 @@ pub fn check_lines(
 ) -> usize {
     let lines: Vec<&str> = asset.split('\n').collect();
     assert!(
-        lines[0].starts_with(&format!("<!-- Ported from gsd-core v1.18.0 {header}, MIT")),
+        lines[0].starts_with(&format!(
+            "<!-- Ported from gsd-core v{} {header}, MIT",
+            gsd_kit::tracked_version!()
+        )),
         "{label}: header {}",
         lines[0]
     );

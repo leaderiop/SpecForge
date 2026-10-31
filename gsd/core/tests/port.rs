@@ -11,7 +11,7 @@ mod rule;
 use rule::check_lines;
 
 pub fn upstream_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/upstream/v1.18.0/agents")
+    PathBuf::from(gsd_kit::snapshot!("agents"))
 }
 
 pub fn assets_dir() -> PathBuf {

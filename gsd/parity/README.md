@@ -70,7 +70,7 @@ Phase 2's `02-CONTEXT.md`, `02-DISCUSSION-LOG.md` and `02-RESEARCH.md` (round r3
 
 - `upgrade.sh` does not extract the 86 capability-declared config keys, so a change to one shows only as a changed
   file. `locate` files the nested `src/<dir>/` modules and `bin/lib/*.cjs` as "other", which can raise a false
-  "unowned" alarm. `upgrade_diff_on_v1_18_0_is_empty` compares the snapshot with itself; a real extraction of the tag
+  "unowned" alarm. `upgrade_diff_of_the_tracked_release_is_empty` compares the snapshot with itself; a real extraction of the tag
   was compared once by hand.
 - A "Reproduced" row passes when a test of that name contains the row's name, comments included; the pinned totals
   merge Reproduced and ByConstruction. The scenario check's needles are substrings. `GSD_BLESS=1` also rewrites

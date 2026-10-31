@@ -7,10 +7,9 @@ mod evidence;
 
 use serde_json::Value;
 
-const MANIFEST: &str = include_str!("../../parity/upstream/v1.18.0/INVENTORY-MANIFEST.json");
-const CAPABILITY_IDS: &str = include_str!("../../parity/upstream/v1.18.0/capability-ids.json");
-const CAPABILITY: &str =
-    include_str!("../../parity/upstream/v1.18.0/capabilities/security/capability.json");
+const MANIFEST: &str = include_str!(gsd_kit::snapshot!("INVENTORY-MANIFEST.json"));
+const CAPABILITY_IDS: &str = include_str!(gsd_kit::snapshot!("capability-ids.json"));
+const CAPABILITY: &str = include_str!(gsd_kit::snapshot!("capabilities/security/capability.json"));
 const ACCEPTANCE: &str = include_str!("../../parity/ACCEPTANCE.md");
 
 const AGENTS_RS: &str = include_str!("../src/agents.rs");

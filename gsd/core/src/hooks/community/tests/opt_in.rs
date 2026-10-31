@@ -12,8 +12,7 @@ use crate::hooks::community::{phase_boundary, validate_commit};
 use crate::hooks::facts::Facts;
 use specforge_extension_sdk::prelude::*;
 
-const SUITE: &str =
-    include_str!("../../../../../parity/upstream/v1.18.0/tests/hooks-opt-in.test.cjs");
+const SUITE: &str = include_str!(gsd_kit::snapshot!("tests/hooks-opt-in.test.cjs"));
 
 fn heredoc(body: &str, open: &str, close: &str) -> String {
     format!("$(cat {open}\n{body}\n{close}\n)")

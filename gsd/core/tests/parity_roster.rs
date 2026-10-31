@@ -36,11 +36,10 @@ use roster::{Owner, ROSTER};
 mod roster;
 use serde_json::Value;
 
-const MANIFEST: &str = include_str!("../../parity/upstream/v1.18.0/INVENTORY-MANIFEST.json");
-const CAPABILITY_IDS: &str = include_str!("../../parity/upstream/v1.18.0/capability-ids.json");
-const CONFIG_SCHEMA: &str =
-    include_str!("../../parity/upstream/v1.18.0/config-schema.manifest.json");
-const CAPABILITIES: &str = include_str!("../../parity/upstream/v1.18.0/capabilities.json");
+const MANIFEST: &str = include_str!(gsd_kit::snapshot!("INVENTORY-MANIFEST.json"));
+const CAPABILITY_IDS: &str = include_str!(gsd_kit::snapshot!("capability-ids.json"));
+const CONFIG_SCHEMA: &str = include_str!(gsd_kit::snapshot!("config-schema.manifest.json"));
+const CAPABILITIES: &str = include_str!(gsd_kit::snapshot!("capabilities.json"));
 const README: &str = include_str!("../../README.md");
 const CONTRIBUTIONS: &str = include_str!("../contributions/README.md");
 
@@ -417,7 +416,11 @@ fn header_names(header: &str, pattern: &str) -> bool {
 
 #[test]
 fn a_header_names_a_module_as_a_whole_file_name() {
-    let header = "//! Ported from gsd-core v1.18.0 bin/lib/state.cjs and phase.cjs, MIT; the phase of a plan";
+    let header = concat!(
+        "//! Ported from gsd-core v",
+        gsd_kit::tracked_version!(),
+        " bin/lib/state.cjs and phase.cjs, MIT; the phase of a plan"
+    );
     assert!(header_names(header, "phase.cjs") && header_names(header, "state.cjs"));
     assert!(!header_names(header, "verify.cjs") && !header_names(header, "phas.cjs"));
     assert!(

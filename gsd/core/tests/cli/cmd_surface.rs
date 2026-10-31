@@ -161,8 +161,7 @@ fn a_skill_in_two_clusters_is_hidden_by_either() {
 
 /// The members of each cluster of the vendored `clusters.cts`, in its order.
 fn upstream() -> Vec<(String, Vec<String>)> {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../parity/upstream/v1.18.0/src/clusters.cts");
+    let path = std::path::Path::new(gsd_kit::snapshot!("src/clusters.cts"));
     let text = std::fs::read_to_string(path).expect("the vendored clusters");
     let body = text
         .split("export const CLUSTERS")

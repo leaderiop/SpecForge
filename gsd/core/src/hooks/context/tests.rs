@@ -13,11 +13,12 @@ use crate::hooks::accounting;
 mod skipped;
 use skipped::{CONTRACT_SKIPPED, MONITOR_SKIPPED};
 
-const MONITOR_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/perf-317-context-monitor-fs.test.cjs");
-const CONTRACT_SUITE: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/tests/context-monitor-host-contract.test.cjs"
-);
+const MONITOR_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/perf-317-context-monitor-fs.test.cjs"
+));
+const CONTRACT_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/context-monitor-host-contract.test.cjs"
+));
 
 const NOW: i64 = 1_800_000_000;
 const DEFAULTS: (f64, f64) = (35.0, 25.0);

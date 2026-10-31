@@ -13,10 +13,8 @@ use crate::hooks::{accounting, corpus};
 
 mod v1_19;
 
-const SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-secret-read-guard.test.cjs");
-const RECORDING: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/hook-cases/gsd-secret-read-guard.json");
+const SUITE: &str = include_str!(gsd_kit::snapshot!("tests/gsd-secret-read-guard.test.cjs"));
+const RECORDING: &str = include_str!(gsd_kit::snapshot!("hook-cases/gsd-secret-read-guard.json"));
 
 const SKIPPED: &[(&str, &str)] = &[
     (

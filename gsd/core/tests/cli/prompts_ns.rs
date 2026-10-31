@@ -14,9 +14,8 @@ const ROUTERS: [&str; 6] = [
 const INTENT: &str = "plan the next phase";
 
 fn vendored(router: &str) -> String {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../parity/upstream/v1.18.0/commands/gsd")
-        .join(format!("ns-{router}.md"));
+    let path =
+        std::path::Path::new(gsd_kit::snapshot!("commands/gsd")).join(format!("ns-{router}.md"));
     std::fs::read_to_string(path).expect("the vendored router")
 }
 

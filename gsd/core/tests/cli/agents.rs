@@ -71,8 +71,9 @@ fn a_rendered_agent_carries_its_attribution() {
     for agent in AGENTS {
         let file = claude_agent(&p, agent.id);
         let notice = format!(
-            "<!-- Ported from gsd-core agents/{}.md at v1.18.0. Copyright (c) 2026 Open GSD. Licensed under MIT. -->",
-            agent.id
+            "<!-- Ported from gsd-core agents/{}.md at v{}. Copyright (c) 2026 Open GSD. Licensed under MIT. -->",
+            agent.id,
+            gsd_kit::tracked_version!()
         );
         assert!(
             file.trim_end().ends_with(&notice),
