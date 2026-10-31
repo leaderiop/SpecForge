@@ -357,3 +357,212 @@ fn quick_batch_names_where_its_quick_id_comes_from() {
     let quick = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
     assert!(quick.contains("init block above"));
 }
+
+/// F8: quick's worktree steps run under bash in the project's git repository, where the quick plan is the entity
+/// `plan <id>` in `spec/quick.spec` and no `<id>-PLAN.md` exists.
+mod worktree {
+    use std::path::Path;
+    use std::process::{Command, Output};
+
+    use super::super::commands_support::{gsd, twin};
+    use super::super::harness::{Project, project};
+    use super::super::prompts_support::{payload, prompt, text_of};
+
+    const ID: &str = "251031-abc";
+    const AT: &str = "2026-10-31T08:00:00Z";
+    const PLAN: &str = "plan 251031-abc \"Trim titles\" {\n  objective \"Titles are trimmed\"\n}\n";
+
+    fn no_bash() -> bool {
+        if Command::new("bash").arg("--version").output().is_ok() {
+            return false;
+        }
+        eprintln!("skipped: bash is absent");
+        true
+    }
+
+    /// `script` under bash in `dir`, with git's identity pinned and none of the developer's configuration.
+    fn bash(dir: &Path, script: &str, env: &[(&str, &str)]) -> Output {
+        Command::new("bash")
+            .args(["-c", script])
+            .current_dir(dir)
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env_remove("GIT_DIR")
+            .env_remove("GIT_WORK_TREE")
+            .env_remove("GIT_INDEX_FILE")
+            .envs([
+                ("GIT_AUTHOR_NAME", "gsd"),
+                ("GIT_AUTHOR_EMAIL", "gsd@example.com"),
+                ("GIT_COMMITTER_NAME", "gsd"),
+                ("GIT_COMMITTER_EMAIL", "gsd@example.com"),
+            ])
+            .envs(env.iter().copied())
+            .output()
+            .expect("bash")
+    }
+
+    /// The served pre-dispatch step's bash block.
+    fn pre_dispatch(p: &Project) -> String {
+        let served = gsd(
+            p,
+            "reference",
+            &["gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md"],
+        );
+        assert_eq!(served.code, 0, "{}", served.all());
+        served
+            .stdout
+            .split("```bash\n")
+            .nth(1)
+            .and_then(|b| b.split("\n```").next())
+            .expect("the pre-dispatch block")
+            .to_string()
+    }
+
+    /// Runs the pre-dispatch block in `p` and answers `(QUICK_PLAN_COMMIT, QUICK_PLAN_PARENT)`.
+    fn dispatch(p: &Project, block: &str) -> (String, String) {
+        let out = bash(
+            p.root(),
+            &format!(
+                "{block}\necho \"commit=$QUICK_PLAN_COMMIT\"\necho \"parent=$QUICK_PLAN_PARENT\""
+            ),
+            &[
+                ("USE_WORKTREES", "true"),
+                ("quick_id", ID),
+                ("QUICK_DIR", ID),
+                ("DESCRIPTION", "trim titles"),
+                ("DISCUSS_MODE", "false"),
+                ("RESEARCH_MODE", "false"),
+            ],
+        );
+        let said = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            out.status.success(),
+            "{said}{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let value = |key: &str| {
+            said.lines()
+                .find_map(|l| l.strip_prefix(key))
+                .unwrap_or_default()
+                .to_string()
+        };
+        (value("commit="), value("parent="))
+    }
+
+    fn rev(p: &Project, spec: &str) -> String {
+        p.git(&["rev-parse", spec], AT).trim().to_string()
+    }
+
+    #[test]
+    #[ignore = "F8: plan 02 T2"]
+    fn the_pre_dispatch_commit_holds_the_plan_and_the_base_is_its_parent() {
+        if no_bash() {
+            return;
+        }
+        let p = project("empty");
+        let prior = p.git_commit("chore: start", &[("README.md", "taskboard\n")], AT);
+        let block = pre_dispatch(&p);
+        p.write("spec/quick.spec", PLAN);
+        let (commit, parent) = dispatch(&p, &block);
+        assert_eq!(
+            p.git(&["log", "-1", "--format=%s"], AT).trim(),
+            format!("docs({ID}): pre-dispatch artifacts for trim titles"),
+            "the plan is not committed before dispatch"
+        );
+        assert_eq!(commit, rev(&p, "HEAD"));
+        assert_eq!(
+            parent, prior,
+            "the alternate base is the plan commit's parent"
+        );
+        // Already committed, with an unrelated commit on top: no new commit, and the base is still the plan's.
+        let plan_at = rev(&p, "HEAD");
+        let top = p.git_commit("chore: unrelated", &[("README.md", "taskboard 2\n")], AT);
+        let (commit, parent) = dispatch(&p, &block);
+        assert_eq!(rev(&p, "HEAD"), top, "a re-run made a commit");
+        assert_eq!(commit, top);
+        assert_eq!(parent, prior, "not HEAD^ ({plan_at})");
+    }
+
+    #[test]
+    #[ignore = "F8: plan 02 T2"]
+    fn without_a_plan_there_is_no_alternate_base() {
+        if no_bash() {
+            return;
+        }
+        let p = project("empty");
+        p.git_commit("chore: start", &[("README.md", "taskboard\n")], AT);
+        p.git_commit(
+            "docs: another plan",
+            &[("spec/quick.spec", "plan 251031-xyz \"Other\" {\n}\n")],
+            AT,
+        );
+        let (_, parent) = dispatch(&p, &pre_dispatch(&p));
+        assert_eq!(parent, "", "a base was found for a plan no commit wrote");
+    }
+
+    #[test]
+    #[ignore = "F8: plan 02 T2"]
+    fn the_executor_finds_the_plan_in_its_worktree_and_stops_without_it() {
+        if no_bash() {
+            return;
+        }
+        let text = text_of(&payload(&prompt(&twin(), "quick", &[], "claude-code")));
+        let lines: Vec<&str> = text.lines().collect();
+        let first = lines
+            .iter()
+            .position(|l| l.starts_with("FIRST ACTION after the worktree branch check"))
+            .expect("the executor's first action");
+        let open = first
+            + lines[first..]
+                .iter()
+                .position(|l| *l == "\\`\\`\\`bash")
+                .expect("its block");
+        let block = lines[open + 1..]
+            .iter()
+            .take_while(|l| !l.starts_with("${DISCUSS_MODE"))
+            .copied()
+            .collect::<Vec<_>>()
+            .join("\n");
+        let p = project("empty");
+        p.git_commit("chore: start", &[("README.md", "taskboard\n")], AT);
+        let with = p.git_commit("docs: the plan", &[("spec/quick.spec", PLAN)], AT);
+        let trees = tempfile::tempdir().expect("a temp dir");
+        let tree = trees.path().join("agent");
+        let tree_arg = tree.to_string_lossy().into_owned();
+        p.git(
+            &["worktree", "add", "-q", "-b", "agent", &tree_arg, &with],
+            AT,
+        );
+        let first_action = |commit: &str| {
+            bash(
+                &tree,
+                &block,
+                &[
+                    ("QUICK_PLAN_COMMIT", commit),
+                    ("quick_id", ID),
+                    ("QUICK_DIR", ID),
+                ],
+            )
+        };
+        let passed = first_action(&with);
+        assert_eq!(
+            passed.status.code(),
+            Some(0),
+            "{}",
+            String::from_utf8_lossy(&passed.stderr)
+        );
+        let status = Command::new("git")
+            .args(["status", "--porcelain"])
+            .current_dir(&tree)
+            .output()
+            .expect("git");
+        assert_eq!(
+            String::from_utf8_lossy(&status.stdout),
+            "",
+            "a file was written"
+        );
+        let without = p.git_commit("docs: no plan", &[("spec/quick.spec", "")], AT);
+        let refused = first_action(&without);
+        assert_eq!(refused.status.code(), Some(42), "{refused:?}");
+    }
+}
