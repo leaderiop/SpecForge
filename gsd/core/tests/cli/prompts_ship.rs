@@ -103,3 +103,52 @@ fn ship_reads_the_ledger_of_the_milestone() {
         "the ledger is the milestone's"
     );
 }
+
+/// #5195: PROJECT.md is shared across workstreams, so complete-milestone reviews it in flat mode only. The gate reads
+/// the workstream `switch` made active (SpecForge's INIT has no `section_manifest`) and needs no `node`.
+#[test]
+fn complete_milestone_skips_the_project_review_under_an_active_workstream() {
+    let p = super::harness::project("workstreams");
+    let served = gsd(
+        &p,
+        "reference",
+        &["gsd-core/workflows/complete-milestone.md"],
+    );
+    assert_eq!(served.code, 0, "{}", served.all());
+    let gate = served
+        .stdout
+        .split("```bash\n")
+        .filter_map(|b| b.split("\n```").next())
+        .find(|b| b.contains("PROJECT_MD_REVIEW"))
+        .expect("the review gate");
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    let path = format!(
+        "{}:{}",
+        bin.parent().expect("a directory").display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let review = || {
+        let out = std::process::Command::new("bash")
+            .args(["-c", gate])
+            .env("PATH", &path)
+            .current_dir(p.root())
+            .output()
+            .expect("bash");
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter(|l| l.starts_with("PROJECT_MD_REVIEW="))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    assert_eq!(review(), "PROJECT_MD_REVIEW=run", "flat mode");
+    let switched = gsd(&p, "workstreams", &["switch", "--name", "auth"]);
+    assert_eq!(switched.code, 0, "{}", switched.all());
+    assert_eq!(review(), "PROJECT_MD_REVIEW=skip", "under workstream auth");
+    assert!(
+        !served
+            .stdout
+            .lines()
+            .any(|l| l.contains("node -e") && l.contains("section_manifest")),
+        "a gate still reads `section_manifest` with node"
+    );
+}
