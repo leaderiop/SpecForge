@@ -353,219 +353,312 @@ fn the_short_circuit_cases() {
 }
 
 /// `(case, the test that runs it)`: a case that is a describe-block's is run by that block's test.
-const SECURE_PORTED: &[(&str, &str)] = &[
-    ("agent file exists", "the_auditor_cases"),
+const SECURE_PORTED: &[(&str, &str, &str)] = &[
+    ("agent file exists", "the_auditor_cases", r#"auditor()"#),
     (
         "has valid frontmatter with name, description, tools, color",
         "the_auditor_cases",
+        r#""description", "tools", "color""#,
     ),
-    ("name is gsd-security-auditor", "the_auditor_cases"),
+    (
+        "name is gsd-security-auditor",
+        "the_auditor_cases",
+        r#""gsd-security-auditor""#,
+    ),
     (
         "tools include Read, Bash, Glob, Grep but NOT Write or Edit (#2119)",
         "the_auditor_cases",
+        r#"!tools.contains("write")"#,
     ),
-    ("has <role> section", "the_auditor_cases"),
-    ("has <execution_flow> section", "the_auditor_cases"),
+    ("has <role> section", "the_auditor_cases", "\"<role>\""),
+    (
+        "has <execution_flow> section",
+        "the_auditor_cases",
+        "\"<execution_flow>\"",
+    ),
     (
         "has <structured_returns> with SECURED, OPEN_THREATS, ESCALATE",
         "the_auditor_cases",
+        "\"## ESCALATE\"",
     ),
-    ("has <success_criteria> section", "the_auditor_cases"),
+    (
+        "has <success_criteria> section",
+        "the_auditor_cases",
+        "\"<success_criteria>\"",
+    ),
     (
         "has READ-ONLY rule \u{2014} does NOT modify implementation files",
         "the_auditor_cases",
+        "\"READ-ONLY\"",
     ),
-    ("command file exists", "the_command_cases"),
+    ("command file exists", "the_command_cases", "command()"),
     (
         "has valid frontmatter with name gsd:secure-phase",
         "the_command_cases",
+        "\"secure_phase\"",
     ),
-    ("has allowed-tools list", "the_command_cases"),
+    (
+        "has allowed-tools list",
+        "the_command_cases",
+        "\"read\", \"write\", \"edit\"",
+    ),
     (
         "contains reference to secure-phase.md workflow",
         "the_command_cases",
+        "\"secure-phase.md\"",
     ),
     (
         "has <objective> section mentioning states A, B, C",
         "the_command_cases",
+        "\"(C)\"",
     ),
-    ("workflow file exists", "the_workflow_cases"),
+    ("workflow file exists", "the_workflow_cases", "workflow()"),
     (
         "contains gsd-security-auditor reference",
         "the_workflow_cases",
+        "\"gsd-security-auditor\"",
     ),
     (
         "contains threats_open enforcement logic",
         "the_workflow_cases",
+        "\"threats_open\"",
     ),
     (
         "contains security capability hook check",
         "the_workflow_cases",
+        r#"-hooks\" verify:post"#,
     ),
     (
         "contains SECURITY.md template reference",
         "the_workflow_cases",
+        "\"SECURITY.md\"",
     ),
-    ("has success_criteria section", "the_workflow_cases"),
-    ("template exists", "the_template_cases"),
+    (
+        "has success_criteria section",
+        "the_workflow_cases",
+        "\"</success_criteria>\"",
+    ),
+    ("template exists", "the_template_cases", "template()"),
     (
         "has YAML frontmatter with required fields",
         "the_template_cases",
+        "\"asvs_level\"",
     ),
-    ("has ## Trust Boundaries section", "the_template_cases"),
+    (
+        "has ## Trust Boundaries section",
+        "the_template_cases",
+        "\"## Trust Boundaries\"",
+    ),
     (
         "has ## Threat Register table with required columns",
         "the_template_cases",
+        "\"Disposition\"",
     ),
-    ("has ## Accepted Risks Log section", "the_template_cases"),
-    ("has ## Security Audit Trail section", "the_template_cases"),
-    ("has sign-off checklist", "the_template_cases"),
+    (
+        "has ## Accepted Risks Log section",
+        "the_template_cases",
+        "\"## Accepted Risks Log\"",
+    ),
+    (
+        "has ## Security Audit Trail section",
+        "the_template_cases",
+        "\"## Security Audit Trail\"",
+    ),
+    ("has sign-off checklist", "the_template_cases", "\"- [ ]\""),
     (
         "threats_open field is present (terminal condition field)",
         "the_template_cases",
+        "\"threats_open\"",
     ),
-    ("config template exists", "the_config_cases"),
+    (
+        "config template exists",
+        "the_config_cases",
+        "described(\"settings\")",
+    ),
     (
         "has workflow.security_enforcement set to true",
         "the_config_cases",
+        "\"workflow.security_enforcement\"",
     ),
     (
         "has workflow.security_asvs_level set to 1",
         "the_config_cases",
+        "\"workflow.security_asvs_level\"",
     ),
     (
         "has workflow.security_block_on set to \"high\"",
         "the_config_cases",
+        "\"workflow.security_block_on\"",
     ),
-    ("VALIDATION.md template exists", "the_validation_cases"),
-    ("contains Threat Ref column header", "the_validation_cases"),
+    (
+        "VALIDATION.md template exists",
+        "the_validation_cases",
+        "core_asset(\"gsd-core/templates/VALIDATION.md\")",
+    ),
+    (
+        "contains Threat Ref column header",
+        "the_validation_cases",
+        "\"Threat Ref\"",
+    ),
     (
         "contains Secure Behavior column header",
         "the_validation_cases",
+        "\"Secure Behavior\"",
     ),
     (
         "both columns appear in the Per-Task Verification Map table",
         "the_validation_cases",
+        "\"## Per-Task Verification Map\"",
     ),
     (
         "gsd-planner.md threat_model register header has Severity column",
         "the_severity_gate_cases",
+        "\"| Threat ID | Category | Component | Severity | Disposition | Mitigation Plan |\"",
     ),
     (
         "gsd-planner.md security instruction assigns severity to each threat",
         "the_severity_gate_cases",
+        "\"critical|high|medium|low\"",
     ),
     (
         "gsd-planner.md checklist has Severity item",
         "the_severity_gate_cases",
+        "\"Every threat has a Severity (critical|high|medium|low)\"",
     ),
     (
         "gsd-security-auditor.md block_on domain is severity vocabulary",
         "the_severity_gate_cases",
+        "\"block_on\"",
     ),
     (
         "gsd-security-auditor.md defines severity ordering critical > high > medium > low",
         "the_severity_gate_cases",
+        "\"critical > high > medium > low\"",
     ),
     (
         "gsd-security-auditor.md threats_open counts only open threats at or above block_on",
         "the_severity_gate_cases",
+        "\"severity ≥ `block_on`\"",
     ),
     (
         "gsd-security-auditor.md documents non-blocking below-threshold opens",
         "the_severity_gate_cases",
+        "\"OPEN-non-blocking (severity below block_on)\"",
     ),
     (
         "SECURITY.md template Threat Register has Severity column",
         "the_severity_gate_cases",
+        "template().contains(\"Severity\")",
     ),
     (
         "planning-config.md security_block_on row lists critical",
         "the_severity_gate_cases",
+        "row.contains(\"critical\")",
     ),
     (
         "planning-config.md security_block_on row lists none",
         "the_severity_gate_cases",
+        "row.contains(\"none\")",
     ),
     (
         "gsd-security-auditor.md BLOCKER classification conditions blocking on severity threshold (no unconditional all-open-blocks language)",
         "the_severity_gate_cases",
+        "must not ship",
     ),
     (
         "gsd-security-auditor.md states fail-closed rule for missing/unranked severity",
         "the_severity_gate_cases",
+        "\"Fail-closed\"",
     ),
     (
         "secure-phase.md prose reflects blocking-threshold semantics for threats_open",
         "the_severity_gate_cases",
+        "\"block threshold\"",
     ),
     (
         "secure-phase.md Step 2c per-threat shape includes severity",
         "the_severity_gate_cases",
+        "\"threat_id, category, component, severity, disposition, mitigation_pattern\"",
     ),
     (
         "docs/CONFIGURATION.md security_block_on mentions critical and none",
         "the_severity_gate_cases",
+        "described(\"settings\").to_string()",
     ),
     (
         "agent does NOT contain \"scan for vulnerabilities\" (verifies, not scans)",
         "the_behaviour_cases",
+        "\"scan for vulnerabilities\"",
     ),
     (
         "agent does NOT contain \"find vulnerabilities\" (verifies, not scans)",
         "the_behaviour_cases",
+        "\"find vulnerabilities\"",
     ),
     (
         "agent contains mitigate, accept, transfer disposition types",
         "the_behaviour_cases",
+        "\"transfer\"",
     ),
     (
         "agent contains OPEN and CLOSED status values",
         "the_behaviour_cases",
+        "\"CLOSED\"",
     ),
     (
         "workflow contains enforcing gate (threats_open + block pattern)",
         "the_behaviour_cases",
+        "\"BLOCKED\"",
     ),
     (
         "SECURITY_ASVS is assigned (not only used as placeholder)",
         "the_config_resolution_cases",
+        "\"SECURITY_ASVS=\"",
     ),
     (
         "SECURITY_BLOCK_ON is assigned (not only used as placeholder)",
         "the_config_resolution_cases",
+        "\"SECURITY_BLOCK_ON=\"",
     ),
     (
         "SECURITY_ASVS assignment appears before the auditor <config> injection line",
         "the_config_resolution_cases",
+        "at < injection",
     ),
     (
         "SECURITY_BLOCK_ON assignment appears before the auditor <config> injection line",
         "the_config_resolution_cases",
+        "at < injection",
     ),
     (
         "security config resolved via config-get with correct keys and defaults",
         "the_config_resolution_cases",
+        "\"{{setting:workflow.security_asvs_level|1}}\"",
     ),
     (
         "security config-get uses --raw so the injected string value is unquoted",
         "the_settings_are_filled_bare_into_the_assignments",
+        r#"SECURITY_ASVS=\"1\""#,
     ),
     (
         "Step 2c tracks register_authored_at_plan_time",
         "the_short_circuit_cases",
+        "\"register_authored_at_plan_time\"",
     ),
     (
         "Step 3 short-circuit requires both conditions",
         "the_short_circuit_cases",
+        "\"threats_open: 0 AND register_authored_at_plan_time\"",
     ),
     (
         "retroactive-STRIDE mode is documented for legacy phases",
         "the_short_circuit_cases",
+        "\"Retroactive\"",
     ),
     (
         "Step 5 auditor constraint varies by mode",
         "the_short_circuit_cases",
+        "\"Verify mitigations\"",
     ),
 ];
 
@@ -578,16 +671,23 @@ const SECURE_SKIPPED: &[(&str, &str)] = &[(
 fn the_67_cases_of_secure_phase_are_accounted() {
     let ported: Vec<String> = SECURE_PORTED
         .iter()
-        .map(|(case, _)| (*case).to_string())
+        .map(|(case, _, _)| (*case).to_string())
         .collect();
     accounting::account(SECURE_PHASE, &ported, SECURE_SKIPPED);
     let here = include_str!("accounting.rs");
     let render = include_str!("cli/prompt.rs");
-    for (case, test) in SECURE_PORTED {
+    // each case names a literal its test asserts on, so a case dropped from a test's assertions turns this red
+    for (case, test, needle) in SECURE_PORTED {
         let call = format!("fn {test}()");
+        let (source, at) = [here, render]
+            .into_iter()
+            .find_map(|source| Some((source, source.find(&call)?)))
+            .unwrap_or_else(|| panic!("{case}: no test {test}"));
+        let body = &source[at..];
+        let body = &body[..body.find("\n}\n").unwrap_or(body.len())];
         assert!(
-            here.contains(&call) || render.contains(&call),
-            "{case}: no test {test}"
+            body.contains(needle),
+            "{case}: {test} does not assert on {needle}"
         );
     }
 }
