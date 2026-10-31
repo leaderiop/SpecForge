@@ -25,6 +25,7 @@ const ID: &str = "new:id";
 const TITLE: &str = "new:title";
 const FIELDS: &str = "new:fields";
 const IN: &str = "in";
+const FIELD: &str = "field";
 const VERIFY: &str = "verify";
 const DRY_RUN: &str = "dry-run";
 const REVISION: &str = "revision";
@@ -56,6 +57,13 @@ fn options() -> Command {
                 .help("The file, relative to the project root; created when missing"),
         )
         .arg(
+            Arg::new(FIELD)
+                .long(FIELD)
+                .action(ArgAction::Append)
+                .value_name("NAME=VALUE")
+                .help("Any field of the kind, by name: `--field path=src/a.rs`; the way to set one named like an option; repeat for several"),
+        )
+        .arg(
             Arg::new(VERIFY)
                 .long(VERIFY)
                 .action(ArgAction::Append)
@@ -82,8 +90,8 @@ fn options() -> Command {
                 .help("Print help (with a kind, that kind's field flags)"),
         )
         // Declared elsewhere with their own display order: placed after the options above.
-        .arg(ProjectArg::arg().display_order(4))
-        .arg(OutputArg::arg().display_order(5))
+        .arg(ProjectArg::arg().display_order(5))
+        .arg(OutputArg::arg().display_order(6))
 }
 
 /// The fields that are flags of `new`, and those named like one of its options, which are not.
@@ -142,8 +150,9 @@ pub(crate) fn command(kind: Option<(&str, &[FieldInfo])>) -> Command {
     if !unflagged.is_empty() {
         let names: Vec<&str> = unflagged.iter().map(|f| f.name.as_str()).collect();
         cmd = cmd.after_help(format!(
-            "{}: no flag of new (an option has the name); set with `specforge set <ID> <field> <value>` after creating.",
-            names.join(", ")
+            "{}: no flag of new (an option has the name); set with `--field {}=<value>`, or `specforge set <ID> <field> <value>` after creating.",
+            names.join(", "),
+            names[0]
         ));
     }
     for field in flagged {
@@ -167,12 +176,42 @@ pub(crate) fn command(kind: Option<(&str, &[FieldInfo])>) -> Command {
 
 /// The fields `matches` sets, as the inputs `Create` takes.
 fn inputs(fields: &[FieldInfo], matches: &ArgMatches) -> Result<BTreeMap<String, Input>, OpError> {
-    let mut out = BTreeMap::new();
+    let mut given: BTreeMap<&str, Vec<String>> = BTreeMap::new();
     for field in split(fields).0 {
-        let Some(values) = matches.get_many::<String>(&field.name) else {
+        if let Some(values) = matches.get_many::<String>(&field.name) {
+            given.insert(&field.name, values.cloned().collect());
+        }
+    }
+    let by_flag: Vec<&str> = given.keys().copied().collect();
+    for word in matches.get_many::<String>(FIELD).into_iter().flatten() {
+        let named = word.split_once('=').and_then(|(name, value)| {
+            let field = fields.iter().find(|f| f.name == name.trim())?;
+            Some((field.name.as_str(), value))
+        });
+        let Some((name, value)) = named else {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                "invalid_edit",
+                format!(
+                    "--field takes NAME=VALUE, NAME a field of the kind; got '{}'",
+                    word.split('=').next().unwrap_or(word)
+                ),
+            ));
+        };
+        if by_flag.contains(&name) {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                "invalid_edit",
+                format!("'{name}' is given twice: --{name} and --field {name}=…"),
+            ));
+        }
+        given.entry(name).or_default().push(value.to_string());
+    }
+    let mut out = BTreeMap::new();
+    for field in fields {
+        let Some(values) = given.remove(field.name.as_str()) else {
             continue;
         };
-        let values: Vec<String> = values.cloned().collect();
         let input = match field.field_type {
             FieldType::ReferenceList | FieldType::StringList | FieldType::EnumList => {
                 Input::Many(values)
@@ -366,5 +405,34 @@ mod tests {
         let help = cmd.render_long_help().to_string();
         assert!(help.contains("path, format: no flag of new"), "{help}");
         assert!(help.contains("specforge set"), "{help}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "create_entity",
+        verify = "a kind's field named like one of new's options is set with --field"
+    )]
+    fn a_field_named_like_an_option_is_set_with_field() {
+        let fields = [field("path"), field("body")];
+        let cmd = command(Some(("doc", &fields)));
+        let help = cmd.clone().render_long_help().to_string();
+        assert!(help.contains("--field path=<value>"), "{help}");
+        let read = |words: &[&str]| {
+            let mut argv = vec!["new", "doc", "d1", "T"];
+            argv.extend(words);
+            let matches = cmd.clone().try_get_matches_from(argv).unwrap();
+            inputs(&fields, &matches)
+        };
+        let set = read(&["--field", "path=src/a.rs", "--body", "y"]).unwrap();
+        assert_eq!(set["path"], Input::One("src/a.rs".into()));
+        assert_eq!(set["body"], Input::One("y".into()));
+        let unknown = read(&["--field", "nope=x"]).unwrap_err().to_string();
+        assert!(unknown.contains("nope"), "{unknown}");
+        let twice = read(&["--field", "body=x", "--body", "y"])
+            .unwrap_err()
+            .to_string();
+        assert!(
+            twice.contains("given twice") && twice.contains("body"),
+            "{twice}"
+        );
     }
 }

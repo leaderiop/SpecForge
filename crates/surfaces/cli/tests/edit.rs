@@ -379,6 +379,44 @@ fn json_output_is_the_edit_report() {
     assert!(preview.json.get("files_written").is_none());
 }
 
+#[specforge_test(
+    behavior = "create_entity",
+    verify = "new --field sets a field of the kind by name, refuses a name the kind lacks and a field given twice"
+)]
+fn new_sets_a_field_with_field() {
+    let project = todo();
+    let new = |extra: &[&str]| {
+        let mut argv = vec![
+            "new",
+            "behavior",
+            "archive_task",
+            "Archive a Task",
+            "--in",
+            "spec/behaviors/task.spec",
+        ];
+        argv.extend(extra);
+        sf(&project, &argv)
+    };
+    let before = project.read(TASKS);
+    let unknown = new(&["--field", "nope=x"]);
+    assert_eq!(unknown.code, 1, "{}{}", unknown.stdout, unknown.stderr);
+    assert!(unknown.stderr.contains("nope"), "{}", unknown.stderr);
+    let twice = new(&["--field", "category=command", "--category", "query"]);
+    assert_eq!(twice.code, 1, "{}{}", twice.stdout, twice.stderr);
+    assert!(twice.stderr.contains("given twice"), "{}", twice.stderr);
+    assert_eq!(project.read(TASKS), before, "a refusal writes nothing");
+    new(&[
+        "--field",
+        "category=command",
+        "--field",
+        "contract=When asked, the system MUST archive the task.",
+    ])
+    .exits(0);
+    let written = project.read(TASKS);
+    assert!(written.contains("category command"), "{written}");
+    assert!(written.contains("MUST archive the task"), "{written}");
+}
+
 #[test]
 fn no_builtin_field_shadows_a_new_option() {
     let project = todo();
@@ -388,7 +426,8 @@ fn no_builtin_field_shadows_a_new_option() {
             let name = field["name"].as_str().unwrap();
             assert!(
                 ![
-                    "in", "verify", "path", "format", "dry-run", "dry_run", "help", "title"
+                    "in", "verify", "field", "path", "format", "dry-run", "dry_run", "help",
+                    "title"
                 ]
                 .contains(&name),
                 "{} declares '{name}'",

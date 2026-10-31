@@ -55,6 +55,8 @@ behavior create_entity "Create an Entity" {
   verify integration "new refuses a field given twice that takes one value"
   verify integration "new refuses an unknown kind as unknown_kind"
   verify unit "a kind's field named like one of new's options is no flag of new, and the kind's help says to set it with set"
+  verify unit "a kind's field named like one of new's options is set with --field"
+  verify unit "new --field sets a field of the kind by name, refuses a name the kind lacks and a field given twice"
   verify integration "new --help begins with what new does"
   verify integration "new's help and its usage errors name the program as specforge new"
   verify integration "new refuses one of its options given twice, wherever each stands"
