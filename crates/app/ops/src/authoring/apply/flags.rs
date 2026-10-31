@@ -45,7 +45,7 @@ impl Kinds<'_> {
             return Some(kind.clone());
         }
         let scopes = self.view.graph().scopes();
-        match scopes.resolve(None, id, &|_| true) {
+        match scopes.find(id) {
             Found::One(path) => scopes.kind(path.as_str()).map(|k| k.to_string()),
             _ => None,
         }
@@ -446,7 +446,7 @@ fn human_held(
     let Some(kind) = kind.filter(|_| agent_facing(origin)) else {
         return Ok(());
     };
-    let Found::One(path) = view.graph().scopes().resolve(None, id, &|_| true) else {
+    let Found::One(path) = view.graph().scopes().find(id) else {
         return Ok(());
     };
     let Some(node) = view.graph().node(path.as_str()) else {
@@ -487,7 +487,7 @@ fn dropped(
     if !agent_facing(origin) {
         return Ok(());
     }
-    let Found::One(path) = view.graph().scopes().resolve(None, &id, &|_| true) else {
+    let Found::One(path) = view.graph().scopes().find(&id) else {
         return Ok(());
     };
     let Some(node) = view.graph().node(path.as_str()) else {
@@ -592,7 +592,7 @@ fn human_referrers(
         return Ok(());
     }
     let scopes = view.graph().scopes();
-    let Found::One(path) = scopes.resolve(None, id, &|_| true) else {
+    let Found::One(path) = scopes.find(id) else {
         return Ok(());
     };
     for edge in view.graph().edges_to(path.as_str()) {

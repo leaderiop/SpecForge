@@ -296,6 +296,19 @@ impl Scopes {
         }
     }
 
+    /// The entity a surface's `spelling` names: [`Self::resolve`] with no holder, then the numeric reading
+    /// [`Self::numeric`] after a miss (ADR 0284, ADR 0315). [`crate::Graph::find`] and the edit surface read through
+    /// it.
+    pub fn find(&self, spelling: &str) -> Found {
+        match self.resolve(None, spelling, &|_| true) {
+            Found::None(near) => match self.numeric(spelling) {
+                Found::None(_) => Found::None(near),
+                found => found,
+            },
+            found => found,
+        }
+    }
+
     /// What `written` names from `from`, an entity holding it by its scope chain: its own members, each enclosing
     /// scope's, then the project's. Only with `from` `None` (a scope field, a surface's input; never a reference an
     /// entity holds) is a unique suffix taken when no level answers: `03` names `v1.0/03` when that is the one

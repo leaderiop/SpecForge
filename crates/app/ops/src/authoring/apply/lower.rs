@@ -32,7 +32,7 @@ impl Places<'_> {
         if let Some(file) = self.made.get(id) {
             return Some(file.clone());
         }
-        match self.view.graph().scopes().resolve(None, id, &|_| true) {
+        match self.view.graph().scopes().find(id) {
             Found::One(path) => self
                 .view
                 .graph()

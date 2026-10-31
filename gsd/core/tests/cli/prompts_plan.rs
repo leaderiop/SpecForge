@@ -307,7 +307,7 @@ fn plan_phase_with_no_phase_plans_the_next() {
 }
 
 #[test]
-fn three_and_03_name_the_same_phase_on_every_surface() {
+fn three_and_03_name_the_same_phase_on_the_prompt_query_and_edit_surfaces() {
     let p = twin();
     for (short, full) in [("3", "03"), ("2.1", "02.1")] {
         let a = payload(&prompt(&p, "plan_phase", &[short], "claude-code"));
@@ -325,4 +325,10 @@ fn three_and_03_name_the_same_phase_on_every_surface() {
         .filter_map(|n| n["id"].as_str())
         .collect();
     assert!(ids.contains(&"v1.0/03"), "{ids:?}");
+    // REVIEW-k20b m8: the edit surface reads `3` as `03` too.
+    let exact = p.run(&["set", "03", "goal", "x", "--dry-run"]);
+    assert_eq!(exact.code, 0, "{}", exact.all());
+    let short = p.run(&["set", "3", "goal", "x", "--dry-run"]);
+    assert_eq!(short.code, 0, "{}", short.all());
+    assert_eq!(short.stdout, exact.stdout);
 }
