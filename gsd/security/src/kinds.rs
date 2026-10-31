@@ -14,7 +14,7 @@ pub const CATEGORY: &[&str] = &[
     "elevation_of_privilege",
 ];
 pub const SEVERITY: &[&str] = &["critical", "high", "medium", "low"];
-const DISPOSITION: &[&str] = &["mitigate", "accept", "transfer"];
+pub const DISPOSITION: &[&str] = &["mitigate", "accept", "transfer"];
 const THREAT_STATUS: &[&str] = &["open", "closed"];
 const AUDIT_STATUS: &[&str] = &["draft", "verified"];
 

@@ -62,3 +62,43 @@ pub fn node<'a>(call: &CommandCall<'a>, kind: &str, id: &str) -> Result<&'a Grap
 pub fn name_of(id: &str) -> &str {
     id.rsplit('/').next().unwrap_or(id)
 }
+
+/// The target of the edge `label` out of `source`.
+pub fn target<'a>(graph: &'a CommandGraph, source: &str, label: &str) -> Option<&'a str> {
+    graph
+        .edges_from(source)
+        .into_iter()
+        .find(|e| e.label == label)
+        .map(|e| e.target.as_str())
+}
+
+/// The host's clock; a call the host gave none is refused, never written as `""`.
+pub fn now<'a>(call: &'a CommandCall<'_>) -> Result<&'a str, String> {
+    match call.now() {
+        "" => Err("the host sent no clock; run the command through `specforge`".to_string()),
+        now => Ok(now),
+    }
+}
+
+/// The next free number of `prefix` among the entities of `kind` under `scope` (a path prefix): `AU` with `AU1` and
+/// `AU3` there gives `AU4`.
+pub fn next_id(graph: &CommandGraph, kind: &str, scope: &str, prefix: &str) -> String {
+    let highest = graph
+        .nodes_of_kind(kind)
+        .filter_map(|n| {
+            n.id.strip_prefix(scope)?
+                .strip_prefix(prefix)?
+                .parse::<u64>()
+                .ok()
+        })
+        .max()
+        .unwrap_or(0);
+    format!("{prefix}{}", highest + 1)
+}
+
+/// An id ordered as a person reads it: `AU9` before `AU10`.
+pub fn natural(id: &str) -> (String, u64) {
+    let digits = id.chars().rev().take_while(char::is_ascii_digit).count();
+    let (head, number) = id.split_at(id.len() - digits);
+    (head.to_string(), number.parse().unwrap_or(0))
+}

@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, name_of, node, required, run};
+use super::support::{answer, name_of, node, required, run, target};
 
 /// Whether `id` is a register row ID that claims a number: `T-47-01`, `T-4.1-02`.
 pub fn claims(id: &str) -> bool {
@@ -50,15 +50,6 @@ pub fn duplicates<'a>(
             (phase, id, plans)
         })
         .collect()
-}
-
-/// The target of the edge `label` out of `source`.
-fn target<'a>(graph: &'a CommandGraph, source: &str, label: &str) -> Option<&'a str> {
-    graph
-        .edges_from(source)
-        .into_iter()
-        .find(|e| e.label == label)
-        .map(|e| e.target.as_str())
 }
 
 /// `threat_ids <phase>`.

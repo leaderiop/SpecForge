@@ -13,6 +13,7 @@ mod compute;
 mod gate;
 mod hooks;
 mod model;
+mod record;
 mod settings;
 mod threat_ids;
 
