@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/templates/verification-report.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/templates/verification-report.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Verification Report Template
 
 Template for a `verification` entity — phase goal verification results.
@@ -17,7 +17,7 @@ covered_files: # #4155 — see agents/gsd-verifier.md's "Create VERIFICATION.md"
   - {phase_num}-{plan}-PLAN (the plan entity)
   - {phase_num}-{plan}-SUMMARY (the summary entity)
   - src/{changed-file}.cts
-covered_digest: "v3:sha256:{digest from verification.fingerprint}"
+covered_digest: "v4:sha256:{digest from verification.fingerprint}"
 behavior_unverified: 0 # Count of ⚠️ PRESENT_BEHAVIOR_UNVERIFIED truths (present + wired, behavior not exercised)
 behavior_unverified_items: # Only if behavior_unverified > 0 — the truths above as structured items; emitted regardless of overall status
   - truth: "Observable truth whose state transition or cancellation/cleanup/ordering invariant no test exercises"

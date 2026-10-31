@@ -1,11 +1,12 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-secret-read-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-secret-read-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `secret_read_guard` (D-r44-8): a Read, a Grep or a shell command that reads `.env`, `.env.<suffix>` or `.secrets`
 //! is refused, the templates (`.env.example`, `.sample`, `.template`, `.dist`) excepted. The shell command is read
 //! from the tool's own `command` (upstream's tokenizer, ported), because the host's words lose where one command
 //! ends and the next begins. Starting `gsd-debugger` as a CLI process is refused too.
 //!
-//! gsd-core modules this file ports: secrets.cjs.
+//! gsd-core modules this file ports: secrets.cjs. With gsd-core v1.19.0's #5627 (wrapper options, linear walk),
+//! #5046 (bundled short flags) and #5513 (heredoc readings).
 
 mod debugger;
 mod git;
@@ -96,7 +97,9 @@ pub(super) fn secret_read_guard(f: &Facts) -> HookOutput {
             if command.len() > MAX_COMMAND_LENGTH {
                 return deny("command-too-large", tool, "");
             }
-            if let Some(hit) = scan::find_secret_read(&command, 0) {
+            if let Some(hit) = scan::find_secret_read(&command, 0)
+                .or_else(|| scan::find_secret_read_under_other_readings(&command))
+            {
                 return deny("secret-read", tool, &hit);
             }
             if let Some(spawn) = debugger::find_debugger_spawn(&command, 0) {

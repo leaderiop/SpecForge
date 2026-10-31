@@ -26,7 +26,7 @@ Singleton: one per repository. The kernel keeps `singleton` as metadata (it reac
 | constraints | {kind enum{tech_stack, timeline, budget, dependencies, compatibility, performance, security, other}, what str, why str} | R | `## Constraints` |
 | out_of_scope | {item str, why str R} | | `### Out of Scope` |
 | key_decisions | →* decision | | `## Key Decisions` |
-| project_code | str `^[A-Z][A-Z0-9_]*$` | | config `project_code` |
+| project_code | str `^[A-Z][A-Z0-9_]*$` | | config `project_code`; `gsd-git` strips the setting `project_code`, else this field, from a commit's scope (`feat(PRJ-01-01)`, #5271) |
 | validated, active | →* requirement | C | `### Validated` (requirements with status `complete`) / `### Active` (`v1` requirements that are not); a list with no item is absent |
 | updated | ts | C | `*Last updated*`: the latest `at` among the recorded commits and the `completed` of the summaries (the git collector records commits as entities; a pass sees no git history); uncommitted edits do not move it |
 | windows_open, windows_waived, windows_fixed, windows_total | int | C | the broken-windows ledger counts ([verify.md](verify.md#broken_window)) |

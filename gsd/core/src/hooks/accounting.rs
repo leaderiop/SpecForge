@@ -88,8 +88,8 @@ pub fn cases(src: &str) -> Vec<Case> {
     out
 }
 
-/// Whether `text` is an instance of `pattern`, a static title in which each `${…}` stands for any text.
-pub fn instance_of(pattern: &str, text: &str) -> bool {
+/// The literal runs of `pattern`, a static title in which each `${…}` stands for any text: one more than its `${…}`s.
+fn literals(pattern: &str) -> Vec<String> {
     let mut parts: Vec<String> = vec![String::new()];
     let mut rest = pattern;
     while let Some(at) = rest.find("${") {
@@ -113,6 +113,12 @@ pub fn instance_of(pattern: &str, text: &str) -> bool {
         rest = &rest[end..];
     }
     parts.last_mut().expect("a part").push_str(rest);
+    parts
+}
+
+/// Whether `text` is an instance of `pattern`, a static title in which each `${…}` stands for any text.
+pub fn instance_of(pattern: &str, text: &str) -> bool {
+    let parts = literals(pattern);
     let (first, last) = (&parts[0], &parts[parts.len() - 1]);
     if parts.len() == 1 {
         return pattern == text;
@@ -136,7 +142,7 @@ pub fn instance_of(pattern: &str, text: &str) -> bool {
 
 /// How many characters of `pattern` are literal: the more, the more specific.
 fn specificity(pattern: &str) -> usize {
-    pattern.len() - pattern.matches("${").count()
+    literals(pattern).iter().map(String::len).sum()
 }
 
 /// Panics unless `ported` and `skipped` account for every case of `suite`, both ways. An entry of `ported` is a case's
@@ -212,6 +218,21 @@ pub fn case_of<'a>(all: &'a [Case], path: &str) -> &'a Case {
         [a, b, ..] if specificity(&a.path) > specificity(&b.path) => a,
         many => panic!("'{path}' is an instance of {} cases: {many:?}", many.len()),
     }
+}
+
+#[test]
+fn the_case_with_more_literal_text_wins() {
+    let all = cases(
+        "test(`blocks ${JSON.stringify(cmd)}`, () => {});\ntest(`blocks ${w} bash -c`, () => {});\n",
+    );
+    assert_eq!(
+        case_of(&all, "blocks env -i bash -c").path,
+        "blocks ${w} bash -c"
+    );
+    assert_eq!(
+        case_of(&all, "blocks \"cat .env\"").path,
+        "blocks ${JSON.stringify(cmd)}"
+    );
 }
 
 #[test]

@@ -414,8 +414,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "W403",
-        "GREEN commit without an earlier RED commit",
-        "A tdd task's GREEN commit follows a RED test commit (the RED run's failure is not checked; a warning, as the order cannot be repaired after the fact)",
+        "GREEN commit that descends from no RED commit (green_before_red)",
+        "A tdd task's GREEN commit descends from a RED test commit, by its recorded ancestry, or by time when it was recorded without ancestry (the RED run's failure is not checked; a warning, as the order cannot be repaired after the fact)",
         "execute",
         Severity::Warning,
         Severity::Warning,

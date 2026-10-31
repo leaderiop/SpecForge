@@ -33,5 +33,8 @@ pub const COMMIT: Kind = Kind::new(
             .doc("the paths it created, from `git log --summary`"),
         int("insertions").h().doc("added lines"),
         int("deletions").h().doc("deleted lines"),
+        rfs("descends_from", "commit")
+            .h()
+            .doc("the recorded commits of its plan it descends from, through merges; absent when never collected"),
     ],
 );

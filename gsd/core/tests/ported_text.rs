@@ -25,7 +25,7 @@ const FORBIDDEN: [&str; 9] = [
 
 const HOSTS: [&str; 3] = ["claude-code", "codex", "cursor"];
 
-/// Names GSD's own text writes after `/gsd-` that are no command of v1.18.0 (its stale mentions and placeholders).
+/// Names GSD's own text writes after `/gsd-` that are no command of v1.19.0 (its stale mentions and placeholders).
 const NOT_COMMANDS: &[&str] = &[
     "alternative-1",
     "alternative-2",

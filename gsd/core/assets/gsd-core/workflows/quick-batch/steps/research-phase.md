@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/quick-batch/steps/research-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick-batch/steps/research-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 **Step 3: Research phase (only when `$RESEARCH_MODE`)**
 
 Skip this step entirely if NOT `$RESEARCH_MODE`.

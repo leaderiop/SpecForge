@@ -10,7 +10,7 @@
 use specforge_extension_sdk::prelude::*;
 
 /// `(agent, [quality, balanced, budget] alias, routing tier)`: the catalog's rows
-/// (`gsd/parity/upstream/v1.18.0/model-catalog.json`, `agents`; its `golden` is `quality`).
+/// (`gsd/parity/upstream/v1.19.0/model-catalog.json`, `agents`; its `golden` is `quality`).
 pub const MODELS: &[(&str, [&str; 3], &str)] = &[
     (
         "gsd-advisor-researcher",

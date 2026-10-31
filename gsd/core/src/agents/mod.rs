@@ -1,4 +1,4 @@
-//! The 15 core agents (K9): metadata from [`roster`], bodies ported under MIT from gsd-core v1.18.0 (`assets/agents/`).
+//! The 15 core agents (K9): metadata from [`roster`], bodies ported under MIT from gsd-core v1.19.0 (`assets/agents/`).
 
 pub mod roster;
 

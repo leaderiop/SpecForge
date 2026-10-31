@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/secure-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:bdc7d5ca4297a1de7a0f6ca5bf26682dead896872b26475b4b6c39842bba7411",
     "prompt": "@gsd/security@VERSION:secure_phase",

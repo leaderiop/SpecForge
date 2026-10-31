@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/gsd-statusline.test.cjs and tests/gsd-statusline-state.property.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/gsd-statusline.test.cjs and tests/gsd-statusline-state.property.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The state formats, the status word and their properties.
 

@@ -61,7 +61,7 @@
     "CONFIG=$(specforge settings)",
     "```"
   ],
-  "bytes": 52500,
+  "bytes": 52876,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -186,16 +186,16 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 939,
+  "lines": 938,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
       "license": "MIT",
       "path": "commands/gsd/ship.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
-    "digest": "sha256:d0681faa328907dbb322c5efa92f94da1e8083e2d3b35a33f817041d628d907a",
+    "digest": "sha256:310f5ee4cd62fa29b1bf528fe6c26ab658e49eb30f9d2293b9caeccbecbfc21e",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "d0681faa328907dbb322c5efa92f94da1e8083e2d3b35a33f817041d628d907a"
+  "sha256": "310f5ee4cd62fa29b1bf528fe6c26ab658e49eb30f9d2293b9caeccbecbfc21e"
 }

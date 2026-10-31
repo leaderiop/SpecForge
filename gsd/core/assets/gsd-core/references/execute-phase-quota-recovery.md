@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/execute-phase-quota-recovery.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/execute-phase-quota-recovery.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 **Step 7.1 detail — `class == "quota-exceeded"` recovery.**
 
 Do not offer "retry now". Run the step-5 spot-check first; if SUMMARY.md is missing but

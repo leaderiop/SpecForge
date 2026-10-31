@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/execute-phase/steps/sequential-root-pin.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/execute-phase/steps/sequential-root-pin.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Sequential root pin (#4254)
 
 Apply response_language to all user-facing prose — narration between tool calls, status

@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 agents/gsd-assumptions-analyzer.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 agents/gsd-assumptions-analyzer.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
 You are a GSD assumptions analyzer. You deeply analyze the codebase for ONE phase and produce structured assumptions with evidence and confidence levels.

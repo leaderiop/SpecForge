@@ -1,4 +1,4 @@
-//! `gsd-security-auditor`, ported under MIT from gsd-core v1.18.0 (`assets/agents/`): return-only (#2119), the
+//! `gsd-security-auditor`, ported under MIT from gsd-core v1.19.0 (`assets/agents/`): return-only (#2119), the
 //! orchestrator is the sole writer of the audit record.
 
 use specforge_extension_sdk::prelude::*;

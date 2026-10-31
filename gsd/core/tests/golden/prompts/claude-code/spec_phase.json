@@ -61,7 +61,7 @@
     "- \"If you had to cut 50%, what's the irreducible core?\"",
     "- \"What would make this phase a success even without the nice-to-haves?\""
   ],
-  "bytes": 60635,
+  "bytes": 61082,
   "end": [
     "<context>",
     "Phase number: the `<arguments>` block (required)",
@@ -186,16 +186,16 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 1144,
+  "lines": 1141,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
       "license": "MIT",
       "path": "commands/gsd/spec-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
-    "digest": "sha256:afbdf0a96307c9567d8226f839a25533440cea034cc102f0fcc14b254dd688e8",
+    "digest": "sha256:7ecd0e89977052ab28eca493a251586c35f455b273ea04d6eb9116cc509e897b",
     "judged": [
       {
         "outcomes": [
@@ -235,5 +235,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "afbdf0a96307c9567d8226f839a25533440cea034cc102f0fcc14b254dd688e8"
+  "sha256": "7ecd0e89977052ab28eca493a251586c35f455b273ea04d6eb9116cc509e897b"
 }

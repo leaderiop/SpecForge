@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/quick-batch.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick-batch.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 @~/.claude/gsd-core/references/response-language-directive.md
 <purpose>
 Batch several `/gsd:quick`-shaped tasks together (#3676, epic #3344, ADR-1239

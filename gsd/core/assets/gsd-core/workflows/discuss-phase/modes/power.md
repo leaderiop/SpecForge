@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/discuss-phase/modes/power.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/discuss-phase/modes/power.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 Apply response_language to all user-facing prose — narration between tool calls, status updates, progress notes, and findings included; preserve code, paths, and identifiers.
 
 # --power mode — bulk question generation, async answering
@@ -22,7 +22,7 @@ The power user mode generates ALL questions upfront into machine-readable
 and human-friendly files, then waits for the user to answer at their own
 pace before processing all answers in a single pass.
 
-1. Run the same phase analysis (gray area identification) as standard mode
+1. Load the phase SPEC (`check_spec`, from the phase's `phase_spec` entity in the graph: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --format json | jq -r '[.nodes[] | select(.kind == "phase_spec") | .id] | first // empty'); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`), then run the same phase analysis (gray area identification) as standard mode, about HOW only when a SPEC locks the requirements
 2. Write all questions to
    `{phase_dir}/{padded_phase}-QUESTIONS.json` and
    `{phase_dir}/{padded_phase}-QUESTIONS.html`

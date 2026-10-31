@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Per-plan executor routing (#1689)
 
 Run for each plan, immediately before its `Agent()` dispatch in step 3. Sets

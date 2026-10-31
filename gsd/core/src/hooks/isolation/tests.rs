@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/gsd-agent-isolation-guard.test.cjs and tests/worktree-safety.test.cjs (the `bug #260: gsd-worktree-path-guard.js` and `#1342` blocks), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/gsd-agent-isolation-guard.test.cjs and tests/worktree-safety.test.cjs (the `bug #260: gsd-worktree-path-guard.js` and `#1342` blocks), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Upstream's cases run the hook in a temp project with a sentinel file, the runtime registry and real git worktrees.
 //! None of those is a fact here, so a case is ported when what it decides is a fact (the tool, the `isolation`
@@ -11,10 +11,10 @@ use super::*;
 use crate::hooks::accounting;
 use crate::hooks::facts::{Git, PathFact};
 
-const AGENT_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-agent-isolation-guard.test.cjs");
-const SAFETY_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/worktree-safety.test.cjs");
+const AGENT_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/gsd-agent-isolation-guard.test.cjs"
+));
+const SAFETY_SUITE: &str = include_str!(gsd_kit::snapshot!("tests/worktree-safety.test.cjs"));
 
 /// Upstream's agent isolation guard has no hook here (r44 post-fix N7): every case of its suite is one divergence.
 #[test]

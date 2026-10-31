@@ -6,7 +6,7 @@ use gsd_core::settings::models::{MODELS, PROFILES, tier};
 use serde_json::Value;
 use specforge_extension_sdk::testing::MockHost;
 
-const CATALOG: &str = include_str!("../../parity/upstream/v1.18.0/model-catalog.json");
+const CATALOG: &str = include_str!(gsd_kit::snapshot!("model-catalog.json"));
 
 #[test]
 fn the_model_table_is_the_catalogs() {

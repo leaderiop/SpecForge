@@ -16,12 +16,12 @@ the version matrix live here.
 
 | Path | What |
 |---|---|
-| `upstream/v1.18.0/` | the tracked release's configuration roster, frozen so the roster check runs offline ([SOURCE.md](upstream/v1.18.0/SOURCE.md)); `core/tests/settings_roster.rs` reads it |
+| `upstream/v1.19.0/` | the tracked release's configuration roster, frozen so the roster check runs offline ([SOURCE.md](upstream/v1.19.0/SOURCE.md)); `core/tests/settings_roster.rs` reads it |
 | `fixtures/taskboard/` | a small Node CLI with a GSD 1.18.0 `.planning/`: three phases and an inserted `02.1`, phase 1 executed, verified and run through UAT, phase 2 discussed, researched and planned; its three plans and the two summaries of phase 1 are in the twin's `spec/plans.spec` |
 | `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health`, `check.verify-context-drift 2` and `check.decision-coverage-plan` of phase 2; the plan verdicts of r37: `verify.plan-structure` of each plan, `check.verify-command-paths` and `check.verify-failure-directions` of phases 1 and 2, `check.gap-analysis-plan-post` of phases 1 and 2; `audit-uat` (r39), and `junit.xml`, what the fixture's own `npm test` reports (r38), with the machine's paths and timings normalised |
 | `fixtures/vault/`, `goldens/vault/` | the hand-written security fixture: a phase with a threat model, an audit and an accepted risk, its `specforge-harness` ledger for the hand-written H fields, and what gsd-tools answered over it (hooks, config, threat IDs, the gate); `security/tests/cli/parity_scenario.rs` compares the twin with them |
 | `record.sh` | re-records the goldens |
-| `upstream/v1.18.0/gate-cutover/` | 171 verdicts of gsd-core's own gate-cutover fixtures (decision coverage, verify command paths, failing directions, post-planning gaps), copied unchanged; `core/tests/projects/gate_cutover/` is their SpecForge twin |
+| `upstream/v1.19.0/gate-cutover/` | 171 verdicts of gsd-core's own gate-cutover fixtures (decision coverage, verify command paths, failing directions, post-planning gaps), copied unchanged; `core/tests/projects/gate_cutover/` is their SpecForge twin |
 
 The taskboard's `verify-command-paths` and `verify-failure-directions` goldens are intentionally empty: every taskboard task has a bare `<verify>`, so there is no `<automated>` command to probe, and the comparison proves only that no blocker is reported. The E320 and E507 proof is the gate-cutover verdicts (`gate_cutover_plan_verdicts_reproduce`), whose blocker and missing rows are matched one for one. Adding an `<automated>` task to the taskboard would move other goldens, so it is not done.
 
@@ -40,21 +40,44 @@ milestone to sit in; the test asserts both so a change to either is noticed.
 
 `core/tests/cli/parity_scenario.rs` (r44) is the scenario check: its `SCENARIO` table names, for each of the 19 goldens of `goldens/taskboard/`, the one test that compares the twin with it and the text that test reads it by. `every_taskboard_golden_is_compared_once` fails when a golden is added, removed or left unread, or when a named test is deleted or stops reading its golden; a golden that several tests read (`progress-json.json`) is named once, by its main comparison.
 
-`upgrade.sh <gsd-core-dir> <tag>` (r44) is the upgrade check. It extracts the tag's inventory manifest, capability ids, config manifest and the list of files changed since the tracked tag (`git diff --name-status`), then runs `core/tests/upgrade.rs`'s `write_the_backlog`, which writes `backlog/<tag>.md`: one row per change, with its family, the upstream path and the table of `@gsd/core` it lands in (`ROSTER`, `AGENTS`, `HOOK_ROSTER`, the asset table, `NOT_EMBEDDED`, `MODULES`, the README capability table, `spec/settings.md`, `GATE_CUTOVER`), the files of `gsd/core/src` whose header cites the path, or `unowned`. It needs git and cargo, not the network, and reads the checkout without writing to it. Its other tests run offline on the vendored snapshot: the diff of the tracked tag against itself is empty, every path a header cites is in the snapshot, and `core/tests/declaration.rs` requires `tracks` to name the one vendored directory, so moving it fails the build until every check reads the new snapshot.
+`upgrade.sh <gsd-core-dir> <tag> [<from-tag>]` (r44) is the upgrade check. It extracts the inventory manifest, capability ids and config manifest of `<tag>` and of `<from-tag>` (default: the tracked tag; name the previous one to re-write a backlog after `tracks` has moved), and the list of files changed between them (`git diff --name-status`) under the watched paths and the suites the snapshot copies (`upstream/<tracked>/tests/*.test.cjs`), then runs `core/tests/upgrade.rs`'s `write_the_backlog`, which writes `backlog/<tag>.md`: one row per change, with its family, the upstream path and the table of `@gsd/core` it lands in (`ROSTER`, `AGENTS`, `HOOK_ROSTER`, the asset table, `NOT_EMBEDDED`, `MODULES`, the README capability table, `spec/settings.md`, `GATE_CUTOVER`, and `upgrade.rs`'s `NOT_IN_MANIFEST` for the router, the config manifests, the hook registration, the section manifest and the unembedded templates), the files of `gsd/core/src` whose header cites the path, the files of `gsd/` that port a copied suite, or `unowned`. A `src/**/*.cts` and its built `gsd-core/bin/lib/**/*.cjs` are the same `MODULES` item. It needs git and cargo, not the network, and reads the checkout without writing to it. Its other tests run offline on the vendored snapshot: the diff of the tracked tag against itself is empty, every path a header cites is in the snapshot, and `core/tests/declaration.rs` requires `tracks` to name the one vendored directory, so moving it fails the build until every check reads the new snapshot.
 
 ### Re-recording
 
 ```sh
-(cd ~/Projects/OpenSource/gsd-core && git archive v1.18.0 | tar -x -C /tmp/gsd-core-1.18.0)
-(cd /tmp/gsd-core-1.18.0 && npm ci --ignore-scripts && npm run build:lib)
-GSD_CORE_DIR=/tmp/gsd-core-1.18.0 gsd/parity/record.sh
+(cd ~/Projects/OpenSource/gsd-core && git archive v1.19.0 | tar -x -C /tmp/gsd-core-1.19.0)
+(cd /tmp/gsd-core-1.19.0 && npm ci --ignore-scripts && npm run build:lib)
+GSD_CORE_DIR=/tmp/gsd-core-1.19.0 gsd/parity/record.sh
 git diff --exit-code gsd/parity/goldens
 ```
 
-The script refuses a `GSD_CORE_DIR` that is not 1.18.0, runs the verbs on a copy of the fixture that is its own git
+The recipe needs node 24 or later (the tag's `engines.node`). The script refuses a `GSD_CORE_DIR` that is not 1.19.0, runs the verbs on a copy of the fixture that is its own git
 repository (so `validate health` does not report the machine's worktrees), runs the fixture's `npm test` (node's JUnit
-reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing. To track a newer release, change the tag in `upstream/` and here, re-record, and review
-the diff of the goldens: that diff is the parity backlog.
+reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing.
+
+### To track a newer release
+
+As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):
+
+1. **The backlog first.** `upgrade.sh ~/Projects/OpenSource/gsd-core <tag>` writes `backlog/<tag>.md` against the
+   tracked tag; every `unowned` row is new work (a missing roster row, an upstream path `locate` cannot place).
+2. **The version, once.** The release is the one literal `gsd_kit::tracked_version!()` (`kit/src/lib.rs`); `tracks` in
+   `core/Cargo.toml` and `security/Cargo.toml` and the version check of `record.sh` and `record-security.sh` follow it
+   (`core/tests/declaration.rs` requires `tracks` to name the one vendored directory).
+3. **The move, in one commit.** Rename `upstream/v<old>` to `upstream/v<new>` and re-vendor its files with
+   `git show "<tag>:<path>"` (SOURCE.md names each), bump the pins (`tracks`, the attribution headers, the roster rows
+   the backlog names, the settings keys), and re-bless the goldens that move only by the version. Every vendored asset
+   whose upstream text changed goes into `PENDING_RESYNC` (`core/tests/common/pending.rs`): the port tests skip a listed
+   path, and fail if its port already matches, so the gate stays green while the list is honest. That commit puts
+   `#[ignore]` on `pending_resync_is_empty` (`core/tests/port_workflows.rs`); nothing else is ignored.
+4. **The re-ports.** Each asset is re-ported line for line and taken off the list in the same commit; behaviour
+   changes are ported test first. The commit that empties the list removes the `#[ignore]`; a branch is not merged to
+   main while it is there.
+5. **Re-record** the taskboard goldens (above), the security goldens (`record-security.sh`) and the hook cases
+   (`record-hook-cases.cjs`) on the new tag. These run upstream under node; review the diff of the goldens.
+6. **Close the backlog.** `upgrade.sh <dir> <tag> <old-tag>` (the optional third argument is the tag to diff from,
+   needed once `tracks` names the new tag) re-writes `backlog/<tag>.md`; it must have no `unowned` row. Append by hand
+   what each upstream change meant and where it landed, and what stays open (`backlog/v1.19.0.md`).
 
 ### How the taskboard was made
 
@@ -69,8 +92,7 @@ Phase 2's `02-CONTEXT.md`, `02-DISCUSSION-LOG.md` and `02-RESEARCH.md` (round r3
 ## Known limits of the checks (r44 review)
 
 - `upgrade.sh` does not extract the 86 capability-declared config keys, so a change to one shows only as a changed
-  file. `locate` files the nested `src/<dir>/` modules and `bin/lib/*.cjs` as "other", which can raise a false
-  "unowned" alarm. `upgrade_diff_on_v1_18_0_is_empty` compares the snapshot with itself; a real extraction of the tag
+  file. `upgrade_diff_of_the_tracked_release_is_empty` compares the snapshot with itself; a real extraction of the tag
   was compared once by hand.
 - A "Reproduced" row passes when a test of that name contains the row's name, comments included; the pinned totals
   merge Reproduced and ByConstruction. The scenario check's needles are substrings. `GSD_BLESS=1` also rewrites

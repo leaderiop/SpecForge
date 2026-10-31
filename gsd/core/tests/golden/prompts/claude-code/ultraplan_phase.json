@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/ultraplan-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:341055cd0e124207fa1c039b8390f23bb1e266060d3414be6aeca7d5ef7b492a",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",

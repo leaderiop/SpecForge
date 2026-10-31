@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/execute-phase/steps/post-merge-gate.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/execute-phase/steps/post-merge-gate.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Step: post_merge_gate
 
 Post-merge build & test gate. Runs after all worktrees in a wave are merged
@@ -56,7 +56,10 @@ if [ -z "$BUILD_CMD" ]; then
   elif [ -f "pyproject.toml" ] || [ -f "requirements.txt" ]; then
     BUILD_CMD="python -m py_compile $(find . -name '*.py' -not -path './spec/*' -not -path './node_modules/*' | head -20 | tr '\n' ' ')"
   elif [ -f "package.json" ] && grep -q '"build"' package.json; then
-    BUILD_CMD="npm run build"
+    # #5346: the project's own package manager (packageManager field, then lockfile), npm if unresolved.
+    BUILD_CMD=$(specforge gsd resolve-package-manager build 2>/dev/null || echo "npm run build")
+    [ -n "$BUILD_CMD" ] || BUILD_CMD="npm run build"
+    echo "⚠ Build command not configured — running this project's build script (${BUILD_CMD}). Set workflow.build_command to pin it."
   else
     BUILD_CMD=""
     echo "⚠ No build command detected — skipping build gate"
@@ -123,7 +126,9 @@ if [ -z "$TEST_CMD" ]; then
   elif [ -f "Justfile" ] || [ -f "justfile" ]; then
     TEST_CMD="just test"
   elif [ -f "package.json" ]; then
-    TEST_CMD="npm test"
+    # #5346: same resolver as the build gate.
+    TEST_CMD=$(specforge gsd resolve-package-manager test 2>/dev/null || echo "npm test")
+    [ -n "$TEST_CMD" ] || TEST_CMD="npm test"
   elif [ -f "Cargo.toml" ]; then
     TEST_CMD="cargo test"
   elif [ -f "go.mod" ]; then

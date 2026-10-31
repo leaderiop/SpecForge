@@ -1,24 +1,11 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-secret-read-guard.js (`findDebuggerCliSpawn`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-secret-read-guard.js (`findDebuggerCliSpawn`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The `--agent gsd-debugger` of a `claude` CLI spawn: a debugger started in a shell runs detached and returns nothing.
 
 use std::collections::BTreeMap;
 
-use super::scan::{Command, MAX_NESTING_DEPTH, SHELL_INTERPRETERS, is_dash_c, resolve};
+use super::scan::{MAX_NESTING_DEPTH, SHELL_INTERPRETERS, is_dash_c, resolve};
 use super::shell::{Kind, Token, tokenize};
-
-fn unwrap_timeout<'a>(mut cmd: Command<'a>) -> Option<Command<'a>> {
-    while cmd.base == "timeout" {
-        let skip = cmd
-            .operands
-            .iter()
-            .take_while(|o| o.text.starts_with('-'))
-            .count()
-            + 1;
-        cmd = resolve(cmd.operands.get(skip..).unwrap_or_default())?;
-    }
-    Some(cmd)
-}
 
 fn is_debugger(value: &str) -> bool {
     value.rsplit(':').next() == Some("gsd-debugger")
@@ -55,7 +42,7 @@ pub(super) fn find_debugger_spawn(command: &str, depth: usize) -> Option<String>
                 words.push(t);
             }
         }
-        let Some(cmd) = resolve(&words).and_then(unwrap_timeout) else {
+        let Some(cmd) = resolve(&words) else {
             continue;
         };
         let operands = &cmd.operands;

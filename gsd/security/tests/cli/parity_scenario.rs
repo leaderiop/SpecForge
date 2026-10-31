@@ -1,5 +1,5 @@
 //! The vault twin answers as gsd-tools did over the vault fixture (plan 16 T24): hooks, threat IDs, the ship gate, the
-//! audit trail and the settings, each compared with the golden `record-security.sh` recorded from gsd-core 1.18.0
+//! audit trail and the settings, each compared with the golden `record-security.sh` recorded from gsd-core 1.19.0
 //! (`gsd/parity/goldens/vault/`). A difference the plan names is normalised here and listed in ACCEPTANCE.
 
 use std::process::Command;

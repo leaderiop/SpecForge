@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/validate-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:7448b4f93ab12442ea34fd5a10c2c5a8471937ac30d9be8e7b6b0a33fad0e290",
     "prompt": "@gsd/core@VERSION:validate_phase",

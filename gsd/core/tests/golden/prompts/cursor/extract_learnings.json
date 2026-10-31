@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/extract-learnings.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:42ad3a0b806acf54eb49365289764c7fb4b2798fef745af6b5bdb3baf4b1dd88",
     "prompt": "@gsd/core@VERSION:extract_learnings",

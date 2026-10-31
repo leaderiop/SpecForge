@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.14.0); `@gsd/core` 1.1.0 is built and tracks gsd-core 1.18.0: its model, checks, 15 agents, 30 commands, 44 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: hooks are 16 of 28, the `specforged` harness is later, Codex and Cursor are unrun). `@gsd/security` 1.0.0 is built on it (the threat model, `/gsd-secure-phase`, the auditor and the ship gate; [security/](security/)). The other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.14.0); `@gsd/core` 1.1.0 is built and tracks gsd-core 1.19.0: its model, checks, 15 agents, 30 commands, 44 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: hooks are 16 of 29, the `specforged` harness is later, Codex and Cursor are unrun). `@gsd/security` 1.0.0 is built on it (the threat model, `/gsd-secure-phase`, the auditor and the ship gate; [security/](security/)). The other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -75,8 +75,8 @@ list fields as items, **K14** a writing call knows the time (`now`), **K15** a j
 | Scope | The whole GSD ecosystem. `gsd-core` is the unified meta-model; `gsd-path` and `gsd-loop` are profile extensions over it. `gsd-pi`, `gsd-pi-config`, `gsd-cloud-daemon` and the marketplace are dropped: SpecForge's surfaces replace them. |
 | Parity means | The same **concepts**, the same **commands** (`/gsd-*`, by exact name) and the same **agent behaviour**. Not the same files: no `.planning/`, no export. |
 | Parity and more | Parity is the floor. The default profile `gsd-compat` behaves as GSD does; `gsd-strict` and `gsd-plus` switch on what SpecForge can do beyond GSD. |
-| Versions | Our extensions keep their own semver and declare what they track: the crate's `[package.metadata.gsd] tracks = "gsd-core@1.18.0"` and the handshake keyword `tracks:gsd-core@1.18.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
-| Upgrades | `gsd/parity/upgrade.sh <gsd-core-dir> <tag>` diffs the tracked tag against the new one (inventory manifest, capability ids, config manifest, changed files) and writes a parity backlog, `gsd/parity/backlog/<tag>.md`, one row per change with the table that owns it; `tracks` moves only when the [parity suite](parity/) passes. |
+| Versions | Our extensions keep their own semver and declare what they track: the crate's `[package.metadata.gsd] tracks = "gsd-core@1.19.0"` and the handshake keyword `tracks:gsd-core@1.19.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
+| Upgrades | `gsd/parity/upgrade.sh <gsd-core-dir> <tag> [<from-tag>]` diffs the tracked tag (or `<from-tag>`) against the new one (inventory manifest, capability ids, config manifest, changed files) and writes a parity backlog, `gsd/parity/backlog/<tag>.md`, one row per change with the table that owns it; `tracks` moves only when the [parity suite](parity/) passes. |
 | Adoption | `specforge gsd import` reads an existing `.planning/` once and writes `.spec` (edit plans). The parity suite uses it too. |
 
 ### Model
@@ -131,7 +131,7 @@ checkout of the same tree and is not modelled.
 
 ## GSD capabilities, one by one
 
-Every `capabilities/*/capability.json` of gsd-core 1.18.0 and where it lands.
+Every `capabilities/*/capability.json` of gsd-core 1.19.0 and where it lands.
 
 | GSD capability | Role | Lands in |
 |---|---|---|

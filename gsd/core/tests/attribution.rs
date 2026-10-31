@@ -30,7 +30,8 @@ fn every_asset_is_attributed() {
         assert_eq!(
             first,
             format!(
-                "<!-- Ported from gsd-core v1.18.0 {upstream}, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->"
+                "<!-- Ported from gsd-core v{} {upstream}, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->",
+                gsd_kit::tracked_version!()
             ),
             "{}",
             path.display()
@@ -44,7 +45,7 @@ fn the_licence_is_upstreams() {
     assert!(licence.starts_with("MIT License\n"), "{licence}");
     assert!(licence.contains("Copyright (c) 2026 Open GSD"));
     assert!(licence.contains("Permission is hereby granted, free of charge"));
-    let source = include_str!("../../parity/upstream/v1.18.0/SOURCE.md");
+    let source = include_str!(gsd_kit::snapshot!("SOURCE.md"));
     assert!(
         source.contains("MIT, Copyright (c) 2026 Open GSD"),
         "SOURCE.md names the licence"
@@ -76,8 +77,11 @@ fn every_ported_source_is_attributed() {
         let text = std::fs::read_to_string(&path).expect("a source");
         let first = text.lines().next().unwrap_or_default();
         assert!(
-            first.starts_with("//! Ported from gsd-core v1.18.0 ")
-                && first.contains("MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD"),
+            first.starts_with(concat!(
+                "//! Ported from gsd-core v",
+                gsd_kit::tracked_version!(),
+                " "
+            )) && first.contains("MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD"),
             "{}: {first}",
             path.display()
         );
@@ -87,7 +91,7 @@ fn every_ported_source_is_attributed() {
 /// The vendored scorer and its tests are upstream's, where the port's tests say they come from.
 #[test]
 fn the_vendored_scorer_is_the_file_the_port_names() {
-    let upstream = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/upstream/v1.18.0");
+    let upstream = Path::new(gsd_kit::snapshot!());
     for file in [
         "src/complexity-trigger.cts",
         "tests/complexity-trigger.test.cjs",
@@ -100,7 +104,7 @@ fn the_vendored_scorer_is_the_file_the_port_names() {
 /// The vendored router and its suite are the files the port names.
 #[test]
 fn the_vendored_router_is_the_file_the_port_names() {
-    let upstream = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/upstream/v1.18.0");
+    let upstream = Path::new(gsd_kit::snapshot!());
     for (file, word) in [
         ("src/smart-entry.cts", "classify"),
         ("src/runtime-slash.cts", "formatGsdSlash"),

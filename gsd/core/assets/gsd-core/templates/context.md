@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/templates/context.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/templates/context.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Phase Context Template
 
 Template for the `context` entity of phase XX-name - captures implementation decisions for a phase.

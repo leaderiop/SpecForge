@@ -20,7 +20,7 @@ mod time;
 use specforge_extension_sdk::prelude::*;
 
 /// The gsd-core release this crate tracks; `[package.metadata.gsd] tracks` in `Cargo.toml` says the same.
-pub const TRACKS: &str = "gsd-core@1.18.0";
+pub const TRACKS: &str = concat!("gsd-core@", gsd_kit::tracked_version!());
 
 #[specforge_extension_sdk::extension(
     name = "@gsd/core",

@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-secret-read-guard.js (the git, container and copy readers of `findSecretRead`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-secret-read-guard.js (the git, container and copy readers of `findSecretRead`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! What git, a container runtime and `cp`/`mv` take that is only a name: a pathspec, an `--env-file` value, a copy's
 //! target. And the command-valued `git -c` keys (`alias.x=!…`, `diff.external`), whose value is a script to scan.

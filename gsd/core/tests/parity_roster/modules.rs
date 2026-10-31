@@ -1,4 +1,4 @@
-//! The 282 `get-shit-done/bin/lib` modules of the inventory manifest and what became of each (D-r44-17): the file of
+//! The 288 `get-shit-done/bin/lib` modules of the inventory manifest and what became of each (D-r44-17): the file of
 //! `@gsd/core` that ports it, the `specforge` command that is its host half, the extension that owns it, or why it does
 //! not apply. A name ending in `*` is a prefix; every module matches exactly one row.
 
@@ -27,6 +27,7 @@ const DOCUMENT: &str =
     "reads .planning markdown; the kinds are typed .spec files the kernel parses";
 const PLANNING_DIR: &str =
     "the .planning directory's reader and workspace; the spec root is the project's files";
+const SUB_REPOS: &str = "per-repository releases over planning.sub_repos; a sub-repository is another SpecForge project (settings.md)";
 const RUNTIME: &str = "an upstream runtime this port does not install for (opencode, copilot, windsurf and the others are later renderers, README)";
 
 /// `(name or prefix*, what became of it)`.
@@ -44,6 +45,7 @@ pub const MODULES: &[(&str, Module)] = &[
     ("agent-command-router.cjs", NotApplicable(ROUTER)),
     ("agent-install-check.cjs", Host("specforge install")),
     ("api-coverage.cjs", Owned("@gsd/ai")),
+    ("args-terminator.cjs", Ported("../kit/src/prompt/render.rs")),
     ("artifacts.cjs", Ported("src/kinds/mod.rs")),
     ("assumption-delta.cjs", Ported("src/settings/gates.rs")),
     ("audit-command-router.cjs", NotApplicable(ROUTER)),
@@ -175,6 +177,7 @@ pub const MODULES: &[(&str, Module)] = &[
     ("gate-predicate.cjs", NotApplicable(GATE_ENGINE)),
     ("gate-verdict.cjs", NotApplicable(GATE_ENGINE)),
     ("git-base-branch.cjs", Ported("src/collectors/git.rs")),
+    ("git-info-exclude.cjs", NotApplicable(PLANNING_DIR)),
     ("graphify-command-router.cjs", NotApplicable(ROUTER)),
     ("graphify.cjs", Owned("@gsd/codebase")),
     ("gsd2-import.cjs", Owned("@gsd/import")),
@@ -205,6 +208,8 @@ pub const MODULES: &[(&str, Module)] = &[
     ("markdown-*", NotApplicable(DOCUMENT)),
     ("mcp-*", Host("specforge mcp")),
     ("milestone-lock.cjs", Ported("src/commands/milestone.rs")),
+    ("milestone-release-map.cjs", NotApplicable(SUB_REPOS)),
+    ("milestone-release-tags.cjs", NotApplicable(SUB_REPOS)),
     ("milestone.cjs", Ported("src/commands/milestone.rs")),
     ("model-adapter.cjs", Ported("src/settings/models.rs")),
     ("model-catalog.cjs", Ported("src/settings/models.rs")),
@@ -255,6 +260,9 @@ pub const MODULES: &[(&str, Module)] = &[
     ),
     ("prompt-budget.cjs", Ported("../kit/src/prompt/compose.rs")),
     ("quick-batch*", Ported("src/prompts/quick.rs")),
+    // the kernel's GitCli sets GIT_OPTIONAL_LOCKS=0 on every git spawn (crates/adapters/git/src/lib.rs:68); hooks run it
+    // with a 1.5 s timeout (crates/surfaces/cli/src/hook.rs:59)
+    ("read-only-git-env.cjs", Host("specforge hook")),
     ("real-home-guard.cjs", Host("specforge install")),
     ("refactor-trigger-command-router.cjs", NotApplicable(ROUTER)),
     ("report-parser.cjs", NotApplicable(DOCUMENT)),

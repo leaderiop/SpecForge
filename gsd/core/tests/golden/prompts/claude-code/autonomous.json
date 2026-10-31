@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/autonomous.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:8775d6ed054089304343a2e3914073569c85b101f25fb374714513da328e582f",
     "prompt": "@gsd/core@VERSION:autonomous",

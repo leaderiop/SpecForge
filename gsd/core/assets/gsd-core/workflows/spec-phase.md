@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/spec-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/spec-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
 Clarify WHAT a phase delivers through a Socratic interview loop with quantitative ambiguity scoring.
 Produces a SPEC.md with falsifiable requirements that discuss-phase treats as locked decisions.
@@ -62,7 +62,7 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
-Parse JSON for: `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `state_path`, `requirements_path`, `roadmap_path`, `planning_path`, `response_language`, `commit_docs`.
+Parse JSON for: `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `state_path`, `requirements_path`, `roadmap_path`, `planning_path`, `response_language`, `commit_docs` (the phase's spec is read below, from the graph).
 
 **If `response_language` is set:** All user-facing text in this workflow — narration between tool calls, status updates, progress notes, findings, questions, and report prose — MUST be in `{response_language}`. Technical terms, code, and file paths stay in English.
 
@@ -73,12 +73,9 @@ Use /gsd:progress to see available phases.
 ```
 Exit.
 
-**Check for existing SPEC.md:**
-```bash
-ls ${phase_dir}/*-SPEC.md 2>/dev/null | grep -v AI-SPEC | head -1 || true
-```
+**Check for existing SPEC.md:** the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --format json | jq -r '[.nodes[] | select(.kind == "phase_spec") | .id] | first // empty'); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the existing SPEC.md is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
 
-If SPEC.md already exists:
+If `has_spec` is true:
 
 **If `--auto`:** Auto-select "Skip" — leave the existing SPEC.md unchanged and exit with the same
 message the interactive "Skip" prints. Log: `[auto] SPEC.md exists — reusing as-is.` An unattended

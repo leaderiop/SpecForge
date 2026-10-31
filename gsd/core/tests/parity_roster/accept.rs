@@ -134,7 +134,7 @@ fn names(token: &str, key: &str) -> bool {
     }
 }
 
-/// The 211 keys of the roster: the manifest's and the capabilities', split as `spec/settings.md` splits them.
+/// The 212 keys of the roster: the manifest's and the capabilities', split as `spec/settings.md` splits them.
 pub fn config_keys() -> Counts {
     let schema: Value = serde_json::from_str(CONFIG_SCHEMA).expect("schema");
     let capabilities: Value = serde_json::from_str(CAPABILITIES).expect("capabilities");

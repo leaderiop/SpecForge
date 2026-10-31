@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/audit-milestone.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:ec73593c9388e673607578a3aa06ffeb9fdd3d62481fa36fc52c5166f314593a",
     "prompt": "@gsd/core@VERSION:audit_milestone",

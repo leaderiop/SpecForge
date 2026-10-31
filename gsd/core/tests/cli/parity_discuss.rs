@@ -1,4 +1,4 @@
-//! The taskboard's SpecForge twin of a discussed and researched phase against what gsd-tools 1.18.0 says about its
+//! The taskboard's SpecForge twin of a discussed and researched phase against what gsd-tools 1.19.0 says about its
 //! `.planning/` (parity suite, "scenario"): phase 2's CONTEXT, DISCUSSION-LOG and RESEARCH, and PROJECT.md's Key
 //! Decisions. The goldens come from `record.sh`; the `.planning/` files are the fixture's.
 

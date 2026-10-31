@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/security-asvs-levels.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/security-asvs-levels.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Security ASVS Levels
 
 GSD threat modeling maps OWASP ASVS levels to planner disposition rigor and auditor verification depth. Higher levels are supersets of lower — L3 includes all L2 and L1 requirements.

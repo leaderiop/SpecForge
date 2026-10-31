@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 src/smart-entry.cts and src/runtime-slash.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 src/smart-entry.cts and src/runtime-slash.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `smart_entry` (D-r43-12): `/gsd-next`'s router. It ports `classify`, `isComplete`, `isIdleStranded`, `actionsFor`,
 //! `phaseSummary`, `buildSummary` and `progressLine` of upstream's `smart-entry`, and `formatGsdSlash` of

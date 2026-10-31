@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/loop-hook-dispatch.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/loop-hook-dispatch.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Loop Hook Dispatch Contract
 
 Generic reference for consuming the `--raw` JSON output of `loop render-hooks <point>`
@@ -92,12 +92,19 @@ not one shape of one.
 capability manifest, which may be third-party — and `gates[].check` is **not** one of the
 executable surfaces the install consent prompt discloses (`hooks`, command modules,
 `mcpServers`, reviewer lanes), so a capability can be consented to as declarative-only and
-still reach a shell through a gate. Check the query value you read from `activeHooks` against
-`^[a-z][a-z0-9-]*( [a-z][a-z0-9-]*)*$` yourself, IN-CONTEXT — **never** by pasting it into a
-shell command to be tested there, because a value carrying a quote, `;`, a `` ` ``, `$(`, or a
-newline would terminate the assignment and run as its own statement before any shell-side
-check could execute. A value that fails is a malformed manifest: record a warning, route it
-per the gate's `onError`, and do not run it. Pass `check.predicate` as a **single argv
+still reach a shell through a gate. Normalize first, then validate: the registry declares query
+ids in dotted form (`ui.plan-gate`, `verify.codebase-drift`) and the gate checks accept them by
+turning each `.` into `-`, so replace every `.` with `-` in the query value you read from
+`activeHooks`, then check that normalized value against
+`^[a-z][a-z0-9]*(-[a-z0-9]+)*( [a-z][a-z0-9]*(-[a-z0-9]+)*)*$` yourself, IN-CONTEXT — **never** by
+pasting it into a shell command to be tested there, because a value carrying a quote, `;`, a
+`` ` ``, `$(`, or a newline would terminate the assignment and run as its own statement before
+any shell-side check could execute. The normalized value is the one value you validate and the
+one value you pass: wherever a workflow shows `${hook.check.query}`, write the normalized value.
+A leading dot, a trailing dot or consecutive dots become a leading, trailing or doubled hyphen,
+which the pattern rejects. A value that fails — or that passes but names no known check, which
+the check dispatch rejects as an unknown check — is a malformed manifest: record a
+warning, route it per the gate's `onError`, and do not run it. Pass `check.predicate` as a **single argv
 element** for the same reason — never re-quote it into a shell string, where an apostrophe
 would close the literal. This is the identical requirement `step` → `ref.command` carries
 above; it was stated there and omitted here, which is the gap #3559 closed.
@@ -132,7 +139,7 @@ this file's `activeHooks` envelope.
 
 Instead, a capability declares task-content resolution directly in its manifest body via
 `taskContentResolver` (`trackerPrefix` + a bounded `invoke`) — see
-[Capability manifest reference](https://github.com/open-gsd/gsd-core/blob/v1.18.0/docs/reference/capability-manifest.md). `execute-plan.md`'s
+[Capability manifest reference](https://github.com/open-gsd/gsd-core/blob/v1.19.0/docs/reference/capability-manifest.md). `execute-plan.md`'s
 per-task loop calls `task resolve-content --plan <path> --task-id <tracker-id> --raw`
 directly, an unconditional, required subprocess invocation with a real, binding exit code —
 never a prose-dispatched `step`/`gate` entry chosen from an `activeHooks` array.
@@ -141,5 +148,5 @@ This point always runs — there is no `when` config gate and no autonomous-mode
 deliberate, not an oversight: the twelve points above are best-effort prose dispatch, which
 `execute:task`'s hard-halt safety property cannot be built on top of (a missed dispatch is
 indistinguishable from a legitimate resolver-empty fallback). See
-[ADR-3646](https://github.com/open-gsd/gsd-core/blob/v1.18.0/docs/adr/3646-per-task-content-resolution-seam.md) for the full rationale,
+[ADR-3646](https://github.com/open-gsd/gsd-core/blob/v1.19.0/docs/adr/3646-per-task-content-resolution-seam.md) for the full rationale,
 including why a `kind: "gate"` shape was rejected outright.

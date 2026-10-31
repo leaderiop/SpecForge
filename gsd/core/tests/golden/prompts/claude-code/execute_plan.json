@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "gsd-core/workflows/execute-plan.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:7fe1e2ede36bd2eb2a5c8138550967cf397aff367acafe89797c7aca3758d61b",
     "prompt": "@gsd/core@VERSION:execute_plan",

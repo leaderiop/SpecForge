@@ -129,7 +129,7 @@ fn validation_row_gains_threat_and_secure_behavior() {
     assert_eq!(names, ["threat", "secure_behavior"]);
 }
 
-/// SECURITY.md's columns at v1.18.0 (`gsd-core/templates/SECURITY.md`; T19 vendors the file, and this copy names the
+/// SECURITY.md's columns at v1.19.0 (`gsd-core/templates/SECURITY.md`; T19 vendors the file, and this copy names the
 /// upstream path until the test reads it), each with the field that holds it. `None`: SpecForge's own form.
 const TEMPLATE_COLUMNS: &[(&str, &str, Option<&str>)] = &[
     ("frontmatter", "phase", Some("security_audit.phase")),
@@ -238,4 +238,15 @@ fn the_template_columns_map_to_fields() {
             "{field} is in no column and not listed as SpecForge's own"
         );
     }
+}
+
+/// The twin of core's: `Cargo.toml`'s `tracks` is the crate's `TRACKS`, and both extensions track one release.
+#[test]
+fn the_tracked_release_is_the_manifests() {
+    let manifest = include_str!("../Cargo.toml");
+    assert!(
+        manifest.contains(&format!("tracks = \"{}\"", gsd_security::TRACKS)),
+        "Cargo.toml tracks a different release"
+    );
+    assert_eq!(gsd_security::TRACKS, gsd_core::TRACKS);
 }

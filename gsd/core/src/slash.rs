@@ -12,7 +12,7 @@ fn attribution(name: &str) -> Attribution {
     Attribution {
         upstream: "gsd-core".to_string(),
         path: format!("commands/gsd/{name}.md"),
-        version: "v1.18.0".to_string(),
+        version: concat!("v", gsd_kit::tracked_version!()).to_string(),
         license: "MIT".to_string(),
         copyright: "Copyright (c) 2026 Open GSD".to_string(),
     }

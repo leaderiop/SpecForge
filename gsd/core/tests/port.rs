@@ -1,4 +1,4 @@
-//! The ported agent bodies against the vendored upstream files (gsd-core v1.18.0): line for line, a line may differ
+//! The ported agent bodies against the vendored upstream files (gsd-core v1.19.0): line for line, a line may differ
 //! only where upstream's names `.planning/`, `gsd-tools`, `gsd_run` or `gsd-sdk`.
 
 use std::path::{Path, PathBuf};
@@ -10,8 +10,11 @@ use regex::Regex;
 mod rule;
 use rule::check_lines;
 
+#[path = "common/pending.rs"]
+mod pending;
+
 pub fn upstream_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/upstream/v1.18.0/agents")
+    PathBuf::from(gsd_kit::snapshot!("agents"))
 }
 
 pub fn assets_dir() -> PathBuf {
@@ -291,7 +294,15 @@ fn bodies_diff_only_in_ported_passages() {
     assert_eq!(AGENTS.len(), 15);
     let mut total = 0;
     for agent in AGENTS {
-        total += check_body(&format!("{}.md", agent.id));
+        let file = format!("{}.md", agent.id);
+        let path = format!("agents/{file}");
+        if pending::is_pending(&path) {
+            pending::assert_still_pending(&path, || {
+                check_body(&file);
+            });
+            continue;
+        }
+        total += check_body(&file);
     }
     assert!(total > 100, "only {total} lines were ported");
 }

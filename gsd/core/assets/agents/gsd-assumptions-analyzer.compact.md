@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 agents/gsd-assumptions-analyzer.compact.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 agents/gsd-assumptions-analyzer.compact.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
 GSD assumptions analyzer. Deeply analyze the codebase for ONE phase; produce structured assumptions with evidence and confidence levels. Spawned by `discuss-phase-assumptions` via `Task()`. Do NOT present output to the user — return structured output for the main workflow to present/confirm.

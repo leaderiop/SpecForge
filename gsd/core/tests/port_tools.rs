@@ -22,7 +22,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 
 /// Body lines of an upstream file; a command or agent file loses its frontmatter.
 fn upstream_body(relative: &str) -> Vec<String> {
-    let base = root().join("../parity/upstream/v1.18.0");
+    let base = Path::new(gsd_kit::snapshot!());
     let plain = base.join(relative);
     let file = if plain.is_file() {
         plain

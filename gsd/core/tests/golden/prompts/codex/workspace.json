@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/workspace.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:0050fd5d9d4889d005db98bdbf141e95c3b4c4c2e8d4af275506049f1e08acac",
     "prompt": "@gsd/core@VERSION:workspace"

@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/perf-317-context-monitor-fs.test.cjs and tests/context-monitor-host-contract.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/perf-317-context-monitor-fs.test.cjs and tests/context-monitor-host-contract.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Upstream drives the node hook through bridge files in the temp directory. Here the metrics, the debounce and the
 //! compaction watermark are the session's state, so a case is ported when it decides on those (a sequence of calls
@@ -13,11 +13,12 @@ use crate::hooks::accounting;
 mod skipped;
 use skipped::{CONTRACT_SKIPPED, MONITOR_SKIPPED};
 
-const MONITOR_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/perf-317-context-monitor-fs.test.cjs");
-const CONTRACT_SUITE: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/tests/context-monitor-host-contract.test.cjs"
-);
+const MONITOR_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/perf-317-context-monitor-fs.test.cjs"
+));
+const CONTRACT_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/context-monitor-host-contract.test.cjs"
+));
 
 const NOW: i64 = 1_800_000_000;
 const DEFAULTS: (f64, f64) = (35.0, 25.0);

@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/execute-phase/steps/regression-gate-run.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/execute-phase/steps/regression-gate-run.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 Apply response_language to all user-facing prose — narration between tool calls, status updates, progress notes, and findings included; preserve code, paths, and identifiers.
 
 # Step: regression_gate_run
@@ -30,7 +30,8 @@ if [ -z "$REG_TEST_CMD" ]; then
   elif [ -f "Justfile" ] || [ -f "justfile" ]; then
     REG_TEST_CMD="just test"
   elif [ -f "package.json" ]; then
-    REG_TEST_CMD="npm test"
+    REG_TEST_CMD=$(specforge gsd resolve-package-manager test 2>/dev/null || echo "npm test")
+    [ -n "$REG_TEST_CMD" ] || REG_TEST_CMD="npm test"
   elif [ -f "Cargo.toml" ]; then
     REG_TEST_CMD="cargo test"
   elif [ -f "go.mod" ]; then

@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/discuss-phase-power.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/discuss-phase-power.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 @~/.claude/gsd-core/references/response-language-directive.md
 
 <purpose>
@@ -12,10 +12,25 @@ This workflow executes when `--power` flag is present in ARGUMENTS to `/gsd:disc
 
 The caller (discuss-phase.md) has already:
 - Validated the phase exists
-- Provided init context: `phase_dir`, `padded_phase`, `phase_number`, `phase_name`, `phase_slug`
+- Provided init context: `phase_dir`, `padded_phase`, `phase_number`, `phase_name`, `phase_slug` (the phase's spec is read in `check_spec`, from the graph)
 
 Begin at **Step 1** immediately.
 </trigger>
+
+<step name="check_spec">
+Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --format json | jq -r '[.nodes[] | select(.kind == "phase_spec") | .id] | first // empty'); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+
+**If `has_spec` is true:**
+1. Read the SPEC.md file at `spec_path`.
+2. Count requirements (numbered items in `## Requirements`).
+3. Display: `Found SPEC.md — {N} requirements locked. Focusing on implementation decisions.`
+4. Set `spec_loaded = true`.
+5. Store requirements, boundaries, and acceptance criteria as `<locked_requirements>` — these flow directly into CONTEXT.md without re-asking.
+
+**If `has_spec` is false:** Continue with `spec_loaded = false`.
+
+**Note:** `*-AI-SPEC.md` (from the ai-integration-phase workflow) and `*-UI-SPEC.md` (from the ui-phase workflow) are different artifacts and never count as the phase SPEC.
+</step>
 
 <step name="analyze">
 Run the same gray area identification as standard discuss-phase mode.
@@ -23,7 +38,7 @@ Run the same gray area identification as standard discuss-phase mode.
 1. Load prior context (PROJECT.md, REQUIREMENTS.md, STATE.md, prior CONTEXT.md files)
 2. Scout codebase for reusable assets and patterns relevant to this phase
 3. Read the phase goal from ROADMAP.md
-4. Identify ALL gray areas — specific implementation decisions the user should weigh in on
+4. Identify ALL gray areas — specific implementation decisions the user should weigh in on. If `spec_loaded = true`, the locked requirements are pre-answered: identify gray areas about HOW to implement only, never about WHAT to build or WHY
 5. For each gray area, generate 2–4 concrete options with tradeoff descriptions
 
 Group questions by topic into sections (e.g., "Visual Style", "Data Model", "Interactions", "Error Handling"). Each section should have 2–6 questions.
@@ -258,6 +273,8 @@ Process all answered questions from the JSON file and generate CONTEXT.md.
    - Status: "Decided" if fully answered, "Needs clarification" if only chat_more with no option selected
 
 5. Write CONTEXT.md using the standard context template format:
+   - `<spec_lock>` section immediately after `<domain>` when `spec_loaded = true` (template: `discuss-phase/templates/context.md`); do NOT copy SPEC.md requirements into `<decisions>`
+   - the SPEC.md file in `<canonical_refs>` with the note "Locked requirements — MUST read before planning" when `spec_loaded = true`
    - `<decisions>` section with all answered questions grouped by section
    - `<deferred_ideas>` section for unanswered questions (carry forward for future discussion)
    - `<specifics>` section for any chat_more content that adds nuance

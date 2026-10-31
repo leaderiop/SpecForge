@@ -1,7 +1,7 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/complete-milestone.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/complete-milestone.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
 
-Mark a shipped version (v1.0, v1.1, v2.0) as complete. Creates historical record in MILESTONES.md, performs full PROJECT.md evolution review, reorganizes ROADMAP.md with milestone groupings, and tags the release in git.
+Mark a shipped version (v1.0, v1.1, v2.0) as complete. Creates historical record in MILESTONES.md, performs the full PROJECT.md evolution review (flat mode only; skipped under `--ws`, because PROJECT.md is shared across workstreams), reorganizes ROADMAP.md with milestone groupings, and tags the release in git.
 
 </purpose>
 
@@ -23,7 +23,7 @@ When a milestone completes:
 2. Keep the requirements: the `requirement` entities stay with the completed milestone, so nothing is archived or deleted
 3. Update ROADMAP.md — overwrite in place with milestone grouping (preserve Backlog section)
 4. Safety commit archive files + updated ROADMAP.md, then nothing is removed: the `requirement` entities stay with the completed milestone (new ones are added for the next)
-5. Perform full PROJECT.md evolution review
+5. Perform full PROJECT.md evolution review (flat mode only — skipped under an active workstream, #5195)
 6. Offer to create next milestone inline
 7. Archive UI artifacts (`*-UI-SPEC.md`, `*-UI-REVIEW.md`) alongside other phase documents
 8. Clean up the spec screenshot files (binary assets, never archived)
@@ -245,151 +245,22 @@ If additional details are needed (e.g., user-provided "Delivered" summary, git r
 
 </step>
 
-<step name="evolve_project_full_review">
-
-Full PROJECT.md evolution review at milestone completion.
-
-Read all phase summaries:
+**Resolve the PROJECT.md review gate first.** PROJECT.md is shared across workstreams, so the review runs in flat mode only: no `--ws` in the arguments and no active workstream (`specforge gsd workstreams progress` answers the one `specforge gsd workstreams switch` made active as `active`). SpecForge's INIT carries no `section_manifest`, so the gate reads the workstream itself; when it cannot be read, the review is skipped rather than rewrite the shared PROJECT.md under a workstream (#5195).
 
 ```bash
-_SUMMARIES=( $(specforge query "$MILESTONE" --depth 3 --kinds summary --format brief | jq -r '.nodes[]|select(.kind=="summary")|.id') )
-if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge query "$s" --depth 0 --format context; done; fi
+IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
+$ARGUMENTS
+GSD_ARGS_END
+GSD_ARGS=${GSD_ARGS%$'\n'}
+GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+WS_JSON=$(specforge gsd workstreams progress --format json) || WS_JSON='{"active":"(unreadable)"}'
+GSD_ACTIVE_WS=$(echo "$WS_JSON" | jq -r '.active // empty')
+[ -z "$GSD_WS" ] && [ -z "$GSD_ACTIVE_WS" ] && echo "PROJECT_MD_REVIEW=run" || echo "PROJECT_MD_REVIEW=skip"
 ```
 
-**Full review checklist:**
-
-1. **"What This Is" accuracy:**
-   - Compare current description to what was built
-   - Update if product has meaningfully changed
-
-2. **Core Value check:**
-   - Still the right priority? Did shipping reveal a different core value?
-   - Update if the ONE thing has shifted
-
-3. **Business Context check (only if the section is present):**
-   - Skip entirely if PROJECT.md has no `## Business Context` section
-   - Customer, revenue model, and success metric still accurate after shipping?
-   - Update any field that drifted; refresh the linked strategy doc reference if it moved
-
-4. **Requirements audit:**
-
-   **Validated section:**
-   - All Active requirements shipped this milestone → Move to Validated
-   - Format: `- ✓ [Requirement] — v[X.Y]`
-
-   **Active section:**
-   - Take requirements moved to Validated off the Active list (the `requirement` entities themselves stay)
-   - Add new requirements for next milestone
-   - Keep unaddressed requirements
-
-   **Out of Scope audit:**
-   - Review each item — reasoning still valid?
-   - Remove irrelevant items
-   - Add requirements invalidated during milestone
-
-5. **Context update:**
-   - Current codebase state (LOC, tech stack)
-   - User feedback themes (if any)
-   - Known issues or technical debt
-
-6. **Key Decisions audit:**
-   - Extract all decisions from milestone phase summaries
-   - Add to Key Decisions table with outcomes
-   - Mark ✓ Good, ⚠️ Revisit, or — Pending
-
-7. **Constraints check:**
-   - Any constraints changed during development? Update as needed
-
-Update PROJECT.md inline. Update "Last updated" footer:
-
-```markdown
----
-*Last updated: [date] after v[X.Y] milestone*
-```
-
-**Example full evolution (v1.0 → v1.1 prep):**
-
-Before:
-
-```markdown
-## What This Is
-
-A real-time collaborative whiteboard for remote teams.
-
-## Core Value
-
-Real-time sync that feels instant.
-
-## Requirements
-
-### Validated
-
-(None yet — ship to validate)
-
-### Active
-
-- [ ] Canvas drawing tools
-- [ ] Real-time sync < 500ms
-- [ ] User authentication
-- [ ] Export to PNG
-
-### Out of Scope
-
-- Mobile app — web-first approach
-- Video chat — use external tools
-```
-
-After v1.0:
-
-```markdown
-## What This Is
-
-A real-time collaborative whiteboard for remote teams with instant sync and drawing tools.
-
-## Core Value
-
-Real-time sync that feels instant.
-
-## Requirements
-
-### Validated
-
-- ✓ Canvas drawing tools — v1.0
-- ✓ Real-time sync < 500ms — v1.0 (achieved 200ms avg)
-- ✓ User authentication — v1.0
-
-### Active
-
-- [ ] Export to PNG
-- [ ] Undo/redo history
-- [ ] Shape tools (rectangles, circles)
-
-### Out of Scope
-
-- Mobile app — web-first approach, PWA works well
-- Video chat — use external tools
-- Offline mode — real-time is core value
-
-## Context
-
-Shipped v1.0 with 2,400 LOC TypeScript.
-Tech stack: Next.js, Supabase, Canvas API.
-Initial user testing showed demand for shape tools.
-```
-
-**Step complete when:**
-
-- [ ] "What This Is" reviewed and updated if needed
-- [ ] Core Value verified as still correct
-- [ ] Business Context checked (or confirmed absent)
-- [ ] All shipped requirements moved to Validated
-- [ ] New requirements added to Active for next milestone
-- [ ] Out of Scope reasoning audited
-- [ ] Context updated with current state
-- [ ] All milestone decisions added to Key Decisions
-- [ ] "Last updated" footer reflects milestone completion
-
-</step>
+<!-- gsd:section id="project-md-evolution-review" when="state:flat-mode" -->
+If the line above printed `PROJECT_MD_REVIEW=run` (no `--ws` and no active workstream): read and execute `gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md`. If it printed `PROJECT_MD_REVIEW=skip` (a workstream is active, or it could not be read) — do not read the file; PROJECT.md is shared across workstreams, so a workstream's milestone close never rewrites it (#2308, #5195); proceed to `archive_milestone`.
+<!-- /gsd:section -->
 
 <step name="archive_milestone">
 
@@ -402,6 +273,8 @@ If the quick plans contains at least one directory, ask:
 AskUserQuestion: "Archive completed quick tasks into this milestone too?" with options: "Yes — archive quick tasks into v[X.Y]" | "Skip"
 
 If "Yes": set `ARCHIVE_QUICK_FLAG="--archive-quick"`. If "Skip" (or the quick plans is empty): set `ARCHIVE_QUICK_FLAG=""`.
+
+**Per-repository release mapping (#3628): not part of @gsd/core.** A SpecForge project has no sub-repositories (`git.repo_tagging` is not applicable, as `planning.sub_repos` is not), so `PER_REPO_TAGGING` is always `false` and nothing is appended to the `milestone complete` calls below. A GSD milestone version may differ from every repository's release version.
 
 **Delegate archival to `specforge gsd close-milestone`:**
 
@@ -439,11 +312,13 @@ If the user explicitly wants to keep phase directories in place as raw execution
 : # the phases stay in the spec: there is nothing to archive
 ```
 
+(No release map applies to this form either: `PER_REPO_TAGGING` is always `false` in @gsd/core.)
+
 Verify after a default (archived) completion: `✅ Phases kept with the milestone`
 
 After archival, the AI still handles:
 - Reorganizing ROADMAP.md with milestone grouping (requires judgment) — overwrite in place after extracting Backlog section, with the write-guard's single-use sentinel armed first (a per-step env var cannot reach a hook — see the reorganize step for the sentinel mechanics)
-- Full PROJECT.md evolution review (requires understanding)
+- Full PROJECT.md evolution review (requires understanding; flat mode only — skipped under `--ws`)
 - Safety commit of archive files + updated ROADMAP.md, then continue (the `requirement` entities stay as they are)
 - These are NOT fully delegated because they require AI interpretation of content
 
@@ -536,12 +411,15 @@ ROADMAP_PATH=$(_gsd_field "$INIT_REORG" roadmap_path)
 ARCHIVE_DIR=$(_gsd_field "$INIT_REORG" archive_dir)
 MILESTONES_PATH=$(_gsd_field "$INIT_REORG" milestones_path)
 PROJECT_PATH=$(_gsd_field "$INIT_REORG" project_path)
+# #5195: PROJECT.md is shared across workstreams. Stage it only in flat mode (no --ws, no active workstream) — the same test the review step is gated on, so the two cannot disagree.
+_gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --format json) || return 1; [ -z "$GSD_WS" ] && [ -z "$(echo "$j" | jq -r '.active // empty')" ]; }
+_gsd_flat_mode || PROJECT_PATH=""
 git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 ```
 
 This creates a durable checkpoint in git history. If anything fails after this point, the working tree can be reconstructed from git.
 
-MILESTONES.md and PROJECT.md are workstream-scoped the same way STATE.md/ROADMAP.md are (the milestone and the project are `.spec` files) — under an active workstream this commits the actual files `milestone complete` wrote, not the root copies.
+MILESTONES.md is workstream-scoped the same way STATE.md/ROADMAP.md are (the milestone is a `.spec` file) — under an active workstream this commits the actual files `milestone complete` wrote, not the root copies. PROJECT.md is NOT: it is shared across workstreams, so under an active workstream it is neither reviewed nor staged here (#5195).
 
 **The `requirement` entities stay** (they are the milestone's history; no file is archived or cleared):
 
@@ -657,8 +535,14 @@ Exact bash for each of the four options (squash, history-preserving merge, delet
 </step>
 
 <!-- gsd:section id="git-tag" when="state:git-create-tag" -->
-If `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute `gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to `git_commit_milestone`.
+`PER_REPO_TAGGING` is always `false` in @gsd/core (no sub-repositories, no per-repository tags), so this section is never skipped for it. If `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute `gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to `git_commit_milestone`.
 <!-- /gsd:section -->
+
+<step name="push_release_tags">
+
+**Per-repository tag push (#3628): not part of @gsd/core.** `PER_REPO_TAGGING` is always `false` (a SpecForge project has no sub-repositories), so there are no per-repository tags to push and no release map to read. Skip this step.
+
+</step>
 
 <step name="git_commit_milestone">
 
@@ -669,6 +553,8 @@ git commit -m "chore: complete v[X.Y] milestone"
 ```
 
 Confirm: "Committed: chore: complete v[X.Y] milestone"
+
+`PER_REPO_TAGGING` is always `false` in @gsd/core: there is no release-map scratch directory to remove.
 
 </step>
 
@@ -735,8 +621,8 @@ Milestone completion is successful when:
 - [ ] Known deferred items count noted in MILESTONES.md entry
 
 - [ ] MILESTONES.md entry created with stats and accomplishments
-- [ ] PROJECT.md full evolution review completed
-- [ ] All shipped requirements moved to Validated in PROJECT.md
+- [ ] PROJECT.md full evolution review completed (flat mode only; skipped under `--ws`)
+- [ ] All shipped requirements moved to Validated in PROJECT.md (flat mode only; skipped under `--ws`)
 - [ ] Key Decisions updated with outcomes
 - [ ] ROADMAP.md Backlog section extracted before rewrite, re-appended after (skipped if absent)
 - [ ] ROADMAP.md reorganized with milestone grouping (overwritten in place, not deleted)
@@ -745,7 +631,8 @@ Milestone completion is successful when:
 - [ ] Safety commit made (archive files + updated ROADMAP.md) BEFORE the final commit
 - [ ] `requirement` entities kept with the completed milestone (none deleted)
 - [ ] STATE.md updated with fresh project reference
-- [ ] Git tag created (v[X.Y]) (if `git.create_tag` enabled)
+- [ ] Git tag created (v[X.Y]) (if `git.create_tag` enabled and `PER_REPO_TAGGING` is not `true`)
+- [ ] Release map archived and per-repository tags created (if `PER_REPO_TAGGING` is `true`); no tag pushed without a per-repository confirmation
 - [ ] Milestone commit made (includes archive files and deletion)
 - [ ] Requirements completion checked against REQUIREMENTS.md traceability table
 - [ ] Incomplete requirements surfaced with proceed/audit/abort options

@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/pr-branch.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:0c834cc8296108b89abc66f6652c48106a7705cafcaf875adc99b7d9285ba2af",
     "prompt": "@gsd/core@VERSION:pr_branch"

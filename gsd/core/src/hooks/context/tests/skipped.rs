@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/perf-317-context-monitor-fs.test.cjs and tests/context-monitor-host-contract.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/perf-317-context-monitor-fs.test.cjs and tests/context-monitor-host-contract.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 
 pub(super) const SKIP_FS: &str = "fs: a bridge, sentinel or watermark file's permissions, symlinks and sizes; the state is the kernel's";

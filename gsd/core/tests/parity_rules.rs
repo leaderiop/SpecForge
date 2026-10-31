@@ -116,8 +116,8 @@ fn every_code_fires_and_stays_silent() {
 }
 
 fn snapshot_names() -> BTreeSet<String> {
-    let dir = core_dir().join("../parity/upstream/v1.18.0/gate-cutover");
-    std::fs::read_dir(&dir)
+    let dir = Path::new(gsd_kit::snapshot!("gate-cutover"));
+    std::fs::read_dir(dir)
         .unwrap_or_else(|e| panic!("read {}: {e}", dir.display()))
         .map(|e| {
             e.expect("an entry")

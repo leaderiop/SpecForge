@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/onboard.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:0eb5c03a00ba0470e7d9ea1934f7ea17c4a317e85985292ca859b6e2afe0b50e",
     "prompt": "@gsd/core@VERSION:onboard",

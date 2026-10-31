@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/mvp-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:5c96747324648bf1da7904c57918c2b1d7a5f841ce409cb5e5d4ceb96fbb0c11",
     "prompt": "@gsd/core@VERSION:mvp_phase",

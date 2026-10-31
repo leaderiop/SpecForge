@@ -61,7 +61,7 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated."
   ],
-  "bytes": 98074,
+  "bytes": 98246,
   "end": [
     "- [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)",
     "- [ ] Config merge preserves all keys outside the three sections this workflow owns",
@@ -186,17 +186,17 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 2107,
+  "lines": 2108,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
       "license": "MIT",
       "path": "commands/gsd/config.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
-    "digest": "sha256:00f2ddc502c34f71183bd3475b444bebb86b1f130004b29a00f36a6f1d43a2e2",
+    "digest": "sha256:7dd1a8dee784da2e274902be2edd1913965e95d2973ee9590e363c7de96da36c",
     "prompt": "@gsd/core@VERSION:config"
   },
-  "sha256": "00f2ddc502c34f71183bd3475b444bebb86b1f130004b29a00f36a6f1d43a2e2"
+  "sha256": "7dd1a8dee784da2e274902be2edd1913965e95d2973ee9590e363c7de96da36c"
 }

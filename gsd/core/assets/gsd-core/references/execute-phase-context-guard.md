@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/execute-phase-context-guard.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/execute-phase-context-guard.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 0. **Context exhaustion guard — `context_guard` (BEFORE spawning, #1452):**
 
    Before spawning any agents for this wave, self-assess context pressure using the

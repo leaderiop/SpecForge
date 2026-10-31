@@ -8,6 +8,10 @@
 //! task's title. A commit that names no plan (`feat(gsd): x`, `docs(pause): y`, a scope no plan has, or one that
 //! several plans have) is skipped, as `/gsd-undo` skips it (`scope === id`).
 //!
+//! Each recorded commit also names the recorded commits of its plan it descends from (`descends_from`), through every
+//! parent: the log is read with merges, so a RED made on a branch merged before the GREEN counts (#5275). A merge
+//! itself is not recorded.
+//!
 //! Everything taken from `git log` is untrusted. Records start at a NUL (`%x00`), which no commit message can hold, so
 //! a subject cannot forge one; control characters in a subject or a path become U+FFFD; a record whose hash is not
 //! hex or whose time is out of range is skipped and named in the plan's title. The host refuses a whole plan for one
@@ -19,7 +23,7 @@ mod subject;
 #[cfg(test)]
 mod tests;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
@@ -43,11 +47,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 "-c",
                 "i18n.logOutputEncoding=UTF-8",
                 "log",
-                "--no-merges",
                 "--no-renames",
                 "--numstat",
                 "--summary",
-                "--format=%x00%H%x1f%at%x1f%s",
+                "--format=%x00%H%x1f%P%x1f%at%x1f%s",
             ])
             .capture_stdout()
             .writes()
@@ -59,6 +62,8 @@ pub fn declare(c: &mut ContributionsBuilder) {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Commit {
     pub hash: String,
+    /// `%P`: none for a root commit, two or more for a merge.
+    pub parents: Vec<String>,
     pub at: String,
     pub subject: String,
     pub files: Vec<String>,
@@ -127,9 +132,9 @@ fn is_hash(text: &str) -> bool {
     matches!(text.len(), 40 | 64) && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
-/// The commits of `git log --numstat --summary --format=%x00%H%x1f%at%x1f%s`, newest first as git prints them, and
-/// the hash (as far as it is printable) of each record that is not a valid commit: a hash that is not hex, a time that
-/// is not in `0..=253402300799` (the years 1970 to 9999). A binary file counts 0 lines.
+/// The commits of `git log --numstat --summary --format=%x00%H%x1f%P%x1f%at%x1f%s`, newest first as git prints them,
+/// and the hash (as far as it is printable) of each record that is not a valid commit: a hash or a parent that is not
+/// hex, a time that is not in `0..=253402300799` (the years 1970 to 9999). A binary file counts 0 lines.
 pub fn parse_all(log: &str) -> (Vec<Commit>, Vec<String>) {
     let (mut commits, mut skipped) = (Vec::new(), Vec::new());
     for text in log.split(RECORD).filter(|t| !t.trim().is_empty()) {
@@ -148,21 +153,24 @@ pub fn parse(log: &str) -> Vec<Commit> {
 
 fn record(text: &str) -> Result<Commit, String> {
     let mut lines = text.lines();
-    let mut head = lines.next().unwrap_or_default().splitn(3, FIELD);
-    let (hash, at, subject) = (
+    let mut head = lines.next().unwrap_or_default().splitn(4, FIELD);
+    let (hash, parents, at, subject) = (
         head.next().unwrap_or_default().trim(),
+        head.next().unwrap_or_default(),
         head.next().unwrap_or_default().trim(),
         head.next().unwrap_or_default(),
     );
+    let parents: Vec<String> = parents.split_whitespace().map(String::from).collect();
     let time = at
         .parse::<i64>()
         .ok()
         .filter(|t| (0..=253_402_300_799).contains(t));
-    let (true, Some(time)) = (is_hash(hash), time) else {
+    let (true, true, Some(time)) = (is_hash(hash), parents.iter().all(|p| is_hash(p)), time) else {
         return Err(clean(&hash.chars().take(12).collect::<String>()));
     };
     let mut commit = Commit {
         hash: hash.to_string(),
+        parents,
         at: utc(time),
         subject: clean(subject),
         files: Vec::new(),
@@ -237,8 +245,106 @@ fn task_of<'a>(nodes: &'a [GraphNode], plan: &str, description: &str) -> Option<
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    /// The commits `ancestry` stepped onto on this thread: a test bounds the walk's work by it, not by the clock.
+    pub(super) static WALKED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// For each commit of `plans`, the 12-hex names of the commits of its plan it reaches through its parents, oldest
+/// first. Parents are resolved before their children, so a walk stops at a commit of its own plan and takes that
+/// commit's list: each commit is walked only down to its plan's nearest recorded commits (#5275).
+// shortcut: a plan's first commit still walks to the root, O(log × plans); carry every plan's nearest recorded commits
+// in one topological pass when a log of many plans nears the host's 30 s guest limit (`execute.md`).
+fn ancestry<'a>(
+    commits: &'a [Commit],
+    plans: &HashMap<&'a str, &'a str>,
+) -> HashMap<&'a str, Vec<String>> {
+    let count = commits.len();
+    let index: HashMap<&str, usize> = commits
+        .iter()
+        .enumerate()
+        .map(|(i, c)| (c.hash.as_str(), i))
+        .collect();
+    // By log position (newest is 0); a parent outside the log read is not walked.
+    let parents: Vec<Vec<usize>> = commits
+        .iter()
+        .map(|c| {
+            c.parents
+                .iter()
+                .filter_map(|p| index.get(p.as_str()).copied())
+                .collect()
+        })
+        .collect();
+    let plan: Vec<Option<&str>> = commits
+        .iter()
+        .map(|c| plans.get(c.hash.as_str()).copied())
+        .collect();
+    // git's own order is not topological under clock skew: an iterative post-order walk puts parents first.
+    let (mut order, mut done) = (Vec::with_capacity(count), vec![false; count]);
+    for start in (0..count).rev() {
+        let mut stack = vec![(start, false)];
+        while let Some((at, finished)) = stack.pop() {
+            if finished {
+                order.push(at);
+            } else if !done[at] {
+                done[at] = true;
+                stack.push((at, true));
+                stack.extend(
+                    parents[at]
+                        .iter()
+                        .filter(|&&p| !done[p])
+                        .map(|&p| (p, false)),
+                );
+            }
+        }
+    }
+    // `seen[c]` is the walk that last reached `c`, so no set is cleared between walks.
+    let (mut memo, mut seen) = (vec![Vec::new(); count], vec![usize::MAX; count]);
+    for at in order {
+        let Some(own) = plan[at] else {
+            continue;
+        };
+        let mut found = BTreeSet::new();
+        let mut next = parents[at].clone();
+        while let Some(up) = next.pop() {
+            if seen[up] == at {
+                continue;
+            }
+            seen[up] = at;
+            #[cfg(test)]
+            WALKED.with(|n| n.set(n.get() + 1));
+            if plan[up] == Some(own) {
+                found.insert(up);
+                found.extend(&memo[up]);
+            } else {
+                next.extend(&parents[up]);
+            }
+        }
+        memo[at] = found.into_iter().collect::<Vec<usize>>();
+    }
+    (0..count)
+        .filter(|&i| plan[i].is_some())
+        .map(|i| {
+            // Ascending positions are newest first.
+            let names = memo[i]
+                .iter()
+                .rev()
+                .map(|&a| commits[a].hash.chars().take(12).collect())
+                .collect();
+            (commits[i].hash.as_str(), names)
+        })
+        .collect()
+}
+
 /// The `commit` fields of `commit`, naming `plan` (and `task`, when its description is a task's title).
-fn fields(commit: &Commit, kind: &str, plan: &str, task: Option<&str>) -> BTreeMap<String, Value> {
+fn fields(
+    commit: &Commit,
+    kind: &str,
+    plan: &str,
+    task: Option<&str>,
+    descends: &[String],
+) -> BTreeMap<String, Value> {
     let mut fields = BTreeMap::new();
     fields.insert("hash".to_string(), json!(commit.hash));
     if let Some(task) = task {
@@ -248,6 +354,8 @@ fn fields(commit: &Commit, kind: &str, plan: &str, task: Option<&str>) -> BTreeM
     fields.insert("type".to_string(), json!(kind));
     fields.insert("subject".to_string(), json!(commit.subject));
     fields.insert("at".to_string(), json!(commit.at));
+    // Written even when empty: an absent list means ancestry was never collected (W403 then falls back to `at`).
+    fields.insert("descends_from".to_string(), json!(descends));
     if !commit.files.is_empty() {
         fields.insert("files".to_string(), json!(commit.files));
     }
@@ -260,6 +368,23 @@ fn fields(commit: &Commit, kind: &str, plan: &str, task: Option<&str>) -> BTreeM
     fields
 }
 
+/// The header of `commit` and the plan it is (or would be) recorded under: a merge is read for its parents only.
+/// `code` is the project's `project_code` (the setting, else the project entity's field).
+fn plan_of<'a, 'n>(
+    nodes: &'n [GraphNode],
+    code: Option<&str>,
+    commit: &'a Commit,
+) -> Option<(subject::Header<'a>, &'n GraphNode)> {
+    let header = subject::parse(&commit.subject)?;
+    let scope = header.scope?;
+    // Only the configured code is stripped: an id that only looks coded is matched literally (#5271).
+    let plan = find_kind(nodes, scope, "plan").or_else(|| {
+        let rest = scope.strip_prefix(code?)?.strip_prefix('-')?;
+        find_kind(nodes, rest, "plan")
+    })?;
+    (commit.parents.len() < 2 && plan.file.is_some()).then_some((header, plan))
+}
+
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let nodes = input.graph.as_ref().map_or(&[][..], |g| &g.nodes[..]);
     let mut known: BTreeSet<String> = nodes
@@ -270,24 +395,33 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let mut builder = PlanBuilder::for_collect(input);
     let mut recorded = 0;
     let (commits, mut skipped) = parse_all(input.stdout.as_deref().unwrap_or(""));
+    // The `project_code` setting (what GSD users set and `specforge settings` shows), else the project entity's field.
+    let settings = Settings::current();
+    let code = settings
+        .string("project_code")
+        .filter(|c| !c.is_empty())
+        .or_else(|| {
+            nodes
+                .iter()
+                .find(|n| n.kind == "project")
+                .and_then(|n| n.text("project_code"))
+                .filter(|c| !c.is_empty())
+        });
+    let plans: HashMap<&str, &str> = commits
+        .iter()
+        .filter_map(|c| Some((c.hash.as_str(), plan_of(nodes, code, c)?.1.id.as_str())))
+        .collect();
+    let mut descends = ancestry(&commits, &plans);
     // Oldest first, so the entities land in the order the commits were made.
     for commit in commits.iter().rev() {
         let name: String = commit.hash.chars().take(12).collect();
         if known.contains(&name) {
             continue;
         }
-        let Some(header) = subject::parse(&commit.subject) else {
+        let Some((header, plan)) = plan_of(nodes, code, commit) else {
             continue;
         };
-        let Some(plan) = header
-            .scope
-            .and_then(|scope| find_kind(nodes, scope, "plan"))
-        else {
-            continue;
-        };
-        let Some(file) = plan.file.as_deref() else {
-            continue;
-        };
+        let file = plan.file.as_deref().unwrap_or_default();
         // A revert undoes the work: it is recorded as one, and names no task.
         let reverts = commit.subject.starts_with("Revert \"");
         let task = if reverts {
@@ -301,7 +435,13 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             &name,
             &commit.subject,
             file,
-            fields(commit, kind, &plan.id, task),
+            fields(
+                commit,
+                kind,
+                &plan.id,
+                task,
+                &descends.remove(commit.hash.as_str()).unwrap_or_default(),
+            ),
             Vec::new(),
         );
         known.insert(name);

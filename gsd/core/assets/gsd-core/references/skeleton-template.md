@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/skeleton-template.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/skeleton-template.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # SKELETON.md Template
 
 > Emitted by `gsd-planner` when `WALKING_SKELETON=true` (Phase 1 + `--mvp` + new project). The Walking Skeleton is the **Phase-1 special case of the tracer** — a whole-application tracer slice — so it records the architectural decisions the rest of the project's later tracer slices build on.

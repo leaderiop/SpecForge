@@ -21,6 +21,8 @@ pub struct Commit {
     pub created: Vec<String>,
     pub insertions: i64,
     pub deletions: i64,
+    /// The ids of the recorded commits of its plan it descends from; `None` when the collector wrote no ancestry.
+    pub descends_from: Option<Vec<String>>,
 }
 
 pub fn target<'a>(input: &'a PassInput, source: &str, label: &str) -> Option<&'a str> {
@@ -59,6 +61,15 @@ pub fn commits(input: &PassInput) -> Vec<Commit> {
                     created: strings(e, "created"),
                     insertions: number(e, "insertions"),
                     deletions: number(e, "deletions"),
+                    // A written empty list is `""`, never absent (protocol 1.1.0).
+                    descends_from: e.fields.contains_key("descends_from").then(|| {
+                        input
+                            .edges
+                            .iter()
+                            .filter(|d| d.source == e.id && d.label == "descends_from")
+                            .map(|d| d.target.clone())
+                            .collect()
+                    }),
                 },
                 place,
             )

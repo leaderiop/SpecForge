@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 src/runtime-artifact-conversion.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 src/runtime-artifact-conversion.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Upstream's runtime adapters (D-r42-12): the text rewrites `convertClaudeToCodexMarkdown` and
 //! `convertClaudeToCursorMarkdown` apply to a Claude Code workflow so it reads right on Codex and Cursor, and the two
@@ -7,6 +7,10 @@
 //! naming of a skill (the host's install writes those), `rewriteBareGsdToolsCommandsForCodex` (a rendered text names no
 //! `gsd-tools` command, the port rule and `assert_clean` see to it) and the stamp of `_applyRuntimeRewrites` (the
 //! workflow's `RUNTIME` line takes the host as its fallback instead, `setting::fill`). Cursor's path rewrite is done.
+//! Checked against v1.19.0's diff: #5501's bare-form rewrite (`rewriteClaudeHomeForms` in `slash-tilde-restore`, and
+//! `restoreClaudeGlobalAtRefTilde`'s `anchorBare`) changes bytes only for a `--config-dir` Claude install, and the host
+//! installs into the project's `.claude/`, so `to_claude` keeps the bare forms as a default install does; #5447 and the
+//! Pi converters are for hosts this port does not render for; Codex's converter and Cursor's profile did not change.
 
 mod headers;
 #[cfg(test)]
@@ -30,7 +34,7 @@ pub fn convert(host: &str, text: &str) -> String {
     }
 }
 
-/// The names of upstream's `commands/gsd/*.md` at v1.18.0 (`readGsdCommandNames`): only these are rewritten from the
+/// The names of upstream's `commands/gsd/*.md` at v1.19.0 (`readGsdCommandNames`): only these are rewritten from the
 /// colon form, as `transformContentToHyphen` does; `/gsd:transition` and the like name no command and stay.
 const COMMAND_NAMES: &[&str] = &[
     "add-tests",
@@ -410,7 +414,7 @@ fn drop_agents_md_instruction(content: &str) -> String {
     out
 }
 
-/// `convertClaudeToCodexMarkdown`, but for `$ARGUMENTS`: the arguments are substituted before this runs (D-r42-8).
+/// `convertClaudeToCodexMarkdown`, but for `$ARGUMENTS` (literal here, substituted after, #5637).
 pub fn to_codex(content: &str) -> String {
     let mut c = codex_skill_mentions(&filter_runtime_notes(content, "codex"));
     c = drop_clear(&c);
@@ -454,7 +458,7 @@ fn drop_lines_starting(content: &str, marker: &str) -> String {
     out
 }
 
-/// `convertClaudeToCursorMarkdown`, but for `$ARGUMENTS` (substituted before this runs, D-r42-8).
+/// `convertClaudeToCursorMarkdown`, but for `$ARGUMENTS` (literal here, substituted after, #5637).
 pub fn to_cursor(content: &str) -> String {
     let filtered = filter_runtime_notes(content, "cursor");
     // `gsd:` -> `gsd-` in any case, keeping a leading slash.

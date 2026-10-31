@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/review-backlog.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:59c8c511cc1cc4e37b0008b3211170a46ea8491de2b5e55e6b5a27703ae91fce",
     "prompt": "@gsd/core@VERSION:review_backlog",

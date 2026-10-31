@@ -1,4 +1,4 @@
-//! The taskboard's SpecForge twin of phase 1's UAT against what gsd-tools 1.18.0 says about `01-UAT.md` (parity
+//! The taskboard's SpecForge twin of phase 1's UAT against what gsd-tools 1.19.0 says about `01-UAT.md` (parity
 //! suite): `audit-uat`, the UAT's own Summary and frontmatter, and the phase's verification, whose differences from
 //! `01-VERIFICATION.md` are named below. The goldens come from `record.sh`.
 

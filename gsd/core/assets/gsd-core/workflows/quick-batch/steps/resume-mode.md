@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/quick-batch/steps/resume-mode.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick-batch/steps/resume-mode.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 **Step 2a: Resume mode (only when `$RESUME_BATCH_ID` is set)**
 
 Skip this step entirely if `$RESUME_BATCH_ID` is empty.

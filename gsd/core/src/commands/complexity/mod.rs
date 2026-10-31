@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 src/complexity-trigger.cts (`analyzeSource`, `isAnalyzablePath`, `evaluateCandidates`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 src/complexity-trigger.cts (`analyzeSource`, `isAnalyzablePath`, `evaluateCandidates`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The decision-point complexity scorer of the refactor trigger (D-r41-15): `strip` blanks comments and literals,
 //! `scan` scores each function, and [`evaluate`] picks the functions whose score crosses the threshold or jumped from

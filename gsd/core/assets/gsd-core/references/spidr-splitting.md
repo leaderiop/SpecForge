@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/spidr-splitting.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/spidr-splitting.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # SPIDR Story Splitting Rules
 
 > Used by `mvp-phase` workflow when the user-supplied story is too large for a single phase. Per PRD decision Q3, SPIDR runs as a **full interactive flow** — not a lightweight check.

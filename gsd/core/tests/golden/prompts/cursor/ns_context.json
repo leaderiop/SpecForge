@@ -170,7 +170,7 @@
       "license": "MIT",
       "path": "commands/gsd/ns-context.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:3f80d87f67aa793fedbd947f6d2da4d8aad6024e67b975dd2ebca250a2e2f2fd",
     "prompt": "@gsd/core@VERSION:ns_context"

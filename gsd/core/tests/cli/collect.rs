@@ -53,13 +53,15 @@ fn a_commit_naming_a_plan_is_written_into_its_plan_file() {
     assert_eq!(fields["insertions"], 1, "{fields}");
     assert_eq!(fields["deletions"], 0, "{fields}");
     assert_eq!(fields["at"], T0, "{fields}");
+    // The baseline names no plan: nothing recorded to descend from, and that is written.
+    assert_eq!(fields["descends_from"], serde_json::json!([]), "{fields}");
     // It is in the plan's own file, with a ledger line per field, and the project checks clean.
     let node = &p.nodes_of("commit")[0];
     assert_eq!(node["file"], "spec/plans.spec", "{node}");
     let ledger = p.read("specforge-harness");
     assert_eq!(
         ledger.lines().filter(|l| l.starts_with(name)).count(),
-        10,
+        11,
         "{ledger}"
     );
     p.passing_tests();
@@ -87,6 +89,18 @@ fn an_unrelated_commit_is_skipped() {
     );
     p.passing_tests();
     assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn the_project_code_setting_is_stripped_from_a_scope() {
+    // GSD users set `project_code` as a setting; the project entity has no such field here.
+    let p = repository();
+    p.settings(serde_json::json!({ "project_code": "PRJ" }));
+    let hash = p.git_commit("feat(PRJ-01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+    assert_eq!(p.fields_of(&hash[..12])["plan"], "v1.0/01/01-01");
 }
 
 #[test]

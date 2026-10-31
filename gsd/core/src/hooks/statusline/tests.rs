@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/gsd-statusline.test.cjs, tests/gsd-statusline-state.property.test.cjs and tests/gsd-statusline-git.property.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/gsd-statusline.test.cjs, tests/gsd-statusline-state.property.test.cjs and tests/gsd-statusline-git.property.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The pure parts of the line (the two state formats, the status word, the bar, the token count, the model badge,
 //! the meter and the layout) are ported case for case. What read STATE.md, git, the todo files, the update cache or
@@ -14,13 +14,13 @@ use format::{
     format_tokens, progress_bar, short_status, token_suffix,
 };
 
-const SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-statusline.test.cjs");
-const STATE_SUITE: &str = include_str!(
-    "../../../../parity/upstream/v1.18.0/tests/gsd-statusline-state.property.test.cjs"
-);
-const GIT_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/gsd-statusline-git.property.test.cjs");
+const SUITE: &str = include_str!(gsd_kit::snapshot!("tests/gsd-statusline.test.cjs"));
+const STATE_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/gsd-statusline-state.property.test.cjs"
+));
+const GIT_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/gsd-statusline-git.property.test.cjs"
+));
 
 /// A state segment from `key, value` pairs named as upstream's state object names them.
 fn seg(pairs: &[(&str, &str)]) -> StateSeg {
@@ -202,6 +202,11 @@ const SKIPPED: &[(&str, &str)] = &[
         "state_format via renderStatusline > ",
         "env: runs the hook on a project directory with a STATE.md; state_of's tests below and tests/cli/hooks_statusline.rs run the formats on the graph",
     ),
+    // v1.19.0 adds, under this prefix, `read-only git spawns opt out of the optional index lock (#5048)`:
+    // 'readGitStatus passes GIT_OPTIONAL_LOCKS=0', 'the env inherits the parent environment, not a bare replacement'
+    // and 'the command and its bounds are unchanged'. The kernel's GitCli runs that `git status` and sets
+    // GIT_OPTIONAL_LOCKS=0 on every call (crates/adapters/git/src/lib.rs `call`), pinned by
+    // crates/adapters/git/tests/history.rs `every_git_call_opts_out_of_the_optional_index_lock`.
     (
         "readGitStatus + parseGitStatus against a real repo > ",
         GIT_REAL,

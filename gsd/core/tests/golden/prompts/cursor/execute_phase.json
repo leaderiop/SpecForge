@@ -61,7 +61,7 @@
     "  Code), you MUST spawn gsd-executor agents — inline execution is not authorized. Check for",
     "  actual tool availability, not runtime name."
   ],
-  "bytes": 109951,
+  "bytes": 111091,
   "end": [
     "- Random emoji (`🚀`, `✨`, `💫`)",
     "- Missing Next Up block after completions",
@@ -186,16 +186,16 @@
     "```json",
     "{"
   ],
-  "lines": 1872,
+  "lines": 1876,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
       "license": "MIT",
       "path": "commands/gsd/execute-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
-    "digest": "sha256:c9e3ab52c4ea7df0bfe2425051aa677655b3d68404c1ec7a4e8ff0a6b8f3d469",
+    "digest": "sha256:fd7949d678f726fb1afec19e8527702a0e379945e5cc5fb10a95a7357ec81c69",
     "prompt": "@gsd/core@VERSION:execute_phase",
     "steps": [
       {
@@ -230,5 +230,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "c9e3ab52c4ea7df0bfe2425051aa677655b3d68404c1ec7a4e8ff0a6b8f3d469"
+  "sha256": "fd7949d678f726fb1afec19e8527702a0e379945e5cc5fb10a95a7357ec81c69"
 }

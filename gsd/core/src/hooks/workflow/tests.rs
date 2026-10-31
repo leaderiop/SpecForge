@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/workflow-guard.test.cjs and tests/workflow-guard-registration.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/workflow-guard.test.cjs and tests/workflow-guard-registration.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Upstream's guard cases run the hook in a temp git repo. The advisory cases decide on facts (the tool, the path, the
 //! session) and are ported, and so is the `git add -f` block over the commands and the branch the host reads; the node
@@ -11,10 +11,10 @@ use super::*;
 use crate::hooks::accounting;
 use crate::hooks::facts::PathFact;
 
-const GUARD_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/workflow-guard.test.cjs");
-const REGISTRATION_SUITE: &str =
-    include_str!("../../../../parity/upstream/v1.18.0/tests/workflow-guard-registration.test.cjs");
+const GUARD_SUITE: &str = include_str!(gsd_kit::snapshot!("tests/workflow-guard.test.cjs"));
+const REGISTRATION_SUITE: &str = include_str!(gsd_kit::snapshot!(
+    "tests/workflow-guard-registration.test.cjs"
+));
 
 fn edit_of(class: &str, file: &str, session: Option<Value>) -> Facts<'static> {
     Facts {

@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 src/complexity-trigger.cts (`scanFunctions`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 src/complexity-trigger.cts (`scanFunctions`), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Scores each function of a stripped source (see `strip`): 1 for the function, +1 for each `if`, `for`, `while`,
 //! `do`, `case`, `catch`, `&&`, `||` and `?:` inside it and not inside a function nested in it. `?.`, `??`, a bare

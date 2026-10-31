@@ -81,10 +81,12 @@ fn requirements(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// W403: for each `tdd` task (its own `type`, or its plan's), a recorded `feat` or `fix` commit that names it comes
-/// after a `test` commit that names it. A commit that names only the plan counts for the plan's `tdd` task when it is
-/// the plan's only task (GSD's own wording names the plan, not the task). It is a warning: the order is a fact of
-/// history that no later commit can repair, so it must never refuse the collector's write. The RED run's failure is not checked: upstream reads a run record, a commit is all there is here.
+/// W403: for each `tdd` task (its own `type`, or its plan's), a recorded `feat` or `fix` commit that names it descends
+/// from a `test` commit that names it (#5275): each GREEN by its own recorded ancestry (`descends_from`), or, when it
+/// has none (recorded before the collector read parents), by time. A commit that names only the plan counts
+/// for the plan's `tdd` task when it is the plan's only task (GSD's own wording names the plan, not the task). It is a
+/// warning: the order is a fact of history that no later commit can repair, so it must never refuse the collector's
+/// write. The RED run's failure is not checked: upstream reads a run record, a commit is all there is here.
 fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
     let mut found = Vec::new();
     for plan in of_kind(input, "plan") {
@@ -104,27 +106,43 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
                             && c.plan.as_deref() == Some(plan.id.as_str()))
                 })
                 .collect();
-            let Some(green) = named
-                .iter()
-                .position(|c| matches!(c.kind.as_str(), "feat" | "fix"))
-            else {
+            let is_green = |c: &Commit| matches!(c.kind.as_str(), "feat" | "fix");
+            let Some(green) = named.iter().position(|c| is_green(c)) else {
                 continue;
             };
-            if named[..green].iter().any(|c| c.kind == "test") {
+            let reds: Vec<&str> = named
+                .iter()
+                .filter(|c| c.kind == "test")
+                .map(|c| c.id.as_str())
+                .collect();
+            // Each GREEN by its own record: one recorded before the collector read parents has no list, and a newer
+            // commit's list must not turn it into a permanent warning.
+            let follows = named.iter().enumerate().any(|(i, g)| {
+                is_green(g)
+                    && match &g.descends_from {
+                        Some(list) => list.iter().any(|a| reds.contains(&a.as_str())),
+                        None => named[..i].iter().any(|c| c.kind == "test"),
+                    }
+            });
+            if follows {
                 continue;
             }
-            found.push(
-                PassDiagnostic::new(
-                    "W403",
-                    PassSeverity::Warning,
-                    format!(
-                        "task '{}' has a GREEN commit '{}' with no RED `test(…)` commit before it",
-                        task.id,
-                        name_of(&named[green].id)
-                    ),
+            let hash = name_of(&named[green].id);
+            let message = if reds.is_empty() {
+                format!(
+                    "task '{}' has a GREEN commit '{hash}' with no RED `test(…)` commit before it",
+                    task.id
                 )
-                .with_suggestion("commit the failing test first, then the implementation")
-                .with_entity(&task.id),
+            } else {
+                format!(
+                    "GREEN '{hash}' does not descend from any RED (`test`) commit of task '{}' (green_before_red)",
+                    task.id
+                )
+            };
+            found.push(
+                PassDiagnostic::new("W403", PassSeverity::Warning, message)
+                    .with_suggestion("commit the failing test first, then the implementation")
+                    .with_entity(&task.id),
             );
         }
     }

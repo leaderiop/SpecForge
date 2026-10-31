@@ -109,9 +109,8 @@ fn row(source: &'static str, item: &str, covered: bool) -> Row {
 /// and the summary equal what `gsd-tools query check.gap-analysis-plan-post` printed, byte for byte.
 #[test]
 fn the_gap_table_is_gsds() {
-    let golden: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../parity/upstream/v1.18.0/gate-cutover/gap-analysis-plan-post-enabled.json"
+    let golden: serde_json::Value = serde_json::from_str(include_str!(gsd_kit::snapshot!(
+        "gate-cutover/gap-analysis-plan-post-enabled.json"
     )))
     .expect("the golden is JSON");
     let stdout: serde_json::Value =

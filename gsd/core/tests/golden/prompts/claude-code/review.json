@@ -45,23 +45,23 @@
     "command -v agy >/dev/null 2>&1 && echo \"antigravity:available\" || echo \"antigravity:missing\"",
     "command -v kimi >/dev/null 2>&1 && echo \"kimi-code:available\" || echo \"kimi-code:missing\"",
     "",
-    "# Check local model servers (OpenAI-compatible HTTP API — no CLI binary required)",
-    "OLLAMA_HOST=\"http://localhost:11434\"   # review.ollama_host (the settings)",
-    "if [ -z \"$OLLAMA_HOST\" ] || [ \"$OLLAMA_HOST\" = \"null\" ]; then OLLAMA_HOST=\"http://localhost:11434\"; fi",
-    "curl -s --max-time 2 \"${OLLAMA_HOST}/v1/models\" >/dev/null 2>&1 && echo \"ollama:available\" || echo \"ollama:missing\"",
-    "",
-    "LM_STUDIO_HOST=\"http://localhost:1234\"   # review.lm_studio_host (the settings)",
-    "if [ -z \"$LM_STUDIO_HOST\" ] || [ \"$LM_STUDIO_HOST\" = \"null\" ]; then LM_STUDIO_HOST=\"http://localhost:1234\"; fi",
-    "curl -s --max-time 2 \"${LM_STUDIO_HOST}/v1/models\" >/dev/null 2>&1 && echo \"lm_studio:available\" || echo \"lm_studio:missing\"",
-    "",
-    "LLAMA_CPP_HOST=\"http://localhost:8080\"   # review.llama_cpp_host (the settings)",
-    "if [ -z \"$LLAMA_CPP_HOST\" ] || [ \"$LLAMA_CPP_HOST\" = \"null\" ]; then LLAMA_CPP_HOST=\"http://localhost:8080\"; fi",
-    "curl -s --max-time 2 \"${LLAMA_CPP_HOST}/v1/models\" >/dev/null 2>&1 && echo \"llama_cpp:available\" || echo \"llama_cpp:missing\"",
+    "# Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);",
+    "# hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)",
+    "for lane in \"ollama http://localhost:11434 http://localhost:11434\" \"lm_studio http://localhost:1234 http://localhost:1234\" \"llama_cpp http://localhost:8080 http://localhost:8080\"; do read -r name def host <<<\"$lane\"; { [ -z \"$host\" ] || [ \"$host\" = null ]; } && host=$def; curl -s --max-time 2 \"$host/v1/models\" >/dev/null 2>&1 && echo \"$name:available\" || echo \"$name:missing\"; done",
     "",
     "# jq prerequisite (#2589). The config/model/budget lookups in this workflow no",
-    "# longer need jq — they use the native --raw/--pick flags. But the lanes listed"
+    "# longer need jq — they use the native --raw/--pick flags. But the lanes listed",
+    "# under \"jq-dependent reviewer lanes\" below parse structured JSON that specforge",
+    "# does not emit (OpenAI-compatible /v1/chat/completions responses, opencode's",
+    "# JSONL event stream, agy's conversation cache), so they cannot run without jq.",
+    "# Probe it here rather than letting each lane swallow exit 127 into empty output.",
+    "command -v jq >/dev/null 2>&1 && echo \"jq:available\" || echo \"jq:missing\"",
+    "```",
+    "",
+    "**jq-dependent reviewer lanes.** `jq` is a production prerequisite for the",
+    "`ollama`, `lm_studio`, `llama_cpp`, `opencode`, and `antigravity` lanes only. If"
   ],
-  "bytes": 60864,
+  "bytes": 60575,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -186,18 +186,18 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 1169,
+  "lines": 1172,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
       "license": "MIT",
       "path": "commands/gsd/review.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
-    "digest": "sha256:edefb8dc97d28555fc4c24ad1c50d3f5630b81a2b6211c1f0122e4672454b96c",
+    "digest": "sha256:ef164c0353c671f3c64008bba3748618f00f40c5dbb2e546846ae49cb1e06824",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "edefb8dc97d28555fc4c24ad1c50d3f5630b81a2b6211c1f0122e4672454b96c"
+  "sha256": "ef164c0353c671f3c64008bba3748618f00f40c5dbb2e546846ae49cb1e06824"
 }

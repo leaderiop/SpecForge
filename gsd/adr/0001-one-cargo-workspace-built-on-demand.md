@@ -74,7 +74,7 @@ written by hand to GSD's templates and only the CLI verbs that write files were 
 ## D9. Ported text lives in `gsd/core/assets/`
 
 Mirroring the upstream path, each file headed with its upstream path, version and MIT notice, `include_str!`-embedded;
-`gsd/core/LICENSE-GSD` holds upstream's licence; `gsd/parity/upstream/v1.18.0/` keeps a snapshot of the upstream data the
+`gsd/core/LICENSE-GSD` holds upstream's licence; `gsd/parity/upstream/v1.19.0/` keeps a snapshot of the upstream data the
 roster checks read.
 
 ## D10. The family's ADRs are `gsd/adr/NNNN-*.md`, from 0001

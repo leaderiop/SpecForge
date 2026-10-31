@@ -1,4 +1,4 @@
-//! The parity roster of `@gsd/security` (plan 16 T25): every security item of the vendored gsd-core 1.18.0 inventory is
+//! The parity roster of `@gsd/security` (plan 16 T25): every security item of the vendored gsd-core 1.19.0 inventory is
 //! built here, served by `@gsd/core`, or not applicable with a reason, and the numbers of ACCEPTANCE's security table
 //! are computed from the tables below.
 
@@ -7,10 +7,9 @@ mod evidence;
 
 use serde_json::Value;
 
-const MANIFEST: &str = include_str!("../../parity/upstream/v1.18.0/INVENTORY-MANIFEST.json");
-const CAPABILITY_IDS: &str = include_str!("../../parity/upstream/v1.18.0/capability-ids.json");
-const CAPABILITY: &str =
-    include_str!("../../parity/upstream/v1.18.0/capabilities/security/capability.json");
+const MANIFEST: &str = include_str!(gsd_kit::snapshot!("INVENTORY-MANIFEST.json"));
+const CAPABILITY_IDS: &str = include_str!(gsd_kit::snapshot!("capability-ids.json"));
+const CAPABILITY: &str = include_str!(gsd_kit::snapshot!("capabilities/security/capability.json"));
 const ACCEPTANCE: &str = include_str!("../../parity/ACCEPTANCE.md");
 
 const AGENTS_RS: &str = include_str!("../src/agents.rs");
@@ -178,6 +177,16 @@ fn the_capability_has_three_hooks_and_is_listed() {
     // a step at verify:post, a contribution at plan:pre and a gate: each served by `security_hooks`
     assert_eq!((n("steps"), n("contributions"), n("gates")), (1, 1, 1));
     assert_eq!(cap["config"].as_object().expect("config").len(), 3);
+}
+
+/// The capability file the extension ships is the tracked release's, byte for byte: a snapshot move that leaves the
+/// shipped copy behind fails here.
+#[test]
+fn the_shipped_capability_is_the_snapshots() {
+    assert_eq!(
+        include_str!("../assets/capabilities/security/capability.json"),
+        CAPABILITY
+    );
 }
 
 /// The cells of the row of ACCEPTANCE's security table named `family`.

@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/ship.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/ship.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <!-- gsd:loop-host
 step: ship
 points: ship:pre, ship:post
@@ -161,7 +161,7 @@ Verify the work is ready to ship:
 
    - **Every other `capId`** — run the gate's own declared check through the generic evaluator. This arm is what makes a third-party capability's declared gate enforceable at all (#3559); before it existed, a gate whose `capId` was not named above was resolved and then silently dropped.
 
-     ⚠ **Validate `check` before shell use** (third-party manifest input) — `loop-hook-dispatch.md` § `gate`.
+     ⚠ **Validate `check` before shell use** (third-party manifest input; wherever `${hook.check.query}` appears, write the dot-normalized query, each `.` as `-`, and validate and pass that same value) — `loop-hook-dispatch.md` § `gate`.
 
      For a named-query gate (only a value that has passed validation is run):
      ```bash
@@ -478,11 +478,10 @@ Report the PR URL and suggest: "Review the diff at {url}/files"
 </step>
 
 <step name="track_shipping">
-Update STATE.md to reflect the shipping action:
+Update STATE.md to reflect the shipping action. Write the activity line only, with its description; do not write `Status`. At ship time the Current Position block already describes the next phase, and `Status` feeds the frontmatter `status` field, so a free-text value such as "Phase N shipped" does not belong there (#5165).
 
 ```bash
-: # Last Activity: STATE is computed
-: # Status: STATE is computed; the PR number is in the PR itself
+: # Last Activity: STATE is computed; the PR number is in the PR itself
 ```
 
 If `commit_docs` is true, commit the ship-note AND push it onto the PR branch so

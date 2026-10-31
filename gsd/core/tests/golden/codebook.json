@@ -250,8 +250,8 @@
     {
       "code": "W403",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "A tdd task's GREEN commit follows a RED test commit (the RED run's failure is not checked; a warning, as the order cannot be repaired after the fact). It is a warning.",
-      "title": "GREEN commit without an earlier RED commit"
+      "explanation": "A tdd task's GREEN commit descends from a RED test commit, by its recorded ancestry, or by time when it was recorded without ancestry (the RED run's failure is not checked; a warning, as the order cannot be repaired after the fact). It is a warning.",
+      "title": "GREEN commit that descends from no RED commit (green_before_red)"
     },
     {
       "code": "W404",

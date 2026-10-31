@@ -1,4 +1,4 @@
-//! The 15 `@gsd/core` agents: id, description, host-neutral tool classes and colour, as gsd-core v1.18.0 declares
+//! The 15 `@gsd/core` agents: id, description, host-neutral tool classes and colour, as gsd-core v1.19.0 declares
 //! them (`agents/gsd-<name>.md` frontmatter), and the embedded bodies.
 
 /// One agent.

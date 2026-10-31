@@ -6,6 +6,7 @@ mod digest;
 mod execute;
 mod help;
 mod milestone;
+mod package_manager;
 mod phase;
 mod refactor;
 mod reference;
@@ -60,6 +61,7 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("commit", "created", "gsd-git"),
     ("commit", "insertions", "gsd-git"),
     ("commit", "deletions", "gsd-git"),
+    ("commit", "descends_from", "gsd-git"),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -76,6 +78,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     help::declare(c);
     reports::declare(c);
     reference::declare(c);
+    package_manager::declare(c);
     smart_entry::declare(c);
     surface::declare(c);
 }

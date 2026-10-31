@@ -1,6 +1,7 @@
 //! The upgrade check (D-r44-19, D-r44-20): a diff of a newer gsd-core against the tracked snapshot writes a backlog that
-//! names, per change, the table of `@gsd/core` it lands in. `gsd/parity/upgrade.sh <gsd-core-dir> <tag>` extracts the
-//! tag's documents and runs `write_the_backlog`; the other tests run offline on the vendored snapshot.
+//! names, per change, the table of `@gsd/core` it lands in. `gsd/parity/upgrade.sh <gsd-core-dir> <tag> [<from-tag>]`
+//! extracts the documents of both tags and runs `write_the_backlog`; the other tests run offline on the vendored
+//! snapshot.
 
 // The roster, modules and cutover tables are shared with `parity_roster.rs` and `parity_rules.rs`.
 #[allow(
@@ -29,6 +30,7 @@ mod modules;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::OnceLock;
 
 use assets::{NOT_EMBEDDED, Why};
 use cutover::{Class, GATE_CUTOVER};
@@ -42,9 +44,9 @@ use roster::ROSTER;
 #[path = "common/roster.rs"]
 mod roster;
 
-const MANIFEST: &str = include_str!("../../parity/upstream/v1.18.0/INVENTORY-MANIFEST.json");
-const CAPABILITY_IDS: &str = include_str!("../../parity/upstream/v1.18.0/capability-ids.json");
-const CONFIG: &str = include_str!("../../parity/upstream/v1.18.0/config-schema.manifest.json");
+const MANIFEST: &str = include_str!(gsd_kit::snapshot!("INVENTORY-MANIFEST.json"));
+const CAPABILITY_IDS: &str = include_str!(gsd_kit::snapshot!("capability-ids.json"));
+const CONFIG: &str = include_str!(gsd_kit::snapshot!("config-schema.manifest.json"));
 const SETTINGS_MD: &str = include_str!("../spec/settings.md");
 const README: &str = include_str!("../../README.md");
 
@@ -54,6 +56,54 @@ fn core_dir() -> PathBuf {
 
 fn snapshot() -> Roster {
     diff::roster(MANIFEST, CAPABILITY_IDS, CONFIG)
+}
+
+const HOOK_REGISTRATION: &str =
+    "hook registration: `specforge install` writes each host's hooks from HOOK_ROSTER";
+const HOOK_LIBRARY: &str = "a helper of the hooks: ported inside the hook it serves (HOOK_ROSTER)";
+
+/// Upstream paths no family of the inventory manifest names, and the table or reason that covers each. A name ending
+/// in `*` is a prefix.
+const NOT_IN_MANIFEST: &[(&str, &str)] = &[
+    (
+        "gsd-core/bin/gsd-tools.cjs",
+        "MODULES router rows (not applicable): typed `specforge gsd` commands replaced gsd-tools' argv router",
+    ),
+    (
+        "gsd-core/bin/shared/config-*",
+        "settings roster: spec/settings.md and the `(roster)` config rows",
+    ),
+    (
+        "gsd-core/templates/DEBUG.md",
+        "owned by @gsd/ops: the template of NOT_EMBEDDED `debug.md`",
+    ),
+    (
+        "gsd-core/templates/config.json",
+        "not applicable: the .planning/config.json template; settings live in specforge.json (spec/settings.md)",
+    ),
+    (
+        "gsd-core/workflows/section-manifest.json",
+        "not applicable: the data of MODULES `section-manifest.cjs`",
+    ),
+    ("hooks/hooks.json", HOOK_REGISTRATION),
+    ("hooks/managed-hooks-registry.cjs", HOOK_REGISTRATION),
+    ("hooks/lib/*", HOOK_LIBRARY),
+];
+
+fn not_in_manifest(path: &str) -> Option<String> {
+    NOT_IN_MANIFEST
+        .iter()
+        .find(|(pattern, _)| match pattern.strip_suffix('*') {
+            Some(prefix) => path.starts_with(prefix),
+            None => *pattern == path,
+        })
+        .map(|(_, why)| (*why).to_string())
+}
+
+/// The files of `gsd/` that port each copied upstream suite.
+fn suite_porters() -> &'static BTreeMap<String, Vec<String>> {
+    static PORTERS: OnceLock<BTreeMap<String, Vec<String>>> = OnceLock::new();
+    PORTERS.get_or_init(|| citations::suite_porters(core_dir().parent().expect("gsd/")))
 }
 
 /// Which table of `@gsd/core` claims `item` of `family`, if any.
@@ -116,7 +166,19 @@ fn owner(family: &str, item: &str) -> Option<String> {
                     Why::Command(name) => format!("NOT_EMBEDDED: the command `{name}`"),
                     Why::NotApplicable(_) => "NOT_EMBEDDED: not applicable".to_string(),
                 })
+                .or_else(|| not_in_manifest(&format!("{base}{item}")))
         }
+        "templates" => {
+            let path = format!("gsd-core/templates/{item}");
+            if asset_paths().any(|p| p == path) {
+                return Some("the asset table (src/prompts/assets.rs)".to_string());
+            }
+            not_in_manifest(&path)
+        }
+        "suites" => suite_porters()
+            .get(item)
+            .map(|files| format!("ported by {}", files.join(", "))),
+        "other" => not_in_manifest(item),
         "capabilities" => README
             .contains(item)
             .then(|| "the README capability table".to_string()),
@@ -146,13 +208,13 @@ fn tracked() -> String {
 }
 
 #[test]
-fn upgrade_diff_on_v1_18_0_is_empty() {
+fn upgrade_diff_of_the_tracked_release_is_empty() {
     let old = snapshot();
     let rows = diff::backlog(&old, &old, &[], &owner, &BTreeMap::new());
     assert!(rows.is_empty(), "{rows:?}");
-    let text = diff::render("v1.18.0", &tracked(), &rows);
+    let text = diff::render(&tracked(), &tracked(), &rows);
     assert!(text.contains("Nothing changed"), "{text}");
-    assert_eq!(tracked(), "v1.18.0");
+    assert_eq!(tracked(), concat!("v", gsd_kit::tracked_version!()));
 }
 
 #[test]
@@ -170,10 +232,22 @@ fn a_changed_upstream_file_lands_in_the_backlog_with_its_owner() {
     new.capabilities.insert("brand-new-capability".into());
     new.keys.insert("workflow.brand_new".into());
     new.keys.remove("workflow.inline_plan_threshold");
-    let changed = diff::changes(
-        "A\tcommands/gsd/brand-new.md\nD\thooks/gsd-statusline.js\nM\tsrc/schema-detect.cts\nM\tgsd-core/workflows/plan-phase.md\nM\ttests/fixtures/gate-cutover/decision-coverage-plan-uncovered.json\nM\tsrc/never-heard-of-it.cts\n",
-    );
-    assert_eq!(changed.len(), 6);
+    let changed = diff::changes(concat!(
+        "A\tcommands/gsd/brand-new.md\nD\thooks/gsd-statusline.js\nM\tsrc/schema-detect.cts\n",
+        "M\tgsd-core/workflows/plan-phase.md\n",
+        "M\ttests/fixtures/gate-cutover/decision-coverage-plan-uncovered.json\n",
+        "M\tsrc/never-heard-of-it.cts\n",
+        "M\tgsd-core/templates/verification-report.md\nM\tgsd-core/templates/DEBUG.md\n",
+        "M\tgsd-core/templates/never-heard-of-it.md\n",
+        "M\tsrc/health-diagnostic-rules/phase-structure.cts\n",
+        "M\tgsd-core/bin/lib/capability-registry.cjs\nM\tgsd-core/bin/gsd-tools.cjs\n",
+        "M\tgsd-core/bin/shared/config-schema.manifest.json\n",
+        "M\thooks/hooks.json\nM\thooks/managed-hooks-registry.cjs\nM\thooks/lib/isolation-sentinel.js\n",
+        "M\tgsd-core/workflows/section-manifest.json\n",
+        "M\ttests/gsd-statusline.test.cjs\nM\ttests/runtime-converters.test.cjs\n",
+        "M\ttests/never-heard-of-it.test.cjs\n",
+    ));
+    assert_eq!(changed.len(), 20);
     let cites = citations::index(&core_dir());
     let rows = diff::backlog(&old, &new, &changed, &owner, &cites);
     let owner_of = |path: &str| -> String {
@@ -204,6 +278,48 @@ fn a_changed_upstream_file_lands_in_the_backlog_with_its_owner() {
             .contains("reproduced")
     );
     assert_eq!(owner_of("src/never-heard-of-it.cts"), "unowned");
+    // The paths no family of the manifest names: templates, nested and built modules, the router, the config
+    // manifests, the hook registration, the section manifest and the copied suites.
+    for (path, owned_by) in [
+        ("gsd-core/templates/verification-report.md", "asset table"),
+        ("gsd-core/templates/DEBUG.md", "@gsd/ops"),
+        (
+            "src/health-diagnostic-rules/phase-structure.cts",
+            "MODULES `health-diagnostic*`",
+        ),
+        (
+            "gsd-core/bin/lib/capability-registry.cjs",
+            "MODULES `capability-*`",
+        ),
+        ("gsd-core/bin/gsd-tools.cjs", "router"),
+        (
+            "gsd-core/bin/shared/config-schema.manifest.json",
+            "settings roster",
+        ),
+        ("hooks/hooks.json", "HOOK_ROSTER"),
+        ("hooks/managed-hooks-registry.cjs", "HOOK_ROSTER"),
+        ("hooks/lib/isolation-sentinel.js", "HOOK_ROSTER"),
+        (
+            "gsd-core/workflows/section-manifest.json",
+            "`section-manifest.cjs`",
+        ),
+        (
+            "tests/gsd-statusline.test.cjs",
+            "ported by core/src/hooks/statusline/tests/line.rs",
+        ),
+        (
+            "tests/runtime-converters.test.cjs",
+            "ported by kit/src/prompt/host/tests.rs",
+        ),
+    ] {
+        let owner = owner_of(path);
+        assert!(owner.contains(owned_by), "{path}: {owner}");
+    }
+    assert_eq!(
+        owner_of("gsd-core/templates/never-heard-of-it.md"),
+        "unowned"
+    );
+    assert_eq!(owner_of("tests/never-heard-of-it.test.cjs"), "unowned");
     // The roster items no path explains: a capability and two config keys.
     assert_eq!(owner_of("(roster) brand-new-capability"), "unowned");
     assert_eq!(owner_of("(roster) workflow.brand_new"), "unowned");
@@ -265,29 +381,34 @@ fn upgrade_sh_parses() {
     assert!(!run.status.success(), "no argument is an error");
     let usage = String::from_utf8_lossy(&run.stderr);
     assert!(
-        usage.contains("usage: upgrade.sh <gsd-core-dir> <tag>"),
+        usage.contains("usage: upgrade.sh <gsd-core-dir> <tag> [<from-tag>]"),
         "{usage}"
     );
 }
 
-/// Writes `gsd/parity/backlog/<tag>.md`. Run by `upgrade.sh`, which extracts the tag's documents into `GSD_UPGRADE_DIR`.
+/// Writes `gsd/parity/backlog/<tag>.md`. Run by `upgrade.sh`, which extracts the documents of the tag into
+/// `GSD_UPGRADE_DIR/to` and of the tag it compares against (`GSD_UPGRADE_FROM`, the tracked one by default) into
+/// `GSD_UPGRADE_DIR/from`.
 #[test]
 #[ignore = "run by gsd/parity/upgrade.sh"]
 fn write_the_backlog() {
     let dir = PathBuf::from(std::env::var("GSD_UPGRADE_DIR").expect("GSD_UPGRADE_DIR"));
     let tag = std::env::var("GSD_UPGRADE_TAG").expect("GSD_UPGRADE_TAG");
+    let from = std::env::var("GSD_UPGRADE_FROM").expect("GSD_UPGRADE_FROM");
     let read = |name: &str| {
         std::fs::read_to_string(dir.join(name)).unwrap_or_else(|e| panic!("read {name}: {e}"))
     };
-    let new = diff::roster(
-        &read("INVENTORY-MANIFEST.json"),
-        &read("capability-ids.json"),
-        &read("config-schema.manifest.json"),
-    );
+    let roster_of = |side: &str| {
+        diff::roster(
+            &read(&format!("{side}/INVENTORY-MANIFEST.json")),
+            &read(&format!("{side}/capability-ids.json")),
+            &read(&format!("{side}/config-schema.manifest.json")),
+        )
+    };
     let changed: Vec<Change> = diff::changes(&read("changes.txt"));
     let rows = diff::backlog(
-        &snapshot(),
-        &new,
+        &roster_of("from"),
+        &roster_of("to"),
         &changed,
         &owner,
         &citations::index(&core_dir()),
@@ -296,7 +417,7 @@ fn write_the_backlog() {
     std::fs::create_dir_all(&out).expect("the backlog dir");
     std::fs::write(
         out.join(format!("{tag}.md")),
-        diff::render(&tag, &tracked(), &rows),
+        diff::render(&tag, &from, &rows),
     )
     .expect("the backlog");
     let kinds: BTreeSet<&str> = rows.iter().map(|r| r.change).collect();

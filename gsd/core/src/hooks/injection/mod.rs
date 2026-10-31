@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-read-injection-scanner.js and hooks/gsd-prompt-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-read-injection-scanner.js and hooks/gsd-prompt-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `injection_scanner` (post_tool on read, web_fetch, web_search) and `prompt_guard` (pre_tool on write and edit under
 //! the spec root), D-r44-9. Both are advisory. A HIGH scan of `injection_scanner` answers a block when

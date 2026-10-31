@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/ns-manage.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:dd5c1eb69849b4e90db6480c2763f246e21d5178b239fa1c33746963d4b1ecdc",
     "prompt": "@gsd/core@VERSION:ns_manage"

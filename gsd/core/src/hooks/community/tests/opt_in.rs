@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/hooks-opt-in.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/hooks-opt-in.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The suite spawns the three bash hooks (`validate-commit`, `phase-boundary`, `session-state`) in a temp project. Here
 //! `validate_commit` is a function of the message the kernel extracts and the raw command, so a case is ported when
@@ -12,8 +12,7 @@ use crate::hooks::community::{phase_boundary, validate_commit};
 use crate::hooks::facts::Facts;
 use specforge_extension_sdk::prelude::*;
 
-const SUITE: &str =
-    include_str!("../../../../../parity/upstream/v1.18.0/tests/hooks-opt-in.test.cjs");
+const SUITE: &str = include_str!(gsd_kit::snapshot!("tests/hooks-opt-in.test.cjs"));
 
 fn heredoc(body: &str, open: &str, close: &str) -> String {
     format!("$(cat {open}\n{body}\n{close}\n)")

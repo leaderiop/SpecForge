@@ -1,7 +1,7 @@
 # Contributions
 
 **Status: built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 hooks and the install goldens (r44, K20c), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
-(K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
+(K8, K9). Generated from gsd-core 1.19.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
 Every `@gsd/*` extension declares `ext_short: "gsd"`, so all of them route under `gsd`; a clash between them is E039.
@@ -20,6 +20,14 @@ of two things (K9 U4):
 A configuration command (`/gsd-settings`, `/gsd-config`, `/gsd-surface`) writes `specforge.json` through
 `specforge settings set|unset` (K16, protocol 1.11.0; MCP `specforge.settings_set`), which admits a value by the setting's own type and never writes a secret; `/gsd-surface`
 toggles skills, which are `when` settings.
+
+A workflow reads its typed text through a quoted heredoc (`<<'GSD_ARGS_END'`, `<<'GSD_QUICK_BATCH_ARGS_END'`), and
+the render splices that text in. Text holding a line equal to the terminator would close the heredoc and run what
+follows as shell (upstream #5637). Upstream stamps a random nonce per install, because its installed files hold the
+heredoc and the host substitutes later. SpecForge renders knowing the text, so it keeps the terminator unless a line of
+the text starts with it, and then uses the first `<terminator>_<n>` no line starts with (`gsd_kit::prompt::render`):
+deterministic, no stored nonce, and every golden is unchanged. `specforge gsd reference` serves a workflow with
+`$ARGUMENTS` literal: nothing is substituted, so nothing can be injected there.
 
 The workflows' steps call writing commands that are not slash commands; they are the [roster below](#writing-commands).
 A workflow that names an entity takes the full path when a short form is ambiguous project-wide (the host refuses an
@@ -41,7 +49,7 @@ ambiguous one, naming each candidate).
 
 ## Round and mechanism of each command
 
-Every `/gsd-*` command of v1.18.0 has one owner and one round (`tests/roster.rs` checks the 72 rows against the vendored `commands.json`). The 22 commands of the capability extensions are owned and named; each is served when its extension ships.
+Every `/gsd-*` command of v1.19.0 has one owner and one round (`tests/roster.rs` checks the 72 rows against the vendored `commands.json`). The 22 commands of the capability extensions are owned and named; each is served when its extension ships.
 
 | Command | Round | Mechanism |
 |---|---|---|
@@ -224,6 +232,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` (the computed `digest` of the phase's context) |
 | `health`, `stats`, `progress_report` (`/gsd-health`, `/gsd-stats`) | nothing: they report from the computed values of the graph |
 | `smart_entry` (`/gsd-next`) | nothing: it is read-only, and classifies the project from its computed `status`, `backlog` and `verification.status` fields |
+| `resolve_package_manager <script>` (`specforge gsd resolve-package-manager build`; gsd-tools' `resolve-package-manager`, #5346) | nothing: it is read-only, and prints the command that runs a package script with the project's manager (`package.json`'s `packageManager`, else `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `bun.lockb`, else npm; `test` is `<pm> test`, bun's `bun run test`), for the build and test gates. It reads the files through declared reads (ADR 0293), at the project root only; a `package.json` over the host's 64 KiB text cap reads as one without the field (upstream: 1 MiB); a script name outside `^[A-Za-z0-9_][A-Za-z0-9:_-]{0,63}$` is refused `invalid_input` with a non-zero exit (upstream prints nothing and exits 0) |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |

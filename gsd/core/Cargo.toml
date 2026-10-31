@@ -26,7 +26,7 @@ rustix = { version = "1", features = ["pty", "fs"] }
 
 # The gsd-core release this crate tracks (the handshake carries it as the keyword `tracks:gsd-core@<version>`).
 [package.metadata.gsd]
-tracks = "gsd-core@1.18.0"
+tracks = "gsd-core@1.19.0"
 
 [lints]
 workspace = true

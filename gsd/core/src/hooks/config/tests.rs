@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-config-reload.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-config-reload.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `config_reload` over the settings of a call (no upstream suite covers the hook).
 

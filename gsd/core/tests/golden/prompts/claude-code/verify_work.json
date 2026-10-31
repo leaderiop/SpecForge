@@ -61,7 +61,7 @@
     "02",
     "GSD_ARGS_END"
   ],
-  "bytes": 67515,
+  "bytes": 68104,
   "end": [
     "## Gaps",
     "",
@@ -186,16 +186,16 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 1439,
+  "lines": 1440,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
       "license": "MIT",
       "path": "commands/gsd/verify-work.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
-    "digest": "sha256:b0db3a808a5638663180fd6f92438b7e31ec341bcbd2c61f93543ba490bfccea",
+    "digest": "sha256:f1073a5f350f4bb91662e3abf0e6697b65ccfc65d2e35c6c96743576bbed3582",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "b0db3a808a5638663180fd6f92438b7e31ec341bcbd2c61f93543ba490bfccea"
+  "sha256": "f1073a5f350f4bb91662e3abf0e6697b65ccfc65d2e35c6c96743576bbed3582"
 }

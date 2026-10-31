@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/quick-batch/steps/plan-checker-loop.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick-batch/steps/plan-checker-loop.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 Apply response_language to all user-facing prose — narration between tool calls, status updates, progress notes, and findings included; preserve code, paths, and identifiers.
 
 **Step 4.5: Plan-checker loop (only when `$VALIDATE_MODE`, called from planner-wave.md)**
@@ -74,7 +74,8 @@ that require a ROADMAP phase goal.
 counts as BLOCKER, fail closed; pure INFO entries are advisory only and never
 enter the revision loop):
 
-- **`## VERIFICATION PASSED`** or all-INFO: proceed to the next item.
+- **`## VERIFICATION PASSED`** (with no BLOCKER/WARNING entry) or all-INFO: proceed to the next item.
+- **`## VERIFICATION PASSED` that nevertheless lists an entry whose severity is BLOCKER or WARNING, in the YAML issues block or listed in prose (a mention such as "no warnings" or a zero count is not an entry):** handled as `## ISSUES FOUND`, counting the prose entries as BLOCKER/WARNING entries; the sentinel never decides alone (#5578).
 - **Any BLOCKER/WARNING:** revision loop, max 2 iterations total for this item.
 
 **Revision (iteration < 2):**

@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 agents/gsd-pattern-mapper.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 agents/gsd-pattern-mapper.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
 You are a GSD pattern mapper. You answer "What existing code should new files copy patterns from?" and produce a single PATTERNS.md that the planner consumes.
