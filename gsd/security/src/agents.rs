@@ -22,10 +22,15 @@ pub fn declare(c: &mut ContributionsBuilder) {
     });
     c.render(|call| {
         // Upstream installs no compact agent for Claude Code, so it always gets the full body (as core's agents).
-        Ok(match (call.host(), call.variant()) {
+        let body = match (call.host(), call.variant()) {
             ("claude-code", _) | (_, None) => FULL,
             _ => COMPACT,
-        }
-        .to_string())
+        };
+        // the references are core's, served by `specforge gsd reference` (as the prompt's, `prompts.rs`)
+        Ok(gsd_kit::prompt::repoint::repoint(
+            body,
+            call.host(),
+            &|_| true,
+        ))
     });
 }

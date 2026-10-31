@@ -143,9 +143,11 @@ fn the_compact_body_is_for_codex_and_cursor_the_full_one_for_claude_code() {
         text.split_once('\n')
             .map_or(String::new(), |(_, rest)| rest.to_string())
     };
-    let full = body(gsd_security::agents::FULL);
-    let compact = body(gsd_security::agents::COMPACT);
     for host in HOSTS {
+        // what the install renders: the body with its references repointed for the host
+        let render = |text: &str| body(&gsd_kit::prompt::repoint::repoint(text, host, &|_| true));
+        let full = render(gsd_security::agents::FULL);
+        let compact = render(gsd_security::agents::COMPACT);
         let (p, home) = (both(), Home::new());
         p.settings_of("@gsd/core", json!({"workflow.compact_content": true}));
         install(&p, &home, host);
@@ -193,6 +195,25 @@ fn without_security_nothing_of_it_is_installed() {
         install(&p, &home, host);
         for file in owned(host) {
             assert!(!p.exists(file), "{host}: {file}");
+        }
+    }
+}
+
+/// REVIEW-security-part2 M4: the installed auditor reads core's references through `specforge gsd reference`, as core's
+/// agents do; `~/.claude/gsd-core/` does not exist in a SpecForge install.
+#[test]
+fn the_installed_auditor_names_no_upstream_install_path() {
+    for host in HOSTS {
+        for compact in [false, true] {
+            let (p, home) = (both(), Home::new());
+            p.settings_of("@gsd/core", json!({ "workflow.compact_content": compact }));
+            install(&p, &home, host);
+            let agent = p.read(owned(host)[0]);
+            assert!(
+                !agent.contains("~/.claude/gsd-core/") && !agent.contains(".claude/gsd-core"),
+                "{host} compact={compact}: {agent}"
+            );
+            assert!(agent.contains("specforge gsd reference"), "{host}");
         }
     }
 }
