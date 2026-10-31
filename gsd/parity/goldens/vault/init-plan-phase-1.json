@@ -42,6 +42,7 @@
   "state_path": "<project>/.planning/STATE.md",
   "roadmap_path": "<project>/.planning/ROADMAP.md",
   "requirements_path": "<project>/.planning/REQUIREMENTS.md",
+  "has_spec": false,
   "patterns_path": null,
   "section_manifest": {
     "workflow": "plan-phase",

@@ -488,7 +488,7 @@ Vendored byte for byte from gsd-core v1.19.0 with `git show`: the three guard sc
 | `tests/gsd-write-guard.property.test.cjs` | `be3f162aacfd6cf26e8a36d73b17fff4bbba925d1154b1851aa6850fa130dcab` |
 | `tests/gsd-secret-read-guard.test.cjs` | `98ceb26e0bb01f5308bee70f8afcbea1682c36cdeaa29611874cda3412bfa5cc` |
 | `INVENTORY-MANIFEST.json` (taken from `docs/INVENTORY-MANIFEST.json`) | `12cbaa217822a13225ad524479ea73fe1f9d5dd054da44f586909736e6de30c3` |
-| `hook-cases/gsd-secret-read-guard.json` (recorded from v1.18.0 by `gsd/parity/record-hook-cases.cjs`, not upstream bytes) | `2cc44c73230f8ee3811aeb392cb2ec5fcd23a03682c595cd7f6bf7cddeaeb26c` |
+| `hook-cases/gsd-secret-read-guard.json` (recorded by `gsd/parity/record-hook-cases.cjs` with `REC_KEEP=2000`, not upstream bytes) | `735aa8aa98d0483350656560a0dd59acad510b9d912ddf2c37de79dc894acac0` |
 
 ## r44 T2: the injection scanner and the prompt guard
 
