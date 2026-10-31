@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 **Step 5.6: Pre-dispatch artifact commit (worktree mode only)**
 
 When `USE_WORKTREES !== "false"`, commit PLAN.md — plus CONTEXT.md and/or RESEARCH.md

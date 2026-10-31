@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/new-milestone/steps/reset-phase-safety.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/new-milestone/steps/reset-phase-safety.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 ## 7.5 Reset-phase safety (only when `--reset-phase-numbers`)
 
 If `--reset-phase-numbers` is active:

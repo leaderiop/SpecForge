@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/ship.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:d0681faa328907dbb322c5efa92f94da1e8083e2d3b35a33f817041d628d907a",
     "prompt": "@gsd/core@VERSION:ship",

@@ -16,7 +16,7 @@ fn root() -> PathBuf {
 
 /// The names of `commands.json`, in file order.
 fn upstream_names() -> Vec<String> {
-    let text = std::fs::read_to_string(root().join("../parity/upstream/v1.18.0/commands.json"))
+    let text = std::fs::read_to_string(Path::new(gsd_kit::snapshot!("commands.json")))
         .expect("commands.json");
     let rows: serde_json::Value = serde_json::from_str(&text).expect("JSON");
     rows.as_array()

@@ -1,4 +1,4 @@
-//! The taskboard's SpecForge twin of phase 1's execution against what gsd-tools 1.18.0 says (parity suite, "state"):
+//! The taskboard's SpecForge twin of phase 1's execution against what gsd-tools 1.19.0 says (parity suite, "state"):
 //! `progress json`, the two `SUMMARY.md` files, and the tests `npm test` recorded. What verification decides (a
 //! phase `Complete`, state json's `completed_phases` and `percent`) holds once the twin's phase 01 has its E501 verdicts, which the tests record.
 

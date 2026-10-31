@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/validate-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/validate-phase.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
 Audit Nyquist validation gaps for a completed phase. Generate missing tests. Update VALIDATION.md.
 </purpose>

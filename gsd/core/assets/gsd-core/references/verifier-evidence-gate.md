@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/verifier-evidence-gate.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/verifier-evidence-gate.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Convergence Evidence Gate (#3304)
 
 Bounds Step 7's anti-pattern scan so an approved gap-closure contract can

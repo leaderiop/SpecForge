@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 commands/gsd/audit-uat.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 commands/gsd/audit-uat.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <objective>
 Scan all phases for pending, skipped, blocked, and human_needed UAT items. Cross-reference against codebase to detect stale documentation. Produce prioritized human test plan.
 </objective>

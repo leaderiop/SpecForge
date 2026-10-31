@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/plan-phase/steps/research-only-early-exit.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/plan-phase/steps/research-only-early-exit.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 ### Research-Only Early Exit (`--research-phase`)
 
 **Skip if:** `RESEARCH_ONLY` is `false` (the default).

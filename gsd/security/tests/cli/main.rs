@@ -54,7 +54,7 @@ fn both_extensions_load() {
 }
 
 #[test]
-fn the_handshake_tracks_gsd_core_1_18_0() {
+fn the_handshake_tracks_its_tracked_release() {
     let host = MockHost::new(gsd_security::build());
     let handshake: serde_json::Value =
         serde_json::from_str(&host.handshake_json()).expect("the handshake is JSON");
@@ -63,7 +63,7 @@ fn the_handshake_tracks_gsd_core_1_18_0() {
     assert_eq!(handshake["version"], "1.0.0");
     assert_eq!(
         handshake["keywords"],
-        serde_json::json!(["tracks:gsd-core@1.18.0"])
+        serde_json::json!([format!("tracks:{}", gsd_security::TRACKS)])
     );
     let peer = &handshake["peer_dependencies"][0];
     assert_eq!(peer["name"], "@gsd/core");

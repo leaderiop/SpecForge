@@ -108,10 +108,8 @@ fn a_second_install_changes_nothing() {
 
 /// `(name, description)` of upstream's 72 commands, from the vendored `commands.json`.
 fn upstream_descriptions() -> Vec<(String, String)> {
-    let text = std::fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/upstream/v1.18.0/commands.json"),
-    )
-    .expect("commands.json");
+    let text = std::fs::read_to_string(Path::new(gsd_kit::snapshot!("commands.json")))
+        .expect("commands.json");
     let rows: serde_json::Value = serde_json::from_str(&text).expect("JSON");
     rows.as_array()
         .expect("an array")

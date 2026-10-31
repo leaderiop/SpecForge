@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-statusline.js (the state segment, read from the graph here), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-statusline.js (the state segment, read from the graph here), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The graph that replaces STATE.md, and the line built from it.
 

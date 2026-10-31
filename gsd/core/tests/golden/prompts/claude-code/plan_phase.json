@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/plan-phase.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:e88c8a1bbb69008ee45cedddf8bf1f7eccbc6e61f1b2d2dc66c874ff8eacf343",
     "prompt": "@gsd/core@VERSION:plan_phase",

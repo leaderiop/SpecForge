@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/plan-phase/steps/reviews-prerequisite.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/plan-phase/steps/reviews-prerequisite.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 ## 2.5. Validate `--reviews` Prerequisite
 
 **Skip if:** No `--reviews` flag.

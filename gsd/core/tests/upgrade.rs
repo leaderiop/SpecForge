@@ -42,9 +42,9 @@ use roster::ROSTER;
 #[path = "common/roster.rs"]
 mod roster;
 
-const MANIFEST: &str = include_str!("../../parity/upstream/v1.18.0/INVENTORY-MANIFEST.json");
-const CAPABILITY_IDS: &str = include_str!("../../parity/upstream/v1.18.0/capability-ids.json");
-const CONFIG: &str = include_str!("../../parity/upstream/v1.18.0/config-schema.manifest.json");
+const MANIFEST: &str = include_str!(gsd_kit::snapshot!("INVENTORY-MANIFEST.json"));
+const CAPABILITY_IDS: &str = include_str!(gsd_kit::snapshot!("capability-ids.json"));
+const CONFIG: &str = include_str!(gsd_kit::snapshot!("config-schema.manifest.json"));
 const SETTINGS_MD: &str = include_str!("../spec/settings.md");
 const README: &str = include_str!("../../README.md");
 
@@ -146,13 +146,13 @@ fn tracked() -> String {
 }
 
 #[test]
-fn upgrade_diff_on_v1_18_0_is_empty() {
+fn upgrade_diff_of_the_tracked_release_is_empty() {
     let old = snapshot();
     let rows = diff::backlog(&old, &old, &[], &owner, &BTreeMap::new());
     assert!(rows.is_empty(), "{rows:?}");
-    let text = diff::render("v1.18.0", &tracked(), &rows);
+    let text = diff::render(&tracked(), &tracked(), &rows);
     assert!(text.contains("Nothing changed"), "{text}");
-    assert_eq!(tracked(), "v1.18.0");
+    assert_eq!(tracked(), concat!("v", gsd_kit::tracked_version!()));
 }
 
 #[test]

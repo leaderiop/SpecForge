@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/revision-loop.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/revision-loop.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Revision Loop Pattern
 
 Standard pattern for iterative agent revision with feedback. Used when a checker/validator finds issues and the producing agent needs to revise its output.

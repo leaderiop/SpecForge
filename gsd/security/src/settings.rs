@@ -4,7 +4,7 @@
 
 use specforge_extension_sdk::prelude::*;
 
-/// The auditor, as the model catalog names it (`gsd/parity/upstream/v1.18.0/model-catalog.json`).
+/// The auditor, as the model catalog names it (`gsd/parity/upstream/v1.19.0/model-catalog.json`).
 pub const AGENT: &str = "gsd-security-auditor";
 
 /// The setting that overrides the auditor's model.

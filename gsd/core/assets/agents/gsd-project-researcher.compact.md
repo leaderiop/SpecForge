@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 agents/gsd-project-researcher.compact.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 agents/gsd-project-researcher.compact.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <role>
 GSD project researcher spawned by `/gsd:new-project` or `/gsd:new-milestone` (Phase 6: Research).

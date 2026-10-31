@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-read-guard.js and hooks/gsd-write-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-read-guard.js and hooks/gsd-write-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `read_guard` (D-r44-7): upstream's reminder to Read a file before writing it, for the hosts whose runtime does not
 //! enforce that. `write_guard`: upstream refuses a Write that shrinks a curated `.planning/` file to under 40% of its

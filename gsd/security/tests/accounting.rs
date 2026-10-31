@@ -8,8 +8,9 @@
 #[path = "../../core/src/hooks/accounting.rs"]
 mod accounting;
 
-const BLOCKING_CONFIG: &str =
-    include_str!("../../parity/upstream/v1.18.0/tests/injection-blocking-config.test.cjs");
+const BLOCKING_CONFIG: &str = include_str!(gsd_kit::snapshot!(
+    "tests/injection-blocking-config.test.cjs"
+));
 
 /// `(upstream case, the test of tests/cli/injection.rs that runs it)`.
 const PORTED: &[(&str, &str)] = &[
@@ -52,8 +53,7 @@ fn the_five_cases_of_1577_are_ported() {
 // descriptors and core's assets (a case about the planner, the VALIDATION template or `planning-config.md` is about the
 // file `@gsd/core` ports). A case about upstream's installed layout or config template is skipped with its reason.
 
-const SECURE_PHASE: &str =
-    include_str!("../../parity/upstream/v1.18.0/tests/secure-phase.test.cjs");
+const SECURE_PHASE: &str = include_str!(gsd_kit::snapshot!("tests/secure-phase.test.cjs"));
 
 fn asset(path: &str) -> &'static str {
     gsd_security::prompts::asset(path).unwrap_or_else(|| panic!("no asset {path}"))

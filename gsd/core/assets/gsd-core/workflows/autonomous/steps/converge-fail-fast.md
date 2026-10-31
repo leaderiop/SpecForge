@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/autonomous/steps/converge-fail-fast.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/autonomous/steps/converge-fail-fast.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 ## Converge Fail-Fast
 
 #4600: an explicit `--converge` / `--cross-ai` on the command line OVERRIDES the `workflow.plan_review_convergence` config gate. `PLAN_STRATEGY` is `converge` only when the

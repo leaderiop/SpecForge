@@ -1,5 +1,5 @@
 //! The schema-drift pass: `gsd/E405`, a phase that changed the schema files of an ORM and recorded no push of its
-//! database. A port of `src/schema-detect.cts:20-73` (gsd-core v1.18.0, MIT, `LICENSE-GSD`): `SCHEMA_PATTERNS`, and
+//! database. A port of `src/schema-detect.cts:20-73` (gsd-core v1.19.0, MIT, `LICENSE-GSD`): `SCHEMA_PATTERNS`, and
 //! `ORM_INFO`'s `envHint` and `evidencePatterns`, hand-written because the crate has no regex dependency.
 //!
 //! GSD runs the gate at `execute:wave:post`, after the work, so a phase is judged once it has a summary (the nearest

@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-secret-read-guard.js (`findSecretRead` and the scans it calls), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-secret-read-guard.js (`findSecretRead` and the scans it calls), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Which operand of which command of a shell line reads a secret file, and the spawn of the debugger as a CLI process.
 //! Anything that runs a nested script (`eval`, `sh -c`, `source <(…)`, `xargs`, `git -c alias.x=!…`, a piped `sh`)

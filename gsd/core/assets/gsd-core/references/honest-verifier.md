@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/honest-verifier.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/honest-verifier.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Honest Verifier — Abstention on Non-Inferable Checks
 
 Shared reference for the **verify** phase. The verify-time companion to the spec-time

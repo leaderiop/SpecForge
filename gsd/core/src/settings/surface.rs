@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 `src/clusters.cts` (MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD).
+//! Ported from gsd-core v1.19.0 `src/clusters.cts` (MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD).
 //!
 //! The skill clusters (D-r41-13): ten named groups of skill stems. Upstream's `/gsd:surface` enables and disables a
 //! cluster without a reinstall; here each cluster is a bool setting `specforge.surface.<cluster>` (default on) and a

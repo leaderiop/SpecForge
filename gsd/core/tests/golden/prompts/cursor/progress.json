@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/progress.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:7f184f0beec9a81889df6e2b37fa5b8986327637b87bc636a028eac69df1bbfa",
     "prompt": "@gsd/core@VERSION:progress",

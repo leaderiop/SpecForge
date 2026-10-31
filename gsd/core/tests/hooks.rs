@@ -1,4 +1,4 @@
-//! The hooks `@gsd/core` declares (r44): they equal the roster of upstream's 28 hook files, each is valid for the
+//! The hooks `@gsd/core` declares (r44): they equal the roster of upstream's 29 hook files, each is valid for the
 //! registry (a hook the registry refuses is dropped with a W021 and runs nowhere), and the commands their text names
 //! are real.
 
@@ -20,9 +20,8 @@ fn root() -> PathBuf {
 
 /// The `hooks` family of the vendored inventory manifest.
 fn upstream_hooks() -> Vec<String> {
-    let text =
-        std::fs::read_to_string(root().join("../parity/upstream/v1.18.0/INVENTORY-MANIFEST.json"))
-            .expect("manifest");
+    let text = std::fs::read_to_string(Path::new(gsd_kit::snapshot!("INVENTORY-MANIFEST.json")))
+        .expect("manifest");
     let manifest: serde_json::Value = serde_json::from_str(&text).expect("JSON");
     manifest["families"]["hooks"]
         .as_array()
@@ -35,7 +34,7 @@ fn upstream_hooks() -> Vec<String> {
 #[test]
 fn the_hook_roster_matches_upstreams_hooks() {
     let upstream = upstream_hooks();
-    assert_eq!(upstream.len(), 28);
+    assert_eq!(upstream.len(), 29);
     let ours: Vec<&str> = HOOK_ROSTER.iter().map(|(f, _)| *f).collect();
     let mut sorted = ours.clone();
     sorted.sort_unstable();
@@ -52,8 +51,8 @@ fn the_hook_roster_matches_upstreams_hooks() {
     );
     assert_eq!(
         count(|d| matches!(d, Disposition::Dropped(_))),
-        10,
-        "dropped files (7 not ported, and the 3 Cursor renderings no hook feeds)"
+        11,
+        "dropped files (8 not ported, and the 3 Cursor renderings no hook feeds)"
     );
     assert_eq!(
         count(|d| matches!(d, Disposition::Rendering(_))),

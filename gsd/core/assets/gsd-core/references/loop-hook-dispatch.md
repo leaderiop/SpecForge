@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/loop-hook-dispatch.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/loop-hook-dispatch.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Loop Hook Dispatch Contract
 
 Generic reference for consuming the `--raw` JSON output of `loop render-hooks <point>`
@@ -132,7 +132,7 @@ this file's `activeHooks` envelope.
 
 Instead, a capability declares task-content resolution directly in its manifest body via
 `taskContentResolver` (`trackerPrefix` + a bounded `invoke`) — see
-[Capability manifest reference](https://github.com/open-gsd/gsd-core/blob/v1.18.0/docs/reference/capability-manifest.md). `execute-plan.md`'s
+[Capability manifest reference](https://github.com/open-gsd/gsd-core/blob/v1.19.0/docs/reference/capability-manifest.md). `execute-plan.md`'s
 per-task loop calls `task resolve-content --plan <path> --task-id <tracker-id> --raw`
 directly, an unconditional, required subprocess invocation with a real, binding exit code —
 never a prose-dispatched `step`/`gate` entry chosen from an `activeHooks` array.
@@ -141,5 +141,5 @@ This point always runs — there is no `when` config gate and no autonomous-mode
 deliberate, not an oversight: the twelve points above are best-effort prose dispatch, which
 `execute:task`'s hard-halt safety property cannot be built on top of (a missed dispatch is
 indistinguishable from a legitimate resolver-empty fallback). See
-[ADR-3646](https://github.com/open-gsd/gsd-core/blob/v1.18.0/docs/adr/3646-per-task-content-resolution-seam.md) for the full rationale,
+[ADR-3646](https://github.com/open-gsd/gsd-core/blob/v1.19.0/docs/adr/3646-per-task-content-resolution-seam.md) for the full rationale,
 including why a `kind: "gate"` shape was rejected outright.

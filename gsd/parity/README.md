@@ -16,12 +16,12 @@ the version matrix live here.
 
 | Path | What |
 |---|---|
-| `upstream/v1.18.0/` | the tracked release's configuration roster, frozen so the roster check runs offline ([SOURCE.md](upstream/v1.18.0/SOURCE.md)); `core/tests/settings_roster.rs` reads it |
+| `upstream/v1.19.0/` | the tracked release's configuration roster, frozen so the roster check runs offline ([SOURCE.md](upstream/v1.19.0/SOURCE.md)); `core/tests/settings_roster.rs` reads it |
 | `fixtures/taskboard/` | a small Node CLI with a GSD 1.18.0 `.planning/`: three phases and an inserted `02.1`, phase 1 executed, verified and run through UAT, phase 2 discussed, researched and planned; its three plans and the two summaries of phase 1 are in the twin's `spec/plans.spec` |
 | `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health`, `check.verify-context-drift 2` and `check.decision-coverage-plan` of phase 2; the plan verdicts of r37: `verify.plan-structure` of each plan, `check.verify-command-paths` and `check.verify-failure-directions` of phases 1 and 2, `check.gap-analysis-plan-post` of phases 1 and 2; `audit-uat` (r39), and `junit.xml`, what the fixture's own `npm test` reports (r38), with the machine's paths and timings normalised |
 | `fixtures/vault/`, `goldens/vault/` | the hand-written security fixture: a phase with a threat model, an audit and an accepted risk, its `specforge-harness` ledger for the hand-written H fields, and what gsd-tools answered over it (hooks, config, threat IDs, the gate); `security/tests/cli/parity_scenario.rs` compares the twin with them |
 | `record.sh` | re-records the goldens |
-| `upstream/v1.18.0/gate-cutover/` | 171 verdicts of gsd-core's own gate-cutover fixtures (decision coverage, verify command paths, failing directions, post-planning gaps), copied unchanged; `core/tests/projects/gate_cutover/` is their SpecForge twin |
+| `upstream/v1.19.0/gate-cutover/` | 171 verdicts of gsd-core's own gate-cutover fixtures (decision coverage, verify command paths, failing directions, post-planning gaps), copied unchanged; `core/tests/projects/gate_cutover/` is their SpecForge twin |
 
 The taskboard's `verify-command-paths` and `verify-failure-directions` goldens are intentionally empty: every taskboard task has a bare `<verify>`, so there is no `<automated>` command to probe, and the comparison proves only that no blocker is reported. The E320 and E507 proof is the gate-cutover verdicts (`gate_cutover_plan_verdicts_reproduce`), whose blocker and missing rows are matched one for one. Adding an `<automated>` task to the taskboard would move other goldens, so it is not done.
 
@@ -45,13 +45,13 @@ milestone to sit in; the test asserts both so a change to either is noticed.
 ### Re-recording
 
 ```sh
-(cd ~/Projects/OpenSource/gsd-core && git archive v1.18.0 | tar -x -C /tmp/gsd-core-1.18.0)
-(cd /tmp/gsd-core-1.18.0 && npm ci --ignore-scripts && npm run build:lib)
-GSD_CORE_DIR=/tmp/gsd-core-1.18.0 gsd/parity/record.sh
+(cd ~/Projects/OpenSource/gsd-core && git archive v1.19.0 | tar -x -C /tmp/gsd-core-1.19.0)
+(cd /tmp/gsd-core-1.19.0 && npm ci --ignore-scripts && npm run build:lib)
+GSD_CORE_DIR=/tmp/gsd-core-1.19.0 gsd/parity/record.sh
 git diff --exit-code gsd/parity/goldens
 ```
 
-The script refuses a `GSD_CORE_DIR` that is not 1.18.0, runs the verbs on a copy of the fixture that is its own git
+The recipe needs node 24 or later (the tag's `engines.node`). The script refuses a `GSD_CORE_DIR` that is not 1.19.0, runs the verbs on a copy of the fixture that is its own git
 repository (so `validate health` does not report the machine's worktrees), runs the fixture's `npm test` (node's JUnit
 reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing. To track a newer release, change the tag in `upstream/` and here, re-record, and review
 the diff of the goldens: that diff is the parity backlog.
@@ -70,7 +70,7 @@ Phase 2's `02-CONTEXT.md`, `02-DISCUSSION-LOG.md` and `02-RESEARCH.md` (round r3
 
 - `upgrade.sh` does not extract the 86 capability-declared config keys, so a change to one shows only as a changed
   file. `locate` files the nested `src/<dir>/` modules and `bin/lib/*.cjs` as "other", which can raise a false
-  "unowned" alarm. `upgrade_diff_on_v1_18_0_is_empty` compares the snapshot with itself; a real extraction of the tag
+  "unowned" alarm. `upgrade_diff_of_the_tracked_release_is_empty` compares the snapshot with itself; a real extraction of the tag
   was compared once by hand.
 - A "Reproduced" row passes when a test of that name contains the row's name, comments included; the pinned totals
   merge Reproduced and ByConstruction. The scenario check's needles are substrings. `GSD_BLESS=1` also rewrites

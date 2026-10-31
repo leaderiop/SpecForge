@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/few-shot-examples/verifier.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/few-shot-examples/verifier.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 ---
 component: verifier
 version: 2

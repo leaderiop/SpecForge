@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/ns-workflow.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:fa32e0f2502ce3f7c26c8452ca2fec0ac6e4a14b2f7eaa67b17c88c81f1a2c2c",
     "prompt": "@gsd/core@VERSION:ns_workflow"

@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/runtime-aware-dispatch.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/runtime-aware-dispatch.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Runtime-Aware Subagent Dispatch (epic #2505 Phase 4 / #2508)
 
 GSD workflows dispatch specialized subagents by role (planner, executor,

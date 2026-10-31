@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/research-documentation-lookup.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/research-documentation-lookup.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 When you need library or framework documentation, check in this order:
 
 1. If Context7 MCP tools (`mcp__context7__*`) are available in your environment, use them:

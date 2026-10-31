@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/execute-phase/steps/executor-progress-policy.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/execute-phase/steps/executor-progress-policy.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 Apply response_language to all user-facing prose — narration between tool calls, status updates, progress notes, and findings included; preserve code, paths, and identifiers.
 
 # Executor Progress Policy (#4218)

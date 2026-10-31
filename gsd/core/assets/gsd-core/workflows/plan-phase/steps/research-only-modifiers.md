@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/plan-phase/steps/research-only-modifiers.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/plan-phase/steps/research-only-modifiers.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 ### 5.0. Research-Only Modifiers (`--view`, `--research`)
 
 **Skip if:** `RESEARCH_ONLY` is `false`.

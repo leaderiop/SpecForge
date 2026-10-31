@@ -1,5 +1,5 @@
 //! The hooks of `@gsd/core` (r44): upstream's hook scripts as typed contributions, each a pure function of the host's
-//! facts, the extension's settings and its state. `roster` says what became of each of the 28 upstream files.
+//! facts, the extension's settings and its state. `roster` says what became of each of the 29 upstream files.
 
 #[cfg(test)]
 mod accounting;

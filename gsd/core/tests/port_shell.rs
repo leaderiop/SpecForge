@@ -9,6 +9,9 @@ use std::process::{Command, Stdio};
 
 use regex::Regex;
 
+#[path = "common/pending.rs"]
+mod pending;
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
@@ -27,7 +30,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 /// `(label, ours, upstream's)` as body lines of every asset that has an upstream file of the same line count.
 fn pairs() -> Vec<(String, Vec<String>, Vec<String>)> {
     let base = root().join("assets");
-    let vendored = root().join("../parity/upstream/v1.18.0");
+    let vendored = Path::new(gsd_kit::snapshot!());
     let mut paths = Vec::new();
     walk(&base, &mut paths);
     paths.sort();
@@ -38,7 +41,8 @@ fn pairs() -> Vec<(String, Vec<String>, Vec<String>)> {
             .expect("under assets")
             .display()
             .to_string();
-        if rel.ends_with(".compact.md") {
+        // a file waiting for its re-port is checked once it is re-ported
+        if rel.ends_with(".compact.md") || pending::is_pending(&rel) {
             continue;
         }
         let plain = vendored.join(&rel);

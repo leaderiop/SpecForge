@@ -2,7 +2,7 @@
 //!
 //! A port of `src/undo-commit-selection.cts:95-111` (one `fixup! `, `squash! ` or `Revert "…"` wrapper is
 //! unwrapped, never two) and of `scripts/release-notes/conventional-title.cjs:28`, `HEADER_RE =
-//! /^([a-z]+)(\([^)]*\))?(!)?:/i` (gsd-core v1.18.0, MIT, `LICENSE-GSD`), hand-written: the crate has no regex
+//! /^([a-z]+)(\([^)]*\))?(!)?:/i` (gsd-core v1.19.0, MIT, `LICENSE-GSD`), hand-written: the crate has no regex
 //! dependency.
 
 /// A parsed header.

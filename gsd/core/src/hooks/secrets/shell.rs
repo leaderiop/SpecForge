@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-secret-read-guard.js (`tokenize` and its heredoc and substitution readers), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-secret-read-guard.js (`tokenize` and its heredoc and substitution readers), MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! A shell command line as tokens: words, separators, redirection operators and heredoc bodies, each with the index
 //! of the simple command (`seg`) it belongs to, and the command substitutions found inside it.

@@ -50,7 +50,7 @@ fn assets_embed_and_attribute() {
     for path in &table {
         let text = std::fs::read_to_string(base.join(path)).expect("an asset");
         if path.ends_with(".json") {
-            let vendored = root().join("../parity/upstream/v1.18.0").join(path);
+            let vendored = Path::new(gsd_kit::snapshot!()).join(path);
             assert_eq!(
                 text,
                 std::fs::read_to_string(&vendored).expect("the vendored copy"),
@@ -61,7 +61,8 @@ fn assets_embed_and_attribute() {
             assert_eq!(
                 first,
                 format!(
-                    "<!-- Ported from gsd-core v1.18.0 {path}, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->"
+                    "<!-- Ported from gsd-core v{} {path}, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->",
+                    gsd_kit::tracked_version!()
                 ),
                 "{path}"
             );

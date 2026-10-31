@@ -7,7 +7,7 @@ use gsd_core::build;
 use specforge_extension_sdk::testing::MockHost;
 
 #[test]
-fn the_handshake_names_gsd_core_and_tracks_1_18_0() {
+fn the_handshake_names_gsd_core_and_its_tracked_release() {
     let host = MockHost::new(build());
     let handshake: serde_json::Value =
         serde_json::from_str(&host.handshake_json()).expect("the handshake is JSON");
@@ -16,7 +16,7 @@ fn the_handshake_names_gsd_core_and_tracks_1_18_0() {
     assert_eq!(handshake["version"], env!("CARGO_PKG_VERSION"));
     assert_eq!(
         handshake["keywords"],
-        serde_json::json!(["tracks:gsd-core@1.18.0"])
+        serde_json::json!([format!("tracks:{}", gsd_core::TRACKS)])
     );
 }
 
@@ -97,16 +97,24 @@ fn tracks_names_the_vendored_snapshot() {
         [format!("v{version}")],
         "one snapshot, the tracked one"
     );
-    // Every path in src and tests that names a snapshot directory names that one. (The needle is built, so this file
-    // does not match itself.)
+    // Every path in the three crates that names a snapshot directory names that one, and the checks name it through
+    // `gsd_kit::snapshot!`, which reads the tracked version. (The needles are built, so this file does not match itself.)
     let needle = ["parity/upstream/", "v"].concat();
+    let call = ["snapshot", "!("].concat();
     let mut files = Vec::new();
-    for dir in ["src", "tests", "../kit/src"] {
+    for dir in [
+        "src",
+        "tests",
+        "../kit/src",
+        "../security/src",
+        "../security/tests",
+    ] {
         rust_files(&core.join(dir), &mut files);
     }
     let mut named = 0;
     for file in files {
         let text = std::fs::read_to_string(&file).expect("a source file");
+        named += text.matches(&call).count();
         for (at, _) in text.match_indices(&needle) {
             let rest = &text[at + needle.len()..];
             let found: String = rest

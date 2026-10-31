@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/references/planner-source-audit.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/references/planner-source-audit.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Planner Source Audit & Authority Limits
 
 Reference for `agents/gsd-planner.md` — extended rules for multi-source coverage audits and planner authority constraints.

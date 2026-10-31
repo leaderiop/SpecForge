@@ -1,5 +1,5 @@
 //! `security_hooks <point>`: the security capability's hooks at a loop point, as `gsd-tools loop render-hooks <point>`
-//! answered for the `security` entries (`capabilities/security/capability.json` at v1.18.0). `@gsd/core`'s capability
+//! answered for the `security` entries (`capabilities/security/capability.json` at v1.19.0). `@gsd/core`'s capability
 //! points ask every loaded capability extension this one question (ADR gsd/0002).
 
 use serde_json::Value;

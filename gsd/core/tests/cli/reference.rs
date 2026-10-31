@@ -7,9 +7,9 @@ fn reference_serves_an_embedded_reference() {
     let p = twin();
     let run = gsd(&p, "reference", &["references/verification-patterns.md"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    let upstream = include_str!(
-        "../../../parity/upstream/v1.18.0/gsd-core/references/verification-patterns.md"
-    );
+    let upstream = include_str!(gsd_kit::snapshot!(
+        "gsd-core/references/verification-patterns.md"
+    ));
     assert!(
         run.stdout.contains("# Verification Patterns"),
         "{}",

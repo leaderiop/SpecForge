@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-config-reload.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-config-reload.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `config_reload` tells the session the settings when `specforge.json` changes (Claude Code's `FileChanged`, ADR
 //! 0321). Upstream reads `.planning/config.json` and summarises its `runtime`, `mode`, `hooks`, `workflow` and `models`

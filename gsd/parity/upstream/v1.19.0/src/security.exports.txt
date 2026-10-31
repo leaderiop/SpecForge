@@ -1,0 +1,22 @@
+# not upstream bytes: the lines of src/security.cts at v1.19.0 that match '^export' (rg), for plan 16
+export function isContainedIn(
+export function loadTrustedGlobalRoots(config: unknown): string[] {
+export type ContainedPath = string & { readonly __containedIn: unique symbol };
+export const PathAcceptance = {
+export type PathAcceptancePolicy = (typeof PathAcceptance)[keyof typeof PathAcceptance];
+export function assertWithinRoot(candidate: unknown, root: unknown, label?: string | null, policy: PathAcceptancePolicy = PathAcceptance.RelativeOnly): ContainedPath {
+export function tryWithinRoot(candidate: unknown, root: unknown, policy: PathAcceptancePolicy = PathAcceptance.RelativeOnly): ContainedPath | null {
+export function requireSafePath(filePath: unknown, baseDir: unknown, label: string | null | undefined, policy: PathAcceptancePolicy = PathAcceptance.RelativeOnly): ContainedPath {
+export function tryWithinRootLexical(
+export function assertWithinRootLexical(
+export const INJECTION_PATTERNS: RegExp[] = [
+export const MARKDOWN_LINK_PATTERNS: MarkdownLinkPattern[] = [
+export function scanForInjection(text: unknown, opts: { strict?: boolean; file?: string } = {}): { clean: boolean; findings: string[]; structuredFindings: StructuredFinding[] } {
+export function sanitizeForPrompt(text: unknown): string {
+export function sanitizeForDisplay(text: unknown): string {
+export function sanitizeLabel(text: unknown): string {
+export function validateShellArg(value: unknown, label: string | null | undefined): string {
+export function safeJsonParse(text: unknown, opts: { maxLength?: number; label?: string } = {}): { ok: boolean; value?: unknown; error?: string } {
+export function validatePhaseNumber(phase: unknown): { valid: boolean; normalized?: string; error?: string } {
+export function validateFieldName(field: unknown): { valid: boolean; error?: string } {
+export function validatePromptStructure(text: unknown, fileType: string): { valid: boolean; violations: string[] } {

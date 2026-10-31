@@ -2,7 +2,7 @@
 'use strict';
 // Records the calls an upstream hook test suite makes to its hook script, with the answers upstream's hook gave:
 //
-//   node gsd/parity/record-hook-cases.cjs <gsd-core checkout at v1.18.0> <part of the hook script path> <suite file> <out.json>
+//   node gsd/parity/record-hook-cases.cjs <gsd-core checkout at v1.19.0> <part of the hook script path> <suite file> <out.json>
 //
 // The checkout must have its dependencies installed (the suites use fast-check). The recording is what
 // `gsd/core/src/hooks/**/tests.rs` replays through the Rust hook: the case list is upstream's, not retyped.

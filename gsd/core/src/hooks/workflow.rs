@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-workflow-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-workflow-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `workflow_marker` and `workflow_guard` (D-r44-11).
 //!

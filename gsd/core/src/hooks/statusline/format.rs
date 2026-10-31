@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-statusline.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-statusline.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The statusline's pure parts: the GSD state segment in its two formats, the status word, the progress bar, the
 //! token count, the model badge, the context meter and the layout. What feeds them is `statusline.rs`.

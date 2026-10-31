@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 hooks/gsd-validate-commit.sh, hooks/gsd-phase-boundary.sh and hooks/gsd-session-state.sh, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 hooks/gsd-validate-commit.sh, hooks/gsd-phase-boundary.sh and hooks/gsd-session-state.sh, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The three community hooks (D-r44-14, D-r44-15), each off until `hooks.community` is on.
 //!

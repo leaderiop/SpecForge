@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/smart-entry.unit.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/smart-entry.unit.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! The cases of upstream's suite that call `classify`, `actionsFor`, `buildSummary` and `formatGsdSlash` on a signals
 //! object, or that build a project on disk only to reach them (the STATE.md and ROADMAP.md the fixture writes become the
@@ -59,7 +59,7 @@ const UPSTREAM_CASES: &[&str] = &[
 
 #[test]
 fn every_ported_case_is_in_the_vendored_suite() {
-    let suite = include_str!("../../../../parity/upstream/v1.18.0/tests/smart-entry.unit.test.cjs");
+    let suite = include_str!(gsd_kit::snapshot!("tests/smart-entry.unit.test.cjs"));
     for title in UPSTREAM_CASES {
         assert!(
             suite.contains(title),

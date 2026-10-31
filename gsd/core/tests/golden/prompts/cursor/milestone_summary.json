@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/milestone-summary.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:0ceb2ee056ad589387911ef7cc5fc6e032c46b790549f30a915a9e36bd89bb58",
     "prompt": "@gsd/core@VERSION:milestone_summary",

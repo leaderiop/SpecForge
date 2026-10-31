@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/new-project/steps/auto-mode-config.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/new-project/steps/auto-mode-config.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 ## 2a. Auto Mode Config (auto mode only)
 
 **If auto mode:** Collect config settings upfront before processing the idea document.

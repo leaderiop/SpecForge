@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/add-tests.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:62ec9017d6246028fdf18f4cc409fa48e0fde0b15243c48bc43c3d037a22f4e4",
     "prompt": "@gsd/core@VERSION:add_tests",

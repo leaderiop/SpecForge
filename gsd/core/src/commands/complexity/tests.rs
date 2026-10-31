@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 tests/complexity-trigger.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 tests/complexity-trigger.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Every case of the analyzer, the leak surface, the properties, the file selection and the threshold/jump evaluation:
 //! the same source text, the same expected scores and the same candidates (D-r41-15).

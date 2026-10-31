@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/verify-work.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:e216d7fa7b20280a88376243f5a9393b4673e9af04fd3ca36bc8f30d7da668ec",
     "prompt": "@gsd/core@VERSION:verify_work",

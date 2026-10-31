@@ -1,6 +1,6 @@
 # `@gsd/security` model
 
-**Status: built. Tracks gsd-core 1.18.0.** The kinds, computed values, rules, settings, commands and hooks that
+**Status: built. Tracks gsd-core 1.19.0.** The kinds, computed values, rules, settings, commands and hooks that
 `@gsd/security` declares beside `@gsd/core` ([ADR gsd/0002](../../adr/0002-a-capability-extension-plugs-into-core-at-its-hook-points.md)).
 GSD's `<threat_model>` blocks and `NN-SECURITY.md` are entities here; nothing is kept as Markdown. Field flags are
 those of [`gsd/core/spec/README.md`](../../core/spec/README.md): `R` required, `I` immutable, `C` computed, `H` written

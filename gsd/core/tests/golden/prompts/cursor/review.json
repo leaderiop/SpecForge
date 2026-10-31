@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/review.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:967fc84551c88a8bb3c13b31e60dfee2c74055806df160399cb2943b36712365",
     "prompt": "@gsd/core@VERSION:review",

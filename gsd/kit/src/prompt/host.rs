@@ -1,4 +1,4 @@
-//! Ported from gsd-core v1.18.0 src/runtime-artifact-conversion.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
+//! Ported from gsd-core v1.19.0 src/runtime-artifact-conversion.cts, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! Upstream's runtime adapters (D-r42-12): the text rewrites `convertClaudeToCodexMarkdown` and
 //! `convertClaudeToCursorMarkdown` apply to a Claude Code workflow so it reads right on Codex and Cursor, and the two
@@ -30,7 +30,7 @@ pub fn convert(host: &str, text: &str) -> String {
     }
 }
 
-/// The names of upstream's `commands/gsd/*.md` at v1.18.0 (`readGsdCommandNames`): only these are rewritten from the
+/// The names of upstream's `commands/gsd/*.md` at v1.19.0 (`readGsdCommandNames`): only these are rewritten from the
 /// colon form, as `transformContentToHyphen` does; `/gsd:transition` and the like name no command and stay.
 const COMMAND_NAMES: &[&str] = &[
     "add-tests",

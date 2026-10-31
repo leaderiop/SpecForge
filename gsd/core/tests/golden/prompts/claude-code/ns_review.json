@@ -179,7 +179,7 @@
       "license": "MIT",
       "path": "commands/gsd/ns-review.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:b0ec68fd726420f416c165938ff7d4b08874fadca7d0a9ecaaeba7ac938d5420",
     "prompt": "@gsd/core@VERSION:ns_review"

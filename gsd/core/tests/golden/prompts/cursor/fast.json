@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/fast.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:29c8a6d7331d1e6ee6780ece1be4aec2c0a21c2f965bab3ea0b5841ea0b86174",
     "prompt": "@gsd/core@VERSION:fast"

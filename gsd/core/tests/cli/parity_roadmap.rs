@@ -1,4 +1,4 @@
-//! The taskboard's SpecForge twin against what gsd-tools 1.18.0 says about its `.planning/` (parity suite, "scenario"):
+//! The taskboard's SpecForge twin against what gsd-tools 1.19.0 says about its `.planning/` (parity suite, "scenario"):
 //! the phases `roadmap analyze` lists, the requirements `REQUIREMENTS.md` defines and the mapping `ROADMAP.md` makes.
 //! A mismatch prints the GSD field and the SpecForge value.
 

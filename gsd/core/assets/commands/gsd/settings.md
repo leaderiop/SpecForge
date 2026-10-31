@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 commands/gsd/settings.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 commands/gsd/settings.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 
 <objective>
 Interactive configuration of GSD workflow agents and model profile via multi-question prompt.

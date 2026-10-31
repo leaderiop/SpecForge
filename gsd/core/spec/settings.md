@@ -68,7 +68,7 @@ documented one.
 | GSD key | Why |
 |---|---|
 | `planning.commit_docs`, `commit_docs`, `phase_commit_docs.<phase-id>`, `planning.search_gitignored`, `planning.pr_strict`, `search_gitignored` | there is no `.planning/`; `spec/gsd/` is source and is committed like code (and `phase_commit_docs.<phase-id>` has a `.` in its segment, which a setting family key cannot hold) |
-| `planning.sub_repos` | a sub-repository is another SpecForge project |
+| `planning.sub_repos`, `git.repo_tagging` | a sub-repository is another SpecForge project |
 | `claude_md_path`, `claude_md_assembly.*` | host files are rendered by `specforge install`, which owns their paths |
 | `workflow.auto_prune_state` | `STATE.md` is derived, nothing to prune |
 | the API key half of `brave_search` … `jina` | a secret: read from the environment, never from `specforge.json` (K6 E087) |

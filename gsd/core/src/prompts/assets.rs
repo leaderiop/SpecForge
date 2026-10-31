@@ -1,7 +1,7 @@
 //! The ported workflows, references, templates and command files (D-r42-2), embedded under the path they have in
-//! gsd-core v1.18.0. Every `.md` starts with its attribution line; the four JSON files cannot, so this notice covers
+//! gsd-core v1.19.0. Every `.md` starts with its attribution line; the four JSON files cannot, so this notice covers
 //! them: `references/prohibition-probe-fixtures/*/expected.json` and `workflows/discuss-phase/templates/checkpoint.json`
-//! are gsd-core v1.18.0 files, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD.
+//! are gsd-core v1.19.0 files, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD.
 
 macro_rules! asset {
     ($path:literal) => {
@@ -182,6 +182,7 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/workflows/complete-milestone.md"),
     asset!("gsd-core/workflows/complete-milestone/detail/elaboration.md"),
     asset!("gsd-core/workflows/complete-milestone/steps/git-tag.md"),
+    asset!("gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md"),
     asset!("gsd-core/workflows/diagnose-issues.md"),
     asset!("gsd-core/workflows/discuss-phase-assumptions.md"),
     asset!("gsd-core/workflows/discuss-phase-assumptions/steps/auto-advance-dispatch.md"),

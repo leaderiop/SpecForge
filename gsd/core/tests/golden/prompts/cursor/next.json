@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/next.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:50b1f42aa935ed537d95c81277f6256bdbf286aab9969e96169221627e6ac84e",
     "prompt": "@gsd/core@VERSION:next",

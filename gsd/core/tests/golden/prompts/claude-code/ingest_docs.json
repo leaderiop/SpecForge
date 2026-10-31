@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/ingest-docs.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:480ac3a083752566b5fe530c6bea97f9f3535cd8a74509d49491edc4f8d99901",
     "prompt": "@gsd/core@VERSION:ingest_docs",

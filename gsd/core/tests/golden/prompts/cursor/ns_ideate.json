@@ -168,7 +168,7 @@
       "license": "MIT",
       "path": "commands/gsd/ns-ideate.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:e6bbc4a1c03de3ef84b8e6a2111e2f8ea51e4b1e44fe4ba5a79aeb242fd0c0cd",
     "prompt": "@gsd/core@VERSION:ns_ideate"

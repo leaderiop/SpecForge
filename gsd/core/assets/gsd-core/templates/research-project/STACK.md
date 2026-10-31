@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/templates/research-project/STACK.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/templates/research-project/STACK.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 # Stack Research Template
 
 Template for the `research` entity for STACK — recommended technologies for the project domain.

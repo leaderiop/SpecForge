@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/quick-batch/steps/planner-wave.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick-batch/steps/planner-wave.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 **Step 4: Per-DAG-layer planning**
 
 Planning proceeds one DAG layer at a time, driven by the CURRENT wave

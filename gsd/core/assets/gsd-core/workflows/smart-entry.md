@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/smart-entry.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/smart-entry.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 <purpose>
 GSD smart entry — the state-aware front door. Detect the current project situation via `specforge gsd smart-entry --format json`, present a short menu of the right next actions, and dispatch to exactly one existing GSD command. This is a launcher/router only; it never does the work itself.
 

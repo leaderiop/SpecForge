@@ -1,4 +1,4 @@
-<!-- Ported from gsd-core v1.18.0 gsd-core/workflows/transition.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
+<!-- Ported from gsd-core v1.19.0 gsd-core/workflows/transition.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 @~/.claude/gsd-core/references/response-language-directive.md
 
 <internal_workflow>

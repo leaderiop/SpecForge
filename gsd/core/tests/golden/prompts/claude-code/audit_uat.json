@@ -193,7 +193,7 @@
       "license": "MIT",
       "path": "commands/gsd/audit-uat.md",
       "upstream": "gsd-core",
-      "version": "v1.18.0"
+      "version": "v1.19.0"
     },
     "digest": "sha256:f779fae1810fa3d2ca997756cb2e7e2bee1e44649b3d6015d5f5b28c833780ee",
     "prompt": "@gsd/core@VERSION:audit_uat",
