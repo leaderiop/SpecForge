@@ -13,20 +13,7 @@ use super::Outcome;
 use crate::host::{HookAnswer, HostHookEvent, shell};
 use crate::view::ProjectView;
 
-/// The route of the host's second own hook.
-pub const HUMAN_GUARD: &str = "core.human_guard";
-
-/// The tool classes it is wired on.
-pub const HUMAN_GUARD_TOOLS: [&str; 1] = ["shell"];
-
-/// Whether the project routes a human-attested command: only then is the guard installed.
-pub fn wanted(view: &ProjectView<'_>) -> bool {
-    view.registries()
-        .commands()
-        .routed()
-        .iter()
-        .any(|r| r.declaration().human)
-}
+pub use crate::host::render::HUMAN_GUARD;
 
 const WRAPPERS: [&str; 7] = ["env", "command", "exec", "sudo", "nohup", "time", "nice"];
 

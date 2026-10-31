@@ -17,7 +17,6 @@ use super::port::{
     ModelChoice, Rendered, RenderedAgent, RenderedHook, RenderedSkill, RenderedSlash, SlashCall,
     Source,
 };
-use crate::authoring::hook::human_guard;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
@@ -298,7 +297,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
         })
         .collect::<Vec<_>>();
     hooks.push(spec_guard(view));
-    if human_guard::wanted(view) {
+    if human_guard_wanted(view) {
         hooks.push(human_guard());
     }
 
@@ -331,17 +330,27 @@ fn spec_guard(view: &ProjectView<'_>) -> RenderedHook {
     }
 }
 
+/// The route of the host's second own hook, and the tool classes it is wired on.
+pub const HUMAN_GUARD: &str = "core.human_guard";
+const HUMAN_GUARD_TOOLS: [&str; 1] = ["shell"];
+
+/// Whether the project routes a human-attested command: only then is the guard installed.
+pub fn human_guard_wanted(view: &ProjectView<'_>) -> bool {
+    view.registries()
+        .commands()
+        .routed()
+        .iter()
+        .any(|r| r.declaration().human)
+}
+
 /// The host's second own hook, wired while the project routes a human-attested command: a shell call that runs one is
 /// denied (ADR 0301). Its logic is `authoring::hook::human_guard`.
 fn human_guard() -> RenderedHook {
     RenderedHook {
-        route: human_guard::HUMAN_GUARD.into(),
+        route: HUMAN_GUARD.into(),
         description: "Deny a shell call that runs a human-attested command".into(),
         event: specforge_protocol_types::HookEvent::PreTool,
-        tools: human_guard::HUMAN_GUARD_TOOLS
-            .iter()
-            .map(|t| (*t).to_string())
-            .collect(),
+        tools: HUMAN_GUARD_TOOLS.iter().map(|t| (*t).to_string()).collect(),
         paths: Vec::new(),
         timeout_ms: 10_000,
         on_failure: OnFailure::Deny,
