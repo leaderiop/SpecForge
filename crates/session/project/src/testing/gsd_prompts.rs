@@ -10,7 +10,7 @@
 //!   `strict`, which raises `W904` to an error); the commands `record_plan`, `execute_phase` (gates `E902` and `W904`, subject
 //!   `phase`) and `ship` (gate `E903`); the prompts `plan_phase` (a required `phase` reference, a `research`
 //!   flag, a `depth` from 1 to 3, a `mode` and `labels`; gate `E901`, subject `phase`; a step that runs `record_plan`, one that runs `execute_phase` and one the
-//!   agent does itself; the attribution of `gsd-core/workflows/plan-phase.md` at 1.18.0) and `research_phase`
+//!   agent `checker` does; the attribution of `gsd-core/workflows/plan-phase.md` at 1.18.0) and `research_phase`
 //!   (served while `workflow.research` is not false)
 //! - [`OTHER`] (`@t/other`, short name `t`): a command `plan_phase`, which a prompt of that route meets (E039)
 //!
@@ -125,7 +125,7 @@ fn prompts() -> Value {
             "steps": [
                 {"id": "plan", "title": "Write the plans", "command": "record_plan"},
                 {"id": "execute", "title": "Execute the plans", "command": "execute_phase"},
-                {"id": "check", "title": "Check the plans"},
+                {"id": "check", "title": "Check the plans", "agent": "checker"},
             ],
             "attribution": {
                 "upstream": "gsd-core", "path": "gsd-core/workflows/plan-phase.md", "version": "1.18.0",
@@ -149,6 +149,7 @@ fn surfaces() -> Value {
             command("ship", json!([]), &["E903"], None),
         ],
         "prompts": prompts(),
+        "agents": [{"id": "checker", "description": "Checks the plans"}],
     }])
 }
 

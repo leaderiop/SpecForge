@@ -217,6 +217,7 @@
         "tool": "specforge.gsd.start_plan"
       },
       {
+        "agent": "gsd-executor",
         "id": "execute",
         "title": "Execute the plan's tasks (gsd-executor)"
       },

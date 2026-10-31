@@ -199,10 +199,12 @@
     "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
+        "agent": "gsd-assumptions-analyzer",
         "id": "analyze_assumptions",
         "title": "Analyze the codebase for the phase's assumptions (gsd-assumptions-analyzer), in assumptions mode"
       },
       {
+        "agent": "gsd-advisor-researcher",
         "id": "research_gray_areas",
         "title": "Research a gray area for the advisor table (gsd-advisor-researcher), in advisor mode"
       },

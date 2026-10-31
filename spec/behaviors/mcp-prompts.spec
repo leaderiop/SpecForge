@@ -109,6 +109,7 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "specforge.prompt refuses an unknown host, an unknown prompt (naming the served ones) and argv for a core prompt"
   verify unit "a prompt's multi-line message reaches the agent with its lines, and other controls escaped"
   verify unit "a prompt reads the state the host sends it"
+  verify unit "a rendered step names the agent that runs it, and a step without one has no agent key"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

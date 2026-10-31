@@ -193,7 +193,7 @@ fn a_rendered_prompt_shows_each_steps_gate_and_its_attribution() {
                     {"code": "t/E902", "off": false, "passes": false},
                     {"code": "t/W904", "off": false, "passes": true},
                 ]},
-                {"id": "check", "title": "Check the plans"},
+                {"id": "check", "title": "Check the plans", "agent": "checker"},
             ],
         })
     );
@@ -202,6 +202,18 @@ fn a_rendered_prompt_shows_each_steps_gate_and_its_attribution() {
         again.payload["digest"], rendered.payload["digest"],
         "the digest is stable"
     );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a rendered step names the agent that runs it, and a step without one has no agent key"
+)]
+fn a_step_without_an_agent_has_no_agent_key() {
+    let served = served(project("fine", "ok", json!({})));
+    let rendered = plan_phase(&served, Args::Named(json!({"phase": "03"}))).unwrap();
+    let steps = rendered.payload["steps"].as_array().unwrap();
+    assert!(steps[0].get("agent").is_none(), "{:?}", steps[0]);
+    assert_eq!(steps[2]["agent"], "checker");
 }
 
 #[specforge_test(

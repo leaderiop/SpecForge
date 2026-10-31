@@ -199,14 +199,17 @@
     "prompt": "@gsd/core@VERSION:quick",
     "steps": [
       {
+        "agent": "gsd-phase-researcher",
         "id": "research",
         "title": "Research how to implement the task (gsd-phase-researcher)"
       },
       {
+        "agent": "gsd-planner",
         "id": "plan",
         "title": "Create the quick plan (gsd-planner)"
       },
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
         "title": "Check the quick plan (gsd-plan-checker)"
       },
@@ -236,6 +239,7 @@
         "tool": "specforge.gsd.start_plan"
       },
       {
+        "agent": "gsd-executor",
         "id": "execute",
         "title": "Execute the quick plan (gsd-executor)"
       },
@@ -253,6 +257,7 @@
         "tool": "specforge.gsd.complete_plan"
       },
       {
+        "agent": "gsd-verifier",
         "id": "verify",
         "title": "Verify the quick plan's truths (gsd-verifier)"
       }

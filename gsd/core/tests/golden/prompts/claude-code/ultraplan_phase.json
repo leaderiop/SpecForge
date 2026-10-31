@@ -199,6 +199,7 @@
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
         "title": "Check the imported plans against the phase goal (gsd-plan-checker)"
       },

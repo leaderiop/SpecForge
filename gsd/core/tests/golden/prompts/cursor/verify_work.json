@@ -206,10 +206,12 @@
         "tool": "specforge.gsd.set_uat_result"
       },
       {
+        "agent": "gsd-planner",
         "id": "plan_gaps",
         "title": "Plan the fixes of the gaps the tests found (gsd-planner)"
       },
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
         "title": "Check the fix plans (gsd-plan-checker)"
       }

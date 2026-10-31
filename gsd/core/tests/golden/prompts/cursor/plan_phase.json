@@ -199,6 +199,7 @@
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
+        "agent": "gsd-phase-researcher",
         "id": "research",
         "title": "Research how to implement the phase (gsd-phase-researcher)"
       },
@@ -210,14 +211,17 @@
         "tool": "specforge.gsd.record_research"
       },
       {
+        "agent": "gsd-pattern-mapper",
         "id": "patterns",
         "title": "Map the closest existing patterns (gsd-pattern-mapper)"
       },
       {
+        "agent": "gsd-planner",
         "id": "plan",
         "title": "Create the phase's plans (gsd-planner)"
       },
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
         "title": "Check the plans against the phase goal (gsd-plan-checker)"
       },

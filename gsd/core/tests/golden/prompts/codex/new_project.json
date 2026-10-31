@@ -199,14 +199,17 @@
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
+        "agent": "gsd-project-researcher",
         "id": "research",
         "title": "Research the domain with the project researcher (gsd-project-researcher), one agent per dimension"
       },
       {
+        "agent": "gsd-research-synthesizer",
         "id": "synthesize",
         "title": "Synthesize the research (gsd-research-synthesizer)"
       },
       {
+        "agent": "gsd-roadmapper",
         "id": "roadmap",
         "title": "Create the roadmap (gsd-roadmapper)"
       },

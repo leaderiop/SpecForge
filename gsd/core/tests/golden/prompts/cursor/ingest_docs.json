@@ -199,14 +199,17 @@
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
+        "agent": "gsd-doc-classifier",
         "id": "classify",
         "title": "Classify each document in parallel (gsd-doc-classifier)"
       },
       {
+        "agent": "gsd-doc-synthesizer",
         "id": "synthesize",
         "title": "Synthesize the classifications and detect conflicts (gsd-doc-synthesizer)"
       },
       {
+        "agent": "gsd-roadmapper",
         "id": "roadmap",
         "title": "Write the project, requirements and roadmap (gsd-roadmapper)"
       }

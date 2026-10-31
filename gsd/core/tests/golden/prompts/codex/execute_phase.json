@@ -204,6 +204,7 @@
         "title": "Execute each plan of the wave (the prompt execute_plan)"
       },
       {
+        "agent": "gsd-verifier",
         "id": "verify",
         "title": "Verify the phase goal (gsd-verifier)"
       },

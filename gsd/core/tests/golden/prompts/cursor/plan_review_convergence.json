@@ -204,6 +204,7 @@
         "title": "Replan with the reviewers' feedback (the prompt plan_phase, --reviews)"
       },
       {
+        "agent": "gsd-plan-checker",
         "id": "check",
         "title": "Check the revised plans against the phase goal (gsd-plan-checker)"
       }

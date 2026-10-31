@@ -199,6 +199,7 @@
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
+        "agent": "gsd-integration-checker",
         "id": "integrate",
         "title": "Check the wiring across the phases (gsd-integration-checker)"
       },

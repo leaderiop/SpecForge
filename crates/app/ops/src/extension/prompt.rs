@@ -130,6 +130,10 @@ impl ExtensionPrompts {
 pub struct RenderedStep {
     pub id: String,
     pub title: String,
+    /// The agent that does the step, as an installed agent file names it (ADR 0313); none when the step names none or
+    /// the registry dropped it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<String>,
     /// The MCP tool a command step runs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool: Option<String>,
@@ -297,6 +301,11 @@ fn rendered(
     let mut out = RenderedStep {
         id: step.id.clone(),
         title: step.title.clone(),
+        // `<peer>:<id>` names an agent of a peer; the installed file carries the bare id.
+        agent: step
+            .agent
+            .as_deref()
+            .map(|a| a.split_once(':').map_or(a, |(_, id)| id).to_string()),
         tool: None,
         cli: None,
         prompt: None,
