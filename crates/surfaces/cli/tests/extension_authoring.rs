@@ -537,7 +537,6 @@ fn extension_validate_a_valid_declaration() {
     behavior = "validate_wasm_extension_locally",
     verify = "specforge extension validate reports the protocol its component speaks"
 )]
-#[ignore = "K20c revendor"]
 fn extension_validate_reports_the_protocol_its_component_speaks() {
     let project = scratch();
     let output = Cli::on(&project)
