@@ -12,8 +12,11 @@
 
 use std::collections::BTreeSet;
 
+use std::collections::BTreeMap;
+
 use super::marker::{self, Mark};
 use super::port::{HostRenderer, HostTree, MergedEntry, NotRendered};
+use super::record::Record;
 use super::{Host, owned_path};
 
 /// What the plan reads of the disk.
@@ -24,6 +27,9 @@ pub trait HostDisk {
 
     /// The files below the directory `dir`, project-relative, in path order.
     fn files_under(&self, dir: &str) -> Vec<String>;
+
+    /// Whether a directory is at `path` (project-relative).
+    fn is_dir(&self, path: &str) -> bool;
 }
 
 /// What the plan does with a file.
@@ -94,6 +100,10 @@ pub struct HostPlan {
     pub files: Vec<PlannedFile>,
     pub refused: Vec<Refusal>,
     pub not_rendered: Vec<NotRendered>,
+    /// The directories the plan's files would be the first in (ADR 0306), shallowest first.
+    pub dirs: Vec<String>,
+    /// Per config file, the containers install created in it, as the merge leaves them (ADR 0306).
+    pub made: BTreeMap<String, Vec<Vec<String>>>,
 }
 
 impl HostPlan {
@@ -120,6 +130,7 @@ pub fn plan(
     disk: &dyn HostDisk,
     force: bool,
     command: &str,
+    record: &Record,
 ) -> HostPlan {
     let host = renderer.host();
     let mut out = HostPlan {
@@ -127,6 +138,8 @@ pub fn plan(
         files: Vec::new(),
         refused: Vec::new(),
         not_rendered: tree.not_rendered.clone(),
+        dirs: Vec::new(),
+        made: BTreeMap::new(),
     };
     let mut wanted = BTreeSet::new();
     for file in &tree.owned {
@@ -162,9 +175,29 @@ pub fn plan(
             .filter(|m| m.path == path)
             .flat_map(|m| m.entries.clone())
             .collect();
-        merged_file(&mut out, renderer, &path, &entries, disk);
+        let made = record.made.get(&path).map_or(&[][..], Vec::as_slice);
+        merged_file(&mut out, renderer, (&path, &entries, made), disk);
     }
     out.files.sort_by(|a, b| a.path.cmp(&b.path));
+    // A directory a created file stands in that is not there yet is install's (ADR 0306).
+    for file in out.files.iter().filter(|f| f.action == Action::Create) {
+        let mut at = String::new();
+        for part in file
+            .path
+            .split('/')
+            .collect::<Vec<_>>()
+            .split_last()
+            .map_or(&[][..], |(_, dirs)| dirs)
+        {
+            if !at.is_empty() {
+                at.push('/');
+            }
+            at.push_str(part);
+            if !out.dirs.contains(&at) && !disk.is_dir(&at) {
+                out.dirs.push(at.clone());
+            }
+        }
+    }
     out.refused.sort_by(|a, b| a.path.cmp(&b.path));
     out
 }
@@ -259,8 +292,7 @@ fn owned_file(
 fn merged_file(
     out: &mut HostPlan,
     renderer: &dyn HostRenderer,
-    path: &str,
-    entries: &[MergedEntry],
+    (path, entries, made): (&str, &[MergedEntry], &[Vec<String>]),
     disk: &dyn HostDisk,
 ) {
     let now = match disk.read(path) {
@@ -274,7 +306,7 @@ fn merged_file(
             return;
         }
     };
-    let merged = match renderer.merge(path, now.as_deref(), entries) {
+    let merged = match renderer.merge(path, now.as_deref(), entries, made) {
         Ok(merged) => merged,
         Err(why) => {
             out.refused.push(refuse(
@@ -286,6 +318,9 @@ fn merged_file(
         }
     };
     out.not_rendered.extend(merged.not_rendered);
+    if !merged.made.is_empty() {
+        out.made.insert(path.to_string(), merged.made);
+    }
     let action = match (&now, &merged.text) {
         (None, None) => return,
         (None, Some(_)) => Action::Create,
@@ -321,6 +356,9 @@ pub(crate) mod memory {
                 .filter(|p| p.starts_with(&format!("{dir}/")))
                 .cloned()
                 .collect()
+        }
+        fn is_dir(&self, path: &str) -> bool {
+            self.0.keys().any(|p| p.starts_with(&format!("{path}/")))
         }
     }
 }
@@ -359,6 +397,7 @@ mod tests {
             _: &str,
             existing: Option<&str>,
             entries: &[MergedEntry],
+            _: &[Vec<String>],
         ) -> Result<Merged, String> {
             let mut doc: serde_json::Map<String, serde_json::Value> = match existing {
                 Some(text) => serde_json::from_str(text).map_err(|e| e.to_string())?,
@@ -371,7 +410,7 @@ mod tests {
             let text = (!doc.is_empty()).then(|| format!("{}\n", serde_json::Value::Object(doc)));
             Ok(Merged {
                 text,
-                not_rendered: Vec::new(),
+                ..Merged::default()
             })
         }
         fn event_name(&self, _: HookEvent) -> Option<&'static str> {
@@ -450,7 +489,7 @@ mod tests {
             (d, marked("d", "y")),
             (".claude/agents/f.md", marked("f", "fresh")),
         ]);
-        let plan = plan(&Fake, &wanted, &disk, false, "install");
+        let plan = plan(&Fake, &wanted, &disk, false, "install", &Record::default());
         assert_eq!(action(&plan, a), Some(Action::Unchanged));
         assert_eq!(action(&plan, b), Some(Action::Update));
         assert_eq!(action(&plan, e), Some(Action::Remove));
@@ -466,7 +505,7 @@ mod tests {
             [(c, RefusalCode::EditedFile), (d, RefusalCode::ForeignFile)]
         );
         // `force` rewrites an edit of install's and never a foreign file.
-        let forced = super::plan(&Fake, &wanted, &disk, true, "install");
+        let forced = super::plan(&Fake, &wanted, &disk, true, "install", &Record::default());
         assert_eq!(action(&forced, c), Some(Action::Update));
         assert_eq!(forced.refused.len(), 1);
         assert_eq!(forced.refused[0].code, RefusalCode::ForeignFile);
@@ -476,14 +515,21 @@ mod tests {
     fn a_config_file_that_is_no_document_is_refused_and_one_of_ours_alone_goes() {
         let mut disk = Memory::default();
         disk.0.insert(".mcp.json".into(), "{ nope".into());
-        let plan = plan(&Fake, &tree(&[]), &disk, false, "install");
+        let plan = plan(
+            &Fake,
+            &tree(&[]),
+            &disk,
+            false,
+            "install",
+            &Record::default(),
+        );
         assert_eq!(plan.refused[0].code, RefusalCode::UnreadableConfig);
         let mut disk = Memory::default();
         disk.0.insert(".mcp.json".into(), "{\"ours\":1}\n".into());
         let none = HostTree::default();
         assert_eq!(
             action(
-                &super::plan(&Fake, &none, &disk, false, "install"),
+                &super::plan(&Fake, &none, &disk, false, "install", &Record::default()),
                 ".mcp.json"
             ),
             Some(Action::Remove)
@@ -509,7 +555,7 @@ mod tests {
                 }
             }
             let wanted = tree(&files.iter().map(|(p, t)| (p.as_str(), t.clone())).collect::<Vec<_>>());
-            let first = plan(&Fake, &wanted, &disk, false, "install");
+            let first = plan(&Fake, &wanted, &disk, false, "install", &Record::default());
             prop_assert!(first.refused.is_empty());
             for file in &first.files {
                 match &file.after {
@@ -517,8 +563,62 @@ mod tests {
                     None => { disk.0.remove(&file.path); }
                 }
             }
-            let second = plan(&Fake, &wanted, &disk, false, "install");
+            let second = plan(&Fake, &wanted, &disk, false, "install", &Record::default());
             prop_assert!(second.files.iter().all(|f| f.action == Action::Unchanged), "{:?}", second.files);
         });
+    }
+
+    #[test]
+    fn a_forged_record_cannot_name_a_user_dir() {
+        let record = json!({
+            "format": 1,
+            "dirs": ["src", ".claude/../src", ".claude/agents", "/etc"],
+            "made": {"package.json": [[]], ".mcp.json": [["mcpServers"]]},
+        });
+        let mut disk = Memory::default();
+        disk.0.insert(
+            super::super::record::path(Host::ClaudeCode),
+            record.to_string(),
+        );
+        let read = Record::read(&disk, &Fake);
+        assert_eq!(read.dirs, [".claude/agents".to_string()]);
+        assert_eq!(read.made.keys().collect::<Vec<_>>(), [".mcp.json"]);
+        // Not a record at all, or one of another format: no record, so uninstall keeps more, never less.
+        for bad in ["{", "[]", r#"{"format": 2, "dirs": [".claude"]}"#] {
+            let mut disk = Memory::default();
+            disk.0.insert(
+                super::super::record::path(Host::ClaudeCode),
+                bad.to_string(),
+            );
+            assert_eq!(Record::read(&disk, &Fake), Record::default(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_record_reads_back_what_it_renders() {
+        let record = Record {
+            dirs: vec![".claude".into(), ".claude/agents".into()],
+            made: BTreeMap::from([(
+                ".mcp.json".to_string(),
+                vec![vec![], vec!["mcpServers".to_string()]],
+            )]),
+        };
+        let mut disk = Memory::default();
+        disk.0.insert(
+            super::super::record::path(Host::ClaudeCode),
+            record.render(),
+        );
+        assert_eq!(Record::read(&disk, &Fake), record);
+    }
+
+    #[test]
+    fn a_plan_lists_the_directories_it_would_create() {
+        let mut disk = Memory::default();
+        disk.0
+            .insert(".claude/agents/old.md".into(), marked("old", "x"));
+        let wanted = tree(&[(".claude/skills/s/SKILL.md", marked("s", "y"))]);
+        let planned = plan(&Fake, &wanted, &disk, false, "install", &Record::default());
+        // `.claude` is there already; the skills directories are not.
+        assert_eq!(planned.dirs, [".claude/skills", ".claude/skills/s"]);
     }
 }

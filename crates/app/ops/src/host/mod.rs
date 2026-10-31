@@ -9,11 +9,12 @@ pub mod install;
 pub mod marker;
 pub mod owned;
 pub mod port;
+pub mod record;
 pub mod render;
 pub mod shell;
 pub mod state;
 
-pub use owned::{config_path, link_in, owned_path};
+pub use owned::{config_path, layout_dir, link_in, owned_path};
 pub use port::{
     HOOK_MARK, HookAnswer, HookReadError, HostHookEvent, HostRenderer, HostReply, HostTree, Merged,
     MergedEntry, MergedFile, ModelChoice, NotRendered, OwnedFile, Rendered, RenderedAgent,

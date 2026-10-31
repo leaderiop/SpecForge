@@ -214,15 +214,17 @@ impl HostRenderer for Codex {
         path: &str,
         existing: Option<&str>,
         entries: &[MergedEntry],
+        made: &[Vec<String>],
     ) -> Result<Merged, String> {
         if path.ends_with(".toml") {
             toml_merge::merge(
                 existing,
                 entries,
                 &[(&["mcp_servers"], "specforge"), (&["features"], "hooks")],
+                made,
             )
         } else {
-            json_merge::merge(existing, entries, &[], &[])
+            json_merge::merge(existing, entries, &[], &[], made)
         }
     }
 

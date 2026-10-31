@@ -249,13 +249,14 @@ fn cuts_for(children: &[(usize, usize)], removed: &[bool]) -> Vec<Cut> {
 }
 
 /// The cuts that take the entries of ours out of `node`, and whether that leaves `node` with nothing (it then goes
-/// whole with its parent's cut, not by its own). Only the places install writes are searched: `hooks.<Event>[]` and
+/// whole with its parent's cut if install `made` it, else it stays, empty). Only the places install writes are searched: `hooks.<Event>[]` and
 /// the `named` places.
 fn strip(
     text: &str,
     node: &Node,
     path: &mut Vec<String>,
     named: &[Named<'_>],
+    made: &[Vec<String>],
     ours: &mut Ours,
 ) -> (Vec<Cut>, bool) {
     let in_hooks = path.first().is_some_and(|k| k == "hooks");
@@ -290,8 +291,9 @@ fn strip(
                         place.len() <= keys.len() && keys[..place.len()].iter().eq(place.iter())
                     });
                 if wanted {
-                    let (inner, emptied) = strip(text, child, path, named, ours);
-                    if emptied {
+                    let (inner, emptied) = strip(text, child, path, named, made, ours);
+                    // A container left empty goes only when install created it (ADR 0306); else it stays, empty.
+                    if emptied && made.contains(path) {
                         removed[n] = true;
                     } else {
                         cuts.extend(inner);
@@ -474,17 +476,25 @@ fn add(text: &str, at: &Node, depth: usize, item: &dyn Fn(&str, &str) -> String)
 }
 
 /// Insert `entry` into the document `text`: the container is created if it is missing.
-fn insert(text: &str, entry: &MergedEntry, wrap_multiline: bool) -> Result<String, String> {
+/// Also the containers it created, as key paths.
+fn insert(
+    text: &str,
+    entry: &MergedEntry,
+    wrap_multiline: bool,
+) -> Result<(String, Vec<Vec<String>>), String> {
     let root = parse(text)?;
     let (container, missing) = descend(&root, text, &entry.keys);
     let depth = entry.keys.len() - missing.len();
+    let created: Vec<Vec<String>> = (depth + 1..=entry.keys.len())
+        .map(|k| entry.keys[..k].to_vec())
+        .collect();
     let mut value = entry.value.clone();
     // The missing levels, innermost first, wrapped around the entry.
     if let Some(name) = &entry.name {
         if let (true, Kind::Object(members)) = (missing.is_empty(), &container.kind)
             && members.iter().any(|m| m.key == *name)
         {
-            return Ok(text.to_string());
+            return Ok((text.to_string(), created));
         }
         let mut wrapped = serde_json::Map::new();
         wrapped.insert(name.clone(), value);
@@ -497,7 +507,7 @@ fn insert(text: &str, entry: &MergedEntry, wrap_multiline: bool) -> Result<Strin
                 entry.value.to_string()
             }
         };
-        return Ok(add(text, container, depth, &line));
+        return Ok((add(text, container, depth, &line), created));
     } else {
         value = Value::Array(vec![value]);
     }
@@ -519,7 +529,7 @@ fn insert(text: &str, entry: &MergedEntry, wrap_multiline: bool) -> Result<Strin
             };
             format!("{}: {text}", Value::String(name.clone()))
         };
-        return Ok(add(text, container, depth, &line));
+        return Ok((add(text, container, depth, &line), created));
     }
     for key in path.by_ref() {
         let mut map = serde_json::Map::new();
@@ -535,18 +545,20 @@ fn insert(text: &str, entry: &MergedEntry, wrap_multiline: bool) -> Result<Strin
         };
         format!("{}: {text}", Value::String(first.clone()))
     };
-    Ok(add(text, container, depth, &line))
+    Ok((add(text, container, depth, &line), created))
 }
 
 /// `existing` with the entries of ours replaced by `entries`, everything else untouched; see the module docs.
 /// `scaffold` is the root keys, with the value install writes, that are not content: a file holding only them, so
 /// valued, is as good as empty. `named` are the places a named entry of ours may stand (also searched by uninstall,
-/// which passes no entries).
+/// which passes no entries). `made` are the containers an earlier install created in the file (`[]`: the file itself):
+/// an emptied one goes, any other stays; the result's `made` is them and what this merge creates (ADR 0306).
 pub fn merge(
     existing: Option<&str>,
     entries: &[MergedEntry],
     scaffold: &[(&str, Value)],
     named: &[Named<'_>],
+    made: &[Vec<String>],
 ) -> Result<Merged, String> {
     let blank = existing.is_none_or(|t| t.trim().is_empty());
     let mut text = if blank {
@@ -621,7 +633,7 @@ pub fn merge(
     }
     // Nothing to change: what is ours is exactly what is wanted.
     let mut ours = Ours::default();
-    let (cuts, _) = strip(&text, &root, &mut Vec::new(), named, &mut ours);
+    let (cuts, _) = strip(&text, &root, &mut Vec::new(), named, made, &mut ours);
     let is_scaffold = |e: &&MergedEntry| {
         e.name
             .as_deref()
@@ -651,13 +663,26 @@ pub fn merge(
         return Ok(Merged {
             text: Some(text),
             not_rendered,
+            made: made.to_vec(),
         });
     }
     text = apply(&text, cuts);
+    let mut made_out: Vec<Vec<String>> = if entries.is_empty() {
+        Vec::new()
+    } else {
+        made.to_vec()
+    };
+    if existing.is_none() && !entries.is_empty() {
+        made_out.push(Vec::new());
+    }
     let multiline = blank || text.trim().contains('\n');
     for entry in &wanted {
-        text = insert(&text, entry, multiline)?;
+        let (next, created) = insert(&text, entry, multiline)?;
+        text = next;
+        made_out.extend(created);
     }
+    made_out.sort();
+    made_out.dedup();
     let root = parse(&text)?;
     let Kind::Object(members) = &root.kind else {
         return Err("the document is not an object".to_string());
@@ -667,15 +692,18 @@ pub fn merge(
             .iter()
             .any(|(k, v)| *k == m.key && *v == value_of(&text, &m.value))
     }) && wanted.is_empty()
+        && (existing.is_none() || made.iter().any(Vec::is_empty))
     {
         return Ok(Merged {
             text: None,
             not_rendered,
+            made: Vec::new(),
         });
     }
     Ok(Merged {
         text: Some(text),
         not_rendered,
+        made: made_out,
     })
 }
 

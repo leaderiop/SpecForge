@@ -45,7 +45,10 @@ Install writes a file, or an entry in a shared config file, only when it can rec
   in `config.toml`). A hook of yours that only mentions `specforge hook` is yours, and stays.
 - Everything else is never written, moved or removed: your own hooks, other MCP servers, settings, hand-written agents.
   Uninstall strips only what install marked, and deletes a config file only if install created it and nothing else is
-  left in it.
+  left in it. What install created is kept in `.specforge/install/<host>.json` ([ADR 0306](../adr/0306-install-refuses-an-unusable-specforge-json-and-uninstall-removes-only-what-install-created.md)):
+  uninstall also removes the directories install made (the host's own folder, such as `.claude/`, included, once empty)
+  and the containers it made inside a config file (`mcpServers`, `hooks`), once empty. A directory or container that
+  was already there stays. A project installed before the record existed keeps them: nothing is guessed.
 - Install never follows a link. A symbolic link where it would write or remove a file, or in the path to it (a linked
   `.claude/`, a dangling `agents/x.md`), is refused and nothing is written.
 
@@ -60,7 +63,7 @@ Install writes a file, or an entry in a shared config file, only when it can rec
 
 Refusals are reported together and nothing is written. Otherwise the plan is one change under the project's write
 lock, journaled like any other write: a kill in the middle is put back by the next writer. Uninstall plans the removal
-of every marked file and owned entry, and an emptied `skills/<id>/` directory goes with them.
+of every marked file and owned entry, and an emptied `skills/<id>/` directory goes with them, as does the record.
 
 ## Drift
 

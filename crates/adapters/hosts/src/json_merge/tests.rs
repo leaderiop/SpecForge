@@ -22,7 +22,17 @@ fn hook(event: &str, route: &str) -> MergedEntry {
 const NAMED: &[super::Named<'static>] = &[(&["mcpServers"], "specforge"), (&[], "statusLine")];
 
 fn text(existing: Option<&str>, entries: &[MergedEntry]) -> Option<String> {
-    merge(existing, entries, &[], NAMED).unwrap().text
+    merge(existing, entries, &[], NAMED, &[]).unwrap().text
+}
+
+/// What an install of `entries` into `existing` created.
+fn made(existing: Option<&str>, entries: &[MergedEntry]) -> Vec<Vec<String>> {
+    merge(existing, entries, &[], NAMED, &[]).unwrap().made
+}
+
+/// `with` after an uninstall that knows what the install `made`.
+fn strip(with: &str, made: &[Vec<String>]) -> Option<String> {
+    merge(Some(with), &[], &[], NAMED, made).unwrap().text
 }
 
 #[test]
@@ -47,7 +57,7 @@ fn json_merge_leaves_a_users_file_byte_for_byte_after_a_round_trip() {
         let entries = [mcp(), hook("PreToolUse", "t.a"), hook("Stop", "t.b")];
         let with = text(Some(original), &entries).unwrap();
         assert_ne!(with, original);
-        let without = text(Some(&with), &[]).unwrap();
+        let without = strip(&with, &made(Some(original), &entries)).unwrap();
         assert_eq!(without, original, "after {with}");
         // Merging again changes nothing.
         assert_eq!(text(Some(&with), &entries).unwrap(), with);
@@ -56,8 +66,9 @@ fn json_merge_leaves_a_users_file_byte_for_byte_after_a_round_trip() {
 
 #[test]
 fn json_merge_removes_a_file_that_only_held_our_entries() {
-    let with = text(None, &[mcp(), hook("PreToolUse", "t.a")]).unwrap();
-    assert_eq!(text(Some(&with), &[]), None);
+    let entries = [mcp(), hook("PreToolUse", "t.a")];
+    let with = text(None, &entries).unwrap();
+    assert_eq!(strip(&with, &made(None, &entries)), None);
 }
 
 #[test]
@@ -78,6 +89,7 @@ fn json_merge_does_not_take_a_name_the_user_set() {
         &[mcp()],
         &[],
         NAMED,
+        &[],
     )
     .unwrap();
     assert_eq!(merged.not_rendered.len(), 1);
@@ -86,8 +98,8 @@ fn json_merge_does_not_take_a_name_the_user_set() {
 
 #[test]
 fn json_merge_refuses_what_is_no_json_object() {
-    assert!(merge(Some("[1]"), &[mcp()], &[], NAMED).is_err());
-    assert!(merge(Some("{\"a\": "), &[mcp()], &[], NAMED).is_err());
+    assert!(merge(Some("[1]"), &[mcp()], &[], NAMED, &[]).is_err());
+    assert!(merge(Some("{\"a\": "), &[mcp()], &[], NAMED, &[]).is_err());
 }
 
 #[test]
@@ -98,28 +110,30 @@ fn json_merge_keeps_a_scaffold_key_only_while_something_else_stands() {
         value: json!(1),
     };
     let entries = [version, hook("preToolUse", "t.a")];
-    let with = merge(None, &entries, &[("version", json!(1))], &[])
-        .unwrap()
-        .text
-        .unwrap();
+    let first = merge(None, &entries, &[("version", json!(1))], &[], &[]).unwrap();
+    let with = first.text.unwrap();
     assert!(with.contains("\"version\": 1"));
     assert_eq!(
-        merge(Some(&with), &[], &[("version", json!(1))], &[])
+        merge(Some(&with), &[], &[("version", json!(1))], &[], &first.made)
             .unwrap()
             .text,
         None
     );
     let mine = "{\n  \"version\": 2\n}\n";
-    let kept = merge(Some(mine), &entries, &[("version", json!(1))], &[])
-        .unwrap()
-        .text
-        .unwrap();
+    let second = merge(Some(mine), &entries, &[("version", json!(1))], &[], &[]).unwrap();
+    let kept = second.text.unwrap();
     assert!(kept.contains("\"version\": 2"));
     assert_eq!(
-        merge(Some(&kept), &[], &[("version", json!(1))], &[])
-            .unwrap()
-            .text
-            .unwrap(),
+        merge(
+            Some(&kept),
+            &[],
+            &[("version", json!(1))],
+            &[],
+            &second.made
+        )
+        .unwrap()
+        .text
+        .unwrap(),
         mine
     );
 }
@@ -143,9 +157,10 @@ fn a_users_hook_beside_ours_in_one_group_survives_update_and_uninstall() {
 #[test]
 fn a_users_own_specforge_command_is_not_ours_unless_marked_or_named() {
     let mine = "{\n  \"mcpServers\": {\n    \"mine\": {\"command\": \"specforge\", \"args\": [\"mcp\", \"/other\"]}\n  },\n  \"hooks\": {\"Stop\": [{\"hooks\": [{\"command\": \"specforge hook mine.x --host claude-code\"}]}]}\n}\n";
-    let with = text(Some(mine), &[mcp(), hook("PreToolUse", "t.a")]).unwrap();
+    let entries = [mcp(), hook("PreToolUse", "t.a")];
+    let with = text(Some(mine), &entries).unwrap();
     assert!(with.contains("/other") && with.contains("mine.x"));
-    let without = text(Some(&with), &[]).unwrap();
+    let without = strip(&with, &made(Some(mine), &entries)).unwrap();
     assert_eq!(without, mine);
 }
 
@@ -156,6 +171,7 @@ fn a_scalar_where_install_needs_an_object_is_refused_not_shadowed() {
         &[hook("Stop", "t.a")],
         &[],
         NAMED,
+        &[],
     );
     assert!(err.is_err());
 }
@@ -163,7 +179,7 @@ fn a_scalar_where_install_needs_an_object_is_refused_not_shadowed() {
 #[test]
 fn a_container_of_the_wrong_kind_is_refused_by_name() {
     let refused = |existing: &str, entries: &[MergedEntry]| {
-        merge(Some(existing), entries, &[], NAMED).unwrap_err()
+        merge(Some(existing), entries, &[], NAMED, &[]).unwrap_err()
     };
     assert_eq!(
         refused("{\"mcpServers\": []}", &[mcp()]),
@@ -180,4 +196,20 @@ fn a_container_of_the_wrong_kind_is_refused_by_name() {
         ),
         "'hooks.PreToolUse' is an object, and install needs an array there"
     );
+}
+
+#[test]
+fn a_container_install_did_not_create_stays_when_emptied() {
+    let existing = "{\"mcpServers\": {}}\n";
+    let merged = merge(Some(existing), &[mcp()], &[], NAMED, &[]).unwrap();
+    assert!(merged.made.is_empty(), "{:?}", merged.made);
+    let with = merged.text.unwrap();
+    assert_eq!(strip(&with, &merged.made).as_deref(), Some(existing));
+}
+
+#[test]
+fn a_file_install_created_goes_when_emptied() {
+    let merged = merge(None, &[mcp()], &[], NAMED, &[]).unwrap();
+    assert_eq!(merged.made, [vec![], vec!["mcpServers".to_string()]]);
+    assert_eq!(strip(&merged.text.unwrap(), &merged.made), None);
 }

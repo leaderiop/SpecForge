@@ -145,7 +145,8 @@ fn restorable(entry: &Entry) -> bool {
         || entry.path == ".gitattributes"
         || entry.path == crate::config::CONFIG_FILE
         || crate::host::owned_path(&entry.path)
-        || entry.path.starts_with(".specforge/state/");
+        || entry.path.starts_with(".specforge/state/")
+        || entry.path.starts_with(".specforge/install/");
     let digest = entry.after == ABSENT
         || entry.after.strip_prefix("sha256:").is_some_and(|hex| {
             hex.len() == 64 && hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))

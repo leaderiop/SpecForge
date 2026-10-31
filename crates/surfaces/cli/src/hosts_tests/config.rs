@@ -151,7 +151,6 @@ fn uninstall_of_an_edited_file_names_uninstall_force() {
     behavior = "install_into_a_host",
     verify = "uninstall removes only what install created: a config file, a key and a directory the user had stay"
 )]
-#[ignore = "pins K20a; T12 un-ignores"]
 fn uninstall_keeps_what_the_user_had_before_install() {
     let p = project(json!({}), json!({}));
     p.write(".claude/settings.json", "{}\n");
@@ -171,7 +170,6 @@ fn uninstall_keeps_what_the_user_had_before_install() {
     behavior = "install_into_a_host",
     verify = "uninstall removes the empty host directories install created, the host's root included"
 )]
-#[ignore = "pins K20a; T12 un-ignores"]
 fn uninstall_removes_the_host_folder_it_created() {
     let p = project(json!({}), json!({}));
     assert_eq!(install(&p, &HOSTS, &[]).code, 0);
