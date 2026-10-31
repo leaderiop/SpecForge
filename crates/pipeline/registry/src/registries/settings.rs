@@ -303,16 +303,17 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
         }
         *codes = catalogued;
     }
-    if let Some(code) = setting
+    // A code gated both ways would never be reported: each is W021 and goes from `gates_when_on` (ADR 0305 D1).
+    let both: Vec<String> = setting
         .gates
         .iter()
-        .find(|code| setting.gates_when_on.contains(code))
-    {
+        .filter(|code| setting.gates_when_on.contains(code))
+        .cloned()
+        .collect();
+    for code in both {
         found.w021(format!(
             "setting '{name}' gates '{code}' both while it is on and while it is off: it would never be reported"
         ));
-        let code = code.clone();
-        setting.gates.retain(|c| *c != code);
         setting.gates_when_on.retain(|c| *c != code);
     }
     out.settings.push(DeclaredSetting {
