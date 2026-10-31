@@ -61,7 +61,7 @@
     "",
     "<step name=\"load_state\">"
   ],
-  "bytes": 21307,
+  "bytes": 21283,
   "end": [
     "",
     "",
@@ -171,8 +171,8 @@
     "  orchestrator never records a verdict on a judge's behalf.",
     "- **A refused call** (`gate_failed`, `human_only`, `stale_revision`, `invalid_input`) is reported to the user with its",
     "  message. Never edit the spec to get around it.",
-    "- **An agent that `@gsd/core` does not install** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
-    "  `gsd-security-auditor`, `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
+    "- **An agent this host does not have installed** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
+    "  `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
     "- **Spawning an agent** on this host: as the adapter header above says (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:b6069a33f5c84b04fe5255a0ae9033e0c77797f6ee374d81c3f29cc6efbd264c",
+    "digest": "sha256:e74f9c513ec1faeef48b5ff2c63d5500f6f60a2bea5b5c52b42dc22b91a91e50",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "b6069a33f5c84b04fe5255a0ae9033e0c77797f6ee374d81c3f29cc6efbd264c"
+  "sha256": "e74f9c513ec1faeef48b5ff2c63d5500f6f60a2bea5b5c52b42dc22b91a91e50"
 }

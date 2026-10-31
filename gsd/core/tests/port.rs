@@ -265,6 +265,12 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-integration-checker.md", 97),
     ("gsd-integration-checker.compact.md", 75),
     ("gsd-integration-checker.compact.md", 77),
+    // Plan 16 T6 [security-absent-off]: the threat-model lines apply when @gsd/security is loaded.
+    ("gsd-planner.md", 370),
+    ("gsd-planner.md", 444),
+    ("gsd-planner.md", 978),
+    ("gsd-phase-researcher.md", 189),
+    ("gsd-phase-researcher.md", 471),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.
@@ -561,6 +567,10 @@ fn every_specforge_new_and_set_a_body_gives_fits_the_kind() {
     for file in RUNNABLE {
         for (n, words) in invocations(file, "new") {
             let Some(kind) = words.first() else { continue };
+            // `@gsd/security`'s kinds, named by the planner (plan 16 T6).
+            if ["trust_boundary", "threat"].contains(&kind.as_str()) {
+                continue;
+            }
             let fields = kinds
                 .get(kind)
                 .unwrap_or_else(|| panic!("{file}:{n}: `specforge new {kind}`: no such kind"));
@@ -624,4 +634,33 @@ fn every_specforge_new_and_set_a_body_gives_fits_the_kind() {
         complete >= 3,
         "only {complete} whole `specforge new` examples"
     );
+}
+
+/// Plan 16 T6 `[security-absent-off]`: the agents' threat-model lines apply when `@gsd/security` is loaded.
+#[test]
+fn threat_model_lines_name_the_security_kinds() {
+    let when = "when `@gsd/security` is loaded and `workflow.security_enforcement` is on";
+    for file in ["gsd-planner.md", "gsd-phase-researcher.md"] {
+        let text = read(&assets_dir().join(file));
+        let mut seen = 0;
+        for line in text.lines().filter(|l| l.contains("security_enforcement")) {
+            assert!(line.contains(when), "{file}: {line}");
+            assert!(!line.contains("absent = enabled"), "{file}: {line}");
+            seen += 1;
+        }
+        assert!(seen >= 2, "{file}: only {seen} security_enforcement lines");
+    }
+    let planner = read(&assets_dir().join("gsd-planner.md"));
+    let lines: Vec<&str> = planner.lines().collect();
+    let close = lines
+        .iter()
+        .position(|l| *l == "</threat_model>")
+        .expect("the template");
+    let named = lines[close + 1];
+    for word in ["`trust_boundary`", "`threat`", "`specforge new threat"] {
+        assert!(named.contains(word), "{word} is not in: {named}");
+    }
+    let preamble = read(&assets_dir().join("../../../kit/src/prompt/preamble.rs"));
+    assert!(preamble.contains("An agent this host does not have installed"));
+    assert!(!preamble.contains("`gsd-security-auditor`"));
 }

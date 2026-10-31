@@ -37,6 +37,8 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 245),
     // REVIEW-r42 N5: the ship ledger is the milestone's, as the query below it reads.
     ("gsd-core/workflows/ship.md", 135),
+    // Plan 16 T6 [security-absent-off]: the threat-ID numbering rule applies when @gsd/security is loaded.
+    ("gsd-core/references/planner-gap-closure.md", 63),
     // Plan 16 T5: the security branches read @gsd/security's gate and threat-ID answers, not a SECURITY.md file.
     ("gsd-core/workflows/ship.md", 112),
     ("gsd-core/workflows/ship.md", 123),

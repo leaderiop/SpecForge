@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 11201,
+  "bytes": 11177,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -136,8 +136,8 @@
     "  orchestrator never records a verdict on a judge's behalf.",
     "- **A refused call** (`gate_failed`, `human_only`, `stale_revision`, `invalid_input`) is reported to the user with its",
     "  message. Never edit the spec to get around it.",
-    "- **An agent that `@gsd/core` does not install** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
-    "  `gsd-security-auditor`, `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
+    "- **An agent this host does not have installed** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
+    "  `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
     "- **Spawning an agent** on this host: as the adapter header above says (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
@@ -153,8 +153,8 @@
   ],
   "lines": 222,
   "payload": {
-    "digest": "sha256:d9f54e853349d3a44ee874b4193a0485168be5bb0ed29541a560517cef7a50fc",
+    "digest": "sha256:67ec4ab393d3c59173a230e9265ec8fc1b0f60c663e6ac243d6d9cf1a930de9f",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "d9f54e853349d3a44ee874b4193a0485168be5bb0ed29541a560517cef7a50fc"
+  "sha256": "67ec4ab393d3c59173a230e9265ec8fc1b0f60c663e6ac243d6d9cf1a930de9f"
 }

@@ -104,8 +104,8 @@ Check the spec with `specforge check`. Create and edit with `specforge new <kind
   orchestrator never records a verdict on a judge's behalf.
 - **A refused call** (`gate_failed`, `human_only`, `stale_revision`, `invalid_input`) is reported to the user with its
   message. Never edit the spec to get around it.
-- **An agent that `@gsd/core` does not install** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,
-  `gsd-security-auditor`, `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.
+- **An agent this host does not have installed** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,
+  `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.
 - **Spawning an agent** on this host: {spawn}. The model is the installed agent's own: skip any model resolution.
 - **References** the workflow names are read with `specforge gsd reference <path>`.
 - **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names

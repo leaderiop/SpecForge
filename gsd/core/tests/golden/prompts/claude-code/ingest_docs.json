@@ -61,7 +61,7 @@
     "  test -f \"{MANIFEST_PATH}\" || echo \"MANIFEST_NOT_FOUND\"",
     "fi"
   ],
-  "bytes": 43151,
+  "bytes": 43127,
   "end": [
     "1. **Its own check list per bucket** — which conditions are BLOCKER vs WARNING vs INFO. These are domain-specific (plan ingestion checks are not doc ingestion checks).",
     "2. **The loaded context** — what it reads (ROADMAP.md, PROJECT.md, REQUIREMENTS.md, CONTEXT.md, intel files) before running checks.",
@@ -152,8 +152,8 @@
     "  orchestrator never records a verdict on a judge's behalf.",
     "- **A refused call** (`gate_failed`, `human_only`, `stale_revision`, `invalid_input`) is reported to the user with its",
     "  message. Never edit the spec to get around it.",
-    "- **An agent that `@gsd/core` does not install** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
-    "  `gsd-security-auditor`, `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
+    "- **An agent this host does not have installed** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
+    "  `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
     "- **Spawning an agent** on this host: `Task(subagent_type=\"gsd-<name>\", ...)` (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:47f88e8cddc7441185a1713b63137015db5c8627d7701e8fc7de938d6044238e",
+    "digest": "sha256:480ac3a083752566b5fe530c6bea97f9f3535cd8a74509d49491edc4f8d99901",
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "47f88e8cddc7441185a1713b63137015db5c8627d7701e8fc7de938d6044238e"
+  "sha256": "480ac3a083752566b5fe530c6bea97f9f3535cd8a74509d49491edc4f8d99901"
 }

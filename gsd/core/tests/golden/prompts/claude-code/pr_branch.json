@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 34120,
+  "bytes": 34096,
   "end": [
     "",
     "Or use /gsd-ship to create the PR automatically.",
@@ -152,8 +152,8 @@
     "  orchestrator never records a verdict on a judge's behalf.",
     "- **A refused call** (`gate_failed`, `human_only`, `stale_revision`, `invalid_input`) is reported to the user with its",
     "  message. Never edit the spec to get around it.",
-    "- **An agent that `@gsd/core` does not install** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
-    "  `gsd-security-auditor`, `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
+    "- **An agent this host does not have installed** (`gsd-debugger`, `gsd-ui-researcher`, `gsd-ui-checker`,",
+    "  `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.",
     "- **Spawning an agent** on this host: `Task(subagent_type=\"gsd-<name>\", ...)` (the agent is the installed `gsd-<name>`). The model is the installed agent's own: skip any model resolution.",
     "- **References** the workflow names are read with `specforge gsd reference <path>`.",
     "- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:b7b0dcddae2d1377b0d723d7ac92b9f47cca5f0a85f739a55ad4b219b97dcde5",
+    "digest": "sha256:1be0ce264b99d486f59113b06fc1e5505ddc31729af3f00ffb6000dfd389b8e2",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "b7b0dcddae2d1377b0d723d7ac92b9f47cca5f0a85f739a55ad4b219b97dcde5"
+  "sha256": "1be0ce264b99d486f59113b06fc1e5505ddc31729af3f00ffb6000dfd389b8e2"
 }

@@ -71,6 +71,9 @@ const VERBS: &[&str] = &[
     "schema", "set", "settings",
 ];
 
+/// Commands of `@gsd/security` that core's text asks for when it is loaded (plan 16 T5, T6).
+const EXTENSION_COMMANDS: &[&str] = &["security-gate", "threat-ids"];
+
 #[test]
 fn a_ported_line_names_only_declared_tools() {
     let declaration = gsd_core::build().declaration();
@@ -100,7 +103,9 @@ fn a_ported_line_names_only_declared_tools() {
                     // a bare `specforge gsd` names the namespace
                     let name = cap.get(2).map_or("", |m| m.as_str());
                     assert!(
-                        name.is_empty() || commands.iter().any(|c| c == name),
+                        name.is_empty()
+                            || EXTENSION_COMMANDS.contains(&name)
+                            || commands.iter().any(|c| c == name),
                         "{path}:{n}: `specforge gsd {name}` is not a declared command"
                     );
                 }

@@ -61,7 +61,7 @@
     "echo \"$GSD_ARGS\" | grep -qE '\\-\\-ws\\s+\\S+' && GSD_WS=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-ws\\s+\\S+')",
     "```"
   ],
-  "bytes": 84501,
+  "bytes": 84477,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:e04bc783d756e5aa826823033d5e00747a0d37a135e1857ff57334c775af01d1",
+    "digest": "sha256:27762488b77c1738267a9df6ad1725976838cdd0b6a74060c6cf1dd76724968f",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "e04bc783d756e5aa826823033d5e00747a0d37a135e1857ff57334c775af01d1"
+  "sha256": "27762488b77c1738267a9df6ad1725976838cdd0b6a74060c6cf1dd76724968f"
 }

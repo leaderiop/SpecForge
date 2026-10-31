@@ -188,7 +188,7 @@ Every finding carries **exactly one** tag; an untagged finding is routed to the 
 @~/.claude/gsd-core/references/research-verification-protocol.md
 
 - [ ] **If rename/refactor phase:** Runtime State Inventory completed — all 5 categories answered explicitly (not left blank)
-- [ ] Security domain included (or `security_enforcement: false` confirmed)
+- [ ] Security domain included (when `@gsd/security` is loaded and `workflow.security_enforcement` is on)
 - [ ] ASVS categories verified against phase tech stack
 
 </verification_protocol>
@@ -470,7 +470,7 @@ Verified patterns from official sources:
 
 ## Security Domain
 
-> Required when `security_enforcement` is enabled (absent = enabled). Omit only if explicitly `false` in config.
+> Required when `@gsd/security` is loaded and `workflow.security_enforcement` is on. Omit otherwise.
 
 ### Applicable ASVS Categories
 

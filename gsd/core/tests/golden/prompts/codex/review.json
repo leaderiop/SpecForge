@@ -61,7 +61,7 @@
     "# jq prerequisite (#2589). The config/model/budget lookups in this workflow no",
     "# longer need jq — they use the native --raw/--pick flags. But the lanes listed"
   ],
-  "bytes": 69385,
+  "bytes": 69361,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:878bf3a41652e97cfdb75ecda4a4c03bdbb9f298c609953cefd5f7a9e1742bd7",
+    "digest": "sha256:4ef859bbd39b5608ddde7a27925c52dec21ac03039932f56219b67c069e56e5e",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "878bf3a41652e97cfdb75ecda4a4c03bdbb9f298c609953cefd5f7a9e1742bd7"
+  "sha256": "4ef859bbd39b5608ddde7a27925c52dec21ac03039932f56219b67c069e56e5e"
 }

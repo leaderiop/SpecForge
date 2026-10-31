@@ -32,16 +32,16 @@
     "sha256": "a9104985968ac99cf1e14138ca5920559fc10f53d854cca13c4e8efa03c8d5b0"
   },
   ".cursor/agents/gsd-phase-researcher.md": {
-    "bytes": 43819,
-    "sha256": "ed0560f5c2ab0be5dd02aca9fd491109c9ca3b09f05d3c11a9d8437cdd21a23a"
+    "bytes": 43837,
+    "sha256": "05f6ae2a16b2660ed2d9b7dc83c4ae5122574fc7facb43a962f632913e61ef15"
   },
   ".cursor/agents/gsd-plan-checker.md": {
     "bytes": 49580,
     "sha256": "a1282213cd9b85d6396f4b1d27f161caebac44fd2f0494c3b6b92207624cfdbc"
   },
   ".cursor/agents/gsd-planner.md": {
-    "bytes": 49202,
-    "sha256": "1cb1a4b3ae36e92c1be01e0bb73c90c4d5498389279bf9bb5c1c0625f3dafcef"
+    "bytes": 49463,
+    "sha256": "cc350d80f398ba383b2a1f675b2324b8fa8d27d96388857ee6c902589cb1329c"
   },
   ".cursor/agents/gsd-project-researcher.md": {
     "bytes": 18302,
