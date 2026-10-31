@@ -289,7 +289,7 @@ fn a_tagged_node_test_links_to_its_truth() {
         "<testcase name=\"[gsd:01-01/TR1] adds a task\" classname=\"test\" time=\"0.01\"/>",
     );
     assert_eq!(run.code, 0, "{}", run.all());
-    // The tag is a short form, which the host's own `collect` would drop as W115: the collector resolved it.
+    // The tag is a short form: the collector answers it as written and the host's `collect` re-keys it (ADR 0312).
     assert_eq!(
         report(&p),
         [(
@@ -386,17 +386,16 @@ fn a_test_name_may_hold_a_hash() {
 }
 
 #[test]
-fn an_ambiguous_tag_is_unlinked() {
+fn an_ambiguous_tag_is_the_hosts_w115() {
     // `TR1` is the truth of both plans of phase 01.
     let p = project("execute");
     let run = junit(&p, "<testcase name=\"[gsd:TR1] which one\"/>");
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(report(&p), Default::default());
-    assert_eq!(
-        json(&run)["diagnostics"],
-        serde_json::json!([]),
-        "{}",
-        run.stdout
+    let diagnostics = json(&run)["diagnostics"].to_string();
+    assert!(
+        diagnostics.contains("W115") && diagnostics.contains("it names more than one entity"),
+        "{diagnostics}"
     );
 }
 

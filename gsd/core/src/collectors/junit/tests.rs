@@ -94,20 +94,14 @@ fn run(report: &str, nodes: Vec<GraphNode>) -> CollectOutput {
 }
 
 #[test]
-fn a_tag_links_by_the_graphs_rules_and_a_bad_one_is_unlinked() {
-    let nodes = vec![
-        node("v1.0/01/01-01/TR1", "truth"),
-        node("v1.0/01/01-02/TR1", "truth"),
-        node("v1.0/01/01-02/T1", "task"),
-    ];
+fn a_tag_links_as_written_and_the_host_resolves_it() {
     let report = r#"<testsuite>
 <testcase name="[gsd:01-01/TR1] adds"/>
-<testcase name="[gsd:TR1] ambiguous"/>
-<testcase name="[gsd:nobody] unknown"/>
+<testcase name="[gsd:TR1] short"/>
 <testcase name="plain"/>
-<testcase name="[gsd:v1.0/01/01-02/T1] [gsd:/v1.0/01/01-02/TR1] two tags"><failure/></testcase>
+<testcase name="[gsd:v1.0/01/01-02/T1] [gsd:/v1.0/01/01-02/TR1] [gsd:v1.0/01/01-02/T1] tags"><failure/></testcase>
 </testsuite>"#;
-    let output = run(report, nodes);
+    let output = run(report, Vec::new());
     let linked: Vec<(&str, Vec<(&str, TestStatus)>)> = output
         .entity_results
         .iter()
@@ -121,34 +115,22 @@ fn a_tag_links_by_the_graphs_rules_and_a_bad_one_is_unlinked() {
             )
         })
         .collect();
+    let tags = "[gsd:v1.0/01/01-02/T1] [gsd:/v1.0/01/01-02/TR1] [gsd:v1.0/01/01-02/T1] tags";
     assert_eq!(
         linked,
         [
+            ("/v1.0/01/01-02/TR1", vec![(tags, TestStatus::Failed)]),
             (
-                "v1.0/01/01-01/TR1",
+                "01-01/TR1",
                 vec![("[gsd:01-01/TR1] adds", TestStatus::Passed)]
             ),
-            (
-                "v1.0/01/01-02/T1",
-                vec![(
-                    "[gsd:v1.0/01/01-02/T1] [gsd:/v1.0/01/01-02/TR1] two tags",
-                    TestStatus::Failed
-                )]
-            ),
-            (
-                "v1.0/01/01-02/TR1",
-                vec![(
-                    "[gsd:v1.0/01/01-02/T1] [gsd:/v1.0/01/01-02/TR1] two tags",
-                    TestStatus::Failed
-                )]
-            ),
+            ("TR1", vec![("[gsd:TR1] short", TestStatus::Passed)]),
+            // a tag spelled twice is one result
+            ("v1.0/01/01-02/T1", vec![(tags, TestStatus::Failed)]),
         ]
     );
     let unlinked: Vec<&str> = output.unlinked.iter().map(|u| u.name.as_str()).collect();
-    assert_eq!(
-        unlinked,
-        ["[gsd:TR1] ambiguous", "[gsd:nobody] unknown", "plain"]
-    );
+    assert_eq!(unlinked, ["plain"]);
 }
 
 #[test]
@@ -239,14 +221,13 @@ fn a_report_cut_inside_a_test_or_no_xml_is_refused() {
 }
 
 #[test]
-fn two_tags_of_one_entity_are_one_result_and_a_bad_tag_is_listed() {
+fn two_spellings_of_one_id_are_one_result_each_for_the_host_to_merge() {
     let output = collected(
-        "<testsuite><testcase name=\"[gsd:01-01/TR1] [gsd:v1.0/01/01-01/TR1] [gsd:nobody] a\"/></testsuite>",
+        "<testsuite><testcase name=\"[gsd:01-01/TR1] [gsd:v1.0/01/01-01/TR1] a\"/></testsuite>",
     )
     .expect("an answer");
-    assert_eq!(output.entity_results.len(), 1);
-    assert_eq!(output.entity_results[0].test_results.len(), 1);
-    assert_eq!(output.unlinked.len(), 1, "the unresolved tag is reported");
+    assert_eq!(output.entity_results.len(), 2, "each spelling as written");
+    assert!(output.unlinked.is_empty());
 }
 
 #[test]

@@ -204,7 +204,6 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
   `specforge gsd help` lists the commands.
 - **A slash command's `when` takes one setting (K20).** A skill in two clusters follows its first, so disabling
   `utility` leaves `/gsd-help` (also `core_loop`) shown.
-- **`collect` re-keys short ids**: `gsd-junit` resolves `[gsd:<id>]` itself.
 - **What stays after K17.** `check` is red from planning on, since gsd/E501 is an Error from the first planned truth
   until it is verified, and an agent cannot create an artifact through the CLI (`--path` is the CLI's own option).
 - **Hook facts and the install path (K20).** A hook is told the name of an out-of-project path, not its real path, so a

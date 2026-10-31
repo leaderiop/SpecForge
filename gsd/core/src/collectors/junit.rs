@@ -1,14 +1,14 @@
 //! `gsd-junit`: reads a JUnit report and links its tests.
 //!
-//! A test is linked two ways. A `[gsd:<id>]` tag in its name resolves over the graph and links the test to that
-//! entity. A deliverable's check links by GSD's own coverage reference, `test/x.test.js#name` (`gsd-core/templates/
+//! A test is linked two ways. A `[gsd:<id>]` tag in its name links the test to that entity, by the id as written: the
+//! host's `collect` resolves it (a short form to its entity's full path; an unknown or ambiguous one is W115, ADR 0312).
+//! A deliverable's check links by GSD's own coverage reference, `test/x.test.js#name` (`gsd-core/templates/
 //! summary.md:59`): a test whose name is `name`, and whose `file` is `test/x.test.js` when the reference says so,
 //! proves that check, and its result is named by the reference exactly, which is what the derive pass looks up. A test
 //! that matches neither is reported unlinked, for the host's naming convention to link when it can.
 //!
-//! The collector declares `writes` only to be handed the graph and the project root: the host's `collect` keeps just
-//! a full entity path (a short form is W115), so the collector resolves `[gsd:01-01/T1]` itself and answers full
-//! paths. It never answers a plan. It has no command (GSD is language-agnostic): run the project's tests, then
+//! The collector declares `writes` only to be handed the graph and the project root, for the checks. It never answers
+//! a plan. It has no command (GSD is language-agnostic): run the project's tests, then
 //! `specforge collect --runner gsd-junit --no-run`, or name the report with `--report <file>`.
 //!
 //! Also ports gsd-core bin/lib modules: normalize-test-command.cjs.
@@ -21,7 +21,6 @@ use std::collections::BTreeMap;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::graph::{Found, find};
 use xml::{Event, events};
 
 const NAME: &str = "gsd-junit";
@@ -163,21 +162,17 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
                 duration_ms: case.seconds.map(|s| s * 1000.0),
             };
             let mut hit = false;
-            let mut unresolved = false;
             let mut seen: Vec<&str> = Vec::new();
+            // A tag's id goes as written: the host resolves it (a short form to its full path, W115 for an unknown or
+            // ambiguous one, ADR 0312). Two tags that spell one id are one result.
             for id in tags(&case.name) {
-                match find(nodes, id) {
-                    // Two tags of one test that name one entity are one result.
-                    Found::One(node) if seen.contains(&node.id.as_str()) => {}
-                    Found::One(node) => {
-                        seen.push(&node.id);
-                        linked
-                            .entry(node.id.clone())
-                            .or_default()
-                            .push(result(&case.name));
-                        hit = true;
-                    }
-                    _ => unresolved = true,
+                if !seen.contains(&id) {
+                    seen.push(id);
+                    linked
+                        .entry(id.to_string())
+                        .or_default()
+                        .push(result(&case.name));
+                    hit = true;
                 }
             }
             let file = relative(&case.file, cwd);
@@ -191,8 +186,8 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
                     hit = true;
                 }
             }
-            // A tag that names no entity (or several) is listed, whatever else the test linked to.
-            if !hit || unresolved {
+            // A test that links to nothing is listed.
+            if !hit {
                 let mut path: Vec<String> = case
                     .classname
                     .split('.')
