@@ -92,6 +92,8 @@ behavior run_a_hook "Run a Hook" {
   verify unit "state is never written, read or pruned through a link, and an oversized document is ignored"
   verify unit "a refused state patch is reported and the files its command's plan wrote stay written"
   verify unit "each host reads its hook stdin into the neutral event and writes the neutral answer as the host expects it"
+  verify unit "Cursor wires a user_prompt hook on beforeSubmitPrompt and answers a denied prompt with continue false"
+  verify unit "Cursor answers a denied tool call with permission deny, its reason to the user and the agent"
   verify unit "a hook whose event does not match exits before loading anything"
   verify unit "a guard hook denies in the protocol of Claude Code, and in the draft protocols of Codex and Cursor as their goldens have it"
   verify unit "an event over the size limit or not the host's JSON is answered by the hook's failure policy"

@@ -301,11 +301,8 @@ fn install_tree_golden_codex() {
 
 #[test]
 fn install_tree_golden_cursor() {
-    golden_install(
-        "cursor",
-        7,
-        &["workflow_marker", "context_compacted", "statusline"],
-    );
+    // The prompt marker is rendered since ADR 0322 (Cursor's beforeSubmitPrompt): 8 lines, 2 not taken.
+    golden_install("cursor", 8, &["context_compacted", "statusline"]);
 }
 
 #[test]

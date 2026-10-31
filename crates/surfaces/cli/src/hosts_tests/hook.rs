@@ -73,9 +73,9 @@ fn a_guard_hook_denies_on_claude_code_codex_and_cursor() {
         &write("preToolUse"),
     );
     let reply = run.out.json();
-    assert_eq!(reply["block"], true, "{reply}");
+    assert_eq!(reply["permission"], "deny", "{reply}");
     assert!(
-        reply["reason"].as_str().unwrap().contains("shrink"),
+        reply["agent_message"].as_str().unwrap().contains("shrink"),
         "{reply}"
     );
 }

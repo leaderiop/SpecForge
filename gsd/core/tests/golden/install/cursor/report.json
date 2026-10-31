@@ -274,10 +274,6 @@
       ],
       "not_rendered": [
         {
-          "what": "hook gsd.workflow_marker",
-          "why": "Cursor has no user_prompt event this adapter can verify"
-        },
-        {
           "what": "hook gsd.context_compacted",
           "why": "Cursor has no pre_compact event this adapter can verify"
         },

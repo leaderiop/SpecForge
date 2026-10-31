@@ -10,7 +10,7 @@ use std::path::Path;
 use serde_json::Value;
 use specforge_hosts::renderer;
 use specforge_ops::host::{HookAnswer, Host, RenderedHook};
-use specforge_protocol_types::{HookEvent, OnFailure};
+use specforge_protocol_types::{Decision, HookEvent, OnFailure};
 
 fn check(host: Host) {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -119,4 +119,65 @@ fn a_deny_hook_line_fails_closed_without_the_binary() {
     }
     let plain = write_guard(OnFailure::Allow).command(Host::ClaudeCode);
     assert!(plain.starts_with("specforge hook "), "{plain}");
+}
+
+fn answer_of(
+    host: Host,
+    event: HookEvent,
+    decision: Decision,
+    reason: &str,
+    context: &str,
+) -> Value {
+    let adapter = renderer(host).unwrap();
+    let event = specforge_ops::host::HostHookEvent {
+        event,
+        host: host.as_str().into(),
+        ..Default::default()
+    };
+    let answer = HookAnswer {
+        decision: Some(decision),
+        reason: Some(reason.into()),
+        context: Some(context.into()),
+        ..Default::default()
+    };
+    let reply = adapter.write_answer(&event, &answer);
+    serde_json::from_str(&reply.stdout).unwrap()
+}
+
+#[specforge_test_macros::test(
+    behavior = "run_a_hook",
+    verify = "Cursor wires a user_prompt hook on beforeSubmitPrompt and answers a denied prompt with continue false"
+)]
+fn cursor_renders_user_prompt_as_before_submit_prompt() {
+    let cursor = renderer(Host::Cursor).unwrap();
+    assert_eq!(
+        cursor.event_name(HookEvent::UserPrompt),
+        Some("beforeSubmitPrompt")
+    );
+    let reply = answer_of(
+        Host::Cursor,
+        HookEvent::UserPrompt,
+        Decision::Deny,
+        "no",
+        "c",
+    );
+    assert_eq!(
+        reply,
+        serde_json::json!({"continue": false, "user_message": "no"})
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "run_a_hook",
+    verify = "Cursor answers a denied tool call with permission deny, its reason to the user and the agent"
+)]
+fn cursor_denies_a_tool_call_with_permission_deny() {
+    for decision in [Decision::Deny, Decision::Ask] {
+        let reply = answer_of(Host::Cursor, HookEvent::PreTool, decision, "r", "c");
+        assert_eq!(
+            reply,
+            serde_json::json!({"permission": "deny", "user_message": "r", "agent_message": "r",
+                               "additional_context": "c"})
+        );
+    }
 }

@@ -5,8 +5,8 @@
 //! Upstream's guard warns on an edit made outside a GSD command, and learns it is outside one from nothing: it warns
 //! on every edit that is not under `.planning/`. Here a `user_prompt` hook marks the session when the user starts a
 //! `/gsd-<command>` (or `$gsd-<command>`, Codex's spelling), and the guard stays quiet in a session that has one. The
-//! marker lasts the session and is replaced by the next command (U51); Cursor has no prompt event, so there the guard
-//! is upstream's, always advisory.
+//! marker lasts the session and is replaced by the next command (U51). Cursor's `beforeSubmitPrompt` carries it too
+//! (ADR 0322).
 //!
 //! Dropped: the `git add -f` block on an agent branch, which needs a shell and git (K20 git facts). Two of
 //! upstream's three exemptions are other facts here: the spec root is `.planning/`, and a subagent is

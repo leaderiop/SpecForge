@@ -105,12 +105,11 @@ fn the_guard_is_absent_by_default() {
     let _home = installed(&p);
     for host in HOSTS {
         assert!(!has_command(&p, host, "gsd.workflow_guard"), "{host}");
-        assert!(!has_command(&p, host, "gsd.workflow_marker") || host != "cursor");
     }
 }
 
 #[test]
-fn the_marker_is_not_rendered_on_cursor() {
+fn the_marker_is_rendered_on_cursor_as_before_submit_prompt() {
     let p = guarded();
     let home = Home::new();
     let report = install_in(&p, "cursor", &home);
@@ -118,11 +117,11 @@ fn the_marker_is_not_rendered_on_cursor() {
     install_in(&p, "codex", &home);
     assert!(has_command(&p, "claude-code", "gsd.workflow_marker"));
     assert!(has_command(&p, "codex", "gsd.workflow_marker"));
-    assert!(!has_command(&p, "cursor", "gsd.workflow_marker"));
+    assert!(has_command(&p, "cursor", "gsd.workflow_marker"));
     assert!(has_command(&p, "cursor", "gsd.workflow_guard"));
     assert!(
-        report.stdout.contains("hook gsd.workflow_marker"),
-        "the install report says why: {}",
+        !report.stdout.contains("hook gsd.workflow_marker"),
+        "the install report does not drop it: {}",
         report.all()
     );
 }

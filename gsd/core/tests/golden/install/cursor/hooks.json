@@ -27,6 +27,11 @@
       {
         "command": "specforge hook gsd.context_monitor --host cursor --event post_tool --tools shell,write,edit,agent # specforge-install"
       }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "specforge hook gsd.workflow_marker --host cursor --event user_prompt # specforge-install"
+      }
     ]
   },
   "version": 1

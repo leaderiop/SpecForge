@@ -192,8 +192,8 @@ pub fn verdict(host: &str, run: &Run) -> (bool, String, String) {
     let text = |x: &Value| x.as_str().unwrap_or_default().to_string();
     if host == "cursor" {
         return (
-            v["block"] == true,
-            text(&v["reason"]),
+            v["permission"] == "deny" || v["continue"] == false,
+            text(&v["agent_message"]) + &text(&v["user_message"]),
             text(&v["additional_context"]),
         );
     }

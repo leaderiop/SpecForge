@@ -259,6 +259,7 @@ fn event_for(p: &Project, host: &str, route: &str) -> String {
         "gsd.injection_scanner" => tool("post", "read", &read),
         "gsd.validate_commit" => tool("pre", "shell", &json!({"command": "git commit -m \"feat: x\""})),
         "gsd.context_monitor" | "gsd.phase_boundary" => tool("post", "write", &file),
+        "gsd.workflow_marker" if host == "cursor" => json!({"hook_event_name": "beforeSubmitPrompt", "conversation_id": "s1", "workspace_roots": [cwd], "prompt": "/gsd-fast x"}).to_string(),
         "gsd.workflow_marker" => json!({"hook_event_name": "UserPromptSubmit", "session_id": "s1", "cwd": cwd, "prompt": "/gsd-fast x"}).to_string(),
         "gsd.context_compacted" => json!({"hook_event_name": "PreCompact", "session_id": "s1", "cwd": cwd}).to_string(),
         "gsd.session_state" => session_event(p, host),
@@ -276,7 +277,7 @@ fn every_installed_hook_answers() {
         "workflow.use_worktrees": true,
     }));
     let home = installed(&p);
-    for (host, lines) in [("claude-code", 14), ("codex", 12), ("cursor", 11)] {
+    for (host, lines) in [("claude-code", 14), ("codex", 12), ("cursor", 12)] {
         let commands: Vec<String> = all_commands(&p, host)
             .into_iter()
             .filter(|c| c.starts_with("specforge hook gsd."))
