@@ -305,7 +305,6 @@ fn a_judged_message_counts_its_findings() {
     behavior = "answer_judged_inputs",
     verify = "a pass sees the tests a verdict cites"
 )]
-#[ignore = "pins K20a; T17 un-ignores"]
 fn a_pass_sees_the_tests_a_verdict_cites() {
     let project = gsd_judged_project("");
     let cited = Cited {

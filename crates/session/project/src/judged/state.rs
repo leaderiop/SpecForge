@@ -274,6 +274,7 @@ pub fn evaluate(
                 Some(verdict) => {
                     judgement.outcome = Some(verdict.outcome.clone());
                     judgement.at = text(verdict, "at");
+                    judgement.cited_tests = Cited::of(verdict).tests;
                     let key = format!("{VERDICT_KEY}{}", verdict.rule);
                     let recorded = harness
                         .value(graph, forms, id, &key)
