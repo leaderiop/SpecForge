@@ -23,7 +23,7 @@ for a phase with open threats at or above `workflow.security_block_on`. Peer: `@
 Named in ACCEPTANCE under Known divergences, by tag: `[blocking-needs-security]`, `[fragment-repointed]`,
 `[audit-advisory-every-check]`, `[accept-risk-human]`, `[accepted-risk-not-human-kind]`, `[no-superseded-plans]`,
 `[stride-enum]`, `[retro-threat-in-plan]`, `[threats-open-live]`, `[security-absent-off]`, `[verify-post-produces]`,
-`[skipped-hooks-empty]`, `[injection-key-explicit]`, `[surface-peer-setting]`.
+`[skipped-hooks-empty]`, `[injection-key-explicit]`, `[surface-peer-setting]`, `[gate-parity-plus]`.
 
 Two need a word here. `verify:post` keeps upstream's `produces: ["SECURITY.md"]` although plan 16's table said
 `security_audit`: the hook text is upstream's and agents read the artifact name from it. `skippedHooks` is always empty,

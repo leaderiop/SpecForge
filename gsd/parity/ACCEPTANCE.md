@@ -127,6 +127,12 @@ Not verified:
     `.spec` file plus a forged ledger line (the ledger digest has no secret, so it is an integrity check, not
     authentication). A candidate kernel change, narrower than a new kind: a `human` command's plan may write a
     human-only kind (`agent_facing` treats every command's plan as an agent's, `flags.rs`).
+  - `[gate-parity-plus]` `security_gate` blocks more than upstream's gate: an audit that never ran (status `draft`, so
+    not `verified`) blocks `SECURITY_SHIP_GATE_OPEN_THREATS` where upstream passes a `SECURITY.md` whose frontmatter says
+    `threats_open: 0`, and a security model that does not load or check clean (an invalid enum, a reference that does not
+    resolve, fewer threats than the last audit run counted) blocks `SECURITY_SHIP_GATE_UNREADABLE` with the reasons in
+    `details.problems`. A `.spec` file that does not parse is seen only through what it takes with it; `specforge check`
+    reports it (REVIEW-security-part2 m3 and the fail-closed contract).
   - `[no-superseded-plans]` no superseded-plan exclusion in the duplicate scan: a superseded plan is removed in the core model.
   - `[stride-enum]` the STRIDE category is an enum of six words, not free text; the importer maps letters.
   - `[retro-threat-in-plan]` a retroactive threat is written into a plan of the phase with `retroactive: true`, not held in SECURITY.md only.
