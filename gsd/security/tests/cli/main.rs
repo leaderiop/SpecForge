@@ -8,6 +8,7 @@
 #[path = "../../../core/tests/cli/harness.rs"]
 mod harness;
 
+mod model;
 mod settings;
 
 use specforge_extension_sdk::testing::MockHost;
