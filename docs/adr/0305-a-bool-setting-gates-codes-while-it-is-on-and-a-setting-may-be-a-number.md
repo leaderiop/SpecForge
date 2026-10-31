@@ -16,7 +16,7 @@ not be built. There was no `number` setting type: gsd's context thresholds are i
 - **D2. `FieldType::Number`.** A setting may be a number: any JSON number, within inclusive `i64` bounds compared as
   `f64`; `settings set` parses a finite `f64`. A kind field of type `number` is W021 (the `.spec` grammar has no
   decimal literal).
-- **Protocol.** 1.12.0 (two optional additions).
+- **Protocol.** 1.12.0 (two optional additions). A 1.11 host ignores `gates_when_on` and drops a `number` setting (W019).
 
 ## Rejected
 

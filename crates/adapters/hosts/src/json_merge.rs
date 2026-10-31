@@ -249,8 +249,8 @@ fn cuts_for(children: &[(usize, usize)], removed: &[bool]) -> Vec<Cut> {
 }
 
 /// The cuts that take the entries of ours out of `node`, and whether that leaves `node` with nothing (it then goes
-/// whole with its parent's cut if install `made` it, else it stays, empty). Only the places install writes are searched: `hooks.<Event>[]` and
-/// the `named` places.
+/// whole with its parent's cut if install `made` it, else it stays, empty). Only the places install writes are
+/// searched: `hooks.<Event>[]` and the `named` places.
 fn strip(
     text: &str,
     node: &Node,

@@ -1,5 +1,5 @@
-//! The gate guards: `gsd/E106`, `E511`, `E512`, `W318`, `W404`, `E515` and `E516` (D-r39-12, D-K20a-7). A command's or prompt's gate
-//! runs the guard passes that report its codes; a gate fails only on an Error.
+//! The gate guards: `gsd/E106`, `E511`, `E512`, `W318`, `W404`, `E515` and `E516` (D-r39-12, D-K20a-7). A command's or prompt's
+//! gate runs the guard passes that report its codes; a gate fails only on an Error.
 //!
 //! A guard also runs on every judged write, with no trigger. Every guard here answers nothing unless its trigger is a
 //! gate (its trigger kind), so a write is never refused by one: an agent's plan, and `gsd-git`'s, stay free

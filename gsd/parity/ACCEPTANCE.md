@@ -121,6 +121,9 @@ Not verified:
   a person's run of the command alike: the tier is a person's (`U`, D-K20a-4), so the person deletes that line in their
   editor and runs the remove again. Upstream deletes the phase regardless (REVIEW-k20a M3). A human-attested remove is
   not built.
+- W514 fires on every `check`, once per open deviation window that names a proposal, while `workflow.windows_enforce` is
+  off; upstream warns once per triggering `refactor evaluate` (also when broken-windows is absent). The text and the
+  remediation match. E515 is SpecForge's own (gsd-plus) and has no upstream.
 - A threshold's bounds are whole numbers (D-K20a-9): a warning between 0 and 1 and a critical between 99 and 100 are
   refused (`hooks.context_critical_threshold` refuses `99.5`), which GSD accepts.
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`

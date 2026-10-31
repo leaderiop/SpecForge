@@ -14,7 +14,7 @@ config of the wrong shape got a bogus byte position, uninstall's hint named `ins
 
 ## Decision
 
-- **D1.** Install, uninstall, `--dry-run` and `--check` refuse with the first config problem (E069) before anything is
+- **D1.** Install, uninstall (which reads no extension, so a broken `specforge.json` is fixed before uninstalling), `--dry-run` and `--check` refuse with the first config problem (E069) before anything is
   staged. Any problem, not only one that loads nothing: a mistyped `spec_root` rewrites the guard's paths.
 - **D2.** A wrong-shape host config is refused by name: `'{place}' is an array, and install needs an object there`
   (or the reverse); TOML: `'{keys}' holds a value where install needs a table`.

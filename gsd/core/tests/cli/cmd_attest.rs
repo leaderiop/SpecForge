@@ -1,6 +1,6 @@
 //! The commands that record a person's answer (C1 of the r41 review): `answer_checkpoint`, `confirm_setup`,
-//! `set_uat_result`, `approve_validation`, `waive_window` and `dispose_refactor` are human-attested (ADR 0301): a person
-//! at a terminal runs them, and an agent's call is refused `human_only`. `pause` stays an agent's: no gate reads a
+//! `set_uat_result`, `approve_validation`, `waive_window` and `dispose_refactor` are human-attested (ADR 0301): a
+//! person at a terminal runs them, and an agent's call is refused `human_only`. `pause` stays an agent's: no gate reads a
 //! pause, and `/gsd-pause-work` is the agent's own act.
 
 use super::cmd_execute::{CHECKPOINT, SETUP};

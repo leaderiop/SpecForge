@@ -1636,11 +1636,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Write journal**: the record of a commit in progress; the next writer rolls an interrupted one back, and W167 reports
   one that is pending (ADR 0289).
 - **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
-  a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288). A setting may be a `number` (a decimal within inclusive
-  bounds) and a bool setting may declare `gates_when_on` codes (ADR 0305).
+  a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288). A
+  setting may be a `number` (a decimal within inclusive bounds) and a bool setting may declare `gates_when_on` codes (ADR 0305).
 - **Preset**: a declared map from each value of an enum or bool setting to settings and raised codes; it raises
   severities upward only (ADR 0288).
-- **Gate**: a bool setting's list of codes; while it is false no source reports them (ADR 0288).
+- **Gate**: a bool setting's list of codes; while it is false no source reports them, and `gates_when_on` lists those
+  withheld while it is true (ADR 0288, ADR 0305).
 - **Prompt (extension)**: a workflow an extension declares in its surfaces: typed arguments, `gates`, a `subject`, `steps`
   and an `attribution`, rendered by a `prompt__<id>` export. Served as `specforge.<short>.<id>` (MCP), `specforge prompt`
   and `specforge <short> <id>`; the host appends a message with the version, a digest, the attribution and each step's

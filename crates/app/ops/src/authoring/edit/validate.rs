@@ -51,8 +51,8 @@ fn key(d: &Diagnostic, moved: &Moves) -> Key {
 }
 
 /// Whether a diagnostic is a judged rule's finding (ADR 0297): no verdict, a stale one or a failing one, made by the
-/// judged evaluation of `post`, the project the write leaves (ADR 0302). A pass or a guard that reuses the rule's code is
-/// not one.
+/// judged evaluation of `post`, the project the write leaves (ADR 0302). A pass or a guard that reuses the rule's
+/// code is not one.
 pub(crate) fn judged_finding(post: &CompiledProject) -> impl Fn(&Diagnostic) -> bool + '_ {
     |d| post.judgements().is_finding(d)
 }

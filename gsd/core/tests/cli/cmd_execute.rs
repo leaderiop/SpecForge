@@ -423,7 +423,7 @@ fn a_started_time_older_than_a_week_is_refused() {
     unchanged(&p, &before);
 }
 
-/// The desired behaviour (K20): E516 names the gate's subject, so a stale verdict anywhere refuses the step.
+/// E516 names the gate's subject, so a stale verdict anywhere refuses the step.
 #[test]
 fn a_stale_verdict_anywhere_refuses_start_plan_under_plus() {
     let p = super::harness::project("execute");

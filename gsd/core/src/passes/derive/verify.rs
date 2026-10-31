@@ -252,7 +252,8 @@ fn then_overridden<'a>(input: &'a PassInput, verification: &str) -> BTreeSet<&'a
         .collect()
 }
 
-/// The state of an item at the baseline: its scan state and its verdicts, as `entity_item` reads them now, and an
+/// The state of an item at the baseline: its scan state and its verdicts, as `entity_item` reads them now but for
+/// `contradicted` (the baseline holds no test report; one that did would need it here, REVIEW-k20a N1), and an
 /// override that held there. The baseline's compute passes read the files the commit holds (ADR 0300), so its scan
 /// states are the commit's own.
 fn then_state(input: &PassInput, id: &str, overridden: &BTreeSet<&str>) -> Option<Item> {

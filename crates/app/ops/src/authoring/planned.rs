@@ -28,7 +28,8 @@ pub struct PlannedChange {
     ledger: Option<LedgerWrite>,
     /// The project declares a harness field: every write of it takes the write lock, the ledger changing or not.
     locked: bool,
-    /// The entities the change moves, old path → new, in the order they were made: E080 pairs an extension's finding through them.
+    /// The entities the change moves, old path → new, in the order they were made: E080 pairs an extension's finding
+    /// through them.
     moved: Vec<(String, String)>,
 }
 

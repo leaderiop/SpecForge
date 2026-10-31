@@ -1,5 +1,6 @@
-//! The commands of verification (D-r41-1 rows 5-6): a person's answer to a UAT test, and the approval of a
-//! validation, and an automated UAT result an agent or CI records. A UAT result of a person is their own: the command writes what they said, never a sanitised copy.
+//! The commands of verification (D-r41-1 rows 5-6): a person's answer to a UAT test, the approval of a validation, and
+//! an automated UAT result an agent or CI records. A person's UAT result is their own: the command writes what they
+//! said, never a sanitised copy.
 //!
 //! Also ports gsd-core bin/lib modules: verify.cjs.
 //!

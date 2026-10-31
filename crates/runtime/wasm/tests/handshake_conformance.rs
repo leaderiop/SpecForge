@@ -208,7 +208,8 @@ fn a_1_11_guest_still_loads_under_a_1_12_host() {
     use specforge_wasm::protocol::load_declaration;
 
     assert_eq!(PROTOCOL_VERSION, "1.12.0");
-    // A guest of the version before `human`, `gates_when_on`, `cited_tests` and `number` loads: only the major is checked.
+    // A guest of the version before `human`, `gates_when_on`, `cited_tests` and `number` loads: only the major is
+    // checked.
     let loaded = load_declaration(&guest_answering("1.11.0"), "@test/older")
         .expect("a 1.11.0 guest loads under a 1.12.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
