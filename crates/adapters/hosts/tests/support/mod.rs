@@ -145,6 +145,10 @@ pub fn fixture(host: Host) -> Rendered {
                 timeout_ms: 10_000,
                 on_failure: OnFailure::Deny,
             },
-        ],
+        ]
+        .into_iter()
+        // The isolation guard names Claude Code only (ADR 0322).
+        .filter(|h| matches!(host, Host::ClaudeCode) || h.route != "t.isolation")
+        .collect(),
     }
 }

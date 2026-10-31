@@ -3,7 +3,7 @@
 use serde_json::json;
 use specforge_test_macros::test as specforge_test;
 
-use super::{UI_EXTENSION, install, project, tree, uninstall};
+use super::{UI_EXTENSION, hook, install, project, tree, uninstall};
 
 const HOSTS: [&str; 3] = ["claude-code", "codex", "cursor"];
 
@@ -251,5 +251,35 @@ fn an_install_killed_between_two_writes_is_rolled_back_by_the_next_writer() {
             .root()
             .join(".specforge/write-journal.json")
             .exists()
+    );
+}
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "a hook that names its hosts is installed on those only, and is a no-op on another"
+)]
+fn a_hook_names_its_hosts() {
+    let project = project(json!({}), json!({}));
+    let lines = |host: &str, file: &str| {
+        install(&project, &[host], &[]);
+        project.read(file)
+    };
+    assert!(!lines("cursor", ".cursor/hooks.json").contains("t.isolation"));
+    assert!(lines("claude-code", ".claude/settings.json").contains("t.isolation"));
+    let task = json!({"hook_event_name": "preToolUse", "tool_name": "Task", "conversation_id": "s",
+                      "workspace_roots": [project.root()], "tool_input": {}});
+    let run = hook(
+        &project,
+        "t.isolation",
+        "cursor",
+        &["--event", "pre_tool", "--tools", "agent"],
+        &task,
+    );
+    assert_eq!(run.out.code, 0, "{}", run.out.stderr);
+    assert!(run.out.stdout.is_empty(), "{}", run.out.stdout);
+    assert!(
+        !run.exports.iter().any(|e| e == "hook__isolation"),
+        "{:?}",
+        run.exports
     );
 }

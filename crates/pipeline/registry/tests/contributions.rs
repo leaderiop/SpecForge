@@ -142,6 +142,8 @@ fn a_contribution_the_registry_refuses_is_w021() {
             hook("writing_statusline", "statusline", json!({"writes": true})),
             hook("not_bool", "pre_tool", json!({"when": "models.planner"})),
             hook("wrong_export", "pre_tool", json!({"export": "cmd__wrong_export"})),
+            hook("elsewhere", "pre_tool", json!({"hosts": ["windsurf"]})),
+            hook("cursor_only", "pre_tool", json!({"hosts": ["cursor"]})),
         ],
     }))]);
     let messages = w021(&build);
@@ -158,6 +160,7 @@ fn a_contribution_the_registry_refuses_is_w021() {
         "writing_statusline",
         "not_bool",
         "wrong_export",
+        "elsewhere",
     ] {
         let hits = messages
             .iter()
@@ -166,7 +169,13 @@ fn a_contribution_the_registry_refuses_is_w021() {
         assert_eq!(hits, 1, "{named}: {messages:#?}");
     }
     assert_eq!(asked::agents(&build), ["t-fine"]);
-    assert_eq!(asked::hooks(&build), ["fine"]);
+    assert!(
+        messages
+            .iter()
+            .any(|m| m.contains("its host 'windsurf' is not claude-code, codex or cursor")),
+        "{messages:#?}"
+    );
+    assert_eq!(asked::hooks(&build), ["fine", "cursor_only"]);
 }
 
 #[specforge_test(

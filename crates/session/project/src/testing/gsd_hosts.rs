@@ -8,7 +8,7 @@
 //!   search and `mcp:context7/*`; model `setting:models.planner`; variant `compact` chosen by `context_profile`;
 //!   an attribution) and `t-plan-checker` (read, search); the skill `t-ns-context`; the slash commands of the prompt
 //!   `plan_phase` and the command `stats`; and the hooks `write_guard` (pre_tool write, `on_failure: deny`),
-//!   `injection_scan` (post_tool read), `isolation` (pre_tool agent), `validate_commit` (pre_commit), `statusline`
+//!   `injection_scan` (post_tool read), `isolation` (pre_tool agent, Claude Code only), `validate_commit` (pre_commit), `statusline`
 //!   (reads the graph and the state, patches the session), `context_monitor` (post_tool, reads the state),
 //!   `session_cursor` (session_start, patches the project state) and `record_hook` (post_tool write, answers a plan)
 //! - [`UI`] (`@t/ui`, short name `t`, a peer of core): the agent `t-ui-checker` under `when: workflow.ui_phase`
@@ -98,7 +98,7 @@ fn surfaces() -> Value {
         "hooks": [
             hook("write_guard", "pre_tool", json!({"tools": ["write"], "on_failure": "deny", "when": "workflow.hooks"})),
             hook("injection_scan", "post_tool", json!({"tools": ["read"]})),
-            hook("isolation", "pre_tool", json!({"tools": ["agent"]})),
+            hook("isolation", "pre_tool", json!({"tools": ["agent"], "hosts": ["claude-code"]})),
             hook("validate_commit", "pre_commit", json!({"on_failure": "deny"})),
             hook("statusline", "statusline", json!({"reads_graph": true, "reads_state": true})),
             hook("context_monitor", "post_tool", json!({"reads_state": true})),

@@ -279,6 +279,8 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
     let mut hooks = build
         .hooks()
         .filter(|h| on(view, h.extension, &h.item.when))
+        // The extension chose its hosts, so a hook left out has no `not_rendered` row (ADR 0322).
+        .filter(|h| h.item.hosts.is_empty() || h.item.hosts.iter().any(|x| x == host.as_str()))
         .map(|h| RenderedHook {
             route: h.route(),
             description: h.item.description.clone(),

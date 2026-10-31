@@ -4,7 +4,7 @@
 //! `model` or `effort` outside its vocabulary, a `setting:` that names no setting of the right type, a variant
 //! without its setting, a `when` that is no bool setting, a slash target the extension does not declare, `tools` or
 //! `paths` on an event that takes none, a `timeout_ms` of 0 or above the ceiling, `writes` on an event that cannot,
-//! a hook export that is not `hook__<id>`. Host names are one namespace per project: two claimants of one name,
+//! a hook export that is not `hook__<id>`, a hook host outside claude-code, codex and cursor. Host names are one namespace per project: two claimants of one name,
 //! across kinds and extensions, are E039, and the later is not rendered. Hooks route as `<short>.<id>`.
 
 use std::collections::{BTreeSet, HashMap};
@@ -12,8 +12,8 @@ use std::collections::{BTreeSet, HashMap};
 use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::command_args::option_name;
 use specforge_protocol_types::{
-    AgentDescriptor, Attribution, ExtensionDeclaration, FieldType, HookDescriptor, SkillDescriptor,
-    SlashCommandDescriptor,
+    AgentDescriptor, Attribution, ExtensionDeclaration, FieldType, HOOK_HOSTS, HookDescriptor,
+    SkillDescriptor, SlashCommandDescriptor,
 };
 
 use super::prompts::snake_case;
@@ -213,6 +213,15 @@ impl Ctx<'_> {
             return Err(format!(
                 "the event '{}' cannot answer a plan, yet it declares writes",
                 hook.event.as_str()
+            ));
+        }
+        if let Some(host) = hook
+            .hosts
+            .iter()
+            .find(|h| !HOOK_HOSTS.contains(&h.as_str()))
+        {
+            return Err(format!(
+                "its host '{host}' is not claude-code, codex or cursor"
             ));
         }
         self.when(&hook.when)

@@ -21,8 +21,9 @@ behavior install_into_a_host "Install Into a Host" {
     It refuses to overwrite an unmarked file (foreign_file) or a marked file edited since (edited_file, unless
     forced), removes what no extension contributes any more and reports what a host cannot take. A project whose
     extensions contribute nothing to a host declares and runs as it did. A hook whose policy is deny is written so that a
-    host without `specforge` on its PATH blocks (exit 2); an allow hook's line fails open (ADR 0324).
+    host without `specforge` on its PATH blocks (exit 2); an allow hook's line fails open (ADR 0324). A hook may name the hosts it is installed on (ADR 0322).
   """
+  verify unit "a hook that names its hosts is installed on those only, and is a no-op on another"
   verify unit "a hook whose policy is deny blocks with exit 2 when specforge is not on PATH, and an allow hook's line is the plain command"
   verify unit "a project whose extensions contribute nothing to a host declares and runs as it did"
   verify unit "hand-written host files are never read or written by any command"

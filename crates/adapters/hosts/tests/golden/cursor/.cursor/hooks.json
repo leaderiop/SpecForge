@@ -5,9 +5,6 @@
         "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.write_guard cannot run, so it denies' >&2; exit 2; }; specforge hook t.write_guard --host cursor --event pre_tool --tools write # specforge-install"
       },
       {
-        "command": "specforge hook t.isolation --host cursor --event pre_tool --tools agent # specforge-install"
-      },
-      {
         "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook t.validate_commit cannot run, so it denies' >&2; exit 2; }; specforge hook t.validate_commit --host cursor --event pre_commit # specforge-install"
       },
       {
