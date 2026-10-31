@@ -301,3 +301,24 @@ fn a_hook_that_reads_git_is_told_the_head() {
         "# branch.head agent-x\n? new.txt\n"
     );
 }
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "a shell tool's hook is told its command split into commands"
+)]
+fn a_shell_tool_is_told_its_commands() {
+    let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
+    let event = json!({"event": "pre_commit", "host": "claude-code", "session": "s1",
+        "tool": {"name": "Bash", "class": "shell",
+                 "input": {"command": "git add -f x && git commit -m 'feat(x): y'"}}});
+    run_hook(&hosted, "validate_commit", &event);
+    let input = hosted.input("hook__validate_commit");
+    assert_eq!(
+        input["commands"],
+        json!([
+            ["git", "add", "-f", "x"],
+            ["git", "commit", "-m", "feat(x): y"]
+        ])
+    );
+    assert!(input["commit"].get("cleanup").is_none());
+}

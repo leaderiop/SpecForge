@@ -143,11 +143,21 @@ pub fn shell_words(input: &Value) -> Option<Vec<String>> {
     shell::words(input.get("command")?.as_str()?).ok()
 }
 
+/// A shell tool's command split at its control operators, each command its words; none when it cannot be read.
+pub fn shell_commands(input: &Value) -> Vec<Vec<String>> {
+    input
+        .get("command")
+        .and_then(Value::as_str)
+        .and_then(|line| shell::commands(line).ok())
+        .unwrap_or_default()
+}
+
 /// The `git commit` a command line makes: its message (`-m` or `--message`, alone or in a cluster of short options such
 /// as `-am`) and whether it amends; none when no command of the line is a commit. A message the commit takes from
 /// elsewhere (`-F`, `-C`, `-c`, `--fixup`, `--squash`, the editor) is none, not empty.
 // shortcut: `git commit` is found by its words (global options and the wrappers `env`, `command`, `sudo`, `exec`,
-// `nohup`, `time` skipped, `sh -c '…'` read); an alias, a script, `xargs` or `$(…)` is not seen.
+// `nohup`, `time` skipped, `sh -c '…'` read); an alias, a script, `xargs` or `$(…)` is not seen. The cleanup mode a
+// git config sets is not read.
 pub fn commit(input: &Value) -> Option<CommitFact> {
     commit_of_line(input.get("command")?.as_str()?, 0)
 }
@@ -159,8 +169,8 @@ fn commit_of_line(line: &str, depth: usize) -> Option<CommitFact> {
             if let Some(fact) = commit_of_line(inner, depth + 1) {
                 return Some(fact);
             }
-        } else if let Some(args) = commit_args(words) {
-            return Some(commit_fact(args));
+        } else if let Some((globals, args)) = commit_args(words) {
+            return Some(commit_fact(globals, args));
         }
     }
     None
@@ -187,7 +197,31 @@ fn wrapper(word: &str) -> bool {
         )
 }
 
-fn commit_fact(words: &[String]) -> CommitFact {
+/// Whether `name` is `--cleanup` or a prefix of it git accepts (at least `--cl`).
+fn cleanup_name(name: &str) -> bool {
+    name.len() >= 4 && "--cleanup".starts_with(name)
+}
+
+/// The modes `-c commit.cleanup=<mode>` (or `-ccommit.cleanup=<mode>`) among the global options set.
+fn config_cleanup(globals: &[String]) -> Vec<String> {
+    const KEY: &str = "commit.cleanup=";
+    let mut modes = Vec::new();
+    let mut it = globals.iter();
+    while let Some(word) = it.next() {
+        let setting = if word == "-c" {
+            it.next().map(String::as_str)
+        } else {
+            word.strip_prefix("-c")
+        };
+        if let Some(mode) = setting.and_then(|s| s.strip_prefix(KEY)) {
+            modes.push(mode.to_string());
+        }
+    }
+    modes
+}
+
+fn commit_fact(globals: &[String], words: &[String]) -> CommitFact {
+    let mut cleanup = config_cleanup(globals);
     let mut message: Vec<String> = Vec::new();
     let mut elsewhere = false;
     let mut amend = false;
@@ -205,6 +239,10 @@ fn commit_fact(words: &[String]) -> CommitFact {
                 elsewhere = true;
                 at += 1;
             }
+            w if cleanup_name(w.split('=').next().unwrap_or(w)) => match w.split_once('=') {
+                Some((_, mode)) => cleanup.push(mode.to_string()),
+                None => cleanup.extend(value(&mut at)),
+            },
             w if w.starts_with("--message=") => message.push(w["--message=".len()..].to_string()),
             w if w.starts_with("--file=")
                 || w.starts_with("--reuse-message=")
@@ -245,12 +283,12 @@ fn commit_fact(words: &[String]) -> CommitFact {
     CommitFact {
         message: (!elsewhere && !message.is_empty()).then(|| message.join("\n\n")),
         amend,
-        cleanup: Vec::new(),
+        cleanup,
     }
 }
 
 /// The words after `commit` when `words` is `git [global options] commit …`, the wrappers skipped.
-fn commit_args(words: &[String]) -> Option<&[String]> {
+fn commit_args(words: &[String]) -> Option<(&[String], &[String])> {
     let start = words.iter().take_while(|w| wrapper(w)).count();
     let mut it = words.iter().enumerate().skip(start);
     if it.next().map(|(_, w)| w.as_str()) != Some("git") {
@@ -262,7 +300,7 @@ fn commit_args(words: &[String]) -> Option<&[String]> {
                 it.next();
             }
             w if w.starts_with('-') => {}
-            "commit" => return Some(&words[at + 1..]),
+            "commit" => return Some((&words[start..at], &words[at + 1..])),
             _ => return None,
         }
     }
@@ -335,6 +373,71 @@ mod tests {
             assert_eq!(message(line), None, "{line}");
         }
         assert!(commit_of("git commit --amend -m x").unwrap().amend);
+    }
+
+    #[test]
+    fn cleanup_directives_are_read_from_the_commits_words() {
+        let heredoc =
+            |tail: &str| format!("git commit -m \"$(cat <<'EOF'\nfeat: x\nEOF\n)\" {tail}");
+        let rows: Vec<(String, Vec<&str>)> = vec![
+            ("git commit -m x".into(), vec![]),
+            (
+                "git commit --cleanup=verbatim -m x".into(),
+                vec!["verbatim"],
+            ),
+            (
+                "git commit -m x --cleanup verbatim".into(),
+                vec!["verbatim"],
+            ),
+            ("git commit --cl=verbatim -m x".into(), vec!["verbatim"]),
+            ("git commit --cle=verbatim -m x".into(), vec!["verbatim"]),
+            ("git commit --clea=verbatim -m x".into(), vec!["verbatim"]),
+            ("git commit --clean=verbatim -m x".into(), vec!["verbatim"]),
+            ("git commit --cleanu=verbatim -m x".into(), vec!["verbatim"]),
+            (
+                "git commit --clean\"\"up=verbatim -m x".into(),
+                vec!["verbatim"],
+            ),
+            (
+                "git commit --cleanup=whitespace -m x --cleanup=verbatim".into(),
+                vec!["whitespace", "verbatim"],
+            ),
+            (
+                "git -c commit.cleanup=verbatim commit -m x".into(),
+                vec!["verbatim"],
+            ),
+            (
+                "git -ccommit.cleanup=strip commit -m x".into(),
+                vec!["strip"],
+            ),
+            (
+                "git commit -m \"fix: document --cleanup=verbatim\"".into(),
+                vec![],
+            ),
+            (heredoc("--cleanup=verbatim -m y"), vec!["verbatim"]),
+            (
+                format!("{} && echo --cleanup=verbatim", heredoc("")),
+                vec![],
+            ),
+            ("git commit --c=verbatim -m x".into(), vec![]),
+        ];
+        for (line, want) in rows {
+            assert_eq!(commit_of(&line).unwrap().cleanup, want, "{line}");
+        }
+    }
+
+    #[test]
+    fn a_shell_command_is_split_into_its_commands() {
+        let input = json!({"command": "git status && git add -f x; echo 'a b'"});
+        assert_eq!(
+            shell_commands(&input),
+            vec![
+                vec!["git", "status"],
+                vec!["git", "add", "-f", "x"],
+                vec!["echo", "a b"]
+            ]
+        );
+        assert!(shell_commands(&json!({})).is_empty());
     }
 
     #[test]

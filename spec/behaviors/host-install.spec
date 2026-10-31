@@ -80,6 +80,7 @@ behavior run_a_hook "Run a Hook" {
   verify unit "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the porcelain status"
   verify unit "a hook is told an outside path's real path, and with reads_git its toplevel and whether it is inside a git directory"
   verify unit "history answers the branch and the porcelain status of a repository"
+  verify unit "a shell tool's hook is told its command split into commands"
   verify unit "a hook that reads no graph and writes nothing is answered without compiling the project"
   verify unit "a command without state has a byte-equal input"
   verify unit "a hook is given the facts of every path its tool names that a guest cannot read"

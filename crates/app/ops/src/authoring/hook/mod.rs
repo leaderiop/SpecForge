@@ -128,6 +128,10 @@ pub fn run(
         shell: tool
             .filter(|t| t.class == "shell")
             .and_then(|t| facts::shell_words(&t.input)),
+        commands: tool
+            .filter(|t| t.class == "shell")
+            .map(|t| facts::shell_commands(&t.input))
+            .unwrap_or_default(),
         commit: (declared.event == specforge_protocol_types::HookEvent::PreCommit)
             .then(|| tool.and_then(|t| facts::commit(&t.input)))
             .flatten(),
