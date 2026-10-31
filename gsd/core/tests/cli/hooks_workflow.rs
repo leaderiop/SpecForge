@@ -125,3 +125,44 @@ fn the_marker_is_rendered_on_cursor_as_before_submit_prompt() {
         report.all()
     );
 }
+
+/// T15 (#3504): a force-add in a shell command, on a real repository's agent branch, is refused; on another branch it
+/// is not. Skipped without git.
+#[test]
+fn a_force_add_on_an_agent_branch_is_refused() {
+    let force = |p: &Project, home: &Home, host: &str, command: &str| {
+        let input = json!({"command": command});
+        let event = tool_event(p, host, "pre", tool_name(host, "shell"), &input, None);
+        verdict(host, &run_hook(p, host, "gsd.workflow_guard", &event, home))
+    };
+    for (branch, blocked) in [
+        ("agent-x", true),
+        ("worktree-agent-x", true),
+        ("main", false),
+    ] {
+        let p = guarded();
+        let made = std::process::Command::new("git")
+            .args(["init", "-q", "-b", branch])
+            .current_dir(p.root())
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .status();
+        if !made.is_ok_and(|s| s.success()) {
+            return;
+        }
+        let home = installed(&p);
+        for host in HOSTS {
+            for command in [
+                "git add -f secret.txt",
+                "cd sub && git -c core.hooksPath=/tmp/x add --force secret.txt",
+            ] {
+                let (denied, reason, _) = force(&p, &home, host, command);
+                assert_eq!(denied, blocked, "{host} {branch} {command}: {reason}");
+                if blocked {
+                    assert!(reason.contains("must not run git add -f"), "{reason}");
+                }
+            }
+            assert!(!force(&p, &home, host, "git add secret.txt").0, "{host}");
+        }
+    }
+}

@@ -108,6 +108,8 @@ Not verified:
   upstream lets it through (`[unquoted-m]`, which also covers `-m "" -m "fix: x"`). `[dquoted-heredoc-tag]` A `<<"TAG"`
   heredoc resolves, where upstream's capture cannot deliver it and blocks it. `[truncated-heredoc]` A heredoc message with no terminator line is judged by its opener (upstream's capture can
   hand a cut body whose first line is complete, and resolves it).
+- `[cwd-branch]` `workflow_guard` judges a `git -C <dir> add -f` by the branch of the hook's cwd, not of `<dir>` (upstream
+  probes the target); upgrade when the host can be asked another directory's branch (ADR 0320).
 - The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
   `approve_validation`, `waive_window`, `dispose_refactor`) are run by the person at a terminal and refused to an agent
   (ADR 0301); upstream's agent transcribes the person's reply. `pause` stays an agent's. An automated UAT result

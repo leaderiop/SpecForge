@@ -41,6 +41,8 @@ pub struct Facts<'a> {
     pub tool: String,
     pub input: Value,
     pub paths: Vec<PathFact>,
+    /// A shell tool's command split at its control operators, each command its words.
+    pub commands: Vec<Vec<String>>,
     /// `post_tool`: the host's tool response.
     pub response: Option<Value>,
     /// The host's clock when the hook fired (RFC 3339 UTC); empty when it passed none.
@@ -91,6 +93,7 @@ impl<'a> Facts<'a> {
                     in_git_dir: p.in_git_dir,
                 })
                 .collect(),
+            commands: f.commands.clone(),
             response: f.response.clone(),
             now: call.now().to_string(),
             prompt: f.prompt.clone(),
