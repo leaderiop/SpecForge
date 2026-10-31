@@ -504,3 +504,133 @@ fn a_scope_with_the_configured_project_code_resolves_its_plan() {
     assert!(recorded_plans(Some("PRJ"), "feat(prj-01-01): x").is_empty());
     assert!(recorded_plans(None, "feat(PRJ-01-01): x").is_empty());
 }
+
+/// A 40-hex hash for commit `i` of a synthetic log.
+fn hash_of(i: usize) -> String {
+    format!("{:012x}{:028x}", i + 1, 0)
+}
+
+/// A synthetic log, newest first, of `parents.len()` commits: commit `i` has the parents `parents[i]` and the scope
+/// `scopes[i]` (`None`: no plan).
+fn synthetic(parents: &[Vec<usize>], scopes: &[Option<String>]) -> String {
+    (0..parents.len())
+        .rev()
+        .map(|i| {
+            let ps: Vec<String> = parents[i].iter().map(|&p| hash_of(p)).collect();
+            let subject = scopes[i].as_ref().map_or(format!("chore: step {i}"), |s| {
+                format!("feat({s}): step {i}")
+            });
+            format!(
+                "\u{0}{}\u{1f}{}\u{1f}{}\u{1f}{subject}\n",
+                hash_of(i),
+                ps.join(" "),
+                1000 + i
+            )
+        })
+        .collect()
+}
+
+/// Every recorded commit's `descends_from`, by 12-hex name.
+fn ancestry_of(log: String, graph: GraphWire) -> BTreeMap<String, Value> {
+    let input = CollectInput {
+        stdout: Some(log),
+        graph: Some(graph),
+        ..Default::default()
+    };
+    created(&collect(&input).expect("an answer"))
+        .into_iter()
+        .map(|(id, fields)| (id, fields["descends_from"].clone()))
+        .collect()
+}
+
+#[test]
+fn the_memoised_ancestry_equals_a_full_walk_through_merges() {
+    // A branching history with merges, three plans and unplanned commits, from a fixed seed.
+    let mut seed: u64 = 0x5eed;
+    let mut next = |n: usize| {
+        seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        usize::try_from(seed >> 33).expect("31 bits") % n
+    };
+    let count = 300;
+    let (mut parents, mut scopes) = (vec![Vec::new()], vec![Some("01-01".to_string())]);
+    for i in 1..count {
+        let mut ps = vec![i - 1 - next(i.min(6))];
+        if next(5) == 0 {
+            let other = next(i);
+            if other != ps[0] {
+                ps.push(other);
+            }
+        }
+        parents.push(ps);
+        scopes.push(match next(4) {
+            0 => None,
+            k => Some(format!("01-0{k}")),
+        });
+    }
+    let mut graph = plan_graph().expect("a graph");
+    graph.nodes.push(node("v1.0/01/01-02", "plan", "Two"));
+    graph.nodes.push(node("v1.0/01/01-03", "plan", "Three"));
+    let got = ancestry_of(synthetic(&parents, &scopes), graph);
+    // The naive answer: every ancestor of `i`, through every parent, with the same scope, oldest first; merges are not
+    // recorded.
+    let recorded = |i: usize| scopes[i].is_some() && parents[i].len() < 2;
+    let mut want = BTreeMap::new();
+    for i in (0..count).filter(|&i| recorded(i)) {
+        let mut seen = BTreeSet::new();
+        let mut stack = parents[i].clone();
+        while let Some(at) = stack.pop() {
+            if seen.insert(at) {
+                stack.extend(&parents[at]);
+            }
+        }
+        let names: Vec<String> = seen
+            .into_iter()
+            .filter(|&a| recorded(a) && scopes[a] == scopes[i])
+            .map(|a| hash_of(a)[..12].to_string())
+            .collect();
+        want.insert(hash_of(i)[..12].to_string(), json!(names));
+    }
+    assert!(
+        want.values()
+            .any(|v| v.as_array().is_some_and(|a| a.len() > 20))
+    );
+    assert_eq!(got, want);
+}
+
+#[test]
+fn a_large_log_resolves_its_ancestry_quickly() {
+    // 20 000 commits, every 10th of one of 100 plans, a merge every 50: the walk must stay near-linear to fit the
+    // host's 30 s guest limit (a walk to the root per record is about 2 000 × 20 000 steps).
+    let count = 20_000;
+    let plan = |i: usize| format!("{:02}-{:02}", i / 10 % 100 / 10 + 1, i / 10 % 10 + 1);
+    let parents: Vec<Vec<usize>> = (0..count)
+        .map(|i| match i {
+            0 => vec![],
+            i if i % 50 == 0 && i > 7 => vec![i - 1, i - 7],
+            i => vec![i - 1],
+        })
+        .collect();
+    let scopes: Vec<Option<String>> = (0..count).map(|i| (i % 10 == 5).then(|| plan(i))).collect();
+    let mut nodes: Vec<GraphNode> = (0..100)
+        .map(|p| plan(p * 10))
+        .map(|id| node(&format!("v1.0/{}/{id}", &id[..2]), "plan", &id))
+        .collect();
+    nodes.dedup_by(|a, b| a.id == b.id);
+    let started = std::time::Instant::now();
+    let got = ancestry_of(
+        synthetic(&parents, &scopes),
+        GraphWire {
+            nodes,
+            edges: vec![],
+        },
+    );
+    let took = started.elapsed();
+    assert_eq!(got.len(), 2_000);
+    assert_eq!(
+        got[&hash_of(19_995)[..12]].as_array().map(Vec::len),
+        Some(19)
+    );
+    assert!(took < std::time::Duration::from_secs(5), "{took:?}");
+}
