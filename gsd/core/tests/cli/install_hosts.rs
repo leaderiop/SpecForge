@@ -243,7 +243,7 @@ fn not_rendered(run: &Run) -> Vec<String> {
 fn gsd_hooks(p: &Project, host: &str) -> usize {
     all_commands(p, host)
         .iter()
-        .filter(|c| c.starts_with("specforge hook gsd."))
+        .filter(|c| c.contains("specforge hook gsd."))
         .count()
 }
 
@@ -289,22 +289,27 @@ fn install_tree_golden_claude_code() {
     assert!(
         all_commands(&p, "claude-code")
             .iter()
-            .any(|c| c.starts_with("specforge hook core.spec_guard ")),
+            .any(|c| c.contains("specforge hook core.spec_guard ")),
         "core.spec_guard"
     );
 }
 
 #[test]
 fn install_tree_golden_codex() {
-    golden_install("codex", 8, &["injection_scanner", "statusline"]);
+    golden_install(
+        "codex",
+        8,
+        &["config_reload", "injection_scanner", "statusline"],
+    );
 }
 
 #[test]
 fn install_tree_golden_cursor() {
+    // The prompt marker is rendered since ADR 0322 (Cursor's beforeSubmitPrompt): 8 lines, 2 not taken.
     golden_install(
         "cursor",
-        7,
-        &["workflow_marker", "context_compacted", "statusline"],
+        8,
+        &["config_reload", "context_compacted", "statusline"],
     );
 }
 

@@ -1,7 +1,7 @@
 //! Cursor (ADR 0292): `.cursor/agents/<id>.md`, `.cursor/skills/<id>/SKILL.md` (slash commands are skills named
 //! `<short>-<route>`), hooks in `.cursor/hooks.json` (no matcher: the command line filters) and the MCP entry in
-//! `.cursor/mcp.json`. Agents carry no tool list. The statusline, `pre_compact` and `user_prompt` (whose event name
-//! this adapter cannot verify) are not rendered.
+//! `.cursor/mcp.json`. Agents carry no tool list. The statusline and `pre_compact` are not rendered. A denied tool call
+//! answers `permission: deny` (Cursor's documented shape, ADR 0322); `user_prompt` is `beforeSubmitPrompt`.
 
 use serde_json::{Value, json};
 use specforge_ops::host::marker::{PLACEHOLDER, stamp};
@@ -147,7 +147,11 @@ impl HostRenderer for Cursor {
             HookEvent::Stop => Some("stop"),
             HookEvent::SubagentStart => Some("subagentStart"),
             HookEvent::SubagentStop => Some("subagentStop"),
-            HookEvent::UserPrompt | HookEvent::PreCompact | HookEvent::Statusline => None,
+            HookEvent::UserPrompt => Some("beforeSubmitPrompt"),
+            HookEvent::PreCompact
+            | HookEvent::Statusline
+            | HookEvent::FileChanged
+            | HookEvent::Unknown => None,
         }
     }
 
@@ -190,6 +194,8 @@ impl HostRenderer for Cursor {
             prompt: text("prompt"),
             response: v.get("tool_output").cloned(),
             status: None,
+            file: None,
+            change: None,
         })
     }
 
@@ -200,9 +206,10 @@ impl HostRenderer for Cursor {
         // Cursor has no "ask": a hook that would ask denies, saying why.
         match event.event {
             HookEvent::PreTool | HookEvent::PreCommit if denied => {
-                out.insert("block".into(), true.into());
+                out.insert("permission".into(), "deny".into());
                 if let Some(r) = &reason {
-                    out.insert("reason".into(), r.clone().into());
+                    out.insert("user_message".into(), r.clone().into());
+                    out.insert("agent_message".into(), r.clone().into());
                 }
             }
             HookEvent::Stop | HookEvent::SubagentStop if denied => {
@@ -224,9 +231,12 @@ impl HostRenderer for Cursor {
             (Some(t), None) | (None, Some(t)) => Some(t.clone()),
             (None, None) => None,
         };
-        if let Some(c) =
-            context.filter(|_| !matches!(event.event, HookEvent::Stop | HookEvent::SubagentStop))
-        {
+        // `beforeSubmitPrompt` documents `continue` and `user_message` only (ADR 0322).
+        let silent = matches!(
+            event.event,
+            HookEvent::Stop | HookEvent::SubagentStop | HookEvent::UserPrompt
+        );
+        if let Some(c) = context.filter(|_| !silent) {
             out.insert("additional_context".into(), c.into());
         }
         HostReply {

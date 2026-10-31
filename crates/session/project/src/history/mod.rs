@@ -87,7 +87,7 @@ pub type Sized = (PathBuf, Option<u64>);
 pub type TreeEntry = (PathBuf, bool);
 
 /// What the host asks of version control. Every method is read-only, and none runs unless a project declares
-/// history.
+/// history or a hook declares `reads_git` (ADR 0320).
 pub trait History: Send + Sync {
     /// The repository `dir` is in.
     fn locate(&self, dir: &Path) -> Located;
@@ -126,6 +126,14 @@ pub trait History: Send + Sync {
         commit: &Sha,
         paths: &[PathBuf],
     ) -> Result<Vec<Blob>, HistoryError>;
+    /// The branch `HEAD` is on in `place` (`git branch --show-current`): empty when it is detached (ADR 0320).
+    fn branch(&self, _place: &GitPlace) -> Result<String, HistoryError> {
+        Err(HistoryError("this history cannot answer it".into()))
+    }
+    /// `git status --porcelain=v2 --branch` in `place`, as git wrote it (ADR 0320).
+    fn status(&self, _place: &GitPlace) -> Result<String, HistoryError> {
+        Err(HistoryError("this history cannot answer it".into()))
+    }
 }
 
 pub type SharedHistory = Arc<dyn History>;

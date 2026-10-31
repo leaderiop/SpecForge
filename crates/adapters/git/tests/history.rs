@@ -334,3 +334,28 @@ fn a_directory_that_is_not_utf8_is_refused() {
     assert!(why.0.contains("UTF-8"), "{why}");
     cli.tree(&place, &head, odd).expect_err("refused");
 }
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "history answers the branch and the porcelain status of a repository"
+)]
+fn history_answers_the_branch_and_status() {
+    if !has_git() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["commit", "-q", "--allow-empty", "-m", "c1"]);
+    std::fs::write(root.join("n.txt"), "x").unwrap();
+    let cli = GitCli::default();
+    let Located::Repo(place) = cli.locate(root) else {
+        panic!("a repository");
+    };
+    assert_eq!(cli.branch(&place).unwrap(), "main");
+    let status = cli.status(&place).unwrap();
+    assert!(status.contains("# branch.head main\n"), "{status}");
+    assert!(status.contains("? n.txt\n"), "{status}");
+    git(root, &["checkout", "-q", "--detach"]);
+    assert_eq!(cli.branch(&place).unwrap(), "");
+}

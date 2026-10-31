@@ -31,6 +31,10 @@ pub struct FakeHistory {
     pub sizes_fail: Option<HistoryError>,
     /// What `tree` answers instead, when set: git failing to list the tree.
     pub tree_fail: Option<HistoryError>,
+    /// What `branch` answers.
+    pub branch: String,
+    /// What `status` answers.
+    pub status: String,
     asked: AtomicUsize,
     trees: AtomicUsize,
     blobs_asks: AtomicUsize,
@@ -59,6 +63,8 @@ impl FakeHistory {
             blobs_paths: Mutex::new(Vec::new()),
             sizes_fail: None,
             tree_fail: None,
+            branch: String::new(),
+            status: String::new(),
             asked: AtomicUsize::new(0),
             trees: AtomicUsize::new(0),
             blobs_asks: AtomicUsize::new(0),
@@ -80,6 +86,8 @@ impl FakeHistory {
             blobs_paths: Mutex::new(Vec::new()),
             sizes_fail: None,
             tree_fail: None,
+            branch: String::new(),
+            status: String::new(),
             asked: AtomicUsize::new(0),
             trees: AtomicUsize::new(0),
             blobs_asks: AtomicUsize::new(0),
@@ -109,6 +117,12 @@ impl FakeHistory {
 }
 
 impl History for FakeHistory {
+    fn branch(&self, _: &GitPlace) -> Result<String, HistoryError> {
+        Ok(self.branch.clone())
+    }
+    fn status(&self, _: &GitPlace) -> Result<String, HistoryError> {
+        Ok(self.status.clone())
+    }
     fn locate(&self, _: &Path) -> Located {
         self.any.fetch_add(1, Ordering::SeqCst);
         self.located.clone()

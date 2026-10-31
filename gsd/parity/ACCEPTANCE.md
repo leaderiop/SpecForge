@@ -11,7 +11,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 |---|---|---|---|---|---|---|
 | Commands | 72 | 50 | 22 | 0 | 0 | `core/tests/common/roster.rs` |
 | Agents | 64 | 25 | 39 | 0 | 0 | `core/src/agents/roster.rs` |
-| Hooks | 28 | 15 | 0 | 11 | 2 | `core/src/hooks/roster.rs` |
+| Hooks | 28 | 16 | 0 | 10 | 2 | `core/src/hooks/roster.rs` |
 | Capabilities | 45 | 17 | 10 | 0 | 18 | `core/README.md` capability table |
 | Workflows and references | 295 | 233 | 53 | 9 | 0 | `core/tests/parity_roster/assets.rs` |
 | CLI modules | 282 | 168 | 22 | 92 | 0 | `core/tests/parity_roster/modules.rs` |
@@ -28,9 +28,9 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   to the other extensions. The `parity_roster` check fails on a command the snapshot has and the roster lacks.
 - Agents: 25 of the 64 items (the core agents and their compact forms) are embedded and installed; the other 39 belong
   to `@gsd/ai`, `@gsd/ui`, `@gsd/codebase` and `@gsd/ops`.
-- Hooks: 15 of the 28 upstream hook items are built (12 files ported as 14 hooks of `@gsd/core`, and the 3 Cursor
-  renderings of events they port); 11 are dropped, each with its reason in `hooks/roster.rs` (8 not ported, among them the
-  agent isolation guard, and the
+- Hooks: 16 of the 28 upstream hook items are built (13 files ported as 15 hooks of `@gsd/core`, and the 3 Cursor
+  renderings of events they port); 10 are dropped, each with its reason in `hooks/roster.rs` (7 not ported, among them
+  the agent isolation guard, and the
   Cursor `stop`, `subagent-start` and `subagent-stop` files, which no hook of ours feeds); the 2 Windsurf files are
   named and open (Windsurf is a later host). `core.spec_guard` is the kernel's and is
   wired by every install.
@@ -85,14 +85,17 @@ Not verified:
 
 ## Known divergences (named, not fixed)
 
-- The statusline is plain text (no colour: the kernel escapes control characters). `show_git` and
-  `show_state_freshness` are inert. `[update-banner]` The update banner is dropped (D-r44-13): specforge updates
+- The statusline is plain text (no colour: the kernel escapes control characters). `show_git` shows the branch and the work-state markers (plain) after the directory;
+  `show_state_freshness` is inert (there is no STATE.md stamp). `[update-banner]` The update banner is dropped (D-r44-13): specforge updates
   extensions through its lockfile. `[statusline-metrics]` Upstream's context monitor reads metrics the statusline
   writes to a bridge file; here the statusline computes them and the meter's arithmetic is tested with the statusline.
-- Injection scanning is advisory; `security.injection_blocking` belongs to `@gsd/security`, which a hook cannot read.
+- Injection scanning answers a block for a HIGH scan only when `@gsd/security` sets `security.injection_blocking`;
+  `@gsd/security` is not built, so it is advisory in every project today (ADR 0323). The block never stops the read:
+  on Claude Code it lands after the tool ran, as upstream's does, and Cursor cannot deny after a tool runs, so there it
+  is advisory context (`[injection-after-read]`).
 - The context monitor has no stopped-at record (`[stopped-at]`: /gsd-pause-work records it) and no Stop or SubagentStop rows; the workflow marker lasts the session.
-- `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` is path based (case is seen; a
-  symlink into the main checkout is not: K20).
+- `[write-guard-bytes]` `write_guard` measures bytes, not lines; `worktree_path_guard` compares git toplevels as upstream does, so a symlink into
+  the main checkout is refused (ADR 0320).
 - `[stricter-relative-path]` `worktree_path_guard` also refuses a relative path that climbs out of the worktree into the
   main checkout (`../../../src/a.ts`), which upstream allows (its guard lets every relative `file_path` through); this
   is deliberate, for the bug the guard exists for (#260), and stricter than upstream. (REVIEW-r44 M4 had said upstream
@@ -108,15 +111,23 @@ Not verified:
   upstream lets it through (`[unquoted-m]`, which also covers `-m "" -m "fix: x"`). `[dquoted-heredoc-tag]` A `<<"TAG"`
   heredoc resolves, where upstream's capture cannot deliver it and blocks it. `[truncated-heredoc]` A heredoc message with no terminator line is judged by its opener (upstream's capture can
   hand a cut body whose first line is complete, and resolves it).
+- `[cleanup-exact]` `validate_commit` reads the cleanup directives of the commit's own words, not of the whole
+  command line (`... && echo --cleanup=verbatim` resolves, which upstream refuses). Refusing `--cleanup=default` is
+  upstream's own rule (any single mode but `whitespace` refuses), a change from the old gsd behaviour (D-K20c-3).
+- `[cwd-branch]` `workflow_guard` judges a `git -C <dir> add -f` by the branch of the hook's cwd, not of `<dir>` (upstream
+  probes the target); upgrade when the host can be asked another directory's branch (ADR 0320).
 - The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
   `approve_validation`, `waive_window`, `dispose_refactor`) are run by the person at a terminal and refused to an agent
   (ADR 0301); upstream's agent transcribes the person's reply. `pause` stays an agent's. An automated UAT result
   (upstream's `auto_passed`, recorded without asking the person) is the agent's: `record_automated_uat` writes
   `source: automated`, and `set_uat_result --source automated` is refused with a hint naming it (REVIEW-k20a M1).
-- Limit of the human-attested commands: the proof is that stdin is a terminal. An agent shell that is itself a pty
-  (Cursor's agent terminal, Codex's pty exec) passes it, and so does `script(1)`; there the gate is an honest-agent
-  gate. A PreToolUse shell guard that refuses these commands from an agent's shell tool is planned in K20c, not built
-  (REVIEW-k20a M2).
+- Limit of the human-attested commands: the proof is that stdin is a terminal, and the kernel's `core.human_guard`
+  (a deny-policy PreToolUse hook on the shell tool, installed on every host while a command is `human`) refuses a shell
+  call that runs one (whole line, any case, `.exe`, `ext:command`, behind wrappers with options, keywords, braces,
+  `$(…)`, `-c` and `eval`; an unreadable line that names specforge is refused), so an agent shell that is itself a pty
+  (Cursor's agent terminal, Codex's pty exec) is stopped there. What is left is `script(1)` typed by a person on the
+  agent's behalf, a script file or a variable that holds the command, and a host with no shell hook (REVIEW-k20a M2,
+  REVIEW-k20c-part2 M1).
 - `/gsd-phase --remove` of a phase whose truth holds a `verification` tier is refused `human_only`, for an agent and for
   a person's run of the command alike: the tier is a person's (`U`, D-K20a-4), so the person deletes that line in their
   editor and runs the remove again. Upstream deletes the phase regardless (REVIEW-k20a M3). A human-attested remove is
@@ -134,15 +145,11 @@ Not verified:
 - The "silent" evidence of 38 of the 63 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 
-## Needs a change outside `gsd/` (K20c)
+## Needs a change outside `gsd/`
 
 Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is done here:
 
 - Hosts other than Claude Code, Codex and Cursor (the 16 named renderers).
-- Git facts for hooks (`git add -f` blocking) need a host query the protocol lacks.
-- The hook facts: the real path of an out-of-project target (a symlink into the main checkout is not seen), `--cleanup`
-  on a commit, and a host filter for a hook contribution (Cursor gets the isolation guard's line).
-- A host without `specforge` on its PATH runs no guard (exit 127 does not block), as upstream's `node` lines do.
 - A black-box twin for the 14 verdicts above needs rules the kernel does not have.
 
 ## What is not in the program
@@ -155,7 +162,6 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 | The `specforged` harness | `/gsd-autonomous` unattended, `claude-orchestration`, `external-job` |
 | More host renderers | opencode, copilot, windsurf, kilo, kimi, kimi-code, antigravity, cline, trae, qwen, hermes, codebuddy, augment, zcode, vscode, pi |
 | Running Codex and Cursor | their goldens are the kernel's rendering, cross-checked against upstream's installer only |
-| The K20c items | the list above |
 | Publishing | `specforge publish`, done by the user |
 
 ## Publishing

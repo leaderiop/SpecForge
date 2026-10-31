@@ -197,7 +197,15 @@ fn main() {
     specforge_project::history::set_default(Some(std::sync::Arc::new(
         specforge_git::GitCli::default(),
     )));
-    let cli = Cli::parse();
+    let cli = Cli::try_parse().unwrap_or_else(|error| {
+        // clap exits 2 on a usage error, which a host reads as a block; `hook` refuses with 1 (ADR 0324).
+        let hook = std::env::args().nth(1).as_deref() == Some("hook");
+        if hook && error.use_stderr() {
+            let _ = error.print();
+            std::process::exit(1);
+        }
+        error.exit()
+    });
     let terminal = Terminal::process();
 
     let exit_code = match cli.command {

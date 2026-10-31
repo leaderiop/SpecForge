@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use specforge_protocol_types::{Attribution, Decision, HookEvent, ToolClass};
+use specforge_protocol_types::{Attribution, Decision, HookEvent, OnFailure, ToolClass};
 
 use super::Host;
 
@@ -92,15 +92,57 @@ pub struct RenderedHook {
     /// Project-relative globs, `{spec_root}` already the spec root.
     pub paths: Vec<String>,
     pub timeout_ms: u32,
+    /// What the hook's own policy does when it cannot answer, a missing binary included (ADR 0324).
+    pub on_failure: OnFailure,
 }
 
 /// The shell comment that ends every hook command install writes: it marks the entry as install's, so a user's own
 /// hook, even one that also starts `specforge hook `, is never taken for it.
 pub const HOOK_MARK: &str = "# specforge-install";
 
+/// What a deny-policy hook's line starts with: a host whose PATH lacks `specforge` runs `exit 2`, which all three hosts
+/// read as a block, instead of the exit 127 they read as a non-blocking failure (ADR 0324).
+pub const MISSING_GUARD: &str = "command -v specforge >/dev/null 2>&1 || ";
+
 impl RenderedHook {
-    /// The command a host runs: `specforge hook <route> --host <host> --event <event> [--tools …] [--paths …]`.
+    /// Whether a missing binary must block this hook: a deny policy on an event whose exit 2 refuses an action. On
+    /// `stop` and `subagent_stop` exit 2 keeps the agent working, so the line stays plain there (ADR 0324).
+    pub fn fail_closed(&self) -> bool {
+        self.on_failure == OnFailure::Deny
+            && matches!(
+                self.event,
+                HookEvent::PreTool | HookEvent::PreCommit | HookEvent::UserPrompt
+            )
+    }
+
+    /// The command a host runs, with the sh guard where the host runs sh. Claude Code gets the plain line (its
+    /// handler carries `"onFailure": "block"` instead), Cursor on Windows runs PowerShell and gets the plain line,
+    /// Codex gets the guard here and the plain line in `commandWindows` (ADR 0324).
     pub fn command(&self, host: Host) -> String {
+        self.command_on(host, cfg!(windows))
+    }
+
+    /// [`Self::command`] for an install that runs on Windows (`windows`) or not.
+    pub fn command_on(&self, host: Host, windows: bool) -> String {
+        let plain = self.plain_command(host);
+        let sh_host = match host {
+            Host::ClaudeCode => false,
+            Host::Cursor => !windows,
+            Host::Codex => true,
+        };
+        if self.fail_closed() && sh_host {
+            // The route is snake_case and dots (registry-checked): it needs no quoting.
+            format!(
+                "{MISSING_GUARD}{{ echo 'specforge is not on PATH: the hook {} cannot run, so it denies' >&2; exit 2; }}; {plain}",
+                self.route
+            )
+        } else {
+            plain
+        }
+    }
+
+    /// `specforge hook <route> --host <host> --event <event> [--tools …] [--paths …]`, with no guard.
+    pub fn plain_command(&self, host: Host) -> String {
         let mut words = vec![
             "specforge".to_string(),
             "hook".to_string(),
@@ -234,6 +276,12 @@ pub struct HostHookEvent {
     pub response: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<Value>,
+    /// `file_changed`: the absolute path of the file that changed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
+    /// `file_changed`: what happened to it (`change`, `add` or `unlink`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change: Option<String>,
 }
 
 /// A hook's answer, neutral: what every adapter writes as its host expects.
@@ -321,6 +369,7 @@ mod tests {
             tools: Vec::new(),
             paths: vec!["specs/**/*.{spec,md}".into(), "a b/*.spec".into()],
             timeout_ms: 1000,
+            on_failure: OnFailure::Allow,
         };
         assert_eq!(
             hook.command(Host::ClaudeCode),

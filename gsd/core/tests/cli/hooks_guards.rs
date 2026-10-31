@@ -92,7 +92,9 @@ fn the_guards_are_installed_on_three_hosts_beside_the_spec_guard() {
     let (p, _home) = installed();
     for host in HOSTS {
         for route in GUARDS.into_iter().chain(["core.spec_guard"]) {
-            assert!(has_command(&p, host, route), "{host}: {route}");
+            // Claude Code enforces read-before-edit itself: the reminder is installed where it reminds (ADR 0322).
+            let want = !(host == "claude-code" && route == "gsd.read_guard");
+            assert_eq!(has_command(&p, host, route), want, "{host}: {route}");
         }
         for line in all_commands(&p, host) {
             assert!(parses(&line), "{host}: {line}");
@@ -130,12 +132,11 @@ fn a_write_that_keeps_the_file_is_allowed() {
 }
 
 #[test]
-fn read_guard_is_silent_on_claude_code() {
-    let (p, home) = installed();
-    let input = json!({"file_path": p.root().join("spec/plans.spec"), "content": "x"});
-    let event = tool_event(&p, "claude-code", "pre", "Write", &input, None);
-    let run = run_hook(&p, "claude-code", "gsd.read_guard", &event, &home);
-    assert_eq!(run.stdout, "", "{}", run.all());
+fn read_guard_is_not_installed_on_claude_code() {
+    let (p, _home) = installed();
+    assert!(!has_command(&p, "claude-code", "gsd.read_guard"));
+    assert!(has_command(&p, "codex", "gsd.read_guard"));
+    assert!(has_command(&p, "cursor", "gsd.read_guard"));
 }
 
 #[test]
@@ -261,6 +262,9 @@ fn every_guard_answers_on_every_host() {
     let (p, home) = installed();
     for host in HOSTS {
         for route in GUARDS {
+            if host == "claude-code" && route == "gsd.read_guard" {
+                continue;
+            }
             let event = write_event(&p, host, "x");
             let run = run_hook(&p, host, route, &event, &home);
             assert_eq!(run.code, 0, "{host} {route}: {}", run.all());

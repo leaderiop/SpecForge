@@ -75,6 +75,32 @@ fn bad_commit_subject_is_refused() {
     }
 }
 
+/// T16: the cleanup directives of the commit reach `validate_commit` from the host; a heredoc subject with trailing
+/// blanks is not resolved under `verbatim` (its opener is judged) and is 72 characters under `whitespace`.
+#[test]
+fn cleanup_directives_reach_validate_commit() {
+    let p = community(json!({}));
+    let home = installed(&p);
+    let message = format!("$(cat <<'EOF'\nfeat: {}   \nEOF\n)", "x".repeat(66));
+    for host in HOSTS {
+        let with = |flags: &str| {
+            commit(
+                &p,
+                &home,
+                host,
+                &format!("git commit {flags} -m \"{message}\""),
+            )
+        };
+        let (denied, reason) = with("--clean=verbatim");
+        assert!(denied, "{host}: {reason}");
+        assert!(!with("--cleanup=whitespace").0, "{host}");
+        assert!(!with("").0, "{host}");
+        // another command's directive is not this commit's
+        let chained = format!("git commit -m \"{message}\" && echo --cleanup=verbatim");
+        assert!(!commit(&p, &home, host, &chained).0, "{host}");
+    }
+}
+
 #[test]
 fn a_commit_without_a_message_is_allowed() {
     let p = community(json!({}));
@@ -259,9 +285,12 @@ fn event_for(p: &Project, host: &str, route: &str) -> String {
         "gsd.injection_scanner" => tool("post", "read", &read),
         "gsd.validate_commit" => tool("pre", "shell", &json!({"command": "git commit -m \"feat: x\""})),
         "gsd.context_monitor" | "gsd.phase_boundary" => tool("post", "write", &file),
+        "gsd.workflow_marker" if host == "cursor" => json!({"hook_event_name": "beforeSubmitPrompt", "conversation_id": "s1", "workspace_roots": [cwd], "prompt": "/gsd-fast x"}).to_string(),
         "gsd.workflow_marker" => json!({"hook_event_name": "UserPromptSubmit", "session_id": "s1", "cwd": cwd, "prompt": "/gsd-fast x"}).to_string(),
         "gsd.context_compacted" => json!({"hook_event_name": "PreCompact", "session_id": "s1", "cwd": cwd}).to_string(),
         "gsd.session_state" => session_event(p, host),
+        "gsd.config_reload" => json!({"hook_event_name": "FileChanged", "session_id": "s1", "cwd": cwd, "event": "change",
+                                      "file_path": p.root().join("specforge.json")}).to_string(),
         "gsd.statusline" => json!({"session_id": "s1", "cwd": cwd, "model": {"display_name": "Opus 4"}}).to_string(),
         _ => tool("pre", "write", &file),
     }
@@ -276,10 +305,10 @@ fn every_installed_hook_answers() {
         "workflow.use_worktrees": true,
     }));
     let home = installed(&p);
-    for (host, lines) in [("claude-code", 14), ("codex", 12), ("cursor", 11)] {
+    for (host, lines) in [("claude-code", 14), ("codex", 12), ("cursor", 12)] {
         let commands: Vec<String> = all_commands(&p, host)
             .into_iter()
-            .filter(|c| c.starts_with("specforge hook gsd."))
+            .filter(|c| c.contains("specforge hook gsd."))
             .collect();
         assert_eq!(commands.len(), lines, "{host}: {commands:?}");
         for command in &commands {

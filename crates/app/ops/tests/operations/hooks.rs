@@ -38,7 +38,8 @@ fn a_hook_sees_path_facts_it_cannot_read() {
     assert_eq!(
         facts,
         json!([{"path": "m.spec", "in_project": true, "in_spec_root": true, "exists": true,
-                "bytes": existing, "new_bytes": 1}])
+                "bytes": existing, "new_bytes": 1,
+                "real": std::fs::canonicalize(&root).unwrap().join("m.spec")}])
     );
     let outside = run_hook(
         &hosted,
@@ -49,7 +50,7 @@ fn a_hook_sees_path_facts_it_cannot_read() {
     assert_eq!(
         hosted.input("hook__write_guard")["paths"][0],
         json!({"path": "/elsewhere/x.txt", "in_project": false, "in_spec_root": false, "exists": false,
-               "bytes": null, "new_bytes": 1})
+               "bytes": null, "new_bytes": 1, "real": "/elsewhere/x.txt"})
     );
 }
 
@@ -212,4 +213,185 @@ fn a_hook_off_by_its_setting_is_a_no_op() {
     assert!(run.answer["decision"].is_null(), "{run:?}");
     assert!(run.exports.is_empty(), "{run:?}");
     assert_eq!(hosted.exports().len(), before, "the guest was not called");
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "the human guard denies a shell call that runs a human-attested command, from the served descriptors"
+)]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one table of the spellings the guard must refuse"
+)]
+fn the_human_guard_denies_a_shell_call_running_a_human_command() {
+    let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
+    for (host, tool) in [
+        ("claude-code", "Bash"),
+        ("codex", "Bash"),
+        ("cursor", "Shell"),
+    ] {
+        let shell = |command: &str| {
+            json!({"event": "pre_tool", "host": host, "session": "s1",
+               "tool": {"name": tool, "class": "shell", "input": {"command": command}}})
+        };
+        for line in [
+            "specforge t approve --by me",
+            "cd x && /usr/local/bin/specforge --path . t approve",
+            "FOO=1 specforge t approve",
+            "bash -c 'specforge t approve --by me'",
+            "specforge t:approve",
+            "env -i specforge t approve",
+            "sudo -u me specforge t approve",
+            "nice -n 5 specforge t approve",
+            "command -p specforge t approve",
+            "timeout 5 specforge t approve",
+            "{ specforge t approve; }",
+            "if true; then specforge t approve; fi",
+            "! specforge t approve",
+            "f(){ specforge t approve; }; f",
+            "$(command -v specforge) t approve",
+            "/opt/x/SpecForge t approve",
+            "specforge.exe t approve",
+            "SPECFORGE.EXE T APPROVE",
+            "bash -lc \"specforge t:approve\"",
+            "eval \"specforge t approve\"",
+            "echo specforge t approve",
+        ] {
+            let run = run_hook(&hosted, "core.human_guard", &shell(line));
+            assert_eq!(run.answer["decision"], "deny", "{host} {line}: {run:?}");
+            let reason = run.answer["reason"].as_str().unwrap();
+            assert!(
+                reason.contains("`specforge t approve`") && reason.contains("their own terminal"),
+                "{line}: {reason}"
+            );
+            assert!(run.exports.is_empty(), "no guest is called");
+        }
+        for line in [
+            "specforge t stats",
+            "git status && ls",
+            "git commit -m \"run specforge t approve later\"",
+            "specforge t approve-not-a-command",
+        ] {
+            let run = run_hook(&hosted, "core.human_guard", &shell(line));
+            assert!(run.answer["decision"].is_null(), "{host} {line}: {run:?}");
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the porcelain status"
+)]
+fn a_hook_that_reads_git_is_told_the_head() {
+    use specforge_project::history::{GitPlace, Located};
+    use specforge_project::testing::{FakeHistory, install};
+    let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
+    let root = std::fs::canonicalize(hosted.project.root()).unwrap();
+    let top = root.display().to_string();
+    let mut fake = FakeHistory::none();
+    fake.located = Located::Repo(GitPlace {
+        toplevel: root.clone(),
+        git_dir: root.join(".git"),
+        common_dir: root.join(".git"),
+        shallow: false,
+    });
+    fake.branch = "agent-x".into();
+    fake.status = "# branch.head agent-x\n? new.txt\n".into();
+    let none = run_hook(
+        &hosted,
+        "write_guard",
+        &write_event("claude-code", "/elsewhere/x.txt", "x"),
+    );
+    assert_eq!(none.answer["decision"], "allow");
+    assert!(hosted.input("hook__write_guard").get("git").is_none());
+    let _held = install(std::sync::Arc::new(fake));
+    run_hook(
+        &hosted,
+        "write_guard",
+        &write_event("claude-code", "/elsewhere/x.txt", "x"),
+    );
+    let input = hosted.input("hook__write_guard");
+    assert_eq!(
+        input["git"],
+        json!({"toplevel": top, "git_dir": format!("{top}/.git"), "branch": "agent-x"})
+    );
+    assert_eq!(input["paths"][0]["toplevel"], top);
+    assert!(input["paths"][0].get("in_git_dir").is_none());
+    run_hook(
+        &hosted,
+        "context_monitor",
+        &json!({"event": "post_tool", "host": "claude-code", "session": "s1",
+                "tool": {"name": "Write", "class": "write", "input": {"file_path": "/elsewhere/x.txt"}}}),
+    );
+    assert_eq!(
+        hosted.input("hook__context_monitor")["git"]["status"],
+        "# branch.head agent-x\n? new.txt\n"
+    );
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "a shell tool's hook is told its command split into commands"
+)]
+fn a_shell_tool_is_told_its_commands() {
+    let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
+    let event = json!({"event": "pre_commit", "host": "claude-code", "session": "s1",
+        "tool": {"name": "Bash", "class": "shell",
+                 "input": {"command": "git add -f x && git commit -m 'feat(x): y'"}}});
+    run_hook(&hosted, "validate_commit", &event);
+    let input = hosted.input("hook__validate_commit");
+    assert_eq!(
+        input["commands"],
+        json!([
+            ["git", "add", "-f", "x"],
+            ["git", "commit", "-m", "feat(x): y"]
+        ])
+    );
+    assert!(input["commit"].get("cleanup").is_none());
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "a hook is sent the value of another extension's setting it names, and nothing of a setting or extension that is absent"
+)]
+fn a_hook_reads_another_extensions_setting() {
+    let task = |settings| {
+        let hosted = hosted(hosts_project(json!({}), settings), GsdHosts::new());
+        let event = json!({"event": "pre_tool", "host": "claude-code", "session": "s1",
+                           "tool": {"class": "agent", "name": "Task", "input": {}}});
+        run_hook(&hosted, "isolation", &event);
+        hosted.input("hook__isolation")["other_settings"].clone()
+    };
+    assert_eq!(
+        task(json!({"workflow.ui_phase": true})),
+        json!({"@t/ui:workflow.ui_phase": true})
+    );
+    assert_eq!(task(json!({})), json!({"@t/ui:workflow.ui_phase": false}));
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "the human guard denies a line that names specforge and cannot be read"
+)]
+fn the_human_guard_denies_a_line_it_cannot_read() {
+    let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
+    let shell = |command: &str| {
+        json!({"event": "pre_tool", "host": "claude-code", "session": "s1",
+               "tool": {"name": "Bash", "class": "shell", "input": {"command": command}}})
+    };
+    let run = run_hook(
+        &hosted,
+        "core.human_guard",
+        &shell("specforge t approve #it's mine"),
+    );
+    assert_eq!(run.answer["decision"], "deny", "{run:?}");
+    assert!(
+        run.answer["reason"]
+            .as_str()
+            .unwrap()
+            .contains("cannot be read"),
+        "{run:?}"
+    );
+    let run = run_hook(&hosted, "core.human_guard", &shell("echo it's"));
+    assert!(run.answer["decision"].is_null(), "{run:?}");
 }

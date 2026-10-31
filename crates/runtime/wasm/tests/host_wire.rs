@@ -61,6 +61,7 @@ fn a_hook_call_sends_the_golden_input_and_reads_the_golden_output() {
         graph: None,
         revisions: plain.revisions,
         state: plain.state,
+        ..HookInput::default()
     };
     let output = ExtensionCalls::new(&runtime)
         .run_hook(EXT, "hook__x", &input, 5_000)

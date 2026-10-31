@@ -4,16 +4,6 @@
       {
         "hooks": [
           {
-            "command": "specforge hook gsd.read_guard --host claude-code --event pre_tool --tools write,edit # specforge-install",
-            "timeout": 10,
-            "type": "command"
-          }
-        ],
-        "matcher": "Write|Edit|MultiEdit"
-      },
-      {
-        "hooks": [
-          {
             "command": "specforge hook gsd.write_guard --host claude-code --event pre_tool --tools write --paths 'spec/**/*.spec' # specforge-install",
             "timeout": 10,
             "type": "command"
@@ -55,11 +45,23 @@
         "hooks": [
           {
             "command": "specforge hook core.spec_guard --host claude-code --event pre_tool --tools write,edit --paths 'spec/**/*.spec' # specforge-install",
+            "onFailure": "block",
             "timeout": 15,
             "type": "command"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook core.human_guard --host claude-code --event pre_tool --tools shell # specforge-install",
+            "onFailure": "block",
+            "timeout": 15,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
       }
     ],
     "PostToolUse": [
@@ -104,6 +106,18 @@
             "type": "command"
           }
         ]
+      }
+    ],
+    "FileChanged": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook gsd.config_reload --host claude-code --event file_changed --paths specforge.json # specforge-install",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "specforge.json"
       }
     ]
   },

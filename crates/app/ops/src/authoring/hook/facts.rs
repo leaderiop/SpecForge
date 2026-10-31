@@ -4,7 +4,8 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
-use specforge_protocol_types::{CommitFact, PathFact};
+use specforge_project::history::{History, Located};
+use specforge_protocol_types::{CommitFact, GitFacts, PathFact};
 
 use crate::host::shell;
 
@@ -33,26 +34,24 @@ fn absolute(cwd: &Path, path: &str) -> PathBuf {
     } else {
         cwd.join(path)
     };
-    let mut lexical = PathBuf::new();
+    // Component by component, so a link is followed before a `..` after it (as the OS does) and a path that does not
+    // exist yet is its nearest existing ancestor's real path plus the rest.
+    let mut resolved = PathBuf::new();
     for part in joined.components() {
         match part {
             std::path::Component::ParentDir => {
-                lexical.pop();
+                resolved.pop();
             }
             std::path::Component::CurDir => {}
-            other => lexical.push(other),
+            other => {
+                resolved.push(other);
+                if let Ok(real) = std::fs::canonicalize(&resolved) {
+                    resolved = real;
+                }
+            }
         }
     }
-    if let Ok(real) = std::fs::canonicalize(&lexical) {
-        return real;
-    }
-    match (
-        lexical.parent().map(std::fs::canonicalize),
-        lexical.file_name(),
-    ) {
-        (Some(Ok(parent)), Some(name)) => parent.join(name),
-        _ => lexical,
-    }
+    resolved
 }
 
 /// `path` relative to `root` with `/`, when it lies inside.
@@ -80,24 +79,61 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
                     || rel == spec_root
                     || rel.starts_with(&format!("{spec_root}/"));
                 PathFact {
+                    real: absolute(cwd, &name).to_string_lossy().into_owned(),
                     path: rel,
                     in_project: true,
                     in_spec_root,
                     exists: meta.is_some(),
                     bytes: meta.map(|m| m.len()),
                     new_bytes,
+                    ..PathFact::default()
                 }
             }
             None => PathFact {
+                real: absolute(cwd, &name).to_string_lossy().into_owned(),
                 path: name,
                 in_project: false,
                 in_spec_root: false,
                 exists: false,
                 bytes: None,
                 new_bytes,
+                ..PathFact::default()
             },
         })
         .collect()
+}
+
+/// What git says of the repository `cwd` is in (ADR 0320): none outside one, or when git cannot be asked. `status`
+/// adds the porcelain status; a branch git cannot give is empty, a status it cannot give is none.
+pub fn git(history: &dyn History, cwd: &Path, status: bool) -> Option<GitFacts> {
+    let Located::Repo(place) = history.locate(cwd) else {
+        return None;
+    };
+    Some(GitFacts {
+        toplevel: place.toplevel.to_string_lossy().into_owned(),
+        git_dir: place.git_dir.to_string_lossy().into_owned(),
+        branch: history.branch(&place).unwrap_or_default(),
+        status: if status {
+            history.status(&place).ok()
+        } else {
+            None
+        },
+    })
+}
+
+/// For a path outside the project, the repository it is in and whether it is inside a `.git` directory (ADR 0320).
+// shortcut: `in_git_dir` is by name, so a `--separate-git-dir` repository's directory is not seen; upgrade when a
+// hook needs it.
+pub fn outside_git(history: &dyn History, fact: &mut PathFact) {
+    let real = Path::new(&fact.real);
+    fact.in_git_dir = real.components().any(|c| c.as_os_str() == ".git");
+    if let Some(Located::Repo(place)) = real
+        .ancestors()
+        .find(|a| a.is_dir())
+        .map(|d| history.locate(d))
+    {
+        fact.toplevel = Some(place.toplevel.to_string_lossy().into_owned());
+    }
 }
 
 /// The words of a shell tool's `command`; none when the tool has none or it cannot be read as shell.
@@ -105,11 +141,21 @@ pub fn shell_words(input: &Value) -> Option<Vec<String>> {
     shell::words(input.get("command")?.as_str()?).ok()
 }
 
+/// A shell tool's command split at its control operators, each command its words; none when it cannot be read.
+pub fn shell_commands(input: &Value) -> Vec<Vec<String>> {
+    input
+        .get("command")
+        .and_then(Value::as_str)
+        .and_then(|line| shell::commands(line).ok())
+        .unwrap_or_default()
+}
+
 /// The `git commit` a command line makes: its message (`-m` or `--message`, alone or in a cluster of short options such
 /// as `-am`) and whether it amends; none when no command of the line is a commit. A message the commit takes from
 /// elsewhere (`-F`, `-C`, `-c`, `--fixup`, `--squash`, the editor) is none, not empty.
 // shortcut: `git commit` is found by its words (global options and the wrappers `env`, `command`, `sudo`, `exec`,
-// `nohup`, `time` skipped, `sh -c '…'` read); an alias, a script, `xargs` or `$(…)` is not seen.
+// `nohup`, `time` skipped, `sh -c '…'` read); an alias, a script, `xargs` or `$(…)` is not seen. The cleanup mode a
+// git config sets is not read.
 pub fn commit(input: &Value) -> Option<CommitFact> {
     commit_of_line(input.get("command")?.as_str()?, 0)
 }
@@ -121,8 +167,8 @@ fn commit_of_line(line: &str, depth: usize) -> Option<CommitFact> {
             if let Some(fact) = commit_of_line(inner, depth + 1) {
                 return Some(fact);
             }
-        } else if let Some(args) = commit_args(words) {
-            return Some(commit_fact(args));
+        } else if let Some((globals, args)) = commit_args(words) {
+            return Some(commit_fact(globals, args));
         }
     }
     None
@@ -149,7 +195,31 @@ fn wrapper(word: &str) -> bool {
         )
 }
 
-fn commit_fact(words: &[String]) -> CommitFact {
+/// Whether `name` is `--cleanup` or a prefix of it git accepts (at least `--cl`).
+fn cleanup_name(name: &str) -> bool {
+    name.len() >= 4 && "--cleanup".starts_with(name)
+}
+
+/// The modes `-c commit.cleanup=<mode>` (or `-ccommit.cleanup=<mode>`) among the global options set.
+fn config_cleanup(globals: &[String]) -> Vec<String> {
+    const KEY: &str = "commit.cleanup=";
+    let mut modes = Vec::new();
+    let mut it = globals.iter();
+    while let Some(word) = it.next() {
+        let setting = if word == "-c" {
+            it.next().map(String::as_str)
+        } else {
+            word.strip_prefix("-c")
+        };
+        if let Some(mode) = setting.and_then(|s| s.strip_prefix(KEY)) {
+            modes.push(mode.to_string());
+        }
+    }
+    modes
+}
+
+fn commit_fact(globals: &[String], words: &[String]) -> CommitFact {
+    let mut cleanup = config_cleanup(globals);
     let mut message: Vec<String> = Vec::new();
     let mut elsewhere = false;
     let mut amend = false;
@@ -167,6 +237,10 @@ fn commit_fact(words: &[String]) -> CommitFact {
                 elsewhere = true;
                 at += 1;
             }
+            w if cleanup_name(w.split('=').next().unwrap_or(w)) => match w.split_once('=') {
+                Some((_, mode)) => cleanup.push(mode.to_string()),
+                None => cleanup.extend(value(&mut at)),
+            },
             w if w.starts_with("--message=") => message.push(w["--message=".len()..].to_string()),
             w if w.starts_with("--file=")
                 || w.starts_with("--reuse-message=")
@@ -207,11 +281,12 @@ fn commit_fact(words: &[String]) -> CommitFact {
     CommitFact {
         message: (!elsewhere && !message.is_empty()).then(|| message.join("\n\n")),
         amend,
+        cleanup,
     }
 }
 
 /// The words after `commit` when `words` is `git [global options] commit …`, the wrappers skipped.
-fn commit_args(words: &[String]) -> Option<&[String]> {
+fn commit_args(words: &[String]) -> Option<(&[String], &[String])> {
     let start = words.iter().take_while(|w| wrapper(w)).count();
     let mut it = words.iter().enumerate().skip(start);
     if it.next().map(|(_, w)| w.as_str()) != Some("git") {
@@ -223,7 +298,7 @@ fn commit_args(words: &[String]) -> Option<&[String]> {
                 it.next();
             }
             w if w.starts_with('-') => {}
-            "commit" => return Some(&words[at + 1..]),
+            "commit" => return Some((&words[start..at], &words[at + 1..])),
             _ => return None,
         }
     }
@@ -235,6 +310,23 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn a_new_path_under_a_link_is_real_through_the_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = std::fs::canonicalize(dir.path()).unwrap();
+        std::fs::create_dir_all(base.join("main/src")).unwrap();
+        std::fs::create_dir_all(base.join("wt")).unwrap();
+        std::os::unix::fs::symlink(base.join("main/src"), base.join("wt/mainsrc")).unwrap();
+        let wt = base.join("wt");
+        assert_eq!(
+            absolute(&wt, "mainsrc/new/a.ts"),
+            base.join("main/src/new/a.ts")
+        );
+        // `..` after a link is the link target's parent, as the OS reads it.
+        assert_eq!(absolute(&wt, "mainsrc/../x.ts"), base.join("main/x.ts"));
+    }
 
     fn commit_of(command: &str) -> Option<CommitFact> {
         commit(&json!({"command": command}))
@@ -299,6 +391,71 @@ mod tests {
     }
 
     #[test]
+    fn cleanup_directives_are_read_from_the_commits_words() {
+        let heredoc =
+            |tail: &str| format!("git commit -m \"$(cat <<'EOF'\nfeat: x\nEOF\n)\" {tail}");
+        let rows: Vec<(String, Vec<&str>)> = vec![
+            ("git commit -m x".into(), vec![]),
+            (
+                "git commit --cleanup=verbatim -m x".into(),
+                vec!["verbatim"],
+            ),
+            (
+                "git commit -m x --cleanup verbatim".into(),
+                vec!["verbatim"],
+            ),
+            ("git commit --cl=verbatim -m x".into(), vec!["verbatim"]),
+            ("git commit --cle=verbatim -m x".into(), vec!["verbatim"]),
+            ("git commit --clea=verbatim -m x".into(), vec!["verbatim"]),
+            ("git commit --clean=verbatim -m x".into(), vec!["verbatim"]),
+            ("git commit --cleanu=verbatim -m x".into(), vec!["verbatim"]),
+            (
+                "git commit --clean\"\"up=verbatim -m x".into(),
+                vec!["verbatim"],
+            ),
+            (
+                "git commit --cleanup=whitespace -m x --cleanup=verbatim".into(),
+                vec!["whitespace", "verbatim"],
+            ),
+            (
+                "git -c commit.cleanup=verbatim commit -m x".into(),
+                vec!["verbatim"],
+            ),
+            (
+                "git -ccommit.cleanup=strip commit -m x".into(),
+                vec!["strip"],
+            ),
+            (
+                "git commit -m \"fix: document --cleanup=verbatim\"".into(),
+                vec![],
+            ),
+            (heredoc("--cleanup=verbatim -m y"), vec!["verbatim"]),
+            (
+                format!("{} && echo --cleanup=verbatim", heredoc("")),
+                vec![],
+            ),
+            ("git commit --c=verbatim -m x".into(), vec![]),
+        ];
+        for (line, want) in rows {
+            assert_eq!(commit_of(&line).unwrap().cleanup, want, "{line}");
+        }
+    }
+
+    #[test]
+    fn a_shell_command_is_split_into_its_commands() {
+        let input = json!({"command": "git status && git add -f x; echo 'a b'"});
+        assert_eq!(
+            shell_commands(&input),
+            vec![
+                vec!["git", "status"],
+                vec!["git", "add", "-f", "x"],
+                vec!["echo", "a b"]
+            ]
+        );
+        assert!(shell_commands(&json!({})).is_empty());
+    }
+
+    #[test]
     fn what_is_no_commit_is_none() {
         for line in [
             "git status",
@@ -311,7 +468,7 @@ mod tests {
     }
 
     #[test]
-    fn a_path_outside_the_project_is_named_as_given_and_never_looked_at() {
+    fn a_path_outside_the_project_is_named_as_given_with_its_real_path() {
         let dir = tempfile::tempdir().unwrap();
         let facts = path_facts(
             dir.path(),
@@ -322,5 +479,8 @@ mod tests {
         assert_eq!(facts.len(), 1);
         assert!(!facts[0].in_project && !facts[0].exists && facts[0].bytes.is_none());
         assert_eq!(facts[0].path, "/etc/hosts");
+        let real = std::fs::canonicalize("/etc/hosts")
+            .map_or("/etc/hosts".into(), |p| p.to_string_lossy().into_owned());
+        assert_eq!(facts[0].real, real);
     }
 }

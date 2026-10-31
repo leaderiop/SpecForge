@@ -5,7 +5,7 @@ use specforge_ops::host::{
     Host, ModelChoice, Rendered, RenderedAgent, RenderedHook, RenderedSkill, RenderedSlash,
     SlashCall, Source,
 };
-use specforge_protocol_types::{Attribution, HookEvent};
+use specforge_protocol_types::{Attribution, HookEvent, OnFailure};
 
 fn source(extension: &str, version: &str, kind: &'static str, id: &str) -> Source {
     Source {
@@ -31,6 +31,12 @@ fn attribution() -> Attribution {
 }
 
 fn hook(id: &str, event: HookEvent, tools: &[&str], paths: &[&str]) -> RenderedHook {
+    // The CLI fixture's deny-policy hooks (`gsd_hosts.rs`).
+    let on_failure = if matches!(id, "write_guard" | "validate_commit") {
+        OnFailure::Deny
+    } else {
+        OnFailure::Allow
+    };
     RenderedHook {
         route: format!("t.{id}"),
         description: id.into(),
@@ -38,6 +44,7 @@ fn hook(id: &str, event: HookEvent, tools: &[&str], paths: &[&str]) -> RenderedH
         tools: tools.iter().map(|t| (*t).to_string()).collect(),
         paths: paths.iter().map(|t| (*t).to_string()).collect(),
         timeout_ms: 5_000,
+        on_failure,
     }
 }
 
@@ -127,6 +134,12 @@ pub fn fixture(host: Host) -> Rendered {
             hook("context_monitor", HookEvent::PostTool, &[], &[]),
             hook("session_cursor", HookEvent::SessionStart, &[], &[]),
             hook("record_hook", HookEvent::PostTool, &["write"], &["**"]),
+            hook(
+                "settings_reload",
+                HookEvent::FileChanged,
+                &[],
+                &["specforge.json"],
+            ),
             // The host's own hook, wired by every install (ADR 0292); the spec root is the project root here.
             RenderedHook {
                 route: "core.spec_guard".into(),
@@ -136,7 +149,22 @@ pub fn fixture(host: Host) -> Rendered {
                 tools: vec!["write".into(), "edit".into()],
                 paths: vec!["**/*.spec".into()],
                 timeout_ms: 10_000,
+                on_failure: OnFailure::Deny,
             },
-        ],
+            // The host's second own hook, wired while a command is human-attested (ADR 0301).
+            RenderedHook {
+                route: "core.human_guard".into(),
+                description: "Deny a shell call that runs a human-attested command".into(),
+                event: HookEvent::PreTool,
+                tools: vec!["shell".into()],
+                paths: Vec::new(),
+                timeout_ms: 10_000,
+                on_failure: OnFailure::Deny,
+            },
+        ]
+        .into_iter()
+        // The isolation guard names Claude Code only (ADR 0322).
+        .filter(|h| matches!(host, Host::ClaudeCode) || h.route != "t.isolation")
+        .collect(),
     }
 }

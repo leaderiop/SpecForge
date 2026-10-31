@@ -5,6 +5,7 @@
 
 mod facts;
 mod filter;
+pub mod human_guard;
 pub mod patch;
 pub mod spec_guard;
 
@@ -54,6 +55,9 @@ pub fn run(
     if route == crate::host::render::SPEC_GUARD {
         return spec_guard::run(view, event);
     }
+    if route == human_guard::HUMAN_GUARD {
+        return human_guard::run(view, event);
+    }
     let build = view.registries();
     let Some(hook) = build.hook(route) else {
         return Outcome {
@@ -69,6 +73,10 @@ pub fn run(
         .cwd
         .as_deref()
         .map_or_else(|| root.to_path_buf(), Into::into);
+    // A stale install: the host reads the hook's line, which carries the host it was installed for (ADR 0322).
+    if !declared.hosts.is_empty() && !declared.hosts.contains(&event.host) {
+        return Outcome::default();
+    }
     if !on(view, extension, &declared.when) {
         return Outcome::default();
     }
@@ -86,6 +94,13 @@ pub fn run(
     }
 
     let spec = spec_root(view);
+    let git_on = declared
+        .git_when
+        .as_ref()
+        .is_none_or(|s| on(view, extension, std::slice::from_ref(s)));
+    let history = ((declared.reads_git || declared.reads_git_status) && git_on)
+        .then(|| view.env().history())
+        .flatten();
     let tool = event.tool.as_ref();
     let at = crate::extension::command::instant();
     let input = HookInput::<RawGraph> {
@@ -100,12 +115,40 @@ pub fn run(
             name: t.name.clone(),
             input: t.input.clone(),
         }),
-        paths: tool
-            .map(|t| facts::path_facts(root, &cwd, &spec, &t.input))
-            .unwrap_or_default(),
+        paths: {
+            let mut paths = match (tool, &event.file) {
+                (Some(t), _) => facts::path_facts(root, &cwd, &spec, &t.input),
+                (None, Some(file)) => {
+                    facts::path_facts(root, &cwd, &spec, &serde_json::json!({ "file_path": file }))
+                }
+                (None, None) => Vec::new(),
+            };
+            if let Some(history) = &history {
+                for fact in paths.iter_mut().filter(|f| !f.in_project) {
+                    facts::outside_git(&**history, fact);
+                }
+            }
+            paths
+        },
+        git: history
+            .as_ref()
+            .and_then(|h| facts::git(&**h, &cwd, declared.reads_git_status)),
+        change: event.change.clone(),
+        other_settings: declared
+            .reads_settings
+            .iter()
+            .filter_map(|entry| {
+                let (ext, name) = entry.split_once(':')?;
+                crate::host::render::setting(view, ext, name).map(|v| (entry.clone(), v))
+            })
+            .collect(),
         shell: tool
             .filter(|t| t.class == "shell")
             .and_then(|t| facts::shell_words(&t.input)),
+        commands: tool
+            .filter(|t| t.class == "shell")
+            .map(|t| facts::shell_commands(&t.input))
+            .unwrap_or_default(),
         commit: (declared.event == specforge_protocol_types::HookEvent::PreCommit)
             .then(|| tool.and_then(|t| facts::commit(&t.input)))
             .flatten(),
@@ -187,7 +230,7 @@ pub fn run(
 /// routed `route`, as for a hook that trapped. The spec guard denies; a route the project does not declare cannot be
 /// known to object and allows.
 pub fn unreadable(view: &ProjectView<'_>, route: &str, why: &str) -> HookAnswer {
-    let policy = if route == crate::host::render::SPEC_GUARD {
+    let policy = if route == crate::host::render::SPEC_GUARD || route == human_guard::HUMAN_GUARD {
         OnFailure::Deny
     } else {
         view.registries()

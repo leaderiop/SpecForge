@@ -1,5 +1,5 @@
 use serde_json::json;
-use specforge_ops::host::{HOOK_MARK, MergedEntry};
+use specforge_ops::host::{HOOK_MARK, MISSING_GUARD, MergedEntry};
 
 use super::merge;
 
@@ -151,6 +151,38 @@ fn a_users_hook_beside_ours_in_one_group_survives_update_and_uninstall() {
     assert!(
         gone.contains("my-user-hook.sh") && !gone.contains("specforge hook"),
         "{gone}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "an uninstall removes every rendered form of a hook line and keeps the user's own"
+)]
+fn an_uninstall_removes_a_guarded_line() {
+    let guarded =
+        format!("{MISSING_GUARD}{{ echo 'x' >&2; exit 2; }}; specforge hook t.a {HOOK_MARK}");
+    let plain = format!("specforge hook t.b {HOOK_MARK}");
+    let existing = format!(
+        "{{\"hooks\": {{\"PreToolUse\": [{{\"hooks\": [{{\"type\": \"command\", \"command\": \"{guarded}\", \"onFailure\": \"block\"}}, {{\"type\": \"command\", \"command\": \"{plain}\", \"commandWindows\": \"{plain}\"}}, {{\"type\": \"command\", \"command\": \"./my-user-hook.sh\"}}]}}]}}}}"
+    );
+    let gone = text(Some(&existing), &[]).unwrap();
+    assert!(
+        gone.contains("my-user-hook.sh") && !gone.contains("specforge hook"),
+        "{gone}"
+    );
+}
+
+#[test]
+fn an_install_owns_its_guarded_line() {
+    let guarded =
+        format!("{MISSING_GUARD}{{ echo 'x' >&2; exit 2; }}; specforge hook t.a {HOOK_MARK}");
+    let existing = format!(
+        "{{\"hooks\": {{\"PreToolUse\": [{{\"matcher\": \"Write\", \"hooks\": [{{\"type\": \"command\", \"command\": \"{guarded}\"}}, {{\"type\": \"command\", \"command\": \"./my-user-hook.sh\"}}]}}]}}}}"
+    );
+    let updated = text(Some(&existing), &[hook("PreToolUse", "t.b")]).unwrap();
+    assert!(
+        updated.contains("my-user-hook.sh") && updated.contains("t.b") && !updated.contains("t.a"),
+        "{updated}"
     );
 }
 

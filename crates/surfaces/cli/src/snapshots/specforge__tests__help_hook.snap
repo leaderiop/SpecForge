@@ -15,7 +15,7 @@ Options:
           The host that ran it: claude-code, codex or cursor
 
       --event <EVENT>
-          The event the hook is wired to: pre_tool, post_tool, pre_commit, user_prompt, session_start, stop, subagent_start, subagent_stop, pre_compact or statusline
+          The event the hook is wired to: pre_tool, post_tool, pre_commit, user_prompt, session_start, stop, subagent_start, subagent_stop, pre_compact, statusline or file_changed
 
       --tools <TOOLS>
           Tool classes the hook fires on, comma-separated (empty: any tool)

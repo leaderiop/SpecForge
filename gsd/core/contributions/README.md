@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 14 hooks and the install goldens (r44), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 hooks and the install goldens (r44, K20c), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -274,24 +274,25 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 |---|---|
 | gsd-read-guard, gsd-write-guard | `read_guard`, `write_guard` (`pre_tool`): the paths a workflow may touch; `write_guard` measures bytes, not lines |
 | gsd-secret-read-guard | `secret_read_guard` (`pre_tool`) |
-| gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only (see below) |
+| gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only, and a block would land after the read (see below) |
 | gsd-prompt-guard | `prompt_guard` (`pre_tool`): scans content written to spec files |
 | gsd-agent-isolation-guard | none: dropped in the roster, because `@gsd/core` runs its executors sequentially in the checkout and the guard would always allow (r44 post-fix N7; ACCEPTANCE's divergences) |
-| gsd-worktree-path-guard | `worktree_path_guard` (`pre_tool`): path based; refuses the main checkout by any case, and by a relative path that climbs into it (stricter than upstream, which allows every relative path; see ACCEPTANCE's divergences), not through a symlink |
-| gsd-workflow-guard | `workflow_marker` (`user_prompt`: a `/gsd-...` prompt sets the marker, which lasts the session) and `workflow_guard` (`pre_tool`, `hooks.workflow_guard`) |
+| gsd-worktree-path-guard | `worktree_path_guard` (`pre_tool`): path based; refuses a path whose git toplevel is not the worktree's, so also through a symlink into the main checkout, and a relative path that climbs into it (stricter than upstream, which allows every relative path; see ACCEPTANCE's divergences) |
+| gsd-workflow-guard | `workflow_marker` (`user_prompt`: a `/gsd-...` prompt sets the marker, which lasts the session) and `workflow_guard` (`pre_tool`, `hooks.workflow_guard`; it also refuses `git add -f` on an `agent-*` branch) |
 | gsd-context-monitor | `context_monitor` (`post_tool`) and `context_compacted` (`pre_compact`): warnings at the `hooks.context_*` thresholds, metrics kept in session state |
-| gsd-statusline | `statusline`, from the graph and the session state |
+| gsd-statusline | `statusline`, from the graph and the session state (`statusline.show_git` adds the branch) |
 | gsd-validate-commit | `validate_commit` (`pre_commit`, `hooks.community`): `^([a-z][a-z0-9-]*)(\(.+\))?:\s.+`, the types plus `hooks.commit_types`, subject at most 72 characters |
 | gsd-phase-boundary | `phase_boundary` (`post_tool`, `hooks.community`): after a spec file is written, reminds that status and progress are computed; it writes nothing |
 | gsd-session-state | `session_state` (`session_start`, `hooks.community`): shows the computed state, or "No project found - suggest /gsd-new-project ..." |
 | (core) `core.spec_guard` | wired by every install: `pre_tool` write on `.spec` refuses a raw write of a computed, harness or human-only value and names the command that writes it |
-| gsd-ensure-canonical-path, gsd-check-update, gsd-check-update-worker, gsd-update-banner, gsd-config-reload, gsd-graphify-update, gsd-node-runner | none, each with its reason in `src/hooks/roster.rs` |
+| gsd-ensure-canonical-path, gsd-check-update, gsd-check-update-worker, gsd-update-banner, gsd-graphify-update, gsd-node-runner | none, each with its reason in `src/hooks/roster.rs` |
+| gsd-config-reload | `config_reload` (`file_changed` on `specforge.json`, Claude Code only): tells the session the settings changed |
 | gsd-cursor-pre-tool, -post-tool, -session-start | the Cursor renderings of the events above |
 | gsd-cursor-stop, -subagent-start, -subagent-stop, gsd-windsurf-* | none: no hook of ours registers on those events, and Windsurf is a later host |
 
-At defaults an install writes 10 hook lines for Claude Code, 8 for Codex and 7 for Cursor; with `hooks.community` and
-the other booleans on, 14, 12 and 11. Codex does not render `injection_scanner` and
-`statusline`; Cursor does not render `workflow_marker`, `context_compacted` and `statusline`.
+At defaults an install writes 10 gsd hook lines for Claude Code, 8 for Codex and 8 for Cursor; with `hooks.community` and
+the other booleans on, 14, 12 and 12. `read_guard` is wired on Codex and Cursor only. Codex does not render `config_reload`, `injection_scanner` and
+`statusline`; Cursor does not render `config_reload`, `context_compacted` and `statusline`.
 
 ### Hosts
 
@@ -299,25 +300,29 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
 
 | Host point | Claim here | Upstream evidence | Status |
 |---|---|---|---|
-| Cursor hook events | preToolUse, postToolUse, sessionStart, stop, subagentStart, subagentStop | `CURSOR_HOOK_EVENTS`, `imperative-hook-bus.cts:35-42` | agrees |
-| Cursor answer | `{block, reason, additional_context}` | `gsd-cursor-*.js` | agrees |
+| Cursor hook events | preToolUse, postToolUse, sessionStart, beforeSubmitPrompt, stop, subagentStart, subagentStop | `CURSOR_HOOK_EVENTS`, `imperative-hook-bus.cts:35-42` | agrees |
+| Cursor answer | `{block, reason, additional_context}`; a deny is `permission: deny` | `gsd-cursor-*.js` | agrees |
 | Cursor subagentStart answer | `permission: deny` + `user_message` | `gsd-cursor-subagent-start.js:26-31` | unverified (no gsd hook answers it) |
 | Codex `[features] hooks = true` | written by install | changeset 3566, `bin/install.js` | agrees |
 | Codex event set | the events of `CODEX_EXTENDED_HOOK_EVENTS` (nine, with SessionStart), five used here | `bin/install.js:162` | agrees for the five used |
-| Codex hook copies | 8 of the 13 hook ids (`injection_scanner` and `statusline` are not rendered; the community hooks only when on) | upstream copies two (`CODEX_HOOKS_TO_COPY`) | divergence: more here |
+| Codex hook copies | 8 of the 15 hook ids (`config_reload`, `injection_scanner` and `statusline` are not rendered; the community hooks only when on) | upstream copies two (`CODEX_HOOKS_TO_COPY`) | divergence: more here |
+| Cursor `postToolUse` block | `injection_scanner`'s block is dropped to `additional_context` (Cursor cannot deny after a tool runs); on Claude Code it lands after the read | `gsd-read-injection-scanner.js` answers `decision: block` | divergence: advisory on Cursor |
 | Codex and Cursor agent and skill files | as the kernel renders | not compared | unverified |
 
 ### What the hooks do not do (known, not fixed)
 
+- The statusline's git status read is declared statically, so the host runs `git status` on every render even while
+  `statusline.show_git` is off (upstream spawns nothing then, and drops the segment at 1.5 s).
 - The context monitor has no stopped-at record and no Stop or SubagentStop rows.
-- The `git add -f` block of upstream's workflow guard is dropped (it needs git facts, K20).
-- The statusline is plain text (the kernel escapes control characters); `show_git` and `show_state_freshness` are
-  inert; phase counts read completed over total; the milestone shown is the one `reports::current` chooses.
-- Injection scanning is advisory: `security.injection_blocking` belongs to `@gsd/security` and a hook cannot read
-  another extension's settings.
+- A `git -C <dir> add -f` is judged by the branch of the hook's cwd, not of `<dir>` (`[cwd-branch]`).
+- The statusline is plain text (the kernel escapes control characters); `show_state_freshness` is
+  inert (no STATE.md stamp); phase counts read completed over total; the milestone shown is the one `reports::current` chooses.
+- Injection scanning answers a block for a HIGH scan only when `@gsd/security` sets `security.injection_blocking`; it is
+  not built, so the scanner is advisory today (ADR 0323). Even then the block cannot stop the read: on Claude Code it
+  lands after the tool ran (as upstream's does), and on Cursor, which cannot deny after a tool runs, it stays advisory.
 - `validate_commit` lets `-F`, `--fixup` and similar commits through (no message on the command line), and a literal
   `fixup! ...` subject; the heredoc form `$(cat <<'EOF' ... EOF)` is read only for a quoted delimiter, nothing after the
-  closing paren, no `--cleanup` but default or whitespace (git's abbreviations and spliced quotes are read, and every word of the command is scanned) and an `-m` that is not single-quoted (as upstream blocks the
+  closing paren, no cleanup directive but `whitespace` (the host reads git's abbreviations and spliced quotes, from the commit's own words) and an `-m` that is not single-quoted (as upstream blocks the
   others). It blocks `git commit -m $MSG` (unquoted) and `-m "" -m "feat: x"`, which upstream lets through.
 - The milestone-choice weakness (`v1.9` sorts after `v1.10`, id-string order) is in `smart_entry`, the statusline and
   `session_state`.

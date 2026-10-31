@@ -94,7 +94,11 @@ pub fn run_hook(hosted: &Hosted, id: &str, event: &Value) -> HookRun {
     let neutral: HostHookEvent = serde_json::from_value(event.clone()).expect("a neutral event");
     let outcome = hook::run(
         &view,
-        &format!("t.{id}"),
+        &if id.starts_with("core.") {
+            id.to_string()
+        } else {
+            format!("t.{id}")
+        },
         &neutral,
         specforge_ops::testing::caller(),
     );

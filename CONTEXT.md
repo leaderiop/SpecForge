@@ -1659,7 +1659,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   overwritten; sha256:<digest>` line that makes a file install's; an owned config entry is one whose command is
   `specforge` or starts `specforge hook ` (ADR 0292).
 - **Hook**: a function an extension declares on a host event, wired as `specforge hook <short>.<id>`, answering within a
-  timeout from host-computed facts; `core.spec_guard` is the host's own (ADR 0292).
+  timeout from host-computed facts (a repository's head, a path's real path and the settings of other extensions it names, ADR 0320-0323); it may name the hosts it is wired on and a project file whose change fires it (ADR 0321, 0322), and a deny-policy one fails closed without the binary (ADR 0324); `core.spec_guard` is the host's own (ADR 0292).
 - **Secret**: a declared environment variable an extension reads; the file may not hold it (E087) and no value
   crosses into a guest, only whether it is set (ADR 0288).
 - **Origin**: where a setting's value came from, `SettingOrigin`: explicit, preset, default or unset (ADR 0288).

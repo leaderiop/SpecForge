@@ -15,9 +15,9 @@ const SHRINK_PERCENT: u64 = 40;
 /// Upstream's floor of 40 lines, as bytes: a smaller file may be rewritten whole.
 const FLOOR_BYTES: u64 = 2_048;
 
-/// Claude Code's runtime enforces read-before-edit; the reminder is for the other hosts.
+/// Claude Code's runtime enforces read-before-edit, so the hook is installed on the other hosts only (ADR 0322).
 pub(super) fn read_guard(f: &Facts) -> HookOutput {
-    if f.host == "claude-code" || !matches!(f.class.as_str(), "write" | "edit") {
+    if !matches!(f.class.as_str(), "write" | "edit") {
         return HookOutput::default();
     }
     match f.paths.iter().find(|p| p.exists) {
@@ -65,6 +65,7 @@ pub(super) fn write_guard(f: &Facts) -> HookOutput {
 pub(super) fn declare(c: &mut ContributionsBuilder) {
     c.hook("read_guard", HookEvent::PreTool, |h| {
         h.description("Reminds a host that does not enforce it to Read a file before writing it")
+            .hosts(&["codex", "cursor"])
             .tools(&["write", "edit"])
             .handler(|call| Ok(read_guard(&Facts::of(call))));
     });

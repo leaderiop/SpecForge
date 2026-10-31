@@ -7,7 +7,7 @@
 use serde_json::Value;
 use specforge_protocol_types::command_args::option_name;
 use specforge_protocol_types::{
-    CommandArgType, ExtensionDeclaration, PromptArgDescriptor, RenderInput, RenderKind,
+    CommandArgType, ExtensionDeclaration, OnFailure, PromptArgDescriptor, RenderInput, RenderKind,
     ServedSlash, SlashCommandDescriptor,
 };
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
@@ -279,6 +279,8 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
     let mut hooks = build
         .hooks()
         .filter(|h| on(view, h.extension, &h.item.when))
+        // The extension chose its hosts, so a hook left out has no `not_rendered` row (ADR 0322).
+        .filter(|h| h.item.hosts.is_empty() || h.item.hosts.iter().any(|x| x == host.as_str()))
         .map(|h| RenderedHook {
             route: h.route(),
             description: h.item.description.clone(),
@@ -291,9 +293,13 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
                 .map(|p| spec_root_spelled(view, p))
                 .collect(),
             timeout_ms: h.item.timeout_ms,
+            on_failure: h.item.on_failure,
         })
         .collect::<Vec<_>>();
     hooks.push(spec_guard(view));
+    if human_guard_wanted(view) {
+        hooks.push(human_guard());
+    }
 
     Ok(Rendered {
         host,
@@ -320,6 +326,34 @@ fn spec_guard(view: &ProjectView<'_>) -> RenderedHook {
         tools: SPEC_GUARD_TOOLS.iter().map(|t| (*t).to_string()).collect(),
         paths: vec![spec_root_spelled(view, SPEC_GUARD_PATHS)],
         timeout_ms: 10_000,
+        on_failure: OnFailure::Deny,
+    }
+}
+
+/// The route of the host's second own hook, and the tool classes it is wired on.
+pub const HUMAN_GUARD: &str = "core.human_guard";
+const HUMAN_GUARD_TOOLS: [&str; 1] = ["shell"];
+
+/// Whether the project routes a human-attested command: only then is the guard installed.
+pub fn human_guard_wanted(view: &ProjectView<'_>) -> bool {
+    view.registries()
+        .commands()
+        .routed()
+        .iter()
+        .any(|r| r.declaration().human)
+}
+
+/// The host's second own hook, wired while the project routes a human-attested command: a shell call that runs one is
+/// denied (ADR 0301). Its logic is `authoring::hook::human_guard`.
+fn human_guard() -> RenderedHook {
+    RenderedHook {
+        route: HUMAN_GUARD.into(),
+        description: "Deny a shell call that runs a human-attested command".into(),
+        event: specforge_protocol_types::HookEvent::PreTool,
+        tools: HUMAN_GUARD_TOOLS.iter().map(|t| (*t).to_string()).collect(),
+        paths: Vec::new(),
+        timeout_ms: 10_000,
+        on_failure: OnFailure::Deny,
     }
 }
 

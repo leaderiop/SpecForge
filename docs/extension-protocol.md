@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.13.0" }
+{ "host_version": "1.14.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.13.0",
+  "protocol_version": "1.14.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -476,7 +476,7 @@ describe files written into an agent host's project directory by `specforge inst
 | `agents` | `id` (kebab-case), `description`, `tools` (host-neutral classes), `model`, `effort`, `color`, `variants` and `variant_setting`, `when`, `attribution` | one agent file per host; its body is the `render__` export's |
 | `skills` | `id`, `description`, `tools`, `argument_hint`, `when`, `attribution` | one skill per host; its body is the `render__` export's |
 | `slash_commands` | exactly one of `prompt` or `command` (an id of the extension), `argument_hint`, `tools`, `effort`, `when`, `attribution` | a skill named `<short>-<route>` that holds a trampoline: it calls the prompt or command through its own surface |
-| `hooks` | `id` (snake_case), `description`, `event`, `tools`, `paths`, `timeout_ms` (5 s unless set), `on_failure` (`allow` or `deny`), `reads_graph`, `reads_state`, `writes`, `when`, `export` (`hook__<id>`) | one entry in the host's hook configuration that runs `specforge hook <short>.<id>` |
+| `hooks` | `id` (snake_case), `description`, `event`, `tools`, `paths`, `timeout_ms` (5 s unless set), `on_failure` (`allow` or `deny`), `reads_graph`, `reads_state`, `writes`, `when`, `hosts`, `reads_git`, `reads_git_status`, `git_when`, `reads_settings`, `export` (`hook__<id>`) | one entry in the host's hook configuration that runs `specforge hook <short>.<id>` |
 
 A `tools` item is a class, not a host's tool name: `read`, `write`, `edit`, `shell`, `search`, `web_fetch`,
 `web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`. Each host's adapter maps a class to its
@@ -507,6 +507,16 @@ origin; a plan the host refuses becomes a deny on a pre event and a notice other
 timeout or a malformed answer applies the hook's `on_failure` and reports E028. `now` (1.11.0, ADR 0294) is the host's
 clock at the call, `YYYY-MM-DDTHH:MM:SSZ`: RFC 3339, UTC, seconds, a literal `Z`. It is the same instant as `today`, which
 is its date; an input without one omits the key.
+
+**Hook members of 1.14.0 (ADR 0320-0324).** `hosts` (ADR 0322) limits the hosts a hook is installed on (`claude-code`,
+`codex`, `cursor`; none: all). `reads_git` (ADR 0320) sends `git`: the `toplevel`, `git_dir`, `branch` and, with
+`reads_git_status`, the porcelain `status` of the repository the `cwd` is in, and, for an out-of-project path, its
+`toplevel` and `in_git_dir`; every `PathFact` carries its `real` path. A shell tool's command also arrives as `commands`
+(split at control operators) and a commit's `cleanup` lists its cleanup modes. The event `file_changed` (ADR 0321)
+names the files it watches in `paths` (file names, not globs) and carries what happened as `change` (`change`, `add`,
+`unlink`); only Claude Code wires it. `reads_settings` (ADR 0323), entries `<extension>:<setting>` of other extensions,
+sends their values as `other_settings`. A hook whose `on_failure` is `deny` is installed with a line that denies (exit
+2) when `specforge` is not on the host's PATH (ADR 0324).
 
 **State (1.10.0, ADR 0292).** A hook, command or prompt that declares `reads_state` is sent `state`:
 `{"project": {…}, "session": {…}}` (`session` only when the host names one; a CLI command has none). It answers a
@@ -935,6 +945,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.11.0` | the same as `1.0.0` |
 | `1.12.0` | the same as `1.0.0` |
 | `1.13.0` | the same as `1.0.0` |
+| `1.14.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -963,6 +974,7 @@ or answered.
 | `1.11.0` | A pass or a command may declare `reads` (`name`, `field` or `glob`, `base`, `text`) and its input then carries `files`, the facts and capped text of the project files it names; a pass may declare `reads_tests` to be sent the recorded test report at compile (ADR 0293). A pass's `values` and a validator's carry every `string_list`, `reference_list` and `enum_list` field as an array of its items, and a command's, a collector's and a hook's input carries `now`, `YYYY-MM-DDTHH:MM:SSZ` (ADR 0294). A judged rule's `judge` may be `prompt:<id>`, a prompt of its own extension (ADR 0295). `specforge settings set` and `unset` write the settings an extension declares (ADR 0296). A 1.10 host ignores the new keys, so a guest that needs a file gets none there. |
 | `1.12.0` | A command may declare `human` (ADR 0301): the host runs it only for a person at a terminal. A setting may declare `gates_when_on` and be of type `number` (ADR 0305). A judgement a pass is sent carries `cited_tests`, the tests its verdict cites (ADR 0304). A 1.11 host ignores `human`, `gates_when_on` and `cited_tests`, and drops a `number` setting (W019). |
 | `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and refuses the `surfaces` declaration of a guest that writes a `when` list (a 1.12 `when` is one string, and a list fails the whole category: `DescribeFailed`), so such a guest needs a 1.13.0 host; a `when` of one name is still a string. |
+| `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.

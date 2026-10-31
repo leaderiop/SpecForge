@@ -27,6 +27,13 @@ impl Filter {
         if !wanted {
             return false;
         }
+        if self.event == HookEvent::FileChanged {
+            return event.file.as_deref().is_some_and(|file| {
+                self.paths.is_empty()
+                    || facts::relative_to(root, cwd, file)
+                        .is_some_and(|rel| self.paths.iter().any(|g| glob::matches(g, &rel)))
+            });
+        }
         if !self.event.takes_tools() {
             return true;
         }

@@ -13,6 +13,23 @@ pub struct PathFact {
     pub exists: bool,
     pub bytes: Option<u64>,
     pub new_bytes: Option<u64>,
+    /// The path made absolute against the hook's `cwd`, links followed as far as it exists (ADR 0320).
+    pub real: String,
+    /// `reads_git`, outside the project: the top directory of the repository the real path is in.
+    pub toplevel: Option<String>,
+    /// `reads_git`, outside the project: a component of the real path is `.git`.
+    pub in_git_dir: bool,
+}
+
+/// What the host read of the repository the hook's `cwd` is in (`reads_git`, ADR 0320).
+#[derive(Debug, Clone, Default)]
+pub struct Git {
+    pub toplevel: String,
+    pub git_dir: String,
+    /// Empty when `HEAD` is detached.
+    pub branch: String,
+    /// `reads_git_status`: `git status --porcelain=v2 --branch`.
+    pub status: Option<String>,
 }
 
 /// The tool and the facts of a hook call.
@@ -26,6 +43,8 @@ pub struct Facts<'a> {
     pub tool: String,
     pub input: Value,
     pub paths: Vec<PathFact>,
+    /// A shell tool's command split at its control operators, each command its words.
+    pub commands: Vec<Vec<String>>,
     /// `post_tool`: the host's tool response.
     pub response: Option<Value>,
     /// The host's clock when the hook fired (RFC 3339 UTC); empty when it passed none.
@@ -34,6 +53,8 @@ pub struct Facts<'a> {
     pub prompt: Option<String>,
     /// `pre_commit`: the message `-m` gives; none when the commit takes it from elsewhere.
     pub commit_message: Option<String>,
+    /// `pre_commit`: the mode of each cleanup directive of the commit, in order.
+    pub commit_cleanup: Vec<String>,
     /// A hook that declares `reads_state`: the session's state (none: no session, or none sent).
     pub session_state: Option<serde_json::Map<String, Value>>,
     /// The host's session, if it names one.
@@ -42,8 +63,14 @@ pub struct Facts<'a> {
     pub status: Option<Value>,
     /// A hook that declares `reads_state`: the project's state.
     pub project_state: serde_json::Map<String, Value>,
+    /// `@gsd/security`'s `security.injection_blocking` is true (a hook that declares it; ADR 0323).
+    pub injection_blocking: bool,
+    /// `file_changed`: what happened to the file (`change`, `add` or `unlink`).
+    pub change: Option<String>,
     /// A hook that declares `reads_graph`.
     pub graph: Option<&'a CommandGraph>,
+    /// A hook that declares `reads_git`: none outside a repository.
+    pub git: Option<Git>,
 }
 
 impl<'a> Facts<'a> {
@@ -69,21 +96,39 @@ impl<'a> Facts<'a> {
                     exists: p.exists,
                     bytes: p.bytes,
                     new_bytes: p.new_bytes,
+                    real: p.real.clone(),
+                    toplevel: p.toplevel.clone(),
+                    in_git_dir: p.in_git_dir,
                 })
                 .collect(),
+            commands: f.commands.clone(),
             response: f.response.clone(),
             now: call.now().to_string(),
             prompt: f.prompt.clone(),
             commit_message: f.commit.as_ref().and_then(|c| c.message.clone()),
+            commit_cleanup: f
+                .commit
+                .as_ref()
+                .map(|c| c.cleanup.clone())
+                .unwrap_or_default(),
             session_state: f.state.as_ref().and_then(|s| s.session.clone()),
             session: f.session.clone(),
             status: f.status.clone(),
+            change: f.change.clone(),
+            injection_blocking: call.other_setting("@gsd/security", "security.injection_blocking")
+                == Some(&Value::Bool(true)),
             project_state: f
                 .state
                 .as_ref()
                 .map(|s| s.project.clone())
                 .unwrap_or_default(),
             graph: f.graph.as_ref(),
+            git: f.git.as_ref().map(|g| Git {
+                toplevel: g.toplevel.clone(),
+                git_dir: g.git_dir.clone(),
+                branch: g.branch.clone(),
+                status: g.status.clone(),
+            }),
         }
     }
 

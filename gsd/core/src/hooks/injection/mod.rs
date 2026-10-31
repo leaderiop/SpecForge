@@ -1,8 +1,11 @@
 //! Ported from gsd-core v1.18.0 hooks/gsd-read-injection-scanner.js and hooks/gsd-prompt-guard.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
 //! `injection_scanner` (post_tool on read, web_fetch, web_search) and `prompt_guard` (pre_tool on write and edit under
-//! the spec root), D-r44-9. Both are advisory: a HIGH scan is a warning whatever the settings, because upstream's
-//! `security.injection_blocking` is `@gsd/security`'s key and a hook reads no other extension's settings.
+//! the spec root), D-r44-9. Both are advisory. A HIGH scan of `injection_scanner` answers a block when
+//! `@gsd/security`'s `security.injection_blocking` is true (ADR 0323), but a `post_tool` block cannot undo the read:
+//! on Claude Code it reaches the model after the tool ran, as upstream's does, and on Cursor `postToolUse` has no
+//! block, so the answer stays advisory context there. `@gsd/security` is not built, so in every project today the
+//! setting is absent and the scanner is advisory.
 
 mod patterns;
 mod regex;
@@ -244,13 +247,18 @@ pub(super) fn scanner(f: &Facts) -> HookOutput {
     } else {
         "Single pattern match may be a false positive (e.g., documentation). Proceed with awareness."
     };
-    HookOutput::allow().with_context(format!(
+    let advisory = format!(
         "\u{26a0}\u{fe0f} INJECTION SCAN [{severity}] ({}): \"{label}\" triggered {} pattern(s): {}. \
          This content is now in your conversation context. {detail} Source: {source}",
         f.tool,
         findings.len(),
         findings.iter().map(render).collect::<Vec<_>>().join(", ")
-    ))
+    );
+    if severity == "HIGH" && f.injection_blocking {
+        let reason = format!("Prompt-injection blocked ({}). {advisory}", f.tool);
+        return HookOutput::deny(reason).with_context(advisory);
+    }
+    HookOutput::allow().with_context(advisory)
 }
 
 /// What a write or edit puts in a file: the first of `content` and `new_string` that has text, else the new text of
@@ -317,6 +325,7 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
     c.hook("injection_scanner", HookEvent::PostTool, |h| {
         h.description("Warns of prompt-injection phrases in what a read, fetch or search returned")
             .tools(&["read", "web_fetch", "web_search"])
+            .reads_setting("@gsd/security", "security.injection_blocking")
             .handler(|call| Ok(scanner(&Facts::of(call))));
     });
     c.hook("prompt_guard", HookEvent::PreTool, |h| {

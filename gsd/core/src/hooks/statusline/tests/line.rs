@@ -187,6 +187,7 @@ pub(super) fn line_ported(port: &mut dyn FnMut(&str)) {
     );
     assert!(!line_of(st, &opts("end", false, false)).contains("main"));
     port("show_git e2e through the hook > default (flag absent) has no git segment");
+    git_ported(port);
 
     // the keys the settings declare
     let keys: Vec<&str> = crate::settings::key_names().collect();
@@ -312,4 +313,100 @@ pub(super) fn line_ported(port: &mut dyn FnMut(&str)) {
     port(
         "renderStatusline uses the compact badge > rendered output carries (1M), not (1M context)",
     );
+}
+
+/// `parseGitStatus` and `buildGitSegment` over the raw status text, and the flag through the hook.
+fn git_ported(port: &mut dyn FnMut(&str)) {
+    use crate::hooks::facts::Git;
+    use crate::hooks::statusline::format::{GitInfo, git_segment, parse_git_status};
+
+    let info = |branch: &str, ahead, behind, staged, unstaged, untracked| GitInfo {
+        branch: branch.into(),
+        ahead,
+        behind,
+        staged,
+        unstaged,
+        untracked,
+    };
+    assert_eq!(parse_git_status(""), None);
+    assert_eq!(parse_git_status("? some-file\n"), None);
+    port("parseGitStatus > returns null for non-string / missing branch header");
+    let clean = "# branch.oid abc123\n# branch.head main\n# branch.upstream origin/main\n# branch.ab +0 -0\n";
+    assert_eq!(parse_git_status(clean), Some(info("main", 0, 0, 0, 0, 0)));
+    port("parseGitStatus > parses a clean, in-sync branch");
+    let dirty = "# branch.oid abc123\n# branch.head feat/x\n# branch.upstream origin/feat/x\n# branch.ab +2 -1\n\
+        1 M. N... 100644 100644 100644 aaa bbb staged-only.txt\n1 .M N... 100644 100644 100644 aaa bbb unstaged-only.txt\n\
+        1 MM N... 100644 100644 100644 aaa bbb both.txt\n2 R. N... 100644 100644 100644 aaa bbb R100 new.txt\told.txt\n\
+        ? untracked-1.txt\n? untracked-2.txt\n";
+    assert_eq!(parse_git_status(dirty), Some(info("feat/x", 2, 1, 3, 2, 2)));
+    port("parseGitStatus > counts staged, unstaged, untracked, ahead, behind");
+    let conflict = parse_git_status(
+        "# branch.head main\nu UU N... 100644 100644 100644 100644 aaa bbb ccc conflict.txt\n",
+    )
+    .expect("a branch");
+    assert_eq!((conflict.unstaged, conflict.staged), (1, 0));
+    port("parseGitStatus > counts unmerged (conflict) entries as unstaged");
+    assert_eq!(
+        parse_git_status("# branch.head (detached)\n").map(|i| i.branch),
+        Some("(detached)".to_string())
+    );
+    port("parseGitStatus > detached HEAD passes through as \"(detached)\"");
+    let local = parse_git_status("# branch.head local-only\n? new.txt\n").expect("a branch");
+    assert_eq!((local.ahead, local.behind, local.untracked), (0, 0, 1));
+    port("parseGitStatus > no upstream (no branch.ab line) leaves ahead/behind at 0");
+
+    assert_eq!(git_segment(None), "");
+    assert_eq!(git_segment(Some(&GitInfo::default())), "");
+    port("buildGitSegment > returns empty string for null info");
+    assert_eq!(
+        git_segment(Some(&info("main", 0, 0, 0, 0, 0))),
+        " \u{2502} main\u{2713}"
+    );
+    port("buildGitSegment > clean repo renders branch with a check mark");
+    assert_eq!(
+        git_segment(Some(&info("feat/x", 2, 1, 3, 2, 4))),
+        " \u{2502} feat/x+3~2?4\u{2191}2\u{2193}1"
+    );
+    port("buildGitSegment > dirty repo renders each nonzero marker in order");
+    assert_eq!(
+        git_segment(Some(&info("main", 1, 0, 0, 0, 0))),
+        " \u{2502} main\u{2191}1"
+    );
+    port("buildGitSegment > omits zero markers");
+
+    // the flag through the hook: the segment follows the directory, and only while `show_git` is on
+    let facts = |text: &str| Facts {
+        host: "claude-code".into(),
+        status: Some(status(json!("Claude"), None, None, Value::Null)),
+        git: Some(Git {
+            toplevel: "/t/myproject".into(),
+            git_dir: "/t/myproject/.git".into(),
+            branch: "main".into(),
+            status: Some(text.into()),
+        }),
+        ..Facts::default()
+    };
+    let on = Options {
+        show_git: true,
+        ..opts("end", false, false)
+    };
+    let line = |f: &Facts, o: &Options| plain(&statusline(f, o).statusline.expect("a line"));
+    let f = facts("# branch.head main\n1 A. N... 0 0 0 a b x\n? y\n");
+    assert!(
+        line(&f, &on).contains("myproject \u{2502} main+1?1"),
+        "{}",
+        line(&f, &on)
+    );
+    assert!(!line(&f, &opts("end", false, false)).contains("main"));
+    assert!(
+        !line(
+            &Facts {
+                git: None,
+                ..facts("")
+            },
+            &on
+        )
+        .contains(" \u{2502} main")
+    );
+    port("show_git e2e through the hook > flag=true renders the branch segment");
 }

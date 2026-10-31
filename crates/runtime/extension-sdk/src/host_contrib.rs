@@ -184,6 +184,12 @@ impl<'a> HookCall<'a> {
         &self.0.now
     }
 
+    /// The value of `extension`'s `setting` a hook that declares [`HookBuilder::reads_setting`] was sent; none when the
+    /// extension is not enabled or the setting is unset (ADR 0323).
+    pub fn other_setting(&self, extension: &str, setting: &str) -> Option<&'a serde_json::Value> {
+        self.0.other_settings.get(&format!("{extension}:{setting}"))
+    }
+
     /// A builder for the plan a hook that declares `writes` answers.
     pub fn plan(&self) -> PlanBuilder {
         PlanBuilder::for_hook(self.0)
@@ -235,6 +241,34 @@ impl HookBuilder {
     }
     pub fn when(&mut self, setting: &str) -> &mut Self {
         self.descriptor.when.push(setting.to_string());
+        self
+    }
+    /// Install the hook on these hosts only (`claude-code`, `codex`, `cursor`); none: every host (ADR 0322).
+    pub fn hosts(&mut self, hosts: &[&str]) -> &mut Self {
+        self.descriptor.hosts = hosts.iter().map(|h| h.to_string()).collect();
+        self
+    }
+    /// The input carries the repository the `cwd` is in, and an outside path's repository (ADR 0320).
+    pub fn reads_git(&mut self) -> &mut Self {
+        self.descriptor.reads_git = true;
+        self
+    }
+    /// [`Self::reads_git`], and `git status --porcelain=v2 --branch` too.
+    pub fn reads_git_status(&mut self) -> &mut Self {
+        self.descriptor.reads_git = true;
+        self.descriptor.reads_git_status = true;
+        self
+    }
+    /// Collect the git facts only while this bool setting of the extension is on (ADR 0320).
+    pub fn git_when(&mut self, setting: &str) -> &mut Self {
+        self.descriptor.git_when = Some(setting.into());
+        self
+    }
+    /// The input carries the value of another extension's setting (ADR 0323).
+    pub fn reads_setting(&mut self, extension: &str, setting: &str) -> &mut Self {
+        self.descriptor
+            .reads_settings
+            .push(format!("{extension}:{setting}"));
         self
     }
     /// The function that answers the event.

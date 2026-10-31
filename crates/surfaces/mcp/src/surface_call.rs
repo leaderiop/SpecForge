@@ -93,6 +93,11 @@ pub(crate) trait Surface {
     fn extension(state: &McpState, name: &str) -> Option<Self::Extension>;
     /// How the entry reaches its project.
     fn target(found: &Found<Self::Core, Self::Extension>) -> TargetSpec;
+    /// Whether the entry declares a `path` argument of its own: the call then resolves its project from the server's
+    /// root and hands the entry the `path` whole (ADR 0314).
+    fn owns_path(_: &Found<Self::Core, Self::Extension>) -> bool {
+        false
+    }
     /// Recorded once the entry is found, before its target resolves
     /// (`mcp_tool_invoked`, `mcp_prompt_invoked`); none for a read.
     fn invoked(
@@ -167,12 +172,23 @@ pub(crate) fn serve<S: Surface>(
     // before the handler runs: handlers never pick a root or reload.
     let spec = S::target(&found);
     // The handler is handed the call's arguments without the target's own (ADR 0239).
+    let owns = S::owns_path(&found);
+    let (mut resolving, mut handed_arguments) = (
+        invocation.arguments.clone(),
+        spec.handler_arguments(&invocation.arguments),
+    );
+    if owns {
+        if let Some(object) = resolving.as_object_mut() {
+            object.remove(crate::target::TargetArgument::Path.name());
+        }
+        handed_arguments = invocation.arguments.clone();
+    }
     let handed = Invocation {
         name: invocation.name.clone(),
-        arguments: spec.handler_arguments(&invocation.arguments),
+        arguments: handed_arguments,
     };
     let mut codes = Codebook::default();
-    let outcome = match target::resolve(state, revision, spec, &invocation.arguments) {
+    let outcome = match target::resolve(state, revision, spec, &resolving) {
         Ok(target) => {
             let mut call = Call::new(state, target);
             // The handler records its own events through `call.events()`.

@@ -521,11 +521,12 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the two hook scrip
 
 ## r44 T4: the workflow marker and guard
 
-Vendored byte for byte from gsd-core v1.18.0 with `git show`: the guard hook and its two suites (read by `gsd/core/src/hooks/workflow/tests.rs`). The hook requires `lib/git-cmd.js`, `lib/git-probe.js` and others for its `git add -f` block, which is dropped (K20 git facts), so those libs are not vendored.
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the guard hook and its two suites (read by `gsd/core/src/hooks/workflow/tests.rs`). The hook's `git add -f` block uses `lib/git-cmd.js`'s `skipToSubcommand` (vendored here, K20c T15; ported in `workflow.rs`); its other requires (`git-probe.js`, `hook-exit.js`) belong to the node hook's process and are not vendored.
 
 | File | sha256 |
 |---|---|
 | `hooks/gsd-workflow-guard.js` | `adf4fa7ee6439467b6d784e7846ae15e80cb7b576ddbd8b61a654130602e094a` |
+| `hooks/lib/git-cmd.js` | `c46c0aa506b033d9aa7f3160897cf0b2eeef8501b567307c206e094a9d31af4a` |
 | `tests/workflow-guard.test.cjs` | `069e9baf3f610f353d2edd322f02ea214403b1eabb058e16d1e30c64afe68e9b` |
 | `tests/workflow-guard-registration.test.cjs` | `256e8ac2fb230ca75ee6186204bcffb04d003a27f62d88c9120be44b6c877458` |
 
@@ -552,7 +553,7 @@ Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook and its t
 
 ## r44 T7: validate-commit, phase-boundary, session-state
 
-Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three opt-in community scripts and the three suites that spawn them: the two suites of the commit validator and `tests/hooks-opt-in.test.cjs` (80 cases, about 60 of them validate-commit verdicts; read by `gsd/core/src/hooks/community/tests.rs` and `tests/opt_in.rs`, every case ported or skipped with a reason). Upstream's own test file for phase-boundary and session-state is that same `hooks-opt-in` suite; the module's own cases follow it. The validator's `lib/git-cmd.js` is not vendored: the host classifies the command (`pre_commit`) and hands the hook the message.
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the three opt-in community scripts and the three suites that spawn them: the two suites of the commit validator and `tests/hooks-opt-in.test.cjs` (80 cases, about 60 of them validate-commit verdicts; read by `gsd/core/src/hooks/community/tests.rs` and `tests/opt_in.rs`, every case ported or skipped with a reason). Upstream's own test file for phase-boundary and session-state is that same `hooks-opt-in` suite; the module's own cases follow it. The validator's `lib/git-cmd.js` is vendored under r44 T4 and not read here: the host classifies the command (`pre_commit`) and hands the hook the message.
 
 | File | sha256 |
 |---|---|
@@ -578,3 +579,11 @@ All 171 verdicts of `tests/fixtures/gate-cutover/` at the tag, copied byte for b
 | Set | sha256 |
 |---|---|
 | `sha256sum gate-cutover/*.json \| sha256sum` (sorted by name) | `037ca7bbe1f52abda41e97eaf58d83b8bff5a49a2f9fdb28fe7b23c8e11286f9` |
+
+## K20c T18: the config reload
+
+Vendored byte for byte from gsd-core v1.18.0 with `git show`: the hook (read by `gsd/core/src/hooks/config.rs`'s header only; upstream has no suite for it). Its `lib/hook-exit.js` is not vendored: a hook here does not exit.
+
+| File | sha256 |
+|---|---|
+| `hooks/gsd-config-reload.js` | `6a2c579e2709c76bd753e1de94ccc0d7bb16cefa47b0ef482f847add24315b6f` |

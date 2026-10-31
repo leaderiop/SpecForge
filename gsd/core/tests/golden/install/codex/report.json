@@ -280,6 +280,10 @@
         {
           "what": "hook gsd.statusline",
           "why": "Codex has no statusline event"
+        },
+        {
+          "what": "hook gsd.config_reload",
+          "why": "Codex has no file_changed event"
         }
       ]
     }

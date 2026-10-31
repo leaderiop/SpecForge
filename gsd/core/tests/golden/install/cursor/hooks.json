@@ -17,7 +17,10 @@
         "command": "specforge hook gsd.worktree_path_guard --host cursor --event pre_tool --tools write,edit # specforge-install"
       },
       {
-        "command": "specforge hook core.spec_guard --host cursor --event pre_tool --tools write,edit --paths 'spec/**/*.spec' # specforge-install"
+        "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook core.spec_guard cannot run, so it denies' >&2; exit 2; }; specforge hook core.spec_guard --host cursor --event pre_tool --tools write,edit --paths 'spec/**/*.spec' # specforge-install"
+      },
+      {
+        "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook core.human_guard cannot run, so it denies' >&2; exit 2; }; specforge hook core.human_guard --host cursor --event pre_tool --tools shell # specforge-install"
       }
     ],
     "postToolUse": [
@@ -26,6 +29,11 @@
       },
       {
         "command": "specforge hook gsd.context_monitor --host cursor --event post_tool --tools shell,write,edit,agent # specforge-install"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "specforge hook gsd.workflow_marker --host cursor --event user_prompt # specforge-install"
       }
     ]
   },

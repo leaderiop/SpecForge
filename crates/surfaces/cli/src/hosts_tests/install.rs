@@ -3,7 +3,7 @@
 use serde_json::json;
 use specforge_test_macros::test as specforge_test;
 
-use super::{UI_EXTENSION, install, project, tree, uninstall};
+use super::{UI_EXTENSION, hook, install, project, tree, uninstall};
 
 const HOSTS: [&str; 3] = ["claude-code", "codex", "cursor"];
 
@@ -252,4 +252,52 @@ fn an_install_killed_between_two_writes_is_rolled_back_by_the_next_writer() {
             .join(".specforge/write-journal.json")
             .exists()
     );
+}
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "a hook that names its hosts is installed on those only, and is a no-op on another"
+)]
+fn a_hook_names_its_hosts() {
+    let project = project(json!({}), json!({}));
+    let lines = |host: &str, file: &str| {
+        install(&project, &[host], &[]);
+        project.read(file)
+    };
+    assert!(!lines("cursor", ".cursor/hooks.json").contains("t.isolation"));
+    assert!(lines("claude-code", ".claude/settings.json").contains("t.isolation"));
+    let task = json!({"hook_event_name": "preToolUse", "tool_name": "Task", "conversation_id": "s",
+                      "workspace_roots": [project.root()], "tool_input": {}});
+    let run = hook(
+        &project,
+        "t.isolation",
+        "cursor",
+        &["--event", "pre_tool", "--tools", "agent"],
+        &task,
+    );
+    assert_eq!(run.out.code, 0, "{}", run.out.stderr);
+    assert!(run.out.stdout.is_empty(), "{}", run.out.stdout);
+    assert!(
+        !run.exports.iter().any(|e| e == "hook__isolation"),
+        "{:?}",
+        run.exports
+    );
+}
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "no human guard is installed while no command is human-attested"
+)]
+fn no_human_guard_is_installed_without_a_human_command() {
+    let with = project(json!({}), json!({}));
+    install(&with, &["claude-code"], &[]);
+    assert!(
+        with.read(".claude/settings.json")
+            .contains("core.human_guard")
+    );
+    let without = crate::hosts_tests::TestProject::new();
+    assert_eq!(install(&without, &["claude-code"], &[]).code, 0);
+    let settings = without.read(".claude/settings.json");
+    assert!(settings.contains("core.spec_guard"), "{settings}");
+    assert!(!settings.contains("core.human_guard"), "{settings}");
 }

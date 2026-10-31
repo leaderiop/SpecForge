@@ -4,16 +4,17 @@
 //! `model` or `effort` outside its vocabulary, a `setting:` that names no setting of the right type, a variant
 //! without its setting, a `when` that is no bool setting, a slash target the extension does not declare, `tools` or
 //! `paths` on an event that takes none, a `timeout_ms` of 0 or above the ceiling, `writes` on an event that cannot,
-//! a hook export that is not `hook__<id>`. Host names are one namespace per project: two claimants of one name,
-//! across kinds and extensions, are E039, and the later is not rendered. Hooks route as `<short>.<id>`.
+//! a hook export that is not `hook__<id>`, a hook event this host does not know, a hook host outside claude-code,
+//! codex and cursor. Host names are one namespace per project: two claimants of one name, across kinds and
+//! extensions, are E039, and the later is not rendered. Hooks route as `<short>.<id>`.
 
 use std::collections::{BTreeSet, HashMap};
 
 use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::command_args::option_name;
 use specforge_protocol_types::{
-    AgentDescriptor, Attribution, ExtensionDeclaration, FieldType, HookDescriptor, SkillDescriptor,
-    SlashCommandDescriptor,
+    AgentDescriptor, Attribution, ExtensionDeclaration, FieldType, HOOK_HOSTS, HookDescriptor,
+    SkillDescriptor, SlashCommandDescriptor,
 };
 
 use super::prompts::snake_case;
@@ -190,6 +191,9 @@ impl Ctx<'_> {
         if !snake_case(&hook.id) {
             return Err("its id is not snake_case".into());
         }
+        if hook.event == specforge_protocol_types::HookEvent::Unknown {
+            return Err("its event is one this host does not know".into());
+        }
         if hook.export != format!("hook__{}", hook.id) {
             return Err(format!(
                 "its export '{}' is not 'hook__{}'",
@@ -202,17 +206,62 @@ impl Ctx<'_> {
                 hook.timeout_ms, self.ceiling_ms
             ));
         }
-        if !hook.event.takes_tools() && (!hook.tools.is_empty() || !hook.paths.is_empty()) {
+        if (!hook.event.takes_tools() && !hook.tools.is_empty())
+            || (!hook.event.takes_paths() && !hook.paths.is_empty())
+        {
             return Err(format!(
                 "the event '{}' takes no tools or paths",
                 hook.event.as_str()
             ));
         }
+        if hook.event == specforge_protocol_types::HookEvent::FileChanged {
+            if hook.paths.is_empty() {
+                return Err("a file_changed hook names the files it watches in paths".into());
+            }
+            if let Some(nested) = hook.paths.iter().find(|p| p.contains(['/', '\\'])) {
+                // Claude Code's watch list is literal names in the working directory (ADR 0321).
+                return Err(format!(
+                    "a file_changed hook's paths are bare file names of the project root, not '{nested}'"
+                ));
+            }
+            if let Some(glob) = hook.paths.iter().find(|p| p.contains(['*', '?', '[', '{'])) {
+                return Err(format!(
+                    "a file_changed hook's paths are file names, not globs: '{glob}'"
+                ));
+            }
+        }
         self.tools(&hook.tools)?;
+        if let Some(setting) = &hook.git_when {
+            self.when(std::slice::from_ref(setting))?;
+        }
+        for entry in &hook.reads_settings {
+            match entry.split_once(':') {
+                Some((own, _)) if own == self.extension => {
+                    return Err(format!(
+                        "its reads_settings '{entry}' names its own extension: read it with Settings::current"
+                    ));
+                }
+                Some((ext, name)) if !ext.is_empty() && !name.is_empty() => {}
+                _ => {
+                    return Err(format!(
+                        "its reads_settings '{entry}' is not <extension>:<setting>"
+                    ));
+                }
+            }
+        }
         if hook.writes && !hook.event.can_write() {
             return Err(format!(
                 "the event '{}' cannot answer a plan, yet it declares writes",
                 hook.event.as_str()
+            ));
+        }
+        if let Some(host) = hook
+            .hosts
+            .iter()
+            .find(|h| !HOOK_HOSTS.contains(&h.as_str()))
+        {
+            return Err(format!(
+                "its host '{host}' is not claude-code, codex or cursor"
             ));
         }
         self.when(&hook.when)

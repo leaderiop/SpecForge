@@ -1,0 +1,37 @@
+{
+  "event": "file_changed",
+  "host": "claude-code",
+  "cwd": "/p",
+  "today": "2026-10-31",
+  "change": "change",
+  "commands": [
+    ["git", "status"],
+    ["git", "add", "-f", "x"]
+  ],
+  "git": {
+    "toplevel": "/p",
+    "git_dir": "/p/.git/worktrees/agent-x",
+    "branch": "worktree-agent-x",
+    "status": "# branch.head worktree-agent-x\n"
+  },
+  "other_settings": {
+    "@t/ui:workflow.ui_phase": true
+  },
+  "paths": [
+    {
+      "path": "/elsewhere/x.txt",
+      "in_project": false,
+      "in_spec_root": false,
+      "exists": false,
+      "bytes": null,
+      "new_bytes": null,
+      "real": "/elsewhere/x.txt",
+      "toplevel": "/elsewhere",
+      "in_git_dir": true
+    }
+  ],
+  "commit": {
+    "amend": false,
+    "cleanup": ["verbatim"]
+  }
+}

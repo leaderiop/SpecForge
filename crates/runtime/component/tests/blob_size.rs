@@ -14,9 +14,11 @@ use specforge_component::committed::COMMITTED;
 // 8,929 B). Protocol 1.13.0 (state and host accessors, the prompt tail, the served slash commands, `when` lists)
 // measured 4,850,633 B: +51,279 B, about 5.7 KB per blob, not the 1 KB of a small minor. The untagged `when_names`
 // decode in five descriptor types is the likely cost; it was not measured apart. The product blob is 981,363 B, 18,637 B
-// under its cap, and the headroom under the total is 49,367 B: the next minor (1.14.0, hooks) will not fit, so K20c
-// raises the budget to 5,000,000 by the same rule (the measured total rounded up to the next 100,000). A build
-// without the profile is about 7 MB, well over it, so this still catches a profile regression.
+// under its cap, and the headroom under the total is 49,367 B. Protocol 1.14.0 (hooks: git facts, hosts, settings, the
+// `Unknown` event, `git_when`) measured 4,874,602 B (+23,969 B, about 2.7 KB per blob). The product blob is 984,024 B,
+// 15,976 B under its cap, which is the binding limit now. The rule (the measured total rounded up to the next 100,000)
+// gives 4,900,000, with 25,398 B of headroom: the next minor will need to raise it. A build without the profile is
+// about 7 MB, well over it, so this still catches a profile regression.
 const TOTAL_BUDGET: usize = 4_900_000;
 const BLOB_BUDGET: usize = 1_000_000;
 

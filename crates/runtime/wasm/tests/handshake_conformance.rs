@@ -165,11 +165,11 @@ fn an_older_minor_protocol_still_loads() {
     use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.13.0");
+    assert_eq!(PROTOCOL_VERSION, "1.14.0");
     // A guest built with the 1.0 SDK loads under a 1.2 host: only the
     // major is checked.
     let loaded = load_declaration(&guest_answering("1.0.0"), "@test/older")
-        .expect("a 1.0.0 guest loads under a 1.13.0 host");
+        .expect("a 1.0.0 guest loads under a 1.14.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
     // Another major still does not.
     match load_declaration(&guest_answering("2.0.0"), "@test/older").unwrap_err() {
@@ -177,7 +177,7 @@ fn an_older_minor_protocol_still_loads() {
             host_version,
             extension_version,
         } => {
-            assert_eq!(host_version, "1.13.0");
+            assert_eq!(host_version, "1.14.0");
             assert_eq!(extension_version, "2.0.0");
         }
         other => panic!("expected IncompatibleVersion, got {other:?}"),
@@ -188,14 +188,14 @@ fn an_older_minor_protocol_still_loads() {
     behavior = "validate_extension_manifest",
     verify = "a handshake whose protocol major differs from the host's produces E028"
 )]
-fn a_1_10_guest_still_loads_under_a_1_11_host() {
+fn a_1_10_guest_still_loads_under_a_1_14_host() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.13.0");
+    assert_eq!(PROTOCOL_VERSION, "1.14.0");
     // A guest of the version before the file reads, the list items and `now` loads: only the major is checked.
     let loaded = load_declaration(&guest_answering("1.10.0"), "@test/older")
-        .expect("a 1.10.0 guest loads under a 1.13.0 host");
+        .expect("a 1.10.0 guest loads under a 1.14.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
 }
 
@@ -203,15 +203,15 @@ fn a_1_10_guest_still_loads_under_a_1_11_host() {
     behavior = "validate_extension_manifest",
     verify = "a handshake whose protocol major differs from the host's produces E028"
 )]
-fn a_1_11_guest_still_loads_under_a_1_12_host() {
+fn a_1_11_guest_still_loads_under_a_1_14_host() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.13.0");
+    assert_eq!(PROTOCOL_VERSION, "1.14.0");
     // A guest of the version before `human`, `gates_when_on`, `cited_tests` and `number` loads: only the major is
     // checked.
     let loaded = load_declaration(&guest_answering("1.11.0"), "@test/older")
-        .expect("a 1.11.0 guest loads under a 1.13.0 host");
+        .expect("a 1.11.0 guest loads under a 1.14.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
 }
 
@@ -219,13 +219,29 @@ fn a_1_11_guest_still_loads_under_a_1_12_host() {
     behavior = "validate_extension_manifest",
     verify = "a handshake whose protocol major differs from the host's produces E028"
 )]
-fn a_1_12_guest_still_loads_under_a_1_13_host() {
+fn a_1_12_guest_still_loads_under_a_1_14_host() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.13.0");
+    assert_eq!(PROTOCOL_VERSION, "1.14.0");
     // A guest of the version before `rest`, `slash_commands`, `when` lists and `host` loads: only the major is checked.
     let loaded = load_declaration(&guest_answering("1.12.0"), "@test/older")
-        .expect("a 1.12.0 guest loads under a 1.13.0 host");
+        .expect("a 1.12.0 guest loads under a 1.14.0 host");
+    assert_eq!(loaded.declaration.name(), "@test/older");
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake whose protocol major differs from the host's produces E028"
+)]
+fn a_1_13_guest_still_loads_under_a_1_14_host() {
+    use specforge_protocol_types::PROTOCOL_VERSION;
+    use specforge_wasm::protocol::load_declaration;
+
+    assert_eq!(PROTOCOL_VERSION, "1.14.0");
+    // A guest of the version before a hook's `hosts`, `reads_git` and `reads_settings` loads: only the major is
+    // checked.
+    let loaded = load_declaration(&guest_answering("1.13.0"), "@test/older")
+        .expect("a 1.13.0 guest loads under a 1.14.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
 }

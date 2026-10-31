@@ -232,3 +232,47 @@ fn the_monitor_reads_the_statusline_metrics() {
     let again = run_installed(&p, &command, &status(&p, 20, None), &home);
     assert_eq!(again.code, 0, "{}", again.all());
 }
+
+/// `git <args>` in the project with a pinned identity and none of the developer's configuration; false when git is
+/// missing.
+fn git(p: &Project, args: &[&str]) -> bool {
+    std::process::Command::new("git")
+        .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
+        .args([
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+        ])
+        .args(args)
+        .current_dir(p.root())
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
+/// T19: with `statusline.show_git` on, the line carries the branch and the work-state markers after the directory
+/// (`main+1~1?2`: one staged file, a verify's edit, untracked files); off, it carries none. Skipped without git.
+#[test]
+fn show_git_adds_the_branch_segment() {
+    let p = taskboard();
+    let home = installed(&p);
+    if !(git(&p, &["init", "-q", "-b", "main"])
+        && git(&p, &["add", "-A"])
+        && git(&p, &["commit", "-q", "-m", "base"]))
+    {
+        return;
+    }
+    // The first compile of a commit writes its baseline; the hook may not.
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
+    p.write("staged.txt", "a");
+    assert!(git(&p, &["add", "staged.txt"]));
+    p.write("untracked.txt", "b");
+    let off = line(&p, &home, &status(&p, 70, None));
+    assert!(!off.contains(" │ main"), "{off}");
+    p.settings(json!({"statusline.show_git": true}));
+    let on = line(&p, &home, &status(&p, 70, None));
+    assert!(on.contains(" │ main+1"), "{on}");
+    assert!(on.contains('?'), "{on}");
+}
