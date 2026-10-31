@@ -251,3 +251,19 @@ fn a_decimal_threshold_is_taken() {
     let check = p.run(&["check"]);
     assert!(!check.all().contains("E086"), "{}", check.all());
 }
+
+/// ADR 0305 Limits: the bounds are whole numbers, so a critical threshold of 99.5 (GSD accepts it) is still refused.
+#[test]
+fn a_decimal_threshold_is_still_bounded() {
+    let p = project("empty");
+    p.settings(serde_json::json!({}));
+    let set = p.run(&[
+        "settings",
+        "set",
+        "@gsd/core",
+        "hooks.context_critical_threshold",
+        "99.5",
+    ]);
+    assert_eq!(set.code, 1, "{}", set.all());
+    assert!(set.all().contains("E086"), "{}", set.all());
+}

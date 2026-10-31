@@ -121,7 +121,8 @@ Not verified:
   a person's run of the command alike: the tier is a person's (`U`, D-K20a-4), so the person deletes that line in their
   editor and runs the remove again. Upstream deletes the phase regardless (REVIEW-k20a M3). A human-attested remove is
   not built.
-- A threshold's bounds are whole numbers (D-K20a-9): `hooks.context_critical_threshold` takes `99.5`, which GSD refuses.
+- A threshold's bounds are whole numbers (D-K20a-9): a warning between 0 and 1 and a critical between 99 and 100 are
+  refused (`hooks.context_critical_threshold` refuses `99.5`), which GSD accepts.
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
   RED before it and is silent otherwise) and `prohibition-enforcement-request-file-judgment-mode` (upstream flags a
