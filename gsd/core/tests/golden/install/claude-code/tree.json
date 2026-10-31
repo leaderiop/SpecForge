@@ -116,8 +116,8 @@
     "sha256": "51df4977a3115330ce54cab7266afdff4dfc3ccc92f9c6a8cfe9790d98894ccb"
   },
   ".claude/skills/gsd-ingest-docs/SKILL.md": {
-    "bytes": 1214,
-    "sha256": "3c81e1071d8c095a3eaeb6d1ff2ac3f71b9fad89ed8ac9141eb439e4d7d36fe8"
+    "bytes": 1206,
+    "sha256": "17b224294bcdd7c3fb196f4cfab2f4c0f573d24bacfe1fa4dc9e665875122d78"
   },
   ".claude/skills/gsd-manager/SKILL.md": {
     "bytes": 1094,

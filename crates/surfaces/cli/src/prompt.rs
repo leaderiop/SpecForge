@@ -5,6 +5,8 @@
 //! that declares an argument of that name (ADR 0314). `specforge <short> <id>` renders the same prompt when no
 //! command of the extension has the name ([`crate::extension_command`]).
 
+use std::path::Path;
+
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::project::ProjectArg;
 use crate::terminal::{Terminal, errln, outln};
@@ -50,9 +52,21 @@ impl Args {
                 Ok(project) if declares(&project, &self.name, "path") => Ok(project),
                 _ => ProjectArg::scan(&rest[..before]).compile(),
             }
+        } else if self.project.path() != Path::new(".") {
+            // A `--path` that opens the arguments is read by clap as the host's: the current directory's prompt that
+            // declares `path` owns it, and gets it back as its own argument.
+            match ProjectArg::scan(&[]).compile() {
+                Ok(project) if declares(&project, &self.name, "path") => {
+                    let given = self.project.path().display().to_string();
+                    rest.splice(0..0, ["--path".to_string(), given]);
+                    Ok(project)
+                }
+                _ => self.project.compile(),
+            }
         } else {
             self.project.compile()
         };
+        let before = rest.iter().position(|w| w == "--").unwrap_or(rest.len());
         let project = match project {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),

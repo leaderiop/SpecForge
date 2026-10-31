@@ -61,10 +61,8 @@
     "- `--branch` → `BRANCH_NAME` (defaults to `workspace/$WORKSPACE_NAME`)",
     "- `--auto` → skip interactive questions"
   ],
-  "bytes": 31810,
+  "bytes": 31711,
   "end": [
-    "",
-    "- Fixed-width runs of `━`, `─` or `═` as separators — they wrap in a narrow pane",
     "- Box panels drawn with double-line box characters (U+2554, U+2557, U+255A, U+255D, U+2551, U+2560, U+2563) — the borders wrap independently of their contents. They are named here by code point rather than shown, because the guard below rejects the characters themselves anywhere in shipped content.",
     "- A `---` directly under a line of text with no blank line between — that is a setext heading underline, not a break, and it swallows the line above",
     "- Boxing a heading between two rules — the heading is the separator",
@@ -83,9 +81,9 @@
     "Arguments: see the `<arguments>` block above.",
     "",
     "Parse the first token of the `<arguments>` block:",
-    "- If it is `--new`: strip the flag, pass remainder (the `--name` option; the workflow's other options — `--repos`, `--path`, `--strategy`, `--branch`, `--auto` — are not declared here, so it asks for them or uses its defaults) to new-workspace workflow",
+    "- If it is `--new`: strip the flag, pass remainder (--name, --repos, --path, --strategy, --branch, --auto flags) to new-workspace workflow",
     "- If it is `--list`: execute list-workspaces workflow (no argument needed)",
-    "- If it is `--remove`: strip the flag, pass remainder (`--name`, the workspace name) to remove-workspace workflow",
+    "- If it is `--remove`: strip the flag, pass remainder (workspace-name) to remove-workspace workflow",
     "- Otherwise (no flag): show usage — one of --new, --list, or --remove is required",
     "</context>",
     "",
@@ -102,7 +100,9 @@
     "",
     "## What a workspace is here",
     "",
-    "A workspace is a directory of git worktrees or clones beside this project, with a `WORKSPACE.md` that the agent writes: it is another checkout, so the spec does not model it and there is no `init.*-workspace` query. The text above does its work with the shell (`ls`, `git worktree list`). A new workspace gets its own spec: `specforge init`, `specforge add @gsd/core`, then `specforge install <host>` in the workspace directory. Only the name is a bare word here; `--repos`, `--strategy` and `--branch` are asked for, and the workspace goes to `~/gsd-workspaces/<name>`. The usage examples above that name `--repos` or `--auto` are not accepted by the slash command: do not show them as commands to type, ask the questions instead (there is no unattended mode)."
+    "A workspace is a directory of git worktrees or clones beside this project, with a `WORKSPACE.md` that the agent writes: it is another checkout, so the spec does not model it and there is no `init.*-workspace` query. The text above does its work with the shell (`ls`, `git worktree list`). A new workspace gets its own spec: `specforge init`, `specforge add @gsd/core`, then `specforge install <host>` in the workspace directory.",
+    "",
+    "The arguments are read as the workflow's parse says (`--name` is the bare words after the options): `--repos` the comma-separated repository paths or names, `--path` the target directory (default `~/gsd-workspaces/<name>`), `--strategy worktree|clone` (default `worktree`), `--branch` the branch name (default `workspace/<name>`), and `--auto` skips the questions."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 875,
+  "lines": 877,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:c8d55ca3db8b6462eb3a54d3d7447ae4a8053c475c28efd0391f614163d2782c",
+    "digest": "sha256:40e155816e60779ebba754cdd927127f0695813860a3bbca5e210e6fd99106fc",
     "prompt": "@gsd/core@VERSION:workspace"
   },
-  "sha256": "c8d55ca3db8b6462eb3a54d3d7447ae4a8053c475c28efd0391f614163d2782c"
+  "sha256": "40e155816e60779ebba754cdd927127f0695813860a3bbca5e210e6fd99106fc"
 }

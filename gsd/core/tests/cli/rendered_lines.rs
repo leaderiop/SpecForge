@@ -397,7 +397,7 @@ fn the_post_fix_text_leftovers_stay_fixed() {
     );
     // the ingest staging directory holds the documents' text and is removed at the end
     assert!(workflow("ingest-docs.md").contains("rm -rf \"$INTEL_DIR\""));
-    // `--dir` is where the documents are scanned
+    // `[path]` is where the documents are scanned
     assert!(!text("onboard").contains("The project is read from the directory"));
     // the integrations confirmation shows what is written: booleans, and no key at all
     let integrations = workflow("settings-integrations.md");

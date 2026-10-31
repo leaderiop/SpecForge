@@ -57,12 +57,12 @@ fn onboard_renders_for_three_hosts() {
 #[test]
 fn ingest_docs_renders_for_three_hosts() {
     let p = twin();
-    let args = ["--dir", "docs", "--mode", "merge", "--resolve", "auto"];
+    let args = ["docs", "--mode", "merge", "--resolve", "auto"];
     for (host, rendered) in render_three_hosts(
         &p,
         "ingest_docs",
         &args,
-        "--dir \"docs\" --mode merge --resolve auto",
+        "--mode merge --resolve auto docs",
         "INGEST DOCS",
     ) {
         let got = steps(&rendered);
@@ -83,20 +83,25 @@ fn ingest_docs_renders_for_three_hosts() {
     }
 }
 
-/// `--path` is the host's option: the project is read from `docs`, and no prompt argument carries that name.
+/// `[path]` is the free-text tail, and `--path` by name is the same argument (the prompt owns that option).
 #[test]
-fn ingest_docs_has_no_argument_named_path() {
+fn ingest_docs_takes_a_path() {
     let p = twin();
-    let run = prompt(&p, "ingest_docs", &["--path", "docs"], "claude-code");
-    assert!(!run.all().contains("--dir"), "{}", run.all());
-    let rendered = payload(&prompt(
-        &p,
-        "ingest_docs",
-        &["--dir", "docs"],
-        "claude-code",
-    ));
-    let args = rendered["payload"]["args"].to_string();
-    assert!(!args.contains("\"path\""), "{args}");
+    for words in [vec!["docs/adr"], vec!["--path", "docs/adr"]] {
+        let text = text_of(&payload(&prompt(&p, "ingest_docs", &words, "claude-code")));
+        assert!(
+            text.contains("<arguments>docs/adr</arguments>"),
+            "{words:?}"
+        );
+    }
+    // the command line of the extension reaches it too
+    let run = p.run(&["gsd", "ingest-docs", "docs/adr"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        run.stdout.contains("<arguments>docs/adr</arguments>"),
+        "{}",
+        run.stdout
+    );
 }
 
 #[test]

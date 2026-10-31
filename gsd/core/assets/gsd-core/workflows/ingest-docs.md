@@ -3,7 +3,7 @@
 
 Scan a repo for mixed planning documents (ADR, PRD, SPEC, DOC), synthesize them into a consolidated context, and bootstrap or merge into the spec (its `project`, `requirement`, `milestone` and `phase` entities).
 
-- `--dir <path>` — optional target directory to scan (defaults to repo root)
+- `[path]` — optional target directory to scan (defaults to repo root)
 - `--mode new|merge` — override auto-detect (defaults: `new` if the project has no `project` entity, `merge` if it has one)
 - `--manifest <file>` — YAML file listing `{path, type, precedence?}` per doc; overrides heuristic classification
 - `--resolve auto|interactive` — conflict resolution (v1: only `auto` is supported; `interactive` is reserved)
@@ -24,7 +24,7 @@ Display the stage banner:
 
 Parse `$ARGUMENTS`:
 
-- `--dir <path>` → `SCAN_PATH` (default: `.`)
+- First positional token (if not a flag) → `SCAN_PATH` (default: `.`)
 - `--mode new|merge` → `MODE` (default: auto-detect)
 - `--manifest <file>` → `MANIFEST_PATH` (optional)
 - `--resolve auto|interactive` → `RESOLVE_MODE` (default: `auto`; reject `interactive` in v1 with message "interactive resolution is planned for a future release")
@@ -137,7 +137,7 @@ De-duplicate the union (a file matched by multiple patterns is one doc).
 ```
 GSD > Discovered {N} docs, which exceeds the v1 cap of 50.
       Use --manifest to narrow the set to ≤ 50 files, or run
-      /gsd:ingest-docs again with a narrower --dir.
+      /gsd:ingest-docs again with a narrower <path>.
 ```
 
 Exit without proceeding.

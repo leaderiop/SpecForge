@@ -34,9 +34,9 @@ Mode routing:
 Arguments: see the `<arguments>` block above.
 
 Parse the first token of the `<arguments>` block:
-- If it is `--new`: strip the flag, pass remainder (the `--name` option; the workflow's other options — `--repos`, `--path`, `--strategy`, `--branch`, `--auto` — are not declared here, so it asks for them or uses its defaults) to new-workspace workflow
+- If it is `--new`: strip the flag, pass remainder (--name, --repos, --path, --strategy, --branch, --auto flags) to new-workspace workflow
 - If it is `--list`: execute list-workspaces workflow (no argument needed)
-- If it is `--remove`: strip the flag, pass remainder (`--name`, the workspace name) to remove-workspace workflow
+- If it is `--remove`: strip the flag, pass remainder (workspace-name) to remove-workspace workflow
 - Otherwise (no flag): show usage — one of --new, --list, or --remove is required
 </context>
 
