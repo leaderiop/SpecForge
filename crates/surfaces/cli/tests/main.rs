@@ -43,6 +43,7 @@ mod format_paths;
 mod hard_links;
 mod harness;
 mod history;
+mod hook_exit;
 mod hostile_files;
 mod init;
 mod init_enclosing;

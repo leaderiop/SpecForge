@@ -162,7 +162,7 @@ struct HookCli {
 }
 
 /// `specforge hook <route> --host <host> --event <event> …` over `project` with `stdin`. The project is compiled only
-/// if the hook asks for it (ADR 0324), and `exports` are the calls made after that compile.
+/// if the hook asks for it (ADR 0324); `exports` are the calls after the load, a compile's `__pass_*` included.
 pub fn hook(project: &TestProject, id: &str, host: &str, args: &[&str], stdin: &Value) -> Hooked {
     hook_bytes(project, id, host, args, stdin.to_string().as_bytes())
 }

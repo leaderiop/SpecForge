@@ -117,5 +117,8 @@ behavior run_a_hook "Run a Hook" {
   verify unit "a hook whose event does not match exits before loading anything"
   verify unit "a guard hook denies in the protocol of Claude Code, and in the draft protocols of Codex and Cursor as their goldens have it"
   verify unit "an event over the size limit or not the host's JSON is answered by the hook's failure policy"
+  verify unit "specforge hook never exits 2 on its own refusals: an unknown host, event or usage error exits 1"
+  verify unit "a writing hook is answered over a compiled project"
+  verify unit "the spec guard compiles before it judges"
   verify unit "the spec guard judges the spec files a patch-text tool leaves and ignores a patch of other files"
 }

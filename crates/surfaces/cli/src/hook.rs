@@ -74,7 +74,8 @@ impl Args {
                 self.host,
                 self.event
             );
-            return Exit::Unjudged;
+            // Exit 2 is the hook's own deny; a refusal of the binary must not read as one (ADR 0324).
+            return Exit::Failed;
         };
         let Some(adapter) = specforge_hosts::renderer(host) else {
             return Exit::Passed;

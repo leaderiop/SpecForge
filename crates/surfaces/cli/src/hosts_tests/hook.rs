@@ -231,3 +231,92 @@ fn a_file_changed_hook_fires_for_its_file_only() {
     assert_eq!(run.out.stdout, "");
     assert!(run.exports.is_empty(), "{:?}", run.exports);
 }
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "specforge hook never exits 2 on its own refusals: an unknown host, event or usage error exits 1"
+)]
+fn an_unknown_event_exits_1() {
+    let project = project(json!({}), json!({}));
+    for (host, event) in [("claude-code", "nope"), ("nope", "pre_tool")] {
+        let run = hook(
+            &project,
+            "t.write_guard",
+            host,
+            &["--event", event],
+            &json!({}),
+        );
+        assert_eq!(run.out.code, 1, "{host} {event}");
+        assert!(
+            run.out.stderr.contains("unknown host"),
+            "{}",
+            run.out.stderr
+        );
+    }
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "a writing hook is answered over a compiled project"
+)]
+fn a_writing_hook_is_answered_over_a_compiled_project() {
+    let project = project(json!({}), json!({}));
+    let write = json!({"hook_event_name": "PostToolUse", "tool_name": "Write", "session_id": "s1",
+                       "cwd": project.root(),
+                       "tool_input": {"file_path": project.root().join("m.spec"), "content": "x"}});
+    let run = hook(
+        &project,
+        "t.record_hook",
+        "claude-code",
+        &["--event", "post_tool", "--tools", "write", "--paths", "**"],
+        &write,
+    );
+    assert_eq!(run.out.code, 0, "{}", run.out.stderr);
+    assert!(
+        run.passes >= 1,
+        "a writing hook compiles: {:?}",
+        run.exports
+    );
+    assert!(
+        run.exports.iter().any(|e| e == "hook__record_hook"),
+        "{:?}",
+        run.exports
+    );
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "the spec guard compiles before it judges"
+)]
+fn the_spec_guard_compiles_before_it_judges() {
+    let project = project(json!({}), json!({}));
+    let write = json!({"hook_event_name": "PreToolUse", "tool_name": "Write", "session_id": "s1",
+        "cwd": project.root(),
+        "tool_input": {"file_path": project.root().join("o.spec"),
+                       "content": "override O1 \"Waive\" {\n  by \"agent\"\n  phase 03\n}\n"}});
+    let run = hook(
+        &project,
+        "core.spec_guard",
+        "claude-code",
+        &[
+            "--event",
+            "pre_tool",
+            "--tools",
+            "write,edit",
+            "--paths",
+            "**/*.spec",
+        ],
+        &write,
+    );
+    assert!(
+        run.passes >= 1,
+        "the spec guard compiles: {:?}",
+        run.exports
+    );
+    let reply = run.out.json();
+    assert_eq!(
+        reply["hookSpecificOutput"]["permissionDecision"], "deny",
+        "{reply}"
+    );
+    assert!(reply.to_string().contains("written by a human"), "{reply}");
+}
