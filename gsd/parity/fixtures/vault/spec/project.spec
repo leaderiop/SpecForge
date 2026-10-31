@@ -8,3 +8,10 @@ project vault "Vault" {
     { kind tech_stack what "Node 20, no dependencies" why "it ships as one script" }
   ]
 }
+
+decision D-01 "AES-256-GCM from node:crypto" {
+  text      "AES-256-GCM from `node:crypto`"
+  rationale "the auth tag detects a tampered file"
+  outcome   pending
+  origin    project
+}

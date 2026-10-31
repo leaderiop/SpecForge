@@ -14,4 +14,10 @@ An encrypted store for secrets on the command line: `VAULT_KEY=<hex> node src/cl
   - Phase 2 (planned): one plan without a threat register, no `SECURITY.md` (state B, the retroactive case).
 - `src/`, `test/`: what phase 1 built. `npm test` runs `node --test`.
 - `spec/`: the SpecForge twin: the phases and plans, and the security model's entities for them (trust boundaries,
-  threats, the audit, the accepted risk and the audit run).
+  threats, the audit, the accepted risk and the audit run). It checks with `@gsd/core` and `@gsd/security` loaded and
+  reports one thing, the duplicate `T-01-02` (`gsd.security/E101`, once per claim) that the fixture exists to carry.
+  A threat's `status` and `evidence` and the audit run's counts are harness fields (written by
+  `record-security-audit`, never by hand); the twin holds them as the audit left them, and `specforge-harness` vouches
+  for each, as the taskboard's verdicts are. The threats' statuses are `01-SECURITY.md`'s (`T-01-02` of plan 01-02 open,
+  the rest closed), so the audit's computed `threats_open` is 1, the frontmatter's.
+- `.planning/config.json` sets `security.injection_blocking: false` explicitly: gsd-tools errors on a key that is unset.

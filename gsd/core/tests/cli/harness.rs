@@ -118,6 +118,11 @@ pub fn taskboard() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"))
 }
 
+/// The security parity suite's vault fixture: its `spec/` twin of the GSD project beside its `.planning/`.
+pub fn vault() -> Project {
+    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/vault"))
+}
+
 /// [`taskboard`] under `inside` of its temp dir.
 pub fn taskboard_at(inside: &str) -> Project {
     from_dir_at(

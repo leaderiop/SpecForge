@@ -23,6 +23,7 @@ mod hooks;
 mod injection;
 mod install;
 mod model;
+mod parity_scenario;
 mod prompt;
 mod record;
 mod settings;
