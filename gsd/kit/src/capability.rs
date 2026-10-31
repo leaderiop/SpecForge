@@ -5,7 +5,7 @@
 //! The capability's own `capability.json` (`steps`, `contributions`, `gates`) is the input. A hook is active when its
 //! `when` (a dotted settings key) is truthy and its `pointFrom`, if any, names the point. An inactive hook is absent,
 //! as upstream's: `skippedHooks` is only ever what `--after-fingerprint` gates out, which has no counterpart here
-//! (no report fingerprints; core's own text already drops it), so it is always empty.
+//! (the extension fills it itself: see ADR gsd/0002), so this renderer's is empty.
 
 use serde_json::{Map, Value, json};
 

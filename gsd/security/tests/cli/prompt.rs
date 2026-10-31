@@ -152,7 +152,7 @@ fn without_a_complete_phase_it_is_upstreams_state_c() {
     let run = prompt(&p, "secure_phase", &[], "claude-code");
     let text = text_of(&payload(&run));
     assert!(text.contains("not executed"), "{text}");
-    assert!(text.contains("/gsd:execute-phase"), "{text}");
+    assert!(text.contains("/gsd-execute-phase"), "{text}");
 }
 
 fn golden(host: &str, actual: &Value) {

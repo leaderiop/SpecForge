@@ -131,7 +131,7 @@ fn handle(call: &PromptCall<'_>) -> Result<PromptOutput, String> {
             let Some(id) = latest_complete(call) else {
                 // upstream's state C
                 return Ok(PromptOutput::user(
-                    "No phase is complete: it was not executed. Run /gsd:execute-phase first.",
+                    "No phase is complete: it was not executed. Run /gsd-execute-phase first.",
                 ));
             };
             let number = id.rsplit('/').next().unwrap_or_default();

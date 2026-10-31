@@ -596,12 +596,16 @@ fn every_hook_stub_asks_the_capability_extensions() {
                 Some(dir) => {
                     fingerprinted.push(path.clone());
                     // the phase's id stands for its directory; autonomous.md's shell blocks name it `${PHASE_NUM}`
-                    let id = if path.ends_with("autonomous.md") {
-                        "PHASE_NUM"
+                    let phase = if path.ends_with("autonomous.md") {
+                        "$MILESTONE/${PHASE_NUM}"
                     } else {
-                        "PHASE_ID"
+                        "$PHASE_ID"
                     };
-                    format!(" --after-fingerprint {}", dir.replace("PHASE_DIR", id))
+                    format!(
+                        " --after-fingerprint {}",
+                        dir.replace("${PHASE_DIR}", phase)
+                            .replace("$PHASE_DIR", phase)
+                    )
                 }
             };
             let call = format!(
@@ -663,4 +667,9 @@ fn the_threat_id_gate_names_threat_ids_not_init() {
     assert!(!parse.contains("threat_id_duplicate_count"), "{parse}");
     let gate = read("execute-phase/steps/threat-id-gate.md");
     assert!(!gate.contains("re-running init"));
+    // a loaded @gsd/security that fails is not "no duplicates" (exit 2 is "not loaded")
+    for text in [execute, read("plan-phase.md")] {
+        assert!(text.contains(r#""error":"threat-ids failed""#));
+        assert!(text.contains("never read it as no duplicates"));
+    }
 }

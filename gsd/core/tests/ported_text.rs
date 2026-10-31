@@ -317,7 +317,8 @@ fn no_text_tells_the_agent_to_remove_a_phase() {
 /// Plan 16 T5: the threat-ID gate reads `threat-ids`, whose answer holds `threat_id_duplicate_count`.
 #[test]
 fn the_threat_id_gate_reads_threat_ids() {
-    let line = "THREAT_IDS_JSON=$(specforge gsd threat-ids \"$PHASE_ID\" --format json 2>/dev/null || echo '{\"threat_id_duplicates\":[],\"threat_id_duplicate_count\":0}')";
+    // exit 2 is "not loaded": no duplicates; any other failure is an error the text must not read as none
+    let line = "THREAT_IDS_JSON=$(specforge gsd threat-ids \"$PHASE_ID\" --format json 2>/dev/null || if [ $? -eq 2 ]; then echo '{\"threat_id_duplicates\":[],\"threat_id_duplicate_count\":0}'; else echo '{\"threat_id_duplicates\":[],\"threat_id_duplicate_count\":null,\"error\":\"threat-ids failed\"}'; fi)";
     for workflow in ["execute-phase", "plan-phase"] {
         let path = format!(
             "{}/assets/gsd-core/workflows/{workflow}.md",
