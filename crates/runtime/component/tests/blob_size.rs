@@ -10,8 +10,11 @@ use specforge_component::committed::COMMITTED;
 
 // The blob profile built the nine at 3.3 MB; the 1.8.0 SDK (field forms, computed values, typed settings) adds ~70 KB to
 // each (3.96 MB, product 0.86 MB); protocol 1.10.0 (host contributions, state, hooks) brings them to 4.71 MB, product
-// 0.96 MB. A build without the profile is 7 MB, well over either.
-const TOTAL_BUDGET: usize = 4_800_000;
+// 0.96 MB. Protocol 1.12.0 (human commands, `gates_when_on`, `cited_tests`, numbers) measured 4,799,354 B, and 1.13.0
+// (state and host accessors, the prompt tail, the served slash commands, `when` lists) adds about the same again: wire
+// growth every guest links, about 1 KB per blob per minor. The budget is the measured total rounded up to the next
+// 100,000. A build without the profile is about 7 MB, well over it, so this still catches a profile regression.
+const TOTAL_BUDGET: usize = 4_900_000;
 const BLOB_BUDGET: usize = 1_000_000;
 
 #[test]
