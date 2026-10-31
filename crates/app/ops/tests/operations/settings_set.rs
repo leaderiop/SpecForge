@@ -420,3 +420,57 @@ fn the_edit_that_would_not_round_trip_writes_nothing() {
         "no journal left"
     );
 }
+
+/// `specforge.json` after `settings set @t/n x.ratio <word>` on a number setting.
+fn number_word_written(word: &str) -> String {
+    let dir = TempDir::new().unwrap();
+    let config =
+        "{\n  \"name\": \"p\",\n  \"version\": \"0.1.0\",\n  \"extensions\": [\"@t/n\"]\n}\n";
+    std::fs::write(dir.path().join("specforge.json"), config).unwrap();
+    let declare = || {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/n", "1.0.0"));
+        c.raw_category(
+            specforge_extension_sdk::DeclaredCategory::Settings,
+            json!([{"kind": "setting", "name": "x.ratio", "field_type": "number", "minimum": 0, "maximum": 100}]),
+        );
+        c
+    };
+    let runtime: SharedRuntime = Arc::new(InProcessRuntime::new().with(declare));
+    specforge_installed::testing::install(dir.path(), &*runtime, &["@t/n"]);
+    std::fs::write(dir.path().join("main.spec"), "behavior a \"A\" {\n}\n").unwrap();
+    let compiled = compile_at(dir.path(), Some(runtime));
+    set_setting(
+        &ProjectView::of(&compiled),
+        &SetRequest {
+            extension: "@t/n",
+            name: "x.ratio",
+            change: SettingChange::Words(vec![word.into()]),
+            dry_run: false,
+            caller: specforge_ops::testing::caller(),
+        },
+    )
+    .map_err(|refusal| refusal.error)
+    .unwrap();
+    std::fs::read_to_string(dir.path().join("specforge.json")).unwrap()
+}
+
+#[specforge_test(
+    behavior = "load_extension_settings",
+    verify = "a number setting takes a decimal within its bounds"
+)]
+fn settings_set_reads_a_decimal_word() {
+    let written: Value = serde_json::from_str(&number_word_written("30.5")).unwrap();
+    assert_eq!(written["settings"]["@t/n"]["x.ratio"], json!(30.5));
+}
+
+#[specforge_test(
+    behavior = "load_extension_settings",
+    verify = "a number setting takes a decimal within its bounds"
+)]
+fn settings_set_writes_a_whole_number_as_an_integer() {
+    let text = number_word_written("30");
+    assert!(
+        text.contains("\"x.ratio\": 30\n") && !text.contains("30.0"),
+        "{text}"
+    );
+}

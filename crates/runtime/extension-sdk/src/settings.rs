@@ -37,6 +37,10 @@ impl SettingBuilder {
     pub fn integer(&mut self) -> &mut Self {
         self.typed(FieldType::Integer)
     }
+    /// A whole or decimal number, within [`minimum`](Self::minimum) and [`maximum`](Self::maximum) (ADR 0305).
+    pub fn number(&mut self) -> &mut Self {
+        self.typed(FieldType::Number)
+    }
     pub fn string_list(&mut self) -> &mut Self {
         self.typed(FieldType::StringList)
     }
@@ -93,6 +97,11 @@ impl SettingBuilder {
     /// Local codes reported by no source while this bool setting is false.
     pub fn gates(&mut self, codes: &[&str]) -> &mut Self {
         self.0.gates = codes.iter().map(|c| c.to_string()).collect();
+        self
+    }
+    /// Local codes reported by no source while this bool setting is true (ADR 0305).
+    pub fn gates_when_on(&mut self, codes: &[&str]) -> &mut Self {
+        self.0.gates_when_on = codes.iter().map(|c| c.to_string()).collect();
         self
     }
 }

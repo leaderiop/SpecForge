@@ -154,3 +154,25 @@ fn a_verdict_op_has_no_file_revision() {
     assert!(value["ops"][0].get("revision").is_none());
     assert_eq!(value["ops"][0]["cited"], json!([]));
 }
+
+#[specforge_test(behavior = "refuse_human_only_write", verify = "human sets writes")]
+fn human_sets_writes() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/h", "1.0.0"));
+    b.command("attest", |c| {
+        c.title("Attest")
+            .description("Record what a person says")
+            .human()
+            .handler(|_| CommandOutput::ok("ok\n"));
+    });
+    let declaration = b.declaration();
+    let command = &declaration.surfaces.commands[0];
+    assert!(command.human && command.writes);
+    let wire = serde_json::to_value(command).unwrap();
+    assert_eq!(
+        (wire["human"].clone(), wire["writes"].clone()),
+        (json!(true), json!(true))
+    );
+    // An ordinary command carries neither key.
+    let plain = serde_json::to_value(&writer().declaration().surfaces.commands[0]).unwrap();
+    assert!(plain.get("human").is_none());
+}

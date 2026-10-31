@@ -60,9 +60,8 @@ const PLAN_CHECK: &[Target] = &[Target {
     unless_set: &[],
 }];
 
-// No input reads a file (`file(self.path)`, `file(self.plan.files_modified)`): a `file()` input must name a
-// file-reference field, and the host checks every such field for existence (E016), but a plan, an artifact and a key
-// link name files that do not exist yet. The verifier cites the files it read instead; `cited` is digested too.
+// E501 reads the files a truth's plan, an artifact and a key link name (ADR 0304); the plan checks read none: they
+// judge the plan before its files exist, and a code edit must not stale an in-flight check.
 const E501: &[Target] = &[
     Target {
         kind: "truth",
@@ -71,18 +70,28 @@ const E501: &[Target] = &[
             ("plan", "self.plan"),
             ("phase", "self.plan.phase"),
             ("tests", "test(self)"),
+            ("files", "file(self.plan.files_modified)"),
         ],
         unless_set: &[],
     },
     Target {
         kind: "artifact",
-        inputs: &[("artifact", "self"), ("plan", "self.plan")],
+        inputs: &[
+            ("artifact", "self"),
+            ("plan", "self.plan"),
+            ("file", "file(self.path)"),
+        ],
         unless_set: &[],
     },
     // A key link with a `pattern` is not judged: a pass searches the pattern (`passes::scan`).
     Target {
         kind: "key_link",
-        inputs: &[("link", "self"), ("plan", "self.plan")],
+        inputs: &[
+            ("link", "self"),
+            ("plan", "self.plan"),
+            ("from", "file(self.from)"),
+            ("to", "file(self.to)"),
+        ],
         unless_set: &["pattern"],
     },
 ];
@@ -145,7 +154,10 @@ pub const JUDGED: &[Judged] = &[
                     "verifications",
                     "self.milestone<phase.milestone<verification.phase",
                 ),
-                ("requirements", "requirement"),
+                (
+                    "requirements",
+                    "self.milestone<phase.milestone.requirements",
+                ),
             ],
             unless_set: &[],
         }],

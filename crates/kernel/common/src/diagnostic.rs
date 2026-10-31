@@ -234,6 +234,14 @@ impl Diagnostic {
         self.origin.as_deref()
     }
 
+    /// The entity an extension's pass named as this diagnostic's subject (ADR 0302).
+    pub fn subject(&self) -> Option<&str> {
+        match self.data.as_deref() {
+            Some(DiagnosticData::Subject { entity }) => Some(entity),
+            _ => None,
+        }
+    }
+
     /// Whether this diagnostic is of `code`.
     pub fn is(&self, code: Code) -> bool {
         code.matches(&self.code)

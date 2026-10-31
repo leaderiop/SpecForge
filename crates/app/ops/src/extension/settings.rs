@@ -30,6 +30,9 @@ pub struct SettingRow {
     pub default: Option<Value>,
     /// The codes, as they print, this bool setting gates while it is false.
     pub gates: Vec<String>,
+    /// The codes, as they print, this bool setting gates while it is true (ADR 0305).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gates_when_on: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
@@ -104,6 +107,11 @@ pub fn settings(view: &ProjectView, all: bool, extension: Option<&str>) -> Setti
                     default: descriptor.default.clone(),
                     gates: descriptor
                         .gates
+                        .iter()
+                        .map(|code| specforge_diagnostics::qualify(name, code))
+                        .collect(),
+                    gates_when_on: descriptor
+                        .gates_when_on
                         .iter()
                         .map(|code| specforge_diagnostics::qualify(name, code))
                         .collect(),

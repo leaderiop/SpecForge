@@ -16,6 +16,8 @@ pub enum Ty {
     Bool,
     /// Inclusive bounds.
     Int(i64, Option<i64>),
+    /// A whole or decimal number within inclusive whole-number bounds.
+    Num(i64, Option<i64>),
     Enum(&'static [&'static str]),
     Str,
     List,
@@ -47,6 +49,12 @@ impl Key {
             }
             Ty::Int(min, max) => {
                 s.integer().minimum(*min);
+                if let Some(max) = max {
+                    s.maximum(*max);
+                }
+            }
+            Ty::Num(min, max) => {
+                s.number().minimum(*min);
                 if let Some(max) = max {
                     s.maximum(*max);
                 }
@@ -108,6 +116,21 @@ const fn i(
         ty: Ty::Int(min, max),
         default,
         about,
+    }
+}
+
+/// [`i`] for a setting that takes a decimal too.
+const fn n(
+    name: &'static str,
+    min: i64,
+    max: Option<i64>,
+    default: Option<i64>,
+    about: &'static str,
+) -> Key {
+    let key = i(name, min, max, default, about);
+    Key {
+        ty: Ty::Num(min, max),
+        ..key
     }
 }
 
@@ -197,8 +220,8 @@ pub const KEYS: &[Key] = &[
     e("granularity", &["coarse", "standard", "fine"], Some("standard"), "How many phases a roadmap has: coarse 2-4, standard 4-6, fine 6-10."),
     l("hooks.commit_types", Some(&[]), "Extra Conventional Commits types the commit-message hook accepts."),
     b("hooks.community", Some(false), "Turn on the opt-in community hooks."),
-    i("hooks.context_critical_threshold", 0, Some(99), Some(25), "Percent of context left at or below which the monitor reports critical (GSD refuses 100: no warning could be above it)."),
-    i("hooks.context_warning_threshold", 1, Some(100), Some(35), "Percent of context left at or below which the monitor warns (GSD refuses 0: no critical could be below it)."),
+    n("hooks.context_critical_threshold", 0, Some(99), Some(25), "Percent of context left at or below which the monitor reports critical (GSD refuses 100: no warning could be above it)."),
+    n("hooks.context_warning_threshold", 1, Some(100), Some(35), "Percent of context left at or below which the monitor warns (GSD refuses 0: no critical could be below it)."),
     b("hooks.context_warnings", Some(true), "Warn about context window usage."),
     b("hooks.workflow_guard", Some(false), "Warn when files are edited outside a GSD workflow."),
     b("jina", None, "Override auto-detection of Jina API availability."),
@@ -424,6 +447,7 @@ impl Family {
             match &self.ty {
                 Ty::Bool => s.bool(),
                 Ty::Int(..) => s.integer(),
+                Ty::Num(..) => s.number(),
                 Ty::Enum(values) => s.enum_values(values),
                 Ty::Str => s.string(),
                 Ty::List => s.string_list(),

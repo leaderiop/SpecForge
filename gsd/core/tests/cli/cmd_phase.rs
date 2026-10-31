@@ -206,6 +206,10 @@ fn remove_with_force_deletes_its_plans() {
         .map(|l| format!("{l}\n"))
         .collect();
     p.write("spec/v1.0.spec", &kept);
+    // A truth that holds a tier is a person's (D-K20a-4): its removal is refused until a person deletes the line.
+    let refused_at_first = gsd(&p, "phase", &["--remove", "01", "--force"]);
+    assert_eq!(refused_at_first.code, 1, "{}", refused_at_first.all());
+    p.edit("spec/plans.spec", "  verification explicit\n", "");
     let run = gsd(&p, "phase", &["--remove", "01", "--force"]);
     assert_eq!(run.code, 0, "{}", run.all());
     // Phase 01's plans and summary are gone; phase 02's plan took the name 01-01.
@@ -217,6 +221,29 @@ fn remove_with_force_deletes_its_plans() {
         p.fields_of("v1.0/01/01-01")["objective"],
         "Tasks are written to one JSON file"
     );
+}
+
+#[test]
+fn remove_refuses_a_phase_whose_truth_holds_a_tier_and_names_the_step() {
+    let p = project("execute");
+    let before = bytes(&p);
+    let run = gsd(
+        &p,
+        "phase",
+        &["--remove", "01", "--force", "--format", "json"],
+    );
+    assert_eq!(run.code, 1, "{}", run.all());
+    let all = run.all();
+    for word in [
+        "human_only",
+        "TR1",
+        "verification",
+        "delete that line in your editor",
+        "/gsd-phase --remove 01",
+    ] {
+        assert!(all.contains(word), "'{word}' not in: {all}");
+    }
+    unchanged(&p, &before);
 }
 
 const OVERRIDE: &str = "\noverride OV9 \"Accepted\" {\n  verification v1.0/01/01-VERIFICATION\n  truth        TRUTH\n  reason       \"by hand\"\n  by           \"ada\"\n  at           2026-10-29\n}\n";

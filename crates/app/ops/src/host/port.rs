@@ -196,11 +196,13 @@ pub struct HostTree {
     pub not_rendered: Vec<NotRendered>,
 }
 
-/// A config file after merging: its text, or `None` when nothing is left of it; and what it could not take.
+/// A config file after merging: its text, or `None` when nothing is left of it; what it could not take; and the
+/// containers install created in it (`[]`: the file itself), which uninstall may take out again (ADR 0306).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Merged {
     pub text: Option<String>,
     pub not_rendered: Vec<NotRendered>,
+    pub made: Vec<Vec<String>>,
 }
 
 /// The tool a hook fires on, as the host named it and as a class.
@@ -282,13 +284,15 @@ pub trait HostRenderer: Send + Sync {
     fn merged_paths(&self) -> Vec<String>;
 
     /// `existing` (the file, if there is one) with every entry it owns replaced by `entries` (none: removed), and
-    /// every other key untouched. `text: None` when nothing is left of the file. Err: `existing` is no document of
-    /// the format.
+    /// every other key untouched. `made` are the containers an earlier install created in the file (ADR 0306): an
+    /// emptied one goes, any other stays. `text: None` when nothing is left of a file install created. Err:
+    /// `existing` is no document of the format.
     fn merge(
         &self,
         path: &str,
         existing: Option<&str>,
         entries: &[MergedEntry],
+        made: &[Vec<String>],
     ) -> Result<Merged, String>;
 
     /// This host's name for `event`; `None`: the host has no such event.

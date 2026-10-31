@@ -195,8 +195,10 @@ fn a_failing_verdict_on_a_warning_rule_records() {
         .map(|(_, m)| m)
         .collect();
     assert_eq!(messages.len(), 1, "{messages:?}");
-    // (The kernel's count reads a list of values, not of blocks, so it says 0 for any findings.)
-    assert!(messages[0].contains("is 'issues'"), "{messages:?}");
+    assert!(
+        messages[0].contains("is 'issues' (1 finding)"),
+        "{messages:?}"
+    );
     assert!(p.read("spec/plans.spec").contains("message \"no wiring\""));
 }
 
@@ -387,4 +389,44 @@ fn plan_check_off_is_ready() {
     p.settings(json!({ "workflow.plan_check": false }));
     assert_eq!(status_of(&p, PLAN), "ready");
     assert_eq!(status_of(&p, "v1.0/01/01-01"), "ready");
+}
+
+/// ADR 0304: E501 reads the file an artifact names, so editing it stales the verdict and names the input.
+#[test]
+fn an_artifacts_file_change_makes_e501_stale() {
+    let p = project("execute");
+    p.write("src/tasks.js", "export const list = () => [];\n");
+    let artifact = "v1.0/01/01-01/AR1";
+    let run = p.record(artifact, "E501", "verified", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(state(&p, artifact, "E501").0, "fresh");
+    p.write("src/tasks.js", "export const list = () => [1];\n");
+    let inputs = p.inputs(artifact, "E501");
+    assert_eq!(inputs["verdict"]["state"], "stale", "{inputs}");
+    assert!(
+        inputs["verdict"]["changed"].to_string().contains("file"),
+        "{inputs}"
+    );
+}
+
+/// E518 reads the requirements its own milestone's phases name, not every requirement of the project.
+#[test]
+fn e518_reads_only_its_milestones_requirements() {
+    let p = project("execute");
+    p.write(
+        "spec/v2.spec",
+        "milestone v2.0 \"Two\" {\n  name \"Two\"\n}\n\nphase 01 \"Next\" {\n  milestone v2.0\n  name \"Next\"\n  slug \"next\"\n  goal \"Later\"\n  requirements [OTHER-01]\n  success_criteria [\"Done\"]\n}\n\nrequirement OTHER-01 \"Other\" {\n  text \"Another milestone\"\n  category \"Other\"\n  tier v1\n}\n\nmilestone_audit A1 \"A\" {\n  milestone v1.0\n}\n",
+    );
+    let audit = "v1.0/A1";
+    let run = p.record(audit, "E518", "passed", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(state(&p, audit, "E518").0, "fresh");
+    p.edit("spec/v2.spec", "Another milestone", "Changed words");
+    assert_eq!(state(&p, audit, "E518").0, "fresh");
+    p.edit(
+        "spec/project.spec",
+        "Tasks are saved to disk",
+        "Tasks are saved",
+    );
+    assert_eq!(state(&p, audit, "E518").0, "stale");
 }

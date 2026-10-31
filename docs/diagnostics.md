@@ -1088,15 +1088,17 @@ E080: Typed edit would add errors
 
 A typed edit (`specforge new`, `set`, `unset`, `link`, `unlink`, `delete`, or
 MCP `specforge.edit`) was planned, and the project it would leave reports errors
-the project does not report now: the edit is refused and nothing is written. The
-refusal lists each new error (an unresolved reference, a missing required field,
-a value its field does not take, …). Fix what they name first: create the
-referenced entity, give the required field, or make both changes in one
-`specforge.edit` call. `delete --unlink-references` removes the references a
-delete would leave dangling. A judged rule's finding (no verdict, a stale or a
-failing verdict) is never one of them: its judge settles it, not the edit (ADR
-0297). A writing collector's plan is compared with the project as its collect
-left it.
+the project does not report now (the same error by code, severity, message
+shape, file and, for an extension's finding, its subject): the edit is refused
+and nothing is written. The refusal lists each new error (an unresolved
+reference, a missing required field, a value its field does not take, …). Fix
+what they name first: create the referenced entity, give the required field, or
+make both changes in one `specforge.edit` call. `delete --unlink-references`
+removes the references a delete would leave dangling. A judged rule's finding
+(no verdict, a stale or a failing verdict) is never one of them: its judge
+settles it, not the edit (ADR 0297). A writing collector's plan is compared with
+the project as its collect left it, and is refused for host errors only: an
+extension's error refuses no collected fact (ADR 0303).
 
 Owner: core
 Level: error
@@ -2591,60 +2593,64 @@ other than `block` or `block_list`, a `block_list` with none, a member named
 twice or not one identifier, a member that declares `derived_from`,
 `target_kinds` together with `target_kind`, on a type other than `reference` or
 `reference_list`, or naming one kind, a `minimum` or `maximum` on a type other
-than `integer` or a `minimum` above the `maximum`, and a `file_base` other than
-`spec` or `project`, or without `file_reference`; a `scoped_by` field with
-`target_kinds` scopes nothing. Who writes a field is checked too (ADR 0287): a
-`writer` other than `computed`, `harness`, `human` or `verdict`, `harness` or
-`verdict` on a member, a computed or verdict field that is also `required`,
-`immutable`, `append_only` or `derived_from`, `append_only` on a field that is
-not a list, a computed field no compute pass lists in `computes`, a `computes`
-entry that is not a computed field of the extension or that two passes list or
-whose pass is not in the `compute` phase, and a `baseline` naming a kind no
-loaded extension declares. Who writes a kind is checked as well (ADR 0289): a
-kind `writer` other than `human`, a `human` field marked `required` on a kind
-that is not human-only (an agent could then create no entity of the kind), and a
-`guard` pass that declares `computes`. The `settings` category is checked too
-(ADR 0288): a setting named twice or not a dotted name or a family (`*`
-segments), of a type the field forms do not have, with a default its type
-refuses, with `gates` on a type other than `bool` or on a family (only a setting
-named whole gates codes), or naming a code the extension does not catalog, or
-with `keys` that do not match its `*`s; a preset whose source is not an enum or
-bool setting of the extension or of a loaded peer, that names a value its source
-does not take, that sets a setting the extension does not declare to a value its
-type refuses, or that raises a code the extension does not catalog; a secret
-named twice or whose environment variable is not a name; and an item of a kind
-the host does not know. The `surfaces` category is checked too (ADR 0291): a
-prompt whose id is not snake_case or whose export is not `prompt__<id>`, that
-declares an argument twice or named for something the host owns (`path`,
-`format`, `help`, `settings`, `secrets`, `host`, `argv`), of a type an argument
-does not take, a reference argument naming no loaded kind, bounds on an argument
-that is no integer or a default its type refuses, a gate that is not a code the
-extension catalogs (a command's gates too), a `subject` that is not an argument
-it declares, a `when` that is not a bool setting of the extension, or a step
-that names a command or prompt neither the extension nor a declared peer
-declares; the prompt or command is dropped whole, since a gate or an argument
-the host cannot read must not be ignored, and a step's `agent` (until the host
-knows agents) or an attribution with an empty field is dropped alone. The item
-is dropped, the rest of the category is kept. The host contributions are checked
-too (ADR 0292): an agent, skill, slash command or hook the registry refuses and
-drops, alone — an agent or skill id that is not kebab-case or is declared
-twice, a hook id that is not snake_case, a tool class outside the host-neutral
-vocabulary (`read`, `write`, `edit`, `shell`, `search`, `web_fetch`,
-`web_search`, `ask_user`, `agent`, `skill`, `todo`, `mcp:<server>/<glob>`), a
-`model` or `effort` outside its tiers that is not a `setting:` naming a string
-or enum setting of the extension, variants without a `variant_setting` (or the
-reverse), a `when` that is not a bool setting of the extension, a slash command
-that names no single prompt or command the extension declares, `tools` or
-`paths` on a hook of an event that takes none, a `timeout_ms` of 0 or above the
-ceiling (30 s, or the sandbox's), `writes` on a `statusline` hook, a hook export
-that is not `hook__<id>`, an attribution with an empty field, and a prompt step
-whose `agent` is no agent of the extension or of a declared peer. A pass's or
-command's `reads` that the host would serve empty are W021 too (ADR 0293), the
-pass or command being kept: a read whose name is no word or is repeated, that
-names neither or both of `field` and `glob`, a `field` that is not `kind.field`
-or that no loaded extension declares, a `base` on a glob or other than `spec` or
-`project`, and a glob that is empty, absolute, climbs with `..`, or has more
-than four `**` segments.
+than `integer` (or `number`, a setting's) or a `minimum` above the `maximum`, a
+field of type `number` on a kind (the `.spec` grammar has no decimal literal,
+ADR 0305), and a `file_base` other than `spec` or `project`, or without
+`file_reference`; a `scoped_by` field with `target_kinds` scopes nothing. Who
+writes a field is checked too (ADR 0287): a `writer` other than `computed`,
+`harness`, `human` or `verdict`, `harness` or `verdict` on a member, a computed
+or verdict field that is also `required`, `immutable`, `append_only` or
+`derived_from`, `append_only` on a field that is not a list, a computed field no
+compute pass lists in `computes`, a `computes` entry that is not a computed
+field of the extension or that two passes list or whose pass is not in the
+`compute` phase, and a `baseline` naming a kind no loaded extension declares.
+Who writes a kind is checked as well (ADR 0289): a kind `writer` other than
+`human`, a `human` field marked `required` on a kind that is not human-only (an
+agent could then create no entity of the kind), a `guard` pass that declares
+`computes`, and a `guard` pass that reports the code of a judged rule of its
+extension (ADR 0302). The `settings` category is checked too (ADR 0288): a
+setting named twice or not a dotted name or a family (`*` segments), of a type
+the field forms do not have, with a default its type refuses, with `gates` or
+`gates_when_on` (ADR 0305) on a type other than `bool` or on a family (only a
+setting named whole gates codes), naming a code the extension does not catalog,
+or gating one code both ways, or with `keys` that do not match its `*`s; a
+preset whose source is not an enum or bool setting of the extension or of a
+loaded peer, that names a value its source does not take, that sets a setting
+the extension does not declare to a value its type refuses, or that raises a
+code the extension does not catalog; a secret named twice or whose environment
+variable is not a name; and an item of a kind the host does not know. The
+`surfaces` category is checked too (ADR 0291): a prompt whose id is not
+snake_case or whose export is not `prompt__<id>`, that declares an argument
+twice or named for something the host owns (`path`, `format`, `help`,
+`settings`, `secrets`, `host`, `argv`), of a type an argument does not take, a
+reference argument naming no loaded kind, bounds on an argument that is no
+integer or a default its type refuses, a gate that is not a code the extension
+catalogs (a command's gates too), a command that is `human` and does not
+`writes` (ADR 0301), a `subject` that is not an argument it declares, a `when`
+that is not a bool setting of the extension, or a step that names a command or
+prompt neither the extension nor a declared peer declares; the prompt or command
+is dropped whole, since a gate or an argument the host cannot read must not be
+ignored, and a step's `agent` (until the host knows agents) or an attribution
+with an empty field is dropped alone. The item is dropped, the rest of the
+category is kept. The host contributions are checked too (ADR 0292): an agent,
+skill, slash command or hook the registry refuses and drops, alone — an agent
+or skill id that is not kebab-case or is declared twice, a hook id that is not
+snake_case, a tool class outside the host-neutral vocabulary (`read`, `write`,
+`edit`, `shell`, `search`, `web_fetch`, `web_search`, `ask_user`, `agent`,
+`skill`, `todo`, `mcp:<server>/<glob>`), a `model` or `effort` outside its tiers
+that is not a `setting:` naming a string or enum setting of the extension,
+variants without a `variant_setting` (or the reverse), a `when` that is not a
+bool setting of the extension, a slash command that names no single prompt or
+command the extension declares, `tools` or `paths` on a hook of an event that
+takes none, a `timeout_ms` of 0 or above the ceiling (30 s, or the sandbox's),
+`writes` on a `statusline` hook, a hook export that is not `hook__<id>`, an
+attribution with an empty field, and a prompt step whose `agent` is no agent of
+the extension or of a declared peer. A pass's or command's `reads` that the host
+would serve empty are W021 too (ADR 0293), the pass or command being kept: a
+read whose name is no word or is repeated, that names neither or both of `field`
+and `glob`, a `field` that is not `kind.field` or that no loaded extension
+declares, a `base` on a glob or other than `spec` or `project`, and a glob that
+is empty, absolute, climbs with `..`, or has more than four `**` segments.
 
 Owner: core
 Level: warning
@@ -3056,12 +3062,12 @@ listed twice, an input name repeats or is `cited`, a selector does not parse or
 does not resolve (a field the kind does not declare, one that is not a
 reference, a computed or verdict field, a `file(...)` of a path that leaves the
 project, holds a glob or is a `.spec` source, or of a field that is not a file
-field), an `unless_set` field the kind does not declare, a `values` or
-`outcome_fields` entry that is not a `verdict`-written field of a target kind of
-the extension, its judge is no agent of its extension or of a declared peer (ADR
-0292), is `prompt:<id>` of a prompt its extension does not declare (a peer's
-prompt is not a judge, ADR 0295), or the code is another judged rule's. Fix or
-remove the rule in the extension's manifest.
+field, a string or a string list), an `unless_set` field the kind does not
+declare, a `values` or `outcome_fields` entry that is not a `verdict`-written
+field of a target kind of the extension, its judge is no agent of its extension
+or of a declared peer (ADR 0292), is `prompt:<id>` of a prompt its extension
+does not declare (a peer's prompt is not a judge, ADR 0295), or the code is
+another judged rule's. Fix or remove the rule in the extension's manifest.
 
 Owner: core
 Level: warning

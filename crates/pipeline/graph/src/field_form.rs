@@ -349,6 +349,8 @@ impl FieldForm {
                 }
                 _ => Err(Refusal::none()),
             },
+            // A number is a setting's, read from JSON: the `.spec` grammar has no decimal literal.
+            FieldType::Number => Err(Refusal::none()),
             FieldType::Bool => match shape {
                 ValueShape::Boolean => Ok(()),
                 _ => Err(Refusal::with("use true or false")),
@@ -487,6 +489,16 @@ impl FieldForm {
             FieldType::Enum => json!({"type": "string", "enum": self.enum_values}),
             FieldType::Integer => {
                 let mut schema = json!({"type": "integer"});
+                if let Some(minimum) = self.bounds.0 {
+                    schema["minimum"] = json!(minimum);
+                }
+                if let Some(maximum) = self.bounds.1 {
+                    schema["maximum"] = json!(maximum);
+                }
+                schema
+            }
+            FieldType::Number => {
+                let mut schema = json!({"type": "number"});
                 if let Some(minimum) = self.bounds.0 {
                     schema["minimum"] = json!(minimum);
                 }

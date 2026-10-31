@@ -474,3 +474,61 @@ fn the_scan_verifies_only_a_wired_key_link() {
     assert_eq!(state("key_link", Some("not_wired")), Item::Failed);
     assert_eq!(state("artifact", Some("present")), Item::Unknown);
 }
+
+/// A phase of one verified truth of this `verification` tier, with these recorded results for it (`None`: no report).
+fn reported(tier: &str, results: Option<&[&str]>, extra: Vec<serde_json::Value>) -> Vec<PassValue> {
+    let mut entities = vec![
+        json!({ "id": V, "kind": "verification", "fields": { "phase": "v1.0/01" } }),
+        json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "phase": "v1.0/01" } }),
+    ];
+    let mut t = truth(1, vec![judgement("verified", "fresh", true)]);
+    t["fields"] = json!({ "verification": tier });
+    entities.push(t);
+    let mut value = json!({
+        "entities": entities,
+        "edges": [{ "source": "v1.0/01/01-01", "target": "v1.0/01", "label": "phase" }],
+    });
+    if let Some(statuses) = results {
+        let tests: Vec<_> = statuses
+            .iter()
+            .enumerate()
+            .map(|(n, status)| json!({ "name": format!("t{n}"), "status": status }))
+            .collect();
+        value["test_results"] = json!({ "results": { "v1.0/01/01-01/TR1": { "tests": tests } } });
+    }
+    if let Some(all) = value["entities"].as_array_mut() {
+        all.extend(extra);
+    }
+    let input: PassInput =
+        serde_json::from_value(crate::passes::plans::with_field_edges(value)).expect("input");
+    run(&input)
+}
+
+#[test]
+fn a_verified_truth_its_failing_test_contradicts_is_failed() {
+    let out = reported("explicit", Some(&["failed"]), vec![]);
+    assert_eq!(of(&out, "status"), Some(json!("gaps_found")));
+    assert_eq!(of(&out, "score"), Some(json!("0/1")));
+}
+
+#[test]
+fn a_verified_truth_with_no_passing_test_is_not_verified() {
+    let out = reported("explicit", Some(&["skipped"]), vec![]);
+    assert_eq!(of(&out, "status"), Some(json!("pending")));
+    assert_eq!(of(&out, "score"), Some(json!("0/1")));
+}
+
+#[test]
+fn a_backstop_or_unreported_or_overridden_truth_stays_verified() {
+    let overridden = vec![json!({ "id": format!("{V}/OV1"), "kind": "override",
+        "fields": { "verification": V, "truth": "v1.0/01/01-01/TR1" } })];
+    let cases = [
+        reported("backstop", Some(&["failed"]), vec![]),
+        reported("explicit", None, vec![]),
+        reported("explicit", Some(&["failed"]), overridden),
+    ];
+    for out in cases {
+        assert_eq!(of(&out, "status"), Some(json!("passed")));
+        assert_eq!(of(&out, "score"), Some(json!("1/1")));
+    }
+}

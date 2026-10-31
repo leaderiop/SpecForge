@@ -66,8 +66,8 @@ fn complete(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     ))
 }
 
-/// `answer_checkpoint <checkpoint> --by <who> [--option] [--text]`: the reply the caller records for the person, with
-/// the host's clock. `--by` is the caller's attestation (K20 item), never refused when it names someone else.
+/// `answer_checkpoint <checkpoint> --by <who> [--option] [--text]`: the reply a person records, with
+/// the host's clock. `--by` is what the person types at their terminal.
 fn answer_checkpoint(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let checkpoint = node(call, "checkpoint", required(call, "checkpoint")?)?;
     let (option, reply) = (text(call, "option")?, text(call, "text")?);
@@ -142,7 +142,7 @@ fn confirm_setup(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("answer_checkpoint", |cmd| {
         cmd.description("Record a human's answer to a checkpoint of a plan, with the host's clock: a decision's option, or free text")
-            .writes()
+            .human()
             .arg("checkpoint", |a| {
                 a.required().description("the checkpoint (its path, or a short form that is not ambiguous)");
             })
@@ -153,22 +153,20 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("the reply in the person's words, kept verbatim");
             })
             .arg("by", |a| {
-                a.description("required; who answered: the caller's attestation of what the person said, not a proof of the person (K20)");
+                a.description("required; who answered (typed by the person at their terminal)");
             })
             .handler(|call| run(call, answer_checkpoint));
     });
     c.command("confirm_setup", |cmd| {
         cmd.description("Record that a human did a plan's user setup step, with the host's clock")
-            .writes()
+            .human()
             .arg("user_setup", |a| {
                 a.required().description(
                     "the user setup (its path, or a short form that is not ambiguous)",
                 );
             })
             .arg("by", |a| {
-                a.description(
-                    "required; who did it: the caller's attestation, not a proof of the person (K20)",
-                );
+                a.description("required; who did it (typed by the person at their terminal)");
             })
             .handler(|call| run(call, confirm_setup));
     });

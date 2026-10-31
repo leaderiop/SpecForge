@@ -213,7 +213,7 @@
         "cli": "specforge gsd approve-validation",
         "gate": [],
         "id": "approve",
-        "title": "Record who approved the validation (specforge gsd approve-validation <validation> <who>)",
+        "title": "Ask the person to run `specforge gsd approve-validation <validation> <who>` in their terminal (an agent's call is refused: it records what a person says)",
         "tool": "specforge.gsd.approve_validation"
       }
     ],

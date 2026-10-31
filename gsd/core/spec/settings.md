@@ -55,10 +55,7 @@ partner could satisfy `critical < warning`; the pair itself is not checked, as G
 `review.timeouts.<lane>` and `review.max_prompt_tokens_per_reviewer.<lane>` take `-1`, the capability default GSD reads as unset
 (the model leaves them unset; GSD treats any non-positive value as unset too, and only `-1` is accepted here).
 
-Known deviation: the SDK has one numeric setting type, a whole number, while GSD's capability `number` settings and its
-`hooks.context_*_threshold` accept decimals (`99.5`, `7.5`, `1.5` seconds). `specforge check` refuses those with E086
-"whole number" until a later kernel round adds a `number` setting type (r35 does not); until then write the whole
-number. `worktree.baseRef` is declared here, but GSD keeps it in `.claude/settings.local.json`, not `.planning/config.json`
+A `number` setting (ADR 0305) takes a whole or a decimal number within whole-number bounds: `hooks.context_warning_threshold` (1-100) and `hooks.context_critical_threshold` (0-99) are numbers. The other settings GSD's capabilities declare as `number` (`7.5`, `1.5` seconds) are whole numbers here; the bounds of a number are whole, so `99.5` is within the critical bound. `worktree.baseRef` is declared here, but GSD keeps it in `.claude/settings.local.json`, not `.planning/config.json`
 (`docs/CONFIGURATION.md`), so `specforge gsd import` reads it from there.
 Where `docs/CONFIGURATION.md` and the defaults manifest disagree, the manifest wins (`workflow.inline_plan_threshold` is 2, the
 docs say 3). A host URL whose capability default is empty and whose documented default is a URL (`review.ollama_host`) takes the

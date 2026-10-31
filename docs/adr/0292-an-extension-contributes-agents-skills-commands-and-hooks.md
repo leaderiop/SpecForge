@@ -7,7 +7,7 @@
 `specforge-hosts`), [ADR 0097](0097-an-extension-commands-name-is-judged-by-its-route.md) (host names are one
 namespace), [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) (a hook's plan, the locked
 journaled write) and [ADR 0291](0291-an-extension-contributes-mcp-prompts.md) (a slash command is the host binding of a
-prompt). Takes extension protocol 1.10.0, shared with K8.
+prompt). Takes extension protocol 1.10.0, shared with K8. Extended by [ADR 0306](0306-install-refuses-an-unusable-specforge-json-and-uninstall-removes-only-what-install-created.md) (install refuses an unusable specforge.json; uninstall removes only what install created).
 
 ## Context
 

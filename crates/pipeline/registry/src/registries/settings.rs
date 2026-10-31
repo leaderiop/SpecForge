@@ -275,31 +275,47 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
         }
         None => {}
     }
-    if !setting.gates.is_empty() && form.field_type() != FieldType::Bool {
-        found.w021(format!(
-            "setting '{name}' declares gates, but its type is '{}': only a bool setting gates codes",
-            form.field_type().as_str()
-        ));
-        setting.gates.clear();
+    for (key, codes) in [
+        ("gates", &mut setting.gates),
+        ("gates_when_on", &mut setting.gates_when_on),
+    ] {
+        if !codes.is_empty() && form.field_type() != FieldType::Bool {
+            found.w021(format!(
+                "setting '{name}' declares {key}, but its type is '{}': only a bool setting gates codes",
+                form.field_type().as_str()
+            ));
+            codes.clear();
+        }
+        if !codes.is_empty() && Family::is_family(&name) {
+            found.w021(format!(
+                "setting '{name}' declares {key}, but it is a family: only a setting named whole gates codes"
+            ));
+            codes.clear();
+        }
+        let (extension, book) = (found.extension, found.book);
+        let (catalogued, missing): (Vec<String>, Vec<String>) = codes
+            .drain(..)
+            .partition(|code| book.catalogued(extension, code));
+        for code in missing {
+            found.w021(format!(
+                "setting '{name}' {key} '{code}', which the extension's codes do not catalog"
+            ));
+        }
+        *codes = catalogued;
     }
-    if !setting.gates.is_empty() && Family::is_family(&name) {
-        found.w021(format!(
-            "setting '{name}' declares gates, but it is a family: only a setting named whole gates codes"
-        ));
-        setting.gates.clear();
-    }
-    let extension = found.extension;
-    let book = found.book;
-    let (catalogued, missing): (Vec<String>, Vec<String>) = setting
+    // A code gated both ways would never be reported: each is W021 and goes from `gates_when_on` (ADR 0305 D1).
+    let both: Vec<String> = setting
         .gates
-        .drain(..)
-        .partition(|code| book.catalogued(extension, code));
-    for code in missing {
+        .iter()
+        .filter(|code| setting.gates_when_on.contains(code))
+        .cloned()
+        .collect();
+    for code in both {
         found.w021(format!(
-            "setting '{name}' gates '{code}', which the extension's codes do not catalog"
+            "setting '{name}' gates '{code}' both while it is on and while it is off: it would never be reported"
         ));
+        setting.gates_when_on.retain(|c| *c != code);
     }
-    setting.gates = catalogued;
     out.settings.push(DeclaredSetting {
         descriptor: setting,
         form,

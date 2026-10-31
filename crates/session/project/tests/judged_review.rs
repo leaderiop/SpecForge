@@ -261,3 +261,71 @@ fn a_failed_blob_read_poisons_no_baseline() {
         baseline.entities[PLAN].judgements
     );
 }
+
+#[specforge_test(
+    behavior = "judge_rule_by_fresh_verdict",
+    verify = "a fresh verdict's message counts its findings"
+)]
+fn a_judged_message_counts_its_findings() {
+    let message = |findings: &str| {
+        let project = gsd_judged_project("");
+        let cites = if findings.is_empty() {
+            String::new()
+        } else {
+            format!("    findings [{findings}]\n")
+        };
+        record_citing(&project, PLAN, W311, "issues", &Cited::default(), &cites);
+        compile(&project)
+            .diagnostics()
+            .into_iter()
+            .find(|d| d.code == W311 && d.message.contains(PLAN) && d.message.contains("'issues'"))
+            .unwrap_or_else(|| panic!("a finding on {PLAN}"))
+            .message
+    };
+    let one = r#"{ severity "error" message "no wiring" }"#;
+    let two = format!(r#"{one}, {{ severity "warning" message "thin" }}"#);
+    assert!(
+        message(&two).contains("is 'issues' (2 findings)"),
+        "{}",
+        message(&two)
+    );
+    assert!(
+        message(one).contains("is 'issues' (1 finding)"),
+        "{}",
+        message(one)
+    );
+    assert!(
+        message("").contains("is 'issues' (0 findings)"),
+        "{}",
+        message("")
+    );
+}
+
+#[specforge_test(
+    behavior = "answer_judged_inputs",
+    verify = "a pass sees the tests a verdict cites"
+)]
+fn a_pass_sees_the_tests_a_verdict_cites() {
+    let project = gsd_judged_project("");
+    let cited = Cited {
+        tests: vec!["t one".into()],
+        ..Cited::default()
+    };
+    record_citing(
+        &project,
+        TRUTH,
+        E501,
+        "passed",
+        &cited,
+        "    cited_tests [\"t one\"]\n",
+    );
+    let compiled = compile(&project);
+    let input = specforge_project::passes::pass_input(&specforge_project::passes::PassContext {
+        judgements: Some(compiled.judgements()),
+        ..specforge_project::passes::PassContext::of(compiled.entities())
+    });
+    let truth = input.entities.iter().find(|e| e.id == TRUTH).unwrap();
+    let judgement = truth.judgements.iter().find(|j| j.rule == E501).unwrap();
+    let wire = serde_json::to_value(judgement).unwrap();
+    assert_eq!(wire["cited_tests"], json!(["t one"]), "{wire}");
+}

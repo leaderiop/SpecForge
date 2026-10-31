@@ -17,7 +17,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | CLI modules | 282 | 168 | 22 | 92 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 211 | 161 | 35 | 15 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 92 | 51 | 14 | 14 | `core/tests/parity_rules/cutover.rs` |
-| Codes | 63 | 61 | 0 | 0 | 2 | `core/tests/parity_rules/evidence.rs` |
+| Codes | 63 | 63 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
 `core/spec/*.md`; they have no inventory family, so no count. They are exercised by every row above.
@@ -47,7 +47,7 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   argument shape); 51 belong to an extension, 14 are the gate engine, and 14 are core codes whose verdict is not reproduced: 11
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
-- Codes: 61 of the 63 codes fire and stay silent in a named test; W514 and E515 have no rule behind them yet.
+- Codes: 63 of the 63 codes fire and stay silent in a named test.
 
 ## The four checks
 
@@ -79,8 +79,7 @@ Not verified:
   toward refusing; the Codex and Cursor agents and skills (130 files) are pinned by `{bytes, sha256}` in `tree.json`
   only, with no full-text golden read by a person (a drift is caught, a wrong first blessing is not);
   `config_keys_match_the_snapshot` checks a count, and the membership of the 211 keys is accounted by
-  `settings_roster.rs`; a refused install can still write `.mcp.json` (claude) or `hooks.json` (codex), and the kernel's
-  error and hint text for a wrong-shape host config or an edited file on uninstall is not ours (kernel, K20).
+  `settings_roster.rs`; a refused install can still write `.mcp.json` (claude) or `hooks.json` (codex).
 - A `statusline.rs.bak` was committed in `0ba3b8c0b` and removed in `d665cd81b`; it is absent at HEAD and the history
   is not rewritten.
 
@@ -109,29 +108,42 @@ Not verified:
   upstream lets it through (`[unquoted-m]`, which also covers `-m "" -m "fix: x"`). `[dquoted-heredoc-tag]` A `<<"TAG"`
   heredoc resolves, where upstream's capture cannot deliver it and blocks it. `[truncated-heredoc]` A heredoc message with no terminator line is judged by its opener (upstream's capture can
   hand a cut body whose first line is complete, and resolves it).
+- The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+  `approve_validation`, `waive_window`, `dispose_refactor`) are run by the person at a terminal and refused to an agent
+  (ADR 0301); upstream's agent transcribes the person's reply. `pause` stays an agent's. An automated UAT result
+  (upstream's `auto_passed`, recorded without asking the person) is the agent's: `record_automated_uat` writes
+  `source: automated`, and `set_uat_result --source automated` is refused with a hint naming it (REVIEW-k20a M1).
+- Limit of the human-attested commands: the proof is that stdin is a terminal. An agent shell that is itself a pty
+  (Cursor's agent terminal, Codex's pty exec) passes it, and so does `script(1)`; there the gate is an honest-agent
+  gate. A PreToolUse shell guard that refuses these commands from an agent's shell tool is planned in K20c, not built
+  (REVIEW-k20a M2).
+- `/gsd-phase --remove` of a phase whose truth holds a `verification` tier is refused `human_only`, for an agent and for
+  a person's run of the command alike: the tier is a person's (`U`, D-K20a-4), so the person deletes that line in their
+  editor and runs the remove again. Upstream deletes the phase regardless (REVIEW-k20a M3). A human-attested remove is
+  not built.
+- W514 fires on every `check`, once per open deviation window that names a proposal, while `workflow.windows_enforce` is
+  off; upstream warns once per triggering `refactor evaluate` (also when broken-windows is absent). The text and the
+  remediation match. E515 is SpecForge's own (gsd-plus) and has no upstream.
+- A threshold's bounds are whole numbers (D-K20a-9): a warning between 0 and 1 and a critical between 99 and 100 are
+  refused (`hooks.context_critical_threshold` refuses `99.5`), which GSD accepts.
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
   RED before it and is silent otherwise) and `prohibition-enforcement-request-file-judgment-mode` (upstream flags a
   judgment-tier prohibition without evidence; E319 judges the test tier only).
-- The 11 other unreached verdicts are named in `cutover.rs`; the 2 codes with no rule (W514, E515) in `core/README.md`.
-- The "silent" evidence of 38 of the 61 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
+- The 11 other unreached verdicts are named in `cutover.rs`.
+- The "silent" evidence of 38 of the 63 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 
-## Needs a change outside `gsd/` (K20)
+## Needs a change outside `gsd/` (K20b, K20c)
 
 Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is done here:
 
-- `specforge uninstall` leaves the empty host root directory (install crate).
 - Hosts other than Claude Code, Codex and Cursor (the 16 named renderers).
 - Git facts for hooks (`git add -f` blocking) need a host query the protocol lacks.
 - The hook facts: the real path of an out-of-project target (a symlink into the main checkout is not seen), `--cleanup`
   on a commit, and a host filter for a hook contribution (Cursor gets the isolation guard's line).
-- A broken `specforge.json` makes `specforge install <host>` strip every gsd hook, agent and skill silently with exit 0
-  (`specforge check` says E069): install, uninstall and `--check` should refuse with E069 and write nothing.
-- `specforge uninstall` also removes what install did not create: a user's empty `settings.json`, empty `agents/` and
-  `skills/` directories, `"mcpServers": {}`.
 - A host without `specforge` on its PATH runs no guard (exit 127 does not block), as upstream's `node` lines do.
-- A black-box twin for W514 and E515, and for the 14 verdicts above, needs rules the kernel does not have.
+- A black-box twin for the 14 verdicts above needs rules the kernel does not have.
 
 ## What is not in the program
 
@@ -143,8 +155,7 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 | The `specforged` harness | `/gsd-autonomous` unattended, `claude-orchestration`, `external-job` |
 | More host renderers | opencode, copilot, windsurf, kilo, kimi, kimi-code, antigravity, cline, trae, qwen, hermes, codebuddy, augment, zcode, vscode, pi |
 | Running Codex and Cursor | their goldens are the kernel's rendering, cross-checked against upstream's installer only |
-| `gsd/W514`, `gsd/E515` | no rule behind them (K20) |
-| The K20 items | the list above |
+| The K20b and K20c items | the list above |
 | Publishing | `specforge publish`, done by the user |
 
 ## Publishing

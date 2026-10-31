@@ -1,13 +1,12 @@
 //! For each code of the code book: a test that makes it fire and a test that keeps it silent (D-r44-3). Both are
 //! `#[test]` fns under `tests/` or in a `src/` test module whose name or body names the code; `parity_rules.rs`
-//! checks that they exist. A code with no rule behind it says why, and is named in the README.
+//! checks that they exist. Every code has a rule behind it (K20a built W514 and E515).
 
 pub enum Evidence {
     Tests {
         fires: &'static str,
         silent: &'static str,
     },
-    NotBuilt(&'static str),
 }
 
 pub const RULE_EVIDENCE: [(&str, Evidence); 63] = [
@@ -419,15 +418,17 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 63] = [
     ),
     (
         "W514",
-        Evidence::NotBuilt(
-            "a gate that is on only when a setting is on needs `SettingDescriptor.gates_when_on`, a protocol 1.12.0 field; named for the kernel in the README (K20)",
-        ),
+        Evidence::Tests {
+            fires: "a_refactor_deviation_window_with_enforcement_off_is_w514",
+            silent: "windows_enforce_on_silences_w514",
+        },
     ),
     (
         "E515",
-        Evidence::NotBuilt(
-            "a collector's plan is judged for host errors only (REVIEW-r38 M1), which is gsd-plus work with its own ADR; named, not built (K20)",
-        ),
+        Evidence::Tests {
+            fires: "e515_refuses_close_milestone_under_plus_until_the_requirement_traces",
+            silent: "e515_is_silent_by_default",
+        },
     ),
     (
         "E516",

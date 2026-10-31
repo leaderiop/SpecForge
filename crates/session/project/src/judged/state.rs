@@ -274,6 +274,7 @@ pub fn evaluate(
                 Some(verdict) => {
                     judgement.outcome = Some(verdict.outcome.clone());
                     judgement.at = text(verdict, "at");
+                    judgement.cited_tests = Cited::of(verdict).tests;
                     let key = format!("{VERDICT_KEY}{}", verdict.rule);
                     let recorded = harness
                         .value(graph, forms, id, &key)
@@ -314,13 +315,16 @@ pub fn evaluate(
                             (JudgementState::Stale, why, verdict.span.clone())
                         } else {
                             judgement.passed = rule.passes(&verdict.outcome);
+                            // `findings` is a list of blocks (a list of values reads the same).
                             let n = match verdict.body.get("findings") {
                                 Some(FieldValue::List(items)) => items.len(),
+                                Some(FieldValue::Blocks(items)) => items.len(),
                                 _ => 0,
                             };
                             let why = format!(
-                                "the verdict of {at} is '{}' ({n} findings)",
-                                verdict.outcome
+                                "the verdict of {at} is '{}' ({n} finding{})",
+                                verdict.outcome,
+                                if n == 1 { "" } else { "s" }
                             );
                             (JudgementState::Fresh, why, verdict.span.clone())
                         }
@@ -334,7 +338,9 @@ pub fn evaluate(
             }
             judgement.state = state.as_str().to_string();
             if !judgement.passed {
-                out.diagnostics.push(finding(rule, id, kind, &why, &span));
+                let finding = finding(rule, id, kind, &why, &span);
+                out.judgements.found(finding.clone());
+                out.diagnostics.push(finding);
             }
             out.judgements.insert(id, judgement);
         }

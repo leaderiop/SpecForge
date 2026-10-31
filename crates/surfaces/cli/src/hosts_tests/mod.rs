@@ -1,6 +1,7 @@
 //! `specforge install`, `uninstall` and `hook` over the GSD-shaped host fixture, served in process (ADR 0292). The
 //! helpers [`install`], [`uninstall`] and [`hook`] are the one place a test calls the command line.
 
+mod config;
 mod golden;
 mod hook;
 mod install;

@@ -60,6 +60,10 @@ pub struct Judgement {
     /// The files its `file()` inputs and `cited` read, with their current digests.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub files: Vec<JudgedFile>,
+    /// The tests the verdict cites (`cited_tests`), as written; a pass reads them with the project's recorded tests
+    /// (protocol 1.12.0, ADR 0304).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cited_tests: Vec<String>,
 }
 
 /// A file a judgement read, and its digest now.

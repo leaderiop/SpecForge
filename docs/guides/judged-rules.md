@@ -68,13 +68,17 @@ An input is a name and a selector over the project:
 | `self` | the entity |
 | `kind` or `kind\|other` | every entity of the kind(s) |
 | `self.phase` | the entities the field references (a hop; more hops follow: `self.plan.phase`) |
-| `self.phase<decision.phase` | the entities of a kind that reference the entity through a field (`<kind.field`, one or more kinds) |
-| `file(self.files_modified)` / `file("path", ...)` | the files the field (or the literal paths) name, from the project root |
+| `self.phase<decision.phase` | the entities of a kind that reference the entity through a field (`<kind.field`, one or more kinds); the path may go on past the reference (`self.milestone<phase.milestone.requirements`: the requirements of the phases of the milestone) |
+| `file(self.files_modified)` / `file("path", ...)` | the files the field (or the literal paths) name, from the project root; the field is a file reference, a string or a list of strings (a path that does not exist digests `absent`, and a plain string field is not checked for existence) |
 | `test(self)` | the (name, status) of the tests that verify the entity |
 
 Entities digest by their fields, obligations and verdicts, never by position; a rename of an entity or of a scope above
 it stales the verdicts that read it, a respelling does not. Files digest by bytes (a `.spec` source of the project by
 the entities it declares). Test inputs compare name and status only, and are skipped when there is no report.
+
+A verdict's `cited_tests` (the test names it cites) are sent to a pass with the judgement (`Judgement.cited_tests`, protocol
+1.12.0), so a pass can read them against the project's recorded tests: `gsd/E502` counts a cited test that is not linked
+to the truth.
 
 ## Reading the inputs, recording the verdict
 

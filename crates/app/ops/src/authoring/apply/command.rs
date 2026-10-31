@@ -1,7 +1,9 @@
 //! Running a writing command (ADR 0289): the command answers, and the plan it answered is applied for it.
 
+use super::flags::agent_facing;
 use super::{
-    Clock, HostJudgedRules, JudgedRules, Origin, SystemClock, UNDECLARED_WRITE, apply_plan_with,
+    Clock, HUMAN_ONLY, HostJudgedRules, JudgedRules, Origin, Surface, SystemClock,
+    UNDECLARED_WRITE, apply_plan_with,
 };
 use crate::authoring::edit::Edited;
 use crate::extension::command::{CommandFormat, ExtensionCommand, RunError, called, settle};
@@ -44,6 +46,7 @@ pub fn execute(
     format: CommandFormat,
     dry_run: bool,
     caller: Caller<'_>,
+    surface: Surface,
 ) -> Result<CommandRun, RunError> {
     let rules: Arc<dyn JudgedRules> = Arc::new(HostJudgedRules::of(view));
     execute_with(
@@ -53,6 +56,7 @@ pub fn execute(
         format,
         dry_run,
         caller,
+        surface,
         &rules,
         &SystemClock,
     )
@@ -70,9 +74,27 @@ pub fn execute_with(
     format: CommandFormat,
     dry_run: bool,
     caller: Caller<'_>,
+    surface: Surface,
     rules: &Arc<dyn JudgedRules>,
     clock: &dyn Clock,
 ) -> Result<CommandRun, RunError> {
+    // A command that records what a person says is not run for an agent, `--dry-run` included (ADR 0301).
+    if command.human() && agent_facing(&Origin::Core { surface }) {
+        let refused = OpError::new(
+            OpErrorKind::PermissionDenied,
+            HUMAN_ONLY,
+            format!(
+                "`{}` records what a person says: a person runs it at a terminal, not an agent's call",
+                command.tool_name()
+            ),
+        )
+        .with_suggestion(format!(
+            "ask the person to run `specforge {} {}` in their terminal",
+            command.short(),
+            command.cli_name()
+        ));
+        return Err(RunError::Gate(Box::new(refused)));
+    }
     let mut output = called(view, command, given, format)?;
     let Some(plan) = &output.plan else {
         let state_refused = if dry_run {

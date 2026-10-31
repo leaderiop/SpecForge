@@ -212,6 +212,12 @@ fn a_checkpoint_answer_is_a_harness_block_with_no_e107_rule() {
     assert_eq!(on_checkpoint, 0, "{rules}");
 }
 
+/// D-K20a-4: the tier of a truth is a person's decision, so an agent cannot lift or unset it.
+#[test]
+fn a_truths_verification_is_a_persons_to_write() {
+    assert_eq!(field_of("truth", "verification")["writer"], "human");
+}
+
 #[test]
 fn must_haves_golden() {
     let kinds = ["truth", "artifact", "key_link", "prohibition"];

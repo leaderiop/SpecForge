@@ -408,6 +408,13 @@ impl CommandBuilder {
         self
     }
 
+    /// The command records what a person says, so the host runs it only for a person at a terminal, never for an
+    /// agent's call (ADR 0301). It `writes`.
+    pub fn human(&mut self) -> &mut Self {
+        self.descriptor.human = true;
+        self.writes()
+    }
+
     /// The command answers an edit plan ([`CommandOutput::with_plan`]) the host applies (ADR 0289). It receives
     /// the `revisions` of the project's sources, and the host gives it `--dry-run`, so no arg may take that name.
     pub fn writes(&mut self) -> &mut Self {

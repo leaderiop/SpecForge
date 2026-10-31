@@ -377,14 +377,7 @@ fn uninstall_leaves_only_what_the_user_wrote() {
         let run = install(&q, &qhome, &["uninstall", host, "--format", "json"]);
         assert_eq!(run.code, 0, "{host}: {}", run.all());
         assert_eq!(tree(&q).len(), 0, "{host}: {:?}", tree(&q).keys());
-        // known limit (K20, ACCEPTANCE): uninstall removes the directories it filled, but not the host's own folder it created;
-        // when it is fixed, this expectation becomes an empty list
-        let roots: Vec<String> = owned(host)
-            .iter()
-            .filter(|o| o.starts_with('.') && !o.ends_with(".json"))
-            .map(|o| o.to_string())
-            .collect();
-        assert_eq!(empty_dirs(&q), roots, "{host}");
+        assert_eq!(empty_dirs(&q), Vec::<String>::new(), "{host}");
     }
 }
 
@@ -592,5 +585,18 @@ fn the_marker_version_is_normalised() {
             "{} holds a version, not VERSION",
             file.display()
         );
+    }
+}
+
+#[test]
+fn a_broken_specforge_json_refuses_install_and_keeps_every_guard() {
+    for host in HOSTS {
+        let (p, home, _) = first_install(host);
+        p.write("specforge.json", "{bad");
+        let before = tree(&p);
+        let run = install(&p, &home, &["install", host, "--format", "json"]);
+        assert_eq!(run.code, 1, "{host}: {}", run.all());
+        assert_eq!(report(&run)["code"], "E069", "{host}: {}", run.all());
+        assert_eq!(tree(&p), before, "{host}: install wrote");
     }
 }

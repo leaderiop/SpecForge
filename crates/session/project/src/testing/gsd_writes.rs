@@ -183,6 +183,14 @@ fn collector(name: &str) -> Value {
     json!({"name": name, "input_formats": ["json"], "export": format!("collect__{name}"), "writes": true})
 }
 
+/// A command that records what a person says (ADR 0301): `human` is a raw key, so the fixture builds before the
+/// wire knows it.
+fn attest() -> Value {
+    let mut attest = command("attest", true);
+    attest["human"] = json!(true);
+    attest
+}
+
 fn core(guard: bool) -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(CORE, "1.0.0"));
     c.raw_category(DeclaredCategory::Entities, gsd_writes_wire());
@@ -193,7 +201,7 @@ fn core(guard: bool) -> ContributionsBuilder {
     c.raw_category(DeclaredCategory::Passes, passes);
     c.raw_category(
         DeclaredCategory::Surfaces,
-        json!([{"commands": [command("record", true), command("quiet", false)]}]),
+        json!([{"commands": [command("record", true), command("quiet", false), attest()]}]),
     );
     c.raw_category(DeclaredCategory::Collectors, json!([collector("git")]));
     c

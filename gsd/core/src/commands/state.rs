@@ -146,7 +146,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("the handoff entity that carries what the next session needs");
             })
             .arg("by", |a| {
-                a.description("required; who paused: the caller's attestation, not a proof of the person (K20)");
+                a.description("required; who paused: the caller's attestation, not a proof of the person; `pause` stays an agent's call");
             })
             .handler(|call| run(call, pause));
     });

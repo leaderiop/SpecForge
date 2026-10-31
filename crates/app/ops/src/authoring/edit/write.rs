@@ -173,11 +173,13 @@ pub fn written(
             FieldType::Identifier
             | FieldType::Enum
             | FieldType::Integer
+            | FieldType::Number
             | FieldType::Bool
             | FieldType::Date
             | FieldType::Reference => {
                 let what = match form.field_type() {
                     FieldType::Integer => "integer",
+                    FieldType::Number => "number",
                     FieldType::Bool => "boolean",
                     FieldType::Date => "date",
                     FieldType::Reference => "id",

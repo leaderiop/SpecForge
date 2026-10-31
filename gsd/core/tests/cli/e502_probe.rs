@@ -76,9 +76,23 @@ fn e502_is_silent_without_a_report() {
 }
 
 #[test]
+fn an_agent_cannot_change_a_truths_verification() {
+    let p = project("execute");
+    let before = p.read("spec/plans.spec");
+    let run = p.run(&["set", TRUTH, "verification", "backstop"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("[human_only]"), "{}", run.all());
+    assert_eq!(p.read("spec/plans.spec"), before);
+}
+
+#[test]
 fn a_backstop_truth_is_never_e502() {
     let p = project("execute");
-    assert_eq!(p.run(&["set", TRUTH, "verification", "backstop"]).code, 0);
+    p.edit(
+        "spec/plans.spec",
+        "verification explicit",
+        "verification backstop",
+    );
     report(&p, FAILING);
     let run = p.record(TRUTH, "E501", "verified", &[]);
     assert_eq!(run.code, 0, "{}", run.all());

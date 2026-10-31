@@ -28,6 +28,9 @@ pub struct PlannedChange {
     ledger: Option<LedgerWrite>,
     /// The project declares a harness field: every write of it takes the write lock, the ledger changing or not.
     locked: bool,
+    /// The entities the change moves, old path → new, in the order they were made: E080 pairs an extension's finding
+    /// through them.
+    moved: Vec<(String, String)>,
 }
 
 type Redo = Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>;
@@ -68,7 +71,19 @@ impl PlannedChange {
             files,
             ledger: None,
             locked: false,
+            moved: Vec::new(),
         }
+    }
+
+    /// This change moving `moved` entities, old path → new (ADR 0302).
+    pub(crate) fn moving(mut self, moved: Vec<(String, String)>) -> Self {
+        self.moved = moved;
+        self
+    }
+
+    /// The entities this change moves, old path → new.
+    pub(crate) fn moved(&self) -> &[(String, String)] {
+        &self.moved
     }
 
     /// This change keeping the harness ledger true to the project `before` (ADR 0287): the ledger as the host would

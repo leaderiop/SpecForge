@@ -28,16 +28,27 @@ fn project() -> TestProject {
 /// `specforge core record <args>`, the command answering a plan that sets `result` of `U1` on `revision`: its exit
 /// code, stdout and stderr.
 fn record(project: &TestProject, revision: &str, args: &[&str]) -> (i32, String, String) {
+    run_command(project, "record", revision, Facts::PIPED, args)
+}
+
+/// `specforge core <command> <args>` over a terminal of `facts`, the command answering that plan.
+fn run_command(
+    project: &TestProject,
+    command: &str,
+    revision: &str,
+    facts: Facts,
+    args: &[&str],
+) -> (i32, String, String) {
     let ops = json!([{"op": "set", "entity": "v1.0/03/U1", "field": "result", "value": "pass",
                       "revision": revision}]);
     let runtime = Arc::new(
         GsdWrites::new()
-            .answering(CORE, "cmd__record", gsd_writes_answer(0, ops))
+            .answering(CORE, &format!("cmd__{command}"), gsd_writes_answer(0, ops))
             .runtime(),
     );
     let env = project.environment_in(runtime as SharedRuntime);
-    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
-    let mut rest = vec!["record".to_string()];
+    let (terminal, capture) = Terminal::captured("", facts);
+    let mut rest = vec![command.to_string()];
     rest.extend(args.iter().map(ToString::to_string));
     rest.extend(["--path".to_string(), project.root().display().to_string()]);
     let code = run_in(env, &project.project_root(), "core", rest, &[], &terminal);
@@ -111,4 +122,25 @@ fn a_writing_commands_plan_agrees_on_both_surfaces() {
         std::fs::read_to_string(served.root().join("03-01.spec")).unwrap(),
         "the same file"
     );
+}
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "a human-attested command runs from a terminal and is refused to an agent's call"
+)]
+fn a_human_command_runs_only_from_a_terminal() {
+    let p = project();
+    let revision = revision(&p);
+    let before = p.read("03-01.spec");
+    let (code, out, err) = run_command(&p, "attest", &revision, Facts::PIPED, &[]);
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(err.contains("[human_only]"), "{err}");
+    assert_eq!(p.read("03-01.spec"), before);
+    let person = Facts {
+        interactive: true,
+        ..Facts::PIPED
+    };
+    let (code, out, err) = run_command(&p, "attest", &revision, person, &[]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(p.read("03-01.spec").contains("result \"pass\""));
 }

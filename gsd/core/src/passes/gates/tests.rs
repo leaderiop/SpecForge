@@ -277,6 +277,27 @@ fn an_executed_plans_stale_plan_check_does_not_count_but_another_stale_verdict_d
 }
 
 #[test]
+fn e516_names_the_subject_of_a_scoped_gate() {
+    let entities = || {
+        vec![
+            json!({ "id": "v1.0/01/01-01", "kind": "plan" }),
+            json!({ "id": "v1.0/01/01-02", "kind": "plan",
+                    "judgements": [{ "rule": "gsd/W311", "state": "stale", "passed": false }] }),
+        ]
+    };
+    let scoped = e516(&input(ship(Some("v1.0/01/01-01")), entities(), vec![]));
+    assert_eq!(codes(scoped.clone()), ["E516"]);
+    assert_eq!(scoped[0].entity.as_deref(), Some("v1.0/01/01-01"));
+    assert!(
+        scoped[0]
+            .message
+            .contains("the verdict on 'v1.0/01/01-02' is stale")
+    );
+    let project = e516(&input(ship(None), entities(), vec![]));
+    assert_eq!(project[0].entity.as_deref(), Some("v1.0/01/01-02"));
+}
+
+#[test]
 fn a_stale_verdict_is_e516_under_plus() {
     let stale = |state: &str| {
         input(
@@ -291,14 +312,16 @@ fn a_stale_verdict_is_e516_under_plus() {
 }
 
 /// A project every guard has something to say about at a gate on milestone v1.0: no audit (E106), an unverified
-/// phase (E511), an open window (E512), a stale plan-check (W318), a tdd plan with a summary and no review (W404) and
-/// a stale verdict (E516).
+/// phase (E511), an open window (E512), a stale plan-check (W318), a tdd plan with a summary and no review (W404), a
+/// complete requirement no task traces (E515) and a stale verdict (E516).
 fn everything_wrong() -> (Vec<Value>, Vec<Value>) {
     let entities = vec![
         json!({ "id": "v1.0", "kind": "milestone" }),
-        json!({ "id": "v1.0/01", "kind": "phase" }),
+        json!({ "id": "v1.0/01", "kind": "phase", "values": { "requirements": ["R1"] } }),
+        json!({ "id": "R1", "kind": "requirement", "fields": { "status": "complete" } }),
         window("BW1", json!({})),
-        json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "type": "tdd" } }),
+        json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "type": "tdd" },
+                "values": { "requirements": ["R1"] } }),
         json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" }),
         json!({ "id": "v1.0/01/01-02", "kind": "plan",
                 "judgements": [{ "rule": "gsd/W313", "state": "stale", "passed": false }] }),
@@ -335,4 +358,100 @@ fn every_guard_answers_a_gate_and_is_silent_on_a_write() {
             assert!(check(found).is_empty(), "{name} ({code}) answered a write");
         }
     }
+}
+
+const TASK: &str = "v1.0/01/01-01/T1";
+
+/// A phase whose requirement R1 is complete, a plan that names it and this task; `tests` are the recorded results
+/// `(entity, status)`, `commit` whether a commit names the task.
+fn traced(
+    subject: Option<&str>,
+    task_type: &str,
+    commit: bool,
+    tests: &[(&str, &str)],
+) -> PassInput {
+    let mut entities = vec![
+        json!({ "id": "v1.0/01", "kind": "phase", "values": { "requirements": ["R1"] } }),
+        json!({ "id": "R1", "kind": "requirement", "fields": { "status": "complete" } }),
+        json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "phase": "v1.0/01" },
+                "values": { "requirements": ["R1"] } }),
+        json!({ "id": TASK, "kind": "task", "fields": { "plan": "v1.0/01/01-01", "type": task_type } }),
+    ];
+    if commit {
+        entities.push(
+            json!({ "id": "v1.0/01/01-01/abcdef123456", "kind": "commit",
+                              "fields": { "task": TASK, "at": "2026-10-29T10:00:00Z" } }),
+        );
+    }
+    let mut value = json!({ "entities": entities, "edges": [], "trigger": ship(subject) });
+    let mut results = serde_json::Map::new();
+    for (entity, status) in tests {
+        let recorded = results
+            .entry(entity.to_string())
+            .or_insert_with(|| json!({ "tests": [] }));
+        if let Some(all) = recorded["tests"].as_array_mut() {
+            all.push(json!({ "name": "t", "status": status }));
+        }
+    }
+    value["test_results"] = json!({ "results": results });
+    serde_json::from_value(crate::passes::plans::with_field_edges(value)).expect("a pass input")
+}
+
+#[test]
+fn e515_is_silent_outside_a_gate() {
+    let mut found = traced(Some("v1.0/01"), "auto", false, &[]);
+    found.trigger = None;
+    assert!(e515(&found).is_empty());
+}
+
+#[test]
+fn a_complete_requirement_without_a_task_is_e515() {
+    let mut found = traced(Some("v1.0/01"), "auto", true, &[(TASK, "passed")]);
+    found
+        .entities
+        .retain(|e| e.kind != "task" && e.kind != "commit");
+    let refused = e515(&found);
+    assert_eq!(codes(refused.clone()), ["E515"]);
+    assert!(refused[0].message.contains("no task of its plans"));
+}
+
+#[test]
+fn a_commit_alone_does_not_trace() {
+    let refused = e515(&traced(Some("v1.0/01"), "auto", true, &[]));
+    assert_eq!(codes(refused.clone()), ["E515"]);
+    assert!(refused[0].message.contains("no passing test of its tasks"));
+    let no_commit = e515(&traced(Some("v1.0/01"), "auto", false, &[(TASK, "passed")]));
+    assert!(no_commit[0].message.contains("no commit of its tasks"));
+}
+
+#[test]
+fn a_manual_task_does_not_trace() {
+    let refused = e515(&traced(
+        Some("v1.0/01"),
+        "manual",
+        true,
+        &[(TASK, "passed")],
+    ));
+    assert!(refused[0].message.contains("no task of its plans"));
+}
+
+#[test]
+fn a_passing_test_naming_the_task_traces() {
+    assert!(e515(&traced(Some("v1.0/01"), "auto", true, &[(TASK, "passed")])).is_empty());
+    assert!(e515(&traced(Some("v1.0/01"), "tdd", true, &[("R1", "passed")])).is_empty());
+}
+
+#[test]
+fn a_failing_linked_test_does_not_trace() {
+    let tests = [(TASK, "passed"), (TASK, "failed")];
+    let refused = e515(&traced(Some("v1.0/01"), "auto", true, &tests));
+    assert!(refused[0].message.contains("no passing test of its tasks"));
+}
+
+#[test]
+fn e515_names_the_subject() {
+    let scoped = e515(&traced(Some("v1.0/01"), "auto", true, &[]));
+    assert_eq!(scoped[0].entity.as_deref(), Some("v1.0/01"));
+    let project = e515(&traced(None, "auto", true, &[]));
+    assert_eq!(project[0].entity.as_deref(), Some("R1"));
 }

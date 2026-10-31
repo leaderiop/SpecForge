@@ -38,6 +38,13 @@ fn built(rule: ValidationRuleDescriptor) -> Built {
 
 /// [`built`] declaring each of `rules`, in order.
 fn built_all(rules: Vec<ValidationRuleDescriptor>) -> Built {
+    rules_of(vec![declaration_of(rules)])
+}
+
+/// The `@test` declaration of [`built_all`].
+fn declaration_of(
+    rules: Vec<ValidationRuleDescriptor>,
+) -> specforge_protocol_types::ExtensionDeclaration {
     let mut declaration = declare("@test", |c| {
         c.agent("checker", |a| {
             a.description("Judges");
@@ -62,7 +69,7 @@ fn built_all(rules: Vec<ValidationRuleDescriptor>) -> Built {
         });
     });
     declaration.validation_rules = rules;
-    rules_of(vec![declaration])
+    declaration
 }
 
 #[spec(
@@ -154,6 +161,90 @@ fn a_declarative_rule_cannot_share_a_judged_rules_code() {
             "judged"
         );
     }
+}
+
+#[spec(
+    behavior = "declare_judged_rule",
+    verify = "a guard pass cannot report a judged rule's code"
+)]
+fn a_guard_pass_cannot_report_a_judged_rules_code() {
+    let mut declaration = declaration_of(vec![descriptor(plan_check())]);
+    declaration.passes = declare("@test", |c| {
+        c.pass("g", |p| {
+            p.guard().reports(&["W311"]).run(|_| Vec::new());
+        });
+    })
+    .passes;
+    let built = rules_of(vec![declaration]);
+    let w021: Vec<_> = built
+        .build
+        .diagnostics()
+        .filter(|d| d.code == "W021" && d.message.contains("'g'") && d.message.contains("'W311'"))
+        .collect();
+    assert_eq!(w021.len(), 1, "{:?}", built.diagnostics);
+}
+
+/// `@test` declaring an audit (a `milestone` reference and a `path` string), a phase of a milestone naming
+/// requirements, and a rule whose audit input is `selector`.
+fn audit_built(selector: &str) -> Built {
+    let mut declaration = declare("@test", |c| {
+        c.agent("checker", |a| {
+            a.description("Judges");
+        });
+        for keyword in ["milestone", "requirement"] {
+            c.kind(keyword, |k| {
+                k.keyword(keyword);
+            });
+        }
+        c.kind("phase", |k| {
+            k.keyword("phase");
+            k.field("milestone", |f| {
+                f.field_type(FieldType::Reference).target_kind("milestone");
+            });
+            k.field("requirements", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .target_kind("requirement");
+            });
+        });
+        c.kind("audit", |k| {
+            k.keyword("audit");
+            k.field("milestone", |f| {
+                f.field_type(FieldType::Reference).target_kind("milestone");
+            });
+            k.field("path", |f| {
+                f.field_type(FieldType::String);
+            });
+        });
+    });
+    let judged = json!({
+        "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
+        "targets": [{"kind": "audit", "inputs": [{"name": "input", "selector": selector}]}],
+    });
+    declaration.validation_rules = vec![descriptor(judged)];
+    rules_of(vec![declaration])
+}
+
+#[spec(
+    behavior = "digest_judged_inputs",
+    verify = "a referrer selector goes on past its reference"
+)]
+fn a_referrer_selector_goes_on_past_its_reference() {
+    let built = audit_built("self.milestone<phase.milestone.requirements");
+    assert!(built.coded("W112").is_empty(), "{:?}", built.diagnostics);
+    assert_eq!(built.rules.iter().count(), 1);
+}
+
+#[spec(
+    behavior = "digest_judged_inputs",
+    verify = "a file input may name a path held in a string field"
+)]
+fn file_of_a_string_field_is_admitted() {
+    let built = audit_built("file(self.path)");
+    assert!(built.coded("W112").is_empty(), "{:?}", built.diagnostics);
+    assert_eq!(built.rules.iter().count(), 1);
+    // A field that is no string is still no file field.
+    let built = audit_built("file(self.milestone)");
+    assert_eq!(built.coded("W112").len(), 1, "{:?}", built.diagnostics);
 }
 
 /// The build of `@test` declaring a plan with verdict-written `result` and `owner` fields, and `rule`.

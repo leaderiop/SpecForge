@@ -77,7 +77,7 @@ pub(super) fn invalid(number: usize, message: impl std::fmt::Display) -> OpError
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Surface {
     Mcp,
-    /// `interactive`: stdin and stdout are a terminal, so a person is at the keyboard.
+    /// `interactive`: stdin is a terminal. A person at the keyboard has one; so does an agent's pty shell (ADR 0301).
     Cli {
         interactive: bool,
     },
@@ -150,7 +150,8 @@ pub fn apply_plan_with(
         steps.insert(at + inserted, Step::Verdict(Box::new(step)));
     }
     revision::against_compile(view.project(), &lowered.files)?;
-    let planned = plan_steps(view, &steps)?;
+    let host_only = matches!(origin, Origin::Collector { .. });
+    let planned = plan_steps(view, &steps, host_only)?;
     let report = planned.report().clone();
     let wrote = Wrote::unless_preview(dry_run, || {
         let change = planned.change().clone().serialized();
@@ -167,7 +168,7 @@ pub fn apply_plan_with(
         change.apply_checked(caller, || {
             revision::against_disk(&sources, caller, &files)?;
             verdict::against_disk(project, &verdicts)?;
-            rejudge(project, &change, &files)
+            rejudge(project, &change, &files, host_only)
         })
     })?;
     Ok(Edited { report, wrote })
@@ -311,6 +312,7 @@ fn rejudge(
     project: &CompiledProject,
     change: &PlannedChange,
     files: &std::collections::BTreeMap<String, String>,
+    host_only: bool,
 ) -> Result<(), OpError> {
     let own: BTreeSet<String> = files.keys().cloned().collect();
     if !project.sources_moved(&own) {
@@ -323,8 +325,10 @@ fn rejudge(
         .judged_against(&before);
     crate::authoring::edit::validate::refuse_new_errors(
         &before.judged_diagnostics(),
-        after.diagnostics(),
+        &after,
         project.environment().registries(),
+        change.moved(),
+        host_only,
     )
     .map_err(|refusal| refusal.error)
 }

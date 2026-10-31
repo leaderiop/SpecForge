@@ -408,3 +408,31 @@ fn a_git_only_collect_leaves_the_checks_unjudged_even_under_strict() {
     // No test ever ran: no W408 (an Error under strict).
     assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
 }
+
+/// D-K20a-7: E515 is a ship-gate guard under gsd-plus, never a check.
+#[test]
+fn e515_refuses_close_milestone_under_plus_until_the_requirement_traces() {
+    let p = repository();
+    assert_eq!(p.fields_of("TASK-01")["status"], "complete");
+    p.settings(json!({ "profile": "gsd-plus" }));
+    let close = |p: &Project| crate::commands_support::gsd(p, "close-milestone", &["v1.0"]).all();
+    let refused = close(&p);
+    assert!(
+        refused.contains("gate_failed") && refused.contains("gsd/E515"),
+        "{refused}"
+    );
+    // A commit and a passing test linked to the task trace it.
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("[gsd:v1.0/01/01-01/T1] adds a task", true)]);
+    let after = close(&p);
+    assert!(!after.contains("gsd/E515"), "{after}");
+}
+
+#[test]
+fn e515_is_silent_by_default() {
+    let p = repository();
+    let found = crate::commands_support::gsd(&p, "close-milestone", &["v1.0"]).all();
+    assert!(!found.contains("E515"), "{found}");
+}

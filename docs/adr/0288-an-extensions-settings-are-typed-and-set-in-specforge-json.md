@@ -2,7 +2,7 @@
 
 **Status:** accepted (2026-10-27, architecture round 31, plan K6). Extends [ADR 0012](0012-one-extension-declaration.md),
 [ADR 0037](0037-the-sandbox-is-limits-the-host-enforces.md), [ADR 0239](0239-the-call-target-takes-its-own-arguments.md)
-and [ADR 0286](0286-a-diagnostic-code-is-namespaced-by-its-extension.md).
+and [ADR 0286](0286-a-diagnostic-code-is-namespaced-by-its-extension.md). Extended by [ADR 0305](0305-a-bool-setting-gates-codes-while-it-is-on-and-a-setting-may-be-a-number.md) (a setting gates codes while on; a number setting).
 
 A feature flag was a boolean an extension declared and nothing read; `specforge.json` had no key to set one. GSD's
 configuration is about 270 typed keys, preset by a profile that also raises rule severities, with secrets kept out of

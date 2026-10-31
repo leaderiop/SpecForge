@@ -65,7 +65,7 @@ fn the_baseline_is_the_last_disposed_score() {
     p.settings(serde_json::json!({ "refactor.complexity_threshold": 5 }));
     assert_eq!(gsd(&p, "propose-refactor", &[PHASE]).code, 0);
     assert_eq!(p.fields_of("v1.0/01/RP1")["score"], 10);
-    let run = gsd(&p, "dispose-refactor", &["v1.0/01/RP1", "accepted", "ada"]);
+    let run = gsd_as_person(&p, "dispose-refactor", &["v1.0/01/RP1", "accepted", "ada"]);
     assert_eq!(run.code, 0, "{}", run.all());
     // Later add scores 16: under the new threshold of 30, but 6 up from the disposed 10, over the jump of 5.
     p.write("src/tasks.js", &busy("add", 15));
@@ -102,7 +102,7 @@ fn strict_records_a_deviation_window() {
         "{window}"
     );
     assert_eq!(
-        gsd(&p, "dispose-refactor", &["v1.0/01/RP1", "accepted", "ada"]).code,
+        gsd_as_person(&p, "dispose-refactor", &["v1.0/01/RP1", "accepted", "ada"]).code,
         0
     );
     assert_eq!(
@@ -128,7 +128,7 @@ fn a_second_run_does_not_duplicate_an_untriaged_proposal() {
     unchanged(&p, &before);
     // Disposed, the function is no longer frozen.
     assert_eq!(
-        gsd(
+        gsd_as_person(
             &p,
             "dispose-refactor",
             &["v1.0/01/RP1", "declined", "ada", "--reason", "later"]
@@ -143,15 +143,15 @@ fn a_second_run_does_not_duplicate_an_untriaged_proposal() {
 #[test]
 fn dispose_is_refused_twice() {
     let p = project("verify");
-    let run = gsd(&p, "dispose-refactor", &["RP1", "declined", "ada"]);
+    let run = gsd_as_person(&p, "dispose-refactor", &["RP1", "declined", "ada"]);
     refused(&run, "invalid_input", &["needs --reason"]);
-    let run = gsd(&p, "dispose-refactor", &["RP1", "accepted", "ada"]);
+    let run = gsd_as_person(&p, "dispose-refactor", &["RP1", "accepted", "ada"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let found = p.fields_of("RP1");
     assert_eq!(found["disposition"]["outcome"], "accepted");
     assert_eq!(found["status"], "accepted");
     let before = bytes(&p);
-    let again = gsd(
+    let again = gsd_as_person(
         &p,
         "dispose-refactor",
         &["RP1", "declined", "grace", "--reason", "changed my mind"],

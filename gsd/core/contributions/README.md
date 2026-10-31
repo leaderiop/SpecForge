@@ -135,13 +135,18 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 | `ultraplan_phase` | E201, W204, E206, W406, E516 | plan checker; `record_verdict` |
 | `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; verifier; `record_verdict`, `record_window`; `verify_work` |
 | `execute_plan` (no slash command) | W318, E516 | `start_plan`, `answer_checkpoint`, `confirm_setup`, `raise_blocker`, `complete_plan`; executor |
-| `verify_work` | E516 | `set_uat_result`; planner, plan checker |
+| `verify_work` | E516 | `set_uat_result`, `record_automated_uat`; planner, plan checker |
 | `validate_phase` | E516 | nyquist auditor; `record_validation`, `approve_validation` |
 | `add_tests` | E516 | none |
 | `audit_uat` | none | `set_uat_result` |
 | `audit_milestone` | E516 | integration checker; `record_verdict`; `plan_phase` |
 | `complete_milestone` | E106, E511, E516 | `close_milestone` |
 | `ship` | E511, E512, E516 | `fix_window`, `waive_window` |
+
+The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+`approve_validation`, `waive_window`, `dispose_refactor`) are human-attested (ADR 0301): the host runs them only for a
+person at a terminal and refuses an agent's call `human_only`, so their prompt steps ask the person to run them. `pause`
+stays an agent's call.
 
 ### What the lifecycle prompts do not do (known, not fixed)
 
@@ -208,7 +213,8 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `start_plan`, `complete_plan` | summary `started`, `completed` (`start_plan` writes nothing: it runs the entry gates and answers the clock) |
 | `answer_checkpoint` | checkpoint `answer` |
 | `confirm_setup` | user_setup `done` |
-| `set_uat_result` | uat_test `result`, `source` |
+| `set_uat_result` | uat_test `result`, `source` (a person's answer) |
+| `record_automated_uat` | uat_test `result`, `source: automated` (an agent's or CI's call; the same fields, so the roster lists `set_uat_result`) |
 | `approve_validation` | validation `approval` |
 | `close_milestone` | milestone `completion` (gated by gsd/E106, E511, E516), its retrospective |
 | `pause`, `resume` | pause `at`, `by`; removes the pause |
@@ -331,4 +337,3 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
 - A host without `specforge` on its PATH runs no guard (exit 127 does not block).
 - Hook latency (p50, 20 events, taskboard): `write_guard` 0.13 s, `spec_guard` 0.16 s; the budget is enforced by
   `hooks_guards.rs`.
-- Uninstall leaves the empty host root directory (the install crate).

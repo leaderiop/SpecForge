@@ -428,6 +428,12 @@ fn expected(form: &FieldForm) -> String {
             (None, Some(hi)) => format!("a whole number of at most {hi}"),
             (None, None) => "a whole number".to_string(),
         },
+        FieldType::Number => match (minimum, maximum) {
+            (Some(lo), Some(hi)) => format!("a number from {lo} to {hi}"),
+            (Some(lo), None) => format!("a number of at least {lo}"),
+            (None, Some(hi)) => format!("a number of at most {hi}"),
+            (None, None) => "a number".to_string(),
+        },
         FieldType::Enum if !form.enum_values().is_empty() => {
             format!("one of {}", form.enum_values().join(", "))
         }
@@ -484,6 +490,7 @@ fn kind_fits(form: &FieldForm, value: &Value) -> bool {
     match form.field_type() {
         FieldType::Bool => value.is_boolean(),
         FieldType::Integer => value.is_i64() || value.is_u64(),
+        FieldType::Number => value.is_number(),
         FieldType::StringList | FieldType::EnumList | FieldType::BlockList => value.is_array(),
         FieldType::Block => value.is_object(),
         _ => value.is_string(),
@@ -597,11 +604,18 @@ fn preset(
                     },
                 },
             };
-            if setting.value == Some(Value::Bool(false)) {
-                resolved
-                    .gated
-                    .extend(descriptor.gates.iter().map(|code| qualify(extension, code)));
-            }
+            let off = setting.value == Some(Value::Bool(false));
+            let on = setting.value == Some(Value::Bool(true));
+            let gating: &[String] = if off {
+                &descriptor.gates
+            } else if on {
+                &descriptor.gates_when_on
+            } else {
+                &[]
+            };
+            resolved
+                .gated
+                .extend(gating.iter().map(|code| qualify(extension, code)));
             values.insert(key.to_string(), setting);
         }
         resolved

@@ -8,13 +8,27 @@ use super::{FieldForm, FieldJson, Refusal, ValueShape};
 
 impl FieldForm {
     /// `value` as this field takes it, or why not. A scalar is the JSON of its type (`string`, `enum`, `identifier`,
-    /// `reference` and `date` a string; `integer` an integer within its bounds; `bool` a boolean), a list an array
-    /// of strings, a `block` an object and a `block_list` an array of objects, each entry admitted by its member's
-    /// form; a member the block does not declare is refused. The same rules `admit` and `refuse_item` apply to a
-    /// written value.
+    /// `reference` and `date` a string; `integer` an integer and `number` a number, within their bounds; `bool` a
+    /// boolean), a list an array of strings, a `block` an object and a `block_list` an array of objects, each entry
+    /// admitted by its member's form; a member the block does not declare is refused. The same rules `admit` and
+    /// `refuse_item` apply to a written value.
     pub fn admit_json(&self, value: &Value) -> Result<FieldJson, Refusal> {
         self.admitted(value)?;
         Ok(FieldJson::of(value.clone()))
+    }
+
+    /// `Ok` when the number `x` lies within the declared bounds (a `number` setting's).
+    fn in_number_bounds(&self, x: f64) -> Result<(), Refusal> {
+        let (minimum, maximum) = self.bounds;
+        if minimum.is_some_and(|m| x < m as f64) || maximum.is_some_and(|m| x > m as f64) {
+            return Err(Refusal::with(&match (minimum, maximum) {
+                (Some(low), Some(high)) => format!("write a number from {low} to {high}"),
+                (Some(low), None) => format!("write a number of at least {low}"),
+                (None, Some(high)) => format!("write a number of at most {high}"),
+                (None, None) => unreachable!("an unbounded number is in bounds"),
+            }));
+        }
+        Ok(())
     }
 
     fn admitted(&self, value: &Value) -> Result<(), Refusal> {
@@ -23,6 +37,10 @@ impl FieldForm {
             (FieldType::Integer, Value::Number(n)) => {
                 let n = n.as_i64().ok_or_else(wrong)?;
                 self.admit(ValueShape::Integer, &n.to_string())
+            }
+            (FieldType::Number, Value::Number(n)) => {
+                let x = n.as_f64().ok_or_else(wrong)?;
+                self.in_number_bounds(x)
             }
             (FieldType::Bool, Value::Bool(_)) => Ok(()),
             (FieldType::Date, Value::String(s)) => self.admit(ValueShape::Date, s),

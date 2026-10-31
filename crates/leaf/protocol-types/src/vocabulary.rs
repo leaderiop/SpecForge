@@ -86,6 +86,9 @@ vocabulary! {
         String = "string",
         /// A whole number.
         Integer = "integer",
+        /// A whole or decimal number (protocol 1.12.0, ADR 0305). A setting may be one; a kind's field may not, since
+        /// the `.spec` grammar has no decimal literal (W021).
+        Number = "number",
         /// `true` or `false`.
         Bool = "bool",
         /// One calendar day, `YYYY-MM-DD` (ISO 8601), written bare (ADR 0234); a quoted

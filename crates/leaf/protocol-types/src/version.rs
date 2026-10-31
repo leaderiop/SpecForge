@@ -33,5 +33,7 @@
 /// 0293's: a pass or command declares the project files it `reads` (and a pass `reads_tests`), and its input carries
 /// their `files` (facts and capped text); ADR 0294 adds to the same 1.11.0 the items of a list field in a pass's and a
 /// validator's `values`, and the `now` of a command, collector or hook input; ADR 0295: a judged rule's `judge` may be
-/// `prompt:<id>`; ADR 0296: `specforge settings set` writes the settings an extension declares.
-pub const PROTOCOL_VERSION: &str = "1.11.0";
+/// `prompt:<id>`; ADR 0296: `specforge settings set` writes the settings an extension declares; 1.12.0 is ADR
+/// 0301's: a command may be `human`; ADR 0304's: a pass's judgement carries `cited_tests`; ADR 0305's: a setting may
+/// declare `gates_when_on` and be of type `number`.
+pub const PROTOCOL_VERSION: &str = "1.12.0";

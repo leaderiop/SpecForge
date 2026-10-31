@@ -205,15 +205,11 @@ pub fn gate_cutover() -> Counts {
 }
 
 pub fn codes() -> Counts {
-    let open = RULE_EVIDENCE
-        .iter()
-        .filter(|(_, e)| matches!(e, Evidence::NotBuilt(_)))
-        .count();
     let built = RULE_EVIDENCE
         .iter()
         .filter(|(_, e)| matches!(e, Evidence::Tests { fires, silent } if !fires.is_empty() && !silent.is_empty()))
         .count();
-    counts(built, 0, 0, open)
+    counts(built, 0, 0, 0)
 }
 
 /// The row of `family` in the checklist table of the file, as numbers.

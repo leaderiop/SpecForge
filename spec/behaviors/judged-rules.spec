@@ -39,6 +39,7 @@ behavior declare_judged_rule "Declare a Judged Rule" {
   verify unit "a judged rule is declared with its judge, outcomes and per-target selectors"
   verify unit "a malformed judged rule is W112 and is not registered"
   verify unit "no other rule of the extension reports a judged rules code"
+  verify unit "a guard pass cannot report a judged rule's code"
   verify unit "a judge may be a prompt of the rule's own extension, and a missing or a peer's prompt is W112"
   verify unit "every input of the model's judged rules parses and resolves"
   verify unit "a selector prints back to its canonical text"
@@ -78,6 +79,8 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a respelling stales nothing and a rename stales the verdicts that read it"
   verify unit "a file input reads from its field's base and an absent file digests as absent"
   verify unit "a file input that is a spec source digests as what it declares"
+  verify unit "a file input may name a path held in a string field"
+  verify unit "a referrer selector goes on past its reference"
   verify unit "a missing report hides no change to a cited entity or file"
   verify unit "cited tests are an input of their own, judged once a report exists"
   verify unit "the tests of a report digest sorted, whatever order they ran in"
@@ -111,6 +114,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   verify unit "test inputs are not judged without a report"
   verify unit "a prompt-judged verdict is recorded and goes stale like an agent's, and its rendered prompt lists the rules it judges"
   verify unit "a verdict recorded without a report is stale once a report exists"
+  verify unit "a fresh verdict's message counts its findings"
   verify unit "a re-run that agrees on every status stales nothing"
   verify unit "a gated judged rule computes and reports nothing"
   verify unit "a verdict that cannot be read is W168"
@@ -136,6 +140,7 @@ behavior answer_judged_inputs "Answer a Judged Rule's Inputs" {
   verify unit "the verdict inputs tool answers what the inputs query answers"
   verify unit "a cited file is a relative path inside the project"
   verify unit "inspect, query, the graph export and a command's graph list each entity's judgements"
+  verify unit "a pass sees the tests a verdict cites"
 }
 
 behavior show_verdict_state "Show a Verdict's State" {

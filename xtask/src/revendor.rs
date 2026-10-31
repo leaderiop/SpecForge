@@ -172,20 +172,24 @@ fn write_vocabulary(root: &Path) -> Result<(), String> {
     std::fs::write(&path, vocabulary.to_json()).map_err(|e| format!("{}: {e}", path.display()))
 }
 
+/// The cargo arguments of the declarations test: the `declarations` module of the component's `suite` target.
+const DECLARATIONS_TEST: [&str; 9] = [
+    "test",
+    "-q",
+    "-p",
+    "specforge-component",
+    "--test",
+    "suite",
+    "--",
+    "declarations::",
+    "--include-ignored",
+];
+
 /// The declarations test: the snapshot set, the typed round trip and the protocol freshness test
 /// can fail on a fresh write. (The comparison with the files just written cannot.)
 fn declarations_test(root: &Path) -> Result<(), String> {
     let status = Command::new("cargo")
-        .args([
-            "test",
-            "-q",
-            "-p",
-            "specforge-component",
-            "--test",
-            "declarations",
-            "--",
-            "--include-ignored",
-        ])
+        .args(DECLARATIONS_TEST)
         .current_dir(root)
         .status()
         .map_err(|e| format!("cannot run cargo: {e}"))?;
@@ -237,6 +241,31 @@ mod tests {
         assert_eq!(
             tracked, listed,
             "git tracks these .wasm files; list each in specforge_component::committed"
+        );
+    }
+
+    /// The step runs a test target that exists (it was `declarations` after the target became `suite`).
+    #[test]
+    fn the_declarations_test_names_a_real_target_and_module() {
+        let root = specforge_repo_root::repo_root();
+        let target = DECLARATIONS_TEST[DECLARATIONS_TEST
+            .iter()
+            .position(|a| *a == "--test")
+            .unwrap()
+            + 1];
+        let manifest =
+            std::fs::read_to_string(root.join("crates/runtime/component/Cargo.toml")).unwrap();
+        assert!(
+            manifest.contains(&format!("name = \"{target}\"")),
+            "no [[test]] {target}"
+        );
+        let suite = std::fs::read_to_string(
+            root.join(format!("crates/runtime/component/tests/{target}.rs")),
+        )
+        .unwrap();
+        assert!(
+            suite.contains("mod declarations;"),
+            "{target} has no declarations module"
         );
     }
 

@@ -366,6 +366,7 @@ expression: listing
               "enum": [
                 "string",
                 "integer",
+                "number",
                 "bool",
                 "date",
                 "enum",
@@ -1862,6 +1863,7 @@ expression: listing
               "enum": [
                 "string",
                 "integer",
+                "number",
                 "bool",
                 "date",
                 "enum",
@@ -6859,6 +6861,12 @@ expression: listing
                       "type": "string"
                     },
                     "gates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "gates_when_on": {
                       "items": {
                         "type": "string"
                       },

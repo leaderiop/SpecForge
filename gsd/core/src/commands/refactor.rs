@@ -275,7 +275,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     });
     c.command("dispose_refactor", |cmd| {
         cmd.description("Record what was decided on a refactor proposal: accepted or declined (a declined one needs a reason); a proposal is disposed once")
-            .writes()
+            .human()
             .arg("proposal", |a| {
                 a.required().description("the refactor proposal (its path, or a short form that is not ambiguous)");
             })

@@ -86,6 +86,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .writes()
             .gate("E106")
             .gate("E511")
+            .gate("E515")
             .gate("E516")
             .subject("milestone")
             .arg("milestone", |a| {

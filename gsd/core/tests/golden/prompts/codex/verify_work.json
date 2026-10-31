@@ -61,10 +61,8 @@
     "02",
     "GSD_ARGS_END"
   ],
-  "bytes": 73980,
+  "bytes": 74320,
   "end": [
-    "skipped: 0",
-    "",
     "## Gaps",
     "",
     "- truth: \"Comment appears immediately after submission in list\"",
@@ -102,7 +100,9 @@
     "",
     "In the shell blocks above, `$PHASE_ID` is `v1.0/02`; `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
     "",
-    "Record each answer of the person with `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`): the UAT file's `result:` lines are not edited by hand."
+    "A test that passing tests already cover is not put to the person: record it yourself with `specforge gsd record-automated-uat <uat_test> <pass|issue> --by <who>` (an issue takes `--reported \"<what the run showed>\"`); it is written `source: automated`.",
+    "",
+    "For each answer of the person, ask them to run `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`) in their terminal (an agent's call is refused: it records what a person says): the UAT file's `result:` lines are not edited by hand."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1555,
+  "lines": 1557,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,14 +195,14 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:21cc6d1c4c99c33d81e2d2e396e3e295e362aa3f4cabfd7512bdb661e27b23bc",
+    "digest": "sha256:8be355ff477b5c7f1d0d2b94e9fb70b59cbbc831328adffcc3db366a82c85830",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
         "cli": "specforge gsd set-uat-result",
         "gate": [],
         "id": "uat",
-        "title": "Record the person's answer to a UAT test (specforge gsd set-uat-result <uat_test> <result> --by <who>)",
+        "title": "Ask the person to run `specforge gsd set-uat-result <uat_test> <result> --by <who>` in their terminal (an agent's call is refused: it records what a person says)",
         "tool": "specforge.gsd.set_uat_result"
       },
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "21cc6d1c4c99c33d81e2d2e396e3e295e362aa3f4cabfd7512bdb661e27b23bc"
+  "sha256": "8be355ff477b5c7f1d0d2b94e9fb70b59cbbc831328adffcc3db366a82c85830"
 }

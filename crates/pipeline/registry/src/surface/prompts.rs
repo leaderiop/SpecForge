@@ -146,6 +146,9 @@ impl Ctx<'_> {
     }
 
     fn command(&self, command: &CommandDescriptor) -> Result<(), String> {
+        if command.human && !command.writes {
+            return Err("it is human and does not write".to_string());
+        }
         self.gates(&command.gates)?;
         if let Some(subject) = &command.subject {
             let takes_entity = command

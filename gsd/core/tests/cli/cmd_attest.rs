@@ -1,9 +1,7 @@
 //! The commands that record a person's answer (C1 of the r41 review): `answer_checkpoint`, `confirm_setup`,
-//! `set_uat_result`, `approve_validation`, `waive_window`, `dispose_refactor` and `pause`.
-//!
-//! The model: the caller RECORDS what the person said, as upstream's agent does. `--by` is the caller's attestation,
-//! never a proof of a person, so any non-empty name records. These tests pin that (live), and carry the desired
-//! behaviour as ignored twins until the kernel has a human-attested command kind (K20).
+//! `set_uat_result`, `approve_validation`, `waive_window` and `dispose_refactor` are human-attested (ADR 0301): a
+//! person at a terminal runs them, and an agent's call is refused `human_only`. `pause` stays an agent's: no gate reads a
+//! pause, and `/gsd-pause-work` is the agent's own act.
 
 use super::cmd_execute::{CHECKPOINT, SETUP};
 use super::commands_support::*;
@@ -60,12 +58,6 @@ fn cases() -> Vec<Case> {
             args: |by| strs(&["RP1", "accepted", by]),
             holds: Some(("RP1", "disposition")),
         },
-        Case {
-            command: "pause",
-            project: twin,
-            args: |by| strs(&["wait", "--phase", "02", "--by", by]),
-            holds: Some(("v1.0/02/PS1", "by")),
-        },
     ]
 }
 
@@ -75,12 +67,18 @@ fn run(p: &Project, case: &Case, by: &str) -> Run {
     gsd(p, case.command, &args)
 }
 
-/// Pins today: whatever name the caller gives is recorded, a person's or not.
+fn run_as_person(p: &Project, case: &Case, by: &str) -> Run {
+    let args = (case.args)(by);
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    gsd_as_person(p, case.command, &args)
+}
+
+/// A person at a terminal types the name, and whatever they type is recorded.
 #[test]
-fn a_call_records_whatever_by_names() {
+fn a_person_records_whatever_by_names() {
     for case in cases() {
         let p = (case.project)();
-        let result = run(&p, &case, "Grace Hopper");
+        let result = run_as_person(&p, &case, "Grace Hopper");
         assert_eq!(result.code, 0, "{}: {}", case.command, result.all());
         if let Some((entity, field)) = case.holds {
             let held = p.fields_of(entity)[field].to_string();
@@ -93,23 +91,22 @@ fn a_call_records_whatever_by_names() {
     }
 }
 
-/// `--by` is required and not empty: a record names who attests it.
+/// `--by` is required and not empty: a record names who answered.
 #[test]
 fn an_empty_by_is_refused() {
     for case in cases() {
         let p = (case.project)();
         let before = bytes(&p);
         for by in ["", "   "] {
-            let result = run(&p, &case, by);
+            let result = run_as_person(&p, &case, by);
             refused(&result, "invalid_input", &["'by' is required"]);
             unchanged(&p, &before);
         }
     }
 }
 
-/// The desired behaviour (K20): a command of a human-attested kind refuses an agent-facing call, whatever `--by`.
+/// A human-attested command refuses an agent-facing call, whatever `--by`.
 #[test]
-#[ignore = "K20: human-attested"]
 fn a_human_attested_command_refuses_an_agent_call() {
     for case in cases() {
         let p = (case.project)();
@@ -126,10 +123,8 @@ fn a_human_attested_command_refuses_an_agent_call() {
     }
 }
 
-/// The desired behaviour (K20): a gate that a person's answer satisfies (W404's `tdd_review`) is not opened by an
-/// agent's call.
+/// A gate that a person's answer satisfies (W404's `tdd_review`) is not opened by an agent's call.
 #[test]
-#[ignore = "K20: human-attested"]
 fn an_agents_answer_does_not_satisfy_the_tdd_review_gate() {
     let p = project("execute");
     p.settings(serde_json::json!({ "profile": "gsd-strict", "workflow.tdd_mode": true }));
@@ -139,4 +134,21 @@ fn an_agents_answer_does_not_satisfy_the_tdd_review_gate() {
         &[CHECKPOINT, "--option", "flag", "--by", "anyone"],
     );
     assert_ne!(result.code, 0, "{}", result.all());
+}
+
+/// `pause` records the agent's own act: any `--by` from an agent's call.
+#[test]
+fn pause_records_any_by_from_an_agent() {
+    let p = twin();
+    let result = gsd(
+        &p,
+        "pause",
+        &["wait", "--phase", "02", "--by", "Grace Hopper"],
+    );
+    assert_eq!(result.code, 0, "{}", result.all());
+    assert!(
+        p.fields_of("v1.0/02/PS1")["by"]
+            .to_string()
+            .contains("Grace Hopper")
+    );
 }

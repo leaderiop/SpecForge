@@ -76,23 +76,41 @@ fn same(a: &Item, b: &Item) -> bool {
     }
 }
 
-/// The table at `keys` below `doc`, created (implicit) when missing; `None` when a non-table stands in the way.
-fn table_at<'a>(doc: &'a mut DocumentMut, keys: &[String]) -> Option<&'a mut Table> {
+/// The table at `keys` below `doc`, created (implicit) when missing; `Err` names the place where a non-table stands
+/// in the way (ADR 0306). The tables it creates are added to `created`.
+fn table_at<'a>(
+    doc: &'a mut DocumentMut,
+    keys: &[String],
+    created: &mut Vec<Vec<String>>,
+) -> Result<&'a mut Table, String> {
     let mut at = doc.as_table_mut();
-    for key in keys {
+    for (n, key) in keys.iter().enumerate() {
         if !at.contains_key(key) {
             let mut t = Table::new();
             t.set_implicit(true);
             at.insert(key, Item::Table(t));
+            created.push(keys[..=n].to_vec());
         }
-        at = at.get_mut(key)?.as_table_mut()?;
+        at = at
+            .get_mut(key)
+            .and_then(Item::as_table_mut)
+            .ok_or_else(|| {
+                format!(
+                    "'{}' holds a value where install needs a table",
+                    keys[..=n].join(".")
+                )
+            })?;
     }
-    Some(at)
+    Ok(at)
 }
 
-/// The tables along `keys` that are left empty, deepest first, go; a table the user keeps something in stays.
-fn prune_path(doc: &mut DocumentMut, keys: &[String]) {
+/// The tables along `keys` that are left empty, deepest first, go if install `made` them; a table the user keeps
+/// something in, or one install did not create, stays.
+fn prune_path(doc: &mut DocumentMut, keys: &[String], made: &[Vec<String>]) {
     for depth in (1..=keys.len()).rev() {
+        if !made.iter().any(|m| m.as_slice() == &keys[..depth]) {
+            continue;
+        }
         let mut at = Some(doc.as_table_mut());
         for key in &keys[..depth - 1] {
             at = at.and_then(|t| t.get_mut(key)).and_then(Item::as_table_mut);
@@ -109,11 +127,14 @@ fn prune_path(doc: &mut DocumentMut, keys: &[String]) {
     }
 }
 
-/// `existing` with the entries of ours replaced by `entries`; see the module docs.
+/// `existing` with the entries of ours replaced by `entries`; see the module docs. `made` are the tables an earlier
+/// install created in the file (`[]`: the file itself): an emptied one goes, any other stays; the result's `made` is
+/// them and what this merge creates (ADR 0306).
 pub fn merge(
     existing: Option<&str>,
     entries: &[MergedEntry],
     scan: &[(&[&str], &str)],
+    made: &[Vec<String>],
 ) -> Result<Merged, String> {
     let source = existing.unwrap_or_default();
     let mut doc: DocumentMut = source.parse().map_err(|e| format!("not TOML: {e}"))?;
@@ -164,16 +185,11 @@ pub fn merge(
             }
         }
     }
+    let mut created: Vec<Vec<String>> = Vec::new();
     for entry in entries {
         let Some(name) = &entry.name else { continue };
         let wanted = item(&entry.value);
-        let Some(table) = table_at(&mut doc, &entry.keys) else {
-            not_rendered.push(NotRendered {
-                what: format!("{}.{name}", entry.keys.join(".")),
-                why: "the file holds a value where a table goes".into(),
-            });
-            continue;
-        };
+        let table = table_at(&mut doc, &entry.keys, &mut created)?;
         match table.get(name) {
             Some(have) if is_ours(have) => {
                 if !same(have, &wanted) {
@@ -191,11 +207,27 @@ pub fn merge(
         }
     }
     for keys in &removed_in {
-        prune_path(&mut doc, keys);
+        prune_path(&mut doc, keys, made);
     }
     let text = doc.to_string();
-    let text = (!text.trim().is_empty()).then_some(text);
-    Ok(Merged { text, not_rendered })
+    let file_made = existing.is_none() || made.iter().any(Vec::is_empty);
+    let text = (!text.trim().is_empty() || !file_made).then_some(text);
+    let mut made_out = if entries.is_empty() {
+        Vec::new()
+    } else {
+        made.to_vec()
+    };
+    made_out.extend(created);
+    if existing.is_none() && !entries.is_empty() {
+        made_out.push(Vec::new());
+    }
+    made_out.sort();
+    made_out.dedup();
+    Ok(Merged {
+        text,
+        not_rendered,
+        made: made_out,
+    })
 }
 
 #[cfg(test)]

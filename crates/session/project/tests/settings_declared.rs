@@ -313,3 +313,53 @@ fn a_family_keeps_no_default() {
     assert_eq!(default_of("fd.*"), None, "no key would receive it");
     assert_eq!(default_of("whole"), Some(json!("y")));
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a bool setting gates codes while it is on"
+)]
+fn gates_when_on_on_a_string_setting_is_w021() {
+    let (found, _) = faults_of(vec![setting("txt", json!({"gates_when_on": ["W901"]}))]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].contains("gates_when_on"), "{found:?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a bool setting gates codes while it is on"
+)]
+fn a_code_gated_both_ways_is_w021() {
+    let both = setting(
+        "both",
+        json!({"field_type": "bool", "gates": ["W901"], "gates_when_on": ["W901"]}),
+    );
+    let (found, _) = faults_of(vec![both]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].contains("W901"), "{found:?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a bool setting gates codes while it is on"
+)]
+fn two_codes_gated_both_ways_are_each_w021() {
+    let both = setting(
+        "both",
+        json!({"field_type": "bool", "gates": ["W901", "W902"], "gates_when_on": ["W901", "W902"]}),
+    );
+    let build = declare(json!([both]));
+    let found = faults(&build);
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert!(
+        found[0].contains("W901") && found[1].contains("W902"),
+        "{found:?}"
+    );
+    let declared = build.settings().of(EXT).unwrap();
+    let descriptor = &declared.settings[0].descriptor;
+    assert_eq!(
+        descriptor.gates,
+        ["W901", "W902"],
+        "gated while off, as `gates` says"
+    );
+    assert!(descriptor.gates_when_on.is_empty(), "{descriptor:?}");
+}

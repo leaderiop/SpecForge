@@ -127,6 +127,7 @@ name = "gsd-core"
 version = "1.0.0"
 dependencies = [
  "regex",
+ "rustix",
  "serde_json",
  "sha2",
  "specforge-extension-sdk",

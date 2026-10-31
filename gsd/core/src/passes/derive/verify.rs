@@ -70,7 +70,21 @@ pub fn item_state(kind: &str, scan: Option<&str>, verdict: Item, overridden: boo
     }
 }
 
-fn entity_item(e: &PassEntity, overridden: &BTreeSet<&str>) -> Item {
+fn entity_item(input: &PassInput, e: &PassEntity, overridden: &BTreeSet<&str>) -> Item {
+    let item = entity_item_by_verdict(e, overridden);
+    // A verified truth the recorded tests contradict (E502) is not verified: a failing test fails it, and a verdict no
+    // passing test backs is neither a pass nor a failure. An override stands.
+    if item != Item::Verified || e.kind != "truth" || overridden.contains(e.id.as_str()) {
+        return item;
+    }
+    match crate::passes::verify_rules::contradicted(input, e) {
+        Some("a test recorded for it failed") => Item::Failed,
+        Some(_) => Item::Unknown,
+        None => item,
+    }
+}
+
+fn entity_item_by_verdict(e: &PassEntity, overridden: &BTreeSet<&str>) -> Item {
     item_state(
         &e.kind,
         e.fields.get("state").map(String::as_str),
@@ -238,7 +252,8 @@ fn then_overridden<'a>(input: &'a PassInput, verification: &str) -> BTreeSet<&'a
         .collect()
 }
 
-/// The state of an item at the baseline: its scan state and its verdicts, as `entity_item` reads them now, and an
+/// The state of an item at the baseline: its scan state and its verdicts, as `entity_item` reads them now but for
+/// `contradicted` (the baseline holds no test report; one that did would need it here, REVIEW-k20a N1), and an
 /// override that held there. The baseline's compute passes read the files the commit holds (ADR 0300), so its scan
 /// states are the commit's own.
 fn then_state(input: &PassInput, id: &str, overridden: &BTreeSet<&str>) -> Option<Item> {
@@ -345,7 +360,7 @@ fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
         let now: Vec<Item> = group
             .entities
             .iter()
-            .map(|e| entity_item(e, &overridden))
+            .map(|e| entity_item(input, e, &overridden))
             .collect();
         let truths: Vec<Item> = group
             .entities

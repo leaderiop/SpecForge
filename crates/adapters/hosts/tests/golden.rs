@@ -20,7 +20,7 @@ fn written(host: Host) -> BTreeMap<String, String> {
         tree.owned.into_iter().map(|f| (f.path, f.text)).collect();
     for merged in tree.merged {
         let out = adapter
-            .merge(&merged.path, None, &merged.entries)
+            .merge(&merged.path, None, &merged.entries, &[])
             .expect("merges into nothing");
         files.extend(out.text.map(|t| (merged.path, t)));
     }

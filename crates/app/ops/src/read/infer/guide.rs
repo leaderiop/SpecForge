@@ -121,6 +121,7 @@ fn example_value(field: &FieldRegistryEntry) -> String {
     match field.field_type() {
         FieldType::String => "\"...\"".into(),
         FieldType::Integer => "0".into(),
+        FieldType::Number => "0.5".into(),
         FieldType::Bool => "true".into(),
         FieldType::Date => "2026-01-01".into(),
         FieldType::Enum => field

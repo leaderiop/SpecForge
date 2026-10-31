@@ -441,6 +441,9 @@ pub struct CommandDescriptor {
     /// It answers an edit plan the host applies (protocol 1.9.0, ADR 0289).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub writes: bool,
+    /// Records what a person says: the host runs it only for a person at a terminal (protocol 1.12.0, ADR 0301).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub human: bool,
     /// Local codes of the extension: the command is refused (`gate_failed`) while one fails in the `subject`'s scope
     /// (protocol 1.10.0, ADR 0291).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

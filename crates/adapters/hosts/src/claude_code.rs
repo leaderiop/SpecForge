@@ -200,6 +200,7 @@ impl HostRenderer for ClaudeCode {
         path: &str,
         existing: Option<&str>,
         entries: &[MergedEntry],
+        made: &[Vec<String>],
     ) -> Result<Merged, String> {
         let status: [json_merge::Named<'_>; 1] = [(&[], "statusLine")];
         let mcp: [json_merge::Named<'_>; 1] = [(&["mcpServers"], "specforge")];
@@ -208,6 +209,7 @@ impl HostRenderer for ClaudeCode {
             entries,
             &[],
             if path == SETTINGS { &status } else { &mcp },
+            made,
         )
     }
 

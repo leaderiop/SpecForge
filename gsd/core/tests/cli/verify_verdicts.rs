@@ -142,9 +142,12 @@ fn every_item_verified_makes_passed() {
     assert_eq!(found["status"], "passed", "{found}");
     assert_eq!(found["score"], "2/2", "{found}");
     assert_eq!(e501(&p), Vec::<String>::new());
-    // `covered_files` lists the files the verdicts cited: none here.
-    assert!(
-        found.get("covered_files").is_none() || found["covered_files"] == serde_json::json!([])
+    // `covered_files` lists the files the verdicts read (ADR 0304): the plan's `files_modified`, which the truth's
+    // verdict reads, and the key link's `from` and `to`; none was cited here.
+    assert_eq!(
+        found["covered_files"],
+        serde_json::json!(["src/complete.js", "src/tasks.js", "test/tasks.test.js"]),
+        "{found}"
     );
 }
 
@@ -350,7 +353,10 @@ fn covered_digest_changes_with_a_covered_file() {
         .expect("a digest")
         .to_string();
     assert!(digest.starts_with("fnv1a64:"), "{before}");
-    assert_eq!(before["covered_files"], serde_json::json!(["src/tasks.js"]));
+    assert_eq!(
+        before["covered_files"],
+        serde_json::json!(["src/tasks.js", "test/tasks.test.js"])
+    );
     p.write(
         "src/tasks.js",
         "export const add = (l, t) => [...l, t];\n// edited\n",

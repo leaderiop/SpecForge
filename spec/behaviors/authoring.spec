@@ -280,6 +280,8 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "an edit that adds an error is E080 and writes nothing"
   verify unit "a judged rules finding is no error a write adds"
   verify unit "a diagnostic with a judged rules code from another origin is no judged finding"
+  verify unit "an extension's finding is paired by its subject, through the plan's moves"
+  verify unit "only a finding the judged rules made is exempt"
   verify unit "a value holding a control character is refused not_editable and writes nothing"
   verify unit "an error whose message names a position is the same error after an edit moves it"
   verify unit "an edit that adds a warning is written and reports it"
@@ -410,4 +412,8 @@ behavior refuse_human_only_write "Refuse a Human-Only Write" {
   verify unit "an agent deletes an entity holding only computed or harness values"
   verify unit "an agent still writes a non-human field of a non-human kind"
   verify unit "a set_verdict on a human-only entity is still refused"
+  verify unit "a human-attested command runs from a terminal and is refused to an agent's call"
+  verify unit "a human command that does not write is dropped"
+  verify unit "a human-attested command is refused on every agent surface and runs for a person at a terminal"
+  verify unit "human sets writes"
 }

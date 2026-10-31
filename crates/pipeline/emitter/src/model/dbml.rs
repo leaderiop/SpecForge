@@ -203,6 +203,7 @@ fn dbml_type(ft: FieldType) -> &'static str {
     match ft {
         FieldType::String | FieldType::Reference | FieldType::Identifier => "varchar",
         FieldType::Integer => "integer",
+        FieldType::Number => "double",
         FieldType::Bool => "boolean",
         FieldType::Date => "date",
         FieldType::StringList | FieldType::ReferenceList => "text",

@@ -125,6 +125,7 @@ impl HostRenderer for Cursor {
         path: &str,
         existing: Option<&str>,
         entries: &[MergedEntry],
+        made: &[Vec<String>],
     ) -> Result<Merged, String> {
         let version = [("version", json!(1))];
         let scaffold: &[(&str, Value)] = if path == HOOKS { &version } else { &[] };
@@ -134,6 +135,7 @@ impl HostRenderer for Cursor {
             entries,
             scaffold,
             if path == HOOKS { &[] } else { &mcp },
+            made,
         )
     }
 

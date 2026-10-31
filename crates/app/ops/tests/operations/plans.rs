@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
-use specforge_ops::authoring::apply::{PlanOutcome, execute};
+use specforge_ops::authoring::apply::{PlanOutcome, Surface, execute};
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommands};
 use specforge_ops::view::ProjectView;
 use specforge_package::Sha256;
@@ -115,6 +115,7 @@ pub fn run_command(
         CommandFormat::Json,
         false,
         specforge_ops::testing::caller(),
+        Surface::Cli { interactive: false },
     )
     .unwrap();
     let state_refused = run.state_refused.is_some();

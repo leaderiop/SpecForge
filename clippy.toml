@@ -10,3 +10,8 @@ large-error-threshold = 153
 # A unit test's `unwrap` is its assertion. This covers `#[test]` functions and `#[cfg(test)]` modules, not an
 # integration-test crate's helper functions: that crate states it at its root (ADR 0089 D3).
 allow-unwrap-in-tests = true
+
+# `SettingDescriptor` (about 300 bytes) is the one large variant of the settings item the protocol decodes once and
+# moves into `SettingsItem`, which is as large; boxing it would only move the bytes. The default (200) flags it; 256
+# admits it and not much more. The protocol-types source is a blob input, so an `allow` there would force a revendor.
+enum-variant-size-threshold = 256

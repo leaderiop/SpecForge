@@ -103,6 +103,10 @@ pub struct SettingDescriptor {
     /// Local codes reported by no source while this bool setting is false.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gates: Vec<String>,
+    /// Local codes reported by no source while this bool setting is true: `gates` the other way round (protocol
+    /// 1.12.0, ADR 0305).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gates_when_on: Vec<String>,
 }
 
 /// What a setting's values select: for each value of an enum or bool setting, the settings it presets and the

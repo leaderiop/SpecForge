@@ -60,7 +60,7 @@ pub(super) fn compose(moves: &mut Vec<(String, String)>, old: &str, new: &str) {
 }
 
 /// `path` once `moves`, made in order, are made.
-fn relocated(path: &str, moves: &[(String, String)]) -> String {
+pub(super) fn relocated(path: &str, moves: &[(String, String)]) -> String {
     let mut path = path.to_string();
     for (old, new) in moves {
         if path == *old {
@@ -78,11 +78,15 @@ fn relocated(path: &str, moves: &[(String, String)]) -> String {
 /// through the view's disk (ADR 0169).
 pub fn plan(view: &ProjectView<'_>, edits: &[Edit]) -> Result<EditPlan, Refusal<EditField>> {
     let steps: Vec<Step> = edits.iter().cloned().map(Step::Edit).collect();
-    plan_steps(view, &steps)
+    plan_steps(view, &steps, false)
 }
 
-/// [`plan`] over steps, renames among them.
-pub fn plan_steps(view: &ProjectView<'_>, steps: &[Step]) -> Result<EditPlan, Refusal<EditField>> {
+/// [`plan`] over steps, renames among them. `host_only`: an extension's error is no error the plan adds (ADR 0303).
+pub fn plan_steps(
+    view: &ProjectView<'_>,
+    steps: &[Step],
+    host_only: bool,
+) -> Result<EditPlan, Refusal<EditField>> {
     crate::config::refuse_rewrite(view.env().config_problems())?;
     view.project_root()?;
     let harness = Harness::of(view.registries());
@@ -114,7 +118,7 @@ pub fn plan_steps(view: &ProjectView<'_>, steps: &[Step]) -> Result<EditPlan, Re
         })?;
         at = end;
     }
-    conclude(view, carry)
+    conclude(view, carry, host_only)
 }
 
 /// A run of edits, planned over the project as the steps before left it; the refusal names the edit's place in the run.
@@ -204,7 +208,11 @@ fn rename_step(
 }
 
 /// The plan the steps made: the change, the ledger it keeps, and the report, judged.
-fn conclude(view: &ProjectView<'_>, carry: Carry) -> Result<EditPlan, Refusal<EditField>> {
+fn conclude(
+    view: &ProjectView<'_>,
+    carry: Carry,
+    host_only: bool,
+) -> Result<EditPlan, Refusal<EditField>> {
     let project = view.project();
     let Carry {
         texts,
@@ -228,11 +236,20 @@ fn conclude(view: &ProjectView<'_>, carry: Carry) -> Result<EditPlan, Refusal<Ed
             (key, before, line_break.write(&after).into_owned())
         }),
     );
-    let change = change.keeping_ledger(project, LedgerChange { set, moves });
+    let change = change
+        .moving(raw_moves.clone())
+        .keeping_ledger(project, LedgerChange { set, moves });
     let added = if change.is_empty() {
         Vec::new()
     } else {
-        validate::check(view, &change.after(), &declared, change.ledger_after())?
+        validate::check(
+            view,
+            &change.after(),
+            &declared,
+            change.ledger_after(),
+            change.moved(),
+            host_only,
+        )?
     };
     let report = EditReport {
         entities: change.entities(),

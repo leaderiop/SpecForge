@@ -64,6 +64,19 @@ pub fn owned_path(path: &str) -> bool {
         || skill(".cursor/skills")
 }
 
+/// Whether `path` is a directory of a host layout that install may have created and uninstall may remove (ADR 0306):
+/// a host's root, its `agents` or `skills`, or a skill's own.
+pub fn layout_dir(path: &str) -> bool {
+    let parts: Vec<&str> = path.split('/').collect();
+    let root = |p: &str| matches!(p, ".claude" | ".codex" | ".cursor");
+    match parts.as_slice() {
+        [r] => root(r),
+        [r, d] => root(r) && matches!(*d, "agents" | "skills"),
+        [r, "skills", skill] => root(r) && name(skill),
+        _ => false,
+    }
+}
+
 /// The first component of `relative` below `root` that is a link (a dangling one too), if any: install, uninstall and
 /// the state store never write or delete through one, since a link can lead outside the project (a `.claude` that is
 /// the user's dotfiles directory).
@@ -83,7 +96,35 @@ pub fn link_in(root: &Path, relative: &str) -> Option<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::owned_path;
+    use super::{layout_dir, owned_path};
+
+    #[test]
+    fn only_the_host_layout_directories_are_install_s() {
+        for dir in [
+            ".claude",
+            ".codex",
+            ".cursor",
+            ".claude/agents",
+            ".cursor/skills",
+            ".claude/skills/t-ns-context",
+        ] {
+            assert!(layout_dir(dir), "{dir}");
+        }
+        for not in [
+            "",
+            "src",
+            ".git",
+            ".claude/../src",
+            ".claude/commands",
+            ".claude/agents/x",
+            ".claude/skills/X",
+            ".claude/skills/a/b",
+            "/.claude",
+            ".claude/",
+        ] {
+            assert!(!layout_dir(not), "{not}");
+        }
+    }
 
     #[test]
     fn only_the_host_layouts_are_owned() {

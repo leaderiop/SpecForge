@@ -20,7 +20,7 @@ const SHIP_STEPS: &[Step] = &[
     },
     Step {
         id: "waive_window",
-        title: "Waive a broken window with a reason (specforge gsd waive-window <window> <reason> <who>)",
+        title: "Ask the person to run `specforge gsd waive-window <window> <reason> <who>` in their terminal (an agent's call is refused: it records what a person says)",
         does: Do::Command("waive_window"),
     },
 ];
@@ -32,7 +32,7 @@ static COMPLETE_MILESTONE: Spec = Spec {
     command: "complete-milestone",
     args: &[Arg::reference("milestone", "milestone")],
     subject: Some("milestone"),
-    gates: &["E106", "E511", "E516"],
+    gates: &["E106", "E511", "E515", "E516"],
     steps: COMPLETE_STEPS,
     slash: Some(Slash {
         hint: "<milestone>",
@@ -49,7 +49,7 @@ static SHIP: Spec = Spec {
     command: "ship",
     args: &[Arg::reference("phase", "phase")],
     subject: Some("phase"),
-    gates: &["E511", "E512", "E516"],
+    gates: &["E511", "E512", "E515", "E516"],
     steps: SHIP_STEPS,
     slash: Some(Slash {
         hint: "<phase>",

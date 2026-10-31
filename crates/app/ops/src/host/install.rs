@@ -8,10 +8,11 @@ use serde::Serialize;
 
 use super::drift::{self, Action, HostDisk, HostPlan, PlannedFile};
 use super::port::{HostRenderer, HostTree};
+use super::record::{self, Record};
 use super::render::rendered;
 use crate::change::locked;
 use crate::view::ProjectView;
-use crate::{Caller, Held, OpError, Wrote};
+use crate::{Caller, Held, OpError, OpErrorKind, Wrote};
 
 /// What an install or uninstall planned, and whether it wrote.
 #[derive(Debug, Clone)]
@@ -153,6 +154,10 @@ impl HostDisk for ContainedHostDisk<'_> {
             .transpose()
     }
 
+    fn is_dir(&self, path: &str) -> bool {
+        self.held(path).is_ok_and(|held| held.real.is_dir())
+    }
+
     fn files_under(&self, dir: &str) -> Vec<String> {
         fn walk(real: &Path, at: &str, out: &mut Vec<String>) {
             let Ok(entries) = std::fs::read_dir(real) else {
@@ -189,7 +194,7 @@ pub fn install(
     for renderer in renderers {
         trees.push(renderer.render(&rendered(view, renderer.host())?));
     }
-    run(view, renderers, &trees, options, caller)
+    run(view, renderers, &trees, options, caller, "install")
 }
 
 /// Remove exactly what install marked from the hosts `renderers` serve.
@@ -200,7 +205,7 @@ pub fn uninstall(
     caller: Caller<'_>,
 ) -> Result<Outcome, OpError> {
     let trees = vec![HostTree::default(); renderers.len()];
-    run(view, renderers, &trees, options, caller)
+    run(view, renderers, &trees, options, caller, "uninstall")
 }
 
 fn run(
@@ -209,19 +214,36 @@ fn run(
     trees: &[HostTree],
     options: Options,
     caller: Caller<'_>,
+    command: &str,
 ) -> Result<Outcome, OpError> {
     view.project_root()?;
+    // ADR 0306: a specforge.json the compile cannot use loads no extension, so the plan would strip every host file
+    // it contributed. Any problem refuses: a mistyped `spec_root` or `settings` changes what install writes.
+    if let Some(problem) = view.env().config_problems().first() {
+        return Err(OpError::of(
+            OpErrorKind::SchemaMismatch,
+            problem.diagnostic(),
+        ));
+    }
     let sources = view.env().sources().clone();
     let disk = ContainedHostDisk {
         caller,
         sources: &sources,
     };
+    // What an earlier install recorded for each host, read with the plan (ADR 0306).
+    let records = std::cell::RefCell::new(Vec::new());
     let plan_all = || -> Vec<HostPlan> {
-        renderers
+        let found: Vec<Record> = renderers.iter().map(|r| Record::read(&disk, *r)).collect();
+        let plans = renderers
             .iter()
             .zip(trees)
-            .map(|(renderer, tree)| drift::plan(*renderer, tree, &disk, options.force))
-            .collect()
+            .zip(&found)
+            .map(|((renderer, tree), record)| {
+                drift::plan(*renderer, tree, &disk, options.force, command, record)
+            })
+            .collect();
+        *records.borrow_mut() = found;
+        plans
     };
     if options.dry_run {
         return Ok(Outcome {
@@ -256,13 +278,54 @@ fn run(
                     (None, None) => {}
                 }
             }
+            // The record of what install created: written by install, removed by uninstall (ADR 0306).
+            for (plan, found) in plans.iter().zip(records.borrow().iter()) {
+                let at = record::path(plan.host);
+                let before = disk.read(&at).map_err(|why| {
+                    OpError::new(
+                        OpErrorKind::PermissionDenied,
+                        crate::FILE_UNWRITABLE,
+                        format!("{at} cannot be read: {why}"),
+                    )
+                })?;
+                let after = (command == "install")
+                    .then(|| {
+                        let mut dirs = found.dirs.clone();
+                        dirs.extend(plan.dirs.iter().cloned());
+                        dirs.sort();
+                        dirs.dedup();
+                        Record {
+                            dirs,
+                            made: plan.made.clone(),
+                        }
+                    })
+                    .filter(|record| !record.is_empty())
+                    .map(|record| record.render());
+                match (after, before) {
+                    (Some(after), before) if before.as_ref() != Some(&after) => {
+                        stager.write(&at, before.map(String::into_bytes), after.into_bytes())?;
+                    }
+                    (None, Some(before)) => stager.remove(&at, before.into_bytes())?,
+                    _ => {}
+                }
+            }
             Ok(())
         },
     )?;
     let plans = plans.into_inner();
     let changes: Vec<&PlannedFile> = plans.iter().flat_map(HostPlan::changes).collect();
     if plans.iter().all(|p| p.refused.is_empty()) {
-        remove_empty_dirs(&sources, caller, &changes);
+        // An uninstall also takes the directories its install created, the host's root included.
+        let recorded: Vec<String> = if command == "uninstall" {
+            records
+                .into_inner()
+                .into_iter()
+                .flat_map(|r| r.dirs)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        remove_empty_dirs(&sources, caller, &changes, &recorded);
     }
     Ok(Outcome {
         plans,
@@ -270,17 +333,22 @@ fn run(
     })
 }
 
-/// The directories a removal left empty go, deepest first, up to the project root.
+/// The `recorded` directories, which install created (ADR 0306), go when empty, deepest first, the host's root
+/// included, and so do the install-namespace directories (two or more levels down) of a removed file. A directory
+/// the user had stays, and so does one holding anything.
 fn remove_empty_dirs(
     sources: &specforge_common::SourceRoot,
     caller: Caller<'_>,
     changes: &[&PlannedFile],
+    recorded: &[String],
 ) {
-    let mut dirs: Vec<String> = Vec::new();
+    let mut dirs: Vec<String> = recorded.to_vec();
     for file in changes.iter().filter(|f| f.action == Action::Remove) {
         let mut at = file.path.as_str();
-        // `.claude`, `.codex` and `.cursor` themselves are the user's: only the layout directories below them go.
-        while let Some((parent, _)) = at.rsplit_once('/').filter(|(p, _)| p.contains('/')) {
+        while let Some((parent, _)) = at
+            .rsplit_once('/')
+            .filter(|(p, _)| p.matches('/').count() >= 2)
+        {
             if !dirs.iter().any(|d| d == parent) {
                 dirs.push(parent.to_string());
             }

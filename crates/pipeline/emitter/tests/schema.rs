@@ -1273,7 +1273,7 @@ fn the_published_schema_lists_the_field_types_the_host_reads() {
     let names: Vec<&str> = FieldType::ALL.iter().map(|t| t.as_str()).collect();
     assert_eq!(
         names.join(" "),
-        "string integer bool date enum identifier string_list reference reference_list block enum_list block_list"
+        "string integer number bool date enum identifier string_list reference reference_list block enum_list block_list"
     );
     assert_eq!(listed, &serde_json::json!(names));
 }

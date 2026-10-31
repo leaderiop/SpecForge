@@ -242,7 +242,7 @@ fn drop_edit(
 
 /// Whether `origin` is an agent's: an extension, MCP, or the command line with nobody at a terminal. The editor's own
 /// edits and a person at a terminal are not.
-fn agent_facing(origin: &Origin) -> bool {
+pub(crate) fn agent_facing(origin: &Origin) -> bool {
     match origin {
         Origin::Command { .. } | Origin::Collector { .. } | Origin::Hook { .. } => true,
         Origin::Core { surface } => match surface {

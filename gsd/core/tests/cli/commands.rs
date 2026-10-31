@@ -182,7 +182,7 @@ fn dry_run_and_gates() {
         let mut args = (case.args)(&p);
         args.extend(strs(&["--dry-run", "--format", "json"]));
         let all: Vec<&str> = args.iter().map(String::as_str).collect();
-        let run = gsd(&p, case.command, &all);
+        let run = gsd_for(&p, case.command, &all);
         assert_eq!(run.code, 0, "{}: {}", case.command, run.all());
         let shown = diff(&run);
         assert!(
@@ -302,7 +302,7 @@ fn every_command_refuses_an_unknown_entity_with_its_name() {
     for (command, args) in unknown {
         let p = twin();
         let before = bytes(&p);
-        let run = gsd(&p, command, &args);
+        let run = gsd_for(&p, command, &args);
         assert_eq!(run.code, 1, "{command}: {}", run.all());
         assert!(
             run.all().contains("NOPE"),

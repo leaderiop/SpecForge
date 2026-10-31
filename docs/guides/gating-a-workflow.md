@@ -34,7 +34,10 @@ diagnostic and exit 1; over MCP it is the tool's error with the same data:
 ```
 
 A code that a setting gates off (`c.setting("workflow.gates", |s| { s.bool().gates(&["E901", "E902"]); })`) is
-`off: true` and never fails the gate. A refusal calls no export and writes nothing.
+`off: true` and never fails the gate. A code a setting gates while it is *on* (`s.bool().gates_when_on(&["W901"])`, protocol
+1.12.0) is `off` while the setting is true, and reported while it is false: a warning that says the setting is off. A
+setting may also be a number (`s.number().minimum(0).maximum(99)`), a whole or a decimal one within whole-number bounds.
+A refusal calls no export and writes nothing.
 
 ### A check that only a gate asks
 

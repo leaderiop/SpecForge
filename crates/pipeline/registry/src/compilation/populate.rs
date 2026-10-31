@@ -306,6 +306,11 @@ fn register_fields(
     }
 }
 
+/// Whether `field`, or a member of it, is a `number`: a setting's type only (ADR 0305).
+fn holds_number(field: &FieldDescriptor) -> bool {
+    field.field_type == "number" || field.members.iter().any(holds_number)
+}
+
 fn register_single_field(
     registry: &mut FieldRegistry,
     kind_name: &str,
@@ -314,6 +319,16 @@ fn register_single_field(
     diagnostics: &mut Vec<Reported>,
 ) {
     match FieldRegistryEntry::new(kind_name, source_extension, field.clone()) {
+        Ok(_) if holds_number(field) => diagnostics.push(Reported::new(
+            BuildPart::Registries,
+            Diagnostic::new(
+                codes::W021,
+                format!(
+                    "extension '{source_extension}': field '{}' on kind '{kind_name}' is of type 'number': the .spec grammar has no decimal literal, so the field is dropped",
+                    field.name
+                ),
+            ),
+        )),
         Ok(entry) => {
             // W021 comes before the entry is registered.
             if let Some(role) = field.proof_role.as_deref()
