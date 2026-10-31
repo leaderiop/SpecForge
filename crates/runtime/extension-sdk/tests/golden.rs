@@ -112,7 +112,6 @@ fn load_pinned(dir: &str) -> ExtensionDeclaration {
 /// What the SDK builders declare is exactly what the builtin declares for
 /// the same contributions.
 #[test]
-#[ignore = "K20a revendor"]
 fn the_builders_declare_what_the_builtin_declares() {
     let built = software_builder().declaration();
     let software = load_pinned("software");
