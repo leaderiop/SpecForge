@@ -206,8 +206,8 @@ fn paren_close(s: &[char], mut i: usize) -> usize {
             i += 1;
         } else if ch == '`' {
             i = find(s, '`', i + 1).map_or(s.len(), |j| j + 1);
-        } else if reading().bodies_skipped_in_spans
-            && ch == '<'
+        } else if ch == '<'
+            && reading().bodies_skipped_in_spans
             && s.get(i + 1) == Some(&'<')
             && s.get(i + 2) != Some(&'<')
         {
@@ -285,10 +285,11 @@ impl Lexer {
         self.has_word = false;
     }
 
-    /// A substitution in a heredoc tag is part of the tag, taken literally.
-    fn literal_in_tag(&mut self, text: &str) {
+    /// A substitution `s[a..b]` in a heredoc tag is part of the tag, taken literally; it is sliced only while a tag is
+    /// expected, as upstream does.
+    fn literal_in_tag(&mut self, s: &[char], a: usize, b: usize) {
         if self.expect_tag.is_some() && reading().tags_as_words {
-            self.buf += text;
+            self.buf += &sub(s, a, b);
         }
     }
 
@@ -366,7 +367,7 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
                 lx.has_word = true;
                 let e = paren_close(&s, i + 2);
                 lx.nested.push(sub(&s, i + 2, e));
-                lx.literal_in_tag(&sub(&s, i, e + 1));
+                lx.literal_in_tag(&s, i, e + 1);
                 i = e + 1;
             }
             '$' if at(i + 1) == Some('{') => {
@@ -379,7 +380,7 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
                 lx.has_word = true;
                 let e = find(&s, '`', i + 1).unwrap_or(s.len());
                 lx.nested.push(sub(&s, i + 1, e));
-                lx.literal_in_tag(&sub(&s, i, e + 1));
+                lx.literal_in_tag(&s, i, e + 1);
                 i = e + 1;
             }
             '<' | '>' if at(i + 1) == Some('(') => {

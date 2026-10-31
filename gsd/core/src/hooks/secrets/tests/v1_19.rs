@@ -191,7 +191,8 @@ fn the_debugger_is_seen_through_stacked_wrappers() {
 }
 
 /// 1 MiB of `timeout 1 ` in front of the debugger: the walk is linear, so it is scanned inside upstream's 4 s kill
-/// bound; one byte more is refused unscanned.
+/// bound; one byte more is refused unscanned. The bound is on work, not time: the quadratic walk this replaced
+/// (`unwrap_timeout`, a `resolve` per wrapper) took 2.85 s here against 0.34 s, inside any safe wall-clock bound.
 #[test]
 fn a_mebibyte_of_wrappers_is_walked_in_linear_time() {
     const TAIL: &str = "claude --agent gsd-debugger";
@@ -201,10 +202,15 @@ fn a_mebibyte_of_wrappers_is_walked_in_linear_time() {
         base + &pad
     };
     let command = padded(MAX_COMMAND_LENGTH - 1);
-    let start = std::time::Instant::now();
+    let words = command.split_whitespace().count();
+    scan::RESOLVED_WORDS.with(|n| n.set(0));
     holds(vec![(command, Want::Debugger)]);
-    let took = start.elapsed();
-    assert!(took.as_secs() < 4, "the 1 MiB scan took {took:?}");
+    // One `resolve` of the segment per scan (the secret read, the debugger spawn): linear in the words.
+    let resolved = scan::RESOLVED_WORDS.with(std::cell::Cell::get);
+    assert!(
+        resolved <= 2 * words,
+        "the 1 MiB scan resolved {resolved} words of {words}"
+    );
     holds(vec![
         (padded(MAX_COMMAND_LENGTH), Want::Debugger),
         (padded(MAX_COMMAND_LENGTH + 1), Want::TooLarge),
