@@ -38,6 +38,13 @@ fn built(rule: ValidationRuleDescriptor) -> Built {
 
 /// [`built`] declaring each of `rules`, in order.
 fn built_all(rules: Vec<ValidationRuleDescriptor>) -> Built {
+    rules_of(vec![declaration_of(rules)])
+}
+
+/// The `@test` declaration of [`built_all`].
+fn declaration_of(
+    rules: Vec<ValidationRuleDescriptor>,
+) -> specforge_protocol_types::ExtensionDeclaration {
     let mut declaration = declare("@test", |c| {
         c.agent("checker", |a| {
             a.description("Judges");
@@ -62,7 +69,7 @@ fn built_all(rules: Vec<ValidationRuleDescriptor>) -> Built {
         });
     });
     declaration.validation_rules = rules;
-    rules_of(vec![declaration])
+    declaration
 }
 
 #[spec(
@@ -154,6 +161,28 @@ fn a_declarative_rule_cannot_share_a_judged_rules_code() {
             "judged"
         );
     }
+}
+
+#[spec(
+    behavior = "declare_judged_rule",
+    verify = "a guard pass cannot report a judged rule's code"
+)]
+#[ignore = "pins K20a; T3 un-ignores"]
+fn a_guard_pass_cannot_report_a_judged_rules_code() {
+    let mut declaration = declaration_of(vec![descriptor(plan_check())]);
+    declaration.passes = declare("@test", |c| {
+        c.pass("g", |p| {
+            p.guard().reports(&["W311"]).run(|_| Vec::new());
+        });
+    })
+    .passes;
+    let built = rules_of(vec![declaration]);
+    let w021: Vec<_> = built
+        .build
+        .diagnostics()
+        .filter(|d| d.code == "W021" && d.message.contains("'g'") && d.message.contains("'W311'"))
+        .collect();
+    assert_eq!(w021.len(), 1, "{:?}", built.diagnostics);
 }
 
 /// The build of `@test` declaring a plan with verdict-written `result` and `owner` fields, and `rule`.

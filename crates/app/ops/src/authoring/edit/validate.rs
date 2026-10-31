@@ -242,4 +242,51 @@ mod tests {
         assert!(!judged(&from(Some("@other/x"))));
         assert!(!judged(&from(None)));
     }
+
+    #[specforge_test(
+        behavior = "validate_typed_edit",
+        verify = "an extension's finding is paired by its subject, through the plan's moves"
+    )]
+    #[ignore = "pins K20a; T3 un-ignores"]
+    fn a_pass_finding_on_another_entity_is_an_added_error() {
+        let finding = |entity: &str| {
+            Diagnostic::from_extension(
+                "@gsd/core",
+                "gsd/E502",
+                Severity::Error,
+                format!("explicit truth '{entity}' is verified, but a test recorded for it failed"),
+            )
+            .with_data(specforge_common::DiagnosticData::Subject {
+                entity: entity.to_string(),
+            })
+        };
+        let before = [finding("v1.0/01/01-01/TR1")];
+        let (errors, _) = added(&before, vec![finding("v1.0/01/01-01/TR2")], |_| false);
+        assert_eq!(errors.len(), 1);
+    }
+
+    #[specforge_test(
+        behavior = "validate_typed_edit",
+        verify = "only a finding the judged rules made is exempt"
+    )]
+    #[ignore = "pins K20a; T3 un-ignores"]
+    fn a_finding_the_judged_evaluation_did_not_make_is_counted() {
+        use specforge_project::testing::{gsd_judged_project, gsd_judged_runtime};
+        use std::sync::Arc;
+        let compiled = gsd_judged_project("").compile_in(Arc::new(gsd_judged_runtime()));
+        let registries = crate::view::ProjectView::of(&compiled).registries();
+        let owner = registries
+            .judged_rule("gsd/E501")
+            .unwrap()
+            .extension
+            .clone();
+        // The owning extension's code and origin, but a guard's text: the evaluation did not make it.
+        let reused = Diagnostic::from_extension(
+            owner,
+            "gsd/E501",
+            Severity::Error,
+            "guard pass 'g' could not be evaluated: x",
+        );
+        assert!(!judged_finding(registries)(&reused));
+    }
 }
