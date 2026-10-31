@@ -277,6 +277,27 @@ fn an_executed_plans_stale_plan_check_does_not_count_but_another_stale_verdict_d
 }
 
 #[test]
+fn e516_names_the_subject_of_a_scoped_gate() {
+    let entities = || {
+        vec![
+            json!({ "id": "v1.0/01/01-01", "kind": "plan" }),
+            json!({ "id": "v1.0/01/01-02", "kind": "plan",
+                    "judgements": [{ "rule": "gsd/W311", "state": "stale", "passed": false }] }),
+        ]
+    };
+    let scoped = e516(&input(ship(Some("v1.0/01/01-01")), entities(), vec![]));
+    assert_eq!(codes(scoped.clone()), ["E516"]);
+    assert_eq!(scoped[0].entity.as_deref(), Some("v1.0/01/01-01"));
+    assert!(
+        scoped[0]
+            .message
+            .contains("the verdict on 'v1.0/01/01-02' is stale")
+    );
+    let project = e516(&input(ship(None), entities(), vec![]));
+    assert_eq!(project[0].entity.as_deref(), Some("v1.0/01/01-02"));
+}
+
+#[test]
 fn a_stale_verdict_is_e516_under_plus() {
     let stale = |state: &str| {
         input(

@@ -423,31 +423,8 @@ fn a_started_time_older_than_a_week_is_refused() {
     unchanged(&p, &before);
 }
 
-/// Pins today (M2 of the r41 review): at a command gate the host keeps only the diagnostics about entities within
-/// the subject's scope, so E516 is subject-scoped there, not project-wide as `rules.md` reads. A stale verdict of
-/// another plan does not refuse `start-plan`.
-#[test]
-fn a_stale_verdict_outside_the_subject_does_not_refuse_start_plan_yet() {
-    let p = super::harness::project("execute");
-    checked(&p);
-    assert_eq!(
-        gsd_as_person(
-            &p,
-            "answer-checkpoint",
-            &[CHECKPOINT, "--option", "flag", "--by", "ada"]
-        )
-        .code,
-        0
-    );
-    assert_eq!(p.inputs(SECOND_PLAN, "W311")["verdict"]["state"], "stale");
-    plus(&p);
-    let run = gsd(&p, "start-plan", &["v1.0/01/01-01"]);
-    assert_eq!(run.code, 0, "{}", run.all());
-}
-
 /// The desired behaviour (K20): E516 names the gate's subject, so a stale verdict anywhere refuses the step.
 #[test]
-#[ignore = "K20: project-wide E516 at a command gate"]
 fn a_stale_verdict_anywhere_refuses_start_plan_under_plus() {
     let p = super::harness::project("execute");
     checked(&p);

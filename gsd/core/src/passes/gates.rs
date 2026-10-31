@@ -260,18 +260,20 @@ fn w404(input: &PassInput) -> Vec<PassDiagnostic> {
 
 /// E516: no stale verdict is in scope.
 fn e516(input: &PassInput) -> Vec<PassDiagnostic> {
-    if gate(input).is_none() {
+    let Some(subject) = gate(input) else {
         return Vec::new();
-    }
+    };
     input
         .entities
         .iter()
         .filter(|e| stale(input, e))
         .map(|e| {
+            // The host keeps a gate diagnostic only within the subject's scope: name the subject, so a stale
+            // verdict anywhere refuses a scoped gate. The stale entity stays in the message.
             refuse(
                 "E516",
                 PassSeverity::Error,
-                &e.id,
+                subject.unwrap_or(&e.id),
                 format!("the verdict on '{}' is stale", e.id),
                 "record the verdict again over the current inputs",
             )
