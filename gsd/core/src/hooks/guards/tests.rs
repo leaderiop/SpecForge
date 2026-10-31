@@ -138,15 +138,6 @@ fn read_ported() -> Vec<String> {
         !advises(&read_guard(&on("codex", "write", vec![]))),
         "no path named"
     );
-    for host in ["claude-code"] {
-        for class in ["write", "edit"] {
-            assert_eq!(
-                read_guard(&on(host, class, vec![file("src/app.ts", true)])),
-                HookOutput::default(),
-                "{host} {class}"
-            );
-        }
-    }
     READ_PORTED.iter().map(|t| (*t).into()).collect()
 }
 
@@ -158,12 +149,6 @@ fn read_guard_matches_upstreams_cases() {
 #[test]
 fn read_guard_accounts_for_every_upstream_case() {
     accounting::account(READ_SUITE, &read_ported(), READ_SKIPPED);
-}
-
-#[test]
-fn read_guard_is_silent_on_claude_code() {
-    let f = on("claude-code", "write", vec![file("src/app.ts", true)]);
-    assert_eq!(read_guard(&f), HookOutput::default());
 }
 
 #[test]
@@ -413,4 +398,21 @@ fn a_deny_names_the_hook_the_file_and_both_sizes() {
     ] {
         assert!(reason.contains(want), "{want}: {reason}");
     }
+}
+
+#[test]
+fn read_guard_is_installed_only_where_it_reminds() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@gsd/core", "1.0.0"));
+    declare(&mut c);
+    let hooks = c.declaration().surfaces.hooks;
+    let read = hooks
+        .iter()
+        .find(|h| h.id == "read_guard")
+        .expect("declared");
+    assert_eq!(read.hosts, ["codex", "cursor"]);
+    let write = hooks
+        .iter()
+        .find(|h| h.id == "write_guard")
+        .expect("declared");
+    assert!(write.hosts.is_empty(), "the write guard is on every host");
 }

@@ -4,16 +4,6 @@
       {
         "hooks": [
           {
-            "command": "specforge hook gsd.read_guard --host claude-code --event pre_tool --tools write,edit # specforge-install",
-            "timeout": 10,
-            "type": "command"
-          }
-        ],
-        "matcher": "Write|Edit|MultiEdit"
-      },
-      {
-        "hooks": [
-          {
             "command": "specforge hook gsd.write_guard --host claude-code --event pre_tool --tools write --paths 'spec/**/*.spec' # specforge-install",
             "timeout": 10,
             "type": "command"

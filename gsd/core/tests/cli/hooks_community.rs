@@ -277,10 +277,10 @@ fn every_installed_hook_answers() {
         "workflow.use_worktrees": true,
     }));
     let home = installed(&p);
-    for (host, lines) in [("claude-code", 14), ("codex", 12), ("cursor", 12)] {
+    for (host, lines) in [("claude-code", 13), ("codex", 12), ("cursor", 12)] {
         let commands: Vec<String> = all_commands(&p, host)
             .into_iter()
-            .filter(|c| c.starts_with("specforge hook gsd."))
+            .filter(|c| c.contains("specforge hook gsd."))
             .collect();
         assert_eq!(commands.len(), lines, "{host}: {commands:?}");
         for command in &commands {

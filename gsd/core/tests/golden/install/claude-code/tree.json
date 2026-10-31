@@ -60,8 +60,8 @@
     "sha256": "7ef42be296cf3dca39ca928184594d1cb17708bfdf43ba7947a516c316562293"
   },
   ".claude/settings.json": {
-    "bytes": 3885,
-    "sha256": "9ad904a5ca6069a4d0a4d845526d378352ff02b183fdd827367c5f32bcb8b316"
+    "bytes": 3584,
+    "sha256": "797b3405eeab2a066e11e417d03e18371d4e63eeef567a101bcc8a627d4373d5"
   },
   ".claude/skills/gsd-add-tests/SKILL.md": {
     "bytes": 1138,

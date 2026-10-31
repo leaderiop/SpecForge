@@ -289,7 +289,7 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 | gsd-cursor-pre-tool, -post-tool, -session-start | the Cursor renderings of the events above |
 | gsd-cursor-stop, -subagent-start, -subagent-stop, gsd-windsurf-* | none: no hook of ours registers on those events, and Windsurf is a later host |
 
-At defaults an install writes 10 hook lines for Claude Code, 8 for Codex and 7 for Cursor; with `hooks.community` and
+At defaults an install writes 9 hook lines for Claude Code, 8 for Codex and 7 for Cursor; with `hooks.community` and
 the other booleans on, 14, 12 and 11. Codex does not render `injection_scanner` and
 `statusline`; Cursor does not render `workflow_marker`, `context_compacted` and `statusline`.
 

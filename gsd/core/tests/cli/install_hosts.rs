@@ -243,7 +243,7 @@ fn not_rendered(run: &Run) -> Vec<String> {
 fn gsd_hooks(p: &Project, host: &str) -> usize {
     all_commands(p, host)
         .iter()
-        .filter(|c| c.starts_with("specforge hook gsd."))
+        .filter(|c| c.contains("specforge hook gsd."))
         .count()
 }
 
@@ -282,7 +282,7 @@ fn golden_install(host: &str, hooks: usize, missing: &[&str]) {
 /// P6: the install writes 67 paths and the gsd hook lines on each host.
 #[test]
 fn install_tree_golden_claude_code() {
-    golden_install("claude-code", 10, &[]);
+    golden_install("claude-code", 9, &[]);
     let (p, _home, _) = first_install("claude-code");
     let settings: Value = serde_json::from_str(&read(&p, ".claude/settings.json")).expect("JSON");
     assert!(settings["statusLine"].is_object(), "{settings}");
