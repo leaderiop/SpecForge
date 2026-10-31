@@ -140,6 +140,7 @@ behavior answer_judged_inputs "Answer a Judged Rule's Inputs" {
   verify unit "the verdict inputs tool answers what the inputs query answers"
   verify unit "a cited file is a relative path inside the project"
   verify unit "inspect, query, the graph export and a command's graph list each entity's judgements"
+  verify unit "a pass sees the tests a verdict cites"
 }
 
 behavior show_verdict_state "Show a Verdict's State" {

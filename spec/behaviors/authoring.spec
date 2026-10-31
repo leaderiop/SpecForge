@@ -412,4 +412,5 @@ behavior refuse_human_only_write "Refuse a Human-Only Write" {
   verify unit "an agent deletes an entity holding only computed or harness values"
   verify unit "an agent still writes a non-human field of a non-human kind"
   verify unit "a set_verdict on a human-only entity is still refused"
+  verify unit "a human-attested command runs from a terminal and is refused to an agent's call"
 }

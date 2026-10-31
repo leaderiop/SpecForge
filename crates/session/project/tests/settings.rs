@@ -399,3 +399,80 @@ fn the_environment_reports_settings_diagnostics_last() {
     assert_eq!(last.diagnostic.code, "E086");
     assert_eq!(environment.settings().wire("@t/s")["level"], 1);
 }
+
+/// `@t/s` declaring `W900` and `items` as its settings (raw JSON, so a key the wire does not know yet is written).
+fn raw_settings(items: Value) -> Vec<specforge_protocol_types::ExtensionDeclaration> {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/s", "1.0.0"));
+    c.code("W900", |d| {
+        d.title("A gated finding")
+            .explanation("A finding a setting gates.");
+    });
+    c.raw_category(specforge_extension_sdk::DeclaredCategory::Settings, items);
+    vec![c.declaration()]
+}
+
+fn resolve_raw(items: Value, settings: Value) -> (ResolvedSettings, Vec<Diagnostic>) {
+    let text = serde_json::to_string_pretty(&settings_config(settings)).unwrap();
+    resolve_text(raw_settings(items), &text)
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a bool setting gates codes while it is on"
+)]
+#[ignore = "pins K20a; T15 un-ignores"]
+fn a_bool_setting_gates_codes_while_it_is_on() {
+    let items = json!([{"kind": "setting", "name": "x.enforce", "field_type": "bool", "default": false,
+                        "gates_when_on": ["W900"]}]);
+    let (on, found) = resolve_raw(items.clone(), json!({"@t/s": {"x.enforce": true}}));
+    assert!(found.is_empty(), "{found:?}");
+    assert!(
+        on.gated().iter().any(|c| c.ends_with("/W900")),
+        "{:?}",
+        on.gated()
+    );
+    let (off, _) = resolve_raw(items, json!({"@t/s": {"x.enforce": false}}));
+    assert!(
+        !off.gated().iter().any(|c| c.ends_with("/W900")),
+        "{:?}",
+        off.gated()
+    );
+}
+
+fn ratio_items() -> Value {
+    json!([{"kind": "setting", "name": "x.ratio", "field_type": "number", "minimum": 0, "maximum": 100}])
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a number setting takes a decimal within its bounds"
+)]
+#[ignore = "pins K20a; T16 un-ignores"]
+fn a_number_setting_takes_a_decimal() {
+    let (resolved, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": 30.5}}));
+    assert!(found.is_empty(), "{found:?}");
+    let ratio = resolved.of("@t/s").unwrap().get("x.ratio").unwrap();
+    assert_eq!(ratio.value, Some(json!(30.5)));
+    let (_, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": "x"}}));
+    assert_eq!(codes_of(&found), ["E086"], "{found:?}");
+    assert!(
+        found[0].message.contains("a number from 0 to 100"),
+        "{}",
+        found[0].message
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a number setting takes a decimal within its bounds"
+)]
+#[ignore = "pins K20a; T16 un-ignores"]
+fn a_number_setting_keeps_its_bounds() {
+    let (_, found) = resolve_raw(ratio_items(), json!({"@t/s": {"x.ratio": 100.5}}));
+    assert_eq!(codes_of(&found), ["E086"], "{found:?}");
+    assert!(
+        found[0].message.contains("a number from 0 to 100"),
+        "{}",
+        found[0].message
+    );
+}

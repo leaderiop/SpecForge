@@ -313,3 +313,29 @@ fn a_family_keeps_no_default() {
     assert_eq!(default_of("fd.*"), None, "no key would receive it");
     assert_eq!(default_of("whole"), Some(json!("y")));
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a bool setting gates codes while it is on"
+)]
+#[ignore = "pins K20a; T15 un-ignores"]
+fn gates_when_on_on_a_string_setting_is_w021() {
+    let (found, _) = faults_of(vec![setting("txt", json!({"gates_when_on": ["W901"]}))]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].contains("gates_when_on"), "{found:?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a bool setting gates codes while it is on"
+)]
+#[ignore = "pins K20a; T15 un-ignores"]
+fn a_code_gated_both_ways_is_w021() {
+    let both = setting(
+        "both",
+        json!({"field_type": "bool", "gates": ["W901"], "gates_when_on": ["W901"]}),
+    );
+    let (found, _) = faults_of(vec![both]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].contains("W901"), "{found:?}");
+}

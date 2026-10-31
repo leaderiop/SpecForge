@@ -117,3 +117,30 @@ fn a_writing_collectors_plan_is_previewed_with_dry_run() {
     collect(&mut server, false);
     assert!(server.root().join("commits.spec").exists());
 }
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "a human-attested command runs from a terminal and is refused to an agent's call"
+)]
+#[ignore = "pins K20a; T14 un-ignores"]
+fn a_human_commands_tool_is_refused() {
+    let ops = json!([{"op": "set", "entity": "v1.0/03/U1", "field": "result", "value": "pass",
+        "revision": revision_of(U.as_bytes())}]);
+    let runtime: SharedRuntime = Arc::new(
+        GsdWrites::new()
+            .answering(CORE, "cmd__attest", gsd_writes_answer(0, ops))
+            .runtime(),
+    );
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&GSD_WRITES_EXTENSIONS)
+        .installing_enabled()
+        .file("m.spec", A)
+        .file("u.spec", U);
+    let mut server = Served::initialized_in(project, runtime);
+    let reply = call_tool(&mut server, "specforge.core.attest", json!({}));
+    assert_eq!(reply["result"]["isError"], true, "{reply}");
+    assert!(tool_text(&reply).contains("human_only"), "{reply}");
+    let written = std::fs::read_to_string(server.root().join("u.spec")).unwrap();
+    assert_eq!(written, U);
+}

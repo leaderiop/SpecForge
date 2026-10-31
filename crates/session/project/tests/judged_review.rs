@@ -300,3 +300,33 @@ fn a_judged_message_counts_its_findings() {
         message("")
     );
 }
+
+#[specforge_test(
+    behavior = "answer_judged_inputs",
+    verify = "a pass sees the tests a verdict cites"
+)]
+#[ignore = "pins K20a; T17 un-ignores"]
+fn a_pass_sees_the_tests_a_verdict_cites() {
+    let project = gsd_judged_project("");
+    let cited = Cited {
+        tests: vec!["t one".into()],
+        ..Cited::default()
+    };
+    record_citing(
+        &project,
+        TRUTH,
+        E501,
+        "passed",
+        &cited,
+        "    cited_tests [\"t one\"]\n",
+    );
+    let compiled = compile(&project);
+    let input = specforge_project::passes::pass_input(&specforge_project::passes::PassContext {
+        judgements: Some(compiled.judgements()),
+        ..specforge_project::passes::PassContext::of(compiled.entities())
+    });
+    let truth = input.entities.iter().find(|e| e.id == TRUTH).unwrap();
+    let judgement = truth.judgements.iter().find(|j| j.rule == E501).unwrap();
+    let wire = serde_json::to_value(judgement).unwrap();
+    assert_eq!(wire["cited_tests"], json!(["t one"]), "{wire}");
+}
