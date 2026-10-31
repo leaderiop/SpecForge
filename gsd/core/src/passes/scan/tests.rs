@@ -234,6 +234,31 @@ fn a_file_the_host_did_not_serve_makes_the_scan_partial() {
 }
 
 #[test]
+fn a_binary_file_the_host_read_keeps_the_scan_whole() {
+    let partial = |facts: Vec<serde_json::Value>| {
+        verification_patterns(&with_plan_file(false, facts))
+            .iter()
+            .any(|v| v.field == "scan_partial")
+    };
+    assert!(!partial(vec![fact(
+        "src/a.js",
+        true,
+        None,
+        Some("not_utf8")
+    )]));
+    // Only a file that is there is binary: a `not_utf8` fact for a missing path stays unserved.
+    assert!(partial(vec![fact(
+        "src/a.js",
+        false,
+        None,
+        Some("not_utf8")
+    )]));
+    // A binary artifact still exists, and a `contains` on it cannot be checked.
+    let binary = vec![fact("src/a.js", true, None, Some("not_utf8"))];
+    assert_eq!(state_for("artifacts", binary, artifact()), "unchecked");
+}
+
+#[test]
 fn a_path_is_looked_up_normalised() {
     for spelled in ["./src/a.js", "src//a.js", "src/../src/a.js"] {
         let e = entity("a/AR1", "artifact", &[("path", spelled)]);
