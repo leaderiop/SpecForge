@@ -47,7 +47,7 @@
     "",
     "# Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);",
     "# hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)",
-    "for lane in \"ollama=http://localhost:11434\" \"lm_studio=http://localhost:1234\" \"llama_cpp=http://localhost:8080\"; do curl -s --max-time 2 \"${lane#*=}/v1/models\" >/dev/null 2>&1 && echo \"${lane%%=*}:available\" || echo \"${lane%%=*}:missing\"; done",
+    "for lane in \"ollama http://localhost:11434 http://localhost:11434\" \"lm_studio http://localhost:1234 http://localhost:1234\" \"llama_cpp http://localhost:8080 http://localhost:8080\"; do read -r name def host <<<\"$lane\"; { [ -z \"$host\" ] || [ \"$host\" = null ]; } && host=$def; curl -s --max-time 2 \"$host/v1/models\" >/dev/null 2>&1 && echo \"$name:available\" || echo \"$name:missing\"; done",
     "",
     "# jq prerequisite (#2589). The config/model/budget lookups in this workflow no",
     "# longer need jq — they use the native --raw/--pick flags. But the lanes listed",
@@ -61,7 +61,7 @@
     "**jq-dependent reviewer lanes.** `jq` is a production prerequisite for the",
     "`ollama`, `lm_studio`, `llama_cpp`, `opencode`, and `antigravity` lanes only. If"
   ],
-  "bytes": 60435,
+  "bytes": 60575,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b0eb6ffc9e3555e9d157376bf3384acb4053af5695465ce7a2b776e8e23e8a1e",
+    "digest": "sha256:ef164c0353c671f3c64008bba3748618f00f40c5dbb2e546846ae49cb1e06824",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "b0eb6ffc9e3555e9d157376bf3384acb4053af5695465ce7a2b776e8e23e8a1e"
+  "sha256": "ef164c0353c671f3c64008bba3748618f00f40c5dbb2e546846ae49cb1e06824"
 }
