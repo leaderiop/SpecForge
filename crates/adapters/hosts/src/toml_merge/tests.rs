@@ -84,3 +84,12 @@ fn a_users_own_specforge_table_under_another_name_is_not_ours() {
     assert!(with.contains("/other"));
     assert_eq!(merge(Some(&with), &[], SCAN).unwrap().text.unwrap(), mine);
 }
+
+#[test]
+fn a_value_where_a_table_goes_is_refused() {
+    let err = merge(Some("mcp_servers = 1\n"), &entries(), SCAN).unwrap_err();
+    assert_eq!(
+        err,
+        "'mcp_servers' holds a value where install needs a table"
+    );
+}

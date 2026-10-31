@@ -81,7 +81,6 @@ fn install_refuses_an_unusable_specforge_json_and_writes_nothing() {
     behavior = "install_into_a_host",
     verify = "install refuses a host config of the wrong shape, naming the key, and writes nothing on any host"
 )]
-#[ignore = "pins K20a; T11 un-ignores"]
 fn install_refuses_a_wrong_shape_config_by_name_and_writes_nothing() {
     let rows = [
         (
@@ -131,7 +130,6 @@ fn install_refuses_a_wrong_shape_config_by_name_and_writes_nothing() {
     behavior = "install_into_a_host",
     verify = "uninstall refuses a marked file edited since and names uninstall --force"
 )]
-#[ignore = "pins K20a; T11 un-ignores"]
 fn uninstall_of_an_edited_file_names_uninstall_force() {
     let p = project(json!({}), json!({}));
     assert_eq!(install(&p, &["claude-code"], &[]).code, 0);

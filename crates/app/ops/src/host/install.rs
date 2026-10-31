@@ -189,7 +189,7 @@ pub fn install(
     for renderer in renderers {
         trees.push(renderer.render(&rendered(view, renderer.host())?));
     }
-    run(view, renderers, &trees, options, caller)
+    run(view, renderers, &trees, options, caller, "install")
 }
 
 /// Remove exactly what install marked from the hosts `renderers` serve.
@@ -200,7 +200,7 @@ pub fn uninstall(
     caller: Caller<'_>,
 ) -> Result<Outcome, OpError> {
     let trees = vec![HostTree::default(); renderers.len()];
-    run(view, renderers, &trees, options, caller)
+    run(view, renderers, &trees, options, caller, "uninstall")
 }
 
 fn run(
@@ -209,6 +209,7 @@ fn run(
     trees: &[HostTree],
     options: Options,
     caller: Caller<'_>,
+    command: &str,
 ) -> Result<Outcome, OpError> {
     view.project_root()?;
     // ADR 0306: a specforge.json the compile cannot use loads no extension, so the plan would strip every host file
@@ -228,7 +229,7 @@ fn run(
         renderers
             .iter()
             .zip(trees)
-            .map(|(renderer, tree)| drift::plan(*renderer, tree, &disk, options.force))
+            .map(|(renderer, tree)| drift::plan(*renderer, tree, &disk, options.force, command))
             .collect()
     };
     if options.dry_run {

@@ -42,7 +42,7 @@ pub fn findings(
     for renderer in renderers {
         let host = renderer.host();
         // What uninstall would do names what install marked: removed if intact, refused if edited.
-        let marked = drift::plan(*renderer, &HostTree::default(), &disk, false);
+        let marked = drift::plan(*renderer, &HostTree::default(), &disk, false, "install");
         let edited: Vec<_> = marked
             .refused
             .iter()
@@ -67,7 +67,13 @@ pub fn findings(
         let Ok(contributions) = rendered(view, host) else {
             continue;
         };
-        let wanted = drift::plan(*renderer, &renderer.render(&contributions), &disk, false);
+        let wanted = drift::plan(
+            *renderer,
+            &renderer.render(&contributions),
+            &disk,
+            false,
+            "install",
+        );
         let differ = wanted.changes().count();
         if differ > 0 {
             out.push(HostFinding {

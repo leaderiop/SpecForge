@@ -76,18 +76,27 @@ fn same(a: &Item, b: &Item) -> bool {
     }
 }
 
-/// The table at `keys` below `doc`, created (implicit) when missing; `None` when a non-table stands in the way.
-fn table_at<'a>(doc: &'a mut DocumentMut, keys: &[String]) -> Option<&'a mut Table> {
+/// The table at `keys` below `doc`, created (implicit) when missing; `Err` names the place where a non-table stands
+/// in the way (ADR 0306).
+fn table_at<'a>(doc: &'a mut DocumentMut, keys: &[String]) -> Result<&'a mut Table, String> {
     let mut at = doc.as_table_mut();
-    for key in keys {
+    for (n, key) in keys.iter().enumerate() {
         if !at.contains_key(key) {
             let mut t = Table::new();
             t.set_implicit(true);
             at.insert(key, Item::Table(t));
         }
-        at = at.get_mut(key)?.as_table_mut()?;
+        at = at
+            .get_mut(key)
+            .and_then(Item::as_table_mut)
+            .ok_or_else(|| {
+                format!(
+                    "'{}' holds a value where install needs a table",
+                    keys[..=n].join(".")
+                )
+            })?;
     }
-    Some(at)
+    Ok(at)
 }
 
 /// The tables along `keys` that are left empty, deepest first, go; a table the user keeps something in stays.
@@ -167,13 +176,7 @@ pub fn merge(
     for entry in entries {
         let Some(name) = &entry.name else { continue };
         let wanted = item(&entry.value);
-        let Some(table) = table_at(&mut doc, &entry.keys) else {
-            not_rendered.push(NotRendered {
-                what: format!("{}.{name}", entry.keys.join(".")),
-                why: "the file holds a value where a table goes".into(),
-            });
-            continue;
-        };
+        let table = table_at(&mut doc, &entry.keys)?;
         match table.get(name) {
             Some(have) if is_ours(have) => {
                 if !same(have, &wanted) {

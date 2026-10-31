@@ -566,6 +566,21 @@ pub fn merge(
                 entry.keys.join(".")
             ));
         }
+        // ADR 0306: a container of the wrong kind is named, not left to the re-parse's byte position. Keys are
+        // inserted into an object; an entry without a name is an element of an array.
+        let wants_object = entry.name.is_some() || !missing.is_empty();
+        let is_object = matches!(container.kind, Kind::Object(_));
+        if wants_object != is_object {
+            let place = entry.keys[..entry.keys.len() - missing.len()].join(".");
+            let (is, needs) = if is_object {
+                ("an object", "an array")
+            } else {
+                ("an array", "an object")
+            };
+            return Err(format!(
+                "'{place}' is {is}, and install needs {needs} there"
+            ));
+        }
     }
     let mut not_rendered = Vec::new();
     // A named entry whose name a user's own member holds is not rendered.

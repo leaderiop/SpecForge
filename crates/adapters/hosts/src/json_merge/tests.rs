@@ -159,3 +159,25 @@ fn a_scalar_where_install_needs_an_object_is_refused_not_shadowed() {
     );
     assert!(err.is_err());
 }
+
+#[test]
+fn a_container_of_the_wrong_kind_is_refused_by_name() {
+    let refused = |existing: &str, entries: &[MergedEntry]| {
+        merge(Some(existing), entries, &[], NAMED).unwrap_err()
+    };
+    assert_eq!(
+        refused("{\"mcpServers\": []}", &[mcp()]),
+        "'mcpServers' is an array, and install needs an object there"
+    );
+    assert_eq!(
+        refused("{\"hooks\": []}", &[hook("PreToolUse", "t.a")]),
+        "'hooks' is an array, and install needs an object there"
+    );
+    assert_eq!(
+        refused(
+            "{\"hooks\": {\"PreToolUse\": {}}}",
+            &[hook("PreToolUse", "t.a")]
+        ),
+        "'hooks.PreToolUse' is an object, and install needs an array there"
+    );
+}

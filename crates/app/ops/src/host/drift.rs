@@ -112,12 +112,14 @@ fn refuse(path: &str, code: RefusalCode, message: String) -> Refusal {
 }
 
 /// The plan for `tree` against `disk`, for the host `renderer` serves. `force` lets an edited file of install's be
-/// rewritten or removed; a file that is not install's is refused whatever `force` says.
+/// rewritten or removed; a file that is not install's is refused whatever `force` says. `command` (`install` or
+/// `uninstall`) is the one whose `--force` an edited-file refusal names (ADR 0306).
 pub fn plan(
     renderer: &dyn HostRenderer,
     tree: &HostTree,
     disk: &dyn HostDisk,
     force: bool,
+    command: &str,
 ) -> HostPlan {
     let host = renderer.host();
     let mut out = HostPlan {
@@ -137,12 +139,19 @@ pub fn plan(
             ));
             continue;
         }
-        owned_file(&mut out, host, &file.path, Some(&file.text), disk, force);
+        owned_file(
+            &mut out,
+            host,
+            &file.path,
+            Some(&file.text),
+            disk,
+            (force, command),
+        );
     }
     for root in renderer.owned_roots() {
         for path in disk.files_under(&root) {
             if !wanted.contains(&path) && owned_path(&path) {
-                owned_file(&mut out, host, &path, None, disk, force);
+                owned_file(&mut out, host, &path, None, disk, (force, command));
             }
         }
     }
@@ -167,7 +176,7 @@ fn owned_file(
     path: &str,
     want: Option<&str>,
     disk: &dyn HostDisk,
-    force: bool,
+    (force, command): (bool, &str),
 ) {
     let now = match disk.read(path) {
         Ok(now) => now,
@@ -220,13 +229,23 @@ fn owned_file(
         out.refused.push(refuse(
             path,
             RefusalCode::EditedFile,
-            format!(
-                "{path} was edited since install wrote it: {} overwrites the edit",
-                specforge_common::remedy::command(
-                    "`specforge install {} --force`",
-                    &[host.as_str()]
+            if command == "uninstall" {
+                format!(
+                    "{path} was edited since install wrote it: {} removes it anyway",
+                    specforge_common::remedy::command(
+                        "`specforge uninstall {} --force`",
+                        &[host.as_str()]
+                    )
                 )
-            ),
+            } else {
+                format!(
+                    "{path} was edited since install wrote it: {} overwrites the edit",
+                    specforge_common::remedy::command(
+                        "`specforge install {} --force`",
+                        &[host.as_str()]
+                    )
+                )
+            },
         ));
         return;
     }
@@ -431,7 +450,7 @@ mod tests {
             (d, marked("d", "y")),
             (".claude/agents/f.md", marked("f", "fresh")),
         ]);
-        let plan = plan(&Fake, &wanted, &disk, false);
+        let plan = plan(&Fake, &wanted, &disk, false, "install");
         assert_eq!(action(&plan, a), Some(Action::Unchanged));
         assert_eq!(action(&plan, b), Some(Action::Update));
         assert_eq!(action(&plan, e), Some(Action::Remove));
@@ -447,7 +466,7 @@ mod tests {
             [(c, RefusalCode::EditedFile), (d, RefusalCode::ForeignFile)]
         );
         // `force` rewrites an edit of install's and never a foreign file.
-        let forced = super::plan(&Fake, &wanted, &disk, true);
+        let forced = super::plan(&Fake, &wanted, &disk, true, "install");
         assert_eq!(action(&forced, c), Some(Action::Update));
         assert_eq!(forced.refused.len(), 1);
         assert_eq!(forced.refused[0].code, RefusalCode::ForeignFile);
@@ -457,13 +476,16 @@ mod tests {
     fn a_config_file_that_is_no_document_is_refused_and_one_of_ours_alone_goes() {
         let mut disk = Memory::default();
         disk.0.insert(".mcp.json".into(), "{ nope".into());
-        let plan = plan(&Fake, &tree(&[]), &disk, false);
+        let plan = plan(&Fake, &tree(&[]), &disk, false, "install");
         assert_eq!(plan.refused[0].code, RefusalCode::UnreadableConfig);
         let mut disk = Memory::default();
         disk.0.insert(".mcp.json".into(), "{\"ours\":1}\n".into());
         let none = HostTree::default();
         assert_eq!(
-            action(&super::plan(&Fake, &none, &disk, false), ".mcp.json"),
+            action(
+                &super::plan(&Fake, &none, &disk, false, "install"),
+                ".mcp.json"
+            ),
             Some(Action::Remove)
         );
     }
@@ -487,7 +509,7 @@ mod tests {
                 }
             }
             let wanted = tree(&files.iter().map(|(p, t)| (p.as_str(), t.clone())).collect::<Vec<_>>());
-            let first = plan(&Fake, &wanted, &disk, false);
+            let first = plan(&Fake, &wanted, &disk, false, "install");
             prop_assert!(first.refused.is_empty());
             for file in &first.files {
                 match &file.after {
@@ -495,7 +517,7 @@ mod tests {
                     None => { disk.0.remove(&file.path); }
                 }
             }
-            let second = plan(&Fake, &wanted, &disk, false);
+            let second = plan(&Fake, &wanted, &disk, false, "install");
             prop_assert!(second.files.iter().all(|f| f.action == Action::Unchanged), "{:?}", second.files);
         });
     }
