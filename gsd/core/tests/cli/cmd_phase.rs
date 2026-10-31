@@ -206,6 +206,9 @@ fn remove_with_force_deletes_its_plans() {
         .map(|l| format!("{l}\n"))
         .collect();
     p.write("spec/v1.0.spec", &kept);
+    // A truth that holds a tier is a person's (D-K20a-4), so an agent's delete of it is refused `human_only`, as an
+    // override's is: the truth here holds none.
+    p.edit("spec/plans.spec", "  verification explicit\n", "");
     let run = gsd(&p, "phase", &["--remove", "01", "--force"]);
     assert_eq!(run.code, 0, "{}", run.all());
     // Phase 01's plans and summary are gone; phase 02's plan took the name 01-01.
