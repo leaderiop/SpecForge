@@ -1,10 +1,11 @@
 //! The render pipeline (D-r42-6): one pure function from a prompt's command file, the host and the argument text to
 //! the text a model reads. The export and the native tests call the same function.
 //!
-//! In order: the preamble (ours), the command file with `$ARGUMENTS` replaced and its `<execution_context>` includes
-//! inlined, the settings its lines read filled in (`setting`), the prompt's own tail, then the references re-pointed (D-r42-5) and the whole converted for the host
-//! (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths. The host's adapter
-//! header goes in front, unconverted.
+//! In order: the preamble (ours), the command file with its `<execution_context>` includes inlined, the settings its
+//! lines read filled in (`setting`), the prompt's own tail, then the references re-pointed (D-r42-5) and the whole
+//! converted for the host (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths.
+//! Then the heredoc terminators are stamped and `$ARGUMENTS` replaced, last: the typed text is data no rewrite runs on
+//! (#5637). The host's adapter header goes in front, unconverted.
 
 use super::{compose, host, preamble, setting};
 
@@ -162,23 +163,24 @@ fn wrapper(workflow: &str) -> String {
 /// [`render`] over the text of the command file.
 pub fn assemble(command: &str, input: &Input<'_>) -> String {
     let mut text = preamble::text(input.host, input.settings, input.extension, input.files);
-    // the render knows the arguments, so the terminator is chosen to be one they cannot contain (#5637; upstream stamps
-    // a per-install nonce because its installed files hold the heredoc)
-    text.push_str(&stamp_terminators(
-        &setting::fill(
-            &inline_includes(command, input.asset),
-            input.settings,
-            runtime(input.host),
-        ),
-        input.arguments,
+    text.push_str(&setting::fill(
+        &inline_includes(command, input.asset),
+        input.settings,
+        runtime(input.host),
     ));
-    text = substitute_arguments(&text, input.arguments);
     if !input.tail.is_empty() {
         text.push_str("\n\n");
         text.push_str(input.tail);
     }
     let converted = host::convert(input.host, &(input.repoint)(&text, input.host));
-    format!("{}{converted}", header(input.host))
+    // the render knows the arguments, so the terminator is chosen to be one they cannot contain (#5637; upstream stamps
+    // a per-install nonce because its installed files hold the heredoc); spliced after every rewrite, so the text
+    // the terminator was chosen against is the text the heredoc holds
+    let body = substitute_arguments(
+        &stamp_terminators(&converted, input.arguments),
+        input.arguments,
+    );
+    format!("{}{body}", header(input.host))
 }
 
 /// The runtime a host is called in the settings: `claude-code` is `claude`.
