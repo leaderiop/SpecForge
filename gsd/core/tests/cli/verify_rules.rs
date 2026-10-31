@@ -326,3 +326,54 @@ fn a_research_that_mentions_validation_architecture_without_a_heading_is_not_w51
     );
     assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
 }
+
+/// BW1 as a refactor `deviation` window tracking RP1 (the shared fixture stays a plain TODO).
+fn deviation(p: &Project) {
+    p.edit(
+        "spec/ops/windows.spec",
+        "  kind        todo\n",
+        "  kind        deviation\n",
+    );
+    p.edit(
+        "spec/ops/windows.spec",
+        "  description \"A TODO remains in the store\"\n",
+        "  description \"A TODO remains in the store\"\n  refactor    v1.0/01/RP1\n",
+    );
+}
+
+#[test]
+fn a_refactor_deviation_window_with_enforcement_off_is_w514() {
+    let p = verify();
+    deviation(&p);
+    assert_eq!(p.codes(), ["gsd/W514"], "{:?}", p.report());
+    assert!(p.report()[0].1.contains("BW1"), "{:?}", p.report());
+}
+
+#[test]
+fn windows_enforce_on_silences_w514() {
+    let p = verify();
+    deviation(&p);
+    p.settings(serde_json::json!({ "workflow.windows_enforce": true }));
+    assert!(
+        !p.codes().contains(&"gsd/W514".to_string()),
+        "{:?}",
+        p.report()
+    );
+}
+
+#[test]
+fn a_disposed_deviation_window_is_not_w514() {
+    let p = verify();
+    deviation(&p);
+    p.edit(
+        "spec/ops/windows.spec",
+        "  target_function \"add\"\n",
+        "  target_function \"add\"\n  disposition {\n    outcome accepted\n    by \"ada\"\n    at \"2026-10-29T11:00:00Z\"\n  }\n",
+    );
+    p.record_harness(
+        "v1.0/01/RP1",
+        "disposition",
+        r#"{"at":"2026-10-29T11:00:00Z","by":"ada","outcome":"accepted"}"#,
+    );
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}

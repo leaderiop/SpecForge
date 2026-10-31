@@ -20,6 +20,9 @@ pub const GATES: &[(&str, &[&str])] = &[
     ("workflow.context_drift_precheck", &["W406"]),
 ];
 
+/// `(setting, codes)`: the setting gates these local codes while it is on, so they are reported while it is off.
+pub const GATES_WHEN_ON: &[(&str, &[&str])] = &[("workflow.windows_enforce", &["W514"])];
+
 /// `(setting, code, what it switches on)`: SpecForge's own, under `specforge.` so the roster tells them apart.
 pub const SPECFORGE: &[(&str, &str, &str)] = &[
     (
@@ -47,6 +50,14 @@ pub const SPECFORGE: &[(&str, &str, &str)] = &[
 /// The codes `setting` gates, if it is a GSD key that gates any.
 pub fn of(setting: &str) -> Option<&'static [&'static str]> {
     GATES.iter().find(|(s, _)| *s == setting).map(|(_, c)| *c)
+}
+
+/// The codes `setting` gates while it is on, if it is a GSD key that does.
+pub fn when_on(setting: &str) -> Option<&'static [&'static str]> {
+    GATES_WHEN_ON
+        .iter()
+        .find(|(s, _)| *s == setting)
+        .map(|(_, c)| *c)
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {

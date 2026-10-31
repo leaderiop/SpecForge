@@ -118,13 +118,13 @@ fn every_code_fires_and_stays_silent() {
         }
     }
     assert!(bad.is_empty(), "{bad:#?}");
-    // The two codes with no rule are exactly the ones the plan names.
+    // The codes with no rule are exactly the ones the plan names.
     let unbuilt: Vec<&str> = RULE_EVIDENCE
         .iter()
         .filter(|(_, e)| matches!(e, Evidence::NotBuilt(_)))
         .map(|(c, _)| *c)
         .collect();
-    assert_eq!(unbuilt, ["W514", "E515"]);
+    assert_eq!(unbuilt, ["E515"]);
 }
 
 fn snapshot_names() -> BTreeSet<String> {

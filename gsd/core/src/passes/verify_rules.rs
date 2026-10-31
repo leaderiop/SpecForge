@@ -12,10 +12,6 @@
 //! makes E502 appear. It appears only when a verifier records `verified` over results that contradict it, and that
 //! record is refused (E080 names it): the verifier records `failed` instead. Silent without a report (I205 says so).
 //!
-//! `gsd/W514` (a refactor `deviation` window while `workflow.windows_enforce` is off) is not built: a pass is not
-//! sent the project's settings, and a setting gates a code only while it is on, never while it is off (it needs
-//! `SettingDescriptor.gates_when_on`, kernel).
-//!
 //! Also ports gsd-core bin/lib modules: gate-verify-failure-directions.cjs.
 
 use std::collections::BTreeMap;

@@ -41,6 +41,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
             if let Some(codes) = gates::of(key.name) {
                 s.gates(codes);
             }
+            if let Some(codes) = gates::when_on(key.name) {
+                s.gates_when_on(codes);
+            }
         });
     }
     for family in keys::FAMILIES {

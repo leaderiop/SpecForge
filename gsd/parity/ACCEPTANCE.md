@@ -17,7 +17,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | CLI modules | 282 | 168 | 22 | 92 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 211 | 161 | 35 | 15 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 92 | 51 | 14 | 14 | `core/tests/parity_rules/cutover.rs` |
-| Codes | 63 | 61 | 0 | 0 | 2 | `core/tests/parity_rules/evidence.rs` |
+| Codes | 63 | 62 | 0 | 0 | 1 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
 `core/spec/*.md`; they have no inventory family, so no count. They are exercised by every row above.
@@ -47,7 +47,7 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   argument shape); 51 belong to an extension, 14 are the gate engine, and 14 are core codes whose verdict is not reproduced: 11
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
-- Codes: 61 of the 63 codes fire and stay silent in a named test; W514 and E515 have no rule behind them yet.
+- Codes: 62 of the 63 codes fire and stay silent in a named test; E515 has no rule behind it yet.
 
 ## The four checks
 

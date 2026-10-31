@@ -419,9 +419,10 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 63] = [
     ),
     (
         "W514",
-        Evidence::NotBuilt(
-            "a gate that is on only when a setting is on needs `SettingDescriptor.gates_when_on`, a protocol 1.12.0 field; named for the kernel in the README (K20)",
-        ),
+        Evidence::Tests {
+            fires: "a_refactor_deviation_window_with_enforcement_off_is_w514",
+            silent: "windows_enforce_on_silences_w514",
+        },
     ),
     (
         "E515",
