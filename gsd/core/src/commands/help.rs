@@ -6,7 +6,7 @@ use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{answer, run};
-use crate::settings::surface::{CLUSTERS, first_cluster};
+use crate::settings::surface::{CLUSTERS, clusters};
 
 /// The first line of a description: what a listing shows.
 fn first_line(text: &str) -> &str {
@@ -48,8 +48,9 @@ fn help(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             (None, None) => continue,
         };
         let stem = id.replace('_', "-");
+        let cluster = clusters(&stem).next();
         slashes.push(Slash {
-            cluster: first_cluster(&stem),
+            cluster,
             description: first_line(description.unwrap_or_default()).to_string(),
             stem,
         });

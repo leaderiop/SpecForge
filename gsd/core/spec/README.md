@@ -221,8 +221,6 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`specforge <ext> help <cmd>` is gone for every extension.** T17 turned off clap's `help` subcommand on an
   extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
   `specforge gsd help` lists the commands.
-- **A slash command's `when` takes one setting (K20).** A skill in two clusters follows its first, so disabling
-  `utility` leaves `/gsd-help` (also `core_loop`) shown.
 - **A JSON number for a top-level integer plan op**: gsd writes the decimal text (`collectors/git.rs`).
 - **`collect` re-keys short ids**: `gsd-junit` resolves `[gsd:<id>]` itself.
 - **The SDK exports `TriggerKind`**: `gates.rs` reads the kind by name.

@@ -5,13 +5,12 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::workflow::Spec;
-use crate::settings::surface::{first_cluster, setting};
+use crate::settings::surface::{clusters, setting};
 
 pub fn bind(c: &mut ContributionsBuilder, spec: &'static Spec) {
     let Some(slash) = &spec.slash else {
         return;
     };
-    let when = first_cluster(spec.command).map(setting);
     c.slash_prompt(spec.id, |s| {
         s.argument_hint(slash.hint)
             .tools(slash.tools)
@@ -22,8 +21,8 @@ pub fn bind(c: &mut ContributionsBuilder, spec: &'static Spec) {
         if let Some(effort) = slash.effort {
             s.effort(effort);
         }
-        if let Some(when) = &when {
-            s.when(when);
+        for cluster in clusters(spec.command) {
+            s.when(&setting(cluster));
         }
     });
 }
