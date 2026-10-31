@@ -28,6 +28,8 @@ impl<'a> Input<'a> {
             host: self.host,
             arguments: self.arguments,
             settings: self.settings,
+            extension: "@gsd/core",
+            files: gsd_kit::prompt::preamble::FILES,
             tail: self.tail,
             asset: assets::get,
             repoint: repoint_for,

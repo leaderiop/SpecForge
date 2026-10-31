@@ -204,3 +204,28 @@ fn secure_phase_goldens() {
         );
     }
 }
+
+/// REVIEW-security-part1 m4: the preamble names this extension, not core: its settings command is accepted, its
+/// harness-field writer is its own, and the table has the security file.
+#[test]
+fn the_preamble_is_security_s_not_cores() {
+    let p = model();
+    for host in HOSTS {
+        let text = text_of(&render(&p, &[PHASE], host));
+        let head = text
+            .split("</specforge_gsd_preamble>")
+            .next()
+            .expect("a preamble");
+        assert!(
+            head.contains("`specforge settings set @gsd/security"),
+            "{host}"
+        );
+        assert!(!head.contains("@gsd/core"), "{host}: {head}");
+        assert!(head.contains("`NN-SECURITY.md`"), "{host}");
+        assert!(
+            head.contains("security_audit, accepted_risk, audit_run"),
+            "{host}"
+        );
+        assert!(head.contains("`trust_boundary`, `threat`"), "{host}");
+    }
+}

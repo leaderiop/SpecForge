@@ -61,7 +61,7 @@
     "",
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"secure-phase\"`."
   ],
-  "bytes": 20438,
+  "bytes": 19195,
   "end": [
     "## Threat Register",
     "",
@@ -106,7 +106,7 @@
   ],
   "head": [
     "<specforge_gsd_preamble>",
-    "You are running a GSD workflow inside SpecForge (the extension `@gsd/core`). The workflow text below is GSD's own. The",
+    "You are running a GSD workflow inside SpecForge (the extension `@gsd/security`). The workflow text below is GSD's own. The",
     "files it talks about are entities of the project's spec here, and the tools it calls are SpecForge's. This section says",
     "where each thing went; where it and the workflow disagree, this section wins.",
     "",
@@ -114,27 +114,8 @@
     "",
     "| GSD file | Kinds |",
     "|---|---|",
-    "| `PROJECT.md` | project, requirement, decision |",
-    "| `REQUIREMENTS.md` | requirement |",
-    "| `ROADMAP.md`, `MILESTONES.md`, `milestones/*` | milestone, phase |",
-    "| `STATE.md` | computed (progress, position) + pause, blocker + session state |",
-    "| `config.json` | settings |",
-    "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
-    "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
-    "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
-    "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
-    "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
-    "| `.continue-here.md` | handoff |",
-    "| `NN-VERIFICATION.md` | verification, verify_gap, override, human_item, and verdicts |",
-    "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
-    "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
-    "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
-    "| `WINDOWS.md` | broken_window |",
-    "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
-    "| `workstreams/*` | workstream (a scope) |",
+    "| `NN-MM-PLAN.md` | plan and its tasks (core's), `trust_boundary`, `threat` |",
+    "| `NN-SECURITY.md` | security_audit, accepted_risk, audit_run |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
     "Check the spec with `specforge check`. Create and edit with `specforge new <kind> <id> ...`, `specforge set`,",
@@ -145,7 +126,7 @@
     "",
     "- **Computed is never written.** A status, a progress, a position and a count are computed from the graph. Where the",
     "  workflow says to update one, there is nothing to do.",
-    "- **Harness fields have one writer**: the command of `@gsd/core` that owns them (`specforge gsd <command>`; `specforge gsd help` lists them), never `specforge set`.",
+    "- **Harness fields have one writer**: the command of `@gsd/security` that owns them (`specforge gsd <command>`; `specforge gsd help` lists them), never `specforge set`.",
     "- **A command step's line has no arguments.** The step names the command; this text gives its arguments. Every",
     "  `--by` names who answers: `--by \"<user>\"` for a person, the agent's name for an agent.",
     "- **Judges record their own verdicts** with `specforge gsd record-verdict` (the agent's body says how). An",
@@ -161,7 +142,7 @@
     "",
     "## Settings",
     "",
-    "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core",
+    "Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/security",
     "<name> <value>`.",
     "",
     "```json",
@@ -184,9 +165,28 @@
     "- (B) No SECURITY.md, PLAN.md with threat model exists — run from artifacts",
     "- (C) Phase not executed — exit with guidance",
     "",
-    "Output: updated SECURITY.md."
+    "Output: updated SECURITY.md.",
+    "</objective>",
+    "",
+    "<execution_context>",
+    "<file path=\"gsd-core/workflows/secure-phase.md\">",
+    "<purpose>",
+    "Verify threat mitigations for a completed phase. Confirm the plans' threat dispositions are resolved. Update the phase's SECURITY.md, the security audit.",
+    "</purpose>",
+    "",
+    "<required_reading>",
+    "`specforge gsd reference gsd-core/references/ui-brand.md`",
+    "</required_reading>",
+    "",
+    "<available_agent_types>",
+    "Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):",
+    "- gsd-security-auditor — Verifies threat mitigation coverage",
+    "</available_agent_types>",
+    "",
+    "<process>",
+    ""
   ],
-  "lines": 380,
+  "lines": 361,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:64b08532f331578f6d2ea36ba5898eb07f42e371cd4d9488713cb6918d62fb39",
+    "digest": "sha256:d5cb374b89574bbbd68f78a2ef7d255e5cc20b66c174d7b7c74ffa44bea97093",
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "64b08532f331578f6d2ea36ba5898eb07f42e371cd4d9488713cb6918d62fb39"
+  "sha256": "d5cb374b89574bbbd68f78a2ef7d255e5cc20b66c174d7b7c74ffa44bea97093"
 }

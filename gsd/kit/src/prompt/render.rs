@@ -17,6 +17,11 @@ pub struct Input<'a> {
     pub arguments: &'a str,
     /// The settings block of the preamble (`settings::block()`).
     pub settings: &'a str,
+    /// The extension the prompt belongs to (`@gsd/core`): the preamble names it as the owner of the settings and of the
+    /// harness fields' commands.
+    pub extension: &'a str,
+    /// The rows of the preamble's table of where GSD's files went (`preamble::FILES` for core).
+    pub files: &'a [(&'a str, &'a str)],
     /// The prompt's own closing section, when it has one.
     pub tail: &'a str,
     /// The embedded text of an asset path (`gsd-core/…`, `commands/gsd/…`), attribution line included.
@@ -116,7 +121,7 @@ fn wrapper(workflow: &str) -> String {
 
 /// [`render`] over the text of the command file.
 pub fn assemble(command: &str, input: &Input<'_>) -> String {
-    let mut text = preamble::text(input.host, input.settings);
+    let mut text = preamble::text(input.host, input.settings, input.extension, input.files);
     text.push_str(&setting::fill(
         &inline_includes(command, input.asset),
         input.settings,

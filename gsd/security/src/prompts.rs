@@ -54,6 +54,19 @@ fn block() -> String {
     format!("{{\n{}\n}}", rows.join(",\n"))
 }
 
+/// The preamble's table of where GSD's files went: the security files (`spec/README.md`), and the plan row whose
+/// entities carry the threat model.
+const FILES: &[(&str, &str)] = &[
+    (
+        "`NN-MM-PLAN.md`",
+        "plan and its tasks (core's), `trust_boundary`, `threat`",
+    ),
+    (
+        "`NN-SECURITY.md`",
+        "security_audit, accepted_risk, audit_run",
+    ),
+];
+
 /// The phase number as the shell blocks name the end of an id, and how phases are ordered: `02.1` after `02`.
 fn order(number: &str) -> Vec<u64> {
     number.split('.').map(|p| p.parse().unwrap_or(0)).collect()
@@ -132,6 +145,8 @@ fn handle(call: &PromptCall<'_>) -> Result<PromptOutput, String> {
         host: call.host().unwrap_or("claude-code"),
         arguments: &arguments,
         settings: &block(),
+        extension: "@gsd/security",
+        files: FILES,
         tail: &tail(&phase),
         asset,
         repoint: |text, host| repoint::repoint(text, host, &|_| true),

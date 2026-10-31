@@ -6,7 +6,8 @@
 pub const MARKER: &str = "<specforge_gsd_preamble>";
 const END: &str = "</specforge_gsd_preamble>";
 
-/// The core rows of `spec/README.md` ("Every GSD file maps to a kind"): `(GSD file, kinds)`.
+/// The core rows of `spec/README.md` ("Every GSD file maps to a kind"): `(GSD file, kinds)`. An extension passes its
+/// own rows to [`text`] (`@gsd/security`: `NN-SECURITY.md` and the threat model).
 pub const FILES: &[(&str, &str)] = &[
     ("`PROJECT.md`", "project, requirement, decision"),
     ("`REQUIREMENTS.md`", "requirement"),
@@ -71,16 +72,18 @@ fn spawning(host: &str) -> &'static str {
     }
 }
 
-/// The preamble for `host`, with `settings` (a JSON object, `settings::block()`) as the current configuration.
-pub fn text(host: &str, settings: &str) -> String {
+/// The preamble for `host`, with `settings` (a JSON object, `settings::block()`) as the current configuration, for the
+/// prompt of `extension` (`@gsd/core`): the extension owns the settings the block lists and the commands that write
+/// the harness fields, and `files` are the rows of the table of where GSD's files went.
+pub fn text(host: &str, settings: &str, extension: &str, files: &[(&str, &str)]) -> String {
     let mut table = String::from("| GSD file | Kinds |\n|---|---|\n");
-    for (file, kinds) in FILES {
+    for (file, kinds) in files {
         table.push_str(&format!("| {file} | {kinds} |\n"));
     }
     let spawn = spawning(host);
     format!(
         "{MARKER}
-You are running a GSD workflow inside SpecForge (the extension `@gsd/core`). The workflow text below is GSD's own. The
+You are running a GSD workflow inside SpecForge (the extension `{extension}`). The workflow text below is GSD's own. The
 files it talks about are entities of the project's spec here, and the tools it calls are SpecForge's. This section says
 where each thing went; where it and the workflow disagree, this section wins.
 
@@ -96,7 +99,7 @@ Check the spec with `specforge check`. Create and edit with `specforge new <kind
 
 - **Computed is never written.** A status, a progress, a position and a count are computed from the graph. Where the
   workflow says to update one, there is nothing to do.
-- **Harness fields have one writer**: the command of `@gsd/core` that owns them (`specforge gsd <command>`; \
+- **Harness fields have one writer**: the command of `{extension}` that owns them (`specforge gsd <command>`; \
 `specforge gsd help` lists them), never `specforge set`.
 - **A command step's line has no arguments.** The step names the command; this text gives its arguments. Every
   `--by` names who answers: `--by \"<user>\"` for a person, the agent's name for an agent.
@@ -113,7 +116,7 @@ Check the spec with `specforge check`. Create and edit with `specforge new <kind
 
 ## Settings
 
-Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set @gsd/core
+Where the workflow reads `config-get <key>`, read the key here. To change one: `specforge settings set {extension}
 <name> <value>`.
 
 ```json

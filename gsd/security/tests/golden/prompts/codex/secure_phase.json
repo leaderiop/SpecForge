@@ -61,7 +61,7 @@
     "",
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"secure-phase\"`."
   ],
-  "bytes": 28928,
+  "bytes": 27685,
   "end": [
     "## Threat Register",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 498,
+  "lines": 479,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:9e99ce400b337040a43bcb790820b6dc53f1c242abd2fbc8161f7ae7412c80d1",
+    "digest": "sha256:60ea6e41510f3e51af17794075c3bdd1754f8931d4f4c2fbe3d9f4e1a3f52de3",
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "9e99ce400b337040a43bcb790820b6dc53f1c242abd2fbc8161f7ae7412c80d1"
+  "sha256": "60ea6e41510f3e51af17794075c3bdd1754f8931d4f4c2fbe3d9f4e1a3f52de3"
 }
