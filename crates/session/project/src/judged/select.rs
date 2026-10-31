@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use serde_json::Value;
 use specforge_graph::{FieldForms, Graph, Node, wire};
-use specforge_protocol_types::FileBase;
+use specforge_protocol_types::{FieldType, FileBase};
 use specforge_registry::FieldRegistry;
 use specforge_registry::judged::{Chain, Head, Step};
 
@@ -62,9 +62,17 @@ impl Select<'_> {
                     named = found;
                 }
                 Step::Referrers { kinds, path } => {
+                    // The path may go on past its reference (ADR 0304): the prefix finds the referrers, the rest
+                    // is a forward path from each.
+                    let words: Vec<&str> = path.split('.').collect();
+                    let end = kinds
+                        .first()
+                        .and_then(|k| self.reference_end(k, &words))
+                        .unwrap_or(words.len());
+                    let prefix = words[..end].join(".");
                     set = kinds
                         .iter()
-                        .map(|k| self.index(k, path))
+                        .map(|k| self.index(k, &prefix))
                         .flat_map(|index| {
                             set.iter()
                                 .filter_map(|target| index.get(target).cloned())
@@ -72,6 +80,12 @@ impl Select<'_> {
                                 .collect::<Vec<_>>()
                         })
                         .collect();
+                    if end < words.len() {
+                        let (next, found) =
+                            self.follow(&set, &words[end..].join("."), files && last);
+                        set = next;
+                        named = found;
+                    }
                 }
             }
         }
@@ -99,13 +113,15 @@ impl Select<'_> {
                 };
                 let kind = node.kind.raw.as_str();
                 let rest = words[at..].join(".");
+                // A file field, or (ADR 0304) a string or string list field holding a path from the project root.
                 if files
                     && let Some((declared, form)) = self.fields.get_path(kind, &rest)
-                    && declared.file_reference
+                    && (declared.file_reference
+                        || matches!(form.field_type(), FieldType::String | FieldType::StringList))
                 {
                     named.extend(self.values_at(node, &rest).into_iter().map(|path| FileRef {
                         path,
-                        project: form.base() == FileBase::Project,
+                        project: !declared.file_reference || form.base() == FileBase::Project,
                     }));
                     taken = words.len() - at;
                     continue;

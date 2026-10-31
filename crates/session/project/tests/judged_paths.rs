@@ -134,7 +134,6 @@ fn digest(inputs: &Inputs, name: &str) -> String {
     behavior = "digest_judged_inputs",
     verify = "a file input may name a path held in a string field"
 )]
-#[ignore = "pins K20a; T7 un-ignores"]
 fn a_file_input_on_a_string_field_digests_the_file() {
     let p = project();
     let first = inputs(&compile(&p));
@@ -152,7 +151,6 @@ fn a_file_input_on_a_string_field_digests_the_file() {
     behavior = "digest_judged_inputs",
     verify = "a referrer selector goes on past its reference"
 )]
-#[ignore = "pins K20a; T7 un-ignores"]
 fn a_referrer_path_continues_forward() {
     let p = project();
     let first = inputs(&compile(&p));

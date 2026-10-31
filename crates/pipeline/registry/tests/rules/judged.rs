@@ -228,7 +228,6 @@ fn audit_built(selector: &str) -> Built {
     behavior = "digest_judged_inputs",
     verify = "a referrer selector goes on past its reference"
 )]
-#[ignore = "pins K20a; T7 un-ignores"]
 fn a_referrer_selector_goes_on_past_its_reference() {
     let built = audit_built("self.milestone<phase.milestone.requirements");
     assert!(built.coded("W112").is_empty(), "{:?}", built.diagnostics);
@@ -239,7 +238,6 @@ fn a_referrer_selector_goes_on_past_its_reference() {
     behavior = "digest_judged_inputs",
     verify = "a file input may name a path held in a string field"
 )]
-#[ignore = "pins K20a; T7 un-ignores"]
 fn file_of_a_string_field_is_admitted() {
     let built = audit_built("file(self.path)");
     assert!(built.coded("W112").is_empty(), "{:?}", built.diagnostics);

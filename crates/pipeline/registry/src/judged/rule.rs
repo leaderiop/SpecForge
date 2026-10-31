@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 
 use specforge_common::Severity;
-use specforge_protocol_types::{FieldWriter, JudgedDescriptor};
+use specforge_protocol_types::{FieldType, FieldWriter, JudgedDescriptor};
 
 use super::selector::{Chain, Head, Selector, Step};
 use crate::rules::Registries;
@@ -218,19 +218,34 @@ fn walk(
                 path,
             } => {
                 sources.iter().try_for_each(loaded)?;
+                let words: Vec<&str> = path.split('.').collect();
+                // The path may go on past its reference (ADR 0304): the prefix finds the referrers, the rest is a
+                // forward path from each.
+                let mut ends = BTreeSet::new();
                 for kind in sources {
-                    let words: Vec<&str> = path.split('.').collect();
-                    if reference_end(registries, kind, &words)? != words.len() {
-                        return Err(format!("'{kind}.{path}' goes on past a reference"));
-                    }
-                    let targets = targets_of(registries, kind, path);
+                    let end = reference_end(registries, kind, &words)?;
+                    ends.insert(end);
+                    let targets = targets_of(registries, kind, &words[..end].join("."));
                     if !targets.is_empty() && targets.is_disjoint(&kinds) {
                         return Err(format!(
                             "'{kind}.{path}' names no kind of the entities before it"
                         ));
                     }
                 }
-                sources.iter().cloned().collect()
+                let end = match ends.iter().collect::<Vec<_>>()[..] {
+                    [one] => *one,
+                    _ => {
+                        return Err(format!(
+                            "'{path}' ends at a different reference in each of its kinds"
+                        ));
+                    }
+                };
+                let referrers: BTreeSet<String> = sources.iter().cloned().collect();
+                if end == words.len() {
+                    referrers
+                } else {
+                    follow(registries, referrers, &words[end..].join("."))?
+                }
             }
         };
     }
@@ -286,11 +301,15 @@ fn ends_at_file(
     let mut at = 0;
     loop {
         let rest = words[at..].join(".");
+        // A file field, or (ADR 0304) a string or string list field holding a path from the project root.
         let file = |kind: &String| {
             registries
                 .fields
                 .get_path(kind, &rest)
-                .is_some_and(|(declared, _)| declared.file_reference)
+                .is_some_and(|(declared, form)| {
+                    declared.file_reference
+                        || matches!(form.field_type(), FieldType::String | FieldType::StringList)
+                })
         };
         if kinds.iter().all(file) {
             return Ok(());
