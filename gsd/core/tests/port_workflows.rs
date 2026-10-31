@@ -40,6 +40,17 @@ const REWRITTEN: &[(&str, usize)] = &[
     // Plan 04 T2: no sub-repositories, so no release map (git.repo_tagging is not applicable).
     ("gsd-core/workflows/complete-milestone.md", 275),
     ("gsd-core/workflows/complete-milestone.md", 313),
+    // #5195 without node: SpecForge's INIT has no `section_manifest`; the PROJECT.md gate reads the active workstream.
+    ("gsd-core/workflows/complete-milestone.md", 246),
+    ("gsd-core/workflows/complete-milestone.md", 255),
+    ("gsd-core/workflows/complete-milestone.md", 256),
+    ("gsd-core/workflows/complete-milestone.md", 260),
+    ("gsd-core/workflows/complete-milestone.md", 412),
+    ("gsd-core/workflows/complete-milestone.md", 413),
+    ("gsd-core/workflows/complete-milestone.md", 414),
+    // No release map: the git-tag section and `push_release_tags` name no per-repository step.
+    ("gsd-core/workflows/complete-milestone.md", 536),
+    ("gsd-core/workflows/complete-milestone.md", 541),
     (
         "gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md",
         8,

@@ -30,7 +30,7 @@ command -v kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo "kimi-code
 
 # Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);
 # hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)
-for lane in "ollama={{setting:review.ollama_host|http://localhost:11434}}" "lm_studio={{setting:review.lm_studio_host|http://localhost:1234}}" "llama_cpp={{setting:review.llama_cpp_host|http://localhost:8080}}"; do curl -s --max-time 2 "${lane#*=}/v1/models" >/dev/null 2>&1 && echo "${lane%%=*}:available" || echo "${lane%%=*}:missing"; done
+for lane in "ollama http://localhost:11434 {{setting:review.ollama_host|}}" "lm_studio http://localhost:1234 {{setting:review.lm_studio_host|}}" "llama_cpp http://localhost:8080 {{setting:review.llama_cpp_host|}}"; do read -r name def host <<<"$lane"; { [ -z "$host" ] || [ "$host" = null ]; } && host=$def; curl -s --max-time 2 "$host/v1/models" >/dev/null 2>&1 && echo "$name:available" || echo "$name:missing"; done
 
 # jq prerequisite (#2589). The config/model/budget lookups in this workflow no
 # longer need jq — they use the native --raw/--pick flags. But the lanes listed

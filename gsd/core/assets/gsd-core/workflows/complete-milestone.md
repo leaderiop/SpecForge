@@ -245,7 +245,7 @@ If additional details are needed (e.g., user-provided "Delivered" summary, git r
 
 </step>
 
-**Resolve the PROJECT.md review gate first.** This is the first `init.complete-milestone` call in the workflow, so the section manifest does not exist before it; reading `section_manifest` without making this call would fall into the fail-open `null` branch below and rewrite the shared PROJECT.md under `--ws` (#5195). `init.complete-milestone` is a pure read, so the later full call in `reorganize_roadmap_and_delete_originals` is unaffected.
+**Resolve the PROJECT.md review gate first.** PROJECT.md is shared across workstreams, so the review runs in flat mode only: no `--ws` in the arguments and no active workstream (`specforge gsd workstreams progress` answers the one `specforge gsd workstreams switch` made active as `active`). SpecForge's INIT carries no `section_manifest`, so the gate reads the workstream itself; when it cannot be read, the review is skipped rather than rewrite the shared PROJECT.md under a workstream (#5195).
 
 ```bash
 IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
@@ -253,13 +253,13 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_EARLY=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_EARLY" == @file:* ]]; then INIT_EARLY=$(cat "${INIT_EARLY#@file:}"); fi
-node -e "const m=JSON.parse(process.argv[1]).section_manifest; console.log('PROJECT_MD_REVIEW=' + (m==null||m.included.includes('project-md-evolution-review') ? 'run' : 'skip'))" "$INIT_EARLY"
+WS_JSON=$(specforge gsd workstreams progress --format json) || WS_JSON='{"active":"(unreadable)"}'
+GSD_ACTIVE_WS=$(echo "$WS_JSON" | jq -r '.active // empty')
+[ -z "$GSD_WS" ] && [ -z "$GSD_ACTIVE_WS" ] && echo "PROJECT_MD_REVIEW=run" || echo "PROJECT_MD_REVIEW=skip"
 ```
 
 <!-- gsd:section id="project-md-evolution-review" when="state:flat-mode" -->
-If the line above printed `PROJECT_MD_REVIEW=run` (the manifest is `null` or lists `"project-md-evolution-review"` in `included`): read and execute `gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md`. If it printed `PROJECT_MD_REVIEW=skip` (a workstream is active) — do not read the file; PROJECT.md is shared across workstreams, so a workstream's milestone close never rewrites it (#2308, #5195); proceed to `archive_milestone`.
+If the line above printed `PROJECT_MD_REVIEW=run` (no `--ws` and no active workstream): read and execute `gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md`. If it printed `PROJECT_MD_REVIEW=skip` (a workstream is active, or it could not be read) — do not read the file; PROJECT.md is shared across workstreams, so a workstream's milestone close never rewrites it (#2308, #5195); proceed to `archive_milestone`.
 <!-- /gsd:section -->
 
 <step name="archive_milestone">
@@ -411,9 +411,9 @@ ROADMAP_PATH=$(_gsd_field "$INIT_REORG" roadmap_path)
 ARCHIVE_DIR=$(_gsd_field "$INIT_REORG" archive_dir)
 MILESTONES_PATH=$(_gsd_field "$INIT_REORG" milestones_path)
 PROJECT_PATH=$(_gsd_field "$INIT_REORG" project_path)
-# #5195: PROJECT.md is shared across workstreams. Stage it only when init's own section manifest says this run edited it (the evolution review is included in flat mode only) — the same source the review step is gated on, so the two cannot disagree.
-_gsd_has_section() { node -e "const m=JSON.parse(process.argv[1]).section_manifest; process.exit(m==null||m.included.includes(process.argv[2])?0:1)" "$1" "$2"; }
-_gsd_has_section "$INIT_REORG" project-md-evolution-review || PROJECT_PATH=""
+# #5195: PROJECT.md is shared across workstreams. Stage it only in flat mode (no --ws, no active workstream) — the same test the review step is gated on, so the two cannot disagree.
+_gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --format json) || return 1; [ -z "$GSD_WS" ] && [ -z "$(echo "$j" | jq -r '.active // empty')" ]; }
+_gsd_flat_mode || PROJECT_PATH=""
 git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 ```
 
@@ -535,12 +535,12 @@ Exact bash for each of the four options (squash, history-preserving merge, delet
 </step>
 
 <!-- gsd:section id="git-tag" when="state:git-create-tag" -->
-If `PER_REPO_TAGGING` is `true`, skip this section: the per-repository tags were created in `archive_milestone`, and no `v[X.Y]` tag is created in the current directory. Otherwise, if `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute `gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to `git_commit_milestone`.
+`PER_REPO_TAGGING` is always `false` in @gsd/core (no sub-repositories, no per-repository tags), so this section is never skipped for it. If `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute `gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to `git_commit_milestone`.
 <!-- /gsd:section -->
 
 <step name="push_release_tags">
 
-Recompute `PER_REPO_TAGGING` and `git_create_tag` from the latest `init.complete-milestone` JSON (`INIT_REORG`). If `PER_REPO_TAGGING` is `true` and `git_create_tag` is not `false`: read and execute `gsd-core/workflows/complete-milestone/steps/release-map.md` Part 2 (a separate push confirmation per repository naming the repository and its remote; nothing is pushed by default). Otherwise skip this step.
+**Per-repository tag push (#3628): not part of @gsd/core.** `PER_REPO_TAGGING` is always `false` (a SpecForge project has no sub-repositories), so there are no per-repository tags to push and no release map to read. Skip this step.
 
 </step>
 

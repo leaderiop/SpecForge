@@ -149,12 +149,9 @@ fn review_probes_the_local_servers_and_needs_no_runtime_lib() {
     }
     let probe = text
         .lines()
-        .find(|l| l.starts_with("for lane in \"ollama="))
+        .find(|l| l.starts_with("for lane in \"ollama"))
         .expect("the probe line");
-    assert!(
-        probe.contains("http://127.0.0.1:9/") || probe.contains("=http://127.0.0.1:9\""),
-        "{probe}"
-    );
+    assert!(probe.contains(" http://127.0.0.1:9\""), "{probe}");
     let out = std::process::Command::new("bash")
         .args(["-c", probe])
         .output()
@@ -162,5 +159,55 @@ fn review_probes_the_local_servers_and_needs_no_runtime_lib() {
     assert_eq!(
         String::from_utf8_lossy(&out.stdout),
         "ollama:missing\nlm_studio:missing\nllama_cpp:missing\n"
+    );
+}
+
+/// An empty or `null` host setting is no host: the probe falls back to the server's local default, as it did before
+/// the hosts came from the settings.
+// the stub `curl` is a shell script
+#[cfg(unix)]
+#[test]
+fn review_probes_the_local_default_for_an_empty_host_setting() {
+    let p = twin();
+    p.settings(serde_json::json!({
+        "review.ollama_host": "",
+        "review.lm_studio_host": null,
+        "review.llama_cpp_host": "http://127.0.0.1:9",
+    }));
+    let text = text_of(&payload(&prompt(&p, "review", &[PHASE], "claude-code")));
+    let probe = text
+        .lines()
+        .find(|l| l.starts_with("for lane in \"ollama"))
+        .expect("the probe line");
+    // a `curl` that records the URL it was given and finds nothing
+    let bin = p.root().join("stub-bin");
+    std::fs::create_dir_all(&bin).expect("a stub dir");
+    let curl = bin.join("curl");
+    std::fs::write(
+        &curl,
+        "#!/bin/sh\nfor a; do u=$a; done\necho \"$u\" >> \"$(dirname \"$0\")/urls\"\nexit 7\n",
+    )
+    .expect("the stub");
+    std::fs::set_permissions(&curl, std::os::unix::fs::PermissionsExt::from_mode(0o755))
+        .expect("chmod");
+    let out = std::process::Command::new("bash")
+        .args(["-c", probe])
+        .env(
+            "PATH",
+            format!(
+                "{}:{}",
+                bin.display(),
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
+        .output()
+        .expect("bash");
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "ollama:missing\nlm_studio:missing\nllama_cpp:missing\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(bin.join("urls")).expect("curl ran"),
+        "http://localhost:11434/v1/models\nhttp://localhost:1234/v1/models\nhttp://127.0.0.1:9/v1/models\n"
     );
 }
