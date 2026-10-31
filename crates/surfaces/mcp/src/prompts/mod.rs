@@ -68,6 +68,10 @@ impl Surface for Prompts {
         }
     }
 
+    fn owns_path(found: &PromptFound) -> bool {
+        matches!(found, Found::Extension(p) if p.declaration().args.iter().any(|a| a.name == "path"))
+    }
+
     fn invoked(found: &PromptFound, invocation: &Invocation) -> Option<McpEvent> {
         let argument = |name: &str| {
             invocation
