@@ -22,6 +22,7 @@ mod gate;
 mod hooks;
 mod injection;
 mod model;
+mod prompt;
 mod record;
 mod settings;
 mod threat_ids;

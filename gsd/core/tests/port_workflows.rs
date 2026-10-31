@@ -512,6 +512,16 @@ fn workflow_assets_diff_only_in_ported_passages() {
     assert!(checked > 0, "no workflow asset was checked");
 }
 
+/// The files `@gsd/security` embeds that upstream's `gsd-core/` and `commands/` trees hold (its agents and capability
+/// file are not read from those trees).
+fn security_assets() -> Vec<String> {
+    let base = root().join("../security/assets");
+    let mut all = Vec::new();
+    files(&base, &base, &mut all);
+    all.retain(|p| p.starts_with("gsd-core/") || p.starts_with("commands/"));
+    all
+}
+
 /// Vendored for its metadata alone: the prompt renders text of ours (D-r43-16), so the file is not an asset.
 const VENDORED_ONLY: &[&str] = &["commands/gsd/update.md"];
 
@@ -527,8 +537,9 @@ fn the_vendored_tree_lists_every_asset() {
         .iter()
         .map(|p| p.strip_suffix(".txt").unwrap_or(p).to_string())
         .collect();
+    let security = security_assets();
     let assets = assets();
-    for path in &assets {
+    for path in assets.iter().chain(&security) {
         assert!(named.contains(path), "{path} has no vendored copy");
         assert!(
             source.contains(path.as_str()),
@@ -537,8 +548,10 @@ fn the_vendored_tree_lists_every_asset() {
     }
     for path in &named {
         assert!(
-            assets.contains(path) || VENDORED_ONLY.contains(&path.as_str()),
-            "{path} is vendored but not an asset"
+            assets.contains(path)
+                || security.contains(path)
+                || VENDORED_ONLY.contains(&path.as_str()),
+            "{path} is vendored but not an asset of @gsd/core or @gsd/security"
         );
     }
 }

@@ -6,6 +6,7 @@ pub mod codes;
 pub mod commands;
 pub mod kinds;
 mod passes;
+pub mod prompts;
 pub mod settings;
 
 use specforge_extension_sdk::prelude::*;
@@ -33,6 +34,7 @@ impl Contributions for GsdSecurity {
         kinds::declare(c);
         passes::declare(c);
         agents::declare(c);
+        prompts::declare(c);
     }
 }
 

@@ -5,4 +5,5 @@ pub mod compose;
 pub mod host;
 pub mod preamble;
 pub mod render;
+pub mod repoint;
 pub mod setting;
