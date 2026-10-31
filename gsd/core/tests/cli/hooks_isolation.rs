@@ -230,6 +230,30 @@ fn a_symlink_into_the_main_checkout_is_refused() {
     }
 }
 
+/// REVIEW-k20c-part2 M2: the kernel resolves the nearest existing ancestor, so a directory that does not exist yet
+/// under the link, or a `..` after it, still lands in the main checkout. Needs lane K's `absolute` fix.
+#[cfg(unix)]
+#[test]
+fn a_new_path_under_a_symlink_into_the_main_checkout_is_refused() {
+    let Some((p, home, main)) = in_worktree() else {
+        return;
+    };
+    std::fs::create_dir_all(main.join("src")).expect("the main checkout's src");
+    std::os::unix::fs::symlink(main.join("src"), p.root().join("mainsrc")).expect("a symlink");
+    for host in HOSTS {
+        for file in ["mainsrc/new/a.ts", "mainsrc/../x.ts"] {
+            let run = run_hook(
+                &p,
+                host,
+                "gsd.worktree_path_guard",
+                &write_to(&p, host, &p.root().join(file)),
+                &home,
+            );
+            assert!(verdict(host, &run).0, "{host} {file}: {}", run.all());
+        }
+    }
+}
+
 /// REVIEW-k20c-part2 M2: when the worktree has no `specforge.json` of its own the project is the main checkout, and
 /// the main checkout's files are "in the project". Upstream compares the toplevel of every target and denies.
 #[test]
