@@ -67,3 +67,28 @@ fn a_nested_script_is_under_the_same_cap() {
         "read .env"
     );
 }
+
+/// A heredoc tag in a span holds the spans nested in it, so it is sliced when a body line is read, not at every
+/// level: 127 closed `$(cat <<` levels around 1 MB took the hook past its 5 s budget, a trap the guard's `allow`
+/// failure policy let through.
+#[test]
+fn a_nested_tag_is_sliced_when_read_not_at_every_level() {
+    let payload = "a".repeat(100_000);
+    for close in [")", ")\n"] {
+        let command = format!(
+            "echo hi; : \"{}{payload}{}\"",
+            TAG.repeat(MAX_SPAN_DEPTH - 1),
+            close.repeat(MAX_SPAN_DEPTH - 1)
+        );
+        shell::TAG_CHARS.with(|n| n.set(0));
+        let got = said(&command);
+        let sliced = shell::TAG_CHARS.with(std::cell::Cell::get);
+        assert_eq!(got, "allow", "{close:?}");
+        // 16 passes (4 nested levels under 3 readings, and the debugger's 4) slice the command at most once each
+        assert!(
+            sliced <= 16 * command.len(),
+            "{close:?}: {sliced} characters sliced of {}",
+            command.len()
+        );
+    }
+}

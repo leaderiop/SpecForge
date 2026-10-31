@@ -34,6 +34,7 @@ mod hooks_community;
 mod hooks_config;
 mod hooks_context;
 mod hooks_guards;
+mod hooks_hostile;
 mod hooks_isolation;
 mod hooks_scan;
 mod hooks_spec_root;

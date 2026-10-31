@@ -112,7 +112,15 @@ struct Tag {
     end: usize,
 }
 
-fn read_heredoc_tag(s: &[char], mut i: usize, depth: usize) -> Tag {
+#[cfg(test)]
+thread_local! {
+    /// The characters of the span tags sliced on this thread: a test bounds the span reader's work by it (F7).
+    pub(super) static TAG_CHARS: Cell<usize> = const { Cell::new(0) };
+}
+
+/// A heredoc tag in a span, and where its text is in `s`: the text is sliced only when a body line is read, because
+/// a tag holds the spans nested in it, and slicing it at every level made a deep nesting quadratic.
+fn read_heredoc_tag(s: &[char], mut i: usize, depth: usize) -> (Tag, (usize, usize)) {
     let strip_tabs = s.get(i) == Some(&'-');
     if strip_tabs {
         i += 1;
@@ -120,10 +128,11 @@ fn read_heredoc_tag(s: &[char], mut i: usize, depth: usize) -> Tag {
     while matches!(s.get(i), Some(' ' | '\t')) {
         i += 1;
     }
-    let (mut tag, mut quoted) = (String::new(), false);
+    let mut quoted = false;
+    let text;
     if let Some(&q @ ('\'' | '"')) = s.get(i) {
         let j = find(s, q, i + 1);
-        tag = sub(s, i + 1, j.unwrap_or(s.len()));
+        text = (i + 1, j.unwrap_or(s.len()));
         quoted = true;
         i = j.map_or(s.len(), |j| j + 1);
     } else {
@@ -131,6 +140,7 @@ fn read_heredoc_tag(s: &[char], mut i: usize, depth: usize) -> Tag {
             quoted = true;
             i += 1;
         }
+        let start = i;
         let words = reading().tags_as_words;
         while let Some(&c) = s.get(i) {
             if if words {
@@ -147,22 +157,18 @@ fn read_heredoc_tag(s: &[char], mut i: usize, depth: usize) -> Tag {
                 (true, '`', _) => Some(find(s, '`', i + 1).unwrap_or(s.len() - 1)),
                 _ => None,
             };
-            if let Some(e) = end {
-                tag += &sub(s, i, e + 1);
-                i = e + 1;
-            } else {
-                tag.push(c);
-                i += 1;
-            }
+            i = end.map_or(i + 1, |e| e + 1);
         }
+        text = (start, i);
     }
-    Tag {
-        tag,
+    let tag = Tag {
+        tag: String::new(),
         quoted,
         strip_tabs,
         seg: 0,
         end: i,
-    }
+    };
+    (tag, text)
 }
 
 /// The bodies of the heredocs `tags` opened, read line by line from `i`; the index after the last one read.
@@ -201,7 +207,7 @@ fn paren_close(s: &[char], mut i: usize, depth: usize) -> usize {
         return s.len();
     }
     let mut parens = 1;
-    let mut tags: Vec<Tag> = Vec::new();
+    let mut tags: Vec<(Tag, (usize, usize))> = Vec::new();
     while i < s.len() {
         let ch = s[i];
         if ch == '\\' {
@@ -230,11 +236,21 @@ fn paren_close(s: &[char], mut i: usize, depth: usize) -> usize {
             && s.get(i + 2) != Some(&'<')
         {
             let tag = read_heredoc_tag(s, i + 2, depth);
-            i = tag.end;
+            i = tag.0.end;
             tags.push(tag);
         } else if ch == '\n' && !tags.is_empty() {
+            let tags: Vec<Tag> = std::mem::take(&mut tags)
+                .into_iter()
+                .map(|(t, (a, b))| {
+                    #[cfg(test)]
+                    TAG_CHARS.with(|n| n.set(n.get() + b.saturating_sub(a)));
+                    Tag {
+                        tag: sub(s, a, b),
+                        ..t
+                    }
+                })
+                .collect();
             i = heredoc_bodies(s, i + 1, &tags).1;
-            tags.clear();
         } else {
             if ch == '(' {
                 parens += 1;
