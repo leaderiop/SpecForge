@@ -11,7 +11,7 @@ use specforge_ops::extension::prompt::{
 };
 use specforge_ops::view::ProjectView;
 use specforge_package::Sha256;
-use specforge_project::testing::{CORE, GsdPrompts, NO_CONTEXT};
+use specforge_project::testing::{CORE, GsdPrompts, NO_CONTEXT, TestProject};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::{WasmCallResult, WasmTrapInfo};
 
@@ -360,4 +360,86 @@ fn a_named_tail_is_an_ordinary_string() {
         served.input("prompt__quick")["args"],
         json!({"task": "do it"})
     );
+}
+
+/// The fixture with the prompt `next_phase`: an optional `phase` subject (gate `E901`) its export may pick.
+fn next_phase(project: TestProject, answer: Option<Value>) -> Served {
+    let descriptor = json!({
+        "id": "next_phase", "title": "Next", "description": "Plan the next phase",
+        "export": "prompt__next_phase",
+        "args": [{"name": "phase", "field_type": "reference", "target_kind": "phase"}],
+        "gates": ["E901"], "subject": "phase",
+    });
+    let mut fixture = GsdPrompts::new().prompting(descriptor);
+    if let Some(answer) = answer {
+        let bytes = answer.to_string().into_bytes();
+        fixture = fixture.answering(CORE, "prompt__next_phase", WasmCallResult::Ok(bytes));
+    }
+    served_with(project, fixture)
+}
+
+fn picks(subject: Option<&str>) -> Option<Value> {
+    let mut answer = json!({"messages": [{"role": "user", "text": "next"}]});
+    if let Some(subject) = subject {
+        answer["subject"] = json!(subject);
+    }
+    Some(answer)
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt with an optional subject and none given renders for the subject its export picks"
+)]
+fn an_absent_subject_is_picked_by_the_export() {
+    let served = next_phase(project("fine", "ok", json!({})), picks(Some("v1.0/03")));
+    let rendered = render(&served, "next_phase", Args::Named(json!({}))).unwrap();
+    assert_eq!(rendered.payload["subject"], "v1.0/03");
+    assert!(
+        served.input("prompt__next_phase")["args"]
+            .get("phase")
+            .is_none(),
+        "the export is asked before a subject is known"
+    );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a picked subject meets the prompt's gate, and a given subject wins over the pick"
+)]
+fn a_picked_subject_meets_its_gate_and_a_given_one_wins() {
+    let blocked = next_phase(project(NO_CONTEXT, "ok", json!({})), picks(Some("v1.0/03")));
+    let refused = render(&blocked, "next_phase", Args::Named(json!({}))).unwrap_err();
+    assert_eq!(refused.code, "gate_failed", "{refused:?}");
+    assert!(refused.data.to_string().contains("t/E901"), "{refused:?}");
+
+    let served = next_phase(project("fine", "ok", json!({})), picks(Some("v1.0/04")));
+    let rendered = render(&served, "next_phase", Args::Named(json!({"phase": "03"}))).unwrap();
+    assert_eq!(rendered.payload["subject"], "v1.0/03");
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a picked subject must be an entity of the subject argument's kind, else the answer is E028"
+)]
+fn a_picked_subject_must_be_of_the_subjects_kind() {
+    for wrong in ["v1.0/03/03-01", "v1.0/99"] {
+        let served = next_phase(project("fine", "ok", json!({})), picks(Some(wrong)));
+        let refused = render(&served, "next_phase", Args::Named(json!({}))).unwrap_err();
+        assert_eq!(refused.code, "E028", "{wrong}: {refused:?}");
+    }
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt with an optional subject and no pick is project-wide, and the first word is the subject"
+)]
+fn no_picked_subject_is_project_wide_and_a_word_is_the_subject() {
+    let served = next_phase(project("fine", "ok", json!({})), picks(None));
+    let rendered = render(&served, "next_phase", Args::Named(json!({}))).unwrap();
+    assert!(rendered.payload.get("subject").is_none(), "{rendered:?}");
+
+    let echo = next_phase(project("fine", "ok", json!({})), None);
+    let rendered = render(&echo, "next_phase", Args::Argv("03")).unwrap();
+    assert_eq!(rendered.payload["subject"], "v1.0/03");
+    assert_eq!(echo.input("prompt__next_phase")["args"]["phase"], "v1.0/03");
 }

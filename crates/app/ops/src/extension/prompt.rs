@@ -13,7 +13,8 @@ use serde_json::Value;
 use specforge_package::Sha256;
 use specforge_protocol_types::command_args::option_name;
 use specforge_protocol_types::{
-    Attribution, PromptDescriptor, PromptInput, PromptMessage, PromptStep, RawGraph,
+    Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptStep,
+    RawGraph,
 };
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 
@@ -215,13 +216,64 @@ pub fn render(
 ) -> Result<RenderedPrompt, RenderError> {
     let declared = &prompt.declaration;
     let root = view.project_root().map_err(RenderError::from)?;
-    let args = args::read(view, &declared.args, given)?;
-    let subject = declared
+    let args = args::read(view, &declared.args, declared.subject.as_deref(), given)?;
+    let mut subject = declared
         .subject
         .as_ref()
         .and_then(|name| args.get(name))
         .and_then(Value::as_str)
         .map(str::to_string);
+    let input = PromptInput::<RawGraph> {
+        args,
+        cwd: canonical(root).display().to_string(),
+        today: today(),
+        graph: declared.reads_graph.then(|| {
+            RawGraph::new(graph_export(view)).expect("the graph export is one JSON value")
+        }),
+        host: host.map(|h| h.as_str().to_string()),
+        state: declared
+            .reads_state
+            .then(|| crate::host::state::read(view, &prompt.extension, None)),
+    };
+    let call = || {
+        let Some(runtime) = view.runtime() else {
+            return Err(RenderError::Call(CallError::new(
+                Operation::Prompt,
+                &prompt.extension,
+                &declared.export,
+                CallFailure::NotLoaded,
+            )));
+        };
+        ExtensionCalls::new(runtime.as_ref())
+            .render_prompt(&prompt.extension, &declared.export, &input)
+            .map_err(RenderError::Call)
+    };
+    // An optional subject the caller left out is picked by the export, which is therefore called before the gate
+    // (ADR 0314); a given subject is gated first.
+    let mut answered = None;
+    if subject.is_none()
+        && let Some(arg) = declared
+            .subject
+            .as_ref()
+            .and_then(|name| declared.args.iter().find(|a| a.name == *name))
+    {
+        let output = call()?;
+        if let Some(picked) = &output.subject {
+            picked_subject(view, arg, picked).map_err(|reason| {
+                RenderError::Call(CallError::new(
+                    Operation::Prompt,
+                    &prompt.extension,
+                    &declared.export,
+                    CallFailure::Malformed {
+                        expected: "PromptOutput",
+                        reason,
+                    },
+                ))
+            })?;
+            subject = Some(picked.clone());
+        }
+        answered = Some(output);
+    }
     if !declared.gates.is_empty() {
         let states = Gate {
             extension: &prompt.extension,
@@ -237,29 +289,10 @@ pub fn render(
             ))));
         }
     }
-    let input = PromptInput::<RawGraph> {
-        args,
-        cwd: canonical(root).display().to_string(),
-        today: today(),
-        graph: declared.reads_graph.then(|| {
-            RawGraph::new(graph_export(view)).expect("the graph export is one JSON value")
-        }),
-        host: host.map(|h| h.as_str().to_string()),
-        state: declared
-            .reads_state
-            .then(|| crate::host::state::read(view, &prompt.extension, None)),
+    let output = match answered {
+        Some(output) => output,
+        None => call()?,
     };
-    let Some(runtime) = view.runtime() else {
-        return Err(RenderError::Call(CallError::new(
-            Operation::Prompt,
-            &prompt.extension,
-            &declared.export,
-            CallFailure::NotLoaded,
-        )));
-    };
-    let output = ExtensionCalls::new(runtime.as_ref())
-        .render_prompt(&prompt.extension, &declared.export, &input)
-        .map_err(RenderError::Call)?;
     let texts: String = output.messages.iter().map(|m| m.text.as_str()).collect();
     let payload = ExtensionPromptPayload {
         prompt: prompt.qualified(),
@@ -273,6 +306,28 @@ pub fn render(
         messages: output.messages,
         payload,
     })
+}
+
+/// Whether `path` is the full path of an entity of one of the kinds the subject argument `arg` names.
+fn picked_subject(
+    view: &ProjectView<'_>,
+    arg: &PromptArgDescriptor,
+    path: &str,
+) -> Result<(), String> {
+    let kind = view.graph().node(path).map(|n| n.kind.raw.to_string());
+    let kinds: Vec<&str> = arg
+        .target_kind
+        .iter()
+        .flat_map(|k| k.split('|').map(str::trim))
+        .collect();
+    match kind {
+        Some(kind) if kinds.contains(&kind.as_str()) => Ok(()),
+        Some(kind) => Err(format!(
+            "its subject '{path}' is a {kind}, not a {}",
+            kinds.join(" or ")
+        )),
+        None => Err(format!("its subject '{path}' is no entity of the project")),
+    }
 }
 
 /// `prompt`'s steps with each command step's gate evaluated now.

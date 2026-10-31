@@ -15,7 +15,7 @@ use crate::{OpError, OpErrorKind};
 pub enum PromptArgs<'a> {
     /// By declared name.
     Named(&'a Map<String, Value>),
-    /// The command line's words, or a `$ARGUMENTS` string split by [`words`]: a required argument that is not a flag
+    /// The command line's words, or a `$ARGUMENTS` string split by [`words`]: a required argument that is not a flag (or an optional subject)
     /// is positional, in declaration order; the others are `--<name> <value>`; a bool is `--<name>`. The words no
     /// positional slot takes are the `rest` argument's, joined by one space.
     Words(&'a [String]),
@@ -78,10 +78,17 @@ fn field_type(arg: &PromptArgDescriptor) -> FieldType {
 }
 
 /// The words, by the name of the argument each gives.
-fn named(args: &[PromptArgDescriptor], words: &[String]) -> Result<Map<String, Value>, OpError> {
+fn named(
+    args: &[PromptArgDescriptor],
+    subject: Option<&str>,
+    words: &[String],
+) -> Result<Map<String, Value>, OpError> {
+    // The subject is positional even when optional (ADR 0314).
     let positional: Vec<&PromptArgDescriptor> = args
         .iter()
-        .filter(|a| a.required && field_type(a) != FieldType::Bool)
+        .filter(|a| {
+            (a.required && field_type(a) != FieldType::Bool) || subject == Some(a.name.as_str())
+        })
         .collect();
     let (mut given, mut next, mut options) = (Map::new(), 0, true);
     let value_of =
@@ -203,11 +210,12 @@ fn resolved(
 pub fn read(
     view: &ProjectView<'_>,
     declared: &[PromptArgDescriptor],
+    subject: Option<&str>,
     given: PromptArgs<'_>,
 ) -> Result<Map<String, Value>, OpError> {
     let given = match given {
         PromptArgs::Named(map) => map.clone(),
-        PromptArgs::Words(words) => named(declared, words)?,
+        PromptArgs::Words(words) => named(declared, subject, words)?,
     };
     if let Some(unknown) = given
         .keys()

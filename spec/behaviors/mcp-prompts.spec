@@ -117,6 +117,11 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "the SDK declares a prompt's free-text tail as a string argument"
   verify unit "a prompt's own path and format arguments reach it on the command line"
   verify unit "the host reads its options before the first double dash only"
+  verify unit "a prompt with an optional subject and none given renders for the subject its export picks"
+  verify unit "a picked subject meets the prompt's gate, and a given subject wins over the pick"
+  verify unit "a picked subject must be an entity of the subject argument's kind, else the answer is E028"
+  verify unit "a prompt with an optional subject and no pick is project-wide, and the first word is the subject"
+  verify unit "a prompt answer without a subject serializes as it did, and a picked subject round-trips"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

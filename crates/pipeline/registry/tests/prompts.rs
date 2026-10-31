@@ -248,3 +248,32 @@ fn a_prompt_may_name_an_argument_path_or_format() {
         "{w021:#?}"
     );
 }
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "an optional subject follows the required positional arguments"
+)]
+fn an_optional_subject_follows_the_required_positionals() {
+    let phase = json!({"name": "phase", "field_type": "reference", "target_kind": "phase"});
+    let name = json!({"name": "name", "field_type": "string", "required": true});
+    let mut before = prompt("before");
+    before["args"] = json!([phase, name]);
+    before["subject"] = json!("phase");
+    let mut after = prompt("after");
+    after["args"] = json!([name, phase]);
+    after["subject"] = json!("phase");
+    let build = build_registries(vec![declaration(
+        "@t/core",
+        "t",
+        json!({
+            "surfaces": {"prompts": [before, after]},
+            "entities": [{"name": "phase", "keyword": "phase"}],
+        }),
+    )]);
+    let w021 = messages(&build, "W021");
+    assert_eq!(w021.len(), 1, "{w021:#?}");
+    assert!(
+        w021[0].contains("'before'") && w021[0].contains("'phase'"),
+        "{w021:#?}"
+    );
+}

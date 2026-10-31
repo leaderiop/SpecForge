@@ -130,3 +130,24 @@ fn a_rest_false_argument_has_no_rest_key() {
         tail
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt answer without a subject serializes as it did, and a picked subject round-trips"
+)]
+fn a_prompt_output_subject_is_absent_unless_picked() {
+    use specforge_protocol_types::PromptOutput;
+
+    let plain = PromptOutput::user("hi");
+    assert_eq!(
+        serde_json::to_string(&plain).unwrap(),
+        r#"{"messages":[{"role":"user","text":"hi"}]}"#
+    );
+    let picked = plain.with_subject("v1.0/03");
+    let wire = serde_json::to_value(&picked).unwrap();
+    assert_eq!(wire["subject"], "v1.0/03");
+    assert_eq!(
+        serde_json::from_value::<PromptOutput>(wire).unwrap(),
+        picked
+    );
+}

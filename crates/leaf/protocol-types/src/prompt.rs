@@ -116,6 +116,10 @@ pub struct PromptInput<G = GraphWire> {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PromptOutput {
     pub messages: Vec<PromptMessage>,
+    /// The entity the prompt is about, as its full path, when the caller gave none and the prompt's subject argument
+    /// is optional (protocol 1.13.0, ADR 0314). Ignored when the caller gave one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject: Option<String>,
 }
 
 /// One message of a rendered prompt.
@@ -142,6 +146,13 @@ impl PromptOutput {
                 role: PromptRole::User,
                 text: text.into(),
             }],
+            subject: None,
         }
+    }
+
+    /// The answer names the entity the prompt is about, for a caller that gave no subject.
+    pub fn with_subject(mut self, path: impl Into<String>) -> Self {
+        self.subject = Some(path.into());
+        self
     }
 }

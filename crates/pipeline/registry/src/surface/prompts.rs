@@ -209,6 +209,17 @@ impl Ctx<'_> {
                     "its subject '{subject}' is not a reference argument it declares"
                 ));
             }
+            // An optional subject is positional, so a required positional after it would take its word (ADR 0314).
+            let at = prompt.args.iter().position(|a| a.name == *subject);
+            if let Some(at) = at.filter(|&at| !prompt.args[at].required)
+                && prompt.args[at + 1..]
+                    .iter()
+                    .any(|a| a.required && a.field_type != FieldType::Bool.as_str())
+            {
+                return Err(format!(
+                    "its optional subject '{subject}' is declared before a required positional argument"
+                ));
+            }
         }
         if let Some(setting) = &prompt.when {
             let is_bool = self
