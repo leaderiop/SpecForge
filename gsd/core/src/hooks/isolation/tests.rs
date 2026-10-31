@@ -83,6 +83,7 @@ fn git_of(root: &str) -> Git {
         toplevel: root.into(),
         git_dir,
         branch: branch.into(),
+        ..Git::default()
     }
 }
 

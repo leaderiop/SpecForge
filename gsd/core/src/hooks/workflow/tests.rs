@@ -53,6 +53,7 @@ fn on_branch(branch: &str, commands: &[&str]) -> Facts<'static> {
             toplevel: "/t".into(),
             git_dir: "/t/.git".into(),
             branch: branch.into(),
+            status: None,
         }),
         ..Facts::default()
     }

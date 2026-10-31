@@ -28,6 +28,8 @@ pub struct Git {
     pub git_dir: String,
     /// Empty when `HEAD` is detached.
     pub branch: String,
+    /// `reads_git_status`: `git status --porcelain=v2 --branch`.
+    pub status: Option<String>,
 }
 
 /// The tool and the facts of a hook call.
@@ -118,6 +120,7 @@ impl<'a> Facts<'a> {
                 toplevel: g.toplevel.clone(),
                 git_dir: g.git_dir.clone(),
                 branch: g.branch.clone(),
+                status: g.status.clone(),
             }),
         }
     }

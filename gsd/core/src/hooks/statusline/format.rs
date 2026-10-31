@@ -328,6 +328,69 @@ pub fn render_meter(m: &Meter, suffix: &str) -> String {
     }
 }
 
+/// What `git status --porcelain=v2 --branch` says (`parseGitStatus`).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GitInfo {
+    pub branch: String,
+    pub ahead: u32,
+    pub behind: u32,
+    pub staged: u32,
+    pub unstaged: u32,
+    pub untracked: u32,
+}
+
+/// Upstream's `parseGitStatus`: none when the text has no branch header. A conflict counts as unstaged; a detached
+/// head is `(detached)`, as porcelain v2 spells it.
+pub fn parse_git_status(text: &str) -> Option<GitInfo> {
+    let mut info = GitInfo::default();
+    for line in text.split('\n') {
+        if let Some(head) = line.strip_prefix("# branch.head ") {
+            info.branch = head.trim().to_string();
+        } else if let Some(ab) = line.strip_prefix("# branch.ab ") {
+            let mut counts = ab.split_whitespace().map(|c| c[1..].parse::<u32>().ok());
+            if let (Some(Some(a)), Some(Some(b))) = (counts.next(), counts.next()) {
+                (info.ahead, info.behind) = (a, b);
+            }
+        } else if line.starts_with("1 ") || line.starts_with("2 ") {
+            let mut xy = line[2..].chars();
+            info.staged += u32::from(xy.next().is_some_and(|c| c != '.'));
+            info.unstaged += u32::from(xy.next().is_some_and(|c| c != '.'));
+        } else if line.starts_with("u ") {
+            info.unstaged += 1;
+        } else if line.starts_with("? ") {
+            info.untracked += 1;
+        }
+    }
+    (!info.branch.is_empty()).then_some(info)
+}
+
+/// Upstream's `buildGitSegment`, plain (D-r44-13): the divider, the branch and the markers, or `✓` when there are none.
+pub fn git_segment(info: Option<&GitInfo>) -> String {
+    let Some(i) = info.filter(|i| !i.branch.is_empty()) else {
+        return String::new();
+    };
+    let markers: String = [
+        ('+', i.staged),
+        ('~', i.unstaged),
+        ('?', i.untracked),
+        ('\u{2191}', i.ahead),
+        ('\u{2193}', i.behind),
+    ]
+    .iter()
+    .filter(|(_, n)| *n > 0)
+    .map(|(m, n)| format!("{m}{n}"))
+    .collect();
+    format!(
+        " \u{2502} {}{}",
+        i.branch,
+        if markers.is_empty() {
+            "\u{2713}"
+        } else {
+            &markers
+        }
+    )
+}
+
 /// The segments of a line.
 #[derive(Debug, Clone, Default)]
 pub struct Line<'a> {

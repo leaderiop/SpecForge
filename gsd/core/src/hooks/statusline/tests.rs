@@ -93,6 +93,7 @@ fn opts(position: &str, compact: bool, tokens: bool) -> Options {
         compact,
         tokens,
         last_command: false,
+        show_git: false,
     }
 }
 
@@ -125,7 +126,9 @@ fn all_ported() -> Vec<String> {
     ported
 }
 
-const GIT: &str = "git: needs git status, which the kernel's facts do not carry (K20)";
+const GIT: &str = "git: no STATE.md stamp: the state is the graph";
+const GIT_REAL: &str = "git: the kernel runs git, not the hook; tests/cli/hooks_statusline.rs runs the segment against a real repository";
+const GIT_PROPERTIES: &str = "env: fast-check properties over generated porcelain output; the cases of parseGitStatus and buildGitSegment are the examples they generalise";
 const ENV: &str = "env: the auto-compact window overrides read the environment and Claude Code's settings files; the meter uses the model window";
 const FS: &str = "fs: reads STATE.md, a transcript, a todo file or the update cache; the graph replaces STATE.md";
 const BANNER: &str = "diverges: [update-banner] the update banner is dropped (D-r44-13)";
@@ -199,10 +202,10 @@ const SKIPPED: &[(&str, &str)] = &[
         "state_format via renderStatusline > ",
         "env: runs the hook on a project directory with a STATE.md; state_of's tests below and tests/cli/hooks_statusline.rs run the formats on the graph",
     ),
-    ("parseGitStatus > ", GIT),
-    ("buildGitSegment > ", GIT),
-    ("readGitStatus + parseGitStatus against a real repo > ", GIT),
-    ("show_git e2e through the hook > flag=true", GIT),
+    (
+        "readGitStatus + parseGitStatus against a real repo > ",
+        GIT_REAL,
+    ),
     ("package-identity exports > ", BANNER),
     ("worker result shape contract > ", BANNER),
     ("buildBannerOutput lineage guard > ", BANNER),
@@ -219,7 +222,7 @@ const SKIPPED: &[(&str, &str)] = &[
 
 #[test]
 fn the_statusline_accounts_for_every_upstream_case() {
-    assert_eq!(all_ported().len(), 92);
+    assert_eq!(all_ported().len(), 103);
     accounting::account(SUITE, &all_ported(), SKIPPED);
 }
 
@@ -233,11 +236,11 @@ fn the_git_properties_are_skipped_whole() {
         &[
             (
                 "gsd-statusline git segment: parseGitStatus properties > ",
-                GIT,
+                GIT_PROPERTIES,
             ),
             (
                 "gsd-statusline git segment: buildGitSegment properties > ",
-                GIT,
+                GIT_PROPERTIES,
             ),
         ],
     );
