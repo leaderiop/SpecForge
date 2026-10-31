@@ -468,7 +468,7 @@ impl RunError {
 /// 6. the view's graph is rendered as the graph export, with its computed values and judgements (ADR 0299)
 ///    (`specforge_emitter::emit`, at the project's versioned schema version, in the view's registry build)
 ///    and the `cmd__` export called with that `CommandInput`, which names the calling `host` when there is one
-///   (ADR 0318).
+///    (ADR 0318).
 ///
 /// A command the host refuses ([`ExtensionCommand::refusal`]) is not routed
 /// on either surface; `run` does not check it again (ADR 0011, "One
