@@ -18,6 +18,7 @@ mod hooks_support;
 mod accept;
 mod advisory;
 mod compute;
+mod core_calls;
 mod gate;
 mod hooks;
 mod injection;
