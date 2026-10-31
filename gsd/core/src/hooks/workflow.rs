@@ -110,9 +110,10 @@ fn subcommand_index(words: &[String]) -> Option<usize> {
         let name = word.split_once('=').map_or(word.as_str(), |(n, _)| n);
         if ARGUMENT_FLAGS.contains(&name) {
             i += if name.len() == word.len() { 2 } else { 1 };
-        } else if (word.starts_with("-c")
-            && word.contains('=')
-            && !word.contains(char::is_whitespace))
+        } else if word
+            .strip_prefix("-c")
+            .and_then(|r| r.split_once('='))
+            .is_some_and(|(key, _)| !key.contains(char::is_whitespace))
             || BOOLEAN_FLAGS.contains(&word.as_str())
         {
             i += 1;

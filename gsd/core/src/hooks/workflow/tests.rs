@@ -309,6 +309,10 @@ fn only_a_git_add_with_a_force_flag_before_the_double_dash_is_a_force_add() {
         assert!(blocks("git add --force x", branch));
         assert!(blocks("/usr/bin/git add -f x", branch));
         assert!(blocks("git -C /r add -Af x", branch));
+        assert!(
+            blocks("git '-cuser.name=a b' add -f x", branch),
+            "a glued -c value may hold spaces"
+        );
     }
     for command in [
         "git add -- -f",
