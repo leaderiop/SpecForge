@@ -204,9 +204,11 @@ impl From<OpError> for RenderError {
 }
 
 /// Render `prompt` over the project `view` describes, for `host`, with the arguments `given`. In order: the
-/// arguments are read and admitted; the entry gate is evaluated in the subject's scope (a failing gate is
-/// [`RenderError::Gate`], and the export is not called); the export is called with the typed arguments, the project
-/// root, today, the host and, if the prompt reads it, the graph; the payload is built from the answer.
+/// arguments are read and admitted; when the prompt's optional subject is absent the export is called first, to pick
+/// it (ADR 0314); the entry gate is evaluated in the subject's scope (a failing gate is [`RenderError::Gate`], and a
+/// given subject's export is not called); the export is called with the typed arguments, the project root, today, the
+/// host and, if the prompt reads them, the graph, its extension's state and the served slash commands; the payload
+/// is built from the answer.
 pub fn render(
     view: &ProjectView<'_>,
     prompt: &ExtensionPrompt,

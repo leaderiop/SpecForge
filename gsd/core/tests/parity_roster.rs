@@ -477,6 +477,25 @@ fn the_acceptance_counts_match() {
     assert_eq!(accept::config_keys()[0], 211);
 }
 
+/// REVIEW-k20b m5: each family's "Where" file in ACCEPTANCE.md exists.
+#[test]
+fn each_acceptance_where_path_exists() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut checked = 0;
+    for line in ACCEPTANCE
+        .lines()
+        .skip_while(|l| !l.starts_with("| Family | Total"))
+        .skip(2)
+        .take_while(|l| l.starts_with('|'))
+    {
+        let where_ = line.split('|').nth(7).unwrap_or_default();
+        let path = where_.split('`').nth(1).expect("a `path` in Where");
+        assert!(root.join(path).is_file(), "{path}: no such file");
+        checked += 1;
+    }
+    assert_eq!(checked, 9);
+}
+
 #[test]
 fn the_program_docs_shell_blocks_parse() {
     for (name, doc) in [

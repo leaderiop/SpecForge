@@ -9,7 +9,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 
 | Family | Total | Built | Owned later | Not applicable | Named open | Where |
 |---|---|---|---|---|---|---|
-| Commands | 72 | 50 | 22 | 0 | 0 | `core/src/prompts/roster.rs` |
+| Commands | 72 | 50 | 22 | 0 | 0 | `core/tests/common/roster.rs` |
 | Agents | 64 | 25 | 39 | 0 | 0 | `core/src/agents/roster.rs` |
 | Hooks | 28 | 15 | 0 | 11 | 2 | `core/src/hooks/roster.rs` |
 | Capabilities | 45 | 17 | 10 | 0 | 18 | `core/README.md` capability table |
