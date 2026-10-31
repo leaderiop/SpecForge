@@ -38,7 +38,8 @@ fn a_hook_sees_path_facts_it_cannot_read() {
     assert_eq!(
         facts,
         json!([{"path": "m.spec", "in_project": true, "in_spec_root": true, "exists": true,
-                "bytes": existing, "new_bytes": 1}])
+                "bytes": existing, "new_bytes": 1,
+                "real": std::fs::canonicalize(&root).unwrap().join("m.spec")}])
     );
     let outside = run_hook(
         &hosted,
@@ -49,7 +50,7 @@ fn a_hook_sees_path_facts_it_cannot_read() {
     assert_eq!(
         hosted.input("hook__write_guard")["paths"][0],
         json!({"path": "/elsewhere/x.txt", "in_project": false, "in_spec_root": false, "exists": false,
-               "bytes": null, "new_bytes": 1})
+               "bytes": null, "new_bytes": 1, "real": "/elsewhere/x.txt"})
     );
 }
 
@@ -248,4 +249,55 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
         let run = run_hook(&hosted, "core.human_guard", &shell(line));
         assert!(run.answer["decision"].is_null(), "{line}: {run:?}");
     }
+}
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the porcelain status"
+)]
+fn a_hook_that_reads_git_is_told_the_head() {
+    use specforge_project::history::{GitPlace, Located};
+    use specforge_project::testing::{FakeHistory, install};
+    let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
+    let root = std::fs::canonicalize(hosted.project.root()).unwrap();
+    let top = root.display().to_string();
+    let mut fake = FakeHistory::none();
+    fake.located = Located::Repo(GitPlace {
+        toplevel: root.clone(),
+        git_dir: root.join(".git"),
+        common_dir: root.join(".git"),
+        shallow: false,
+    });
+    fake.branch = "agent-x".into();
+    fake.status = "# branch.head agent-x\n? new.txt\n".into();
+    let none = run_hook(
+        &hosted,
+        "write_guard",
+        &write_event("claude-code", "/elsewhere/x.txt", "x"),
+    );
+    assert_eq!(none.answer["decision"], "allow");
+    assert!(hosted.input("hook__write_guard").get("git").is_none());
+    let _held = install(std::sync::Arc::new(fake));
+    run_hook(
+        &hosted,
+        "write_guard",
+        &write_event("claude-code", "/elsewhere/x.txt", "x"),
+    );
+    let input = hosted.input("hook__write_guard");
+    assert_eq!(
+        input["git"],
+        json!({"toplevel": top, "git_dir": format!("{top}/.git"), "branch": "agent-x"})
+    );
+    assert_eq!(input["paths"][0]["toplevel"], top);
+    assert!(input["paths"][0].get("in_git_dir").is_none());
+    run_hook(
+        &hosted,
+        "context_monitor",
+        &json!({"event": "post_tool", "host": "claude-code", "session": "s1",
+                "tool": {"name": "Write", "class": "write", "input": {"file_path": "/elsewhere/x.txt"}}}),
+    );
+    assert_eq!(
+        hosted.input("hook__context_monitor")["git"]["status"],
+        "# branch.head agent-x\n? new.txt\n"
+    );
 }

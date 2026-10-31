@@ -4,7 +4,8 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
-use specforge_protocol_types::{CommitFact, PathFact};
+use specforge_project::history::{History, Located};
+use specforge_protocol_types::{CommitFact, GitFacts, PathFact};
 
 use crate::host::shell;
 
@@ -80,6 +81,7 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
                     || rel == spec_root
                     || rel.starts_with(&format!("{spec_root}/"));
                 PathFact {
+                    real: absolute(cwd, &name).to_string_lossy().into_owned(),
                     path: rel,
                     in_project: true,
                     in_spec_root,
@@ -90,6 +92,7 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
                 }
             }
             None => PathFact {
+                real: absolute(cwd, &name).to_string_lossy().into_owned(),
                 path: name,
                 in_project: false,
                 in_spec_root: false,
@@ -100,6 +103,39 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
             },
         })
         .collect()
+}
+
+/// What git says of the repository `cwd` is in (ADR 0320): none outside one, or when git cannot be asked. `status`
+/// adds the porcelain status; a branch git cannot give is empty, a status it cannot give is none.
+pub fn git(history: &dyn History, cwd: &Path, status: bool) -> Option<GitFacts> {
+    let Located::Repo(place) = history.locate(cwd) else {
+        return None;
+    };
+    Some(GitFacts {
+        toplevel: place.toplevel.to_string_lossy().into_owned(),
+        git_dir: place.git_dir.to_string_lossy().into_owned(),
+        branch: history.branch(&place).unwrap_or_default(),
+        status: if status {
+            history.status(&place).ok()
+        } else {
+            None
+        },
+    })
+}
+
+/// For a path outside the project, the repository it is in and whether it is inside a `.git` directory (ADR 0320).
+// shortcut: `in_git_dir` is by name, so a `--separate-git-dir` repository's directory is not seen; upgrade when a
+// hook needs it.
+pub fn outside_git(history: &dyn History, fact: &mut PathFact) {
+    let real = Path::new(&fact.real);
+    fact.in_git_dir = real.components().any(|c| c.as_os_str() == ".git");
+    if let Some(Located::Repo(place)) = real
+        .ancestors()
+        .find(|a| a.is_dir())
+        .map(|d| history.locate(d))
+    {
+        fact.toplevel = Some(place.toplevel.to_string_lossy().into_owned());
+    }
 }
 
 /// The words of a shell tool's `command`; none when the tool has none or it cannot be read as shell.
@@ -314,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn a_path_outside_the_project_is_named_as_given_and_never_looked_at() {
+    fn a_path_outside_the_project_is_named_as_given_with_its_real_path() {
         let dir = tempfile::tempdir().unwrap();
         let facts = path_facts(
             dir.path(),
@@ -325,5 +361,8 @@ mod tests {
         assert_eq!(facts.len(), 1);
         assert!(!facts[0].in_project && !facts[0].exists && facts[0].bytes.is_none());
         assert_eq!(facts[0].path, "/etc/hosts");
+        let real = std::fs::canonicalize("/etc/hosts")
+            .map_or("/etc/hosts".into(), |p| p.to_string_lossy().into_owned());
+        assert_eq!(facts[0].real, real);
     }
 }

@@ -47,7 +47,7 @@ pub use gsd_writes::{
     CORE, GSD_WRITES_EXTENSIONS, GUARDED, GsdWrites, OTHER, UI, gsd_writes_answer, gsd_writes_wire,
     revision_of,
 };
-pub use history::FakeHistory;
+pub use history::{FakeHistory, Installed, install};
 pub use judged::{
     GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, declare_gsd_judged, gsd_judged_builder,
     gsd_judged_project, gsd_judged_rules, gsd_judged_runtime, gsd_judged_wire,

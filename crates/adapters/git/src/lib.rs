@@ -364,4 +364,19 @@ impl History for GitCli {
         }
         Ok(found)
     }
+    // shortcut: these calls use the adapter's 10 s deadline, past a hook's budget of `timeout_ms + 5 s`; a host that
+    // kills the hook first fails open, as upstream does when its probe times out. Upgrade for a hard bound (ADR 0320).
+    fn branch(&self, place: &GitPlace) -> Result<String, HistoryError> {
+        let out = self.ok(&place.toplevel, &["branch", "--show-current"], None)?;
+        Ok(String::from_utf8_lossy(&out).trim().to_string())
+    }
+
+    fn status(&self, place: &GitPlace) -> Result<String, HistoryError> {
+        let out = self.ok(
+            &place.toplevel,
+            &["status", "--porcelain=v2", "--branch"],
+            None,
+        )?;
+        Ok(String::from_utf8_lossy(&out).into_owned())
+    }
 }

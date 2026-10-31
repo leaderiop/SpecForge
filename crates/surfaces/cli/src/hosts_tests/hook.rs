@@ -137,3 +137,74 @@ fn an_unreadable_event_applies_the_failure_policy() {
     assert!(denied("t.write_guard", &over));
     assert!(!denied("t.nobody", &over));
 }
+
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "a hook is told an outside path's real path, and with reads_git its toplevel and whether it is inside a git directory"
+)]
+fn a_hook_is_told_the_real_path_and_toplevel_of_an_outside_path() {
+    use std::process::Command;
+    let git = |dir: &std::path::Path, args: &[&str]| {
+        Command::new("git")
+            .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+            .args(args)
+            .current_dir(dir)
+            .status()
+            .is_ok_and(|s| s.success())
+    };
+    if Command::new("git").arg("--version").output().is_err() {
+        return;
+    }
+    let project = project(json!({}), json!({}));
+    let root = project.root().to_path_buf();
+    let other = tempfile::tempdir().unwrap();
+    let other_root = std::fs::canonicalize(other.path()).unwrap();
+    std::fs::create_dir_all(other_root.join("src")).unwrap();
+    assert!(
+        git(&root, &["init", "-q", "-b", "main"])
+            && git(&root, &["commit", "-q", "--allow-empty", "-m", "init"])
+            && git(&other_root, &["init", "-q", "-b", "main"])
+    );
+    std::os::unix::fs::symlink(other_root.join("src"), root.join("mainsrc")).unwrap();
+    let _git =
+        specforge_project::testing::install(std::sync::Arc::new(specforge_git::GitCli::default()));
+    let canonical_root = std::fs::canonicalize(&root).unwrap();
+    let write = |file: &std::path::Path| {
+        json!({"hook_event_name": "PreToolUse", "tool_name": "Write", "session_id": "s1", "cwd": root,
+               "tool_input": {"file_path": file, "content": "x"}})
+    };
+    let run = hook(
+        &project,
+        "t.write_guard",
+        "claude-code",
+        &["--event", "pre_tool", "--tools", "write"],
+        &write(&root.join("mainsrc/a.ts")),
+    );
+    let input = run.input.expect("the guard was called");
+    let path = &input["paths"][0];
+    assert_eq!(path["in_project"], false, "{path}");
+    assert_eq!(
+        path["path"],
+        root.join("mainsrc/a.ts").display().to_string()
+    );
+    assert_eq!(
+        path["real"],
+        other_root.join("src/a.ts").display().to_string()
+    );
+    assert_eq!(path["toplevel"], other_root.display().to_string());
+    assert_eq!(
+        input["git"]["toplevel"],
+        canonical_root.display().to_string()
+    );
+    assert_eq!(input["git"]["branch"], "main");
+    let run = hook(
+        &project,
+        "t.write_guard",
+        "claude-code",
+        &["--event", "pre_tool", "--tools", "write"],
+        &write(&other_root.join(".git/config")),
+    );
+    let path = &run.input.unwrap()["paths"][0];
+    assert_eq!(path["in_git_dir"], true, "{path}");
+}

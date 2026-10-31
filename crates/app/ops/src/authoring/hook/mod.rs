@@ -94,6 +94,9 @@ pub fn run(
     }
 
     let spec = spec_root(view);
+    let history = (declared.reads_git || declared.reads_git_status)
+        .then(|| view.env().history())
+        .flatten();
     let tool = event.tool.as_ref();
     let at = crate::extension::command::instant();
     let input = HookInput::<RawGraph> {
@@ -108,9 +111,20 @@ pub fn run(
             name: t.name.clone(),
             input: t.input.clone(),
         }),
-        paths: tool
-            .map(|t| facts::path_facts(root, &cwd, &spec, &t.input))
-            .unwrap_or_default(),
+        paths: {
+            let mut paths = tool
+                .map(|t| facts::path_facts(root, &cwd, &spec, &t.input))
+                .unwrap_or_default();
+            if let Some(history) = &history {
+                for fact in paths.iter_mut().filter(|f| !f.in_project) {
+                    facts::outside_git(&**history, fact);
+                }
+            }
+            paths
+        },
+        git: history
+            .as_ref()
+            .and_then(|h| facts::git(&**h, &cwd, declared.reads_git_status)),
         shell: tool
             .filter(|t| t.class == "shell")
             .and_then(|t| facts::shell_words(&t.input)),

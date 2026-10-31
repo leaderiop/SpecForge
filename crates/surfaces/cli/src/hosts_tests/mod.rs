@@ -151,6 +151,8 @@ pub struct Hooked {
     pub exports: Vec<String>,
     /// The `__pass_*` calls the run made at all: the compile's checks.
     pub passes: usize,
+    /// The input of the last `hook__*` call the guest was sent.
+    pub input: Option<Value>,
 }
 
 #[derive(clap::Parser)]
@@ -217,6 +219,12 @@ pub fn hook_bytes(
             .iter()
             .filter(|c| c.export.starts_with("__pass_"))
             .count(),
+        input: runtime
+            .calls()
+            .into_iter()
+            .rev()
+            .find(|c| c.export.starts_with("hook__"))
+            .map(|c| c.input),
     }
 }
 
