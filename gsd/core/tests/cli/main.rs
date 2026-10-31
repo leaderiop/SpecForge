@@ -2,6 +2,8 @@
 
 mod agents;
 mod baseline;
+// shells out through `bash` and links with `std::os::unix`
+#[cfg(unix)]
 mod capability_points;
 mod cmd_attest;
 mod cmd_digest;

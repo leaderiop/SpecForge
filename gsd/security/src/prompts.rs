@@ -149,6 +149,7 @@ fn handle(call: &PromptCall<'_>) -> Result<PromptOutput, String> {
         files: FILES,
         tail: &tail(&phase),
         asset,
+        // shortcut: every gsd-core path security's texts name is a core asset; ask core's list when one is not
         repoint: |text, host| repoint::repoint(text, host, &|_| true),
     })?;
     let out = PromptOutput::user(text);
