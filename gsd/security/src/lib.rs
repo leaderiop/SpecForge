@@ -1,6 +1,7 @@
 //! `@gsd/security`: GSD's security capability for SpecForge (plan 16): the threat model as kinds, the security audit,
 //! `/gsd-secure-phase` and the ship gate. A capability extension of `@gsd/core` (ADR gsd/0002).
 
+pub mod agents;
 pub mod codes;
 pub mod commands;
 pub mod kinds;
@@ -32,6 +33,7 @@ impl Contributions for GsdSecurity {
         commands::declare(c);
         kinds::declare(c);
         passes::declare(c);
+        agents::declare(c);
     }
 }
 
