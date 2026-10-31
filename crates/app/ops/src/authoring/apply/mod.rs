@@ -77,7 +77,7 @@ pub(super) fn invalid(number: usize, message: impl std::fmt::Display) -> OpError
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Surface {
     Mcp,
-    /// `interactive`: stdin and stdout are a terminal, so a person is at the keyboard.
+    /// `interactive`: stdin is a terminal. A person at the keyboard has one; so does an agent's pty shell (ADR 0301).
     Cli {
         interactive: bool,
     },

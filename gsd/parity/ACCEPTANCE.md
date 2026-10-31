@@ -110,7 +110,13 @@ Not verified:
   hand a cut body whose first line is complete, and resolves it).
 - The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
   `approve_validation`, `waive_window`, `dispose_refactor`) are run by the person at a terminal and refused to an agent
-  (ADR 0301); upstream's agent transcribes the person's reply. `pause` stays an agent's.
+  (ADR 0301); upstream's agent transcribes the person's reply. `pause` stays an agent's. An automated UAT result
+  (upstream's `auto_passed`, recorded without asking the person) is the agent's: `record_automated_uat` writes
+  `source: automated`, and `set_uat_result --source automated` is refused with a hint naming it (REVIEW-k20a M1).
+- Limit of the human-attested commands: the proof is that stdin is a terminal. An agent shell that is itself a pty
+  (Cursor's agent terminal, Codex's pty exec) passes it, and so does `script(1)`; there the gate is an honest-agent
+  gate. A PreToolUse shell guard that refuses these commands from an agent's shell tool is planned in K20c, not built
+  (REVIEW-k20a M2).
 - A threshold's bounds are whole numbers (D-K20a-9): `hooks.context_critical_threshold` takes `99.5`, which GSD refuses.
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
