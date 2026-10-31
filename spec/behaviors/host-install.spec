@@ -45,6 +45,11 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "a hook command repeats --paths per glob, so a glob holding a comma reaches the hook whole"
   verify unit "a marked file whose line ends became CRLF is not an edited file"
   verify unit "doctor reports an install that wrote only config entries as stale"
+  verify unit "install, uninstall and install --check refuse a specforge.json the compile reports as E069 and write nothing"
+  verify unit "install refuses a host config of the wrong shape, naming the key, and writes nothing on any host"
+  verify unit "uninstall refuses a marked file edited since and names uninstall --force"
+  verify unit "uninstall removes only what install created: a config file, a key and a directory the user had stay"
+  verify unit "uninstall removes the empty host directories install created, the host's root included"
 }
 
 behavior run_a_hook "Run a Hook" {
