@@ -257,14 +257,16 @@ impl Scopes {
 
     /// The entities `written` names when its numeric segments are read whatever their zero padding (ADR 0315): the
     /// paths whose last segments, as many as `written` has, each equal the written one or are numeric ids that
-    /// normalize alike. One is [`Found::One`], several [`Found::Ambiguous`] (sorted), none [`Found::None`] with no
-    /// candidates. Called by a surface after an exact miss, never by the linker.
+    /// normalize alike (all of them when `written` is rooted). One is [`Found::One`], several [`Found::Ambiguous`]
+    /// (sorted), none [`Found::None`] with no candidates. Called by a surface after an exact miss, never by the linker.
     pub fn numeric(&self, written: &str) -> Found {
         if written.contains(':') {
             return Found::None(Vec::new());
         }
+        let rooted = written.starts_with('/');
         let wanted: Vec<&str> = written.trim_start_matches('/').split('/').collect();
-        if wanted.iter().any(|s| s.is_empty()) {
+        // With no numeric segment the exact and suffix lookups before this already said all there is.
+        if wanted.iter().any(|s| s.is_empty()) || !wanted.iter().any(|s| numeric_key(s).is_some()) {
             return Found::None(Vec::new());
         }
         let alike = |segment: &str, written: &str| {
@@ -278,7 +280,8 @@ impl Scopes {
             .copied()
             .filter(|path| {
                 let segments: Vec<&str> = path.as_str().split('/').collect();
-                segments.len() >= wanted.len()
+                // A rooted spelling names a whole path, so it takes no suffix (ADR 0284).
+                (segments.len() == wanted.len() || !rooted && segments.len() > wanted.len())
                     && segments[segments.len() - wanted.len()..]
                         .iter()
                         .zip(&wanted)

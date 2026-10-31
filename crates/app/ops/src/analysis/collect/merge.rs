@@ -32,7 +32,7 @@ impl KnownEntities {
     }
 
     /// The entity `id` names, as the test report reads an id (ADR 0284, ADR 0312): an exact key; else `id` rooted
-    /// (one leading `/`); else the one key that is `id` or ends with `/{id}` at a segment boundary.
+    /// (one leading `/`); else, for an unrooted `id`, the one key that ends with `/{id}` at a segment boundary.
     pub(super) fn resolve<'a>(&'a self, id: &str) -> Resolved<'a> {
         if let Some((key, _)) = self.0.get_key_value(id) {
             return Resolved::Exact(key);
@@ -43,7 +43,10 @@ impl KnownEntities {
         {
             return Resolved::Rekeyed(key);
         }
-        let suffix = format!("/{}", id.trim_start_matches('/'));
+        if id.starts_with('/') {
+            return Resolved::Unknown;
+        }
+        let suffix = format!("/{id}");
         let mut named: Vec<&str> = self
             .0
             .keys()

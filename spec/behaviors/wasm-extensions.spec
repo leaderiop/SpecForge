@@ -571,6 +571,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
   verify contract "Ingest Collector Report: collector report ingestion holds — collector_dispatched_fired, graph_available, collector_report_ingested_emitted, runner_results_replaced, unknown_entities_warned, skipped_not_recorded, one_vocabulary, merged_report_written"
   verify unit "collect files a test reported for an entity's short id under its full path"
   verify unit "collect reads a rooted test id as its path"
+  verify unit "a rooted test id that is not exact stays unknown"
   verify unit "an ambiguous short test id is W115 and names its candidates"
   verify unit "collect matches a short test id at a segment boundary only"
   verify unit "two spellings of one entity's test are recorded once"

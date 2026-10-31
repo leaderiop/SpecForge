@@ -344,3 +344,30 @@ fn a_numeric_segment_matches_its_padded_form() {
         "{diagnostics:?}"
     );
 }
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a rooted spelling is never a suffix, numeric or not"
+)]
+fn a_rooted_spelling_is_never_a_suffix() {
+    use specforge_graph::Found;
+
+    let mut graph = Graph::new();
+    placed(&mut graph, "v1.0", "milestone", None);
+    placed(&mut graph, "v1.0/03", "phase", Some("v1.0"));
+    placed(&mut graph, "v1.0/03/03-01", "plan", Some("v1.0/03"));
+    for rooted in ["/3", "/03", "/03-01", "/01-01"] {
+        assert!(matches!(graph.find(rooted), Found::None(_)), "{rooted}");
+    }
+    assert_eq!(
+        graph.find("/v1.0/3"),
+        Found::One(specforge_common::Sym::new("v1.0/03"))
+    );
+    // A root-level phase is still found by its padded rooted spelling.
+    placed(&mut graph, "04", "phase", None);
+    assert_eq!(
+        graph.find("/4"),
+        Found::One(specforge_common::Sym::new("04"))
+    );
+    assert!(matches!(graph.find("3"), Found::One(_)));
+}

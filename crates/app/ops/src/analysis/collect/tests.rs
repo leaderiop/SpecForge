@@ -440,3 +440,22 @@ fn two_spellings_of_one_entity_merge_once() {
     assert_eq!(report.results["v1.0/03/TR1"].tests.len(), 1);
     assert_eq!((stats.entities, stats.passed), (1, 1));
 }
+
+#[specforge_test(
+    behavior = "ingest_collector_report",
+    verify = "a rooted test id that is not exact stays unknown"
+)]
+fn a_rooted_unknown_id_stays_unknown() {
+    let known = known(&["v1.0/03/TR1"]);
+    let mut report = empty_report();
+    let (stats, diags) = merge(
+        &mut report,
+        "vitest",
+        &collected(&[("/TR1", "t1", TestStatus::Passed)]),
+        &known,
+    );
+    assert_eq!(stats.entities, 0);
+    assert!(report.results.is_empty());
+    assert_eq!(diags.len(), 1);
+    assert_eq!(diags[0].code, "W115");
+}
