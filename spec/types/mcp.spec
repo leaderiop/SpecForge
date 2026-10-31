@@ -522,18 +522,20 @@ type McpExtensionSettings "Mcp Extension Settings" {
 
 type McpSettingRow "Mcp Setting Row" {
   /// The name; a family's key as written.
-  name        string @readonly
-  field_type  string
+  name          string   @readonly
+  field_type    string
   /// The effective value; absent: unset.
-  value       any    @optional
+  value         any      @optional
   /// "explicit", "preset", "default" or "unset".
-  origin      string
+  origin        string
   /// For a preset, the setting and value that selected it.
-  preset      string @optional
-  default     any    @optional
+  preset        string   @optional
+  default       any      @optional
   /// The codes this bool setting gates while it is false.
-  gates       string[]
-  description string @optional
+  gates         string[]
+  /// The codes this bool setting gates while it is true.
+  gates_when_on string[] @optional
+  description   string   @optional
   verify unit "McpSettingRow schema is valid"
 }
 

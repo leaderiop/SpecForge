@@ -420,7 +420,6 @@ fn resolve_raw(items: Value, settings: Value) -> (ResolvedSettings, Vec<Diagnost
     behavior = "load_extension_settings",
     verify = "a bool setting gates codes while it is on"
 )]
-#[ignore = "pins K20a; T15 un-ignores"]
 fn a_bool_setting_gates_codes_while_it_is_on() {
     let items = json!([{"kind": "setting", "name": "x.enforce", "field_type": "bool", "default": false,
                         "gates_when_on": ["W900"]}]);

@@ -259,14 +259,20 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
             if let Some(default) = &declared.descriptor.default {
                 lines.push(format!("default: `{default}`"));
             }
-            for code in &declared.descriptor.gates {
+            let descriptor = &declared.descriptor;
+            for (code, when) in descriptor.gates.iter().map(|c| (c, "gates")).chain(
+                descriptor
+                    .gates_when_on
+                    .iter()
+                    .map(|c| (c, "gates while on")),
+            ) {
                 let qualified = specforge_diagnostics::qualify(extension, code);
                 let state = if resolved.gated().contains(&qualified) {
                     "not reported now"
                 } else {
                     "reported"
                 };
-                lines.push(format!("gates `{qualified}`: {state}"));
+                lines.push(format!("{when} `{qualified}`: {state}"));
             }
             lines.join("\n\n")
         }

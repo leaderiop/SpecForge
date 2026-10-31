@@ -95,6 +95,11 @@ impl SettingBuilder {
         self.0.gates = codes.iter().map(|c| c.to_string()).collect();
         self
     }
+    /// Local codes reported by no source while this bool setting is true (ADR 0305).
+    pub fn gates_when_on(&mut self, codes: &[&str]) -> &mut Self {
+        self.0.gates_when_on = codes.iter().map(|c| c.to_string()).collect();
+        self
+    }
 }
 
 impl From<SettingBuilder> for SettingDescriptor {

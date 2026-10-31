@@ -279,6 +279,13 @@ impl Args {
                         if !setting.gates.is_empty() {
                             outln!(terminal, "      gates {}", setting.gates.join(", "));
                         }
+                        if !setting.gates_when_on.is_empty() {
+                            outln!(
+                                terminal,
+                                "      gates while on {}",
+                                setting.gates_when_on.join(", ")
+                            );
+                        }
                     }
                     for secret in &row.secrets {
                         let state = if secret.set { "set" } else { "not set" };

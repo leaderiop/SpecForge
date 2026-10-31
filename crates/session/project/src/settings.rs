@@ -597,11 +597,18 @@ fn preset(
                     },
                 },
             };
-            if setting.value == Some(Value::Bool(false)) {
-                resolved
-                    .gated
-                    .extend(descriptor.gates.iter().map(|code| qualify(extension, code)));
-            }
+            let off = setting.value == Some(Value::Bool(false));
+            let on = setting.value == Some(Value::Bool(true));
+            let gating: &[String] = if off {
+                &descriptor.gates
+            } else if on {
+                &descriptor.gates_when_on
+            } else {
+                &[]
+            };
+            resolved
+                .gated
+                .extend(gating.iter().map(|code| qualify(extension, code)));
             values.insert(key.to_string(), setting);
         }
         resolved
