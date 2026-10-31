@@ -2,6 +2,7 @@
 //! `/gsd-secure-phase` and the ship gate. A capability extension of `@gsd/core` (ADR gsd/0002).
 
 pub mod codes;
+pub mod commands;
 pub mod kinds;
 mod passes;
 pub mod settings;
@@ -28,6 +29,7 @@ impl Contributions for GsdSecurity {
         c.peer("@gsd/core", CORE_RANGE);
         settings::declare(c);
         codes::declare(c);
+        commands::declare(c);
         kinds::declare(c);
         passes::declare(c);
     }

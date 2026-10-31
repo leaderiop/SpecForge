@@ -12,6 +12,9 @@ use std::collections::BTreeSet;
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
+use crate::commands::support::name_of;
+use crate::commands::threat_ids::{claims, duplicates};
+
 /// Severities, lowest first; a threshold of `none` is not in the list and blocks nothing.
 const ORDER: &[&str] = &["low", "medium", "high", "critical"];
 
@@ -27,6 +30,57 @@ pub fn declare(c: &mut ContributionsBuilder) {
         let names: Vec<&str> = computes.iter().map(String::as_str).collect();
         p.compute().computes(&names).run(compute);
     });
+    c.pass("threat_ids", |p| {
+        p.phase("check").run(threat_ids);
+    });
+}
+
+/// `gsd.security/E101` on each threat that claims an ID another plan of its phase claims.
+fn threat_ids(input: &PassInput) -> Vec<PassDiagnostic> {
+    let name = |id: &str| name_of(id).to_string();
+    let claimed: Vec<(String, &PassEntity, String)> = of_kind(input, "threat")
+        .filter(|t| claims(&name(&t.id)))
+        .filter_map(|t| {
+            let plan = link(input, &t.id, "plan")?;
+            Some((name(link(input, plan, "phase")?), t, name(plan)))
+        })
+        .collect();
+    let duplicated = duplicates(
+        claimed
+            .iter()
+            .map(|(p, t, plan)| (p.as_str(), name_of(&t.id), plan.as_str())),
+    );
+    let highest = |phase: &str| {
+        claimed
+            .iter()
+            .filter(|(p, _, _)| p == phase)
+            .filter_map(|(_, t, _)| name(&t.id).rsplit('-').next()?.parse::<u64>().ok())
+            .max()
+            .unwrap_or(0)
+    };
+    claimed
+        .iter()
+        .filter_map(|(phase, threat, _)| {
+            let (_, id, plans) = duplicated
+                .iter()
+                .find(|(p, id, _)| *p == phase && *id == name_of(&threat.id))?;
+            Some(
+                PassDiagnostic::new(
+                    "E101",
+                    PassSeverity::Error,
+                    format!(
+                        "threat ID {id} is claimed by more than one plan of phase {phase}: {}",
+                        plans.join(", ")
+                    ),
+                )
+                .with_suggestion(format!(
+                    "renumber it after the phase's highest, T-{phase}-{:02}",
+                    highest(phase) + 1
+                ))
+                .with_entity(&threat.id),
+            )
+        })
+        .collect()
 }
 
 fn of_kind<'a>(input: &'a PassInput, kind: &'a str) -> impl Iterator<Item = &'a PassEntity> {

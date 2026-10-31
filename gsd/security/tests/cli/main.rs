@@ -11,6 +11,7 @@ mod harness;
 mod compute;
 mod model;
 mod settings;
+mod threat_ids;
 
 use specforge_extension_sdk::testing::MockHost;
 
