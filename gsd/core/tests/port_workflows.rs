@@ -1,5 +1,5 @@
 //! The ported workflows, references, templates and command files against the vendored upstream files (gsd-core
-//! v1.18.0, D-r42-4): line for line, a line may differ only where upstream's names `.planning`, `gsd-tools`,
+//! v1.19.0, D-r42-4): line for line, a line may differ only where upstream's names `.planning`, `gsd-tools`,
 //! `gsd_run` or `gsd-sdk`, or where a link left the tree (`REWRITTEN`).
 
 use std::path::{Path, PathBuf};

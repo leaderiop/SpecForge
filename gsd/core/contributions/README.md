@@ -1,7 +1,7 @@
 # Contributions
 
 **Status: built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 hooks and the install goldens (r44, K20c), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
-(K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
+(K8, K9). Generated from gsd-core 1.19.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
 Every `@gsd/*` extension declares `ext_short: "gsd"`, so all of them route under `gsd`; a clash between them is E039.
@@ -49,7 +49,7 @@ ambiguous one, naming each candidate).
 
 ## Round and mechanism of each command
 
-Every `/gsd-*` command of v1.18.0 has one owner and one round (`tests/roster.rs` checks the 72 rows against the vendored `commands.json`). The 22 commands of the capability extensions are owned and named; each is served when its extension ships.
+Every `/gsd-*` command of v1.19.0 has one owner and one round (`tests/roster.rs` checks the 72 rows against the vendored `commands.json`). The 22 commands of the capability extensions are owned and named; each is served when its extension ships.
 
 | Command | Round | Mechanism |
 |---|---|---|

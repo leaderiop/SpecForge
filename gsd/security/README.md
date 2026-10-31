@@ -1,6 +1,6 @@
 # `@gsd/security`
 
-**Status: built, 1.0.0, tracking gsd-core 1.18.0** (plan 16). GSD's security capability: the threat model and
+**Status: built, 1.0.0, tracking gsd-core 1.19.0** (plan 16). GSD's security capability: the threat model and
 `NN-SECURITY.md` as kinds, `/gsd-secure-phase` and `gsd-security-auditor`, the advisory and the gate the ship workflow runs
 for a phase with open threats at or above `workflow.security_block_on`. Peer: `@gsd/core`. Shape and decisions:
 [ADR gsd/0002](../adr/0002-a-capability-extension-plugs-into-core-at-its-hook-points.md).

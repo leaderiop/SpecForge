@@ -129,7 +129,7 @@ fn validation_row_gains_threat_and_secure_behavior() {
     assert_eq!(names, ["threat", "secure_behavior"]);
 }
 
-/// SECURITY.md's columns at v1.18.0 (`gsd-core/templates/SECURITY.md`; T19 vendors the file, and this copy names the
+/// SECURITY.md's columns at v1.19.0 (`gsd-core/templates/SECURITY.md`; T19 vendors the file, and this copy names the
 /// upstream path until the test reads it), each with the field that holds it. `None`: SpecForge's own form.
 const TEMPLATE_COLUMNS: &[(&str, &str, Option<&str>)] = &[
     ("frontmatter", "phase", Some("security_audit.phase")),

@@ -59,7 +59,7 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | reversibility | {rating enum{reversible, costly, one_way} R, why str, settled_by → decision} | | `<reversibility>`; `settled_by` names the decision (a context decision, a project one, a checkpoint's) that already settles a one-way door: GSD's "unless the decision is already settled", made checkable (gsd/W308) |
 | action | text | R | `<action>` |
 | verify | {automated str R, fails_when str} | | `<verify><automated>` and its `<fails_when>`: a block list, N commands with N failing-direction statements (required for `auto`; gsd/E303, gsd/E507) |
-| verify_text | str | | a bare `<verify>` body (the v1.18.0 template's shape): not an `<automated>` command, so neither gsd/E320 nor gsd/E507 reads it |
+| verify_text | str | | a bare `<verify>` body (the v1.19.0 template's shape): not an `<automated>` command, so neither gsd/E320 nor gsd/E507 reads it |
 | verify_human | str | | `<verify><human-check>`: harvested into UAT |
 | acceptance | strs | | `<acceptance_criteria>` |
 | done | str | R | `<done>` |

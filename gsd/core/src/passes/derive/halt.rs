@@ -1,5 +1,5 @@
 //! Halt propagation over a phase's `depends_on` graph: a port of `computeHaltPropagation`
-//! (`src/plan-dependency-graph.cts:222-292`, gsd-core v1.18.0, MIT, `LICENSE-GSD`).
+//! (`src/plan-dependency-graph.cts:222-292`, gsd-core v1.19.0, MIT, `LICENSE-GSD`).
 //!
 //! A plan whose summary says `halted` blocks every plan that depends on it, at any depth. A plan on a dependency
 //! cycle, or downstream of one, never reaches a valid order, so it fails closed: it is blocked too (upstream gives it

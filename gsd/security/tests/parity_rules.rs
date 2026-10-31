@@ -217,7 +217,7 @@ fn every_divergence_tag_the_crate_names_is_listed_in_acceptance() {
     }
 }
 
-/// The divergences of `@gsd/security` from upstream 1.18.0 (plan 16's inventory, and the ones the build found).
+/// The divergences of `@gsd/security` from upstream 1.19.0 (plan 16's inventory, and the ones the build found).
 pub fn gsd_divergences() -> [&'static str; 16] {
     [
         "blocking-needs-security",

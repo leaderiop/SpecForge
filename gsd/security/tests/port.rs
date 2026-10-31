@@ -1,4 +1,4 @@
-//! The ported `gsd-security-auditor` against the vendored upstream files (gsd-core v1.18.0), line for line under
+//! The ported `gsd-security-auditor` against the vendored upstream files (gsd-core v1.19.0), line for line under
 //! core's port rule, its descriptor, and the two cases of upstream's `secure-phase-single-writer.test.cjs`.
 
 use std::path::{Path, PathBuf};

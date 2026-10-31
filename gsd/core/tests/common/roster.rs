@@ -1,4 +1,4 @@
-//! The 72 commands of gsd-core v1.18.0 and who serves each (D-r43-14): the table "Who owns each of upstream's 72
+//! The 72 commands of gsd-core v1.19.0 and who serves each (D-r43-14): the table "Who owns each of upstream's 72
 //! commands" as code. A rendered text may name a `/gsd-<x>` only when `x` is a row here, and `tests/roster.rs` checks
 //! the rows against the vendored `commands.json` and the README's Commands table. The routers and `/gsd-next` read the
 //! slash commands the project serves, not this table (ADR 0316).

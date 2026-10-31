@@ -45,13 +45,13 @@ milestone to sit in; the test asserts both so a change to either is noticed.
 ### Re-recording
 
 ```sh
-(cd ~/Projects/OpenSource/gsd-core && git archive v1.18.0 | tar -x -C /tmp/gsd-core-1.18.0)
-(cd /tmp/gsd-core-1.18.0 && npm ci --ignore-scripts && npm run build:lib)
-GSD_CORE_DIR=/tmp/gsd-core-1.18.0 gsd/parity/record.sh
+(cd ~/Projects/OpenSource/gsd-core && git archive v1.19.0 | tar -x -C /tmp/gsd-core-1.19.0)
+(cd /tmp/gsd-core-1.19.0 && npm ci --ignore-scripts && npm run build:lib)
+GSD_CORE_DIR=/tmp/gsd-core-1.19.0 gsd/parity/record.sh
 git diff --exit-code gsd/parity/goldens
 ```
 
-The script refuses a `GSD_CORE_DIR` that is not 1.18.0, runs the verbs on a copy of the fixture that is its own git
+The recipe needs node 24 or later (the tag's `engines.node`). The script refuses a `GSD_CORE_DIR` that is not 1.19.0, runs the verbs on a copy of the fixture that is its own git
 repository (so `validate health` does not report the machine's worktrees), runs the fixture's `npm test` (node's JUnit
 reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing. To track a newer release, change the tag in `upstream/` and here, re-record, and review
 the diff of the goldens: that diff is the parity backlog.

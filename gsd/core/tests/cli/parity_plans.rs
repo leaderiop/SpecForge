@@ -1,4 +1,4 @@
-//! The taskboard's SpecForge twin of its plans, and the gate-cutover twin, against what gsd-tools 1.18.0 says
+//! The taskboard's SpecForge twin of its plans, and the gate-cutover twin, against what gsd-tools 1.19.0 says
 //! (parity suite): `phase-plan-index`, `verify plan-structure` and the plan-time `check` gates. The goldens come from
 //! `record.sh` (taskboard) and from gsd-core's own `tests/fixtures/gate-cutover/` (the other project).
 

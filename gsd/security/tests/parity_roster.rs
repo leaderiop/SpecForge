@@ -1,4 +1,4 @@
-//! The parity roster of `@gsd/security` (plan 16 T25): every security item of the vendored gsd-core 1.18.0 inventory is
+//! The parity roster of `@gsd/security` (plan 16 T25): every security item of the vendored gsd-core 1.19.0 inventory is
 //! built here, served by `@gsd/core`, or not applicable with a reason, and the numbers of ACCEPTANCE's security table
 //! are computed from the tables below.
 

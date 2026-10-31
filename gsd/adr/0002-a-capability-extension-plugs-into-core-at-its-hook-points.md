@@ -5,7 +5,7 @@ Extends [ADR gsd/0001](0001-one-cargo-workspace-built-on-demand.md).
 
 ## Context
 
-Upstream gsd-core v1.18.0 splits GSD into a core and capabilities. A capability is a `capability.json` of steps,
+Upstream gsd-core v1.19.0 splits GSD into a core and capabilities. A capability is a `capability.json` of steps,
 contributions and gates at named points (`verify:post`, `plan:pre`, `ship:pre`, ...); `gsd-tools loop render-hooks
 <point>` renders the active ones into a workflow, and `gsd-tools check predicate` evaluates a gate. `@gsd/core`
 (r34-r44) ports the workflows with 22 stubs, `X_HOOKS_JSON="[]"`, where upstream ran `loop render-hooks`: the loop
@@ -29,7 +29,7 @@ gsd/
 │                       attribution, the capability-hook renderer; no assets, no export
 ├── core/               gsd-core, depends on gsd-kit
 └── security/           gsd-security (cdylib + rlib), depends on gsd-kit
-    ├── Cargo.toml      [package.metadata.gsd] tracks = "gsd-core@1.18.0"
+    ├── Cargo.toml      [package.metadata.gsd] tracks = "gsd-core@1.19.0"
     ├── README.md       status, model, rosters (no contributions/ folder: one command, one agent)
     ├── spec/README.md  the model: kinds, codes (a table a test parses), settings, commands, hooks
     ├── LICENSE-GSD     upstream's MIT notice (copy of core's)

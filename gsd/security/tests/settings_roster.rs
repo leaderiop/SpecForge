@@ -1,4 +1,4 @@
-//! The four settings of `@gsd/security` against the vendored gsd-core 1.18.0 snapshot, and the auditor's model and
+//! The four settings of `@gsd/security` against the vendored gsd-core 1.19.0 snapshot, and the auditor's model and
 //! variant presets that follow `@gsd/core`.
 
 use gsd_security::build;

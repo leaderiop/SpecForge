@@ -1,4 +1,4 @@
-//! The ported agent bodies against the vendored upstream files (gsd-core v1.18.0): line for line, a line may differ
+//! The ported agent bodies against the vendored upstream files (gsd-core v1.19.0): line for line, a line may differ
 //! only where upstream's names `.planning/`, `gsd-tools`, `gsd_run` or `gsd-sdk`.
 
 use std::path::{Path, PathBuf};
