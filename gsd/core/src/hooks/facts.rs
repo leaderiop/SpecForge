@@ -13,6 +13,21 @@ pub struct PathFact {
     pub exists: bool,
     pub bytes: Option<u64>,
     pub new_bytes: Option<u64>,
+    /// The path made absolute against the hook's `cwd`, links followed as far as it exists (ADR 0320).
+    pub real: String,
+    /// `reads_git`, outside the project: the top directory of the repository the real path is in.
+    pub toplevel: Option<String>,
+    /// `reads_git`, outside the project: a component of the real path is `.git`.
+    pub in_git_dir: bool,
+}
+
+/// What the host read of the repository the hook's `cwd` is in (`reads_git`, ADR 0320).
+#[derive(Debug, Clone, Default)]
+pub struct Git {
+    pub toplevel: String,
+    pub git_dir: String,
+    /// Empty when `HEAD` is detached.
+    pub branch: String,
 }
 
 /// The tool and the facts of a hook call.
@@ -44,6 +59,8 @@ pub struct Facts<'a> {
     pub project_state: serde_json::Map<String, Value>,
     /// A hook that declares `reads_graph`.
     pub graph: Option<&'a CommandGraph>,
+    /// A hook that declares `reads_git`: none outside a repository.
+    pub git: Option<Git>,
 }
 
 impl<'a> Facts<'a> {
@@ -69,6 +86,9 @@ impl<'a> Facts<'a> {
                     exists: p.exists,
                     bytes: p.bytes,
                     new_bytes: p.new_bytes,
+                    real: p.real.clone(),
+                    toplevel: p.toplevel.clone(),
+                    in_git_dir: p.in_git_dir,
                 })
                 .collect(),
             response: f.response.clone(),
@@ -84,6 +104,11 @@ impl<'a> Facts<'a> {
                 .map(|s| s.project.clone())
                 .unwrap_or_default(),
             graph: f.graph.as_ref(),
+            git: f.git.as_ref().map(|g| Git {
+                toplevel: g.toplevel.clone(),
+                git_dir: g.git_dir.clone(),
+                branch: g.branch.clone(),
+            }),
         }
     }
 

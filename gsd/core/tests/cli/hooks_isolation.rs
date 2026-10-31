@@ -49,17 +49,69 @@ fn no_host_installs_an_isolation_guard() {
     }
 }
 
-/// A project that is a subagent's worktree: `<tmp>/.claude/worktrees/agent-x`, with the main checkout above it.
-fn in_worktree() -> (Project, Home, std::path::PathBuf) {
+/// `git <args>` in `dir` with a pinned identity and none of the developer's configuration; `None` when git is not
+/// installed. It answers standard output.
+fn git(dir: &std::path::Path, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new("git")
+        .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
+        .args([
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+        ])
+        .args(args)
+        .current_dir(dir)
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .output()
+        .ok()?;
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    Some(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// A project that is a subagent's worktree: `<tmp>/.claude/worktrees/agent-x`, a linked worktree of the repository at
+/// `<tmp>` on the branch `worktree-agent-x`. `None` when git is not installed.
+fn in_worktree() -> Option<(Project, Home, std::path::PathBuf)> {
     let p = taskboard_at(".claude/worktrees/agent-x");
-    let home = installed(&p);
     let main = p
         .root()
         .ancestors()
         .nth(3)
         .expect("the main checkout")
         .to_path_buf();
-    (p, home, main)
+    git(&main, &["init", "-q", "-b", "main"])?;
+    git(&main, &["commit", "-q", "--allow-empty", "-m", "base"])?;
+    // `git worktree add` wants the directory empty: the fixture goes aside and back.
+    let aside = main.join("aside");
+    std::fs::rename(p.root(), &aside).expect("the fixture aside");
+    git(
+        &main,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            "worktree-agent-x",
+            ".claude/worktrees/agent-x",
+        ],
+    )?;
+    let copied = std::process::Command::new("cp")
+        .arg("-R")
+        .arg(aside.join("."))
+        .arg(p.root())
+        .status()
+        .expect("cp");
+    assert!(copied.success());
+    std::fs::remove_dir_all(&aside).expect("the fixture's copy");
+    let home = installed(&p);
+    Some((p, home, main))
 }
 
 fn write_to(p: &Project, host: &str, file: &std::path::Path) -> String {
@@ -69,7 +121,9 @@ fn write_to(p: &Project, host: &str, file: &std::path::Path) -> String {
 
 #[test]
 fn a_write_outside_the_worktree_is_denied() {
-    let (p, home, main) = in_worktree();
+    let Some((p, home, main)) = in_worktree() else {
+        return;
+    };
     for host in HOSTS {
         let run = run_hook(
             &p,
@@ -89,7 +143,9 @@ fn a_write_outside_the_worktree_is_denied() {
 
 #[test]
 fn a_write_inside_the_worktree_or_outside_every_checkout_is_allowed() {
-    let (p, home, _) = in_worktree();
+    let Some((p, home, _)) = in_worktree() else {
+        return;
+    };
     let elsewhere = std::path::Path::new("/tmp/gsd-r44-scratch.txt");
     for host in HOSTS {
         for file in [
@@ -128,5 +184,45 @@ fn a_write_outside_a_project_that_is_not_a_worktree_is_allowed() {
             &home,
         );
         assert!(!verdict(host, &run).0, "{host}: {}", run.all());
+    }
+}
+
+/// T14: upstream compares git toplevels, so a symlink inside the worktree that points into the main checkout is the
+/// main checkout, and the main checkout's `.git` internals are refused with their own reason.
+#[cfg(unix)]
+#[test]
+fn a_symlink_into_the_main_checkout_is_refused() {
+    let Some((p, home, main)) = in_worktree() else {
+        return;
+    };
+    std::fs::create_dir_all(main.join("src")).expect("the main checkout's src");
+    std::os::unix::fs::symlink(main.join("src"), p.root().join("mainsrc")).expect("a symlink");
+    std::fs::create_dir_all(p.root().join("src")).expect("the worktree's src");
+    let main = main.canonicalize().expect("the canonical main checkout");
+    let wt = p.root().canonicalize().expect("the canonical worktree");
+    for host in HOSTS {
+        let run = |file: std::path::PathBuf| {
+            let r = run_hook(
+                &p,
+                host,
+                "gsd.worktree_path_guard",
+                &write_to(&p, host, &file),
+                &home,
+            );
+            (verdict(host, &r), r.all())
+        };
+        let ((denied, reason, _), all) = run(p.root().join("mainsrc/a.ts"));
+        assert!(denied, "{host}: {all}");
+        assert!(
+            reason.contains(&main.display().to_string())
+                && reason.contains(&wt.display().to_string()),
+            "{host}: {reason}"
+        );
+        let ((denied, ..), all) = run(p.root().join("src/a.ts"));
+        assert!(!denied, "{host}: {all}");
+        let ((denied, ..), all) = run(main.join("src/a.ts"));
+        assert!(denied, "{host}: {all}");
+        let ((denied, reason, _), all) = run(main.join(".git/config"));
+        assert!(denied && reason.contains(".git"), "{host}: {all}");
     }
 }

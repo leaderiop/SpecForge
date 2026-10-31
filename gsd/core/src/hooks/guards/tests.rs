@@ -44,6 +44,7 @@ fn spec(old: Option<u64>, new: Option<u64>) -> PathFact {
         exists: old.is_some(),
         bytes: old,
         new_bytes: new,
+        ..PathFact::default()
     }
 }
 
