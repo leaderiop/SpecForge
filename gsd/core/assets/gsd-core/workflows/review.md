@@ -28,18 +28,9 @@ command -v cursor-agent >/dev/null 2>&1 && echo "cursor:available" || echo "curs
 command -v agy >/dev/null 2>&1 && echo "antigravity:available" || echo "antigravity:missing"
 command -v kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo "kimi-code:missing"
 
-# Check local model servers (OpenAI-compatible HTTP API — no CLI binary required)
-OLLAMA_HOST="{{setting:review.ollama_host|}}"   # review.ollama_host (the settings)
-if [ -z "$OLLAMA_HOST" ] || [ "$OLLAMA_HOST" = "null" ]; then OLLAMA_HOST="http://localhost:11434"; fi
-curl -s --max-time 2 "${OLLAMA_HOST}/v1/models" >/dev/null 2>&1 && echo "ollama:available" || echo "ollama:missing"
-
-LM_STUDIO_HOST="{{setting:review.lm_studio_host|}}"   # review.lm_studio_host (the settings)
-if [ -z "$LM_STUDIO_HOST" ] || [ "$LM_STUDIO_HOST" = "null" ]; then LM_STUDIO_HOST="http://localhost:1234"; fi
-curl -s --max-time 2 "${LM_STUDIO_HOST}/v1/models" >/dev/null 2>&1 && echo "lm_studio:available" || echo "lm_studio:missing"
-
-LLAMA_CPP_HOST="{{setting:review.llama_cpp_host|}}"   # review.llama_cpp_host (the settings)
-if [ -z "$LLAMA_CPP_HOST" ] || [ "$LLAMA_CPP_HOST" = "null" ]; then LLAMA_CPP_HOST="http://localhost:8080"; fi
-curl -s --max-time 2 "${LLAMA_CPP_HOST}/v1/models" >/dev/null 2>&1 && echo "llama_cpp:available" || echo "llama_cpp:missing"
+# Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);
+# hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)
+for lane in "ollama={{setting:review.ollama_host|http://localhost:11434}}" "lm_studio={{setting:review.lm_studio_host|http://localhost:1234}}" "llama_cpp={{setting:review.llama_cpp_host|http://localhost:8080}}"; do curl -s --max-time 2 "${lane#*=}/v1/models" >/dev/null 2>&1 && echo "${lane%%=*}:available" || echo "${lane%%=*}:missing"; done
 
 # jq prerequisite (#2589). The config/model/budget lookups in this workflow no
 # longer need jq — they use the native --raw/--pick flags. But the lanes listed
@@ -666,6 +657,18 @@ done
 # Rewrapped through unquoted command substitution (gsd-core#4109): a bare
 # `$DISPATCH_SLUGS` word-splits under bash but not zsh, collapsing every
 # slug onto one iteration there whenever 2+ reviewers were selected.
+# @gsd/core installs no runtime lib (#5640): the one helper the check below needs, escapeRegex, is inlined in it
+
+
+
+
+
+
+
+
+
+
+
 for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   [ "$SLUG" = "coderabbit" ] && continue
   REVIEW_FILE="$RUN_DIR/gsd-review-$SLUG.md"
@@ -676,7 +679,7 @@ for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
 
   node -e '
     const fs = require("fs");
-    const { escapeRegex } = require("./gsd-core/bin/lib/pattern.cjs");
+    const escapeRegex = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // pattern.cjs, inlined (#5640)
     const manifest = fs.readFileSync(process.argv[1], "utf8");
     const review = fs.readFileSync(process.argv[2], "utf8");
     const ids = manifest.split("\n")

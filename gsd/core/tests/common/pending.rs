@@ -5,10 +5,7 @@
     reason = "each test crate that includes this module uses some of it"
 )]
 
-pub const PENDING_RESYNC: &[&str] = &[
-    "gsd-core/workflows/review.md",
-    "tests/gsd-secret-read-guard.test.cjs",
-];
+pub const PENDING_RESYNC: &[&str] = &["tests/gsd-secret-read-guard.test.cjs"];
 
 pub fn is_pending(path: &str) -> bool {
     PENDING_RESYNC.contains(&path)

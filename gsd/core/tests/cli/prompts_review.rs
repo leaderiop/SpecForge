@@ -125,3 +125,42 @@ fn the_review_names_its_inert_reviewer_settings() {
     }
     assert!(text.contains("declared but inert"));
 }
+
+/// P04 T6 (#5266, #5640): the local servers are probed in one line from the `review.*_host` settings (no lane runner
+/// here), and no line looks for an installed runtime lib, whose absence would `exit 1`.
+#[test]
+fn review_probes_the_local_servers_and_needs_no_runtime_lib() {
+    let p = twin();
+    // port 9 (discard) refuses at once: every server is missing, whatever runs on this machine
+    p.settings(serde_json::json!({
+        "review.ollama_host": "http://127.0.0.1:9",
+        "review.lm_studio_host": "http://127.0.0.1:9",
+        "review.llama_cpp_host": "http://127.0.0.1:9",
+    }));
+    let text = text_of(&payload(&prompt(&p, "review", &[PHASE], "claude-code")));
+    for gone in [
+        "gsd-resolve-lib",
+        "GSD_LIB_DIR",
+        "bin/lib/pattern.cjs",
+        "review-lane availability",
+        "pattern.cjs not found",
+    ] {
+        assert!(!text.contains(gone), "`{gone}` is left");
+    }
+    let probe = text
+        .lines()
+        .find(|l| l.starts_with("for lane in \"ollama="))
+        .expect("the probe line");
+    assert!(
+        probe.contains("http://127.0.0.1:9/") || probe.contains("=http://127.0.0.1:9\""),
+        "{probe}"
+    );
+    let out = std::process::Command::new("bash")
+        .args(["-c", probe])
+        .output()
+        .expect("bash");
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "ollama:missing\nlm_studio:missing\nllama_cpp:missing\n"
+    );
+}
