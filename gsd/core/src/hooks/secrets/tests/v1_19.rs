@@ -1,13 +1,13 @@
 //! Ported from gsd-core v1.19.0 tests/gsd-secret-read-guard.test.cjs, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
-//! The cases gsd-core v1.19.0 adds to that suite (#5627, #5628, #5046, #5513), written out by hand while the replay
-//! still reads the v1.18.0 recording (plan 06 T2 folds them into the v1.19.0 replay). Each row is a Bash command and
-//! the answer upstream's test asserts.
+//! What the v1.19.0 recording cannot replay of that suite (#5627, #5628, #5046, #5513): the calls over the recorder's
+//! input cap, written out by hand, and upstream's properties walked over their whole domain rather than one run's
+//! draws. Each row is a Bash command and the answer upstream's test asserts.
 
 use super::*;
 
-/// The cases of v1.19.0's suite these hand tables run, by the test that runs them (plan 04 T8): the accounting counts
-/// them as ported until the v1.19.0 recording replays them (plan 06 T2).
+/// The cases of v1.19.0's suite whose calls are too long for the recording (over `REC_INPUT_MAX`), by the test that
+/// runs them: the accounting counts them as ported.
 pub const PORTED: &[(&str, &[&str])] = &[
     (
         "a_mebibyte_of_wrappers_is_walked_in_linear_time",
@@ -17,74 +17,12 @@ pub const PORTED: &[(&str, &[&str])] = &[
         ],
     ),
     (
-        "the_debugger_is_seen_through_stacked_wrappers",
-        &[
-            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > blocks: stacked timeouts",
-            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > blocks: timeout interleaved with prefix wrappers and flags",
-            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > allows: timeout wrappers that never reach the debugger (${command})",
-            "gsd-secret-read-guard: gsd-debugger CLI spawn (#5214) > property: stacked timeout wrappers only change the verdict through the final agent",
-        ],
-    ),
-    (
-        "a_nested_shell_behind_a_wrapper_with_flags_is_read",
-        &[
-            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > blocks ${w} bash -c",
-            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > blocks ${JSON.stringify(cmd)}",
-            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > allows ${JSON.stringify(cmd)}",
-            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > the debugger-spawn check still sees through timeout flags",
-        ],
-    ),
-    (
-        "any_wrapper_stack_in_front_of_a_nested_read_is_read",
-        &[
-            "gsd-secret-read-guard: nested shell behind a wrapper with flags (#5627) > property: any wrapper stack in front of bash -c \"cat .env\" is blocked",
-        ],
-    ),
-    (
-        "every_cluster_shape_hides_no_secret_and_spares_the_templates",
-        &[
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > a bundled short-flag cluster hides no secret name, at any cluster length",
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > the same cluster with a template or look-alike name stays allowed",
-        ],
-    ),
-    (
-        "a_secret_bundled_behind_short_flags_is_read",
-        &[
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > cluster boundary: grep ${cluster} reaches the secret name",
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > cluster boundary: grep ${cluster} names nothing and stays allowed",
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > an =-valued or quoted cluster is blocked: grep ${cluster}",
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > a secret-named option value is blocked (new denial): ${cmd}",
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > an alphanumeric-leading value ending in a secret name is blocked (documented class): ${cmd}",
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > git log -S.env stays blocked (pre-existing denial, not new)",
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > expansion form matches its unbundled form: ${clustered}",
-        ],
-    ),
-    (
         "a_long_or_dense_cluster_is_judged_as_a_short_one",
         &[
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > long single-dash word (${n} chars before the name) is blocked; no-dot form is allowed",
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dot-dense word (${n} dots) is judged as on base",
             "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dense value, ${n} units: `.env` x N + `.example` is allowed",
             "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dense value, ${n} units: `.envrc` x N is allowed",
             "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dense value, ${n} units: `.envrc` x N + `/.env` is blocked",
             "gsd-secret-read-guard: bundled short-flag clusters (#5046) > dense value, ${n} units: `.env` x N is blocked",
-        ],
-    ),
-    (
-        "a_bundled_value_is_judged_like_the_same_value_unbundled",
-        &[
-            "gsd-secret-read-guard: bundled short-flag clusters (#5046) > property: a bundled value is judged like the same value unbundled",
-        ],
-    ),
-    (
-        "a_heredoc_inside_a_substitution_is_read_as_bash_reads_it",
-        &[
-            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > denies the read after ${label}",
-            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > allows the twin with no read after ${label}",
-            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > still allows ${label}",
-            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > a read after a mixed-line-ending heredoc stays denied",
-            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > a read after a top-level CRLF heredoc is denied",
-            "gsd-secret-read-guard: heredoc inside a command substitution (#5513) > a read after a top-level heredoc whose tag holds a substitution is denied",
         ],
     ),
 ];
@@ -189,42 +127,6 @@ const WRAPPERS: [&str; 37] = [
 ];
 const NESTED: &str = "bash -c 'cat .env'";
 
-/// `describe nested shell behind a wrapper with flags (#5627)`.
-#[test]
-fn a_nested_shell_behind_a_wrapper_with_flags_is_read() {
-    let mut rows: Vec<(String, Want)> = WRAPPERS
-        .iter()
-        .map(|w| (format!("{w} {NESTED}"), read(".env")))
-        .collect();
-    for route in [
-        "timeout 5 bash <<'EOF'\ncat .env\nEOF",
-        "nice -n 5 bash <<< 'cat .env'",
-        "echo cat .env | nice -n 5 bash",
-        "timeout 5 eval 'cat .env'",
-        "echo .env | timeout 5 xargs cat",
-        "nice -n 5 git -c alias.x='!cat .env' x",
-    ] {
-        rows.push((route.into(), read(".env")));
-    }
-    for allowed in [
-        "timeout 5 bash -c 'echo hi'",
-        "nice -n 5 bash -c 'cat README.md'",
-        "env -i bash -c 'cat .env.example'",
-        "timeout 5 ls",
-        "timeout 5",
-        "nice -n 5",
-        "env -i",
-        "time -p cat README.md",
-    ] {
-        rows.push((allowed.into(), Want::Allow));
-    }
-    rows.push((
-        "timeout -s KILL 600 claude --agent gsd-debugger -p hi".into(),
-        Want::Debugger,
-    ));
-    holds(rows);
-}
-
 /// Upstream's property draws 1–3 wrappers that hold no inner `timeout`/`env`; here every stack of up to 40 is
 /// walked, the wrappers taken in a fixed rotation.
 #[test]
@@ -240,28 +142,11 @@ fn any_wrapper_stack_in_front_of_a_nested_read_is_read() {
     holds(rows);
 }
 
-/// `describe gsd-debugger CLI spawn (#5214)`: the wrapper walk replaces the `timeout` unwrap (#5628).
+/// `property: stacked timeout wrappers only change the verdict through the final agent`, over its whole domain (the
+/// recording holds one run's draws).
 #[test]
 fn the_debugger_is_seen_through_stacked_wrappers() {
-    let mut rows: Vec<(String, Want)> = vec![
-        (
-            "timeout 1 timeout 1 claude --agent gsd-debugger".into(),
-            Want::Debugger,
-        ),
-        (
-            "sudo timeout 1 env X=1 timeout --foreground 2 claude --agent=gsd-debugger".into(),
-            Want::Debugger,
-        ),
-    ];
-    for allowed in [
-        "timeout 1 timeout",
-        "timeout",
-        "timeout 1",
-        "timeout -s",
-        "timeout 1 timeout 1 claude --agent gsd-executor",
-    ] {
-        rows.push((allowed.into(), Want::Allow));
-    }
+    let mut rows: Vec<(String, Want)> = Vec::new();
     for depth in 0..=40 {
         let stack = "timeout 1 ".repeat(depth);
         rows.push((
@@ -300,97 +185,24 @@ fn a_mebibyte_of_wrappers_is_walked_in_linear_time() {
     ]);
 }
 
-/// `describe Bash blocks` and `Bash allows` (#5046 rows), and `describe bundled short-flag clusters (#5046)`.
-#[test]
-fn a_secret_bundled_behind_short_flags_is_read() {
-    let mut rows: Vec<(String, Want)> = Vec::new();
-    for cluster in [
-        "-if.env",
-        "-nif.env",
-        "-if.secrets",
-        "-2if.env",
-        "-1f.env",
-        "-2f.env",
-        "-2if.secrets",
-        "-2.env",
-        "-1.env",
-        "-i.env",
-        "-2nif.env",
-        "-f=.env",
-        "-if=.env",
-        "-nf=.env",
-    ] {
-        rows.push((format!("grep {cluster} pat f"), read(cluster)));
-    }
-    // Quoted: the reported word is the one after quote removal.
-    rows.push(("grep -if'.env' pat f".into(), read("-if.env")));
-    rows.push(("grep -if\".env\" pat f".into(), read("-if.env")));
-    // New denials against v1.18.0: a secret-named value of a non-file option, and the documented fail-safe class
-    // where the option run swallows a value's leading letters and digits.
-    for (command, word) in [
-        ("git commit -am.env", "-am.env"),
-        ("head -n1.env", "-n1.env"),
-        ("grep -fapp.env pat f", "-fapp.env"),
-        ("grep -fprod.env pat f", "-fprod.env"),
-        ("grep -ofoo.env pat f", "-ofoo.env"),
-        ("git log -Sconfig.env", "-Sconfig.env"),
-        ("sort -k2.env f", "-k2.env"),
-        ("git log -S.env", "-S.env"),
-    ] {
-        rows.push((command.into(), read(word)));
-    }
-    for allowed in [
-        "grep -if.env.example pat f",
-        "grep -n.envrc pat f",
-        "grep -2if.env.example pat f",
-        "grep -1f.env.sample pat f",
-        "grep -2n.envrc pat f",
-        "grep -i pat f",
-        "grep -2 pat f",
-        "grep -12 pat f",
-        "grep -vvv pat f",
-    ] {
-        rows.push((allowed.into(), Want::Allow));
-    }
-    // Expansion forms: the clustered form is judged as its unbundled one, both allowed.
-    for (clustered, plain) in [
-        ("grep -if.env* pat f", "grep .env* f"),
-        ("grep -if.en? pat f", "grep .en? f"),
-        ("grep -if.env~ pat f", "grep .env~ f"),
-        ("grep -if$(echo .env) pat f", "grep $(echo .env) f"),
-        ("grep -if{.env,x} pat f", "grep {.env,x} f"),
-    ] {
-        rows.push((clustered.into(), Want::Allow));
-        rows.push((plain.into(), Want::Allow));
-    }
-    holds(rows);
-}
-
-/// The length rows: the verdict is the same at every length, and costs at most three name checks (the 20000-unit
-/// rows are over 80 000 characters, more than upstream's recorder stores, so they stay hand ports).
+/// The 20000-unit dense values are over 80 000 characters, more than upstream's recorder stores (the 199–201-unit rows
+/// replay); the `.a` interleave with a space before `pat` is a variant of upstream's row the recording does not hold.
 #[test]
 fn a_long_or_dense_cluster_is_judged_as_a_short_one() {
-    let mut rows: Vec<(String, Want)> = Vec::new();
-    for n in [199, 200, 201] {
-        let a = "a".repeat(n);
-        rows.push((format!("grep -{a}.env pat f"), read(&format!("-{a}.env"))));
-        rows.push((format!("grep -{a} pat f"), Want::Allow));
-        let dots = ".".repeat(n);
-        rows.push((format!("grep -{dots}pat f"), Want::Allow));
-        rows.push((format!("grep -{dots}.env pat f"), Want::Allow));
-        rows.push((format!("grep -{} pat f", ".a".repeat(n)), Want::Allow));
-    }
-    for n in [199, 200, 201, 20000] {
-        rows.push((
-            format!("grep -i{}.example pat f", ".env".repeat(n)),
-            Want::Allow,
-        ));
-        rows.push((format!("grep -i{} pat f", ".envrc".repeat(n)), Want::Allow));
-        let word = format!("-i{}/.env", ".envrc".repeat(n));
-        rows.push((format!("grep {word} pat f"), read(&word)));
-        let word = format!("-if{}", ".env".repeat(n));
-        rows.push((format!("grep {word} pat f"), read(&word)));
-    }
+    let mut rows: Vec<(String, Want)> = [199, 200, 201]
+        .into_iter()
+        .map(|n| (format!("grep -{} pat f", ".a".repeat(n)), Want::Allow))
+        .collect();
+    let n = 20000;
+    rows.push((
+        format!("grep -i{}.example pat f", ".env".repeat(n)),
+        Want::Allow,
+    ));
+    rows.push((format!("grep -i{} pat f", ".envrc".repeat(n)), Want::Allow));
+    let word = format!("-i{}/.env", ".envrc".repeat(n));
+    rows.push((format!("grep {word} pat f"), read(&word)));
+    let word = format!("-if{}", ".env".repeat(n));
+    rows.push((format!("grep {word} pat f"), read(&word)));
     holds(rows);
 }
 
@@ -477,38 +289,6 @@ fn a_bundled_value_is_judged_like_the_same_value_unbundled() {
         differ.is_empty(),
         "bundled and unbundled differ: {differ:?}"
     );
-}
-
-/// `describe heredoc inside a command substitution (#5513)`.
-#[test]
-fn a_heredoc_inside_a_substitution_is_read_as_bash_reads_it() {
-    let mut rows: Vec<(String, Want)> = Vec::new();
-    for denied in [
-        "echo \"$(cat <<E$(x)F\nx\nE$(x)F\n)\"; cat .env",
-        "echo \"$(cat <<EOF\r\nx\nEOF\r\n)\"; cat .env",
-        "echo \"$(cat <<EOF\n)\"; cat .env; \"\nEOF\n)\"",
-        "echo \"$(cat <<E`x`F\nx\nE`x`F\n)\"; cat .env",
-        "echo \"$(cat <<E${x}F\nx\nE${x}F\n)\"; cat .env",
-        // The earlier tag reading is kept: bash never ends this heredoc, but it was denied and stays denied.
-        "cat <<EOF\r\nx\nEOF\ncat .env",
-        "cat <<EOF\r\ndata\r\nEOF\r\ncat .env",
-        "cat <<E$(x)F\ndata\nE$(x)F\ncat .env",
-    ] {
-        rows.push((denied.into(), read(".env")));
-    }
-    for allowed in [
-        "echo \"$(cat <<E$(x)F\nx\nE$(x)F\n)\"; echo ok",
-        "echo \"$(cat <<EOF\r\nx\nEOF\r\n)\"; echo ok",
-        "echo \"$(cat <<EOF\n)\"; echo ok; \"\nEOF\n)\"",
-        "cat <<EOF\ncat .env\nEOF",
-        "cat <<EOF\r\ncat .env\r\nEOF\r\n",
-        "cat <<E$(x)F\ncat .env\nE$(x)F",
-        "git commit -m \"$(cat <<'EOF'\nfix: handle the empty case\n\nBody line (with parens).\nEOF\n)\"",
-        "git commit -m \"$(cat <<'EOF'\r\nfix: x\r\nEOF\r\n)\"",
-    ] {
-        rows.push((allowed.into(), Want::Allow));
-    }
-    holds(rows);
 }
 
 /// Only a command that opens a heredoc can read differently: any other is not scanned again (`cat .env` would be
