@@ -569,6 +569,11 @@ behavior ingest_collector_report "Ingest Collector Report" {
   verify unit "the entities results may name are the entity snapshot's, with their obligation texts"
   verify integration "collect then analyze scores the recorded tests"
   verify contract "Ingest Collector Report: collector report ingestion holds — collector_dispatched_fired, graph_available, collector_report_ingested_emitted, runner_results_replaced, unknown_entities_warned, skipped_not_recorded, one_vocabulary, merged_report_written"
+  verify unit "collect files a test reported for an entity's short id under its full path"
+  verify unit "collect reads a rooted test id as its path"
+  verify unit "an ambiguous short test id is W115 and names its candidates"
+  verify unit "collect matches a short test id at a segment boundary only"
+  verify unit "two spellings of one entity's test are recorded once"
 }
 
 behavior resolve_test_conventions "Resolve Test Naming Conventions" {

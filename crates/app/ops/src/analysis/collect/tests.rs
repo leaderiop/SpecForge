@@ -330,3 +330,113 @@ fn an_unbounded_collect_writes_the_report_where_its_link_points() {
             .contains("results")
     );
 }
+
+fn known(ids: &[&str]) -> KnownEntities {
+    KnownEntities::from_iter(ids.iter().map(|s| (s.to_string(), Vec::new())))
+}
+
+#[specforge_test(
+    behavior = "ingest_collector_report",
+    verify = "collect files a test reported for an entity's short id under its full path"
+)]
+fn a_short_id_is_filed_under_its_full_path() {
+    let known = known(&["v1.0/03/TR1"]);
+    let mut report = empty_report();
+    let (stats, diags) = merge(
+        &mut report,
+        "vitest",
+        &collected(&[("TR1", "t1", TestStatus::Passed)]),
+        &known,
+    );
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(stats.entities, 1);
+    assert_eq!(report.results["v1.0/03/TR1"].tests.len(), 1);
+    assert!(!report.results.contains_key("TR1"));
+}
+
+#[specforge_test(
+    behavior = "ingest_collector_report",
+    verify = "collect reads a rooted test id as its path"
+)]
+fn a_rooted_id_is_filed_under_its_path() {
+    let known = known(&["v1.0/03/TR1"]);
+    let mut report = empty_report();
+    let (_, diags) = merge(
+        &mut report,
+        "vitest",
+        &collected(&[("/v1.0/03/TR1", "t1", TestStatus::Passed)]),
+        &known,
+    );
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(report.results["v1.0/03/TR1"].tests.len(), 1);
+}
+
+#[specforge_test(
+    behavior = "ingest_collector_report",
+    verify = "an ambiguous short test id is W115 and names its candidates"
+)]
+fn an_ambiguous_short_id_stays_unknown() {
+    let known = known(&["a/TR1", "b/TR1"]);
+    let mut report = empty_report();
+    let (stats, diags) = merge(
+        &mut report,
+        "vitest",
+        &collected(&[("TR1", "t1", TestStatus::Passed)]),
+        &known,
+    );
+    assert_eq!(stats.entities, 0);
+    assert!(report.results.is_empty());
+    assert_eq!(diags.len(), 1);
+    assert_eq!(diags[0].code, "W115");
+    assert!(
+        diags[0].message.contains("unknown entity 'TR1'"),
+        "{}",
+        diags[0].message
+    );
+    assert!(
+        diags[0]
+            .message
+            .contains("it names more than one entity: a/TR1, b/TR1"),
+        "{}",
+        diags[0].message
+    );
+}
+
+#[specforge_test(
+    behavior = "ingest_collector_report",
+    verify = "collect matches a short test id at a segment boundary only"
+)]
+fn a_segment_suffix_only() {
+    let known = known(&["v1.0/03/XTR1"]);
+    let mut report = empty_report();
+    let (_, diags) = merge(
+        &mut report,
+        "vitest",
+        &collected(&[("TR1", "t1", TestStatus::Passed)]),
+        &known,
+    );
+    assert_eq!(diags.len(), 1);
+    assert_eq!(diags[0].code, "W115");
+    assert!(!diags[0].message.contains("more than one"));
+    assert!(report.results.is_empty());
+}
+
+#[specforge_test(
+    behavior = "ingest_collector_report",
+    verify = "two spellings of one entity's test are recorded once"
+)]
+fn two_spellings_of_one_entity_merge_once() {
+    let known = known(&["v1.0/03/TR1"]);
+    let mut report = empty_report();
+    let (stats, _) = merge(
+        &mut report,
+        "vitest",
+        &collected(&[
+            ("TR1", "t", TestStatus::Passed),
+            ("v1.0/03/TR1", "t", TestStatus::Passed),
+        ]),
+        &known,
+    );
+    assert_eq!(report.results["v1.0/03/TR1"].tests.len(), 1);
+    assert_eq!((stats.entities, stats.passed), (1, 1));
+}
