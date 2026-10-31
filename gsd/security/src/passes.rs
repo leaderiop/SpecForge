@@ -33,6 +33,48 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("threat_ids", |p| {
         p.phase("check").run(threat_ids);
     });
+    c.pass("audit_advisory", |p| {
+        p.phase("check").run(advisory);
+    });
+}
+
+/// `gsd.security/W301` on a phase whose status is `complete` while its audit is missing, still a draft, or has threats
+/// open: upstream's close-time advisory (#4972), here on every `check` (`[audit-advisory-every-check]`: core has no
+/// close verb, the phase status is computed). `workflow.security_enforcement` gates it off.
+fn advisory(input: &PassInput) -> Vec<PassDiagnostic> {
+    of_kind(input, "phase")
+        .filter(|phase| phase.fields.get("status").map(String::as_str) == Some("complete"))
+        .filter_map(|phase| {
+            let number = name_of(&phase.id);
+            let audit = of_kind(input, "security_audit")
+                .find(|a| link(input, &a.id, "phase") == Some(phase.id.as_str()));
+            let said = match audit {
+                None => format!("{number}-SECURITY is missing"),
+                Some(a) => {
+                    let open: u64 = a
+                        .fields
+                        .get("threats_open")
+                        .and_then(|n| n.trim().parse().ok())
+                        .unwrap_or(0);
+                    if open > 0 {
+                        format!("{number}-SECURITY has {open} threat(s) open")
+                    } else if a.fields.get("status").map(String::as_str) == Some("verified") {
+                        return None;
+                    } else {
+                        format!("{number}-SECURITY is still draft")
+                    }
+                }
+            };
+            Some(
+                PassDiagnostic::new(
+                    "W301",
+                    PassSeverity::Warning,
+                    format!("{said}: run /gsd-secure-phase {number}"),
+                )
+                .with_entity(audit.map_or(&phase.id, |a| &a.id)),
+            )
+        })
+        .collect()
 }
 
 /// `gsd.security/E101` on each threat that claims an ID another plan of its phase claims.
