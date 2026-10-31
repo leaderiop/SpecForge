@@ -98,12 +98,12 @@ static ADD_TESTS: Spec = Spec {
     title: "Add tests for a phase",
     description: "Generate tests for a completed phase based on UAT criteria and implementation",
     command: "add-tests",
-    args: &[Arg::reference("phase", "phase"), Arg::text("instructions")],
+    args: &[Arg::reference("phase", "phase"), Arg::rest("instructions")],
     subject: Some("phase"),
     gates: GATES,
     steps: &[],
     slash: Some(Slash {
-        hint: "<phase> [--instructions \"...\"]",
+        hint: "<phase> [additional instructions]",
         tools: &[
             "read", "write", "edit", "shell", "search", "agent", "ask_user",
         ],

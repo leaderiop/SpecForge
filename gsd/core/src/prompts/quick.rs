@@ -85,14 +85,11 @@ fn quick_plan_text(quick_id_is: &str) -> String {
 }
 
 const QUICK_ARGS: &[Arg] = &[
-    Arg::flag("list"),
-    Arg::text("status"),
-    Arg::text("resume"),
     Arg::flag("full"),
     Arg::flag("validate"),
     Arg::flag("discuss"),
     Arg::flag("research"),
-    Arg::text("task"),
+    Arg::rest("task"),
 ];
 
 static QUICK: Spec = Spec {
@@ -105,7 +102,7 @@ static QUICK: Spec = Spec {
     gates: &[],
     steps: QUICK_STEPS,
     slash: Some(Slash {
-        hint: "[--list | --status <slug> | --resume <slug> | --full] [--validate] [--discuss] [--research] [--task \"task description\"]",
+        hint: "[list | status <slug> | resume <slug> | --full] [--validate] [--discuss] [--research] [task description]",
         tools: &[
             "read", "write", "edit", "search", "shell", "agent", "ask_user",
         ],
@@ -126,13 +123,13 @@ static QUICK_BATCH: Spec = Spec {
         Arg::flag("validate"),
         Arg::flag("research"),
         Arg::text("resume"),
-        Arg::text("tasks"),
+        Arg::rest("tasks"),
     ],
     subject: None,
     gates: &[],
     steps: QUICK_STEPS,
     slash: Some(Slash {
-        hint: "[--file <path>] [--jobs auto|N] [--validate] [--research] [--resume <batch-id>] [--tasks \"task list\"]",
+        hint: "[--file <path>] [--jobs auto|N] [--validate] [--research] [--resume <batch-id>] [task list]",
         tools: &["read", "write", "edit", "search", "shell", "agent"],
         effort: None,
     }),
@@ -145,12 +142,12 @@ static FAST: Spec = Spec {
     title: "Run a trivial task inline",
     description: "Execute a trivial task inline — no subagents, no planning overhead",
     command: "fast",
-    args: &[Arg::text("task")],
+    args: &[Arg::rest("task")],
     subject: None,
     gates: &[],
     steps: &[],
     slash: Some(Slash {
-        hint: "[--task \"task description\"]",
+        hint: "[task description]",
         tools: &["read", "write", "edit", "shell", "search"],
         effort: None,
     }),

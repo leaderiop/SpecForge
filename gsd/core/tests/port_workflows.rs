@@ -109,21 +109,8 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/settings.md", 555, 555),
     ("gsd-core/workflows/settings.md", 554, 554),
     ("gsd-core/workflows/settings.md", 553, 553),
-    ("gsd-core/workflows/quick.md", 36, 36),
-    ("gsd-core/workflows/quick-batch.md", 57, 57),
-    ("gsd-core/workflows/fast.md", 15, 15),
-    ("commands/gsd/quick.md", 115, 115),
-    ("commands/gsd/quick.md", 48, 48),
-    ("commands/gsd/quick.md", 47, 47),
-    ("commands/gsd/quick.md", 46, 46),
-    ("commands/gsd/quick.md", 45, 45),
-    ("commands/gsd/quick.md", 30, 30),
-    ("commands/gsd/quick.md", 29, 29),
-    ("commands/gsd/quick.md", 28, 28),
-    ("commands/gsd/quick.md", 27, 27),
-    ("commands/gsd/quick.md", 26, 26),
     // REVIEW-r43 M3, M4, M10, M13, M7, M12: settings lines the host accepts, no secret taken in chat, the roadmap-wide
-    // backlog, the option forms of quick and the batch ids.
+    // backlog and the batch ids.
     ("gsd-core/workflows/settings-integrations.md", 150, 150),
     ("gsd-core/workflows/settings-integrations.md", 148, 148),
     ("gsd-core/workflows/settings-integrations.md", 146, 146),

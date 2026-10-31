@@ -62,7 +62,7 @@ fn ns_skills_route() {
             &p,
             &id,
             &args,
-            "--intent \"plan the next phase\"",
+            "plan the next phase",
             "Route to the appropriate",
         ) {
             let text = text_of(&rendered);
@@ -156,6 +156,18 @@ fn an_ns_skill_has_the_read_and_skill_tools_only() {
             .collect();
         assert_eq!(tools, ["Read", "Skill"], "{router}");
     }
+}
+
+#[test]
+fn a_router_takes_its_intent_bare() {
+    let p = twin();
+    render_three_hosts(
+        &p,
+        "ns_workflow",
+        &["plan", "the", "next", "phase"],
+        "plan the next phase",
+        "Route to the appropriate",
+    );
 }
 
 #[test]

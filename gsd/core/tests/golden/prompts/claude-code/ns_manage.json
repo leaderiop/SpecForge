@@ -2,7 +2,7 @@
   "body": [
     "",
     "",
-    "<arguments>--intent \"plan the next phase\"</arguments>",
+    "<arguments>plan the next phase</arguments>",
     "",
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -61,7 +61,7 @@
     "| `/gsd-surface` | command `specforge gsd surface` (served by @gsd/core) |",
     "| `/gsd-help` | command `specforge gsd help` (served by @gsd/core) |"
   ],
-  "bytes": 11389,
+  "bytes": 11378,
   "end": [
     "| Process inbox items | gsd-inbox |",
     "| Create a clean PR branch | gsd-pr-branch |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:f8093c649c6dfe591985c977e35aa64b5e66d7051c41b2d969b27528ca89fd54",
+    "digest": "sha256:52737b1fd9a61e4d7bd8b0665ebd849fd77f5a61e9cad482fcb237b4f7be0fc3",
     "prompt": "@gsd/core@VERSION:ns_manage"
   },
-  "sha256": "f8093c649c6dfe591985c977e35aa64b5e66d7051c41b2d969b27528ca89fd54"
+  "sha256": "52737b1fd9a61e4d7bd8b0665ebd849fd77f5a61e9cad482fcb237b4f7be0fc3"
 }

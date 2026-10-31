@@ -2,7 +2,7 @@
   "body": [
     "",
     "",
-    "<arguments>--name \"Next\"</arguments>",
+    "<arguments>Next</arguments>",
     "",
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -46,7 +46,7 @@
     "",
     "## 1. Load Context",
     "",
-    "Parse `--name \"Next\"` before doing anything else:",
+    "Parse `Next` before doing anything else:",
     "",
     "- `--reset-phase-numbers` flag → opt into restarting roadmap phase numbering at `1`. If absent, keep the current behavior of continuing phase numbering from the previous milestone.",
     "- `--ws <name>` flag → active workstream scope, parsed into `GSD_WS`",
@@ -56,12 +56,12 @@
     "",
     "```bash",
     "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "--name \"Next\"",
+    "Next",
     "GSD_ARGS_END",
     "GSD_ARGS=${GSD_ARGS%$'\\n'}",
     "# the commands below are specforge commands: there is no launcher to define"
   ],
-  "bytes": 72761,
+  "bytes": 72732,
   "end": [
     "| CONT-03 | Phase 3 | Pending |",
     "| CONT-04 | Phase 3 | Pending |",
@@ -102,7 +102,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is not in the spec yet (leave that command out) and `$PROJECT` is not in the spec yet (leave that command out).",
     "",
-    "The text after `--name` is the milestone name (upstream's free-text argument); `--ws` names a workstream and `--reset-phase-numbers` restarts phase numbering at 1."
+    "The words that stand without an option are the milestone name (upstream's free-text argument); `--ws` names a workstream and `--reset-phase-numbers` restarts phase numbering at 1."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:c697e59b46de5d5b3f21a07cd6144d99d96f7163645a267a7a8f70f1d6cc4132",
+    "digest": "sha256:18a8b234a7cfcc02d353afebd5ab2e0b995bbbe60d5319d15ba682dc28a7beff",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "c697e59b46de5d5b3f21a07cd6144d99d96f7163645a267a7a8f70f1d6cc4132"
+  "sha256": "18a8b234a7cfcc02d353afebd5ab2e0b995bbbe60d5319d15ba682dc28a7beff"
 }

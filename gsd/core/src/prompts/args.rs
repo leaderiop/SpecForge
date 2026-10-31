@@ -22,6 +22,8 @@ pub enum Kind {
     Integer,
     /// `--name value`, one of these.
     OneOf(&'static [&'static str]),
+    /// The free-text tail: bare words after the options, as upstream's `[task description]` (ADR 0314).
+    Rest,
 }
 
 pub struct Arg {
@@ -77,6 +79,14 @@ impl Arg {
             required: false,
         }
     }
+    /// The free-text tail of the command line, written bare and last.
+    pub const fn rest(name: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Rest,
+            required: false,
+        }
+    }
     pub const fn one_of(name: &'static str, values: &'static [&'static str]) -> Arg {
         Arg {
             name,
@@ -101,6 +111,7 @@ pub fn declare(p: &mut PromptBuilder, args: &[Arg]) {
                 Kind::Text => a.string(),
                 Kind::Integer => a.integer(),
                 Kind::OneOf(values) => a.one_of(values),
+                Kind::Rest => a.rest(),
             };
             if arg.required {
                 a.required();
@@ -122,6 +133,7 @@ fn quoted(value: &str) -> String {
 /// The argument text for `values` (name -> JSON), in the order of `args`.
 pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> String {
     let mut words: Vec<String> = Vec::new();
+    let mut tail = None;
     for arg in args {
         let Some(value) = values(arg.name) else {
             continue;
@@ -141,9 +153,12 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
             }
             (Kind::Integer, Value::Number(n)) => words.push(format!("{option} {n}")),
             (Kind::OneOf(_), Value::String(word)) => words.push(format!("{option} {word}")),
+            // Bare and last, wherever the argument stands in the table.
+            (Kind::Rest, Value::String(text)) if !text.is_empty() => tail = Some(text.clone()),
             _ => {}
         }
     }
+    words.extend(tail);
     words.join(" ")
 }
 

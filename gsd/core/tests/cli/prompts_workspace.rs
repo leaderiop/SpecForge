@@ -10,8 +10,8 @@ fn workspace_renders() {
     for (host, rendered) in render_three_hosts(
         &p,
         "workspace",
-        &["--new", "--name", "feature-x"],
-        "--new --name \"feature-x\"",
+        &["--new", "feature-x"],
+        "--new feature-x",
         "workspace",
     ) {
         let text = text_of(&rendered);
@@ -34,8 +34,8 @@ fn workspace_renders_for_three_hosts() {
     render_three_hosts(
         &p,
         "workspace",
-        &["--remove", "--name", "x"],
-        "--remove --name \"x\"",
+        &["--remove", "x"],
+        "--remove x",
         "workspace",
     );
 }

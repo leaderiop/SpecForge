@@ -2,7 +2,7 @@
   "body": [
     "",
     "",
-    "<arguments>--intent \"plan the next phase\"</arguments>",
+    "<arguments>plan the next phase</arguments>",
     "",
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -47,7 +47,7 @@
     "| `/gsd-review` | prompt `gsd.review` (served by @gsd/core) |",
     "| `/gsd-ui-phase` | not installed: `@gsd/ui` serves it. Say so and stop; do not run another skill in its place. |"
   ],
-  "bytes": 10893,
+  "bytes": 10882,
   "end": [
     "Route to the appropriate quality / review skill based on the user's intent.",
     "`gsd-code-review-fix` was absorbed by `gsd-code-review --fix` in #2790.",
@@ -181,8 +181,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:94019d425ad13bbd6e6b1ae2ac8087462ab87430b1537d9396fd0326e5c05393",
+    "digest": "sha256:4cc21d389ed4ccaf6bdeb800e1ca464dcf04ab3d1f674728bd3fc3f7a32f4ab9",
     "prompt": "@gsd/core@VERSION:ns_review"
   },
-  "sha256": "94019d425ad13bbd6e6b1ae2ac8087462ab87430b1537d9396fd0326e5c05393"
+  "sha256": "4cc21d389ed4ccaf6bdeb800e1ca464dcf04ab3d1f674728bd3fc3f7a32f4ab9"
 }

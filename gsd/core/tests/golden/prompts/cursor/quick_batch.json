@@ -2,7 +2,7 @@
   "body": [
     "",
     "",
-    "<arguments>--tasks \"a; b\"</arguments>",
+    "<arguments>a; b</arguments>",
     "",
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 26939,
+  "bytes": 26885,
   "end": [
     "**Otherwise:** proceed to the workflow's normal path — parse the task list",
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:ba2a32bae05540cba5e92b26541f7ef382b47d13939fc735f47ce6fd9fbdf096",
+    "digest": "sha256:1b98bf7183e086af7eac28c092425de2304604cbdcfe0a2b36c92698e9bc8734",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "ba2a32bae05540cba5e92b26541f7ef382b47d13939fc735f47ce6fd9fbdf096"
+  "sha256": "1b98bf7183e086af7eac28c092425de2304604cbdcfe0a2b36c92698e9bc8734"
 }

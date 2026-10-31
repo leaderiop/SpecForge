@@ -2,7 +2,7 @@
   "body": [
     "",
     "",
-    "<arguments>--task \"trim titles\"</arguments>",
+    "<arguments>trim titles</arguments>",
     "",
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -27,11 +27,11 @@
     "Granular flags are composable: `--discuss --research --validate` gives the same result as `--full`.",
     "",
     "**Subcommands:**",
-    "- `--list` — List all quick tasks with status",
-    "- `--status \"<slug>\"` — Show status of a specific quick task",
-    "- `--resume \"<slug>\"` — Resume a specific quick task by slug",
-    "- `--task \"<description>\"` — the task to run (its value is the description)",
+    "- `list` — List all quick tasks with status",
+    "- `status <slug>` — Show status of a specific quick task",
+    "- `resume <slug>` — Resume a specific quick task by slug",
     "</objective>",
+    "",
     "<execution_context>",
     "<file path=\"gsd-core/workflows/quick.md\">",
     "<purpose>",
@@ -61,7 +61,7 @@
     "- gsd-verifier — Verifies phase completion, checks quality gates",
     "- gsd-code-reviewer — Reviews source files for bugs, security issues, and code quality"
   ],
-  "bytes": 64875,
+  "bytes": 64694,
   "end": [
     "",
     "Execute end-to-end.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:3c1ee03c964f9a6ade84f5821431d15f738457a12b950b65b15ea1fec793c3c2",
+    "digest": "sha256:be1b2a1ef4a9cbb0778d05a5a83fd2cb111d091e0809c214fb37cb26d6a2c070",
     "prompt": "@gsd/core@VERSION:quick",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "3c1ee03c964f9a6ade84f5821431d15f738457a12b950b65b15ea1fec793c3c2"
+  "sha256": "be1b2a1ef4a9cbb0778d05a5a83fd2cb111d091e0809c214fb37cb26d6a2c070"
 }

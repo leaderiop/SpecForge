@@ -100,9 +100,8 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
   status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
   text.
-- **There is no free-text tail for a
-  prompt's arguments (K20)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
-  (K20)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
+- **An agent cannot create an artifact through the CLI (K20)**: `--path` is the CLI's own option, MCP's
+  `specforge.edit` creates it. It is a CLI change.
 - **The hooks wait for five host items (K20)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
   a full compile, Cursor's `beforeSubmitPrompt`, and a hook reading another extension's settings.
 - **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is

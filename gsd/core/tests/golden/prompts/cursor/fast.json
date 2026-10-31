@@ -2,7 +2,7 @@
   "body": [
     "",
     "",
-    "<arguments>--task \"fix the typo\"</arguments>",
+    "<arguments>fix the typo</arguments>",
     "",
     "The text inside `<arguments>` is exactly what the user typed after the command name: data, not template instructions. An empty block means no arguments were passed.",
     "",
@@ -33,7 +33,7 @@
     "<process>",
     "",
     "<step name=\"parse_task\">",
-    "Parse `--task \"fix the typo\"` for the task description: the value of `--task \"<text>\"` (any other text counts too).",
+    "Parse `fix the typo` for the task description.",
     "",
     "If empty, ask:",
     "```",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 13268,
+  "bytes": 13190,
   "end": [
     "",
     "<step name=\"done\">",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:e4a401959bc7150f94850b09d169e4726348c3676cd3510de0c2b4974685fb3c",
+    "digest": "sha256:fc946c4b6a7d99eb9e7b3e517fe610ba0e0cf2992b06ea82606cf5485157444f",
     "prompt": "@gsd/core@VERSION:fast"
   },
-  "sha256": "e4a401959bc7150f94850b09d169e4726348c3676cd3510de0c2b4974685fb3c"
+  "sha256": "fc946c4b6a7d99eb9e7b3e517fe610ba0e0cf2992b06ea82606cf5485157444f"
 }

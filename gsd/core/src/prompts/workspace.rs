@@ -13,7 +13,7 @@ fn checkout(_call: &PromptCall<'_>) -> String {
      writes: it is another checkout, so the spec does not model it and there is no `init.*-workspace` query. The text \
      above does its work with the shell (`ls`, `git worktree list`). A new workspace gets its own spec: \
      `specforge init`, `specforge add @gsd/core`, then `specforge install <host>` in the workspace directory. Only \
-     `--name` is an option here; `--repos`, `--strategy` and `--branch` are asked for, and the workspace goes to \
+     the name is a bare word here; `--repos`, `--strategy` and `--branch` are asked for, and the workspace goes to \
      `~/gsd-workspaces/<name>`. The usage examples above that name `--repos` or `--auto` are not accepted by the \
      slash command: do not show them as commands to type, ask the questions instead (there is no unattended mode).\n"
         .to_string()
@@ -28,13 +28,13 @@ static WORKSPACE: Spec = Spec {
         Arg::flag("new"),
         Arg::flag("list"),
         Arg::flag("remove"),
-        Arg::text("name"),
+        Arg::rest("name"),
     ],
     subject: None,
     gates: &[],
     steps: &[],
     slash: Some(Slash {
-        hint: "[--new | --list | --remove] [--name <name>]",
+        hint: "[--new | --list | --remove] [name]",
         tools: &["read", "write", "shell", "search", "ask_user"],
         effort: None,
     }),

@@ -88,14 +88,13 @@ fn quick_renders_for_three_hosts() {
         "--validate",
         "--discuss",
         "--research",
-        "--task",
         "trim titles",
     ];
     render_three_hosts(
         &twin(),
         "quick",
         &args,
-        "--full --validate --discuss --research --task \"trim titles\"",
+        "--full --validate --discuss --research trim titles",
         "<purpose>",
     );
 }
@@ -105,8 +104,8 @@ fn quick_batch_renders_for_three_hosts() {
     let out = render_three_hosts(
         &twin(),
         "quick_batch",
-        &["--tasks", "a; b", "--jobs", "2"],
-        "--jobs \"2\" --tasks \"a; b\"",
+        &["--jobs", "2", "a; b"],
+        "--jobs \"2\" a; b",
         "<purpose>",
     );
     assert!(text_of(&out[0].1).contains("The quick plan"));
@@ -117,8 +116,8 @@ fn fast_renders_for_three_hosts() {
     let out = render_three_hosts(
         &twin(),
         "fast",
-        &["--task", "fix the typo"],
-        "--task \"fix the typo\"",
+        &["fix", "the", "typo"],
+        "fix the typo",
         "<purpose>",
     );
     assert!(
@@ -129,11 +128,30 @@ fn fast_renders_for_three_hosts() {
 }
 
 #[test]
-fn quick_refuses_a_bare_task_word() {
-    // The K20 tail: a free-text task is one quoted option, so a bare word is not an argument.
-    let run = prompt(&twin(), "quick", &["fix", "the", "bug"], "claude-code");
-    assert_ne!(run.code, 0, "{}", run.all());
-    assert!(run.all().contains("invalid_input"), "{}", run.all());
+fn quick_takes_its_task_bare() {
+    // The free-text tail (ADR 0314): the words after the options are the task, as upstream's hint says.
+    render_three_hosts(
+        &twin(),
+        "quick",
+        &["fix", "the", "login", "bug"],
+        "<arguments>fix the login bug</arguments>",
+        "<purpose>",
+    );
+    render_three_hosts(
+        &twin(),
+        "quick",
+        &["--full", "fix", "it"],
+        "<arguments>--full fix it</arguments>",
+        "<purpose>",
+    );
+    // by name it is the same tail
+    render_three_hosts(
+        &twin(),
+        "quick",
+        &["--task", "fix it"],
+        "<arguments>fix it</arguments>",
+        "<purpose>",
+    );
 }
 
 #[test]
@@ -228,53 +246,31 @@ fn the_batch_makes_one_quick_id_per_item() {
     );
 }
 
-/// REVIEW-r43 M7: the typed arguments render as options (`--list`, `--status "abc"`), so the dispatch reads options, and
-/// `--task` / `--tasks` are named as the description and the task list.
+/// The subcommands are words, as upstream's hint says: the tail carries `list`, `status <slug>` and `resume <slug>`, and
+/// the command file dispatches on what the block starts with.
 #[test]
-fn quick_dispatches_on_the_option_forms() {
+fn quick_dispatches_on_the_subcommand_words() {
     let p = twin();
     for (args, shown) in [
-        (vec!["--list"], "<arguments>--list</arguments>"),
-        (
-            vec!["--status", "abc"],
-            "<arguments>--status \"abc\"</arguments>",
-        ),
-        (
-            vec!["--resume", "abc"],
-            "<arguments>--resume \"abc\"</arguments>",
-        ),
-        (
-            vec!["--task", "trim"],
-            "<arguments>--task \"trim\"</arguments>",
-        ),
+        (vec!["list"], "<arguments>list</arguments>"),
+        (vec!["status", "abc"], "<arguments>status abc</arguments>"),
+        (vec!["resume", "abc"], "<arguments>resume abc</arguments>"),
+        (vec!["trim", "it"], "<arguments>trim it</arguments>"),
     ] {
         let text = text_of(&payload(&prompt(&p, "quick", &args, "claude-code")));
         assert!(text.contains(shown), "{args:?}: no {shown}");
         for word in [
-            "holds `--list`",
-            "holds `--status \"<slug>\"`",
-            "holds `--resume \"<slug>\"`",
-            "`--task \"...\"` carries the description",
-            "`--task \"<text>\"` → use its value as `$DESCRIPTION`",
+            "If the `<arguments>` block starts with \"list\": SUBCMD=list",
+            "starts with \"status \"",
+            "starts with \"resume \"",
+            "Remaining text → use as `$DESCRIPTION`",
         ] {
             assert!(text.contains(word), "{args:?}: no {word}");
         }
-        assert!(!text.contains("starts with \"list\""));
+        assert!(!text.contains("holds `--list`"));
     }
-    let batch = text_of(&payload(&prompt(
-        &p,
-        "quick_batch",
-        &["--tasks", "a; b"],
-        "claude-code",
-    )));
-    assert!(batch.contains("the value of `--tasks \"<text>\"`"));
-    let fast = text_of(&payload(&prompt(
-        &p,
-        "fast",
-        &["--task", "x"],
-        "claude-code",
-    )));
-    assert!(fast.contains("the value of `--task \"<text>\"`"));
+    let run = prompt(&p, "quick", &["--list"], "claude-code");
+    assert_ne!(run.code, 0, "list is a word, not an option: {}", run.all());
 }
 
 /// REVIEW-r43 Minor 7: the quick id is made once (the init block's), and a `git.quick_branch_template` has its `{num}`

@@ -37,9 +37,9 @@ const STEPS: &[Step] = &[
 const NEW_PROJECT_ARGS: &[Arg] = &[Arg::flag("auto"), Arg::text("idea")];
 
 const NEW_MILESTONE_ARGS: &[Arg] = &[
-    Arg::text("name"),
     Arg::text("ws"),
     Arg::flag("reset_phase_numbers"),
+    Arg::rest("name"),
 ];
 
 fn idea(call: &PromptCall<'_>) -> String {
@@ -53,7 +53,7 @@ fn idea(call: &PromptCall<'_>) -> String {
 
 fn name(call: &PromptCall<'_>) -> String {
     match call.str("name").filter(|n| !n.is_empty()) {
-        Some(_) => "\n\nThe text after `--name` is the milestone name (upstream's free-text argument); \
+        Some(_) => "\n\nThe words that stand without an option are the milestone name (upstream's free-text argument); \
                     `--ws` names a workstream and `--reset-phase-numbers` restarts phase numbering at 1.\n"
             .to_string(),
         None => String::new(),
@@ -88,7 +88,7 @@ static NEW_MILESTONE: Spec = Spec {
     gates: &[],
     steps: STEPS,
     slash: Some(Slash {
-        hint: "[--name \"...\"] [--ws <name>] [--reset-phase-numbers]",
+        hint: "[milestone name, e.g., 'v1.1 Notifications'] [--ws <name>] [--reset-phase-numbers]",
         tools: &["read", "write", "shell", "search", "agent", "ask_user"],
         effort: None,
     }),
