@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.14.0); `@gsd/core` 1.0.0 is built and tracks gsd-core 1.18.0: its model, checks, 15 agents, 30 commands, 44 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: hooks are 16 of 28, the `specforged` harness is later, Codex and Cursor are unrun). The other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.14.0); `@gsd/core` 1.0.0 is built and tracks gsd-core 1.18.0: its model, checks, 15 agents, 30 commands, 44 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: hooks are 16 of 28, the `specforged` harness is later, Codex and Cursor are unrun). `@gsd/security` 1.0.0 is built on it (the threat model, `/gsd-secure-phase`, the auditor and the ship gate; [security/](security/)). The other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -139,7 +139,7 @@ Every `capabilities/*/capability.json` of gsd-core 1.18.0 and where it lands.
 | drift | feature | `@gsd/codebase` (codebase drift reads the codebase map) |
 | claude-orchestration, external-job | feature | `@gsd/core` harness (`specforged`), later: only their settings keys exist |
 | code-review, mempalace, profile-pipeline | feature | `@gsd/ops` |
-| security | feature | `@gsd/security` |
+| security | feature | `@gsd/security`, built ([security/](security/)) |
 | ai-integration | feature | `@gsd/ai` |
 | ui, live-dom-uat | feature | `@gsd/ui` (DOM checks through the browser collector) |
 | intel, graphify | feature | `@gsd/codebase` (graphify is absorbed: SpecForge is the graph) |
@@ -169,7 +169,7 @@ The packaging (one Cargo workspace, built on demand, tested through the `specfor
    agents, skills, commands and hooks.
 2. All of `@gsd/core`, with the git and test collectors and the parity suite on one fixture project. The foundation (the
    roadmap kinds, the code book, the settings and the roadmap checks) is built; see [core/](core/).
-3. The capability extensions, then `@gsd/path` and `@gsd/loop`, then more host renderers.
+3. The capability extensions (`@gsd/security` is built: the template for the rest, [ADR gsd/0002](adr/0002-a-capability-extension-plugs-into-core-at-its-hook-points.md)), then `@gsd/path` and `@gsd/loop`, then more host renderers.
 
 ## Waiting on the kernel
 
@@ -201,11 +201,11 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 
 | Not built | Why | Where it is named |
 |---|---|---|
-| The other `@gsd/*` extensions (ai, ui, codebase, ops, security and the rest) | each is its own program; the 10 capabilities, 51 gate-cutover verdicts and 35 config keys they own are listed, not built | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| The other `@gsd/*` extensions (ai, ui, codebase, ops and the rest) | each is its own program; the 9 capabilities, 51 gate-cutover verdicts and 31 config keys they own are listed, not built | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 | Renderers for the other hosts (16 capabilities) | later install renderers | the capability table above |
 | 14 gate-cutover verdicts | 11 no twin reaches, 3 a twin answers differently | `core/tests/parity_rules/cutover.rs`, [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 | The `specforged` harness | `/gsd-autonomous` unattended; `claude-orchestration` and `external-job` have settings keys only | the capability table above |
-| The other extensions' commands and agents | 22 commands and 39 agents are owned by them | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| The other extensions' commands and agents | 21 commands and 37 agents are owned by them | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 | Codex and Cursor verified in the host | drafts until run there | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 | Publishing | `specforge publish` is a user action | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 

@@ -99,7 +99,7 @@ Every `/gsd-*` command of v1.18.0 has one owner and one round (`tests/roster.rs`
 | `/gsd-resume-work` | r43 | prompt `resume_work` over the command `resume` |
 | `/gsd-review-backlog` | r43 | prompt `review_backlog` over `phase --promote` |
 | `/gsd-review` | r43 | prompt `review` |
-| `/gsd-secure-phase` | after r44 | @gsd/security |
+| `/gsd-secure-phase` | built: @gsd/security 1.0.0 | @gsd/security |
 | `/gsd-settings` | r43 | prompt `settings` |
 | `/gsd-ship` | r42 | prompt `ship` |
 | `/gsd-sketch` | after r44 | @gsd/ops |
