@@ -4730,7 +4730,8 @@
             "inverse_of": null,
             "name": "verification",
             "required": false,
-            "target_kind": null
+            "target_kind": null,
+            "writer": "human"
           },
           {
             "default_value": null,

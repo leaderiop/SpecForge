@@ -23,6 +23,7 @@ pub const TRUTH: Kind = Kind::new(
         rf("plan", "plan").r().i().doc("parent"),
         str("text").r().doc("the truth, as a user observes it"),
         en("verification", TRUTH_VERIFICATION)
+            .u()
             .doc("explicit: a named passing test; backstop: judged"),
         int("criterion").doc("the phase success criterion it proves"),
     ],
