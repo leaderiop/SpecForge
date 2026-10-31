@@ -186,3 +186,53 @@ fn uninstall_removes_the_host_folder_it_created() {
     let left = std::fs::read_dir(&record).map_or(0, |d| d.count());
     assert_eq!(left, 0, "a record is left under .specforge/install");
 }
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "an install made without a record uninstalls its files and keeps its containers, directories and config files"
+)]
+fn an_install_without_a_record_uninstalls_and_keeps_its_containers() {
+    let p = project(json!({}), json!({}));
+    assert_eq!(install(&p, &HOSTS, &[]).code, 0);
+    std::fs::remove_dir_all(p.root().join(".specforge/install")).unwrap();
+    assert_eq!(uninstall(&p, &HOSTS, &[]).code, 0);
+    // ADR 0306 Limits: without a record nothing is guessed, so the layout directories and the config files stay.
+    let kept: BTreeSet<String> = tree(&p)
+        .into_keys()
+        .filter(|path| !path.ends_with(".spec"))
+        .collect();
+    let configs = [
+        ".claude/settings.json",
+        ".codex/config.toml",
+        ".codex/hooks.json",
+        ".cursor/hooks.json",
+        ".cursor/mcp.json",
+        ".mcp.json",
+    ];
+    assert_eq!(kept, configs.map(String::from).into(), "{kept:?}");
+    assert_eq!(p.read(".mcp.json"), "{\n  \"mcpServers\": {}\n}\n");
+    let layout = [".claude", ".codex", ".cursor"]
+        .into_iter()
+        .flat_map(|root| {
+            [
+                root.to_string(),
+                format!("{root}/agents"),
+                format!("{root}/skills"),
+            ]
+        });
+    assert_eq!(dirs(&p), layout.collect(), "the layout directories stay");
+}
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "a re-install keeps the record, so the uninstall after it still removes the host roots"
+)]
+fn a_reinstall_keeps_the_record() {
+    let p = project(json!({}), json!({}));
+    assert_eq!(install(&p, &HOSTS, &[]).code, 0);
+    assert_eq!(install(&p, &HOSTS, &[]).code, 0);
+    assert_eq!(uninstall(&p, &HOSTS, &[]).code, 0);
+    for root in [".claude", ".codex", ".cursor"] {
+        assert!(!p.root().join(root).exists(), "{root} was left behind");
+    }
+}

@@ -32,7 +32,11 @@ the whole pre-install text.
 
 ## Limits
 
-An install made before K20a has no record (its uninstall leaves the root as before). `.specforge/` is gitignored, so on
+An install made before K20a has no record, and its uninstall keeps more than it did before K20a: the layout directories
+(`.claude/agents`, `.claude/skills`, and the like), the emptied containers (`.mcp.json` stays as `{"mcpServers": {}}`)
+and a config file install created. A re-install does not write a record: it creates nothing, so there is nothing
+honest to record. The way out is to uninstall, delete the leftovers, then install (`an_install_without_a_record_...`
+pins the leftovers). `.specforge/` is gitignored, so on
 a fresh clone uninstall keeps containers. A container written `{ }` comes back `{}`.
 
 ## Consequences

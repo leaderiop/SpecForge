@@ -50,6 +50,8 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "uninstall refuses a marked file edited since and names uninstall --force"
   verify unit "uninstall removes only what install created: a config file, a key and a directory the user had stay"
   verify unit "uninstall removes the empty host directories install created, the host's root included"
+  verify unit "an install made without a record uninstalls its files and keeps its containers, directories and config files"
+  verify unit "a re-install keeps the record, so the uninstall after it still removes the host roots"
 }
 
 behavior run_a_hook "Run a Hook" {
