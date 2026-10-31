@@ -151,7 +151,7 @@ fn every_declared_hook_is_valid() {
         if event == "statusline" {
             assert!(!h.writes, "{id}: a statusline writes no plan");
         }
-        if let Some(when) = &h.when {
+        for when in &h.when {
             assert!(
                 bools.contains(when.as_str()),
                 "{id}: when '{when}' is no bool setting of the extension"

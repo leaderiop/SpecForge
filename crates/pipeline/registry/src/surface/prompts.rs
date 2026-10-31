@@ -221,7 +221,7 @@ impl Ctx<'_> {
                 ));
             }
         }
-        if let Some(setting) = &prompt.when {
+        for setting in &prompt.when {
             let is_bool = self
                 .judge
                 .settings

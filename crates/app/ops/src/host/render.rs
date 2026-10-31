@@ -29,9 +29,10 @@ pub(crate) fn setting(view: &ProjectView<'_>, extension: &str, name: &str) -> Op
         .and_then(|s| s.value.clone())
 }
 
-/// Whether the contribution whose `when` is `when` is on: no setting named, or one that is not false.
-pub(crate) fn on(view: &ProjectView<'_>, extension: &str, when: Option<&String>) -> bool {
-    when.is_none_or(|name| setting(view, extension, name) != Some(Value::Bool(false)))
+/// Whether the contribution whose `when` is `when` is on: every setting named is not false (ADR 0317).
+pub(crate) fn on(view: &ProjectView<'_>, extension: &str, when: &[String]) -> bool {
+    when.iter()
+        .all(|name| setting(view, extension, name) != Some(Value::Bool(false)))
 }
 
 /// A word that is a setting's current value when it reads `setting:<name>`.
@@ -145,7 +146,7 @@ pub fn served_slashes(view: &ProjectView<'_>) -> Vec<ServedSlash> {
     let build = view.registries();
     let mut served: Vec<ServedSlash> = build
         .slash_commands()
-        .filter(|slash| on(view, slash.extension, slash.item.when.as_ref()))
+        .filter(|slash| on(view, slash.extension, &slash.item.when))
         .filter_map(|slash| {
             let declaration = build.declaration(slash.extension)?;
             let (_, _, _, call) = slash_target(declaration, slash.item, &slash.short)?;
@@ -210,7 +211,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
     let mut agents = Vec::new();
     for agent in build.agents() {
         let (ext, a) = (agent.extension, agent.item);
-        if !on(view, ext, a.when.as_ref()) {
+        if !on(view, ext, &a.when) {
             continue;
         }
         let variant = a
@@ -236,7 +237,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
     let mut skills = Vec::new();
     for skill in build.skills() {
         let (ext, s) = (skill.extension, skill.item);
-        if !on(view, ext, s.when.as_ref()) {
+        if !on(view, ext, &s.when) {
             continue;
         }
         skills.push(RenderedSkill {
@@ -253,7 +254,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
     let mut slashes = Vec::new();
     for slash in build.slash_commands() {
         let (ext, s) = (slash.extension, slash.item);
-        if !on(view, ext, s.when.as_ref()) {
+        if !on(view, ext, &s.when) {
             continue;
         }
         let Some(declaration) = build.declaration(ext) else {
@@ -277,7 +278,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
 
     let mut hooks = build
         .hooks()
-        .filter(|h| on(view, h.extension, h.item.when.as_ref()))
+        .filter(|h| on(view, h.extension, &h.item.when))
         .map(|h| RenderedHook {
             route: h.route(),
             description: h.item.description.clone(),

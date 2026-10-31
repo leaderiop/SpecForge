@@ -204,3 +204,27 @@ fn a_rest_argument_is_a_string_tail_on_the_wire() {
         json!([{"name": "task", "field_type": "string", "rest": true}])
     );
 }
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "the SDK's when appends a setting, and a declaration with one is written as a string"
+)]
+fn when_appends_a_setting_and_one_is_written_as_a_name() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
+    c.prompt("one", |p| {
+        p.title("One")
+            .description("One")
+            .when("a")
+            .handler(|_| Ok(PromptOutput::user("x")));
+    });
+    c.prompt("two", |p| {
+        p.title("Two")
+            .description("Two")
+            .when("a")
+            .when("b")
+            .handler(|_| Ok(PromptOutput::user("x")));
+    });
+    let prompts = serde_json::to_value(&c.declaration().surfaces.prompts).unwrap();
+    assert_eq!(prompts[0]["when"], "a");
+    assert_eq!(prompts[1]["when"], json!(["a", "b"]));
+}

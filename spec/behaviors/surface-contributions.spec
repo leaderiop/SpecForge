@@ -90,6 +90,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
   verify unit "the registry refuses a second free-text tail, a tail that is not text, and a tail that is the subject"
   verify unit "a prompt argument may be named path or format, never host, argv, help, settings or secrets"
   verify unit "an optional subject follows the required positional arguments"
+  verify unit "every setting a when names must be a bool setting of the extension"
 }
 
 behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {

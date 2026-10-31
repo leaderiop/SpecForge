@@ -69,7 +69,7 @@ pub fn run(
         .cwd
         .as_deref()
         .map_or_else(|| root.to_path_buf(), Into::into);
-    if !on(view, extension, declared.when.as_ref()) {
+    if !on(view, extension, &declared.when) {
         return Outcome::default();
     }
     let filter = Filter {

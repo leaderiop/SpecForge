@@ -115,9 +115,10 @@ impl PromptBuilder {
         self
     }
 
-    /// The prompt is served while the bool setting `setting` of the extension is not false.
+    /// The prompt is served while the bool setting `setting` of the extension is not false; each call adds a setting,
+    /// and all must be on (ADR 0317).
     pub fn when(&mut self, setting: &str) -> &mut Self {
-        self.descriptor.when = Some(setting.to_string());
+        self.descriptor.when.push(setting.to_string());
         self
     }
 

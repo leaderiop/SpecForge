@@ -35,9 +35,13 @@ pub struct PromptDescriptor {
     /// The export receives the slash commands the project serves, as `slash_commands` (protocol 1.13.0, ADR 0316).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reads_slash_commands: bool,
-    /// A bool setting of the extension: while it is false the prompt is not served.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<String>,
+    /// Bool settings of the extension: while one is false the prompt is not served.
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        with = "crate::contrib::when_names"
+    )]
+    pub when: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution: Option<Attribution>,
 }

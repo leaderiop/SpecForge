@@ -83,15 +83,14 @@ pub struct ExtensionPrompts {
 impl ExtensionPrompts {
     /// The prompts `view`'s registry build routes whose `when` setting is not false, in its order.
     pub fn build(view: &ProjectView<'_>) -> Self {
-        let served = |extension: &str, when: &Option<String>| {
-            let Some(setting) = when else {
-                return true;
-            };
-            let value = view
-                .runtime()
-                .and_then(|r| r.settings_of(extension))
-                .and_then(|s| s.values.get(setting).cloned());
-            value != Some(Value::Bool(false))
+        let served = |extension: &str, when: &[String]| {
+            when.iter().all(|setting| {
+                let value = view
+                    .runtime()
+                    .and_then(|r| r.settings_of(extension))
+                    .and_then(|s| s.values.get(setting).cloned());
+                value != Some(Value::Bool(false))
+            })
         };
         ExtensionPrompts {
             prompts: view

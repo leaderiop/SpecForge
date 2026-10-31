@@ -220,3 +220,39 @@ fn a_judge_naming_no_agent_of_its_extension_is_w112() {
         "the rule with an agent is kept"
     );
 }
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "every setting a when names must be a bool setting of the extension"
+)]
+fn each_when_name_is_a_bool_setting() {
+    let build = build_registries(vec![core(json!({
+        "agents": [
+            {"id": "t-fine", "description": "A", "when": ["workflow.on", "workflow.on"]},
+            {"id": "t-ghost", "description": "A", "when": ["workflow.on", "nope"]},
+            {"id": "t-text", "description": "A", "when": ["models.planner"]},
+        ],
+        "prompts": [
+            {"id": "plan_phase", "title": "P", "description": "P", "export": "prompt__plan_phase",
+             "when": ["workflow.on", "count"]},
+        ],
+    }))]);
+    let messages = w021(&build);
+    assert_eq!(asked::agents(&build), ["t-fine"]);
+    assert!(
+        messages
+            .iter()
+            .any(|m| m.contains("'t-ghost'") && m.contains("'nope'")),
+        "{messages:#?}"
+    );
+    assert!(
+        messages.iter().any(|m| m.contains("'t-text'")),
+        "{messages:#?}"
+    );
+    assert!(
+        messages
+            .iter()
+            .any(|m| m.contains("'plan_phase'") && m.contains("'count'")),
+        "{messages:#?}"
+    );
+}

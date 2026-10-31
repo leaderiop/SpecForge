@@ -499,3 +499,24 @@ fn a_prompt_that_does_not_ask_gets_none() {
             .is_none()
     );
 }
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "a contribution whose when names several settings is served only while all of them are on"
+)]
+fn a_slash_is_served_while_every_when_setting_is_on() {
+    let names = |settings: Value| -> Vec<String> {
+        let served = router(settings);
+        render(&served, "router", Args::Named(json!({}))).unwrap();
+        served.input("prompt__router")["slash_commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["name"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let both = ["t-plan-phase", "t-research-phase"];
+    assert_eq!(names(json!({})), both);
+    assert_eq!(names(json!({"workflow.research": false})), ["t-plan-phase"]);
+    assert_eq!(names(json!({"workflow.gates": false})), ["t-plan-phase"]);
+}

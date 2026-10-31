@@ -9,6 +9,36 @@ use serde_json::{Map, Value};
 
 use crate::{Attribution, EditPlan, GraphWire, Revision};
 
+/// `when` on the wire (protocol 1.13.0, ADR 0317): a setting name or a list of them, all of which must be on. A name
+/// reads and writes as a string, so a declaration with one is byte-for-byte what it was; several write a list.
+pub mod when_names {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Names {
+        One(String),
+        Many(Vec<String>),
+    }
+
+    pub fn serialize<S: Serializer>(names: &[String], serializer: S) -> Result<S::Ok, S::Error> {
+        match names {
+            [one] => one.serialize(serializer),
+            many => many.serialize(serializer),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Vec<String>, D::Error> {
+        Ok(match Option::<Names>::deserialize(deserializer)? {
+            None => Vec::new(),
+            Some(Names::One(name)) => vec![name],
+            Some(Names::Many(names)) => names,
+        })
+    }
+}
+
 /// A host-neutral tool class, mapped per host by its adapter: `read`, `write`, `edit`, `shell`, `search`,
 /// `web_fetch`, `web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`.
 pub type ToolClass = String;
@@ -36,8 +66,8 @@ pub struct AgentDescriptor {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub variant_setting: Option<String>,
     /// A bool setting of the extension: while it is false the agent is not rendered.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty", with = "when_names")]
+    pub when: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution: Option<Attribution>,
 }
@@ -51,8 +81,8 @@ pub struct SkillDescriptor {
     pub tools: Vec<ToolClass>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub argument_hint: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty", with = "when_names")]
+    pub when: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution: Option<Attribution>,
 }
@@ -74,8 +104,8 @@ pub struct SlashCommandDescriptor {
     pub tools: Vec<ToolClass>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty", with = "when_names")]
+    pub when: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution: Option<Attribution>,
 }
@@ -108,8 +138,8 @@ pub struct HookDescriptor {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub writes: bool,
     /// A bool setting of the extension: while it is false the hook is a no-op.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty", with = "when_names")]
+    pub when: Vec<String>,
     /// `hook__<id>`.
     pub export: String,
 }

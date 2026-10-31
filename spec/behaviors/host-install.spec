@@ -54,6 +54,9 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "a re-install keeps the record, so the uninstall after it still removes the host roots"
   verify unit "the slash commands a prompt is sent are the ones an install writes"
   verify unit "a slash command's hint writes a prompt's free-text tail last"
+  verify unit "when reads a name or a list and writes one name as a string, several as a list and none as nothing"
+  verify unit "a contribution whose when names several settings is served only while all of them are on"
+  verify unit "the SDK's when appends a setting, and a declaration with one is written as a string"
 }
 
 behavior run_a_hook "Run a Hook" {
