@@ -37,6 +37,39 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 245),
     // REVIEW-r42 N5: the ship ledger is the milestone's, as the query below it reads.
     ("gsd-core/workflows/ship.md", 135),
+    // Plan 16 T5: the security branches read @gsd/security's gate and threat-ID answers, not a SECURITY.md file.
+    ("gsd-core/workflows/ship.md", 112),
+    ("gsd-core/workflows/ship.md", 123),
+    ("gsd-core/workflows/ship.md", 124),
+    ("gsd-core/workflows/ship.md", 126),
+    ("gsd-core/workflows/ship.md", 129),
+    ("gsd-core/workflows/ship.md", 131),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        45,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        52,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        59,
+    ),
+    ("gsd-core/workflows/verify-work.md", 605),
+    ("gsd-core/workflows/verify-work.md", 612),
+    ("gsd-core/workflows/verify-work.md", 618),
+    ("gsd-core/workflows/verify-work.md", 621),
+    ("gsd-core/workflows/verify-work.md", 624),
+    ("gsd-core/workflows/verify-work.md", 627),
+    ("gsd-core/workflows/verify-work.md", 630),
+    ("gsd-core/workflows/verify-work.md", 636),
+    ("gsd-core/workflows/verify-work.md", 642),
+    ("gsd-core/workflows/execute-phase.md", 102),
+    ("gsd-core/workflows/execute-phase.md", 401),
+    ("gsd-core/workflows/plan-phase.md", 107),
+    ("gsd-core/workflows/plan-phase.md", 488),
+    ("gsd-core/workflows/audit-milestone.md", 320),
 ];
 
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not

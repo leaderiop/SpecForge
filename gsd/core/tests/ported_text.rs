@@ -10,7 +10,7 @@ use roster::ROSTER;
 #[path = "common/roster.rs"]
 mod roster;
 
-const FORBIDDEN: [&str; 7] = [
+const FORBIDDEN: [&str; 9] = [
     ".planning",
     "gsd-tools",
     "gsd_run",
@@ -18,6 +18,9 @@ const FORBIDDEN: [&str; 7] = [
     "gsd.cjs",
     "~/.claude/gsd-core",
     "$HOME/.claude/gsd-core",
+    // plan 16 T5: the security branches read @gsd/security's gate, not a SECURITY.md file.
+    "SECURITY_FILE",
+    "-SECURITY.md",
 ];
 
 const HOSTS: [&str; 3] = ["claude-code", "codex", "cursor"];
@@ -308,5 +311,26 @@ fn no_text_tells_the_agent_to_remove_a_phase() {
                 "{command} on {host} removes a phase: {line}"
             );
         }
+    }
+}
+
+/// Plan 16 T5: the threat-ID gate reads `threat-ids`, whose answer holds `threat_id_duplicate_count`.
+#[test]
+fn the_threat_id_gate_reads_threat_ids() {
+    let line = "THREAT_IDS_JSON=$(specforge gsd threat-ids \"$PHASE_ID\" --format json 2>/dev/null || echo '{\"threat_id_duplicates\":[],\"threat_id_duplicate_count\":0}')";
+    for workflow in ["execute-phase", "plan-phase"] {
+        let path = format!(
+            "{}/assets/gsd-core/workflows/{workflow}.md",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let text = std::fs::read_to_string(&path).expect("a workflow");
+        assert!(
+            text.contains(&format!("`{line}`")),
+            "{workflow}: no THREAT_IDS_JSON line"
+        );
+        assert!(
+            text.contains("`threat_id_duplicate_count` from `THREAT_IDS_JSON`"),
+            "{workflow}: does not parse the count from THREAT_IDS_JSON"
+        );
     }
 }

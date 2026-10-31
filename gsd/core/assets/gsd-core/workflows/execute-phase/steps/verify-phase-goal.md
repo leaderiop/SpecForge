@@ -44,21 +44,21 @@ in `scripts/lint-verify-lifecycle-writes.allowlist.json`).
 
 ```bash
 VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
-SECURITY_FILE=$(ls "${PHASE_DIR}"/*-SECURITY.md 2>/dev/null | head -1)
+SECURITY_GATE_JSON=$(specforge gsd security-gate "$PHASE_ID" --format json)
 ```
 
 Dispatch every `kind == "step"` hook per @gsd-core/references/loop-hook-dispatch.md (skip when none). The secure-phase routing below applies when that specific hook is active.
 
 If no active secure-phase step hook exists: skip.
 
-If an active secure-phase step hook exists AND `SECURITY_FILE` is empty (no SECURITY.md yet):
+If an active secure-phase step hook exists AND `details.exists` of `SECURITY_GATE_JSON` is `false` (no security audit yet):
 Include in the next-steps routing output:
 ```
 ⚠ Security enforcement enabled — run before advancing:
   /gsd:secure-phase {PHASE} ${GSD_WS}
 ```
 
-If an active secure-phase step hook exists AND SECURITY.md exists: check frontmatter `threats_open`. If > 0:
+If an active secure-phase step hook exists AND the audit exists: check `details.threats_open`. If > 0:
 ```
 ⚠ Security gate: {threats_open} threats open
   /gsd:secure-phase {PHASE} — resolve before advancing

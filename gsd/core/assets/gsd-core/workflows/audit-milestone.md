@@ -319,7 +319,7 @@ or `5.2` if `5.1` exists), never `<after-phase>`.
 
 For Nyquist-coverage gaps flagged in the table above, prefer running
 `/gsd:validate-phase <N>` for each flagged phase (and `/gsd:secure-phase
-<N>` if SECURITY.md was flagged) before inserting a new closure phase —
+<N>` if the security audit was flagged) before inserting a new closure phase —
 they may close the gap retroactively without a new phase.
 
 ---

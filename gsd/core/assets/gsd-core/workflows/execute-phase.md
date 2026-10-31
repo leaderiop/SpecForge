@@ -101,7 +101,7 @@ AGENT_SKILLS=""   # the host install carries the skills of gsd-executor
 
 Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `padded_phase`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`, `requirements_path`, `section_manifest`, `threat_id_duplicate_count`.
 
-**Threat-ID gate (#4683):** if `threat_id_duplicate_count` is non-zero, read and execute `execute-phase/steps/threat-id-gate.md` BEFORE any dispatch — it is a hard stop (the full duplicate list is in `threat_id_duplicates`).
+**Threat-ID gate (#4683):** run `THREAT_IDS_JSON=$(specforge gsd threat-ids "$PHASE_ID" --format json 2>/dev/null || echo '{"threat_id_duplicates":[],"threat_id_duplicate_count":0}')`; if `threat_id_duplicate_count` from `THREAT_IDS_JSON` is non-zero, read and execute `execute-phase/steps/threat-id-gate.md` BEFORE any dispatch — it is a hard stop (the full duplicate list is `threat_id_duplicates` of `THREAT_IDS_JSON`).
 
 `section_manifest` (#2932) gates the three `steps/*.md` reads below: read a step file only when its `id` is in `section_manifest.included` (equivalently, its path is in `section_manifest.read`); skip it — without reading — when its `id` is in `section_manifest.excluded`. When `section_manifest` is `null` (degraded: manifest artifact missing/unreadable), read all three unconditionally — the safe superset.
 
@@ -400,7 +400,7 @@ later conditions once one matches:
      to do — and continue directly at `aggregate_results`, NOT `code_review_gate`. `aggregate_results`
      reads exclusively from on-disk `${PHASE_DIR}` artifacts (`*-SUMMARY.md`) and independent
      `specforge` calls — nothing it reads is produced only by `execute_waves` or `checkpoint_handling` —
-     so it tolerates having executed no plans in this run; the `SECURITY_FILE` / secure-phase
+     so it tolerates having executed no plans in this run; the `security-gate` / secure-phase
      threats-open gate is the shared verification step's first step, and it reads on-disk artifacts
      only too. From there the run proceeds exactly as a normal one: `aggregate_results` →
      `verify_phase_goal` (the shared verification step: `verify_post_security_gate` →
