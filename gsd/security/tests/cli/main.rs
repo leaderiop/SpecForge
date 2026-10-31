@@ -63,6 +63,5 @@ fn the_handshake_tracks_gsd_core_1_18_0() {
     );
     let peer = &handshake["peer_dependencies"][0];
     assert_eq!(peer["name"], "@gsd/core");
-    // shortcut: `>=1.0.0` until plan 16 T8 releases core 1.1.0 and sets `^1.1.0`
-    assert_eq!(peer["version"], ">=1.0.0");
+    assert_eq!(peer["version"], "^1.1.0");
 }

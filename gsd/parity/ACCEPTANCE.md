@@ -1,4 +1,4 @@
-# Acceptance: `@gsd/core` 1.0.0 against gsd-core 1.18.0
+# Acceptance: `@gsd/core` 1.1.0 against gsd-core 1.18.0
 
 This is the checklist for the core program (r36 to r44). Each row counts the items of one family of the vendored
 inventory (`parity/upstream/v1.18.0/`): how many `@gsd/core` builds, how many another `@gsd/*` extension owns, how many

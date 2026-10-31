@@ -13,9 +13,8 @@ use specforge_extension_sdk::prelude::*;
 /// The gsd-core release this crate tracks; `[package.metadata.gsd] tracks` in `Cargo.toml` says the same.
 pub const TRACKS: &str = "gsd-core@1.18.0";
 
-/// The `@gsd/core` releases this extension works with. shortcut: `>=1.0.0` until core 1.1.0 (plan 16 T8) is the
-/// release whose workflows ask for hooks; T8 sets `^1.1.0`.
-pub const CORE_RANGE: &str = ">=1.0.0";
+/// The `@gsd/core` releases this extension works with: 1.1.0 is the first whose workflows ask for hooks.
+pub const CORE_RANGE: &str = "^1.1.0";
 
 #[specforge_extension_sdk::extension(
     name = "@gsd/security",
