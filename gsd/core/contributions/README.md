@@ -143,6 +143,11 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 | `complete_milestone` | E106, E511, E516 | `close_milestone` |
 | `ship` | E511, E512, E516 | `fix_window`, `waive_window` |
 
+The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+`approve_validation`, `waive_window`, `dispose_refactor`) are human-attested (ADR 0301): the host runs them only for a
+person at a terminal and refuses an agent's call `human_only`, so their prompt steps ask the person to run them. `pause`
+stays an agent's call.
+
 ### What the lifecycle prompts do not do (known, not fixed)
 
 The assets are upstream's text; where the spec has no counterpart a line was defaulted, not ported (each is a line in

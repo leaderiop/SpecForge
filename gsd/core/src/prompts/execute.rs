@@ -58,12 +58,12 @@ const PLAN_STEPS: &[Step] = &[
     },
     Step {
         id: "checkpoint",
-        title: "Record a person's answer to a checkpoint (specforge gsd answer-checkpoint <checkpoint> ...)",
+        title: "Ask the person to run `specforge gsd answer-checkpoint <checkpoint> ...` in their terminal (an agent's call is refused: it records what a person says)",
         does: Do::Command("answer_checkpoint"),
     },
     Step {
         id: "setup",
-        title: "Record that a person did a user setup step (specforge gsd confirm-setup <user_setup> --by <who>)",
+        title: "Ask the person to run `specforge gsd confirm-setup <user_setup> --by <who>` in their terminal (an agent's call is refused: it records what a person says)",
         does: Do::Command("confirm_setup"),
     },
     Step {

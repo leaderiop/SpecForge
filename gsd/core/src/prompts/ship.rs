@@ -20,7 +20,7 @@ const SHIP_STEPS: &[Step] = &[
     },
     Step {
         id: "waive_window",
-        title: "Waive a broken window with a reason (specforge gsd waive-window <window> <reason> <who>)",
+        title: "Ask the person to run `specforge gsd waive-window <window> <reason> <who>` in their terminal (an agent's call is refused: it records what a person says)",
         does: Do::Command("waive_window"),
     },
 ];

@@ -61,7 +61,7 @@
     "02",
     "GSD_ARGS_END"
   ],
-  "bytes": 66278,
+  "bytes": 66365,
   "end": [
     "skipped: 0",
     "",
@@ -102,7 +102,7 @@
     "",
     "In the shell blocks above, `$PHASE_ID` is `v1.0/02`; `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
     "",
-    "Record each answer of the person with `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`): the UAT file's `result:` lines are not edited by hand."
+    "For each answer of the person, ask them to run `specforge gsd set-uat-result <uat_test> <pass|issue|skipped|blocked|pending> --by <who>` (an issue takes `--reported \"<their words>\"`, a skipped takes `--reason \"<why>\"`, a blocked takes `--blocked-by <server|physical_device|release_build|third_party|prior_phase>`) in their terminal (an agent's call is refused: it records what a person says): the UAT file's `result:` lines are not edited by hand."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -195,14 +195,14 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:219168d370e1aefebb6faafdb0f8f46018e210f2cbf8267ee6e4bd06c15a4a3f",
+    "digest": "sha256:8ffeb16e96b0464b2875111f6666fb4203e9a06f452612ffd5ecd478fe582d6d",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
         "cli": "specforge gsd set-uat-result",
         "gate": [],
         "id": "uat",
-        "title": "Record the person's answer to a UAT test (specforge gsd set-uat-result <uat_test> <result> --by <who>)",
+        "title": "Ask the person to run `specforge gsd set-uat-result <uat_test> <result> --by <who>` in their terminal (an agent's call is refused: it records what a person says)",
         "tool": "specforge.gsd.set_uat_result"
       },
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "219168d370e1aefebb6faafdb0f8f46018e210f2cbf8267ee6e4bd06c15a4a3f"
+  "sha256": "8ffeb16e96b0464b2875111f6666fb4203e9a06f452612ffd5ecd478fe582d6d"
 }

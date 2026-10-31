@@ -151,7 +151,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     });
     c.command("waive_window", |cmd| {
         cmd.description("Waive a broken window with a reason and who waives it, at the host's clock; a window is resolved once")
-            .writes()
+            .human()
             .arg("window", |a| {
                 a.required().description("the window (its id, or a short form that is not ambiguous)");
             })

@@ -7,7 +7,7 @@ use super::harness::project;
 fn waive_requires_a_reason() {
     let p = project("verify");
     let before = bytes(&p);
-    let run = gsd(&p, "waive-window", &["BW1"]);
+    let run = gsd_as_person(&p, "waive-window", &["BW1"]);
     assert_eq!(run.code, 2, "{}", run.all());
     assert!(run.all().contains("REASON"), "{}", run.all());
     unchanged(&p, &before);
@@ -38,7 +38,7 @@ fn record_then_waive_writes_recorded_at_and_waiver() {
             .is_some_and(|at| at.ends_with('Z')),
         "{window}"
     );
-    let run = gsd(&p, "waive-window", &["BW2", "Tracked as issue 42", "ada"]);
+    let run = gsd_as_person(&p, "waive-window", &["BW2", "Tracked as issue 42", "ada"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let window = p.fields_of("BW2");
     assert_eq!(window["status"], "waived");
@@ -59,7 +59,7 @@ fn fix_then_waive_is_refused() {
     assert_eq!(gsd(&p, "fix-window", &["BW1"]).code, 0);
     assert_eq!(p.fields_of("BW1")["status"], "fixed");
     let before = bytes(&p);
-    let run = gsd(&p, "waive-window", &["BW1", "no longer matters", "ada"]);
+    let run = gsd_as_person(&p, "waive-window", &["BW1", "no longer matters", "ada"]);
     refused(&run, "invalid_input", &["already fixed"]);
     let run = gsd(&p, "fix-window", &["BW1"]);
     refused(&run, "invalid_input", &["already fixed"]);
@@ -87,7 +87,7 @@ fn record_window_line_is_an_integer() {
 fn a_control_character_in_the_reason_is_refused() {
     let p = project("verify");
     let before = bytes(&p);
-    let run = gsd(&p, "waive-window", &["BW1", "bad\u{1b}reason", "ada"]);
+    let run = gsd_as_person(&p, "waive-window", &["BW1", "bad\u{1b}reason", "ada"]);
     refused(
         &run,
         "invalid_input",
@@ -111,11 +111,11 @@ fn a_window_whose_proposal_was_accepted_cannot_be_waived() {
         "  phase       v1.0/01\n  refactor    v1.0/01/RP1\n  file ",
     );
     assert_eq!(
-        gsd(&p, "dispose-refactor", &["RP1", "accepted", "ada"]).code,
+        gsd_as_person(&p, "dispose-refactor", &["RP1", "accepted", "ada"]).code,
         0
     );
     let before = bytes(&p);
-    let run = gsd(&p, "waive-window", &["BW1", "why", "ada"]);
+    let run = gsd_as_person(&p, "waive-window", &["BW1", "why", "ada"]);
     refused(&run, "invalid_input", &["already fixed"]);
     unchanged(&p, &before);
 }

@@ -8,7 +8,7 @@ use super::workflow::{self, Do, Slash, Spec, Step};
 
 const UAT_STEPS: &[Step] = &[Step {
     id: "uat",
-    title: "Record the person's answer to a UAT test (specforge gsd set-uat-result <uat_test> <result> --by <who>)",
+    title: "Ask the person to run `specforge gsd set-uat-result <uat_test> <result> --by <who>` in their terminal (an agent's call is refused: it records what a person says)",
     does: Do::Command("set_uat_result"),
 }];
 

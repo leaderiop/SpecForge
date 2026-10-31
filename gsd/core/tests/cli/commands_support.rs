@@ -15,6 +15,31 @@ pub fn gsd(p: &Project, command: &str, args: &[&str]) -> Run {
     p.run(&all)
 }
 
+/// `specforge gsd <command> <args>` as a person at a terminal runs it: the six commands that record what a person says
+/// (ADR 0301) are refused to anyone else.
+pub fn gsd_as_person(p: &Project, command: &str, args: &[&str]) -> Run {
+    let mut all = vec!["gsd", command];
+    all.extend_from_slice(args);
+    p.run_as_person(&all)
+}
+
+/// [`gsd_as_person`] for a command that records what a person says, [`gsd`] for the rest.
+pub fn gsd_for(p: &Project, command: &str, args: &[&str]) -> Run {
+    const HUMAN: [&str; 6] = [
+        "answer-checkpoint",
+        "confirm-setup",
+        "set-uat-result",
+        "approve-validation",
+        "waive-window",
+        "dispose-refactor",
+    ];
+    if HUMAN.contains(&command) {
+        gsd_as_person(p, command, args)
+    } else {
+        gsd(p, command, args)
+    }
+}
+
 /// Every `.spec` file of the project and its harness ledger, by path: the bytes a refused command must leave alone.
 pub fn bytes(p: &Project) -> BTreeMap<String, String> {
     fn walk(root: &Path, dir: &Path, out: &mut BTreeMap<String, String>) {

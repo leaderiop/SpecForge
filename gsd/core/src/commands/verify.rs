@@ -25,7 +25,7 @@ fn set_uat_result(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let test = node(call, "uat_test", required(call, "uat_test")?)?;
     let result = required(call, "result")?;
     // The caller's attestation of whose answer this is. No field holds it (a uat_test has no `by`): it is refused
-    // empty and echoed, never stored (K20: a human-attested command kind).
+    // empty and echoed, never stored (the command is human-attested: ADR 0301).
     let by = required(call, "by")?;
     let source = call.str("source");
     // What the predicate (gsd/E509) asks of a result: the words, the reason, the blocker, here or already there.
@@ -127,7 +127,7 @@ fn approve_validation(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("set_uat_result", |cmd| {
         cmd.description("Record a person's answer to a UAT test: pass, issue (with their words), skipped (with a reason), blocked (with what blocks it) or pending")
-            .writes()
+            .human()
             .arg("uat_test", |a| {
                 a.required().description("the UAT test (its path, or a short form that is not ambiguous)");
             })
@@ -135,7 +135,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.required().one_of(RESULTS).description("the answer");
             })
             .arg("by", |a| {
-                a.description("required; whose answer it is: the caller's attestation, echoed and not stored (K20)");
+                a.description("required; whose answer it is (typed by the person at their terminal; echoed, not stored)");
             })
             .arg("source", |a| {
                 a.one_of(&["human", "automated"]).description("who produced the result; only given for an automated pass or issue");
@@ -156,7 +156,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     });
     c.command("approve_validation", |cmd| {
         cmd.description("Record who approved a phase's validation, with the host's clock")
-            .writes()
+            .human()
             .arg("validation", |a| {
                 a.required().description(
                     "the validation (its path, or a short form that is not ambiguous)",

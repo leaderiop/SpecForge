@@ -43,7 +43,7 @@ fn set_uat_result_reproduces_the_twins_ledger() {
         let mut all = vec![id.as_str()];
         all.extend(&args);
         all.extend(["--by", "ada"]);
-        let run = gsd(&p, "set-uat-result", &all);
+        let run = gsd_as_person(&p, "set-uat-result", &all);
         assert_eq!(run.code, 0, "{test}: {}", run.all());
     }
     assert_eq!(
@@ -67,25 +67,25 @@ fn an_issue_without_reported_is_refused() {
     let p = unanswered();
     let before = bytes(&p);
     // U1 has no `reported` of its own.
-    let run = gsd(
+    let run = gsd_as_person(
         &p,
         "set-uat-result",
         &["v1.0/01/01-UAT/U1", "issue", "--by", "ada"],
     );
     refused(&run, "invalid_input", &["--reported"]);
-    let run = gsd(
+    let run = gsd_as_person(
         &p,
         "set-uat-result",
         &["v1.0/01/01-UAT/U1", "skipped", "--by", "ada"],
     );
     refused(&run, "invalid_input", &["--reason"]);
-    let run = gsd(
+    let run = gsd_as_person(
         &p,
         "set-uat-result",
         &["v1.0/01/01-UAT/U1", "blocked", "--by", "ada"],
     );
     refused(&run, "invalid_input", &["--blocked-by"]);
-    let run = gsd(
+    let run = gsd_as_person(
         &p,
         "set-uat-result",
         &[
@@ -107,7 +107,7 @@ fn an_issue_without_reported_is_refused() {
 fn a_control_character_in_reported_is_refused() {
     let p = unanswered();
     let before = bytes(&p);
-    let run = gsd(
+    let run = gsd_as_person(
         &p,
         "set-uat-result",
         &[
@@ -133,7 +133,7 @@ fn the_sessions_totals_follow() {
     let totals = || p.fields_of(SESSION)["totals"].clone();
     assert_eq!(totals()["pending"], 3, "{}", totals());
     assert_eq!(
-        gsd(
+        gsd_as_person(
             &p,
             "set-uat-result",
             &["v1.0/01/01-UAT/U1", "pass", "--by", "ada"]
@@ -143,7 +143,7 @@ fn the_sessions_totals_follow() {
     );
     assert_eq!(totals()["pending"], 2);
     assert_eq!(totals()["passed"], 1);
-    let run = gsd(
+    let run = gsd_as_person(
         &p,
         "set-uat-result",
         &[
@@ -169,7 +169,7 @@ fn approve_validation_writes_by_and_at() {
     );
     unledger(&p, "v1.0/01/01-VALIDATION", "approval");
     assert_eq!(p.fields_of("v1.0/01/01-VALIDATION")["status"], "draft");
-    let run = gsd(
+    let run = gsd_as_person(
         &p,
         "approve-validation",
         &["v1.0/01/01-VALIDATION", "grace"],
@@ -185,7 +185,7 @@ fn approve_validation_writes_by_and_at() {
     assert_eq!(fields["status"], "validated");
     assert!(!p.codes().contains(&"E083".to_string()), "{:?}", p.codes());
     let before = bytes(&p);
-    let again = gsd(&p, "approve-validation", &["v1.0/01/01-VALIDATION", "ada"]);
+    let again = gsd_as_person(&p, "approve-validation", &["v1.0/01/01-VALIDATION", "ada"]);
     refused(&again, "invalid_input", &["already approved"]);
     assert_eq!(bytes(&p), before);
 }
@@ -194,7 +194,7 @@ fn approve_validation_writes_by_and_at() {
 fn a_re_answer_leaves_no_member_of_the_earlier_one() {
     let p = unanswered();
     let u2 = "v1.0/01/01-UAT/U2";
-    let run = gsd(
+    let run = gsd_as_person(
         &p,
         "set-uat-result",
         &[
@@ -212,7 +212,7 @@ fn a_re_answer_leaves_no_member_of_the_earlier_one() {
     );
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(p.fields_of(u2)["source"], "automated");
-    let run = gsd(&p, "set-uat-result", &[u2, "pass", "--by", "ada"]);
+    let run = gsd_as_person(&p, "set-uat-result", &[u2, "pass", "--by", "ada"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let fields = p.fields_of(u2);
     assert_eq!(fields["result"], "pass");
@@ -222,7 +222,7 @@ fn a_re_answer_leaves_no_member_of_the_earlier_one() {
     }
     // A member that belongs to another result is refused, not written.
     let before = bytes(&p);
-    let run = gsd(
+    let run = gsd_as_person(
         &p,
         "set-uat-result",
         &[u2, "pass", "--reason", "x", "--by", "ada"],

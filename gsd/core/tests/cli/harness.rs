@@ -210,6 +210,40 @@ impl Project {
         }
     }
 
+    /// Runs `specforge <args>` as a person at a terminal would: stdin is the slave side of a pty, so the host sees an
+    /// interactive caller (ADR 0301). The master side stays open until the child exits.
+    #[cfg(unix)]
+    pub fn run_as_person(&self, args: &[&str]) -> Run {
+        use rustix::fs::{Mode, OFlags, open};
+        use rustix::pty::{OpenptFlags, grantpt, openpt, ptsname, unlockpt};
+        use std::process::Stdio;
+        let master = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY).expect("a pty master");
+        grantpt(&master).expect("grantpt");
+        unlockpt(&master).expect("unlockpt");
+        let name = ptsname(&master, Vec::new()).expect("the pty slave's name");
+        let slave = open(
+            name.as_c_str(),
+            OFlags::RDWR | OFlags::NOCTTY,
+            Mode::empty(),
+        )
+        .expect("open the pty slave");
+        let output = Command::new(required("SPECFORGE_BIN"))
+            .args(args)
+            .env("SPECFORGE_WASMTIME_CACHE", compile_cache())
+            .current_dir(&self.root)
+            .stdin(Stdio::from(slave))
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .expect("run specforge");
+        drop(master);
+        Run {
+            code: output.status.code().unwrap_or(-1),
+            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        }
+    }
+
     /// The project's root, as an absolute path.
     pub fn root(&self) -> &Path {
         &self.root
