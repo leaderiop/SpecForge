@@ -480,6 +480,18 @@ mod worktree {
         assert_eq!(rev(&p, "HEAD"), top, "a re-run made a commit");
         assert_eq!(commit, top);
         assert_eq!(parent, prior, "not HEAD^ ({plan_at})");
+        // Review F8 item 2: a later entity that references the plan (`plan <id>`, one space) is not its declaration.
+        let referenced = p.git_commit(
+            "docs: a blocker on the plan",
+            &[(
+                "spec/quick.spec",
+                &format!("{PLAN}\nblocker B1 {{\n  text \"Needs a review\"\n  plan {ID}\n}}\n"),
+            )],
+            AT,
+        );
+        let (commit, parent) = dispatch(&p, &block);
+        assert_eq!(commit, referenced);
+        assert_eq!(parent, prior, "the base moved to a reference's commit");
     }
 
     #[test]

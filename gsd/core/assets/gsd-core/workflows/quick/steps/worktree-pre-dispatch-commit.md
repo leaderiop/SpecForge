@@ -26,7 +26,7 @@ if [ "${USE_WORKTREES}" != "false" ]; then
     # no mode flag adds or drops one.
     QUICK_PREDISPATCH_PATHS=(spec)
     # The executor's first action checks the same entity at QUICK_PLAN_COMMIT, and
-    # the alternate worktree base below is the parent of the commit that wrote it:
+    # the alternate worktree base below is the parent of the commit that declared it:
     # with no such commit, QUICK_PLAN_PARENT stays empty and the guard fails closed.
     # An array (not a space-joined string) keeps each path a single git argument
     # under `set -u` word-splitting rules (ShellCheck SC2086), as the git commit
@@ -56,7 +56,7 @@ if [ "${USE_WORKTREES}" != "false" ]; then
   # commit attempt so it holds whether the planner already committed the plan or this
   # step just did. Empty when docs commits are off, for a root commit, and with no plan commit.
   if [ "$COMMIT_DOCS" != "false" ]; then
-    _GSD_PLAN_AT=$(git log -1 --format=%H -S "plan ${quick_id}" -- spec 2>/dev/null || true)
+    _GSD_PLAN_AT=$(git log -1 --format=%H --pickaxe-regex -S "^plan ${quick_id} " -- spec 2>/dev/null || true)
     QUICK_PLAN_PARENT=""
     [ -z "$_GSD_PLAN_AT" ] || QUICK_PLAN_PARENT=$(git rev-parse --verify --quiet "${_GSD_PLAN_AT}^" 2>/dev/null || true)
   fi
