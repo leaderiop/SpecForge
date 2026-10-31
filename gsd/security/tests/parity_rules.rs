@@ -218,7 +218,7 @@ fn every_divergence_tag_the_crate_names_is_listed_in_acceptance() {
 }
 
 /// The divergences of `@gsd/security` from upstream 1.18.0 (plan 16's inventory, and the ones the build found).
-pub fn gsd_divergences() -> [&'static str; 14] {
+pub fn gsd_divergences() -> [&'static str; 15] {
     [
         "blocking-needs-security",
         "fragment-repointed",
@@ -234,5 +234,6 @@ pub fn gsd_divergences() -> [&'static str; 14] {
         "injection-key-explicit",
         "surface-peer-setting",
         "gate-parity-plus",
+        "audit-counts-per-entity",
     ]
 }

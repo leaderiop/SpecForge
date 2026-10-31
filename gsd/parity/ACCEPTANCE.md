@@ -133,6 +133,10 @@ Not verified:
     resolve, fewer threats than the last audit run counted) blocks `SECURITY_SHIP_GATE_UNREADABLE` with the reasons in
     `details.problems`. A `.spec` file that does not parse is seen only through what it takes with it; `specforge check`
     reports it (REVIEW-security-part2 m3 and the fail-closed contract).
+  - `[audit-counts-per-entity]` an audit run's `total`, `closed` and `open` count threat entities: the supply-chain row
+    `T-NN-SC`, which every plan keeps, is counted once per plan, and so is a duplicated ID, where upstream's register holds
+    the supply-chain row once per phase (the vault twin: 6 against upstream's 3). The decision to append a run is the same
+    (REVIEW-security-part2 N4).
   - `[no-superseded-plans]` no superseded-plan exclusion in the duplicate scan: a superseded plan is removed in the core model.
   - `[stride-enum]` the STRIDE category is an enum of six words, not free text; the importer maps letters.
   - `[retro-threat-in-plan]` a retroactive threat is written into a plan of the phase with `retroactive: true`, not held in SECURITY.md only.
