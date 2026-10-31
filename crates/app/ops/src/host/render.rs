@@ -78,10 +78,20 @@ fn hint<'a>(args: impl Iterator<Item = (&'a str, bool, bool)>) -> Option<String>
 }
 
 fn prompt_hint(args: &[PromptArgDescriptor]) -> Option<String> {
-    hint(
+    let named = hint(
         args.iter()
+            .filter(|a| !a.rest)
             .map(|a| (a.name.as_str(), a.required, a.field_type == "bool")),
-    )
+    );
+    // A free-text tail is written last, as upstream's hint writes the task description.
+    let tail = args
+        .iter()
+        .find(|a| a.rest)
+        .map(|a| format!("[<{}>\u{2026}]", option_name(&a.name)));
+    match (named, tail) {
+        (Some(named), Some(tail)) => Some(format!("{named} {tail}")),
+        (named, tail) => named.or(tail),
+    }
 }
 
 /// The project's contributions for `host`, with every body rendered.

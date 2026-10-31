@@ -195,6 +195,12 @@ impl PromptArgBuilder {
         self.0.description = Some(text.to_string());
         self
     }
+    /// The free-text tail: a string that takes the words no positional argument or option takes (ADR 0314). One per
+    /// prompt, never the subject.
+    pub fn rest(&mut self) -> &mut Self {
+        self.0.rest = true;
+        self.typed("string")
+    }
 
     fn typed(&mut self, field_type: &str) -> &mut Self {
         self.0.field_type = field_type.to_string();

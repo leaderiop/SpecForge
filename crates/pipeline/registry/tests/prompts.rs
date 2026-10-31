@@ -145,3 +145,64 @@ fn a_human_command_that_does_not_write_is_dropped() {
         .collect();
     assert_eq!(routed, ["confirm"]);
 }
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "the registry refuses a second free-text tail, a tail that is not text, and a tail that is the subject"
+)]
+fn a_prompt_takes_one_tail_of_text() {
+    let arg = |name: &str, field_type: &str, rest: bool| {
+        let mut arg = json!({"name": name, "field_type": field_type});
+        if field_type == "reference" {
+            arg["target_kind"] = json!("phase");
+        }
+        if rest {
+            arg["rest"] = json!(true);
+        }
+        arg
+    };
+    let defects = [
+        (
+            "two_tails",
+            json!({"args": [arg("a", "string", true), arg("b", "string", true)]}),
+        ),
+        ("number_tail", json!({"args": [arg("n", "integer", true)]})),
+        (
+            "subject_tail",
+            json!({"args": [arg("p", "reference", true)], "subject": "p"}),
+        ),
+    ];
+    let mut prompts = vec![prompt("fine")];
+    let mut fine = prompt("one_tail");
+    fine["args"] = json!([arg("full", "bool", false), arg("task", "string", true)]);
+    prompts.push(fine);
+    for (id, defect) in &defects {
+        let mut broken = prompt(id);
+        for (key, value) in defect.as_object().unwrap() {
+            broken[key] = value.clone();
+        }
+        prompts.push(broken);
+    }
+    let build = build_registries(vec![declaration(
+        "@t/core",
+        "t",
+        json!({
+            "surfaces": {"prompts": prompts},
+            "entities": [{"name": "phase", "keyword": "phase"}],
+        }),
+    )]);
+    let w021 = messages(&build, "W021");
+    for (id, named) in [
+        ("two_tails", "one free-text tail"),
+        ("number_tail", "'n'"),
+        ("subject_tail", "'p'"),
+    ] {
+        let found: Vec<_> = w021
+            .iter()
+            .filter(|m| m.contains(&format!("'{id}'")))
+            .collect();
+        assert_eq!(found.len(), 1, "{id}: {w021:#?}");
+        assert!(found[0].contains(named), "{id}: {}", found[0]);
+    }
+    assert!(w021.iter().all(|m| !m.contains("'one_tail'")), "{w021:#?}");
+}

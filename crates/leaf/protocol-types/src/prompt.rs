@@ -60,6 +60,10 @@ pub struct PromptArgDescriptor {
     pub default: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The free-text tail: the words no positional argument or option takes, joined by one space (protocol 1.13.0,
+    /// ADR 0314). A string argument; one per prompt, never the subject.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rest: bool,
 }
 
 /// One step of a workflow. At most one of `command`, `agent`, `prompt`; none is a step the agent does itself.

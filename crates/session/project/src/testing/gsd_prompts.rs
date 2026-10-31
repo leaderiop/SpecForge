@@ -141,19 +141,24 @@ fn prompts() -> Value {
     ])
 }
 
-fn surfaces() -> Value {
+fn surfaces(extra: &[Value]) -> Value {
+    let mut prompts = prompts();
+    prompts
+        .as_array_mut()
+        .expect("a list")
+        .extend(extra.iter().cloned());
     json!([{
         "commands": [
             command("record_plan", phase_arg(), &[], None),
             command("execute_phase", phase_arg(), &["E902", "W904"], Some("phase")),
             command("ship", json!([]), &["E903"], None),
         ],
-        "prompts": prompts(),
+        "prompts": prompts,
         "agents": [{"id": "checker", "description": "Checks the plans"}],
     }])
 }
 
-fn core() -> ContributionsBuilder {
+fn core(extra: &[Value]) -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta {
         short: Some("t".into()),
         ..ExtensionMeta::new(CORE, "0.4.0")
@@ -162,7 +167,7 @@ fn core() -> ContributionsBuilder {
     c.raw_category(DeclaredCategory::Codes, codes());
     c.raw_category(DeclaredCategory::Settings, settings());
     c.raw_category(DeclaredCategory::Passes, passes());
-    c.raw_category(DeclaredCategory::Surfaces, surfaces());
+    c.raw_category(DeclaredCategory::Surfaces, surfaces(extra));
     c
 }
 
@@ -229,10 +234,16 @@ fn command_output(input: &Value) -> Value {
 }
 
 fn prompt_output(export: &str, input: &Value) -> Value {
-    let echoed = json!({
+    let mut echoed = json!({
         "args": input["args"], "host": input["host"], "settings": input["settings"],
         "graph": input.get("graph").is_some(),
     });
+    // What a prompt that reads state or the served slash commands was sent; absent otherwise.
+    for key in ["state", "slash_commands"] {
+        if let Some(value) = input.get(key) {
+            echoed[key] = value.clone();
+        }
+    }
     json!({"messages": [{"role": "user", "text": format!("{export} {echoed}")}]})
 }
 
@@ -244,7 +255,7 @@ fn handle(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
             json!({"diagnostics": ship_guard(&input), "summary": {}, "values": []})
         }
         "cmd__record_plan" | "cmd__execute_phase" | "cmd__ship" => command_output(&input),
-        "prompt__plan_phase" | "prompt__research_phase" => prompt_output(export, &input),
+        export if export.starts_with("prompt__") => prompt_output(export, &input),
         _ => return None,
     };
     Some(Ok(answer.to_string().into_bytes()))
@@ -253,13 +264,21 @@ fn handle(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
 /// The two extensions, served in process.
 pub struct GsdPrompts {
     answers: Vec<(String, String, WasmCallResult)>,
+    prompts: Vec<Value>,
 }
 
 impl GsdPrompts {
     pub fn new() -> Self {
         GsdPrompts {
             answers: Vec::new(),
+            prompts: Vec::new(),
         }
+    }
+
+    /// [`CORE`] also declares the prompt `descriptor` (as the wire carries it); its export echoes what it is sent.
+    pub fn prompting(mut self, descriptor: Value) -> Self {
+        self.prompts.push(descriptor);
+        self
     }
 
     /// `export` of `extension` answers `result`, whatever it is sent.
@@ -271,8 +290,9 @@ impl GsdPrompts {
 
     /// The runtime serving [`CORE`] and [`OTHER`] and the answers given.
     pub fn runtime(self) -> InProcessRuntime {
+        let extra = self.prompts;
         let mut runtime = InProcessRuntime::new()
-            .with_handler(core, handle)
+            .with_handler(move || core(&extra), handle)
             .with(other);
         for (extension, export, result) in self.answers {
             runtime = runtime.answer_raw(&extension, &export, result);

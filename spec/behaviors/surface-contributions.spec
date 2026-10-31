@@ -87,6 +87,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
   verify unit "two prompts of one route are E039 and the later is not routed"
   verify unit "a prompt whose step names a command the registry dropped is dropped too, with a W021"
   verify contract "Register Surface Contributions: surface contribution registration holds — manifest_loaded_fired, all_surfaces_registered, duplicates_detected, unparsed_fails_load"
+  verify unit "the registry refuses a second free-text tail, a tail that is not text, and a tail that is the subject"
 }
 
 behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {

@@ -16,7 +16,8 @@ pub enum PromptArgs<'a> {
     /// By declared name.
     Named(&'a Map<String, Value>),
     /// The command line's words, or a `$ARGUMENTS` string split by [`words`]: a required argument that is not a flag
-    /// is positional, in declaration order; the others are `--<name> <value>`; a bool is `--<name>`.
+    /// is positional, in declaration order; the others are `--<name> <value>`; a bool is `--<name>`. The words no
+    /// positional slot takes are the `rest` argument's, joined by one space.
     Words(&'a [String]),
 }
 
@@ -85,6 +86,9 @@ fn named(args: &[PromptArgDescriptor], words: &[String]) -> Result<Map<String, V
     let (mut given, mut next, mut options) = (Map::new(), 0, true);
     let value_of =
         |word: &str| Value::String(word.strip_prefix(QUOTED).unwrap_or(word).to_string());
+    // The words no slot takes, for the free-text tail (ADR 0314).
+    let tail = args.iter().find(|a| a.rest);
+    let mut tail_words: Vec<&str> = Vec::new();
     let mut words = words.iter();
     while let Some(word) = words.next() {
         let long = word.strip_prefix("--").filter(|_| options);
@@ -93,9 +97,13 @@ fn named(args: &[PromptArgDescriptor], words: &[String]) -> Result<Map<String, V
             continue;
         }
         let Some(long) = long else {
-            let arg = positional
-                .get(next)
-                .ok_or_else(|| bad(word, "no positional argument takes this word"))?;
+            let Some(arg) = positional.get(next) else {
+                if tail.is_none() {
+                    return Err(bad(word, "no positional argument takes this word"));
+                }
+                tail_words.push(word.strip_prefix(QUOTED).unwrap_or(word));
+                continue;
+            };
             next += 1;
             given.insert(arg.name.clone(), value_of(word));
             continue;
@@ -121,6 +129,13 @@ fn named(args: &[PromptArgDescriptor], words: &[String]) -> Result<Map<String, V
         if given.insert(arg.name.clone(), value).is_some() {
             return Err(bad(&arg.name, "given twice"));
         }
+    }
+    if let Some(tail) = tail.filter(|_| !tail_words.is_empty())
+        && given
+            .insert(tail.name.clone(), Value::String(tail_words.join(" ")))
+            .is_some()
+    {
+        return Err(bad(&tail.name, "given twice"));
     }
     Ok(given)
 }

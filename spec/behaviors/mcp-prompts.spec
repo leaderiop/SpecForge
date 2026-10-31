@@ -110,6 +110,11 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "a prompt's multi-line message reaches the agent with its lines, and other controls escaped"
   verify unit "a prompt reads the state the host sends it"
   verify unit "a rendered step names the agent that runs it, and a step without one has no agent key"
+  verify unit "a prompt's free-text tail takes the words no option takes, joined by one space"
+  verify unit "a prompt's tail given by name and by words is refused, an unknown option is not tail, and after -- every word is tail"
+  verify unit "a named (MCP) tail is an ordinary string"
+  verify unit "a prompt argument that is not a tail serializes as it did, and a tail round-trips"
+  verify unit "the SDK declares a prompt's free-text tail as a string argument"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

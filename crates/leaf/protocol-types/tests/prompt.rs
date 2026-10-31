@@ -105,3 +105,28 @@ fn a_pass_input_trigger_is_absent_for_a_write_and_round_trips_for_a_gate() {
         "no trigger is a write"
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt argument that is not a tail serializes as it did, and a tail round-trips"
+)]
+fn a_rest_false_argument_has_no_rest_key() {
+    use specforge_protocol_types::PromptArgDescriptor;
+
+    let arg = PromptArgDescriptor {
+        name: "task".into(),
+        field_type: "string".into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        serde_json::to_string(&arg).unwrap(),
+        r#"{"name":"task","field_type":"string"}"#
+    );
+    let tail = PromptArgDescriptor { rest: true, ..arg };
+    let wire = serde_json::to_value(&tail).unwrap();
+    assert_eq!(wire["rest"], true);
+    assert_eq!(
+        serde_json::from_value::<PromptArgDescriptor>(wire).unwrap(),
+        tail
+    );
+}

@@ -290,3 +290,74 @@ fn the_words_of_a_command_line_are_read_exactly() {
     let required = plan_phase(&served, Args::Named(json!({"phase": null}))).unwrap_err();
     assert_eq!(required.code, "invalid_input", "{required:?}");
 }
+
+/// The fixture with the prompt `quick`: a `--full` flag and a free-text tail `task`.
+fn quick() -> Served {
+    let quick = json!({
+        "id": "quick", "title": "Quick", "description": "A quick task", "export": "prompt__quick",
+        "args": [
+            {"name": "full", "field_type": "bool"},
+            {"name": "task", "field_type": "string", "rest": true},
+        ],
+    });
+    served_with(
+        project("fine", "ok", json!({})),
+        GsdPrompts::new().prompting(quick),
+    )
+}
+
+fn quick_args(served: &Served, argv: &str) -> Result<Value, Refused> {
+    render(served, "quick", Args::Argv(argv))?;
+    Ok(served.input("prompt__quick")["args"].clone())
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt's free-text tail takes the words no option takes, joined by one space"
+)]
+fn the_tail_takes_the_words_no_option_takes() {
+    let served = quick();
+    assert_eq!(
+        quick_args(&served, "--full fix the login bug").unwrap(),
+        json!({"full": true, "task": "fix the login bug"})
+    );
+    assert_eq!(
+        quick_args(&served, r#""fix  it" now"#).unwrap(),
+        json!({"task": "fix  it now"})
+    );
+    assert_eq!(
+        quick_args(&served, "fix --full it").unwrap(),
+        json!({"full": true, "task": "fix it"})
+    );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt's tail given by name and by words is refused, an unknown option is not tail, and after -- every word is tail"
+)]
+fn the_tail_given_twice_or_swallowing_an_option_is_refused() {
+    let served = quick();
+    let twice = quick_args(&served, "--task a b").unwrap_err();
+    assert_eq!(twice.code, "invalid_input");
+    assert_eq!(twice.data["argument"], "task");
+    let unknown = quick_args(&served, "--nope x").unwrap_err();
+    assert_eq!(unknown.code, "invalid_input");
+    assert_eq!(unknown.data["argument"], "nope");
+    assert_eq!(
+        quick_args(&served, "-- --full x").unwrap(),
+        json!({"task": "--full x"})
+    );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a named (MCP) tail is an ordinary string"
+)]
+fn a_named_tail_is_an_ordinary_string() {
+    let served = quick();
+    render(&served, "quick", Args::Named(json!({"task": "do it"}))).unwrap();
+    assert_eq!(
+        served.input("prompt__quick")["args"],
+        json!({"task": "do it"})
+    );
+}

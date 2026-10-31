@@ -183,3 +183,24 @@ fn the_prelude_names_the_trigger_kind() {
     };
     assert!(input.trigger.is_some_and(|t| t.kind == TriggerKind::Gate));
 }
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "the SDK declares a prompt's free-text tail as a string argument"
+)]
+fn a_rest_argument_is_a_string_tail_on_the_wire() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
+    c.prompt("quick", |p| {
+        p.title("Quick")
+            .description("Quick")
+            .arg("task", |a| {
+                a.rest();
+            })
+            .handler(|_| Ok(PromptOutput::user("x")));
+    });
+    let wire = serde_json::to_value(&c.declaration().surfaces.prompts[0].args).unwrap();
+    assert_eq!(
+        wire,
+        json!([{"name": "task", "field_type": "string", "rest": true}])
+    );
+}
