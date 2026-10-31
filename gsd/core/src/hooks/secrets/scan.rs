@@ -3,15 +3,110 @@
 //! Which operand of which command of a shell line reads a secret file, and the spawn of the debugger as a CLI process.
 //! Anything that runs a nested script (`eval`, `sh -c`, `source <(…)`, `xargs`, `git -c alias.x=!…`, a piped `sh`)
 //! is scanned again, three levels deep.
+//!
+//! gsd-core v1.19.0 (#5627): the command word is found past each wrapper's own options (`WRAPPERS`). What stays
+//! open, as upstream says: a wrapper, or a wrapper option taking a separate value, the table does not list, and
+//! `env -S 'script'` (the split string is skipped as the option's value).
 
 use std::collections::BTreeMap;
 
 use super::git::{name_only, scan_git_config};
 use super::names::{last_segment, names_secret};
-use super::shell::{Kind, Token, tokenize};
+use super::shell::{Kind, Reading, Token, tokenize, with_reading};
 
 pub(super) const MAX_NESTING_DEPTH: usize = 3;
-const CMD_PREFIXES: [&str; 7] = ["sudo", "env", "command", "nice", "nohup", "time", "doas"];
+
+/// What `resolve` steps over after a wrapper: `short` letters and `long` options that take a separate value word,
+/// leading `VAR=value` words (`assigns`) and positional `operands` (timeout's DURATION). From the man pages; a wrong
+/// entry fails open (the option's value becomes the command word).
+struct Wrapper {
+    short: &'static str,
+    long: &'static [&'static str],
+    assigns: bool,
+    operands: usize,
+}
+
+const BARE: Wrapper = Wrapper {
+    short: "",
+    long: &[],
+    assigns: false,
+    operands: 0,
+};
+const WRAPPERS: [(&str, Wrapper); 11] = [
+    (
+        "sudo",
+        Wrapper {
+            short: "CDghpRrTtUu",
+            long: &[
+                "--close-from",
+                "--chdir",
+                "--group",
+                "--host",
+                "--prompt",
+                "--chroot",
+                "--role",
+                "--command-timeout",
+                "--type",
+                "--other-user",
+                "--user",
+            ],
+            ..BARE
+        },
+    ),
+    (
+        "doas",
+        Wrapper {
+            short: "Cu",
+            ..BARE
+        },
+    ),
+    (
+        "env",
+        Wrapper {
+            short: "uCSaP",
+            long: &["--unset", "--chdir", "--split-string", "--argv0"],
+            assigns: true,
+            ..BARE
+        },
+    ),
+    (
+        "nice",
+        Wrapper {
+            short: "n",
+            long: &["--adjustment"],
+            ..BARE
+        },
+    ),
+    ("nohup", BARE),
+    ("command", BARE),
+    (
+        "time",
+        Wrapper {
+            short: "fo",
+            long: &["--format", "--output"],
+            ..BARE
+        },
+    ),
+    (
+        "timeout",
+        Wrapper {
+            short: "sk",
+            long: &["--signal", "--kill-after"],
+            operands: 1,
+            ..BARE
+        },
+    ),
+    (
+        "stdbuf",
+        Wrapper {
+            short: "ioe",
+            long: &["--input", "--output", "--error"],
+            ..BARE
+        },
+    ),
+    ("setsid", BARE),
+    ("exec", Wrapper { short: "a", ..BARE }),
+];
 const NON_READING: [&str; 16] = [
     "test", "[", "[[", "ls", "stat", "touch", "rm", "chmod", "chown", "mkdir", "basename",
     "dirname", "realpath", "file", "echo", "printf",
@@ -43,22 +138,57 @@ pub(super) struct Command<'a> {
     pub operands: Vec<&'a Token>,
 }
 
+/// How many words the wrapper option `word` occupies: 2 when it takes a separate value word, else 1.
+fn option_width(word: &str, w: &Wrapper) -> usize {
+    if word.starts_with("--") {
+        // getopt_long accepts any unambiguous prefix (`--adj 5`).
+        let valued =
+            !word.contains('=') && word.len() > 2 && w.long.iter().any(|l| l.starts_with(word));
+        return if valued { 2 } else { 1 };
+    }
+    let valued = word
+        .char_indices()
+        .skip(1)
+        .find(|&(_, c)| w.short.contains(c));
+    // `-n5` carries its value; a valued letter last takes the next word.
+    1 + usize::from(valued.is_some_and(|(i, _)| i + 1 == word.len()))
+}
+
+/// The index of the first word after a wrapper's own options, assignments and operands (`-n 5`, `-i A=1`, `--`).
+fn skip_wrapper_args(words: &[&Token], start: usize, w: &Wrapper) -> usize {
+    let (mut idx, mut options_ended) = (start, false);
+    while let Some(word) = words.get(idx) {
+        let text = word.text.as_str();
+        if w.assigns && is_assignment(text) {
+            idx += 1;
+        } else if !options_ended && text == "--" {
+            options_ended = true;
+            idx += 1;
+        } else if !options_ended && text.len() > 1 && text.starts_with('-') {
+            idx += option_width(text, w);
+        } else {
+            break;
+        }
+    }
+    if w.operands == 0 {
+        return idx;
+    }
+    idx = (idx + w.operands).min(words.len());
+    // `timeout 5 -- cmd`: some getopt builds still accept `--` after DURATION.
+    idx + usize::from(words.get(idx).is_some_and(|t| t.text == "--"))
+}
+
 pub(super) fn resolve<'a>(words: &[&'a Token]) -> Option<Command<'a>> {
     let mut idx = 0;
     while idx < words.len() && is_assignment(&words[idx].text) {
         idx += 1;
     }
-    while idx < words.len() {
-        let base = last_segment(&words[idx].text).to_lowercase();
-        if !CMD_PREFIXES.contains(&base.as_str()) {
+    while let Some(word) = words.get(idx) {
+        let base = last_segment(&word.text).to_lowercase();
+        let Some((_, w)) = WRAPPERS.iter().find(|(name, _)| *name == base) else {
             break;
-        }
-        idx += 1;
-        if base == "env" {
-            while idx < words.len() && is_assignment(&words[idx].text) {
-                idx += 1;
-            }
-        }
+        };
+        idx = skip_wrapper_args(words, idx + 1, w);
     }
     let first = words.get(idx)?;
     Some(Command {
@@ -67,23 +197,31 @@ pub(super) fn resolve<'a>(words: &[&'a Token]) -> Option<Command<'a>> {
     })
 }
 
-/// An operand as the file it names: `@file`, `--opt=file`, `-Xfile`.
-pub(super) fn normalize_operand(text: &str) -> String {
-    let mut v = text.strip_prefix('@').unwrap_or(text).to_string();
+/// Whether an operand names a secret file: `@file`, `--opt=file`, and in a single-dash word (`-2if.env`) both the
+/// two-character strip and the value after the run of option characters (`-if.env`, `-nf=.env`; #5046). At most
+/// three name checks, whatever the word's length. The run also swallows a value's leading letters and digits, so
+/// `-fapp.env` is denied although `cat app.env` is not: upstream's fail-safe false positive, pinned in the tests.
+pub(super) fn operand_names_secret(text: &str) -> bool {
+    let v = text.strip_prefix('@').unwrap_or(text);
     if v.starts_with("--") {
-        if let Some((_, rest)) = v.clone().split_once('=') {
-            v = rest.to_string();
-        }
-    } else {
-        let mut cs = v.chars();
-        if cs.next() == Some('-')
-            && cs.next().is_some_and(|c| c.is_ascii_alphabetic())
-            && v.chars().count() > 2
-        {
-            v = v.chars().skip(2).collect();
-        }
+        return names_secret(v.split_once('=').map_or(v, |(_, value)| value));
     }
-    v
+    let mut cs = v.chars();
+    let (Some('-'), Some(second), Some(_)) = (cs.next(), cs.next(), cs.next()) else {
+        return names_secret(v);
+    };
+    if second == '-' {
+        return names_secret(v);
+    }
+    if names_secret(&v[1 + second.len_utf8()..]) {
+        return true;
+    }
+    // An ASCII run, so `end` is a char boundary.
+    let end = 1 + v[1..].bytes().take_while(u8::is_ascii_alphanumeric).count();
+    if end > 2 && names_secret(&v[end..]) {
+        return true;
+    }
+    v.as_bytes().get(end) == Some(&b'=') && names_secret(&v[end + 1..])
 }
 
 /// What `echo` or `printf` would print: a script some shell may read from a pipe or a process substitution.
@@ -250,7 +388,7 @@ fn scan_xargs(operands: &[&Token], s: usize, segs: &Segments, depth: usize) -> O
     prev_cmd
         .operands
         .iter()
-        .find(|w| names_secret(&normalize_operand(&w.text)))
+        .find(|w| operand_names_secret(&w.text))
         .map(|w| w.text.clone())
 }
 
@@ -329,7 +467,7 @@ pub(super) fn find_secret_read(command: &str, depth: usize) -> Option<String> {
                     {
                         return Some(hit);
                     }
-                } else if names_secret(&normalize_operand(&w.text)) {
+                } else if operand_names_secret(&w.text) {
                     return Some(w.text.clone());
                 }
             }
@@ -365,10 +503,27 @@ pub(super) fn find_secret_read(command: &str, depth: usize) -> Option<String> {
         }
         let exempt = name_only(base, operands);
         for (k, o) in operands.iter().enumerate() {
-            if !exempt.contains(&k) && names_secret(&normalize_operand(&o.text)) {
+            if !exempt.contains(&k) && operand_names_secret(&o.text) {
                 return Some(o.text.clone());
             }
         }
     }
     None
+}
+
+/// The same scan under the other readings of a heredoc (#5513): bash 3.2's `$( )` span, then the earlier tag
+/// reading. Only a command that opens a heredoc can read differently, so any other is not scanned again.
+pub(super) fn find_secret_read_under_other_readings(command: &str) -> Option<String> {
+    if !command.contains("<<") {
+        return None;
+    }
+    [(false, true), (true, false)].into_iter().find_map(
+        |(bodies_skipped_in_spans, tags_as_words)| {
+            let r = Reading {
+                bodies_skipped_in_spans,
+                tags_as_words,
+            };
+            with_reading(r, || find_secret_read(command, 0))
+        },
+    )
 }

@@ -3,6 +3,47 @@
 //! A shell command line as tokens: words, separators, redirection operators and heredoc bodies, each with the index
 //! of the simple command (`seg`) it belongs to, and the command substitutions found inside it.
 
+use std::cell::Cell;
+
+/// Which reading of a heredoc the scan makes (gsd-core v1.19.0, #5513). A command that opens a heredoc is scanned
+/// under every reading and denied if any finds a read, so a change of reading can add a denial, never remove one.
+#[derive(Clone, Copy)]
+pub(super) struct Reading {
+    /// bash 5 skips the bodies of heredocs opened inside `$( )` when it looks for the closing `)`; bash 3.2 (macOS
+    /// `/bin/bash`) does not, so a `)` on a body line closes the substitution.
+    pub bodies_skipped_in_spans: bool,
+    /// An unquoted tag is a bash word (a CR and a substitution belong to it); false is the earlier reading, where
+    /// the tag stopped at any whitespace and at `(`.
+    pub tags_as_words: bool,
+}
+
+impl Reading {
+    pub const DEFAULT: Self = Self {
+        bodies_skipped_in_spans: true,
+        tags_as_words: true,
+    };
+}
+
+// shortcut: one thread-local reading, as upstream's module flags; thread it as a parameter if the scan ever runs on
+// more than one thread.
+thread_local!(static READING: Cell<Reading> = const { Cell::new(Reading::DEFAULT) });
+
+pub(super) fn reading() -> Reading {
+    READING.with(Cell::get)
+}
+
+/// Runs `f` under reading `r`, and restores the reading before it even if `f` panics.
+pub(super) fn with_reading<T>(r: Reading, f: impl FnOnce() -> T) -> T {
+    struct Restore(Reading);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            READING.with(|c| c.set(self.0));
+        }
+    }
+    let _restore = Restore(READING.with(|c| c.replace(r)));
+    f()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Kind {
     Word,
@@ -76,9 +117,29 @@ fn read_heredoc_tag(s: &[char], mut i: usize) -> Tag {
             quoted = true;
             i += 1;
         }
-        while i < s.len() && !(s[i].is_whitespace() || ";&|<>()".contains(s[i])) {
-            tag.push(s[i]);
-            i += 1;
+        let words = reading().tags_as_words;
+        while let Some(&c) = s.get(i) {
+            if if words {
+                " \t\n;&|<>()".contains(c)
+            } else {
+                c.is_whitespace() || ";&|<>()".contains(c)
+            } {
+                break;
+            }
+            // A substitution inside the word belongs to the tag, taken literally (`E$(x)F` waits for `E$(x)F`).
+            let end = match (words, c, s.get(i + 1)) {
+                (true, '$', Some('(')) => Some(paren_close(s, i + 2)),
+                (true, '$', Some('{')) => Some(find(s, '}', i).unwrap_or(s.len() - 1)),
+                (true, '`', _) => Some(find(s, '`', i + 1).unwrap_or(s.len() - 1)),
+                _ => None,
+            };
+            if let Some(e) = end {
+                tag += &sub(s, i, e + 1);
+                i = e + 1;
+            } else {
+                tag.push(c);
+                i += 1;
+            }
         }
     }
     Tag {
@@ -145,7 +206,11 @@ fn paren_close(s: &[char], mut i: usize) -> usize {
             i += 1;
         } else if ch == '`' {
             i = find(s, '`', i + 1).map_or(s.len(), |j| j + 1);
-        } else if ch == '<' && s.get(i + 1) == Some(&'<') && s.get(i + 2) != Some(&'<') {
+        } else if reading().bodies_skipped_in_spans
+            && ch == '<'
+            && s.get(i + 1) == Some(&'<')
+            && s.get(i + 2) != Some(&'<')
+        {
             let tag = read_heredoc_tag(s, i + 2);
             i = tag.end;
             tags.push(tag);
@@ -218,6 +283,13 @@ impl Lexer {
         self.buf.clear();
         self.quoted = false;
         self.has_word = false;
+    }
+
+    /// A substitution in a heredoc tag is part of the tag, taken literally.
+    fn literal_in_tag(&mut self, text: &str) {
+        if self.expect_tag.is_some() && reading().tags_as_words {
+            self.buf += text;
+        }
     }
 
     fn sep(&mut self, text: &str) {
@@ -294,6 +366,7 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
                 lx.has_word = true;
                 let e = paren_close(&s, i + 2);
                 lx.nested.push(sub(&s, i + 2, e));
+                lx.literal_in_tag(&sub(&s, i, e + 1));
                 i = e + 1;
             }
             '$' if at(i + 1) == Some('{') => {
@@ -306,6 +379,7 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
                 lx.has_word = true;
                 let e = find(&s, '`', i + 1).unwrap_or(s.len());
                 lx.nested.push(sub(&s, i + 1, e));
+                lx.literal_in_tag(&sub(&s, i, e + 1));
                 i = e + 1;
             }
             '<' | '>' if at(i + 1) == Some('(') => {
@@ -334,6 +408,11 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
                     lx.heredocs.clear();
                     i = end;
                 }
+            }
+            // A CR is not a bash metacharacter: inside a heredoc tag it is part of the word (`EOF` + CR).
+            '\r' if lx.expect_tag.is_some() && lx.has_word && reading().tags_as_words => {
+                lx.buf.push('\r');
+                i += 1;
             }
             ' ' | '\t' | '\r' => {
                 lx.flush();
