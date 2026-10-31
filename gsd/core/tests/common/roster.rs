@@ -5,7 +5,7 @@
 //!
 //! Also ports gsd-core bin/lib modules: command-roster.cjs.
 
-#![allow(dead_code)] // each test binary uses some of it
+#![allow(dead_code, reason = "each test binary uses some of it")]
 
 /// Who serves an upstream command.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

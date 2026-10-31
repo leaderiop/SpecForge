@@ -118,27 +118,26 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
     let mut picked = None;
     let mut subject = spec.subject.and_then(|n| call.str(n).map(|id| (n, id)));
     // An optional subject that was not given: the next unplanned phase, else upstream's ask.
-    if let (None, Some(name)) = (subject, spec.subject) {
-        if spec
+    if let (None, Some(name)) = (subject, spec.subject)
+        && spec
             .args
             .iter()
             .any(|a| a.name == name && matches!(a.kind, args::Kind::Subject(_)))
-        {
-            match next_unplanned(call) {
-                Some(id) => picked = Some(id),
-                None => {
-                    return Ok(PromptOutput::user(
-                        "No unplanned phase in this milestone: ask the user which phase to plan.",
-                    ));
-                }
+    {
+        match next_unplanned(call) {
+            Some(id) => picked = Some(id),
+            None => {
+                return Ok(PromptOutput::user(
+                    "No unplanned phase in this milestone: ask the user which phase to plan.",
+                ));
             }
-            subject = picked.as_deref().map(|id| (name, id));
-            let number = picked
-                .as_deref()
-                .and_then(|id| id.rsplit('/').next())
-                .unwrap_or_default();
-            arguments = format!("{number} {arguments}").trim().to_string();
         }
+        subject = picked.as_deref().map(|id| (name, id));
+        let number = picked
+            .as_deref()
+            .and_then(|id| id.rsplit('/').next())
+            .unwrap_or_default();
+        arguments = format!("{number} {arguments}").trim().to_string();
     }
     let mut ids = shell_ids(call, subject.map(|(_, id)| id));
     if let Some((name, id)) = subject {
