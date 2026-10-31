@@ -425,7 +425,7 @@ Auto-invoke code review and fix chain. Autonomous mode chains both review and fi
 
 **Capability dispatch:**
 ```bash
-EXECUTE_POST_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
 ```
 
 Resolve active step hooks from `EXECUTE_POST_HOOKS_JSON` where `kind == "step"` and `ref.skill == "code-review"`.
@@ -548,7 +548,7 @@ Resolve the active post-verification hooks and the UI-SPEC gate:
 
 ```bash
 UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
-HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
 ```
 
 Read the `activeHooks` array directly from the `HOOKS_JSON` value already in context (do not invoke a shell `jq` pipeline — parse as the JSON object it is). **If `activeHooks` is empty or absent:** skip silently to the iterate step. `--after-fingerprint "${PHASE_DIR}"` (#5105) moves a step whose declared artifact already exists in `PHASE_DIR` into `skippedHooks` instead of `activeHooks` — execute-phase already ran it, so it is not re-dispatched here.

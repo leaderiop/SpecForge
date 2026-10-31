@@ -61,7 +61,7 @@
     "  TO_PHASE=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-to\\s+[0-9]+[A-Z]?(\\.[0-9]+)*' | awk '{print $2}')",
     "fi"
   ],
-  "bytes": 57753,
+  "bytes": 58044,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:a36cbf2ad8d2117fbf34133d19319f73cb7ad5d312873c76b9e559c11c77fe5f",
+    "digest": "sha256:ca5c13ed0be7573de21cf79e3cfb743c9051decf1901056f6ad5d637a5d91afc",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "a36cbf2ad8d2117fbf34133d19319f73cb7ad5d312873c76b9e559c11c77fe5f"
+  "sha256": "ca5c13ed0be7573de21cf79e3cfb743c9051decf1901056f6ad5d637a5d91afc"
 }

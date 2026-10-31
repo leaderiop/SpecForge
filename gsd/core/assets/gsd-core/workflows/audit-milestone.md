@@ -165,7 +165,7 @@ For each REQ-ID, determine status using all three sources:
 Skip if the Nyquist capability is inactive.
 
 ```bash
-VERIFY_POST_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
 ```
 
 Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == "step"` and `ref.skill == "validate-phase"`.

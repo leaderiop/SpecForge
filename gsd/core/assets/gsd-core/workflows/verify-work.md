@@ -74,7 +74,7 @@ kind, not gates alone. Each hook is data-driven — resolved from the capability
 registry, not hardcoded here.
 
 ```bash
-VERIFY_PRE_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+VERIFY_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:pre --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
 PHASE_DIR=$(printf '%s' "$INIT" | jq -r '.phase_dir // empty')
 ```
 
@@ -603,7 +603,7 @@ Present summary:
 nonzero but every one is a verified gap resolution, #4983)
 
 ```bash
-VERIFY_POST_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
 SECURITY_FILE=$(ls "${PHASE_DIR}"/*-SECURITY.md 2>/dev/null | head -1)
 ```
 

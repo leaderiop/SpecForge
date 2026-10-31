@@ -2,6 +2,7 @@
 
 mod agents;
 mod baseline;
+mod capability_points;
 mod cmd_attest;
 mod cmd_digest;
 mod cmd_execute;

@@ -25,7 +25,7 @@ in wave 0 before any signal exists).
 3. **Capability gate** (mirrors `/gsd:quick`'s own):
    ```bash
 # the commands below are specforge commands: there is no launcher to define
-PLAN_PRE_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
    ```
    In registry order, inject only active entries with `kind == "contribution"`
    and `into == "planner"` into each planner prompt below, using

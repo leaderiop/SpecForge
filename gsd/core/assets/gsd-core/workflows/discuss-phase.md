@@ -300,7 +300,7 @@ Read `@~/.claude/gsd-core/references/scout-codebase.md` — it contains the phas
 
 <step name="dispatch_discuss_pre_hooks">
 ```bash
-DISCUSS_PRE_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+DISCUSS_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" discuss:pre --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
 ```
 Apply each entry in `activeHooks` per @~/.claude/gsd-core/references/loop-hook-dispatch.md. Empty list → continue to `analyze_phase`.
 </step>
@@ -419,7 +419,7 @@ Write the file.
 
 <step name="dispatch_discuss_post_hooks">
 ```bash
-DISCUSS_POST_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+DISCUSS_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" discuss:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
 ```
 Apply each entry in `activeHooks` per @~/.claude/gsd-core/references/loop-hook-dispatch.md. Empty list → continue to `confirm_creation`.
 </step>

@@ -507,3 +507,34 @@ fn the_vendored_tree_lists_every_asset() {
         );
     }
 }
+
+/// Plan 16 T4: every upstream `X=$(gsd_run loop render-hooks <point> --raw)` line is, here, the line that asks each
+/// capability extension for its hooks; no stub is left.
+#[test]
+fn every_hook_stub_asks_the_capability_extensions() {
+    let twin = Regex::new(
+        r"^(\s*)(\w+)=\$\(gsd_run loop render-hooks (\S+?)(?: --after-fingerprint \S+)? --raw\)$",
+    )
+    .expect("a regex");
+    let mut asked = 0;
+    for path in assets().into_iter().filter(|p| p.ends_with(".md")) {
+        let asset = std::fs::read_to_string(root().join("assets").join(&path)).expect("an asset");
+        assert!(
+            !asset.contains("no hooks to render"),
+            "{path}: a stub is left"
+        );
+        let mine: Vec<&str> = asset.split('\n').skip(1).collect();
+        for (n, theirs) in body(&path).iter().enumerate() {
+            let Some(c) = twin.captures(theirs) else {
+                continue;
+            };
+            let want = format!(
+                "{}{}=$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" {} --format json 2>/dev/null; done | jq -sc '{{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}}')",
+                &c[1], &c[2], &c[3]
+            );
+            assert_eq!(mine[n], want, "{path}:{n}");
+            asked += 1;
+        }
+    }
+    assert_eq!(asked, 22);
+}

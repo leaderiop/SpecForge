@@ -43,7 +43,7 @@ fingerprinted yet, and gating on it here would be a no-op by construction (the a
 in `scripts/lint-verify-lifecycle-writes.allowlist.json`).
 
 ```bash
-VERIFY_POST_HOOKS_JSON="[]"   # the loop capability is not part of @gsd/core: no hooks to render
+VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')
 SECURITY_FILE=$(ls "${PHASE_DIR}"/*-SECURITY.md 2>/dev/null | head -1)
 ```
 
