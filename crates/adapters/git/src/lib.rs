@@ -31,6 +31,16 @@ impl Default for GitCli {
     }
 }
 
+impl GitCli {
+    /// Every call given up after `timeout`, for a caller with a tighter budget than the default 10 s (a hook's).
+    pub fn with_timeout(timeout: Duration) -> Self {
+        GitCli {
+            timeout,
+            ..GitCli::default()
+        }
+    }
+}
+
 /// How one call failed.
 enum Failed {
     NotInstalled,

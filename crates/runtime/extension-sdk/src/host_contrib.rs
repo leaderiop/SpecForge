@@ -259,6 +259,11 @@ impl HookBuilder {
         self.descriptor.reads_git_status = true;
         self
     }
+    /// Collect the git facts only while this bool setting of the extension is on (ADR 0320).
+    pub fn git_when(&mut self, setting: &str) -> &mut Self {
+        self.descriptor.git_when = Some(setting.into());
+        self
+    }
     /// The input carries the value of another extension's setting (ADR 0323).
     pub fn reads_setting(&mut self, extension: &str, setting: &str) -> &mut Self {
         self.descriptor

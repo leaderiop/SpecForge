@@ -95,7 +95,7 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). K20a, K20b and K20c are built (protocol 1.14.0; `@gsd/core` needs a host of 1.14.0 or later, as its hooks declare `hosts`, `reads_git` and `reads_settings`): the six answer commands are a person's, a verdict is trusted against its tests and files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). What still waits for kernel work:
+`previous_score` and compares scan states (r39 T13 is built). K20a, K20b and K20c are built (protocol 1.14.0; `@gsd/core` needs a host of 1.14.0 or later: a 1.13 host refuses all its commands, prompts and hooks, as one hook declares `file_changed`): the six answer commands are a person's, a verdict is trusted against its tests and files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). What still waits for kernel work:
 
 - **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
   progress` (as upstream's does), `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free

@@ -726,3 +726,41 @@ fn a_when_list_is_not_a_1_12_surface() {
     let error = serde_json::from_value::<Slash112>(written).unwrap_err();
     assert!(error.to_string().contains("expected a string"), "{error}");
 }
+
+/// REVIEW-k20c-part1 m1: a 1.13 hook event, a closed enum.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[allow(dead_code, reason = "decoded to be refused or kept")]
+enum Event113 {
+    PreTool,
+    Statusline,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Hook113 {
+    #[allow(dead_code, reason = "decoded to be refused or kept")]
+    event: Event113,
+}
+
+#[test]
+fn a_file_changed_hook_is_not_a_1_13_surface() {
+    let hook = |event| HookDescriptor {
+        event,
+        ..Default::default()
+    };
+    let old = serde_json::to_value(hook(HookEvent::PreTool)).unwrap();
+    assert!(serde_json::from_value::<Hook113>(old).is_ok());
+    // A 1.13 host refuses the whole `surfaces` category of a guest with this hook.
+    let new = serde_json::to_value(hook(HookEvent::FileChanged)).unwrap();
+    let error = serde_json::from_value::<Hook113>(new).unwrap_err();
+    assert!(error.to_string().contains("unknown variant"), "{error}");
+}
+
+#[test]
+fn an_unknown_event_is_one_dropped_hook() {
+    // A 1.15 guest's new event decodes as `Unknown` here, so the registry drops that hook alone.
+    let future = serde_json::json!({"id": "h", "description": "d", "export": "hook__h", "event": "a_future_event"});
+    let hook: HookDescriptor = serde_json::from_value(future).unwrap();
+    assert_eq!(hook.event, HookEvent::Unknown);
+    assert!(!HookEvent::ALL.contains(&HookEvent::Unknown));
+}

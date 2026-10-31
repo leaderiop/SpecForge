@@ -31,4 +31,5 @@ answer our allow answers are).
 
 ## Consequences
 
-Protocol 1.14.0 (D-K20c-10). A 1.13 host ignores `hosts` and installs the hook everywhere.
+Protocol 1.14.0 (D-K20c-10). A 1.13 host reports `hosts` as W138 and installs the hook
+everywhere.

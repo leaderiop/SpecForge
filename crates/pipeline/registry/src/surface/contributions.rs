@@ -4,8 +4,9 @@
 //! `model` or `effort` outside its vocabulary, a `setting:` that names no setting of the right type, a variant
 //! without its setting, a `when` that is no bool setting, a slash target the extension does not declare, `tools` or
 //! `paths` on an event that takes none, a `timeout_ms` of 0 or above the ceiling, `writes` on an event that cannot,
-//! a hook export that is not `hook__<id>`, a hook host outside claude-code, codex and cursor. Host names are one namespace per project: two claimants of one name,
-//! across kinds and extensions, are E039, and the later is not rendered. Hooks route as `<short>.<id>`.
+//! a hook export that is not `hook__<id>`, a hook event this host does not know, a hook host outside claude-code,
+//! codex and cursor. Host names are one namespace per project: two claimants of one name, across kinds and
+//! extensions, are E039, and the later is not rendered. Hooks route as `<short>.<id>`.
 
 use std::collections::{BTreeSet, HashMap};
 
@@ -190,6 +191,9 @@ impl Ctx<'_> {
         if !snake_case(&hook.id) {
             return Err("its id is not snake_case".into());
         }
+        if hook.event == specforge_protocol_types::HookEvent::Unknown {
+            return Err("its event is one this host does not know".into());
+        }
         if hook.export != format!("hook__{}", hook.id) {
             return Err(format!(
                 "its export '{}' is not 'hook__{}'",
@@ -227,6 +231,9 @@ impl Ctx<'_> {
             }
         }
         self.tools(&hook.tools)?;
+        if let Some(setting) = &hook.git_when {
+            self.when(std::slice::from_ref(setting))?;
+        }
         for entry in &hook.reads_settings {
             match entry.split_once(':') {
                 Some((own, _)) if own == self.extension => {

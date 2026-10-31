@@ -144,6 +144,8 @@ fn a_contribution_the_registry_refuses_is_w021() {
             hook("wrong_export", "pre_tool", json!({"export": "cmd__wrong_export"})),
             hook("elsewhere", "pre_tool", json!({"hosts": ["windsurf"]})),
             hook("cursor_only", "pre_tool", json!({"hosts": ["cursor"]})),
+            hook("from_the_future", "a_future_event", json!({})),
+            hook("git_on_a_non_setting", "pre_tool", json!({"git_when": "models.nope"})),
             hook("watch_nothing", "file_changed", json!({})),
             hook("watch_with_tools", "file_changed", json!({"paths": ["specforge.json"], "tools": ["write"]})),
             hook("watch_a_glob", "file_changed", json!({"paths": ["*.json"]})),
@@ -169,6 +171,8 @@ fn a_contribution_the_registry_refuses_is_w021() {
         "not_bool",
         "wrong_export",
         "elsewhere",
+        "from_the_future",
+        "git_on_a_non_setting",
         "watch_nothing",
         "watch_with_tools",
         "watch_a_glob",
@@ -199,6 +203,7 @@ fn a_contribution_the_registry_refuses_is_w021() {
         ]
     );
     for why in [
+        "its event is one this host does not know",
         "a file_changed hook names the files it watches in paths",
         "the event 'file_changed' takes no tools",
         "its reads_settings '@t/ui' is not <extension>:<setting>",

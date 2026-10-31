@@ -21,7 +21,8 @@ Upstream's injection scanner blocks a HIGH scan when `security.injection_blockin
 ## Limits
 
 `@gsd/security` does not exist, so `injection_scanner` stays advisory in every real project; the mechanism is built and
-tested.
+tested. Where it exists, its block is advisory on Cursor (no host can deny after a tool ran, and Cursor's
+`postToolUse` takes context only) and lands after the read on Claude Code.
 
 One extension reads another's non-secret settings without the owner's consent: naming `<extension>:<setting>` in
 `reads_settings` is enough. Secrets are never sent.

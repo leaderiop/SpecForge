@@ -357,3 +357,19 @@ fn claude_code_reads_and_answers_file_changed() {
         );
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "run_a_hook",
+    verify = "Cursor cannot deny after a tool ran: a post_tool deny reaches the agent as context only"
+)]
+fn cursor_drops_a_post_tool_deny_to_context() {
+    let reply = answer_of(
+        Host::Cursor,
+        HookEvent::PostTool,
+        Decision::Deny,
+        "no",
+        "ctx",
+    );
+    assert!(reply.get("permission").is_none(), "{reply}");
+    assert!(reply.to_string().contains("ctx"), "{reply}");
+}

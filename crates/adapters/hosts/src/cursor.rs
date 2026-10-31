@@ -148,7 +148,10 @@ impl HostRenderer for Cursor {
             HookEvent::SubagentStart => Some("subagentStart"),
             HookEvent::SubagentStop => Some("subagentStop"),
             HookEvent::UserPrompt => Some("beforeSubmitPrompt"),
-            HookEvent::PreCompact | HookEvent::Statusline | HookEvent::FileChanged => None,
+            HookEvent::PreCompact
+            | HookEvent::Statusline
+            | HookEvent::FileChanged
+            | HookEvent::Unknown => None,
         }
     }
 

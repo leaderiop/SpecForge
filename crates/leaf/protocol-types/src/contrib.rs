@@ -1,6 +1,7 @@
 //! What an extension contributes to a host, and what the host sends the exports that serve it (ADR 0292, protocol
-//! 1.10.0; ADR 0320-0323, protocol 1.14.0): agents, skills, slash commands and hooks in an extension's surfaces, the `render__` export that writes
-//! an agent's or skill's body, the `hook__<id>` exports, and the state a hook or command keeps.
+//! 1.10.0; ADR 0320-0323, protocol 1.14.0): agents, skills, slash commands and hooks in an extension's surfaces, the
+//! `render__` export that writes an agent's or skill's body, the `hook__<id>` exports, and the state a hook or command
+//! keeps.
 
 use std::collections::BTreeMap;
 
@@ -150,6 +151,10 @@ pub struct HookDescriptor {
     /// `git.status` too, `git status --porcelain=v2 --branch` as git wrote it; implies `reads_git`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reads_git_status: bool,
+    /// A bool setting of the extension: git facts are collected only while it is on, so a hook that needs them for an
+    /// option pays for them only then. Unset: always (ADR 0320).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub git_when: Option<String>,
     /// Settings of other extensions the input carries as `other_settings`, each `<extension>:<setting>` (ADR 0323).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reads_settings: Vec<String>,
@@ -185,6 +190,10 @@ pub enum HookEvent {
     Statusline,
     /// A named project file changed (ADR 0321, protocol 1.14.0).
     FileChanged,
+    /// An event a newer protocol names: the host reports the hook as W021 and renders nothing, so one new event costs
+    /// one hook and not the whole `surfaces` category. Never written.
+    #[serde(other)]
+    Unknown,
 }
 
 impl HookEvent {
@@ -217,6 +226,7 @@ impl HookEvent {
             HookEvent::PreCompact => "pre_compact",
             HookEvent::Statusline => "statusline",
             HookEvent::FileChanged => "file_changed",
+            HookEvent::Unknown => "unknown",
         }
     }
 

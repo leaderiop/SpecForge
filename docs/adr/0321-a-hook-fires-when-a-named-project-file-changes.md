@@ -29,4 +29,6 @@ A glob matcher (Claude registers literal names only).
 
 ## Consequences
 
-`@gsd/core` ports `gsd-config-reload.js`. Protocol 1.14.0 (D-K20c-10). A 1.13 host refuses a `file_changed` hook (W021).
+`@gsd/core` ports `gsd-config-reload.js`. Protocol 1.14.0 (D-K20c-10). A 1.13 host refuses the whole `surfaces` category of a guest that declares a `file_changed`
+hook (`DescribeFailed`: its `HookEvent` is a closed enum), and reports the other new keys as W138. `HookEvent` gains an
+`Unknown` arm in 1.14.0, so a later event costs one hook (W021).

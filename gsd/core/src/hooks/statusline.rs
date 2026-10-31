@@ -195,6 +195,7 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
             .reads_graph()
             .reads_state()
             .reads_git_status()
+            .git_when("statusline.show_git")
             .handler(|call| Ok(statusline(&Facts::of(call), &Options::current())));
     });
 }

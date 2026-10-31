@@ -47,8 +47,11 @@ pub struct GitFacts {
 
 ## Limits
 
-- The hook's git calls use the adapter's 10 s deadline, past the host's budget of `timeout_ms + 5 s`; a host that kills
-  the hook first fails open, as upstream does when its probe times out.
+- A hook's git calls (`specforge hook` only) give up after 1.5 s, as upstream's probes do, and the facts they would
+  have given are absent: no `git` member, an empty branch, no status. Every other command keeps the adapter's 10 s.
+- `reads_git_status` costs a `git status` per call. A hook that needs it for an option declares `git_when` (a bool
+  setting of its extension); git is asked only while the setting is on. `@gsd/core`'s statusline names
+  `statusline.show_git`, so by default it asks nothing.
 - `in_git_dir` is by name, so a `--separate-git-dir` repository's directory is not seen.
 - A cleanup mode set in git config is not read (upstream's documented limit too).
 

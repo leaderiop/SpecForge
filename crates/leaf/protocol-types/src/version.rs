@@ -37,7 +37,9 @@
 /// 0301's: a command may be `human`; ADR 0304's: a pass's judgement carries `cited_tests`; ADR 0305's: a setting may
 /// declare `gates_when_on` and be of type `number`; 1.13.0 is ADRs 0310, 0314, 0316, 0317 and 0318: a command and a
 /// prompt read state, a prompt takes a free-text tail and may pick its subject, a prompt is sent the served slash
-/// commands, `when` names several settings, and a command is told its host; 1.14.0 is ADR 0320-0323's: a hook may declare `hosts`, `reads_git`, `reads_git_status`
-/// and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and
-/// `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed`.
+/// commands, `when` names several settings, and a command is told its host; 1.14.0 is ADR 0320-0323's: a hook may
+/// declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`,
+/// `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the
+/// event `file_changed`; `HookEvent` also decodes an unknown event as `Unknown`, so a newer guest's event costs one
+/// hook.
 pub const PROTOCOL_VERSION: &str = "1.14.0";

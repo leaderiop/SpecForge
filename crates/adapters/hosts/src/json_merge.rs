@@ -4,8 +4,9 @@
 //! parsed into a value and written back, which would reflow it.
 //!
 //! What is ours is told by a mark and a place, never by a word a user may write too. A hook handler is ours when its
-//! `command` starts `specforge hook ` (or [`MISSING_GUARD`], a deny hook's) and ends with [`HOOK_MARK`], and only below `hooks.<Event>[]`: alone, or inside a
-//! matcher group, from which only it is cut (the group goes when nothing else is left in it). A named entry (an MCP
+//! `command` starts `specforge hook ` (or [`MISSING_GUARD`], a deny hook's) and ends with [`HOOK_MARK`], and only
+//! below `hooks.<Event>[]`: alone, or inside a matcher group, from which only it is cut (the group goes when nothing
+//! else is left in it). A named entry (an MCP
 //! server, the statusline) is ours only at the place the adapter names, when its `command` is `specforge` or a marked
 //! hook. Nothing else is ever removed or replaced.
 

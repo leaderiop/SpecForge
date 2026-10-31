@@ -94,7 +94,11 @@ pub fn run(
     }
 
     let spec = spec_root(view);
-    let history = (declared.reads_git || declared.reads_git_status)
+    let git_on = declared
+        .git_when
+        .as_ref()
+        .is_none_or(|s| on(view, extension, std::slice::from_ref(s)));
+    let history = ((declared.reads_git || declared.reads_git_status) && git_on)
         .then(|| view.env().history())
         .flatten();
     let tool = event.tool.as_ref();
