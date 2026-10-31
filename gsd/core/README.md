@@ -57,6 +57,12 @@ specforge check
 specforge settings --extension @gsd/core
 ```
 
+**Requirements.** The prompts' shell blocks need `bash` and `jq` on the `PATH` (and `git`, as upstream's do). node is
+needed only where the user's own project is JavaScript: the dev-server probe of `references/checkpoints.md` and the
+verifier's module check (`KEEP` in `tests/port_tools.rs`). There is no health check for it: `health` is a guest command
+and cannot see the host's `PATH`. A block that needs jq fails on its first `jq` call with `command not found`, as one
+fails on a missing `git`.
+
 ## Folders
 
 | Folder | What |
