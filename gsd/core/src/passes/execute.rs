@@ -82,8 +82,8 @@ fn requirements(input: &PassInput) -> Vec<PassDiagnostic> {
 }
 
 /// W403: for each `tdd` task (its own `type`, or its plan's), a recorded `feat` or `fix` commit that names it descends
-/// from a `test` commit that names it (#5275): by the commits' recorded ancestry (`descends_from`), or, when no commit
-/// of the task has any (recorded before the collector read parents), by time. A commit that names only the plan counts
+/// from a `test` commit that names it (#5275): each GREEN by its own recorded ancestry (`descends_from`), or, when it
+/// has none (recorded before the collector read parents), by time. A commit that names only the plan counts
 /// for the plan's `tdd` task when it is the plan's only task (GSD's own wording names the plan, not the task). It is a
 /// warning: the order is a fact of history that no later commit can repair, so it must never refuse the collector's
 /// write. The RED run's failure is not checked: upstream reads a run record, a commit is all there is here.
@@ -115,16 +115,15 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
                 .filter(|c| c.kind == "test")
                 .map(|c| c.id.as_str())
                 .collect();
-            let follows = if named.iter().any(|c| c.descends_from.is_some()) {
-                named.iter().filter(|c| is_green(c)).any(|g| {
-                    g.descends_from
-                        .iter()
-                        .flatten()
-                        .any(|a| reds.contains(&a.as_str()))
-                })
-            } else {
-                named[..green].iter().any(|c| c.kind == "test")
-            };
+            // Each GREEN by its own record: one recorded before the collector read parents has no list, and a newer
+            // commit's list must not turn it into a permanent warning.
+            let follows = named.iter().enumerate().any(|(i, g)| {
+                is_green(g)
+                    && match &g.descends_from {
+                        Some(list) => list.iter().any(|a| reds.contains(&a.as_str())),
+                        None => named[..i].iter().any(|c| c.kind == "test"),
+                    }
+            });
             if follows {
                 continue;
             }
