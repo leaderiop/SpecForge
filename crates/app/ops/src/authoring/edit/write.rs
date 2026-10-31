@@ -99,7 +99,16 @@ pub(super) fn one<'i>(
     }
 }
 
-/// The text of a scalar `input` for a field of `field_type`: an integer field takes a JSON whole number and a bool field
+/// `n` as an integer when it is a float with no fraction (`42.0`) within the range a float holds exactly.
+fn whole(n: &serde_json::Number) -> Option<i64> {
+    const EXACT: f64 = 9_007_199_254_740_992.0;
+    n.as_f64()
+        .filter(|f| f.fract() == 0.0 && f.abs() <= EXACT)
+        .map(|f| f as i64)
+}
+
+/// The text of a scalar `input` for a field of `field_type`: an integer field takes a JSON whole number and a bool
+/// field
 /// a JSON boolean, as a block member does (ADR 0311); any other field takes what [`one`] takes.
 fn scalar<'i>(
     input: &'i Input,
@@ -109,7 +118,7 @@ fn scalar<'i>(
 ) -> Result<std::borrow::Cow<'i, str>, Refusal<EditField>> {
     use std::borrow::Cow;
     match (field_type, input) {
-        (FieldType::Integer, Input::Number(n)) => match n.as_i64() {
+        (FieldType::Integer, Input::Number(n)) => match n.as_i64().or_else(|| whole(n)) {
             Some(whole) => Ok(Cow::Owned(whole.to_string())),
             None => Err(not_editable(
                 EditField::Value,

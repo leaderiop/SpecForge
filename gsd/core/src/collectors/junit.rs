@@ -1,7 +1,8 @@
 //! `gsd-junit`: reads a JUnit report and links its tests.
 //!
 //! A test is linked two ways. A `[gsd:<id>]` tag in its name links the test to that entity, by the id as written: the
-//! host's `collect` resolves it (a short form to its entity's full path; an unknown or ambiguous one is W115, ADR 0312).
+//! host's `collect` resolves it (a short form to its entity's full path; an unknown or ambiguous one is W115, ADR
+//! 0312).
 //! A deliverable's check links by GSD's own coverage reference, `test/x.test.js#name` (`gsd-core/templates/
 //! summary.md:59`): a test whose name is `name`, and whose `file` is `test/x.test.js` when the reference says so,
 //! proves that check, and its result is named by the reference exactly, which is what the derive pass looks up. A test

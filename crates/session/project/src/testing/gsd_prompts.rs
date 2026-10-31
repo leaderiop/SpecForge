@@ -12,7 +12,8 @@
 //!   flag, a `depth` from 1 to 3, a `mode` and `labels`; gate `E901`, subject `phase`; a step that runs `record_plan`, one that runs `execute_phase` and one the
 //!   agent `checker` does; the attribution of `gsd-core/workflows/plan-phase.md` at 1.18.0) and `research_phase`
 //!   (served while `workflow.research` is not false)
-//!   and the slash commands `t-plan-phase` and `t-research-phase` (the latter served while `workflow.research` and `workflow.gates` are both on)
+//!   and the slash commands `t-plan-phase` and `t-research-phase` (the latter served while `workflow.research`
+//!   and `workflow.gates` are both on)
 //! - [`OTHER`] (`@t/other`, short name `t`): a command `plan_phase`, which a prompt of that route meets (E039)
 //!
 //! Every export answers from its input, so a test sees what the host sent: a command prints its `args`, a prompt

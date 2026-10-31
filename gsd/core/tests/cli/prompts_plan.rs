@@ -306,6 +306,26 @@ fn plan_phase_with_no_phase_plans_the_next() {
     assert!(ask.get("subject").is_none(), "{ask}");
 }
 
+/// REVIEW-k20b N5: the unplanned phase is picked in the milestone `progress-report` is about, whatever a later
+/// milestone holds (`next_unplanned` and `reports::current` pick the milestone alike).
+#[test]
+fn the_picked_phase_is_in_the_milestone_the_report_is_about() {
+    let p = twin();
+    let plans = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &format!("{plans}\nmilestone v2.0 \"Taskboard 2.0\" {{\n  name \"Taskboard 2.0\"\n}}\n\nphase 01 \"Later\" {{\n  milestone v2.0\n  name \"Later\"\n  slug \"later\"\n  goal \"Later.\"\n  requirements [TASK-01]\n  success_criteria [\"x\"]\n}}\n"),
+    );
+    let report = json(&p.run(&["gsd", "progress-report", "--format", "json"]));
+    let picked = payload(&prompt(&p, "plan_phase", &[], "claude-code"));
+    let subject = picked["payload"]["subject"].as_str().expect("a subject");
+    assert_eq!(
+        subject.split('/').next(),
+        report["milestone_version"].as_str(),
+        "{subject} against {report}"
+    );
+}
+
 #[test]
 fn three_and_03_name_the_same_phase_on_the_prompt_query_and_edit_surfaces() {
     let p = twin();

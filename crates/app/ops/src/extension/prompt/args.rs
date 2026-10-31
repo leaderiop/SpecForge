@@ -15,7 +15,8 @@ use crate::{OpError, OpErrorKind};
 pub enum PromptArgs<'a> {
     /// By declared name.
     Named(&'a Map<String, Value>),
-    /// The command line's words, or a `$ARGUMENTS` string split by [`words`]: a required argument that is not a flag (or an optional subject)
+    /// The command line's words, or a `$ARGUMENTS` string split by [`words`]: a required argument that is not a
+    /// flag (or an optional subject)
     /// is positional, in declaration order; the others are `--<name> <value>`; a bool is `--<name>`. The words no
     /// positional slot takes are the `rest` argument's, joined by one space.
     Words(&'a [String]),

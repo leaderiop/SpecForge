@@ -4,11 +4,13 @@
 
 ## Context
 
-A kind's field named like an option of `new` (`path`, `format`) had no flag, so an agent could not create an artifact through the CLI.
+A kind's field named like an option of `new` (`path`, `format`) had no flag, so an agent could not create an artifact
+through the CLI.
 
 ## Decision
 
-- **D1.** `--field <name>=<value>` (repeatable) sets any field of the kind, read as `specforge set` reads it. A name that is not a field, or given by `--field` and its own flag, is `invalid_input`.
+- **D1.** `--field <name>=<value>` (repeatable) sets any field of the kind, read as `specforge set` reads it. A name
+  that is not a field, or given by `--field` and its own flag, is `invalid_input`.
 
 ## Rejected
 
