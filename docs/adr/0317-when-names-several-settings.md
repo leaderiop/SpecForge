@@ -17,7 +17,7 @@ An `any` form; writing `effort`.
 
 ## Limits
 
-None.
+A 1.12 host cannot load a guest whose `surfaces` write a `when` list: its `when` is an `Option<String>`, and a list fails the category's decode (`DescribeFailed`), not one item (W021). `@gsd/core` declares lists (`gsd-help`, `gsd-update`, `gsd-review`, `gsd-ns-ideate`), so it needs SpecForge 1.13.0 or later. Pinned by `a_when_list_is_not_a_1_12_surface`.
 
 ## Consequences
 

@@ -700,3 +700,29 @@ fn protocol_error_is_std_error() {
     let err = ProtocolError::HandshakeFailed("test".to_string());
     let _: &dyn std::error::Error = &err;
 }
+
+/// REVIEW-k20b m6: the `when` of a 1.12 slash command, a plain `Option<String>`.
+#[derive(Debug, serde::Deserialize)]
+struct Slash112 {
+    #[allow(dead_code, reason = "decoded to be refused or kept")]
+    when: Option<String>,
+}
+
+#[test]
+fn a_when_list_is_not_a_1_12_surface() {
+    // One name is still a string, as 1.12 reads it.
+    let one = SlashCommandDescriptor {
+        when: vec!["a".to_string()],
+        ..Default::default()
+    };
+    let written = serde_json::to_value(&one).unwrap();
+    assert!(serde_json::from_value::<Slash112>(written).is_ok());
+    // A list fails the decode, so a 1.12 host refuses the whole `surfaces` category.
+    let two = SlashCommandDescriptor {
+        when: vec!["a".to_string(), "b".to_string()],
+        ..Default::default()
+    };
+    let written = serde_json::to_value(&two).unwrap();
+    let error = serde_json::from_value::<Slash112>(written).unwrap_err();
+    assert!(error.to_string().contains("expected a string"), "{error}");
+}
