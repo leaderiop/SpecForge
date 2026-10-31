@@ -535,12 +535,12 @@ Exact bash for each of the four options (squash, history-preserving merge, delet
 </step>
 
 <!-- gsd:section id="git-tag" when="state:git-create-tag" -->
-If `PER_REPO_TAGGING` is `true`, skip this section: the per-repository tags were created in `archive_milestone`, and no `v[X.Y]` tag is created in the current directory. Otherwise, if `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute `gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to `git_commit_milestone`.
+`PER_REPO_TAGGING` is always `false` in @gsd/core (no sub-repositories, no per-repository tags), so this section is never skipped for it. If `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute `gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to `git_commit_milestone`.
 <!-- /gsd:section -->
 
 <step name="push_release_tags">
 
-Recompute `PER_REPO_TAGGING` and `git_create_tag` from the latest `init.complete-milestone` JSON (`INIT_REORG`). If `PER_REPO_TAGGING` is `true` and `git_create_tag` is not `false`: read and execute `gsd-core/workflows/complete-milestone/steps/release-map.md` Part 2 (a separate push confirmation per repository naming the repository and its remote; nothing is pushed by default). Otherwise skip this step.
+**Per-repository tag push (#3628): not part of @gsd/core.** `PER_REPO_TAGGING` is always `false` (a SpecForge project has no sub-repositories), so there are no per-repository tags to push and no release map to read. Skip this step.
 
 </step>
 

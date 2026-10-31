@@ -48,6 +48,9 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/complete-milestone.md", 412),
     ("gsd-core/workflows/complete-milestone.md", 413),
     ("gsd-core/workflows/complete-milestone.md", 414),
+    // No release map: the git-tag section and `push_release_tags` name no per-repository step.
+    ("gsd-core/workflows/complete-milestone.md", 536),
+    ("gsd-core/workflows/complete-milestone.md", 541),
     (
         "gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md",
         8,
