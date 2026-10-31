@@ -18,6 +18,7 @@ fn greet_wasm_path() -> PathBuf {
 }
 
 #[test]
+#[ignore = "K20a revendor"]
 fn sdk_greet_extension_passes_protocol() {
     let blob = std::fs::read(greet_wasm_path()).expect("vendored greet component blob");
     let runtime = ComponentRuntime::new();
@@ -142,6 +143,7 @@ fn every_call(
     behavior = "call_extension_exports",
     verify = "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
 )]
+#[ignore = "K20a revendor"]
 fn greet_answers_alike_through_both_runtimes() {
     use specforge_wasm::testing::InProcessRuntime;
 

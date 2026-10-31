@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.11.0" }
+{ "host_version": "1.12.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.11.0",
+  "protocol_version": "1.12.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -438,6 +438,10 @@ that does not know the field ignores it). The host reads the declaration by one 
   values, minimum, default and description, `required` lists the required args that are not flags, and
   `additionalProperties` is `false`.
 
+- **Human-attested (1.12.0, ADR 0301).** A command may declare `human: true` (it must `writes`, else W021 and it is
+  dropped): it records what a person says, so the host runs it only for a person at a terminal. An MCP call, and the
+  command line without a terminal, are refused `human_only` before the export runs, `--dry-run` included. A 1.11 host
+  ignores the key.
 - **Reads and the clock (1.11.0, ADR 0293, ADR 0294).** A command may declare `reads` (see "File reads" under
   [Category: passes](#category-passes)); its input then carries `files`, and it always carries `now`, the host's clock.
 - **Gates (1.10.0, ADR 0291).** A command may declare `gates`, local codes of its extension, and `subject`, the
@@ -730,7 +734,7 @@ Returns typed settings, presets and secrets (protocol 1.8.0, ADR 0288). `specfor
 }
 ```
 
-A name is dotted, or a family with `*` segments. `field_type` is a field type of this document; `default` absent means unset. `gates` (a bool setting only) lists local codes reported by no source while it is false. A preset follows an enum or bool setting of the extension, or a peer's (`@ext:name`); each value sets `settings` and raises `severities`, never lowers one. A secret is read from the environment variable `env`, never from `specforge.json`: a guest is told only whether it is set. An item of a kind the host does not know costs that item (W021), not the category.
+A name is dotted, or a family with `*` segments. `field_type` is a field type of this document; `default` absent means unset. `gates` (a bool setting only) lists local codes reported by no source while it is false, and `gates_when_on` (1.12.0, ADR 0305) those reported by no source while it is true; a code in both is W021. A `field_type` of `number` (1.12.0) is a whole or decimal number within `minimum` and `maximum`; a kind's field may not be one (W021: the `.spec` grammar has no decimal literal). A preset follows an enum or bool setting of the extension, or a peer's (`@ext:name`); each value sets `settings` and raises `severities`, never lowers one. A secret is read from the environment variable `env`, never from `specforge.json`: a guest is told only whether it is set. An item of a kind the host does not know costs that item (W021), not the category.
 
 `specforge settings set <extension> <name> <value>` and `unset` (protocol 1.11.0, ADR 0296; the MCP tool `specforge.settings_set`) write one declared setting into `specforge.json`, admitted by its `field_type` as the load admits it, and never a secret (E087); an `unset` also removes a key the load reports (a misspelt setting, a committed secret). The host writes the text of the file in place, as one journalled change, so the rest of it is as the author left it. An extension declares nothing for it.
 
@@ -927,6 +931,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.9.0` | the same as `1.0.0` |
 | `1.10.0` | the same as `1.0.0` |
 | `1.11.0` | the same as `1.0.0` |
+| `1.12.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -953,6 +958,7 @@ or answered.
 | `1.9.0` | A rule may be `check: "judged"` with a `judged` descriptor, an entity may hold `verdict` statements, a field may declare `writer: "verdict"`, and `PassContext.judgements`, `GraphNode.judgements` and `PassBaselineEntity.judgements` carry each judged rule's state (ADR 0290); `set_verdict` takes `values` and `basis`. A command or collector may declare `writes` and answer an edit `plan` the host checks and applies (ADR 0289); a writing command's input carries `revisions`, a graph node its `file`, and a writing collector the graph, `cwd`, `today` and `revisions`. A kind and a field may declare `writer: "human"`, and a pass `phase: "guard"`. A 1.8 host ignores the new keys. |
 | `1.10.0` | A `surfaces` item may declare `prompts` (a `PromptDescriptor`: typed `args`, `gates`, `subject`, `steps`, `when`, `reads_graph`, `attribution`) served as MCP prompts, `specforge prompt` and `specforge <short> <id>`, rendered by a `prompt__<id>` export (`PromptInput`, `PromptOutput`) with a host message appended (ADR 0291). A command may declare `gates` and `subject`: the host refuses the call `gate_failed` while a gated code fails in the subject's scope. A pass may declare `reports`, the codes it answers at a gate, and `PassInput.trigger` says whether it is asked to judge a write or a gate. A 1.9 host ignores the new keys, so a gated command runs ungated there. A `surfaces` item may also declare `agents`, `skills`, `slash_commands` and `hooks`, written into a host's files by `specforge install` (ADR 0292): the `render__` export writes an agent's or skill's body (`RenderInput`, `RenderOutput`), a `hook__<id>` export answers a host event (`HookInput`, `HookOutput`), and a command, hook or prompt that declares `reads_state` is sent, and may patch, its extension's state (`StateView`, `StatePatch`). A 1.9 host ignores the new keys and installs nothing. |
 | `1.11.0` | A pass or a command may declare `reads` (`name`, `field` or `glob`, `base`, `text`) and its input then carries `files`, the facts and capped text of the project files it names; a pass may declare `reads_tests` to be sent the recorded test report at compile (ADR 0293). A pass's `values` and a validator's carry every `string_list`, `reference_list` and `enum_list` field as an array of its items, and a command's, a collector's and a hook's input carries `now`, `YYYY-MM-DDTHH:MM:SSZ` (ADR 0294). A judged rule's `judge` may be `prompt:<id>`, a prompt of its own extension (ADR 0295). `specforge settings set` and `unset` write the settings an extension declares (ADR 0296). A 1.10 host ignores the new keys, so a guest that needs a file gets none there. |
+| `1.12.0` | A command may declare `human` (ADR 0301): the host runs it only for a person at a terminal. A setting may declare `gates_when_on` and be of type `number` (ADR 0305). A judgement a pass is sent carries `cited_tests`, the tests its verdict cites (ADR 0304). A 1.11 host ignores the new keys. |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.

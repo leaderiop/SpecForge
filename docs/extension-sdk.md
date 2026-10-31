@@ -285,7 +285,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.pass(name, \|p\| ..)` | a compiler pass and its handler | `passes` |
 | `c.analyzer(language, \|a\| ..)` | a source analyzer and its scanner | `analyzers` |
 | `c.feature_flag(name, default, description)` | a bool setting of that name users set in `specforge.json` | `settings` |
-| `c.setting(name, \|s\| ..)` | a typed setting: `bool()`, `integer()`, `string()`, `enum_values(..)`, `string_list()`, `block()`, `block_list()`, `default(..)`, `describe(..)`, `gates(..)`, `keys(..)` for a family | `settings` |
+| `c.setting(name, \|s\| ..)` | a typed setting: `bool()`, `integer()`, `number()`, `string()`, `enum_values(..)`, `string_list()`, `block()`, `block_list()`, `default(..)`, `describe(..)`, `gates(..)`, `gates_when_on(..)`, `keys(..)` for a family | `settings` |
 | `c.preset(source, \|p\| ..)` | what each value of an enum or bool setting presets and raises: `p.when(value, \|e\| e.set(..).raise(..))` | `settings` |
 | `c.secret(name, env, description)` | a secret read from an environment variable | `settings` |
 | `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL) | `codes` |
@@ -500,7 +500,7 @@ A prompt is not a contract: the agent may ignore a step, and only a gate refuses
 
 ### Writing commands and collectors
 
-An extension never writes files. A command declares `cmd.writes()` and answers an edit plan the host checks, judges
+An extension never writes files. A command that records what a person says declares `cmd.human()` (it writes, and the host runs it only for a person at a terminal, ADR 0301). A command declares `cmd.writes()` and answers an edit plan the host checks, judges
 and applies all or nothing ([the wire](extension-protocol.md#writing), ADR 0289):
 
 ```rust

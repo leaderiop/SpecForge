@@ -129,7 +129,8 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
         .filter(|d| d.code == "W019" || d.code == "W112")
         .collect();
     assert!(unread.is_empty(), "host could not read: {unread:?}");
-    for t in FieldType::ALL {
+    // A kind's field is never a `number`: only a setting is (W021, ADR 0305).
+    for t in FieldType::ALL.iter().filter(|t| **t != FieldType::Number) {
         assert!(
             build.fields().contains("thing", &format!("f_{t}")),
             "field type {t} did not register"
