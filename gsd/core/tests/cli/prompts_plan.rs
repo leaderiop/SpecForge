@@ -273,3 +273,35 @@ fn convergence_gate_refuses_a_stale_verdict_under_plus() {
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());
 }
+
+#[test]
+fn plan_phase_with_no_phase_plans_the_next() {
+    let p = twin();
+    let none = payload(&prompt(&p, "plan_phase", &[], "claude-code"));
+    let named = payload(&prompt(&p, "plan_phase", &["02.1"], "claude-code"));
+    assert_eq!(none["payload"]["subject"], "v1.0/02.1");
+    assert_eq!(text_of(&none), text_of(&named));
+    assert!(text_of(&none).contains("`$PHASE_ID` is `v1.0/02.1`"));
+
+    // Once 02.1 is planned, the next one is 03.
+    let plans = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &format!("{plans}\nplan 02.1-01 \"Fix the title\" {{\n  phase v1.0/02.1\n  type execute\n  objective \"Fix it.\"\n}}\n"),
+    );
+    let next = payload(&prompt(&p, "plan_phase", &[], "claude-code"));
+    assert_eq!(next["payload"]["subject"], "v1.0/03");
+
+    // Every phase planned: upstream's ask, and no subject.
+    let plans = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &format!("{plans}\nplan 03-01 \"List\" {{\n  phase v1.0/03\n  type execute\n  objective \"List.\"\n}}\nplan 01-09 \"x\" {{\n  phase v1.0/01\n  type execute\n  objective \"x.\"\n}}\n"),
+    );
+    let ask = payload(&prompt(&p, "plan_phase", &[], "claude-code"));
+    assert!(
+        text_of(&ask)
+            .contains("No unplanned phase in this milestone: ask the user which phase to plan.")
+    );
+    assert!(ask.get("subject").is_none(), "{ask}");
+}

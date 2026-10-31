@@ -11,6 +11,9 @@ use specforge_extension_sdk::prelude::*;
 pub enum Kind {
     /// An entity of the kind (several as `a|b`): positional, and the prompt's subject.
     Reference(&'static str),
+    /// An optional entity of the kind, positional: the prompt's subject, which the handler may pick when it is absent
+    /// (ADR 0314).
+    Subject(&'static str),
     /// An entity of the kind, written `--name <number>`: a bound inside the milestone the run is about (`--from 02`),
     /// so only its last segment is shown.
     Bound(&'static str),
@@ -39,6 +42,14 @@ impl Arg {
             name,
             kind: Kind::Reference(kind),
             required: true,
+        }
+    }
+    /// An optional positional subject: absent, the handler picks it (`/gsd-plan-phase`).
+    pub const fn subject(name: &'static str, kind: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Subject(kind),
+            required: false,
         }
     }
     /// An optional reference, written `--name <id>` with its full id (`--phase v2.0/01`): the milestone is part of
@@ -106,7 +117,9 @@ pub fn declare(p: &mut PromptBuilder, args: &[Arg]) {
     for arg in args {
         p.arg(arg.name, |a| {
             match &arg.kind {
-                Kind::Reference(kind) | Kind::Bound(kind) => a.reference(kind),
+                Kind::Reference(kind) | Kind::Subject(kind) | Kind::Bound(kind) => {
+                    a.reference(kind)
+                }
                 Kind::Flag => a.bool(),
                 Kind::Text => a.string(),
                 Kind::Integer => a.integer(),
@@ -140,6 +153,7 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
         };
         let option = format!("--{}", option_name(arg.name));
         match (&arg.kind, &value) {
+            (Kind::Subject(_), Value::String(path)) => words.push(written(path).to_string()),
             (Kind::Reference(_), Value::String(path)) if arg.required => {
                 words.push(written(path).to_string());
             }

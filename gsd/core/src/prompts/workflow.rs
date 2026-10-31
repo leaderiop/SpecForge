@@ -91,10 +91,53 @@ fn shell_ids(call: &PromptCall<'_>, subject: Option<&str>) -> String {
     )
 }
 
+/// The first phase of the current milestone that no plan names, in phase order (`999.` backlog phases left out).
+fn next_unplanned(call: &PromptCall<'_>) -> Option<String> {
+    // a prompt's graph is the wire one: the milestone is picked as `reports::current` does
+    let nodes: &[_] = call.graph().map_or(&[], |g| &g.nodes);
+    let of_kind = |kind: &'static str| nodes.iter().filter(move |n| n.kind == kind);
+    let milestone = of_kind("milestone")
+        .find(|m| m.text("state") == Some("in_progress"))
+        .or_else(|| of_kind("milestone").next_back())?;
+    let scope = format!("{}/", milestone.id);
+    let planned: std::collections::BTreeSet<&str> =
+        of_kind("plan").filter_map(|p| p.text("phase")).collect();
+    let number = |id: &str| id.rsplit('/').next().unwrap_or_default().to_string();
+    of_kind("phase")
+        .filter(|p| p.id.starts_with(&scope) && !number(&p.id).starts_with("999."))
+        .filter(|p| !planned.contains(p.id.as_str()))
+        .min_by(|a, b| crate::commands::smart_entry::compare_phase(&number(&a.id), &number(&b.id)))
+        .map(|p| p.id.clone())
+}
+
 fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, String> {
-    let arguments = args::text(call, spec.args);
+    let mut arguments = args::text(call, spec.args);
     let mut tail = spec.tail.map(|f| f(call)).unwrap_or_default();
-    let subject = spec.subject.and_then(|n| call.str(n).map(|id| (n, id)));
+    let mut picked = None;
+    let mut subject = spec.subject.and_then(|n| call.str(n).map(|id| (n, id)));
+    // An optional subject that was not given: the next unplanned phase, else upstream's ask.
+    if let (None, Some(name)) = (subject, spec.subject) {
+        if spec
+            .args
+            .iter()
+            .any(|a| a.name == name && matches!(a.kind, args::Kind::Subject(_)))
+        {
+            match next_unplanned(call) {
+                Some(id) => picked = Some(id),
+                None => {
+                    return Ok(PromptOutput::user(
+                        "No unplanned phase in this milestone: ask the user which phase to plan.",
+                    ));
+                }
+            }
+            subject = picked.as_deref().map(|id| (name, id));
+            let number = picked
+                .as_deref()
+                .and_then(|id| id.rsplit('/').next())
+                .unwrap_or_default();
+            arguments = format!("{number} {arguments}").trim().to_string();
+        }
+    }
     let mut ids = shell_ids(call, subject.map(|(_, id)| id));
     if let Some((name, id)) = subject {
         let var = match name {
@@ -118,7 +161,11 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
         settings: &settings::block(),
         tail: &tail,
     })?;
-    Ok(PromptOutput::user(text))
+    let out = PromptOutput::user(text);
+    Ok(match picked {
+        Some(id) => out.with_subject(id),
+        None => out,
+    })
 }
 
 /// A prompt's closing line about the active workstream (`reads_state`).

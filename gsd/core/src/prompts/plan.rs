@@ -7,7 +7,7 @@ use super::args::Arg;
 use super::workflow::{self, Do, Slash, Spec, Step};
 
 const ARGS: &[Arg] = &[
-    Arg::reference("phase", "phase"),
+    Arg::subject("phase", "phase"),
     Arg::flag("auto"),
     Arg::flag("research"),
     Arg::flag("skip_research"),
@@ -69,8 +69,8 @@ const STEPS: &[Step] = &[
     },
 ];
 
-/// Upstream's hint, with the phase required (the subject scopes the gates).
-const HINT: &str = "<phase> [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--skip-ui] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--bounce] [--skip-bounce] [--chunked] [--tdd] [--mvp] [--granularity <coarse|standard|fine>] [--no-tracer] [--no-reversibility-gates]";
+/// Upstream's hint.
+const HINT: &str = "[phase] [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--skip-ui] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--bounce] [--skip-bounce] [--chunked] [--tdd] [--mvp] [--granularity <coarse|standard|fine>] [--no-tracer] [--no-reversibility-gates]";
 
 static PLAN_PHASE: Spec = Spec {
     id: "plan_phase",
