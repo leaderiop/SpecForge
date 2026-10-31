@@ -3,7 +3,7 @@
 use serde_json::json;
 
 use super::cmd_execute::stale_plan_check;
-use super::commands_support::{plus, twin};
+use super::commands_support::{json, plus, twin};
 use super::harness::{Project, project};
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
@@ -304,4 +304,25 @@ fn plan_phase_with_no_phase_plans_the_next() {
             .contains("No unplanned phase in this milestone: ask the user which phase to plan.")
     );
     assert!(ask.get("subject").is_none(), "{ask}");
+}
+
+#[test]
+fn three_and_03_name_the_same_phase_on_every_surface() {
+    let p = twin();
+    for (short, full) in [("3", "03"), ("2.1", "02.1")] {
+        let a = payload(&prompt(&p, "plan_phase", &[short], "claude-code"));
+        let b = payload(&prompt(&p, "plan_phase", &[full], "claude-code"));
+        assert_eq!(a, b, "{short} and {full}");
+        assert_eq!(a["payload"]["subject"], format!("v1.0/{full}"));
+    }
+    let run = p.run(&["query", "v1.0/3", "--format", "brief"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let found = json(&run);
+    let ids: Vec<&str> = found["nodes"]
+        .as_array()
+        .expect("nodes")
+        .iter()
+        .filter_map(|n| n["id"].as_str())
+        .collect();
+    assert!(ids.contains(&"v1.0/03"), "{ids:?}");
 }
