@@ -178,7 +178,15 @@ fn skip_wrapper_args(words: &[&Token], start: usize, w: &Wrapper) -> usize {
     idx + usize::from(words.get(idx).is_some_and(|t| t.text == "--"))
 }
 
+#[cfg(test)]
+thread_local! {
+    /// The words handed to `resolve` on this thread: a test bounds the wrapper walk's work by it (#5628).
+    pub(super) static RESOLVED_WORDS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 pub(super) fn resolve<'a>(words: &[&'a Token]) -> Option<Command<'a>> {
+    #[cfg(test)]
+    RESOLVED_WORDS.with(|n| n.set(n.get() + words.len()));
     let mut idx = 0;
     while idx < words.len() && is_assignment(&words[idx].text) {
         idx += 1;
