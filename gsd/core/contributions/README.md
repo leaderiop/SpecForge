@@ -200,6 +200,11 @@ Found by REVIEW-r43 and kept, each on purpose or as a kernel limit (K20):
   E080 (K20), not changed here; `review-backlog` tells the user to run `specforge check` first.
 - A commit step of `autonomous`, `quick`, `review-backlog`, `pause-work` and `next` runs `git add spec && git commit`
   where upstream commits named files: spec edits the user has not committed are swept in.
+- `quick` in worktree mode (F8): upstream's pre-dispatch step commits `NN-PLAN.md` (and `-CONTEXT.md`, `-RESEARCH.md`)
+  and the executor materializes them; here the step commits `spec`, where the plan is `plan <id>` in
+  `spec/quick.spec`, and the executor checks its own worktree's `spec/quick.spec`, restoring `spec/` from
+  `QUICK_PLAN_COMMIT` when the plan is missing there. With no commit that declared the plan, there is no alternate
+  worktree base (upstream falls back to `HEAD`).
 - A lesson id `L-<phase>-<n>` is not unique across milestones: with `--reset-phase-numbers` the re-run rule (`specforge
   set` an existing id) overwrites an earlier milestone's lesson.
 - `/gsd-settings` writes no `~/.gsd/defaults.json` (it is upstream GSD's store and nothing here reads it): there are no

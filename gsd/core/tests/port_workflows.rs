@@ -389,6 +389,10 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 141, 142),
     ("gsd-core/workflows/quick.md", 254, 254),
     ("gsd-core/workflows/quick.md", 265, 265),
+    // F8 (plan 02): the quick plan is `plan <id>` in spec/quick.spec, not a PLAN.md; the worktree steps commit `spec`,
+    // and the executor checks its own spec/quick.spec, restoring spec/ from QUICK_PLAN_COMMIT when it lacks the plan.
+    ("gsd-core/workflows/quick.md", 444, 444),
+    ("gsd-core/workflows/quick.md", 448, 471),
     ("gsd-core/workflows/quick.md", 637, 637),
     ("gsd-core/workflows/quick.md", 639, 639),
     ("gsd-core/workflows/quick.md", 641, 641),
@@ -410,6 +414,26 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 694, 694),
     ("gsd-core/workflows/quick.md", 696, 699),
     ("gsd-core/workflows/quick.md", 790, 790),
+    (
+        "gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md",
+        2,
+        8,
+    ),
+    (
+        "gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md",
+        20,
+        31,
+    ),
+    (
+        "gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md",
+        55,
+        55,
+    ),
+    (
+        "gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md",
+        57,
+        59,
+    ),
     ("gsd-core/workflows/remove-workspace.md", 12, 12),
     ("gsd-core/workflows/remove-workspace.md", 18, 18),
     ("gsd-core/workflows/remove-workspace.md", 23, 23),
