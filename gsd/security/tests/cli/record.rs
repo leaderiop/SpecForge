@@ -158,3 +158,72 @@ fn an_accepted_threat_is_left_as_it_is() {
         "an accepted threat does not resurface"
     );
 }
+
+/// Both plans of phase 01 keep a `T-01-SC` (by design), and plan 01-02 claims `T-01-02` too (a real E101 duplicate).
+fn two_plans() -> Project {
+    let p = recording();
+    let spec = p.read("spec/security.spec");
+    let extra = r#"
+threat T-01-SC "Supply chain" {
+  plan        v1.0/01/01-01
+  category    tampering
+  component   "package.json"
+  severity    high
+  disposition mitigate
+  mitigation  "Pin dependencies"
+}
+
+threat T-01-SC "Supply chain" {
+  plan        v1.0/01/01-02
+  category    tampering
+  component   "package.json"
+  severity    high
+  disposition mitigate
+  mitigation  "Pin dependencies"
+}
+
+threat T-01-02 "Again" {
+  plan        v1.0/01/01-02
+  category    tampering
+  component   "src/complete.js"
+  severity    medium
+  disposition mitigate
+  mitigation  "Checked"
+}
+"#;
+    p.write("spec/security.spec", &format!("{spec}{extra}"));
+    p
+}
+
+#[test]
+fn a_verdict_on_the_supply_chain_row_sets_every_plans_sc_threat() {
+    let p = two_plans();
+    let v = json!({ "threats": [
+        { "id": "T-01-01", "status": "closed" },
+        { "id": "T-01-SC", "status": "closed", "evidence": "package-lock.json" },
+    ] });
+    answered(&record(&p, &v));
+    for plan in ["01-01", "01-02"] {
+        let sc = p.fields_of(&format!("v1.0/01/{plan}/T-01-SC"));
+        assert_eq!(sc["status"], "closed", "{plan}: {sc}");
+    }
+}
+
+#[test]
+fn a_suffixed_id_names_one_threat() {
+    let p = two_plans();
+    // the bare digit-suffixed id is a real duplicate: refused, nothing written
+    let v = json!({ "threats": [{ "id": "T-01-02", "status": "closed" }] });
+    let run = record(&p, &v);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all().contains("claimed by more than one plan"),
+        "{}",
+        run.all()
+    );
+    // the plan's name before it picks one
+    let v = json!({ "threats": [{ "id": "01-02/T-01-02", "status": "closed" }] });
+    answered(&record(&p, &v));
+    assert_eq!(p.fields_of("v1.0/01/01-02/T-01-02")["status"], "closed");
+    assert!(p.fields_of(T2).get("status").is_none());
+}

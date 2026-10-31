@@ -149,7 +149,7 @@ Handle return:
 
 **State A (update):**
 1. Update threat register statuses.
-2. Append to the audit trail through the owning command, `record_security_audit` — it compares against the LAST `## Security Audit` block and skips the write entirely when nothing material changed (#5105 R3; #4887 Defect 2: an unchanged register no longer grows a new identical row on every re-run):
+2. Append to the audit trail through the owning command, `record_security_audit` — it compares against the LAST `## Security Audit` block and skips the write entirely when nothing material changed (#5105 R3; #4887 Defect 2: an unchanged register no longer grows a new identical row on every re-run). A verdict id is a threat's ID; `T-{N}-SC` sets the supply-chain threat of every plan of the phase, and `<plan>/T-{N}-02` (the plan's name, then the ID) names one of two plans' threats that claim the same ID:
 
 ```bash
 specforge gsd record-security-audit "$PHASE_ID" \

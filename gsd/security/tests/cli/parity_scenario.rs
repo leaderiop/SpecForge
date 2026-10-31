@@ -199,10 +199,12 @@ fn the_ship_gate_blocks_as_check_predicate_did() {
 #[test]
 fn the_audit_trail_appends_once_per_change_as_append_audit_did() {
     let p = project();
-    // the fixture's trail ends at (3 found, 1 closed, 2 open); this verdict closes more and names no duplicate ID
+    // the fixture's trail ends at (3 found, 1 closed, 2 open); this verdict closes more. It names no duplicate ID but
+    // `T-01-SC`, which both plans keep by design (REVIEW-security-part2 M2: that case was once avoided here)
     let verdict = json!({"threats": [
         {"id": "T-01-01", "status": "closed", "evidence": "src/vault.js:20"},
         {"id": "T-01-03", "status": "closed"},
+        {"id": "T-01-SC", "status": "closed"},
     ]});
     let record = || {
         let run = p.run(&[

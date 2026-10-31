@@ -124,15 +124,26 @@ fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             }
         };
         let evidence = text(item, "evidence").map(str::to_string);
+        // an id names a threat by its full path or by the tail of one (`01-02/T-01-02`), as `support::node` does
+        let tail = format!("/{id}");
         let matches: Vec<&Held> = held
             .iter()
-            .filter(|h| name_of(&h.node.id) == id || h.node.id == id)
+            .filter(|h| h.node.id == id || h.node.id.ends_with(&tail))
             .collect();
         match matches.as_slice() {
             [one] if !one.accepted => {
                 status.insert(one.node.id.clone(), (new_status.to_string(), evidence));
             }
             [_] => {}
+            // every plan keeps a `T-<phase>-SC` threat (one supply-chain row per phase): the bare id sets them all
+            [_, _, ..] if id.ends_with("-SC") && !id.contains('/') => {
+                for h in matches.iter().filter(|h| !h.accepted) {
+                    status.insert(
+                        h.node.id.clone(),
+                        (new_status.to_string(), evidence.clone()),
+                    );
+                }
+            }
             [] if item["retroactive"] == true => {
                 let plan_name = text(item, "plan")
                     .ok_or_else(|| format!("threat {id}: a retroactive threat needs its 'plan'"))?;
@@ -164,7 +175,7 @@ fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             }
             _ => {
                 return Err(format!(
-                    "threat {id} is claimed by more than one plan of phase {number}: renumber one first"
+                    "threat {id} is claimed by more than one plan of phase {number}: name one by its plan (`01-01/{id}`) or renumber one"
                 ));
             }
         }
@@ -303,7 +314,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
             a.required().description("the phase (its id, or its number)");
         })
         .arg("verdict", |a| {
-            a.description("the verdict as JSON: {\"threats\": [{\"id\", \"status\", \"evidence\"?, \"retroactive\"?, \"plan\"?, ...}]}");
+            a.description("the verdict as JSON: {\"threats\": [{\"id\", \"status\", \"evidence\"?, \"retroactive\"?, \"plan\"?, ...}]}; an id is a threat's ID, T-<phase>-SC sets every plan's supply-chain threat, <plan>/<ID> names one of two plans' that claim it");
         })
         .arg("run_by", |a| {
             a.description("who ran the audit (default gsd-security-auditor)");
