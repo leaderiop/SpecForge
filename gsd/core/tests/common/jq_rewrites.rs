@@ -54,6 +54,11 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/spec-phase.md", 301),
     ("gsd-core/workflows/spec-phase.md", 320),
     ("gsd-core/workflows/spec-phase.md", 321),
+    // Plan 03 (F9) T4: the wave's worktree manifest is written and read with jq.
+    ("gsd-core/workflows/execute-phase.md", 656),
+    ("gsd-core/workflows/execute-phase.md", 871),
+    ("gsd-core/workflows/execute-phase.md", 893),
+    ("gsd-core/workflows/execute-phase.md", 899),
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[

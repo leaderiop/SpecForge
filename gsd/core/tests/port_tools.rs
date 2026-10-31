@@ -150,10 +150,11 @@ const KEEP: &[(&str, &str)] = &[
     ),
 ];
 
-/// Assets whose `node` lines plan 03 has not rewritten yet: a listed asset may keep them, and a listed asset with none
-/// left fails, so the list cannot go stale.
+/// Assets whose `node` lines plan 03 left, each with its reason: a listed asset may keep them, and a listed asset with
+/// none left fails, so the list cannot go stale.
 const PENDING_NODE: &[&str] = &[
-    "gsd-core/workflows/execute-phase.md",
+    // the disposition-ledger builder: a ~200-line script that parses REVIEW.md and REVIEW-FIX.md Markdown and rewrites
+    // the ledger. It reads no SpecForge JSON, has no readable jq form, and no `specforge gsd` command answers it.
     "gsd-core/workflows/execute-phase/steps/code-review-disposition.md",
 ];
 
