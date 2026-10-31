@@ -21,6 +21,7 @@ mod compute;
 mod gate;
 mod hooks;
 mod injection;
+mod install;
 mod model;
 mod prompt;
 mod record;
