@@ -1,0 +1,22 @@
+[package]
+name = "gsd-kit"
+version = "1.0.0"
+edition.workspace = true
+license.workspace = true
+description = "gsd-kit: the kind DSL and the prompt and agent port pipeline that @gsd/core and the capability extensions share (no guest)"
+publish = false
+
+# rlib only: `component_guest!` lives in each extension, never here (it would export `call` twice).
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+specforge-extension-sdk = "0.3.0"
+serde_json = "1.0"
+
+[dev-dependencies]
+specforge-extension-sdk = { version = "0.3.0", features = ["testing"] }
+regex = "1"
+
+[lints]
+workspace = true

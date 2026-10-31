@@ -101,7 +101,7 @@ fn tracks_names_the_vendored_snapshot() {
     // does not match itself.)
     let needle = ["parity/upstream/", "v"].concat();
     let mut files = Vec::new();
-    for dir in ["src", "tests"] {
+    for dir in ["src", "tests", "../kit/src"] {
         rust_files(&core.join(dir), &mut files);
     }
     let mut named = 0;

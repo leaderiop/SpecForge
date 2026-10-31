@@ -1,7 +1,7 @@
 //! The kinds of user acceptance testing (`spec/verify.md`): a session, its tests and the gaps a test found. Results
 //! are harness values (a person's answer); statuses and totals are computed. `uat_gap.debug` is `@gsd/ops`'s.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const UAT_STATUS: &[&str] = &["testing", "partial", "complete", "diagnosed"];
 const RESULT: &[&str] = &["pending", "pass", "issue", "skipped", "blocked"];

@@ -1,7 +1,7 @@
 # The @gsd family: one Cargo workspace, one lockfile, one target (ADR gsd/0001). The root workspace excludes this folder.
 [workspace]
 resolver = "3"
-members = ["core"]
+members = ["kit", "core"]
 
 [workspace.package]
 edition = "2024"

@@ -1,6 +1,6 @@
 //! `phase_spec`, `locked_req` and `interview` (`spec/discuss.md`).
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 /// The `spec_phase` prompt's verdict, in percent: `scores` is a verdict field (`V`) bound by the judged rule `gsd/E202`.
 const SCORES: &[Field] = &[

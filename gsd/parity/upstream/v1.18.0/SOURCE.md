@@ -71,7 +71,7 @@ absolute URL of the file at the tag). A file whose relative links leave this tre
 port drops it, because the slash binding carries it. All files are MIT, Copyright (c) 2026 Open GSD
 (`gsd/core/LICENSE-GSD`).
 
-`src/runtime-artifact-conversion.cts` is the source of the host adapters `gsd/core/src/prompts/host.rs` ports (Codex's and
+`src/runtime-artifact-conversion.cts` is the source of the host adapters `gsd/kit/src/prompt/host.rs` ports (Codex's and
 Cursor's text rewrites and adapter headers), and `tests/cursor-conversion.test.cjs` and `tests/runtime-converters.test.cjs`
 are the tests whose vectors `host/tests.rs` runs through the port.
 

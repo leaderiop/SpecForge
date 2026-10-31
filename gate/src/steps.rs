@@ -48,11 +48,19 @@ pub fn rustfmt(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         failures.push(format!("rustfmt would change the workspace ({e})"));
     }
     for manifest in outside_workspace(ctx.repo) {
-        if let Err(e) =
-            ctx.sh(ctx
-                .cmd("cargo")
-                .args(["fmt", "--manifest-path", &manifest, "--", "--check"]))
-        {
+        // `--all` for `gsd/`: a virtual manifest with several members is "Failed to find targets" without it, and
+        // a guest or fixture (a member of no workspace of its own) is refused with it.
+        let all: &[&str] = if manifest.starts_with("gsd/") {
+            &["--all"]
+        } else {
+            &[]
+        };
+        if let Err(e) = ctx.sh(ctx.cmd("cargo").arg("fmt").args(all).args([
+            "--manifest-path",
+            &manifest,
+            "--",
+            "--check",
+        ])) {
             failures.push(format!("rustfmt would change {manifest} ({e})"));
         }
     }

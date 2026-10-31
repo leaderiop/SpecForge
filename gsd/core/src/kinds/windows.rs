@@ -1,7 +1,7 @@
 //! Broken windows and refactor proposals (`spec/verify.md`). A waiver, a fix and a proposal's scores are harness
 //! values, written by their commands (r41) and immutable once recorded; statuses are computed.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const WINDOW_KIND: &[&str] = &[
     "stub",

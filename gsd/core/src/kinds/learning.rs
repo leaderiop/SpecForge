@@ -2,7 +2,7 @@
 //!
 //! Also ports gsd-core bin/lib modules: learnings.cjs.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const COST: &[Field] = &[str("model_mix"), int("sessions"), str("notable")];
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::prompts::preamble::{self, FILES, MARKER};
+use gsd_kit::prompt::preamble::{self, FILES, MARKER};
 
 const EMBEDDED: &str = "references/verification-patterns.md";
 

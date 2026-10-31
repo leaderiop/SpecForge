@@ -3,7 +3,7 @@
 //!
 //! Also ports gsd-core bin/lib modules: research-store.cjs.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const CONFIDENCE: &[&str] = &["high", "medium", "low"];
 const RESPONSIBILITY: &[Field] = &[str("capability"), str("tier")];

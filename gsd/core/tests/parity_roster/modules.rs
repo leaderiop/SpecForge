@@ -76,7 +76,10 @@ pub const MODULES: &[(&str, Module)] = &[
     ("code-review-*", Owned("@gsd/ops")),
     ("codex-agent-toml.cjs", Host("specforge install")),
     ("command-aliases.cjs", Ported("src/slash.rs")),
-    ("command-arg-projection.cjs", Ported("src/prompts/args.rs")),
+    (
+        "command-arg-projection.cjs",
+        Ported("../kit/src/prompt/args.rs"),
+    ),
     ("command-roster.cjs", Ported("tests/common/roster.rs")),
     ("command-routing-hub.cjs", NotApplicable(ROUTER)),
     ("commands.cjs", NotApplicable(ROUTER)),
@@ -94,7 +97,10 @@ pub const MODULES: &[(&str, Module)] = &[
     ("config.cjs", Ported("src/settings/mod.rs")),
     ("configuration.cjs", Ported("src/settings/mod.rs")),
     ("context-composer.cjs", Ported("src/commands/digest.rs")),
-    ("context-predicates.cjs", Ported("src/prompts/compose.rs")),
+    (
+        "context-predicates.cjs",
+        Ported("../kit/src/prompt/compose.rs"),
+    ),
     ("context-utilization.cjs", Ported("src/hooks/statusline.rs")),
     (
         "core-utils.cjs",
@@ -247,7 +253,7 @@ pub const MODULES: &[(&str, Module)] = &[
         "project-root.cjs",
         NotApplicable("finds the project root; the kernel resolves `specforge.json`"),
     ),
-    ("prompt-budget.cjs", Ported("src/prompts/compose.rs")),
+    ("prompt-budget.cjs", Ported("../kit/src/prompt/compose.rs")),
     ("quick-batch*", Ported("src/prompts/quick.rs")),
     ("real-home-guard.cjs", Host("specforge install")),
     ("refactor-trigger-command-router.cjs", NotApplicable(ROUTER)),

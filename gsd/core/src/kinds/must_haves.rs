@@ -2,7 +2,7 @@
 //! verifier's verdict can name it (`spec/plan.md`). GSD has no "interfaces" must-have: `<interfaces>` is a block of
 //! `<context>`. Paths are `str`, not `files`: an artifact or a link end is a file the plan creates.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const ARTIFACT_STATE: &[&str] = &[
     "present",

@@ -1,6 +1,6 @@
 //! `milestone`, `phase` and `workstream` (`spec/project.md`).
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const ABANDONED: &[Field] = &[str("reason").r(), str("ruled_by").r(), date("at").r()];
 const COMPLETION: &[Field] = &[date("at"), rf("audit", "milestone_audit")];

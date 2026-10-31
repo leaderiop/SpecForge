@@ -176,6 +176,7 @@ fn no_text_joins_the_spec_to_a_path() {
     // the Rust side writes text too: its string literals
     let mut sources = Vec::new();
     walk_rs(&root().join("src"), &mut sources);
+    walk_rs(&root().join("../kit/src"), &mut sources);
     for path in sources {
         let text = std::fs::read_to_string(&path).expect("a source");
         for (n, line) in text.lines().enumerate() {

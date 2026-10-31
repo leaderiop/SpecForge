@@ -1,6 +1,6 @@
 //! The kinds of execution (`spec/execute.md`): a plan's summary, its deliverables and its deviations.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const SUMMARY_STATUS: &[&str] = &["complete", "halted"];
 const REQUIRES: &[Field] = &[rf("phase", "phase").r(), str("provides").r()];

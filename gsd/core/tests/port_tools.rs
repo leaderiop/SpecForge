@@ -316,6 +316,7 @@ fn every_gsd_invocation_in_an_asset_or_a_prompt_fits_its_command() {
     let mut files = Vec::new();
     walk(&root().join("assets"), &mut files);
     walk(&root().join("src"), &mut files);
+    walk(&root().join("../kit/src"), &mut files);
     let mut bad = Vec::new();
     let mut seen = 0;
     for path in files.iter().filter(|p| {

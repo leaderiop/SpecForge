@@ -3,7 +3,7 @@
 //!
 //! gsd-core modules this file ports: audit.cjs.
 
-use super::dsl::*;
+use gsd_kit::dsl::*;
 
 const GAP_STATUS: &[&str] = &["unsatisfied", "partial", "orphaned"];
 const AUDIT_STATUS: &[&str] = &["passed", "gaps_found", "tech_debt"];
