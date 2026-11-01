@@ -151,11 +151,11 @@ CONTEXT: [✓ if has_context | - if not]
 
 ## Key Decisions Made
 - [extract from $STATE.decisions[]]
-- [e.g. jq -r '.decisions[].decision' from state-snapshot]
+- [e.g. each decision's text, from the decision entities]
 
 ## Blockers/Concerns
 - [extract from $STATE.blockers[]]
-- [e.g. jq -r '.blockers[].text' from state-snapshot]
+- [e.g. each blocker's text, from the state]
 
 ## Pending Todos
 - [count] pending — /gsd:capture --list to review
@@ -165,9 +165,9 @@ CONTEXT: [✓ if has_context | - if not]
 (Only show this section if count > 0; suppressed when ledger is empty or absent)
 
 ```bash
-WINDOWS_STATUS=$(specforge query "$PHASE_ID" --kinds broken_window --format json | jq -c '{ledger: {open_count: ([.nodes[]|select(.kind=="broken_window")|select(.fields.status == "open")]|length), waived_count: ([.nodes[]|select(.kind=="broken_window")|select(.fields.status == "waived")]|length)}}' 2>/dev/null || echo '')
-WINDOWS_OPEN=$(printf '%s' "$WINDOWS_STATUS" | jq -r '.ledger.open_count // 0' 2>/dev/null || echo 0)
-WINDOWS_WAIVED=$(printf '%s' "$WINDOWS_STATUS" | jq -r '.ledger.waived_count // 0' 2>/dev/null || echo 0)
+WINDOWS_STATUSES=$(specforge query "$PHASE_ID" --kinds broken_window --pick '.nodes[kind=broken_window].fields.status' 2>/dev/null)
+WINDOWS_OPEN=$(printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
+WINDOWS_WAIVED=$(printf '%s\n' "$WINDOWS_STATUSES" | grep -cx waived)
 ```
 
 Render `Open Windows` only when `$WINDOWS_OPEN` is greater than `0` (or `$WINDOWS_WAIVED` is greater than `0`, so an auditable deferral history remains visible). Phrase: `{WINDOWS_OPEN} open, {WINDOWS_WAIVED} waived — resolves with /gsd:ship gate; inspect via `specforge query "$PHASE_ID" --kinds broken_window``. The ledger is cross-phase; the count is the project total, not the current phase's.
@@ -265,7 +265,7 @@ Check for UAT.md files with status "diagnosed" (has gaps needing fixes).
 
 ```bash
 # Check for diagnosed UAT with gaps or partial (incomplete) testing
-specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --format json | jq -r '.nodes[]|select(.kind=="uat_test")|select(.fields.result == "issue" or .fields.result == "pending")|.id' || true
+for t in $(specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id'); do case "$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result')" in issue|pending) echo "$t" ;; esac; done || true
 ```
 
 Track:
@@ -280,7 +280,7 @@ Scan ALL phases for outstanding verification debt using the CLI. Milestone scopi
 DEBT=$(specforge query "$MILESTONE" --depth 3 --kinds uat_test --format json 2>/dev/null)
 # A cross-population audit is exactly the payload that can exceed the CLI's
 # ~50KB stdout budget (io.cjs swaps in an `@file:<tmp>` pointer) — unwrap it
-# before jq, the same pattern Step 1's INIT fetch uses, or every counter
+# before reading it, the same pattern Step 1's INIT fetch uses, or every counter
 # below silently reads 0.
 if [[ "$DEBT" == @file:* ]]; then DEBT=$(cat "${DEBT#@file:}"); fi
 ```
@@ -288,8 +288,8 @@ if [[ "$DEBT" == @file:* ]]; then DEBT=$(cat "${DEBT#@file:}"); fi
 Segment the debt by population before counting (#3782):
 
 ```bash
-CURRENT_DEBT=$(printf '%s' "$DEBT" | jq '[.results[] | select(has("archived_milestone") | not)] | map(.items | length) | add // 0' 2>/dev/null || echo 0)
-ARCHIVED_DEBT=$(printf '%s' "$DEBT" | jq '[.results[] | select(has("archived_milestone"))] | map(.items | length) | add // 0' 2>/dev/null || echo 0)
+CURRENT_DEBT=$(for t in $(specforge query "$MILESTONE" --depth 3 --kinds uat_test --pick '.nodes[kind=uat_test].id'); do r=$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result'); case "${r:-pending}" in pending|issue|blocked) echo "$t" ;; esac; done | grep -c .)   # this milestone's open UAT tests
+ARCHIVED_DEBT=0   # shortcut: a closed milestone's open tests are not counted here; count them with the line above on that milestone
 ```
 
 Track: `outstanding_debt` — `CURRENT_DEBT`, the non-archived (current-milestone) count. Track `archived_debt` — `ARCHIVED_DEBT`, the still-open items in already-archived milestones. Track `parse_gap_files` — `summary.parse_gap_files` from the audit.

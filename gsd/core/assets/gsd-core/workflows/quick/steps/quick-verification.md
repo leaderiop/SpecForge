@@ -38,7 +38,7 @@ STATUS=$(specforge query "${quick_id}" --kinds verification --pick '.nodes[kind=
 ```
 
 `--pick status` returns the bare value, so this path needs **no `jq`**. That is deliberate: #2589
-established that a `| jq -r '.field'` pipe yields an **empty** variable with no diagnostic on any
+established that a field read piped through jq yields an **empty** variable with no diagnostic on any
 machine without jq — the default on Windows/Git-Bash — which here would route a perfectly good
 `passed` verification into the recovery arm below.
 

@@ -75,8 +75,8 @@ literal and wrong on any other harness-worktree host (Cursor declares the same c
 ```bash
 HARNESS_FLAG=""
 if [ "$ISOLATION" = "harness-worktree" ]; then
-  HARNESS_FLAG=$(echo '{}' \
-    | jq -r '.harnessFlag | strings' 2>/dev/null)
+  HARNESS_FLAG=   # dispatch-isolation is not part of @gsd/core: no runtime declares a harness isolation flag
+
   [ -n "$HARNESS_FLAG" ] || { echo "FATAL: runtime declares dispatch.isolation=harness-worktree but no harnessIsolationFlag — refusing to dispatch an agent that would believe it is isolated." >&2; exit 1; }
 fi
 ```

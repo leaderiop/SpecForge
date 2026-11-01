@@ -1066,10 +1066,10 @@ increases monotonically across waves. `{status}` is `complete` (success),
 7. **Handle failures:**
    **Step 7.0 — classify before branching (#3095):**
    ```bash
-   CLASS_JSON='{"class":"unknown"}'   # agent.classify-failure is not part of @gsd/core: match the sentinel in the return body yourself
-   CLASS=$(echo "$CLASS_JSON" | jq -r '.class')
-   SENTINEL=$(echo "$CLASS_JSON" | jq -r '.sentinel // empty')
-   RETRY_AFTER=$(echo "$CLASS_JSON" | jq -r '.retryAfterSeconds // empty')
+   CLASS=unknown   # agent.classify-failure is not part of @gsd/core: match the sentinel in the return body yourself
+   SENTINEL=
+   RETRY_AFTER=
+
    if [ -n "$RETRY_AFTER" ]; then RETRY_HINT="  Provider hinted retry-after: ${RETRY_AFTER}s"; else RETRY_HINT=""; fi
    ```
    One classifier branch handles sentinels across Claude/Copilot/Codex/Antigravity. Reference: `docs/research/provider-rate-limit-signals.md`.

@@ -113,25 +113,25 @@ done
 # so the startup banner reflects what will actually run (#2315 AC4).
 if [ -z "$REVIEWER_FLAGS" ]; then
   DEFAULT_REVIEWERS_JSON="{{setting:review.default_reviewers|}}"   # review.default_reviewers (the settings)
-  if ! command -v jq >/dev/null 2>&1; then
-    # jq is a documented production dependency (review.md, detect_clis — the
-    # "jq-dependent reviewer lanes" note). If it is absent we cannot inspect
-    # the configured default (it is a JSON array, not a --raw/--pick scalar), so
-    # fail safe with --codex and surface the reason rather than silently
-    # reproducing the #2315 override under degraded conditions.
-    echo "WARNING: jq not on PATH — cannot read review.default_reviewers; falling back to --codex (#2315)" >&2
-    REVIEWER_FLAGS="--codex"
-    REVIEWER_DISPLAY="--codex (jq missing; cannot read review.default_reviewers)"
-  else
-    DEFAULT_REVIEWERS_COUNT=$(printf '%s' "$DEFAULT_REVIEWERS_JSON" | jq 'if type=="array" then length else 0 end' 2>/dev/null || echo 0)
+  DEFAULT_REVIEWERS=$(printf '%s' "$DEFAULT_REVIEWERS_JSON" | tr -d '[]"' | tr ',' '\n' | grep .)   # one slug per line: the setting renders as a JSON list of slugs
+
+
+
+
+
+
+
+
+
+    DEFAULT_REVIEWERS_COUNT=$(printf '%s\n' "$DEFAULT_REVIEWERS" | grep -c .)
     if [ "${DEFAULT_REVIEWERS_COUNT:-0}" -gt 0 ] 2>/dev/null; then
       : # leave REVIEWER_FLAGS empty — gsd-review applies review.default_reviewers itself
-      REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s' "$DEFAULT_REVIEWERS_JSON" | jq -r 'join(", ")' 2>/dev/null))"
+      REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
     else
       REVIEWER_FLAGS="--codex"
       REVIEWER_DISPLAY="--codex (default; configure review.default_reviewers to change)"
     fi
-  fi
+
 else
   # Strip the leading space accumulated by the parse block so the banner renders
   # "Reviewers: --codex" not "Reviewers:  --codex" (#2315 review nit).

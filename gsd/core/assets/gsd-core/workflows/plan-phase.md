@@ -1369,15 +1369,15 @@ if [ "$GATE_CFG" != "false" ]; then
   # empty arg, so an unguarded empty glob would halt a context-less phase).
   CONTEXT_PATH=$(ls "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null | head -1)
   if [ -n "$CONTEXT_PATH" ]; then
-    GATE_RESULT=$(specforge check --format json) && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans)
+    GATE_RESULT=$(specforge check --pick '.[code=gsd/E310].message') && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans): one line per uncovered decision
     # 69 UNAVAILABLE (#5170) = the gate could not look: surface it and stop.
-    [ "$GATE_EXIT" -eq 0 ] || { echo "Decision coverage gate could not run (exit ${GATE_EXIT}): $GATE_RESULT"; exit 1; }
+    [ "$GATE_EXIT" -le 1 ] || { echo "Decision coverage gate could not run (exit ${GATE_EXIT}): $GATE_RESULT"; exit 1; }   # 1 is a finding of the check
     # BLOCKING: refuse to mark phase planned when a trackable decision is uncovered.
     # `passed: true` covers both real-pass and skipped cases (gate disabled / no CONTEXT.md /
     # no trackable decisions). Verify-phase counterpart deliberately omits this exit-1 — that
     # gate is non-blocking by design (review finding F15).
-    echo "$GATE_RESULT" | jq -e '(.passed // .data.passed) == true' >/dev/null || {
-      echo "$GATE_RESULT" | jq -r '(.message // .data.message // "Decision coverage gate failed.")'
+    [ -z "$GATE_RESULT" ] || {
+      printf '%s\n' "$GATE_RESULT"
       exit 1
     }
   fi

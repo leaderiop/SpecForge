@@ -36,7 +36,7 @@ If user chooses [A] (Acknowledge):
        if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
          record_ack_failure "$cat slug=$slug"
        fi
-     done < <(printf '%s' "$AUDIT_JSON" | jq -r --arg cat "$cat" '.items[$cat][] | select(.scan_error | not) | .slug')
+     done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
    done
 
    # seeds (--seed-id)
@@ -45,7 +45,7 @@ If user chooses [A] (Acknowledge):
      if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
        record_ack_failure "seeds seed_id=$seed_id"
      fi
-   done < <(printf '%s' "$AUDIT_JSON" | jq -r '.items.seeds[] | select(.scan_error | not) | .seed_id')
+   done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
 
    # todos (--filename) — the scanner caps its list to 5 entries per scan
    # (remainder items carry `_remainder_count`, no `filename`, and are skipped)
@@ -54,7 +54,7 @@ If user chooses [A] (Acknowledge):
      if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
        record_ack_failure "todos filename=$filename"
      fi
-   done < <(printf '%s' "$AUDIT_JSON" | jq -r '.items.todos[] | select((.scan_error or ._remainder_count) | not) | .filename')
+   done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
 
    # quick_tasks (--dir) — the scanner's `slug` strips a leading
    # YYYYMMDD-/YYYY-MM-DD- date prefix for display; `--dir` needs the
@@ -64,16 +64,16 @@ If user chooses [A] (Acknowledge):
      if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
        record_ack_failure "quick_tasks dir=$dir"
      fi
-   done < <(printf '%s' "$AUDIT_JSON" | jq -r '.items.quick_tasks[] | select(.scan_error | not) | if .date != "" then "\(.date)-\(.slug)" else .slug end')
+   done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
 
    # uat_gaps / verification_gaps / context_questions — phase-scoped
    # (--phase --file [--archived-milestone] when the item was found in an archived phase)
    for cat in uat_gaps verification_gaps context_questions; do
      while IFS= read -r item; do
        [ -z "$item" ] && continue
-       phase=$(printf '%s' "$item" | jq -r '.phase')
-       file=$(printf '%s' "$item" | jq -r '.file')
-       archived=$(printf '%s' "$item" | jq -r '.archived_milestone // empty')
+       phase=
+       file=
+       archived=
        if [ -n "$archived" ]; then
          if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
            record_ack_failure "$cat phase=$phase file=$file archived-milestone=$archived"
@@ -83,17 +83,17 @@ If user chooses [A] (Acknowledge):
            record_ack_failure "$cat phase=$phase file=$file"
          fi
        fi
-     done < <(printf '%s' "$AUDIT_JSON" | jq -c --arg cat "$cat" '.items[$cat][] | select(.scan_error | not)')
+     done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
    done
 
    # deferred_items — same phase-scoped identification, plus --text (the
    # exact bullet the audit read, which uniquely identifies the entry)
    while IFS= read -r item; do
      [ -z "$item" ] && continue
-     phase=$(printf '%s' "$item" | jq -r '.phase')
-     file=$(printf '%s' "$item" | jq -r '.file')
-     text=$(printf '%s' "$item" | jq -r '.text')
-     archived=$(printf '%s' "$item" | jq -r '.archived_milestone // empty')
+     phase=
+     file=
+     text=
+     archived=
      if [ -n "$archived" ]; then
        if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
          record_ack_failure "deferred_items phase=$phase file=$file archived-milestone=$archived"
@@ -103,7 +103,7 @@ If user chooses [A] (Acknowledge):
          record_ack_failure "deferred_items phase=$phase file=$file"
        fi
      fi
-   done < <(printf '%s' "$AUDIT_JSON" | jq -c '.items.deferred_items[] | select(.scan_error | not)')
+   done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
 
    if [ "$ACK_FAILURES" -gt 0 ]; then
      echo "ERROR: $ACK_FAILURES acknowledge call(s) failed — HALTING before milestone close. Resolve each listed item manually (e.g. edit the file directly for unsupported_heading_shape/ambiguous, or re-run the audit if a --text/--file target has since changed) and re-run /gsd:complete-milestone:" >&2

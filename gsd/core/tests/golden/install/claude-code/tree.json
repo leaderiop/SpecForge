@@ -16,8 +16,8 @@
     "sha256": "715f5ce0371cd25bf3ebd6c385b4881fb3da6cb9ecfa09593cd799ded9703e3a"
   },
   ".claude/agents/gsd-executor.md": {
-    "bytes": 46731,
-    "sha256": "dd71b385a48b66102c89cf423fa0af693a3f3b322b21ab67a757767db780e215"
+    "bytes": 46729,
+    "sha256": "20ebd09025a0a947b23bf1eadcdbadb554941a95cc5631fbdce55efd862c3a82"
   },
   ".claude/agents/gsd-integration-checker.md": {
     "bytes": 17349,
@@ -56,8 +56,8 @@
     "sha256": "25f98bd1fceb2ac7dc2729833034457c426155496caf763544b3ffd4296abbaa"
   },
   ".claude/agents/gsd-verifier.md": {
-    "bytes": 50491,
-    "sha256": "9b722e5eab9a6376c63b5145a4c1693248e667d23c6987540930eb54772dfe62"
+    "bytes": 50621,
+    "sha256": "468a743c630247084ddff9ac5dfc51dfcddf7cc5a4e42904b4be5afbdd67f6bb"
   },
   ".claude/settings.json": {
     "bytes": 3736,

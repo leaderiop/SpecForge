@@ -48,7 +48,7 @@ Then proceed directly to `determine_next_action`. (Route 0 and `prior_phase_comp
 **Gate 1: Unresolved checkpoint**
 Check whether a `pause` entity exists:
 ```bash
-[ -n "$(specforge export --kinds pause --format brief | jq -r '.nodes[]|.id')" ]   # an unresolved pause (a pause outside a phase is linked to nothing: list by kind)
+[ -n "$(specforge export --kinds pause --pick '.nodes[].id')" ]   # an unresolved pause (a pause outside a phase is linked to nothing: list by kind)
 ```
 If found:
 ```

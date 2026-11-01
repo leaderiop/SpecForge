@@ -15,7 +15,7 @@ in wave 0 before any signal exists).
 
 1. From `$BATCH_MANIFEST_JSON`, find the LOWEST `wave` value among items that
    are `status == "pending"` AND whose plan `${quick_id}` is
-   not yet planned (it holds no task: `[ "$(specforge query "${quick_id}" --kinds task --depth 1 --format json | jq '[.nodes[]|select(.kind=="task")]|length')" -gt 0 ]` fails; derive `$item_dir` via `generate-slug` on each
+   not yet planned (it holds no task: `[ -n "$(specforge query "${quick_id}" --kinds task --depth 1 --pick '.nodes[kind=task].id')" ]` fails; derive `$item_dir` via `generate-slug` on each
    item's `description`, same as every other step). Call this `$CUR_WAVE`.
    If no such item exists, the loop is done — continue to Step 5.
 
@@ -36,8 +36,8 @@ in wave 0 before any signal exists).
    `mutating=false` (row 12's rule applies to any non-mutating wave, not just
    research):
    ```bash
-QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
-   PLAN_CONCURRENCY=$(printf '%s' "$QB_PLAN_CONC_JSON" | jq -er '.concurrency // 1' 2>/dev/null || echo 1)
+PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
+
    ```
 
 5. **Dispatch one `Agent()` per message, `run_in_background: true`, up to
@@ -127,7 +127,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    > this layer, wait for every one to return before continuing.
 
 6. **After every planner in the layer returns:** verify
-   plan `${quick_id}` holds a task for each (`[ "$(specforge query "${quick_id}" --kinds task --depth 1 --format json | jq '[.nodes[]|select(.kind=="task")]|length')" -gt 0 ]`). If any is missing, mark
+   plan `${quick_id}` holds a task for each (`[ -n "$(specforge query "${quick_id}" --kinds task --depth 1 --pick '.nodes[kind=task].id')" ]`). If any is missing, mark
    that item `failed` (`quick-batch complete` is never called for it) and
    continue with the rest of the layer — one item's planner failure does not
    block unrelated items (row 33).

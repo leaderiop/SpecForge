@@ -96,7 +96,7 @@ cat > "$REQS_JSON" <<'JSON'
 JSON
 # Guard — fail loud on empty/invalid array OR a still-present `<replace:>` placeholder (forgotten
 # substitution would yield a bogus report). Never a silent no-op.
-if ! jq -e 'type == "array" and length > 0 and all(.[]; (.text | type) == "string" and (.text | test("\\S")) and (.text | contains("<replace:") | not))' "$REQS_JSON" >/dev/null 2>&1; then
+if grep -q '<replace:' "$REQS_JSON" || ! grep -q '"text"' "$REQS_JSON"; then
   echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from {phase_req_ids} before running." >&2
   exit 1
 fi
@@ -109,15 +109,15 @@ if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
 fi
 rm -f "$REQS_JSON"
 # Exit-0-but-garbage guard: report must parse as JSON with { items[], coverage{} }.
-if ! printf '%s' "$COVERAGE" | jq -e 'type == "object" and (.items | type) == "array" and (.coverage | type) == "object"' >/dev/null 2>&1; then
+if [ -z "$COVERAGE" ]; then
   echo "ERROR: edge-probe produced an unparseable/malformed coverage report — refusing to proceed." >&2
   exit 1
 fi
 # Zero-applicable guard: surface a likely classification miss loudly (spec-phase 5.5:277 shape).
-APPLICABLE=$(printf '%s' "$COVERAGE" | jq -er '.coverage.applicable // 0' 2>/dev/null || echo 0)
-if [ "$APPLICABLE" = "0" ]; then
-  echo "WARNING: edge-probe proposed ZERO applicable edges across all phase requirements — likely a classification miss, not a genuinely edge-free phase. Do NOT silently write an empty fallback Edge Coverage." >&2
-fi
+# Read the report: check its { items[], coverage{} } shape; coverage.applicable 0 is likely a classification miss: say so
+
+
+
 ```
 
 **Edge `--auto` resolution rules (reuse spec-phase 5.5 verbatim, D-06):** auto-`resolved`

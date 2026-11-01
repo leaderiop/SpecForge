@@ -11,8 +11,8 @@ compute concurrency with `mutating=false`:
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-QB_RESEARCH_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
-RESEARCH_CONCURRENCY=$(printf '%s' "$QB_RESEARCH_CONC_JSON" | jq -er '.concurrency // 1' 2>/dev/null || echo 1)
+RESEARCH_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
+
 ```
 
 For each item in `$BATCH_MANIFEST_JSON.items` whose

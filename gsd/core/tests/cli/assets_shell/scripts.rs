@@ -135,11 +135,13 @@ fn repository(dir: &Path, state: &str) {
     }
 }
 
-/// T3: pr-branch's sub-repository scan and its path check, bash and jq where upstream's were node scripts. With
-/// `planning.sub_repos` empty here they are not reached; they still keep upstream's refusals.
+/// T3: pr-branch's sub-repository scan and its path check, bash where upstream's were node scripts (G4 plan 05 T4:
+/// no jq either). With `planning.sub_repos` empty here they are not reached; they still keep upstream's refusals.
 #[test]
 fn the_sub_repo_scan_keeps_its_refusals() {
-    let Some(sh) = Shell::new() else { return };
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
     let top = tempfile::tempdir().expect("a dir");
     let root = top.path().join("root");
     repository(&root.join("a"), "dirty");
@@ -153,7 +155,7 @@ fn the_sub_repo_scan_keeps_its_refusals() {
     );
     let ours = block(
         &text,
-        "printf '%s' \"$SUB_REPOS_JSON\" | jq",
+        "printf '%s' \"$SUB_REPOS_JSON\" | tr",
         "> \"$DIRTY_FILE\"",
     );
     let theirs = block(&up, "node -e \"", "\"$DIRTY_FILE\"");
@@ -206,15 +208,21 @@ fn the_sub_repo_scan_keeps_its_refusals() {
     }
 }
 
-/// T3: review's plan-coverage check (two text files, so no upstream run: its node script loads a runtime library).
+/// T3: review's plan-coverage check (two text files, so no upstream run: its node script loads a runtime library). G4
+/// plan 05 T4: bash and grep, no jq. It runs in the asset's loop over the lanes.
 #[test]
-fn the_plan_coverage_check_uses_jq() {
-    let Some(sh) = Shell::new() else { return };
+fn the_plan_coverage_check_runs_in_bash() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
     let dir = tempfile::tempdir().expect("a dir");
-    let ours = block(
-        &asset("gsd-core/workflows/review.md"),
-        "jq -ncj",
-        ".plan-coverage-$SLUG.json",
+    let ours = format!(
+        "for SLUG in s; do\n{}\ndone",
+        block(
+            &asset("gsd-core/workflows/review.md"),
+            "[ -r \"$MANIFEST\" ] ||",
+            "printf '{\"complete\"",
+        )
     );
     std::fs::write(
         dir.path().join("manifest"),
@@ -227,10 +235,10 @@ fn the_plan_coverage_check_uses_jq() {
     )
     .expect("a review");
     let setup = format!(
-        "RUN_DIR={0}\nSLUG=s\nMANIFEST={0}/manifest\nREVIEW_FILE={0}/review",
+        "RUN_DIR={0}\nMANIFEST={0}/manifest\nREVIEW_FILE={0}/review",
         q(&dir.path().display().to_string())
     );
-    let show = "cat \"$RUN_DIR/.plan-coverage-$SLUG.json\"";
+    let show = "cat \"$RUN_DIR/.plan-coverage-s.json\"";
     both(
         &sh,
         &setup,
@@ -239,7 +247,7 @@ fn the_plan_coverage_check_uses_jq() {
         show,
         r#"{"complete":false,"missing_ids":["12.6-07"],"total":6}"#,
     );
-    // an unreadable manifest writes an empty file, as node's exception did
+    // an unreadable manifest writes an empty file, as node's exception did, and the loop goes on
     let (out, _, code) = sh.run_in(
         dir.path(),
         &format!("{setup}\nMANIFEST=/nonexistent\n{ours}\n{show}"),

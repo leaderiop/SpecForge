@@ -38,7 +38,7 @@
     "",
     "```bash",
     "# One projection, computed here (--fast changes nothing: there is no fast map to accept):",
-    "ENTITIES=$(specforge export --kinds project,milestone,phase,requirement --format brief 2>/dev/null | jq -c '[.nodes[]|{id,kind}]')   # a project is not linked to its milestones, so the listing is by kind; [] when there is none",
+    "ENTITIES=$(for k in project milestone phase requirement; do specforge export --kinds \"$k\" --pick '.nodes[].id' 2>/dev/null | sed \"s|^|$k |\"; done)   # one \"<kind> <id>\" line per entity: a project is not linked to its milestones, so the listing is by kind; empty when there is none",
     "# Existing ADR/PRD/SPEC/RFC documents:",
     "DOC_CANDIDATES=$(find . -type f \\( -path '*/adr/*' -o -path '*/adrs/*' -o -path '*/prd/*' -o -path '*/prds/*' -o -path '*/rfc/*' -o -path '*/rfcs/*' -o -name 'ADR-*.md' -o -name 'PRD-*.md' -o -name 'SPEC-*.md' -o -name 'RFC-*.md' \\) -not -path './.git/*' 2>/dev/null | wc -l | tr -d ' ')",
     "ONBOARDING_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)",
@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `AskUserQuestion` call below with a plain-text numbered list and ask the user to type their choice number — required for non-the agent runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available."
   ],
-  "bytes": 38689,
+  "bytes": 38743,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3e0ca775f5de3db6bfc6a0192cccf4add9609733967b2781a82d5ccadb4424e1",
+    "digest": "sha256:e15163cb99f51c3fc9143c1ae963629f3ff5e101c9e096a8124fa18171a65cd9",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "3e0ca775f5de3db6bfc6a0192cccf4add9609733967b2781a82d5ccadb4424e1"
+  "sha256": "e15163cb99f51c3fc9143c1ae963629f3ff5e101c9e096a8124fa18171a65cd9"
 }

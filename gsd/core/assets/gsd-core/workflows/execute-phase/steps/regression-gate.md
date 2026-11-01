@@ -9,7 +9,7 @@ Run prior phases' test suites to catch cross-phase regressions BEFORE verificati
 **Step 1: Discover prior phases' test files**
 ```bash
 # Find all VERIFICATION.md files from prior phases in current milestone
-PRIOR_VERIFICATIONS=$(specforge query "$MILESTONE" --depth 2 --kinds verification --pick '.nodes[kind=verification].id' 2>/dev/null | grep -v "${PHASE_NUMBER}")
+PRIOR_VERIFICATIONS=$(specforge query "$MILESTONE" --depth 2 --kinds verification --pick '.nodes[kind=verification].id' 2>/dev/null | grep -v -- "${PHASE_NUMBER:-^$}")   # with no phase named, every verification is prior: this phase has none yet
 # gsd-handoff:begin regression-files-reset
 _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(pwd | cksum | cut -d' ' -f1)"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 rm -f "$_GSD_HANDOFF/regression-files"  # a list left by an earlier run must never reach this gate (#4915)

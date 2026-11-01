@@ -54,7 +54,7 @@ Read the state the run starts from:
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 INIT=$(specforge export --kinds project,requirement,decision --format brief 2>/dev/null)   # a project is not linked to its requirements, so the listing is by kind
-if echo "$INIT" | jq -e '[.nodes[]|select(.kind=="project")]|length > 0' >/dev/null 2>&1; then PROJECT_EXISTS=1; else PROJECT_EXISTS=0; fi   # 1 when the project already exists
+if [ -n "$(specforge export --kinds project --pick '.nodes[].id' 2>/dev/null)" ]; then PROJECT_EXISTS=1; else PROJECT_EXISTS=0; fi   # 1 when the project already exists
 : # model resolution: the installed agents carry their model
 
 

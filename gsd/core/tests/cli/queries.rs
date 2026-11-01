@@ -108,6 +108,8 @@ const UNBOUND: &[&str] = &[
     "$c",
     "$ph",
     "$t",
+    "$p",
+    "$m",
     "$TASK_ID",
     "$SPEC_ID",
     "$SUMMARY_FILE",

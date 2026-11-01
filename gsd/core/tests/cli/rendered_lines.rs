@@ -150,7 +150,7 @@ fn lacks(id: &str, needle: &str) {
 fn the_project_rooted_lines_list_by_kind() {
     has(
         "onboard",
-        "specforge export --kinds project,milestone,phase,requirement",
+        "for k in project milestone phase requirement; do specforge export --kinds \"$k\" --pick '.nodes[].id'",
     );
     has(
         "ingest_docs",

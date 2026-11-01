@@ -434,13 +434,13 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
 5. **Parse JSON result:**
    If the command succeeded, parse the JSON output and report the verdict:
    ```bash
-   # Parse verdict and summary from REVIEW_OUTPUT JSON
-   VERDICT=$(echo "${REVIEW_OUTPUT}" | jq -rs '
-     # exactly one JSON object; anything else (none, two, not an object) is INVALID_JSON
-     if length == 1 and (.[0] | type) == "object" then .[0].verdict
-     else error("not one JSON object") end
-   ' 2>/dev/null \
-     || echo 'INVALID_JSON')
+   # The review command's raw answer: read it yourself. One JSON object whose verdict is APPROVED or REVISE;
+   # anything else (none, two, not an object) is INVALID_JSON
+     printf '%s\n' "${REVIEW_OUTPUT}"
+
+
+
+
    ```
    - If `verdict` is `"APPROVED"`: report approval with confidence and summary.
    - If `verdict` is `"REVISE"`: report issues found, list each issue with severity, file, line_range, description, and suggestion.
@@ -505,11 +505,11 @@ git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note pu
 STATUS="UNKNOWN"
 CHECKS=0
 for i in {1..5}; do
-  PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup -q '{head: .headRefOid, status: .mergeStateStatus, checks: ((.statusCheckRollup // []) | length)}' 2>/dev/null || echo '{"head":"","status":"UNKNOWN","checks":0}')
-  HEAD_OID=$(echo "$PR_STATE" | jq -r .head)
+  PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup --jq '"\(.headRefOid) \(.mergeStateStatus) \((.statusCheckRollup // []) | length)"' 2>/dev/null || echo '- UNKNOWN 0')   # gh's own --jq filter: "<head> <status> <checks>"
+  HEAD_OID=${PR_STATE%% *}
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ]; then
-    STATUS=$(echo "$PR_STATE" | jq -r .status)
-    CHECKS=$(echo "$PR_STATE" | jq -r .checks)
+    STATUS=$(echo "$PR_STATE" | cut -d' ' -f2)
+    CHECKS=${PR_STATE##* }
   fi
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ] && [ "$STATUS" != "UNKNOWN" ]; then
     break

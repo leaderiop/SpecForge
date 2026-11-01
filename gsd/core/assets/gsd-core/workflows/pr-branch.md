@@ -94,12 +94,12 @@ subsequent command executions:
 ROOT=$(git rev-parse --show-toplevel)
 DIRTY_FILE=$(mktemp)
 
-printf '%s' "$SUB_REPOS_JSON" | jq -r '
+printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
   # One name per line, so a name may hold the safe characters only: an embedded
   # newline would otherwise split into two records before the shell reads them.
-  .[] | strings
-  | select(test("\\A[A-Za-z0-9._/-]+\\z"))
-' 2>/dev/null | {
+
+
+
   # realpath parity with the pr-subrepo seam's validatePath: resolve $ROOT through
   # symlinks once so the containment check below compares real paths, not text.
   realRoot=$(cd -P -- "$ROOT" 2>/dev/null && pwd -P) || realRoot=$ROOT
@@ -180,9 +180,9 @@ companion PR. If `remote_slug` is null (non-GitHub remote), skip `gh pr create` 
 the push URL instead:
 
 ```bash
-REMOTE_SLUG=$(printf '%s' "$RESULT" | jq -r '
-  .remote_slug // empty
-' 2>/dev/null)
+REMOTE_SLUG=   # pr-subrepo is not available here: there is no remote_slug to read
+
+
 
 if [ -n "$REMOTE_SLUG" ]; then
   # Defense-in-depth: $REPO_REL was already validated by the dirty-scan filter and
@@ -250,7 +250,7 @@ constants — change one side and update the other, or the guard fails.
 ```bash
 # The spec root and the harness ledger (a file at the project root) are reviewer noise (U47); `app.spec` of a build is code.
 TRANSIENT_DIRS=""   # none: specforge-harness is a file
-SPEC_ROOT=$(jq -r '.spec_root // "spec"' specforge.json 2>/dev/null || echo spec)
+SPEC_ROOT=$(sed -n 's/.*"spec_root"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' specforge.json 2>/dev/null | head -1); SPEC_ROOT=${SPEC_ROOT:-spec}
 TRANSIENT_FILES="specforge-harness"
 
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.

@@ -115,8 +115,8 @@ Read the flag once before dispatching; it is descriptor data, never hardcoded pe
 # the resolver) — there is no separate "now also record the
 # flag" step, and therefore no flagless window between recording the mode and
 # recording the flag.
-HARNESS_FLAG=$(echo '{}' \
-  | jq -r '.harnessFlag | strings' 2>/dev/null)
+HARNESS_FLAG=   # dispatch-isolation is not part of @gsd/core: no runtime declares a harness isolation flag
+
 [ -n "$HARNESS_FLAG" ] || { echo "FATAL: runtime declares dispatch.isolation=harness-worktree but no harnessIsolationFlag — refusing to dispatch executors that would believe they are isolated." >&2; exit 1; }
 ```
 
@@ -328,7 +328,7 @@ EXEC_JSON=$(true "dispatch-isolation is not part of @gsd/core" \
 #    effect), so an unusable exec must NOT be spawned and must NOT be left
 #    behind as an orphan: tear it down through the manifest-scoped cleanup
 #    and halt rather than silently running the wave unisolated.
-EXEC_OK=$(printf '%s' "$EXEC_JSON" | jq -er 'if .isolation == "orchestrator-worktree" and (.exec.command // "") != "" then "true" else "false" end' 2>/dev/null || echo false)
+EXEC_OK=false   # dispatch-isolation is not part of @gsd/core: EXEC_JSON holds no exec, so the wave halts below
 if [ "$EXEC_OK" != "true" ]; then
   echo "FATAL: could not resolve an orchestrator-exec invocation for plan {plan_number} after its worktree was created. The wave is halted rather than run unisolated. Retained for inspection: $WT_PATH (branch $WT_BRANCH, recorded in $WAVE_WORKTREE_MANIFEST) — merge and clean it by hand." >&2
   exit 1

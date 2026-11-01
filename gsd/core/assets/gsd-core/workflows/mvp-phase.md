@@ -106,9 +106,9 @@ If any of the three answers is empty or whitespace-only, error and re-prompt tha
 **Validate via the centralized User Story validator.** The verb owns the canonical regex `/^As a .+, I want to .+, so that .+\.$/` and surfaces per-error guidance:
 
 ```bash
-USER_STORY_RESULT=$(printf '%s' "$USER_STORY" | grep -Eq '^As a .+, I want to .+, so that .+\.$' && echo '{"valid":true,"errors":[]}' || echo '{"valid":false,"errors":["Write the story as: As a <role>, I want to <capability>, so that <benefit>."]}')
-if [ "$(echo "$USER_STORY_RESULT" | jq -r '.valid')" != "true" ]; then
-  echo "$USER_STORY_RESULT" | jq -r '.errors[]' >&2
+printf '%s' "$USER_STORY" | grep -Eq '^As a .+, I want to .+, so that .+\.$' && USER_STORY_ERROR= || USER_STORY_ERROR='Write the story as: As a <role>, I want to <capability>, so that <benefit>.'
+if [ -n "$USER_STORY_ERROR" ]; then
+  echo "$USER_STORY_ERROR" >&2
   # Re-prompt the offending field(s) per surfaced errors, then re-run validation.
   # Do not abort the workflow on first invalid draft.
   RE_PROMPT_USER_STORY=true

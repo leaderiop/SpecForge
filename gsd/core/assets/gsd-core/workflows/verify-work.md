@@ -98,7 +98,7 @@ runs `specforge check --format json`):
 
 ```bash
 GATE_RESULT=$(specforge check --format json) && CHECK_EXIT=0 || CHECK_EXIT=$?
-GATE_BLOCK=$(printf '%s' "$GATE_RESULT" | jq -r '.block // false' 2>/dev/null || echo "false")
+GATE_BLOCK=false   # specforge check answers a list of diagnostics, with no block field: read GATE_RESULT and route below
 ```
 
 **Two-step gate contract (same as execute:wave:post / execute:post):**

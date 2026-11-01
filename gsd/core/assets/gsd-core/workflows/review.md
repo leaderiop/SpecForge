@@ -677,21 +677,21 @@ for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   grep -q "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
   grep -q "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
 
-  jq -ncj --rawfile manifest "$MANIFEST" --rawfile review "$REVIEW_FILE" '
+  [ -r "$MANIFEST" ] || { : > "$RUN_DIR/.plan-coverage-$SLUG.json"; continue; }   # an unreadable manifest leaves an empty report
+  TOTAL=0; MISSING=""
+  # the manifest lists one plan id per "- " line
+  while IFS= read -r id || [ -n "$id" ]; do
+    id=$(printf '%s' "${id#- }" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'); [ -n "$id" ] || continue
+    TOTAL=$((TOTAL + 1))
     # pattern.cjs escapeRegex, inlined (#5640)
-    def escape_regex: gsub("(?<c>[.*+?^${}()|\\[\\]\\\\])"; "\\\(.c)");
-    # the manifest lists one plan id per "- " line
-    [ $manifest | split("\n")[]
-      | select(startswith("- "))
-      | .[2:] | sub("^\\s+"; "") | sub("\\s+$"; "")
-      | select(. != "") ] as $ids
+    rx=$(printf '%s' "$id" | sed 's/[][\.*+?^$(){}|]/\\&/g')
     # an id counts when it stands alone: no word character and no "-" on either side
-    | [ $ids[]
-      | . as $id
-      | select($review | test("(?<![A-Za-z0-9_-])" + ($id | escape_regex) + "(?![A-Za-z0-9_-])") | not)
-      ] as $missing
-    | {complete: ($missing | length == 0), missing_ids: $missing, total: ($ids | length)}
-  ' > "$RUN_DIR/.plan-coverage-$SLUG.json"
+    grep -Eq -- "(^|[^A-Za-z0-9_-])${rx}([^A-Za-z0-9_-]|\$)" "$REVIEW_FILE" || MISSING="${MISSING:+$MISSING,}\"$id\""
+  done < <(grep '^- ' "$MANIFEST")
+  printf '{"complete":%s,"missing_ids":[%s],"total":%s}' "$([ -z "$MISSING" ] && echo true || echo false)" "$MISSING" "$TOTAL" > "$RUN_DIR/.plan-coverage-$SLUG.json"
+
+
+
 done
 ```
 

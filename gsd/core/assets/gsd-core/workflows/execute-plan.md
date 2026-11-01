@@ -519,8 +519,8 @@ Extract requirement IDs from the plan's frontmatter (e.g., `requirements: [AUTH-
 **Shared-ID gate (#2388):** a requirement ID declared by more than one plan in this phase must not read `Complete` until every plan declaring it has finished (produced a `*-SUMMARY.md`) — otherwise the first plan to finish flips it `Complete` while its sibling plans are still running, before phase verification ever gets a chance to catch a real gap. Compute the ready subset first, then mark only those:
 
 ```bash
-READY='{"ready":[]}'   # requirements.ready-ids: the summary lists requirements_completed; nothing else to mark
-READY_IDS=$(printf '%s' "$READY" | jq -r '.ready[]' 2>/dev/null | tr '\n' ' ')
+READY_IDS=   # requirements.ready-ids: the summary lists requirements_completed; nothing else to mark
+
 if [ -n "$(printf '%s' "$READY_IDS" | tr -d '[:space:]')" ]; then
   : # requirements.mark-complete: a requirement is complete when a summary lists it
 fi

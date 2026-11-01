@@ -23,8 +23,8 @@ true   # dispatch-isolation: there is no mode to record (worktree isolation is n
 **Effective concurrency for this MUTATING wave** (`mutating` forces
 `isolation == none` to 1 regardless of `--jobs`/capacity — row 6):
 ```bash
-QB_EXEC_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
-EXEC_CONCURRENCY=$(printf '%s' "$QB_EXEC_CONC_JSON" | jq -er '.concurrency // 1' 2>/dev/null || echo 1)
+EXEC_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
+
 ```
 
 **Dispatch rounds.** Repeat until no item is eligible-and-not-yet-dispatched

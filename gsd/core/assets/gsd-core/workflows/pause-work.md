@@ -64,7 +64,7 @@ Ask user for clarifications if needed via conversational questions.
 **Also inspect SUMMARY.md files for false completions:**
 ```bash
 # Check for placeholder content in existing summaries
-specforge query "$MILESTONE" --depth 3 --kinds summary --format json | jq -r '.nodes[]|select(.kind=="summary")|select((.fields.one_liner // "")|test("To be filled|placeholder|TBD"))|.id' || true
+for s in $(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id'); do specforge query "$s" --depth 0 --pick '.nodes[0].fields.one_liner' | grep -Eq 'To be filled|placeholder|TBD' && echo "$s"; done || true
 ```
 Report any summaries with placeholder content as incomplete items.
 </step>

@@ -210,16 +210,16 @@ Never emit `grep '714 tests'` or `grep '52 test files'` unless you ran the count
 
 **Bad — both sides default to "0" when files are missing:**
 ```bash
-EN_KEYS=$(jq 'keys | length' i18n/en.json 2>/dev/null || echo "0")
-DE_KEYS=$(jq 'keys | length' i18n/de.json 2>/dev/null || echo "0")
+EN_KEYS=$(grep -c '^  "' i18n/en.json 2>/dev/null || echo "0")
+DE_KEYS=$(grep -c '^  "' i18n/de.json 2>/dev/null || echo "0")
 [ "$EN_KEYS" = "$DE_KEYS" ] && echo "ok"
 ```
 If files don't exist (wrong path, etc.), both sides become `"0"`. Comparison passes. Gate certifies parity while measuring nothing.
 
 **Good — let failure propagate:**
 ```bash
-EN_KEYS=$(jq 'keys | length' src/i18n/en.json)
-DE_KEYS=$(jq 'keys | length' src/i18n/de.json)
+EN_KEYS=$(grep -c '^  "' src/i18n/en.json)
+DE_KEYS=$(grep -c '^  "' src/i18n/de.json)
 [ "$EN_KEYS" = "$DE_KEYS" ] && echo "ok"
 ```
 
