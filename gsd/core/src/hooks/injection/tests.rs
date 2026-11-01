@@ -621,7 +621,6 @@ fn steps(re: &Regex, text: &str) -> usize {
 }
 
 #[test]
-#[ignore = "G2: plan 01 T3"]
 fn the_matcher_does_linear_work() {
     const N: usize = 2_000;
     let links = LINK_RULES.map(|(_, p)| p);
@@ -634,6 +633,8 @@ fn the_matcher_does_linear_work() {
     for p in all {
         let (re, word) = (Regex::new(p), first_word(p));
         let bound = |n: usize| 64 * n * re.splits().max(1);
+        let seen = re.seen_bytes(1 << 20);
+        assert!(seen <= 8 << 20, "{p}: a {seen}-byte visited set on 1 MiB");
         for ((shape, small), (_, big)) in hostile(N, &word).into_iter().zip(hostile(4 * N, &word)) {
             let (a, b) = (steps(&re, &small), steps(&re, &big));
             let ratio = b as f64 / a.max(1) as f64;

@@ -6,6 +6,13 @@
 //! classes of characters and `\s`, groups (`(?:`, `(`, `(?=`, `(?!`), `|`, and `?`, `+`, `*`; the `i` flag is ASCII
 //! case folding, as JavaScript's is for these patterns. Anything else panics when the pattern is built, and every
 //! pattern is built by the unit tests.
+//!
+//! The work is linear in the text, so no text can run a hook past its budget. Each pattern compiles to a small program
+//! that a backtracker runs in JavaScript's leftmost-first order, with a visited bit per (split, position), RE2's
+//! BitState. The set is kept across start positions: nothing captures or refers back, so a state that failed fails
+//! from any start. Each split and position is then expanded once, at most splits x (n + 1) times, with as many bits.
+//! A start whose character none of the pattern's first characters accepts is skipped without a run.
+//! A look-ahead's body has no `+` or `*` (asserted when built), and its answer is kept per position.
 
 /// `\s` as JavaScript means it.
 fn js_space(c: char) -> bool {
@@ -60,7 +67,8 @@ thread_local! {
 /// A compiled pattern of the `i` flag.
 #[derive(Debug, Clone)]
 pub struct Regex {
-    node: Node,
+    /// The pattern's program first, then its look-ahead bodies.
+    progs: Vec<Prog>,
 }
 
 struct Parser<'a> {
@@ -186,16 +194,216 @@ pub(super) fn parse(source: &str) -> Node {
     node
 }
 
+/// One instruction of a compiled pattern.
+#[derive(Debug, Clone)]
+enum Inst {
+    /// A character the one-character node (`Char`, `Space` or `Class`) accepts.
+    One(Node),
+    Start,
+    Match,
+    /// Go on at `x`, and at `y` if that fails; `ord` numbers the splits of a program, the rows of the visited set.
+    Split {
+        x: usize,
+        y: usize,
+        ord: usize,
+    },
+    Jmp(usize),
+    /// Whether program `prog` matches here (or does not, with `neg`); it consumes nothing.
+    Look {
+        neg: bool,
+        prog: usize,
+    },
+}
+
+#[derive(Debug, Clone, Default)]
+struct Prog {
+    insts: Vec<Inst>,
+    splits: usize,
+    /// The one-character nodes a match must start with; none when a match can start without a character.
+    first: Option<Vec<Node>>,
+}
+
+/// The one-character nodes reachable from the first instruction before any is consumed; none if `Match` is.
+fn firsts(insts: &[Inst]) -> Option<Vec<Node>> {
+    let (mut out, mut todo, mut seen) = (Vec::new(), vec![0], vec![false; insts.len()]);
+    while let Some(pc) = todo.pop() {
+        if std::mem::replace(&mut seen[pc], true) {
+            continue;
+        }
+        match &insts[pc] {
+            Inst::One(n) => out.push(n.clone()),
+            Inst::Match => return None,
+            Inst::Split { x, y, .. } => todo.extend([*x, *y]),
+            Inst::Jmp(x) => todo.push(*x),
+            // Both only restrict where a match may start.
+            Inst::Start | Inst::Look { .. } => todo.push(pc + 1),
+        }
+    }
+    Some(out)
+}
+
+/// Appends a split to `x` whose `y` [`to_here`] fills in later, and returns where it is.
+fn split(p: &mut Prog, x: usize) -> usize {
+    let (at, ord) = (p.insts.len(), p.splits);
+    p.splits += 1;
+    p.insts.push(Inst::Split { x, y: 0, ord });
+    at
+}
+
+/// Points the split or jump at `at` to the next instruction.
+fn to_here(p: &mut Prog, at: usize) {
+    let next = p.insts.len();
+    match &mut p.insts[at] {
+        Inst::Split { y, .. } => *y = next,
+        Inst::Jmp(x) => *x = next,
+        _ => unreachable!("only a split or a jump is patched"),
+    }
+}
+
+/// Compiles `node` into a new program of `progs`, with its look-aheads after it, and returns its index. A `bounded`
+/// program, a look-ahead's body, has no `+` or `*`.
+fn compile(node: &Node, bounded: bool, progs: &mut Vec<Prog>) -> usize {
+    let id = progs.len();
+    progs.push(Prog::default());
+    let mut p = Prog::default();
+    emit(node, bounded, &mut p, progs);
+    p.insts.push(Inst::Match);
+    p.first = firsts(&p.insts);
+    progs[id] = p;
+    id
+}
+
+fn emit(n: &Node, bounded: bool, p: &mut Prog, progs: &mut Vec<Prog>) {
+    match n {
+        Node::Char(_) | Node::Space | Node::Class { .. } => p.insts.push(Inst::One(n.clone())),
+        Node::Start => p.insts.push(Inst::Start),
+        Node::Seq(v) => v.iter().for_each(|x| emit(x, bounded, p, progs)),
+        Node::Alt(v) => {
+            let (last, rest) = v.split_last().expect("an alternative");
+            let mut ends = Vec::new();
+            for a in rest {
+                let s = split(p, p.insts.len() + 1);
+                emit(a, bounded, p, progs);
+                ends.push(p.insts.len());
+                p.insts.push(Inst::Jmp(0));
+                to_here(p, s);
+            }
+            emit(last, bounded, p, progs);
+            ends.into_iter().for_each(|e| to_here(p, e));
+        }
+        Node::Rep { node, min, max } => {
+            assert!(!bounded || *max == 1, "a + or * inside a look-ahead");
+            let top = p.insts.len();
+            match (*min, *max) {
+                (0, 1) => {
+                    let s = split(p, top + 1);
+                    emit(node, bounded, p, progs);
+                    to_here(p, s);
+                }
+                (1, usize::MAX) => {
+                    emit(node, bounded, p, progs);
+                    let s = split(p, top);
+                    to_here(p, s);
+                }
+                (0, usize::MAX) => {
+                    let s = split(p, top + 1);
+                    emit(node, bounded, p, progs);
+                    p.insts.push(Inst::Jmp(top));
+                    to_here(p, s);
+                }
+                other => unreachable!("the parser makes only ?, + and *, not {other:?}"),
+            }
+        }
+        Node::Look { neg, node } => {
+            let prog = compile(node, true, progs);
+            p.insts.push(Inst::Look { neg: *neg, prog });
+        }
+    }
+}
+
+/// Sets bit `k` of `bits` and says whether it was set already.
+fn mark(bits: &mut [u64], k: usize) -> bool {
+    let (word, bit) = (k / 64, 1 << (k % 64));
+    let seen = bits[word] & bit != 0;
+    bits[word] |= bit;
+    seen
+}
+
+/// One search of a text.
+struct Run<'a> {
+    progs: &'a [Prog],
+    s: &'a [char],
+    /// The pattern's (split, position) states already tried, a row of `s.len() + 1` bits per split. Each one failed,
+    /// whatever the start: nothing captures, so where a match began does not change what follows a state.
+    seen: Vec<u64>,
+    /// Per (look-ahead, position), two bits: worked out, and matched.
+    looks: Vec<u64>,
+    /// The states still to try, each search above the base it found.
+    stack: Vec<(usize, usize)>,
+}
+
+impl Run<'_> {
+    /// Where program `prog`, started at `start`, first reaches `Match`, in JavaScript's leftmost-first order.
+    fn run(&mut self, prog: usize, start: usize) -> Option<usize> {
+        let (progs, cells, base) = (self.progs, self.s.len() + 1, self.stack.len());
+        self.stack.push((0, start));
+        let found = 'search: loop {
+            if self.stack.len() == base {
+                break None;
+            }
+            let (mut pc, mut i) = self.stack.pop().expect("a state above the base");
+            loop {
+                #[cfg(test)]
+                STEPS.with(|n| n.set(n.get() + 1));
+                match &progs[prog].insts[pc] {
+                    Inst::One(n) if i < self.s.len() && Regex::one(n, self.s[i]) == Some(true) => {
+                        (pc, i) = (pc + 1, i + 1);
+                    }
+                    Inst::Start if i == 0 => pc += 1,
+                    Inst::One(_) | Inst::Start => break,
+                    Inst::Match => break 'search Some(i),
+                    Inst::Jmp(x) => pc = *x,
+                    Inst::Split { x, y, ord } => {
+                        // A look-ahead body has no loop, and its runs, one per position, share no states.
+                        if prog == 0 && mark(&mut self.seen, ord * cells + i) {
+                            break;
+                        }
+                        self.stack.push((*y, i));
+                        pc = *x;
+                    }
+                    Inst::Look { neg, prog: body } => {
+                        if self.look(*body, i) == *neg {
+                            break;
+                        }
+                        pc += 1;
+                    }
+                }
+            }
+        };
+        self.stack.truncate(base);
+        found
+    }
+
+    /// Whether look-ahead body `body` matches at `i`, worked out once per position.
+    fn look(&mut self, body: usize, i: usize) -> bool {
+        let k = 2 * ((body - 1) * (self.s.len() + 1) + i);
+        if !mark(&mut self.looks, k) && self.run(body, i).is_some() {
+            mark(&mut self.looks, k + 1);
+        }
+        self.looks[(k + 1) / 64] & (1 << ((k + 1) % 64)) != 0
+    }
+}
+
 impl Regex {
     /// Compiles `source`, the text of a JavaScript regular expression literal, for the `i` flag.
     ///
     /// # Panics
     ///
-    /// On syntax this matcher does not support.
+    /// On syntax this matcher does not support, and on a `+` or `*` inside a look-ahead.
     pub fn new(source: &str) -> Regex {
-        Regex {
-            node: parse(source),
-        }
+        let mut progs = Vec::new();
+        compile(&parse(source), false, &mut progs);
+        Regex { progs }
     }
 
     fn same(a: char, b: char) -> bool {
@@ -218,97 +426,44 @@ impl Regex {
         }
     }
 
-    fn go(&self, n: &Node, s: &[char], i: usize, k: &mut dyn FnMut(usize) -> bool) -> bool {
-        #[cfg(test)]
-        STEPS.with(|n| n.set(n.get() + 1));
-        match n {
-            Node::Char(_) | Node::Space | Node::Class { .. } => {
-                i < s.len() && Self::one(n, s[i]) == Some(true) && k(i + 1)
-            }
-            Node::Start => i == 0 && k(i),
-            Node::Seq(v) => self.seq(v, s, i, k),
-            Node::Alt(v) => {
-                for a in v {
-                    if self.go(a, s, i, k) {
-                        return true;
-                    }
-                }
-                false
-            }
-            Node::Rep { node, min, max } => {
-                // A run of one-character atoms is counted, not recursed into: a megabyte of spaces is input.
-                if Self::one(node, ' ').is_some() {
-                    let mut run = 0;
-                    while run < *max
-                        && i + run < s.len()
-                        && Self::one(node, s[i + run]) == Some(true)
-                    {
-                        run += 1;
-                    }
-                    return (*min..=run).rev().any(|take| k(i + take));
-                }
-                self.rep(node, (*min, *max), 0, s, i, k)
-            }
-            Node::Look { neg, node } => {
-                let hit = self.go(node, s, i, &mut |_| true);
-                hit != *neg && k(i)
-            }
-        }
-    }
-
-    fn seq(&self, v: &[Node], s: &[char], i: usize, k: &mut dyn FnMut(usize) -> bool) -> bool {
-        match v.split_first() {
-            None => k(i),
-            Some((head, tail)) => self.go(head, s, i, &mut |j| self.seq(tail, s, j, k)),
-        }
-    }
-
-    fn rep(
-        &self,
-        n: &Node,
-        (min, max): (usize, usize),
-        count: usize,
-        s: &[char],
-        i: usize,
-        k: &mut dyn FnMut(usize) -> bool,
-    ) -> bool {
-        if count < max
-            && self.go(n, s, i, &mut |j| {
-                (j != i || count < min) && self.rep(n, (min, max), count + 1, s, j, k)
-            })
-        {
-            return true;
-        }
-        count >= min && k(i)
+    /// The bytes of the visited set a search of `chars` characters allocates.
+    #[cfg(test)]
+    pub(super) fn seen_bytes(&self, chars: usize) -> usize {
+        (self.progs[0].splits * (chars + 1)).div_ceil(64) * 8
     }
 
     /// The first match in `text`: where it starts and ends, in characters.
     pub fn find(&self, text: &[char]) -> Option<(usize, usize)> {
-        (0..=text.len()).find_map(|start| {
-            let mut end = None;
-            self.go(&self.node, text, start, &mut |e| {
-                end = Some(e);
-                true
+        let cells = text.len() + 1;
+        let bits = |n: usize| vec![0u64; n.div_ceil(64)];
+        let mut run = Run {
+            progs: &self.progs,
+            s: text,
+            seen: bits(self.progs[0].splits * cells),
+            looks: bits(2 * (self.progs.len() - 1) * cells),
+            stack: Vec::new(),
+        };
+        let first = self.progs[0].first.as_deref();
+        // A start whose character no first node accepts cannot begin a match: it is skipped unrun.
+        let may_start = |at: usize| {
+            #[cfg(test)]
+            STEPS.with(|n| n.set(n.get() + 1));
+            first.is_none_or(|f| {
+                at < text.len() && f.iter().any(|n| Self::one(n, text[at]) == Some(true))
             })
-            .then(|| (start, end.unwrap_or(start)))
-        })
+        };
+        (0..cells)
+            .filter(|&at| may_start(at))
+            .find_map(|start| run.run(0, start).map(|end| (start, end)))
     }
 
     pub fn is_match(&self, text: &[char]) -> bool {
         self.find(text).is_some()
     }
 
-    /// The choice points of the pattern outside its look-aheads: one per `?`, `+`, `*` and extra alternative.
+    /// The splits of the pattern outside its look-aheads: one per `?`, `+`, `*` and extra alternative.
     #[cfg(test)]
     pub(super) fn splits(&self) -> usize {
-        fn count(n: &Node) -> usize {
-            match n {
-                Node::Seq(v) => v.iter().map(count).sum(),
-                Node::Alt(v) => v.len() - 1 + v.iter().map(count).sum::<usize>(),
-                Node::Rep { node, .. } => 1 + count(node),
-                _ => 0,
-            }
-        }
-        count(&self.node)
+        self.progs[0].splits
     }
 }
