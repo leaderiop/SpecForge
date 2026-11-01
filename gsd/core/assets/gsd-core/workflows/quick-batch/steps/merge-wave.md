@@ -9,7 +9,7 @@ checkout in Step 6).
 by `$ITEM_COUNT` rounds):
 
 1. For each DISTINCT `wave` value present among items that are
-   `status == "pending"` with a `${item_dir}/${quick_id}-SUMMARY.md` on disk
+   `status == "pending"` with a summary `${quick_id}/${quick_id}-SUMMARY` in the graph
    (executor returned) and NOT yet merged: build `$WAVE_ORDER_JSON` — the
    `quick_id`s of every item AT THAT WAVE, in `$BATCH_MANIFEST_JSON.items`
    array order (this IS the order `computeWaves`/`partitionByFileOverlap`
@@ -34,7 +34,7 @@ QB_MERGE_ELIG_JSON=$(jq -n --argjson order "$WAVE_ORDER_JSON" --argjson ready "$
    (#4109):
    ```bash
    for quick_id in "${mergeable[@]}"; do
-     PLAN_CONTENT=$(cat "${ITEM_DIR}/${quick_id}-PLAN.md")
+     PLAN_CONTENT=$(specforge query "${quick_id}" --depth 1 --format context)
   ENTRY_JSON=$(: "quick-batch cleanup-entry: the batch router is not part of @gsd/core, so there is no merge manifest entry to build" \
        --agent-id "agent-${quick_id}" \
        --worktree-path "$WT_PATH" \

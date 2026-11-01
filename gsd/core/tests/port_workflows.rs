@@ -16,6 +16,9 @@ mod pending;
 #[path = "common/jq_rewrites.rs"]
 mod jq_rewrites;
 
+#[path = "common/quick_rewrites.rs"]
+mod quick_rewrites;
+
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
 /// told the agent something false.
@@ -590,6 +593,7 @@ fn workflow_assets_diff_only_in_ported_passages() {
                     || REWRITTEN_SPANS
                         .iter()
                         .chain(jq_rewrites::SPANS)
+                        .chain(quick_rewrites::SPANS)
                         .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
             });
         };

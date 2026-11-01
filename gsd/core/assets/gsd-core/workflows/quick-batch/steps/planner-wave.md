@@ -14,8 +14,8 @@ in wave 0 before any signal exists).
 `pending` and missing a PLAN.md:**
 
 1. From `$BATCH_MANIFEST_JSON`, find the LOWEST `wave` value among items that
-   are `status == "pending"` AND whose `${item_dir}/${quick_id}-PLAN.md` does
-   not yet exist on disk (derive `$item_dir` via `generate-slug` on each
+   are `status == "pending"` AND whose plan `${quick_id}` does
+   not yet exist (`specforge query "${quick_id}" --kinds plan --depth 0` fails; derive `$item_dir` via `generate-slug` on each
    item's `description`, same as every other step). Call this `$CUR_WAVE`.
    If no such item exists, the loop is done — continue to Step 5.
 
@@ -89,7 +89,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    <required_reading>
    - ${STATE_PATH} (Project State)
    - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists)
-   ${RESEARCH_MODE ? '- ' + item_dir + '/' + quick_id + '-RESEARCH.md (Research findings, if present)' : ''}
+   ${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings, if present)' : ''}
    </required_reading>
 
    ${AGENT_SKILLS_PLANNER}
@@ -127,7 +127,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    > this layer, wait for every one to return before continuing.
 
 6. **After every planner in the layer returns:** verify
-   `${item_dir}/${quick_id}-PLAN.md` exists for each. If any is missing, mark
+   plan `${quick_id}` exists for each (`specforge query "${quick_id}" --kinds plan --depth 0`). If any is missing, mark
    that item `failed` (`quick-batch complete` is never called for it) and
    continue with the rest of the layer — one item's planner failure does not
    block unrelated items (row 33).

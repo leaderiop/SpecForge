@@ -39,7 +39,7 @@ AskUserQuestion(
 )
 ```
 
-If user selects "All clear" → skip to Step 5 (no CONTEXT.md written).
+If user selects "All clear" → skip to Step 5 (no context created).
 
 **4.5c. Discuss selected areas**
 
@@ -68,9 +68,9 @@ Rules:
 
 Collect all decisions into `$DECISIONS`.
 
-**4.5d. Write CONTEXT.md**
+**4.5d. Create the context**
 
-Write `${QUICK_DIR}/${quick_id}-CONTEXT.md` using the standard context template structure:
+Create `context ${quick_id}-CONTEXT` with `plan ${quick_id}` (`specforge new context "${quick_id}-CONTEXT" "${DESCRIPTION}" --in spec/quick.spec --plan "${quick_id}" --gathered ${date} --boundary "${DESCRIPTION}" --canonical_refs '[{"topic":"No external specs — requirements fully captured in decisions above","paths":[]}]'`, adding `--discretion` and `--specifics` when the discussion gave them), then its decisions, one per choice (`specforge new decision "${quick_id}-D-01" "<decision>" --in spec/quick.spec --plan "${quick_id}" --area "<area>" --text "<decision>" --origin context --settled true`); the quick plan must exist first (the prompt's "The quick plan" says how). They hold the standard context template structure:
 
 ```markdown
 # Quick Task ${quick_id}: ${DESCRIPTION} - Context
@@ -120,4 +120,4 @@ ${any_specs_adrs_or_docs_referenced_during_discussion}
 
 Note: Quick task CONTEXT.md omits `<code_context>` and `<deferred>` sections (no codebase scouting, no phase scope to defer to). Keep it lean. The `<canonical_refs>` section is included when external docs were referenced — omit it only if no external docs apply.
 
-Report: `Context captured: ${QUICK_DIR}/${quick_id}-CONTEXT.md`
+Report: `Context captured: context ${quick_id}-CONTEXT`

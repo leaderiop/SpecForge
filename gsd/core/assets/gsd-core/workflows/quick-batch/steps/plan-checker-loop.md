@@ -38,7 +38,7 @@ ${description}
 DATA_END
 
 <required_reading>
-- ${item_dir}/${quick_id}-PLAN.md (Plan to verify)
+- `specforge query ${quick_id} --depth 1 --format context` (Plan to verify)
 </required_reading>
 
 ${AGENT_SKILLS_CHECKER}
@@ -86,7 +86,7 @@ Agent(
 **Mode:** quick-batch-item (revision)
 
 <required_reading>
-- ${item_dir}/${quick_id}-PLAN.md (Existing plan)
+- `specforge query ${quick_id} --depth 1 --format context` (Existing plan)
 </required_reading>
 
 ${AGENT_SKILLS_PLANNER}

@@ -92,6 +92,10 @@ fn bound(subject: &str) -> Option<&'static str> {
 /// Subjects the twin cannot bind: a quick task, a placeholder the agent fills, a loop variable.
 const UNBOUND: &[&str] = &[
     "${quick_id}",
+    "${quick_id}-RESEARCH",
+    "${quick_id}/${quick_id}-SUMMARY",
+    // a reading-list line that builds the query from `quick_id` in the prompt's `${... ? '...' : ''}` form
+    "'",
     "$summary",
     "$s",
     "$_ID",

@@ -27,13 +27,13 @@ Agent(
 
 **Mode:** quick-task
 **Task:** ${DESCRIPTION}
-**Output:** ${QUICK_DIR}/${quick_id}-RESEARCH.md
+**Output:** the `research` entity `${quick_id}-RESEARCH`, with `plan ${quick_id}`
 
 <required_reading>
 - ${STATE_PATH} (Project state — what's already built)
 - ${PROJECT_PATH} (Project context)
 - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists — project-specific guidelines)
-${DISCUSS_MODE ? '- ' + QUICK_DIR + '/' + quick_id + '-CONTEXT.md (User decisions — research should align with these. #3894: when workflow.research_before_questions is enabled research runs BEFORE discussion, so this file will not exist yet — read it only if present)' : ''}
+${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds context,decision --format context` (User decisions — research should align with these. #3894: when workflow.research_before_questions is enabled research runs BEFORE discussion, so this file will not exist yet — read it only if present)' : ''}
 </required_reading>
 
 ${AGENT_SKILLS_RESEARCHER}
@@ -51,7 +51,7 @@ Do NOT produce a full domain survey. Target 1-2 pages of actionable findings.
 </focus>
 
 <output>
-Write research to: ${QUICK_DIR}/${quick_id}-RESEARCH.md
+Write research as the `research` entity `${quick_id}-RESEARCH`: `specforge new research "${quick_id}-RESEARCH" "<title>" --in spec/quick.spec --plan "${quick_id}" --researched ${date} --confidence <high|medium|low> --summary "<summary>"`, then its items (`specforge new finding`, `specforge new pitfall`, … with `--research "${quick_id}-RESEARCH"`)
 Use standard research format but keep it lean — skip sections that don't apply.
 Return: ## RESEARCH COMPLETE with file path
 </output>
@@ -65,7 +65,7 @@ Return: ## RESEARCH COMPLETE with file path
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 After researcher returns:
-1. Verify research exists at `${QUICK_DIR}/${quick_id}-RESEARCH.md`
-2. Report: "Research complete: ${QUICK_DIR}/${quick_id}-RESEARCH.md"
+1. Verify the research exists: `specforge query "${quick_id}-RESEARCH" --depth 0 >/dev/null`
+2. Report: "Research complete: research ${quick_id}-RESEARCH"
 
 If research file not found, warn but continue: "Research agent did not produce output — proceeding to planning without research."
