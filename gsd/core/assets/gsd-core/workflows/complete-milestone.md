@@ -340,8 +340,8 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT_REORG=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_REORG" == @file:* ]]; then INIT_REORG=$(cat "${INIT_REORG#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-ROADMAP_PATH=$(_gsd_field "$INIT_REORG" roadmap_path)
+# a field of the answer is read with --pick, never jq
+ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
 # Extract lines under ## Backlog through end of file (or next ## section)
 BACKLOG_SECTION=$(awk '/^## Backlog/{found=1} found{print}' "$ROADMAP_PATH")
 ```
@@ -362,8 +362,8 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT_REORG=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_REORG" == @file:* ]]; then INIT_REORG=$(cat "${INIT_REORG#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-ROADMAP_PATH=$(_gsd_field "$INIT_REORG" roadmap_path)
+# a field of the answer is read with --pick, never jq
+ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
 printf '%s\n' "$ROADMAP_PATH" > a scratch value
 echo "Write target: $ROADMAP_PATH"
 ```
@@ -405,12 +405,12 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT_REORG=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_REORG" == @file:* ]]; then INIT_REORG=$(cat "${INIT_REORG#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-STATE_PATH=$(_gsd_field "$INIT_REORG" state_path)
-ROADMAP_PATH=$(_gsd_field "$INIT_REORG" roadmap_path)
-ARCHIVE_DIR=$(_gsd_field "$INIT_REORG" archive_dir)
-MILESTONES_PATH=$(_gsd_field "$INIT_REORG" milestones_path)
-PROJECT_PATH=$(_gsd_field "$INIT_REORG" project_path)
+# a field of the answer is read with --pick, never jq
+STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
+ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
+ARCHIVE_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .archive_dir)
+MILESTONES_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .milestones_path)
+PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
 # #5195: PROJECT.md is shared across workstreams. Stage it only in flat mode (no --ws, no active workstream) — the same test the review step is gated on, so the two cannot disagree.
 _gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --format json) || return 1; [ -z "$GSD_WS" ] && [ -z "$(echo "$j" | jq -r '.active // empty')" ]; }
 _gsd_flat_mode || PROJECT_PATH=""
@@ -431,7 +431,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT_REORG=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_REORG" == @file:* ]]; then INIT_REORG=$(cat "${INIT_REORG#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
+# a field of the answer is read with --pick, never jq
 : # no requirements file: the requirement entities are the archive
 : # nothing to remove: the requirement entities stay
 ```

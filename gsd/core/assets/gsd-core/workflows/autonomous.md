@@ -164,7 +164,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT_MANAGER=$(specforge gsd progress-report --format json)
 if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
+# a field of the answer is read with --pick, never jq
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 STATE_CONTENT=$(specforge gsd progress-report 2>/dev/null || true)
 ```
@@ -611,7 +611,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT_MANAGER=$(specforge gsd progress-report --format json)
 if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
+# a field of the answer is read with --pick, never jq
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 STATE_CONTENT=$(specforge gsd progress-report 2>/dev/null || true)
 printf '%s\n' "$STATE_CONTENT"
@@ -737,8 +737,8 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT_MANAGER=$(specforge gsd progress-report --format json)
 if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-ARCHIVE_DIR=$(_gsd_field "$INIT_MANAGER" archive_dir)
+# a field of the answer is read with --pick, never jq
+ARCHIVE_DIR=$(specforge gsd progress-report --pick .archive_dir)
 ls "${ARCHIVE_DIR}/v${milestone_version}-ROADMAP.md" 2>/dev/null || true
 ```
 

@@ -479,8 +479,8 @@ fn refusal(
             open = true;
         } else if let Some(long) = w.strip_prefix("--") {
             let long = long.split('=').next().unwrap_or(long);
-            // `--path` and `--format` belong to the CLI, not to a command
-            if matches!(long, "path" | "format") {
+            // `--path`, `--format` and `--pick` belong to the CLI, not to a command
+            if matches!(long, "path" | "format" | "pick") {
                 i += 2;
                 continue;
             }

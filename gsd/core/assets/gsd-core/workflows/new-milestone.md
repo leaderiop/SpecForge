@@ -276,9 +276,9 @@ COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT_STAGE=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_STAGE" == @file:* ]]; then INIT_STAGE=$(cat "${INIT_STAGE#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-ARCHIVE_DIR=$(_gsd_field "$INIT_STAGE" archive_dir)
-PHASES_DIR=$(_gsd_field "$INIT_STAGE" phases_dir)
+# a field of the answer is read with --pick, never jq
+ARCHIVE_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .archive_dir)
+PHASES_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .phases_dir)
 if [ "$COMMIT_DOCS" != "false" ]; then
   git add "$ARCHIVE_DIR/" "$PHASES_DIR/" 2>/dev/null || true
 fi
@@ -292,9 +292,9 @@ Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT_COMMIT=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_COMMIT" == @file:* ]]; then INIT_COMMIT=$(cat "${INIT_COMMIT#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-STATE_PATH=$(_gsd_field "$INIT_COMMIT" state_path)
-PROJECT_PATH=$(_gsd_field "$INIT_COMMIT" project_path)
+# a field of the answer is read with --pick, never jq
+STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
+PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
 git add spec && git commit -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
 ```
 
@@ -534,8 +534,8 @@ If "adjust": Return to scoping.
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT_REQ=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_REQ" == @file:* ]]; then INIT_REQ=$(cat "${INIT_REQ#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-REQUIREMENTS_PATH=$(_gsd_field "$INIT_REQ" requirements_path)
+# a field of the answer is read with --pick, never jq
+REQUIREMENTS_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .requirements_path)
 git add spec && git commit -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
 ```
 
@@ -623,10 +623,10 @@ Success criteria:
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT_ROADMAP=$(specforge query "$MILESTONE" --depth 1 --format json)
 if [[ "$INIT_ROADMAP" == @file:* ]]; then INIT_ROADMAP=$(cat "${INIT_ROADMAP#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-ROADMAP_PATH=$(_gsd_field "$INIT_ROADMAP" roadmap_path)
-STATE_PATH=$(_gsd_field "$INIT_ROADMAP" state_path)
-REQUIREMENTS_PATH=$(_gsd_field "$INIT_ROADMAP" requirements_path)
+# a field of the answer is read with --pick, never jq
+ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
+STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
+REQUIREMENTS_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .requirements_path)
 git add spec && git commit -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
 # #4456: true last consumer of the persisted --ws in this workflow — the
 # round-trip file is no longer needed after this commit.

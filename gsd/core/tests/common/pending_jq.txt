@@ -2,20 +2,6 @@
 # the ticket that rewrites them. `a_shell_block_reads_specforge_without_jq` allows a listed line and fails on a
 # listed line that no longer runs jq. A line listed twice is in its asset twice.
 
-# plan 04 T2: the _gsd_field helper, which reads a field of a JSON string
-gsd-core/workflows/autonomous.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/autonomous.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/autonomous.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/complete-milestone.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/complete-milestone.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/complete-milestone.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/complete-milestone.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/new-milestone.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/new-milestone.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/new-milestone.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/new-milestone.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-gsd-core/workflows/plan-phase.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-
 # plan 04 T3: one field of a `specforge gsd` answer
 agents/gsd-executor.md	STARTED=$(specforge gsd start-plan "${PHASE}-${PLAN}" --format json | jq -er .started) || exit 1
 commands/gsd/review-backlog.md	NEW_NUM=$(specforge gsd phase --promote "<id>" --milestone "$MILESTONE" --format json | jq -r '.output.to | split("/") | last')
@@ -179,6 +165,9 @@ gsd-core/workflows/verify-work.md	NEXT_COMMAND=$(printf '%s' "$VERIFICATION_STAT
 gsd-core/workflows/verify-work.md	PHASE_COMPLETE=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test,verification --format json | jq -c '{passed: (([.nodes[]|select(.kind=="verification")][0].fields.status == "passed") and ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0))}') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?
 gsd-core/workflows/verify-work.md	PHASE_COMPLETE_PASSED=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.passed' 2>/dev/null || echo "false")
 gsd-core/workflows/verify-work.md	PHASE_COMPLETE_BLOCKERS=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.blockers[]?' 2>/dev/null || true)
+
+# plan 05 (T2 leftover): the _gsd_field helper over a JSON value of another block (plan-phase's INIT)
+gsd-core/workflows/plan-phase.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
 
 # plan 05 T3: the worktree manifest and the batch JSON
 gsd-core/workflows/execute-phase.md	jq -nc --arg root "$ORCH_ROOT" '{orchestrator_root: (if $root == "" then null else $root end), worktrees: []}' > "$WAVE_WORKTREE_MANIFEST"

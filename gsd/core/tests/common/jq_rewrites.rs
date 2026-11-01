@@ -1,5 +1,6 @@
 //! Plan 03 (F9): the body lines (0-based) of the workflow assets that read JSON with jq, or check a path with bash,
-//! where upstream's run node. `port_workflows` reads them as more `REWRITTEN` and `REWRITTEN_SPANS` rows.
+//! where upstream's run node; G4 (plan 04): the lines that read a SpecForge answer with `--pick` where upstream's
+//! read its tools' JSON. `port_workflows` reads them as more `REWRITTEN` and `REWRITTEN_SPANS` rows.
 
 pub const LINES: &[(&str, usize)] = &[
     // Plan 03 (F9) T2: the `_gsd_field` helper reads its field with jq; upstream's runs node.
@@ -15,6 +16,24 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 535),
     ("gsd-core/workflows/new-milestone.md", 624),
     ("gsd-core/workflows/plan-phase.md", 619),
+    // G4 plan 04 T2: a caller of `_gsd_field` reads its field of the same block's answer with --pick; the
+    // helper's line above is a comment where no caller is left.
+    ("gsd-core/workflows/autonomous.md", 739),
+    ("gsd-core/workflows/complete-milestone.md", 342),
+    ("gsd-core/workflows/complete-milestone.md", 364),
+    ("gsd-core/workflows/complete-milestone.md", 407),
+    ("gsd-core/workflows/complete-milestone.md", 408),
+    ("gsd-core/workflows/complete-milestone.md", 409),
+    ("gsd-core/workflows/complete-milestone.md", 410),
+    ("gsd-core/workflows/complete-milestone.md", 411),
+    ("gsd-core/workflows/new-milestone.md", 278),
+    ("gsd-core/workflows/new-milestone.md", 279),
+    ("gsd-core/workflows/new-milestone.md", 294),
+    ("gsd-core/workflows/new-milestone.md", 295),
+    ("gsd-core/workflows/new-milestone.md", 536),
+    ("gsd-core/workflows/new-milestone.md", 625),
+    ("gsd-core/workflows/new-milestone.md", 626),
+    ("gsd-core/workflows/new-milestone.md", 627),
     // Plan 03 (F9) T3: a field of a JSON answer is read with jq; upstream's line runs node.
     ("gsd-core/references/dispatch-isolation-gate.md", 77),
     ("gsd-core/references/specless-probe-fallback.md", 97),

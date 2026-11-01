@@ -100,7 +100,8 @@ fn run_with_node(script: &str) -> String {
     String::from_utf8_lossy(&out.stdout).into_owned()
 }
 
-/// T2: `_gsd_field` prints a field as text, and nothing for null or a missing key; every copy is the same line.
+/// T2: `_gsd_field` prints a field as text, and nothing for null or a missing key. G4 plan 04 T2: one copy is left,
+/// plan-phase's, which reads a JSON value of another block (plan 05); the others read their field with `--pick`.
 #[test]
 fn the_field_helper_reads_a_field_with_jq() {
     let Some(sh) = Shell::new() else { return };
@@ -119,8 +120,7 @@ fn the_field_helper_reads_a_field_with_jq() {
             .collect::<Vec<_>>()
     })
     .collect();
-    assert_eq!(copies.len(), 12);
-    assert!(copies.iter().all(|c| *c == copies[0]), "{copies:?}");
+    assert_eq!(copies.len(), 1, "{copies:?}");
     let ours = &copies[0];
     let theirs = line(
         &upstream("gsd-core/workflows/plan-phase.md"),
