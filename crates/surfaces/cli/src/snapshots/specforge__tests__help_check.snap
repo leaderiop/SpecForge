@@ -16,10 +16,13 @@ Options:
           Promote warnings to errors
 
       --format <FORMAT>
-          Output format: human or json
+          Output format: human or json (json with --pick)
           
           [default: human]
           [possible values: human, json]
+
+      --pick <PATH>
+          Print only the values at this path of the command's JSON answer, one per line, e.g. '.[code=E003].message' on check or '.extensions[].settings[name=<setting>].value' on settings. The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[<key>=<value>]` (the items whose field <key> is <value>, e.g. `[kind=plan]`: <key> may be dotted, `[fields.result=issue]`, and a number, boolean or null is compared as JSON, `[fields.backlog=true]`, `[fields.wave=2]`; an object or array is never selected); a `.` before `[` may be left out, and `.` alone is the whole answer. One line per value reached: a string bare (a newline in it is printed as is), an integer as is and any other number as an f64 (`1.0`, `-0.0`, `1e3` as `1000.0`), a boolean, object or array as compact JSON; null or a missing value prints nothing, and is not an error. It implies --format json (--format human is refused): errors print as they do under json, and the exit code is the command's.
 
       --lint <LINT>
           Extra lint profiles: inferred (I200/I202 from specforge-infer.json); pedantic is the default and adds nothing
@@ -35,4 +38,4 @@ Options:
           Judge immutable and append-only history against the merge-base of this git revision and HEAD
 
   -h, --help
-          Print help
+          Print help (see a summary with '-h')

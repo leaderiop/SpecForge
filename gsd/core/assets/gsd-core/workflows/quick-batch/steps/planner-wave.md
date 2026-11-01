@@ -14,8 +14,8 @@ in wave 0 before any signal exists).
 `pending` and missing a PLAN.md:**
 
 1. From `$BATCH_MANIFEST_JSON`, find the LOWEST `wave` value among items that
-   are `status == "pending"` AND whose `${item_dir}/${quick_id}-PLAN.md` does
-   not yet exist on disk (derive `$item_dir` via `generate-slug` on each
+   are `status == "pending"` AND whose plan `${quick_id}` is
+   not yet planned (it holds no task: `[ -n "$(specforge query "${quick_id}" --kinds task --depth 1 --pick '.nodes[kind=task].id')" ]` fails; derive `$item_dir` via `generate-slug` on each
    item's `description`, same as every other step). Call this `$CUR_WAVE`.
    If no such item exists, the loop is done — continue to Step 5.
 
@@ -25,7 +25,7 @@ in wave 0 before any signal exists).
 3. **Capability gate** (mirrors `/gsd:quick`'s own):
    ```bash
 # the commands below are specforge commands: there is no launcher to define
-   PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+   PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
    ```
    In registry order, inject only active entries with `kind == "contribution"`
    and `into == "planner"` into each planner prompt below, using
@@ -36,8 +36,8 @@ in wave 0 before any signal exists).
    `mutating=false` (row 12's rule applies to any non-mutating wave, not just
    research):
    ```bash
-QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
-   PLAN_CONCURRENCY=$(printf '%s' "$QB_PLAN_CONC_JSON" | jq -er '.concurrency // 1' 2>/dev/null || echo 1)
+PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
+
    ```
 
 5. **Dispatch one `Agent()` per message, `run_in_background: true`, up to
@@ -89,7 +89,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    <required_reading>
    - ${STATE_PATH} (Project State)
    - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists)
-   ${RESEARCH_MODE ? '- ' + item_dir + '/' + quick_id + '-RESEARCH.md (Research findings, if present)' : ''}
+   ${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings, if present)' : ''}
    </required_reading>
 
    ${AGENT_SKILLS_PLANNER}
@@ -99,7 +99,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    </planning_context>
 
    <constraints>
-   - Create a SINGLE plan with 1-3 focused tasks for THIS item only
+   - Create a SINGLE plan with 1-3 focused tasks for THIS item only${RESEARCH_MODE ? ' — plan ' + quick_id + ' already exists (made before research): fill it with `specforge set ' + quick_id + ' <field> <value>`, add its tasks with `specforge new task <id> "<title>" --in spec/quick.spec --plan ' + quick_id + '`, never `specforge new plan`' : ''}
    - ALWAYS emit `depends_on` frontmatter (array of sibling `quick_id`s from
      the task catalog above — empty array if none) — required regardless of
      `--validate` (row 14). Reference ONLY quick ids from the catalog above;
@@ -127,7 +127,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    > this layer, wait for every one to return before continuing.
 
 6. **After every planner in the layer returns:** verify
-   `${item_dir}/${quick_id}-PLAN.md` exists for each. If any is missing, mark
+   plan `${quick_id}` holds a task for each (`[ -n "$(specforge query "${quick_id}" --kinds task --depth 1 --pick '.nodes[kind=task].id')" ]`). If any is missing, mark
    that item `failed` (`quick-batch complete` is never called for it) and
    continue with the rest of the layer — one item's planner failure does not
    block unrelated items (row 33).
@@ -143,7 +143,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    `specforge query "${quick_id}" --depth 0 --format json` (the `depends_on` field)
    and `... files_modified`, then:
    ```bash
-QB_UPDATE_JSON=$(jq -n --argjson updates "$LAYER_UPDATES_JSON" '{updated: $updates}')   # quick-batch update: the batch router is not part of @gsd/core; keep the plan data in your notes
+QB_UPDATE_JSON="{\"updated\":${LAYER_UPDATES_JSON:-[]}}"   # quick-batch update: the batch router is not part of @gsd/core; keep the plan data in your notes
    ```
    `$LAYER_UPDATES_JSON` is a JSON array of `{quickId, dependsOn, plannedFiles}`
    objects, one per item planned this round. **If this call fails** (an
@@ -153,7 +153,7 @@ QB_UPDATE_JSON=$(jq -n --argjson updates "$LAYER_UPDATES_JSON" '{updated: $updat
    empty `dependsOn` for those items instead (never leave the batch
    unrecoverable), and continue.
 
-   Refresh `$BATCH_MANIFEST_JSON` from `$QB_UPDATE_JSON.manifest` before the
+   Keep each item's new wave beside its `$BATCH_MANIFEST_JSON` line in your notes before the
    next loop iteration — wave numbers may have changed (row 22-23).
 
 Continue to Step 6 once the loop above finds no more unplanned pending items.

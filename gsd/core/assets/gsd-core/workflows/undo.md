@@ -86,7 +86,7 @@ phase directory — not the root's same-numbered one.
 ```bash
 # the id names its milestone: UNDO_MILESTONE, not $MILESTONE (the open one), is the one the run is about
 UNDO_MILESTONE=$MILESTONE; case "$TARGET_PHASE" in */*) UNDO_MILESTONE=${TARGET_PHASE%%/*}; TARGET_PHASE=${TARGET_PHASE##*/};; esac
-PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${TARGET_PHASE}" --depth 0 --format json | jq -r '.nodes[0].id // empty' 2>/dev/null)
+PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${TARGET_PHASE}" --depth 0 --pick '.nodes[0].id')
 # the phase is an entity of the spec: its commits are the `commit` entities recorded under its plans, so there is no
 # directory to anchor a window on and no project root to resolve (PHASE_DIR holds the phase id).
 
@@ -126,7 +126,7 @@ second one:
 ```bash
 # No directory moves to an archive here, so the archived layout is the milestone: a phase of a shipped or
 # abandoned milestone is refused like an archived one, and the commits are selected by hand.
-MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --format json | jq -r '.nodes[0].fields.state // empty' 2>/dev/null)
+MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --pick '.nodes[0].fields.state')
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
@@ -197,7 +197,7 @@ Derive the selection window from `PHASE_DIR` (the `#3995` anchor, shared with
 the phase's own directory, and the tip is `HEAD`.
 
 ```bash
-PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --format json | jq -r '.nodes[]|select(.kind=="commit")|.fields.hash') 2>/dev/null | head -1)
+PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
 # Only a commit in HEAD's own history may anchor. A SHA from another repository has no resolvable
 # parent here, which the root-commit arm below would read as "root commit" and select all of HEAD;
 # one from another worktree's branch that HEAD does not contain bounds nothing on this branch.
@@ -241,7 +241,7 @@ the old grep's `0*` tolerance for a digit-first id — never for a letter-first 
 (`PROJ-42`), where zero-padding would strip the meaningful prefix instead of matching it.
 
 ```bash
-COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --format json | jq -r '.nodes[]|select(.kind=="commit")|.fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 ```
 
 Use matching commits as COMMITS.
@@ -264,13 +264,13 @@ phase number only within its milestone and workstream.
 
 ```bash
 UNDO_MILESTONE=$MILESTONE; case "$TARGET_PLAN" in */*) TARGET_PLAN_ID="$TARGET_PLAN"; UNDO_MILESTONE=${TARGET_PLAN%%/*}; TARGET_PLAN=${TARGET_PLAN##*/};; *) TARGET_PLAN_ID="$UNDO_MILESTONE/${TARGET_PLAN%%-*}/$TARGET_PLAN";; esac; PLAN_PHASE="${TARGET_PLAN%%-*}"
-PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${PLAN_PHASE}" --depth 0 --format json | jq -r '.nodes[0].id // empty' 2>/dev/null)
+PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${PLAN_PHASE}" --depth 0 --pick '.nodes[0].id')
 # The commits are those of this repository, exactly as in MODE=phase.
 PROJECT_ROOT="."   # the commits are those of this repository
 # Same archived-resolution refusal as MODE=phase, and for the same reason — an archived
 # anchor selects a LATER milestone's same-numbered phase. Blanking PHASE_DIR keeps the
 # fail-closed rule below load-bearing.
-MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --format json | jq -r '.nodes[0].fields.state // empty' 2>/dev/null)
+MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --pick '.nodes[0].fields.state')
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
@@ -295,7 +295,7 @@ PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 
 
 
-PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --format json | jq -r '.nodes[]|select(.kind=="commit")|.fields.hash') 2>/dev/null | head -1)
+PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
 # As in MODE=phase: an anchor outside HEAD's own history never reaches the root-commit arm.
 if [ -n "$PHASE_START" ] && ! git merge-base --is-ancestor "$PHASE_START" HEAD 2>/dev/null; then PHASE_START=""; fi
 UNDO_RANGE=""
@@ -325,7 +325,7 @@ widening, not a preserved behavior; it makes an unpadded `--plan` argument match
 canonically-padded commit scope instead of silently matching nothing.
 
 ```bash
-COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --format json | jq -r '.nodes[]|select(.kind=="commit")|.fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 ```
 
 Use matching commits as COMMITS.

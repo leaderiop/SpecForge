@@ -113,8 +113,10 @@ Each is named by its tag in `gsd/parity/ACCEPTANCE.md` ("Known divergences", `@g
 - `--after-fingerprint` is passed to every capability, and one that does not accept it is left out (the `shortcut:` of
   "The command contract").
 - A capability that fails (any exit but 2) is warned about on stderr and its hooks are left out, as upstream's resolver
-  fails open with a warning; exit 2 is "not loaded" and stays silent. A `jq` that cannot run warns the same way.
-- The hook lines need `bash` and `jq`; a PowerShell host cannot run them, as with every ported shell line.
+  fails open with a warning; exit 2 is "not loaded" and stays silent.
+- A hook line's variable holds one answer per line, one per capability extension in the loop's order, and the agent
+  reads the `activeHooks` of each: nothing merges them (G4, plan 05 T1).
+- The hook lines need `bash` and `specforge` only; a PowerShell host cannot run them, as with every ported shell line.
 
 ## Rejected
 

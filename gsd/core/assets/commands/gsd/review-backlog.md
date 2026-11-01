@@ -9,7 +9,7 @@ milestone sequence or remove stale entries.
 
 1. **List backlog items:**
    ```bash
-   _BACKLOG=$(specforge export --kinds phase --format graph | jq -r '.nodes[]|select(.fields.backlog)|.id')   # roadmap-wide: the backlog of every milestone
+   _BACKLOG=$(specforge export --kinds phase --pick '.nodes[fields.backlog=true].id')   # roadmap-wide: the backlog of every milestone
    if [ -n "$_BACKLOG" ]; then echo "$_BACKLOG"; else echo "No backlog items found"; fi
    ```
 
@@ -27,7 +27,7 @@ milestone sequence or remove stale entries.
    - Find the next sequential phase number in the active milestone
    - Promote it with `specforge gsd phase --promote`: the phase takes the new number, and its context, research and plans are renamed with it. `<id>` is the item's full id from the list (`v1.0/999.1`); an item of another milestone moves under `$MILESTONE`:
      ```bash
-     NEW_NUM=$(specforge gsd phase --promote "<id>" --milestone "$MILESTONE" --format json | jq -r '.output.to | split("/") | last')
+     NEW_NUM=$(specforge gsd phase --promote "<id>" --milestone "$MILESTONE" --pick .to) && NEW_NUM=${NEW_NUM##*/}
      ```
    - The accumulated artifacts move with it (the command renames them)
    - The phase leaves the backlog by taking its new number

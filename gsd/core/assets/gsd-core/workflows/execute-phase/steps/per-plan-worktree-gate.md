@@ -8,14 +8,14 @@ This gate has two parts that run at **different times**. **Part 1** (this part) 
 `PLAN_FILES` is the whitespace-separated list of paths the plan declared it will touch, extracted from the `phase-plan-index` JSON loaded in `discover_and_group_plans`:
 
 ```bash
-# plan_json is the JSON object for this plan from PLAN_INDEX.plans[]
+# plan_id is this plan's id (a line of PLAN_INDEX); its fields are read from the graph
 # files_modified is an array of strings (repo-relative paths or globs)
-PLAN_FILES=$(jq -r '.files_modified // [] | join(" ")' <<<"$plan_json")
+PLAN_FILES=$(specforge query "$plan_id" --depth 0 --pick '.nodes[0].fields.files_modified[]' | paste -sd' ' -)
 # #3003: files_deleted is the paths the plan declared it will REMOVE. Separate from
 # files_modified on purpose — it authorizes the cleanup-wave deletions guard, and a
 # deletion authorization must never be inferred from a general scope declaration.
-PLAN_DELETIONS=$(jq -r '.files_deleted // [] | join(" ")' <<<"$plan_json")
-plan_id=$(jq -r '.id' <<<"$plan_json")
+PLAN_DELETIONS=$(specforge query "$plan_id" --depth 0 --pick '.nodes[0].fields.files_deleted[]' | paste -sd' ' -)
+: "${plan_id:?plan_id is unset: it is this plan id}"
 ```
 
 Then run the per-plan gate:
@@ -116,11 +116,11 @@ fi
 
 After running this for the plan, the dispatch branches in `execute_waves` step 3 MUST gate on `USE_WORKTREES_FOR_PLAN` for the current plan, not on the project-level `USE_WORKTREES`. Track which plans in this wave actually used worktrees (append `plan_id` to a `WAVE_WORKTREE_PLANS` accumulator when `USE_WORKTREES_FOR_PLAN != false`) — the post-wave cleanup step (5.5) uses this to decide whether worktree-merge cleanup is needed at all.
 
-**Store the decision per plan (#5516).** `USE_WORKTREES_FOR_PLAN` is one shared value: the next plan's decision overwrites it. Keep each plan's answer as `plan_id → value` (for example `WAVE_PLAN_ISOLATION="03-01-api=false 03-02-docs=true"`) so step 3 can restore the dispatched plan's own value just before its dispatch (the value after `<plan_id>=`). `PLAN_FILES` and `PLAN_DELETIONS` above are shared the same way, and step 3 passes them to `worktree.record-agent` / `worktree.create`: re-run the extraction block above on the dispatched plan's JSON to restore them. This part does **not** write the isolation record.
+**Store the decision per plan (#5516).** `USE_WORKTREES_FOR_PLAN` is one shared value: the next plan's decision overwrites it. Keep each plan's answer as `plan_id → value` (for example `WAVE_PLAN_ISOLATION="03-01-api=false 03-02-docs=true"`) so step 3 can restore the dispatched plan's own value just before its dispatch (the value after `<plan_id>=`). `PLAN_FILES` and `PLAN_DELETIONS` above are shared the same way, and step 3 passes them to `worktree.record-agent` / `worktree.create`: re-run the extraction block above with the dispatched plan's `plan_id` to restore them. This part does **not** write the isolation record.
 
 ## Part 2 — Re-record the dispatch-isolation sentinel, scoped to THIS plan (#3045 BLOCKER 1, #5516)
 
-Run this in `execute_waves` step 3, **immediately before dispatching THIS plan**, after restoring that plan's **stored decision** from Part 1 (`plan_id` := this plan's `id`, `USE_WORKTREES_FOR_PLAN` := the value stored for it, and `PLAN_FILES` / `PLAN_DELETIONS` re-extracted from this plan's JSON). Never run it at step 2.5 and never for a plan other than the one about to dispatch: the sentinel is a single slot, so recording every plan up front leaves only the wave's last plan in it, and every earlier plan is dispatched against a record naming a different plan (the isolation guard discards it and its registry fallback denies a sequential dispatch the plan's own decision allowed, #5516).
+Run this in `execute_waves` step 3, **immediately before dispatching THIS plan**, after restoring that plan's **stored decision** from Part 1 (`plan_id` := this plan's `id`, `USE_WORKTREES_FOR_PLAN` := the value stored for it, and `PLAN_FILES` / `PLAN_DELETIONS` re-extracted for this plan's `plan_id`). Never run it at step 2.5 and never for a plan other than the one about to dispatch: the sentinel is a single slot, so recording every plan up front leaves only the wave's last plan in it, and every earlier plan is dispatched against a record naming a different plan (the isolation guard discards it and its registry fallback denies a sequential dispatch the plan's own decision allowed, #5516).
 
 The phase-level sentinel (written by the "Resolve ISOLATION" step, before any per-plan decision exists) authorizes/denies at the PHASE level. The per-plan decision can override that (submodule intersection forcing `USE_WORKTREES_FOR_PLAN=false` on an otherwise harness-worktree phase) — without a fresh, plan-scoped record at dispatch time, the isolation guard hooks would still be reading the STALE phase-level `harness-worktree` sentinel when this plan's dispatch omits the isolation kwarg (correctly, since it isn't worktree-isolated), producing a false DENY; or, symmetrically, a plan-level degrade elsewhere in the wave could leave a stale `none` sentinel that a LATER, genuinely harness-worktree plan's own dispatch could be misread against. Running it right before the dispatch keeps the sentinel always fresh and always keyed to the plan it authorizes:
 

@@ -338,6 +338,7 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
         fields_of("context"),
         [
             "phase",
+            "plan",
             "gathered",
             "boundary",
             "discretion",
@@ -354,6 +355,7 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
         fields_of("decision"),
         [
             "phase",
+            "plan",
             "area",
             "text",
             "rationale",
@@ -505,7 +507,8 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
         "package_audit",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 95 - 1 + 1 + 1, "the kinds' fields");
+    // + 3: the quick plan's `plan` on context, decision and research (G3).
+    assert_eq!(total, 95 - 1 + 1 + 1 + 3, "the kinds' fields");
 }
 
 #[test]

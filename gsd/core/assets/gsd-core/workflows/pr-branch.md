@@ -76,30 +76,30 @@ Mode:    {PR_MODE}
 </step>
 
 <step name="handle_sub_repos">
-Read the sub-repo list from config using the canonical key path — `planning.sub_repos`.
-A non-zero exit code means the key is absent; treat that as "no sub-repos configured".
+There is no sub-repo list to read: `planning.sub_repos` is not a setting here (a sub-repository is
+another SpecForge project), so `SUB_REPOS_JSON` is empty and this step is skipped.
 
 ```bash
-SUB_REPOS_JSON="[]"   # planning.sub_repos: a sub-repository is another SpecForge project, so there are none to list
+# planning.sub_repos: a sub-repository is another SpecForge project, so there are none to list
 if [ $? -ne 0 ] || [ -z "$SUB_REPOS_JSON" ] || [ "$SUB_REPOS_JSON" = "null" ] || [ "$SUB_REPOS_JSON" = "[]" ]; then
   : # Not configured or empty — skip to analyze_commits
 fi
 ```
 
-Scan each sub-repo for uncommitted changes with jq and git (jq is a requirement of the
-shell blocks here, as git is). Write dirty repo names to a temp file so the list survives across
+Scan each sub-repo for uncommitted changes with git (the setting's list is split with `tr`; no
+JSON tool is needed). Write dirty repo names to a temp file so the list survives across
 subsequent command executions:
 
 ```bash
 ROOT=$(git rev-parse --show-toplevel)
 DIRTY_FILE=$(mktemp)
 
-printf '%s' "$SUB_REPOS_JSON" | jq -r '
+printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
   # One name per line, so a name may hold the safe characters only: an embedded
   # newline would otherwise split into two records before the shell reads them.
-  .[] | strings
-  | select(test("\\A[A-Za-z0-9._/-]+\\z"))
-' 2>/dev/null | {
+
+
+
   # realpath parity with the pr-subrepo seam's validatePath: resolve $ROOT through
   # symlinks once so the containment check below compares real paths, not text.
   realRoot=$(cd -P -- "$ROOT" 2>/dev/null && pwd -P) || realRoot=$ROOT
@@ -158,10 +158,10 @@ REPO_SAFE="${REPO_REL//\//-}"
 SUB_BRANCH="${CURRENT_BRANCH}-${REPO_SAFE}-pr"
 COMMIT_MSG="fix(${REPO_REL}): sync uncommitted changes for PR"
 
-RESULT=$(false)   # pr-subrepo: not available here, a sub-repository is another SpecForge project
+# pr-subrepo: not available here, a sub-repository is another SpecForge project
 
 
-SUBREPO_EXIT=$?
+SUBREPO_EXIT=1   # no seam ran, so no branch was pushed
 ```
 
 If the seam exited non-zero (stage/commit/push failure), report its error and move on to
@@ -175,14 +175,14 @@ if [ "$SUBREPO_EXIT" -ne 0 ]; then
 fi
 ```
 
-Only when `$SUBREPO_EXIT` is `0`, parse the structured result with jq and open the
+Only when `$SUBREPO_EXIT` is `0`, read `remote_slug` from the structured result and open the
 companion PR. If `remote_slug` is null (non-GitHub remote), skip `gh pr create` and show
 the push URL instead:
 
 ```bash
-REMOTE_SLUG=$(printf '%s' "$RESULT" | jq -r '
-  .remote_slug // empty
-' 2>/dev/null)
+# pr-subrepo is not available here: there is no remote_slug to read
+
+
 
 if [ -n "$REMOTE_SLUG" ]; then
   # Defense-in-depth: $REPO_REL was already validated by the dirty-scan filter and
@@ -194,9 +194,9 @@ if [ -n "$REMOTE_SLUG" ]; then
     # `cd -P` and `pwd -P` resolve symlinks, as realpathSync does; the containment test is the
     # dirty scan's, and any failure prints nothing
     realRoot=$(cd -P -- "$ROOT" && pwd -P) || exit 1
-    case "$REPO_REL" in /*) target=$REPO_REL ;; *) target=$realRoot/$REPO_REL ;; esac
+    case "$REPO_REL" in (/*) target=$REPO_REL ;; (*) target=$realRoot/$REPO_REL ;; esac
     resolved=$(cd -P -- "$target" && pwd -P) || exit 1
-    case "$resolved" in "$realRoot" | "$realRoot"/*) ;; *) exit 1 ;; esac
+    case "$resolved" in ("$realRoot" | "$realRoot"/*) ;; (*) exit 1 ;; esac
     printf '%s' "$resolved"
   ) 2>/dev/null)
 
@@ -250,15 +250,15 @@ constants — change one side and update the other, or the guard fails.
 ```bash
 # The spec root and the harness ledger (a file at the project root) are reviewer noise (U47); `app.spec` of a build is code.
 TRANSIENT_DIRS=""   # none: specforge-harness is a file
-SPEC_ROOT=$(jq -r '.spec_root // "spec"' specforge.json 2>/dev/null || echo spec)
+SPEC_ROOT="{{project:spec_root}}"   # the project's spec root, spelled by SpecForge at render (`.`: the project root)
 TRANSIENT_FILES="specforge-harness"
 
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.
 
 
-
-
-
+# The spec files, as a pathspec and an ERE: the spec root's tree, or with the spec root at the project root (`.`) the .spec files at any depth (`./` would name every path)
+if [ "$SPEC_ROOT" = "." ]; then SPEC_PATHSPEC=':(glob)**/*.spec'; SPEC_RE='\.spec$'
+else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
 
 STRUCTURAL_RE="a^"   # matches nothing
 # Milestone-scoped phase-plan directories: none here.
@@ -275,8 +275,8 @@ each cherry-picked commit) and `FORBIDDEN_RE` (what `verify` asserts is absent):
 
 ```bash
 if [ "$PR_STRICT" = "true" ]; then
-  FILTER_PATHS=$(printf '%s/\n' "$SPEC_ROOT"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
-  FORBIDDEN_RE="^($(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/|$(echo "$TRANSIENT_FILES" | tr ' ' '|')$)"
+  FILTER_PATHS=$(printf '%s\n' "$SPEC_PATHSPEC"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
+  FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
 else
   : # default mode keeps structural planning state, and there is none here (the filter is always strict)
 
@@ -439,7 +439,7 @@ FILTER_PATHS_EOF
   while IFS= read -r P; do
     [ -n "$P" ] || continue
     case "$P" in
-      "$SPEC_ROOT"/*|specforge-harness) ;;
+      "$(printf '%s\n' "$P" | grep -E "$SPEC_RE|^specforge-harness$")") ;;   # the path itself when it is a spec file or the ledger
       *) continue ;;
     esac
     if echo "$P" | grep -Eq "$FORBIDDEN_RE"; then continue; fi

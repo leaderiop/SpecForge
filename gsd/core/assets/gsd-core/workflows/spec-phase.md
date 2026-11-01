@@ -73,7 +73,7 @@ Use /gsd:progress to see available phases.
 ```
 Exit.
 
-**Check for existing SPEC.md:** the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --format json | jq -r '[.nodes[] | select(.kind == "phase_spec") | .id] | first // empty'); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the existing SPEC.md is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+**Check for existing SPEC.md:** the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the existing SPEC.md is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
 
 If `has_spec` is true:
 
@@ -207,10 +207,10 @@ The SPEC keeps the original language — only `text_en` is translated, and requi
 `id`s are never translated or renumbered (coverage rows join back on `id`, and any Acceptance
 Criteria you write from the resolved edges go into the SPEC in `response_language`). Populate
 `text_en` for **every** requirement, not only the ones that look edge-relevant: the
-`$APPLICABLE = 0` warning below fires only when *all* requirements are unclassified, so a
+`coverage.applicable = 0` warning below fires only when *all* requirements are unclassified, so a
 partly-classified spec slips through with no signal at all. (#4656) The warning now ALSO
 fires on the all-unclassified case itself: `coverage.unclassified` counts the soft-signal
-rows, and the guard below fires when `$UNCLASSIFIED = $APPLICABLE` — the case where the
+rows, and the guard below fires when `coverage.unclassified` equals `coverage.applicable` — the case where the
 classifier learned nothing about ANY requirement. When `response_language` is unset
 (an English-language project), omit `text_en` — `text` is already English and the engine
 falls back to it automatically (`text_en ?? text`).
@@ -277,9 +277,9 @@ JSON
 # Guard — never invoke on an empty/invalid array, OR one still holding the heredoc
 # `<replace: …>` placeholder (a forgotten substitution would otherwise yield a
 # meaningful-looking but bogus coverage report). Fail loud, not silent no-op.
-if ! jq -e 'type == "array" and length > 0 and all(.[]; (.text | type) == "string" and (.text | test("\\S")) and (.text | contains("<replace:") | not))' "$REQS_JSON" >/dev/null 2>&1; then
+if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
   rm -f "$REQS_JSON"
-  echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from the SPEC Requirements before Step 5.5 runs." >&2
+  echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from the SPEC Requirements before Step 5.5 runs." >&2   # also when the JSON is over the command line's limit (32,767 characters on Windows): it is passed as an argument
   exit 1
 fi
 # Invoke the compiled engine and CAPTURE its report — it computes which categories apply per
@@ -300,7 +300,7 @@ if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
 fi
 rm -f "$REQS_JSON"
 # Exit-0-but-garbage guard: the report must parse as JSON with the expected { items[], coverage{} } shape.
-if ! printf '%s' "$COVERAGE" | jq -e 'type == "object" and (.items | type) == "array" and (.coverage | type) == "object"' >/dev/null 2>&1; then
+if [ -z "$COVERAGE" ]; then
   echo "ERROR: edge-probe produced an unparseable or malformed coverage report — refusing to proceed with the resolution loop." >&2
   exit 1
 fi
@@ -319,16 +319,16 @@ echo "### (end edge-probe coverage report)"
 # a genuinely edge-free spec — the same fail-open shape as an invalid shape yielding
 # applicable:0. Surface it loudly; the author must explicitly confirm "no applicable edges"
 # below rather than silently emitting a green empty ## Edge Coverage section.
-APPLICABLE=$(printf '%s' "$COVERAGE" | jq -er '.coverage.applicable // 0' 2>/dev/null || echo 0)
-UNCLASSIFIED=$(printf '%s' "$COVERAGE" | jq -er '.coverage.unclassified // 0' 2>/dev/null || echo 0)
+# Read coverage.applicable and coverage.unclassified from the report printed above, and check its { items[], coverage{} } shape:
+
 # #4656: all-unclassified is the accidental-miss case the applicable:0 guard could never
 # reach — #1110's soft-signal rows make applicable non-zero by construction there.
-if [ "$APPLICABLE" = "0" ] || [ "$UNCLASSIFIED" = "$APPLICABLE" ]; then
-  echo "WARNING: edge-probe proposed ZERO applicable edges across all requirements — likely a classification miss or malformed requirements, not a genuinely edge-free spec. Do NOT silently write an empty Edge Coverage section." >&2
-fi
+
+
+
 ```
 
-If the guard above fired (`$APPLICABLE` is `0`, or every requirement is unclassified — `$UNCLASSIFIED = $APPLICABLE`, #4656), do NOT proceed silently: ask the author to confirm via AskUserQuestion
+If the report's `coverage.applicable` is `0`, or every requirement is unclassified (`coverage.unclassified` equals it, #4656), do NOT proceed silently: ask the author to confirm via AskUserQuestion
 ("The edge probe found no applicable edges for any requirement — is this genuinely an
 edge-free spec, or should we revisit the requirement wording / authored shapes?"). Only write
 an empty `## Edge Coverage` section after explicit confirmation.

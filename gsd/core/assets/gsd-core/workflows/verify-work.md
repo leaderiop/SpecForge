@@ -63,7 +63,7 @@ Parse JSON for: `planner_model`, `checker_model`, `commit_docs`, `phase_found`, 
 # MVP mode detection via the centralized phase.mvp-mode resolver.
 # verify-work has no --mvp CLI flag (mode is inherited from the planned phase),
 # so we omit --cli-flag — the verb falls through roadmap → config → false.
-MVP_MODE=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '(.nodes[0].fields.mode == "mvp") | tostring')
+MVP_MODE=$([ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false)
 ```
 </step>
 
@@ -74,12 +74,12 @@ kind, not gates alone. Each hook is data-driven — resolved from the capability
 registry, not hardcoded here.
 
 ```bash
-VERIFY_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
-PHASE_DIR=$(printf '%s' "$INIT" | jq -r '.phase_dir // empty')
-PHASE_NUMBER=$(printf '%s' "$INIT" | jq -r '.phase_number // empty')
+VERIFY_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
+PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
+PHASE_NUMBER=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_number)
 ```
 
-Read the `activeHooks` array from `VERIFY_PRE_HOOKS_JSON` in-context (do NOT pipe through a shell parser).
+Read the `activeHooks` of every line of `VERIFY_PRE_HOOKS_JSON`, one per capability extension, in-context (do NOT pipe through a shell parser).
 
 **If `activeHooks` is empty or absent:** skip silently to `check_active_session`.
 
@@ -98,7 +98,7 @@ runs `specforge check --format json`):
 
 ```bash
 GATE_RESULT=$(specforge check --format json) && CHECK_EXIT=0 || CHECK_EXIT=$?
-GATE_BLOCK=$(printf '%s' "$GATE_RESULT" | jq -r '.block // false' 2>/dev/null || echo "false")
+GATE_BLOCK=false   # specforge check answers a list of diagnostics, with no block field: read GATE_RESULT and route below
 ```
 
 **Two-step gate contract (same as execute:wave:post / execute:post):**
@@ -604,8 +604,8 @@ Present summary:
 nonzero but every one is a verified gap resolution, #4983)
 
 ```bash
-VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --after-fingerprint "$PHASE_ID" --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
-SECURITY_GATE_JSON=$(case "$VERIFY_POST_HOOKS_JSON" in *'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
+VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --after-fingerprint "$PHASE_ID" --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
+SECURITY_GATE_JSON=$([ -z "$(specforge gsd security-hooks verify:post --pick '.activeHooks[capId=security].capId' 2>/dev/null)" ] || specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}')   # the gate runs when security-hooks answers an active security hook: asked with no --after-fingerprint, which would move the hook to skippedHooks once the phase has its audit, and a skipped hook is still enabled
 ```
 
 **Generic step dispatch:** dispatch every `kind == "step"` hook from `VERIFY_POST_HOOKS_JSON` per @gsd-core/references/loop-hook-dispatch.md (skip silently when none). Each step is advisory and best-effort — honor `onError` and continue. The secure-phase handling below is an additional specialization of one such hook, not a replacement for the generic dispatch. `--after-fingerprint "$PHASE_ID"` (#5105) moves a step whose declared artifact the phase already has (the capability extension decides: `@gsd/security` maps `SECURITY.md` to the phase having a `security_audit`) into `skippedHooks` instead of `activeHooks` — execute-phase already dispatched it before its own fingerprint (`execute-phase.md:1202`), so this re-dispatch is a no-op for that step and is not repeated here.
@@ -647,25 +647,25 @@ If the secure-phase step hook is not enabled (absent from both `activeHooks` and
 If execution verification is waiting only on human UAT and this session recorded zero issues, canonicalize the report before the shared completion predicate. (#4663) Zero issues is NOT pass evidence on its own — blocked rows are not issues by this workflow's own rule, so a session that observed nothing (0 passed / 0 issues / N blocked) must NOT flip the report. The flip runs the SAME UAT-row predicate the phase-close uses, in its `--uat-only` form: it skips the verification-status blockers (the report still reads `human_needed` at this point — the full predicate could never pass here), and `passed` means at least one UAT check passed with no row pending/blocked/failed or skipped without a reason. The flagged transition-gate call below stays the final say on canonical verification:
 
 ```bash
-PHASE_DIR=$(printf '%s' "$INIT" | jq -r '.phase_dir // empty')
-VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].id // empty' 2>/dev/null)
+PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
+VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
 # #5118: stderr kept; an out-of-set report status is a hard error, never "no result".
-VERIFICATION_STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }
-VERIFICATION_STATUS_VALUE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.status')
-VERIFICATION_ROUTE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.route')
-NEXT_COMMAND=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.next_command')
-IMPLEMENTATION_COMPLETE=$(printf '%s' "$INIT" | jq -r '.phase_completion.implementation_complete // false')
+VERIFICATION_STATUS_VALUE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE%%$'\n'*}; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE:-pending}
+case "$VERIFICATION_STATUS_VALUE" in passed) VERIFICATION_ROUTE=complete ;; gaps_found) VERIFICATION_ROUTE=gap-closure ;; human_needed) VERIFICATION_ROUTE=human ;; *) VERIFICATION_ROUTE=verify ;; esac
+NEXT_COMMAND=   # a verification has no next-command field: the route names the next step
+
+IMPLEMENTATION_COMPLETE=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_completion.implementation_complete); IMPLEMENTATION_COMPLETE=${IMPLEMENTATION_COMPLETE:-false}
 PHASE_VERIFICATION_STATUS="$VERIFICATION_STATUS_VALUE"
 if [ "$VERIFICATION_STATUS_VALUE" = "human_needed" ]; then
   # #5170: exit 0 and exit 1 are VERDICTS (1 = the predicate says not passed) — the JSON on stdout is
   # authoritative. Any other status, or exit 1 with nothing on stdout (an error()), means it could not run.
-  UAT_PRECHECK=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test --format json | jq -c '{passed: ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0), blockers: ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | map(.id))}') && UAT_EXIT=0 || UAT_EXIT=$?
-  if [ "$UAT_EXIT" -gt 1 ] || { [ "$UAT_EXIT" -eq 1 ] && [ -z "$UAT_PRECHECK" ]; }; then echo "phase uat-passed could not run (exit $UAT_EXIT) — see the error above." >&2; exit 1; fi
-  UAT_PRECHECK_PASSED=$(printf '%s' "$UAT_PRECHECK" | jq -r '.passed // false' 2>/dev/null || echo "false")
+  UAT_BLOCKED=$(specforge gsd verification-debt --phase "$PHASE_ID" --pick '.blockers[]') && UAT_EXIT=0 || UAT_EXIT=$?   # the phase's open UAT tests, by the uat_test kind's rule
+  if [ "$UAT_EXIT" -ne 0 ]; then echo "verification-debt could not run (exit $UAT_EXIT) — see the error above." >&2; exit 1; fi
+  [ -z "$UAT_BLOCKED" ] && UAT_PRECHECK_PASSED=true || UAT_PRECHECK_PASSED=false
   if [ "$UAT_PRECHECK_PASSED" = "true" ]; then
     : # the verification status is computed: it is passed once every verdict is fresh and passing
   else
-    UAT_BLOCKERS=$(printf '%s' "$UAT_PRECHECK" | jq -r '.blockers | length' 2>/dev/null)
+    UAT_BLOCKERS=$(printf '%s\n' "$UAT_BLOCKED" | grep -c .)
     [ -n "$UAT_BLOCKERS" ] || UAT_BLOCKERS="?"
     echo "NOT canonicalizing: ${UAT_BLOCKERS} UAT row(s) blocked or not passing; verification stays human_needed. Resolve or pass them, then re-run /gsd:verify-work {phase}." >&2
   fi
@@ -689,12 +689,12 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-EXECUTE_INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$EXECUTE_INIT" == @file:* ]]; then EXECUTE_INIT=$(cat "${EXECUTE_INIT#@file:}"); fi
+
+
 for _k in phase_dir phase_number verifier_model phase_req_ids requirements_path section_manifest response_language; do
-  printf '%s=%s\n' "$_k" "$(printf '%s' "$EXECUTE_INIT" | jq -c ".${_k}")"
+  printf '%s=%s\n' "$_k" "$(specforge query "$PHASE_ID" --depth 1 --pick ".${_k}")"
 done
-PHASE_NUMBER=$(printf '%s' "$EXECUTE_INIT" | jq -r '.phase_number')
+PHASE_NUMBER=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_number)
 ```
 
 Read and execute `gsd-core/workflows/execute-phase/steps/verify-phase-goal.md`. If it stopped,
@@ -702,10 +702,10 @@ stop and present its reason; otherwise re-check `verification.status` afterwards
 report is the only authority for the transition — before the completion predicate below:
 
 ```bash
-VERIFICATION_STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused the regenerated report — see the error above." >&2; exit 1; }
-PHASE_VERIFICATION_STATUS=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.status')
-VERIFICATION_ROUTE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.route')
-NEXT_COMMAND=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.next_command')
+PHASE_VERIFICATION_STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification.status refused the regenerated report — see the error above." >&2; exit 1; }; PHASE_VERIFICATION_STATUS=${PHASE_VERIFICATION_STATUS%%$'\n'*}; PHASE_VERIFICATION_STATUS=${PHASE_VERIFICATION_STATUS:-pending}
+case "$PHASE_VERIFICATION_STATUS" in passed) VERIFICATION_ROUTE=complete ;; gaps_found) VERIFICATION_ROUTE=gap-closure ;; human_needed) VERIFICATION_ROUTE=human ;; *) VERIFICATION_ROUTE=verify ;; esac
+NEXT_COMMAND=   # a verification has no next-command field: the route names the next step
+
 ```
 
 Otherwise, check the shared UAT-plus-verification completion predicate before transition:
@@ -713,10 +713,10 @@ Otherwise, check the shared UAT-plus-verification completion predicate before tr
 ```bash
 # #5170: exit 0 and exit 1 are VERDICTS (1 = not passed) — read the JSON either way. Any other status,
 # or exit 1 with nothing on stdout (an error()), means the command could not run: abort.
-PHASE_COMPLETE=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test,verification --format json | jq -c '{passed: (([.nodes[]|select(.kind=="verification")][0].fields.status == "passed") and ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0))}') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?
-if [ "$PHASE_COMPLETE_EXIT" -gt 1 ] || { [ "$PHASE_COMPLETE_EXIT" -eq 1 ] && [ -z "$PHASE_COMPLETE" ]; }; then echo "phase uat-passed could not run (exit $PHASE_COMPLETE_EXIT) — see the error above." >&2; exit 1; fi
-PHASE_COMPLETE_PASSED=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.passed' 2>/dev/null || echo "false")
-PHASE_COMPLETE_BLOCKERS=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.blockers[]?' 2>/dev/null || true)
+PHASE_COMPLETE_BLOCKERS=$(specforge gsd verification-debt --phase "$PHASE_ID" --pick '.blockers[]') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?   # the phase's open UAT tests
+if [ "$PHASE_COMPLETE_EXIT" -ne 0 ]; then echo "verification-debt could not run (exit $PHASE_COMPLETE_EXIT) — see the error above." >&2; exit 1; fi
+
+[ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
 ```
 
 If `PHASE_COMPLETE_PASSED` is not `true`, stop before phase advancement and present:

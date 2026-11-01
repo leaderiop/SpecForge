@@ -38,7 +38,7 @@
     "",
     "```bash",
     "# Check for active phase",
-    "phase=$(specforge gsd progress-report --format json | jq -r '[.phases[]|select(.status == \"In Progress\")][0].number // empty')",
+    "phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick \".phases[$((phase - 1))].number\")}",
     "phase=${phase:+$(basename \"$(dirname \"$phase\")\")}",
     "",
     "# Check for active spike",
@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 19745,
+  "bytes": 19898,
   "end": [
     "To resume: /gsd-resume-work",
     "",
@@ -152,7 +152,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a307c4e77f00aab38c0047eae56d4826a624a3f70ef39f71785ba1d836e20c02",
+    "digest": "sha256:28a101b7e1cada62bbf2ee8ccf6230a4f849109cb41622c49ffd60366cb88e24",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "a307c4e77f00aab38c0047eae56d4826a624a3f70ef39f71785ba1d836e20c02"
+  "sha256": "28a101b7e1cada62bbf2ee8ccf6230a4f849109cb41622c49ffd60366cb88e24"
 }

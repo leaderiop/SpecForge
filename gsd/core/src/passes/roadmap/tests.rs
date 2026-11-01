@@ -460,3 +460,90 @@ fn a_lone_research_without_phase_not_named_research_is_e206() {
     let found = check(&input(vec![scoped("03-RESEARCH", "research")], vec![]));
     assert_eq!(codes(&found), [("E206", "03-RESEARCH")]);
 }
+
+#[test]
+fn a_quick_plan_holds_one_context_and_one_research_of_any_name() {
+    let quick = |id: &str| edge(id, "251101-abc", "plan");
+    let clean = check(&input(
+        vec![
+            scoped("251101-abc", "plan"),
+            scoped("251101-abc-CONTEXT", "context"),
+            scoped("251101-abc-D-01", "decision"),
+            scoped("foo", "research"),
+            scoped("251101-xyz-CONTEXT", "context"),
+            scoped("RESEARCH", "research"),
+        ],
+        vec![
+            quick("251101-abc-CONTEXT"),
+            quick("251101-abc-D-01"),
+            quick("foo"),
+            edge("251101-xyz-CONTEXT", "251101-xyz", "plan"),
+        ],
+    ));
+    assert_eq!(codes(&clean), []);
+    let found = check(&input(
+        vec![
+            scoped("251101-abc-CONTEXT", "context"),
+            scoped("251101-abc-CONTEXT-B", "context"),
+        ],
+        vec![quick("251101-abc-CONTEXT"), quick("251101-abc-CONTEXT-B")],
+    ));
+    assert_eq!(codes(&found), [("E206", "251101-abc-CONTEXT-B")]);
+    assert!(
+        found[0]
+            .message
+            .contains("a second context of quick plan '251101-abc'"),
+        "{}",
+        found[0].message
+    );
+}
+
+#[test]
+fn a_context_names_exactly_one_owner_and_a_plan_owner_is_a_quick_plan() {
+    let found = check(&input(
+        vec![
+            scoped("v1.0/01/01-CONTEXT", "context"),
+            scoped("v1.0/01/D-01", "decision"),
+            scoped("STRAY-CONTEXT", "context"),
+            scoped("251101-abc-RESEARCH", "research"),
+        ],
+        vec![
+            edge("v1.0/01/01-CONTEXT", "251101-abc", "plan"),
+            edge("v1.0/01/D-01", "251101-abc", "plan"),
+            edge("251101-abc-RESEARCH", "v1.0/01/01-01", "plan"),
+            edge("v1.0/01/01-01", "v1.0/01", "phase"),
+        ],
+    ));
+    assert_eq!(
+        codes(&found),
+        [
+            ("E206", "v1.0/01/01-CONTEXT"),
+            ("E206", "v1.0/01/D-01"),
+            ("E206", "STRAY-CONTEXT"),
+            ("E206", "251101-abc-RESEARCH"),
+        ]
+    );
+    assert!(found[0].message.contains("names both a phase and a plan"));
+    assert!(
+        found[2]
+            .message
+            .contains("names neither a phase nor a quick plan")
+    );
+    assert!(found[3].message.contains("which is not a quick plan"));
+}
+
+#[test]
+fn a_quick_plans_research_named_research_is_e206() {
+    let found = check(&input(
+        vec![scoped("251101-abc", "plan"), scoped("RESEARCH", "research")],
+        vec![edge("RESEARCH", "251101-abc", "plan")],
+    ));
+    assert_eq!(codes(&found), [("E206", "RESEARCH")]);
+    assert!(
+        found[0]
+            .message
+            .contains("research 'RESEARCH' names quick plan '251101-abc'"),
+        "{}",
+        found[0].message
+    );
+}

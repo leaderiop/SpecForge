@@ -16,8 +16,8 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 # the commands below are specforge commands: there is no launcher to define
 # #4772: this file is Read, not textually substituted - write the parent command's original argument string in place of $ARGUMENTS so --ws reaches the query.
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '.nodes[0].fields.goal')
-USER_STORY_VALID=$(printf '%s' "$PHASE_GOAL" | grep -qiE '^as an? .+, i want .+ so that .+' && echo true || echo false)
+PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')
+USER_STORY_VALID=$(specforge gsd user-story-validate --story "$PHASE_GOAL" --pick .valid)
 if [ "$USER_STORY_VALID" != "true" ]; then
   echo "Phase ${phase_number} has '**Mode:** mvp' in ROADMAP.md but the **Goal:** is not in user-story format."
   echo "Run /gsd:mvp-phase ${phase_number} to set a user-story goal before verifying."
@@ -25,4 +25,4 @@ if [ "$USER_STORY_VALID" != "true" ]; then
 fi
 ```
 
-The verb owns the canonical regex `/^As a .+, I want to .+, so that .+\.$/` and returns slot extractions plus per-error guidance when invalid. Halt UAT generation on failure — never attempt to derive user-flow steps from a non-User-Story goal (low-quality UAT).
+`specforge gsd user-story-validate` owns the canonical regex `/^As a (\S.*?), I want to (\S.*?), so that (\S.*?)\.$/` on one line and answers the slots `role`, `capability` and `outcome` plus per-error guidance in `errors[]` when invalid. Halt UAT generation on failure — never attempt to derive user-flow steps from a non-User-Story goal (low-quality UAT).

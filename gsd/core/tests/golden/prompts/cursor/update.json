@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 11177,
+  "bytes": 11206,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -117,7 +117,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -153,8 +153,8 @@
   ],
   "lines": 222,
   "payload": {
-    "digest": "sha256:67ec4ab393d3c59173a230e9265ec8fc1b0f60c663e6ac243d6d9cf1a930de9f",
+    "digest": "sha256:1b7934ad1bcaa59e9bdd864924105bdc9bf70c13d4c6e3692fc86cbebcfb93d8",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "67ec4ab393d3c59173a230e9265ec8fc1b0f60c663e6ac243d6d9cf1a930de9f"
+  "sha256": "1b7934ad1bcaa59e9bdd864924105bdc9bf70c13d4c6e3692fc86cbebcfb93d8"
 }

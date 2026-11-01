@@ -44,7 +44,7 @@ GRADUATION_THRESHOLD="{{setting:features.graduation_threshold|3}}"   # features.
 Find LEARNINGS.md files from the last N completed phases (excluding the phase currently completing):
 
 ```bash
-specforge query "$MILESTONE" --depth 2 --kinds lesson --format brief | jq -r '.nodes[]|select(.kind=="lesson")|.id' | sort | tail -n "$GRADUATION_WINDOW"
+specforge query "$MILESTONE" --depth 2 --kinds lesson --pick '.nodes[kind=lesson].id' | sort | tail -n "$GRADUATION_WINDOW"
 ```
 
 For each file found:

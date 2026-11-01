@@ -5,6 +5,11 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
+#[path = "common/command_word.rs"]
+mod command_word;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
@@ -71,8 +76,9 @@ const VERBS: &[&str] = &[
     "schema", "set", "settings",
 ];
 
-/// Commands of `@gsd/security` that core's text asks for when it is loaded (plan 16 T5, T6).
-const EXTENSION_COMMANDS: &[&str] = &["security-gate", "threat-ids"];
+/// Commands of `@gsd/security` that core's text asks for when it is loaded (plan 16 T5, T6; `security-hooks` for the
+/// security gate, plan 05 review R9).
+const EXTENSION_COMMANDS: &[&str] = &["security-gate", "security-hooks", "threat-ids"];
 
 #[test]
 fn a_ported_line_names_only_declared_tools() {
@@ -187,11 +193,34 @@ const PENDING_NODE: &[(&str, &str)] = &[
     ),
 ];
 
-/// Plan 03 (F9): a shell block reads SpecForge's JSON (and its own state files) with `jq`, never node:
-/// a project that uses SpecForge may have no node at all. Only code counts: a line inside a fence that is not a `#`
-/// comment. Prose about a node script is not code.
+/// The code lines of `lines` (an asset's lines after its header) as `(index, trimmed line)`: the lines inside a fence
+/// that are not a `#` comment. Prose about a command is not code.
+fn fenced_code(lines: &[String]) -> Vec<(usize, &str)> {
+    let mut out = Vec::new();
+    // the open fence's character: a ``` fence is closed by ```, a ~~~ fence by ~~~
+    let mut fence: Option<char> = None;
+    for (n, line) in lines.iter().enumerate() {
+        let code = line.trim();
+        if code.starts_with("```") || code.starts_with("~~~") {
+            let mark = code.chars().next();
+            fence = match fence {
+                None => mark,
+                Some(open) if Some(open) == mark => None,
+                open => open,
+            };
+            continue;
+        }
+        if fence.is_some() && !code.starts_with('#') {
+            out.push((n, code));
+        }
+    }
+    out
+}
+
+/// Plan 03 (F9): a shell block runs no node: a project that uses SpecForge may have no node at all. Only code counts:
+/// a line inside a fence that is not a `#` comment. Prose about a node script is not code.
 #[test]
-fn a_shell_block_reads_json_with_jq_never_node() {
+fn a_shell_block_runs_no_node() {
     let mut found = Vec::new();
     let listed: Vec<&(&str, &str)> = KEEP.iter().chain(PENDING_NODE).collect();
     let mut matched = vec![0; listed.len()];
@@ -216,20 +245,8 @@ fn a_shell_block_reads_json_with_jq_never_node() {
         assert_eq!(node.is_match(line), is_node, "{line}");
     }
     for (path, lines, _) in every_asset() {
-        // the open fence's character: a ``` fence is closed by ```, a ~~~ fence by ~~~
-        let mut fence: Option<char> = None;
-        for (n, line) in lines.iter().enumerate() {
-            let code = line.trim();
-            if code.starts_with("```") || code.starts_with("~~~") {
-                let mark = code.chars().next();
-                fence = match fence {
-                    None => mark,
-                    Some(open) if Some(open) == mark => None,
-                    open => open,
-                };
-                continue;
-            }
-            if fence.is_none() || code.starts_with('#') || !node.is_match(code) {
+        for (n, code) in fenced_code(&lines) {
+            if !node.is_match(code) {
                 continue;
             }
             if let Some(k) = listed.iter().position(|(p, l)| *p == path && *l == code) {
@@ -251,6 +268,54 @@ fn a_shell_block_reads_json_with_jq_never_node() {
             "KEEP/PENDING_NODE ({path}, {line}) matches {count} lines"
         );
     }
+}
+
+/// G4 (plan 04 T1, plan 05 T4): no shell block and no inline-code run of the prose runs jq: a SpecForge answer is
+/// read with `--pick`, a third party's answer by the agent, and gh filters with its own `--jq`. Git Bash on Windows has
+/// no jq, and a `| jq -r` there leaves the variable empty (upstream #2589).
+#[test]
+fn no_shell_line_runs_jq() {
+    let mut found = Vec::new();
+    for (path, lines) in specforge_only::shell_assets() {
+        for (n, code) in fenced_code(&lines) {
+            if command_word::runs(code, "jq") {
+                // the asset's line number: its line 1 is the attribution header
+                found.push(format!("{path}:{}: {code}", n + 2));
+            }
+        }
+        for (n, run) in specforge_only::inline_runs(&lines) {
+            if command_word::runs_in_prose(run, "jq") {
+                found.push(format!("{path}:{}: `{run}`", n + 2));
+            }
+        }
+    }
+    assert!(
+        found.is_empty(),
+        "{} jq runs; read a SpecForge answer with --pick:\n{}",
+        found.len(),
+        found.join("\n")
+    );
+}
+
+/// R0 of "SpecForge serves itself": a shell block, or an inline run of the prose, of an asset runs only `specforge`
+/// and the shell's own words; what still runs another tool is a row of `pending_tools.txt` (`common/specforge_only.rs`).
+#[test]
+fn a_shell_block_calls_only_specforge() {
+    let assets = specforge_only::shell_assets();
+    let functions = specforge_only::functions(assets.iter().map(|(_, lines)| &lines[..]));
+    let hits: Vec<specforge_only::Row> = assets
+        .iter()
+        .flat_map(|(path, lines)| specforge_only::hits(path, lines, &functions))
+        .collect();
+    assert!(
+        hits.len() > 500,
+        "only {} hits: the scan finds nothing",
+        hits.len()
+    );
+    specforge_only::assert_pending(
+        &hits,
+        specforge_only::pending(|f| !f.starts_with("prompt:")),
+    );
 }
 
 /// One declared command as `(name, positionals in order, options and flags with their kind)`.
@@ -365,8 +430,8 @@ fn refusal(
             open = true;
         } else if let Some(long) = w.strip_prefix("--") {
             let long = long.split('=').next().unwrap_or(long);
-            // `--path` and `--format` belong to the CLI, not to a command
-            if matches!(long, "path" | "format") {
+            // `--path`, `--format` and `--pick` belong to the CLI, not to a command
+            if matches!(long, "path" | "format" | "pick") {
                 i += 2;
                 continue;
             }

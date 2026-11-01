@@ -3,7 +3,8 @@
 //! `context_digest` it was recorded with and the compute pass gives the context its current `digest`.
 //!
 //! As upstream: no context in the artifact's phase, or an artifact that records no digest, is not judged, and the
-//! project's research (no phase) has no context to drift from.
+//! project's research (no phase) has no context to drift from. A quick plan's research drifts from its quick plan's
+//! context: both name the quick plan in `plan` (`crate::digest::owner`).
 //!
 //! gsd-core modules this file ports: gate-context-drift.cjs.
 
@@ -11,7 +12,7 @@ use std::collections::BTreeMap;
 
 use specforge_extension_sdk::prelude::*;
 
-use crate::digest::scope_of;
+use crate::digest::owner;
 
 /// The kinds that record `context_digest` (`validation` is declared in round r39).
 const RECORDS_DIGEST: &[&str] = &["research", "phase_spec", "validation"];
@@ -22,10 +23,14 @@ pub fn declare(c: &mut ContributionsBuilder) {
     });
 }
 
-/// What GSD tells the user to do about the stale artifact (`gate-context-drift`'s messages).
-fn suggestion(kind: &str, phase: &str) -> String {
-    let number = phase.rsplit('/').next().unwrap_or(phase);
+/// What GSD tells the user to do about the stale artifact (`gate-context-drift`'s messages); `quick` when its owner is
+/// a quick plan.
+fn suggestion(kind: &str, owner: &str, quick: bool) -> String {
+    let number = owner.rsplit('/').next().unwrap_or(owner);
     let how = match kind {
+        "research" if quick => {
+            format!("regenerate the research of quick task {owner}: /gsd-quick --research")
+        }
         "research" => format!("regenerate the research: /gsd-plan-phase {number} --research"),
         "phase_spec" => {
             "regenerate or reconcile the spec against the current decisions".to_string()
@@ -36,10 +41,10 @@ fn suggestion(kind: &str, phase: &str) -> String {
 }
 
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
-    // The first context of each scope by id (E206 reports a second).
+    // The first context of each owner (a phase or a quick plan) by id (E206 reports a second).
     let mut contexts: BTreeMap<&str, &PassEntity> = BTreeMap::new();
     for context in input.entities.iter().filter(|e| e.kind == "context") {
-        let slot = contexts.entry(scope_of(&context.id)).or_insert(context);
+        let slot = contexts.entry(owner(input, context)).or_insert(context);
         if context.id < slot.id {
             *slot = context;
         }
@@ -50,7 +55,9 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
         .filter(|e| RECORDS_DIGEST.contains(&e.kind.as_str()))
         .filter_map(|artifact| {
             let recorded = artifact.fields.get("context_digest")?;
-            let context = contexts.get(scope_of(&artifact.id))?;
+            let owner = owner(input, artifact);
+            // An empty owner is the project's: its research has no context, and a context with none is E206.
+            let context = contexts.get(owner).filter(|_| !owner.is_empty())?;
             let current = context.fields.get("digest")?;
             (recorded != current).then(|| {
                 PassDiagnostic::new(
@@ -63,7 +70,11 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
                         context.id
                     ),
                 )
-                .with_suggestion(suggestion(&artifact.kind, scope_of(&artifact.id)))
+                .with_suggestion(suggestion(
+                    &artifact.kind,
+                    owner,
+                    crate::digest::quick_plan(input, &artifact.id).is_some(),
+                ))
                 .with_entity(&artifact.id)
             })
         })

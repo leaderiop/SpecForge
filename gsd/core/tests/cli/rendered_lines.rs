@@ -150,7 +150,7 @@ fn lacks(id: &str, needle: &str) {
 fn the_project_rooted_lines_list_by_kind() {
     has(
         "onboard",
-        "specforge export --kinds project,milestone,phase,requirement",
+        "for k in project milestone phase requirement; do specforge export --kinds \"$k\" --pick '.nodes[].id'",
     );
     has(
         "ingest_docs",
@@ -406,4 +406,48 @@ fn the_post_fix_text_leftovers_stay_fixed() {
         "a masked key is shown"
     );
     assert!(!integrations.contains("written plaintext only to `config.json`"));
+}
+
+/// G4 (plan 05): no rendered line runs jq, neither an asset's (`port_tools` scans those) nor one the Rust side writes
+/// (`src/prompts/`). gh's own `--jq` filter is not jq.
+#[test]
+fn no_rendered_line_runs_jq() {
+    let found: Vec<String> = rendered()
+        .iter()
+        .flat_map(|(id, text)| {
+            text.lines()
+                .enumerate()
+                .filter(|(_, l)| super::command_word::runs_in_prose(l, "jq"))
+                .map(move |(n, l)| format!("{id}:{}: {}", n + 1, l.trim()))
+        })
+        .collect();
+    assert!(found.is_empty(), "lines that run jq:\n{}", found.join("\n"));
+}
+
+/// R0 of "SpecForge serves itself": a rendered prompt's shell fences and inline runs run only `specforge` too, as an
+/// asset's do (`port_tools`); what still runs another tool is a `prompt:<id>` row of `pending_tools.txt`.
+#[test]
+fn a_rendered_prompt_calls_only_specforge() {
+    let texts: Vec<(String, Vec<String>)> = rendered()
+        .iter()
+        .map(|(id, text)| {
+            (
+                format!("prompt:{id}"),
+                text.lines().map(String::from).collect(),
+            )
+        })
+        .collect();
+    // a function an asset defines may be called from a prompt that does not render its definition
+    let assets = super::specforge_only::shell_assets();
+    let functions =
+        super::specforge_only::functions(texts.iter().chain(&assets).map(|(_, lines)| &lines[..]));
+
+    let hits: Vec<super::specforge_only::Row> = texts
+        .iter()
+        .flat_map(|(file, lines)| super::specforge_only::hits(file, lines, &functions))
+        .collect();
+    super::specforge_only::assert_pending(
+        &hits,
+        super::specforge_only::pending(|f| f.starts_with("prompt:")),
+    );
 }

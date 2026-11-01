@@ -36,7 +36,7 @@
     "",
     "If `--milestone` is not given:",
     "1. Take the milestone the run is about (`$MILESTONE`: the one still open, else the last)",
-    "2. Else take the latest closed milestone (`specforge export --kinds milestone --format graph | jq -r '[.nodes[]|select(.fields.state==\"shipped\")]|last|.id'`)",
+    "2. Else take the latest closed milestone: the last id `specforge export --kinds milestone --pick '.nodes[fields.state=shipped].id'` prints",
     "3. A milestone with no phases yet is mid-build: the summary adapts to what it has",
     "4. If nothing found: error \"No milestone found. Run /gsd-new-project or /gsd-new-milestone first.\"",
     "",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 20371,
+  "bytes": 20443,
   "end": [
     "```",
     "</file>",
@@ -152,7 +152,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:0ceb2ee056ad589387911ef7cc5fc6e032c46b790549f30a915a9e36bd89bb58",
+    "digest": "sha256:7d11688dbea8dc8b71d81cdf8e37fe2c86dfa71ac4797abec1d38e2bc281fe74",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "0ceb2ee056ad589387911ef7cc5fc6e032c46b790549f30a915a9e36bd89bb58"
+  "sha256": "7d11688dbea8dc8b71d81cdf8e37fe2c86dfa71ac4797abec1d38e2bc281fe74"
 }

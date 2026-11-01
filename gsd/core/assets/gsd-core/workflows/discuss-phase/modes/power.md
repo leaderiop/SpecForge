@@ -22,7 +22,7 @@ The power user mode generates ALL questions upfront into machine-readable
 and human-friendly files, then waits for the user to answer at their own
 pace before processing all answers in a single pass.
 
-1. Load the phase SPEC (`check_spec`, from the phase's `phase_spec` entity in the graph: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --format json | jq -r '[.nodes[] | select(.kind == "phase_spec") | .id] | first // empty'); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`), then run the same phase analysis (gray area identification) as standard mode, about HOW only when a SPEC locks the requirements
+1. Load the phase SPEC (`check_spec`, from the phase's `phase_spec` entity in the graph: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`), then run the same phase analysis (gray area identification) as standard mode, about HOW only when a SPEC locks the requirements
 2. Write all questions to
    `{phase_dir}/{padded_phase}-QUESTIONS.json` and
    `{phase_dir}/{padded_phase}-QUESTIONS.html`

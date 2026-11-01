@@ -31,7 +31,7 @@ Checker prompt:
 **Task Description:** ${DESCRIPTION}
 
 <required_reading>
-- ${QUICK_DIR}/${quick_id}-PLAN.md (Plan to verify)
+- `specforge query ${quick_id} --depth 1 --format context` (Plan to verify)
 </required_reading>
 
 ${AGENT_SKILLS_CHECKER}
@@ -103,7 +103,7 @@ Reuse the `PLAN_PRE_HOOKS_JSON` snapshot captured by Quick Step 5; do not render
 **Mode:** quick-full (revision)
 
 <required_reading>
-- ${QUICK_DIR}/${quick_id}-PLAN.md (Existing plan)
+- `specforge query ${quick_id} --depth 1 --format context` (Existing plan)
 </required_reading>
 
 ${AGENT_SKILLS_PLANNER}

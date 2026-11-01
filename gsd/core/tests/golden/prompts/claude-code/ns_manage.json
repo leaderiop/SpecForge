@@ -61,7 +61,7 @@
     "| `/gsd-surface` | command `specforge gsd surface` (served by @gsd/core) |",
     "| `/gsd-help` | command `specforge gsd help` (served by @gsd/core) |"
   ],
-  "bytes": 11400,
+  "bytes": 11429,
   "end": [
     "| Process inbox items | gsd-inbox |",
     "| Create a clean PR branch | gsd-pr-branch |",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:15e53d4e168c8dce95d6146d97f87705a20e95b6aef36752afe6a7dbf0456358",
+    "digest": "sha256:cdff4ee29d916049c9dcb1fe18c4d5895e9ee28fc052283c53ed2fb28fa13122",
     "prompt": "@gsd/core@VERSION:ns_manage"
   },
-  "sha256": "15e53d4e168c8dce95d6146d97f87705a20e95b6aef36752afe6a7dbf0456358"
+  "sha256": "cdff4ee29d916049c9dcb1fe18c4d5895e9ee28fc052283c53ed2fb28fa13122"
 }

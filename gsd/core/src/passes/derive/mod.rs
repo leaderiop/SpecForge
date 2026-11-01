@@ -15,7 +15,7 @@ mod execute;
 mod halt;
 pub mod ladder;
 mod progress;
-mod uat;
+pub(crate) mod uat;
 pub mod verify;
 
 use specforge_extension_sdk::prelude::*;

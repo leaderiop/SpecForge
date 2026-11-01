@@ -61,7 +61,7 @@
     "- User chose which areas to discuss",
     "- Each selected area explored until satisfied"
   ],
-  "bytes": 19941,
+  "bytes": 19970,
   "end": [
     "",
     "Context files are resolved in-workflow using `init phase-op` and roadmap/state tool calls.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:43c8e0c1808be5ab82ab524465c3ee81931b356a4c8bc169404c302d4992e0c5",
+    "digest": "sha256:76d97c753e502dcb7190a26da8b507e9608010f99bff624dd047b532186f235a",
     "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "43c8e0c1808be5ab82ab524465c3ee81931b356a4c8bc169404c302d4992e0c5"
+  "sha256": "76d97c753e502dcb7190a26da8b507e9608010f99bff624dd047b532186f235a"
 }

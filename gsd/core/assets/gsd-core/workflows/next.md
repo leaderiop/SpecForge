@@ -48,7 +48,7 @@ Then proceed directly to `determine_next_action`. (Route 0 and `prior_phase_comp
 **Gate 1: Unresolved checkpoint**
 Check whether a `pause` entity exists:
 ```bash
-[ -n "$(specforge export --kinds pause --format brief | jq -r '.nodes[]|.id')" ]   # an unresolved pause (a pause outside a phase is linked to nothing: list by kind)
+[ -n "$(specforge export --kinds pause --pick '.nodes[].id')" ]   # an unresolved pause (a pause outside a phase is linked to nothing: list by kind)
 ```
 If found:
 ```
@@ -107,7 +107,7 @@ Illustrative bash:
 ```bash
 INCOMPLETE_PHASE=""
 ROADMAP_JSON=$(specforge gsd progress-report --format json)
-ROADMAP_SCOPE=$(echo "$ROADMAP_JSON" | jq -r '.scope // "complete"')
+ROADMAP_SCOPE=$(specforge gsd progress-report --pick .phase_scope)
 if [ $? -ne 0 ] || [ -z "$ROADMAP_JSON" ]; then
   echo "⚠ WARNING: resume-incomplete-phase scan could not run (roadmap.analyze failed)." >&2
   echo "  The incomplete-phase invariant (#160) could not be verified." >&2
@@ -124,14 +124,14 @@ elif [ "$ROADMAP_SCOPE" != "complete" ]; then
   echo "  The incomplete-phase invariant (#160) could not be verified — review project state carefully." >&2
   # Fall through to prior_phase_completeness rather than silently passing
 else
-  for PHASE_NUM in $(echo "$ROADMAP_JSON" | jq -r '.phases[] | (.number // .phase_number // empty)'); do
+  for PHASE_NUM in $(specforge gsd progress-report --pick '.phases[].number'); do
     PHASE_JSON=$(specforge query "$PHASE_NUM" --depth 2 --kinds plan,summary --format json)
     if [ $? -ne 0 ] || [ -z "$PHASE_JSON" ]; then
       echo "⚠ WARNING: Could not query phase $PHASE_NUM — skipping in resume scan." >&2
       continue
     fi
-    PLAN_COUNT=$(echo "$PHASE_JSON" | jq '[.nodes[]|select(.kind=="plan")]|length')
-    SUMMARY_COUNT=$(echo "$PHASE_JSON" | jq '[.nodes[]|select(.kind=="summary")]|length')
+    PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[number=$PHASE_NUM].plans")   # the phase's own plans
+    SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[number=$PHASE_NUM].summaries")
     if [ "${PLAN_COUNT:-0}" -gt "${SUMMARY_COUNT:-0}" ]; then
       INCOMPLETE_PHASE="$PHASE_NUM"
       break

@@ -61,7 +61,7 @@
     "- `workflow.plan_check` — spawn plan checker during plan-phase",
     "- `workflow.verifier` — spawn verifier during execute-phase"
   ],
-  "bytes": 45530,
+  "bytes": 45559,
   "end": [
     "These settings apply to future /gsd-plan-phase and /gsd-execute-phase runs.",
     "",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a5551ab36cfa3b5be6bf9146895e37509c242ccdc59be0122483034afc049d25",
+    "digest": "sha256:f9d07c5c0e5afafd371ab7422ee0c0429904b98e708096a0253d3e799d32d6f3",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "a5551ab36cfa3b5be6bf9146895e37509c242ccdc59be0122483034afc049d25"
+  "sha256": "f9d07c5c0e5afafd371ab7422ee0c0429904b98e708096a0253d3e799d32d6f3"
 }

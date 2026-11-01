@@ -24,7 +24,7 @@ Read STATE.md `status` / `stopped_at` fields (from the STATE snapshot already lo
 
 Check for existence of:
 ```bash
-specforge export --kinds pause,handoff --format brief | jq -r '.nodes[]|.id' || true   # by kind: a pause or handoff outside a phase is linked to nothing
+specforge export --kinds pause,handoff --pick '.nodes[].id' || true   # by kind: a pause or handoff outside a phase is linked to nothing
 ```
 A `pause` entity is the handoff marker (`.continue-here.md` is not a file here).
 
@@ -36,7 +36,7 @@ Emit:
 
 Search phase artifacts (CONTEXT.md, DISCUSSION-LOG.md, BUG-BRIEF.md, VERIFICATION.md, SUMMARY.md, HANDOFF.md files under the `phase` entities) for patterns:
 ```bash
-specforge query "$MILESTONE" --depth 3 --kinds phase --format json | jq -r '.nodes[]|select(.fields.goal // "" | test("defer to Phase|future phase|out of scope Phase|deferred to Phase"))|.id' || true
+while IFS=$'\x1f' read -r ph goal; do case "$goal" in (*"defer to Phase"*|*"future phase"*|*"out of scope Phase"*|*"deferred to Phase"*) echo "$ph" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds phase --pick '.nodes[kind=phase]' --fields id,fields.goal) || true
 ```
 
 For each match, extract the referenced phase number. Cross-reference against ROADMAP.md phase list. If the referenced phase number is NOT in ROADMAP.md, flag as deferred scope not captured.
@@ -49,7 +49,7 @@ Emit:
 
 Check whether a `lesson` entity records pending work (there is no MEMORY.md here):
 ```bash
-specforge export --kinds lesson --format brief | jq -r '.nodes[]|.id' || true
+specforge export --kinds lesson --pick '.nodes[].id' || true
 ```
 
 If found, grep for entries containing: `pending`, `status`, `deferred`, `not yet run`, `backfill`, `blocking`.
@@ -87,7 +87,7 @@ Emit:
 
 Glob every phase directory's SCOPE BOUNDARY log (executor writes out-of-scope discoveries here per `agents/gsd-executor.md`):
 ```bash
-specforge query "$MILESTONE" --depth 3 --kinds deferred_item --format json | jq -r '.nodes[]|.id' || true
+specforge query "$MILESTONE" --depth 3 --kinds deferred_item --pick '.nodes[kind=deferred_item].id' || true
 ```
 
 For each `deferred-items.md` found, read its entries (bullet list, one entry per top-level list item — `-`, `*`, `+` or an ordered marker of one to nine digits terminated by a DOT, where an ordered list counts when it starts at `0.` or `1.` or continues a list already open at its level; `1)` is not a marker and neither is a ten-digit ordinal (`999999999.` counts, `1234567890.` does not) — with continuation lines indented beneath it; fenced code blocks at ANY indent, including deeper than CommonMark's three-space cap, and `* * *`-style separators are not entries; an unclosed fence ends with its own entry and never hides the entries after it; a closed pair of delimiters is a fence whatever sits between them). An entry is RESOLVED only if it carries an explicit `status: resolved` field on one of its lines — the bare key lower-case only, or the bolded `**Status:**` form in any case; the VALUE is case-insensitive in both; every other entry — including one with no `status:` field at all — is UNRESOLVED and must be surfaced (fail-safe: never silently drop a possibly-open item).

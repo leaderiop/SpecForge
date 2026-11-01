@@ -20,7 +20,7 @@ VERSION=$(echo "$GSD_ARGS" | sed -nE 's/.*--milestone[[:space:]]+v?([A-Za-z0-9._
 
 If `--milestone` is not given:
 1. Take the milestone the run is about (`$MILESTONE`: the one still open, else the last)
-2. Else take the latest closed milestone (`specforge export --kinds milestone --format graph | jq -r '[.nodes[]|select(.fields.state=="shipped")]|last|.id'`)
+2. Else take the latest closed milestone: the last id `specforge export --kinds milestone --pick '.nodes[fields.state=shipped].id'` prints
 3. A milestone with no phases yet is mid-build: the summary adapts to what it has
 4. If nothing found: error "No milestone found. Run /gsd:new-project or /gsd:new-milestone first."
 
@@ -103,7 +103,7 @@ git log --oneline --since="<started_at_date>" | wc -l
 **Method 3 — Earliest recorded commit** (if no date was recorded):
 Find the earliest `commit` entity of the milestone:
 ```bash
-specforge query "v${VERSION}" --depth 4 --kinds commit --format json | jq -r '.nodes[].fields | "\(.at) \(.hash)"' | sort | head -1
+specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 ```
 Use that commit's date as the start boundary.
 

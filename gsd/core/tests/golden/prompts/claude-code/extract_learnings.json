@@ -52,8 +52,8 @@
     "Read the phase artifacts. PLAN.md and SUMMARY.md are required; VERIFICATION.md, UAT.md, and STATE.md are optional.",
     "",
     "**Required artifacts:**",
-    "- the phase's plans (`specforge query \"$PHASE_ID\" --depth 2 --kinds plan --format context`)",
-    "- the `summary` entities of its plans (`specforge query \"$PHASE_ID\" --depth 3 --kinds summary --format context`)",
+    "- the phase's plans (`specforge query \"$PHASE_ID\" --depth 2 --kinds plan --pick \".nodes[fields.phase=$PHASE_ID].id\"`, its own plans; read each one, `$PLAN_REF`, with `specforge query \"$PLAN_REF\" --depth 1 --format context`)",
+    "- the `summary` entities of those plans (`specforge query \"$PLAN_REF\" --depth 1 --kinds summary --format context` for each)",
     "",
     "If PLAN.md or SUMMARY.md files are not found or missing, exit with error: \"Required artifacts missing. PLAN.md and SUMMARY.md are required for learning extraction.\"",
     "",
@@ -61,7 +61,7 @@
     "- the phase's `verification` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds verification --format context`) — verification results",
     "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results"
   ],
-  "bytes": 20732,
+  "bytes": 20904,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b5d72c3a76f27282cdbe48ceb18cf76b5138a37116b4e7d093b296c53082ba36",
+    "digest": "sha256:dfc81c364fd70c3b0d0a00bbf986d1ee01e98b393d56f683a21a251c2144741f",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "b5d72c3a76f27282cdbe48ceb18cf76b5138a37116b4e7d093b296c53082ba36"
+  "sha256": "dfc81c364fd70c3b0d0a00bbf986d1ee01e98b393d56f683a21a251c2144741f"
 }

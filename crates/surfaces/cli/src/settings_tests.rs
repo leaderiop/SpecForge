@@ -215,3 +215,54 @@ fn a_refusal_exits_one_and_writes_nothing() {
         assert_eq!(config(dir.path()), CONFIG, "{words:?}");
     }
 }
+
+#[test]
+fn the_listing_picks_one_setting_by_its_name() {
+    let dir = project();
+
+    let ran = run(
+        dir.path(),
+        &["--pick", ".extensions[].settings[name=profile].value"],
+    );
+    assert_eq!(
+        (ran.exit, ran.stdout.as_str()),
+        (Exit::Passed, "strict\n"),
+        "{}",
+        ran.stderr
+    );
+    let ran = run(
+        dir.path(),
+        &[
+            "--format",
+            "json",
+            "--pick",
+            ".extensions[].settings[name=profile].origin",
+        ],
+    );
+    assert_eq!(ran.stdout, "explicit\n", "{}", ran.stderr);
+    // an unset setting is not listed without --all, and has no value with it: nothing prints
+    let ran = run(
+        dir.path(),
+        &[
+            "--all",
+            "--pick",
+            ".extensions[].settings[name=api_key].value",
+        ],
+    );
+    assert_eq!(
+        (ran.exit, ran.stdout.as_str()),
+        (Exit::Passed, ""),
+        "{}",
+        ran.stderr
+    );
+}
+
+#[test]
+fn the_listing_pick_refuses_an_explicit_human_format() {
+    let dir = project();
+
+    let ran = run(dir.path(), &["--format", "human", "--pick", ".count"]);
+    assert_eq!(ran.exit.code(), 2, "{}", ran.stderr);
+    assert_eq!(ran.stdout, "");
+    assert!(ran.stderr.contains("--pick"), "{}", ran.stderr);
+}

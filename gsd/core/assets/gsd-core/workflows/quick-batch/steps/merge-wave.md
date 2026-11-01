@@ -9,32 +9,32 @@ checkout in Step 6).
 by `$ITEM_COUNT` rounds):
 
 1. For each DISTINCT `wave` value present among items that are
-   `status == "pending"` with a `${item_dir}/${quick_id}-SUMMARY.md` on disk
-   (executor returned) and NOT yet merged: build `$WAVE_ORDER_JSON` — the
-   `quick_id`s of every item AT THAT WAVE, in `$BATCH_MANIFEST_JSON.items`
+   `status == "pending"` with a summary `${quick_id}/${quick_id}-SUMMARY` in its worktree (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0 --path "${WT_PATH:-.}"`, `$WT_PATH` the item's recorded `worktree_path`: the summary is merged below)
+   (executor returned) and NOT yet merged: build `$WAVE_ORDER` — the
+   `quick_id`s of every item AT THAT WAVE, one per line, in `$BATCH_MANIFEST_JSON`
    array order (this IS the order `computeWaves`/`partitionByFileOverlap`
    assigned — never re-sort it).
 
-2. Build `$READY_JSON` — the subset of that wave's items whose
-   `SUMMARY.md` already exists (an executor may still be mid-flight for a
+2. Build `$READY` — the subset of that wave's items, one per line, whose
+   summary step 1 found (an executor may still be mid-flight for a
    sibling in the same wave; row 33 — merges happen strictly in wave order,
    an out-of-order finisher waits):
    ```bash
 # the commands below are specforge commands: there is no launcher to define
-QB_MERGE_ELIG_JSON=$(jq -n --argjson order "$WAVE_ORDER_JSON" --argjson ready "$READY_JSON" '{mergeable: ($order|map(select(. as $q | $ready|index($q))))}')   # quick-batch merge-eligible: the batch router is not part of @gsd/core
+mergeable=(); while IFS= read -r q; do [ -n "$q" ] || continue; printf '%s\n' "$READY" | grep -qxF -- "$q" || break; mergeable+=("$q"); done < <(printf '%s\n' "$WAVE_ORDER")   # quick-batch merge-eligible: the batch router is not part of @gsd/core
    ```
-   Parse `mergeable` — the PREFIX of `$WAVE_ORDER_JSON` currently mergeable.
+   `mergeable` holds the PREFIX of `$WAVE_ORDER` currently mergeable.
    If empty, skip this wave this round (its first item hasn't finished yet).
 
 3. **Build the cleanup-wave manifest for `mergeable`, IN THAT ORDER** — fresh
    from each item's own PLAN.md, never from `BATCH.json`'s `planned_files`
    alone (Open Question 2's accepted resolution). `$mergeable` is a bash
-   ARRAY (parsed from the JSON `mergeable` array) — never a plain
+   ARRAY (built item by item above) — never a plain
    space-joined string, which re-splits unpredictably between bash and zsh
    (#4109):
    ```bash
    for quick_id in "${mergeable[@]}"; do
-     PLAN_CONTENT=$(cat "${ITEM_DIR}/${quick_id}-PLAN.md")
+     PLAN_CONTENT=$(specforge query "${quick_id}" --depth 1 --format context)
   ENTRY_JSON=$(: "quick-batch cleanup-entry: the batch router is not part of @gsd/core, so there is no merge manifest entry to build" \
        --agent-id "agent-${quick_id}" \
        --worktree-path "$WT_PATH" \

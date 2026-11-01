@@ -33,7 +33,7 @@ INIT=$(specforge gsd progress-report --format json)
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
-Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints). The routing facts below are not in it, they come from the graph: `state_exists` is `milestone_version` non-null (the project state is computed); `roadmap_exists` is `phases` non-empty; `project_exists` and `planning_exists` are `specforge export --kinds project --format graph | jq '.nodes|length>0'`; `requirements_exists` is the same with `--kinds requirement`; `init_incomplete` is a project without a roadmap or without requirements; `has_interrupted_agent` is false (this extension keeps no agent registry).
+Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints). The routing facts below are not in it, they come from the graph: `state_exists` is `milestone_version` non-null (the project state is computed); `roadmap_exists` is `phases` non-empty; `project_exists` and `planning_exists` are `[ -n "$(specforge export --kinds project --pick '.nodes[].id')" ]`; `requirements_exists` is the same with `--kinds requirement`; `init_incomplete` is a project without a roadmap or without requirements; `has_interrupted_agent` is false (this extension keeps no agent registry).
 
 **If `init_incomplete` is true (#4040 — interrupted bootstrap):** the spec exists but initialization never finished — the `requirement` entities, the `milestone` and `phase` entities or the project were never created. This is NOT a state-reconstruction case (the project state is computed). Route to initialization recovery: resume `/gsd:new-project`, which continues from the first missing entity and keeps the existing `project` entity and any already-created ones. Do not proceed to load_state.
 
@@ -101,7 +101,7 @@ specforge export --kinds pause,handoff,blocker --format graph || true   # the pa
 
 
 # Check for plans without summaries (incomplete execution)
-for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --format json | jq -r '([.nodes[]|select(.kind=="summary")|.fields.plan]) as $done | [.nodes[]|select(.kind=="plan")|.id] | map(select(. as $p | $done | index($p) | not)) | .[]'); do
+for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
   [ -n "$plan" ] || continue
 
 
@@ -253,7 +253,7 @@ What would you like to do?
 **Note:** When offering phase planning, check for CONTEXT.md existence first:
 
 ```bash
-specforge query "$MILESTONE/XX" --depth 2 --kinds context --format json | jq -r '.nodes[]|select(.kind=="context")|.id' || true
+specforge query "$MILESTONE/XX" --depth 2 --kinds context --pick '.nodes[kind=context].id' || true
 ```
 
 If missing, suggest discuss-phase before plan. If exists, offer plan directly.

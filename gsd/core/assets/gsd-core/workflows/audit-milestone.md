@@ -55,7 +55,7 @@ For each phase directory, read the VERIFICATION.md:
 
 ```bash
 # For each phase, use find-phase to resolve the directory (handles archived phases)
-PHASE_INFO=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '.nodes[]|select(.id|endswith("/01"))')
+PHASE_INFO=$(specforge query "$MILESTONE/01" --depth 0 --pick '.nodes[0]')   # the phase node, compact
 # Extract directory from JSON, then read VERIFICATION.md from that directory
 # Repeat for each phase number from ROADMAP.md
 ```
@@ -135,9 +135,9 @@ For each phase's SUMMARY.md, extract `requirements-completed` from YAML frontmat
 # #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
-for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --format json | jq -r '.nodes[].id'); do
+for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id'); do
   [ -e "$summary" ] || continue
-  specforge query "$summary" --depth 0 --format json | jq -r '.nodes[0].fields.requirements_completed'
+  specforge query "$summary" --depth 0 --pick '.nodes[0].fields.requirements_completed'
 done
 ```
 
@@ -165,7 +165,7 @@ For each REQ-ID, determine status using all three sources:
 Skip if the Nyquist capability is inactive.
 
 ```bash
-VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
 Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == "step"` and `ref.skill == "validate-phase"`.

@@ -4,7 +4,7 @@ If `WAVE_FILTER` was used, re-run plan discovery after execution:
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-POST_PLAN_INDEX=$(specforge query "$PHASE_ID" --kinds plan --format json | jq -c '{plans: [.nodes[]|select(.kind=="plan")|{id: .id, wave: .fields.wave, autonomous: .fields.autonomous, has_summary: (.fields.status == "complete"), gap_closure: (.fields.gap_closure != null), blocked_by: (if .fields.status == "blocked" then ["a halted plan"] else [] end)}]}')
+POST_PLAN_INDEX=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan]')   # one plan node per line: has_summary is fields.status "complete", gap_closure is fields.gap_closure set, blocked_by is ["a halted plan"] when fields.status is "blocked"
 ```
 
 Apply the same "incomplete" filtering rules as earlier:

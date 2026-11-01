@@ -17,7 +17,7 @@ Task directory: ${QUICK_DIR}
 Task goal: ${DESCRIPTION}
 
 <required_reading>
-- ${QUICK_DIR}/${quick_id}-PLAN.md (Plan)
+- `specforge query ${quick_id} --depth 1 --format context` (Plan)
 </required_reading>
 
 ${AGENT_SKILLS_VERIFIER}
@@ -34,11 +34,11 @@ Check must_haves against actual codebase. Create VERIFICATION.md at ${QUICK_DIR}
 Read verification status via the canonical query (frontmatter-anchored, and total over its input space):
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-STATUS=$(specforge query "${quick_id}" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending"') || { echo "the verification of this task was refused — see the error above." >&2; exit 1; }
+STATUS=$(specforge query "${quick_id}" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "the verification of this task was refused — see the error above." >&2; exit 1; }; STATUS=${STATUS%%$'\n'*}; STATUS=${STATUS:-pending}
 ```
 
-`--pick status` returns the bare value, so this path needs **no `jq`**. That is deliberate: #2589
-established that a `| jq -r '.field'` pipe yields an **empty** variable with no diagnostic on any
+`--pick` prints the bare value, so this path needs **no JSON tool**. That is deliberate: #2589
+established that a field read piped through jq yields an **empty** variable with no diagnostic on any
 machine without jq — the default on Windows/Git-Bash — which here would route a perfectly good
 `passed` verification into the recovery arm below.
 

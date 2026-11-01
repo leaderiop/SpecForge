@@ -219,7 +219,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
             .as_deref()
             .and_then(|s| word(view, ext, &format!("setting:{s}")))
             .filter(|v| a.variants.contains(v));
-        let mut body = render(ext, RenderKind::Agent, &a.id, variant)?;
+        let mut body = project_tokens(view, &render(ext, RenderKind::Agent, &a.id, variant)?);
         body.push_str(&judged_section(view, &a.id));
         agents.push(RenderedAgent {
             source: source(ext, "agent", &a.id),
@@ -368,6 +368,26 @@ pub(crate) fn spec_root_spelled(view: &ProjectView<'_>, glob: &str) -> String {
     } else {
         glob.replace("{spec_root}", root)
     }
+}
+
+/// `{{project:spec_root}}`: the token a prompt or an agent writes for the project's spec root.
+pub(crate) const SPEC_ROOT_TOKEN: &str = "{{project:spec_root}}";
+
+/// `text` with each [`SPEC_ROOT_TOKEN`] spelled as the project-relative spec root (`.` for the project root), escaped
+/// for a double-quoted shell string, so a rendered line reads the project's layout from the host instead of parsing
+/// `specforge.json`. A host fills it in a prompt's messages and an agent's body.
+pub(crate) fn project_tokens(view: &ProjectView<'_>, text: &str) -> String {
+    if !text.contains(SPEC_ROOT_TOKEN) {
+        return text.to_string();
+    }
+    let mut root = String::new();
+    for c in spec_root_spelled(view, "{spec_root}").chars() {
+        if matches!(c, '"' | '\\' | '$' | '`') {
+            root.push('\\');
+        }
+        root.push(c);
+    }
+    text.replace(SPEC_ROOT_TOKEN, &root)
 }
 
 /// The section a host adds after the body of an agent that judges rules (K7): each rule, the tool that reads its

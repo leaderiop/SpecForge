@@ -16,6 +16,12 @@ mod pending;
 #[path = "common/jq_rewrites.rs"]
 mod jq_rewrites;
 
+#[path = "common/quick_rewrites.rs"]
+mod quick_rewrites;
+
+#[path = "common/review_rewrites.rs"]
+mod review_rewrites;
+
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
 /// told the agent something false.
@@ -587,9 +593,11 @@ fn workflow_assets_diff_only_in_ported_passages() {
             check_lines(&path, &path, &asset, &body(&path), &rx, &|n| {
                 REWRITTEN.contains(&(path.as_str(), n))
                     || jq_rewrites::LINES.contains(&(path.as_str(), n))
+                    || review_rewrites::LINES.contains(&(path.as_str(), n))
                     || REWRITTEN_SPANS
                         .iter()
                         .chain(jq_rewrites::SPANS)
+                        .chain(quick_rewrites::SPANS)
                         .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
             });
         };
@@ -665,9 +673,10 @@ fn the_vendored_tree_lists_every_asset() {
 /// Plan 16 T4: every upstream `X=$(gsd_run loop render-hooks <point> --raw)` line (or its `${X:-$(...)}` twin) is, here,
 /// the line that asks each capability extension for its hooks; no stub is left. REVIEW-security-part1 m2: the
 /// `${X:-$(...)}` form asks too, not `${X:-[]}`. m1: a capability that fails is warned about, not hidden (exit 2 is "not loaded" and stays silent). M1: upstream's `--after-fingerprint "$PHASE_DIR"` stays, with the
-/// phase's id for the directory.
+/// phase's id for the directory. G4 (plan 05 T1): the line holds one answer per extension, merged by no jq.
 #[test]
 fn every_hook_stub_asks_the_capability_extensions() {
+    const NOTE: &str = "   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order";
     let twin = Regex::new(
         r"^(\s*)(\w+)=(\$\{\w+:-)?\$\(gsd_run loop render-hooks (\S+?)(?: --after-fingerprint (\S+))? --raw\)\}?$",
     )
@@ -705,12 +714,12 @@ fn every_hook_stub_asks_the_capability_extensions() {
                 }
             };
             let call = format!(
-                "$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" {}{flag} --format json 2>/dev/null || [ $? -eq 2 ] || echo \"⚠ $c-hooks failed: its hooks are left out\" >&2; done | jq -sc '{{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}}' || echo \"⚠ jq failed: no capability hooks were read\" >&2)",
+                "$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" {}{flag} --pick . 2>/dev/null || [ $? -eq 2 ] || echo \"⚠ $c-hooks failed: its hooks are left out\" >&2; done)",
                 &c[4]
             );
             let want = match c.get(3) {
-                Some(open) => format!("{}{}={}{call}}}", &c[1], &c[2], open.as_str()),
-                None => format!("{}{}={call}", &c[1], &c[2]),
+                Some(open) => format!("{}{}={}{call}}}{NOTE}", &c[1], &c[2], open.as_str()),
+                None => format!("{}{}={call}{NOTE}", &c[1], &c[2]),
             };
             if pending {
                 // upstream's identical lines (one hook point asked twice) each need their own call

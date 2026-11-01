@@ -283,7 +283,7 @@ Store `$QUICK_DIR` for use in orchestration.
 
 ---
 
-**Step 4 ordering (#3894):** Check whether `workflow.research_before_questions` is enabled in the settings (or the config from init context) — the same check `/gsd:discuss-phase` and `/gsd:new-project` already make. When **enabled**, execute the research-phase section BELOW BEFORE the discussion-phase section: a gray-area answer given without research is written to `<quick_id>-CONTEXT.md` as a locked decision downstream agents are told not to revisit, so the evidence must come first. When **false or unset**, keep the written order (discussion, then research) — behavior unchanged.
+**Step 4 ordering (#3894):** Check whether `workflow.research_before_questions` is enabled in the settings (or the config from init context) — the same check `/gsd:discuss-phase` and `/gsd:new-project` already make. When **enabled**, execute the research-phase section BELOW BEFORE the discussion-phase section: a gray-area answer given without research is written to `<quick_id>-CONTEXT.md` as a locked decision downstream agents are told not to revisit, so the evidence must come first. When **false or unset**, keep the written order (discussion, then research) — behavior unchanged. With both `--discuss` and `--research`, once both sections have run (in either order), record the digest of the context the research was made against: `specforge gsd record-research "${quick_id}-RESEARCH"`.
 
 <!-- gsd:section id="discussion-phase" when="flag:--discuss" -->
 If `section_manifest` is `null` or `"discussion-phase"` is in its `included` list: read and execute `gsd-core/workflows/quick/steps/discussion-phase.md`. Otherwise skip — do not read the file.
@@ -301,10 +301,10 @@ If `section_manifest` is `null` or `"research-phase"` is in its `included` list:
 
 **Capability gate:**
 ```bash
-PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
-**Contribution dispatch (#3778):** read `PLAN_PRE_HOOKS_JSON.activeHooks` directly in context. In registry order, inject only active entries with `kind == "contribution"` and `into == "planner"` into each Quick planner prompt below, using `fragment.inline` verbatim plus resolved `configValues`. Do not paste `rendered`. Empty, inactive, incompatible, or non-planner entries inject nothing and do not error. Reuse this snapshot for revisions; do not render again.
+**Contribution dispatch (#3778):** read the `activeHooks` of every line of `PLAN_PRE_HOOKS_JSON`, one per capability extension, directly in context. In registry order, inject only active entries with `kind == "contribution"` and `into == "planner"` into each Quick planner prompt below, using `fragment.inline` verbatim plus resolved `configValues`. Do not paste `rendered`. Empty, inactive, incompatible, or non-planner entries inject nothing and do not error. Reuse this snapshot for revisions; do not render again.
 
 **If `$VALIDATE_MODE`:** Use `quick-full` mode with stricter constraints.
 
@@ -324,8 +324,8 @@ Agent(
 <required_reading>
 - ${STATE_PATH} (Project State)
 - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists — follow project-specific guidelines)
-${DISCUSS_MODE ? '- ' + QUICK_DIR + '/' + quick_id + '-CONTEXT.md (User decisions — locked, do not revisit)' : ''}
-${RESEARCH_MODE ? '- ' + QUICK_DIR + '/' + quick_id + '-RESEARCH.md (Research findings — use to inform implementation choices)' : ''}
+${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds context,decision --format context` (User decisions — locked, do not revisit)' : ''}
+${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings — use to inform implementation choices)' : ''}
 </required_reading>
 
 ${AGENT_SKILLS_PLANNER}
@@ -337,7 +337,7 @@ ${AGENT_SKILLS_PLANNER}
 </planning_context>
 
 <constraints>
-- Create a SINGLE plan with 1-3 focused tasks
+- Create a SINGLE plan with 1-3 focused tasks${(DISCUSS_MODE || RESEARCH_MODE) ? ' — plan ' + quick_id + ' already exists (made before discussion/research): fill it with `specforge set ' + quick_id + ' <field> <value>`, add its tasks with `specforge new task <id> "<title>" --in spec/quick.spec --plan ' + quick_id + '`, never `specforge new plan`' : ''}
 - Quick tasks should be atomic and self-contained
 - PATH FORM (#4767): every path in the plan BODY — `files`, `verify`, `<automated>`, task actions — is repo-root-relative, and every `<automated>` command assumes cwd at the checkout root. Only the `<required_reading>` inputs above are absolute (#2376). An absolute path copied from this context into `<automated>` pins the command to THIS checkout; a worktree-isolated executor then runs it against the main tree and it passes on unchanged code.
 - MUTABLE-SCOPE AUTHORITY (#3786): when concrete edit or verification scope depends on mutable external state (a merge index, PR/base diffs, the working tree), authorize scope ONLY from a live observation made at planning time — for conflict resolution that is the fresh merge index via `git diff --name-only --diff-filter=U` — or keep `files`/`verify` CONDITIONAL on that observation. Historical STATE.md entries, recovery notes, and cached PR/base diff paths may guide investigation only; they are never edit or verification authority, and a plan must not enumerate them as authorized files "pending replacement".
@@ -361,11 +361,11 @@ Return: ## PLANNING COMPLETE with plan path
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 After planner returns:
-1. Verify plan exists at `${QUICK_DIR}/${quick_id}-PLAN.md`
+1. Verify the plan is planned (it holds a task; the plan a discussion or research step made first holds none): `[ -n "$(specforge query "${quick_id}" --kinds task --depth 1 --pick '.nodes[kind=task].id')" ]`
 2. Extract plan count (typically 1 for quick tasks)
-3. Report: "Plan created: ${QUICK_DIR}/${quick_id}-PLAN.md"
+3. Report: "Plan created: plan ${quick_id}"
 
-If plan not found, error: "Planner failed to create ${quick_id}-PLAN.md"
+If the plan holds no task, error: "Planner failed to create plan ${quick_id}"
 
 ---
 
@@ -425,8 +425,8 @@ EXPECTED_BASE=$(git rev-parse HEAD)
 if [ "$ISOLATION" = "harness-worktree" ]; then   # keyed on ISOLATION like every other dispatch-coupled branch (#2652)
   # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
   # suffixless temp then append the extension — portable across BSD + GNU (#1520).
-  QUICK_WORKTREE_MANIFEST=$(mktemp "${TMPDIR:-/tmp}/gsd-quick-worktree-XXXXXX") && mv "$QUICK_WORKTREE_MANIFEST" "${QUICK_WORKTREE_MANIFEST}.json" && QUICK_WORKTREE_MANIFEST="${QUICK_WORKTREE_MANIFEST}.json" || exit 1
-  printf '{"worktrees":[]}\n' > "$QUICK_WORKTREE_MANIFEST"
+  QUICK_WORKTREE_MANIFEST=$(mktemp "${TMPDIR:-/tmp}/gsd-quick-worktree-XXXXXX") && mv "$QUICK_WORKTREE_MANIFEST" "${QUICK_WORKTREE_MANIFEST}.tsv" && QUICK_WORKTREE_MANIFEST="${QUICK_WORKTREE_MANIFEST}.tsv" || exit 1
+  : > "$QUICK_WORKTREE_MANIFEST"   # one tab-separated record per line, as the wave's manifest: worktree<TAB>path<TAB>branch<TAB>agent_id<TAB>expected_base<TAB>allowed_bases (comma-separated)
   export QUICK_WORKTREE_MANIFEST
 fi
 ```
@@ -479,9 +479,9 @@ You are running as a SEQUENTIAL executor agent on the main working tree (set SEQ
 `}
 
 <required_reading>
-- ${QUICK_DIR}/${quick_id}-PLAN.md (Plan)
-${DISCUSS_MODE ? '- ' + QUICK_DIR + '/' + quick_id + '-CONTEXT.md (User decisions — locked, do not revisit)' : ''}
-${RESEARCH_MODE ? '- ' + QUICK_DIR + '/' + quick_id + '-RESEARCH.md (Research findings — use to inform implementation choices)' : ''}
+- `specforge query ${quick_id} --depth 1 --format context` (Plan)
+${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds context,decision --format context` (User decisions — locked, do not revisit)' : ''}
+${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings — use to inform implementation choices)' : ''}
 - ${STATE_PATH} (Project state)
 - ./CLAUDE.md or ./.claude/CLAUDE.md (Project instructions, if exists)
 - .claude/skills/ or .agents/skills/ (Project skills, if either exists — list skills, read SKILL.md for each, follow relevant rules during implementation)
@@ -542,7 +542,7 @@ SUMMARY.md and stop — the user must rerun with worktrees disabled.
 
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
-If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), append its returned `{agent_id, worktree_path, branch, expected_base, allowed_bases}` metadata to `QUICK_WORKTREE_MANIFEST` before cleanup. Set `expected_base` to `${EXPECTED_BASE}` and `allowed_bases` to `["${EXPECTED_BASE}", "${QUICK_PLAN_PARENT}"]` with duplicates and empty values removed. If any required field is unavailable, stop and ask for recovery; do not discover global worktrees.
+If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), append its returned metadata to `QUICK_WORKTREE_MANIFEST` before cleanup, one `worktree<TAB><worktree_path><TAB><branch><TAB><agent_id><TAB><expected_base><TAB><allowed_bases>` line. Set `expected_base` to `${EXPECTED_BASE}` and `allowed_bases` to `${EXPECTED_BASE},${QUICK_PLAN_PARENT}` with duplicates and empty values removed. If any required field is unavailable, stop and ask for recovery; do not discover global worktrees.
 
 After executor returns:
 1. **Worktree cleanup:** If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), merge the worktree branch back and clean up:
@@ -563,13 +563,13 @@ After executor returns:
 
    > **ISOLATED-RUN RECOVERY — FAIL SAFE (#1292):** When an isolated (worktree) run is *rejected* — the user declines to merge it, the orchestrator surfaces recovery guidance for a blocked/halted plan, or the run over-reached the requested scope — the worktree-isolation contract MUST hold through recovery. Do **NOT** propose continuing on `main`/the primary checkout as the default or recommended recovery path. Default to a **safe halt** and offer: (a) re-attempt in a **fresh, narrowly-scoped worktree**, or (b) inspect or discard the rejected worktree without merging. Any path that edits the primary checkout requires an **explicit, clearly-labeled confirmation** from the user first — editing `main` directly is never the proposed or default option for a run the user configured to be isolated.
 
-2. Verify summary exists at `${QUICK_DIR}/${quick_id}-SUMMARY.md`
+2. Verify the summary exists: `specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0 >/dev/null`
 3. Extract commit hash from executor output
 4. Report completion status
 
 **Known Claude Code bug (classifyHandoffIfNeeded):** If executor reports "failed" with error `classifyHandoffIfNeeded is not defined`, this is a Claude Code runtime bug — not a real failure. Check if summary file exists and git log shows commits. If so, treat as successful.
 
-If summary not found, error: "Executor failed to create ${quick_id}-SUMMARY.md"
+If summary not found, error: "Executor failed to create summary ${quick_id}/${quick_id}-SUMMARY"
 
 Note: For quick tasks producing multiple plans (rare), spawn executors in parallel waves per execute-phase patterns.
 
@@ -581,7 +581,7 @@ Skip this step entirely if `$FULL_MODE` is false.
 
 **Capability gate:**
 ```bash
-EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
 **Generic step dispatch (#3606):** dispatch every `kind == "step"` hook from `EXECUTE_POST_HOOKS_JSON` per @gsd-core/references/loop-hook-dispatch.md (skip silently when none); each step is advisory and best-effort. The code-review specialization below is one such hook, not a replacement for the generic dispatch.
@@ -597,15 +597,15 @@ If no active code-review step hook exists, skip with message "Code review skippe
 # lockfiles excluded. A `base..tip` range (the #4466 bound) still folds in every unrelated
 # commit interleaved inside the task's window (worktree merge-back, a shared tree, another
 # session); the union cannot. No commits for this task => empty scope => skip review.
-# Exit 69 (UNAVAILABLE) is the resolver's "could not look" (`status: unresolvable`); its JSON carries
-# the reason, so the capture must survive it (a bare assignment aborts under `set -e` and drops it).
+# A failed read leaves the scope empty, and the reason below names it (the `|| QUICK_SCOPE_RC=$?`
+# keeps the capture alive: a bare assignment aborts under `set -e`).
 QUICK_SCOPE_RC=0
-QUICK_SCOPE_JSON=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --kinds commit --format json | jq -c '{status: "ok", files: ([.nodes[]|select(.kind=="commit")|.fields.files[]?]|unique)}') || QUICK_SCOPE_RC=$?
-if [ "$QUICK_SCOPE_RC" -ne 0 ] && [ "$QUICK_SCOPE_RC" -ne 69 ]; then QUICK_SCOPE_JSON=""; fi
-CHANGED_FILES=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -r '.files | join(" ")' 2>/dev/null)
+QUICK_SCOPE_FILES=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --kinds commit --pick '.nodes[kind=commit].fields.files[]') || QUICK_SCOPE_RC=$?
+if [ "$QUICK_SCOPE_RC" -ne 0 ]; then QUICK_SCOPE_FILES=""; fi
+CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 if [ -z "$CHANGED_FILES" ]; then
-  # Say WHY the scope is empty (no commits for this task, only excluded paths, or git could not be read).
-  QUICK_SCOPE_WHY=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -er '.status + (if (.reason // "") != "" then ": " + .reason else "" end)' 2>/dev/null || echo 'unresolvable: no resolver output')
+  # Say WHY the scope is empty: no commit names this task, or its commits could not be read.
+  QUICK_SCOPE_WHY=$([ "$QUICK_SCOPE_RC" -eq 0 ] && echo 'no commit names this task' || echo "its commits could not be read (exit $QUICK_SCOPE_RC)")
   echo "Quick-task review scope is empty (${QUICK_SCOPE_WHY})."
 fi
 ```

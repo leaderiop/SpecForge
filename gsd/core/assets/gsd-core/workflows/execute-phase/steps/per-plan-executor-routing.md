@@ -3,14 +3,14 @@
 
 Run for each plan, immediately before its `Agent()` dispatch in step 3. Sets
 `EXECUTOR_TYPE` so a plan can opt into a specialist executor instead of the
-default `gsd-executor`. `plan_json` (the current plan's object from
-`phase-plan-index`, same scope step 2.5 uses) is in scope.
+default `gsd-executor`. `plan_id` (the current plan's id, a line of
+`PLAN_INDEX`, same scope step 2.5 uses) is in scope.
 
 ## Contract
 
 - Default: `EXECUTOR_TYPE="gsd-executor"` — byte-identical to pre-#1689 dispatch.
 - A plan opts into a specialist by declaring `agent_hint: <name>` in its PLAN.md
-  frontmatter. The field reaches the orchestrator as `plan_json.agent_hint`
+  frontmatter. The field reaches the orchestrator as the plan's `agent_hint` field
   (parsed by `phase-plan-index`; `null` when unset).
 - When routing is enabled AND the hint is non-empty AND the named agent resolves
   on the active runtime, `EXECUTOR_TYPE` becomes the hint. Otherwise it stays
@@ -27,7 +27,7 @@ AGENT_HINT_ROUTING="{{setting:workflow.agent_hint_routing|true}}"   # workflow.a
 
 EXECUTOR_TYPE="gsd-executor"
 if [ "${AGENT_HINT_ROUTING:-true}" != "false" ]; then
-  PLAN_HINT=$(jq -r '.agent_hint // empty' <<<"$plan_json" 2>/dev/null | tr -d '"')
+  PLAN_HINT=$(specforge query "$plan_id" --depth 0 --pick '.nodes[0].fields.agent_hint' 2>/dev/null)
   if [ -n "$PLAN_HINT" ]; then
     EXECUTOR_TYPE="gsd-executor"   # resolve-agent is not part of @gsd/core: the agent hint names a core agent or falls back to this
   fi

@@ -92,7 +92,7 @@ Parse: frontmatter (phase, plan, type, autonomous, wave, depends_on), objective,
 
 <step name="record_start_time">
 ```bash
-STARTED=$(specforge gsd start-plan "${PHASE}-${PLAN}" --format json | jq -er .started) || exit 1
+STARTED=$(specforge gsd start-plan "${PHASE}-${PLAN}" --pick .started) && [ -n "$STARTED" ] || exit 1
 # a gate_failed refusal (W318, E516) stops here: the plan is not executed; STARTED is the host's clock
 ```
 </step>
@@ -296,8 +296,8 @@ Check if auto mode is active at executor start (chain flag or user preference):
 
 ```bash
 AUTO_CHAIN="false"  # the orchestrator tells you in your prompt when it chained you; no setting records it
-AUTO_CFG=$(specforge settings --format json --extension @gsd/core | jq -r '.. | objects | select(.name? == "workflow.auto_advance") | .value' 2>/dev/null || echo "false")
-HUMAN_VERIFY_MODE=$(specforge settings --format json --extension @gsd/core | jq -r '.. | objects | select(.name? == "workflow.human_verify_mode") | .value' 2>/dev/null || echo "end-of-phase")
+AUTO_CFG=$(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=workflow.auto_advance].value' 2>/dev/null); AUTO_CFG=${AUTO_CFG:-false}
+HUMAN_VERIFY_MODE=$(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=workflow.human_verify_mode].value' 2>/dev/null); HUMAN_VERIFY_MODE=${HUMAN_VERIFY_MODE:-end-of-phase}
 ```
 
 Auto mode is active if either `AUTO_CHAIN` or `AUTO_CFG` is `"true"`. Store the result for checkpoint handling below.

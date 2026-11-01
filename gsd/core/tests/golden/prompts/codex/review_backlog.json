@@ -11,7 +11,7 @@
     "",
     "1. **List backlog items:**",
     "   ```bash",
-    "   _BACKLOG=$(specforge export --kinds phase --format graph | jq -r '.nodes[]|select(.fields.backlog)|.id')   # roadmap-wide: the backlog of every milestone",
+    "   _BACKLOG=$(specforge export --kinds phase --pick '.nodes[fields.backlog=true].id')   # roadmap-wide: the backlog of every milestone",
     "   if [ -n \"$_BACKLOG\" ]; then echo \"$_BACKLOG\"; else echo \"No backlog items found\"; fi",
     "   ```",
     "",
@@ -29,7 +29,7 @@
     "   - Find the next sequential phase number in the active milestone",
     "   - Promote it with `specforge gsd phase --promote`: the phase takes the new number, and its context, research and plans are renamed with it. `<id>` is the item's full id from the list (`v1.0/999.1`); an item of another milestone moves under `$MILESTONE`:",
     "     ```bash",
-    "     NEW_NUM=$(specforge gsd phase --promote \"<id>\" --milestone \"$MILESTONE\" --format json | jq -r '.output.to | split(\"/\") | last')",
+    "     NEW_NUM=$(specforge gsd phase --promote \"<id>\" --milestone \"$MILESTONE\" --pick .to) && NEW_NUM=${NEW_NUM##*/}",
     "     ```",
     "   - The accumulated artifacts move with it (the command renames them)",
     "   - The phase leaves the backlog by taking its new number",
@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 19598,
+  "bytes": 19587,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -72,7 +72,7 @@
     "   - Find the next sequential phase number in the active milestone",
     "   - Promote it with `specforge gsd phase --promote`: the phase takes the new number, and its context, research and plans are renamed with it. `<id>` is the item's full id from the list (`v1.0/999.1`); an item of another milestone moves under `$MILESTONE`:",
     "     ```bash",
-    "     NEW_NUM=$(specforge gsd phase --promote \"<id>\" --milestone \"$MILESTONE\" --format json | jq -r '.output.to | split(\"/\") | last')",
+    "     NEW_NUM=$(specforge gsd phase --promote \"<id>\" --milestone \"$MILESTONE\" --pick .to) && NEW_NUM=${NEW_NUM##*/}",
     "     ```",
     "   - The accumulated artifacts move with it (the command renames them)",
     "   - The phase leaves the backlog by taking its new number",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a8fcec5372079d22e37143de2b945fc3d1806578c400b3e1acb5baf036c4ff41",
+    "digest": "sha256:714e846ae01cb5dc5989c69056834cee5a9b228f1c9bc271f6e8f57f0b2dbe98",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "a8fcec5372079d22e37143de2b945fc3d1806578c400b3e1acb5baf036c4ff41"
+  "sha256": "714e846ae01cb5dc5989c69056834cee5a9b228f1c9bc271f6e8f57f0b2dbe98"
 }

@@ -18,7 +18,7 @@ Determine what kind of work is being paused and set the handoff destination acco
 
 ```bash
 # Check for active phase
-phase=$(specforge gsd progress-report --format json | jq -r '[.phases[]|select(.status == "In Progress")][0].number // empty')
+phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 phase=${phase:+$(basename "$(dirname "$phase")")}
 
 # Check for active spike
@@ -64,7 +64,7 @@ Ask user for clarifications if needed via conversational questions.
 **Also inspect SUMMARY.md files for false completions:**
 ```bash
 # Check for placeholder content in existing summaries
-specforge query "$MILESTONE" --depth 3 --kinds summary --format json | jq -r '.nodes[]|select(.kind=="summary")|select((.fields.one_liner // "")|test("To be filled|placeholder|TBD"))|.id' || true
+while IFS=$'\x1f' read -r s line; do case "$line" in (*"To be filled"*|*placeholder*|*TBD*) echo "$s" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary]' --fields id,fields.one_liner) || true
 ```
 Report any summaries with placeholder content as incomplete items.
 </step>

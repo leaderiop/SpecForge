@@ -54,14 +54,14 @@
     "",
     "```bash",
     "AUDITOR_MODEL=\"\"   # resolve-model is not part of @gsd/security: the host picks the model",
-    "VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" verify:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')",
+    "VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" verify:post --pick . 2>/dev/null; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order",
     "SECURITY_ASVS=\"1\"   # workflow.security_asvs_level",
     "SECURITY_BLOCK_ON=\"high\"   # workflow.security_block_on",
     "```",
     "",
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"secure-phase\"`."
   ],
-  "bytes": 19226,
+  "bytes": 19161,
   "end": [
     "## Threat Register",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8aeba445f45b23ccb3a3e9c5674feba709a96d691b36674e73e999ef532a88c6",
+    "digest": "sha256:c390ac0a75d5dc35dbee81fdcf4247d2883662b734088ff2226396a1f0232ae5",
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "8aeba445f45b23ccb3a3e9c5674feba709a96d691b36674e73e999ef532a88c6"
+  "sha256": "c390ac0a75d5dc35dbee81fdcf4247d2883662b734088ff2226396a1f0232ae5"
 }

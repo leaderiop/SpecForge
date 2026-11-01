@@ -71,22 +71,23 @@ fn pattern_findings(text: &[char], sources: &[&str]) -> Vec<Finding> {
         .collect()
 }
 
-/// The markdown links of `content` that carry a script, data, credential or token.
-fn link_findings(content: &str) -> Vec<Finding> {
+/// The markdown links of `content`, as characters, that carry a script, data, credential or token.
+fn link_findings(content: &[char]) -> Vec<Finding> {
     let rules: Vec<(&str, Regex)> = LINK_RULES
         .iter()
         .map(|(id, p)| (*id, Regex::new(p)))
         .collect();
     let (data_start, safe) = (Regex::new(DATA_LINK_START), Regex::new(DATA_URI_SAFE));
     let mut out = Vec::new();
-    for (id, rule) in &rules {
-        for line in content.split('\n') {
-            let chars: Vec<char> = line.chars().collect();
-            let Some((from, to)) = rule.find(&chars) else {
+    // A rule no line can match is not run line by line: a match in a line is one in the text, as no rule has `^` or a
+    // look-ahead. A line is a slice of the text, so a 4 MiB text of newlines allocates no line.
+    for (id, rule) in rules.iter().filter(|(_, r)| r.is_match(content)) {
+        for chars in content.split(|c| *c == '\n') {
+            let Some((from, to)) = rule.find(chars) else {
                 continue;
             };
             if *id == "MD-LINK-DATA-SCHEME" {
-                let (_, after) = data_start.find(&chars).unwrap_or((0, 0));
+                let (_, after) = data_start.find(chars).unwrap_or((0, 0));
                 let uri: Vec<char> = chars[after..]
                     .iter()
                     .take_while(|c| **c != ')')
@@ -201,7 +202,7 @@ pub(super) fn scanner(f: &Facts) -> HookOutput {
     let Some(content) = f.response.as_ref().and_then(response_text) else {
         return HookOutput::default();
     };
-    if content.encode_utf16().count() < 20 {
+    if content.encode_utf16().take(20).count() < 20 {
         return HookOutput::default();
     }
     let chars: Vec<char> = content.chars().collect();
@@ -211,7 +212,7 @@ pub(super) fn scanner(f: &Facts) -> HookOutput {
         .copied()
         .collect();
     let mut findings = pattern_findings(&chars, &sources);
-    findings.extend(link_findings(&content));
+    findings.extend(link_findings(&chars));
     if chars.iter().any(|c| invisible_scanner(*c)) {
         findings.push(Finding {
             rule: INVISIBLE,

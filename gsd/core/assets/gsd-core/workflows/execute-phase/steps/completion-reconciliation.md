@@ -32,9 +32,9 @@ SUMMARY_EXISTS=$(test -f "{phase_dir}/{plan_number}-{plan_padded}-SUMMARY.md" &&
 # zero-pad tolerant (#4003, #4619, #4748), reachable from THIS branch only (the former
 # any-branch lookup let a commit on another branch satisfy the probe); the 1-hour window stays.
 # Exit 69 (UNAVAILABLE) is the resolver saying "could not look": an empty COMMITS_FOUND is then NOT "no commits".
-COMMITS_SCOPE=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "{phase_number}-{plan_padded}" --kinds commit --format json | jq -c '{commits: [.nodes[]|select(.kind=="commit")|{sha: .fields.hash}]}') && COMMITS_SCOPE_RC=0 || COMMITS_SCOPE_RC=$?
+COMMITS_SCOPE=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "{phase_number}-{plan_padded}" --kinds commit --pick '.nodes[kind=commit].fields.hash') && COMMITS_SCOPE_RC=0 || COMMITS_SCOPE_RC=$?
 COMMITS_FOUND=""
-if [ "$COMMITS_SCOPE_RC" -eq 0 ]; then COMMITS_FOUND=$(printf '%s' "$COMMITS_SCOPE" | jq -r '.commits[0].sha // empty' 2>/dev/null); fi
+if [ "$COMMITS_SCOPE_RC" -eq 0 ]; then COMMITS_FOUND=${COMMITS_SCOPE%%$'\n'*}; fi
 COMMITS_SINCE_DISPATCH=$(git log "${EXPECTED_BRANCH}" --since="${DISPATCH_TS}" --oneline | head -1)
 ```
 

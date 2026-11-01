@@ -104,7 +104,7 @@ Use this instead of manually reading/parsing ROADMAP.md.
 - Find the 2-3 most recent SUMMARY.md files
 - Use `summary-extract` for efficient parsing:
   ```bash
-  specforge query "$summary" --depth 0 --format json | jq -r '.nodes[0].fields.one_liner'
+  specforge query "$summary" --depth 0 --pick '.nodes[0].fields.one_liner'
   ```
 - This shows "what we've been working on"
   </step>
@@ -128,7 +128,7 @@ Use this instead of manually reading/parsing ROADMAP.md.
 
 ```bash
 # Get formatted progress bar
-PROGRESS_BAR=$(specforge gsd progress-report --format json | jq -r '"[\(.percent)%]"')
+PROGRESS_BAR="[$(specforge gsd progress-report --pick .percent)%]"
 ```
 
 Present:
@@ -151,11 +151,11 @@ CONTEXT: [✓ if has_context | - if not]
 
 ## Key Decisions Made
 - [extract from $STATE.decisions[]]
-- [e.g. jq -r '.decisions[].decision' from state-snapshot]
+- [e.g. each decision's text, from the decision entities]
 
 ## Blockers/Concerns
 - [extract from $STATE.blockers[]]
-- [e.g. jq -r '.blockers[].text' from state-snapshot]
+- [e.g. each blocker's text, from the state]
 
 ## Pending Todos
 - [count] pending — /gsd:capture --list to review
@@ -165,9 +165,9 @@ CONTEXT: [✓ if has_context | - if not]
 (Only show this section if count > 0; suppressed when ledger is empty or absent)
 
 ```bash
-WINDOWS_STATUS=$(specforge query "$PHASE_ID" --kinds broken_window --format json | jq -c '{ledger: {open_count: ([.nodes[]|select(.kind=="broken_window")|select(.fields.status == "open")]|length), waived_count: ([.nodes[]|select(.kind=="broken_window")|select(.fields.status == "waived")]|length)}}' 2>/dev/null || echo '')
-WINDOWS_OPEN=$(printf '%s' "$WINDOWS_STATUS" | jq -r '.ledger.open_count // 0' 2>/dev/null || echo 0)
-WINDOWS_WAIVED=$(printf '%s' "$WINDOWS_STATUS" | jq -r '.ledger.waived_count // 0' 2>/dev/null || echo 0)
+WINDOWS_STATUSES=$(specforge query "$PHASE_ID" --kinds broken_window --pick '.nodes[kind=broken_window].fields.status' 2>/dev/null)
+WINDOWS_OPEN=$(printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
+WINDOWS_WAIVED=$(printf '%s\n' "$WINDOWS_STATUSES" | grep -cx waived)
 ```
 
 Render `Open Windows` only when `$WINDOWS_OPEN` is greater than `0` (or `$WINDOWS_WAIVED` is greater than `0`, so an auditable deferral history remains visible). Phrase: `{WINDOWS_OPEN} open, {WINDOWS_WAIVED} waived — resolves with /gsd:ship gate; inspect via `specforge query "$PHASE_ID" --kinds broken_window``. The ledger is cross-phase; the count is the project total, not the current phase's.
@@ -207,16 +207,16 @@ if [ -z "$ROADMAP" ]; then
   echo "  The incomplete-phase invariant (#160) could not be verified." >&2
   echo "  Review project state carefully before continuing." >&2
 else
-  for PHASE_NUM in $(echo "$ROADMAP" | jq -r '.phases[] | (.number // .phase_number)'); do
-    PHASE_DATA=$(echo "$ROADMAP" | jq --arg n "$PHASE_NUM" '.phases[] | select((.number // .phase_number) == ($n | tonumber))')
-    # #3218: $PHASE_DATA is a `.phases[]` entry from `roadmap.analyze`, which
-    # emits `plan_count`/`summary_count` SCALARS (src/roadmap.cts) — it has
-    # never emitted `.plans`/`.summaries` ARRAYS. Reading those absent keys
-    # (even with a `// []` fallback) always produced 0, permanently disabling
-    # this resume-incomplete-phase check. Read the scalars the producer
-    # actually emits.
-    PLAN_COUNT=$(echo "$PHASE_DATA" | jq '.plan_count // 0')
-    SUMMARY_COUNT=$(echo "$PHASE_DATA" | jq '.summary_count // 0')
+  for PHASE_NUM in $(specforge gsd progress-report --pick '.phases[].number'); do
+
+    # #3218: each phase of the progress report carries its counts as
+    # `plans`/`summaries` SCALARS, read here by number — the report has no
+    # `plan_count`/`summary_count` keys. Reading absent keys (even with a
+    # `// 0` fallback) always produced 0, permanently disabling this
+    # resume-incomplete-phase check. Read the counts the report actually
+    # answers.
+    PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[number=$PHASE_NUM].plans")
+    SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[number=$PHASE_NUM].summaries")
     if [ "${PLAN_COUNT:-0}" -gt "${SUMMARY_COUNT:-0}" ]; then
       INCOMPLETE_PHASE="$PHASE_NUM"
       break
@@ -247,14 +247,14 @@ Then exit the route step. Do NOT run Steps 1 through Routes A-F.
 
 **Step 1: Count plans, summaries, and issues in current phase**
 
-Get plan/summary counts for the current phase from the single owner (#3218 — LIVE
-counts, i.e. `status: superseded` plans excluded, matching "outstanding work"):
+Get plan/summary counts for the current phase from the single owner (#3218): the progress
+report of this phase alone, by its id (a plan has no superseded status):
 
 ```bash
-PHASE_COUNTS=$(specforge query "${CURRENT_PHASE}" --depth 2 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
-X=$(echo "$PHASE_COUNTS" | jq -r '.plan_count // 0')
-Y=$(echo "$PHASE_COUNTS" | jq -r '.summary_count // 0')
-specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --format json | jq -r '.nodes[]|select(.kind=="uat_test")|.id' | wc -l
+
+X=$(specforge gsd progress-report --phase "$CURRENT_PHASE" --pick '.phases[0].plans')   # the phase's own plans, by its id
+Y=$(specforge gsd progress-report --phase "$CURRENT_PHASE" --pick '.phases[0].summaries')
+specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
 ```
 
 State: "This phase has {X} plans, {Y} summaries."
@@ -265,7 +265,7 @@ Check for UAT.md files with status "diagnosed" (has gaps needing fixes).
 
 ```bash
 # Check for diagnosed UAT with gaps or partial (incomplete) testing
-specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --format json | jq -r '.nodes[]|select(.kind=="uat_test")|select(.fields.result == "issue" or .fields.result == "pending")|.id' || true
+specforge gsd verification-debt --phase "${CURRENT_PHASE}" --pick '.blockers[]' || true   # the phase's open UAT tests, by the uat_test kind's rule
 ```
 
 Track:
@@ -274,31 +274,31 @@ Track:
 
 **Step 1.6: Cross-phase health check**
 
-Scan ALL phases for outstanding verification debt using the CLI. Milestone scoping note (#3782): the audit milestone-filters the ACTIVE phase tree (`getMilestonePhaseFilter`), and deliberately adds ARCHIVED milestone trees unfiltered — each archived result carries an `archived_milestone` stamp. `summary.total_items` spans BOTH populations, so never read it as current-milestone debt.
+Scan ALL phases for outstanding verification debt using the CLI. Milestone scoping note (#3782): `specforge gsd verification-debt --milestone` answers `{milestone, current, archived, archived_total, blockers}`: `current` counts the open UAT tests of the milestone, `archived` names each shipped milestone that still has open tests (`{milestone, open}`), `archived_total` sums those, and `blockers` lists the open tests' ids. `current` and `archived_total` are separate populations, so never add them into current-milestone debt.
 
 ```bash
-DEBT=$(specforge query "$MILESTONE" --depth 3 --kinds uat_test --format json 2>/dev/null)
-# A cross-population audit is exactly the payload that can exceed the CLI's
-# ~50KB stdout budget (io.cjs swaps in an `@file:<tmp>` pointer) — unwrap it
-# before jq, the same pattern Step 1's INIT fetch uses, or every counter
-# below silently reads 0.
-if [[ "$DEBT" == @file:* ]]; then DEBT=$(cat "${DEBT#@file:}"); fi
+DEBT=$(specforge gsd verification-debt --milestone "$MILESTONE" --format json 2>/dev/null)
+# The answer is one compact JSON object on stdout, whatever its size. A failed
+# command (an unknown milestone, a graph without its computed values) leaves
+# DEBT empty, its error discarded here: say the debt could not be read,
+# never count it as none.
+[ -n "$DEBT" ] || echo "⚠ verification-debt failed: the debt could not be read (run it without 2>/dev/null for the cause)" >&2
 ```
 
 Segment the debt by population before counting (#3782):
 
 ```bash
-CURRENT_DEBT=$(printf '%s' "$DEBT" | jq '[.results[] | select(has("archived_milestone") | not)] | map(.items | length) | add // 0' 2>/dev/null || echo 0)
-ARCHIVED_DEBT=$(printf '%s' "$DEBT" | jq '[.results[] | select(has("archived_milestone"))] | map(.items | length) | add // 0' 2>/dev/null || echo 0)
+CURRENT_DEBT=$(specforge gsd verification-debt --milestone "$MILESTONE" --pick .current)   # this milestone's open UAT tests, by the uat_test kind's rule
+ARCHIVED_DEBT=$(specforge gsd verification-debt --milestone "$MILESTONE" --pick .archived_total)   # the open UAT tests of the shipped milestones (`.archived` names each)
 ```
 
-Track: `outstanding_debt` — `CURRENT_DEBT`, the non-archived (current-milestone) count. Track `archived_debt` — `ARCHIVED_DEBT`, the still-open items in already-archived milestones. Track `parse_gap_files` — `summary.parse_gap_files` from the audit.
+Track: `outstanding_debt` — `CURRENT_DEBT`, the non-archived (current-milestone) count. Track `archived_debt` — `ARCHIVED_DEBT`, the still-open items in already-archived milestones. Track `parse_gaps` — the UAT diagnostics of `specforge check` (a test block that does not parse is a check diagnostic, not part of the debt answer).
 
 Archived debt stays VISIBLE — an item archived still-open is still open (the archived set can include an unrun security-boundary test). Render it as its own labeled line; never fold it into the current-milestone total and never filter it away.
 
-`summary.parse_gap_files` counts EVERY file with `parse_gap: true`, archived or not — deliberately cross-population, unlike `outstanding_debt` (which #3782 scopes to non-archived results). An outstanding item does not stop mattering because its phase belongs to an already-archived milestone: a deferred human-UAT scenario or a `skipped` live-stack test is exactly what gets archived still-open, so an archived parse gap is exactly as much unread outstanding work as an archived `result: pending` row — it surfaces through `parse_gap_files` and the unparsed row below, keeping the whole cross-population picture visible.
+`specforge check` reads every spec file, archived milestone or not, so its parse gaps are cross-population, unlike `outstanding_debt`. An outstanding item does not stop mattering because its phase belongs to an already-archived milestone: a deferred human-UAT scenario or a `skipped` live-stack test is exactly what gets archived still-open, so an archived parse gap is exactly as much unread outstanding work as an archived `result: pending` row — it surfaces through `parse_gaps` and the unparsed row below, keeping the whole cross-population picture visible.
 
-**If outstanding_debt > 0 OR archived_debt > 0 OR parse_gap_files > 0:** Add a warning section to the progress report output (in the `report` step), placed between "## What's Next" and the route suggestion:
+**If outstanding_debt > 0 OR archived_debt > 0 OR parse_gaps > 0:** Add a warning section to the progress report output (in the `report` step), placed between "## What's Next" and the route suggestion:
 
 ```markdown
 ## Verification Debt ({N} items across current-milestone phases; {M} items still open in archived milestones)
@@ -314,7 +314,7 @@ Review: `/gsd:audit-uat ${GSD_WS}` — full cross-phase audit
 Resume testing: `/gsd:verify-work {phase} ${GSD_WS}` — retest specific phase
 ```
 
-The unparsed row comes from `results` entries with `parse_gap: true` (`summary.parse_gap_files` counts exactly those, archived or not). This is a WARNING, not a blocker — routing proceeds normally. The debt is visible so the user can make an informed choice.
+The unparsed row comes from the UAT diagnostics of `specforge check` (`parse_gaps`, archived or not). This is a WARNING, not a blocker — routing proceeds normally. The debt is visible so the user can make an informed choice.
 
 **Step 1.7: Check verification status for the current phase**
 
@@ -323,9 +323,9 @@ A phase whose verification is anything but `passed` is NOT complete, even when e
 ```bash
 PHASE_DIR="${CURRENT_PHASE}"   # a phase is addressed by its id, not a directory
 VERIFICATION=$(specforge query "${PHASE_DIR}" --kinds verification --format json) || { echo "the verification of phase ${CURRENT_PHASE} was refused — see the error above." >&2; exit 1; }
-VERIFICATION_STATUS=$(printf '%s' "$VERIFICATION" | jq -r '.status')
-VERIFICATION_NEXT_ACTION=$(printf '%s' "$VERIFICATION" | jq -r '.next_action')
-VERIFICATION_NEXT_COMMAND=$(printf '%s' "$VERIFICATION" | jq -r '.next_command')
+VERIFICATION_STATUS=$(specforge query "${PHASE_DIR}" --kinds verification --pick '.nodes[kind=verification].fields.status'); VERIFICATION_STATUS=${VERIFICATION_STATUS%%$'\n'*}
+VERIFICATION_NEXT_ACTION=$(specforge query "${PHASE_DIR}" --kinds verification --pick .next_action)
+VERIFICATION_NEXT_COMMAND=$(specforge query "${PHASE_DIR}" --kinds verification --pick .next_command)
 ```
 
 Track: `verification_status` — the `.status` field of the closed set (#5118); the query projects stale verification (`stale`, covered source changed after the verifier ran) and a missing report (`missing`) itself. A non-zero exit is a hard error (a report `status` outside `passed | gaps_found | human_needed`): surface it, never read it as "no status". Only `passed` routes as phase complete (Step 3); every other status routes back to close verification debt (Step 2) with the owner's `next_action` / `next_command`.

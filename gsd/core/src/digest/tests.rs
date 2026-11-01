@@ -147,3 +147,53 @@ fn a_files_digest_ignores_order_and_repeats_and_follows_a_digest() {
     );
     assert_ne!(a, files([("a.js", "sha256:1"), ("b.js", "sha256:3")]));
 }
+
+fn plan_edge(source: &str, plan: &str) -> PassEdge {
+    PassEdge {
+        source: source.into(),
+        target: plan.into(),
+        label: "plan".into(),
+    }
+}
+
+#[test]
+fn a_quick_context_digests_the_decisions_of_its_own_quick_plan() {
+    let quick = |plan: &str, text: &str| {
+        vec![
+            entity(&format!("{plan}-CONTEXT"), "context", &[("plan", plan)]),
+            entity(
+                &format!("{plan}-D-01"),
+                "decision",
+                &[("origin", "context"), ("plan", plan), ("text", text)],
+            ),
+        ]
+    };
+    let edges = |plans: &[&str]| -> Vec<PassEdge> {
+        plans
+            .iter()
+            .flat_map(|p| {
+                [
+                    plan_edge(&format!("{p}-CONTEXT"), p),
+                    plan_edge(&format!("{p}-D-01"), p),
+                ]
+            })
+            .collect()
+    };
+    let digest = |entities: Vec<PassEntity>, plans: &[&str]| {
+        let input = PassInput {
+            entities,
+            edges: edges(plans),
+            ..Default::default()
+        };
+        context(&input, "251101-abc-CONTEXT").expect("a digest")
+    };
+    let alone = digest(quick("251101-abc", "Trim"), &["251101-abc"]);
+    // Another quick task's decision is not a member; this task's own is.
+    let mut both = quick("251101-abc", "Trim");
+    both.extend(quick("251101-xyz", "Other"));
+    assert_eq!(digest(both, &["251101-abc", "251101-xyz"]), alone);
+    assert_ne!(
+        digest(quick("251101-abc", "Trim both ends"), &["251101-abc"]),
+        alone
+    );
+}

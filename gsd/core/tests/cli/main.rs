@@ -3,7 +3,7 @@
 mod agents;
 // shells out through `bash` and links with `std::os::unix`
 #[cfg(unix)]
-mod assets_jq;
+mod assets_shell;
 mod baseline;
 // shells out through `bash` and links with `std::os::unix`
 #[cfg(unix)]
@@ -23,6 +23,8 @@ mod cmd_verify;
 mod cmd_windows;
 mod cmd_workstreams;
 mod collect;
+#[path = "../common/command_word.rs"]
+mod command_word;
 mod commands;
 mod commands_support;
 mod decision_coverage;
@@ -84,6 +86,7 @@ mod prompts_support;
 mod prompts_verify;
 mod prompts_workspace;
 mod queries;
+mod quick_context;
 mod reference;
 mod render_prompts;
 mod rendered_lines;
@@ -93,6 +96,8 @@ mod roster;
 mod rules_silent;
 mod scan;
 mod settings;
+#[path = "../common/specforge_only.rs"]
+mod specforge_only;
 mod verify_paths;
 mod verify_rules;
 mod verify_status;

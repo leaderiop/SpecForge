@@ -1,5 +1,6 @@
 use crate::notes::Notes;
-use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
+use crate::outcome::{Exit, OutputFormat, Refusal};
+use crate::pick::{Pick, PickedOutputArg};
 use crate::terminal::{Terminal, err, errln};
 use clap::builder::{PossibleValuesParser, TypedValueParser};
 use specforge_common::{Diagnostic, Severity, diagnostic_summary, render_diagnostics};
@@ -19,7 +20,7 @@ pub(crate) struct Args {
     strict: bool,
 
     #[command(flatten)]
-    output: OutputArg,
+    output: PickedOutputArg,
 
     /// Extra lint profiles: inferred (I200/I202 from specforge-infer.json);
     /// pedantic is the default and adds nothing
@@ -58,12 +59,16 @@ impl Args {
     }
 
     pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+        let format = match self.output.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit,
+        };
         let runtime: SharedRuntime =
             Arc::new(specforge_component::ComponentRuntime::with_user_cache());
         run_in(
             &self.project,
             runtime,
-            self.output.format,
+            (format, self.output.pick()),
             &self.options(),
             terminal,
         )
@@ -73,11 +78,11 @@ impl Args {
 /// `specforge check` with the project's extensions running in `runtime`:
 /// the check operation over what the compile reported, the diagnostics the
 /// severity filter shows rendered, and the verdict over everything as the
-/// exit code.
+/// exit code. With a pick, the JSON form prints only the values it reaches.
 fn run_in(
     project: &crate::project::ProjectArg,
     runtime: SharedRuntime,
-    format: OutputFormat,
+    (format, pick): (OutputFormat, Option<&Pick>),
     options: &CheckOptions,
     terminal: &Terminal,
 ) -> Exit {
@@ -108,7 +113,7 @@ fn run_in(
                 &shown,
                 ProjectView::of(&compiled).registries().codes(),
             );
-            terminal.json(&entries);
+            crate::pick::print_json(terminal, pick, &entries);
         }
         OutputFormat::Human => {
             let color = terminal.facts().color_err;
@@ -212,7 +217,7 @@ mod tests {
             let exit = run_in(
                 &crate::project::ProjectArg::at(dir.path()),
                 std::sync::Arc::new(audit_extension()),
-                OutputFormat::Human,
+                (OutputFormat::Human, None),
                 &CheckOptions::default(),
                 &terminal,
             );

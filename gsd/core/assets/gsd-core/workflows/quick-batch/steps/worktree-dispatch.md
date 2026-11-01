@@ -23,8 +23,8 @@ true   # dispatch-isolation: there is no mode to record (worktree isolation is n
 **Effective concurrency for this MUTATING wave** (`mutating` forces
 `isolation == none` to 1 regardless of `--jobs`/capacity — row 6):
 ```bash
-QB_EXEC_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
-EXEC_CONCURRENCY=$(printf '%s' "$QB_EXEC_CONC_JSON" | jq -er '.concurrency // 1' 2>/dev/null || echo 1)
+EXEC_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
+
 ```
 
 **Dispatch rounds.** Repeat until no item is eligible-and-not-yet-dispatched
@@ -36,7 +36,7 @@ EXEC_CONCURRENCY=$(printf '%s' "$QB_EXEC_CONC_JSON" | jq -er '.concurrency // 1'
 QB_ELIG_JSON='{"eligible":[]}'   # quick-batch resume: the batch router is not part of @gsd/core; the eligible items are those of your notes whose dependencies are complete
    ```
    Parse `eligible` (quick ids ready to execute — every dependency already
-   `complete`) and refresh `$BATCH_MANIFEST_JSON` from its `manifest`.
+   `complete`); `$BATCH_MANIFEST_JSON` keeps its `quick_id<TAB>description` lines.
 
    **Crash-window guard (mirrors `planner-wave.md`'s PLAN.md-existence
    check one layer earlier — #3677):** `quick-batch resume`'s `eligible` is
@@ -46,7 +46,7 @@ QB_ELIG_JSON='{"eligible":[]}'   # quick-batch resume: the batch router is not p
    `BATCH.json` at `pending` with no STATE.md row yet (that row is written
    only in Step 9) — so on `--resume`, such an item still comes back
    `eligible` here. Before computing `spawn-plan`, determine which eligible
-   items already have `${item_dir}/${quick_id}-SUMMARY.md` on disk (same
+   items already have a summary `${quick_id}/${quick_id}-SUMMARY` (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0 --path "${WT_PATH:-.}"`, in the item's recorded worktree `$WT_PATH` when it has one, where its executor wrote it; same
    `item_dir` derivation via `generate-slug` every other step uses), then
    let the PURE `quick-batch filter-executed` verb
    (`filterAlreadyExecuted`, `src/quick-batch-dispatch.cts`) decide which
@@ -100,7 +100,7 @@ SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9'
    Execute quick-batch item ${quick_id}.
 
    <required_reading>
-   - ${ITEM_DIR}/${quick_id}-PLAN.md (Plan)
+   - `specforge query ${quick_id} --depth 1 --format context` (Plan)
    - ${STATE_PATH} (Project state — READ ONLY, do not write it)
    - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists)
    </required_reading>
@@ -126,10 +126,10 @@ SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9'
      description="Execute ${quick_id}: ${description}"
    )
    ```
-   Record `{agent_id, worktree_path, branch, expected_base, allowed_bases}`
-   from the executor's return into `$QUICK_BATCH_WORKTREE_MANIFEST` (a JSON
-   file, initialized `{"worktrees":[]}` before the first round — same shape
-   `/gsd:quick`'s own `QUICK_WORKTREE_MANIFEST` uses).
+   Record `worktree_path`, `branch`, `agent_id`, `expected_base` and `allowed_bases`
+   from the executor's return into `$QUICK_BATCH_WORKTREE_MANIFEST` (a tab-separated
+   file, empty before the first round, one `worktree<TAB>path<TAB>branch<TAB>…` line
+   each — the format `/gsd:quick`'s own `QUICK_WORKTREE_MANIFEST` uses).
 
    **`isolation == "orchestrator-worktree"`:** GSD creates the worktree
    (`worktree create (not part of @gsd/core; --manifest "$QUICK_BATCH_WORKTREE_MANIFEST" --agent-id ... --path ... --branch ... --base ... --files "$PLAN_FILES" --deletions "$PLAN_DELETIONS"`) then
@@ -152,7 +152,7 @@ SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9'
    ```bash
 : "quick-batch update: the batch router is not part of @gsd/core; keep the worktree, branch and base in your notes"
    ```
-   The ephemeral manifest is a per-process `mktemp` file (same shape
+   The ephemeral manifest is a per-process `mktemp` file (same format
    `/gsd:quick`'s own `QUICK_WORKTREE_MANIFEST` uses) — it does NOT survive
    a coordinator crash/restart. A RESUMED coordinator's Step 7
    (`merge-wave.md`) reads this durable BATCH.json triple as its fallback
@@ -162,7 +162,7 @@ SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9'
    > **ORCHESTRATOR RULE — CODEX RUNTIME**: after each `Agent()` call above, wait for it to return before starting the next worktree create.
 
 4. **After every item dispatched this round returns:** verify
-   `${ITEM_DIR}/${quick_id}-SUMMARY.md` exists. If missing, the item stays
+   summary `${quick_id}/${quick_id}-SUMMARY` exists in its worktree, which Step 7 has not merged yet (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0 --path "${WT_PATH:-.}"`, `$WT_PATH` the item's recorded `worktree_path`). If missing, the item stays
    `pending`/its worktree preserved for diagnosis rather than guessing
    completion — do not proceed to merge for it this round.
 

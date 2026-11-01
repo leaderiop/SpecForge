@@ -61,7 +61,7 @@
     "echo \"$GSD_ARGS\" | grep -qE '\\-\\-ws\\s+\\S+' && GSD_WS=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-ws\\s+\\S+')",
     "```"
   ],
-  "bytes": 76763,
+  "bytes": 76330,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -152,7 +152,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8606dc016f4cab12fe900002cc766b535e0001e6957bc06ccbb9032d2db93789",
+    "digest": "sha256:4b9c007b4ae5b2b46092a8f4667fb5e7b4198cdfb045c3b20c80d9f0b777367b",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "8606dc016f4cab12fe900002cc766b535e0001e6957bc06ccbb9032d2db93789"
+  "sha256": "4b9c007b4ae5b2b46092a8f4667fb5e7b4198cdfb045c3b20c80d9f0b777367b"
 }

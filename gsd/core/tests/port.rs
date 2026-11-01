@@ -144,7 +144,7 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-verifier.md", 372),
     ("gsd-verifier.md", 379),
     ("gsd-verifier.md", 381),
-    // Plan 03 (F9) T3: the API spot-check reads the answer with jq; upstream's runs node.
+    // Plan 03 (F9) T3, G4 plan 05: the API spot-check prints the answer for the agent; upstream's runs node.
     ("gsd-verifier.md", 429),
     ("gsd-verifier.md", 495),
     ("gsd-verifier.md", 598),
@@ -509,7 +509,7 @@ fn flags(words: &[String]) -> Vec<String> {
 }
 
 /// What every `specforge` command takes besides its own arguments.
-const GLOBAL_FLAGS: [&str; 5] = ["format", "path", "dry-run", "help", "yes"];
+const GLOBAL_FLAGS: [&str; 6] = ["format", "path", "dry-run", "help", "yes", "pick"];
 
 #[test]
 fn every_gsd_invocation_a_body_gives_uses_flags_the_command_declares() {

@@ -57,16 +57,33 @@ fn quick_creates_a_quick_plan() {
     for code in ["W323", "E302", "E401"] {
         assert!(!codes.contains(&code.to_string()), "{code}: {codes:?}");
     }
-    // P4: a plan with no phase starts and completes through the typed tools.
-    let started = gsd(&p, "start-plan", &[&id]);
-    assert_eq!(started.code, 0, "{}", started.all());
-    let ts = started
-        .stdout
-        .split("started ")
-        .nth(1)
-        .and_then(|s| s.split_whitespace().next())
-        .expect("a time")
-        .to_string();
+    // P4: a plan with no phase starts and completes through the typed tools. The prompt's STARTED line runs in bash
+    // with only specforge on the PATH (G4 plan 05: it picks the answer, no jq).
+    let line = text
+        .lines()
+        .find(|l| {
+            l.trim_start()
+                .starts_with("STARTED=$(specforge gsd start-plan")
+        })
+        .expect("the STARTED line");
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    // `/bin/bash`: the child's PATH holds specforge alone
+    let out = std::process::Command::new("/bin/bash")
+        .args([
+            "-c",
+            &format!("quick_id={id}\n{line}\nprintf '%s' \"$STARTED\""),
+        ])
+        .env("PATH", bin.parent().expect("a directory"))
+        .current_dir(p.root())
+        .stdin(std::process::Stdio::null())
+        .output()
+        .expect("bash");
+    let ts = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(
+        ts.len() == 20 && ts.ends_with('Z'),
+        "{ts:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let summary = command(&text, "specforge new summary", &id, &fill);
     let made = run(&p, &summary);
     assert_eq!(made.code, 0, "{summary:?}: {}", made.all());
@@ -226,27 +243,23 @@ fn the_batch_makes_one_quick_id_per_item() {
         std::process::Command::new("bash")
             .args([
                 "-c",
-                &format!("TASK_FILE=tasks.txt\n{line}\necho \"$QB_CREATE_JSON\""),
+                &format!("TASK_FILE=tasks.txt\n{line}\necho \"$QB_CREATE_LIST\""),
             ])
             .current_dir(dir.path())
             .output()
             .expect("bash")
     };
     let out = run("- Fix login\n* Add search\n\n1. Trim titles\n");
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout)
-        .unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&out.stdout)));
-    let items = json["manifest"]["items"].as_array().expect("items");
-    let tasks: Vec<&str> = items
-        .iter()
-        .map(|i| i["description"].as_str().expect("a description"))
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let items: Vec<(&str, &str)> = stdout
+        .lines()
+        .map(|l| l.split_once('\t').expect("quick_id<TAB>description"))
         .collect();
+    let tasks: Vec<&str> = items.iter().map(|(_, task)| *task).collect();
     assert_eq!(tasks, ["Fix login", "Add search", "Trim titles"]);
     let id = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
-    for item in items {
-        assert!(
-            id.is_match(item["quickId"].as_str().expect("an id")),
-            "{item}"
-        );
+    for (quick_id, _) in &items {
+        assert!(id.is_match(quick_id), "{quick_id}");
     }
     let one = run("- Only one\n");
     assert!(
@@ -615,4 +628,55 @@ mod worktree {
             "the worktree's own spec/quick.spec has no plan: {own:?}"
         );
     }
+}
+
+/// The lines of a `<required_reading>` / `<files_to_read>` block of `text` that hand a sub-agent an upstream artifact
+/// file (`-PLAN.md`, `-CONTEXT.md`, ...): here each is an entity, read with `specforge query`.
+fn reading_list_paths(label: &str, text: &str) -> Vec<String> {
+    let path =
+        regex::Regex::new(r"-(PLAN|CONTEXT|RESEARCH|SUMMARY|VERIFICATION)\.md").expect("a regex");
+    let mut inside = false;
+    let mut found = Vec::new();
+    for line in text.lines() {
+        let tag = line.trim_start();
+        if tag.starts_with("<required_reading>") || tag.starts_with("<files_to_read>") {
+            inside = true;
+        } else if tag.starts_with("</required_reading>") || tag.starts_with("</files_to_read>") {
+            inside = false;
+        } else if inside && path.is_match(line) {
+            found.push(format!("{label}: {line}"));
+        }
+    }
+    found
+}
+
+#[test]
+fn no_quick_reading_list_names_an_artifact_file() {
+    let p = twin();
+    let mut found = Vec::new();
+    for host in ["claude-code", "codex", "cursor"] {
+        for (id, args) in [
+            (
+                "quick",
+                &["--full", "--validate", "--discuss", "--research", "t"][..],
+            ),
+            ("quick_batch", &["--research", "a; b"][..]),
+        ] {
+            let text = text_of(&payload(&prompt(&p, id, args, host)));
+            found.extend(reading_list_paths(&format!("{id} ({host})"), &text));
+        }
+    }
+    let workflows =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/gsd-core/workflows");
+    let mut served = vec![workflows.join("quick.md"), workflows.join("quick-batch.md")];
+    for dir in ["quick/steps", "quick-batch/steps"] {
+        for entry in std::fs::read_dir(workflows.join(dir)).expect("the steps") {
+            served.push(entry.expect("a step").path());
+        }
+    }
+    for file in served {
+        let text = std::fs::read_to_string(&file).expect("a served step");
+        found.extend(reading_list_paths(&file.display().to_string(), &text));
+    }
+    assert_eq!(found, Vec::<String>::new());
 }

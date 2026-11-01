@@ -31,7 +31,7 @@ ${description}
 DATA_END
 
 <required_reading>
-- ${ITEM_DIR}/${quick_id}-PLAN.md (Plan)
+- `specforge query ${quick_id} --depth 1 --format context` (Plan)
 </required_reading>
 
 ${AGENT_SKILLS_VERIFIER}
@@ -50,7 +50,7 @@ re-derive the status vocabulary inline):
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 VERIFY_ERROR=""  # reset per item — a prior item's refusal must not leak into this one
-STATUS=$(specforge query "${quick_id}" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending"') || VERIFY_ERROR=1
+STATUS=$(specforge query "${quick_id}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; STATUS=${STATUS%%$'\n'*}; STATUS=${STATUS:-pending}
 ```
 
 If `VERIFY_ERROR` is set, the owner refused the item's report (#5118 — a report `status` outside
@@ -62,7 +62,7 @@ as a verdict, and never drop the item silently.
 `routeVerificationOutcome`, `src/quick-batch-dispatch.cts` — the single
 source of truth for this routing, never re-derived inline):
 ```bash
-QB_VERIFY_ROUTE_JSON=$(jq -n --arg s "$STATUS" '{action: (if $s == "passed" then "complete" elif $s == "human_needed" then "human_needed" else "failed" end)}')   # quick-batch verification-routing: the batch router is not part of @gsd/core
+case "$STATUS" in passed) QB_VERIFY_ACTION=complete ;; human_needed) QB_VERIFY_ACTION=human_needed ;; *) QB_VERIFY_ACTION=failed ;; esac   # quick-batch verification-routing, its `action`: the batch router is not part of @gsd/core
 ```
 
 | `action` | Meaning | What this step does |

@@ -74,12 +74,16 @@ fn quick_plan_text(quick_id_is: &str) -> String {
      specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\"\n\
      specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"\n\
      # an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`\n\
-     STARTED=$(specforge gsd start-plan \"$quick_id\" --format json | jq -r .started)\n\
+     STARTED=$(specforge gsd start-plan \"$quick_id\" --pick .started)\n\
      specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"\n\
      specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\" --started \"$STARTED\"\n\
      ```\n\n\
      `start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps \
      both of its times. The project state is computed, so no task row is written. \
+     With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist \
+     before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as \
+     its objective), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since \
+     `specforge new` refuses an id that exists. \
      `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so.\n"
     )
 }

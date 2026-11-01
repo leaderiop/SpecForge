@@ -36,7 +36,7 @@
     "| `/gsd-spike` | not served on this project |",
     "| `/gsd-spec-phase` | prompt `specforge.gsd.spec_phase` (served by @gsd/core) |"
   ],
-  "bytes": 10562,
+  "bytes": 10591,
   "end": [
     "  \"parallelization.skip_checkpoints\": true,",
     "  \"parallelization.task_level\": false",
@@ -127,7 +127,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -170,8 +170,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e6bbc4a1c03de3ef84b8e6a2111e2f8ea51e4b1e44fe4ba5a79aeb242fd0c0cd",
+    "digest": "sha256:84d2b5e99259c78a6c9261476ae4911ff4344554f3a531efbb54d97c97d4a355",
     "prompt": "@gsd/core@VERSION:ns_ideate"
   },
-  "sha256": "e6bbc4a1c03de3ef84b8e6a2111e2f8ea51e4b1e44fe4ba5a79aeb242fd0c0cd"
+  "sha256": "84d2b5e99259c78a6c9261476ae4911ff4344554f3a531efbb54d97c97d4a355"
 }

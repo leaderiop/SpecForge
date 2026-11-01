@@ -16,7 +16,7 @@ There is no `init onboard` projection here: compute it from the spec and the rep
 
 ```bash
 # One projection, computed here (--fast changes nothing: there is no fast map to accept):
-ENTITIES=$(specforge export --kinds project,milestone,phase,requirement --format brief 2>/dev/null | jq -c '[.nodes[]|{id,kind}]')   # a project is not linked to its milestones, so the listing is by kind; [] when there is none
+ENTITIES=$(for k in project milestone phase requirement; do specforge export --kinds "$k" --pick '.nodes[].id' 2>/dev/null | sed "s|^|$k |"; done)   # one "<kind> <id>" line per entity: a project is not linked to its milestones, so the listing is by kind; empty when there is none
 # Existing ADR/PRD/SPEC/RFC documents:
 DOC_CANDIDATES=$(find . -type f \( -path '*/adr/*' -o -path '*/adrs/*' -o -path '*/prd/*' -o -path '*/prds/*' -o -path '*/rfc/*' -o -path '*/rfcs/*' -o -name 'ADR-*.md' -o -name 'PRD-*.md' -o -name 'SPEC-*.md' -o -name 'RFC-*.md' \) -not -path './.git/*' 2>/dev/null | wc -l | tr -d ' ')
 ONBOARDING_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)

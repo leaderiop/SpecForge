@@ -169,12 +169,14 @@ The assets are upstream's text; where the spec has no counterpart a line was def
 - `init` JSON fields (`phase_dir`, `plan_count`, ...) have no counterpart: the text reads the graph (`specforge query`)
   and the ids named at the end of the text (`$PHASE_ID`, `$MILESTONE`, `$PROJECT`).
 - Shell: upstream's blocks read JSON (and the wave's worktree manifest) with `node -e`, because upstream is a node
-  program; here they use `jq`, a requirement of `@gsd/core` (plan 03, F9; `tests/cli/assets_jq/` runs each rewritten
-  line without node). node stays where the user's own JavaScript project runs (`KEEP` in `tests/port_tools.rs`) and in
-  `code-review-disposition.md`'s ledger builder, a Markdown parser with no jq form (`PENDING_NODE`). The edge-probe
-  steps of `spec-phase` and `specless-probe-fallback` still run upstream's `edge-probe.cjs` / `spec-section.cjs` with
-  `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs no runtime library (#5640), so the steps
-  stop at "not found" unless an upstream GSD install provides one.
+  program, and its review lanes and its own JSON need jq. Here the blocks need neither: a value comes from `--pick`, a
+  document is read by the agent, gh filters with `--jq`, and the manifest and the batch list are tab-separated lines
+  (plans 03 and 05, F9 and G4; `tests/port_tools.rs` forbids a `jq` command word, `tests/cli/assets_shell/` runs each
+  rewritten line with no jq and no node). node stays where the user's own JavaScript project runs (`KEEP` in
+  `tests/port_tools.rs`) and in `code-review-disposition.md`'s ledger builder, a Markdown parser with no shell form
+  (`PENDING_NODE`). The edge-probe steps of `spec-phase` and `specless-probe-fallback` still run upstream's
+  `edge-probe.cjs` / `spec-section.cjs` with `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs
+  no runtime library (#5640), so the steps stop at "not found" unless an upstream GSD install provides one.
 - `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
@@ -212,6 +214,14 @@ Found by REVIEW-r43 and kept, each on purpose or as a kernel limit (K20):
   `spec/quick.spec`, and the executor checks its own worktree's `spec/quick.spec`, restoring `spec/` from
   `QUICK_PLAN_COMMIT` when the plan is missing there. With no commit that declared the plan, there is no alternate
   worktree base (upstream falls back to `HEAD`).
+- `quick --discuss` / `--research` (G3): upstream writes `quick/<id>/<id>-CONTEXT.md` and `<id>-RESEARCH.md`; here
+  they are a `context` (its decisions are `decision`s named `<id>-D-01`, `origin context`) and a `research` that name
+  the quick plan in `plan` and sit in the project scope beside it. `gsd/E206` holds one context and one research per
+  quick plan, a context naming exactly one of `phase` and `plan`, and a `plan` that is a quick plan. A reference needs
+  its target, so the quick plan is made first, by whichever of the two steps runs first, and the planner then sets its
+  fields with `specforge set`. The sub-agents' reading lists hand a `specforge query` of the plan, the context or the
+  research instead of a path, and the orchestrator's existence checks query the entity. The plan checks
+  (`gsd/W311`–`W316`) select the context by `self.phase`, so a quick plan's check reads no context.
 - A lesson id `L-<phase>-<n>` is not unique across milestones: with `--reset-phase-numbers` the re-run rule (`specforge
   set` an existing id) overwrites an earlier milestone's lesson.
 - `/gsd-settings` writes no `~/.gsd/defaults.json` (it is upstream GSD's store and nothing here reads it): there are no
@@ -245,6 +255,10 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `health`, `stats`, `progress_report` (`/gsd-health`, `/gsd-stats`) | nothing: they report from the computed values of the graph |
 | `smart_entry` (`/gsd-next`) | nothing: it is read-only, and classifies the project from its computed `status`, `backlog` and `verification.status` fields |
 | `resolve_package_manager <script>` (`specforge gsd resolve-package-manager build`; gsd-tools' `resolve-package-manager`, #5346) | nothing: it is read-only, and prints the command that runs a package script with the project's manager (`package.json`'s `packageManager`, else `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `bun.lockb`, else npm; `test` is `<pm> test`, bun's `bun run test`), for the build and test gates. It reads the files through declared reads (ADR 0293), at the project root only; a `package.json` over the host's 64 KiB text cap reads as one without the field (upstream: 1 MiB); a script name outside `^[A-Za-z0-9_][A-Za-z0-9:_-]{0,63}$` is refused `invalid_input` with a non-zero exit (upstream prints nothing and exits 0) |
+| `user_story_validate --story <text>` (`specforge gsd user-story-validate`; gsd-tools' `user-story validate`) | nothing: it is read-only, and answers whether the text is the canonical `As a <role>, I want to <capability>, so that <outcome>.` on one line, with upstream's per-clause errors, for `/gsd-mvp-phase`, the verifier and the MVP UAT framing. Divergence: the slots are flat fields `role`, `capability`, `outcome` (upstream nests them in `slots`), so a prompt picks `.role` |
+| `verification_debt [--milestone M] [--phase P]` (`specforge gsd verification-debt`; gsd-tools' `audit-uat` and `phase uat-passed`) | nothing: it is read-only, and counts the UAT tests still open by the uat_test kind's rule (pending or no result, blocked, an issue with an unresolved or no gap, a skip without a `Deferred follow-up` reason), for `/gsd-progress`'s debt lines and `/gsd-verify-work`'s gates: `{milestone, current, archived: [{milestone, open}], archived_total, blockers}`. Divergence: one answer of counts and ids, not upstream's audit report (`summary.total_items`, `parse_gap_files`) or its exit-code verdict; an archived milestone is a shipped one |
+| `plan_coverage <phase> --review <text>` (`specforge gsd plan-coverage`; review.md's inline node script, no gsd-tools verb) | nothing: it is read-only, and answers `{complete, missing_ids, total}`: whether a reviewer's text names each of the phase's plans (`phase` names it), an id standing alone with no word character or `-` beside it. The text is an argument (a command reads no runtime path), so a report over the platform's argument size cannot be checked |
+| `edge_probe_requirements --requirements <json>` (`specforge gsd edge-probe-requirements`; spec-phase.md's inline node guard, no gsd-tools verb) | nothing: it is read-only, and answers `{valid, errors, count}`: whether the requirements an agent wrote for the edge probe are a non-empty JSON array whose every item has a string `text`, not blank and with no `<replace:` placeholder, for `/gsd-spec-phase` and the specless probe fallback. Divergence: each failure is named (upstream's node only exits 1); the JSON is an argument, so a list over the platform's argument size cannot be checked |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
@@ -297,6 +311,7 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 | gsd-secret-read-guard | `secret_read_guard` (`pre_tool`): fails closed (`on_failure` deny), where upstream fails open |
 | gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only, and a block would land after the read (see below) |
 | gsd-prompt-guard | `prompt_guard` (`pre_tool`): scans content written to spec files |
+| hooks/lib/injection-patterns.js (the matcher) | `injection_scanner`'s and `prompt_guard`'s matcher (`src/hooks/injection/regex.rs`) is linear in the text: each pattern runs as a compiled program with a visited set (G2), so no text runs them past the hook budget. Upstream's V8 regex backtracks and is quadratic on `MD-LINK-USERINFO`: `](http://` + `a:` x 2 000 / 8 000 / 32 000 takes 5 / 76 / 1 139 ms in node 25 (16x per 4x), and the hook has no size cap. Here 32 000 take 1 ms natively, and a 1 MiB line about 0.5 s in the guest, process start included (divergence: linear here) |
 | gsd-agent-isolation-guard | none: dropped in the roster, because `@gsd/core` runs its executors sequentially in the checkout and the guard would always allow (r44 post-fix N7; ACCEPTANCE's divergences) |
 | gsd-worktree-path-guard | `worktree_path_guard` (`pre_tool`): path based; refuses a path whose git toplevel is not the worktree's, so also through a symlink into the main checkout, and a relative path that climbs into it (stricter than upstream, which allows every relative path; see ACCEPTANCE's divergences) |
 | gsd-workflow-guard | `workflow_marker` (`user_prompt`: a `/gsd-...` prompt sets the marker, which lasts the session) and `workflow_guard` (`pre_tool`, `hooks.workflow_guard`; it also refuses `git add -f` on an `agent-*` branch) |
@@ -353,8 +368,6 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
   skill the model invokes sets none. `sessions/<id>.json` files are never pruned.
 - A session patch with no session shows the user a `systemMessage` ("the state patch names a session, and this run has
   none").
-- The injection patterns' regex engine is quadratic: a long hostile `](http://a:a:...` link takes seconds (0.27 s at
-  2000 repeats, 2.4 s at 8000).
 - Hooks of the injection family judge a file as in the spec root only when it is a `.spec` file (the kernel calls
   every path "in the spec root" when `spec_root` is `.`).
 - `write_guard` continues when an existing file's bytes are unreadable; upstream fails closed. `secret_read_guard`

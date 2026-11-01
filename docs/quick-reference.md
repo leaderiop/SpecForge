@@ -24,6 +24,11 @@ specforge export --format=context    # token-efficient context for an agent
 specforge export --format markdown --scope <id> --depth 1   # a review document for people who sign
 specforge query <id> --depth 2       # multi-resolution neighborhood query
 specforge query <id> --format context --include-coverage   # an agent's slice with coverage
+specforge query <id> --kinds plan --pick '.nodes[kind=plan].id'   # one value per line, no jq: .key [n] [] [<key>=<value>] (ADR 0325)
+specforge check --pick '.[code=E003].message'      # check, settings and export take --pick too
+specforge settings --pick '.extensions[].settings[name=<setting>].value'
+specforge query <id> --depth 1 --pick '.nodes[fields.result=issue].id'   # a dotted key; true, 2 and null match as JSON
+specforge query <id> --kinds commit --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject   # one row per item, its cells separated by 0x1f (read: IFS=$'\x1f' read -r hash subject)
 specforge trace <id>                 # traceability chain for an entity
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
 specforge schema                     # emit the Graph Protocol schema
@@ -49,6 +54,10 @@ specforge link <id> --verify unit:"<text>"   # add a verify obligation; unlink r
 specforge delete <id> [--unlink-references]  # delete an entity (and, with the flag, every reference to it)
 # Every edit takes --dry-run (print the diff, write nothing), --revision <sha256:..|absent> (refuse the write if the file has changed: stale_revision) and --format json.
 # MCP: specforge.edit takes a list; each item may name a revision. An extension's writing command takes --dry-run too.
+
+# Extension commands (ADR 0008): every one takes --path, --format human|json and --host
+specforge <ext> <command> [args] [--format json]   # also `specforge <ext>:<command>`
+specforge <ext> <command> [args] --pick .<field>   # one value of the command's own JSON answer per line, no jq (ADR 0325); a prompt takes no --pick
 
 # Extension prompts and gates (ADR 0291): a workflow an extension contributes, and a command refused while a check fails
 specforge prompt <ext>.<prompt> [arguments] [--host claude-code|codex|cursor] [--format json]   # also `specforge <ext> <prompt>` when no command has the name

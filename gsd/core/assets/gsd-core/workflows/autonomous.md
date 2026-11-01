@@ -162,9 +162,9 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_MANAGER=$(specforge gsd progress-report --format json)
-if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
+
+
+# a field of the answer is read with --pick, never jq
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 STATE_CONTENT=$(specforge gsd progress-report 2>/dev/null || true)
 ```
@@ -425,7 +425,7 @@ Auto-invoke code review and fix chain. Autonomous mode chains both review and fi
 
 **Capability dispatch:**
 ```bash
-EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
 Resolve active step hooks from `EXECUTE_POST_HOOKS_JSON` where `kind == "step"` and `ref.skill == "code-review"`.
@@ -451,7 +451,7 @@ After execute, read canonical verification:
 
 ```bash
 VERIFY_ERROR=""  # reset every loop iteration — a prior phase's refusal must not leak into this one
-VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending"') || VERIFY_ERROR=1
+VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 ```
 
 If `PHASE_DIR` is absent, re-fetch `init.phase-op ${PHASE_NUM}` and parse `phase_dir`.
@@ -510,7 +510,7 @@ Skill(skill="gsd-execute-phase", args="${PHASE_NUM} --no-transition")
 Re-read verification status:
 ```bash
 VERIFY_ERROR=""  # reset every loop iteration — a prior phase's refusal must not leak into this one
-VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending"') || VERIFY_ERROR=1
+VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 ```
 
 If `VERIFY_ERROR` is set: handle_blocker with the error printed above (#5118).
@@ -548,10 +548,10 @@ Resolve the active post-verification hooks and the UI-SPEC gate:
 
 ```bash
 UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
-HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --after-fingerprint "$MILESTONE/${PHASE_NUM}" --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --after-fingerprint "$MILESTONE/${PHASE_NUM}" --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
-Read the `activeHooks` array directly from the `HOOKS_JSON` value already in context (do not invoke a shell `jq` pipeline — parse as the JSON object it is). **If `activeHooks` is empty or absent:** skip silently to the iterate step. `--after-fingerprint "$MILESTONE/${PHASE_NUM}"` (#5105) moves a step whose declared artifact the phase already has (the capability extension decides: `@gsd/security` maps `SECURITY.md` to the phase having a `security_audit`) into `skippedHooks` instead of `activeHooks` — execute-phase already ran it, so it is not re-dispatched here.
+Read the `activeHooks` array directly from the `HOOKS_JSON` value already in context (do not invoke a shell pipeline — parse each line as the JSON object it is). **If `activeHooks` is empty or absent:** skip silently to the iterate step. `--after-fingerprint "$MILESTONE/${PHASE_NUM}"` (#5105) moves a step whose declared artifact the phase already has (the capability extension decides: `@gsd/security` maps `SECURITY.md` to the phase having a `security_audit`) into `skippedHooks` instead of `activeHooks` — execute-phase already ran it, so it is not re-dispatched here.
 
 For each entry in `activeHooks` in array order where `kind == "step"` and `ref.skill` is set:
 
@@ -609,9 +609,9 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_MANAGER=$(specforge gsd progress-report --format json)
-if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
+
+
+# a field of the answer is read with --pick, never jq
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 STATE_CONTENT=$(specforge gsd progress-report 2>/dev/null || true)
 printf '%s\n' "$STATE_CONTENT"
@@ -675,7 +675,7 @@ After audit completes, detect the result:
 
 ```bash
 AUDIT_FILE="${milestone_version}-MILESTONE-AUDIT"   # the milestone_audit entity
-AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --format json | jq -r '[.nodes[]|select(.kind=="milestone_audit")][0].fields.status // empty')
+AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' | head -1)
 ```
 
 **If AUDIT_STATUS is empty** (no audit file or no status field):
@@ -735,10 +735,10 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_MANAGER=$(specforge gsd progress-report --format json)
-if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-ARCHIVE_DIR=$(_gsd_field "$INIT_MANAGER" archive_dir)
+
+
+# a field of the answer is read with --pick, never jq
+ARCHIVE_DIR=$(specforge gsd progress-report --pick .archive_dir)
 ls "${ARCHIVE_DIR}/v${milestone_version}-ROADMAP.md" 2>/dev/null || true
 ```
 

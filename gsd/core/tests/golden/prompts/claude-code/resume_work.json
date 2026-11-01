@@ -50,7 +50,7 @@
     "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
     "```",
     "",
-    "Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints). The routing facts below are not in it, they come from the graph: `state_exists` is `milestone_version` non-null (the project state is computed); `roadmap_exists` is `phases` non-empty; `project_exists` and `planning_exists` are `specforge export --kinds project --format graph | jq '.nodes|length>0'`; `requirements_exists` is the same with `--kinds requirement`; `init_incomplete` is a project without a roadmap or without requirements; `has_interrupted_agent` is false (this extension keeps no agent registry).",
+    "Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints). The routing facts below are not in it, they come from the graph: `state_exists` is `milestone_version` non-null (the project state is computed); `roadmap_exists` is `phases` non-empty; `project_exists` and `planning_exists` are `[ -n \"$(specforge export --kinds project --pick '.nodes[].id')\" ]`; `requirements_exists` is the same with `--kinds requirement`; `init_incomplete` is a project without a roadmap or without requirements; `has_interrupted_agent` is false (this extension keeps no agent registry).",
     "",
     "**If `init_incomplete` is true (#4040 — interrupted bootstrap):** the spec exists but initialization never finished — the `requirement` entities, the `milestone` and `phase` entities or the project were never created. This is NOT a state-reconstruction case (the project state is computed). Route to initialization recovery: resume `/gsd-new-project`, which continues from the first missing entity and keeps the existing `project` entity and any already-created ones. Do not proceed to load_state.",
     "",
@@ -61,7 +61,7 @@
     "",
     "<step name=\"load_state\">"
   ],
-  "bytes": 20524,
+  "bytes": 20522,
   "end": [
     "",
     "",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a052b34702ac4debe49e642217032574d248e83744fd77a23941760fa0782112",
+    "digest": "sha256:8a1cf6a0a8eacb110932b2c430ca525190d19fbd171959c0a1da78d13035804a",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "a052b34702ac4debe49e642217032574d248e83744fd77a23941760fa0782112"
+  "sha256": "8a1cf6a0a8eacb110932b2c430ca525190d19fbd171959c0a1da78d13035804a"
 }

@@ -61,7 +61,7 @@
     "- \"If you had to cut 50%, what's the irreducible core?\"",
     "- \"What would make this phase a success even without the nice-to-haves?\""
   ],
-  "bytes": 61629,
+  "bytes": 61195,
   "end": [
     "<context>",
     "Phase number: the `<arguments>` block (required)",
@@ -152,7 +152,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5558b9b62c05a0c20eddc5ca253641ace4298f97520ce30b25b5cfc1cebedd88",
+    "digest": "sha256:2c5e286893a9c5729779adfbfad1cba3f83885fb073278f92afcefe0f1cec228",
     "judged": [
       {
         "outcomes": [
@@ -235,5 +235,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "5558b9b62c05a0c20eddc5ca253641ace4298f97520ce30b25b5cfc1cebedd88"
+  "sha256": "2c5e286893a9c5729779adfbfad1cba3f83885fb073278f92afcefe0f1cec228"
 }
