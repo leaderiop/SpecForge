@@ -786,3 +786,11 @@ fn the_matcher_agrees_with_the_oracle() {
             .join("\n")
     );
 }
+
+/// JavaScript refuses an empty iteration once a repeat's minimum is met, which the visited set does not model: such a
+/// repeat, absent from every shipped pattern, is refused when built (`(?:|a)?` on `a` is (0, 1) in JavaScript).
+#[test]
+#[should_panic(expected = "a repeated group that can match empty")]
+fn a_repeated_group_that_can_match_empty_is_refused() {
+    Regex::new("(?:|a)?");
+}

@@ -9,7 +9,9 @@
 //!
 //! The work is linear in the text, so no text can run a hook past its budget. Each pattern compiles to a small program
 //! that a backtracker runs in JavaScript's leftmost-first order, with a visited bit per (split, position), RE2's
-//! BitState. The set is kept across start positions: nothing captures or refers back, so a state that failed fails
+//! BitState. That order is JavaScript's only where no repeated group can match empty: JavaScript refuses an empty
+//! iteration once the minimum is met (so `(?:|a)?` takes the `a`), and the visited bit would prune the retry instead.
+//! No shipped pattern has one, and building one panics. The set is kept across start positions: nothing captures or refers back, so a state that failed fails
 //! from any start. Each split and position is then expanded once, at most splits x (n + 1) times, with as many bits.
 //! A start whose character none of the pattern's first characters accepts is skipped without a run.
 //! A look-ahead's body has no `+` or `*` (asserted when built), and its answer is kept per position.
@@ -273,6 +275,17 @@ fn compile(node: &Node, bounded: bool, progs: &mut Vec<Prog>) -> usize {
     id
 }
 
+/// Whether `n` can match without consuming a character.
+fn nullable(n: &Node) -> bool {
+    match n {
+        Node::Char(_) | Node::Space | Node::Class { .. } => false,
+        Node::Start | Node::Look { .. } => true,
+        Node::Seq(v) => v.iter().all(nullable),
+        Node::Alt(v) => v.iter().any(nullable),
+        Node::Rep { node, min, .. } => *min == 0 || nullable(node),
+    }
+}
+
 fn emit(n: &Node, bounded: bool, p: &mut Prog, progs: &mut Vec<Prog>) {
     match n {
         Node::Char(_) | Node::Space | Node::Class { .. } => p.insts.push(Inst::One(n.clone())),
@@ -293,6 +306,7 @@ fn emit(n: &Node, bounded: bool, p: &mut Prog, progs: &mut Vec<Prog>) {
         }
         Node::Rep { node, min, max } => {
             assert!(!bounded || *max == 1, "a + or * inside a look-ahead");
+            assert!(!nullable(node), "a repeated group that can match empty");
             let top = p.insts.len();
             match (*min, *max) {
                 (0, 1) => {
