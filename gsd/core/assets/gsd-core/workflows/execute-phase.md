@@ -224,7 +224,7 @@ PHASE_NUMBER="{phase_number}"
 PLAN_ROWS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${PHASE_NUMBER}-{plan_padded}" --kinds commit --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject) && PLAN_SCOPE_RC=0 || PLAN_SCOPE_RC=$?
 # Exit 69 (UNAVAILABLE) = "could not look": empty is then NOT "no commits". Fail closed (#5170).
 if [ "$PLAN_SCOPE_RC" -ne 0 ]; then echo "SAFE-RESUME GATE: could not resolve the plan's commits (evaluation-scope exit ${PLAN_SCOPE_RC}); not dispatching an executor on an unknown resume state." >&2; exit 1; fi
-PLAN_COMMITS=$(printf '%s\n' "$PLAN_ROWS" | while IFS=$'\t' read -r h s; do [ -n "$h" ] && printf '%s %s\n' "${h:0:10}" "$s"; done)   # one <hash>TAB<subject> row per commit
+PLAN_COMMITS=$(printf '%s\n' "$PLAN_ROWS" | while IFS=$'\x1f' read -r h s; do [ -n "$h" ] && printf '%s %s\n' "${h:0:10}" "$s"; done)   # one <hash><0x1f><subject> row per commit
 ```
 If production commits exist and `SUMMARY.md is missing` (no the spec manifest matches it: a match is a legal `external_job_waiting` deferral - reconcile per `docs/reference/planning-artifacts.md`, never re-dispatch), stop before spawning a
 new executor; continuing risks duplicate work and stale `STATE.md`/ROADMAP progress.
@@ -252,7 +252,7 @@ if [ "$TDD_MODE" = "true" ]; then
     RED_IDS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; PLAN_FULL_ID=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].id') && specforge query "$PLAN_FULL_ID" --kinds commit --pick ".nodes[fields.plan=$PLAN_FULL_ID].id") && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?   # a commit's plan field holds the full id: SpecForge resolves a short one (01-01) once
     # Exit 69 (UNAVAILABLE) = the scope could not be resolved: that is not "missing RED commit" (#5170).
     if [ "$RED_SCOPE_RC" -ne 0 ]; then echo "TDD GATE UNAVAILABLE: could not resolve the plan's commits for ${PLAN_ID}/${TASK_ID} (evaluation-scope exit ${RED_SCOPE_RC})"; exit 1; fi
-    RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\t' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
+    RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
     if [ -z "$RED_COMMIT" ]; then
       : # the last gate trip is not recorded: STATE is computed
       echo "TDD GATE TRIPPED: missing RED commit for ${PLAN_ID}/${TASK_ID}"

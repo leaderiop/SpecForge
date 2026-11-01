@@ -61,7 +61,7 @@
     "  Code), you MUST spawn gsd-executor agents — inline execution is not authorized. Check for",
     "  actual tool availability, not runtime name."
   ],
-  "bytes": 111203,
+  "bytes": 111210,
   "end": [
     "- Random emoji (`🚀`, `✨`, `💫`)",
     "- Missing Next Up block after completions",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:671a16541ccd78306107d549d8b133322ef166c984467582f38ec508691e6ad1",
+    "digest": "sha256:2a7022876e0ef8d624fbf625d49343a3fcfeea1121edc7418e14bbf51325156a",
     "prompt": "@gsd/core@VERSION:execute_phase",
     "steps": [
       {
@@ -230,5 +230,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "671a16541ccd78306107d549d8b133322ef166c984467582f38ec508691e6ad1"
+  "sha256": "2a7022876e0ef8d624fbf625d49343a3fcfeea1121edc7418e14bbf51325156a"
 }

@@ -25,13 +25,15 @@ macro_rules! rules {
 
 /// The short help of `--fields`, beside `--pick` on `query` and `export`.
 pub(crate) const FIELDS_HELP: &str =
-    "With --pick: one tab-separated row per item reached, a cell per key";
+    "With --pick: one row per item reached, a cell per key, the cells separated by 0x1f";
 
 /// The long help of `--fields`.
-pub(crate) const FIELDS_LONG_HELP: &str = "With --pick: print one tab-separated row per item the path reaches, one cell \
-     per comma-separated key, in order, e.g. --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject. A key \
-     may be dotted. A cell prints as --pick prints a value, with a missing value or null as an empty cell, so the \
-     rows never misalign; a backslash, tab, newline or carriage return in a cell prints as \\\\, \\t, \\n or \\r.";
+pub(crate) const FIELDS_LONG_HELP: &str = "With --pick: print one row per item the path reaches, one cell per \
+     comma-separated key, in order, the cells separated by the ASCII unit separator (0x1f), e.g. --pick \
+     '.nodes[kind=commit]' --fields fields.hash,fields.subject, read with IFS=$'\\x1f' read -r hash subject. A key may \
+     be dotted. A cell prints as --pick prints a value, with a missing value or null as an empty cell; 0x1f is not IFS \
+     whitespace, so a read keeps an empty cell and the rows never misalign. A backslash, newline, carriage return or \
+     0x1f in a cell prints as \\\\, \\n, \\r or \\x1f.";
 
 /// The short help of `--pick`, on every command that takes it.
 pub(crate) const HELP: &str = "Print only the values at this path of the JSON answer, one per line";
@@ -173,7 +175,7 @@ impl Fields {
             .map(Self)
     }
 
-    /// The row of `item`: a cell per key, tab-separated.
+    /// The row of `item`: a cell per key, separated by the unit separator (0x1f).
     fn row(&self, item: &Value) -> String {
         self.0
             .iter()
@@ -188,17 +190,18 @@ impl Fields {
                 }
             })
             .collect::<Vec<_>>()
-            .join("\t")
+            .join("\u{1f}")
     }
 }
 
-/// `text` with a backslash, tab, newline and carriage return written as `\\`, `\t`, `\n` and `\r`: one cell.
+/// `text` with a backslash, newline, carriage return and unit separator written as `\\`, `\n`, `\r` and `\x1f`: one
+/// cell.
 fn escaped(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         match c {
             '\\' => out.push_str("\\\\"),
-            '\t' => out.push_str("\\t"),
+            '\u{1f}' => out.push_str("\\x1f"),
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             c => out.push(c),
@@ -546,8 +549,10 @@ mod tests {
         let pick = Pick::parse(".nodes[]").unwrap();
         assert_eq!(
             pick.printed(&nodes.to_string(), Some(&fields)).unwrap(),
-            "abc\tfeat: a\tc1\t2\t\n\ttab\\there\\nnext \\\\ end\tc2\t\t\n\t\tc3\t\t[\"a\",\"b\"]\n"
+            "abc\u{1f}feat: a\u{1f}c1\u{1f}2\u{1f}\n\u{1f}tab\there\\nnext \\\\ end\u{1f}c2\u{1f}\u{1f}\n\u{1f}\u{1f}c3\u{1f}\u{1f}[\"a\",\"b\"]\n"
         );
+        // a unit separator in a cell is written out, so it cannot split the row (re-review item 5)
+        assert_eq!(escaped("a\u{1f}b"), "a\\x1fb");
         // a value that is null still holds its row; an item missing from the path holds none
         let one = Fields::parse("id").unwrap();
         assert_eq!(

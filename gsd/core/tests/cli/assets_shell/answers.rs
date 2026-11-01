@@ -358,7 +358,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         ),
         (
             "gsd-core/workflows/pause-work.md",
-            "while IFS=$'\\t' read -r s line",
+            "while IFS=$'\\x1f' read -r s line",
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
@@ -366,7 +366,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
-            "while IFS=$'\\t' read -r ph goal",
+            "while IFS=$'\\x1f' read -r ph goal",
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
@@ -637,7 +637,7 @@ fn the_requirements_guard_refuses_a_placeholder_or_an_empty_list() {
     }
 }
 
-/// R2: the text scans read one `id<TAB>text` row per entity (`--fields`) and match in a `case`: a deferred goal and a
+/// R2: the text scans read one `id<0x1f>text` row per entity (`--fields`) and match in a `case`: a deferred goal and a
 /// placeholder one-liner are named by their entity's id, the others not.
 #[test]
 fn the_text_scans_read_one_row_per_entity() {
@@ -646,11 +646,11 @@ fn the_text_scans_read_one_row_per_entity() {
     let scan = |path: &str, start: &str| run(&sh, &p, path, "MILESTONE=v1.0", &[start], "").0;
     let deferred = (
         "gsd-core/workflows/progress/steps/forensic-audit.md",
-        "while IFS=$'\\t' read -r ph goal",
+        "while IFS=$'\\x1f' read -r ph goal",
     );
     let placeholder = (
         "gsd-core/workflows/pause-work.md",
-        "while IFS=$'\\t' read -r s line",
+        "while IFS=$'\\x1f' read -r s line",
     );
     assert_eq!(scan(deferred.0, deferred.1), "");
     assert_eq!(scan(placeholder.0, placeholder.1), "");
