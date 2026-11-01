@@ -425,8 +425,8 @@ EXPECTED_BASE=$(git rev-parse HEAD)
 if [ "$ISOLATION" = "harness-worktree" ]; then   # keyed on ISOLATION like every other dispatch-coupled branch (#2652)
   # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
   # suffixless temp then append the extension — portable across BSD + GNU (#1520).
-  QUICK_WORKTREE_MANIFEST=$(mktemp "${TMPDIR:-/tmp}/gsd-quick-worktree-XXXXXX") && mv "$QUICK_WORKTREE_MANIFEST" "${QUICK_WORKTREE_MANIFEST}.json" && QUICK_WORKTREE_MANIFEST="${QUICK_WORKTREE_MANIFEST}.json" || exit 1
-  printf '{"worktrees":[]}\n' > "$QUICK_WORKTREE_MANIFEST"
+  QUICK_WORKTREE_MANIFEST=$(mktemp "${TMPDIR:-/tmp}/gsd-quick-worktree-XXXXXX") && mv "$QUICK_WORKTREE_MANIFEST" "${QUICK_WORKTREE_MANIFEST}.tsv" && QUICK_WORKTREE_MANIFEST="${QUICK_WORKTREE_MANIFEST}.tsv" || exit 1
+  : > "$QUICK_WORKTREE_MANIFEST"   # one tab-separated record per line, as the wave's manifest: worktree<TAB>path<TAB>branch<TAB>agent_id<TAB>expected_base<TAB>allowed_bases (comma-separated)
   export QUICK_WORKTREE_MANIFEST
 fi
 ```
@@ -542,7 +542,7 @@ SUMMARY.md and stop — the user must rerun with worktrees disabled.
 
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
-If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), append its returned `{agent_id, worktree_path, branch, expected_base, allowed_bases}` metadata to `QUICK_WORKTREE_MANIFEST` before cleanup. Set `expected_base` to `${EXPECTED_BASE}` and `allowed_bases` to `["${EXPECTED_BASE}", "${QUICK_PLAN_PARENT}"]` with duplicates and empty values removed. If any required field is unavailable, stop and ask for recovery; do not discover global worktrees.
+If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), append its returned metadata to `QUICK_WORKTREE_MANIFEST` before cleanup, one `worktree<TAB><worktree_path><TAB><branch><TAB><agent_id><TAB><expected_base><TAB><allowed_bases>` line. Set `expected_base` to `${EXPECTED_BASE}` and `allowed_bases` to `${EXPECTED_BASE},${QUICK_PLAN_PARENT}` with duplicates and empty values removed. If any required field is unavailable, stop and ask for recovery; do not discover global worktrees.
 
 After executor returns:
 1. **Worktree cleanup:** If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), merge the worktree branch back and clean up:

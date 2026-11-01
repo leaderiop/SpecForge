@@ -395,6 +395,38 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/ship.md", 115),
     ("gsd-core/workflows/ship.md", 538),
     ("gsd-core/workflows/verify-work.md", 80),
+    // G4 plan 05 review R10: quick's worktree manifests are tab-separated like the wave's, the batch's manifest is
+    // `quick_id<TAB>description` lines, and the batch's create check reads the list, not a stale `$?`.
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 29),
+    ("gsd-core/workflows/quick-batch/steps/planner-wave.md", 154),
+    ("gsd-core/workflows/quick-batch/steps/research-phase.md", 16),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        37,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        127,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        128,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        129,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        130,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        153,
+    ),
+    ("gsd-core/workflows/quick.md", 426),
+    ("gsd-core/workflows/quick.md", 427),
+    ("gsd-core/workflows/quick.md", 543),
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[

@@ -36,7 +36,7 @@ EXEC_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
 QB_ELIG_JSON='{"eligible":[]}'   # quick-batch resume: the batch router is not part of @gsd/core; the eligible items are those of your notes whose dependencies are complete
    ```
    Parse `eligible` (quick ids ready to execute — every dependency already
-   `complete`) and refresh `$BATCH_MANIFEST_JSON` from its `manifest`.
+   `complete`); `$BATCH_MANIFEST_JSON` keeps its `quick_id<TAB>description` lines.
 
    **Crash-window guard (mirrors `planner-wave.md`'s PLAN.md-existence
    check one layer earlier — #3677):** `quick-batch resume`'s `eligible` is
@@ -126,10 +126,10 @@ SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9'
      description="Execute ${quick_id}: ${description}"
    )
    ```
-   Record `{agent_id, worktree_path, branch, expected_base, allowed_bases}`
-   from the executor's return into `$QUICK_BATCH_WORKTREE_MANIFEST` (a JSON
-   file, initialized `{"worktrees":[]}` before the first round — same shape
-   `/gsd:quick`'s own `QUICK_WORKTREE_MANIFEST` uses).
+   Record `worktree_path`, `branch`, `agent_id`, `expected_base` and `allowed_bases`
+   from the executor's return into `$QUICK_BATCH_WORKTREE_MANIFEST` (a tab-separated
+   file, empty before the first round, one `worktree<TAB>path<TAB>branch<TAB>…` line
+   each — the format `/gsd:quick`'s own `QUICK_WORKTREE_MANIFEST` uses).
 
    **`isolation == "orchestrator-worktree"`:** GSD creates the worktree
    (`worktree create (not part of @gsd/core; --manifest "$QUICK_BATCH_WORKTREE_MANIFEST" --agent-id ... --path ... --branch ... --base ... --files "$PLAN_FILES" --deletions "$PLAN_DELETIONS"`) then
@@ -152,7 +152,7 @@ SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9'
    ```bash
 : "quick-batch update: the batch router is not part of @gsd/core; keep the worktree, branch and base in your notes"
    ```
-   The ephemeral manifest is a per-process `mktemp` file (same shape
+   The ephemeral manifest is a per-process `mktemp` file (same format
    `/gsd:quick`'s own `QUICK_WORKTREE_MANIFEST` uses) — it does NOT survive
    a coordinator crash/restart. A RESUMED coordinator's Step 7
    (`merge-wave.md`) reads this durable BATCH.json triple as its fallback

@@ -15,7 +15,7 @@ RESEARCH_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router i
 
 ```
 
-For each item in `$BATCH_MANIFEST_JSON.items` whose
+For each `quick_id<TAB>description` line of `$BATCH_MANIFEST_JSON` whose
 research `${quick_id}-RESEARCH` does not already exist (`specforge query "${quick_id}-RESEARCH" --depth 0` fails; idempotent
 — a resumed batch skips items already researched): derive `$item_dir` the same
 way every step does —

@@ -153,7 +153,7 @@ QB_UPDATE_JSON="{\"updated\":${LAYER_UPDATES_JSON:-[]}}"   # quick-batch update:
    empty `dependsOn` for those items instead (never leave the batch
    unrecoverable), and continue.
 
-   Refresh `$BATCH_MANIFEST_JSON` from `$QB_UPDATE_JSON.manifest` before the
+   Keep each item's new wave beside its `$BATCH_MANIFEST_JSON` line in your notes before the
    next loop iteration — wave numbers may have changed (row 22-23).
 
 Continue to Step 6 once the loop above finds no more unplanned pending items.

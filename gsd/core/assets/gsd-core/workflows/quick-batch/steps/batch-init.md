@@ -28,7 +28,7 @@ rm -f "$TASK_FILE"
 ```
 
 ```bash
-QB_CREATE_RC=$?
+[ -n "${QB_CREATE_LIST:-}" ] && QB_CREATE_RC=0 || QB_CREATE_RC=1   # the list is empty when the task list held fewer than 2 items
 
 ```
 

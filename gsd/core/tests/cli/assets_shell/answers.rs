@@ -222,6 +222,45 @@ fn the_plan_coverage_is_specforges() {
     );
 }
 
+/// Plan 05 review R10: quick-batch's create check is the list's own (`QB_CREATE_RC=$?` in a block of its own was
+/// always 0, so one item went on), and quick's worktree manifest is tab-separated like the wave's, which it falls
+/// back to, not a `{"worktrees":[]}` file.
+#[test]
+fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
+    let Some(sh) = shell() else { return };
+    let dir = tempfile::tempdir().expect("a dir");
+    let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
+    let create = line(&text, "QB_ITEMS=$(");
+    let rc = text
+        .lines()
+        .find(|l| l.contains("QB_CREATE_RC="))
+        .expect("the create check");
+    for (items, want) in [
+        ("- add a task\n", "[1]"),
+        ("- add a task\n- list them\n", "[0]"),
+    ] {
+        let file = dir.path().join("tasks.md");
+        std::fs::write(&file, items).expect("a task list");
+        let out = sh.run(&format!(
+            // `true`: the RC line is a block of its own, so the list's exit status is gone by then
+            "TASK_FILE={}\n{create}\ntrue\n{rc}\nprintf '[%s]' \"$QB_CREATE_RC\"",
+            q(&file.display().to_string())
+        ));
+        assert_eq!(out, want, "{items}");
+    }
+    let text = asset("gsd-core/workflows/quick.md");
+    let out = sh.run(&format!(
+        "TMPDIR={}\n{}\n{}\nprintf '%s|%s' \"${{QUICK_WORKTREE_MANIFEST##*.}}\" \"$(cat \"$QUICK_WORKTREE_MANIFEST\")\"",
+        q(&dir.path().display().to_string()),
+        line(&text, "QUICK_WORKTREE_MANIFEST=$(mktemp"),
+        text.lines()
+            .map(str::trim_start)
+            .find(|l| l.contains("> \"$QUICK_WORKTREE_MANIFEST\""))
+            .expect("the manifest's first write"),
+    ));
+    assert_eq!(out, "tsv|");
+}
+
 #[test]
 fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
     let Some(sh) = shell() else { return };
