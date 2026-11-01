@@ -9,8 +9,9 @@ fn main() {
     let told = std::env::var("SPECFORGE_COMMIT").unwrap_or_default();
     let told = told.trim();
     let short = if told.is_empty() {
+        // The workspace root holds `.git`: crates/surfaces/cli is three levels below it.
         let dir = std::env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default();
-        let found = commit::of(std::path::Path::new(&dir));
+        let found = commit::of(&std::path::Path::new(&dir).join("../../.."));
         for path in &found.watched {
             println!("cargo:rerun-if-changed={}", path.display());
         }

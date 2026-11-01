@@ -14,7 +14,8 @@ pub struct Commit {
     pub watched: Vec<PathBuf>,
 }
 
-/// The commit of the first `.git` from `start` upward. `.git` is a directory, or a file `gitdir: <dir>` (a
+/// The commit of `start`'s own `.git`, never one above it (a crate built from crates.io sits under a home that may
+/// be a repository of its own). `.git` is a directory, or a file `gitdir: <dir>` (a
 /// worktree, whose `commondir` file names the directory holding the shared refs). HEAD is a detached hash or
 /// `ref: <name>`, a loose ref under the git directory or the common one, else a line of `packed-refs`.
 pub fn of(start: &Path) -> Commit {
@@ -24,10 +25,7 @@ pub fn of(start: &Path) -> Commit {
 }
 
 fn read(start: &Path, watched: &mut Vec<PathBuf>) -> Option<String> {
-    let dot_git = start
-        .ancestors()
-        .map(|dir| dir.join(".git"))
-        .find(|path| path.exists())?;
+    let dot_git = Some(start.join(".git")).filter(|path| path.exists())?;
     let git_dir = if dot_git.is_file() {
         let text = fs::read_to_string(&dot_git).ok()?;
         // A relative gitdir is relative to the directory holding the `.git` file; `join` keeps an absolute one.
