@@ -99,7 +99,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    </planning_context>
 
    <constraints>
-   - Create a SINGLE plan with 1-3 focused tasks for THIS item only
+   - Create a SINGLE plan with 1-3 focused tasks for THIS item only${RESEARCH_MODE ? ' — plan ' + quick_id + ' already exists (made before research): fill it with `specforge set ' + quick_id + ' <field> <value>`, add its tasks with `specforge new task <id> "<title>" --in spec/quick.spec --plan ' + quick_id + '`, never `specforge new plan`' : ''}
    - ALWAYS emit `depends_on` frontmatter (array of sibling `quick_id`s from
      the task catalog above — empty array if none) — required regardless of
      `--validate` (row 14). Reference ONLY quick ids from the catalog above;

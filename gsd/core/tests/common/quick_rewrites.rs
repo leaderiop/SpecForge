@@ -7,6 +7,7 @@
 
 pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 325, 326),
+    ("gsd-core/workflows/quick.md", 338, 338),
     ("gsd-core/workflows/quick.md", 362, 362),
     ("gsd-core/workflows/quick.md", 364, 364),
     ("gsd-core/workflows/quick.md", 366, 366),
@@ -21,6 +22,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         121,
         121,
     ),
+    ("gsd-core/workflows/quick/steps/research-phase.md", 11, 11),
     ("gsd-core/workflows/quick/steps/research-phase.md", 28, 28),
     ("gsd-core/workflows/quick/steps/research-phase.md", 34, 34),
     ("gsd-core/workflows/quick/steps/research-phase.md", 52, 52),
@@ -62,6 +64,11 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ),
     (
         "gsd-core/workflows/quick-batch/steps/planner-wave.md",
+        100,
+        100,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/planner-wave.md",
         128,
         128,
     ),
@@ -91,6 +98,11 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         "gsd-core/workflows/quick-batch/steps/research-phase.md",
         17,
         17,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/research-phase.md",
+        24,
+        24,
     ),
     (
         "gsd-core/workflows/quick-batch/steps/research-phase.md",

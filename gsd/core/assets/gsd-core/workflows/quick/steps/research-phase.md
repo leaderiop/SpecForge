@@ -10,7 +10,7 @@ Display banner:
 ◆ Investigating approaches for: ${DESCRIPTION} (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)
 ```
 
-Spawn a single focused researcher (not 4 parallel researchers like full phases — quick tasks need targeted research, not broad domain surveys):
+First make plan `${quick_id}`, which the research names, unless the discussion made it (the prompt's "The quick plan"): `specforge query "${quick_id}" --depth 0 >/dev/null 2>&1 || specforge new plan "${quick_id}" "${DESCRIPTION}" --in spec/quick.spec --type execute --files_modified "" --objective "${DESCRIPTION}"`. Then spawn a single focused researcher (not 4 parallel researchers like full phases — quick tasks need targeted research, not broad domain surveys):
 
 <!-- #2517 model-omit-on-inherit -->
 
@@ -27,7 +27,7 @@ Agent(
 
 **Mode:** quick-task
 **Task:** ${DESCRIPTION}
-**Output:** the `research` entity `${quick_id}-RESEARCH`, with `plan ${quick_id}`
+**Output:** the `research` entity `${quick_id}-RESEARCH`, with `plan ${quick_id}` (that plan exists: it is made before this research, so never `specforge new plan`)
 
 <required_reading>
 - ${STATE_PATH} (Project state — what's already built)
@@ -51,7 +51,7 @@ Do NOT produce a full domain survey. Target 1-2 pages of actionable findings.
 </focus>
 
 <output>
-Write research as the `research` entity `${quick_id}-RESEARCH`: `specforge new research "${quick_id}-RESEARCH" "<title>" --in spec/quick.spec --plan "${quick_id}" --researched ${date} --confidence <high|medium|low> --summary "<summary>"`, then its items (`specforge new finding`, `specforge new pitfall`, … with `--research "${quick_id}-RESEARCH"`)
+Write research as the `research` entity `${quick_id}-RESEARCH`, after its plan (made before this research): `specforge new research "${quick_id}-RESEARCH" "<title>" --in spec/quick.spec --plan "${quick_id}" --researched ${date} --confidence <high|medium|low> --summary "<summary>"`, then its items (`specforge new finding`, `specforge new pitfall`, … with `--research "${quick_id}-RESEARCH"`)
 Use standard research format but keep it lean — skip sections that don't apply.
 Return: ## RESEARCH COMPLETE with file path
 </output>

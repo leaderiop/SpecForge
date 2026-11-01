@@ -337,7 +337,7 @@ ${AGENT_SKILLS_PLANNER}
 </planning_context>
 
 <constraints>
-- Create a SINGLE plan with 1-3 focused tasks
+- Create a SINGLE plan with 1-3 focused tasks${(DISCUSS_MODE || RESEARCH_MODE) ? ' — plan ' + quick_id + ' already exists (made before discussion/research): fill it with `specforge set ' + quick_id + ' <field> <value>`, add its tasks with `specforge new task <id> "<title>" --in spec/quick.spec --plan ' + quick_id + '`, never `specforge new plan`' : ''}
 - Quick tasks should be atomic and self-contained
 - PATH FORM (#4767): every path in the plan BODY — `files`, `verify`, `<automated>`, task actions — is repo-root-relative, and every `<automated>` command assumes cwd at the checkout root. Only the `<required_reading>` inputs above are absolute (#2376). An absolute path copied from this context into `<automated>` pins the command to THIS checkout; a worktree-isolated executor then runs it against the main tree and it passes on unchanged code.
 - MUTABLE-SCOPE AUTHORITY (#3786): when concrete edit or verification scope depends on mutable external state (a merge index, PR/base diffs, the working tree), authorize scope ONLY from a live observation made at planning time — for conflict resolution that is the fresh merge index via `git diff --name-only --diff-filter=U` — or keep `files`/`verify` CONDITIONAL on that observation. Historical STATE.md entries, recovery notes, and cached PR/base diff paths may guide investigation only; they are never edit or verification authority, and a plan must not enumerate them as authorized files "pending replacement".

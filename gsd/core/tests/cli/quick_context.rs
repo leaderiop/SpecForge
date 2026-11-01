@@ -93,9 +93,7 @@ fn a_research_of_a_quick_plan_may_have_any_name() {
 fn planned_checks(p: &Project) -> Vec<String> {
     let mut found = Vec::new();
     for file in ["quick.md", "quick-batch/steps/planner-wave.md"] {
-        let run = p.run(&["gsd", "reference", &format!("gsd-core/workflows/{file}")]);
-        assert_eq!(run.code, 0, "{file}: {}", run.all());
-        for code in run.stdout.split('`').skip(1).step_by(2) {
+        for code in served(p, file).split('`').skip(1).step_by(2) {
             if !code.contains('\n') && code.contains("specforge query \"${quick_id}\" --kinds") {
                 found.push(code.to_string());
             }
@@ -104,7 +102,7 @@ fn planned_checks(p: &Project) -> Vec<String> {
     found
 }
 
-/// Whether `check` succeeds for `quick_id` in the project, run under bash with `specforge` on the `PATH`.
+/// Whether `check` succeeds for `quick_id` (and a task description) in the project, run under bash with `specforge` on the `PATH`.
 fn holds(p: &Project, check: &str, quick_id: &str) -> bool {
     let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
     let path = format!(
@@ -116,6 +114,8 @@ fn holds(p: &Project, check: &str, quick_id: &str) -> bool {
         .args(["-c", check])
         .env("PATH", path)
         .env("quick_id", quick_id)
+        .env("DESCRIPTION", "Trim the titles")
+        .env("description", "Trim the titles")
         .current_dir(p.root())
         .stdin(std::process::Stdio::null())
         .output()
@@ -176,6 +176,75 @@ fn a_quick_plan_is_planned_once_it_holds_a_task() {
         assert!(
             holds(&p, check, "251101-stb"),
             "a plan with a task is not planned: {check}"
+        );
+    }
+}
+
+/// The served workflow `file`.
+fn served(p: &Project, file: &str) -> String {
+    let run = p.run(&["gsd", "reference", &format!("gsd-core/workflows/{file}")]);
+    assert_eq!(run.code, 0, "{file}: {}", run.all());
+    run.stdout
+}
+
+/// The commands of `text` that contain `needle`: a backticked span, or a whole line outside backticks (a bash block).
+fn commands(text: &str, needle: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    for line in text.lines().filter(|l| l.contains(needle)) {
+        let spans: Vec<&str> = line.split('`').collect();
+        match spans.iter().skip(1).step_by(2).find(|s| s.contains(needle)) {
+            Some(span) => found.push(span.to_string()),
+            None => found.push(line.trim().to_string()),
+        }
+    }
+    found
+}
+
+/// A research step makes the quick plan before the research that names it (the orchestrator does, before it
+/// spawns the researcher; a second run, as a resumed batch makes, keeps it), every research it writes is written to
+/// spec/quick.spec, and the planner is told the plan exists, so it fills it instead of making it again.
+#[test]
+fn a_research_step_makes_the_quick_plan_before_its_research() {
+    let p = project("quick-context");
+    for file in [
+        "quick/steps/research-phase.md",
+        "quick-batch/steps/research-phase.md",
+    ] {
+        let text = served(&p, file);
+        let make = commands(&text, "specforge new plan \"${quick_id}\"");
+        assert_eq!(make.len(), 1, "{file} makes the quick plan once: {make:#?}");
+        let (Some(at), Some(research)) = (
+            text.find(make[0].as_str()),
+            text.find("specforge new research"),
+        ) else {
+            panic!("{file}: no research write");
+        };
+        assert!(at < research, "{file} makes the plan after its research");
+        for line in text
+            .lines()
+            .filter(|l| l.contains("specforge new research"))
+        {
+            assert!(line.contains("--in spec/quick.spec"), "{file}: {line}");
+        }
+        let id = if file.starts_with("quick-batch") {
+            "251101-bat"
+        } else {
+            "251101-one"
+        };
+        for run in 1..=2 {
+            assert!(holds(&p, &make[0], id), "{file}, run {run}: {}", make[0]);
+        }
+        assert_eq!(p.fields_of(id)["type"], "execute", "{file}");
+    }
+    for file in ["quick.md", "quick-batch/steps/planner-wave.md"] {
+        let text = served(&p, file);
+        let line = text
+            .lines()
+            .find(|l| l.contains("Create a SINGLE plan"))
+            .expect("the planner's constraint");
+        assert!(
+            line.contains("already exists") && line.contains("never `specforge new plan`"),
+            "{file}: {line}"
         );
     }
 }
