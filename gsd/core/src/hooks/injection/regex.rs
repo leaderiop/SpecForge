@@ -16,6 +16,9 @@
 //! A start whose character none of the pattern's first characters accepts is skipped without a run. A `+` or `*` of one
 //! character is one instruction that takes its run longest first, with one frame for all the shorter takes, and the
 //! bitsets and stack are kept between searches, so a 4 MiB run or a text of empty lines allocates once.
+//! A shorter take is tried only where the rest of the pattern can start with the character after it, and not at all
+//! when no character of the run is one it can start with (`ignore` then 4 MiB of spaces: one take). The guest is built
+//! for size (opt-level z), so each check costs tens of instructions there: the scan of a start is one tight loop.
 //! A look-ahead's body has no `+` or `*` (asserted when built), and its answer is kept per position.
 
 /// `\s` as JavaScript means it.
@@ -214,11 +217,15 @@ enum Inst {
     Jmp(usize),
     /// A run of `+` (`min` 1) or `*` (`min` 0) over a one-character node, taken longest first: one frame holds every
     /// shorter take, where a split per character would push a frame per character. `ord` is its row of the visited
-    /// set, a bit per position it went on from.
+    /// set, a bit per position it went on from. `then` is what the instruction after it can start with: a shorter
+    /// take whose next character it rejects fails unrun. With `short`, no character of the run is one it can start
+    /// with, so every shorter take fails and the run is taken longest only.
     Star {
         node: Node,
         min: usize,
         ord: usize,
+        then: Starts,
+        short: bool,
     },
     /// Whether program `prog` matches here (or does not, with `neg`); it consumes nothing.
     Look {
@@ -231,29 +238,77 @@ enum Inst {
 struct Prog {
     insts: Vec<Inst>,
     splits: usize,
-    /// The one-character nodes a match must start with; none when a match can start without a character.
-    first: Option<Vec<Node>>,
-    /// The ASCII characters of those nodes, a bit each.
-    ascii: u128,
+    /// What a match must start with.
+    starts: Starts,
 }
 
-impl Prog {
-    /// Whether a match can start at `at` of `s`, by its first character.
+/// The characters a program can go on with from an instruction.
+#[derive(Debug, Clone, Default)]
+struct Starts {
+    /// The one-character nodes it must consume first; none when it can reach `Match` without a character.
+    first: Option<Vec<Node>>,
+    /// The ASCII characters of those nodes, a bit each: two words, as a `u128` shift is a call in the guest.
+    ascii: [u64; 2],
+}
+
+impl Starts {
+    /// What the program `insts` can go on with from `pc`.
+    fn of(insts: &[Inst], pc: usize) -> Starts {
+        let first = firsts(insts, pc);
+        let mut ascii = [0; 2];
+        for b in 0..128u8 {
+            if first
+                .iter()
+                .flatten()
+                .any(|n| Regex::one(n, char::from(b)) == Some(true))
+            {
+                ascii[usize::from(b) / 64] |= 1 << (b % 64);
+            }
+        }
+        Starts { first, ascii }
+    }
+
+    /// Whether no character can start both: neither can go on without one, no ASCII character is in both, and not
+    /// both take a character outside ASCII.
+    fn disjoint(&self, other: &Starts) -> bool {
+        let wide = |s: &Starts| {
+            s.first.iter().flatten().any(|n| match n {
+                Node::Space | Node::Class { neg: true, .. } => true,
+                Node::Class { items, .. } => items
+                    .iter()
+                    .any(|i| matches!(i, Item::Space) || matches!(i, Item::Ch(c) if !c.is_ascii())),
+                Node::Char(c) => !c.is_ascii(),
+                _ => true,
+            })
+        };
+        self.first.is_some()
+            && other.first.is_some()
+            && self.ascii[0] & other.ascii[0] == 0
+            && self.ascii[1] & other.ascii[1] == 0
+            && !(wide(self) && wide(other))
+    }
+
+    /// Whether it can go on at `at` of `s`, by the character there.
     fn may_start(&self, s: &[char], at: usize) -> bool {
+        self.first.is_none() || s.get(at).is_some_and(|c| self.may_begin(*c))
+    }
+
+    /// Whether it can go on with `c`; true when it can without a character.
+    fn may_begin(&self, c: char) -> bool {
         let Some(first) = &self.first else {
             return true;
         };
-        match s.get(at) {
-            None => false,
-            Some(&c) if c.is_ascii() => self.ascii >> (c as u32) & 1 == 1,
-            Some(&c) => first.iter().any(|n| Regex::one(n, c) == Some(true)),
+        if c.is_ascii() {
+            self.ascii[c as usize / 64] >> (c as u32 % 64) & 1 == 1
+        } else {
+            first.iter().any(|n| Regex::one(n, c) == Some(true))
         }
     }
 }
 
-/// The one-character nodes reachable from the first instruction before any is consumed; none if `Match` is.
-fn firsts(insts: &[Inst]) -> Option<Vec<Node>> {
-    let (mut out, mut todo, mut seen) = (Vec::new(), vec![0], vec![false; insts.len()]);
+/// The one-character nodes reachable from instruction `from` before any is consumed; none if `Match` is.
+fn firsts(insts: &[Inst], from: usize) -> Option<Vec<Node>> {
+    let (mut out, mut todo, mut seen) = (Vec::new(), vec![from], vec![false; insts.len()]);
     while let Some(pc) = todo.pop() {
         if std::mem::replace(&mut seen[pc], true) {
             continue;
@@ -302,15 +357,20 @@ fn compile(node: &Node, bounded: bool, progs: &mut Vec<Prog>) -> usize {
     let mut p = Prog::default();
     emit(node, bounded, &mut p, progs);
     p.insts.push(Inst::Match);
-    p.first = firsts(&p.insts);
-    p.ascii = (0..128u8)
-        .filter(|b| {
-            p.first
-                .iter()
-                .flatten()
-                .any(|n| Regex::one(n, char::from(*b)) == Some(true))
-        })
-        .fold(0, |m, b| m | 1 << b);
+    p.starts = Starts::of(&p.insts, 0);
+    for pc in 0..p.insts.len() {
+        if matches!(p.insts[pc], Inst::Star { .. }) {
+            let next = Starts::of(&p.insts, pc + 1);
+            if let Inst::Star {
+                node, then, short, ..
+            } = &mut p.insts[pc]
+            {
+                let run = Starts::of(&[Inst::One(node.clone()), Inst::Match], 0);
+                *short = next.disjoint(&run);
+                *then = next;
+            }
+        }
+    }
     progs[id] = p;
     id
 }
@@ -353,6 +413,8 @@ fn emit(n: &Node, bounded: bool, p: &mut Prog, progs: &mut Vec<Prog>) {
                     node: (**node).clone(),
                     min: *min,
                     ord: p.splits,
+                    then: Starts::default(),
+                    short: false,
                 });
                 p.splits += 1;
                 return;
@@ -436,11 +498,16 @@ impl Run<'_> {
             let (mut pc, mut i) = match self.stack.pop().expect("a state above the base") {
                 Frame::At(pc, i) => (pc, i),
                 Frame::Takes { pc, lo, mut hi } => {
-                    let Inst::Star { ord, .. } = &progs[prog].insts[pc] else {
+                    let Inst::Star { ord, then, .. } = &progs[prog].insts[pc] else {
                         unreachable!("only a star leaves takes")
                     };
-                    // A take another entry into the same run went on from already is passed over.
-                    while hi > lo && is_set(self.seen, ord * cells + hi) {
+                    // A take another entry into the same run went on from already is passed over, and so is one
+                    // whose next character the rest of the pattern cannot start with: it is marked as failed. A run of
+                    // 4 MiB of spaces after `ignore` then tries no take at all.
+                    while hi > lo
+                        && (is_set(self.seen, ord * cells + hi)
+                            || !then.may_start(s, hi) && !mark(self.seen, ord * cells + hi))
+                    {
                         #[cfg(test)]
                         STEPS.with(|n| n.set(n.get() + 1));
                         hi -= 1;
@@ -473,7 +540,13 @@ impl Run<'_> {
                         self.stack.push(Frame::At(*y, i));
                         pc = *x;
                     }
-                    Inst::Star { node, min, ord } => {
+                    Inst::Star {
+                        node,
+                        min,
+                        ord,
+                        short,
+                        ..
+                    } => {
                         // The run ends where a take was gone on from already: every longer take was then tried too,
                         // since the takes of a run are tried from its end down.
                         let mut end = i;
@@ -483,12 +556,16 @@ impl Run<'_> {
                         {
                             #[cfg(test)]
                             STEPS.with(|n| n.set(n.get() + 1));
+                            // a shorter take of a short run fails: it is marked as tried as the run passes it
+                            if *short && end >= i + min {
+                                mark(self.seen, ord * cells + end);
+                            }
                             end += 1;
                         }
                         if end < i + min || mark(self.seen, ord * cells + end) {
                             break;
                         }
-                        if end > i + min {
+                        if !short && end > i + min {
                             self.stack.push(Frame::Takes {
                                 pc,
                                 lo: i + min,
@@ -514,7 +591,7 @@ impl Run<'_> {
     fn look(&mut self, body: usize, i: usize) -> bool {
         let k = 2 * ((body - 1) * (self.s.len() + 1) + i);
         if !mark(self.looks, k)
-            && self.progs[body].may_start(self.s, i)
+            && self.progs[body].starts.may_start(self.s, i)
             && self.run(body, i).is_some()
         {
             mark(self.looks, k + 1);
@@ -563,6 +640,31 @@ impl Regex {
 
     /// The first match in `text`: where it starts and ends, in characters.
     pub fn find(&self, text: &[char]) -> Option<(usize, usize)> {
+        let prog = &self.progs[0];
+        // A start whose character no first node accepts cannot begin a match: one tight pass over the text skips it
+        // unrun, so a text with no start (a line of a 4 MiB text of newlines) sets up no search.
+        let Starts {
+            first,
+            ascii: [low, high],
+        } = &prog.starts;
+        let next = |from: usize| -> Option<usize> {
+            if first.is_none() {
+                return (from <= text.len()).then_some(from);
+            }
+            text.get(from..)?
+                .iter()
+                .position(|&c| {
+                    #[cfg(test)]
+                    STEPS.with(|n| n.set(n.get() + 1));
+                    match c as u32 {
+                        b @ 0..64 => low >> b & 1 == 1,
+                        b @ 64..128 => high >> (b - 64) & 1 == 1,
+                        _ => prog.starts.may_begin(c),
+                    }
+                })
+                .map(|k| from + k)
+        };
+        let mut start = next(0)?;
         let cells = text.len() + 1;
         SCRATCH.with_borrow_mut(|(seen, looks, stack)| {
             for (bits, n) in [
@@ -580,15 +682,12 @@ impl Regex {
                 looks,
                 stack,
             };
-            // A start whose character no first node accepts cannot begin a match: it is skipped unrun.
-            let may_start = |at: &usize| {
-                #[cfg(test)]
-                STEPS.with(|n| n.set(n.get() + 1));
-                self.progs[0].may_start(text, *at)
-            };
-            (0..cells)
-                .filter(may_start)
-                .find_map(|start| run.run(0, start).map(|end| (start, end)))
+            loop {
+                if let Some(end) = run.run(0, start) {
+                    return Some((start, end));
+                }
+                start = next(start + 1)?;
+            }
         })
     }
 

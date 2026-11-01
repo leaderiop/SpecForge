@@ -78,6 +78,7 @@ fn every_ported_source_is_attributed() {
                     | "corpus.rs"
                     | "depth.rs"
                     | "expansion.rs"
+                    | "links.rs"
             )
         )
     }));
