@@ -583,7 +583,8 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .long(PICK)
                     .value_name("PATH")
                     .value_parser(Pick::parse)
-                    .help(crate::pick::HELP),
+                    .help(crate::pick::HELP)
+                    .long_help(crate::pick::COMMAND_LONG_HELP),
             );
         }
         if command.writes() {

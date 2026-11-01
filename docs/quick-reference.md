@@ -51,9 +51,12 @@ specforge delete <id> [--unlink-references]  # delete an entity (and, with the f
 # Every edit takes --dry-run (print the diff, write nothing), --revision <sha256:..|absent> (refuse the write if the file has changed: stale_revision) and --format json.
 # MCP: specforge.edit takes a list; each item may name a revision. An extension's writing command takes --dry-run too.
 
+# Extension commands (ADR 0008): every one takes --path, --format human|json and --host
+specforge <ext> <command> [args] [--format json]   # also `specforge <ext>:<command>`
+specforge <ext> <command> [args] --pick .<field>   # one value of the command's own JSON answer per line, no jq (ADR 0325); a prompt takes no --pick
+
 # Extension prompts and gates (ADR 0291): a workflow an extension contributes, and a command refused while a check fails
 specforge prompt <ext>.<prompt> [arguments] [--host claude-code|codex|cursor] [--format json]   # also `specforge <ext> <prompt>` when no command has the name
-specforge <ext> <command> [args] --pick .<field>   # one value of the command's JSON answer per line (ADR 0325)
 # MCP: prompts/list lists them after the core five; specforge.prompt { name, arguments | argv, host? } renders any prompt. A gated command or prompt is refused gate_failed (exit 1) with the failing diagnostics.
 
 # Extensions & registry

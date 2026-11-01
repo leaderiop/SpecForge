@@ -56,7 +56,7 @@ pub(crate) struct Args {
     #[arg(long, requires = "inputs", value_name = "TEST")]
     cite_test: Vec<String>,
 
-    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = crate::pick::HELP)]
+    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = crate::pick::HELP, long_help = crate::pick::QUERY_LONG_HELP)]
     pick: Option<Pick>,
 }
 

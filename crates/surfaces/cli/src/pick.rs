@@ -7,11 +7,35 @@
 
 use serde_json::Value;
 
-/// The help text of `--pick`, which `query` and every extension command share.
-pub(crate) const HELP: &str = "Print only the values at this path of the JSON answer, one per line: `.key`, `[n]`, \
-     `[]` (every item), `[kind=<k>]` (the items of that kind), e.g. '.nodes[kind=plan].id'. A string prints bare (a \
-     newline in it is printed as is), a number, boolean, object or array as compact JSON, null or a missing value as \
-     nothing. It reads the JSON answer: on query, the graph format, with neither --inputs nor --include-coverage";
+/// The rules every surface's long help states.
+macro_rules! rules {
+    () => {
+        "The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[kind=<k>]` (the items \
+         whose `kind` is <k>). One line per value reached: a string bare (a newline in it is printed as is), an \
+         integer as is and any other number as an f64 (`1.0`, `-0.0`, `1e3` as `1000.0`), a boolean, object or array \
+         as compact JSON; null or a missing value prints nothing, and is not an error."
+    };
+}
+
+/// The short help of `--pick`, on `query` and every extension command.
+pub(crate) const HELP: &str = "Print only the values at this path of the JSON answer, one per line";
+
+/// `query --pick`'s long help.
+pub(crate) const QUERY_LONG_HELP: &str = concat!(
+    "Print only the values at this path of the graph format's JSON answer, one per line, e.g. \
+     '.nodes[kind=plan].id'. ",
+    rules!(),
+    " It takes --format graph or json, and neither --inputs nor --include-coverage."
+);
+
+/// An extension command's `--pick` long help.
+pub(crate) const COMMAND_LONG_HELP: &str = concat!(
+    "Print only the values at this path of the command's own JSON answer, one per line, e.g. '.next_command'. ",
+    rules!(),
+    " It implies --format json (another --format is refused): errors print as they do under json, and the exit code \
+     is the command's, or 1 when it passed but its answer is not JSON. A writing command is picked from its own \
+     answer, never from the plan report --format json wraps it in."
+);
 
 /// One step of a path.
 #[derive(Debug, Clone, PartialEq, Eq)]
