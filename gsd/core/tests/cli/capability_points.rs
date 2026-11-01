@@ -136,6 +136,53 @@ fn run_after(before: &str, workflow: &str, var: &str, bin: &std::path::Path) -> 
     )
 }
 
+/// Re-review of plan 05, item 1: verify:post's secure-phase step counts as enabled when it is only skipped (the phase
+/// already has its `security_audit`), so the gate lines of verify-work and verify-phase-goal ask `security-hooks`
+/// without `--after-fingerprint`, which would move it to `skippedHooks`: with an audit, the gate still runs.
+#[test]
+fn the_verify_post_gate_runs_once_the_phase_has_its_audit() {
+    let p = project("execute").with_extension("@gsd/security", "GSD_SECURITY_WASM");
+    p.write(
+        "spec/security.spec",
+        "security_audit 01-SECURITY \"Phase 01 security\" {\n  phase v1.0/01\n}\n",
+    );
+    let bin = linked_bin();
+    let path = format!(
+        "{}:{}",
+        bin.path().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    for workflow in ["verify-work.md", "execute-phase/steps/verify-phase-goal.md"] {
+        let asset = std::fs::read_to_string(format!(
+            "{}/assets/gsd-core/workflows/{workflow}",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .expect("the workflow");
+        let line = asset
+            .lines()
+            .find(|l| l.trim_start().starts_with("SECURITY_GATE_JSON=$(["))
+            .unwrap_or_else(|| panic!("{workflow} has no gate line"));
+        let out = Command::new("bash")
+            .current_dir(p.root())
+            .env("PATH", &path)
+            .args([
+                "-c",
+                &format!("PHASE_ID=v1.0/01\n{line}\necho \"$SECURITY_GATE_JSON\""),
+            ])
+            .stdin(std::process::Stdio::null())
+            .output()
+            .expect("bash runs");
+        let json = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let answer: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| {
+            panic!(
+                "{workflow}: the gate did not run ({e}): {json:?}\n{}",
+                String::from_utf8_lossy(&out.stderr)
+            )
+        });
+        assert_eq!(answer["details"]["exists"], true, "{workflow}: {json}");
+    }
+}
+
 /// A directory holding `name` as an executable shell script.
 fn shim(dir: &std::path::Path, name: &str, body: &str) {
     use std::os::unix::fs::PermissionsExt;
@@ -162,7 +209,8 @@ fn a_capability_that_fails_is_warned_about_not_hidden() {
 /// REVIEW-security-part1 M2 and m3: the `security-gate` line of every workflow that has one fails closed when the
 /// command fails, and does not spawn it (or print an error) when no security hook is active, e.g. `@gsd/security`
 /// is not loaded. Plan 05 review R9: "active" is `security-hooks`' own answer, its active entries with `capId`
-/// security, not a substring of the hook line's text, which a skipped security hook also held.
+/// security, not a substring of the hook line's text, which a skipped security hook also held. Re-review item 1: the
+/// question carries no `--after-fingerprint`, so at verify:post a hook skipped for an existing audit still counts.
 #[test]
 fn the_security_gate_line_fails_closed_and_stays_quiet_when_off() {
     for (workflow, hooks, point) in [
@@ -204,7 +252,8 @@ fn the_security_gate_line_fails_closed_and_stays_quiet_when_off() {
         assert!(marker.exists(), "{workflow}: the gate was not asked");
         let question = std::fs::read_to_string(&asked).unwrap_or_default();
         assert!(
-            question.contains(&format!("security-hooks {point}")),
+            question.contains(&format!("security-hooks {point}"))
+                && !question.contains("--after-fingerprint"),
             "{workflow}: {question}"
         );
         std::fs::remove_file(&marker).expect("the marker");
