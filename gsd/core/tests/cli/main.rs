@@ -96,6 +96,8 @@ mod roster;
 mod rules_silent;
 mod scan;
 mod settings;
+#[path = "../common/specforge_only.rs"]
+mod specforge_only;
 mod verify_paths;
 mod verify_rules;
 mod verify_status;

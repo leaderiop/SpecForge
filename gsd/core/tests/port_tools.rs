@@ -7,6 +7,8 @@ use regex::Regex;
 
 #[path = "common/command_word.rs"]
 mod command_word;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
@@ -268,45 +270,20 @@ fn a_shell_block_runs_no_node() {
     }
 }
 
-/// Every asset of `@gsd/core`, and of `@gsd/security` under `../security/assets/`, as `(path, its lines after the
-/// header)`.
-fn shell_assets() -> Vec<(String, Vec<String>)> {
-    let mut out = Vec::new();
-    for (dir, label) in [
-        ("assets", ""),
-        ("../security/assets", "../security/assets/"),
-    ] {
-        let base = root().join(dir);
-        let mut paths = Vec::new();
-        walk(&base, &mut paths);
-        paths.sort();
-        for p in paths
-            .iter()
-            .filter(|p| p.extension().is_some_and(|e| e == "md"))
-        {
-            let relative = p.strip_prefix(&base).expect("under its base");
-            let text = std::fs::read_to_string(p).expect("an asset");
-            let lines = text.split('\n').skip(1).map(String::from).collect();
-            out.push((format!("{label}{}", relative.to_string_lossy()), lines));
-        }
-    }
-    out
-}
-
 /// G4 (plan 04 T1, plan 05 T4): no shell block and no inline-code run of the prose runs jq: a SpecForge answer is
 /// read with `--pick`, a third party's answer by the agent, and gh filters with its own `--jq`. Git Bash on Windows has
 /// no jq, and a `| jq -r` there leaves the variable empty (upstream #2589).
 #[test]
 fn no_shell_line_runs_jq() {
     let mut found = Vec::new();
-    for (path, lines) in shell_assets() {
+    for (path, lines) in specforge_only::shell_assets() {
         for (n, code) in fenced_code(&lines) {
             if command_word::runs(code, "jq") {
                 // the asset's line number: its line 1 is the attribution header
                 found.push(format!("{path}:{}: {code}", n + 2));
             }
         }
-        for (n, run) in inline_runs(&lines) {
+        for (n, run) in specforge_only::inline_runs(&lines) {
             if command_word::runs_in_prose(run, "jq") {
                 found.push(format!("{path}:{}: `{run}`", n + 2));
             }
@@ -320,21 +297,25 @@ fn no_shell_line_runs_jq() {
     );
 }
 
-/// The inline-code runs (`` `…` ``) of the lines outside a fence, with their line index.
-fn inline_runs(lines: &[String]) -> Vec<(usize, &str)> {
-    let mut out = Vec::new();
-    let mut fenced = false;
-    for (n, line) in lines.iter().enumerate() {
-        let text = line.trim();
-        if text.starts_with("```") || text.starts_with("~~~") {
-            fenced = !fenced;
-            continue;
-        }
-        if !fenced {
-            out.extend(text.split('`').skip(1).step_by(2).map(|run| (n, run)));
-        }
-    }
-    out
+/// R0 of "SpecForge serves itself": a shell block, or an inline run of the prose, of an asset runs only `specforge`
+/// and the shell's own words; what still runs another tool is a row of `pending_tools.txt` (`common/specforge_only.rs`).
+#[test]
+fn a_shell_block_calls_only_specforge() {
+    let assets = specforge_only::shell_assets();
+    let functions = specforge_only::functions(assets.iter().map(|(_, lines)| &lines[..]));
+    let hits: Vec<specforge_only::Row> = assets
+        .iter()
+        .flat_map(|(path, lines)| specforge_only::hits(path, lines, &functions))
+        .collect();
+    assert!(
+        hits.len() > 500,
+        "only {} hits: the scan finds nothing",
+        hits.len()
+    );
+    specforge_only::assert_pending(
+        &hits,
+        specforge_only::pending(|f| !f.starts_with("prompt:")),
+    );
 }
 
 /// One declared command as `(name, positionals in order, options and flags with their kind)`.
