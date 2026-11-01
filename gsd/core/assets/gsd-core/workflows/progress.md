@@ -247,13 +247,13 @@ Then exit the route step. Do NOT run Steps 1 through Routes A-F.
 
 **Step 1: Count plans, summaries, and issues in current phase**
 
-Get plan/summary counts for the current phase from the single owner (#3218 — LIVE
-counts, i.e. `status: superseded` plans excluded, matching "outstanding work"):
+Get plan/summary counts for the current phase from the single owner (#3218): the progress
+report of this phase alone, by its id (a plan has no superseded status):
 
 ```bash
 
-X=$(specforge gsd progress-report --pick ".phases[number=${CURRENT_PHASE##*/}].plans")   # the phase's own plans
-Y=$(specforge gsd progress-report --pick ".phases[number=${CURRENT_PHASE##*/}].summaries")
+X=$(specforge gsd progress-report --phase "$CURRENT_PHASE" --pick '.phases[0].plans')   # the phase's own plans, by its id
+Y=$(specforge gsd progress-report --phase "$CURRENT_PHASE" --pick '.phases[0].summaries')
 specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
 ```
 

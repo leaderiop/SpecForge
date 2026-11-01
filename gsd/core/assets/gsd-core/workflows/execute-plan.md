@@ -574,14 +574,14 @@ git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
 <step name="offer_next">
 If `USER_SETUP_CREATED=true`: display `⚠️ USER SETUP REQUIRED` with path + env/config tasks at TOP.
 
-Get plan/summary counts for the current phase from the single owner (#3218 — LIVE
-counts, i.e. `status: superseded` plans excluded, matching this route's
-"outstanding work" question):
+Get plan/summary counts for the current phase from the single owner (#3218): the
+progress report of this phase alone, by its id, from its own milestone (a plan has no
+superseded status, so every plan of the phase counts):
 
 ```bash
 
-PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[number=${PHASE_ID##*/}].plans")   # the phase's own plans
-SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[number=${PHASE_ID##*/}].summaries")
+PLAN_COUNT=$(specforge gsd progress-report --phase "$PHASE_ID" --pick '.phases[0].plans')   # the phase's own plans, by its id
+SUMMARY_COUNT=$(specforge gsd progress-report --phase "$PHASE_ID" --pick '.phases[0].summaries')
 ```
 
 | Condition | Route | Action |

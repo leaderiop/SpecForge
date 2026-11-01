@@ -677,3 +677,47 @@ fn the_text_scans_read_one_row_per_entity() {
     assert_eq!(summaries.lines().count(), 1, "{summaries}");
     assert!(summaries.contains("-SUMMARY"), "{summaries}");
 }
+
+/// Re-review of plan 05, item 4: a phase's plan and summary counts are its own, read by its id, not the progress
+/// report's phase of the same number in the current milestone. Here a later milestone restarts its numbers
+/// (`--reset-phase-numbers`): v2.0/01 has two plans and no summary, v1.0/01 two plans with their summaries.
+#[test]
+fn a_phases_counts_are_read_by_its_own_id() {
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    p.write(
+        "spec/v2.0.spec",
+        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\n\
+         phase 01 \"Sync\" {\n  milestone v2.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync\"\n}\n\n\
+         plan 01-01 \"Sync model\" {\n  phase v2.0/01\n  type execute\n  objective \"Sync\"\n}\n\n\
+         plan 01-02 \"Sync command\" {\n  phase v2.0/01\n  type execute\n  objective \"Sync\"\n}\n",
+    );
+    for (path, starts, show) in [
+        (
+            "gsd-core/workflows/execute-plan.md",
+            &["PLAN_COUNT=$(", "SUMMARY_COUNT=$("][..],
+            "printf '%s/%s' \"$SUMMARY_COUNT\" \"$PLAN_COUNT\"",
+        ),
+        (
+            "gsd-core/workflows/progress.md",
+            &["X=$(", "Y=$("][..],
+            "printf '%s/%s' \"$Y\" \"$X\"",
+        ),
+        (
+            "gsd-core/workflows/plan-review-convergence.md",
+            &["PLAN_COUNT=$("][..],
+            "printf '?/%s' \"$PLAN_COUNT\"",
+        ),
+    ] {
+        for (phase, want) in [("v2.0/01", "0/2"), ("v1.0/01", "2/2"), ("v1.0/02", "0/1")] {
+            let want = if path.contains("convergence") {
+                format!("?/{}", &want[2..])
+            } else {
+                want.to_string()
+            };
+            let setup = format!("PHASE_ID={phase}\nCURRENT_PHASE={phase}");
+            let (out, err) = run(&sh, &p, path, &setup, starts, show);
+            assert_eq!(out, want, "{path} {phase}: {err}");
+        }
+    }
+}

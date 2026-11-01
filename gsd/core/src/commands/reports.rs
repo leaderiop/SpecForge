@@ -100,8 +100,27 @@ fn percent(part: u64, whole: u64) -> u64 {
 /// `milestone_version` and `milestone_name` are the milestone's (upstream reads them from STATE.md, which a project of
 /// this extension has none of).
 pub(crate) fn progress(graph: &CommandGraph) -> Result<Value, String> {
-    let milestone = current(graph);
-    let found = phases(graph, milestone)?;
+    progress_of(graph, None)
+}
+
+/// [`progress`] of `phase` alone, from its own milestone (which need not be the current one), when it is given.
+fn progress_of(graph: &CommandGraph, phase: Option<&str>) -> Result<Value, String> {
+    let milestone = match phase {
+        Some(p) => {
+            if !graph.nodes_of_kind("phase").any(|n| n.id == p) {
+                return Err(format!("no phase '{p}'"));
+            }
+            let milestone = graph
+                .nodes_of_kind("milestone")
+                .find(|m| p.starts_with(&format!("{}/", m.id)));
+            Some(milestone.ok_or_else(|| format!("phase '{p}' is in no milestone"))?)
+        }
+        None => current(graph),
+    };
+    let mut found = phases(graph, milestone)?;
+    if let Some(p) = phase {
+        found.retain(|f| p.rsplit('/').next() == Some(f.number.as_str()));
+    }
     let plans: u64 = found.iter().map(|p| p.plans).sum();
     let summaries: u64 = found.iter().map(|p| p.summaries).sum();
     Ok(json!({
@@ -118,7 +137,7 @@ pub(crate) fn progress(graph: &CommandGraph) -> Result<Value, String> {
 }
 
 fn progress_report(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
-    let report = progress(call.graph())?;
+    let report = progress_of(call.graph(), call.str("phase"))?;
     let mut human = String::new();
     for p in report["phases"].as_array().into_iter().flatten() {
         human.push_str(&format!(
@@ -239,6 +258,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
     });
     c.command("progress_report", |cmd| {
         cmd.description("Report each phase's plans, summaries and status, and the plan-based percent, as gsd-tools' progress json does")
+            .arg("phase", |a| {
+                a.description("report this phase alone, from its own milestone (default: every phase of the milestone in progress, else the last)");
+            })
             .handler(|call| run(call, progress_report));
     });
 }
@@ -303,5 +325,45 @@ mod tests {
             (json!(3), json!(33))
         );
         assert_eq!(report["milestone_name"], "One");
+    }
+
+    /// Re-review of plan 05, item 4: `--phase` reports that phase alone, from its own milestone, which need not be the
+    /// current one; numbers restart per milestone (`--reset-phase-numbers`), so `01` names two phases here.
+    #[test]
+    fn a_phase_is_reported_from_its_own_milestone() {
+        let phase = |id: &str, complete: &str| {
+            node(
+                id,
+                "phase",
+                &[
+                    ("slug", "p"),
+                    ("status", "planned"),
+                    ("plans_complete", complete),
+                ],
+            )
+        };
+        let graph = CommandGraph::new(
+            vec![
+                node("v1.0", "milestone", &[("state", "in_progress")]),
+                phase("v1.0/01", "2/2"),
+                node("v2.0", "milestone", &[("state", "planned")]),
+                phase("v2.0/01", "0/3"),
+            ],
+            Vec::new(),
+        );
+        let report = progress_of(&graph, Some("v2.0/01")).unwrap();
+        assert_eq!(report["milestone_version"], "v2.0");
+        assert_eq!(report["phases"].as_array().map(Vec::len), Some(1));
+        assert_eq!(
+            (
+                report["phases"][0]["plans"].clone(),
+                report["phases"][0]["summaries"].clone()
+            ),
+            (json!(3), json!(0))
+        );
+        assert_eq!(
+            progress_of(&graph, Some("v2.0/09")).unwrap_err(),
+            "no phase 'v2.0/09'"
+        );
     }
 }

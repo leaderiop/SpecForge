@@ -23,6 +23,14 @@ mod quick_rewrites;
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
 /// told the agent something false.
 const REWRITTEN: &[(&str, usize)] = &[
+    // Plan 05 re-review item 4: a phase's counts are the progress report of that phase alone, by its id.
+    ("gsd-core/workflows/progress.md", 249),
+    ("gsd-core/workflows/progress.md", 248),
+    ("gsd-core/workflows/plan-review-convergence.md", 187),
+    ("gsd-core/workflows/plan-review-convergence.md", 186),
+    ("gsd-core/workflows/execute-plan.md", 577),
+    ("gsd-core/workflows/execute-plan.md", 576),
+    ("gsd-core/workflows/execute-plan.md", 575),
     ("gsd-core/references/agent-skills-bootstrap.md", 9),
     ("gsd-core/references/loop-hook-dispatch.md", 140),
     ("gsd-core/references/loop-hook-dispatch.md", 149),
