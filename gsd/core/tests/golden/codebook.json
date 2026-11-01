@@ -82,7 +82,7 @@
     {
       "code": "E206",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
-      "explanation": "A phase has at most one context, phase spec, discussion log and research, and the project at most one research. It is an error.",
+      "explanation": "A phase has at most one context, phase spec, discussion log and research, a quick plan at most one context and research, and the project at most one research, named RESEARCH. A context names exactly one owner (`phase` or a quick plan in `plan`), a decision and a research at most one; a `plan` owner has no phase, and a quick plan's research is not named RESEARCH. It is an error.",
       "title": "More than one context, spec, log or research"
     },
     {

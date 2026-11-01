@@ -3,8 +3,10 @@
 //! the kernel's scopes would allow two entities of a kind in a phase, and the drift pass needs "the phase's context".
 //!
 //! A context, a decision and a research name their owner: a context exactly one of `phase` and `plan`, a decision and a
-//! research at most one, and a `plan` must be a quick plan (one with no phase). A quick plan's context and research
-//! are in the project scope, as their quick plan is, so they are counted by the plan they name, not by their scope.
+//! research at most one, and a `plan` must be a quick plan (one with no phase). A quick plan's research is not named
+//! `RESEARCH`, the name of the project's research, which the research pass exempts. A quick plan's context and
+//! research are in the project scope, as their quick plan is, so they are counted by the plan they name, not by their
+//! scope.
 
 use std::collections::BTreeMap;
 
@@ -27,7 +29,8 @@ fn e206(id: &str, message: String, suggestion: String) -> PassDiagnostic {
         .with_entity(id)
 }
 
-/// The owner rules: both or (for a context) neither of `phase` and `plan`, and a `plan` that is a phase's.
+/// The owner rules: both or (for a context) neither of `phase` and `plan`, a `plan` that is a phase's, and a quick
+/// plan's research named `RESEARCH`.
 fn owners(input: &PassInput) -> Vec<PassDiagnostic> {
     let has_phase = |id: &str| {
         input
@@ -56,6 +59,15 @@ fn owners(input: &PassInput) -> Vec<PassDiagnostic> {
                 format!("context '{id}' names neither a phase nor a quick plan"),
                 "add its `phase`, or its quick plan in `plan` (/gsd-quick --discuss)".to_string(),
             ));
+        }
+        if kind == "research" && id == PROJECT_RESEARCH {
+            if let Some(plan) = plan {
+                found.push(e206(
+                    id,
+                    format!("research '{id}' names quick plan '{plan}', but '{PROJECT_RESEARCH}' is the name of the project's research"),
+                    format!("rename it '{plan}-RESEARCH'"),
+                ));
+            }
         }
         if let Some(plan) = plan.filter(|p| has_phase(p)) {
             found.push(e206(

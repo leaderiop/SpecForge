@@ -80,12 +80,32 @@ fn a_context_of_a_phases_plan_is_e206() {
     );
 }
 
+/// A quick plan's research may have any name ...
 #[test]
 fn a_research_of_a_quick_plan_may_have_any_name() {
     let p = project("quick-context");
     p.edit(QUICK, "research 251101-abc-RESEARCH", "research foo");
     p.edit(QUICK, "research   251101-abc-RESEARCH", "research   foo");
     assert_eq!(e206(&p), Vec::<String>::new());
+}
+
+/// ... but `RESEARCH`, the project's research's name: the research pass reads that name as the project's.
+#[test]
+fn a_research_of_a_quick_plan_named_research_is_e206() {
+    let p = project("quick-context");
+    p.edit(QUICK, "research 251101-abc-RESEARCH", "research RESEARCH");
+    p.edit(
+        QUICK,
+        "research   251101-abc-RESEARCH",
+        "research   RESEARCH",
+    );
+    let found = e206(&p);
+    assert!(
+        found
+            .iter()
+            .any(|m| m.contains("research 'RESEARCH' names quick plan '251101-abc'")),
+        "{found:#?}"
+    );
 }
 
 /// The "is the quick plan planned" checks the served quick workflows run: every backticked

@@ -531,3 +531,19 @@ fn a_context_names_exactly_one_owner_and_a_plan_owner_is_a_quick_plan() {
     );
     assert!(found[3].message.contains("which is not a quick plan"));
 }
+
+#[test]
+fn a_quick_plans_research_named_research_is_e206() {
+    let found = check(&input(
+        vec![scoped("251101-abc", "plan"), scoped("RESEARCH", "research")],
+        vec![edge("RESEARCH", "251101-abc", "plan")],
+    ));
+    assert_eq!(codes(&found), [("E206", "RESEARCH")]);
+    assert!(
+        found[0]
+            .message
+            .contains("research 'RESEARCH' names quick plan '251101-abc'"),
+        "{}",
+        found[0].message
+    );
+}
