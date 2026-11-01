@@ -423,3 +423,31 @@ fn no_rendered_line_runs_jq() {
         .collect();
     assert!(found.is_empty(), "lines that run jq:\n{}", found.join("\n"));
 }
+
+/// R0 of "SpecForge serves itself": a rendered prompt's shell fences and inline runs run only `specforge` too, as an
+/// asset's do (`port_tools`); what still runs another tool is a `prompt:<id>` row of `pending_tools.txt`.
+#[test]
+fn a_rendered_prompt_calls_only_specforge() {
+    let texts: Vec<(String, Vec<String>)> = rendered()
+        .iter()
+        .map(|(id, text)| {
+            (
+                format!("prompt:{id}"),
+                text.lines().map(String::from).collect(),
+            )
+        })
+        .collect();
+    // a function an asset defines may be called from a prompt that does not render its definition
+    let assets = super::specforge_only::shell_assets();
+    let functions =
+        super::specforge_only::functions(texts.iter().chain(&assets).map(|(_, lines)| &lines[..]));
+
+    let hits: Vec<super::specforge_only::Row> = texts
+        .iter()
+        .flat_map(|(file, lines)| super::specforge_only::hits(file, lines, &functions))
+        .collect();
+    super::specforge_only::assert_pending(
+        &hits,
+        super::specforge_only::pending(|f| f.starts_with("prompt:")),
+    );
+}

@@ -11,6 +11,7 @@ use super::*;
 use crate::hooks::facts::PathFact;
 use crate::hooks::{accounting, corpus};
 
+mod links;
 mod oracle;
 
 const PATTERNS_JS: &str = include_str!(gsd_kit::snapshot!("hooks/lib/injection-patterns.js"));
