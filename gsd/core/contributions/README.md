@@ -297,6 +297,7 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 | gsd-secret-read-guard | `secret_read_guard` (`pre_tool`): fails closed (`on_failure` deny), where upstream fails open |
 | gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only, and a block would land after the read (see below) |
 | gsd-prompt-guard | `prompt_guard` (`pre_tool`): scans content written to spec files |
+| hooks/lib/injection-patterns.js (the matcher) | `injection_scanner`'s and `prompt_guard`'s matcher (`src/hooks/injection/regex.rs`) is linear in the text: each pattern runs as a compiled program with a visited set (G2), so no text runs them past the hook budget. Upstream's V8 regex backtracks and is quadratic on `MD-LINK-USERINFO`: `](http://` + `a:` x 2 000 / 8 000 / 32 000 takes 5 / 76 / 1 139 ms in node 25 (16x per 4x), and the hook has no size cap. Here 32 000 take 1 ms natively, and a 1 MiB line about 0.5 s in the guest, process start included (divergence: linear here) |
 | gsd-agent-isolation-guard | none: dropped in the roster, because `@gsd/core` runs its executors sequentially in the checkout and the guard would always allow (r44 post-fix N7; ACCEPTANCE's divergences) |
 | gsd-worktree-path-guard | `worktree_path_guard` (`pre_tool`): path based; refuses a path whose git toplevel is not the worktree's, so also through a symlink into the main checkout, and a relative path that climbs into it (stricter than upstream, which allows every relative path; see ACCEPTANCE's divergences) |
 | gsd-workflow-guard | `workflow_marker` (`user_prompt`: a `/gsd-...` prompt sets the marker, which lasts the session) and `workflow_guard` (`pre_tool`, `hooks.workflow_guard`; it also refuses `git add -f` on an `agent-*` branch) |
@@ -353,8 +354,6 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
   skill the model invokes sets none. `sessions/<id>.json` files are never pruned.
 - A session patch with no session shows the user a `systemMessage` ("the state patch names a session, and this run has
   none").
-- The injection patterns' regex engine is quadratic: a long hostile `](http://a:a:...` link takes seconds (0.27 s at
-  2000 repeats, 2.4 s at 8000).
 - Hooks of the injection family judge a file as in the spec root only when it is a `.spec` file (the kernel calls
   every path "in the spec root" when `spec_root` is `.`).
 - `write_guard` continues when an existing file's bytes are unreadable; upstream fails closed. `secret_read_guard`
