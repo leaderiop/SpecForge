@@ -83,24 +83,26 @@ fn the_regression_gate_keeps_every_verification_when_no_phase_is_named() {
     let Some(sh) = shell() else { return };
     let p = taskboard();
     let path = "gsd-core/workflows/execute-phase/steps/regression-gate.md";
-    let prior = |number: &str| {
+    let prior = |phase: &str| {
         run(
             &sh,
             &p,
             path,
-            &format!("MILESTONE=v1.0\nPHASE_NUMBER={number}"),
+            &format!(
+                "MILESTONE=v1.0\nPHASE_ID={phase}\nPHASE_NUMBER={}",
+                phase.rsplit('/').next().unwrap_or("")
+            ),
             &["PRIOR_VERIFICATIONS=$("],
             "printf '[%s]' \"$PRIOR_VERIFICATIONS\"",
         )
         .0
     };
     assert_eq!(prior(""), "[v1.0/01/01-VERIFICATION]");
-    assert_eq!(prior("02"), "[v1.0/01/01-VERIFICATION]");
-    assert_eq!(prior("01"), "[]");
-    // plan 05 review R11: the phase is matched exactly, by its id's prefix, not as a substring of every id (`1` is in
-    // `v1.0`)
-    assert_eq!(prior("1"), "[v1.0/01/01-VERIFICATION]");
-    assert_eq!(prior("0"), "[v1.0/01/01-VERIFICATION]");
+    assert_eq!(prior("v1.0/02"), "[v1.0/01/01-VERIFICATION]");
+    // re-review item 9: the phase is matched by its exact id, `$PHASE_ID/`, never by a number under `$MILESTONE`
+    assert_eq!(prior("v1.0/01"), "[]");
+    assert_eq!(prior("v2.0/01"), "[v1.0/01/01-VERIFICATION]");
+    assert_eq!(prior("v1.0/0"), "[v1.0/01/01-VERIFICATION]");
 }
 
 #[test]
