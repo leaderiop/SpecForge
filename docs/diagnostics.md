@@ -1242,6 +1242,23 @@ Owner: core
 Level: error
 ```
 
+## E088
+
+```
+E088: Extension speaks a newer protocol
+
+An extension's handshake states a protocol version of the host's major but a
+newer minor (`1.15.0` under a `1.14.0` host, ADR 0326): it was built with a
+newer SDK and may declare what this specforge does not know and would drop, so
+it is not loaded; an older minor still loads. `specforge add`, `init` and
+`publish` refuse such a binary too. Update specforge to a release that speaks
+the extension's protocol (`specforge --version` names the one a binary speaks),
+or install a version of the extension built for this one.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```

@@ -279,12 +279,15 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
     entities, if present, MUST be valid entity kind descriptors.
     Declarations missing required fields MUST produce a hard error. A
     handshake whose protocol major version differs from the host's MUST
-    fail the extension's load with E028.
+    fail the extension's load with E028. A handshake of the host's major
+    whose minor is newer than the host's MUST fail it with E088, naming
+    the extension and both versions (ADR 0326); an older minor loads.
   """
   produces   [manifest_validated]
   verify unit "valid manifest passes validation"
   verify unit "missing required fields produce hard error"
   verify unit "an unknown describe key produces W138"
   verify unit "a handshake whose protocol major differs from the host's produces E028"
+  verify unit "a handshake whose protocol minor is newer than the host's produces E088"
   verify contract "Validate Extension Manifest: extension declaration validation holds — declaration_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
 }

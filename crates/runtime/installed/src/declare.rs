@@ -1,6 +1,7 @@
 //! What a binary declares, read the way every environment reads it.
 
 use specforge_common::{Diagnostic, codes};
+use specforge_protocol_types::ProtocolError;
 use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::{Loaded, load_declaration};
 
@@ -11,8 +12,9 @@ const CANDIDATE: &str = "__candidate";
 /// extension (under a candidate name, then unloaded): its declaration and
 /// the warnings its load reports. E028 "not a loadable SpecForge extension:
 /// …" when it doesn't load or answer its declaration. Its warnings name what
-/// it declares, not the candidate name. `add`, `publish` and
-/// `init` read a candidate through it.
+/// it declares, not the candidate name; E088 when its protocol minor is newer
+/// than the host's (ADR 0326). `add`, `publish` and `init` read a candidate
+/// through it.
 pub fn declaration_of(bytes: &[u8], runtime: &dyn WasmRuntime) -> Result<Loaded, Diagnostic> {
     let invalid = |why: String| {
         Diagnostic::new(
@@ -24,7 +26,11 @@ pub fn declaration_of(bytes: &[u8], runtime: &dyn WasmRuntime) -> Result<Loaded,
     runtime.load(CANDIDATE, bytes).map_err(invalid)?;
     let loaded = load_declaration(runtime, CANDIDATE);
     runtime.unload(CANDIDATE);
-    loaded.map_err(|error| invalid(error.to_string()))
+    loaded.map_err(|error| match error {
+        // Its message names the extension, both versions and the remedy.
+        ProtocolError::NewerVersion { .. } => Diagnostic::new(codes::E088, error.to_string()),
+        error => invalid(error.to_string()),
+    })
 }
 
 #[cfg(test)]
@@ -87,6 +93,33 @@ mod tests {
 
         assert_eq!(error.code, "E028");
         assert!(!error.message.contains(CANDIDATE), "{}", error.message);
+    }
+
+    #[test]
+    fn a_candidate_of_a_newer_protocol_minor_is_e088() {
+        let bytes = b"\0asm a newer candidate";
+        let handshake = serde_json::json!({
+            "protocol_version": "1.15.0", "name": "@acme/candidate", "version": "2.1.0",
+            "peer_dependencies": [], "sandbox_policy": null,
+        });
+        let runtime = InProcessRuntime::new()
+            .binary(bytes, || {
+                ContributionsBuilder::new(ExtensionMeta::new("@acme/candidate", "2.1.0"))
+            })
+            .answer_raw(
+                CANDIDATE,
+                "__handshake",
+                specforge_wasm::WasmCallResult::Ok(serde_json::to_vec(&handshake).unwrap()),
+            );
+
+        let error = declaration_of(bytes, &runtime).unwrap_err();
+
+        assert_eq!(error.code, "E088");
+        assert_eq!(
+            error.message,
+            "extension '@acme/candidate' speaks protocol 1.15.0, newer than the 1.14.0 this specforge \
+             speaks: update specforge"
+        );
     }
 
     #[test]

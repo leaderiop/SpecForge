@@ -80,6 +80,14 @@ pub enum ProtocolError {
         host_version: String,
         extension_version: String,
     },
+    /// The extension speaks a newer minor of the host's major: what it declares that the host does not know
+    /// would be dropped (ADR 0326).
+    NewerVersion {
+        /// The name its handshake declares.
+        extension: String,
+        host_version: String,
+        extension_version: String,
+    },
     /// The __handshake export failed or returned invalid data.
     HandshakeFailed(String),
     /// The __describe export failed or returned invalid data.
@@ -98,6 +106,15 @@ impl fmt::Display for ProtocolError {
                 f,
                 "protocol version mismatch: host={}, extension={}",
                 host_version, extension_version
+            ),
+            Self::NewerVersion {
+                extension,
+                host_version,
+                extension_version,
+            } => write!(
+                f,
+                "extension '{extension}' speaks protocol {extension_version}, newer than the \
+                 {host_version} this specforge speaks: update specforge"
             ),
             Self::HandshakeFailed(reason) => write!(f, "handshake failed: {}", reason),
             Self::DescribeFailed { category, reason } => {

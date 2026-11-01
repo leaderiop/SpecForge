@@ -246,15 +246,30 @@ fn a_1_13_guest_still_loads_under_a_1_14_host() {
     assert_eq!(loaded.declaration.name(), "@test/older");
 }
 
-#[test]
-fn a_newer_minor_protocol_loads() {
-    use specforge_protocol_types::PROTOCOL_VERSION;
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake whose protocol minor is newer than the host's produces E088"
+)]
+fn a_newer_minor_protocol_is_refused() {
+    use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
     use specforge_wasm::protocol::load_declaration;
 
     assert_eq!(PROTOCOL_VERSION, "1.14.0");
-    // Only the major is checked: a guest built for 1.15 loads, and what it declares that 1.14 does not know is
-    // dropped (W138).
-    let loaded = load_declaration(&guest_answering("1.15.0"), "@test/older")
-        .expect("a 1.15.0 guest loads under a 1.14.0 host");
-    assert_eq!(loaded.protocol_version, "1.15.0");
+    // A guest built for 1.15 may declare what 1.14 would drop: it is refused, naming itself and both versions.
+    let error = load_declaration(&guest_answering("1.15.0"), "@test/older").unwrap_err();
+    assert_eq!(
+        error,
+        ProtocolError::NewerVersion {
+            extension: "@test/older".into(),
+            host_version: "1.14.0".into(),
+            extension_version: "1.15.0".into(),
+        }
+    );
+    assert_eq!(
+        error.to_string(),
+        "extension '@test/older' speaks protocol 1.15.0, newer than the 1.14.0 this specforge speaks: \
+         update specforge"
+    );
+    // A newer patch of the host's minor still loads.
+    load_declaration(&guest_answering("1.14.3"), "@test/older").expect("a 1.14.3 guest loads");
 }

@@ -10,7 +10,7 @@
 use std::path::{Path, PathBuf};
 
 use specforge_common::{Diagnostic, ExtensionEntry, codes};
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::{ExtensionDeclaration, ProtocolError};
 use specforge_registry::Disk;
 use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::load_declaration;
@@ -170,6 +170,8 @@ pub enum LoadProblem {
     /// E028: its declaration can't be read (handshake, describe, protocol
     /// major).
     NoDeclaration { reason: String },
+    /// E088: its handshake speaks a newer protocol minor than the host (ADR 0326).
+    NewerProtocol { declared: String, host: String },
     /// E028, file entry: the file does not exist.
     FileMissing { path: PathBuf },
     /// E028, file entry: declares another name than the one written before
@@ -223,15 +225,13 @@ enum Subject<'a> {
 }
 
 impl Subject<'_> {
-    /// An E028 about the entry for a problem the per-entry step finds, in
+    /// The `code` about the entry for a problem the per-entry step finds, in
     /// the same words for every kind of entry: `what` says what failed.
-    fn says(&self, what: String) -> Diagnostic {
+    fn says(&self, code: specforge_common::Code, what: String) -> Diagnostic {
         match self {
-            Subject::Named(name) => {
-                Diagnostic::new(codes::E028, format!("extension '{name}' {what}"))
-            }
+            Subject::Named(name) => Diagnostic::new(code, format!("extension '{name}' {what}")),
             Subject::File { key, file, .. } => Diagnostic::new(
-                codes::E028,
+                code,
                 format!(
                     "extension entry '{key}' in specforge.json: {} {what}",
                     file.display()
@@ -247,10 +247,30 @@ impl LoadProblem {
     fn diagnostic(&self, subject: &Subject, installed: &Installed) -> Diagnostic {
         match self {
             LoadProblem::NotAComponent { reason } => {
-                return subject.says(format!("does not load as an extension component: {reason}"));
+                return subject.says(
+                    codes::E028,
+                    format!("does not load as an extension component: {reason}"),
+                );
             }
             LoadProblem::NoDeclaration { reason } => {
-                return subject.says(format!("has no declaration the host can read: {reason}"));
+                return subject.says(
+                    codes::E028,
+                    format!("has no declaration the host can read: {reason}"),
+                );
+            }
+            LoadProblem::NewerProtocol { declared, host } => {
+                return subject
+                    .says(
+                        codes::E088,
+                        format!(
+                            "speaks extension protocol {declared}, newer than the {host} this specforge speaks, \
+                             so it is not loaded"
+                        ),
+                    )
+                    .with_suggestion(format!(
+                        "update specforge to a release that speaks protocol {declared} (`specforge --version` \
+                         names it), or install a version of the extension built for protocol {host}"
+                    ));
             }
             LoadProblem::NotAPackageName { reason } => {
                 let mut diagnostic = specforge_common::package::invalid(reason);
@@ -355,7 +375,8 @@ impl LoadProblem {
             | LoadProblem::AlreadyLoaded { .. }
             | LoadProblem::NotAPackageName { .. }
             | LoadProblem::NotAComponent { .. }
-            | LoadProblem::NoDeclaration { .. } => {
+            | LoadProblem::NoDeclaration { .. }
+            | LoadProblem::NewerProtocol { .. } => {
                 unreachable!("a named entry names no file, or the step's problem")
             }
         }
@@ -408,7 +429,8 @@ impl LoadProblem {
             | LoadProblem::NotWhatItsEntryRecords { .. }
             | LoadProblem::NotAPackageName { .. }
             | LoadProblem::NotAComponent { .. }
-            | LoadProblem::NoDeclaration { .. } => {
+            | LoadProblem::NoDeclaration { .. }
+            | LoadProblem::NewerProtocol { .. } => {
                 unreachable!("a file entry is not installed, or the step's problem")
             }
         }
@@ -655,8 +677,18 @@ impl Installed {
             .map_err(|reason| fail(LoadProblem::NotAComponent { reason }))?;
         let read = load_declaration(runtime, &key).map_err(|error| {
             runtime.unload(&key);
-            fail(LoadProblem::NoDeclaration {
-                reason: error.to_string(),
+            fail(match error {
+                ProtocolError::NewerVersion {
+                    host_version,
+                    extension_version,
+                    ..
+                } => LoadProblem::NewerProtocol {
+                    declared: extension_version,
+                    host: host_version,
+                },
+                error => LoadProblem::NoDeclaration {
+                    reason: error.to_string(),
+                },
             })
         })?;
         Ok((

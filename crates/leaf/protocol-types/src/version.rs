@@ -1,7 +1,8 @@
 //! The protocol version the host and the guests speak, and what each minor added.
 
 /// Protocol version for the extension wire format (semver). The host loads
-/// every guest of its major version. The minor moves when a payload's
+/// every guest of its major version whose minor is not newer than its own
+/// (ADR 0326: a newer guest is refused, E088). The minor moves when a payload's
 /// values change meaning or an optional field is added; the major moves
 /// only when an older guest could no longer be decoded or answered.
 /// `docs/extension-protocol.md` ("Protocol versions") lists what each
