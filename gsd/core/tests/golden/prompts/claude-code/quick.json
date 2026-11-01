@@ -61,7 +61,7 @@
     "- gsd-verifier — Verifies phase completion, checks quality gates",
     "- gsd-code-reviewer — Reviews source files for bugs, security issues, and code quality"
   ],
-  "bytes": 57261,
+  "bytes": 57290,
   "end": [
     "",
     "Execute end-to-end.",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a9da15c7a25aeb9ae8aaed98f38e3751cefd2d38e237975e1ac1883c77e03d60",
+    "digest": "sha256:2bdd712f180bff242357d0c5c02727f6834ddf2bfb00eb6a0db4e50919511cb5",
     "prompt": "@gsd/core@VERSION:quick",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "a9da15c7a25aeb9ae8aaed98f38e3751cefd2d38e237975e1ac1883c77e03d60"
+  "sha256": "2bdd712f180bff242357d0c5c02727f6834ddf2bfb00eb6a0db4e50919511cb5"
 }

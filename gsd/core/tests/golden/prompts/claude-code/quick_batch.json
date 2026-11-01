@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 26156,
+  "bytes": 26185,
   "end": [
     "**Otherwise:** proceed to the workflow's normal path — parse the task list",
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3e7607daeeae5b891ba0a6980644d5c7f917548bc60f3c6c0ab6df351f39b7ee",
+    "digest": "sha256:ad84058119d50f6f16f5d1ffbeb89b11bbc20e38d233683f8b1024d70f93681a",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "3e7607daeeae5b891ba0a6980644d5c7f917548bc60f3c6c0ab6df351f39b7ee"
+  "sha256": "ad84058119d50f6f16f5d1ffbeb89b11bbc20e38d233683f8b1024d70f93681a"
 }

@@ -1,9 +1,9 @@
-//! The digest of a phase's context: what `gsd/W406` compares. GSD judges drift by file times (CONTEXT.md newer than
+//! The digest of a phase's (or a quick plan's) context: what `gsd/W406` compares. GSD judges drift by file times (CONTEXT.md newer than
 //! RESEARCH.md); a pass sees no git history, so a research or spec records the digest of the context it was written
 //! against and the drift pass compares it with the context's current one.
 //!
 //! The digest covers what GSD's `CONTEXT.md` holds: the context, the decisions with `origin context` and the deferred
-//! ideas of its phase. It is `fnv1a64:` and 16 lowercase hex digits of FNV-1a 64 over the members sorted by id; per
+//! ideas of its phase (a quick context: the decisions that name its quick plan). It is `fnv1a64:` and 16 lowercase hex digits of FNV-1a 64 over the members sorted by id; per
 //! member `id 0x1F kind 0x1E`, then each written field sorted by name, computed fields left out, as
 //! `name 0x1F value 0x1E`, where value is the compact JSON of the structured value when the kernel sends one and the
 //! field text otherwise; members are separated by `0x1D`. FNV and not SHA-256: drift needs no collision resistance
@@ -30,19 +30,39 @@ pub fn scope_of(id: &str) -> &str {
     id.rsplit_once('/').map_or("", |(scope, _)| scope)
 }
 
-/// The members of the context `context_id`, sorted by id: the context, and in its scope the decisions with
-/// `origin context` and the deferred ideas.
+/// The quick plan a context, decision or research names in `plan`: its resolved edge.
+pub fn quick_plan<'a>(input: &'a PassInput, id: &str) -> Option<&'a str> {
+    input
+        .edges
+        .iter()
+        .find(|e| e.source == id && e.label == "plan")
+        .map(|e| e.target.as_str())
+}
+
+/// What owns a context, decision or research: its quick plan, else its scope (its phase, or `""` for the project).
+pub fn owner<'a>(input: &'a PassInput, entity: &'a PassEntity) -> &'a str {
+    quick_plan(input, &entity.id).unwrap_or_else(|| scope_of(&entity.id))
+}
+
+/// The members of the context `context_id`, sorted by id: the context, and the decisions with `origin context` and
+/// the deferred ideas of its owner (a phase's are in its scope; a quick plan's decisions name it in `plan`, and a quick
+/// context has no deferred ideas).
 fn members<'a>(input: &'a PassInput, context_id: &str) -> Vec<&'a PassEntity> {
+    let quick = quick_plan(input, context_id);
     let scope = scope_of(context_id);
     let mut found: Vec<&PassEntity> = input
         .entities
         .iter()
         .filter(|e| {
+            let mine = match quick {
+                Some(plan) => quick_plan(input, &e.id) == Some(plan),
+                None => scope_of(&e.id) == scope,
+            };
             e.id == context_id
-                || (scope_of(&e.id) == scope
+                || (mine
                     && match e.kind.as_str() {
                         "decision" => e.fields.get("origin").map(String::as_str) == Some("context"),
-                        "deferred_idea" => true,
+                        "deferred_idea" => quick.is_none(),
                         _ => false,
                     })
         })

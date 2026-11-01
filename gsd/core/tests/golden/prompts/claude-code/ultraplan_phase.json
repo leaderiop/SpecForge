@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 20121,
+  "bytes": 20150,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:341055cd0e124207fa1c039b8390f23bb1e266060d3414be6aeca7d5ef7b492a",
+    "digest": "sha256:ed991ecb697470506da59231922f127f4655c01a62e92da87b3f18718667c3db",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
@@ -213,5 +213,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "341055cd0e124207fa1c039b8390f23bb1e266060d3414be6aeca7d5ef7b492a"
+  "sha256": "ed991ecb697470506da59231922f127f4655c01a62e92da87b3f18718667c3db"
 }

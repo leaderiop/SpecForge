@@ -61,7 +61,7 @@
     "**jq-dependent reviewer lanes.** `jq` is a production prerequisite for the",
     "`ollama`, `lm_studio`, `llama_cpp`, `opencode`, and `antigravity` lanes only. If"
   ],
-  "bytes": 61324,
+  "bytes": 61353,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -152,7 +152,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a8acd8b1b909d1eda35c1e6ae22eb5cb9a8a04f4eb211335cd1eb7e61b0abe17",
+    "digest": "sha256:ecc164710167ca6aadd192ca15da38f951d9723f091412ccb3a99bd0ff7d3b41",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "a8acd8b1b909d1eda35c1e6ae22eb5cb9a8a04f4eb211335cd1eb7e61b0abe17"
+  "sha256": "ecc164710167ca6aadd192ca15da38f951d9723f091412ccb3a99bd0ff7d3b41"
 }

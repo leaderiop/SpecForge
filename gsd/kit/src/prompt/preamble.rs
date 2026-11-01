@@ -58,7 +58,10 @@ pub const FILES: &[(&str, &str)] = &[
     ),
     ("`WINDOWS.md`", "broken_window"),
     ("`NN-REFACTOR.md`", "refactor_proposal"),
-    ("`quick/*`", "plan, summary (a quick plan has no phase)"),
+    (
+        "`quick/*`",
+        "plan, summary, context, decision, research (a quick plan has no phase)",
+    ),
     ("`workstreams/*`", "workstream (a scope)"),
 ];
 

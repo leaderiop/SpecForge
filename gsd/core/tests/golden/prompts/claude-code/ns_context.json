@@ -38,7 +38,7 @@
     "| `/gsd-mempalace-recall` | not served on this project |",
     "| `/gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 10022,
+  "bytes": 10051,
   "end": [
     "}",
     "```",
@@ -110,7 +110,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1369b1477f82f0c4e8cf29b429675554609dca1efa1639b6824f5e5dcde2e64f",
+    "digest": "sha256:0e4786bf8f2e08590e7d0a464c0c844f2c032054b72b69427ff90964aaeafeaf",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "1369b1477f82f0c4e8cf29b429675554609dca1efa1639b6824f5e5dcde2e64f"
+  "sha256": "0e4786bf8f2e08590e7d0a464c0c844f2c032054b72b69427ff90964aaeafeaf"
 }

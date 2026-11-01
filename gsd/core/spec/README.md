@@ -169,7 +169,7 @@ the plan's summary, written by the executor at the end, lands in the same file.
 | git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities | core |
 | `WINDOWS.md` | broken_window | core |
 | `NN-REFACTOR.md` | refactor_proposal | core |
-| `quick/*` | plan, summary (a quick plan has no phase) | core |
+| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) | core |
 | `workstreams/*` | workstream (a scope) | core |
 | `SECURITY.md`, threat model | threat, trust_boundary, security_audit, accepted_risk, audit_run | security |
 | `AI-SPEC.md`, `NN-EVAL-REVIEW.md` | ai_spec, ai_failure, eval_dimension, guardrail, eval_review | ai |

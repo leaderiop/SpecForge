@@ -61,7 +61,7 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 22545,
+  "bytes": 22574,
   "end": [
     "## Anti-Patterns",
     "",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:326fba5c5541ce1f5db3d2c846806def1aee77d106b1a7b703f1f773889669a4",
+    "digest": "sha256:0db8797959fddc2587b1b77a21b4fb5821dfcd3afc65c8a6290a4c1016b44f65",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "326fba5c5541ce1f5db3d2c846806def1aee77d106b1a7b703f1f773889669a4"
+  "sha256": "0db8797959fddc2587b1b77a21b4fb5821dfcd3afc65c8a6290a4c1016b44f65"
 }

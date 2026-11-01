@@ -61,7 +61,7 @@
     "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
     "```"
   ],
-  "bytes": 22057,
+  "bytes": 22086,
   "end": [
     "",
     "---",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:512e5507e778f06b0e35b542b568aac553ea0ede9495988ef4deec9a34b5cef6",
+    "digest": "sha256:d031f4e0d31a80f7b4613fe324a165f3feec2990e6e9d42ed146afe491b5c3b4",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "512e5507e778f06b0e35b542b568aac553ea0ede9495988ef4deec9a34b5cef6"
+  "sha256": "d031f4e0d31a80f7b4613fe324a165f3feec2990e6e9d42ed146afe491b5c3b4"
 }

@@ -61,7 +61,7 @@
     "",
     "- Parse version from arguments or detect current from ROADMAP.md"
   ],
-  "bytes": 25585,
+  "bytes": 25614,
   "end": [
     "",
     "<success_criteria>",
@@ -152,7 +152,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:d46682a63f2dd8305936a8bd9ce6f13336434be26b3b4b5a0ee04a007f478178",
+    "digest": "sha256:0751ebe6e8c5b805a3efdd69ccc6731b8cc4abb69b33b4340e7d2d427181b305",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "d46682a63f2dd8305936a8bd9ce6f13336434be26b3b4b5a0ee04a007f478178"
+  "sha256": "0751ebe6e8c5b805a3efdd69ccc6731b8cc4abb69b33b4340e7d2d427181b305"
 }

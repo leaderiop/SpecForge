@@ -55,3 +55,13 @@ fn a_misnamed_phaseless_research_gets_w204_like_a_phase_research() {
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(found[0].code, "W204");
 }
+
+#[test]
+fn a_quick_plans_research_question_is_w204_as_a_phases() {
+    let found = check(&input(vec![
+        entity("251101-abc-RESEARCH", "research", &[("plan", "251101-abc")]),
+        entity("251101-abc-RESEARCH/OQ1", "open_question", &[]),
+    ]));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].entity.as_deref(), Some("251101-abc-RESEARCH/OQ1"));
+}

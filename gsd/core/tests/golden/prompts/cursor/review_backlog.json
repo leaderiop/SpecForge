@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 11869,
+  "bytes": 11898,
   "end": [
     "",
     "3. **Present the list to the user** via conversational prompting:",
@@ -152,7 +152,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:59c8c511cc1cc4e37b0008b3211170a46ea8491de2b5e55e6b5a27703ae91fce",
+    "digest": "sha256:2843263a803ae588818c1f8fa1b564925b937d267af71a1ba29ef4f6292be9a1",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "59c8c511cc1cc4e37b0008b3211170a46ea8491de2b5e55e6b5a27703ae91fce"
+  "sha256": "2843263a803ae588818c1f8fa1b564925b937d267af71a1ba29ef4f6292be9a1"
 }

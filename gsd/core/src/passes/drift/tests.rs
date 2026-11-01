@@ -95,3 +95,42 @@ fn research_without_a_digest_is_not_judged() {
     ]));
     assert!(found.is_empty(), "{found:?}");
 }
+
+#[test]
+fn a_quick_research_drifts_from_its_own_quick_plans_context() {
+    let edge = |source: &str, plan: &str| PassEdge {
+        source: source.into(),
+        target: plan.into(),
+        label: "plan".into(),
+    };
+    let found = check(&PassInput {
+        entities: vec![
+            entity("251101-aaa-CONTEXT", "context", &[("digest", "fnv1a64:1")]),
+            entity("251101-abc-CONTEXT", "context", &[("digest", "fnv1a64:2")]),
+            entity(
+                "251101-abc-RESEARCH",
+                "research",
+                &[("context_digest", "fnv1a64:1")],
+            ),
+            // The project's research names no plan: it has no context, whatever the project scope holds.
+            entity("RESEARCH", "research", &[("context_digest", "fnv1a64:9")]),
+        ],
+        edges: vec![
+            edge("251101-aaa-CONTEXT", "251101-aaa"),
+            edge("251101-abc-CONTEXT", "251101-abc"),
+            edge("251101-abc-RESEARCH", "251101-abc"),
+        ],
+        ..Default::default()
+    });
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].entity.as_deref(), Some("251101-abc-RESEARCH"));
+    assert!(
+        found[0]
+            .message
+            .contains("'251101-abc-CONTEXT' changed since"),
+        "{}",
+        found[0].message
+    );
+    let suggestion = found[0].suggestion.as_deref().unwrap_or_default();
+    assert!(suggestion.contains("/gsd-quick --research"), "{suggestion}");
+}

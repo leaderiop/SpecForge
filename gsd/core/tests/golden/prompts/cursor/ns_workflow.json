@@ -61,7 +61,7 @@
     "| `/gsd-mvp-phase` | prompt `specforge.gsd.mvp_phase` (served by @gsd/core) |",
     "| `/gsd-quick` | prompt `specforge.gsd.quick` (served by @gsd/core) |"
   ],
-  "bytes": 12425,
+  "bytes": 12454,
   "end": [
     "| Advance to the next logical step | gsd-progress |",
     "| Open the state-aware smart-entry launcher | gsd-next |",
@@ -152,7 +152,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:fa32e0f2502ce3f7c26c8452ca2fec0ac6e4a14b2f7eaa67b17c88c81f1a2c2c",
+    "digest": "sha256:ff94ae9e005fb49cf94b3cd00589d364da6e20fb7f7b81e410c4c3367c981f49",
     "prompt": "@gsd/core@VERSION:ns_workflow"
   },
-  "sha256": "fa32e0f2502ce3f7c26c8452ca2fec0ac6e4a14b2f7eaa67b17c88c81f1a2c2c"
+  "sha256": "ff94ae9e005fb49cf94b3cd00589d364da6e20fb7f7b81e410c4c3367c981f49"
 }

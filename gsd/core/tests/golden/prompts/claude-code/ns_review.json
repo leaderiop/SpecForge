@@ -47,7 +47,7 @@
     "| `/gsd-review` | prompt `specforge.gsd.review` (served by @gsd/core) |",
     "| `/gsd-ui-phase` | not served on this project |"
   ],
-  "bytes": 10436,
+  "bytes": 10465,
   "end": [
     "Route to the appropriate quality / review skill based on the user's intent.",
     "`gsd-code-review-fix` was absorbed by `gsd-code-review --fix` in #2790.",
@@ -119,7 +119,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -181,8 +181,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b0ec68fd726420f416c165938ff7d4b08874fadca7d0a9ecaaeba7ac938d5420",
+    "digest": "sha256:170c27fbe58b3ca0f698f09be414c7a53df191a4700de579ce906532d719839d",
     "prompt": "@gsd/core@VERSION:ns_review"
   },
-  "sha256": "b0ec68fd726420f416c165938ff7d4b08874fadca7d0a9ecaaeba7ac938d5420"
+  "sha256": "170c27fbe58b3ca0f698f09be414c7a53df191a4700de579ce906532d719839d"
 }

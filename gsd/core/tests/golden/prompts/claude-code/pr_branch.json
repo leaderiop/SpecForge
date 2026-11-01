@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 33908,
+  "bytes": 33937,
   "end": [
     "",
     "Or use /gsd-ship to create the PR automatically.",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:90189eb86d5d59b864523a71e763ef19e0ffc3ff18e044bbd17e9e74cc4649c3",
+    "digest": "sha256:338121a975509b887f51267c7dd6d2bd6e8332c4465b89180e27704c65c452c8",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "90189eb86d5d59b864523a71e763ef19e0ffc3ff18e044bbd17e9e74cc4649c3"
+  "sha256": "338121a975509b887f51267c7dd6d2bd6e8332c4465b89180e27704c65c452c8"
 }

@@ -61,7 +61,7 @@
     "- the phase's `verification` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds verification --format context`) — verification results",
     "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results"
   ],
-  "bytes": 20732,
+  "bytes": 20761,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b5d72c3a76f27282cdbe48ceb18cf76b5138a37116b4e7d093b296c53082ba36",
+    "digest": "sha256:53a70dc5db99dc2978b3016fc161727c412667dcb9e204783f034bfe7f66553f",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "b5d72c3a76f27282cdbe48ceb18cf76b5138a37116b4e7d093b296c53082ba36"
+  "sha256": "53a70dc5db99dc2978b3016fc161727c412667dcb9e204783f034bfe7f66553f"
 }

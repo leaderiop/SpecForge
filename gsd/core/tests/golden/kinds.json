@@ -124,9 +124,27 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "ContextPlan",
+        "source_kind": "context",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "DecisionPhase",
         "source_kind": "decision",
         "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "DecisionPlan",
+        "source_kind": "decision",
+        "target_kind": "plan"
       },
       {
         "description": null,
@@ -199,6 +217,15 @@
         "label": "ResearchPhase",
         "source_kind": "research",
         "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ResearchPlan",
+        "source_kind": "research",
+        "target_kind": "plan"
       },
       {
         "description": null,
@@ -2227,22 +2254,34 @@
         "verify_kinds": []
       },
       {
-        "description": "A phase's context: its boundary, canonical references and discretion (GSD NN-CONTEXT.md)",
+        "description": "A phase's or a quick plan's context: its boundary, canonical references and discretion (GSD NN-CONTEXT.md, <quick_id>-CONTEXT.md)",
         "dot_color": null,
         "dot_fillcolor": null,
         "dot_shape": null,
         "fields": [
           {
             "default_value": null,
-            "description": "file location",
+            "description": "file location; absent for a quick plan's context",
             "edge": "ContextPhase",
             "field_type": "reference",
             "file_reference": false,
             "immutable": true,
             "inverse_of": null,
             "name": "phase",
-            "required": true,
+            "required": false,
             "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the quick plan of a quick task's context (/gsd-quick --discuss)",
+            "edge": "ContextPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": false,
+            "target_kind": "plan"
           },
           {
             "default_value": null,
@@ -2418,6 +2457,18 @@
             "name": "phase",
             "required": false,
             "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "owning quick CONTEXT: the quick plan whose context recorded it",
+            "edge": "DecisionPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": false,
+            "target_kind": "plan"
           },
           {
             "default_value": null,
@@ -3090,14 +3141,14 @@
         "verify_kinds": []
       },
       {
-        "description": "Research for a phase, or for the project (GSD NN-RESEARCH.md, research/*.md)",
+        "description": "Research for a phase, a quick plan or the project (GSD NN-RESEARCH.md, <quick_id>-RESEARCH.md, research/*.md)",
         "dot_color": null,
         "dot_fillcolor": null,
         "dot_shape": null,
         "fields": [
           {
             "default_value": null,
-            "description": "absent for the project's research",
+            "description": "absent for the project's research and a quick plan's",
             "edge": "ResearchPhase",
             "field_type": "reference",
             "file_reference": false,
@@ -3109,7 +3160,19 @@
           },
           {
             "default_value": null,
-            "description": "the digest of the phase's context when the research was recorded (gsd/W406)",
+            "description": "the quick plan of a quick task's research (/gsd-quick --research)",
+            "edge": "ResearchPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": false,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the digest of the phase's (or quick plan's) context when the research was recorded (gsd/W406)",
             "edge": null,
             "field_type": "string",
             "file_reference": false,

@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 18986,
+  "bytes": 19015,
   "end": [
     "To resume: /gsd-resume-work",
     "",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:d6584b6625daa895ff79736457374698b686fd0de4fa5c990229835759df983f",
+    "digest": "sha256:be4735801f62c1569facaf0724886672e3cfc6f45cf1665d05a915207d9f48d8",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "d6584b6625daa895ff79736457374698b686fd0de4fa5c990229835759df983f"
+  "sha256": "be4735801f62c1569facaf0724886672e3cfc6f45cf1665d05a915207d9f48d8"
 }

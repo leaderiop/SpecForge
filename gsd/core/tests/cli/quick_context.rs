@@ -15,7 +15,6 @@ fn e206(p: &Project) -> Vec<String> {
 }
 
 #[test]
-#[ignore = "G3: plan 02 T2"]
 fn a_quick_plan_holds_its_context_and_research() {
     project("quick-context").check_exact(&[]);
 }
@@ -40,7 +39,6 @@ fn a_second_context_of_a_quick_plan_is_e206() {
 }
 
 #[test]
-#[ignore = "G3: plan 02 T2"]
 fn a_context_naming_both_a_phase_and_a_plan_is_e206() {
     let p = project("quick-context");
     p.write(
@@ -56,13 +54,12 @@ fn a_context_naming_both_a_phase_and_a_plan_is_e206() {
     assert!(
         found
             .iter()
-            .any(|m| m.contains("context '251101-abc-CONTEXT' names both")),
+            .any(|m| m.contains("context 'v1.0/01/251101-abc-CONTEXT' names both")),
         "{found:#?}"
     );
 }
 
 #[test]
-#[ignore = "G3: plan 02 T2"]
 fn a_context_of_a_phases_plan_is_e206() {
     let p = project("quick-context");
     p.write(
@@ -84,7 +81,6 @@ fn a_context_of_a_phases_plan_is_e206() {
 }
 
 #[test]
-#[ignore = "G3: plan 02 T2"]
 fn a_research_of_a_quick_plan_may_have_any_name() {
     let p = project("quick-context");
     p.edit(QUICK, "research 251101-abc-RESEARCH", "research foo");

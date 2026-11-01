@@ -61,7 +61,7 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated."
   ],
-  "bytes": 99264,
+  "bytes": 99293,
   "end": [
     "- [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)",
     "- [ ] Config merge preserves all keys outside the three sections this workflow owns",
@@ -152,7 +152,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:92ce2bb1f91242883b3a93feb1f9669df12583e5f5513a190c5abe52b80ddfa1",
+    "digest": "sha256:133c1fdf8fcaabe675e932184ec1b7ac2c82b330146bb75e78c2d1eefa4b49dc",
     "prompt": "@gsd/core@VERSION:config"
   },
-  "sha256": "92ce2bb1f91242883b3a93feb1f9669df12583e5f5513a190c5abe52b80ddfa1"
+  "sha256": "133c1fdf8fcaabe675e932184ec1b7ac2c82b330146bb75e78c2d1eefa4b49dc"
 }

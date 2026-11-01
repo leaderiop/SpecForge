@@ -61,7 +61,7 @@
     "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:",
     "```"
   ],
-  "bytes": 22211,
+  "bytes": 22240,
   "end": [
     "<step name=\"test_plan\">",
     "Generate a human UAT test plan for \"Testable Now\" + \"active\" items only:",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:54ff133c47afd1434af17da9246b6e3bf71f892a081b9d4ef7a0375fc7258881",
+    "digest": "sha256:541997fdb5048f95e5e403a7170b2594a04b4665d3e18b10fe0332a0a40b1098",
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "54ff133c47afd1434af17da9246b6e3bf71f892a081b9d4ef7a0375fc7258881"
+  "sha256": "541997fdb5048f95e5e403a7170b2594a04b4665d3e18b10fe0332a0a40b1098"
 }
