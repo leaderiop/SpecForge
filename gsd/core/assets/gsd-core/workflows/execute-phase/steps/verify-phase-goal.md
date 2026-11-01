@@ -174,11 +174,11 @@ through the CLI over the report's covered set and copies the command's `covered_
 **Read the regenerated verdict** through the owner, keeping stderr:
 
 ```bash
-VERIFICATION=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused this phase's report — see the error above. The report the verifier wrote carries a status outside passed | gaps_found | human_needed; fix its frontmatter before continuing." >&2; exit 1; }
-STATUS=$(printf '%s' "$VERIFICATION" | jq -r '.status')
-ROUTE=$(printf '%s' "$VERIFICATION" | jq -r '.route')
-NEXT_ACTION=$(printf '%s' "$VERIFICATION" | jq -r '.next_action')
-NEXT_COMMAND=$(printf '%s' "$VERIFICATION" | jq -r '.next_command')
+STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification.status refused this phase's report — see the error above. The report the verifier wrote carries a status outside passed | gaps_found | human_needed; fix its frontmatter before continuing." >&2; exit 1; }; STATUS=${STATUS%%$'\n'*}; STATUS=${STATUS:-pending}
+case "$STATUS" in passed) ROUTE=complete ;; gaps_found) ROUTE=gap-closure ;; human_needed) ROUTE=human ;; *) ROUTE=verify ;; esac
+NEXT_ACTION=   # a verification has no next-command field: the route names the next step
+NEXT_COMMAND=   # a verification has no next-command field: the route names the next step
+
 ```
 
 A non-zero exit here is the write-time hard error (#5118): the report is rejected in the run that

@@ -221,10 +221,10 @@ SUMMARY_PATH="{phase_dir}/{plan_padded}-SUMMARY.md"
 # letter-suffixed phase number (#4619, #4748), reachable from THIS branch only, bounded to
 # the latest reachable tag (milestone marker). One `<sha> <subject>` line per commit, newest first.
 PHASE_NUMBER="{phase_number}"
-PLAN_COMMITS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${PHASE_NUMBER}-{plan_padded}" --kinds commit --format json | jq -c '{commits: [.nodes[]|select(.kind=="commit")|{sha: .fields.hash, subject: .fields.subject}]}') && PLAN_SCOPE_RC=0 || PLAN_SCOPE_RC=$?
+PLAN_HASHES=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${PHASE_NUMBER}-{plan_padded}" --kinds commit --pick '.nodes[kind=commit].fields.hash') && PLAN_SCOPE_RC=0 || PLAN_SCOPE_RC=$?
 # Exit 69 (UNAVAILABLE) = "could not look": empty is then NOT "no commits". Fail closed (#5170).
 if [ "$PLAN_SCOPE_RC" -ne 0 ]; then echo "SAFE-RESUME GATE: could not resolve the plan's commits (evaluation-scope exit ${PLAN_SCOPE_RC}); not dispatching an executor on an unknown resume state." >&2; exit 1; fi
-PLAN_COMMITS=$(printf '%s' "$PLAN_COMMITS" | jq -r '.commits[] | "\(.sha[0:10]) \(.subject)"' 2>/dev/null)
+PLAN_COMMITS=$([ -z "$PLAN_HASHES" ] || paste -d' ' <(printf '%s\n' "$PLAN_HASHES" | cut -c1-10) <(specforge query "${PHASE_NUMBER}-{plan_padded}" --kinds commit --pick '.nodes[kind=commit].fields.subject'))
 ```
 If production commits exist and `SUMMARY.md is missing` (no the spec manifest matches it: a match is a legal `external_job_waiting` deferral - reconcile per `docs/reference/planning-artifacts.md`, never re-dispatch), stop before spawning a
 new executor; continuing risks duplicate work and stale `STATE.md`/ROADMAP progress.
@@ -241,7 +241,7 @@ if [ "$TDD_MODE" = "true" ]; then
   if [ "$IS_BEHAVIOR_ADDING" = "true" ]; then
     # #5164: the RED commit is one of this plan's own commit entities (gsd-git files a commit under the
     # plan its subject names; the plan id carries the milestone): a test-file commit of another plan, or
-    # of none, is not this plan's RED commit. jq exit 4 (no answer to read) is "could not look".
+    # of none, is not this plan's RED commit. A query that exits non-zero is "could not look".
     # #4379: this pathspec IS the gate's definition of "a test file". It was
     # JS/TS-only, so Go tripped on every task; and `**/` never matches a
     # root-level path, so a root `foo.test.js` was invisible too. Bare globs
@@ -249,10 +249,10 @@ if [ "$TDD_MODE" = "true" ]; then
     # the gate pass on any in-scope commit. Trade-offs and the Rust gap:
     # references/tdd.md § Create first test file.
 
-    RED_COMMIT=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "$PLAN_ID" --kinds commit --format json | jq -ce --arg plan "$PLAN_ID" '{commits: [.nodes[] | select(.kind == "commit" and ((.fields.plan // "") as $p | $p == $plan or ($p | endswith("/" + $plan)))) | select(any(.fields.files[]?; test("\\.(test|spec)\\.|^(tests|__tests__)/|^test_.*\\.py$|_test\\.(go|py|exs|rb)$|_spec\\.rb$"))) | {sha: .fields.hash, subject: .fields.subject}]}') && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
+    RED_IDS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "$PLAN_ID" --kinds commit --pick '.nodes[kind=commit].id') && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
     # Exit 69 (UNAVAILABLE) = the scope could not be resolved: that is not "missing RED commit" (#5170).
     if [ "$RED_SCOPE_RC" -ne 0 ]; then echo "TDD GATE UNAVAILABLE: could not resolve the plan's commits for ${PLAN_ID}/${TASK_ID} (evaluation-scope exit ${RED_SCOPE_RC})"; exit 1; fi
-    RED_COMMIT=$(printf '%s' "$RED_COMMIT" | jq -r '.commits[0] // empty | "\(.sha[0:10]) \(.subject)"' 2>/dev/null)
+    RED_COMMIT=$(for c in $RED_IDS; do case "$(specforge query "$c" --depth 0 --pick '.nodes[0].fields.plan')" in "$PLAN_ID"|*/"$PLAN_ID") ;; *) continue ;; esac; specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { printf '%s %s\n' "$(specforge query "$c" --depth 0 --pick '.nodes[0].fields.hash' | cut -c1-10)" "$(specforge query "$c" --depth 0 --pick '.nodes[0].fields.subject')"; break; }; done)
     if [ -z "$RED_COMMIT" ]; then
       : # the last gate trip is not recorded: STATE is computed
       echo "TDD GATE TRIPPED: missing RED commit for ${PLAN_ID}/${TASK_ID}"
@@ -348,7 +348,7 @@ This updates Status, Last Activity, Current focus, Current Position, and plan co
 Load plan inventory with wave grouping in one call:
 
 ```bash
-PLAN_INDEX=$(specforge query "$PHASE_ID" --kinds plan --format json | jq -c '{plans: [.nodes[]|select(.kind=="plan")|{id: .id, wave: .fields.wave, autonomous: .fields.autonomous, has_summary: (.fields.status == "complete"), gap_closure: (.fields.gap_closure != null), blocked_by: (if .fields.status == "blocked" then ["a halted plan"] else [] end)}]}')
+PLAN_INDEX=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan]')   # one plan node per line: has_summary is fields.status "complete", gap_closure is fields.gap_closure set, blocked_by is ["a halted plan"] when fields.status is "blocked"
 ```
 
 Parse JSON for: `phase`, `plans[]`, `waves`, `incomplete`, `runnable`, `ready_plans`, `has_checkpoints` — full per-plan fields and the #4628 readiness rules: read and follow `execute-phase/steps/ready-wave-gate.md`.
@@ -371,9 +371,9 @@ are done. Blocked-and-incomplete must never be reported as finished.
 VERIFY_STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 VERIFY_ROUTE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; VERIFY_ROUTE=${VERIFY_ROUTE%%$'\n'*}; case "${VERIFY_ROUTE:-pending}" in passed) VERIFY_ROUTE=complete ;; gaps_found) VERIFY_ROUTE=gap-closure ;; human_needed) VERIFY_ROUTE=human ;; *) VERIFY_ROUTE=verify ;; esac
 # #3684: checkbox = marked-complete; report fields can claim a no-op write (#3685).
-ANALYZE=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '{phases: [.nodes[]|select(.kind=="phase")|{number: .fields.number, phase_number: .fields.number, roadmap_complete: (.fields.status == "complete")}]}')
-if [[ "$ANALYZE" == @file:* ]]; then ANALYZE=$(cat "${ANALYZE#@file:}"); fi
-PHASE_MARKED=$(echo "$ANALYZE"|jq -r --arg p "$PHASE_NUMBER" 'def n:sub("^0+(?=[0-9])";"");.phases[]|select(((.number//.phase_number|tostring|n))==($p|n))|.roadmap_complete'|head -1)
+PHASE_STATUS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.status')
+
+case "$PHASE_STATUS" in complete) PHASE_MARKED=true ;; *) PHASE_MARKED=false ;; esac
 ```
 
 Evaluate in this exact order — the first matching condition decides the outcome; do not evaluate

@@ -55,7 +55,7 @@ For each phase directory, read the VERIFICATION.md:
 
 ```bash
 # For each phase, use find-phase to resolve the directory (handles archived phases)
-PHASE_INFO=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '.nodes[]|select(.id|endswith("/01"))')
+PHASE_INFO=$(specforge query "$MILESTONE/01" --depth 0 --pick '.nodes[0]')   # the phase node, compact
 # Extract directory from JSON, then read VERIFICATION.md from that directory
 # Repeat for each phase number from ROADMAP.md
 ```

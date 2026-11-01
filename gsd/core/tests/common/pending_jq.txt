@@ -2,68 +2,6 @@
 # the ticket that rewrites them. `a_shell_block_reads_specforge_without_jq` allows a listed line and fails on a
 # listed line that no longer runs jq. A line listed twice is in its asset twice.
 
-# plan 05 T2: a shape builder (an upstream-shaped object), and the lines that read its shape
-gsd-core/references/phase-argument-parsing.md	PHASE_INFO=$(specforge query "${PHASE}" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_number: (.nodes[0].id|split("/")|last), phase_name: .nodes[0].fields.name}')
-gsd-core/workflows/audit-milestone.md	PHASE_INFO=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '.nodes[]|select(.id|endswith("/01"))')
-gsd-core/workflows/complete-milestone.md	ALL_PHASES_VERIFIED=$(printf '%s' "$INIT_MANAGER" | jq -r '[
-gsd-core/workflows/execute-phase.md	PLAN_COMMITS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${PHASE_NUMBER}-{plan_padded}" --kinds commit --format json | jq -c '{commits: [.nodes[]|select(.kind=="commit")|{sha: .fields.hash, subject: .fields.subject}]}') && PLAN_SCOPE_RC=0 || PLAN_SCOPE_RC=$?
-gsd-core/workflows/execute-phase.md	PLAN_COMMITS=$(printf '%s' "$PLAN_COMMITS" | jq -r '.commits[] | "\(.sha[0:10]) \(.subject)"' 2>/dev/null)
-gsd-core/workflows/execute-phase.md	RED_COMMIT=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "$PLAN_ID" --kinds commit --format json | jq -ce --arg plan "$PLAN_ID" '{commits: [.nodes[] | select(.kind == "commit" and ((.fields.plan // "") as $p | $p == $plan or ($p | endswith("/" + $plan)))) | select(any(.fields.files[]?; test("\\.(test|spec)\\.|^(tests|__tests__)/|^test_.*\\.py$|_test\\.(go|py|exs|rb)$|_spec\\.rb$"))) | {sha: .fields.hash, subject: .fields.subject}]}') && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
-gsd-core/workflows/execute-phase.md	RED_COMMIT=$(printf '%s' "$RED_COMMIT" | jq -r '.commits[0] // empty | "\(.sha[0:10]) \(.subject)"' 2>/dev/null)
-gsd-core/workflows/execute-phase.md	PLAN_INDEX=$(specforge query "$PHASE_ID" --kinds plan --format json | jq -c '{plans: [.nodes[]|select(.kind=="plan")|{id: .id, wave: .fields.wave, autonomous: .fields.autonomous, has_summary: (.fields.status == "complete"), gap_closure: (.fields.gap_closure != null), blocked_by: (if .fields.status == "blocked" then ["a halted plan"] else [] end)}]}')
-gsd-core/workflows/execute-phase.md	ANALYZE=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '{phases: [.nodes[]|select(.kind=="phase")|{number: .fields.number, phase_number: .fields.number, roadmap_complete: (.fields.status == "complete")}]}')
-gsd-core/workflows/execute-phase.md	PHASE_MARKED=$(echo "$ANALYZE"|jq -r --arg p "$PHASE_NUMBER" 'def n:sub("^0+(?=[0-9])";"");.phases[]|select(((.number//.phase_number|tostring|n))==($p|n))|.roadmap_complete'|head -1)
-gsd-core/workflows/execute-phase/steps/completion-reconciliation.md	COMMITS_SCOPE=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "{phase_number}-{plan_padded}" --kinds commit --format json | jq -c '{commits: [.nodes[]|select(.kind=="commit")|{sha: .fields.hash}]}') && COMMITS_SCOPE_RC=0 || COMMITS_SCOPE_RC=$?
-gsd-core/workflows/execute-phase/steps/completion-reconciliation.md	if [ "$COMMITS_SCOPE_RC" -eq 0 ]; then COMMITS_FOUND=$(printf '%s' "$COMMITS_SCOPE" | jq -r '.commits[0].sha // empty' 2>/dev/null); fi
-gsd-core/workflows/execute-phase/steps/partial-wave.md	POST_PLAN_INDEX=$(specforge query "$PHASE_ID" --kinds plan --format json | jq -c '{plans: [.nodes[]|select(.kind=="plan")|{id: .id, wave: .fields.wave, autonomous: .fields.autonomous, has_summary: (.fields.status == "complete"), gap_closure: (.fields.gap_closure != null), blocked_by: (if .fields.status == "blocked" then ["a halted plan"] else [] end)}]}')
-gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md	PLAN_HINT=$(jq -r '.agent_hint // empty' <<<"$plan_json" 2>/dev/null | tr -d '"')
-gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md	PLAN_FILES=$(jq -r '.files_modified // [] | join(" ")' <<<"$plan_json")
-gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md	PLAN_DELETIONS=$(jq -r '.files_deleted // [] | join(" ")' <<<"$plan_json")
-gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md	plan_id=$(jq -r '.id' <<<"$plan_json")
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	VERIFICATION=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused this phase's report — see the error above. The report the verifier wrote carries a status outside passed | gaps_found | human_needed; fix its frontmatter before continuing." >&2; exit 1; }
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	STATUS=$(printf '%s' "$VERIFICATION" | jq -r '.status')
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	ROUTE=$(printf '%s' "$VERIFICATION" | jq -r '.route')
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	NEXT_ACTION=$(printf '%s' "$VERIFICATION" | jq -r '.next_action')
-gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	NEXT_COMMAND=$(printf '%s' "$VERIFICATION" | jq -r '.next_command')
-gsd-core/workflows/execute-plan.md	SCOPE_JSON=$(git diff --name-only HEAD~1 2>/dev/null | jq -R . | jq -sc '{changedFiles: .}') && SCOPE_RC=0 || SCOPE_RC=$?
-gsd-core/workflows/execute-plan.md	if [ "$SCOPE_RC" -ne 0 ]; then echo "Warning: evaluation scope unavailable (exit ${SCOPE_RC}); no changed-file list, so the map update below is skipped, not 'nothing changed'." >&2; else printf '%s' "$SCOPE_JSON" | jq -r '.changedFiles[]' 2>/dev/null || true; fi
-gsd-core/workflows/execute-plan.md	PHASE_COUNTS=$(specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
-gsd-core/workflows/execute-plan.md	PLAN_COUNT=$(echo "$PHASE_COUNTS" | jq -r '.plan_count // 0')
-gsd-core/workflows/execute-plan.md	SUMMARY_COUNT=$(echo "$PHASE_COUNTS" | jq -r '.summary_count // 0')
-gsd-core/workflows/mvp-phase.md	PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_name: .nodes[0].fields.name, goal: .nodes[0].fields.goal, mode: (.nodes[0].fields.mode // "")}')
-gsd-core/workflows/mvp-phase.md	PHASE_FOUND=$(echo "$PHASE_INFO" | jq -r '.found')
-gsd-core/workflows/mvp-phase.md	PHASE_NAME=$(echo "$PHASE_INFO" | jq -r '.phase_name')
-gsd-core/workflows/mvp-phase.md	PHASE_GOAL=$(echo "$PHASE_INFO" | jq -r '.goal')
-gsd-core/workflows/mvp-phase.md	PHASE_MODE=$(echo "$PHASE_INFO" | jq -r '.mode // ""')
-gsd-core/workflows/mvp-phase.md	ANALYZE=$(specforge query "$MILESTONE" --kinds phase --format json | jq '{phases: [.nodes[] | select(.kind=="phase") | {phase_number: (.id|split("/")|last), disk_status: .fields.status}]}')
-gsd-core/workflows/mvp-phase.md	DISK_STATUS=$(echo "$ANALYZE" | jq -r --arg p "$PHASE" '.phases[] | select((.phase_number|tostring)==$p) | .disk_status' | head -1)
-gsd-core/workflows/plan-phase.md	PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_name: .nodes[0].fields.name, goal: .nodes[0].fields.goal, mode: (.nodes[0].fields.mode // ""), success_criteria: .nodes[0].fields.success_criteria}')
-gsd-core/workflows/plan-review-convergence.md	PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_number: .nodes[0].fields.number, phase_name: .nodes[0].fields.name}')
-gsd-core/workflows/progress.md	PHASE_COUNTS=$(specforge query "${CURRENT_PHASE}" --depth 2 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
-gsd-core/workflows/progress.md	X=$(echo "$PHASE_COUNTS" | jq -r '.plan_count // 0')
-gsd-core/workflows/progress.md	Y=$(echo "$PHASE_COUNTS" | jq -r '.summary_count // 0')
-gsd-core/workflows/quick.md	QUICK_SCOPE_JSON=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --kinds commit --format json | jq -c '{status: "ok", files: ([.nodes[]|select(.kind=="commit")|.fields.files[]?]|unique)}') || QUICK_SCOPE_RC=$?
-gsd-core/workflows/quick.md	CHANGED_FILES=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -r '.files | join(" ")' 2>/dev/null)
-gsd-core/workflows/quick.md	QUICK_SCOPE_WHY=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -er '.status + (if (.reason // "") != "" then ": " + .reason else "" end)' 2>/dev/null || echo 'unresolvable: no resolver output')
-gsd-core/workflows/ship.md	WINDOWS_STATUS_JSON=$(specforge query "$MILESTONE" --depth 2 --kinds broken_window --format json | jq -c '{ledger: {open_count: ([.nodes[]|select(.kind=="broken_window")|select(.fields.status == "open")]|length)}}' 2>/dev/null || echo '')
-gsd-core/workflows/ship.md	WINDOWS_OPEN_COUNT=$(printf '%s' "$WINDOWS_STATUS_JSON" | jq -r '.ledger.open_count // "?"' 2>/dev/null || echo '?')
-gsd-core/workflows/transition.md	ROADMAP=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '{phases: [.nodes[]|select(.kind=="phase")|{number: .fields.number, phase_number: .fields.number, roadmap_complete: (.fields.status == "complete")}]}')
-gsd-core/workflows/verify-work.md	VERIFICATION_STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }
-gsd-core/workflows/verify-work.md	VERIFICATION_STATUS_VALUE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.status')
-gsd-core/workflows/verify-work.md	VERIFICATION_ROUTE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.route')
-gsd-core/workflows/verify-work.md	NEXT_COMMAND=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.next_command')
-gsd-core/workflows/verify-work.md	UAT_PRECHECK=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test --format json | jq -c '{passed: ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0), blockers: ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | map(.id))}') && UAT_EXIT=0 || UAT_EXIT=$?
-gsd-core/workflows/verify-work.md	UAT_PRECHECK_PASSED=$(printf '%s' "$UAT_PRECHECK" | jq -r '.passed // false' 2>/dev/null || echo "false")
-gsd-core/workflows/verify-work.md	UAT_BLOCKERS=$(printf '%s' "$UAT_PRECHECK" | jq -r '.blockers | length' 2>/dev/null)
-gsd-core/workflows/verify-work.md	VERIFICATION_STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused the regenerated report — see the error above." >&2; exit 1; }
-gsd-core/workflows/verify-work.md	PHASE_VERIFICATION_STATUS=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.status')
-gsd-core/workflows/verify-work.md	VERIFICATION_ROUTE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.route')
-gsd-core/workflows/verify-work.md	NEXT_COMMAND=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.next_command')
-gsd-core/workflows/verify-work.md	PHASE_COMPLETE=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test,verification --format json | jq -c '{passed: (([.nodes[]|select(.kind=="verification")][0].fields.status == "passed") and ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0))}') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?
-gsd-core/workflows/verify-work.md	PHASE_COMPLETE_PASSED=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.passed' 2>/dev/null || echo "false")
-gsd-core/workflows/verify-work.md	PHASE_COMPLETE_BLOCKERS=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.blockers[]?' 2>/dev/null || true)
-gsd-core/workflows/milestone-summary.md	specforge query "v${VERSION}" --depth 4 --kinds commit --format json | jq -r '.nodes[].fields | "\(.at) \(.hash)"' | sort | head -1
-
 # plan 05 T3: the worktree manifest and the batch JSON
 gsd-core/workflows/execute-phase.md	jq -nc --arg root "$ORCH_ROOT" '{orchestrator_root: (if $root == "" then null else $root end), worktrees: []}' > "$WAVE_WORKTREE_MANIFEST"
 gsd-core/workflows/execute-phase.md	PRIMARY_WT=$(jq -r '.orchestrator_root // empty | tostring' "$WAVE_WORKTREE_MANIFEST" 2>/dev/null)

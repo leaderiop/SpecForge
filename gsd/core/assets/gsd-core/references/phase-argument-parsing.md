@@ -15,7 +15,7 @@ From `$ARGUMENTS`:
 The `find-phase` command handles normalization and validation in one step:
 
 ```bash
-PHASE_INFO=$(specforge query "${PHASE}" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_number: (.nodes[0].id|split("/")|last), phase_name: .nodes[0].fields.name}')
+PHASE_INFO=$(specforge query "${PHASE}" --depth 0 --pick '.nodes[0]')   # the phase node, compact: found when the query does not refuse it, phase_number is the last segment of its id, the rest are its fields
 ```
 
 Returns JSON with:

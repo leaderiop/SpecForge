@@ -560,8 +560,8 @@ If the codebase map doesn't exist: skip.
 # in the window (#3926, #4459). The resolver widens to the phase-directory range, and says so
 # in its `status`/`reason`, when the phase has no recorded task commits.
 # Exit 69 (UNAVAILABLE) is "could not look", not "no files changed": say so rather than print nothing.
-SCOPE_JSON=$(git diff --name-only HEAD~1 2>/dev/null | jq -R . | jq -sc '{changedFiles: .}') && SCOPE_RC=0 || SCOPE_RC=$?
-if [ "$SCOPE_RC" -ne 0 ]; then echo "Warning: evaluation scope unavailable (exit ${SCOPE_RC}); no changed-file list, so the map update below is skipped, not 'nothing changed'." >&2; else printf '%s' "$SCOPE_JSON" | jq -r '.changedFiles[]' 2>/dev/null || true; fi
+SCOPE_FILES=$(git diff --name-only HEAD~1 2>/dev/null) && SCOPE_RC=0 || SCOPE_RC=$?
+if [ "$SCOPE_RC" -ne 0 ]; then echo "Warning: evaluation scope unavailable (exit ${SCOPE_RC}); no changed-file list, so the map update below is skipped, not 'nothing changed'." >&2; else [ -z "$SCOPE_FILES" ] || printf '%s\n' "$SCOPE_FILES"; fi
 ```
 
 Update only structural changes: new src/ dir → STRUCTURE.md | deps → STACK.md | file pattern → CONVENTIONS.md | API client → INTEGRATIONS.md | config → STACK.md | renamed → update paths. Skip code-only/bugfix/content changes.
@@ -579,9 +579,9 @@ counts, i.e. `status: superseded` plans excluded, matching this route's
 "outstanding work" question):
 
 ```bash
-PHASE_COUNTS=$(specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
-PLAN_COUNT=$(echo "$PHASE_COUNTS" | jq -r '.plan_count // 0')
-SUMMARY_COUNT=$(echo "$PHASE_COUNTS" | jq -r '.summary_count // 0')
+
+PLAN_COUNT=$(specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -c "^${PHASE_ID}/")   # a dependent phase's plans are reached too: only this phase's ids count
+SUMMARY_COUNT=$(specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --pick '.nodes[kind=summary].id' | grep -c "^${PHASE_ID}/")
 ```
 
 | Condition | Route | Action |

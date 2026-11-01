@@ -55,13 +55,13 @@
     "```bash",
     "# the commands below are specforge commands: there is no launcher to define",
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
-    "PHASE_INFO=$(specforge query \"$PHASE_ID\" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_name: .nodes[0].fields.name, goal: .nodes[0].fields.goal, mode: (.nodes[0].fields.mode // \"\")}')",
-    "PHASE_FOUND=$(echo \"$PHASE_INFO\" | jq -r '.found')",
-    "PHASE_NAME=$(echo \"$PHASE_INFO\" | jq -r '.phase_name')",
-    "PHASE_GOAL=$(echo \"$PHASE_INFO\" | jq -r '.goal')",
-    "PHASE_MODE=$(echo \"$PHASE_INFO\" | jq -r '.mode // \"\"')"
+    "",
+    "PHASE_FOUND=true; specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].id' >/dev/null 2>&1 || PHASE_FOUND=false",
+    "PHASE_NAME=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.name' 2>/dev/null)",
+    "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
+    "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 35003,
+  "bytes": 34695,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:609af4993360cca12b7cd973f8b6345d8c7c1d9b663ea619dac7cb8997681dbe",
+    "digest": "sha256:e0992acf9721ab9fb49cc7afdc5d02aba4bd72a4512edf495141080ce1011b40",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "609af4993360cca12b7cd973f8b6345d8c7c1d9b663ea619dac7cb8997681dbe"
+  "sha256": "e0992acf9721ab9fb49cc7afdc5d02aba4bd72a4512edf495141080ce1011b40"
 }

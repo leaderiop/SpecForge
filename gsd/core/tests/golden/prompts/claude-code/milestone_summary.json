@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 19650,
+  "bytes": 19743,
   "end": [
     "```",
     "</file>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:88e0c9cbe93040fa2ad22aa6e1cee361594ef71c8d77eecc9fd64ab17c5d6062",
+    "digest": "sha256:9abb6ff1f29b98f58f848cc724e53758b62633c12aa2489f922c23e8c5bb8c9a",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "88e0c9cbe93040fa2ad22aa6e1cee361594ef71c8d77eecc9fd64ab17c5d6062"
+  "sha256": "9abb6ff1f29b98f58f848cc724e53758b62633c12aa2489f922c23e8c5bb8c9a"
 }

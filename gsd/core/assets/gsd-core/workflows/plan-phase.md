@@ -226,7 +226,7 @@ If `section_manifest` is `null` or `"reviews-prerequisite"` is in its `included`
 ## 3. Validate Phase
 
 ```bash
-PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_name: .nodes[0].fields.name, goal: .nodes[0].fields.goal, mode: (.nodes[0].fields.mode // ""), success_criteria: .nodes[0].fields.success_criteria}')
+PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0]')   # the phase node, compact: found when the query does not refuse it, phase_number is the last segment of its id, the rest are its fields
 ```
 
 **If `found` is false:** Error with available phases. **If `found` is true:** Extract `phase_number`, `phase_name`, `goal` from JSON.

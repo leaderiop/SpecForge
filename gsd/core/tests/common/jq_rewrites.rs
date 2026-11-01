@@ -136,6 +136,94 @@ pub const LINES: &[(&str, usize)] = &[
     // G4 plan 05 T1: a `*_HOOKS_JSON` holds one capability extension's answer per line, merged by no jq.
     ("gsd-core/references/loop-hook-dispatch.md", 21),
     ("gsd-core/workflows/autonomous.md", 552),
+    // G4 plan 05 T2: an upstream-shaped answer is built by no jq: each field is picked from the graph, a status is
+    // routed by a `case`, a list is a loop over picked ids; a line left empty keeps the line count.
+    ("gsd-core/workflows/complete-milestone.md", 96),
+    ("gsd-core/workflows/complete-milestone.md", 97),
+    ("gsd-core/workflows/complete-milestone.md", 98),
+    ("gsd-core/workflows/complete-milestone.md", 99),
+    ("gsd-core/workflows/execute-phase.md", 373),
+    ("gsd-core/workflows/execute-phase.md", 374),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md",
+        4,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md",
+        5,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md",
+        11,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md",
+        28,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
+        9,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
+        11,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
+        15,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
+        16,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
+        117,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
+        121,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        176,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        177,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        178,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        179,
+    ),
+    ("gsd-core/workflows/execute-plan.md", 581),
+    ("gsd-core/workflows/execute-plan.md", 582),
+    ("gsd-core/workflows/mvp-phase.md", 39),
+    ("gsd-core/workflows/mvp-phase.md", 40),
+    ("gsd-core/workflows/mvp-phase.md", 41),
+    ("gsd-core/workflows/mvp-phase.md", 42),
+    ("gsd-core/workflows/mvp-phase.md", 44),
+    ("gsd-core/workflows/mvp-phase.md", 45),
+    ("gsd-core/workflows/progress.md", 253),
+    ("gsd-core/workflows/progress.md", 254),
+    ("gsd-core/workflows/quick.md", 602),
+    ("gsd-core/workflows/ship.md", 139),
+    ("gsd-core/workflows/verify-work.md", 652),
+    ("gsd-core/workflows/verify-work.md", 653),
+    ("gsd-core/workflows/verify-work.md", 654),
+    ("gsd-core/workflows/verify-work.md", 661),
+    ("gsd-core/workflows/verify-work.md", 662),
+    ("gsd-core/workflows/verify-work.md", 666),
+    ("gsd-core/workflows/verify-work.md", 704),
+    ("gsd-core/workflows/verify-work.md", 705),
+    ("gsd-core/workflows/verify-work.md", 706),
+    ("gsd-core/workflows/verify-work.md", 715),
+    ("gsd-core/workflows/verify-work.md", 716),
+    ("gsd-core/workflows/verify-work.md", 717),
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[

@@ -600,12 +600,12 @@ If no active code-review step hook exists, skip with message "Code review skippe
 # Exit 69 (UNAVAILABLE) is the resolver's "could not look" (`status: unresolvable`); its JSON carries
 # the reason, so the capture must survive it (a bare assignment aborts under `set -e` and drops it).
 QUICK_SCOPE_RC=0
-QUICK_SCOPE_JSON=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --kinds commit --format json | jq -c '{status: "ok", files: ([.nodes[]|select(.kind=="commit")|.fields.files[]?]|unique)}') || QUICK_SCOPE_RC=$?
-if [ "$QUICK_SCOPE_RC" -ne 0 ] && [ "$QUICK_SCOPE_RC" -ne 69 ]; then QUICK_SCOPE_JSON=""; fi
-CHANGED_FILES=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -r '.files | join(" ")' 2>/dev/null)
+QUICK_SCOPE_FILES=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --kinds commit --pick '.nodes[kind=commit].fields.files[]') || QUICK_SCOPE_RC=$?
+if [ "$QUICK_SCOPE_RC" -ne 0 ] && [ "$QUICK_SCOPE_RC" -ne 69 ]; then QUICK_SCOPE_FILES=""; fi
+CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 if [ -z "$CHANGED_FILES" ]; then
   # Say WHY the scope is empty (no commits for this task, only excluded paths, or git could not be read).
-  QUICK_SCOPE_WHY=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -er '.status + (if (.reason // "") != "" then ": " + .reason else "" end)' 2>/dev/null || echo 'unresolvable: no resolver output')
+  QUICK_SCOPE_WHY=$([ "$QUICK_SCOPE_RC" -eq 0 ] && echo ok || echo 'unresolvable: no resolver output')
   echo "Quick-task review scope is empty (${QUICK_SCOPE_WHY})."
 fi
 ```

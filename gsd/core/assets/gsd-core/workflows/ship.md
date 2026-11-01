@@ -137,8 +137,8 @@ Verify the work is ready to ship:
    - **`capId == "broken-windows"`** (issue #1950) — enforce against the ledger's typed status. The ledger is the milestone's (cross-phase: the windows of every phase of the milestone, not this phase's alone):
 
      ```bash
-     WINDOWS_STATUS_JSON=$(specforge query "$MILESTONE" --depth 2 --kinds broken_window --format json | jq -c '{ledger: {open_count: ([.nodes[]|select(.kind=="broken_window")|select(.fields.status == "open")]|length)}}' 2>/dev/null || echo '')
-     WINDOWS_OPEN_COUNT=$(printf '%s' "$WINDOWS_STATUS_JSON" | jq -r '.ledger.open_count // "?"' 2>/dev/null || echo '?')
+     WINDOWS_STATUSES=$(specforge query "$MILESTONE" --depth 2 --kinds broken_window --pick '.nodes[kind=broken_window].fields.status' 2>/dev/null) || WINDOWS_STATUSES='?'
+     WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
      ```
 
      - **`WINDOWS_OPEN_COUNT == "0"`** → `block: false`; the gate passes.

@@ -103,7 +103,7 @@ git log --oneline --since="<started_at_date>" | wc -l
 **Method 3 — Earliest recorded commit** (if no date was recorded):
 Find the earliest `commit` entity of the milestone:
 ```bash
-specforge query "v${VERSION}" --depth 4 --kinds commit --format json | jq -r '.nodes[].fields | "\(.at) \(.hash)"' | sort | head -1
+paste -d' ' <(specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit].fields.at') <(specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit].fields.hash') | sort | head -1
 ```
 Use that commit's date as the start boundary.
 

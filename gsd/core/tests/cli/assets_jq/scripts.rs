@@ -6,15 +6,13 @@ use std::process::{Command, Stdio};
 use super::{Shell, asset, block, both, line, q, upstream};
 
 /// T3, end to end: the commit lines' producer (`specforge query … --kinds commit`) and reader, in a project whose plan
-/// 01-01 has a commit, with `specforge` on a `PATH` that holds no node. It confirms the field paths the readers name.
+/// 01-01 has a commit, with `specforge` on a `PATH` that holds no node and no jq. It confirms the field paths the lines
+/// pick.
 #[test]
 fn the_commit_readers_read_the_commit_entities() {
-    let Some(sh) = Shell::new() else { return };
-    std::os::unix::fs::symlink(
-        std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"),
-        sh.bin.path().join("specforge"),
-    )
-    .expect("a link");
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
     let p = crate::harness::project("execute");
     p.commit();
     let hash = p.git_commit(
@@ -25,8 +23,8 @@ fn the_commit_readers_read_the_commit_entities() {
     let run = |script: &str| sh.run_in(p.root(), script);
 
     let text = asset("gsd-core/workflows/execute-phase.md");
-    let produce = line(&text, "PLAN_COMMITS=$(specforge").replace("{plan_padded}", "01");
-    let read = line(&text, "PLAN_COMMITS=$(printf");
+    let produce = line(&text, "PLAN_HASHES=$(specforge").replace("{plan_padded}", "01");
+    let read = line(&text, "PLAN_COMMITS=$(").replace("{plan_padded}", "01");
     let (out, err, _) = run(&format!(
         "PHASE_NUMBER=01\n{produce}\n{read}\nprintf '%s' \"$PLAN_COMMITS\""
     ));
@@ -45,21 +43,18 @@ fn the_commit_readers_read_the_commit_entities() {
     assert_eq!(out, hash, "{err}");
 }
 
-/// Review of plan 03, item 1: the TDD gate (execute-phase.md, `TDD_MODE`) runs from `RED_COMMIT=$(` through its
+/// Review of plan 03, item 1: the TDD gate (execute-phase.md, `TDD_MODE`) runs from `RED_IDS=$(` through its
 /// `TDD GATE TRIPPED` exit. A test-file commit outside the plan, or a plan commit that touches no test file, is no RED
 /// commit; a commit of the plan that touches a test file is.
 #[test]
 fn the_tdd_gate_finds_the_red_commit_among_the_plans_own_commits() {
-    let Some(sh) = Shell::new() else { return };
-    std::os::unix::fs::symlink(
-        std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"),
-        sh.bin.path().join("specforge"),
-    )
-    .expect("a link");
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
     let text = asset("gsd-core/workflows/execute-phase.md");
     let gate = format!(
         "PLAN_ID=v1.0/01/01-01\nTASK_ID=T1\n{}\n      exit 1\n    fi\nprintf '%s' \"$RED_COMMIT\"",
-        block(&text, "RED_COMMIT=$(", "TDD GATE TRIPPED")
+        block(&text, "RED_IDS=$(", "TDD GATE TRIPPED")
     );
     let p = crate::harness::project("execute");
     p.commit();

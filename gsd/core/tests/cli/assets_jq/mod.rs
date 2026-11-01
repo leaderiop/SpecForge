@@ -7,6 +7,7 @@ use std::process::{Command, Stdio};
 mod pick;
 mod readers;
 mod scripts;
+mod shapes;
 
 /// The tools the lines below call; nothing else is on the `PATH`.
 const TOOLS: &[&str] = &[

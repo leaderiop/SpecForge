@@ -251,9 +251,9 @@ Get plan/summary counts for the current phase from the single owner (#3218 — L
 counts, i.e. `status: superseded` plans excluded, matching "outstanding work"):
 
 ```bash
-PHASE_COUNTS=$(specforge query "${CURRENT_PHASE}" --depth 2 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
-X=$(echo "$PHASE_COUNTS" | jq -r '.plan_count // 0')
-Y=$(echo "$PHASE_COUNTS" | jq -r '.summary_count // 0')
+
+X=$(specforge query "${CURRENT_PHASE}" --depth 2 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -c "^${CURRENT_PHASE}/")   # a dependent phase's plans are reached too: only this phase's ids count
+Y=$(specforge query "${CURRENT_PHASE}" --depth 2 --kinds plan,summary --pick '.nodes[kind=summary].id' | grep -c "^${CURRENT_PHASE}/")
 specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
 ```
 

@@ -13,8 +13,8 @@ type Reader = (
 );
 
 /// T3: the one-line readers of a JSON answer. Each case's field path is the one the producing line above it writes:
-/// `specforge query … --format json | jq -c '{commits: [… {sha: .fields.hash, subject: .fields.subject}]}'`, the batch
-/// manifest's own jq, the stubbed `{"concurrency":1}`, `{status, files}` of quick's scope line.
+/// the batch manifest's own jq and the stubbed
+/// `{"concurrency":1}`.
 const READERS: &[Reader] = &[
     (
         "gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md",
@@ -72,36 +72,6 @@ const READERS: &[Reader] = &[
                 true,
             ),
             ("not json", "0", true),
-        ],
-    ),
-    (
-        "gsd-core/workflows/execute-phase.md",
-        "PLAN_COMMITS=$(printf",
-        "PLAN_COMMITS",
-        "PLAN_COMMITS",
-        &[
-            (
-                r#"{"commits":[{"sha":"0123456789abcdef","subject":"feat(01-01): a"},{"sha":"fedcba9876543210","subject":"b"}]}"#,
-                "0123456789 feat(01-01): a\nfedcba9876 b",
-                true,
-            ),
-            (r#"{"commits":[]}"#, "", true),
-            ("", "", true),
-        ],
-    ),
-    (
-        "gsd-core/workflows/execute-phase/steps/completion-reconciliation.md",
-        "if [ \"$COMMITS_SCOPE_RC\" -eq 0 ]; then COMMITS_FOUND=",
-        "COMMITS_SCOPE",
-        "COMMITS_FOUND",
-        &[
-            (
-                r#"{"commits":[{"sha":"0123456789abcdef"},{"sha":"fe"}]}"#,
-                "0123456789abcdef",
-                true,
-            ),
-            (r#"{"commits":[]}"#, "", true),
-            ("not json", "", true),
         ],
     ),
     (
@@ -164,36 +134,6 @@ const READERS: &[Reader] = &[
         "EXEC_CONCURRENCY",
         &[(r#"{"concurrency":2}"#, "2", true), ("x", "1", true)],
     ),
-    (
-        "gsd-core/workflows/quick.md",
-        "CHANGED_FILES=$(",
-        "QUICK_SCOPE_JSON",
-        "CHANGED_FILES",
-        &[
-            (
-                r#"{"status":"ok","files":["a.rs","b c.md"]}"#,
-                "a.rs b c.md",
-                true,
-            ),
-            (r#"{"status":"ok","files":[]}"#, "", true),
-            ("", "", true),
-        ],
-    ),
-    (
-        "gsd-core/workflows/quick.md",
-        "QUICK_SCOPE_WHY=$(",
-        "QUICK_SCOPE_JSON",
-        "QUICK_SCOPE_WHY",
-        &[
-            (r#"{"status":"ok","files":[]}"#, "ok", true),
-            (
-                r#"{"status":"unresolvable","reason":"git failed"}"#,
-                "unresolvable: git failed",
-                true,
-            ),
-            ("", "unresolvable: no resolver output", true),
-        ],
-    ),
 ];
 
 #[test]
@@ -206,15 +146,14 @@ fn a_field_of_a_json_answer_is_read_with_jq() {
         let theirs = line(&upstream_text, start);
         assert!(theirs.contains("node -e"), "{path}: upstream's {theirs}");
         for (json, want, same) in *cases {
-            let setup = format!("COMMITS_SCOPE_RC=0\n{input}={}", q(json));
+            let setup = format!("{input}={}", q(json));
             let show = format!("printf '%s' \"${output}\"");
             both(&sh, &setup, &ours, same.then_some(theirs), &show, want);
         }
     }
 }
 
-/// T3: the readers whose line is not `VAR=$(…)`: the harness flag (a continuation line), the changed-file list
-/// (printed), the verifier's API spot-check (an exit code) and the multi-line ones (remote slug, review verdict).
+/// T3: the readers whose line is not `VAR=$(…)`: the harness flag (a continuation line), the verifier's API spot-check (an exit code) and the multi-line ones (remote slug, review verdict).
 #[test]
 fn the_other_readers_use_jq() {
     let Some(sh) = Shell::new() else { return };
@@ -249,30 +188,6 @@ fn the_other_readers_use_jq() {
             );
         }
     }
-
-    let path = "gsd-core/workflows/execute-plan.md";
-    let start = "if [ \"$SCOPE_RC\" -ne 0 ]; then";
-    let (ours, up) = (line(&asset(path), start).to_string(), upstream(path));
-    let setup = format!(
-        "SCOPE_RC=0\nSCOPE_JSON={}",
-        q(r#"{"changedFiles":["a.rs","b c.md"]}"#)
-    );
-    both(
-        &sh,
-        &setup,
-        &ours,
-        Some(line(&up, start)),
-        "",
-        "a.rs\nb c.md",
-    );
-    both(
-        &sh,
-        "SCOPE_RC=0\nSCOPE_JSON=x",
-        &ours,
-        Some(line(&up, start)),
-        "",
-        "",
-    );
 
     let path = "agents/gsd-verifier.md";
     let start = "curl -s http://localhost:$PORT/api/$ENDPOINT";
