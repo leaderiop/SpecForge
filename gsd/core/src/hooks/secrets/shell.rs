@@ -191,7 +191,7 @@ fn read_heredoc_tag(s: &[char], mut i: usize, depth: usize) -> (Tag, (usize, usi
             // A substitution inside the word belongs to the tag, taken literally (`E$(x)F` waits for `E$(x)F`).
             let end = match (words, c, s.get(i + 1)) {
                 (true, '$', Some('(')) => Some(paren_close(s, i + 2, depth + 1)),
-                (true, '$', Some('{')) => Some(find(s, '}', i).unwrap_or(s.len() - 1)),
+                (true, '$', Some('{')) => Some(brace_close(s, i + 2, depth + 1, &mut Vec::new())),
                 (true, '`', _) => Some(find(s, '`', i + 1).unwrap_or(s.len() - 1)),
                 _ => None,
             };
@@ -300,6 +300,39 @@ fn paren_close(s: &[char], mut i: usize, depth: usize) -> usize {
             }
             i += 1;
         }
+    }
+    s.len()
+}
+
+/// The index of the `}` that closes a `${` whose body starts at `i`, or the length; `depth` spans enclose it. The
+/// `$( )` and backtick bodies inside go to `nested`: upstream jumped to the next `}` and read none of them, so
+/// `${x:-$(cat .env)}` ran unread (F7 review).
+fn brace_close(s: &[char], mut i: usize, depth: usize, nested: &mut Vec<String>) -> usize {
+    if depth >= MAX_SPAN_DEPTH {
+        stop(Stop::Nested);
+        return s.len();
+    }
+    let mut quoted = false;
+    while i < s.len() {
+        match (s[i], s.get(i + 1)) {
+            ('\\', _) => i += 1,
+            ('\'', _) if !quoted => i = find(s, '\'', i + 1).unwrap_or(s.len()),
+            ('"', _) => quoted = !quoted,
+            ('$', Some('(')) => {
+                let e = paren_close(s, i + 2, depth + 1);
+                nested.push(sub(s, i + 2, e));
+                i = e;
+            }
+            ('$', Some('{')) => i = brace_close(s, i + 2, depth + 1, nested),
+            ('`', _) => {
+                let e = find(s, '`', i + 1).unwrap_or(s.len());
+                nested.push(sub(s, i + 1, e));
+                i = e;
+            }
+            ('}', _) if !quoted => return i,
+            _ => {}
+        }
+        i += 1;
     }
     s.len()
 }
@@ -444,7 +477,7 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
             }
             '$' if at(i + 1) == Some('{') => {
                 lx.has_word = true;
-                let e = find(&s, '}', i).unwrap_or(s.len().saturating_sub(1));
+                let e = brace_close(&s, i + 2, 0, &mut lx.nested);
                 lx.buf += &sub(&s, i, e + 1);
                 i = e + 1;
             }

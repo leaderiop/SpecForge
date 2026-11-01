@@ -13,6 +13,7 @@ use super::*;
 use crate::hooks::{accounting, corpus};
 
 mod depth;
+mod expansion;
 mod v1_19;
 
 const SUITE: &str = include_str!(gsd_kit::snapshot!("tests/gsd-secret-read-guard.test.cjs"));
