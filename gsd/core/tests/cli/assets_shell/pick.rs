@@ -187,13 +187,13 @@ fn a_graph_read_is_picked() {
             "TASK_COUNT",
             "[2]",
         ),
-        // depth 2, as above: phase 02's plan too
+        // the progress report's count of the phase's own plans (plan 05 review R7), where depth 2 reached 02's too
         (
             "next.md",
             "PHASE_NUM=01",
             "PLAN_COUNT=$(",
             "PLAN_COUNT",
-            "[3]",
+            "[2]",
         ),
         (
             "execute-phase/steps/verify-phase-goal.md",

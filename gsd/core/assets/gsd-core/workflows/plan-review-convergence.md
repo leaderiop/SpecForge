@@ -188,7 +188,7 @@ planning write files to disk" — a planner-produced-nothing check, not
 outstanding-work counting — so it takes the PHYSICAL set (`plan_count_all`,
 `status: superseded` INCLUDED, #3218):
 ```bash
-PLAN_COUNT=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
+PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[number=${PHASE_ID##*/}].plans")   # every plan of the phase: a plan has no superseded status
 ```
 
 If PLAN_COUNT == 0: Error — initial planning failed. Exit.

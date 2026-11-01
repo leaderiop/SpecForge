@@ -207,16 +207,16 @@ if [ -z "$ROADMAP" ]; then
   echo "  The incomplete-phase invariant (#160) could not be verified." >&2
   echo "  Review project state carefully before continuing." >&2
 else
-  for PHASE_AT in $(specforge gsd progress-report --pick '.phases[].number' | awk '{print NR - 1}'); do
-    PHASE_NUM=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].number")
+  for PHASE_NUM in $(specforge gsd progress-report --pick '.phases[].number'); do
+
     # #3218: each phase of the progress report carries its counts as
-    # `plans`/`summaries` SCALARS, read here by index — the report has no
+    # `plans`/`summaries` SCALARS, read here by number — the report has no
     # `plan_count`/`summary_count` keys. Reading absent keys (even with a
     # `// 0` fallback) always produced 0, permanently disabling this
     # resume-incomplete-phase check. Read the counts the report actually
     # answers.
-    PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].plans")
-    SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].summaries")
+    PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[number=$PHASE_NUM].plans")
+    SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[number=$PHASE_NUM].summaries")
     if [ "${PLAN_COUNT:-0}" -gt "${SUMMARY_COUNT:-0}" ]; then
       INCOMPLETE_PHASE="$PHASE_NUM"
       break
@@ -252,8 +252,8 @@ counts, i.e. `status: superseded` plans excluded, matching "outstanding work"):
 
 ```bash
 
-X=$(specforge query "${CURRENT_PHASE}" --depth 2 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -c "^${CURRENT_PHASE}/")   # a dependent phase's plans are reached too: only this phase's ids count
-Y=$(specforge query "${CURRENT_PHASE}" --depth 2 --kinds plan,summary --pick '.nodes[kind=summary].id' | grep -c "^${CURRENT_PHASE}/")
+X=$(specforge gsd progress-report --pick ".phases[number=${CURRENT_PHASE##*/}].plans")   # the phase's own plans
+Y=$(specforge gsd progress-report --pick ".phases[number=${CURRENT_PHASE##*/}].summaries")
 specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
 ```
 

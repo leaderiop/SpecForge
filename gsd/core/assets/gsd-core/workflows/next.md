@@ -130,8 +130,8 @@ else
       echo "⚠ WARNING: Could not query phase $PHASE_NUM — skipping in resume scan." >&2
       continue
     fi
-    PLAN_COUNT=$(specforge query "$PHASE_NUM" --depth 2 --kinds plan,summary --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
-    SUMMARY_COUNT=$(specforge query "$PHASE_NUM" --depth 2 --kinds plan,summary --pick '.nodes[kind=summary].id' | wc -l | tr -d ' ')
+    PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[number=$PHASE_NUM].plans")   # the phase's own plans
+    SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[number=$PHASE_NUM].summaries")
     if [ "${PLAN_COUNT:-0}" -gt "${SUMMARY_COUNT:-0}" ]; then
       INCOMPLETE_PHASE="$PHASE_NUM"
       break

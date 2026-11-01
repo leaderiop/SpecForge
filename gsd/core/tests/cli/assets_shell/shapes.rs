@@ -75,6 +75,19 @@ fn a_count_of_plans_and_summaries_is_picked() {
         &["X", "Y"],
     );
     assert_eq!(xy, "[1][0]");
+    // the resume scan reads a phase's counts from the progress report by its number, not by its index
+    let scan = values(
+        &sh,
+        &p,
+        progress,
+        "PHASE_NUM=02",
+        &[
+            "PLAN_COUNT=$(specforge gsd progress-report",
+            "SUMMARY_COUNT=$(specforge gsd progress-report",
+        ],
+        &["PLAN_COUNT", "SUMMARY_COUNT"],
+    );
+    assert_eq!(scan, "[1][0]");
 }
 
 #[test]

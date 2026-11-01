@@ -580,8 +580,8 @@ counts, i.e. `status: superseded` plans excluded, matching this route's
 
 ```bash
 
-PLAN_COUNT=$(specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -c "^${PHASE_ID}/")   # a dependent phase's plans are reached too: only this phase's ids count
-SUMMARY_COUNT=$(specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --pick '.nodes[kind=summary].id' | grep -c "^${PHASE_ID}/")
+PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[number=${PHASE_ID##*/}].plans")   # the phase's own plans
+SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[number=${PHASE_ID##*/}].summaries")
 ```
 
 | Condition | Route | Action |
