@@ -89,6 +89,7 @@ gsd-core/workflows/verify-work.md	NEXT_COMMAND=$(printf '%s' "$VERIFICATION_STAT
 gsd-core/workflows/verify-work.md	PHASE_COMPLETE=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test,verification --format json | jq -c '{passed: (([.nodes[]|select(.kind=="verification")][0].fields.status == "passed") and ([.nodes[]|select(.kind=="uat_test")|select(.fields.result == "pending" or .fields.result == "issue" or .fields.result == "blocked")] | length == 0))}') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?
 gsd-core/workflows/verify-work.md	PHASE_COMPLETE_PASSED=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.passed' 2>/dev/null || echo "false")
 gsd-core/workflows/verify-work.md	PHASE_COMPLETE_BLOCKERS=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.blockers[]?' 2>/dev/null || true)
+gsd-core/workflows/milestone-summary.md	specforge query "v${VERSION}" --depth 4 --kinds commit --format json | jq -r '.nodes[].fields | "\(.at) \(.hash)"' | sort | head -1
 
 # plan 05 T3: the worktree manifest and the batch JSON
 gsd-core/workflows/execute-phase.md	jq -nc --arg root "$ORCH_ROOT" '{orchestrator_root: (if $root == "" then null else $root end), worktrees: []}' > "$WAVE_WORKTREE_MANIFEST"
@@ -147,7 +148,6 @@ gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	| jq -r '.
 gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	EXEC_OK=$(printf '%s' "$EXEC_JSON" | jq -er 'if .isolation == "orchestrator-worktree" and (.exec.command // "") != "" then "true" else "false" end' 2>/dev/null || echo false)
 gsd-core/workflows/execute-plan.md	READY_IDS=$(printf '%s' "$READY" | jq -r '.ready[]' 2>/dev/null | tr '\n' ' ')
 gsd-core/workflows/ingest-docs.md	if echo "$INIT" | jq -e '[.nodes[]|select(.kind=="project")]|length > 0' >/dev/null 2>&1; then PROJECT_EXISTS=1; else PROJECT_EXISTS=0; fi   # 1 when the project already exists
-gsd-core/workflows/milestone-summary.md	specforge query "v${VERSION}" --depth 4 --kinds commit --format json | jq -r '.nodes[].fields | "\(.at) \(.hash)"' | sort | head -1
 gsd-core/workflows/mvp-phase.md	if [ "$(echo "$USER_STORY_RESULT" | jq -r '.valid')" != "true" ]; then
 gsd-core/workflows/mvp-phase.md	echo "$USER_STORY_RESULT" | jq -r '.errors[]' >&2
 gsd-core/workflows/next.md	[ -n "$(specforge export --kinds pause --format brief | jq -r '.nodes[]|.id')" ]   # an unresolved pause (a pause outside a phase is linked to nothing: list by kind)
@@ -155,7 +155,6 @@ gsd-core/workflows/onboard.md	ENTITIES=$(specforge export --kinds project,milest
 gsd-core/workflows/pause-work.md	specforge query "$MILESTONE" --depth 3 --kinds summary --format json | jq -r '.nodes[]|select(.kind=="summary")|select((.fields.one_liner // "")|test("To be filled|placeholder|TBD"))|.id' || true
 gsd-core/workflows/plan-phase.md	echo "$GATE_RESULT" | jq -e '(.passed // .data.passed) == true' >/dev/null || {
 gsd-core/workflows/plan-phase.md	echo "$GATE_RESULT" | jq -r '(.message // .data.message // "Decision coverage gate failed.")'
-gsd-core/workflows/plan-review-convergence.md	REVIEWER_DISPLAY="--codex (jq missing; cannot read review.default_reviewers)"
 gsd-core/workflows/plan-review-convergence.md	DEFAULT_REVIEWERS_COUNT=$(printf '%s' "$DEFAULT_REVIEWERS_JSON" | jq 'if type=="array" then length else 0 end' 2>/dev/null || echo 0)
 gsd-core/workflows/plan-review-convergence.md	REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s' "$DEFAULT_REVIEWERS_JSON" | jq -r 'join(", ")' 2>/dev/null))"
 gsd-core/workflows/pr-branch.md	printf '%s' "$SUB_REPOS_JSON" | jq -r '

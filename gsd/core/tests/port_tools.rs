@@ -324,8 +324,12 @@ fn a_shell_block_reads_specforge_without_jq() {
         ("# jq -r .a", false),
         (r#"echo "jq""#, false),
         ("- [e.g. jq -r '.a' from state]", false),
+        (r#"echo "a | jq""#, false),
+        ("foo # x; jq", false),
+        ("X=$(a | jq .b)", true),
+        (r#"X="v $(a | jq -r .b)""#, true),
     ] {
-        assert_eq!(jq.is_match(line), runs, "{line}");
+        assert_eq!(jq.is_match(&code_of(line)), runs, "{line}");
     }
     let pending = PENDING_JQ
         .lines()
@@ -339,7 +343,7 @@ fn a_shell_block_reads_specforge_without_jq() {
     let mut found = Vec::new();
     for (path, lines) in shell_assets() {
         for (n, code) in fenced_code(&lines) {
-            if !jq.is_match(code) {
+            if !jq.is_match(&code_of(code)) {
                 continue;
             }
             match listed.get_mut(&(path.clone(), code.to_string())) {
@@ -365,6 +369,72 @@ fn a_shell_block_reads_specforge_without_jq() {
         "KEEP_JQ / PENDING_JQ rows that do not match their lines:\n{}",
         stale.join("\n")
     );
+}
+
+/// `line` with what the shell does not run masked: the text of a quoted string (a `$(…)` or backtick inside double
+/// quotes stays, it runs) becomes `_`, and an unquoted `#` that starts a word ends the line.
+fn code_of(line: &str) -> String {
+    // the open contexts, innermost last: `'"'` a double-quoted string, `'('` a `$(…)` or `(`, `'`'` a backtick
+    let mut open: Vec<char> = Vec::new();
+    let mut out = String::with_capacity(line.len());
+    let mut chars = line.chars().peekable();
+    let mut prev = ' ';
+    while let Some(c) = chars.next() {
+        let quoted = open.last() == Some(&'"');
+        match c {
+            '\\' => {
+                out.push(if quoted { '_' } else { c });
+                if let Some(n) = chars.next() {
+                    out.push(if quoted { '_' } else { n });
+                }
+            }
+            '\'' if !quoted => {
+                out.push('_');
+                for n in chars.by_ref() {
+                    out.push('_');
+                    if n == '\'' {
+                        break;
+                    }
+                }
+            }
+            '"' if quoted => {
+                open.pop();
+                out.push('_');
+            }
+            '"' => {
+                open.push('"');
+                out.push('_');
+            }
+            '$' if chars.peek() == Some(&'(') => {
+                chars.next();
+                open.push('(');
+                out.push_str("$(");
+            }
+            '`' if open.last() == Some(&'`') => {
+                open.pop();
+                out.push(c);
+            }
+            '`' => {
+                open.push('`');
+                out.push(c);
+            }
+            _ if quoted => out.push('_'),
+            '(' => {
+                open.push('(');
+                out.push(c);
+            }
+            ')' => {
+                if open.last() == Some(&'(') {
+                    open.pop();
+                }
+                out.push(c);
+            }
+            '#' if prev.is_whitespace() || out.is_empty() => break,
+            _ => out.push(c),
+        }
+        prev = c;
+    }
+    out
 }
 
 /// One declared command as `(name, positionals in order, options and flags with their kind)`.
