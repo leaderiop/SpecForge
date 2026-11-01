@@ -1,6 +1,7 @@
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::terminal::{Terminal, out};
 use serde::Serialize;
+use specforge_ops::analysis::doctor::on_path::{self, OnPath};
 use specforge_ops::analysis::doctor::{
     About, BinaryIssue, DoctorDocument, DoctorReport, Finding, FindingStatus, Part, diagnose,
 };
@@ -20,13 +21,16 @@ pub(crate) struct Args {
 }
 
 /// What `specforge doctor --format json` prints: the project's report and
-/// the user's registry credentials, which only the CLI shows (ADR 0029 D3a).
+/// the user's registry credentials, which only the CLI shows (ADR 0029 D3a),
+/// and what it says of the `specforge` on PATH, when anything (ADR 0326 D4).
 #[derive(Serialize)]
 struct Printed<'a> {
     #[serde(flatten)]
     report: DoctorDocument,
     credentials: &'a [CredentialLine],
     credentials_failures: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    specforge_on_path: Option<&'a Finding>,
 }
 
 impl Args {
@@ -51,6 +55,8 @@ impl Args {
             specforge_ops::host::diagnose::findings(&view, &renderers, caller),
         );
         let credentials = User::current().credential_health();
+        let found = OnPath::find(std::env::var_os("PATH").as_deref());
+        let path_binary = on_path::finding(found.as_ref(), &view);
 
         match self.output.format {
             OutputFormat::Json => {
@@ -58,9 +64,14 @@ impl Args {
                     report: report.document(),
                     credentials: &credentials.lines,
                     credentials_failures: credentials.failures,
+                    specforge_on_path: path_binary.as_ref(),
                 });
             }
-            OutputFormat::Human => out!(terminal, "{}", render_human(&report, &credentials)),
+            OutputFormat::Human => out!(
+                terminal,
+                "{}",
+                render_human(&report, path_binary.as_ref(), &credentials)
+            ),
         }
 
         // Doctor checks the project and the user's credentials: both must
@@ -69,8 +80,13 @@ impl Args {
     }
 }
 
-/// The human report: one section per report part, then credentials.
-fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String {
+/// The human report: one section per report part, the `specforge` on PATH when doctor says anything of it,
+/// then credentials.
+fn render_human(
+    report: &DoctorReport,
+    on_path: Option<&Finding>,
+    credentials: &CredentialHealth,
+) -> String {
     let mut out = String::new();
     macro_rules! line {
         () => { out.push('\n') };
@@ -238,6 +254,12 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
             finding_lines(&mut out, finding);
         }
     }
+    // What the hosts' hooks and MCP server run.
+    if let Some(finding) = on_path {
+        line!();
+        line!("specforge on PATH:");
+        finding_lines(&mut out, finding);
+    }
     let errors = report
         .findings
         .iter()
@@ -330,6 +352,7 @@ mod tests {
 
         let shown = render_human(
             &report,
+            None,
             &CredentialHealth {
                 lines: Vec::new(),
                 failures: 0,
@@ -389,7 +412,7 @@ mod tests {
             failures: 0,
             signing_key_present: false,
         };
-        let human = render_human(&report, &none);
+        let human = render_human(&report, None, &none);
         let section = &human[human.find("Conflicts:").expect("conflicts section")..];
         assert!(
             section.contains("[ERROR] [E026] entity kind 'feature'"),

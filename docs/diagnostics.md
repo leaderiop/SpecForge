@@ -1242,6 +1242,23 @@ Owner: core
 Level: error
 ```
 
+## E088
+
+```
+E088: Extension speaks a newer protocol
+
+An extension's handshake states a protocol version of the host's major but a
+newer minor (`1.15.0` under a `1.14.0` host, ADR 0326): it was built with a
+newer SDK and may declare what this specforge does not know and would drop, so
+it is not loaded; an older minor still loads. `specforge add`, `init` and
+`publish` refuse such a binary too. Update specforge to a release that speaks
+the extension's protocol (`specforge --version` names the one a binary speaks),
+or install a version of the extension built for this one.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```
@@ -3695,6 +3712,23 @@ and `inputs` are required), `values` for a field the rule does not bind or that
 the field's form refuses, or a second verdict of one rule. It counts as no
 verdict, so the rule reports the entity as missing. Record a verdict through
 `set_verdict`, or remove the statement.
+
+Owner: core
+Level: warning
+```
+
+## W169
+
+```
+W169: Older specforge on PATH
+
+`specforge doctor` ran the first `specforge` on PATH with `--version` and it
+speaks an older extension protocol minor than the specforge running doctor, or
+than an extension the project loads, or names no protocol at all (a release from
+before `--version` named it). The hooks and the MCP server that `specforge
+install` writes run `specforge` from PATH, so they run that binary, which
+refuses the project's newer extensions (E088) or would drop what they declare.
+Update the specforge on PATH, or put this one first on PATH (ADR 0326).
 
 Owner: core
 Level: warning

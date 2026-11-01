@@ -84,7 +84,7 @@ Peer dependencies are SemVer ranges read as Cargo reads them; one rule judges th
 
 What an extension contributes is what it declares in the describe categories; nothing on the handshake says it (ADR 0050).
 
-The host checks `protocol_version`: a major version other than its own fails the extension's load (E028), and its handshake's `sandbox_policy` limits every later call into it (see Sandbox).
+The host checks `protocol_version`: a major version other than its own fails the extension's load (E028), and so does a newer minor of its major (E088, see Protocol Versions); its handshake's `sandbox_policy` limits every later call into it (see Sandbox).
 
 ### Describe
 
@@ -950,8 +950,11 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 ### Protocol Versions
 
 The protocol version is semver (`specforge_protocol_types::PROTOCOL_VERSION`). The host loads every
-guest of its major version, whatever minor it was built with, and sends its own version as
-`host_version` in every handshake request. A guest built with the SDK declares the SDK's version in
+guest of its major version built for its own minor or an older one, and sends its own version as
+`host_version` in every handshake request. A guest of a newer minor is refused with E088, naming the
+extension and both versions (ADR 0326): it may declare what this host would drop, so it needs a
+specforge at least as new. `specforge --version` names the protocol a binary speaks
+(`specforge 0.3.0 (9229143f5, protocol 1.14.0)`). A guest built with the SDK declares the SDK's version in
 its handshake and its registry manifest.
 
 The minor moves when a payload changes in a way every older guest survives: a field added, removed or
@@ -976,8 +979,8 @@ or answered.
 | `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and refuses the `surfaces` declaration of a guest that writes a `when` list (a 1.12 `when` is one string, and a list fails the whole category: `DescribeFailed`), so such a guest needs a 1.13.0 host; a `when` of one name is still a string. |
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
 
-A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
-`1.1.0` values can read `host_version` in its handshake request.
+A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
+`1.0.x` refuses a `1.1.0` guest (E088). A newer patch of the host's minor loads.
 
 ### Sandbox
 

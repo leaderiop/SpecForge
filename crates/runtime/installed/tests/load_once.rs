@@ -192,3 +192,38 @@ fn a_file_entrys_load_warnings_name_the_extension_it_declares() {
         warnings[0]
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake whose protocol minor is newer than the host's produces E088"
+)]
+fn an_entry_of_a_newer_protocol_minor_is_refused_with_e088() {
+    let dir = TempDir::new().unwrap();
+    let builtins = Builtins(&[("@acme/new", &b"\0asm new"[..])]);
+    let handshake = json!({
+        "protocol_version": "1.15.0", "name": "@acme/new", "version": "1.0.0",
+        "peer_dependencies": [], "sandbox_policy": null,
+    });
+    let runtime = InProcessRuntime::new()
+        .binary(b"\0asm new", extension("@acme/new"))
+        .answer_raw(
+            "@acme/new",
+            "__handshake",
+            WasmCallResult::Ok(serde_json::to_vec(&handshake).unwrap()),
+        );
+
+    let loaded =
+        Installed::at(dir.path()).load(&entries(&["@acme/new"]), &builtins, &runtime, &PlainDisk);
+
+    let reports = reported(dir.path(), &loaded);
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E088");
+    assert_eq!(
+        reports[0].message,
+        "extension '@acme/new' speaks extension protocol 1.15.0, newer than the 1.14.0 this specforge \
+         speaks, so it is not loaded"
+    );
+    let suggestion = reports[0].suggestion.as_deref().unwrap();
+    assert!(suggestion.starts_with("update specforge"), "{suggestion}");
+    assert!(!runtime.unload("@acme/new"), "nothing is left loaded");
+}

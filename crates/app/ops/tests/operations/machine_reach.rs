@@ -1,5 +1,6 @@
 //! Only the machine's adapters touch the machine (ADR 0079, ADR 0125): no process is spawned and no
-//! environment variable is read in `src/` outside the SMT solver's adapter and the collector machine's.
+//! environment variable is read in `src/` outside the SMT solver's adapter, the collector machine's and
+//! doctor's probe of the specforge on PATH (ADR 0326).
 //! A new `Command::new(` or `env::var(` elsewhere fails here, and so does a listed entry that no longer
 //! matches.
 
@@ -16,6 +17,12 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
         "Command::new(",
         2,
         "the SMT solver's adapter, ADR 0079",
+    ),
+    (
+        "analysis/doctor/on_path.rs",
+        "Command::new(",
+        1,
+        "the probe of the specforge on PATH, ADR 0326 D4",
     ),
     (
         "analysis/collect/process.rs",

@@ -695,7 +695,12 @@ behavior run_doctor_check "Run Doctor Check" {
     analyze --prove asks does not run here, doctor MUST report it as one
     warning finding about the toolchain: the W098 analyze --prove reports,
     its message the check and its suggestion the remediation; the report's
-    z3_available is then false. Run in a
+    z3_available is then false. specforge doctor MUST run the first
+    specforge on PATH (the one the hooks and the MCP server it installs
+    run) with --version and, when it speaks an older protocol minor than
+    the running specforge or an extension the project loads, or names no
+    protocol, report W169 naming its path and both versions; with no
+    specforge on PATH, an info finding says so (ADR 0326). Run in a
     directory without specforge.json, doctor MUST report a warning finding
     config_missing naming the directory; the run stays healthy. A
     specforge.lock that exists but cannot be read (E033) MUST be reported
@@ -718,6 +723,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "an unreadable credential store is a credential failure in doctor"
   verify unit "doctor reports a missing or changed installed binary once, with the remedy its load gives"
   verify unit "doctor reports the peer requirements check reports, with the remedy each suggests"
+  verify unit "doctor warns when the specforge on PATH speaks an older protocol than the project needs"
   verify unit "a peer a builtin satisfies is not reported"
   verify unit "a finding without its own suggestion quotes the catalogued explanation"
   verify unit "doctor lists the extensions the extensions listing lists, each with its version, source and status"

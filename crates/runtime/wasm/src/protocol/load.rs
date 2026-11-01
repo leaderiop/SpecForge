@@ -1,7 +1,7 @@
 //! The one loader of an extension's declaration.
 //!
 //! Everything the host knows about an extension it reads here, once per
-//! environment load: the handshake (its protocol major checked, its
+//! environment load: the handshake (its protocol version checked, its
 //! sandbox applied), then every category of
 //! [`DeclaredCategory::ALL`], the only categories the protocol defines. Nothing
 //! describes a category again outside this load.
@@ -26,12 +26,12 @@ pub struct Loaded {
     /// define), in the order the handshake and the categories were read,
     /// each naming the extension by the name its handshake declares.
     pub warnings: Vec<Diagnostic>,
-    /// The protocol version the guest's handshake states; its major is the host's (checked).
+    /// The protocol version the guest's handshake states; its major is the host's and its minor no newer (checked).
     pub protocol_version: String,
 }
 
 /// Load `extension`'s declaration through `runtime`: the handshake
-/// (protocol major checked, sandbox applied), then every declared
+/// (protocol version checked, sandbox applied), then every declared
 /// describe category, unconditionally, each one call of
 /// [`ExtensionCalls`]. A handshake or category that fails, or does not
 /// parse, fails the load, naming what failed.
@@ -90,7 +90,8 @@ fn reason(error: &CallError) -> String {
     }
 }
 
-/// The extension's protocol must share the host's major version (semver).
+/// The extension's protocol must share the host's major version (semver), and its minor be no newer than the
+/// host's: a newer guest may declare what this host would drop (ADR 0326).
 fn check_protocol_version(response: &HandshakeResponse) -> Result<(), ProtocolError> {
     let incompatible = || ProtocolError::IncompatibleVersion {
         host_version: PROTOCOL_VERSION.to_string(),
@@ -105,6 +106,13 @@ fn check_protocol_version(response: &HandshakeResponse) -> Result<(), ProtocolEr
         semver::Version::parse(&response.protocol_version).map_err(|_| incompatible())?;
     if host.major != extension.major {
         return Err(incompatible());
+    }
+    if extension.minor > host.minor {
+        return Err(ProtocolError::NewerVersion {
+            extension: response.name.clone(),
+            host_version: PROTOCOL_VERSION.to_string(),
+            extension_version: response.protocol_version.clone(),
+        });
     }
     Ok(())
 }
