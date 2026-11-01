@@ -60,14 +60,12 @@ fn owners(input: &PassInput) -> Vec<PassDiagnostic> {
                 "add its `phase`, or its quick plan in `plan` (/gsd-quick --discuss)".to_string(),
             ));
         }
-        if kind == "research" && id == PROJECT_RESEARCH {
-            if let Some(plan) = plan {
-                found.push(e206(
-                    id,
-                    format!("research '{id}' names quick plan '{plan}', but '{PROJECT_RESEARCH}' is the name of the project's research"),
-                    format!("rename it '{plan}-RESEARCH'"),
-                ));
-            }
+        if let Some(plan) = plan.filter(|_| kind == "research" && id == PROJECT_RESEARCH) {
+            found.push(e206(
+                id,
+                format!("research '{id}' names quick plan '{plan}', but '{PROJECT_RESEARCH}' is the name of the project's research"),
+                format!("rename it '{plan}-RESEARCH'"),
+            ));
         }
         if let Some(plan) = plan.filter(|p| has_phase(p)) {
             found.push(e206(
