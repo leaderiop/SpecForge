@@ -204,7 +204,7 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 MVP_FLAG_ARG=""
 if [[ "$GSD_ARGS" =~ (^|[[:space:]])--mvp([[:space:]]|$) ]]; then MVP_FLAG_ARG="--cli-flag"; fi
-MVP_MODE=$([ -n "$MVP_FLAG_ARG" ] && echo true || specforge query "$PHASE_ID" --depth 0 --format json | jq -r '(.nodes[0].fields.mode == "mvp") | tostring')
+MVP_MODE=$([ -n "$MVP_FLAG_ARG" ] && echo true || { [ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false; })
 EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
 TDD_MODE="false"   # the loop capability is not part of @gsd/core: --tdd is read from the arguments
 ```
@@ -368,8 +368,8 @@ are done. Blocked-and-incomplete must never be reported as finished.
 ```bash
 # #5118: the owner's answer — `status` and the bare command it routes to. A non-zero exit
 # (an out-of-set report status) is a hard error: surface it, never read it as "no status".
-VERIFY_STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending"') || { echo "verification status failed — see the error above" >&2; exit 1; }
-VERIFY_ROUTE=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending" | if . == "passed" then "complete" elif . == "gaps_found" then "gap-closure" elif . == "human_needed" then "human" else "verify" end') || { echo "verification status failed — see the error above" >&2; exit 1; }
+VERIFY_STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
+VERIFY_ROUTE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; VERIFY_ROUTE=${VERIFY_ROUTE%%$'\n'*}; case "${VERIFY_ROUTE:-pending}" in passed) VERIFY_ROUTE=complete ;; gaps_found) VERIFY_ROUTE=gap-closure ;; human_needed) VERIFY_ROUTE=human ;; *) VERIFY_ROUTE=verify ;; esac
 # #3684: checkbox = marked-complete; report fields can claim a no-op write (#3685).
 ANALYZE=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '{phases: [.nodes[]|select(.kind=="phase")|{number: .fields.number, phase_number: .fields.number, roadmap_complete: (.fields.status == "complete")}]}')
 if [[ "$ANALYZE" == @file:* ]]; then ANALYZE=$(cat "${ANALYZE#@file:}"); fi

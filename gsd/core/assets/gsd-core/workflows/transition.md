@@ -110,7 +110,7 @@ specforge settings --format json 2>/dev/null || true
 # awk/sed/grep over the report (that bypassed the closed enum, the staleness
 # check and the phase-pinned report resolution, #3492). A non-zero exit is the
 # owner's hard error (a status outside passed | gaps_found | human_needed).
-VERIFY_STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending"') || { echo "verification.status refused this phase's report — see the error above." >&2; exit 1; }
+VERIFY_STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification.status refused this phase's report — see the error above." >&2; exit 1; }; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 ```
 
 **If VERIFY_STATUS is not `passed`:**
@@ -220,7 +220,7 @@ Evolve PROJECT.md to reflect learnings from completed phase.
 **Read phase summaries:**
 
 ```bash
-_SUMMARIES=( $(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief | jq -r '.nodes[]|select(.kind=="summary")|.id') )
+_SUMMARIES=( $(specforge query "$PHASE_ID" --depth 2 --kinds summary --pick '.nodes[kind=summary].id') )
 if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge query "$s" --depth 0 --format context; done; fi
 ```
 

@@ -509,7 +509,7 @@ fn flags(words: &[String]) -> Vec<String> {
 }
 
 /// What every `specforge` command takes besides its own arguments.
-const GLOBAL_FLAGS: [&str; 5] = ["format", "path", "dry-run", "help", "yes"];
+const GLOBAL_FLAGS: [&str; 6] = ["format", "path", "dry-run", "help", "yes", "pick"];
 
 #[test]
 fn every_gsd_invocation_a_body_gives_uses_flags_the_command_declares() {

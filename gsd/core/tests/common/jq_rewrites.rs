@@ -1,5 +1,6 @@
 //! Plan 03 (F9): the body lines (0-based) of the workflow assets that read JSON with jq, or check a path with bash,
-//! where upstream's run node. `port_workflows` reads them as more `REWRITTEN` and `REWRITTEN_SPANS` rows.
+//! where upstream's run node; G4 (plan 04): the lines that read a SpecForge answer with `--pick` where upstream's
+//! read its tools' JSON. `port_workflows` reads them as more `REWRITTEN` and `REWRITTEN_SPANS` rows.
 
 pub const LINES: &[(&str, usize)] = &[
     // Plan 03 (F9) T2: the `_gsd_field` helper reads its field with jq; upstream's runs node.
@@ -15,6 +16,75 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 535),
     ("gsd-core/workflows/new-milestone.md", 624),
     ("gsd-core/workflows/plan-phase.md", 619),
+    // G4 plan 04 T2: a caller of `_gsd_field` reads its field of the same block's answer with --pick; the
+    // helper's line above is a comment where no caller is left.
+    ("gsd-core/workflows/autonomous.md", 739),
+    ("gsd-core/workflows/complete-milestone.md", 342),
+    ("gsd-core/workflows/complete-milestone.md", 364),
+    ("gsd-core/workflows/complete-milestone.md", 407),
+    ("gsd-core/workflows/complete-milestone.md", 408),
+    ("gsd-core/workflows/complete-milestone.md", 409),
+    ("gsd-core/workflows/complete-milestone.md", 410),
+    ("gsd-core/workflows/complete-milestone.md", 411),
+    ("gsd-core/workflows/new-milestone.md", 278),
+    ("gsd-core/workflows/new-milestone.md", 279),
+    ("gsd-core/workflows/new-milestone.md", 294),
+    ("gsd-core/workflows/new-milestone.md", 295),
+    ("gsd-core/workflows/new-milestone.md", 536),
+    ("gsd-core/workflows/new-milestone.md", 625),
+    ("gsd-core/workflows/new-milestone.md", 626),
+    ("gsd-core/workflows/new-milestone.md", 627),
+    // G4 plan 04 T3: a field of a `specforge gsd` answer is read with --pick; progress-report's phases are read
+    // by index, and their counts are `plans` / `summaries`, the fields it has.
+    ("gsd-core/workflows/next.md", 108),
+    ("gsd-core/workflows/next.md", 125),
+    ("gsd-core/workflows/progress.md", 208),
+    ("gsd-core/workflows/progress.md", 209),
+    ("gsd-core/workflows/progress.md", 216),
+    ("gsd-core/workflows/progress.md", 217),
+    // G4 plan 04 T4: a graph read takes its values with --pick; progress's verification status is the entity's
+    // field (upstream's `.status` read a field the graph answer does not have).
+    ("gsd-core/workflows/progress.md", 324),
+    // G4 plan 04 review: a field of a phase's query answer is re-asked with --pick; plan-phase's `_gsd_field` copy is
+    // gone.
+    ("gsd-core/workflows/plan-phase.md", 620),
+    ("gsd-core/workflows/plan-phase.md", 621),
+    ("gsd-core/workflows/plan-phase.md", 622),
+    ("gsd-core/workflows/plan-phase.md", 623),
+    ("gsd-core/workflows/plan-phase.md", 624),
+    ("gsd-core/workflows/plan-phase.md", 625),
+    ("gsd-core/workflows/plan-phase.md", 626),
+    ("gsd-core/workflows/plan-phase.md", 627),
+    ("gsd-core/workflows/plan-phase.md", 628),
+    ("gsd-core/workflows/plan-phase.md", 638),
+    ("gsd-core/workflows/progress.md", 325),
+    ("gsd-core/workflows/progress.md", 326),
+    ("gsd-core/workflows/verify-work.md", 76),
+    ("gsd-core/workflows/verify-work.md", 77),
+    ("gsd-core/workflows/verify-work.md", 648),
+    ("gsd-core/workflows/verify-work.md", 655),
+    ("gsd-core/workflows/verify-work.md", 693),
+    ("gsd-core/workflows/verify-work.md", 695),
+    // G4 plan 04 review: a bundle no line reads any more is gone; its line and its `@file:` line are empty.
+    ("gsd-core/workflows/autonomous.md", 164),
+    ("gsd-core/workflows/autonomous.md", 611),
+    ("gsd-core/workflows/autonomous.md", 737),
+    ("gsd-core/workflows/complete-milestone.md", 340),
+    ("gsd-core/workflows/complete-milestone.md", 362),
+    ("gsd-core/workflows/complete-milestone.md", 405),
+    ("gsd-core/workflows/complete-milestone.md", 431),
+    ("gsd-core/workflows/new-milestone.md", 276),
+    ("gsd-core/workflows/new-milestone.md", 292),
+    ("gsd-core/workflows/new-milestone.md", 534),
+    ("gsd-core/workflows/new-milestone.md", 623),
+    ("gsd-core/workflows/verify-work.md", 691),
+    // G4 plan 04 review: progress's #3218 comment names the fields the report has.
+    ("gsd-core/workflows/progress.md", 210),
+    ("gsd-core/workflows/progress.md", 211),
+    ("gsd-core/workflows/progress.md", 212),
+    ("gsd-core/workflows/progress.md", 213),
+    ("gsd-core/workflows/progress.md", 214),
+    ("gsd-core/workflows/progress.md", 215),
     // Plan 03 (F9) T3: a field of a JSON answer is read with jq; upstream's line runs node.
     ("gsd-core/references/dispatch-isolation-gate.md", 77),
     ("gsd-core/references/specless-probe-fallback.md", 97),

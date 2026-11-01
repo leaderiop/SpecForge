@@ -135,9 +135,9 @@ For each phase's SUMMARY.md, extract `requirements-completed` from YAML frontmat
 # #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
-for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --format json | jq -r '.nodes[].id'); do
+for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id'); do
   [ -e "$summary" ] || continue
-  specforge query "$summary" --depth 0 --format json | jq -r '.nodes[0].fields.requirements_completed'
+  specforge query "$summary" --depth 0 --pick '.nodes[0].fields.requirements_completed'
 done
 ```
 

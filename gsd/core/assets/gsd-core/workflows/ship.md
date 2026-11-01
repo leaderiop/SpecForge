@@ -63,7 +63,7 @@ Verify the work is ready to ship:
    # human-facing fields are read only on the blocking path below — never on the
    # passing path — rather than issuing three queries up front (#2589).
    # #5118: stderr is kept; a failed read stops shipping — it is never "no status".
-   STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending"') || { echo "verification.status refused this phase's report — see the error above. Fix it before shipping." >&2; exit 1; }
+   STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification.status refused this phase's report — see the error above. Fix it before shipping." >&2; exit 1; }; STATUS=${STATUS%%$'\n'*}; STATUS=${STATUS:-pending}
    ```
    Only `passed` may ship. If `$STATUS` is `passed`, verification is complete — continue to the next preflight check; do not read any further verification field. A non-zero exit above is a hard error (a report `status` outside `passed | gaps_found | human_needed`): present the error and stop.
 

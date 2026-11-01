@@ -4,12 +4,18 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+mod pick;
 mod readers;
 mod scripts;
 
 /// The tools the lines below call; nothing else is on the `PATH`.
 const TOOLS: &[&str] = &[
     "jq", "git", "cat", "mv", "rm", "mktemp", "grep", "head", "sed", "awk", "cut", "tr", "env",
+];
+
+/// The tools the `--pick` lines call besides `specforge`: no jq.
+const PICK_TOOLS: &[&str] = &[
+    "git", "cat", "grep", "head", "tail", "sed", "awk", "cut", "tr", "wc", "sort", "paste", "env",
 ];
 
 /// `bash` with a `PATH` of [`TOOLS`] alone, or `None` (and a skip note) when bash or jq is absent.
@@ -40,6 +46,24 @@ impl Shell {
                 std::os::unix::fs::symlink(path, bin.path().join(tool)).expect("a link");
             }
         }
+        Some(Shell { bash, bin })
+    }
+
+    /// G4 (plan 04): `bash` with a `PATH` of [`PICK_TOOLS`] and `specforge` (`SPECFORGE_BIN`), and no jq: a line that
+    /// still ran jq would print nothing. `None` (and a skip note) when bash is absent.
+    fn without_jq() -> Option<Shell> {
+        let Some(bash) = which("bash") else {
+            eprintln!("skipped: bash is absent");
+            return None;
+        };
+        let bin = tempfile::tempdir().expect("a bin dir");
+        for tool in PICK_TOOLS {
+            if let Some(path) = which(tool) {
+                std::os::unix::fs::symlink(path, bin.path().join(tool)).expect("a link");
+            }
+        }
+        let specforge = std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN (see harness.rs)");
+        std::os::unix::fs::symlink(specforge, bin.path().join("specforge")).expect("a link");
         Some(Shell { bash, bin })
     }
 
@@ -98,65 +122,6 @@ fn run_with_node(script: &str) -> String {
         .output()
         .expect("bash runs");
     String::from_utf8_lossy(&out.stdout).into_owned()
-}
-
-/// T2: `_gsd_field` prints a field as text, and nothing for null or a missing key; every copy is the same line.
-#[test]
-fn the_field_helper_reads_a_field_with_jq() {
-    let Some(sh) = Shell::new() else { return };
-    let copies: Vec<String> = [
-        "gsd-core/workflows/autonomous.md",
-        "gsd-core/workflows/complete-milestone.md",
-        "gsd-core/workflows/new-milestone.md",
-        "gsd-core/workflows/plan-phase.md",
-    ]
-    .iter()
-    .flat_map(|p| {
-        asset(p)
-            .lines()
-            .filter(|l| l.starts_with("_gsd_field() {"))
-            .map(String::from)
-            .collect::<Vec<_>>()
-    })
-    .collect();
-    assert_eq!(copies.len(), 12);
-    assert!(copies.iter().all(|c| *c == copies[0]), "{copies:?}");
-    let ours = &copies[0];
-    let theirs = line(
-        &upstream("gsd-core/workflows/plan-phase.md"),
-        "_gsd_field() {",
-    )
-    .to_string();
-    let json = r#"{"s":"a b","n":0,"f":false,"t":true,"z":null,"o":{"a":1}}"#;
-    let call = |helper: &str, key: &str| {
-        format!("{helper}\nprintf '[%s]' \"$(_gsd_field '{json}' {key})\"")
-    };
-    for (key, want) in [
-        ("s", "[a b]"),
-        ("n", "[0]"),
-        ("f", "[false]"),
-        ("t", "[true]"),
-        ("z", "[]"),
-        ("missing", "[]"),
-        ("o", r#"[{"a":1}]"#),
-    ] {
-        assert_eq!(sh.run(&call(ours, key)), want, "{key}");
-        // node prints an object as `[object Object]`; jq prints its JSON, the only change
-        if has_node() && key != "o" {
-            assert_eq!(
-                run_with_node(&call(&theirs, key)),
-                want,
-                "upstream's, {key}"
-            );
-        }
-    }
-    // not JSON: nothing, as node's uncaught parse error printed nothing
-    assert_eq!(
-        sh.run(&format!(
-            "{ours}\nprintf '[%s]' \"$(_gsd_field 'nope' s 2>/dev/null)\""
-        )),
-        "[]"
-    );
 }
 
 /// Single-quotes `s` for bash.

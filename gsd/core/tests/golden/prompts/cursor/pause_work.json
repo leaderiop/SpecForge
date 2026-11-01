@@ -38,7 +38,7 @@
     "",
     "```bash",
     "# Check for active phase",
-    "phase=$(specforge gsd progress-report --format json | jq -r '[.phases[]|select(.status == \"In Progress\")][0].number // empty')",
+    "phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick \".phases[$((phase - 1))].number\")}",
     "phase=${phase:+$(basename \"$(dirname \"$phase\")\")}",
     "",
     "# Check for active spike",
@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 19774,
+  "bytes": 19851,
   "end": [
     "To resume: /gsd-resume-work",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a6353af21f37fc3f6b429ca95093bc8e55c204ed19e1c1dd39a66dc2d7d9050d",
+    "digest": "sha256:936af6bc867795a730993f0cbe25e0f901f054acc4477cd111327517100c7377",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "a6353af21f37fc3f6b429ca95093bc8e55c204ed19e1c1dd39a66dc2d7d9050d"
+  "sha256": "936af6bc867795a730993f0cbe25e0f901f054acc4477cd111327517100c7377"
 }

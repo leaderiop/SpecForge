@@ -63,7 +63,7 @@ Parse JSON for: `planner_model`, `checker_model`, `commit_docs`, `phase_found`, 
 # MVP mode detection via the centralized phase.mvp-mode resolver.
 # verify-work has no --mvp CLI flag (mode is inherited from the planned phase),
 # so we omit --cli-flag — the verb falls through roadmap → config → false.
-MVP_MODE=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '(.nodes[0].fields.mode == "mvp") | tostring')
+MVP_MODE=$([ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false)
 ```
 </step>
 
@@ -75,8 +75,8 @@ registry, not hardcoded here.
 
 ```bash
 VERIFY_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
-PHASE_DIR=$(printf '%s' "$INIT" | jq -r '.phase_dir // empty')
-PHASE_NUMBER=$(printf '%s' "$INIT" | jq -r '.phase_number // empty')
+PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
+PHASE_NUMBER=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_number)
 ```
 
 Read the `activeHooks` array from `VERIFY_PRE_HOOKS_JSON` in-context (do NOT pipe through a shell parser).
@@ -647,14 +647,14 @@ If the secure-phase step hook is not enabled (absent from both `activeHooks` and
 If execution verification is waiting only on human UAT and this session recorded zero issues, canonicalize the report before the shared completion predicate. (#4663) Zero issues is NOT pass evidence on its own — blocked rows are not issues by this workflow's own rule, so a session that observed nothing (0 passed / 0 issues / N blocked) must NOT flip the report. The flip runs the SAME UAT-row predicate the phase-close uses, in its `--uat-only` form: it skips the verification-status blockers (the report still reads `human_needed` at this point — the full predicate could never pass here), and `passed` means at least one UAT check passed with no row pending/blocked/failed or skipped without a reason. The flagged transition-gate call below stays the final say on canonical verification:
 
 ```bash
-PHASE_DIR=$(printf '%s' "$INIT" | jq -r '.phase_dir // empty')
-VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].id // empty' 2>/dev/null)
+PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
+VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
 # #5118: stderr kept; an out-of-set report status is a hard error, never "no result".
 VERIFICATION_STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }
 VERIFICATION_STATUS_VALUE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.status')
 VERIFICATION_ROUTE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.route')
 NEXT_COMMAND=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.next_command')
-IMPLEMENTATION_COMPLETE=$(printf '%s' "$INIT" | jq -r '.phase_completion.implementation_complete // false')
+IMPLEMENTATION_COMPLETE=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_completion.implementation_complete); IMPLEMENTATION_COMPLETE=${IMPLEMENTATION_COMPLETE:-false}
 PHASE_VERIFICATION_STATUS="$VERIFICATION_STATUS_VALUE"
 if [ "$VERIFICATION_STATUS_VALUE" = "human_needed" ]; then
   # #5170: exit 0 and exit 1 are VERDICTS (1 = the predicate says not passed) — the JSON on stdout is
@@ -689,12 +689,12 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-EXECUTE_INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$EXECUTE_INIT" == @file:* ]]; then EXECUTE_INIT=$(cat "${EXECUTE_INIT#@file:}"); fi
+
+
 for _k in phase_dir phase_number verifier_model phase_req_ids requirements_path section_manifest response_language; do
-  printf '%s=%s\n' "$_k" "$(printf '%s' "$EXECUTE_INIT" | jq -c ".${_k}")"
+  printf '%s=%s\n' "$_k" "$(specforge query "$PHASE_ID" --depth 1 --pick ".${_k}")"
 done
-PHASE_NUMBER=$(printf '%s' "$EXECUTE_INIT" | jq -r '.phase_number')
+PHASE_NUMBER=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_number)
 ```
 
 Read and execute `gsd-core/workflows/execute-phase/steps/verify-phase-goal.md`. If it stopped,

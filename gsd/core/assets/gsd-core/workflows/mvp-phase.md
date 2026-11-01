@@ -191,8 +191,8 @@ On Apply, write the updated `ROADMAP.md` atomically (read-edit-write).
 ## 6. Verify the write
 
 ```bash
-NEW_MODE=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '.nodes[0].fields.mode // ""')
-NEW_GOAL=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '.nodes[0].fields.goal // ""')
+NEW_MODE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')
+NEW_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')
 ```
 
 Assert:

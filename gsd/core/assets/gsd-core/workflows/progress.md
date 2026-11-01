@@ -104,7 +104,7 @@ Use this instead of manually reading/parsing ROADMAP.md.
 - Find the 2-3 most recent SUMMARY.md files
 - Use `summary-extract` for efficient parsing:
   ```bash
-  specforge query "$summary" --depth 0 --format json | jq -r '.nodes[0].fields.one_liner'
+  specforge query "$summary" --depth 0 --pick '.nodes[0].fields.one_liner'
   ```
 - This shows "what we've been working on"
   </step>
@@ -128,7 +128,7 @@ Use this instead of manually reading/parsing ROADMAP.md.
 
 ```bash
 # Get formatted progress bar
-PROGRESS_BAR=$(specforge gsd progress-report --format json | jq -r '"[\(.percent)%]"')
+PROGRESS_BAR="[$(specforge gsd progress-report --pick .percent)%]"
 ```
 
 Present:
@@ -207,16 +207,16 @@ if [ -z "$ROADMAP" ]; then
   echo "  The incomplete-phase invariant (#160) could not be verified." >&2
   echo "  Review project state carefully before continuing." >&2
 else
-  for PHASE_NUM in $(echo "$ROADMAP" | jq -r '.phases[] | (.number // .phase_number)'); do
-    PHASE_DATA=$(echo "$ROADMAP" | jq --arg n "$PHASE_NUM" '.phases[] | select((.number // .phase_number) == ($n | tonumber))')
-    # #3218: $PHASE_DATA is a `.phases[]` entry from `roadmap.analyze`, which
-    # emits `plan_count`/`summary_count` SCALARS (src/roadmap.cts) — it has
-    # never emitted `.plans`/`.summaries` ARRAYS. Reading those absent keys
-    # (even with a `// []` fallback) always produced 0, permanently disabling
-    # this resume-incomplete-phase check. Read the scalars the producer
-    # actually emits.
-    PLAN_COUNT=$(echo "$PHASE_DATA" | jq '.plan_count // 0')
-    SUMMARY_COUNT=$(echo "$PHASE_DATA" | jq '.summary_count // 0')
+  for PHASE_AT in $(specforge gsd progress-report --pick '.phases[].number' | awk '{print NR - 1}'); do
+    PHASE_NUM=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].number")
+    # #3218: each phase of the progress report carries its counts as
+    # `plans`/`summaries` SCALARS, read here by index — the report has no
+    # `plan_count`/`summary_count` keys. Reading absent keys (even with a
+    # `// 0` fallback) always produced 0, permanently disabling this
+    # resume-incomplete-phase check. Read the counts the report actually
+    # answers.
+    PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].plans")
+    SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].summaries")
     if [ "${PLAN_COUNT:-0}" -gt "${SUMMARY_COUNT:-0}" ]; then
       INCOMPLETE_PHASE="$PHASE_NUM"
       break
@@ -254,7 +254,7 @@ counts, i.e. `status: superseded` plans excluded, matching "outstanding work"):
 PHASE_COUNTS=$(specforge query "${CURRENT_PHASE}" --depth 2 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
 X=$(echo "$PHASE_COUNTS" | jq -r '.plan_count // 0')
 Y=$(echo "$PHASE_COUNTS" | jq -r '.summary_count // 0')
-specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --format json | jq -r '.nodes[]|select(.kind=="uat_test")|.id' | wc -l
+specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
 ```
 
 State: "This phase has {X} plans, {Y} summaries."
@@ -323,9 +323,9 @@ A phase whose verification is anything but `passed` is NOT complete, even when e
 ```bash
 PHASE_DIR="${CURRENT_PHASE}"   # a phase is addressed by its id, not a directory
 VERIFICATION=$(specforge query "${PHASE_DIR}" --kinds verification --format json) || { echo "the verification of phase ${CURRENT_PHASE} was refused — see the error above." >&2; exit 1; }
-VERIFICATION_STATUS=$(printf '%s' "$VERIFICATION" | jq -r '.status')
-VERIFICATION_NEXT_ACTION=$(printf '%s' "$VERIFICATION" | jq -r '.next_action')
-VERIFICATION_NEXT_COMMAND=$(printf '%s' "$VERIFICATION" | jq -r '.next_command')
+VERIFICATION_STATUS=$(specforge query "${PHASE_DIR}" --kinds verification --pick '.nodes[kind=verification].fields.status'); VERIFICATION_STATUS=${VERIFICATION_STATUS%%$'\n'*}
+VERIFICATION_NEXT_ACTION=$(specforge query "${PHASE_DIR}" --kinds verification --pick .next_action)
+VERIFICATION_NEXT_COMMAND=$(specforge query "${PHASE_DIR}" --kinds verification --pick .next_command)
 ```
 
 Track: `verification_status` — the `.status` field of the closed set (#5118); the query projects stale verification (`stale`, covered source changed after the verifier ran) and a missing report (`missing`) itself. A non-zero exit is a hard error (a report `status` outside `passed | gaps_found | human_needed`): surface it, never read it as "no status". Only `passed` routes as phase complete (Step 3); every other status routes back to close verification debt (Step 2) with the owner's `next_action` / `next_command`.

@@ -61,7 +61,7 @@
     "PHASE_GOAL=$(echo \"$PHASE_INFO\" | jq -r '.goal')",
     "PHASE_MODE=$(echo \"$PHASE_INFO\" | jq -r '.mode // \"\"')"
   ],
-  "bytes": 27377,
+  "bytes": 27335,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:454ec7757ab84dd45f2aa01c308606608343c545f517c2f3111511fd3500f693",
+    "digest": "sha256:96c6daa0611d06798e6a467a997602dacef9af945a3bfad0b624790900a74970",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "454ec7757ab84dd45f2aa01c308606608343c545f517c2f3111511fd3500f693"
+  "sha256": "96c6daa0611d06798e6a467a997602dacef9af945a3bfad0b624790900a74970"
 }
