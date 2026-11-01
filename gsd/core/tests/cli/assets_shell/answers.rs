@@ -753,3 +753,40 @@ fn a_failed_plan_coverage_check_is_loud() {
     assert!(report["error"].is_string(), "{report}");
     assert!(err.contains("plan-coverage failed for x"), "{err}");
 }
+
+/// Re-review of plan 05, item 7: progress's debt step describes `verification-debt`'s own answer, `{milestone,
+/// current, archived, archived_total, blockers}`, not upstream's audit payload, and a debt that could not be read
+/// says so instead of counting as none.
+#[test]
+fn the_debt_step_reads_the_verification_debt_answer() {
+    let path = "gsd-core/workflows/progress.md";
+    let text = asset(path);
+    let step = block(&text, "**Step 1.6:", "**Step 1.7:");
+    for upstream in [
+        "parse_gap_files",
+        "summary.total_items",
+        "archived_milestone",
+        "getMilestonePhaseFilter",
+        "@file:",
+        "io.cjs",
+        "parse_gap: true",
+    ] {
+        assert!(!step.contains(upstream), "{path} still names {upstream}");
+    }
+    assert!(
+        step.contains("`{milestone, current, archived, archived_total, blockers}`"),
+        "{path}"
+    );
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    let (out, err) = run(
+        &sh,
+        &p,
+        path,
+        "MILESTONE=v9.9",
+        &["DEBT=$(", "[ -n \"$DEBT\" ]"],
+        "printf '[%s]' \"$DEBT\"",
+    );
+    assert_eq!(out, "[]", "{err}");
+    assert!(err.contains("could not be read"), "{err}");
+}

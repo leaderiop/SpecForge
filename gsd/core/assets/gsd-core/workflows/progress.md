@@ -274,15 +274,15 @@ Track:
 
 **Step 1.6: Cross-phase health check**
 
-Scan ALL phases for outstanding verification debt using the CLI. Milestone scoping note (#3782): the audit milestone-filters the ACTIVE phase tree (`getMilestonePhaseFilter`), and deliberately adds ARCHIVED milestone trees unfiltered — each archived result carries an `archived_milestone` stamp. `summary.total_items` spans BOTH populations, so never read it as current-milestone debt.
+Scan ALL phases for outstanding verification debt using the CLI. Milestone scoping note (#3782): `specforge gsd verification-debt --milestone` answers `{milestone, current, archived, archived_total, blockers}`: `current` counts the open UAT tests of the milestone, `archived` names each shipped milestone that still has open tests (`{milestone, open}`), `archived_total` sums those, and `blockers` lists the open tests' ids. `current` and `archived_total` are separate populations, so never add them into current-milestone debt.
 
 ```bash
 DEBT=$(specforge gsd verification-debt --milestone "$MILESTONE" --format json 2>/dev/null)
-# A cross-population audit is exactly the payload that can exceed the CLI's
-# ~50KB stdout budget (io.cjs swaps in an `@file:<tmp>` pointer) — unwrap it
-# before reading it, the same pattern Step 1's INIT fetch uses, or every counter
-# below silently reads 0.
-if [[ "$DEBT" == @file:* ]]; then DEBT=$(cat "${DEBT#@file:}"); fi
+# The answer is one compact JSON object on stdout, whatever its size. A failed
+# command (an unknown milestone, a graph without its computed values) leaves
+# DEBT empty, its error discarded here: say the debt could not be read,
+# never count it as none.
+[ -n "$DEBT" ] || echo "⚠ verification-debt failed: the debt could not be read (run it without 2>/dev/null for the cause)" >&2
 ```
 
 Segment the debt by population before counting (#3782):
@@ -292,13 +292,13 @@ CURRENT_DEBT=$(specforge gsd verification-debt --milestone "$MILESTONE" --pick .
 ARCHIVED_DEBT=$(specforge gsd verification-debt --milestone "$MILESTONE" --pick .archived_total)   # the open UAT tests of the shipped milestones (`.archived` names each)
 ```
 
-Track: `outstanding_debt` — `CURRENT_DEBT`, the non-archived (current-milestone) count. Track `archived_debt` — `ARCHIVED_DEBT`, the still-open items in already-archived milestones. Track `parse_gap_files` — `summary.parse_gap_files` from the audit.
+Track: `outstanding_debt` — `CURRENT_DEBT`, the non-archived (current-milestone) count. Track `archived_debt` — `ARCHIVED_DEBT`, the still-open items in already-archived milestones. Track `parse_gaps` — the UAT diagnostics of `specforge check` (a test block that does not parse is a check diagnostic, not part of the debt answer).
 
 Archived debt stays VISIBLE — an item archived still-open is still open (the archived set can include an unrun security-boundary test). Render it as its own labeled line; never fold it into the current-milestone total and never filter it away.
 
-`summary.parse_gap_files` counts EVERY file with `parse_gap: true`, archived or not — deliberately cross-population, unlike `outstanding_debt` (which #3782 scopes to non-archived results). An outstanding item does not stop mattering because its phase belongs to an already-archived milestone: a deferred human-UAT scenario or a `skipped` live-stack test is exactly what gets archived still-open, so an archived parse gap is exactly as much unread outstanding work as an archived `result: pending` row — it surfaces through `parse_gap_files` and the unparsed row below, keeping the whole cross-population picture visible.
+`specforge check` reads every spec file, archived milestone or not, so its parse gaps are cross-population, unlike `outstanding_debt`. An outstanding item does not stop mattering because its phase belongs to an already-archived milestone: a deferred human-UAT scenario or a `skipped` live-stack test is exactly what gets archived still-open, so an archived parse gap is exactly as much unread outstanding work as an archived `result: pending` row — it surfaces through `parse_gaps` and the unparsed row below, keeping the whole cross-population picture visible.
 
-**If outstanding_debt > 0 OR archived_debt > 0 OR parse_gap_files > 0:** Add a warning section to the progress report output (in the `report` step), placed between "## What's Next" and the route suggestion:
+**If outstanding_debt > 0 OR archived_debt > 0 OR parse_gaps > 0:** Add a warning section to the progress report output (in the `report` step), placed between "## What's Next" and the route suggestion:
 
 ```markdown
 ## Verification Debt ({N} items across current-milestone phases; {M} items still open in archived milestones)
@@ -314,7 +314,7 @@ Review: `/gsd:audit-uat ${GSD_WS}` — full cross-phase audit
 Resume testing: `/gsd:verify-work {phase} ${GSD_WS}` — retest specific phase
 ```
 
-The unparsed row comes from `results` entries with `parse_gap: true` (`summary.parse_gap_files` counts exactly those, archived or not). This is a WARNING, not a blocker — routing proceeds normally. The debt is visible so the user can make an informed choice.
+The unparsed row comes from the UAT diagnostics of `specforge check` (`parse_gaps`, archived or not). This is a WARNING, not a blocker — routing proceeds normally. The debt is visible so the user can make an informed choice.
 
 **Step 1.7: Check verification status for the current phase**
 
