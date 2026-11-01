@@ -277,7 +277,7 @@ JSON
 # Guard — never invoke on an empty/invalid array, OR one still holding the heredoc
 # `<replace: …>` placeholder (a forgotten substitution would otherwise yield a
 # meaningful-looking but bogus coverage report). Fail loud, not silent no-op.
-if grep -q '<replace:' "$REQS_JSON" || ! grep -q '"text"' "$REQS_JSON"; then
+if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
   rm -f "$REQS_JSON"
   echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from the SPEC Requirements before Step 5.5 runs." >&2
   exit 1

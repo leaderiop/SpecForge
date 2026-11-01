@@ -15,7 +15,7 @@ use super::support::{answer, run};
 const FORMAT: &str = "\"As a [role], I want to [capability], so that [outcome].\"";
 
 /// JavaScript's `\s`, which `trim()` also strips: Rust's whitespace holds U+0085 and lacks U+FEFF.
-fn js_space(c: char) -> bool {
+pub(crate) fn js_space(c: char) -> bool {
     matches!(
         c,
         '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'

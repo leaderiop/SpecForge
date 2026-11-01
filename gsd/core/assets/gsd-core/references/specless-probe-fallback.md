@@ -96,7 +96,7 @@ cat > "$REQS_JSON" <<'JSON'
 JSON
 # Guard — fail loud on empty/invalid array OR a still-present `<replace:>` placeholder (forgotten
 # substitution would yield a bogus report). Never a silent no-op.
-if grep -q '<replace:' "$REQS_JSON" || ! grep -q '"text"' "$REQS_JSON"; then
+if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
   echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from {phase_req_ids} before running." >&2
   exit 1
 fi
