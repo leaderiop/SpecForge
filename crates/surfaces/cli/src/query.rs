@@ -1,7 +1,8 @@
 use crate::notes::Notes;
 use crate::options;
 use crate::outcome::{Exit, Refusal};
-use crate::terminal::{Terminal, outln};
+use crate::pick::Pick;
+use crate::terminal::{Terminal, err, errln, out, outln};
 use specforge_ops::read::export::Format;
 use specforge_ops::read::judged::{InputsRequest, judged_inputs};
 use specforge_ops::read::query::{QueryRequest, query};
@@ -54,6 +55,9 @@ pub(crate) struct Args {
     /// With --inputs: a test the verdict will cite, by name
     #[arg(long, requires = "inputs", value_name = "TEST")]
     cite_test: Vec<String>,
+
+    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = crate::pick::HELP)]
+    pick: Option<Pick>,
 }
 
 impl Args {
@@ -73,6 +77,17 @@ impl Args {
     /// stderr; a refusal as `error[CODE]` with the closest entity as its
     /// hint (exit 1).
     pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+        // checked here, not by clap's `conflicts_with`: `--format` has a default, and `--format graph` is taken
+        if self.pick.is_some()
+            && (self.format != Format::Graph || self.inputs.is_some() || self.include_coverage)
+        {
+            errln!(
+                terminal,
+                "error: --pick reads the graph format's JSON: it takes no --format context or brief, \
+                 --inputs or --include-coverage"
+            );
+            return Exit::Unjudged;
+        }
         let project = match self.project.compile() {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
@@ -88,7 +103,16 @@ impl Args {
         match query(view, &self.request()) {
             Ok(document) => {
                 let document = Notes::fixed(terminal).noticed(document);
-                outln!(terminal, "{}", document);
+                match &self.pick {
+                    Some(pick) => match pick.printed(&document.to_string()) {
+                        Ok(lines) => out!(terminal, "{lines}"),
+                        Err(refused) => {
+                            err!(terminal, "{refused}");
+                            return Exit::Failed;
+                        }
+                    },
+                    None => outln!(terminal, "{}", document),
+                }
                 Exit::Passed
             }
             Err(error) => Refusal::fixed().report(terminal, &error),

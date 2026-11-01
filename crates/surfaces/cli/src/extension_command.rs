@@ -19,6 +19,7 @@
 //! it answers is applied by the host (`plan.rs`, ADR 0289).
 
 use crate::outcome::Exit;
+use crate::pick::Pick;
 use crate::project::ProjectArg;
 use crate::terminal::{Stream, Terminal, err, errln, out};
 use clap::builder::PossibleValuesParser;
@@ -44,6 +45,10 @@ const HOST: &str = "host";
 
 /// The host's option on a writing command: show its plan, write nothing.
 const DRY_RUN: &str = "dry-run";
+
+/// The host's option on every extension command that declares no arg of the name: print only the values at a path
+/// of the JSON answer (ADR 0325). It asks for `json`.
+const PICK: &str = "pick";
 
 /// Run the extension command `argv` names (`argv[0]` is the extension).
 /// `builtins` are the CLI's own commands, suggested for a name no extension
@@ -202,7 +207,12 @@ pub(crate) fn run_in(
         return INVALID_INPUT_EXIT;
     };
 
-    let format = format_value(matches);
+    let pick = matches.try_get_one::<Pick>(PICK).ok().flatten();
+    let format = if pick.is_some() {
+        CommandFormat::Json
+    } else {
+        format_value(matches)
+    };
     // What the command line set, as clap typed it; the operation normalizes
     // it by the rule MCP's arguments go through.
     let given = arg_values(command, matches);
@@ -234,7 +244,7 @@ pub(crate) fn run_in(
         },
     );
     match outcome {
-        Ok(run) => plan::ended(run, format, root.dir(), terminal),
+        Ok(run) => plan::ended(run, format, pick, root.dir(), terminal),
         Err(error) => ended(Err(error), format, terminal),
     }
 }
@@ -368,12 +378,16 @@ pub(crate) fn with_commands_of(mut cli: Command, env: &Environment) -> Command {
 const INVALID_INPUT_EXIT: i32 = crate::outcome::Exit::Unjudged.code();
 
 /// Whether `args` ask for `--format json` (`--format json` or
-/// `--format=json`), read before the command line is parsed.
+/// `--format=json`) or name `--pick`, read before the command line is parsed.
 fn asks_for_json(args: &[String]) -> bool {
     let flag = format!("--{FORMAT}");
+    let pick = format!("--{PICK}");
     let json = CommandFormat::Json.as_str();
     let mut args = args.iter().take_while(|a| *a != "--");
     while let Some(arg) = args.next() {
+        if *arg == pick || arg.starts_with(&format!("{pick}=")) {
+            return true;
+        }
         if *arg == flag {
             if args.next().is_some_and(|v| v == json) {
                 return true;
@@ -534,6 +548,15 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .value_name("HOST")
                     .value_parser(PossibleValuesParser::new(Host::ALL.map(Host::as_str)))
                     .help("The host calling the command: claude-code, codex or cursor"),
+            );
+        }
+        if !command.args().iter().any(|a| a.name == PICK) {
+            sub = sub.arg(
+                Arg::new(PICK)
+                    .long(PICK)
+                    .value_name("PATH")
+                    .value_parser(Pick::parse)
+                    .help(crate::pick::HELP),
             );
         }
         if command.writes() {

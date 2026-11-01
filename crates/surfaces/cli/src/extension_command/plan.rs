@@ -1,6 +1,7 @@
 //! What a writing command's plan became, as the command line prints it (ADR 0289): the command's own output first,
 //! then the plan's diff (`--dry-run`) or the files written; a refused plan fails the command with the refusal.
 
+use crate::pick::Pick;
 use crate::terminal::{Terminal, err, out, outln};
 use serde_json::{Value, json};
 use specforge_ops::authoring::apply::{CommandRun, PlanOutcome};
@@ -10,16 +11,17 @@ use specforge_protocol_types::CommandError;
 use std::path::Path;
 
 /// Print `run` and return the exit code: the command's own when its plan was applied or previewed, 1 for a plan
-/// the host refused. `root` names the files written.
+/// the host refused. `root` names the files written; with `pick`, stdout holds only the values at its path.
 pub(super) fn ended(
     run: CommandRun,
     format: CommandFormat,
+    pick: Option<&Pick>,
     root: &Path,
     terminal: &Terminal,
 ) -> i32 {
     // A state patch the host refused is reported beside what the run did, and the exit code is not 0.
     let state = run.state_refused.clone();
-    let code = printed(run, format, root, terminal);
+    let code = printed(run, format, pick, root, terminal);
     match state {
         Some(refusal) => {
             err!(terminal, "{}", refused(&refusal, format));
@@ -29,7 +31,13 @@ pub(super) fn ended(
     }
 }
 
-fn printed(run: CommandRun, format: CommandFormat, root: &Path, terminal: &Terminal) -> i32 {
+fn printed(
+    run: CommandRun,
+    format: CommandFormat,
+    pick: Option<&Pick>,
+    root: &Path,
+    terminal: &Terminal,
+) -> i32 {
     let CommandRun { output, plan, .. } = run;
     let (edited, refusal) = match plan {
         Some(PlanOutcome::Applied(edited) | PlanOutcome::Previewed(edited)) => (Some(edited), None),
@@ -44,7 +52,11 @@ fn printed(run: CommandRun, format: CommandFormat, root: &Path, terminal: &Termi
         return 1;
     }
     let Some(edited) = edited else {
-        out!(terminal, "{}", output.stdout);
+        match pick.map(|pick| pick.printed(&output.stdout)) {
+            None => out!(terminal, "{}", output.stdout),
+            Some(Ok(lines)) => out!(terminal, "{lines}"),
+            Some(Err(refused)) => err!(terminal, "{refused}"),
+        }
         err!(terminal, "{}", output.stderr);
         return output.exit_code;
     };
@@ -56,7 +68,10 @@ fn printed(run: CommandRun, format: CommandFormat, root: &Path, terminal: &Termi
             if let Some(files) = edited.wrote.named(Some(root)) {
                 document["files_written"] = json!(files);
             }
-            terminal.json(&document);
+            match pick {
+                Some(pick) => out!(terminal, "{}", pick.lines(&document)),
+                None => terminal.json(&document),
+            }
         }
         CommandFormat::Human => {
             out!(terminal, "{}", output.stdout);

@@ -49,5 +49,8 @@ Options:
       --cite-test <TEST>
           With --inputs: a test the verdict will cite, by name
 
+      --pick <PATH>
+          Print only the values at this path of the JSON answer, one per line: `.key`, `[n]`, `[]` (every item), `[kind=<k>]` (the items of that kind), e.g. '.nodes[kind=plan].id'. A string prints bare (a newline in it is printed as is), a number, boolean, object or array as compact JSON, null or a missing value as nothing. It reads the JSON answer: on query, the graph format, with neither --inputs nor --include-coverage
+
   -h, --help
           Print help (see a summary with '-h')
