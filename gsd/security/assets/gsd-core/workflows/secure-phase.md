@@ -50,9 +50,9 @@ Display banner: `GSD > SECURE PHASE {N}: {name}`
 ## 1. Detect Input State
 
 ```bash
-AUDIT=$(specforge query "$PHASE_ID" --kinds security_audit --format json | jq -r '.nodes[]|select(.kind=="security_audit")|.id')
-PLAN_FILES=$(specforge query "$PHASE_ID" --kinds plan --format json | jq -r '.nodes[]|select(.kind=="plan")|.id')
-SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --format json | jq -r '.nodes[]|select(.kind=="summary")|.id')
+AUDIT=$(specforge query "$PHASE_ID" --kinds security_audit --pick '.nodes[kind=security_audit].id')
+PLAN_FILES=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id')
+SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --pick '.nodes[kind=summary].id')
 ```
 
 - **State A** (`AUDIT` non-empty): Audit existing

@@ -179,7 +179,7 @@ Defer the `phase.mvp-mode` query until `PHASE` is finalized (after explicit argu
 ```bash
 WALKING_SKELETON=false
 if [ "$MVP_MODE" = "true" ] && [ "$padded_phase" = "01" ]; then
-  PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --format json 2>/dev/null | jq '[.nodes[]|select(.kind=="summary")]|length')
+  PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' 2>/dev/null | wc -l | tr -d ' ')
   if [ "$PRIOR_SUMMARIES" = "0" ]; then WALKING_SKELETON=true; fi
 fi
 ```
@@ -233,7 +233,7 @@ PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --format json | jq '{found: (
 
 Now that `PHASE` is finalized, resolve MVP mode:
 ```bash
-MVP_MODE=$([ -n "$MVP_FLAG_ARG" ] && echo true || specforge query "$PHASE_ID" --depth 0 --format json | jq -r '(.nodes[0].fields.mode == "mvp") | tostring')
+MVP_MODE=$([ -n "$MVP_FLAG_ARG" ] && echo true || { [ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false; })
 ```
 
 <!-- gsd:section id="prd-express-gate" when="flag:--prd" -->
@@ -412,7 +412,7 @@ fi
 ```
 
 ```bash
-PHASE_DESC=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '.nodes[0].fields | "Goal: \(.goal)\nSuccess criteria: \(.success_criteria|join("; "))"')
+PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
 if [ -z "${PLAN_PRE_HOOKS_JSON:-}" ]; then
   PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
 fi
@@ -638,7 +638,7 @@ SKETCH_FINDINGS_PATH=$(ls ./.claude/skills/sketch-findings-*/SKILL.md 2>/dev/nul
 # on non-AI phases; gating it there silently starves the planner of the SPEC (#550 review).
 # init resolves the plain phase SPEC (never the -AI-SPEC.md / -UI-SPEC.md variants) through the one shared predicate.
 PHASE_DIR_FOR_SPEC=$(_gsd_field "$INIT" phase_dir)
-SPEC_PATH=$(printf '%s' "$INIT" | jq -r '[.nodes[] | select(.kind == "phase_spec") | .id] | first // empty')
+SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
 SPEC_FILE="${SPEC_PATH}"
 # Resolve the phase UI-SPEC separately (the glob above excludes -UI-SPEC.md); it carries the
 # ## UI Considerations section the planner lifts by the same rule as ## Edge Coverage (#1867).
@@ -998,7 +998,7 @@ If `section_manifest` is `null` or `"chunked-planning-mode"` is in its `included
 **Triggered when:** Agent() returns but the return contains no recognized marker (`## PLANNING COMPLETE`, `## PHASE SPLIT RECOMMENDED`, `## ⚠ Source Audit`, `## CHECKPOINT REACHED`, `## PLANNING INCONCLUSIVE`).
 
 ```bash
-DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --format json | jq '[.nodes[]|select(.kind=="plan")]|length')
+DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 ```
 
 If `DISK_PLANS` is greater than 0 (a known Windows stdio hang pattern — the planner wrote plans to disk but the return never arrived), offer: 1) Accept plans (treat as `## PLANNING COMPLETE`), 2) Retry planner (return to step 8), 3) Stop. If it is 0 and no marker, treat as `## PLANNING INCONCLUSIVE`. Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9a.
@@ -1131,7 +1131,7 @@ Agent(
 **Triggered when:** Checker Agent() returns but the return contains neither `## VERIFICATION PASSED` nor `## ISSUES FOUND`.
 
 ```bash
-DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --format json | jq '[.nodes[]|select(.kind=="plan")]|length')
+DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 ```
 
 If `DISK_PLANS` is greater than 0 (plans exist on disk; a known Windows stdio hang pattern), offer: 1) Accept verification (treat as `## VERIFICATION PASSED`, continue to step 13), 2) Retry checker (return to step 10), 3) Stop. If it is 0, something is seriously wrong — display error and stop. Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 11a.
@@ -1468,7 +1468,7 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 PLAN_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '.nodes[0].fields.requirements | join(",")' 2>/dev/null)
+PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' 2>/dev/null | paste -sd , -)
 PHASE_REQ_IDS="${PHASE_REQ_IDS:-TBD}"
 ```
 

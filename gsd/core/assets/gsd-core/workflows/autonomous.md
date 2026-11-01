@@ -451,7 +451,7 @@ After execute, read canonical verification:
 
 ```bash
 VERIFY_ERROR=""  # reset every loop iteration — a prior phase's refusal must not leak into this one
-VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending"') || VERIFY_ERROR=1
+VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 ```
 
 If `PHASE_DIR` is absent, re-fetch `init.phase-op ${PHASE_NUM}` and parse `phase_dir`.
@@ -510,7 +510,7 @@ Skill(skill="gsd-execute-phase", args="${PHASE_NUM} --no-transition")
 Re-read verification status:
 ```bash
 VERIFY_ERROR=""  # reset every loop iteration — a prior phase's refusal must not leak into this one
-VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].fields.status // "pending"') || VERIFY_ERROR=1
+VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 ```
 
 If `VERIFY_ERROR` is set: handle_blocker with the error printed above (#5118).
@@ -675,7 +675,7 @@ After audit completes, detect the result:
 
 ```bash
 AUDIT_FILE="${milestone_version}-MILESTONE-AUDIT"   # the milestone_audit entity
-AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --format json | jq -r '[.nodes[]|select(.kind=="milestone_audit")][0].fields.status // empty')
+AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' | head -1)
 ```
 
 **If AUDIT_STATUS is empty** (no audit file or no status field):

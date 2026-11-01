@@ -61,7 +61,7 @@
     "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)"
   ],
-  "bytes": 49442,
+  "bytes": 49419,
   "end": [
     "",
     "| Condition | Route | Action |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:786723e7d1720fdae703bb743360ebdd1334189ab629dc5d0e73bc67cb3caf05",
+    "digest": "sha256:a99ebe7e45de895b7c5d7e1d54467febc86e49c3daf05276ecd71ed5b581af1c",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "786723e7d1720fdae703bb743360ebdd1334189ab629dc5d0e73bc67cb3caf05"
+  "sha256": "a99ebe7e45de895b7c5d7e1d54467febc86e49c3daf05276ecd71ed5b581af1c"
 }

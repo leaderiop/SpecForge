@@ -42,6 +42,9 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/progress.md", 209),
     ("gsd-core/workflows/progress.md", 216),
     ("gsd-core/workflows/progress.md", 217),
+    // G4 plan 04 T4: a graph read takes its values with --pick; progress's verification status is the entity's
+    // field (upstream's `.status` read a field the graph answer does not have).
+    ("gsd-core/workflows/progress.md", 324),
     // Plan 03 (F9) T3: a field of a JSON answer is read with jq; upstream's line runs node.
     ("gsd-core/references/dispatch-isolation-gate.md", 77),
     ("gsd-core/references/specless-probe-fallback.md", 97),

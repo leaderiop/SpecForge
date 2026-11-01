@@ -218,9 +218,9 @@ Extract one-liners from SUMMARY.md files using summary-extract:
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 # For each phase in milestone, extract one-liner
-for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --format brief | jq -r '.nodes[]|select(.kind=="summary")|.id'); do
+for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id'); do
   [ -n "$summary" ] || continue
-  specforge query "$summary" --depth 0 --format json | jq -r '.nodes[0].fields.one_liner'
+  specforge query "$summary" --depth 0 --pick '.nodes[0].fields.one_liner'
 done
 ```
 

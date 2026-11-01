@@ -87,7 +87,7 @@ Emit:
 
 Glob every phase directory's SCOPE BOUNDARY log (executor writes out-of-scope discoveries here per `agents/gsd-executor.md`):
 ```bash
-specforge query "$MILESTONE" --depth 3 --kinds deferred_item --format json | jq -r '.nodes[]|.id' || true
+specforge query "$MILESTONE" --depth 3 --kinds deferred_item --pick '.nodes[kind=deferred_item].id' || true
 ```
 
 For each `deferred-items.md` found, read its entries (bullet list, one entry per top-level list item — `-`, `*`, `+` or an ordered marker of one to nine digits terminated by a DOT, where an ordered list counts when it starts at `0.` or `1.` or continues a list already open at its level; `1)` is not a marker and neither is a ten-digit ordinal (`999999999.` counts, `1234567890.` does not) — with continuation lines indented beneath it; fenced code blocks at ANY indent, including deeper than CommonMark's three-space cap, and `* * *`-style separators are not entries; an unclosed fence ends with its own entry and never hides the entries after it; a closed pair of delimiters is a fence whatever sits between them). An entry is RESOLVED only if it carries an explicit `status: resolved` field on one of its lines — the bare key lower-case only, or the bolded `**Status:**` form in any case; the VALUE is case-insensitive in both; every other entry — including one with no `status:` field at all — is UNRESOLVED and must be surfaced (fail-safe: never silently drop a possibly-open item).

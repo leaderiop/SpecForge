@@ -63,7 +63,7 @@ Parse JSON for: `planner_model`, `checker_model`, `commit_docs`, `phase_found`, 
 # MVP mode detection via the centralized phase.mvp-mode resolver.
 # verify-work has no --mvp CLI flag (mode is inherited from the planned phase),
 # so we omit --cli-flag — the verb falls through roadmap → config → false.
-MVP_MODE=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '(.nodes[0].fields.mode == "mvp") | tostring')
+MVP_MODE=$([ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false)
 ```
 </step>
 
@@ -648,7 +648,7 @@ If execution verification is waiting only on human UAT and this session recorded
 
 ```bash
 PHASE_DIR=$(printf '%s' "$INIT" | jq -r '.phase_dir // empty')
-VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -r '[.nodes[]|select(.kind=="verification")][0].id // empty' 2>/dev/null)
+VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' 2>/dev/null | head -1)
 # #5118: stderr kept; an out-of-set report status is a hard error, never "no result".
 VERIFICATION_STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }
 VERIFICATION_STATUS_VALUE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.status')

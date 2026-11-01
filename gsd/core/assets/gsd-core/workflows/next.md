@@ -130,8 +130,8 @@ else
       echo "⚠ WARNING: Could not query phase $PHASE_NUM — skipping in resume scan." >&2
       continue
     fi
-    PLAN_COUNT=$(echo "$PHASE_JSON" | jq '[.nodes[]|select(.kind=="plan")]|length')
-    SUMMARY_COUNT=$(echo "$PHASE_JSON" | jq '[.nodes[]|select(.kind=="summary")]|length')
+    PLAN_COUNT=$(specforge query "$PHASE_NUM" --depth 2 --kinds plan,summary --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
+    SUMMARY_COUNT=$(specforge query "$PHASE_NUM" --depth 2 --kinds plan,summary --pick '.nodes[kind=summary].id' | wc -l | tr -d ' ')
     if [ "${PLAN_COUNT:-0}" -gt "${SUMMARY_COUNT:-0}" ]; then
       INCOMPLETE_PHASE="$PHASE_NUM"
       break

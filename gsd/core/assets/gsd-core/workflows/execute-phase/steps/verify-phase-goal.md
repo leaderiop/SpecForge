@@ -32,7 +32,7 @@ TDD_MODE=${TDD_MODE:-false}   # the loop capability is not part of @gsd/core: --
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 VERIFIER_SKILLS=""   # the host install carries the skills of gsd-verifier
 CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
-PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --format json | jq -r '.nodes[0].fields.goal')
+PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')
 ```
 </step>
 

@@ -9,7 +9,7 @@ that plan's `Agent()` prompt in step 3. Resolves whether this dispatch is TDD
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-TDD_APPLICABLE_RAW=$(specforge query "$PLAN_ID" --depth 0 --format json | jq -r '.nodes[0].fields.type == "tdd"' 2>/dev/null)
+TDD_APPLICABLE_RAW=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].fields.type' 2>/dev/null) && { [ "$TDD_APPLICABLE_RAW" = tdd ] && TDD_APPLICABLE_RAW=true || TDD_APPLICABLE_RAW=false; }
 TDD_APPLICABLE_RC=$?
 if [ $TDD_APPLICABLE_RC -ne 0 ]; then
   echo "FATAL: could not resolve TDD-applicability for plan {plan_number} — 'phase.tdd-applicable' failed. Refusing to guess whether this dispatch needs the TDD procedure. Halting." >&2

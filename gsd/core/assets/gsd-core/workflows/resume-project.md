@@ -253,7 +253,7 @@ What would you like to do?
 **Note:** When offering phase planning, check for CONTEXT.md existence first:
 
 ```bash
-specforge query "$MILESTONE/XX" --depth 2 --kinds context --format json | jq -r '.nodes[]|select(.kind=="context")|.id' || true
+specforge query "$MILESTONE/XX" --depth 2 --kinds context --pick '.nodes[kind=context].id' || true
 ```
 
 If missing, suggest discuss-phase before plan. If exists, offer plan directly.

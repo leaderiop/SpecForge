@@ -180,7 +180,7 @@ Assign the composed prompt to a shell variable so it can be passed as one argume
 # command failure, mirroring the ISOLATION resolution above: an absent
 # verdict must never silently resolve to "not TDD" (ADR-3473 §8.4), since
 # that would silently drop a real TDD plan's RED/GREEN/REFACTOR procedure.
-_TDD_APPLICABLE_RAW=$(specforge query "$PLAN_ID" --depth 0 --format json | jq -r '.nodes[0].fields.type == "tdd"' 2>/dev/null)
+_TDD_APPLICABLE_RAW=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].fields.type' 2>/dev/null) && { [ "$_TDD_APPLICABLE_RAW" = tdd ] && _TDD_APPLICABLE_RAW=true || _TDD_APPLICABLE_RAW=false; }
 _TDD_APPLICABLE_RC=$?
 if [ $_TDD_APPLICABLE_RC -ne 0 ]; then
   echo "FATAL: could not resolve TDD-applicability for plan {plan_number} — 'phase.tdd-applicable' failed. Refusing to guess whether this dispatch needs the TDD procedure. Halting." >&2

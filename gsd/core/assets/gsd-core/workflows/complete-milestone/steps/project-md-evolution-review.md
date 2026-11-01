@@ -6,7 +6,7 @@ Full PROJECT.md evolution review at milestone completion.
 Read all phase summaries:
 
 ```bash
-_SUMMARIES=( $(specforge query "$MILESTONE" --depth 3 --kinds summary --format brief | jq -r '.nodes[]|select(.kind=="summary")|.id') )
+_SUMMARIES=( $(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id') )
 if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge query "$s" --depth 0 --format context; done; fi
 ```
 

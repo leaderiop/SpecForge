@@ -34,7 +34,7 @@ Extract from these:
 **Read all prior CONTEXT.md files:**
 
 ```bash
-specforge query "$MILESTONE" --depth 3 --kinds context --format brief | jq -r '.nodes[]|select(.kind=="context")|.id' | sort
+specforge query "$MILESTONE" --depth 3 --kinds context --pick '.nodes[kind=context].id' | sort
 ```
 
 For each CONTEXT.md where phase number < current phase:

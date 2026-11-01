@@ -264,7 +264,7 @@ cp "$ROADMAP_SECTION_FILE" "${RUN_DIR}/gsd-review-roadmap.md"
 # per-plan `### <file>` header then renders a run-dir artifact name no reviewer
 # or consensus step can resolve. The plan id keeps the gsd-review-plan-*.md glob
 # prepare_trimmed_prompt_for_reviewer consumes.)
-for PLAN_REF in $(specforge query "$PHASE_ID" --depth 2 --kinds plan --format json | jq -r '.nodes[]|select(.kind=="plan")|.id'); do
+for PLAN_REF in $(specforge query "$PHASE_ID" --depth 2 --kinds plan --pick '.nodes[kind=plan].id'); do
   PLAN_BASENAME=$(basename "$PLAN_REF")
   PLAN_ID="$PLAN_BASENAME"   # the plan's own name, e.g. 02-01
   specforge query "$PLAN_REF" --depth 3 --format context > "${RUN_DIR}/gsd-review-plan-${PLAN_ID}.md"
@@ -288,7 +288,7 @@ done
 # never needs word-splitting at all.
 PLAN_COUNT=0
 PLAN_ID_BULLETS=""
-for PLAN_REF in $(specforge query "$PHASE_ID" --depth 2 --kinds plan --format json | jq -r '.nodes[]|select(.kind=="plan")|.id'); do
+for PLAN_REF in $(specforge query "$PHASE_ID" --depth 2 --kinds plan --pick '.nodes[kind=plan].id'); do
   PLAN_BASENAME=$(basename "$PLAN_REF")
   PLAN_ID="$PLAN_BASENAME"
   PLAN_COUNT=$((PLAN_COUNT + 1))
@@ -314,11 +314,11 @@ done
 if PROJECT_TEXT=$(specforge query "$PROJECT" --depth 0 --format context 2>/dev/null) && [ -n "$PROJECT_TEXT" ]; then
   printf '%s\n' "$PROJECT_TEXT" > "${RUN_DIR}/gsd-review-project.md"
 fi
-_CTX=( $(specforge query "$PHASE_ID" --depth 2 --kinds context --format json | jq -r '.nodes[]|select(.kind=="context")|.id') )
+_CTX=( $(specforge query "$PHASE_ID" --depth 2 --kinds context --pick '.nodes[kind=context].id') )
 if [ ${#_CTX[@]} -gt 0 ]; then
   for c in "${_CTX[@]}"; do specforge query "$c" --depth 3 --format context; done > "${RUN_DIR}/gsd-review-context.md"
 fi
-_RESEARCH=( $(specforge query "$PHASE_ID" --depth 2 --kinds research --format json | jq -r '.nodes[]|select(.kind=="research")|.id') )
+_RESEARCH=( $(specforge query "$PHASE_ID" --depth 2 --kinds research --pick '.nodes[kind=research].id') )
 if [ ${#_RESEARCH[@]} -gt 0 ]; then
   for r in "${_RESEARCH[@]}"; do specforge query "$r" --depth 3 --format context; done > "${RUN_DIR}/gsd-review-research.md"
 fi

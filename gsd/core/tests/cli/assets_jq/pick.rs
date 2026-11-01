@@ -124,3 +124,167 @@ fn a_promoted_phase_number_is_picked() {
         "[13]"
     );
 }
+
+/// T4: the graph reads of `specforge query`, one line of each form: ids of a kind, a count, the first node's field,
+/// a computed boolean, a status with its default and its route, a list joined, a string built of two fields.
+#[test]
+fn a_graph_read_is_picked() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let w = "gsd-core/workflows/";
+    let phase = "PHASE_ID=v1.0/01";
+    // the plans of the query's answer, as jq's `.nodes[]|select(.kind=="plan")|.id` read them (depth 2 reaches
+    // phase 02's plan too, through its dependency)
+    let answer: serde_json::Value = serde_json::from_str(
+        &p.run(&[
+            "query", "v1.0/01", "--depth", "2", "--kinds", "plan", "--format", "json",
+        ])
+        .stdout,
+    )
+    .expect("the query's JSON");
+    let plans: String = answer["nodes"]
+        .as_array()
+        .expect("nodes")
+        .iter()
+        .filter(|n| n["kind"] == "plan")
+        .map(|n| format!("{}\n", n["id"].as_str().expect("an id")))
+        .collect();
+    assert!(
+        plans.starts_with("v1.0/01/01-01\nv1.0/01/01-02\n"),
+        "{plans}"
+    );
+    let review = line(&asset(&format!("{w}review.md")), "for PLAN_REF in $(").to_string();
+    assert_eq!(
+        run(
+            &sh,
+            &p,
+            &format!("{phase}\n{review} echo \"$PLAN_REF\"; done")
+        )
+        .0,
+        plans
+    );
+    let cases: &[(&str, &str, &str, &str, &str)] = &[
+        ("plan-phase.md", phase, "DISK_PLANS=$(", "DISK_PLANS", "[2]"),
+        (
+            "plan-phase.md",
+            "PHASE_ID=v1.0/03",
+            "DISK_PLANS=$(",
+            "DISK_PLANS",
+            "[0]",
+        ),
+        (
+            "execute-plan.md",
+            "PLAN_ID=v1.0/01/01-01",
+            "TASK_COUNT=$(",
+            "TASK_COUNT",
+            "[2]",
+        ),
+        // depth 2, as above: phase 02's plan too
+        (
+            "next.md",
+            "PHASE_NUM=01",
+            "PLAN_COUNT=$(",
+            "PLAN_COUNT",
+            "[3]",
+        ),
+        (
+            "execute-phase/steps/verify-phase-goal.md",
+            phase,
+            "PHASE_GOAL=$(",
+            "PHASE_GOAL",
+            "[Tasks can be added and completed]",
+        ),
+        (
+            "verify-work.md",
+            phase,
+            "MVP_MODE=$(",
+            "MVP_MODE",
+            "[false]",
+        ),
+        (
+            "plan-phase.md",
+            "PHASE_ID=v1.0/01; MVP_FLAG_ARG=--mvp",
+            "MVP_MODE=$(",
+            "MVP_MODE",
+            "[true]",
+        ),
+        ("ship.md", phase, "STATUS=$(", "STATUS", "[passed]"),
+        (
+            "ship.md",
+            "PHASE_ID=v1.0/02",
+            "STATUS=$(",
+            "STATUS",
+            "[pending]",
+        ),
+        (
+            "execute-phase.md",
+            phase,
+            "VERIFY_ROUTE=$(",
+            "VERIFY_ROUTE",
+            "[complete]",
+        ),
+        (
+            "execute-phase.md",
+            "PHASE_ID=v1.0/02",
+            "VERIFY_ROUTE=$(",
+            "VERIFY_ROUTE",
+            "[verify]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "PHASE_REQ_IDS=$(",
+            "PHASE_REQ_IDS",
+            "[TASK-01,TASK-02]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "PHASE_DESC=",
+            "PHASE_DESC",
+            "[Goal: Tasks can be added and completed\nSuccess criteria: A user can add a task with a title; A user can mark a task complete by its id]",
+        ),
+        ("plan-phase.md", phase, "SPEC_PATH=$(", "SPEC_PATH", "[]"),
+        (
+            "undo.md",
+            "UNDO_MILESTONE=v1.0; TARGET_PHASE=01",
+            "PHASE_DIR=$(",
+            "PHASE_DIR",
+            "[v1.0/01]",
+        ),
+        (
+            "undo.md",
+            "UNDO_MILESTONE=v1.0; TARGET_PHASE=09",
+            "PHASE_DIR=$(",
+            "PHASE_DIR",
+            "[]",
+        ),
+    ];
+    for (file, setup, start, var, want) in cases {
+        let path = format!("{w}{file}");
+        assert_eq!(
+            value(&sh, &p, &path, setup, start, var),
+            *want,
+            "{file}: {start}"
+        );
+    }
+}
+
+/// T4: a read whose failure the next line checks keeps the command's exit status (no pipe after `--pick`).
+#[test]
+fn a_graph_read_keeps_its_exit_status() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let tdd = asset("gsd-core/workflows/execute-phase/steps/tdd-applicability-resolution.md");
+    let read = line(&tdd, "TDD_APPLICABLE_RAW=$(").to_string();
+    let script = |plan: &str| format!("PLAN_ID={plan}\n{read}\necho \"$? [$TDD_APPLICABLE_RAW]\"");
+    assert_eq!(run(&sh, &p, &script("v1.0/01/01-01")).0, "0 [false]\n");
+    assert!(run(&sh, &p, &script("nope")).0.starts_with("1 "));
+    let ship = line(&asset("gsd-core/workflows/ship.md"), "STATUS=$(").to_string();
+    let (out, code) = run(&sh, &p, &format!("PHASE_ID=nope\n{ship}\necho after"));
+    assert_eq!((out.as_str(), code), ("", 1));
+}
