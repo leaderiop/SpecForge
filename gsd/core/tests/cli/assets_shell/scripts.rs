@@ -45,17 +45,20 @@ fn the_commit_readers_read_the_commit_entities() {
 
 /// Review of plan 03, item 1: the TDD gate (execute-phase.md, `TDD_MODE`) runs from `RED_IDS=$(` through its
 /// `TDD GATE TRIPPED` exit. A test-file commit outside the plan, or a plan commit that touches no test file, is no RED
-/// commit; a commit of the plan that touches a test file is.
+/// commit; a commit of the plan that touches a test file is. Re-review item 3: the plan named by its short id (`01-01`)
+/// finds the same commits as by its full one, which a commit's `plan` field holds.
 #[test]
 fn the_tdd_gate_finds_the_red_commit_among_the_plans_own_commits() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
     let text = asset("gsd-core/workflows/execute-phase.md");
-    let gate = format!(
-        "PLAN_ID=v1.0/01/01-01\nTASK_ID=T1\n{}\n      exit 1\n    fi\nprintf '%s' \"$RED_COMMIT\"",
-        block(&text, "RED_IDS=$(", "TDD GATE TRIPPED")
-    );
+    let gate = |plan: &str| {
+        format!(
+            "PLAN_ID={plan}\nTASK_ID=T1\n{}\n      exit 1\n    fi\nprintf '%s' \"$RED_COMMIT\"",
+            block(&text, "RED_IDS=$(", "TDD GATE TRIPPED")
+        )
+    };
     let p = crate::harness::project("execute");
     p.commit();
     p.git_commit(
@@ -74,25 +77,29 @@ fn the_tdd_gate_finds_the_red_commit_among_the_plans_own_commits() {
         &[("tests/x.rs", "t\n")],
         "2026-10-29T09:20:00Z",
     );
-    let (out, err, code) = sh.run_in(p.root(), &gate);
-    assert_eq!(
-        code, 1,
-        "no RED commit of 01-01: the gate trips\n{out}\n{err}"
-    );
-    assert!(out.contains("TDD GATE TRIPPED"), "{out}\n{err}");
+    for plan in ["v1.0/01/01-01", "01-01"] {
+        let (out, err, code) = sh.run_in(p.root(), &gate(plan));
+        assert_eq!(
+            code, 1,
+            "{plan}: no RED commit of 01-01, the gate trips\n{out}\n{err}"
+        );
+        assert!(out.contains("TDD GATE TRIPPED"), "{plan}: {out}\n{err}");
+    }
 
     let red = p.git_commit(
         "test(01-01): failing store test",
         &[("test/tasks.test.js", "t\n")],
         "2026-10-29T09:30:00Z",
     );
-    let (out, err, code) = sh.run_in(p.root(), &gate);
-    assert_eq!(code, 0, "{out}\n{err}");
-    assert_eq!(
-        out,
-        format!("{} test(01-01): failing store test", &red[..10]),
-        "{err}"
-    );
+    for plan in ["v1.0/01/01-01", "01-01"] {
+        let (out, err, code) = sh.run_in(p.root(), &gate(plan));
+        assert_eq!(code, 0, "{plan}: {out}\n{err}");
+        assert_eq!(
+            out,
+            format!("{} test(01-01): failing store test", &red[..10]),
+            "{plan}: {err}"
+        );
+    }
 }
 
 /// Runs `git args` in `dir` with no user configuration.

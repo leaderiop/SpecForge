@@ -249,7 +249,7 @@ if [ "$TDD_MODE" = "true" ]; then
     # the gate pass on any in-scope commit. Trade-offs and the Rust gap:
     # references/tdd.md § Create first test file.
 
-    RED_IDS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "$PLAN_ID" --kinds commit --pick ".nodes[fields.plan=$PLAN_ID].id") && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
+    RED_IDS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; PLAN_FULL_ID=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].id') && specforge query "$PLAN_FULL_ID" --kinds commit --pick ".nodes[fields.plan=$PLAN_FULL_ID].id") && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?   # a commit's plan field holds the full id: SpecForge resolves a short one (01-01) once
     # Exit 69 (UNAVAILABLE) = the scope could not be resolved: that is not "missing RED commit" (#5170).
     if [ "$RED_SCOPE_RC" -ne 0 ]; then echo "TDD GATE UNAVAILABLE: could not resolve the plan's commits for ${PLAN_ID}/${TASK_ID} (evaluation-scope exit ${RED_SCOPE_RC})"; exit 1; fi
     RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\t' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
