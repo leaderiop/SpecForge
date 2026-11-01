@@ -59,7 +59,12 @@ specforge settings --extension @gsd/core
 
 **Requirements.** The prompts' shell blocks need `bash` and `jq` on the `PATH` (and `git`, as upstream's do). node is
 needed only where the user's own project is JavaScript: the dev-server probe of `references/checkpoints.md` and the
-verifier's module check (`KEEP` in `tests/port_tools.rs`). There is no health check for it: `health` is a guest command
+verifier's module and CLI checks (`node -e "…require('$MODULE_PATH')…"`, `node $CLI_PATH`, at `agents/gsd-verifier.md`)
+(`KEEP` in `tests/port_tools.rs`). Beyond those, node is optional, only for these steps, which run upstream code
+@gsd/core does not install (`PENDING_NODE`): the edge probe `node "$EDGE_PROBE_JS"` (`workflows/spec-phase.md`,
+`references/specless-probe-fallback.md`), the spec-section check `node "$SPEC_SECTION_JS"`
+(`references/specless-probe-fallback.md`) and the disposition-ledger builder
+(`workflows/execute-phase/steps/code-review-disposition.md`). There is no health check for it: `health` is a guest command
 and cannot see the host's `PATH`. A block that needs jq fails on its first `jq` call with `command not found`, as one
 fails on a missing `git`.
 
