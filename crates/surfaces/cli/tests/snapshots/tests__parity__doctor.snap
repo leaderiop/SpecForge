@@ -83,7 +83,14 @@ expression: snapshot
   "cli": {
     "extras": {
       "credentials": [],
-      "credentials_failures": 0
+      "credentials_failures": 0,
+      "specforge_on_path": {
+        "about": "host",
+        "check": "no specforge on PATH: the hooks and the MCP server that `specforge install` writes run `specforge` from PATH",
+        "code": "specforge_not_on_path",
+        "remediation": "put specforge on PATH before installing a host",
+        "status": "info"
+      }
     }
   },
   "mcp": {}

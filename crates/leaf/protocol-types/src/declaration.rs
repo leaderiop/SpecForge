@@ -356,7 +356,7 @@ impl ExtensionDeclaration {
 
 /// `(major, minor)` of a protocol version text; `(0, 0)` when it has no two
 /// numbers (the host has already refused a version that does not parse).
-fn protocol_minor(version: &str) -> (u64, u64) {
+pub fn protocol_minor(version: &str) -> (u64, u64) {
     let mut parts = version.split('.').map(|part| part.parse::<u64>());
     match (parts.next(), parts.next()) {
         (Some(Ok(major)), Some(Ok(minor))) => (major, minor),

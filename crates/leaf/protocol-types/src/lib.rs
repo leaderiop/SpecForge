@@ -51,6 +51,7 @@ pub use code_catalog::CodeDescriptor;
 pub use contrib::*;
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
+    protocol_minor,
 };
 pub use field::FieldDescriptor;
 pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgement};

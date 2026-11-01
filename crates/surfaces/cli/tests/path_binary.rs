@@ -27,16 +27,49 @@ fn on_path(name: &str, line: &str) -> PathBuf {
 
 #[cfg(unix)]
 #[test]
-fn doctor_says_nothing_of_an_older_specforge_on_path() {
+fn doctor_warns_of_an_older_specforge_on_path() {
     let dir = TestProject::new();
     let path = on_path("older", "specforge 0.2.0 (protocol 1.6.0)");
+    let program = path.join("specforge");
 
     let run = Cli::on(&dir).env("PATH", &path).run(&["doctor"]);
 
-    let program = path.join("specforge");
-    assert!(
-        !run.stdout.contains(program.to_str().unwrap()),
-        "{}",
+    assert_eq!(
+        run.code, 0,
+        "a warning does not fail doctor: {}",
         run.stdout
     );
+    let section = &run.stdout[run.stdout.find("specforge on PATH:\n").expect(&run.stdout)..];
+    assert!(
+        section.contains(&format!(
+            "[WARN] [W169] the specforge on PATH ({}) speaks extension protocol 1.6.0, older than this \
+             specforge's {}",
+            program.display(),
+            specforge_protocol_types::PROTOCOL_VERSION
+        )),
+        "{section}"
+    );
+    assert!(
+        section.contains("the hooks and the MCP server"),
+        "{section}"
+    );
+
+    let json = Cli::on(&dir).env("PATH", &path).document(&["doctor"]).json;
+    assert_eq!(json["specforge_on_path"]["code"], "W169", "{json}");
+    assert_eq!(json["specforge_on_path"]["path"], program.to_str().unwrap());
+}
+
+#[cfg(unix)]
+#[test]
+fn doctor_says_nothing_of_a_specforge_on_path_of_this_protocol() {
+    let dir = TestProject::new();
+    let line = format!(
+        "specforge 0.3.0 (9229143f5, protocol {})",
+        specforge_protocol_types::PROTOCOL_VERSION
+    );
+    let path = on_path("current", &line);
+
+    let run = Cli::on(&dir).env("PATH", &path).run(&["doctor"]);
+
+    assert!(!run.stdout.contains("specforge on PATH:"), "{}", run.stdout);
 }

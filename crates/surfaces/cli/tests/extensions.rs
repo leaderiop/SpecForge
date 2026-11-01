@@ -2102,9 +2102,9 @@ fn doctor_json_is_one_report_on_both_surfaces() {
     assert_eq!(code, 1, "{cli}");
     let mcp = mcp_doctor_json(dir);
 
-    // The CLI adds the user's credentials; nothing else differs in shape.
+    // The CLI adds the user's credentials and the specforge on PATH; nothing else differs in shape.
     let mut expected = keys_of(&mcp);
-    expected.extend(["credentials", "credentials_failures"]);
+    expected.extend(["credentials", "credentials_failures", "specforge_on_path"]);
     expected.sort_unstable();
     assert_eq!(keys_of(&cli), expected, "{cli}");
     assert_eq!(

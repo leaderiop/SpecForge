@@ -1,6 +1,6 @@
 # A host refuses a guest of a newer protocol minor
 
-**Status:** accepted (2026-11-01, R0 of the Beyond Parity build plan, version drift fix C). Amends the protocol
+**Status:** accepted (2026-11-01, R0 of the Beyond Parity build plan, version drift fixes C and D). Amends the protocol
 check of [ADR 0012](0012-one-extension-declaration.md) (the declaration's load checks the protocol major). No
 wire change: the handshake already states `protocol_version`.
 
@@ -22,6 +22,14 @@ guest ran, without what it declared, and the only sign was a list of warnings. H
   of the host's minor: a patch changes no payload.
 - **D3. The version a binary speaks is visible.** `specforge --version` names the protocol after the commit,
   `specforge 0.3.0 (9229143f5, protocol 1.14.0)`, so the E088 remedy can be checked.
+
+- **D4. Doctor compares the specforge on PATH.** The hooks and `.mcp.json` run the first `specforge` on PATH, not
+  the binary that installed them. `specforge doctor` finds it in Rust (the PATH directories, no `which`), runs it
+  with `--version` and reads the protocol D3 prints. When it speaks an older minor than the running specforge or
+  than an extension the project loads, or names no protocol (a release before D3), doctor warns with **W169**,
+  naming its path and both versions and saying the hooks and the MCP server run it. No `specforge` on PATH is an
+  info finding. It is the user's machine, not the project: the CLI prints it beside the report (`specforge on
+  PATH:`, JSON `specforge_on_path`), as it does credentials, and `specforge.doctor` does not.
 
 ## Rejected
 

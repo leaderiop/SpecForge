@@ -14,7 +14,7 @@
 //!   `ok` MCP returns (in the payload, or `_meta["specforge/check"]` for
 //!   validate). Skipped where MCP returns none (ADR 0029).
 //! - `Document`: the outcome document each surface printed, without its own
-//!   extras (MCP's `note`, the CLI's credentials): the payload, or a failed
+//!   extras (MCP's `note`, the CLI's credentials and PATH binary): the payload, or a failed
 //!   MCP call's `data`. None differs.
 //!
 //! Today's differences are listed in [`EXPECTED_DIVERGENCES`]. A scenario
@@ -193,7 +193,7 @@ struct Observed {
 }
 
 /// The CLI's own keys beside an outcome document.
-const CLI_EXTRAS: &[&str] = &["credentials", "credentials_failures"];
+const CLI_EXTRAS: &[&str] = &["credentials", "credentials_failures", "specforge_on_path"];
 /// MCP's own keys beside an outcome document.
 const MCP_EXTRAS: &[&str] = &["note"];
 

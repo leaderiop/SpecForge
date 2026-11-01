@@ -793,4 +793,7 @@ catalog! {
     W168: Warning core,
         "Verdict cannot be read",
         "An entity's `verdict` statement (ADR 0290) names a rule that is not a loaded judged rule, a rule that does not judge the entity's kind, an outcome the rule does not declare, a member missing or of the wrong form (`judge`, `model`, `at` and `inputs` are required), `values` for a field the rule does not bind or that the field's form refuses, or a second verdict of one rule. It counts as no verdict, so the rule reports the entity as missing. Record a verdict through `set_verdict`, or remove the statement.";
+    W169: Warning core,
+        "Older specforge on PATH",
+        "`specforge doctor` ran the first `specforge` on PATH with `--version` and it speaks an older extension protocol minor than the specforge running doctor, or than an extension the project loads, or names no protocol at all (a release from before `--version` named it). The hooks and the MCP server that `specforge install` writes run `specforge` from PATH, so they run that binary, which refuses the project's newer extensions (E088) or would drop what they declare. Update the specforge on PATH, or put this one first on PATH (ADR 0326).";
 }

@@ -586,5 +586,6 @@ fn remediation(diag: &Diagnostic, codes: &Codebook, fallback: impl FnOnce() -> S
         .unwrap_or_else(fallback)
 }
 
+pub mod on_path;
 #[cfg(test)]
 mod tests;

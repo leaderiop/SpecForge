@@ -3717,6 +3717,23 @@ Owner: core
 Level: warning
 ```
 
+## W169
+
+```
+W169: Older specforge on PATH
+
+`specforge doctor` ran the first `specforge` on PATH with `--version` and it
+speaks an older extension protocol minor than the specforge running doctor, or
+than an extension the project loads, or names no protocol at all (a release from
+before `--version` named it). The hooks and the MCP server that `specforge
+install` writes run `specforge` from PATH, so they run that binary, which
+refuses the project's newer extensions (E088) or would drop what they declare.
+Update the specforge on PATH, or put this one first on PATH (ADR 0326).
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.
