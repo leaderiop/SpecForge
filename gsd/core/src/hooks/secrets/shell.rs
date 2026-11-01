@@ -48,14 +48,52 @@ pub(super) fn with_reading<T>(r: Reading, f: impl FnOnce() -> T) -> T {
 /// (F7), and the guard's failure policy (allow) let the command through; real commands nest fewer than 10.
 pub(super) const MAX_SPAN_DEPTH: usize = 128;
 
-thread_local!(static TOO_NESTED: Cell<bool> = const { Cell::new(false) });
+/// How many tokens one call's scan reads across all its rescans (nested scripts, heredoc bodies) and readings. Each
+/// rescan tokenizes again, so 600 KB of heredoc bodies ran past the 5000 ms budget. A call at the limit takes under
+/// 1 s end to end (0.65-0.83 s measured); a real command reads a few thousand.
+pub(super) const MAX_SCAN_TOKENS: usize = 1 << 18;
 
-/// Runs `f`, and says whether a span it read was nested deeper than `MAX_SPAN_DEPTH` (the reader stopped there).
-pub(super) fn too_nested<T>(f: impl FnOnce() -> T) -> (T, bool) {
-    let outer = TOO_NESTED.replace(false);
+/// Why a scan stopped before it read the whole command; the guard denies the command under that name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Stop {
+    /// A span nested deeper than `MAX_SPAN_DEPTH`.
+    Nested,
+    /// More than `MAX_SCAN_TOKENS` tokens read.
+    Complex,
+}
+
+thread_local! {
+    static STOP: Cell<Option<Stop>> = const { Cell::new(None) };
+    /// The tokens read so far inside `judged`; `None` outside it, where nothing is counted or stopped.
+    static SCANNED: Cell<Option<usize>> = const { Cell::new(None) };
+}
+
+fn stop(why: Stop) {
+    if SCANNED.get().is_some() && STOP.get().is_none() {
+        STOP.set(Some(why));
+    }
+}
+
+/// Whether the scan has stopped: what is left of it is not read.
+pub(super) fn stopped() -> bool {
+    STOP.with(Cell::get).is_some()
+}
+
+/// Runs the scan `f` from a zero work count, and says why it stopped, if it did.
+pub(super) fn judged<T>(f: impl FnOnce() -> T) -> (T, Option<Stop>) {
+    let outer = (STOP.replace(None), SCANNED.replace(Some(0)));
     let out = f();
-    let nested = TOO_NESTED.replace(outer);
-    (out, nested)
+    let why = STOP.replace(outer.0);
+    #[cfg(test)]
+    LAST_SCANNED.set(SCANNED.get().unwrap_or_default());
+    SCANNED.set(outer.1);
+    (out, why)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The tokens the last `judged` scan on this thread read: a test bounds the guard's work by it (F7).
+    pub(super) static LAST_SCANNED: Cell<usize> = const { Cell::new(0) };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -203,7 +241,7 @@ fn heredoc_bodies(s: &[char], mut i: usize, tags: &[Tag]) -> (Vec<(String, bool,
 /// The index of the `)` that closes a `$(` whose body starts at `i`, or the length; `depth` spans enclose it.
 fn paren_close(s: &[char], mut i: usize, depth: usize) -> usize {
     if depth >= MAX_SPAN_DEPTH {
-        TOO_NESTED.with(|c| c.set(true));
+        stop(Stop::Nested);
         return s.len();
     }
     let mut parens = 1;
@@ -542,5 +580,11 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
         }
     }
     lx.flush();
+    if let Some(n) = SCANNED.get() {
+        SCANNED.set(Some(n + lx.tokens.len()));
+        if n + lx.tokens.len() > MAX_SCAN_TOKENS {
+            stop(Stop::Complex);
+        }
+    }
     (lx.tokens, lx.nested)
 }

@@ -4,7 +4,7 @@
 
 use super::v1_19::bash;
 use super::*;
-use shell::MAX_SPAN_DEPTH;
+use shell::{MAX_SCAN_TOKENS, MAX_SPAN_DEPTH};
 
 /// A `$(` in an unquoted heredoc tag word inside a span (`paren_close` → `read_heredoc_tag` → `paren_close`).
 const TAG: &str = "$(cat <<";
@@ -19,7 +19,7 @@ fn nested(lead: &str, shape: Option<&str>, n: usize) -> String {
     format!("{lead}; : \"{spans})\"")
 }
 
-/// What the guard says of `command`: `too-nested`, `read .env`, `allow`, or the reason of another denial.
+/// What the guard says of `command`: `too-nested`, `too-complex`, `read .env`, `allow`, or the reason of another denial.
 fn said(command: &str) -> String {
     let answer = bash(command);
     let reason = answer.reason.unwrap_or_default();
@@ -27,6 +27,8 @@ fn said(command: &str) -> String {
         "allow".into()
     } else if reason.contains(&format!("deeper than {MAX_SPAN_DEPTH} levels")) {
         "too-nested".into()
+    } else if reason.contains(&format!("more than {MAX_SCAN_TOKENS} tokens")) {
+        "too-complex".into()
     } else if reason.contains("would read '.env'") {
         "read .env".into()
     } else {
@@ -89,6 +91,40 @@ fn a_nested_tag_is_sliced_when_read_not_at_every_level() {
             sliced <= 16 * command.len(),
             "{close:?}: {sliced} characters sliced of {}",
             command.len()
+        );
+    }
+}
+
+/// `bash <<E0` around `$(bash <<E1` around `$(` and `a;` x n: each heredoc body is scanned as a script, its `$( )`
+/// again as a nested one, and a command that opens a heredoc under three readings.
+fn heavy(n: usize) -> String {
+    format!("bash <<E0\n$(bash <<E1\n$({})\nE1\n)\nE0\n", "a;".repeat(n))
+}
+
+/// The bash 3.2 reading's read: `cat .env` runs where the `)` on a body line closes the substitution.
+const B32: &str = ": $(cat <<E\n)\ncat .env\nE\n)\n";
+
+/// F7 review: 600 KB of heredoc bodies read about 3.5 M tokens and ran past the 5000 ms budget, a trap the `allow`
+/// policy let through. The scan stops at `MAX_SCAN_TOKENS` and the command is denied; the work is bounded by the
+/// tokens read (the limit, and the one tokenize that crosses it), not by the clock.
+#[test]
+fn a_scan_past_its_work_limit_is_denied_as_too_complex() {
+    let rows = [
+        (heavy(300_000) + B32, "too-complex"),
+        ("a;".repeat(MAX_SCAN_TOKENS) + "cat .env", "too-complex"),
+        (";".repeat(1024 * 1024 - 8) + "cat .env", "too-complex"),
+        (heavy(1000) + B32, "read .env"),
+        (heavy(1000), "allow"),
+        ("a;".repeat(MAX_SCAN_TOKENS / 4) + "cat .env", "read .env"),
+    ];
+    for (command, want) in rows {
+        let got = said(&command);
+        let read = shell::LAST_SCANNED.with(std::cell::Cell::get);
+        let shown: String = command.chars().take(40).collect();
+        assert_eq!(got, want, "{shown:?} ({} bytes)", command.len());
+        assert!(
+            read <= MAX_SCAN_TOKENS + command.len(),
+            "{shown:?}: {read} tokens read"
         );
     }
 }

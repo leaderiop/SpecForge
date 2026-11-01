@@ -10,8 +10,10 @@ use super::hooks_support::{Home, install_in, run_hook, tool_event, tool_name};
 
 const MIB: usize = 1024 * 1024;
 
-/// The hostile inputs: the two F7 shapes at n = 5000 and 60 000, a 1 MiB command, and a 1 MiB body of runs of
-/// 100 000 spaces each before an injection phrase (the injection regex engine's continuations follow the text).
+/// The hostile inputs: the two F7 shapes at n = 5000 and 60 000, two that take the secret guard past its scan work
+/// limit (the review's heredoc bodies before a read only another reading sees, and 1 MiB of `;`), a 1 MiB command, and a
+/// 1 MiB body of runs of 100 000 spaces each before an injection phrase (the injection regex engine's continuations
+/// follow the text).
 fn inputs() -> Vec<(&'static str, String)> {
     let nested = |shape: &str, n| format!("cat .env; : \"{})\"", shape.repeat(n));
     let closed = format!(
@@ -20,6 +22,11 @@ fn inputs() -> Vec<(&'static str, String)> {
         "a".repeat(1_000_000),
         ")".repeat(127)
     );
+    let bodies = |n| format!("bash <<E0\n$(bash <<E1\n$({})\nE1\n)\nE0\n", "a;".repeat(n));
+    // `cat .env` runs under bash 3.2's reading of a `)` on a body line, and under the earlier tag reading
+    let bash32 = bodies(300_000) + ": $(cat <<E\n)\ncat .env\nE\n)\n";
+    let tag = bodies(500_000) + "cat <<E$(x)F\nEF\ncat .env\nE$(x)F\n";
+    let dense = format!("{}cat .env", ";".repeat(MIB - 8));
     let run = format!("{}ignore previous instructions\n", " ".repeat(100_000));
     let mut body = run.repeat(MIB / run.len() + 1);
     body.truncate(MIB);
@@ -29,6 +36,9 @@ fn inputs() -> Vec<(&'static str, String)> {
         ("$(cat << x 60000", nested("$(cat <<", 60_000)),
         ("$(\" x 60000", nested("$(\"", 60_000)),
         ("127 closed spans, 1 MB", closed),
+        ("too complex: bodies + 3.2", bash32),
+        ("too complex: bodies + tag", tag),
+        ("too complex: 1 MiB of ;", dense),
         ("1 MiB command", format!("echo {}", "a".repeat(MIB - 5))),
         ("1 MiB spaces + injection", body),
     ]
@@ -161,12 +171,15 @@ fn probe(pick: impl Fn(&str, &str) -> bool) {
                 let t = std::time::Instant::now();
                 let run = run_hook(&p, host, &format!("gsd.{hook}"), &payload, &home);
                 let ms = t.elapsed().as_millis();
-                if hook == "secret_read_guard" && name.starts_with("$(") {
-                    assert!(
-                        run.stdout.contains("deeper than 128 levels"),
-                        "{name}: {}",
-                        run.all()
-                    );
+                let named = if name.starts_with("$(") {
+                    "deeper than 128 levels"
+                } else if name.starts_with("too complex") {
+                    "more than 262144 tokens"
+                } else {
+                    ""
+                };
+                if hook == "secret_read_guard" && !named.is_empty() {
+                    assert!(run.stdout.contains(named), "{name}: {}", run.all());
                 }
                 let said = if run.stderr.contains("E028") {
                     traps.push(format!("{hook} {event} {name}: {}", run.stderr));
