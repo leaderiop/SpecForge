@@ -50,6 +50,12 @@ enum Node {
     },
 }
 
+#[cfg(test)]
+thread_local! {
+    /// The steps the matcher took on this thread: a test bounds its work by them, not by the clock.
+    pub(super) static STEPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// A compiled pattern of the `i` flag.
 #[derive(Debug, Clone)]
 pub struct Regex {
@@ -201,6 +207,8 @@ impl Regex {
     }
 
     fn go(&self, n: &Node, s: &[char], i: usize, k: &mut dyn FnMut(usize) -> bool) -> bool {
+        #[cfg(test)]
+        STEPS.with(|n| n.set(n.get() + 1));
         match n {
             Node::Char(_) | Node::Space | Node::Class { .. } => {
                 i < s.len() && Self::one(n, s[i]) == Some(true) && k(i + 1)
@@ -276,5 +284,19 @@ impl Regex {
 
     pub fn is_match(&self, text: &[char]) -> bool {
         self.find(text).is_some()
+    }
+
+    /// The choice points of the pattern outside its look-aheads: one per `?`, `+`, `*` and extra alternative.
+    #[cfg(test)]
+    pub(super) fn splits(&self) -> usize {
+        fn count(n: &Node) -> usize {
+            match n {
+                Node::Seq(v) => v.iter().map(count).sum(),
+                Node::Alt(v) => v.len() - 1 + v.iter().map(count).sum::<usize>(),
+                Node::Rep { node, .. } => 1 + count(node),
+                _ => 0,
+            }
+        }
+        count(&self.node)
     }
 }
