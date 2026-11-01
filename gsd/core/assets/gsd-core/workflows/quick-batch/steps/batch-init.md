@@ -32,9 +32,9 @@ rm -f "$TASK_FILE"
 
 ```
 
-**If `$QB_CREATE_RC` is non-zero:** the task list failed to parse (fewer than
-2 items — row 2/12) or the dependency DAG was invalid. Print the CLI's error
-message verbatim and STOP. Do not dispatch anything.
+**If `$QB_CREATE_RC` is non-zero:** the task list held fewer than 2 items once
+its list markers and blank lines were stripped (row 2/12). Say so, show the task
+list as given, and STOP. Do not dispatch anything.
 
 **Otherwise:** `$QB_CREATE_LIST` holds the batch's items, one per line (every
 item starts `pending`, wave `0` — no dependency/file-overlap signal exists

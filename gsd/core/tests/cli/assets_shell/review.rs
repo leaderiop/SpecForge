@@ -75,3 +75,28 @@ fn a_failed_readiness_query_does_not_verify_the_milestone() {
     );
     assert_eq!(out, "true", "{err}");
 }
+
+/// Item 12: prose that described upstream's machinery: quick-batch's parse step has no CLI error to print and no
+/// dependency DAG (the list is split by the shell, and every item starts in wave 0), and pr-branch reads no
+/// `planning.sub_repos` setting, so no exit code says the key is absent.
+#[test]
+fn the_batch_and_sub_repo_prose_says_what_runs() {
+    for (path, stale) in [
+        (
+            "gsd-core/workflows/quick-batch/steps/batch-init.md",
+            &["Print the CLI's error", "dependency DAG"][..],
+        ),
+        (
+            "gsd-core/workflows/pr-branch.md",
+            &[
+                "using the canonical key path",
+                "A non-zero exit code means the key is absent",
+            ][..],
+        ),
+    ] {
+        let text = asset(path);
+        for s in stale {
+            assert!(!text.contains(s), "{path} still says {s:?}");
+        }
+    }
+}

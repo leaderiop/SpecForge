@@ -26,6 +26,12 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/progress.md", 299),
     ("gsd-core/workflows/progress.md", 315),
     // Plan 05 re-review item 8: the review and the learnings read the phase's own plans.
-    ("gsd-core/workflows/review.md", 635),
     ("gsd-core/workflows/review.md", 634),
+    ("gsd-core/workflows/review.md", 635),
+    // Plan 05 re-review item 12: quick-batch's parse step and pr-branch's sub-repo step say what runs.
+    ("gsd-core/workflows/pr-branch.md", 77),
+    ("gsd-core/workflows/pr-branch.md", 78),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 33),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 34),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 35),
 ];

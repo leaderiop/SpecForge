@@ -76,8 +76,8 @@ Mode:    {PR_MODE}
 </step>
 
 <step name="handle_sub_repos">
-Read the sub-repo list from config using the canonical key path — `planning.sub_repos`.
-A non-zero exit code means the key is absent; treat that as "no sub-repos configured".
+There is no sub-repo list to read: `planning.sub_repos` is not a setting here (a sub-repository is
+another SpecForge project), so `SUB_REPOS_JSON` is empty and this step is skipped.
 
 ```bash
 # planning.sub_repos: a sub-repository is another SpecForge project, so there are none to list
