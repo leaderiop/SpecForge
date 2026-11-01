@@ -122,8 +122,9 @@ fn planned_checks(p: &Project) -> Vec<String> {
     found
 }
 
-/// `code` run under bash in the project for `quick_id` (and a task description), with `specforge` on the `PATH`.
-fn bash(p: &Project, code: &str, quick_id: &str) -> std::process::Output {
+/// `code` run under bash in the project for `quick_id` (and a task description, and `env`), with `specforge` on the
+/// `PATH`.
+fn bash(p: &Project, code: &str, quick_id: &str, env: &[(&str, &str)]) -> std::process::Output {
     let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
     let path = format!(
         "{}:{}",
@@ -136,6 +137,7 @@ fn bash(p: &Project, code: &str, quick_id: &str) -> std::process::Output {
         .env("quick_id", quick_id)
         .env("DESCRIPTION", "Trim the titles")
         .env("description", "Trim the titles")
+        .envs(env.iter().copied())
         .current_dir(p.root())
         .stdin(std::process::Stdio::null())
         .output()
@@ -144,7 +146,7 @@ fn bash(p: &Project, code: &str, quick_id: &str) -> std::process::Output {
 
 /// Whether `check` succeeds for `quick_id`.
 fn holds(p: &Project, check: &str, quick_id: &str) -> bool {
-    bash(p, check, quick_id).status.success()
+    bash(p, check, quick_id, &[]).status.success()
 }
 
 /// A plan the discussion or research step made first (as the prompt's "The quick plan" says) is not planned; once
@@ -303,7 +305,7 @@ fn a_quick_reading_list_query_reaches_the_context_decisions_and_findings() {
     ] {
         for line in commands(&served(&p, file), "specforge query ' + quick_id + '") {
             let query = line.replace("' + quick_id + '", "251101-abc");
-            let out = bash(&p, &query, "251101-abc");
+            let out = bash(&p, &query, "251101-abc", &[]);
             let text = String::from_utf8_lossy(&out.stdout);
             assert!(out.status.success(), "{file}: {query}");
             let wants: &[&str] = if query.contains("-CONTEXT ") {
@@ -321,4 +323,44 @@ fn a_quick_reading_list_query_reaches_the_context_decisions_and_findings() {
         }
     }
     assert_eq!(ran, 6, "the reading-list queries");
+}
+
+/// In worktree mode a batch item's executor writes its summary in the item's worktree, which Step 7 merges back
+/// later: the checks before that merge (the crash-window guard, the post-dispatch check, the merge wave's pick) look
+/// in `$WT_PATH`, the item's recorded worktree, and in the primary checkout when there is none (`isolation none`).
+#[test]
+fn a_batch_items_summary_is_looked_for_in_its_worktree_before_the_merge() {
+    let (primary, worktree) = (project("quick-context"), project("quick-context"));
+    let summary = "\nsummary 251101-abc-SUMMARY \"Done\" {\n  plan                   251101-abc\n  status                 complete\n  one_liner              \"Titles are trimmed\"\n  subsystem              \"tasks\"\n  requirements_completed []\n}\n";
+    worktree.write(QUICK, &format!("{}{summary}", worktree.read(QUICK)));
+    let wt = worktree.root().display().to_string();
+    let (mut checks, mut files) = (Vec::new(), Vec::new());
+    for file in [
+        "quick-batch/steps/worktree-dispatch.md",
+        "quick-batch/steps/merge-wave.md",
+    ] {
+        let found = commands(&served(&primary, file), "${quick_id}-SUMMARY\" --depth 0");
+        files.push((file, found.len()));
+        checks.extend(found.into_iter().map(|c| (file, c)));
+    }
+    for (file, check) in &checks {
+        let isolated = bash(&primary, check, "251101-abc", &[("WT_PATH", wt.as_str())]);
+        assert!(
+            isolated.status.success(),
+            "{file}: the worktree's summary is missed: {check}"
+        );
+        let none = bash(&primary, check, "251101-abc", &[("WT_PATH", "")]);
+        assert!(
+            !none.status.success(),
+            "{file}: the primary checkout has no summary: {check}"
+        );
+    }
+    // the guard and the post-dispatch check in worktree-dispatch.md, the pick in merge-wave.md
+    assert_eq!(
+        files,
+        [
+            ("quick-batch/steps/worktree-dispatch.md", 2),
+            ("quick-batch/steps/merge-wave.md", 1)
+        ]
+    );
 }

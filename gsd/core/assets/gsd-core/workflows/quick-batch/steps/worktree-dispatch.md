@@ -46,7 +46,7 @@ QB_ELIG_JSON='{"eligible":[]}'   # quick-batch resume: the batch router is not p
    `BATCH.json` at `pending` with no STATE.md row yet (that row is written
    only in Step 9) — so on `--resume`, such an item still comes back
    `eligible` here. Before computing `spawn-plan`, determine which eligible
-   items already have a summary `${quick_id}/${quick_id}-SUMMARY` (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0`; same
+   items already have a summary `${quick_id}/${quick_id}-SUMMARY` (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0 --path "${WT_PATH:-.}"`, in the item's recorded worktree `$WT_PATH` when it has one, where its executor wrote it; same
    `item_dir` derivation via `generate-slug` every other step uses), then
    let the PURE `quick-batch filter-executed` verb
    (`filterAlreadyExecuted`, `src/quick-batch-dispatch.cts`) decide which
@@ -162,7 +162,7 @@ SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9'
    > **ORCHESTRATOR RULE — CODEX RUNTIME**: after each `Agent()` call above, wait for it to return before starting the next worktree create.
 
 4. **After every item dispatched this round returns:** verify
-   summary `${quick_id}/${quick_id}-SUMMARY` exists (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0`). If missing, the item stays
+   summary `${quick_id}/${quick_id}-SUMMARY` exists in its worktree, which Step 7 has not merged yet (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0 --path "${WT_PATH:-.}"`, `$WT_PATH` the item's recorded `worktree_path`). If missing, the item stays
    `pending`/its worktree preserved for diagnosis rather than guessing
    completion — do not proceed to merge for it this round.
 

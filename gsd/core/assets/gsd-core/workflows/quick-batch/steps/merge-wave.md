@@ -9,14 +9,14 @@ checkout in Step 6).
 by `$ITEM_COUNT` rounds):
 
 1. For each DISTINCT `wave` value present among items that are
-   `status == "pending"` with a summary `${quick_id}/${quick_id}-SUMMARY` in the graph
+   `status == "pending"` with a summary `${quick_id}/${quick_id}-SUMMARY` in its worktree (`specforge query "${quick_id}/${quick_id}-SUMMARY" --depth 0 --path "${WT_PATH:-.}"`, `$WT_PATH` the item's recorded `worktree_path`: the summary is merged below)
    (executor returned) and NOT yet merged: build `$WAVE_ORDER_JSON` — the
    `quick_id`s of every item AT THAT WAVE, in `$BATCH_MANIFEST_JSON.items`
    array order (this IS the order `computeWaves`/`partitionByFileOverlap`
    assigned — never re-sort it).
 
 2. Build `$READY_JSON` — the subset of that wave's items whose
-   `SUMMARY.md` already exists (an executor may still be mid-flight for a
+   summary step 1 found (an executor may still be mid-flight for a
    sibling in the same wave; row 33 — merges happen strictly in wave order,
    an out-of-order finisher waits):
    ```bash

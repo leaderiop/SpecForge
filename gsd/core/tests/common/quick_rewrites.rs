@@ -94,6 +94,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         163,
     ),
     ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 10, 10),
+    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 17, 17),
     ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 35, 35),
     (
         "gsd-core/workflows/quick-batch/steps/research-phase.md",
