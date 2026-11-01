@@ -128,7 +128,7 @@ Use this instead of manually reading/parsing ROADMAP.md.
 
 ```bash
 # Get formatted progress bar
-PROGRESS_BAR=$(specforge gsd progress-report --format json | jq -r '"[\(.percent)%]"')
+PROGRESS_BAR="[$(specforge gsd progress-report --pick .percent)%]"
 ```
 
 Present:
@@ -207,16 +207,16 @@ if [ -z "$ROADMAP" ]; then
   echo "  The incomplete-phase invariant (#160) could not be verified." >&2
   echo "  Review project state carefully before continuing." >&2
 else
-  for PHASE_NUM in $(echo "$ROADMAP" | jq -r '.phases[] | (.number // .phase_number)'); do
-    PHASE_DATA=$(echo "$ROADMAP" | jq --arg n "$PHASE_NUM" '.phases[] | select((.number // .phase_number) == ($n | tonumber))')
+  for PHASE_AT in $(specforge gsd progress-report --pick '.phases[].number' | awk '{print NR - 1}'); do
+    PHASE_NUM=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].number")
     # #3218: $PHASE_DATA is a `.phases[]` entry from `roadmap.analyze`, which
     # emits `plan_count`/`summary_count` SCALARS (src/roadmap.cts) — it has
     # never emitted `.plans`/`.summaries` ARRAYS. Reading those absent keys
     # (even with a `// []` fallback) always produced 0, permanently disabling
     # this resume-incomplete-phase check. Read the scalars the producer
     # actually emits.
-    PLAN_COUNT=$(echo "$PHASE_DATA" | jq '.plan_count // 0')
-    SUMMARY_COUNT=$(echo "$PHASE_DATA" | jq '.summary_count // 0')
+    PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].plans")
+    SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].summaries")
     if [ "${PLAN_COUNT:-0}" -gt "${SUMMARY_COUNT:-0}" ]; then
       INCOMPLETE_PHASE="$PHASE_NUM"
       break

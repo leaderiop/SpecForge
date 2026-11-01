@@ -34,6 +34,14 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 625),
     ("gsd-core/workflows/new-milestone.md", 626),
     ("gsd-core/workflows/new-milestone.md", 627),
+    // G4 plan 04 T3: a field of a `specforge gsd` answer is read with --pick; progress-report's phases are read
+    // by index, and their counts are `plans` / `summaries`, the fields it has.
+    ("gsd-core/workflows/next.md", 108),
+    ("gsd-core/workflows/next.md", 125),
+    ("gsd-core/workflows/progress.md", 208),
+    ("gsd-core/workflows/progress.md", 209),
+    ("gsd-core/workflows/progress.md", 216),
+    ("gsd-core/workflows/progress.md", 217),
     // Plan 03 (F9) T3: a field of a JSON answer is read with jq; upstream's line runs node.
     ("gsd-core/references/dispatch-isolation-gate.md", 77),
     ("gsd-core/references/specless-probe-fallback.md", 97),

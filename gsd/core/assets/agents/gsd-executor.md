@@ -92,7 +92,7 @@ Parse: frontmatter (phase, plan, type, autonomous, wave, depends_on), objective,
 
 <step name="record_start_time">
 ```bash
-STARTED=$(specforge gsd start-plan "${PHASE}-${PLAN}" --format json | jq -er .started) || exit 1
+STARTED=$(specforge gsd start-plan "${PHASE}-${PLAN}" --pick .started) && [ -n "$STARTED" ] || exit 1
 # a gate_failed refusal (W318, E516) stops here: the plan is not executed; STARTED is the host's clock
 ```
 </step>

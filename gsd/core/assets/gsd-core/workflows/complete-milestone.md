@@ -253,8 +253,8 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-WS_JSON=$(specforge gsd workstreams progress --format json) || WS_JSON='{"active":"(unreadable)"}'
-GSD_ACTIVE_WS=$(echo "$WS_JSON" | jq -r '.active // empty')
+GSD_ACTIVE_WS=$(specforge gsd workstreams progress --pick .active) || GSD_ACTIVE_WS='(unreadable)'
+# GSD_ACTIVE_WS is the active workstream: empty when none is, "(unreadable)" when the command failed
 [ -z "$GSD_WS" ] && [ -z "$GSD_ACTIVE_WS" ] && echo "PROJECT_MD_REVIEW=run" || echo "PROJECT_MD_REVIEW=skip"
 ```
 
@@ -412,7 +412,7 @@ ARCHIVE_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .archive_dir)
 MILESTONES_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .milestones_path)
 PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
 # #5195: PROJECT.md is shared across workstreams. Stage it only in flat mode (no --ws, no active workstream) — the same test the review step is gated on, so the two cannot disagree.
-_gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --format json) || return 1; [ -z "$GSD_WS" ] && [ -z "$(echo "$j" | jq -r '.active // empty')" ]; }
+_gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --pick .active) || return 1; [ -z "$GSD_WS" ] && [ -z "$j" ]; }
 _gsd_flat_mode || PROJECT_PATH=""
 git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 ```

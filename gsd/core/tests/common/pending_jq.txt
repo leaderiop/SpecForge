@@ -2,20 +2,6 @@
 # the ticket that rewrites them. `a_shell_block_reads_specforge_without_jq` allows a listed line and fails on a
 # listed line that no longer runs jq. A line listed twice is in its asset twice.
 
-# plan 04 T3: one field of a `specforge gsd` answer
-agents/gsd-executor.md	STARTED=$(specforge gsd start-plan "${PHASE}-${PLAN}" --format json | jq -er .started) || exit 1
-commands/gsd/review-backlog.md	NEW_NUM=$(specforge gsd phase --promote "<id>" --milestone "$MILESTONE" --format json | jq -r '.output.to | split("/") | last')
-gsd-core/workflows/complete-milestone.md	GSD_ACTIVE_WS=$(echo "$WS_JSON" | jq -r '.active // empty')
-gsd-core/workflows/complete-milestone.md	_gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --format json) || return 1; [ -z "$GSD_WS" ] && [ -z "$(echo "$j" | jq -r '.active // empty')" ]; }
-gsd-core/workflows/next.md	ROADMAP_SCOPE=$(echo "$ROADMAP_JSON" | jq -r '.scope // "complete"')
-gsd-core/workflows/next.md	for PHASE_NUM in $(echo "$ROADMAP_JSON" | jq -r '.phases[] | (.number // .phase_number // empty)'); do
-gsd-core/workflows/pause-work.md	phase=$(specforge gsd progress-report --format json | jq -r '[.phases[]|select(.status == "In Progress")][0].number // empty')
-gsd-core/workflows/progress.md	PROGRESS_BAR=$(specforge gsd progress-report --format json | jq -r '"[\(.percent)%]"')
-gsd-core/workflows/progress.md	for PHASE_NUM in $(echo "$ROADMAP" | jq -r '.phases[] | (.number // .phase_number)'); do
-gsd-core/workflows/progress.md	PHASE_DATA=$(echo "$ROADMAP" | jq --arg n "$PHASE_NUM" '.phases[] | select((.number // .phase_number) == ($n | tonumber))')
-gsd-core/workflows/progress.md	PLAN_COUNT=$(echo "$PHASE_DATA" | jq '.plan_count // 0')
-gsd-core/workflows/progress.md	SUMMARY_COUNT=$(echo "$PHASE_DATA" | jq '.summary_count // 0')
-
 # plan 04 T4: a graph read of `specforge query`
 ../security/assets/gsd-core/workflows/secure-phase.md	AUDIT=$(specforge query "$PHASE_ID" --kinds security_audit --format json | jq -r '.nodes[]|select(.kind=="security_audit")|.id')
 ../security/assets/gsd-core/workflows/secure-phase.md	PLAN_FILES=$(specforge query "$PHASE_ID" --kinds plan --format json | jq -r '.nodes[]|select(.kind=="plan")|.id')
