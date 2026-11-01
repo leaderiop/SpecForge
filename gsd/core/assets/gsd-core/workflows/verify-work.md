@@ -605,7 +605,7 @@ nonzero but every one is a verified gap resolution, #4983)
 
 ```bash
 VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --after-fingerprint "$PHASE_ID" --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
-SECURITY_GATE_JSON=$(case "$VERIFY_POST_HOOKS_JSON" in *'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
+SECURITY_GATE_JSON=$(case "$VERIFY_POST_HOOKS_JSON" in (*'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
 ```
 
 **Generic step dispatch:** dispatch every `kind == "step"` hook from `VERIFY_POST_HOOKS_JSON` per @gsd-core/references/loop-hook-dispatch.md (skip silently when none). Each step is advisory and best-effort — honor `onError` and continue. The secure-phase handling below is an additional specialization of one such hook, not a replacement for the generic dispatch. `--after-fingerprint "$PHASE_ID"` (#5105) moves a step whose declared artifact the phase already has (the capability extension decides: `@gsd/security` maps `SECURITY.md` to the phase having a `security_audit`) into `skippedHooks` instead of `activeHooks` — execute-phase already dispatched it before its own fingerprint (`execute-phase.md:1202`), so this re-dispatch is a no-op for that step and is not repeated here.
@@ -661,7 +661,7 @@ if [ "$VERIFICATION_STATUS_VALUE" = "human_needed" ]; then
   # authoritative. Any other status, or exit 1 with nothing on stdout (an error()), means it could not run.
   UAT_IDS=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id') && UAT_EXIT=0 || UAT_EXIT=$?
   if [ "$UAT_EXIT" -ne 0 ]; then echo "phase uat-passed could not run (exit $UAT_EXIT) — see the error above." >&2; exit 1; fi
-  UAT_BLOCKED=$(for t in $UAT_IDS; do case "$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result')" in pending|issue|blocked) echo "$t" ;; esac; done); [ -z "$UAT_BLOCKED" ] && UAT_PRECHECK_PASSED=true || UAT_PRECHECK_PASSED=false
+  UAT_BLOCKED=$(for t in $UAT_IDS; do case "$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result')" in (pending|issue|blocked) echo "$t" ;; esac; done); [ -z "$UAT_BLOCKED" ] && UAT_PRECHECK_PASSED=true || UAT_PRECHECK_PASSED=false
   if [ "$UAT_PRECHECK_PASSED" = "true" ]; then
     : # the verification status is computed: it is passed once every verdict is fresh and passing
   else
@@ -715,7 +715,7 @@ Otherwise, check the shared UAT-plus-verification completion predicate before tr
 # or exit 1 with nothing on stdout (an error()), means the command could not run: abort.
 PHASE_COMPLETE_IDS=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?
 if [ "$PHASE_COMPLETE_EXIT" -ne 0 ]; then echo "phase uat-passed could not run (exit $PHASE_COMPLETE_EXIT) — see the error above." >&2; exit 1; fi
-PHASE_COMPLETE_BLOCKERS=$(for t in $PHASE_COMPLETE_IDS; do case "$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result')" in pending|issue|blocked) echo "$t" ;; esac; done)
+PHASE_COMPLETE_BLOCKERS=$(for t in $PHASE_COMPLETE_IDS; do case "$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result')" in (pending|issue|blocked) echo "$t" ;; esac; done)
 [ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
 ```
 

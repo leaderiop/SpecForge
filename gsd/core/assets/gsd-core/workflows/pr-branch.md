@@ -194,9 +194,9 @@ if [ -n "$REMOTE_SLUG" ]; then
     # `cd -P` and `pwd -P` resolve symlinks, as realpathSync does; the containment test is the
     # dirty scan's, and any failure prints nothing
     realRoot=$(cd -P -- "$ROOT" && pwd -P) || exit 1
-    case "$REPO_REL" in /*) target=$REPO_REL ;; *) target=$realRoot/$REPO_REL ;; esac
+    case "$REPO_REL" in (/*) target=$REPO_REL ;; (*) target=$realRoot/$REPO_REL ;; esac
     resolved=$(cd -P -- "$target" && pwd -P) || exit 1
-    case "$resolved" in "$realRoot" | "$realRoot"/*) ;; *) exit 1 ;; esac
+    case "$resolved" in ("$realRoot" | "$realRoot"/*) ;; (*) exit 1 ;; esac
     printf '%s' "$resolved"
   ) 2>/dev/null)
 

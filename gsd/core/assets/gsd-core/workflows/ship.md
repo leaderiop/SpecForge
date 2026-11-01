@@ -83,7 +83,7 @@ Verify the work is ready to ship:
 3. **On correct branch?**
    ```bash
    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
-   IS_PROTECTED=$(case "$CURRENT_BRANCH" in main|master|develop|release/*) echo true;; *) echo false;; esac) || IS_PROTECTED=""
+   IS_PROTECTED=$(case "$CURRENT_BRANCH" in (main|master|develop|release/*) echo true;; (*) echo false;; esac) || IS_PROTECTED=""
    if [ "$IS_PROTECTED" = true ]; then
      echo "⚠ Current branch '$CURRENT_BRANCH' is a protected branch; shipping should happen from a feature branch." >&2
    elif [ -z "$IS_PROTECTED" ]; then
@@ -111,7 +111,7 @@ Verify the work is ready to ship:
 
    ```bash
    SHIP_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" ship:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
-   SECURITY_GATE_JSON=$(case "$SHIP_PRE_HOOKS_JSON" in *'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
+   SECURITY_GATE_JSON=$(case "$SHIP_PRE_HOOKS_JSON" in (*'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
    ```
 
    Read the `activeHooks` array from `SHIP_PRE_HOOKS_JSON` in-context (do NOT pipe it through a shell parser).

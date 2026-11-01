@@ -8,7 +8,7 @@ continue on the current branch. It warns without refusing execution — the
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
-IS_PROTECTED=$(case "$CURRENT_BRANCH" in main|master|develop|release/*) echo true;; *) echo false;; esac) || IS_PROTECTED=""
+IS_PROTECTED=$(case "$CURRENT_BRANCH" in (main|master|develop|release/*) echo true;; (*) echo false;; esac) || IS_PROTECTED=""
 if [ "$IS_PROTECTED" = true ]; then
   echo "⚠ Current branch '$CURRENT_BRANCH' is a protected branch; branching_strategy=none will continue here." >&2
 elif [ -z "$IS_PROTECTED" ]; then

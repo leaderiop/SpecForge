@@ -288,7 +288,7 @@ if [[ "$DEBT" == @file:* ]]; then DEBT=$(cat "${DEBT#@file:}"); fi
 Segment the debt by population before counting (#3782):
 
 ```bash
-CURRENT_DEBT=$(for t in $(specforge query "$MILESTONE" --depth 3 --kinds uat_test --pick '.nodes[kind=uat_test].id'); do r=$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result'); case "${r:-pending}" in pending|issue|blocked) echo "$t" ;; esac; done | grep -c .)   # this milestone's open UAT tests
+CURRENT_DEBT=$(for t in $(specforge query "$MILESTONE" --depth 3 --kinds uat_test --pick '.nodes[kind=uat_test].id'); do r=$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result'); case "${r:-pending}" in (pending|issue|blocked) echo "$t" ;; esac; done | grep -c .)   # this milestone's open UAT tests
 ARCHIVED_DEBT=0   # shortcut: a closed milestone's open tests are not counted here; count them with the line above on that milestone
 ```
 
