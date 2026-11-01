@@ -296,13 +296,19 @@ fn an_injection_block_survives_a_mebibyte_of_hostile_text() {
     }
 }
 
-/// G2: the largest event a hook accepts, one run of spaces or only newlines, is scanned within budget by both hooks. A newline is two
-/// bytes of JSON, so that input is half the size; each payload is checked against the cap, so it is really read.
+/// The wall-clock time a payload of the largest-payload test may take, hook process included: half the hook's
+/// 5000 ms budget, so a loaded machine (`cargo gate full`) still leaves the guest its other half. A trap is fail-open.
+const HALF_BUDGET_MS: u128 = 2500;
+
+/// G2: the largest event a hook accepts, one run of spaces or only newlines, is scanned in half the budget by both
+/// hooks. A newline is two bytes of JSON, so that input is half the size; each payload is checked against the cap, so
+/// it is really read.
 #[test]
 fn the_injection_family_does_not_trap_on_the_largest_payload_a_hook_accepts() {
     let p = taskboard();
     let home = Home::new();
     install_in(&p, "claude-code", &home);
+    let (mut times, mut slow) = (Vec::new(), false);
     for (name, s) in largest() {
         let (host, mut events) = events(&p, "injection_scanner", &s);
         // The prompt guard's own probe sends the text twice; a real pre-tool write carries it once, with no response.
@@ -320,11 +326,8 @@ fn the_injection_family_does_not_trap_on_the_largest_payload_a_hook_accepts() {
             );
             let t = std::time::Instant::now();
             let run = run_hook(&p, host, &format!("gsd.{hook}"), &payload, &home);
-            eprintln!(
-                "{hook} {event} {name} ({} bytes): {} ms",
-                payload.len(),
-                t.elapsed().as_millis()
-            );
+            let ms = t.elapsed().as_millis();
+            eprintln!("{hook} {event} {name} ({} bytes): {ms} ms", payload.len());
             assert!(
                 !run.stderr.contains("E028"),
                 "{name} {event}: {}",
@@ -336,6 +339,13 @@ fn the_injection_family_does_not_trap_on_the_largest_payload_a_hook_accepts() {
                 "{name} {event}: {}",
                 run.stdout
             );
+            times.push(format!("{hook} {event} {name}: {ms} ms"));
+            slow |= ms > HALF_BUDGET_MS;
         }
     }
+    assert!(
+        !slow,
+        "a payload took over {HALF_BUDGET_MS} ms: {}",
+        times.join("; ")
+    );
 }
