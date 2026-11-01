@@ -13,7 +13,9 @@
 //! iteration once the minimum is met (so `(?:|a)?` takes the `a`), and the visited bit would prune the retry instead.
 //! No shipped pattern has one, and building one panics. The set is kept across start positions: nothing captures or refers back, so a state that failed fails
 //! from any start. Each split and position is then expanded once, at most splits x (n + 1) times, with as many bits.
-//! A start whose character none of the pattern's first characters accepts is skipped without a run.
+//! A start whose character none of the pattern's first characters accepts is skipped without a run. A `+` or `*` of one
+//! character is one instruction that takes its run longest first, with one frame for all the shorter takes, and the
+//! bitsets and stack are kept between searches, so a 4 MiB run or a text of empty lines allocates once.
 //! A look-ahead's body has no `+` or `*` (asserted when built), and its answer is kept per position.
 
 /// `\s` as JavaScript means it.
@@ -210,6 +212,14 @@ enum Inst {
         ord: usize,
     },
     Jmp(usize),
+    /// A run of `+` (`min` 1) or `*` (`min` 0) over a one-character node, taken longest first: one frame holds every
+    /// shorter take, where a split per character would push a frame per character. `ord` is its row of the visited
+    /// set, a bit per position it went on from.
+    Star {
+        node: Node,
+        min: usize,
+        ord: usize,
+    },
     /// Whether program `prog` matches here (or does not, with `neg`); it consumes nothing.
     Look {
         neg: bool,
@@ -223,6 +233,22 @@ struct Prog {
     splits: usize,
     /// The one-character nodes a match must start with; none when a match can start without a character.
     first: Option<Vec<Node>>,
+    /// The ASCII characters of those nodes, a bit each.
+    ascii: u128,
+}
+
+impl Prog {
+    /// Whether a match can start at `at` of `s`, by its first character.
+    fn may_start(&self, s: &[char], at: usize) -> bool {
+        let Some(first) = &self.first else {
+            return true;
+        };
+        match s.get(at) {
+            None => false,
+            Some(&c) if c.is_ascii() => self.ascii >> (c as u32) & 1 == 1,
+            Some(&c) => first.iter().any(|n| Regex::one(n, c) == Some(true)),
+        }
+    }
 }
 
 /// The one-character nodes reachable from the first instruction before any is consumed; none if `Match` is.
@@ -234,6 +260,12 @@ fn firsts(insts: &[Inst]) -> Option<Vec<Node>> {
         }
         match &insts[pc] {
             Inst::One(n) => out.push(n.clone()),
+            Inst::Star { node, min, .. } => {
+                out.push(node.clone());
+                if *min == 0 {
+                    todo.push(pc + 1);
+                }
+            }
             Inst::Match => return None,
             Inst::Split { x, y, .. } => todo.extend([*x, *y]),
             Inst::Jmp(x) => todo.push(*x),
@@ -271,6 +303,14 @@ fn compile(node: &Node, bounded: bool, progs: &mut Vec<Prog>) -> usize {
     emit(node, bounded, &mut p, progs);
     p.insts.push(Inst::Match);
     p.first = firsts(&p.insts);
+    p.ascii = (0..128u8)
+        .filter(|b| {
+            p.first
+                .iter()
+                .flatten()
+                .any(|n| Regex::one(n, char::from(*b)) == Some(true))
+        })
+        .fold(0, |m, b| m | 1 << b);
     progs[id] = p;
     id
 }
@@ -308,6 +348,15 @@ fn emit(n: &Node, bounded: bool, p: &mut Prog, progs: &mut Vec<Prog>) {
             assert!(!bounded || *max == 1, "a + or * inside a look-ahead");
             assert!(!nullable(node), "a repeated group that can match empty");
             let top = p.insts.len();
+            if *max == usize::MAX && Regex::one(node, ' ').is_some() {
+                p.insts.push(Inst::Star {
+                    node: (**node).clone(),
+                    min: *min,
+                    ord: p.splits,
+                });
+                p.splits += 1;
+                return;
+            }
             match (*min, *max) {
                 (0, 1) => {
                     let s = split(p, top + 1);
@@ -337,10 +386,28 @@ fn emit(n: &Node, bounded: bool, p: &mut Prog, progs: &mut Vec<Prog>) {
 
 /// Sets bit `k` of `bits` and says whether it was set already.
 fn mark(bits: &mut [u64], k: usize) -> bool {
-    let (word, bit) = (k / 64, 1 << (k % 64));
-    let seen = bits[word] & bit != 0;
-    bits[word] |= bit;
+    let seen = is_set(bits, k);
+    bits[k / 64] |= 1 << (k % 64);
     seen
+}
+
+fn is_set(bits: &[u64], k: usize) -> bool {
+    bits[k / 64] & (1 << (k % 64)) != 0
+}
+
+/// A state still to try.
+#[derive(Debug, Clone, Copy)]
+enum Frame {
+    /// An instruction at a position.
+    At(usize, usize),
+    /// The star at `pc`, to go on from positions `hi` down to `lo`.
+    Takes { pc: usize, lo: usize, hi: usize },
+}
+
+thread_local! {
+    /// The visited set, the look-ahead answers and the stack of a search, kept between searches: a scan searches once
+    /// per pattern and, for the link rules, once per line.
+    static SCRATCH: std::cell::RefCell<(Vec<u64>, Vec<u64>, Vec<Frame>)> = std::cell::RefCell::default();
 }
 
 /// One search of a text.
@@ -349,28 +416,49 @@ struct Run<'a> {
     s: &'a [char],
     /// The pattern's (split, position) states already tried, a row of `s.len() + 1` bits per split. Each one failed,
     /// whatever the start: nothing captures, so where a match began does not change what follows a state.
-    seen: Vec<u64>,
+    seen: &'a mut [u64],
     /// Per (look-ahead, position), two bits: worked out, and matched.
-    looks: Vec<u64>,
+    looks: &'a mut [u64],
     /// The states still to try, each search above the base it found.
-    stack: Vec<(usize, usize)>,
+    stack: &'a mut Vec<Frame>,
 }
 
 impl Run<'_> {
     /// Where program `prog`, started at `start`, first reaches `Match`, in JavaScript's leftmost-first order.
     fn run(&mut self, prog: usize, start: usize) -> Option<usize> {
-        let (progs, cells, base) = (self.progs, self.s.len() + 1, self.stack.len());
-        self.stack.push((0, start));
+        let (progs, s) = (self.progs, self.s);
+        let (cells, base) = (s.len() + 1, self.stack.len());
+        self.stack.push(Frame::At(0, start));
         let found = 'search: loop {
             if self.stack.len() == base {
                 break None;
             }
-            let (mut pc, mut i) = self.stack.pop().expect("a state above the base");
+            let (mut pc, mut i) = match self.stack.pop().expect("a state above the base") {
+                Frame::At(pc, i) => (pc, i),
+                Frame::Takes { pc, lo, mut hi } => {
+                    let Inst::Star { ord, .. } = &progs[prog].insts[pc] else {
+                        unreachable!("only a star leaves takes")
+                    };
+                    // A take another entry into the same run went on from already is passed over.
+                    while hi > lo && is_set(self.seen, ord * cells + hi) {
+                        #[cfg(test)]
+                        STEPS.with(|n| n.set(n.get() + 1));
+                        hi -= 1;
+                    }
+                    if mark(self.seen, ord * cells + hi) {
+                        continue;
+                    }
+                    if hi > lo {
+                        self.stack.push(Frame::Takes { pc, lo, hi: hi - 1 });
+                    }
+                    (pc + 1, hi)
+                }
+            };
             loop {
                 #[cfg(test)]
                 STEPS.with(|n| n.set(n.get() + 1));
                 match &progs[prog].insts[pc] {
-                    Inst::One(n) if i < self.s.len() && Regex::one(n, self.s[i]) == Some(true) => {
+                    Inst::One(n) if i < s.len() && Regex::one(n, s[i]) == Some(true) => {
                         (pc, i) = (pc + 1, i + 1);
                     }
                     Inst::Start if i == 0 => pc += 1,
@@ -379,11 +467,35 @@ impl Run<'_> {
                     Inst::Jmp(x) => pc = *x,
                     Inst::Split { x, y, ord } => {
                         // A look-ahead body has no loop, and its runs, one per position, share no states.
-                        if prog == 0 && mark(&mut self.seen, ord * cells + i) {
+                        if prog == 0 && mark(self.seen, ord * cells + i) {
                             break;
                         }
-                        self.stack.push((*y, i));
+                        self.stack.push(Frame::At(*y, i));
                         pc = *x;
+                    }
+                    Inst::Star { node, min, ord } => {
+                        // The run ends where a take was gone on from already: every longer take was then tried too,
+                        // since the takes of a run are tried from its end down.
+                        let mut end = i;
+                        while end < s.len()
+                            && Regex::one(node, s[end]) == Some(true)
+                            && !is_set(self.seen, ord * cells + end + 1)
+                        {
+                            #[cfg(test)]
+                            STEPS.with(|n| n.set(n.get() + 1));
+                            end += 1;
+                        }
+                        if end < i + min || mark(self.seen, ord * cells + end) {
+                            break;
+                        }
+                        if end > i + min {
+                            self.stack.push(Frame::Takes {
+                                pc,
+                                lo: i + min,
+                                hi: end - 1,
+                            });
+                        }
+                        (pc, i) = (pc + 1, end);
                     }
                     Inst::Look { neg, prog: body } => {
                         if self.look(*body, i) == *neg {
@@ -401,10 +513,13 @@ impl Run<'_> {
     /// Whether look-ahead body `body` matches at `i`, worked out once per position.
     fn look(&mut self, body: usize, i: usize) -> bool {
         let k = 2 * ((body - 1) * (self.s.len() + 1) + i);
-        if !mark(&mut self.looks, k) && self.run(body, i).is_some() {
-            mark(&mut self.looks, k + 1);
+        if !mark(self.looks, k)
+            && self.progs[body].may_start(self.s, i)
+            && self.run(body, i).is_some()
+        {
+            mark(self.looks, k + 1);
         }
-        self.looks[(k + 1) / 64] & (1 << ((k + 1) % 64)) != 0
+        is_set(self.looks, k + 1)
     }
 }
 
@@ -449,26 +564,32 @@ impl Regex {
     /// The first match in `text`: where it starts and ends, in characters.
     pub fn find(&self, text: &[char]) -> Option<(usize, usize)> {
         let cells = text.len() + 1;
-        let bits = |n: usize| vec![0u64; n.div_ceil(64)];
-        let mut run = Run {
-            progs: &self.progs,
-            s: text,
-            seen: bits(self.progs[0].splits * cells),
-            looks: bits(2 * (self.progs.len() - 1) * cells),
-            stack: Vec::new(),
-        };
-        let first = self.progs[0].first.as_deref();
-        // A start whose character no first node accepts cannot begin a match: it is skipped unrun.
-        let may_start = |at: usize| {
-            #[cfg(test)]
-            STEPS.with(|n| n.set(n.get() + 1));
-            first.is_none_or(|f| {
-                at < text.len() && f.iter().any(|n| Self::one(n, text[at]) == Some(true))
-            })
-        };
-        (0..cells)
-            .filter(|&at| may_start(at))
-            .find_map(|start| run.run(0, start).map(|end| (start, end)))
+        SCRATCH.with_borrow_mut(|(seen, looks, stack)| {
+            for (bits, n) in [
+                (&mut *seen, self.progs[0].splits * cells),
+                (&mut *looks, 2 * (self.progs.len() - 1) * cells),
+            ] {
+                bits.clear();
+                bits.resize(n.div_ceil(64), 0);
+            }
+            stack.clear();
+            let mut run = Run {
+                progs: &self.progs,
+                s: text,
+                seen,
+                looks,
+                stack,
+            };
+            // A start whose character no first node accepts cannot begin a match: it is skipped unrun.
+            let may_start = |at: &usize| {
+                #[cfg(test)]
+                STEPS.with(|n| n.set(n.get() + 1));
+                self.progs[0].may_start(text, *at)
+            };
+            (0..cells)
+                .filter(may_start)
+                .find_map(|start| run.run(0, start).map(|end| (start, end)))
+        })
     }
 
     pub fn is_match(&self, text: &[char]) -> bool {

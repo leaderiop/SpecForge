@@ -168,10 +168,17 @@ fn no_guard_traps_on_a_hostile_input() {
         install_in(&p, host, &home);
     }
     let (mut matrix, mut traps) = (Vec::new(), Vec::new());
-    for (name, s) in inputs() {
+    for (name, s) in inputs().into_iter().chain(largest()) {
         for hook in HOOKS {
             let (host, events) = events(&p, hook, &s);
             for (event, payload) in events {
+                // A probe event carries the text twice (input and response): past the cap no host can send it.
+                if payload.len() > 4 * MIB {
+                    matrix.push(format!(
+                        "{hook:<20} {event:<15} {name:<25} over the 4 MiB cap"
+                    ));
+                    continue;
+                }
                 let t = std::time::Instant::now();
                 let run = run_hook(&p, host, &format!("gsd.{hook}"), &payload, &home);
                 let ms = t.elapsed().as_millis();
@@ -289,26 +296,32 @@ fn an_injection_block_survives_a_mebibyte_of_hostile_text() {
     }
 }
 
-/// G2: the largest event a hook accepts, one run of spaces or only newlines, is scanned within budget. A newline is two
+/// G2: the largest event a hook accepts, one run of spaces or only newlines, is scanned within budget by both hooks. A newline is two
 /// bytes of JSON, so that input is half the size; each payload is checked against the cap, so it is really read.
 #[test]
-#[ignore = "G2 review R2: the scanner runs past the 5000 ms budget on 4 MiB of one run of spaces"]
 fn the_injection_family_does_not_trap_on_the_largest_payload_a_hook_accepts() {
     let p = taskboard();
     let home = Home::new();
     install_in(&p, "claude-code", &home);
     for (name, s) in largest() {
-        let (host, events) = events(&p, "injection_scanner", &s);
-        for (event, payload) in events {
+        let (host, mut events) = events(&p, "injection_scanner", &s);
+        // The prompt guard's own probe sends the text twice; a real pre-tool write carries it once, with no response.
+        let write = json!({"file_path": p.root().join("spec/plans.spec"), "content": s});
+        let guard = tool_event(&p, host, "pre", tool_name(host, "write"), &write, None);
+        events.push(("pre Write", guard));
+        for ((event, payload), hook) in events
+            .into_iter()
+            .zip(["injection_scanner", "prompt_guard"])
+        {
             assert!(
                 payload.len() <= 4 * MIB,
                 "{name}: a {}-byte event is over the cap",
                 payload.len()
             );
             let t = std::time::Instant::now();
-            let run = run_hook(&p, host, "gsd.injection_scanner", &payload, &home);
+            let run = run_hook(&p, host, &format!("gsd.{hook}"), &payload, &home);
             eprintln!(
-                "injection_scanner {event} {name} ({} bytes): {} ms",
+                "{hook} {event} {name} ({} bytes): {} ms",
                 payload.len(),
                 t.elapsed().as_millis()
             );
