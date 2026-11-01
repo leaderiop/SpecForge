@@ -43,8 +43,8 @@ space note).
 
 ```bash
 BATCH_ID="$batchId"
-BATCH_MANIFEST_JSON=$(printf '%s' "$QB_CREATE_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(JSON.stringify(j.manifest))}catch{process.stdout.write("")}})')
-ITEM_COUNT=$(printf '%s' "$BATCH_MANIFEST_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(String(j.items.length))}catch{process.stdout.write("0")}})')
+BATCH_MANIFEST_JSON=$(printf '%s' "$QB_CREATE_JSON" | jq -c '.manifest // empty' 2>/dev/null)
+ITEM_COUNT=$(printf '%s' "$BATCH_MANIFEST_JSON" | jq -er '.items | length' 2>/dev/null || echo 0)
 ```
 
 Report to user:

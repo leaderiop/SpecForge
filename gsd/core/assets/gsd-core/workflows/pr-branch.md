@@ -86,46 +86,46 @@ if [ $? -ne 0 ] || [ -z "$SUB_REPOS_JSON" ] || [ "$SUB_REPOS_JSON" = "null" ] ||
 fi
 ```
 
-Scan each sub-repo for uncommitted changes using node (always available — avoids undeclared
-jq dependency). Write dirty repo names to a temp file so the list survives across
+Scan each sub-repo for uncommitted changes with jq and git (jq is a requirement of the
+shell blocks here, as git is). Write dirty repo names to a temp file so the list survives across
 subsequent command executions:
 
 ```bash
 ROOT=$(git rev-parse --show-toplevel)
 DIRTY_FILE=$(mktemp)
 
-node -e "
-  const repos = JSON.parse(process.argv[1]);
-  const { execFileSync } = require('child_process');
-  const path = require('path');
-  const fs = require('fs');
-  const root = process.argv[2];
-  // realpath parity with the pr-subrepo seam's validatePath: resolve $ROOT through
-  // symlinks once so the containment check below compares real paths, not text.
-  let realRoot;
-  try { realRoot = fs.realpathSync(root); } catch (_) { realRoot = path.resolve(root); }
-  const out = [];
-  for (const r of repos) {
-    // Reject before any git invocation: this scan runs on raw config values,
-    // ahead of the pr-subrepo seam's own validatePath guard. A traversal,
-    // embedded-newline, or symlink entry here would run git outside the
-    // workspace, or inject a spurious record into the dirty-file output.
-    if (typeof r !== 'string' || !/^[A-Za-z0-9._\/-]+$/.test(r)) continue;
-    // realpathSync follows symlinks — path.resolve only normalizes '..' textually,
-    // so an in-tree symlink pointing outside root would otherwise smuggle git out.
-    let resolved;
-    try { resolved = fs.realpathSync(path.resolve(realRoot, r)); } catch (_) { continue; }
-    if (resolved !== realRoot && !resolved.startsWith(realRoot + path.sep)) continue;
-    try {
-      const res = execFileSync('git', ['-C', resolved, 'status', '--porcelain'],
-                               { encoding: 'utf8', timeout: 10_000 });
-      // Exclude untracked-only repos: seam filters ?? lines, so detection must match.
-      const tracked = res.split('\n').filter(l => l.length > 0 && !l.startsWith('??'));
-      if (tracked.length > 0) out.push(r);
-    } catch (_) {}
-  }
-  fs.writeFileSync(process.argv[3], out.join('\n'));
-" "$SUB_REPOS_JSON" "$ROOT" "$DIRTY_FILE"
+printf '%s' "$SUB_REPOS_JSON" | jq -r '
+  # One name per line, so a name may hold the safe characters only: an embedded
+  # newline would otherwise split into two records before the shell reads them.
+  .[] | strings
+  | select(test("\\A[A-Za-z0-9._/-]+\\z"))
+' 2>/dev/null | {
+  # realpath parity with the pr-subrepo seam's validatePath: resolve $ROOT through
+  # symlinks once so the containment check below compares real paths, not text.
+  realRoot=$(cd -P -- "$ROOT" 2>/dev/null && pwd -P) || realRoot=$ROOT
+  while IFS= read -r r; do
+    # Reject before any git invocation: this scan runs on raw config values,
+    # ahead of the pr-subrepo seam's own validatePath guard. A traversal,
+    # embedded-newline, or symlink entry here would run git outside the
+    # workspace, or inject a spurious record into the dirty-file output.
+    # `cd -P` follows symlinks — a textual join does not, so an in-tree
+    # symlink pointing outside root would otherwise smuggle git out.
+    case "$r" in
+      /*) target=$r ;;
+      *) target=$realRoot/$r ;;
+    esac
+    resolved=$(cd -P -- "$target" 2>/dev/null && pwd -P) || continue
+    case "$resolved" in
+      "$realRoot" | "$realRoot"/*) ;;
+      *) continue ;;
+    esac
+    # Exclude untracked-only repos: seam filters ?? lines, so detection must match.
+    # shortcut: no 10 s timeout as node's execFileSync had (no portable `timeout`); a hung git hangs the scan
+    if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
+      printf '%s\n' "$r"
+    fi
+  done
+} > "$DIRTY_FILE"
 
 DIRTY_REPOS=$(cat "$DIRTY_FILE")
 ```
@@ -175,14 +175,14 @@ if [ "$SUBREPO_EXIT" -ne 0 ]; then
 fi
 ```
 
-Only when `$SUBREPO_EXIT` is `0`, parse the structured result with node and open the
+Only when `$SUBREPO_EXIT` is `0`, parse the structured result with jq and open the
 companion PR. If `remote_slug` is null (non-GitHub remote), skip `gh pr create` and show
 the push URL instead:
 
 ```bash
-REMOTE_SLUG=$(node -e "
-  try { console.log(JSON.parse(process.argv[1]).remote_slug || ''); } catch(_) {}
-" "$RESULT")
+REMOTE_SLUG=$(printf '%s' "$RESULT" | jq -r '
+  .remote_slug // empty
+' 2>/dev/null)
 
 if [ -n "$REMOTE_SLUG" ]; then
   # Defense-in-depth: $REPO_REL was already validated by the dirty-scan filter and
@@ -190,15 +190,15 @@ if [ -n "$REMOTE_SLUG" ]; then
   # invocations on the same value. Resolve it through symlinks with the SAME realpath
   # containment the seam uses (path.resolve alone would not catch a symlink escape),
   # and run git against the validated absolute path rather than re-concatenating.
-  SUB_REPO_DIR=$(node -e "
-    const fs = require('fs'), path = require('path');
-    try {
-      const realRoot = fs.realpathSync(process.argv[1]);
-      const resolved = fs.realpathSync(path.resolve(realRoot, process.argv[2]));
-      if (resolved !== realRoot && !resolved.startsWith(realRoot + path.sep)) process.exit(1);
-      process.stdout.write(resolved);
-    } catch (_) { process.exit(1); }
-  " "$ROOT" "$REPO_REL" 2>/dev/null)
+  SUB_REPO_DIR=$( (
+    # `cd -P` and `pwd -P` resolve symlinks, as realpathSync does; the containment test is the
+    # dirty scan's, and any failure prints nothing
+    realRoot=$(cd -P -- "$ROOT" && pwd -P) || exit 1
+    case "$REPO_REL" in /*) target=$REPO_REL ;; *) target=$realRoot/$REPO_REL ;; esac
+    resolved=$(cd -P -- "$target" && pwd -P) || exit 1
+    case "$resolved" in "$realRoot" | "$realRoot"/*) ;; *) exit 1 ;; esac
+    printf '%s' "$resolved"
+  ) 2>/dev/null)
 
   if [ -z "$SUB_REPO_DIR" ]; then
     echo "Refusing unsafe sub-repo path: $REPO_REL" >&2

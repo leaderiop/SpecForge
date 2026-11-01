@@ -221,10 +221,10 @@ SUMMARY_PATH="{phase_dir}/{plan_padded}-SUMMARY.md"
 # letter-suffixed phase number (#4619, #4748), reachable from THIS branch only, bounded to
 # the latest reachable tag (milestone marker). One `<sha> <subject>` line per commit, newest first.
 PHASE_NUMBER="{phase_number}"
-PLAN_COMMITS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${PHASE_NUMBER}-{plan_padded}" --kinds commit --format json | jq -c '{commits: [.nodes[]|select(.kind=="commit")|{sha: .fields.hash}]}') && PLAN_SCOPE_RC=0 || PLAN_SCOPE_RC=$?
+PLAN_COMMITS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${PHASE_NUMBER}-{plan_padded}" --kinds commit --format json | jq -c '{commits: [.nodes[]|select(.kind=="commit")|{sha: .fields.hash, subject: .fields.subject}]}') && PLAN_SCOPE_RC=0 || PLAN_SCOPE_RC=$?
 # Exit 69 (UNAVAILABLE) = "could not look": empty is then NOT "no commits". Fail closed (#5170).
 if [ "$PLAN_SCOPE_RC" -ne 0 ]; then echo "SAFE-RESUME GATE: could not resolve the plan's commits (evaluation-scope exit ${PLAN_SCOPE_RC}); not dispatching an executor on an unknown resume state." >&2; exit 1; fi
-PLAN_COMMITS=$(printf '%s' "$PLAN_COMMITS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).commits.map(c=>c.sha.slice(0,10)+' '+c.subject).join('\n'))}catch{}})")
+PLAN_COMMITS=$(printf '%s' "$PLAN_COMMITS" | jq -r '.commits[] | "\(.sha[0:10]) \(.subject)"' 2>/dev/null)
 ```
 If production commits exist and `SUMMARY.md is missing` (no the spec manifest matches it: a match is a legal `external_job_waiting` deferral - reconcile per `docs/reference/planning-artifacts.md`, never re-dispatch), stop before spawning a
 new executor; continuing risks duplicate work and stale `STATE.md`/ROADMAP progress.
@@ -239,9 +239,9 @@ Offer these recovery options:
 if [ "$TDD_MODE" = "true" ]; then
   IS_BEHAVIOR_ADDING="true"   # task.is-behavior-adding is not part of @gsd/core: treat every task as behavior-adding
   if [ "$IS_BEHAVIOR_ADDING" = "true" ]; then
-    # #5164: the same resolver, scope and milestone bound as safe_resume_gate — anchored,
-    # zero-pad tolerant (#4003, #4619, #4748), this branch only. A padded literal grep
-    # hard-halted on a correct unpadded RED commit.
+    # #5164: the RED commit is one of this plan's own commit entities (gsd-git files a commit under the
+    # plan its subject names; the plan id carries the milestone): a test-file commit of another plan, or
+    # of none, is not this plan's RED commit. jq exit 4 (no answer to read) is "could not look".
     # #4379: this pathspec IS the gate's definition of "a test file". It was
     # JS/TS-only, so Go tripped on every task; and `**/` never matches a
     # root-level path, so a root `foo.test.js` was invisible too. Bare globs
@@ -249,10 +249,10 @@ if [ "$TDD_MODE" = "true" ]; then
     # the gate pass on any in-scope commit. Trade-offs and the Rust gap:
     # references/tdd.md § Create first test file.
 
-    RED_COMMIT=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; git log -n 1 --format=%H -- '*.test.*' '*.spec.*' 'tests/' '__tests__/' '*_test.go' 'test_*.py' '*_test.py' '*_test.exs' '*_spec.rb' '*_test.rb' 2>/dev/null) && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
+    RED_COMMIT=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "$PLAN_ID" --kinds commit --format json | jq -ce --arg plan "$PLAN_ID" '{commits: [.nodes[] | select(.kind == "commit" and ((.fields.plan // "") as $p | $p == $plan or ($p | endswith("/" + $plan)))) | select(any(.fields.files[]?; test("\\.(test|spec)\\.|^(tests|__tests__)/|^test_.*\\.py$|_test\\.(go|py|exs|rb)$|_spec\\.rb$"))) | {sha: .fields.hash, subject: .fields.subject}]}') && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
     # Exit 69 (UNAVAILABLE) = the scope could not be resolved: that is not "missing RED commit" (#5170).
     if [ "$RED_SCOPE_RC" -ne 0 ]; then echo "TDD GATE UNAVAILABLE: could not resolve the plan's commits for ${PLAN_ID}/${TASK_ID} (evaluation-scope exit ${RED_SCOPE_RC})"; exit 1; fi
-    RED_COMMIT=$(printf '%s' "$RED_COMMIT" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const c=JSON.parse(s).commits;process.stdout.write(c.length?c[0].sha.slice(0,10)+' '+c[0].subject:'')}catch{}})")
+    RED_COMMIT=$(printf '%s' "$RED_COMMIT" | jq -r '.commits[0] // empty | "\(.sha[0:10]) \(.subject)"' 2>/dev/null)
     if [ -z "$RED_COMMIT" ]; then
       : # the last gate trip is not recorded: STATE is computed
       echo "TDD GATE TRIPPED: missing RED commit for ${PLAN_ID}/${TASK_ID}"
@@ -655,7 +655,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
      # checkout), which pins a non-primary (per-phase lane) orchestrator off its branch (#630).
      # Dispatch runs from the orchestrator's lane, so show-toplevel here is the correct root.
      ORCH_ROOT=$(git rev-parse --show-toplevel)
-     ORCH_ROOT="$ORCH_ROOT" MANIFEST="$WAVE_WORKTREE_MANIFEST" node -e 'const fs=require("fs");fs.writeFileSync(process.env.MANIFEST,JSON.stringify({orchestrator_root:process.env.ORCH_ROOT||null,worktrees:[]})+"\n")'
+     jq -nc --arg root "$ORCH_ROOT" '{orchestrator_root: (if $root == "" then null else $root end), worktrees: []}' > "$WAVE_WORKTREE_MANIFEST"
      export WAVE_WORKTREE_MANIFEST
    fi
    ```
@@ -870,7 +870,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    # list`'s first entry, which is always the main checkout and would pin a non-primary (per-phase
    # lane) orchestrator off its own branch, tripping the #3174 assertion below (#630). Byte-identical
    # for a primary orchestrator (its root IS the first entry); the fallback covers pre-#630 manifests.
-   PRIMARY_WT=$(MANIFEST="$WAVE_WORKTREE_MANIFEST" node -e 'const fs=require("fs");try{const j=JSON.parse(fs.readFileSync(process.env.MANIFEST,"utf8"));if(j&&j.orchestrator_root)process.stdout.write(String(j.orchestrator_root))}catch(e){}')
+   PRIMARY_WT=$(jq -r '.orchestrator_root // empty | tostring' "$WAVE_WORKTREE_MANIFEST" 2>/dev/null)
    [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
    if [ -z "$PRIMARY_WT" ]; then
      echo "FATAL: could not resolve orchestrator worktree before cleanup" >&2
@@ -892,13 +892,13 @@ increases monotonically across waves. `{status}` is `complete` (success),
    # Cleanup-tail: pin orchestrator CWD to its OWN worktree before cleanup-tail (#3174, #630).
    # Same fix as the templated path: resolve the dispatch-time orchestrator root from the manifest,
    # not `git worktree list`'s first entry (always the main checkout — wrong for a lane orchestrator).
-   PRIMARY_WT=$(MANIFEST="$WAVE_WORKTREE_MANIFEST" node -e 'const fs=require("fs");try{const j=JSON.parse(fs.readFileSync(process.env.MANIFEST,"utf8"));if(j&&j.orchestrator_root)process.stdout.write(String(j.orchestrator_root))}catch(e){}')
+   PRIMARY_WT=$(jq -r '.orchestrator_root // empty | tostring' "$WAVE_WORKTREE_MANIFEST" 2>/dev/null)
    [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
    if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before cleanup-tail (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
    # Cleanup-tail: remove residual agent worktrees after a cross-wave-dependency deviation.
    # Uses only the current wave manifest to avoid touching unrelated active agents (#3384).
    WT_PATHS_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-paths-XXXXXX")
-   node -e 'const fs=require("fs");const p=process.env.WAVE_WORKTREE_MANIFEST;try{if(!p)throw new Error("WAVE_WORKTREE_MANIFEST is unset");if(!fs.existsSync(p))throw new Error("manifest does not exist");const s=fs.readFileSync(p,"utf8");if(!s.trim())throw new Error("manifest is empty");const j=JSON.parse(s);for(const w of j.worktrees||[])if(w.worktree_path)console.log(w.worktree_path)}catch(e){console.error(`ERROR: cannot read worktree manifest ${p||"(unset)"}: ${e.message}`);process.exit(1)}' > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
+   { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else jq -rs 'if length == 0 then error("manifest is empty") elif length > 1 then error("manifest holds more than one document") else .[0] end | (.worktrees // []) | if type == "array" then .[] else error("worktrees is not a list") end | .worktree_path // empty' "$WAVE_WORKTREE_MANIFEST"; fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
    while IFS= read -r WT; do
      [ -z "$WT" ] && continue
      WT_BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null)

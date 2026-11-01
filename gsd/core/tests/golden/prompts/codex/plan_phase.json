@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 123578,
+  "bytes": 123544,
   "end": [
     "- Random emoji (`🚀`, `✨`, `💫`)",
     "- Missing Next Up block after completions",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5af348478338670be72dc2b1c15bfdbad8fc85a870d51145e70b81fb5c9c9a5f",
+    "digest": "sha256:13463ca0846d71aedf6cc6df6c9bbc0b108fa812b772c7f7debfacdbd9e3c211",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "5af348478338670be72dc2b1c15bfdbad8fc85a870d51145e70b81fb5c9c9a5f"
+  "sha256": "13463ca0846d71aedf6cc6df6c9bbc0b108fa812b772c7f7debfacdbd9e3c211"
 }

@@ -435,12 +435,12 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
    If the command succeeded, parse the JSON output and report the verdict:
    ```bash
    # Parse verdict and summary from REVIEW_OUTPUT JSON
-   VERDICT=$(echo "${REVIEW_OUTPUT}" | node -e "
-     let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{
-       try { const r=JSON.parse(d); console.log(r.verdict); }
-       catch(e) { console.log('INVALID_JSON'); }
-     });
-   ")
+   VERDICT=$(echo "${REVIEW_OUTPUT}" | jq -rs '
+     # exactly one JSON object; anything else (none, two, not an object) is INVALID_JSON
+     if length == 1 and (.[0] | type) == "object" then .[0].verdict
+     else error("not one JSON object") end
+   ' 2>/dev/null \
+     || echo 'INVALID_JSON')
    ```
    - If `verdict` is `"APPROVED"`: report approval with confidence and summary.
    - If `verdict` is `"REVISE"`: report issues found, list each issue with severity, file, line_range, description, and suggestion.
