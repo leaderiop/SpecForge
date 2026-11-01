@@ -616,3 +616,54 @@ mod worktree {
         );
     }
 }
+
+/// The lines of a `<required_reading>` / `<files_to_read>` block of `text` that hand a sub-agent an upstream artifact
+/// file (`-PLAN.md`, `-CONTEXT.md`, ...): here each is an entity, read with `specforge query`.
+fn reading_list_paths(label: &str, text: &str) -> Vec<String> {
+    let path =
+        regex::Regex::new(r"-(PLAN|CONTEXT|RESEARCH|SUMMARY|VERIFICATION)\.md").expect("a regex");
+    let mut inside = false;
+    let mut found = Vec::new();
+    for line in text.lines() {
+        let tag = line.trim_start();
+        if tag.starts_with("<required_reading>") || tag.starts_with("<files_to_read>") {
+            inside = true;
+        } else if tag.starts_with("</required_reading>") || tag.starts_with("</files_to_read>") {
+            inside = false;
+        } else if inside && path.is_match(line) {
+            found.push(format!("{label}: {line}"));
+        }
+    }
+    found
+}
+
+#[test]
+fn no_quick_reading_list_names_an_artifact_file() {
+    let p = twin();
+    let mut found = Vec::new();
+    for host in ["claude-code", "codex", "cursor"] {
+        for (id, args) in [
+            (
+                "quick",
+                &["--full", "--validate", "--discuss", "--research", "t"][..],
+            ),
+            ("quick_batch", &["--research", "a; b"][..]),
+        ] {
+            let text = text_of(&payload(&prompt(&p, id, args, host)));
+            found.extend(reading_list_paths(&format!("{id} ({host})"), &text));
+        }
+    }
+    let workflows =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/gsd-core/workflows");
+    let mut served = vec![workflows.join("quick.md"), workflows.join("quick-batch.md")];
+    for dir in ["quick/steps", "quick-batch/steps"] {
+        for entry in std::fs::read_dir(workflows.join(dir)).expect("the steps") {
+            served.push(entry.expect("a step").path());
+        }
+    }
+    for file in served {
+        let text = std::fs::read_to_string(&file).expect("a served step");
+        found.extend(reading_list_paths(&file.display().to_string(), &text));
+    }
+    assert_eq!(found, Vec::<String>::new());
+}

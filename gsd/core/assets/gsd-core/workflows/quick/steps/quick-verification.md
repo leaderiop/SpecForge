@@ -17,7 +17,7 @@ Task directory: ${QUICK_DIR}
 Task goal: ${DESCRIPTION}
 
 <required_reading>
-- ${QUICK_DIR}/${quick_id}-PLAN.md (Plan)
+- `specforge query ${quick_id} --depth 1 --format context` (Plan)
 </required_reading>
 
 ${AGENT_SKILLS_VERIFIER}

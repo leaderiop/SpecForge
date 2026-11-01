@@ -8,17 +8,21 @@ use gsd_kit::dsl::*;
 const CONFIDENCE: &[&str] = &["high", "medium", "low"];
 const RESPONSIBILITY: &[Field] = &[str("capability"), str("tier")];
 
-/// `NN-RESEARCH.md`, named `02-RESEARCH`; the project's research (`research/*.md`) is named `RESEARCH` and has no phase.
+/// `NN-RESEARCH.md`, named `02-RESEARCH`; the project's research (`research/*.md`) is named `RESEARCH` and has no phase;
+/// a quick plan's (`<quick_id>-RESEARCH.md`) names its quick plan in `plan` instead.
 pub const RESEARCH: Kind = Kind::new(
     "research",
-    "Research for a phase, or for the project (GSD NN-RESEARCH.md, research/*.md)",
+    "Research for a phase, a quick plan or the project (GSD NN-RESEARCH.md, <quick_id>-RESEARCH.md, research/*.md)",
     &[
         rf("phase", "phase")
             .i()
-            .doc("absent for the project's research"),
+            .doc("absent for the project's research and a quick plan's"),
+        rf("plan", "plan")
+            .i()
+            .doc("the quick plan of a quick task's research (/gsd-quick --research)"),
         str("context_digest")
             .h()
-            .doc("the digest of the phase's context when the research was recorded (gsd/W406)"),
+            .doc("the digest of the phase's (or quick plan's) context when the research was recorded (gsd/W406)"),
         str("domain"),
         date("researched").i(),
         en("confidence", CONFIDENCE).r(),

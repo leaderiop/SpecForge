@@ -61,7 +61,7 @@
     "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:",
     "```"
   ],
-  "bytes": 13729,
+  "bytes": 13758,
   "end": [
     "<step name=\"test_plan\">",
     "Generate a human UAT test plan for \"Testable Now\" + \"active\" items only:",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f779fae1810fa3d2ca997756cb2e7e2bee1e44649b3d6015d5f5b28c833780ee",
+    "digest": "sha256:b7b4c5d3ab50c35a4eca4f002cb66ec0d8ded1244cce0740b7ef7640935c2808",
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "f779fae1810fa3d2ca997756cb2e7e2bee1e44649b3d6015d5f5b28c833780ee"
+  "sha256": "b7b4c5d3ab50c35a4eca4f002cb66ec0d8ded1244cce0740b7ef7640935c2808"
 }

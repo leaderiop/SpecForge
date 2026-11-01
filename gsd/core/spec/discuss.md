@@ -1,25 +1,30 @@
 # Discuss, specify, research
 
 ```
- phase ─1──0..1─ context ─1──*─ decision           phase ─1──0..1─ phase_spec ─1──*─ locked_req
-                    ├──*─ deferred_idea                              └──*─ interview
-                    └──*─ canonical_refs (a block of the context)
+ phase | plan(quick) ─1──0..1─ context ─1──*─ decision     phase ─1──0..1─ phase_spec ─1──*─ locked_req
+                                  ├──*─ deferred_idea (a phase's only)            └──*─ interview
+                                  └──*─ canonical_refs (a block of the context)
  phase ─1──0..1─ discussion (audit log, append-only)
- phase | project ─1──0..1─ research ─1──*─ finding | stack_choice | pattern | pitfall | dont_hand_roll
-                                      └──*─ open_question            each item ─*─ source
+ phase | project | plan(quick) ─1──0..1─ research ─1──*─ finding | stack_choice | pattern | pitfall
+                                                    ├──*─ dont_hand_roll | open_question
+                                                    └── each item ─*─ source
 ```
 
-Files: `context.spec`, `research.spec` in the phase folder; project research in `spec/gsd/knowledge/research/`.
+Files: `context.spec`, `research.spec` in the phase folder; project research in `spec/gsd/knowledge/research/`; a quick
+plan's context, decisions and research beside it (`/gsd-quick --discuss --research`).
 
-The `0..1` of the diagram is enforced by `gsd/E206`: the kernel's scopes would allow a second context, spec, discussion log or research in a phase, and the project a second research, so the second and later, by id, are reported. A research without `phase` is the project's research and must be named `RESEARCH`; any other phaseless research is reported too.
+The `0..1` of the diagram is enforced by `gsd/E206`: the kernel's scopes would allow a second context, spec, discussion log or research in a phase, a quick plan a second context or research, and the project a second research, so the second and later, by id, are reported. A quick plan has no phase, so its context, decisions and research name it in `plan` and are in the project scope, as it is; they are counted by the plan they name. E206 also holds the owner: a context names exactly one of `phase` and `plan`, a decision and a research at most one, and a `plan` must be a quick plan (one with no phase). A research with neither is the project's research and must be named `RESEARCH`; any other is reported too.
 
 ## context
 
-GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by it. Name `03-CONTEXT`.
+GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by it. Name `03-CONTEXT`. A quick task's
+`<quick_id>-CONTEXT.md` (`/gsd-quick --discuss`) is one per quick plan, names it in `plan`, and is in the project scope:
+name `251101-abc-CONTEXT`.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
-| phase | → phase | R I | file location |
+| phase | → phase | I | file location; absent for a quick plan's context (not `R`: gsd/E206 requires exactly one of `phase` and `plan`) |
+| plan | → plan | I | (quick) `quick/<id>/<id>-CONTEXT.md`: the quick plan, which has no phase |
 | gathered | date | I | `**Gathered:**` |
 | boundary | text | R | `<domain>` `## Phase Boundary` |
 | discretion | strs | | `### Claude's Discretion` |
@@ -32,11 +37,13 @@ GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by 
 ## decision
 
 GSD: `- **D-NN:**` in CONTEXT, PROJECT `Key Decisions` rows, SUMMARY `key-decisions`. A decision of `origin summary` has no `from_summary` field: the summary names it by `summary.key_decisions`, and a relation is written from one side (W162); the graph derives the way back. Name `D-01`, scoped by its phase
-(or by the project for project decisions).
+(or by the project for project decisions; a quick context's decision is in the project scope too, names its quick plan
+in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project decision).
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | phase | → phase | I | owning CONTEXT; absent for a project decision |
+| plan | → plan | I | owning quick CONTEXT: the quick plan whose context recorded it (a quick context's digest covers its `origin context` decisions; at most one of `phase` and `plan`, gsd/E206) |
 | area | str | | `### [Area]` |
 | text | str | R | the decision |
 | rationale | str | | Key Decisions `Rationale` |
@@ -78,8 +85,11 @@ An audit record: no agent context is built from it.
 GSD: `NN-RESEARCH.md` (phase) and `research/{STACK, FEATURES, ARCHITECTURE, PITFALLS, SUMMARY}.md` (project). The
 Markdown sections become typed items, so a pitfall or an open question can be referenced, checked and queried.
 
-**research**: name `03-RESEARCH` (project research: `RESEARCH`); each item kind below is scoped by its `research` and named `F1`, `SC1`, `P1`, `PF1`, `DH1`, `OQ1`, `SRC1`, `PA1`.
-`phase → phase` (absent for project research), `context_digest str H` (as on the spec; gsd/W406), `domain str`, `researched date I`,
+**research**: name `03-RESEARCH` (project research: `RESEARCH`; a quick plan's: `251101-abc-RESEARCH`, though any name
+is allowed); each item kind below is scoped by its `research` and named `F1`, `SC1`, `P1`, `PF1`, `DH1`, `OQ1`, `SRC1`, `PA1`.
+`phase → phase` (absent for project research and a quick plan's), `plan → plan I` (a quick plan's research,
+`/gsd-quick --research`; at most one of `phase` and `plan`, gsd/E206), `context_digest str H` (as on the spec, against
+the quick plan's context for a quick research; gsd/W406), `domain str`, `researched date I`,
 `confidence enum{high, medium, low} R`, `summary text R`, `user_constraints →* decision`,
 `responsibility_map {capability str, tier str}`.
 
@@ -97,4 +107,4 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 `package_audit.legitimacy` is `V`: the outcome of the phase researcher's verdict on `gsd/W205`, so a hand-written value is E082 (`specforge query <audit> --inputs gsd/W205`, then `specforge gsd record-verdict`). `context.status` is declared `C` and answered by the derive pass (r38): `ready_for_planning` when `boundary` is written and `canonical_refs` has an item, else `gathering`.
 
 An `open_question` with no `resolved_by` is what the plan checker's research-resolution dimension flags; here it is a
-rule over the graph, `gsd/W204` ([rules](rules.md)), for a phase's research only: the plan checker reads the phase's `RESEARCH.md`, so the project's research (the one named `RESEARCH`) is exempt; a phaseless research with another name is E206 and is judged as a phase's.
+rule over the graph, `gsd/W204` ([rules](rules.md)), for a phase's research and a quick plan's (upstream's quick planner reads its `RESEARCH.md` too): the plan checker reads the phase's `RESEARCH.md`, so the project's research (the one named `RESEARCH`) is exempt; a research with neither `phase` nor `plan` and another name is E206 and is judged as a phase's.

@@ -1,6 +1,7 @@
 //! The research pass: `gsd/W204`, an open question of a phase's research that no decision resolves. The plan checker's
-//! research-resolution dimension reads the phase's `RESEARCH.md` only, so the project's research (the one named `RESEARCH`) is exempt. A research without `phase` and with another name is
-//! E206, and its questions get W204 as a phase's would.
+//! research-resolution dimension reads the phase's `RESEARCH.md` only, so the project's research (the one named `RESEARCH`) is exempt. A quick plan's research
+//! (it names the quick plan in `plan`) is judged as a phase's: upstream's quick planner reads its RESEARCH.md too. A research
+//! with neither `phase` nor `plan` and another name is E206, and its questions get W204 as a phase's would.
 //!
 //! Also ports gsd-core bin/lib modules: research-provider.cjs.
 
@@ -38,7 +39,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
                 format!("open question '{}' is resolved by no decision", q.id),
             )
             .with_suggestion(
-                "record the answer as a decision of the phase and name it in resolved_by (GSD: mark it RESOLVED)",
+                "record the answer as a decision of the phase (or quick plan) and name it in resolved_by (GSD: mark it RESOLVED)",
             )
             .with_entity(&q.id)
         })

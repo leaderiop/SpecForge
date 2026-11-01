@@ -191,7 +191,7 @@ pub static CODES: &[Code] = &[
     code(
         "E206",
         "More than one context, spec, log or research",
-        "A phase has at most one context, phase spec, discussion log and research, and the project at most one research",
+        "A phase has at most one context, phase spec, discussion log and research, a quick plan at most one context and research, and the project at most one research, named RESEARCH. A context names exactly one owner (`phase` or a quick plan in `plan`), a decision and a research at most one; a `plan` owner has no phase, and a quick plan's research is not named RESEARCH",
         "discuss-spec-research",
         Severity::Error,
         Severity::Error,

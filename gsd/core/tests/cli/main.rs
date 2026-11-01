@@ -84,6 +84,7 @@ mod prompts_support;
 mod prompts_verify;
 mod prompts_workspace;
 mod queries;
+mod quick_context;
 mod reference;
 mod render_prompts;
 mod rendered_lines;

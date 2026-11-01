@@ -61,7 +61,7 @@
     "   chain. Or proceed anyway to accept the gaps as tech debt.",
     ""
   ],
-  "bytes": 13410,
+  "bytes": 13439,
   "end": [
     "",
     "7. **Commit and tag:**",
@@ -133,7 +133,7 @@
     "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
-    "| `quick/*` | plan, summary (a quick plan has no phase) |",
+    "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
     "| `workstreams/*` | workstream (a scope) |",
     "",
     "Read an entity with `specforge query <id> [--kinds <kind>] [--depth <n>] [--format json]` (MCP tool `specforge.query`).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c04e32222f993cc86e4098c9753976558f9c5af9c38688718987adad2da77765",
+    "digest": "sha256:824dc967fd1a8e78b300246118a424e49ac70c69e38605bb9123d652009d880f",
     "prompt": "@gsd/core@VERSION:complete_milestone",
     "steps": [
       {
@@ -229,5 +229,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "c04e32222f993cc86e4098c9753976558f9c5af9c38688718987adad2da77765"
+  "sha256": "824dc967fd1a8e78b300246118a424e49ac70c69e38605bb9123d652009d880f"
 }

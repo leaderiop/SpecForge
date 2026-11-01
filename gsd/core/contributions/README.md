@@ -212,6 +212,14 @@ Found by REVIEW-r43 and kept, each on purpose or as a kernel limit (K20):
   `spec/quick.spec`, and the executor checks its own worktree's `spec/quick.spec`, restoring `spec/` from
   `QUICK_PLAN_COMMIT` when the plan is missing there. With no commit that declared the plan, there is no alternate
   worktree base (upstream falls back to `HEAD`).
+- `quick --discuss` / `--research` (G3): upstream writes `quick/<id>/<id>-CONTEXT.md` and `<id>-RESEARCH.md`; here
+  they are a `context` (its decisions are `decision`s named `<id>-D-01`, `origin context`) and a `research` that name
+  the quick plan in `plan` and sit in the project scope beside it. `gsd/E206` holds one context and one research per
+  quick plan, a context naming exactly one of `phase` and `plan`, and a `plan` that is a quick plan. A reference needs
+  its target, so the quick plan is made first, by whichever of the two steps runs first, and the planner then sets its
+  fields with `specforge set`. The sub-agents' reading lists hand a `specforge query` of the plan, the context or the
+  research instead of a path, and the orchestrator's existence checks query the entity. The plan checks
+  (`gsd/W311`–`W316`) select the context by `self.phase`, so a quick plan's check reads no context.
 - A lesson id `L-<phase>-<n>` is not unique across milestones: with `--reset-phase-numbers` the re-run rule (`specforge
   set` an existing id) overwrites an earlier milestone's lesson.
 - `/gsd-settings` writes no `~/.gsd/defaults.json` (it is upstream GSD's store and nothing here reads it): there are no

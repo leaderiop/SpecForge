@@ -61,7 +61,7 @@
     "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
     "```"
   ],
-  "bytes": 30529,
+  "bytes": 30558,
   "end": [
     "",
     "---",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:62ec9017d6246028fdf18f4cc409fa48e0fde0b15243c48bc43c3d037a22f4e4",
+    "digest": "sha256:df32274ce486bc11a971565a324b8b60723e4969b68273809946d54ae835b701",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "62ec9017d6246028fdf18f4cc409fa48e0fde0b15243c48bc43c3d037a22f4e4"
+  "sha256": "df32274ce486bc11a971565a324b8b60723e4969b68273809946d54ae835b701"
 }

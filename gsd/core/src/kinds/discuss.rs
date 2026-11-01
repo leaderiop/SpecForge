@@ -5,12 +5,18 @@ use gsd_kit::dsl::*;
 const CANONICAL_REF: &[Field] = &[str("topic"), files("paths")];
 const CONTEXT_STATUS: &[&str] = &["gathering", "ready_for_planning"];
 
-/// `NN-CONTEXT.md`, named `02-CONTEXT` and scoped by its phase.
+/// `NN-CONTEXT.md`, named `02-CONTEXT` and scoped by its phase; a quick plan's (`<quick_id>-CONTEXT.md`) names its
+/// quick plan in `plan` and is in the project scope. Exactly one of the two is written (gsd/E206).
 pub const CONTEXT: Kind = Kind::new(
     "context",
-    "A phase's context: its boundary, canonical references and discretion (GSD NN-CONTEXT.md)",
+    "A phase's or a quick plan's context: its boundary, canonical references and discretion (GSD NN-CONTEXT.md, <quick_id>-CONTEXT.md)",
     &[
-        rf("phase", "phase").r().i().doc("file location"),
+        rf("phase", "phase")
+            .i()
+            .doc("file location; absent for a quick plan's context"),
+        rf("plan", "plan")
+            .i()
+            .doc("the quick plan of a quick task's context (/gsd-quick --discuss)"),
         date("gathered").i().doc("**Gathered:**"),
         str("boundary").r().doc("<domain> Phase Boundary"),
         strs("discretion").doc("Claude's Discretion"),
@@ -44,6 +50,9 @@ pub const DECISION: Kind = Kind::new(
         rf("phase", "phase")
             .i()
             .doc("owning CONTEXT; absent for a project decision"),
+        rf("plan", "plan")
+            .i()
+            .doc("owning quick CONTEXT: the quick plan whose context recorded it"),
         str("area").doc("### [Area]"),
         str("text").r().doc("the decision"),
         str("rationale").doc("Key Decisions Rationale"),

@@ -61,7 +61,7 @@
     "- the phase's `verification` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds verification --format context`) — verification results",
     "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results"
   ],
-  "bytes": 29227,
+  "bytes": 29256,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4e2d1ae4c4f64e16ce4c9efea80e14d37752bbc0d279acb5e591ecb0c9d72dfa",
+    "digest": "sha256:c25607a04e7663733e530a1782f56c64f6be1d82d7836da7d484307f82f21977",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "4e2d1ae4c4f64e16ce4c9efea80e14d37752bbc0d279acb5e591ecb0c9d72dfa"
+  "sha256": "c25607a04e7663733e530a1782f56c64f6be1d82d7836da7d484307f82f21977"
 }

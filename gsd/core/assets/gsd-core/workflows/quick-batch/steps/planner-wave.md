@@ -14,8 +14,8 @@ in wave 0 before any signal exists).
 `pending` and missing a PLAN.md:**
 
 1. From `$BATCH_MANIFEST_JSON`, find the LOWEST `wave` value among items that
-   are `status == "pending"` AND whose `${item_dir}/${quick_id}-PLAN.md` does
-   not yet exist on disk (derive `$item_dir` via `generate-slug` on each
+   are `status == "pending"` AND whose plan `${quick_id}` is
+   not yet planned (it holds no task: `[ "$(specforge query "${quick_id}" --kinds task --depth 1 --format json | jq '[.nodes[]|select(.kind=="task")]|length')" -gt 0 ]` fails; derive `$item_dir` via `generate-slug` on each
    item's `description`, same as every other step). Call this `$CUR_WAVE`.
    If no such item exists, the loop is done — continue to Step 5.
 
@@ -89,7 +89,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    <required_reading>
    - ${STATE_PATH} (Project State)
    - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists)
-   ${RESEARCH_MODE ? '- ' + item_dir + '/' + quick_id + '-RESEARCH.md (Research findings, if present)' : ''}
+   ${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings, if present)' : ''}
    </required_reading>
 
    ${AGENT_SKILLS_PLANNER}
@@ -99,7 +99,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    </planning_context>
 
    <constraints>
-   - Create a SINGLE plan with 1-3 focused tasks for THIS item only
+   - Create a SINGLE plan with 1-3 focused tasks for THIS item only${RESEARCH_MODE ? ' — plan ' + quick_id + ' already exists (made before research): fill it with `specforge set ' + quick_id + ' <field> <value>`, add its tasks with `specforge new task <id> "<title>" --in spec/quick.spec --plan ' + quick_id + '`, never `specforge new plan`' : ''}
    - ALWAYS emit `depends_on` frontmatter (array of sibling `quick_id`s from
      the task catalog above — empty array if none) — required regardless of
      `--validate` (row 14). Reference ONLY quick ids from the catalog above;
@@ -127,7 +127,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    > this layer, wait for every one to return before continuing.
 
 6. **After every planner in the layer returns:** verify
-   `${item_dir}/${quick_id}-PLAN.md` exists for each. If any is missing, mark
+   plan `${quick_id}` holds a task for each (`[ "$(specforge query "${quick_id}" --kinds task --depth 1 --format json | jq '[.nodes[]|select(.kind=="task")]|length')" -gt 0 ]`). If any is missing, mark
    that item `failed` (`quick-batch complete` is never called for it) and
    continue with the rest of the layer — one item's planner failure does not
    block unrelated items (row 33).

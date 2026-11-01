@@ -61,7 +61,7 @@
     "  test -f \"{MANIFEST_PATH}\" || echo \"MANIFEST_NOT_FOUND\"",
     "fi"
   ],
-  "bytes": 51589,
+  "bytes": 51618,
   "end": [
     "1. **Its own check list per bucket** — which conditions are BLOCKER vs WARNING vs INFO. These are domain-specific (plan ingestion checks are not doc ingestion checks).",
     "2. **The loaded context** — what it reads (ROADMAP.md, PROJECT.md, REQUIREMENTS.md, CONTEXT.md, intel files) before running checks.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:af2b15d6edc1925f3dfe27686598bcc9ef59bc63f3770608f3ae85f0166491bd",
+    "digest": "sha256:ccd2bdacfc41b625c6750c85dd1a1b2b537b666c4b4518137f44631137228d82",
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "af2b15d6edc1925f3dfe27686598bcc9ef59bc63f3770608f3ae85f0166491bd"
+  "sha256": "ccd2bdacfc41b625c6750c85dd1a1b2b537b666c4b4518137f44631137228d82"
 }

@@ -80,6 +80,10 @@ fn quick_plan_text(quick_id_is: &str) -> String {
      ```\n\n\
      `start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps \
      both of its times. The project state is computed, so no task row is written. \
+     With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist \
+     before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as \
+     its objective), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since \
+     `specforge new` refuses an id that exists. \
      `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so.\n"
     )
 }
