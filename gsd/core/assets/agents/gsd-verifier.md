@@ -647,13 +647,13 @@ Deferred items are informational only — they do not require closure plans.
 1. Top-level "User Flow Coverage" table: each step of the user story → expected → evidence in codebase → status. (Format defined in `gsd-core/references/verify-mvp-mode.md`.)
 2. Standard technical-check sections (API verification, error handling, etc.) follow below — only if the user flow coverage is complete.
 
-**User Story format guard:** Check the goal against its form:
+**User Story format guard:** Check the goal with the user-story command:
 
 ```bash
-USER_STORY_VALID=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal' | grep -Eq '^As a .+, I want to .+, so that .+\.$' && echo true || echo false)   # the phase goal against the canonical user story form
+USER_STORY_VALID=$(specforge gsd user-story-validate --story "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')" --pick .valid)
 ```
 
-If `valid != true`, refuse to verify. Surface the discrepancy and ask the user to run `/gsd:mvp-phase ${PHASE}` to set a proper User Story goal. The canonical form is `/^As a .+, I want to .+, so that .+\.$/`. Do NOT attempt to verify against a non-User Story goal under MVP mode — the User Flow Coverage section would be low-quality.
+If `valid != true`, refuse to verify. Surface the discrepancy and ask the user to run `/gsd:mvp-phase ${PHASE}` to set a proper User Story goal. The command owns the canonical form `/^As a (\S.*?), I want to (\S.*?), so that (\S.*?)\.$/` on one line and answers per-error guidance in `errors[]` plus the slots `role`, `capability` and `outcome`. Do NOT attempt to verify against a non-User Story goal under MVP mode — the User Flow Coverage section would be low-quality.
 
 **Mode is all-or-nothing per phase** (PRD decision Q1, inherited from Phase 1). The MVP Mode Verification rules apply to the whole phase or not at all.
 

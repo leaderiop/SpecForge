@@ -373,6 +373,13 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/review.md", 59),
     ("gsd-core/workflows/review.md", 86),
     ("gsd-core/workflows/review.md", 87),
+    // G4 plan 05 review R3: the user story is checked by `specforge gsd user-story-validate`, whose canonical regex
+    // (`\S` at each slot, one line) the prose now names.
+    ("gsd-core/workflows/mvp-phase.md", 104),
+    (
+        "gsd-core/workflows/verify-work/steps/mvp-uat-framing.md",
+        26,
+    ),
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[

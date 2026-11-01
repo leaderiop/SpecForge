@@ -103,12 +103,12 @@ USER_STORY="As a ${ROLE}, I want to ${CAPABILITY}, so that ${OUTCOME}."
 
 If any of the three answers is empty or whitespace-only, error and re-prompt that single field. Do NOT proceed with a partial story.
 
-**Validate via the centralized User Story validator.** The verb owns the canonical regex `/^As a .+, I want to .+, so that .+\.$/` and surfaces per-error guidance:
+**Validate via the centralized User Story validator.** The command owns the canonical regex `/^As a (\S.*?), I want to (\S.*?), so that (\S.*?)\.$/` on one line and surfaces per-error guidance:
 
 ```bash
-printf '%s' "$USER_STORY" | grep -Eq '^As a .+, I want to .+, so that .+\.$' && USER_STORY_ERROR= || USER_STORY_ERROR='Write the story as: As a <role>, I want to <capability>, so that <benefit>.'
-if [ -n "$USER_STORY_ERROR" ]; then
-  echo "$USER_STORY_ERROR" >&2
+USER_STORY_RESULT=$(specforge gsd user-story-validate --story "$USER_STORY" --pick .valid)
+if [ "$USER_STORY_RESULT" != "true" ]; then
+  specforge gsd user-story-validate --story "$USER_STORY" --pick '.errors[]' >&2
   # Re-prompt the offending field(s) per surfaced errors, then re-run validation.
   # Do not abort the workflow on first invalid draft.
   RE_PROMPT_USER_STORY=true

@@ -61,7 +61,7 @@
     "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
     "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 34585,
+  "bytes": 34568,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:41c6a4320cb7b838a363d71329fb483e89e627c08f45f163b294046af3154c21",
+    "digest": "sha256:d0cb2a287c5b5c07c17e79eb1c4bffe69a8c36ebc32b6602976625f215513ae3",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "41c6a4320cb7b838a363d71329fb483e89e627c08f45f163b294046af3154c21"
+  "sha256": "d0cb2a287c5b5c07c17e79eb1c4bffe69a8c36ebc32b6602976625f215513ae3"
 }

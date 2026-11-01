@@ -16,6 +16,7 @@ mod state;
 pub(crate) mod support;
 pub(crate) use support::natural;
 mod surface;
+mod user_story;
 mod verdict;
 mod verify;
 mod windows;
@@ -78,6 +79,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     help::declare(c);
     reports::declare(c);
     reference::declare(c);
+    user_story::declare(c);
     package_manager::declare(c);
     smart_entry::declare(c);
     surface::declare(c);

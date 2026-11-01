@@ -56,8 +56,8 @@
     "sha256": "25f98bd1fceb2ac7dc2729833034457c426155496caf763544b3ffd4296abbaa"
   },
   ".claude/agents/gsd-verifier.md": {
-    "bytes": 50621,
-    "sha256": "468a743c630247084ddff9ac5dfc51dfcddf7cc5a4e42904b4be5afbdd67f6bb"
+    "bytes": 50694,
+    "sha256": "79fa47b1f6cb1878292cc9f9f31b95cca6d84af4ac1debd1848733847d85b3dc"
   },
   ".claude/settings.json": {
     "bytes": 3736,

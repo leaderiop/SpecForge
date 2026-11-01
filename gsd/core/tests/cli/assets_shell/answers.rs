@@ -28,8 +28,9 @@ fn shell() -> Option<Shell> {
 }
 
 /// Port bug: `check --format json | jq '[.diagnostics[]? …]'` read a field of the bare diagnostic list, so the guard
-/// was always true; and `gsd/W205` is the package-legitimacy verdict, not the user story. The guard reads the
-/// phase's goal against the canonical form, as upstream's `user-story.validate --story "$PHASE_GOAL"` did.
+/// was always true; and `gsd/W205` is the package-legitimacy verdict, not the user story. The guard hands the
+/// phase's goal to `gsd user-story-validate`, upstream's `user-story validate --story "$PHASE_GOAL"`: a blank slot or a
+/// story on two lines is no user story, which a `grep` for `.+` let through.
 #[test]
 fn the_user_story_guard_reads_the_phase_goal() {
     let Some(sh) = shell() else { return };
@@ -53,16 +54,26 @@ fn the_user_story_guard_reads_the_phase_goal() {
     );
     let spec = p.root().join("spec/v1.0.spec");
     let text = std::fs::read_to_string(&spec).expect("the roadmap");
-    let story = "As a user, I want to save my tasks, so that none is lost.";
-    std::fs::write(
-        &spec,
-        text.replace(
-            "\"Tasks are saved to disk and read back\"",
-            &format!("\"{story}\""),
+    for (story, want) in [
+        (
+            "As a user, I want to save my tasks, so that none is lost.",
+            "[true]",
         ),
-    )
-    .expect("a user story goal");
-    assert_eq!(guard("v1.0/02"), "[true]");
+        (
+            "As a  , I want to save my tasks, so that none is lost.",
+            "[false]",
+        ),
+    ] {
+        std::fs::write(
+            &spec,
+            text.replace(
+                "\"Tasks are saved to disk and read back\"",
+                &format!("\"{story}\""),
+            ),
+        )
+        .expect("a goal");
+        assert_eq!(guard("v1.0/02"), want, "{story}");
+    }
 }
 
 /// Port bug: `grep -v "${PHASE_NUMBER}"` with an empty phase number dropped every prior verification, so the gate ran
@@ -263,35 +274,75 @@ fn an_inline_run_reads_the_graph_with_pick() {
     }
 }
 
+/// `/gsd-mvp-phase` checks the story it built with `gsd user-story-validate` and prints the command's errors, so a
+/// blank slot (the three answers were only checked for being empty) is re-prompted.
 #[test]
-fn a_user_story_is_checked_in_the_shell() {
+fn a_user_story_is_checked_by_specforge() {
     let Some(sh) = shell() else { return };
+    let p = taskboard();
     let text = asset("gsd-core/workflows/mvp-phase.md");
-    let check = block(
-        &text,
-        "printf '%s' \"$USER_STORY\" | grep -Eq",
-        "RE_PROMPT_USER_STORY=true",
-    ) + "\nfi";
-    for (story, want) in [
+    let check = block(&text, "USER_STORY_RESULT=$(", "RE_PROMPT_USER_STORY=true") + "\nfi";
+    for (story, want, error) in [
         (
             "As a user, I want to add a task, so that I remember it.",
             "[]",
+            "",
         ),
-        ("Tasks can be added", "[true]"),
+        (
+            "Tasks can be added",
+            "[true]",
+            "Story must start with \"As a [user role],\"",
+        ),
+        (
+            "As a user, I want to  , so that I remember it.",
+            "[true]",
+            "capability must be non-empty",
+        ),
     ] {
         let (out, err, _) = sh.run_in(
-            sh.bin.path(),
+            p.root(),
             &format!(
                 "USER_STORY={}\n{check}\nprintf '[%s]' \"$RE_PROMPT_USER_STORY\"",
                 q(story)
             ),
         );
-        assert_eq!(out, want, "{story}");
-        assert_eq!(
-            err.contains("Write the story as"),
-            want == "[true]",
-            "{err}"
+        assert_eq!(out, want, "{story}: {err}");
+        assert!(err.contains(error), "{story}: {err}");
+    }
+}
+
+/// The MVP UAT framing reads the phase goal with the verifier's own check: a lowercase story without `to` or a final
+/// period, which its `grep -qiE` took, is refused.
+#[test]
+fn the_mvp_uat_framing_checks_the_goal_with_specforge() {
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    let spec = p.root().join("spec/v1.0.spec");
+    let text = std::fs::read_to_string(&spec).expect("the roadmap");
+    for (story, want) in [
+        (
+            "As a user, I want to save my tasks, so that none is lost.",
+            "[true]",
+        ),
+        ("as a user, i want saving so that none is lost", "[false]"),
+    ] {
+        std::fs::write(
+            &spec,
+            text.replace(
+                "\"Tasks are saved to disk and read back\"",
+                &format!("\"{story}\""),
+            ),
+        )
+        .expect("a goal");
+        let (out, _) = run(
+            &sh,
+            &p,
+            "gsd-core/workflows/verify-work/steps/mvp-uat-framing.md",
+            "PHASE_ID=v1.0/02",
+            &["PHASE_GOAL=$(", "USER_STORY_VALID=$("],
+            "printf '[%s]' \"$USER_STORY_VALID\"",
         );
+        assert_eq!(out, want, "{story}");
     }
 }
 
