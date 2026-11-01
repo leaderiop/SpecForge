@@ -48,3 +48,30 @@ fn the_review_and_the_learnings_read_the_phases_own_plans() {
     // the coverage check matches each id as text, it escapes no regex
     assert!(!asset("gsd-core/workflows/review.md").contains("regex-escaped"));
 }
+
+/// Item 10: complete-milestone's readiness compares the milestone's computed phase counts; a query that fails (an
+/// unknown milestone, a graph without its computed values) prints two empty picks, which once compared equal and set
+/// `ALL_PHASES_VERIFIED=true`. Only two counts that SpecForge answered, and agree, make it true.
+#[test]
+fn a_failed_readiness_query_does_not_verify_the_milestone() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/complete-milestone.md");
+    let line = super::line(&text, "ALL_PHASES_VERIFIED=false;");
+    // v1.0: phase 01 is complete, 02 is not
+    for (milestone, want) in [("v9.9", "false"), ("v1.0", "false")] {
+        let (out, err, _) = sh.run_in(
+            p.root(),
+            &format!("MILESTONE={milestone}\n{line}\nprintf '%s' \"$ALL_PHASES_VERIFIED\""),
+        );
+        assert_eq!(out, want, "{milestone}: {err}");
+    }
+    // two counts that agree (a stand-in answers both): verified
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!("MILESTONE=v1.0\nspecforge() {{ echo 2; }}\n{line}\nprintf '%s' \"$ALL_PHASES_VERIFIED\""),
+    );
+    assert_eq!(out, "true", "{err}");
+}
