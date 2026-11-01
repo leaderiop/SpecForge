@@ -55,10 +55,14 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   `--format human` is a usage error (exit 2); errors print as under `json`, and the exit code is the command's
   (`check` still exits 1 on an error it reports). `settings set` and `unset` take no `--pick`.
 - **D7. `--fields <keys>`** beside `--pick` on `query` and `export` prints one row per item the path reaches, its
-  cells the values at the comma-separated keys (each may be dotted), joined by a tab: two values of one entity on one
-  line, where two picks printed side by side would misalign once a value is missing. A cell prints as `--pick`
-  prints a value, a missing value or `null` is an empty cell, and an item that is `null` still holds a row. A
-  backslash, tab, newline or carriage return in a cell prints as `\\`, `\t`, `\n` or `\r`, so a row is one line.
+  cells the values at the comma-separated keys (each may be dotted), joined by the ASCII unit separator (0x1f): two
+  values of one entity on one line, where two picks printed side by side would misalign once a value is missing. A
+  cell prints as `--pick` prints a value, a missing value or `null` is an empty cell, and an item that is `null` still
+  holds a row. A backslash, newline, carriage return or 0x1f in a cell prints as `\\`, `\n`, `\r` or `\x1f`, so a
+  row is one line. The separator is 0x1f, not a tab, because a tab is IFS whitespace: `IFS=$'\t' read -r a b`
+  collapses an empty first cell and shifts the rest left, while `IFS=$'\x1f' read -r a b` keeps it, under bash 3.2
+  as under bash 5 (plan 05 re-review). A shell reads a row with `IFS=$'\x1f' read -r`; a person sees it with
+  `tr '\037' '\t'`.
   `--fields` without `--pick` is a usage error (exit 2), and so is an empty key. Commands whose items are not
   entities (`check`, `settings`, an extension command) do not take it: no prompt reads two of their values at once.
 - **D5.** The parser, walker and printer are one CLI module (`crates/surfaces/cli/src/pick.rs`). MCP is unchanged:

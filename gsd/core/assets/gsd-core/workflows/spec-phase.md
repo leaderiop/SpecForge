@@ -279,7 +279,7 @@ JSON
 # meaningful-looking but bogus coverage report). Fail loud, not silent no-op.
 if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
   rm -f "$REQS_JSON"
-  echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from the SPEC Requirements before Step 5.5 runs." >&2
+  echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from the SPEC Requirements before Step 5.5 runs." >&2   # also when the JSON is over the command line's limit (32,767 characters on Windows): it is passed as an argument
   exit 1
 fi
 # Invoke the compiled engine and CAPTURE its report — it computes which categories apply per

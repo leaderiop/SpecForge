@@ -19,6 +19,9 @@ mod jq_rewrites;
 #[path = "common/quick_rewrites.rs"]
 mod quick_rewrites;
 
+#[path = "common/review_rewrites.rs"]
+mod review_rewrites;
+
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
 /// told the agent something false.
@@ -590,6 +593,7 @@ fn workflow_assets_diff_only_in_ported_passages() {
             check_lines(&path, &path, &asset, &body(&path), &rx, &|n| {
                 REWRITTEN.contains(&(path.as_str(), n))
                     || jq_rewrites::LINES.contains(&(path.as_str(), n))
+                    || review_rewrites::LINES.contains(&(path.as_str(), n))
                     || REWRITTEN_SPANS
                         .iter()
                         .chain(jq_rewrites::SPANS)
