@@ -256,9 +256,9 @@ TRANSIENT_FILES="specforge-harness"
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.
 
 
-
-
-
+# The spec files, as a pathspec and an ERE: the spec root's tree, or with the spec root at the project root (`.`) the .spec files at any depth (`./` would name every path)
+if [ "$SPEC_ROOT" = "." ]; then SPEC_PATHSPEC=':(glob)**/*.spec'; SPEC_RE='\.spec$'
+else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
 
 STRUCTURAL_RE="a^"   # matches nothing
 # Milestone-scoped phase-plan directories: none here.
@@ -275,8 +275,8 @@ each cherry-picked commit) and `FORBIDDEN_RE` (what `verify` asserts is absent):
 
 ```bash
 if [ "$PR_STRICT" = "true" ]; then
-  FILTER_PATHS=$(printf '%s/\n' "$SPEC_ROOT"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
-  FORBIDDEN_RE="^($(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/|$(echo "$TRANSIENT_FILES" | tr ' ' '|')$)"
+  FILTER_PATHS=$(printf '%s\n' "$SPEC_PATHSPEC"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
+  FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
 else
   : # default mode keeps structural planning state, and there is none here (the filter is always strict)
 
@@ -439,7 +439,7 @@ FILTER_PATHS_EOF
   while IFS= read -r P; do
     [ -n "$P" ] || continue
     case "$P" in
-      "$SPEC_ROOT"/*|specforge-harness) ;;
+      "$(printf '%s\n' "$P" | grep -E "$SPEC_RE|^specforge-harness$")") ;;   # the path itself when it is a spec file or the ledger
       *) continue ;;
     esac
     if echo "$P" | grep -Eq "$FORBIDDEN_RE"; then continue; fi

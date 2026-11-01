@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 33933,
+  "bytes": 34336,
   "end": [
     "",
     "Or use /gsd-ship to create the PR automatically.",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:54c7ed1b5deafbbae77d66d4eafa62c4eed108a332093b8bd1bb271e3962cbbf",
+    "digest": "sha256:42c78aee06637f7fbc6d0219ec64363e4297a690f76efb640e5862c0ae2894c5",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "54c7ed1b5deafbbae77d66d4eafa62c4eed108a332093b8bd1bb271e3962cbbf"
+  "sha256": "42c78aee06637f7fbc6d0219ec64363e4297a690f76efb640e5862c0ae2894c5"
 }

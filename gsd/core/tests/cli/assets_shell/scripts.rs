@@ -207,3 +207,60 @@ fn the_sub_repo_scan_keeps_its_refusals() {
         );
     }
 }
+
+/// Re-review of plan 05, item 2: pr-branch's filter (`FILTER_PATHS`, what each cherry-picked commit loses, and
+/// `FORBIDDEN_RE`, what `verify` asserts is gone) is the spec files for both layouts: under `spec/`, and, with the spec
+/// root at the project root (`.`), the `.spec` files at any depth, never the whole tree. Run in a scratch repository: a
+/// commit that touches code, spec files and the harness ledger keeps only its code.
+#[test]
+fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/pr-branch.md");
+    let declare = block(&text, "TRANSIENT_DIRS=", "MILESTONE_PHASES_RE=");
+    let derive = block(&text, "Derive the mode's two projections", "FORBIDDEN_RE=");
+    let (_, derive) = derive.split_once("```bash\n").expect("the derive block");
+    let filter = block(&text, "while IFS= read -r P; do", "done <<FILTER_PATHS_EOF");
+    for (root, spec_files) in [
+        (".", ["a.spec", "sub/b.spec"]),
+        ("spec", ["spec/a.spec", "spec/notes.md"]),
+    ] {
+        let dir = tempfile::tempdir().expect("a dir");
+        git(dir.path(), &["init", "-q"]);
+        for f in spec_files.iter().chain(&["specforge-harness", "README.md"]) {
+            let path = dir.path().join(f);
+            std::fs::create_dir_all(path.parent().expect("a parent")).expect("a dir");
+            std::fs::write(path, "base\n").expect("a file");
+        }
+        git(dir.path(), &["add", "-A"]);
+        git(dir.path(), &["commit", "-qm", "base"]);
+        git(dir.path(), &["checkout", "-qb", "feature"]);
+        for f in spec_files.iter().chain(&["specforge-harness", "src/x.js"]) {
+            let path = dir.path().join(f);
+            std::fs::create_dir_all(path.parent().expect("a parent")).expect("a dir");
+            std::fs::write(path, "changed\n").expect("a file");
+        }
+        git(dir.path(), &["add", "-A"]);
+        git(dir.path(), &["commit", "-qm", "feat: x"]);
+        git(dir.path(), &["checkout", "-q", "-"]);
+        let script = format!(
+            "PR_STRICT=true\n{}\n{derive}\nfi\n\
+             printf 'a.spec\\nsub/b.spec\\nspec/a.spec\\nsrc/x.js\\nspecforge-harness\\nREADME.md\\n' | grep -E \"$FORBIDDEN_RE\" | tr '\\n' ' '; echo\n\
+             git cherry-pick --no-commit feature >/dev/null 2>&1 || true\n{filter}\n$FILTER_PATHS\nFILTER_PATHS_EOF\n\
+             git diff --cached --name-only | tr '\\n' ' '",
+            declare.replace("{{project:spec_root}}", root)
+        );
+        let (out, err, code) = sh.run_in(dir.path(), &script);
+        let forbidden = if root == "." {
+            "a.spec sub/b.spec spec/a.spec specforge-harness "
+        } else {
+            "spec/a.spec specforge-harness "
+        };
+        assert_eq!(
+            out,
+            format!("{forbidden}\nsrc/x.js "),
+            "spec root {root} ({code}): {err}"
+        );
+    }
+}
