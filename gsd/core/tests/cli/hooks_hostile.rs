@@ -10,6 +10,9 @@ use super::hooks_support::{Home, install_in, run_hook, tool_event, tool_name};
 
 const MIB: usize = 1024 * 1024;
 
+/// The characters of the largest hostile text: a hook's 4 MiB stdin cap, less 64 KiB for the rest of the event.
+const LARGEST: usize = 4 * MIB - 64 * 1024;
+
 /// The hostile inputs: the two F7 shapes at n = 5000 and 60 000, two that take the secret guard past its scan work
 /// limit (the review's heredoc bodies before a read only another reading sees, and 1 MiB of `;`), a 1 MiB command, a
 /// 1 MiB body of runs of 100 000 spaces each before an injection phrase (the injection regex engine's continuations
@@ -47,6 +50,18 @@ fn inputs() -> Vec<(&'static str, String)> {
         ("1 MiB command", format!("echo {}", "a".repeat(MIB - 5))),
         ("1 MiB spaces + injection", body),
         ("1 MiB userinfo line", userinfo),
+    ]
+}
+
+/// The largest hostile texts a hook accepts (4 MiB of stdin, `crates/surfaces/cli/src/hook.rs`): one run of spaces
+/// after `ignore`, and only newlines, of which half as many fit (each is two bytes of JSON, `\n`).
+fn largest() -> Vec<(&'static str, String)> {
+    vec![
+        (
+            "4 MiB one run of spaces",
+            format!("ignore{}x", " ".repeat(LARGEST - 7)),
+        ),
+        ("2 MiB of newlines", "\n".repeat(LARGEST / 2)),
     ]
 }
 
@@ -271,5 +286,43 @@ fn an_injection_block_survives_a_mebibyte_of_hostile_text() {
             "{event}: {}",
             run.stdout
         );
+    }
+}
+
+/// G2: the largest event a hook accepts, one run of spaces or only newlines, is scanned within budget. A newline is two
+/// bytes of JSON, so that input is half the size; each payload is checked against the cap, so it is really read.
+#[test]
+#[ignore = "G2 review R2: the scanner runs past the 5000 ms budget on 4 MiB of one run of spaces"]
+fn the_injection_family_does_not_trap_on_the_largest_payload_a_hook_accepts() {
+    let p = taskboard();
+    let home = Home::new();
+    install_in(&p, "claude-code", &home);
+    for (name, s) in largest() {
+        let (host, events) = events(&p, "injection_scanner", &s);
+        for (event, payload) in events {
+            assert!(
+                payload.len() <= 4 * MIB,
+                "{name}: a {}-byte event is over the cap",
+                payload.len()
+            );
+            let t = std::time::Instant::now();
+            let run = run_hook(&p, host, "gsd.injection_scanner", &payload, &home);
+            eprintln!(
+                "injection_scanner {event} {name} ({} bytes): {} ms",
+                payload.len(),
+                t.elapsed().as_millis()
+            );
+            assert!(
+                !run.stderr.contains("E028"),
+                "{name} {event}: {}",
+                run.all()
+            );
+            assert_eq!(run.code, 0, "{name} {event}: {}", run.all());
+            assert!(
+                run.stdout.trim().is_empty(),
+                "{name} {event}: {}",
+                run.stdout
+            );
+        }
     }
 }
