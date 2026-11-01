@@ -299,7 +299,11 @@ pub fn render(
         Some(output) => output,
         None => call()?,
     };
-    let texts: String = output.messages.iter().map(|m| m.text.as_str()).collect();
+    let mut messages = output.messages;
+    for message in &mut messages {
+        message.text = crate::host::render::project_tokens(view, &message.text);
+    }
+    let texts: String = messages.iter().map(|m| m.text.as_str()).collect();
     let payload = ExtensionPromptPayload {
         prompt: prompt.qualified(),
         digest: format!("sha256:{}", Sha256::of(texts.as_bytes())),
@@ -308,10 +312,7 @@ pub fn render(
         judged: judged::of(view, prompt),
         subject,
     };
-    Ok(RenderedPrompt {
-        messages: output.messages,
-        payload,
-    })
+    Ok(RenderedPrompt { messages, payload })
 }
 
 /// Whether `path` is the full path of an entity of one of the kinds the subject argument `arg` names.

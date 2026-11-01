@@ -526,28 +526,6 @@ fn the_pull_request_state_is_one_line_from_gh() {
 }
 
 #[test]
-fn the_spec_root_is_read_from_the_manifest_file() {
-    let Some(sh) = shell() else { return };
-    let dir = tempfile::tempdir().expect("a dir");
-    let read = line(&asset("gsd-core/workflows/pr-branch.md"), "SPEC_ROOT=$(").to_string();
-    for (manifest, want) in [
-        (
-            Some("{\n  \"name\": \"x\",\n  \"spec_root\": \"specs\"\n}\n"),
-            "[specs]",
-        ),
-        (Some("{\"name\": \"x\"}"), "[spec]"),
-        (None, "[spec]"),
-    ] {
-        let _ = std::fs::remove_file(dir.path().join("specforge.json"));
-        if let Some(m) = manifest {
-            std::fs::write(dir.path().join("specforge.json"), m).expect("a manifest");
-        }
-        let (out, _, _) = sh.run_in(dir.path(), &format!("{read}\nprintf '[%s]' \"$SPEC_ROOT\""));
-        assert_eq!(out, want, "{manifest:?}");
-    }
-}
-
-#[test]
 fn the_requirements_guard_refuses_a_placeholder_or_an_empty_list() {
     let Some(sh) = shell() else { return };
     let dir = tempfile::tempdir().expect("a dir");

@@ -384,3 +384,29 @@ fn help_lists_the_prompt_slash_commands() {
         );
     }
 }
+
+/// Plan 05 review R6: `/gsd-pr-branch` reads the spec root from the host, `{{project:spec_root}}` filled at render,
+/// not a `sed` over `specforge.json`; an unset spec root is the project root (`.`), not `spec`.
+#[test]
+fn the_spec_root_is_spelled_by_the_host() {
+    let p = twin();
+    for (spec_root, want) in [
+        ("spec", "SPEC_ROOT=\"spec\""),
+        (".", "SPEC_ROOT=\".\""),
+        ("./spec/", "SPEC_ROOT=\"spec\""),
+    ] {
+        p.settings_in(spec_root, json!({}));
+        let text = text_of(&payload(&prompt(
+            &p,
+            "pr_branch",
+            &["--target", "main"],
+            "claude-code",
+        )));
+        let line = text
+            .lines()
+            .find(|l| l.starts_with("SPEC_ROOT="))
+            .expect("the spec root's line");
+        assert_eq!(line.split("   #").next(), Some(want), "{spec_root}: {line}");
+        assert!(!text.contains("{{project:"), "{spec_root}: a token is left");
+    }
+}

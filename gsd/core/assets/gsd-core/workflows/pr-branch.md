@@ -250,7 +250,7 @@ constants — change one side and update the other, or the guard fails.
 ```bash
 # The spec root and the harness ledger (a file at the project root) are reviewer noise (U47); `app.spec` of a build is code.
 TRANSIENT_DIRS=""   # none: specforge-harness is a file
-SPEC_ROOT=$(sed -n 's/.*"spec_root"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' specforge.json 2>/dev/null | head -1); SPEC_ROOT=${SPEC_ROOT:-spec}
+SPEC_ROOT="{{project:spec_root}}"   # the project's spec root, spelled by SpecForge at render (`.`: the project root)
 TRANSIENT_FILES="specforge-harness"
 
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.
