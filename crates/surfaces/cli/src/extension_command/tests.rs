@@ -608,3 +608,13 @@ fn a_malformed_pick_is_a_usage_error() {
     assert_eq!(code, 2, "{out}");
     assert!(err.contains("byte 0"), "{err}");
 }
+
+#[test]
+fn pick_fails_a_command_whose_answer_is_not_json() {
+    let (code, out, err) = quiet("done", "", 0, &["--pick", ".s"]);
+    assert_eq!((code, out.as_str()), (1, ""), "{err}");
+    assert!(err.contains("not JSON"), "{err}");
+    // a command that already failed keeps its own exit code
+    let (code, _, _) = quiet("done", "", 3, &["--pick", ".s"]);
+    assert_eq!(code, 3);
+}

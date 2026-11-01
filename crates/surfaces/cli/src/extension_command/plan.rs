@@ -11,7 +11,9 @@ use specforge_protocol_types::CommandError;
 use std::path::Path;
 
 /// Print `run` and return the exit code: the command's own when its plan was applied or previewed, 1 for a plan
-/// the host refused. `root` names the files written; with `pick`, stdout holds only the values at its path.
+/// the host refused. `root` names the files written. With `pick`, stdout holds only the values at its path of the
+/// command's own answer (never the `{output, plan, files_written}` document), and an answer that is not JSON fails
+/// a command that passed.
 pub(super) fn ended(
     run: CommandRun,
     format: CommandFormat,
@@ -51,12 +53,26 @@ fn printed(
         err!(terminal, "{}", refused(&refusal, format));
         return 1;
     }
+    // `--pick` reads the command's own answer, whether or not this run answered a plan
+    if let Some(pick) = pick {
+        err!(terminal, "{}", output.stderr);
+        return match pick.printed(&output.stdout) {
+            Ok(lines) => {
+                out!(terminal, "{lines}");
+                output.exit_code
+            }
+            Err(refused) => {
+                err!(terminal, "{refused}");
+                if output.exit_code == 0 {
+                    1
+                } else {
+                    output.exit_code
+                }
+            }
+        };
+    }
     let Some(edited) = edited else {
-        match pick.map(|pick| pick.printed(&output.stdout)) {
-            None => out!(terminal, "{}", output.stdout),
-            Some(Ok(lines)) => out!(terminal, "{lines}"),
-            Some(Err(refused)) => err!(terminal, "{refused}"),
-        }
+        out!(terminal, "{}", output.stdout);
         err!(terminal, "{}", output.stderr);
         return output.exit_code;
     };
@@ -68,10 +84,7 @@ fn printed(
             if let Some(files) = edited.wrote.named(Some(root)) {
                 document["files_written"] = json!(files);
             }
-            match pick {
-                Some(pick) => out!(terminal, "{}", pick.lines(&document)),
-                None => terminal.json(&document),
-            }
+            terminal.json(&document);
         }
         CommandFormat::Human => {
             out!(terminal, "{}", output.stdout);

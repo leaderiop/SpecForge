@@ -41,9 +41,20 @@ fn run_command(
 ) -> (i32, String, String) {
     let ops = json!([{"op": "set", "entity": "v1.0/03/U1", "field": "result", "value": "pass",
                       "revision": revision}]);
+    run_answering(project, command, gsd_writes_answer(0, ops), facts, args)
+}
+
+/// `specforge core <command> <args>`, the command answering `answer`.
+fn run_answering(
+    project: &TestProject,
+    command: &str,
+    answer: specforge_wasm::WasmCallResult,
+    facts: Facts,
+    args: &[&str],
+) -> (i32, String, String) {
     let runtime = Arc::new(
         GsdWrites::new()
-            .answering(CORE, &format!("cmd__{command}"), gsd_writes_answer(0, ops))
+            .answering(CORE, &format!("cmd__{command}"), answer)
             .runtime(),
     );
     let env = project.environment_in(runtime as SharedRuntime);
@@ -143,4 +154,46 @@ fn a_human_command_runs_only_from_a_terminal() {
     let (code, out, err) = run_command(&p, "attest", &revision, person, &[]);
     assert_eq!(code, 0, "{out}{err}");
     assert!(p.read("03-01.spec").contains("result \"pass\""));
+}
+
+/// `record` answering `stdout` and, when `ops` is not empty, a plan.
+fn picked_record(
+    project: &TestProject,
+    stdout: &str,
+    ops: Value,
+    args: &[&str],
+) -> (i32, String, String) {
+    let mut answer = json!({"exit_code": 0, "stdout": stdout, "stderr": ""});
+    if ops.as_array().is_some_and(|ops| !ops.is_empty()) {
+        answer["plan"] = json!({"ops": ops});
+    }
+    let answer = specforge_wasm::WasmCallResult::Ok(answer.to_string().into_bytes());
+    run_answering(project, "record", answer, Facts::PIPED, args)
+}
+
+#[test]
+fn pick_reads_the_commands_own_answer_whether_or_not_it_answers_a_plan() {
+    let p = project();
+    let ops = json!([{"op": "set", "entity": "v1.0/03/U1", "field": "result", "value": "pass",
+                      "revision": revision(&p)}]);
+    // a run that answers no plan, then one that does: the same path reads the same field
+    let (code, out, err) =
+        picked_record(&p, r#"{"phase": "03"}"#, json!([]), &["--pick", ".phase"]);
+    assert_eq!((code, out.as_str()), (0, "03\n"), "{err}");
+    let (code, out, err) = picked_record(&p, r#"{"phase": "03"}"#, ops, &["--pick", ".phase"]);
+    assert_eq!((code, out.as_str()), (0, "03\n"), "{err}");
+    assert!(
+        p.read("03-01.spec").contains("result \"pass\""),
+        "the plan is applied"
+    );
+}
+
+#[test]
+fn pick_fails_a_writing_command_whose_answer_is_not_json() {
+    let p = project();
+    let ops = json!([{"op": "set", "entity": "v1.0/03/U1", "field": "result", "value": "pass",
+                      "revision": revision(&p)}]);
+    let (code, out, err) = picked_record(&p, "done", ops, &["--pick", ".phase"]);
+    assert_eq!((code, out.as_str()), (1, ""), "{err}");
+    assert!(err.contains("not JSON"), "{err}");
 }
