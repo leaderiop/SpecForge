@@ -205,7 +205,7 @@ Provide structured feedback on plan quality, completeness, and risks.
 {research if present}
 
 ### Plans to Review
-For each plan of the phase (`specforge query "$PHASE_ID" --depth 2 --kinds plan --format context`), in id order, include its full content preceded by a `####` header carrying the plan's **id** (e.g. `#### 02-01`). The id header is the citable anchor for findings about the plan itself — cite it as `<plan id>:<line>` (name the heading in prose beside the citation if it helps the reader); reserve `path:line` for repo files the plan references.
+For each plan of the phase (its own plans, `specforge query "$PHASE_ID" --depth 2 --kinds plan --pick ".nodes[fields.phase=$PHASE_ID].id"`, the selection the manifest lists; each one's `gsd-review-plan-<id>.md` above), in id order, include its full content preceded by a `####` header carrying the plan's **id** (e.g. `#### 02-01`). The id header is the citable anchor for findings about the plan itself — cite it as `<plan id>:<line>` (name the heading in prose beside the citation if it helps the reader); reserve `path:line` for repo files the plan references.
 {per-plan: `#### <plan id>` + full plan contents}
 
 ## Review Instructions
@@ -633,8 +633,8 @@ that already excludes it from grounded-review weighting in the Consensus Summary
 The match is intentionally lenient about *where* an id appears (a `##`-headed section is asked for,
 but plain prose mentioning the id still counts as coverage — grading only the letter of the
 formatting instruction would produce false INCOMPLETE verdicts against a reviewer that cited real
-evidence correctly). It is strict about *what* counts as a match: the id is regex-escaped (a
-decimal phase like `12.6` must not let `12X6-01` satisfy `12.6-01` through an unescaped `.`), and a
+evidence correctly). It is strict about *what* counts as a match: the id is matched as text, never as a pattern (a
+decimal phase like `12.6` must not let `12X6-01` satisfy `12.6-01` as a pattern's `.` would), and a
 `-`/word character immediately before or after the candidate match does not count as a boundary (so
 a threat id like `T-04-07` elsewhere in the review must not register as covering plan `04-07`).
 

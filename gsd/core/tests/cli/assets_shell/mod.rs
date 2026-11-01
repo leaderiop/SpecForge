@@ -9,6 +9,7 @@ mod answers;
 mod batch;
 mod manifest;
 mod pick;
+mod review;
 mod scripts;
 mod shapes;
 

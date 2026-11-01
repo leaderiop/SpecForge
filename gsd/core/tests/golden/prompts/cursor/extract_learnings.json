@@ -52,8 +52,8 @@
     "Read the phase artifacts. PLAN.md and SUMMARY.md are required; VERIFICATION.md, UAT.md, and STATE.md are optional.",
     "",
     "**Required artifacts:**",
-    "- the phase's plans (`specforge query \"$PHASE_ID\" --depth 2 --kinds plan --format context`)",
-    "- the `summary` entities of its plans (`specforge query \"$PHASE_ID\" --depth 3 --kinds summary --format context`)",
+    "- the phase's plans (`specforge query \"$PHASE_ID\" --depth 2 --kinds plan --pick \".nodes[fields.phase=$PHASE_ID].id\"`, its own plans; read each one, `$PLAN_REF`, with `specforge query \"$PLAN_REF\" --depth 1 --format context`)",
+    "- the `summary` entities of those plans (`specforge query \"$PLAN_REF\" --depth 1 --kinds summary --format context` for each)",
     "",
     "If PLAN.md or SUMMARY.md files are not found or missing, exit with error: \"Required artifacts missing. PLAN.md and SUMMARY.md are required for learning extraction.\"",
     "",
@@ -61,7 +61,7 @@
     "- the phase's `verification` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds verification --format context`) — verification results",
     "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results"
   ],
-  "bytes": 21520,
+  "bytes": 21663,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5f38e3d1eacdf0fd23bafa2bf45ed22e6eadded753d8c253403c139fa8258520",
+    "digest": "sha256:16cb1afa7d1632898f99e010e2559316b8ff45b3c891ad3bc07b806706407c44",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "5f38e3d1eacdf0fd23bafa2bf45ed22e6eadded753d8c253403c139fa8258520"
+  "sha256": "16cb1afa7d1632898f99e010e2559316b8ff45b3c891ad3bc07b806706407c44"
 }

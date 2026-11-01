@@ -25,4 +25,7 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/progress.md", 297),
     ("gsd-core/workflows/progress.md", 299),
     ("gsd-core/workflows/progress.md", 315),
+    // Plan 05 re-review item 8: the review and the learnings read the phase's own plans.
+    ("gsd-core/workflows/review.md", 635),
+    ("gsd-core/workflows/review.md", 634),
 ];
