@@ -38,6 +38,14 @@ impl Pick {
                 if len == 0 {
                     return Err(format!("at byte {at}: '.' needs a key after it"));
                 }
+                if let Some(bad) =
+                    key[..len].find(|c: char| c.is_whitespace() || c == ']' || c == '=')
+                {
+                    return Err(format!(
+                        "at byte {}: a key holds no whitespace, ']' or '='",
+                        at + 1 + bad
+                    ));
+                }
                 steps.push(Step::Key(key[..len].to_string()));
                 at += 1 + len;
             } else if let Some(inner) = rest.strip_prefix('[') {
@@ -49,9 +57,19 @@ impl Pick {
                     Some("") => return Err(format!("at byte {at}: '[kind=]' needs a kind")),
                     Some(kind) => Step::Kind(kind.to_string()),
                     None if inner.is_empty() => Step::Each,
-                    None => Step::Index(inner.parse().map_err(|_| {
-                        format!("at byte {at}: expected '[<index>]', '[]' or '[kind=<k>]', found '[{inner}]'")
-                    })?),
+                    // digits only, no sign and no leading zero: `usize::from_str` takes `+1` and `01`
+                    None if inner.bytes().all(|b| b.is_ascii_digit())
+                        && (inner == "0" || !inner.starts_with('0')) =>
+                    {
+                        Step::Index(inner.parse().map_err(|_| {
+                            format!("at byte {at}: the index '{inner}' is too large")
+                        })?)
+                    }
+                    None => {
+                        return Err(format!(
+                            "at byte {at}: expected '[<index>]', '[]' or '[kind=<k>]', found '[{inner}]'"
+                        ));
+                    }
                 });
                 at += 2 + len;
             } else {
@@ -155,10 +173,34 @@ mod tests {
             (".a[-1]", "byte 2"),
             (".a[kind=]", "byte 2"),
             (".a[0]b", "byte 5"),
+            (".a[+1]", "byte 2"),
+            (".a[01]", "byte 2"),
+            (".a[00]", "byte 2"),
+            (".a b", "byte 2"),
+            (".a\tb", "byte 2"),
+            (".a]", "byte 2"),
+            (".kind=plan", "byte 5"),
         ] {
             let error = Pick::parse(path).unwrap_err();
             assert!(error.starts_with(&format!("at {at}:")), "{path}: {error}");
         }
+    }
+
+    #[test]
+    fn an_index_is_digits_without_a_leading_zero() {
+        assert_eq!(Pick::parse(".a[0]").unwrap().0[1], Step::Index(0));
+        assert_eq!(Pick::parse(".a[10]").unwrap().0[1], Step::Index(10));
+    }
+
+    #[test]
+    fn a_number_prints_as_serde_json_writes_an_f64() {
+        // not `arbitrary_precision`: a number is an i64, a u64 or an f64, and an f64 keeps its `.0`
+        let document: Value =
+            serde_json::from_str(r#"{"a": 1.0, "b": -0, "c": 1e3, "d": 7}"#).unwrap();
+        assert_eq!(picked(".a", &document), "1.0\n");
+        assert_eq!(picked(".b", &document), "-0.0\n");
+        assert_eq!(picked(".c", &document), "1000.0\n");
+        assert_eq!(picked(".d", &document), "7\n");
     }
 
     #[test]
