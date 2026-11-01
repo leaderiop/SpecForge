@@ -77,10 +77,15 @@ impl Args {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
+        self.answer(terminal, &ProjectView::of(&project))
+    }
+
+    /// The answer over `view`: the neighbourhood, or `--inputs`'.
+    fn answer(&self, terminal: &Terminal, view: &ProjectView<'_>) -> Exit {
         if let Some(rule) = &self.inputs {
-            return self.run_inputs(terminal, &ProjectView::of(&project), rule);
+            return self.run_inputs(terminal, view, rule);
         }
-        match query(&ProjectView::of(&project), &self.request()) {
+        match query(view, &self.request()) {
             Ok(document) => {
                 let document = Notes::fixed(terminal).noticed(document);
                 outln!(terminal, "{}", document);
@@ -211,6 +216,105 @@ mod tests {
         let text = inputs_of("graph");
         let answer: serde_json::Value = serde_json::from_str(&text).expect(&text);
         assert_eq!(answer["rule"], "gsd/E501");
+    }
+
+    /// `specforge query <argv>` over the judged fixture: the exit, stdout and stderr.
+    fn queried(argv: &[&str]) -> (Exit, String, String) {
+        use crate::terminal::Facts;
+        use specforge_project::testing::{gsd_judged_project, gsd_judged_runtime};
+        let compiled = gsd_judged_project("").compile_in(std::sync::Arc::new(gsd_judged_runtime()));
+        let line = Line::try_parse_from(std::iter::once("query").chain(argv.iter().copied()))
+            .unwrap_or_else(|e| panic!("{e}"));
+        let (terminal, capture) = Terminal::captured("", Facts::PIPED);
+        let exit = line.args.answer(&terminal, &ProjectView::of(&compiled));
+        (exit, capture.stdout(), capture.stderr())
+    }
+
+    #[test]
+    fn pick_prints_one_line_per_value_reached() {
+        let (exit, out, _) = queried(&["v1.0/03", "--kinds", "plan", "--pick", ".nodes[].id"]);
+        assert!(matches!(exit, Exit::Passed));
+        assert_eq!(out, "v1.0/03\nv1.0/03/03-02\nv1.0/03/03-03\n");
+        let (_, out, _) = queried(&[
+            "v1.0/03",
+            "--kinds",
+            "plan",
+            "--pick",
+            ".nodes[kind=plan].id",
+        ]);
+        assert_eq!(
+            out, "v1.0/03/03-02\nv1.0/03/03-03\n",
+            "the phase is left out"
+        );
+        let (_, out, _) = queried(&["v1.0/03", "--depth", "0", "--pick", ".nodes[0].kind"]);
+        assert_eq!(out, "phase\n", "a string prints bare");
+    }
+
+    #[test]
+    fn a_missing_path_prints_nothing_and_passes() {
+        let (exit, out, _) = queried(&["v1.0/03", "--pick", ".nodes[0].nope"]);
+        assert!(matches!(exit, Exit::Passed));
+        assert_eq!(out, "");
+    }
+
+    #[test]
+    fn pick_takes_the_graph_format_and_its_json_alias() {
+        let (exit, out, _) = queried(&[
+            "v1.0/03",
+            "--depth",
+            "0",
+            "--format",
+            "json",
+            "--pick",
+            ".nodes[0].id",
+        ]);
+        assert!(matches!(exit, Exit::Passed));
+        assert_eq!(out, "v1.0/03\n");
+        let (_, out, _) = queried(&[
+            "v1.0/03",
+            "--depth",
+            "0",
+            "--format",
+            "graph",
+            "--pick",
+            ".nodes[0].id",
+        ]);
+        assert_eq!(out, "v1.0/03\n");
+    }
+
+    #[test]
+    fn pick_refuses_a_format_that_is_not_json() {
+        use crate::terminal::Facts;
+        for (format, extra) in [
+            ("brief", None),
+            ("context", None),
+            ("graph", Some("--include-coverage")),
+        ] {
+            let mut argv = vec!["query", "v1.0/03", "--format", format, "--pick", ".nodes"];
+            argv.extend(extra);
+            let line = Line::try_parse_from(argv).unwrap_or_else(|e| panic!("{e}"));
+            let (terminal, capture) = Terminal::captured("", Facts::PIPED);
+            // refused before the project is compiled: `--path` is `.`, which is not the fixture
+            let exit = line.args.run(&terminal);
+            assert_eq!(exit.code(), 2, "{format}");
+            assert!(capture.stdout().is_empty());
+            assert!(capture.stderr().contains("--pick"), "{}", capture.stderr());
+        }
+    }
+
+    #[test]
+    fn a_malformed_path_is_a_usage_error_naming_its_byte() {
+        let error = match Line::try_parse_from(["query", "x", "--pick", ".nodes[kind=plan"]) {
+            Ok(_) => panic!("a malformed path parses"),
+            Err(error) => error,
+        };
+        assert_eq!(error.exit_code(), 2);
+        assert_eq!(
+            error.kind(),
+            clap::error::ErrorKind::ValueValidation,
+            "{error}"
+        );
+        assert!(error.to_string().contains("byte 6"), "{error}");
     }
 
     #[test]

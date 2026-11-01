@@ -544,3 +544,67 @@ fn the_cli_sends_the_args_the_derivation_normalizes() {
         serde_json::json!({"strict": true})
     );
 }
+
+/// `specforge core quiet <args>` over `@t/core`, its export answering `stdout`, `stderr` and `exit_code`: the exit
+/// code, stdout and stderr the CLI printed.
+fn quiet(stdout: &str, stderr: &str, exit_code: i32, args: &[&str]) -> (i32, String, String) {
+    use specforge_project::testing::{CORE, GSD_WRITES_EXTENSIONS, GsdWrites, TestProject};
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&GSD_WRITES_EXTENSIONS)
+        .installing_enabled();
+    let answer = serde_json::json!({"exit_code": exit_code, "stdout": stdout, "stderr": stderr});
+    let runtime = std::sync::Arc::new(
+        GsdWrites::new()
+            .answering(
+                CORE,
+                "cmd__quiet",
+                specforge_wasm::WasmCallResult::Ok(answer.to_string().into_bytes()),
+            )
+            .runtime(),
+    );
+    let env = project.environment_in(runtime as specforge_project::SharedRuntime);
+    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
+    let mut rest = vec!["quiet".to_string()];
+    rest.extend(args.iter().map(ToString::to_string));
+    rest.extend(["--path".to_string(), project.root().display().to_string()]);
+    let code = run_in(env, &project.project_root(), "core", rest, &[], &terminal);
+    (code, capture.stdout(), capture.stderr())
+}
+
+#[test]
+fn pick_prints_the_values_of_a_commands_json_answer() {
+    let answer = r#"{"s": "bare", "n": 3, "b": true, "o": {"k": [1, "x"]}, "z": null, "lines": "a\nb", "e": []}"#;
+    for (path, printed) in [
+        (".s", "bare\n"),
+        (".n", "3\n"),
+        (".b", "true\n"),
+        (".o", "{\"k\":[1,\"x\"]}\n"),
+        (".o.k[1]", "x\n"),
+        (".o.k[]", "1\nx\n"),
+        (".z", ""),
+        (".missing", ""),
+        (".e[0]", ""),
+        // a string holding a newline is printed as is: one value, two lines
+        (".lines", "a\nb\n"),
+    ] {
+        let (code, out, err) = quiet(answer, "", 0, &["--pick", path]);
+        assert_eq!((code, out.as_str()), (0, printed), "{path}: {err}");
+    }
+    let (code, out, _) = quiet(answer, "", 0, &["--format", "json", "--pick", ".s"]);
+    assert_eq!((code, out.as_str()), (0, "bare\n"));
+}
+
+#[test]
+fn pick_leaves_a_refused_command_as_it_is() {
+    let refused = "{\"code\":\"E900\",\"message\":\"no\"}\n";
+    let (code, out, err) = quiet("", refused, 3, &["--pick", ".s"]);
+    assert_eq!((code, out.as_str(), err.as_str()), (3, "", refused));
+}
+
+#[test]
+fn a_malformed_pick_is_a_usage_error() {
+    let (code, out, err) = quiet("{}", "", 0, &["--pick", "s"]);
+    assert_eq!(code, 2, "{out}");
+    assert!(err.contains("byte 0"), "{err}");
+}
