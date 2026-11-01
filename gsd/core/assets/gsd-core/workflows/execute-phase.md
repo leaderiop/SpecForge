@@ -368,8 +368,8 @@ are done. Blocked-and-incomplete must never be reported as finished.
 ```bash
 # #5118: the owner's answer — `status` and the bare command it routes to. A non-zero exit
 # (an out-of-set report status) is a hard error: surface it, never read it as "no status".
-VERIFY_STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; VERIFY_STATUS=${VERIFY_STATUS:-pending}
-VERIFY_ROUTE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; case "${VERIFY_ROUTE:-pending}" in passed) VERIFY_ROUTE=complete ;; gaps_found) VERIFY_ROUTE=gap-closure ;; human_needed) VERIFY_ROUTE=human ;; *) VERIFY_ROUTE=verify ;; esac
+VERIFY_STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
+VERIFY_ROUTE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; VERIFY_ROUTE=${VERIFY_ROUTE%%$'\n'*}; case "${VERIFY_ROUTE:-pending}" in passed) VERIFY_ROUTE=complete ;; gaps_found) VERIFY_ROUTE=gap-closure ;; human_needed) VERIFY_ROUTE=human ;; *) VERIFY_ROUTE=verify ;; esac
 # #3684: checkbox = marked-complete; report fields can claim a no-op write (#3685).
 ANALYZE=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '{phases: [.nodes[]|select(.kind=="phase")|{number: .fields.number, phase_number: .fields.number, roadmap_complete: (.fields.status == "complete")}]}')
 if [[ "$ANALYZE" == @file:* ]]; then ANALYZE=$(cat "${ANALYZE#@file:}"); fi

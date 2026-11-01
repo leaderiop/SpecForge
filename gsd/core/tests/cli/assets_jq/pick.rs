@@ -270,6 +270,83 @@ fn a_graph_read_is_picked() {
             "{file}: {start}"
         );
     }
+    // a phase with two verifications, both passed: a status read takes the first, as jq's `[…][0]` did
+    let twice = taskboard();
+    let mut verify = twice.read("spec/verify.spec");
+    verify.push_str(
+        "\nverification 01-REVERIFICATION \"Phase 01 re-verification\" {\n  phase v1.0/01\n}\n",
+    );
+    twice.write("spec/verify.spec", &verify);
+    let first: &[(&str, &str, &str, &str, &str)] = &[
+        (
+            "autonomous.md",
+            "PHASE_NUM=v1.0/01",
+            "VERIFY_STATUS=$(",
+            "VERIFY_STATUS",
+            "[passed]",
+        ),
+        (
+            "execute-phase.md",
+            phase,
+            "VERIFY_STATUS=$(",
+            "VERIFY_STATUS",
+            "[passed]",
+        ),
+        (
+            "execute-phase.md",
+            phase,
+            "VERIFY_ROUTE=$(",
+            "VERIFY_ROUTE",
+            "[complete]",
+        ),
+        ("ship.md", phase, "STATUS=$(specforge", "STATUS", "[passed]"),
+        (
+            "transition.md",
+            phase,
+            "VERIFY_STATUS=$(",
+            "VERIFY_STATUS",
+            "[passed]",
+        ),
+        (
+            "quick/steps/quick-verification.md",
+            "quick_id=v1.0/01",
+            "STATUS=$(",
+            "STATUS",
+            "[passed]",
+        ),
+        (
+            "quick-batch/steps/verification-wave.md",
+            "quick_id=v1.0/01",
+            "STATUS=$(",
+            "STATUS",
+            "[passed]",
+        ),
+        (
+            "progress.md",
+            "PHASE_DIR=v1.0/01",
+            "VERIFICATION_STATUS=$(",
+            "VERIFICATION_STATUS",
+            "[passed]",
+        ),
+    ];
+    for (file, setup, start, var, want) in first {
+        let text = asset(&format!("{w}{file}"));
+        let reads: Vec<&str> = text
+            .lines()
+            .map(str::trim_start)
+            .filter(|l| l.starts_with(start))
+            .collect();
+        assert!(!reads.is_empty(), "{file}: no line starts with {start}");
+        for code in reads {
+            let got = run(
+                &sh,
+                &twice,
+                &format!("{setup}\n{code}\nprintf '[%s]' \"${var}\""),
+            )
+            .0;
+            assert_eq!(got, *want, "{file}: {code}");
+        }
+    }
 }
 
 /// T4: a read whose failure the next line checks keeps the command's exit status (no pipe after `--pick`).

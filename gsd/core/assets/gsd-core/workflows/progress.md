@@ -323,7 +323,7 @@ A phase whose verification is anything but `passed` is NOT complete, even when e
 ```bash
 PHASE_DIR="${CURRENT_PHASE}"   # a phase is addressed by its id, not a directory
 VERIFICATION=$(specforge query "${PHASE_DIR}" --kinds verification --format json) || { echo "the verification of phase ${CURRENT_PHASE} was refused — see the error above." >&2; exit 1; }
-VERIFICATION_STATUS=$(specforge query "${PHASE_DIR}" --kinds verification --pick '.nodes[kind=verification].fields.status')
+VERIFICATION_STATUS=$(specforge query "${PHASE_DIR}" --kinds verification --pick '.nodes[kind=verification].fields.status'); VERIFICATION_STATUS=${VERIFICATION_STATUS%%$'\n'*}
 VERIFICATION_NEXT_ACTION=$(printf '%s' "$VERIFICATION" | jq -r '.next_action')
 VERIFICATION_NEXT_COMMAND=$(printf '%s' "$VERIFICATION" | jq -r '.next_command')
 ```

@@ -451,7 +451,7 @@ After execute, read canonical verification:
 
 ```bash
 VERIFY_ERROR=""  # reset every loop iteration — a prior phase's refusal must not leak into this one
-VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS:-pending}
+VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 ```
 
 If `PHASE_DIR` is absent, re-fetch `init.phase-op ${PHASE_NUM}` and parse `phase_dir`.
@@ -510,7 +510,7 @@ Skill(skill="gsd-execute-phase", args="${PHASE_NUM} --no-transition")
 Re-read verification status:
 ```bash
 VERIFY_ERROR=""  # reset every loop iteration — a prior phase's refusal must not leak into this one
-VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS:-pending}
+VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 ```
 
 If `VERIFY_ERROR` is set: handle_blocker with the error printed above (#5118).

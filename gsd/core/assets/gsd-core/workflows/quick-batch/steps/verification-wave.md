@@ -50,7 +50,7 @@ re-derive the status vocabulary inline):
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 VERIFY_ERROR=""  # reset per item — a prior item's refusal must not leak into this one
-STATUS=$(specforge query "${quick_id}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; STATUS=${STATUS:-pending}
+STATUS=$(specforge query "${quick_id}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; STATUS=${STATUS%%$'\n'*}; STATUS=${STATUS:-pending}
 ```
 
 If `VERIFY_ERROR` is set, the owner refused the item's report (#5118 — a report `status` outside
