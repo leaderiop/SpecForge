@@ -64,6 +64,7 @@ mod options;
 mod outcome;
 mod parity;
 mod partial_writes;
+mod path_binary;
 mod path_parity;
 mod path_spelling;
 mod pick;
