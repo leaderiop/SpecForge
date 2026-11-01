@@ -95,7 +95,7 @@ This returns all phases with implementation and verification projection. Use thi
 Compute readiness from `INIT_MANAGER`, not from roadmap counts:
 
 ```bash
-ALL_PHASES_VERIFIED=true; for ph in $(specforge query "$MILESTONE" --kinds phase --pick '.nodes[kind=phase].id'); do case "${ph##*/}" in 999|999.*) continue ;; esac; [ "$(specforge query "$ph" --depth 0 --pick '.nodes[0].fields.status')" = complete ] && [ "$(specforge query "$ph" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] || ALL_PHASES_VERIFIED=false; done
+ALL_PHASES_VERIFIED=false; [ "$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases')" = "$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases_complete')" ] && ALL_PHASES_VERIFIED=true   # progress leaves the 999 backlog out (#3167); a phase is complete only once its verification passed
 
 
 

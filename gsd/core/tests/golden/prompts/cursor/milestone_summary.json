@@ -36,7 +36,7 @@
     "",
     "If `--milestone` is not given:",
     "1. Take the milestone the run is about (`$MILESTONE`: the one still open, else the last)",
-    "2. Else take the latest closed milestone (`for m in $(specforge export --kinds milestone --pick '.nodes[].id'); do [ \"$(specforge query \"$m\" --depth 0 --pick '.nodes[0].fields.state')\" = shipped ] && echo \"$m\"; done | tail -1`)",
+    "2. Else take the latest closed milestone: the last id `specforge export --kinds milestone --pick '.nodes[fields.state=shipped].id'` prints",
     "3. A milestone with no phases yet is mid-build: the summary adapts to what it has",
     "4. If nothing found: error \"No milestone found. Run /gsd-new-project or /gsd-new-milestone first.\"",
     "",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 20563,
+  "bytes": 20474,
   "end": [
     "```",
     "</file>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b4b607b21264a527ba5d495e94fe505bc1996ba4a9b67383d11d19f63dd4c201",
+    "digest": "sha256:9dfa8996bc0873b4fd7117800210b086707a61471a269c0e92cdeab5ff7b6f5e",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "b4b607b21264a527ba5d495e94fe505bc1996ba4a9b67383d11d19f63dd4c201"
+  "sha256": "9dfa8996bc0873b4fd7117800210b086707a61471a269c0e92cdeab5ff7b6f5e"
 }

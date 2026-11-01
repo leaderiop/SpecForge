@@ -1,9 +1,9 @@
 //! `--pick <path>`: the values at a path of a JSON answer, one per line (ADR 0325), so a shell reads one value of
 //! `specforge query` or of an extension command without jq.
 //!
-//! The path is steps: `.key`, `[n]`, `[]` (every item) and `[<key>=<value>]` (the items whose string field `<key>`
-//! is `<value>`). A
-//! string prints bare, a number or boolean as JSON, an object or array as compact JSON; `null` and a missing value
+//! The path is steps: `.key`, `[n]`, `[]` (every item) and `[<key>=<value>]` (the items whose field `<key>`, a dotted
+//! path such as `fields.result`, is `<value>`: a string by its text, another scalar as JSON). A string prints
+//! bare, a number or boolean as JSON, an object or array as compact JSON; `null` and a missing value
 //! print nothing, and are not an error.
 
 use crate::outcome::{Exit, OutputFormat};
@@ -14,7 +14,9 @@ use serde_json::Value;
 macro_rules! rules {
     () => {
         "The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[<key>=<value>]` (the \
-         items whose string field <key> is <value>, e.g. `[kind=plan]`); a `.` before `[` may be left out, and `.` \
+         items whose field <key> is <value>, e.g. `[kind=plan]`: <key> may be dotted, `[fields.result=issue]`, and a \
+         number, boolean or null is compared as JSON, `[fields.backlog=true]`, `[fields.wave=2]`; an object \
+         or array is never selected); a `.` before `[` may be left out, and `.` \
          alone is the whole answer. One line per value reached: a string bare (a newline in it is printed as is), an \
          integer as is and any other number as an f64 (`1.0`, `-0.0`, `1e3` as `1000.0`), a boolean, object or array \
          as compact JSON; null or a missing value prints nothing, and is not an error."
@@ -116,8 +118,24 @@ enum Step {
     Key(String),
     Index(usize),
     Each,
-    /// `[<key>=<value>]`: the items whose string field `key` is `value`.
-    Field(String, String),
+    /// `[<key>=<value>]`: the items whose field at the dotted `key` (its segments) is `value`: a string by its text,
+    /// another scalar as JSON.
+    Field(Vec<String>, String),
+}
+
+/// Whether `item`'s field at the dotted `key` is `wanted`: a string by its text, another scalar as JSON.
+fn field_is(item: &Value, key: &[String], wanted: &str) -> bool {
+    match key
+        .iter()
+        .try_fold(item, |value, segment| value.get(segment))
+    {
+        Some(Value::String(text)) => text == wanted,
+        // the wanted text read as JSON: `2` is 2 and `true` is true; the integer 2 is not the float 2.0
+        Some(scalar @ (Value::Bool(_) | Value::Number(_) | Value::Null)) => {
+            serde_json::from_str::<Value>(wanted).is_ok_and(|w| w == *scalar)
+        }
+        _ => false,
+    }
 }
 
 /// A parsed `--pick` path.
@@ -166,7 +184,13 @@ impl Pick {
                     Some((key, _)) if key.contains(char::is_whitespace) => {
                         return Err(format!("at byte {at}: a key holds no whitespace, ']' or '='"));
                     }
-                    Some((key, value)) => Step::Field(key.to_string(), value.to_string()),
+                    Some((key, _)) if key.split('.').any(str::is_empty) => {
+                        return Err(format!("at byte {at}: a dotted key has a name between its dots"));
+                    }
+                    Some((key, value)) => Step::Field(
+                        key.split('.').map(str::to_string).collect(),
+                        value.to_string(),
+                    ),
                     None if inner.is_empty() => Step::Each,
                     // digits only, no sign and no leading zero: `usize::from_str` takes `+1` and `01`
                     None if inner.bytes().all(|b| b.is_ascii_digit())
@@ -212,9 +236,7 @@ impl Pick {
                         (Step::Each, Value::Array(items)) => items.iter().collect(),
                         (Step::Field(key, wanted), Value::Array(items)) => items
                             .iter()
-                            .filter(|item| {
-                                item.get(key).and_then(Value::as_str) == Some(wanted.as_str())
-                            })
+                            .filter(|item| field_is(item, key, wanted))
                             .collect(),
                         _ => Vec::new(),
                     }
@@ -265,7 +287,7 @@ mod tests {
             Pick::parse(".nodes[kind=plan].fields.goal[0][]").unwrap().0,
             [
                 Step::Key("nodes".into()),
-                Step::Field("kind".into(), "plan".into()),
+                Step::Field(vec!["kind".into()], "plan".into()),
                 Step::Key("fields".into()),
                 Step::Key("goal".into()),
                 Step::Index(0),
@@ -387,12 +409,50 @@ mod tests {
         let diagnostics = json!([{"code": "gsd/W205"}, {"code": "E003"}, {"code": 205}]);
         assert_eq!(picked(".[code=gsd/W205].code", &diagnostics), "gsd/W205\n");
         assert_eq!(picked("[code=E003].code", &diagnostics), "E003\n");
-        // a field that is not a string is not selected, and the value may hold '=' and '.'
-        assert_eq!(picked(".[code=205]", &diagnostics), "");
+        // a number is compared as JSON, and the value may hold '=' and '.'
+        assert_eq!(picked(".[code=205].code", &diagnostics), "205\n");
         assert_eq!(
             picked(".[a=b=c.d]", &json!([{"a": "b=c.d"}])),
             "{\"a\":\"b=c.d\"}\n"
         );
+    }
+
+    #[test]
+    fn a_dotted_key_selects_by_a_nested_field() {
+        let nodes = json!({"nodes": [
+            {"id": "t1", "fields": {"result": "issue"}}, {"id": "t2", "fields": {"result": "pass"}},
+            {"id": "t3", "fields": {}}, {"id": "t4"}, {"id": "t5", "fields": "issue"},
+        ]});
+        assert_eq!(picked(".nodes[fields.result=issue].id", &nodes), "t1\n");
+        assert_eq!(picked(".nodes[fields.result=pass].id", &nodes), "t2\n");
+        assert_eq!(picked(".nodes[fields.missing=x].id", &nodes), "");
+        assert_eq!(
+            Pick::parse(".nodes[fields.result=issue]").unwrap().0[1],
+            Step::Field(vec!["fields".into(), "result".into()], "issue".into())
+        );
+        for path in [".a[.x=1]", ".a[x.=1]", ".a[x..y=1]"] {
+            assert!(
+                Pick::parse(path).unwrap_err().starts_with("at byte 2:"),
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_scalar_that_is_not_a_string_is_compared_as_json() {
+        let nodes = json!({"nodes": [
+            {"id": "a", "fields": {"backlog": true, "wave": 2}},
+            {"id": "b", "fields": {"backlog": false, "wave": 1}},
+            {"id": "c", "fields": {"backlog": "true", "wave": "2"}},
+            {"id": "d", "fields": {"backlog": [true], "wave": {"n": 2}}},
+            {"id": "e", "fields": {"backlog": null}},
+        ]});
+        assert_eq!(picked(".nodes[fields.backlog=true].id", &nodes), "a\nc\n");
+        assert_eq!(picked(".nodes[fields.backlog=false].id", &nodes), "b\n");
+        assert_eq!(picked(".nodes[fields.wave=2].id", &nodes), "a\nc\n");
+        assert_eq!(picked(".nodes[fields.backlog=null].id", &nodes), "e\n");
+        // an object or an array is never selected
+        assert_eq!(picked(".nodes[fields.wave={\"n\":2}].id", &nodes), "");
     }
 
     #[test]

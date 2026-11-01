@@ -27,6 +27,7 @@ specforge query <id> --format context --include-coverage   # an agent's slice wi
 specforge query <id> --kinds plan --pick '.nodes[kind=plan].id'   # one value per line, no jq: .key [n] [] [<key>=<value>] (ADR 0325)
 specforge check --pick '.[code=E003].message'      # check, settings and export take --pick too
 specforge settings --pick '.extensions[].settings[name=<setting>].value'
+specforge query <id> --depth 1 --pick '.nodes[fields.result=issue].id'   # a dotted key; true, 2 and null match as JSON
 specforge trace <id>                 # traceability chain for an entity
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
 specforge schema                     # emit the Graph Protocol schema

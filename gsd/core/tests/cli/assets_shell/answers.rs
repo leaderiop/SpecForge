@@ -212,7 +212,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
             "{}; echo \"[$?]\"",
             inline(
                 &asset("gsd-core/workflows/milestone-summary.md"),
-                "for m in $(specforge export --kinds milestone"
+                "specforge export --kinds milestone --pick '.nodes[fields.state=shipped].id'"
             )
         ),
     );
