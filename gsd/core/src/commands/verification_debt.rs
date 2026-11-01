@@ -6,7 +6,8 @@
 //! pending. The answer is `{milestone, current, archived, archived_total, blockers}`: `current` counts the open tests
 //! of the milestone (`--milestone`, else `--phase`'s, else the one in progress, else the last), `archived` each
 //! shipped milestone with open tests (`{milestone, open}`) and `archived_total` their sum, and `blockers` the open
-//! tests' ids, of `--phase` when it is given, else of the milestone.
+//! tests' ids, of `--phase` when it is given, else of the milestone. A graph whose gaps lack their computed `status`
+//! (a view whose checks were skipped) is refused, never guessed at (ADR 0299 D4).
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
@@ -58,6 +59,16 @@ pub fn debt(
     };
     if let Some(p) = phase {
         known(p, "phase")?;
+    }
+    // A gap's status is computed: without it the debt is unknown, not open (ADR 0299 D4, as the reports refuse).
+    if let Some(gap) = graph
+        .nodes_of_kind("uat_gap")
+        .find(|g| g.text("status").is_none())
+    {
+        return Err(format!(
+            "the graph carries no computed status for {}; run `specforge check`",
+            gap.id
+        ));
     }
     let milestone = match (milestone, phase) {
         (Some(m), _) => {
@@ -235,6 +246,31 @@ mod tests {
             (report["current"].clone(), report["archived_total"].clone()),
             (json!(1), json!(0))
         );
+    }
+
+    /// Re-review of plan 05, item 11: a gap's `status` is computed; a graph without it (a view whose checks were
+    /// skipped) is refused, as the reports refuse (ADR 0299 D4), never counted as open.
+    #[test]
+    fn a_graph_without_computed_gap_status_is_refused() {
+        let graph = CommandGraph::new(
+            vec![
+                node("v1.0", "milestone", &[("state", "in_progress")]),
+                node("v1.0/01", "phase", &[]),
+                node("v1.0/01/01-UAT/U1", "uat_test", &[("result", "issue")]),
+                node(
+                    "v1.0/01/G-01-1",
+                    "uat_gap",
+                    &[("test", "v1.0/01/01-UAT/U1")],
+                ),
+            ],
+            Vec::new(),
+        );
+        let why = debt(&graph, None, None).unwrap_err();
+        assert!(
+            why.contains("no computed status for v1.0/01/G-01-1"),
+            "{why}"
+        );
+        assert!(why.contains("specforge check"), "{why}");
     }
 
     #[test]
