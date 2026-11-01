@@ -24,6 +24,7 @@ specforge export --format=context    # token-efficient context for an agent
 specforge export --format markdown --scope <id> --depth 1   # a review document for people who sign
 specforge query <id> --depth 2       # multi-resolution neighborhood query
 specforge query <id> --format context --include-coverage   # an agent's slice with coverage
+specforge query <id> --kinds plan --pick '.nodes[kind=plan].id'   # one value per line, no jq: .key [n] [] [kind=<k>] (ADR 0325)
 specforge trace <id>                 # traceability chain for an entity
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
 specforge schema                     # emit the Graph Protocol schema
@@ -52,6 +53,7 @@ specforge delete <id> [--unlink-references]  # delete an entity (and, with the f
 
 # Extension prompts and gates (ADR 0291): a workflow an extension contributes, and a command refused while a check fails
 specforge prompt <ext>.<prompt> [arguments] [--host claude-code|codex|cursor] [--format json]   # also `specforge <ext> <prompt>` when no command has the name
+specforge <ext> <command> [args] --pick .<field>   # one value of the command's JSON answer per line (ADR 0325)
 # MCP: prompts/list lists them after the core five; specforge.prompt { name, arguments | argv, host? } renders any prompt. A gated command or prompt is refused gate_failed (exit 1) with the failing diagnostics.
 
 # Extensions & registry

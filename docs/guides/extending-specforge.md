@@ -394,7 +394,8 @@ agents as the MCP tool `specforge.greet.greetings`.
 - **The host owns `--path`, `--format` and `--help`.** Don't declare them;
   `call.render` writes your payload as JSON under `--format json` (always,
   over MCP) and your own layout otherwise. `call.fail` writes an error in
-  the same format.
+  the same format. It also adds `--host` and `--pick <path>` (print one value
+  of your JSON answer, ADR 0325) unless you declare an arg of that name.
 - **The graph is all a command reads.** The export gets no file system, no
   environment and no network; `call.today()` is the host's date. The graph
   carries each entity's computed values (as fields) and its judgements (ADR
