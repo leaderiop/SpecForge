@@ -248,3 +248,19 @@ fn a_research_step_makes_the_quick_plan_before_its_research() {
         );
     }
 }
+
+/// With `--discuss` and `--research`, quick records the research's digest of the context once both exist, as
+/// `/gsd-plan-phase` does for a phase's: the served command, run for the fixture's quick plan, copies the context's
+/// digest into its research.
+#[test]
+fn quick_records_its_researchs_context_digest() {
+    let p = project("quick-context");
+    let text = served(&p, "quick.md");
+    let record = commands(&text, "specforge gsd record-research");
+    assert_eq!(record.len(), 1, "{record:#?}");
+    assert!(holds(&p, &record[0], "251101-abc"), "{}", record[0]);
+    assert_eq!(
+        p.fields_of("251101-abc-RESEARCH")["context_digest"],
+        p.fields_of("251101-abc-CONTEXT")["digest"]
+    );
+}

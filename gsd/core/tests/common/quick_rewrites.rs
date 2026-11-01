@@ -6,6 +6,7 @@
 //! the planner's "Write plan to" line stay upstream's. `port_workflows` reads them as more `REWRITTEN_SPANS` rows.
 
 pub const SPANS: &[(&str, usize, usize)] = &[
+    ("gsd-core/workflows/quick.md", 284, 284),
     ("gsd-core/workflows/quick.md", 325, 326),
     ("gsd-core/workflows/quick.md", 338, 338),
     ("gsd-core/workflows/quick.md", 362, 362),
