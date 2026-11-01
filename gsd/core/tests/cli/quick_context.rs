@@ -87,3 +87,95 @@ fn a_research_of_a_quick_plan_may_have_any_name() {
     p.edit(QUICK, "research   251101-abc-RESEARCH", "research   foo");
     assert_eq!(e206(&p), Vec::<String>::new());
 }
+
+/// The "is the quick plan planned" checks the served quick workflows run: every backticked
+/// `specforge query "${quick_id}" --kinds ...` command of quick.md and the batch's planner wave.
+fn planned_checks(p: &Project) -> Vec<String> {
+    let mut found = Vec::new();
+    for file in ["quick.md", "quick-batch/steps/planner-wave.md"] {
+        let run = p.run(&["gsd", "reference", &format!("gsd-core/workflows/{file}")]);
+        assert_eq!(run.code, 0, "{file}: {}", run.all());
+        for code in run.stdout.split('`').skip(1).step_by(2) {
+            if !code.contains('\n') && code.contains("specforge query \"${quick_id}\" --kinds") {
+                found.push(code.to_string());
+            }
+        }
+    }
+    found
+}
+
+/// Whether `check` succeeds for `quick_id` in the project, run under bash with `specforge` on the `PATH`.
+fn holds(p: &Project, check: &str, quick_id: &str) -> bool {
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    let path = format!(
+        "{}:{}",
+        bin.parent().expect("a directory").display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let out = std::process::Command::new("bash")
+        .args(["-c", check])
+        .env("PATH", path)
+        .env("quick_id", quick_id)
+        .current_dir(p.root())
+        .stdin(std::process::Stdio::null())
+        .output()
+        .expect("bash");
+    out.status.success()
+}
+
+/// A plan the discussion or research step made first (as the prompt's "The quick plan" says) is not planned; once
+/// the planner gives it a task, it is. Each check of the served text agrees.
+#[test]
+fn a_quick_plan_is_planned_once_it_holds_a_task() {
+    let p = project("quick-context");
+    let stub = p.run(&[
+        "new",
+        "plan",
+        "251101-stb",
+        "Stub",
+        "--in",
+        QUICK,
+        "--type",
+        "execute",
+        "--files_modified",
+        "",
+        "--objective",
+        "Stub",
+    ]);
+    assert_eq!(stub.code, 0, "{}", stub.all());
+    let checks = planned_checks(&p);
+    assert_eq!(checks.len(), 3, "{checks:#?}");
+    for check in &checks {
+        assert!(
+            !holds(&p, check, "251101-stb"),
+            "a stub plan counts as planned: {check}"
+        );
+    }
+    let task = p.run(&[
+        "new",
+        "task",
+        "T1",
+        "Trim",
+        "--in",
+        QUICK,
+        "--plan",
+        "251101-stb",
+        "--type",
+        "auto",
+        "--files",
+        "src/tasks.js",
+        "--action",
+        "Trim the title",
+        "--verify_text",
+        "The title has no spaces at its ends",
+        "--done",
+        "The title is trimmed",
+    ]);
+    assert_eq!(task.code, 0, "{}", task.all());
+    for check in &checks {
+        assert!(
+            holds(&p, check, "251101-stb"),
+            "a plan with a task is not planned: {check}"
+        );
+    }
+}

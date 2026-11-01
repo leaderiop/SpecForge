@@ -361,11 +361,11 @@ Return: ## PLANNING COMPLETE with plan path
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 After planner returns:
-1. Verify the plan exists: `specforge query "${quick_id}" --kinds plan --depth 0 >/dev/null`
+1. Verify the plan is planned (it holds a task; the plan a discussion or research step made first holds none): `[ "$(specforge query "${quick_id}" --kinds task --depth 1 --format json | jq '[.nodes[]|select(.kind=="task")]|length')" -gt 0 ]`
 2. Extract plan count (typically 1 for quick tasks)
 3. Report: "Plan created: plan ${quick_id}"
 
-If plan not found, error: "Planner failed to create plan ${quick_id}"
+If the plan holds no task, error: "Planner failed to create plan ${quick_id}"
 
 ---
 
