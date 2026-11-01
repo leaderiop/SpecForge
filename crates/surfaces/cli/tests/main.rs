@@ -66,6 +66,7 @@ mod parity;
 mod partial_writes;
 mod path_parity;
 mod path_spelling;
+mod pick;
 mod previews;
 mod product_commands;
 mod project_from_path;

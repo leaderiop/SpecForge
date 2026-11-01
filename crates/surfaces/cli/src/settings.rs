@@ -15,7 +15,7 @@ pub(crate) struct Args {
     project: crate::project::ProjectArg,
 
     #[command(flatten)]
-    output: OutputArg,
+    output: crate::pick::PickedOutputArg,
 
     /// List the settings nothing sets and that have no default too
     #[arg(long)]
@@ -227,8 +227,15 @@ impl Args {
             }
             None => {}
         }
-        let format = self.output.format;
-        let project = match self.project.compile() {
+        let format = match self.output.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit,
+        };
+        let compiled = match runtime {
+            Some(runtime) => self.project.compile_in(runtime),
+            None => self.project.compile(),
+        };
+        let project = match compiled {
             Ok(project) => project,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
@@ -248,9 +255,7 @@ impl Args {
                 .any(|d| d.severity == specforge_common::Severity::Error),
         );
         match format {
-            OutputFormat::Json => {
-                terminal.json(&listing);
-            }
+            OutputFormat::Json => crate::pick::print_json(terminal, self.output.pick(), &listing),
             OutputFormat::Human => {
                 for diagnostic in &listing.diagnostics.0 {
                     print_diagnostic(terminal, diagnostic);

@@ -24,7 +24,9 @@ specforge export --format=context    # token-efficient context for an agent
 specforge export --format markdown --scope <id> --depth 1   # a review document for people who sign
 specforge query <id> --depth 2       # multi-resolution neighborhood query
 specforge query <id> --format context --include-coverage   # an agent's slice with coverage
-specforge query <id> --kinds plan --pick '.nodes[kind=plan].id'   # one value per line, no jq: .key [n] [] [kind=<k>] (ADR 0325)
+specforge query <id> --kinds plan --pick '.nodes[kind=plan].id'   # one value per line, no jq: .key [n] [] [<key>=<value>] (ADR 0325)
+specforge check --pick '.[code=E003].message'      # check, settings and export take --pick too
+specforge settings --pick '.extensions[].settings[name=<setting>].value'
 specforge trace <id>                 # traceability chain for an entity
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
 specforge schema                     # emit the Graph Protocol schema

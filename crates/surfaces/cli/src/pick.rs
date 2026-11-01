@@ -1,23 +1,27 @@
 //! `--pick <path>`: the values at a path of a JSON answer, one per line (ADR 0325), so a shell reads one value of
 //! `specforge query` or of an extension command without jq.
 //!
-//! The path is steps: `.key`, `[n]`, `[]` (every item) and `[kind=<k>]` (the items whose `kind` is `<k>`). A
+//! The path is steps: `.key`, `[n]`, `[]` (every item) and `[<key>=<value>]` (the items whose string field `<key>`
+//! is `<value>`). A
 //! string prints bare, a number or boolean as JSON, an object or array as compact JSON; `null` and a missing value
 //! print nothing, and are not an error.
 
+use crate::outcome::{Exit, OutputFormat};
+use crate::terminal::{Terminal, errln, out};
 use serde_json::Value;
 
 /// The rules every surface's long help states.
 macro_rules! rules {
     () => {
-        "The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[kind=<k>]` (the items \
-         whose `kind` is <k>). One line per value reached: a string bare (a newline in it is printed as is), an \
+        "The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[<key>=<value>]` (the \
+         items whose string field <key> is <value>, e.g. `[kind=plan]`); a `.` before `[` may be left out, and `.` \
+         alone is the whole answer. One line per value reached: a string bare (a newline in it is printed as is), an \
          integer as is and any other number as an f64 (`1.0`, `-0.0`, `1e3` as `1000.0`), a boolean, object or array \
          as compact JSON; null or a missing value prints nothing, and is not an error."
     };
 }
 
-/// The short help of `--pick`, on `query` and every extension command.
+/// The short help of `--pick`, on every command that takes it.
 pub(crate) const HELP: &str = "Print only the values at this path of the JSON answer, one per line";
 
 /// `query --pick`'s long help.
@@ -37,13 +41,83 @@ pub(crate) const COMMAND_LONG_HELP: &str = concat!(
      answer, never from the plan report --format json wraps it in."
 );
 
+/// `export --pick`'s long help.
+pub(crate) const EXPORT_LONG_HELP: &str = concat!(
+    "Print only the values at this path of the graph format's JSON answer, one per line, e.g. \
+     '.nodes[kind=phase].id'. ",
+    rules!(),
+    " It takes --format graph or json."
+);
+
+/// The long help of `--pick` on a command whose JSON is its answer (`check`, `settings`).
+pub(crate) const ANSWER_LONG_HELP: &str = concat!(
+    "Print only the values at this path of the command's JSON answer, one per line, e.g. '.[code=E003].message' \
+     on check or '.extensions[].settings[name=<setting>].value' on settings. ",
+    rules!(),
+    " It implies --format json (--format human is refused): errors print as they do under json, and the exit code \
+     is the command's."
+);
+
+/// `--format human|json` beside `--pick`, for a core command whose JSON form is its answer (`check`, `settings`):
+/// with `--pick` the format is `json` unless one is given, so an explicit `--format human` can be refused.
+#[derive(clap::Args, Clone, Debug)]
+pub(crate) struct PickedOutputArg {
+    /// Output format: human or json (json with --pick)
+    #[arg(
+        long,
+        default_value = "human",
+        default_value_if("pick", clap::builder::ArgPredicate::IsPresent, "json")
+    )]
+    format: OutputFormat,
+
+    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = HELP, long_help = ANSWER_LONG_HELP)]
+    pick: Option<Pick>,
+}
+
+impl PickedOutputArg {
+    /// The format, or the usage error (exit 2) of `--pick` beside `--format human`.
+    pub(crate) fn format(&self, terminal: &Terminal) -> Result<OutputFormat, Exit> {
+        // a usage error, not a note: written under either format
+        match (&self.pick, self.format) {
+            (Some(_), OutputFormat::Human) => {
+                errln!(
+                    terminal,
+                    "error: --pick implies --format json: it takes no --format human"
+                );
+                Err(Exit::Unjudged)
+            }
+            (_, format) => Ok(format),
+        }
+    }
+
+    pub(crate) fn pick(&self) -> Option<&Pick> {
+        self.pick.as_ref()
+    }
+}
+
+/// `document` as the JSON form prints it, or the values `pick` reaches in it.
+pub(crate) fn print_json(
+    terminal: &Terminal,
+    pick: Option<&Pick>,
+    document: &impl serde::Serialize,
+) {
+    match pick {
+        Some(pick) => {
+            let value = serde_json::to_value(document).expect("serialize JSON output");
+            out!(terminal, "{}", pick.lines(&value));
+        }
+        None => terminal.json(document),
+    }
+}
+
 /// One step of a path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Step {
     Key(String),
     Index(usize),
     Each,
-    Kind(String),
+    /// `[<key>=<value>]`: the items whose string field `key` is `value`.
+    Field(String, String),
 }
 
 /// A parsed `--pick` path.
@@ -53,11 +127,20 @@ pub(crate) struct Pick(Vec<Step>);
 impl Pick {
     /// Parse `text`; a refusal names the byte where the path goes wrong.
     pub(crate) fn parse(text: &str) -> Result<Self, String> {
+        // `.` alone is the whole answer, printed compact
+        if text == "." {
+            return Ok(Self(Vec::new()));
+        }
         let mut steps = Vec::new();
         let mut at = 0;
         while at < text.len() {
             let rest = &text[at..];
             if let Some(key) = rest.strip_prefix('.') {
+                // `.[`, as jq writes it, is `[`
+                if key.starts_with('[') {
+                    at += 1;
+                    continue;
+                }
                 let len = key.find(['.', '[']).unwrap_or(key.len());
                 if len == 0 {
                     return Err(format!("at byte {at}: '.' needs a key after it"));
@@ -77,9 +160,13 @@ impl Pick {
                     return Err(format!("at byte {at}: '[' is not closed"));
                 };
                 let inner = &inner[..len];
-                steps.push(match inner.strip_prefix("kind=") {
-                    Some("") => return Err(format!("at byte {at}: '[kind=]' needs a kind")),
-                    Some(kind) => Step::Kind(kind.to_string()),
+                steps.push(match inner.split_once('=') {
+                    Some(("", _)) => return Err(format!("at byte {at}: '[=…]' needs a key")),
+                    Some((_, "")) => return Err(format!("at byte {at}: '[{inner}]' needs a value")),
+                    Some((key, _)) if key.contains(char::is_whitespace) => {
+                        return Err(format!("at byte {at}: a key holds no whitespace, ']' or '='"));
+                    }
+                    Some((key, value)) => Step::Field(key.to_string(), value.to_string()),
                     None if inner.is_empty() => Step::Each,
                     // digits only, no sign and no leading zero: `usize::from_str` takes `+1` and `01`
                     None if inner.bytes().all(|b| b.is_ascii_digit())
@@ -91,7 +178,7 @@ impl Pick {
                     }
                     None => {
                         return Err(format!(
-                            "at byte {at}: expected '[<index>]', '[]' or '[kind=<k>]', found '[{inner}]'"
+                            "at byte {at}: expected '[<index>]', '[]' or '[<key>=<value>]', found '[{inner}]'"
                         ));
                     }
                 });
@@ -123,9 +210,11 @@ impl Pick {
                             items.get(*n).into_iter().collect()
                         }
                         (Step::Each, Value::Array(items)) => items.iter().collect(),
-                        (Step::Kind(kind), Value::Array(items)) => items
+                        (Step::Field(key, wanted), Value::Array(items)) => items
                             .iter()
-                            .filter(|item| item.get("kind").and_then(Value::as_str) == Some(kind))
+                            .filter(|item| {
+                                item.get(key).and_then(Value::as_str) == Some(wanted.as_str())
+                            })
                             .collect(),
                         _ => Vec::new(),
                     }
@@ -176,7 +265,7 @@ mod tests {
             Pick::parse(".nodes[kind=plan].fields.goal[0][]").unwrap().0,
             [
                 Step::Key("nodes".into()),
-                Step::Kind("plan".into()),
+                Step::Field("kind".into(), "plan".into()),
                 Step::Key("fields".into()),
                 Step::Key("goal".into()),
                 Step::Index(0),
@@ -190,12 +279,14 @@ mod tests {
         for (path, at) in [
             ("", "byte 0"),
             ("nodes", "byte 0"),
-            (".", "byte 0"),
             (".a..b", "byte 2"),
             (".a[", "byte 2"),
             (".a[x]", "byte 2"),
             (".a[-1]", "byte 2"),
             (".a[kind=]", "byte 2"),
+            (".a[=plan]", "byte 2"),
+            (".a[a b=x]", "byte 2"),
+            (".a.", "byte 2"),
             (".a[0]b", "byte 5"),
             (".a[+1]", "byte 2"),
             (".a[01]", "byte 2"),
@@ -208,6 +299,16 @@ mod tests {
             let error = Pick::parse(path).unwrap_err();
             assert!(error.starts_with(&format!("at {at}:")), "{path}: {error}");
         }
+    }
+
+    #[test]
+    fn a_dot_alone_is_the_whole_answer_on_one_line() {
+        let document = json!({"activeHooks": [{"capId": "security"}], "skippedHooks": []});
+        assert_eq!(
+            picked(".", &document),
+            "{\"activeHooks\":[{\"capId\":\"security\"}],\"skippedHooks\":[]}\n"
+        );
+        assert_eq!(picked(".", &json!("s")), "s\n");
     }
 
     #[test]
@@ -266,6 +367,32 @@ mod tests {
         assert_eq!(picked(".nodes[kind=task]", &document), "");
         assert_eq!(picked(".nodes[3]", &document), "7\n");
         assert_eq!(picked(".nodes[]", &document).lines().count(), 4);
+    }
+
+    #[test]
+    fn an_item_is_selected_by_any_string_field() {
+        let settings = json!({"extensions": [{"settings": [
+            {"name": "workflow.auto_advance", "value": true}, {"name": "workflow.other", "value": "x"},
+            {"name": "workflow.unset"},
+        ]}]});
+        let path = ".extensions[].settings[name=workflow.auto_advance].value";
+        assert_eq!(picked(path, &settings), "true\n");
+        assert_eq!(
+            picked(
+                ".extensions[].settings[name=workflow.unset].value",
+                &settings
+            ),
+            ""
+        );
+        let diagnostics = json!([{"code": "gsd/W205"}, {"code": "E003"}, {"code": 205}]);
+        assert_eq!(picked(".[code=gsd/W205].code", &diagnostics), "gsd/W205\n");
+        assert_eq!(picked("[code=E003].code", &diagnostics), "E003\n");
+        // a field that is not a string is not selected, and the value may hold '=' and '.'
+        assert_eq!(picked(".[code=205]", &diagnostics), "");
+        assert_eq!(
+            picked(".[a=b=c.d]", &json!([{"a": "b=c.d"}])),
+            "{\"a\":\"b=c.d\"}\n"
+        );
     }
 
     #[test]
