@@ -407,3 +407,29 @@ fn the_post_fix_text_leftovers_stay_fixed() {
     );
     assert!(!integrations.contains("written plaintext only to `config.json`"));
 }
+
+/// G4 (plan 05): no rendered line runs jq, neither an asset's (`port_tools` scans those) nor one the Rust side writes
+/// (`src/prompts/`). gh's own `--jq` filter is not jq.
+#[test]
+fn no_rendered_line_runs_jq() {
+    let rx = Regex::new(r"(?:^|[|;&`]|\$\()\s*jq\s").expect("a regex");
+    for (line, runs) in [
+        ("x | jq -r .a", true),
+        ("jq -n", true),
+        ("X=$(jq -r .a f)", true),
+        ("gh pr view --jq '.a'", false),
+        ("with jq and git (jq is a requirement", false),
+    ] {
+        assert_eq!(rx.is_match(line), runs, "{line}");
+    }
+    let found: Vec<String> = rendered()
+        .iter()
+        .flat_map(|(id, text)| {
+            text.lines()
+                .enumerate()
+                .filter(|(_, l)| rx.is_match(l.trim_start()))
+                .map(move |(n, l)| format!("{id}:{}: {}", n + 1, l.trim()))
+        })
+        .collect();
+    assert!(found.is_empty(), "lines that run jq:\n{}", found.join("\n"));
+}

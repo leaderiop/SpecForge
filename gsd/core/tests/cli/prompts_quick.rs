@@ -57,16 +57,33 @@ fn quick_creates_a_quick_plan() {
     for code in ["W323", "E302", "E401"] {
         assert!(!codes.contains(&code.to_string()), "{code}: {codes:?}");
     }
-    // P4: a plan with no phase starts and completes through the typed tools.
-    let started = gsd(&p, "start-plan", &[&id]);
-    assert_eq!(started.code, 0, "{}", started.all());
-    let ts = started
-        .stdout
-        .split("started ")
-        .nth(1)
-        .and_then(|s| s.split_whitespace().next())
-        .expect("a time")
-        .to_string();
+    // P4: a plan with no phase starts and completes through the typed tools. The prompt's STARTED line runs in bash
+    // with only specforge on the PATH (G4 plan 05: it picks the answer, no jq).
+    let line = text
+        .lines()
+        .find(|l| {
+            l.trim_start()
+                .starts_with("STARTED=$(specforge gsd start-plan")
+        })
+        .expect("the STARTED line");
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    // `/bin/bash`: the child's PATH holds specforge alone
+    let out = std::process::Command::new("/bin/bash")
+        .args([
+            "-c",
+            &format!("quick_id={id}\n{line}\nprintf '%s' \"$STARTED\""),
+        ])
+        .env("PATH", bin.parent().expect("a directory"))
+        .current_dir(p.root())
+        .stdin(std::process::Stdio::null())
+        .output()
+        .expect("bash");
+    let ts = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(
+        ts.len() == 20 && ts.ends_with('Z'),
+        "{ts:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let summary = command(&text, "specforge new summary", &id, &fill);
     let made = run(&p, &summary);
     assert_eq!(made.code, 0, "{summary:?}: {}", made.all());

@@ -203,11 +203,8 @@ const SPEC_READERS: [&str; 6] = [
     "plan-phase.md",
 ];
 
-/// The graph read that stands for upstream's `has_spec` / `spec_path` init facts.
-const PHASE_SPEC_READ: &str =
-    r#"jq -r '[.nodes[] | select(.kind == "phase_spec") | .id] | first // empty'"#;
-
-/// The same read with `--pick` (G4 plan 04: plan-phase's shell block; the prose lines above are plan 05's).
+/// The graph read that stands for upstream's `has_spec` / `spec_path` init facts (G4: plan-phase's shell block in plan
+/// 04, the prose runs in plan 05).
 const PHASE_SPEC_PICK: &str = "--pick '.nodes[kind=phase_spec].id' | head -1";
 
 fn served(p: &super::harness::Project, file: &str) -> String {
@@ -233,10 +230,7 @@ fn the_discuss_prompts_read_the_phase_spec_from_the_graph() {
         ] {
             assert!(!text.contains(upstream), "{file}: `{upstream}`");
         }
-        assert!(
-            text.contains(PHASE_SPEC_READ) || text.contains(PHASE_SPEC_PICK),
-            "{file}: no graph read"
-        );
+        assert!(text.contains(PHASE_SPEC_PICK), "{file}: no graph read");
     }
 }
 

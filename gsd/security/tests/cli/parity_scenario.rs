@@ -63,7 +63,7 @@ fn the_hooks_are_the_security_entries_of_render_hooks() {
         }
         let ours = gsd(&p, &["security-hooks", point]);
         assert_eq!(ours["activeHooks"], theirs, "{point}");
-        // upstream omits skippedHooks without --after-fingerprint; ours is the empty list core's jq adds up
+        // upstream omits skippedHooks without --after-fingerprint; ours prints the empty list
         assert_eq!(ours["skippedHooks"], json!([]), "{point}");
     }
 }
@@ -227,9 +227,8 @@ fn the_audit_trail_appends_once_per_change_as_append_audit_did() {
 /// The `SHIP_PRE_HOOKS_JSON` line of core's rendered `ship` prompt, run in bash, gives the security gate.
 #[test]
 fn the_ship_prompts_hook_line_gives_the_security_gate() {
-    let has = |tool: &str| Command::new(tool).arg("--version").output().is_ok();
-    if !has("bash") || !has("jq") {
-        eprintln!("skipped: bash or jq is absent");
+    if Command::new("bash").arg("--version").output().is_err() {
+        eprintln!("skipped: bash is absent");
         return;
     }
     // the vault's phase 1 is not verified, so `ship` refuses it (E511); the hook line reads only settings, so the

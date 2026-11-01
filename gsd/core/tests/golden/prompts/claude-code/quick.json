@@ -61,7 +61,7 @@
     "- gsd-verifier — Verifies phase completion, checks quality gates",
     "- gsd-code-reviewer — Reviews source files for bugs, security issues, and code quality"
   ],
-  "bytes": 58295,
+  "bytes": 58280,
   "end": [
     "",
     "Execute end-to-end.",
@@ -97,7 +97,7 @@
     "specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\"",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
     "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
-    "STARTED=$(specforge gsd start-plan \"$quick_id\" --format json | jq -r .started)",
+    "STARTED=$(specforge gsd start-plan \"$quick_id\" --pick .started)",
     "specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"",
     "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\" --started \"$STARTED\"",
     "```",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1d09aafd01512acbf8b68da9c27675ef89baa17f4d678903b984d0f7019cdf95",
+    "digest": "sha256:1cc66948be8490d4d6cf5b5a810e974ffeac8a73aa9ee715277ce98dedf8501b",
     "prompt": "@gsd/core@VERSION:quick",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "1d09aafd01512acbf8b68da9c27675ef89baa17f4d678903b984d0f7019cdf95"
+  "sha256": "1cc66948be8490d4d6cf5b5a810e974ffeac8a73aa9ee715277ce98dedf8501b"
 }
