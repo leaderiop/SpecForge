@@ -78,7 +78,8 @@ pub fn run(argv: &[String], builtins: &[String], terminal: &Terminal) -> i32 {
     let root = match ProjectArg::scan(&rest[..before]).root() {
         Ok(root) => root,
         Err(error) => {
-            let format = if asks_for_json(&rest) {
+            // no command is known yet: the kernel's `--pick` counts
+            let format = if asks_for_json(&rest, true) {
                 CommandFormat::Json
             } else {
                 CommandFormat::Human
@@ -119,7 +120,8 @@ pub(crate) fn run_in(
     });
     if prompted {
         let name = rest.remove(0);
-        let format = if asks_for_json(&rest) {
+        // a prompt takes no `--pick`
+        let format = if asks_for_json(&rest, false) {
             crate::outcome::OutputFormat::Json
         } else {
             crate::outcome::OutputFormat::Human
@@ -176,7 +178,7 @@ pub(crate) fn run_in(
     // Known before parsing, so a usage error is written in the format asked
     // for wherever `--format` is on the command line, or if parsing stops
     // before reaching it.
-    let json = asks_for_json(&rest);
+    let json = asks_for_json(&rest, requested.is_none_or(kernel_picks));
     rest.insert(0, format!("specforge {ext}"));
     let matches = match command_line(ext, &commands).try_get_matches_from(rest) {
         Ok(matches) => matches,
@@ -208,10 +210,29 @@ pub(crate) fn run_in(
     };
 
     let pick = matches.try_get_one::<Pick>(PICK).ok().flatten();
+    let format = format_value(matches);
+    if pick.is_some()
+        && matches.value_source(FORMAT) == Some(ValueSource::CommandLine)
+        && format != CommandFormat::Json
+    {
+        let refused = CommandError::new(
+            specforge_protocol_types::command_args::INVALID_INPUT,
+            format!(
+                "--pick implies --format json: it takes no --format {}",
+                format.as_str()
+            ),
+        );
+        errln!(
+            terminal,
+            "{}",
+            serde_json::to_string(&refused).expect("a command error serializes")
+        );
+        return INVALID_INPUT_EXIT;
+    }
     let format = if pick.is_some() {
         CommandFormat::Json
     } else {
-        format_value(matches)
+        format
     };
     // What the command line set, as clap typed it; the operation normalizes
     // it by the rule MCP's arguments go through.
@@ -378,14 +399,15 @@ pub(crate) fn with_commands_of(mut cli: Command, env: &Environment) -> Command {
 const INVALID_INPUT_EXIT: i32 = crate::outcome::Exit::Unjudged.code();
 
 /// Whether `args` ask for `--format json` (`--format json` or
-/// `--format=json`) or name `--pick`, read before the command line is parsed.
-fn asks_for_json(args: &[String]) -> bool {
+/// `--format=json`) or, when `picks` (the kernel adds `--pick`), name `--pick`; read before the command line is
+/// parsed.
+fn asks_for_json(args: &[String], picks: bool) -> bool {
     let flag = format!("--{FORMAT}");
     let pick = format!("--{PICK}");
     let json = CommandFormat::Json.as_str();
     let mut args = args.iter().take_while(|a| *a != "--");
     while let Some(arg) = args.next() {
-        if *arg == pick || arg.starts_with(&format!("{pick}=")) {
+        if picks && (*arg == pick || arg.starts_with(&format!("{pick}="))) {
             return true;
         }
         if *arg == flag {
@@ -397,6 +419,11 @@ fn asks_for_json(args: &[String]) -> bool {
         }
     }
     false
+}
+
+/// Whether the host gives `command` its `--pick`: it declares no arg of the name.
+fn kernel_picks(command: &ExtensionCommand) -> bool {
+    !command.args().iter().any(|a| a.name == PICK)
 }
 
 /// Whether `e` is clap's help or version rather than a usage error.
@@ -550,7 +577,7 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .help("The host calling the command: claude-code, codex or cursor"),
             );
         }
-        if !command.args().iter().any(|a| a.name == PICK) {
+        if kernel_picks(command) {
             sub = sub.arg(
                 Arg::new(PICK)
                     .long(PICK)

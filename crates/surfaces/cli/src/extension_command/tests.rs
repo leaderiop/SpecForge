@@ -548,19 +548,23 @@ fn the_cli_sends_the_args_the_derivation_normalizes() {
 /// `specforge core quiet <args>` over `@t/core`, its export answering `stdout`, `stderr` and `exit_code`: the exit
 /// code, stdout and stderr the CLI printed.
 fn quiet(stdout: &str, stderr: &str, exit_code: i32, args: &[&str]) -> (i32, String, String) {
+    let answer = serde_json::json!({"exit_code": exit_code, "stdout": stdout, "stderr": stderr});
+    quiet_answering(
+        specforge_wasm::WasmCallResult::Ok(answer.to_string().into_bytes()),
+        args,
+    )
+}
+
+/// [`quiet`], its export answering `result`.
+fn quiet_answering(result: specforge_wasm::WasmCallResult, args: &[&str]) -> (i32, String, String) {
     use specforge_project::testing::{CORE, GSD_WRITES_EXTENSIONS, GsdWrites, TestProject};
     let project = TestProject::new()
         .config(|c| c["name"] = "p".into())
         .enabling(&GSD_WRITES_EXTENSIONS)
         .installing_enabled();
-    let answer = serde_json::json!({"exit_code": exit_code, "stdout": stdout, "stderr": stderr});
     let runtime = std::sync::Arc::new(
         GsdWrites::new()
-            .answering(
-                CORE,
-                "cmd__quiet",
-                specforge_wasm::WasmCallResult::Ok(answer.to_string().into_bytes()),
-            )
+            .answering(CORE, "cmd__quiet", result)
             .runtime(),
     );
     let env = project.environment_in(runtime as specforge_project::SharedRuntime);
@@ -596,10 +600,65 @@ fn pick_prints_the_values_of_a_commands_json_answer() {
 }
 
 #[test]
-fn pick_leaves_a_refused_command_as_it_is() {
+fn pick_writes_a_refusal_as_json_with_its_exit_code() {
+    // the guest's own refusal: its stderr and exit code, nothing on stdout
     let refused = "{\"code\":\"E900\",\"message\":\"no\"}\n";
     let (code, out, err) = quiet("", refused, 3, &["--pick", ".s"]);
     assert_eq!((code, out.as_str(), err.as_str()), (3, "", refused));
+    // the host's refusals are written as under --format json: a trapped export, an unknown option
+    let trap = specforge_wasm::WasmCallResult::Trap(specforge_wasm::WasmTrapInfo {
+        kind: "call_failed".into(),
+        message: "unreachable".into(),
+        export_name: "cmd__quiet".into(),
+    });
+    let (code, out, err) = quiet_answering(trap.clone(), &[]);
+    assert_eq!(code, 1);
+    assert!(
+        err.starts_with("error[E028]"),
+        "human without --pick: {err}"
+    );
+    let (code, out_picked, err) = quiet_answering(trap, &["--pick", ".s"]);
+    assert_eq!((code, out.as_str(), out_picked.as_str()), (1, "", ""));
+    let error: Value = serde_json::from_str(&err).expect(&err);
+    assert_eq!(error["code"], "E028");
+    let (code, _, err) = quiet("{}", "", 0, &["--nope", "--pick", ".s"]);
+    assert_eq!(code, 2);
+    let error: Value = serde_json::from_str(&err).expect(&err);
+    assert_eq!(error["code"], "INVALID_INPUT");
+}
+
+#[test]
+fn pick_refuses_a_format_other_than_json() {
+    for format in [&["--format", "human"][..], &["--format=human"]] {
+        let mut args = format.to_vec();
+        args.extend(["--pick", ".s"]);
+        let (code, out, err) = quiet(r#"{"s": "x"}"#, "", 0, &args);
+        assert_eq!((code, out.as_str()), (2, ""), "{format:?}: {err}");
+        let error: Value = serde_json::from_str(&err).expect(&err);
+        assert!(
+            error["message"].as_str().unwrap().contains("--pick"),
+            "{error}"
+        );
+    }
+}
+
+#[test]
+fn a_command_declaring_pick_keeps_it_and_is_not_asked_for_json() {
+    let mut c = contribution();
+    c.args
+        .push(arg("pick", CommandArgType::String, false, None));
+    let (args, format) = sent_by(&c, &["milestone-completion", "m1", "--pick", "x"]).unwrap();
+    assert_eq!(
+        (args["pick"].as_str(), format),
+        (Some("x"), CommandFormat::Human)
+    );
+    let command = declared(c);
+    let line = ["--pick".to_string(), "x".to_string()];
+    assert!(!asks_for_json(&line, kernel_picks(&command)));
+    assert!(asks_for_json(
+        &line,
+        kernel_picks(&declared(contribution()))
+    ));
 }
 
 #[test]
