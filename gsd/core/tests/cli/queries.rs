@@ -90,12 +90,17 @@ fn bound(subject: &str) -> Option<&'static str> {
 }
 
 /// Subjects the twin cannot bind: a quick task, a placeholder the agent fills, a loop variable.
+/// The reading-list queries a quick prompt builds from `quick_id` in its `${... ? '...' : ''}` form (their subject
+/// reads `'`): `quick_context::a_quick_reading_list_query_reaches_the_context_decisions_and_findings` runs them.
+const QUICK_READING: &[&str] = &[
+    "specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds context,decision --format context`",
+    "specforge query ' + quick_id + '-RESEARCH --depth 1 --format context`",
+];
+
 const UNBOUND: &[&str] = &[
     "${quick_id}",
     "${quick_id}-RESEARCH",
     "${quick_id}/${quick_id}-SUMMARY",
-    // a reading-list line that builds the query from `quick_id` in the prompt's `${... ? '...' : ''}` form
-    "'",
     "$summary",
     "$s",
     "$_ID",
@@ -177,7 +182,9 @@ fn a_query_reaches_the_kinds_it_asks_for() {
         for (n, text_line) in text.lines().enumerate() {
             for cap in line.captures_iter(text_line) {
                 let Some(id) = bound(&cap[1]) else {
-                    if !UNBOUND.contains(&&cap[1]) {
+                    let quick =
+                        &cap[1] == "'" && QUICK_READING.iter().any(|q| text_line.contains(q));
+                    if !quick && !UNBOUND.contains(&&cap[1]) {
                         unknown.insert(format!("{path}:{n}: {}", &cap[1]));
                     }
                     continue;

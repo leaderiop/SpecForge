@@ -122,16 +122,16 @@ fn planned_checks(p: &Project) -> Vec<String> {
     found
 }
 
-/// Whether `check` succeeds for `quick_id` (and a task description) in the project, run under bash with `specforge` on the `PATH`.
-fn holds(p: &Project, check: &str, quick_id: &str) -> bool {
+/// `code` run under bash in the project for `quick_id` (and a task description), with `specforge` on the `PATH`.
+fn bash(p: &Project, code: &str, quick_id: &str) -> std::process::Output {
     let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
     let path = format!(
         "{}:{}",
         bin.parent().expect("a directory").display(),
         std::env::var("PATH").unwrap_or_default()
     );
-    let out = std::process::Command::new("bash")
-        .args(["-c", check])
+    std::process::Command::new("bash")
+        .args(["-c", code])
         .env("PATH", path)
         .env("quick_id", quick_id)
         .env("DESCRIPTION", "Trim the titles")
@@ -139,8 +139,12 @@ fn holds(p: &Project, check: &str, quick_id: &str) -> bool {
         .current_dir(p.root())
         .stdin(std::process::Stdio::null())
         .output()
-        .expect("bash");
-    out.status.success()
+        .expect("bash")
+}
+
+/// Whether `check` succeeds for `quick_id`.
+fn holds(p: &Project, check: &str, quick_id: &str) -> bool {
+    bash(p, check, quick_id).status.success()
 }
 
 /// A plan the discussion or research step made first (as the prompt's "The quick plan" says) is not planned; once
@@ -283,4 +287,38 @@ fn quick_records_its_researchs_context_digest() {
         p.fields_of("251101-abc-RESEARCH")["context_digest"],
         p.fields_of("251101-abc-CONTEXT")["digest"]
     );
+}
+
+/// The reading-list queries the quick prompts build from `quick_id` (`'... ' + quick_id + '...'`), as served: each
+/// hands the sub-agent what it names. The context's reaches the plan's decisions (they name the context's plan, not
+/// the context, so depth 1 would miss them) and the research's its findings.
+#[test]
+fn a_quick_reading_list_query_reaches_the_context_decisions_and_findings() {
+    let p = project("quick-context");
+    let mut ran = 0;
+    for file in [
+        "quick.md",
+        "quick/steps/research-phase.md",
+        "quick-batch/steps/planner-wave.md",
+    ] {
+        for line in commands(&served(&p, file), "specforge query ' + quick_id + '") {
+            let query = line.replace("' + quick_id + '", "251101-abc");
+            let out = bash(&p, &query, "251101-abc");
+            let text = String::from_utf8_lossy(&out.stdout);
+            assert!(out.status.success(), "{file}: {query}");
+            let wants: &[&str] = if query.contains("-CONTEXT ") {
+                &["251101-abc-CONTEXT", "251101-abc-D-01"]
+            } else {
+                &["251101-abc-RESEARCH", "251101-abc-RESEARCH/F1"]
+            };
+            for want in wants {
+                assert!(
+                    text.contains(want),
+                    "{file}: `{query}` misses {want}:\n{text}"
+                );
+            }
+            ran += 1;
+        }
+    }
+    assert_eq!(ran, 6, "the reading-list queries");
 }
