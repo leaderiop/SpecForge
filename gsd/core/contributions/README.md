@@ -173,8 +173,8 @@ The assets are upstream's text; where the spec has no counterpart a line was def
   line without node). node stays where the user's own JavaScript project runs (`KEEP` in `tests/port_tools.rs`) and in
   `code-review-disposition.md`'s ledger builder, a Markdown parser with no jq form (`PENDING_NODE`). The edge-probe
   steps of `spec-phase` and `specless-probe-fallback` still run upstream's `edge-probe.cjs` / `spec-section.cjs` with
-  `node <file>`: `@gsd/core` installs no runtime library (#5640), so the steps stop at "not found" unless an upstream
-  GSD install provides one.
+  `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs no runtime library (#5640), so the steps
+  stop at "not found" unless an upstream GSD install provides one.
 - `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps

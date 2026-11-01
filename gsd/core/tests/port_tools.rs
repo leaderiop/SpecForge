@@ -143,6 +143,11 @@ const KEEP: &[(&str, &str)] = &[
         "gsd-core/references/checkpoints.md",
         r#"for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done"#,
     ),
+    // runs the user's own CLI to check it lists a subcommand
+    (
+        "agents/gsd-verifier.md",
+        r#"node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND""#,
+    ),
     // loads a module of the user's project to check what it exports
     (
         "agents/gsd-verifier.md",
@@ -150,40 +155,85 @@ const KEEP: &[(&str, &str)] = &[
     ),
 ];
 
-/// Assets whose `node` lines plan 03 left, each with its reason: a listed asset may keep them, and a listed asset with
-/// none left fails, so the list cannot go stale.
-const PENDING_NODE: &[&str] = &[
+/// The `node` lines plan 03 left, as `(asset, trimmed line)`, each with its reason. Each must match exactly one line,
+/// as a KEEP row must, so the list cannot go stale. None reads SpecForge's JSON. They run upstream code that @gsd/core
+/// does not install, and the step that holds them is optional; gsd/core/README.md names them.
+const PENDING_NODE: &[(&str, &str)] = &[
     // the disposition-ledger builder: a ~200-line script that parses REVIEW.md and REVIEW-FIX.md Markdown and rewrites
     // the ledger. It reads no SpecForge JSON, has no readable jq form, and no `specforge gsd` command answers it.
-    "gsd-core/workflows/execute-phase/steps/code-review-disposition.md",
+    (
+        "gsd-core/workflows/execute-phase/steps/code-review-disposition.md",
+        r#"FIX_REPORT_FILE="${FIX_REPORT_FILE}" node -e ""#,
+    ),
+    // upstream's runtime library spec-section.cjs (found under `$_GSD_RT`, built with npm): it parses a SPEC.md's
+    // sections, which no `specforge` command answers
+    (
+        "gsd-core/references/specless-probe-fallback.md",
+        r#"EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0"#,
+    ),
+    (
+        "gsd-core/references/specless-probe-fallback.md",
+        r#"PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0"#,
+    ),
+    // upstream's edge-probe library (found by the candidates loop above it): it derives the edge-coverage answer
+    // from the requirements JSON, which no `specforge` command answers
+    (
+        "gsd-core/references/specless-probe-fallback.md",
+        r#"if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then"#,
+    ),
+    (
+        "gsd-core/workflows/spec-phase.md",
+        r#"if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then"#,
+    ),
 ];
 
-/// Plan 03 (F9): a shell block reads SpecForge's JSON (and its own state files) with `jq`, never `node -e` / `node -p`:
+/// Plan 03 (F9): a shell block reads SpecForge's JSON (and its own state files) with `jq`, never node:
 /// a project that uses SpecForge may have no node at all. Only code counts: a line inside a fence that is not a `#`
 /// comment. Prose about a node script is not code.
 #[test]
 fn a_shell_block_reads_json_with_jq_never_node() {
     let mut found = Vec::new();
-    let mut kept = vec![0; KEEP.len()];
-    let mut pending = vec![false; PENDING_NODE.len()];
+    let listed: Vec<&(&str, &str)> = KEEP.iter().chain(PENDING_NODE).collect();
+    let mut matched = vec![0; listed.len()];
+    // a node invocation: `node -e|-p|--eval|--print`, `node "<file>"` / `node '<file>'` / `node $X`, `node <<`, or
+    // `node \` continued on the next line
+    let node = regex::Regex::new(
+        r#"(^|[\s(;|&`])node(\s+(-e|-p|--eval|--print)\b|\s+["'$]|\s*<<|\s*\\$)"#,
+    )
+    .expect("a regex");
+    for (line, is_node) in [
+        ("X=$(node --eval 'x')", true),
+        ("node --print 1", true),
+        ("node -p 1 | jq .", true),
+        ("node \"$F\" a", true),
+        ("node $F a", true),
+        ("node <<'EOF'", true),
+        ("FOO=1 node \\", true),
+        ("Get-Process node -ErrorAction SilentlyContinue", false),
+        ("ls node_modules/x", false),
+        ("node --version", false),
+    ] {
+        assert_eq!(node.is_match(line), is_node, "{line}");
+    }
     for (path, lines, _) in every_asset() {
-        let mut fenced = false;
+        // the open fence's character: a ``` fence is closed by ```, a ~~~ fence by ~~~
+        let mut fence: Option<char> = None;
         for (n, line) in lines.iter().enumerate() {
             let code = line.trim();
-            if code.starts_with("```") {
-                fenced = !fenced;
+            if code.starts_with("```") || code.starts_with("~~~") {
+                let mark = code.chars().next();
+                fence = match fence {
+                    None => mark,
+                    Some(open) if Some(open) == mark => None,
+                    open => open,
+                };
                 continue;
             }
-            if !fenced
-                || code.starts_with('#')
-                || !(code.contains("node -e") || code.contains("node -p"))
-            {
+            if fence.is_none() || code.starts_with('#') || !node.is_match(code) {
                 continue;
             }
-            if let Some(k) = KEEP.iter().position(|(p, l)| *p == path && *l == code) {
-                kept[k] += 1;
-            } else if let Some(p) = PENDING_NODE.iter().position(|p| *p == path) {
-                pending[p] = true;
+            if let Some(k) = listed.iter().position(|(p, l)| *p == path && *l == code) {
+                matched[k] += 1;
             } else {
                 // the asset's line number: its line 1 is the attribution header
                 found.push(format!("{path}:{}: {code}", n + 2));
@@ -195,13 +245,10 @@ fn a_shell_block_reads_json_with_jq_never_node() {
         "node reads in shell blocks:\n{}",
         found.join("\n")
     );
-    for ((path, line), count) in KEEP.iter().zip(&kept) {
-        assert_eq!(*count, 1, "KEEP ({path}, {line}) matches {count} lines");
-    }
-    for (path, has) in PENDING_NODE.iter().zip(&pending) {
-        assert!(
-            has,
-            "{path} is in PENDING_NODE but has no node line left: take it off the list"
+    for ((path, line), count) in listed.iter().zip(&matched) {
+        assert_eq!(
+            *count, 1,
+            "KEEP/PENDING_NODE ({path}, {line}) matches {count} lines"
         );
     }
 }
