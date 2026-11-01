@@ -117,6 +117,45 @@ fn a_setting_is_picked_by_its_name() {
     );
 }
 
+/// Plan 05 review R4: the UAT debt is SpecForge's rule, `specforge gsd verification-debt`, not a `case` on each test's
+/// `result`. A test with no result is pending and a skip without a `Deferred follow-up` reason is open: the
+/// progress count missed the skip, and verify-work's gates missed both (a missing result matched no pattern).
+#[test]
+fn the_uat_debt_follows_the_uat_test_kinds_rule() {
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    let spec = p.root().join("spec/verify.spec");
+    let mut text = std::fs::read_to_string(&spec).expect("the UAT file");
+    text.push_str(concat!(
+        "\nuat_test U4 \"Delete a task\" {\n  session  v1.0/01/01-UAT\n  expected \"`node src/cli.js rm 1` removes it\"\n}\n",
+        "\nuat_test U5 \"Export\" {\n  session  v1.0/01/01-UAT\n  expected \"`node src/cli.js export` prints JSON\"\n",
+        "  result   skipped\n  reason   \"no time today\"\n}\n",
+    ));
+    std::fs::write(&spec, text).expect("two open tests");
+    let open = "v1.0/01/01-UAT/U2\nv1.0/01/01-UAT/U4\nv1.0/01/01-UAT/U5";
+    let (out, err) = run(
+        &sh,
+        &p,
+        "gsd-core/workflows/progress.md",
+        "MILESTONE=v1.0",
+        &["CURRENT_DEBT=$(", "ARCHIVED_DEBT="],
+        "printf '[%s][%s]' \"$CURRENT_DEBT\" \"$ARCHIVED_DEBT\"",
+    );
+    assert_eq!(out, "[3][0]", "{err}");
+    for start in ["UAT_BLOCKED=$(", "PHASE_COMPLETE_BLOCKERS=$("] {
+        let name = start.trim_end_matches("=$(");
+        let (out, err) = run(
+            &sh,
+            &p,
+            "gsd-core/workflows/verify-work.md",
+            "PHASE_ID=v1.0/01",
+            &[start],
+            &format!("printf '%s' \"${name}\""),
+        );
+        assert_eq!(out, open, "{start}: {err}");
+    }
+}
+
 #[test]
 fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
     let Some(sh) = shell() else { return };
@@ -155,7 +194,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         &p,
         "gsd-core/workflows/progress.md",
         "CURRENT_PHASE=v1.0/01",
-        &["for t in $(specforge query \"${CURRENT_PHASE}\""],
+        &["specforge gsd verification-debt --phase \"${CURRENT_PHASE}\""],
         "",
     );
     assert_eq!(out, "v1.0/01/01-UAT/U2\n");

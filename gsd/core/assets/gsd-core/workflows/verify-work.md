@@ -659,9 +659,9 @@ PHASE_VERIFICATION_STATUS="$VERIFICATION_STATUS_VALUE"
 if [ "$VERIFICATION_STATUS_VALUE" = "human_needed" ]; then
   # #5170: exit 0 and exit 1 are VERDICTS (1 = the predicate says not passed) — the JSON on stdout is
   # authoritative. Any other status, or exit 1 with nothing on stdout (an error()), means it could not run.
-  UAT_IDS=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id') && UAT_EXIT=0 || UAT_EXIT=$?
-  if [ "$UAT_EXIT" -ne 0 ]; then echo "phase uat-passed could not run (exit $UAT_EXIT) — see the error above." >&2; exit 1; fi
-  UAT_BLOCKED=$(for t in $UAT_IDS; do case "$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result')" in (pending|issue|blocked) echo "$t" ;; esac; done); [ -z "$UAT_BLOCKED" ] && UAT_PRECHECK_PASSED=true || UAT_PRECHECK_PASSED=false
+  UAT_BLOCKED=$(specforge gsd verification-debt --phase "$PHASE_ID" --pick '.blockers[]') && UAT_EXIT=0 || UAT_EXIT=$?   # the phase's open UAT tests, by the uat_test kind's rule
+  if [ "$UAT_EXIT" -ne 0 ]; then echo "verification-debt could not run (exit $UAT_EXIT) — see the error above." >&2; exit 1; fi
+  [ -z "$UAT_BLOCKED" ] && UAT_PRECHECK_PASSED=true || UAT_PRECHECK_PASSED=false
   if [ "$UAT_PRECHECK_PASSED" = "true" ]; then
     : # the verification status is computed: it is passed once every verdict is fresh and passing
   else
@@ -713,9 +713,9 @@ Otherwise, check the shared UAT-plus-verification completion predicate before tr
 ```bash
 # #5170: exit 0 and exit 1 are VERDICTS (1 = not passed) — read the JSON either way. Any other status,
 # or exit 1 with nothing on stdout (an error()), means the command could not run: abort.
-PHASE_COMPLETE_IDS=$(specforge query "$PHASE_ID" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?
-if [ "$PHASE_COMPLETE_EXIT" -ne 0 ]; then echo "phase uat-passed could not run (exit $PHASE_COMPLETE_EXIT) — see the error above." >&2; exit 1; fi
-PHASE_COMPLETE_BLOCKERS=$(for t in $PHASE_COMPLETE_IDS; do case "$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result')" in (pending|issue|blocked) echo "$t" ;; esac; done)
+PHASE_COMPLETE_BLOCKERS=$(specforge gsd verification-debt --phase "$PHASE_ID" --pick '.blockers[]') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?   # the phase's open UAT tests
+if [ "$PHASE_COMPLETE_EXIT" -ne 0 ]; then echo "verification-debt could not run (exit $PHASE_COMPLETE_EXIT) — see the error above." >&2; exit 1; fi
+
 [ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
 ```
 

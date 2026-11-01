@@ -18,6 +18,7 @@ pub(crate) use support::natural;
 mod surface;
 mod user_story;
 mod verdict;
+mod verification_debt;
 mod verify;
 mod windows;
 mod workstreams;
@@ -80,6 +81,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     reports::declare(c);
     reference::declare(c);
     user_story::declare(c);
+    verification_debt::declare(c);
     package_manager::declare(c);
     smart_entry::declare(c);
     surface::declare(c);

@@ -3,7 +3,7 @@
 mod commits;
 mod cross_plan;
 mod decision_coverage;
-mod derive;
+pub(crate) mod derive;
 mod drift;
 mod execute;
 mod fails_when;

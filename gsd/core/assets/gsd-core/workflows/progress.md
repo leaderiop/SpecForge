@@ -265,7 +265,7 @@ Check for UAT.md files with status "diagnosed" (has gaps needing fixes).
 
 ```bash
 # Check for diagnosed UAT with gaps or partial (incomplete) testing
-for t in $(specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id'); do case "$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result')" in issue|pending) echo "$t" ;; esac; done || true
+specforge gsd verification-debt --phase "${CURRENT_PHASE}" --pick '.blockers[]' || true   # the phase's open UAT tests, by the uat_test kind's rule
 ```
 
 Track:
@@ -277,7 +277,7 @@ Track:
 Scan ALL phases for outstanding verification debt using the CLI. Milestone scoping note (#3782): the audit milestone-filters the ACTIVE phase tree (`getMilestonePhaseFilter`), and deliberately adds ARCHIVED milestone trees unfiltered — each archived result carries an `archived_milestone` stamp. `summary.total_items` spans BOTH populations, so never read it as current-milestone debt.
 
 ```bash
-DEBT=$(specforge query "$MILESTONE" --depth 3 --kinds uat_test --format json 2>/dev/null)
+DEBT=$(specforge gsd verification-debt --milestone "$MILESTONE" --format json 2>/dev/null)
 # A cross-population audit is exactly the payload that can exceed the CLI's
 # ~50KB stdout budget (io.cjs swaps in an `@file:<tmp>` pointer) — unwrap it
 # before reading it, the same pattern Step 1's INIT fetch uses, or every counter
@@ -288,8 +288,8 @@ if [[ "$DEBT" == @file:* ]]; then DEBT=$(cat "${DEBT#@file:}"); fi
 Segment the debt by population before counting (#3782):
 
 ```bash
-CURRENT_DEBT=$(for t in $(specforge query "$MILESTONE" --depth 3 --kinds uat_test --pick '.nodes[kind=uat_test].id'); do r=$(specforge query "$t" --depth 0 --pick '.nodes[0].fields.result'); case "${r:-pending}" in (pending|issue|blocked) echo "$t" ;; esac; done | grep -c .)   # this milestone's open UAT tests
-ARCHIVED_DEBT=0   # shortcut: a closed milestone's open tests are not counted here; count them with the line above on that milestone
+CURRENT_DEBT=$(specforge gsd verification-debt --milestone "$MILESTONE" --pick .current)   # this milestone's open UAT tests, by the uat_test kind's rule
+ARCHIVED_DEBT=$(specforge gsd verification-debt --milestone "$MILESTONE" --pick .archived_total)   # the open UAT tests of the shipped milestones (`.archived` names each)
 ```
 
 Track: `outstanding_debt` — `CURRENT_DEBT`, the non-archived (current-milestone) count. Track `archived_debt` — `ARCHIVED_DEBT`, the still-open items in already-archived milestones. Track `parse_gap_files` — `summary.parse_gap_files` from the audit.
