@@ -261,6 +261,29 @@ fn a_graph_read_is_picked() {
             "PHASE_DIR",
             "[]",
         ),
+        // a field the answer does not have: nothing, or the line's own default (jq printed `null` without one)
+        (
+            "verify-work.md",
+            phase,
+            "IMPLEMENTATION_COMPLETE=$(",
+            "IMPLEMENTATION_COMPLETE",
+            "[false]",
+        ),
+        (
+            "verify-work.md",
+            phase,
+            "PHASE_NUMBER=$(",
+            "PHASE_NUMBER",
+            "[]",
+        ),
+        (
+            "progress.md",
+            "PHASE_DIR=v1.0/01",
+            "VERIFICATION_NEXT_COMMAND=$(",
+            "VERIFICATION_NEXT_COMMAND",
+            "[]",
+        ),
+        ("plan-phase.md", phase, "STATE_PATH=$(", "STATE_PATH", "[]"),
     ];
     for (file, setup, start, var, want) in cases {
         let path = format!("{w}{file}");

@@ -45,6 +45,25 @@ pub const LINES: &[(&str, usize)] = &[
     // G4 plan 04 T4: a graph read takes its values with --pick; progress's verification status is the entity's
     // field (upstream's `.status` read a field the graph answer does not have).
     ("gsd-core/workflows/progress.md", 324),
+    // G4 plan 04 review: plan-phase's INIT fields are re-asked with --pick, and its `_gsd_field` copy is gone.
+    ("gsd-core/workflows/plan-phase.md", 620),
+    ("gsd-core/workflows/plan-phase.md", 621),
+    ("gsd-core/workflows/plan-phase.md", 622),
+    ("gsd-core/workflows/plan-phase.md", 623),
+    ("gsd-core/workflows/plan-phase.md", 624),
+    ("gsd-core/workflows/plan-phase.md", 625),
+    ("gsd-core/workflows/plan-phase.md", 626),
+    ("gsd-core/workflows/plan-phase.md", 627),
+    ("gsd-core/workflows/plan-phase.md", 628),
+    ("gsd-core/workflows/plan-phase.md", 638),
+    ("gsd-core/workflows/verify-work.md", 695),
+    ("gsd-core/workflows/verify-work.md", 693),
+    ("gsd-core/workflows/verify-work.md", 655),
+    ("gsd-core/workflows/verify-work.md", 648),
+    ("gsd-core/workflows/verify-work.md", 77),
+    ("gsd-core/workflows/verify-work.md", 76),
+    ("gsd-core/workflows/progress.md", 326),
+    ("gsd-core/workflows/progress.md", 325),
     // Plan 03 (F9) T3: a field of a JSON answer is read with jq; upstream's line runs node.
     ("gsd-core/references/dispatch-isolation-gate.md", 77),
     ("gsd-core/references/specless-probe-fallback.md", 97),

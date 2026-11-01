@@ -618,16 +618,16 @@ ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null || true
 Extract from INIT JSON:
 
 ```bash
-_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-STATE_PATH=$(_gsd_field "$INIT" state_path)
-ROADMAP_PATH=$(_gsd_field "$INIT" roadmap_path)
-REQUIREMENTS_PATH=$(_gsd_field "$INIT" requirements_path)
-RESEARCH_PATH=$(_gsd_field "$INIT" research_path)
-VERIFICATION_PATH=$(_gsd_field "$INIT" verification_path)
-UAT_PATH=$(_gsd_field "$INIT" uat_path)
-CONTEXT_PATH=$(_gsd_field "$INIT" context_path)
-REVIEWS_PATH=$(_gsd_field "$INIT" reviews_path)
-PATTERNS_PATH=$(_gsd_field "$INIT" patterns_path)
+# a field of the answer is read with --pick, never jq
+STATE_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .state_path)
+ROADMAP_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .roadmap_path)
+REQUIREMENTS_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .requirements_path)
+RESEARCH_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .research_path)
+VERIFICATION_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .verification_path)
+UAT_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .uat_path)
+CONTEXT_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .context_path)
+REVIEWS_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .reviews_path)
+PATTERNS_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .patterns_path)
 
 # Detect spike/sketch findings skills (project-local)
 SPIKE_FINDINGS_PATH=$(ls ./.claude/skills/spike-findings-*/SKILL.md 2>/dev/null | head -1 || true)
@@ -637,7 +637,7 @@ SKETCH_FINDINGS_PATH=$(ls ./.claude/skills/sketch-findings-*/SKILL.md 2>/dev/nul
 # edges from). UNCONDITIONAL — must NOT live in §4.5 Check AI-SPEC, which is skipped
 # on non-AI phases; gating it there silently starves the planner of the SPEC (#550 review).
 # init resolves the plain phase SPEC (never the -AI-SPEC.md / -UI-SPEC.md variants) through the one shared predicate.
-PHASE_DIR_FOR_SPEC=$(_gsd_field "$INIT" phase_dir)
+PHASE_DIR_FOR_SPEC=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
 SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
 SPEC_FILE="${SPEC_PATH}"
 # Resolve the phase UI-SPEC separately (the glob above excludes -UI-SPEC.md); it carries the

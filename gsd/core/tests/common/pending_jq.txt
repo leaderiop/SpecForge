@@ -90,9 +90,6 @@ gsd-core/workflows/verify-work.md	PHASE_COMPLETE=$(specforge query "$PHASE_ID" -
 gsd-core/workflows/verify-work.md	PHASE_COMPLETE_PASSED=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.passed' 2>/dev/null || echo "false")
 gsd-core/workflows/verify-work.md	PHASE_COMPLETE_BLOCKERS=$(printf '%s' "$PHASE_COMPLETE" | jq -r '.blockers[]?' 2>/dev/null || true)
 
-# plan 05 (T2 leftover): the _gsd_field helper over a JSON value of another block (plan-phase's INIT)
-gsd-core/workflows/plan-phase.md	_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
-
 # plan 05 T3: the worktree manifest and the batch JSON
 gsd-core/workflows/execute-phase.md	jq -nc --arg root "$ORCH_ROOT" '{orchestrator_root: (if $root == "" then null else $root end), worktrees: []}' > "$WAVE_WORKTREE_MANIFEST"
 gsd-core/workflows/execute-phase.md	PRIMARY_WT=$(jq -r '.orchestrator_root // empty | tostring' "$WAVE_WORKTREE_MANIFEST" 2>/dev/null)
@@ -166,8 +163,6 @@ gsd-core/workflows/pr-branch.md	REMOTE_SLUG=$(printf '%s' "$RESULT" | jq -r '
 gsd-core/workflows/pr-branch.md	SPEC_ROOT=$(jq -r '.spec_root // "spec"' specforge.json 2>/dev/null || echo spec)
 gsd-core/workflows/progress.md	CURRENT_DEBT=$(printf '%s' "$DEBT" | jq '[.results[] | select(has("archived_milestone") | not)] | map(.items | length) | add // 0' 2>/dev/null || echo 0)
 gsd-core/workflows/progress.md	ARCHIVED_DEBT=$(printf '%s' "$DEBT" | jq '[.results[] | select(has("archived_milestone"))] | map(.items | length) | add // 0' 2>/dev/null || echo 0)
-gsd-core/workflows/progress.md	VERIFICATION_NEXT_ACTION=$(printf '%s' "$VERIFICATION" | jq -r '.next_action')
-gsd-core/workflows/progress.md	VERIFICATION_NEXT_COMMAND=$(printf '%s' "$VERIFICATION" | jq -r '.next_command')
 gsd-core/workflows/progress/steps/forensic-audit.md	specforge export --kinds pause,handoff --format brief | jq -r '.nodes[]|.id' || true   # by kind: a pause or handoff outside a phase is linked to nothing
 gsd-core/workflows/progress/steps/forensic-audit.md	specforge query "$MILESTONE" --depth 3 --kinds phase --format json | jq -r '.nodes[]|select(.fields.goal // "" | test("defer to Phase|future phase|out of scope Phase|deferred to Phase"))|.id' || true
 gsd-core/workflows/progress/steps/forensic-audit.md	specforge export --kinds lesson --format brief | jq -r '.nodes[]|.id' || true
@@ -181,11 +176,5 @@ gsd-core/workflows/ship.md	STATUS=$(echo "$PR_STATE" | jq -r .status)
 gsd-core/workflows/ship.md	CHECKS=$(echo "$PR_STATE" | jq -r .checks)
 gsd-core/workflows/spec-phase.md	APPLICABLE=$(printf '%s' "$COVERAGE" | jq -er '.coverage.applicable // 0' 2>/dev/null || echo 0)
 gsd-core/workflows/spec-phase.md	UNCLASSIFIED=$(printf '%s' "$COVERAGE" | jq -er '.coverage.unclassified // 0' 2>/dev/null || echo 0)
-gsd-core/workflows/verify-work.md	PHASE_DIR=$(printf '%s' "$INIT" | jq -r '.phase_dir // empty')
-gsd-core/workflows/verify-work.md	PHASE_NUMBER=$(printf '%s' "$INIT" | jq -r '.phase_number // empty')
 gsd-core/workflows/verify-work.md	GATE_BLOCK=$(printf '%s' "$GATE_RESULT" | jq -r '.block // false' 2>/dev/null || echo "false")
-gsd-core/workflows/verify-work.md	PHASE_DIR=$(printf '%s' "$INIT" | jq -r '.phase_dir // empty')
-gsd-core/workflows/verify-work.md	IMPLEMENTATION_COMPLETE=$(printf '%s' "$INIT" | jq -r '.phase_completion.implementation_complete // false')
-gsd-core/workflows/verify-work.md	printf '%s=%s\n' "$_k" "$(printf '%s' "$EXECUTE_INIT" | jq -c ".${_k}")"
-gsd-core/workflows/verify-work.md	PHASE_NUMBER=$(printf '%s' "$EXECUTE_INIT" | jq -r '.phase_number')
 gsd-core/workflows/progress.md	specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --format json | jq -r '.nodes[]|select(.kind=="uat_test")|select(.fields.result == "issue" or .fields.result == "pending")|.id' || true

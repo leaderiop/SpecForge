@@ -124,65 +124,6 @@ fn run_with_node(script: &str) -> String {
     String::from_utf8_lossy(&out.stdout).into_owned()
 }
 
-/// T2: `_gsd_field` prints a field as text, and nothing for null or a missing key. G4 plan 04 T2: one copy is left,
-/// plan-phase's, which reads a JSON value of another block (plan 05); the others read their field with `--pick`.
-#[test]
-fn the_field_helper_reads_a_field_with_jq() {
-    let Some(sh) = Shell::new() else { return };
-    let copies: Vec<String> = [
-        "gsd-core/workflows/autonomous.md",
-        "gsd-core/workflows/complete-milestone.md",
-        "gsd-core/workflows/new-milestone.md",
-        "gsd-core/workflows/plan-phase.md",
-    ]
-    .iter()
-    .flat_map(|p| {
-        asset(p)
-            .lines()
-            .filter(|l| l.starts_with("_gsd_field() {"))
-            .map(String::from)
-            .collect::<Vec<_>>()
-    })
-    .collect();
-    assert_eq!(copies.len(), 1, "{copies:?}");
-    let ours = &copies[0];
-    let theirs = line(
-        &upstream("gsd-core/workflows/plan-phase.md"),
-        "_gsd_field() {",
-    )
-    .to_string();
-    let json = r#"{"s":"a b","n":0,"f":false,"t":true,"z":null,"o":{"a":1}}"#;
-    let call = |helper: &str, key: &str| {
-        format!("{helper}\nprintf '[%s]' \"$(_gsd_field '{json}' {key})\"")
-    };
-    for (key, want) in [
-        ("s", "[a b]"),
-        ("n", "[0]"),
-        ("f", "[false]"),
-        ("t", "[true]"),
-        ("z", "[]"),
-        ("missing", "[]"),
-        ("o", r#"[{"a":1}]"#),
-    ] {
-        assert_eq!(sh.run(&call(ours, key)), want, "{key}");
-        // node prints an object as `[object Object]`; jq prints its JSON, the only change
-        if has_node() && key != "o" {
-            assert_eq!(
-                run_with_node(&call(&theirs, key)),
-                want,
-                "upstream's, {key}"
-            );
-        }
-    }
-    // not JSON: nothing, as node's uncaught parse error printed nothing
-    assert_eq!(
-        sh.run(&format!(
-            "{ours}\nprintf '[%s]' \"$(_gsd_field 'nope' s 2>/dev/null)\""
-        )),
-        "[]"
-    );
-}
-
 /// Single-quotes `s` for bash.
 fn q(s: &str) -> String {
     format!("'{}'", s.replace('\'', r"'\''"))
