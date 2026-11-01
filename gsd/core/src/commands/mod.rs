@@ -15,6 +15,7 @@ pub mod smart_entry;
 mod state;
 pub(crate) mod support;
 pub(crate) use support::natural;
+mod plan_coverage;
 mod surface;
 mod user_story;
 mod verdict;
@@ -81,6 +82,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     reports::declare(c);
     reference::declare(c);
     user_story::declare(c);
+    plan_coverage::declare(c);
     verification_debt::declare(c);
     package_manager::declare(c);
     smart_entry::declare(c);

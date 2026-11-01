@@ -380,6 +380,11 @@ pub const LINES: &[(&str, usize)] = &[
         "gsd-core/workflows/verify-work/steps/mvp-uat-framing.md",
         26,
     ),
+    // G4 plan 05 review R5: a lane's plan coverage is `specforge gsd plan-coverage`, over the phase's own plans: the
+    // prose names it, and the manifest path the check no longer reads is gone.
+    ("gsd-core/workflows/review.md", 622),
+    ("gsd-core/workflows/review.md", 623),
+    ("gsd-core/workflows/review.md", 641),
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[

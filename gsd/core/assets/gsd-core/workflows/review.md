@@ -264,8 +264,8 @@ cp "$ROADMAP_SECTION_FILE" "${RUN_DIR}/gsd-review-roadmap.md"
 # per-plan `### <file>` header then renders a run-dir artifact name no reviewer
 # or consensus step can resolve. The plan id keeps the gsd-review-plan-*.md glob
 # prepare_trimmed_prompt_for_reviewer consumes.)
-for PLAN_REF in $(specforge query "$PHASE_ID" --depth 2 --kinds plan --pick '.nodes[kind=plan].id'); do
-  PLAN_BASENAME=$(basename "$PLAN_REF")
+for PLAN_REF in $(specforge query "$PHASE_ID" --depth 2 --kinds plan --pick ".nodes[fields.phase=$PHASE_ID].id"); do
+  PLAN_BASENAME=${PLAN_REF##*/}
   PLAN_ID="$PLAN_BASENAME"   # the plan's own name, e.g. 02-01
   specforge query "$PLAN_REF" --depth 3 --format context > "${RUN_DIR}/gsd-review-plan-${PLAN_ID}.md"
 done
@@ -288,8 +288,8 @@ done
 # never needs word-splitting at all.
 PLAN_COUNT=0
 PLAN_ID_BULLETS=""
-for PLAN_REF in $(specforge query "$PHASE_ID" --depth 2 --kinds plan --pick '.nodes[kind=plan].id'); do
-  PLAN_BASENAME=$(basename "$PLAN_REF")
+for PLAN_REF in $(specforge query "$PHASE_ID" --depth 2 --kinds plan --pick ".nodes[fields.phase=$PHASE_ID].id"); do
+  PLAN_BASENAME=${PLAN_REF##*/}
   PLAN_ID="$PLAN_BASENAME"
   PLAN_COUNT=$((PLAN_COUNT + 1))
   PLAN_ID_BULLETS="${PLAN_ID_BULLETS}- ${PLAN_ID}
@@ -621,8 +621,8 @@ fi
 
 **#3301: plan coverage check.** For each dispatched lane that produced a *real* review (not a
 stub, not budget-skipped, not empty), check whether its output mentions every plan id from
-`.plans-manifest.md` — the same manifest `build_prompt` gave the reviewer, so the expected-id list
-here can never diverge from what the reviewer was actually told. This is diagnostic only: it never
+`specforge gsd plan-coverage`'s list — the phase's plans, the selection `build_prompt`'s manifest lists, so the
+expected-id list here can never diverge from what the reviewer was actually told. This is diagnostic only: it never
 blocks the workflow, never fails a lane, and never changes the `TOTAL_LANE_FAILURE`/
 `ALL_LANES_SKIPPED` gate above.
 
@@ -640,7 +640,7 @@ a threat id like `T-04-07` elsewhere in the review must not register as covering
 
 ```bash
 RUN_DIR="{run_dir}"
-MANIFEST="$RUN_DIR/.plans-manifest.md"
+# the plan ids are the phase's: `specforge gsd plan-coverage` reads them from the graph
 
 # Recompute — a shell variable does not survive across separate fenced blocks
 # (each is its own process), so DISPATCH_SLUGS from the gate-check block above
@@ -657,7 +657,7 @@ done
 # Rewrapped through unquoted command substitution (gsd-core#4109): a bare
 # `$DISPATCH_SLUGS` word-splits under bash but not zsh, collapsing every
 # slug onto one iteration there whenever 2+ reviewers were selected.
-# @gsd/core installs no runtime lib (#5640): the one helper the check below needs, escapeRegex, is inlined in it
+# @gsd/core installs no runtime lib (#5640): the check below is `specforge gsd plan-coverage`, which escapes no regex
 
 
 
@@ -677,18 +677,18 @@ for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   grep -q "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
   grep -q "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
 
-  [ -r "$MANIFEST" ] || { : > "$RUN_DIR/.plan-coverage-$SLUG.json"; continue; }   # an unreadable manifest leaves an empty report
-  TOTAL=0; MISSING=""
-  # the manifest lists one plan id per "- " line
-  while IFS= read -r id || [ -n "$id" ]; do
-    id=$(printf '%s' "${id#- }" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'); [ -n "$id" ] || continue
-    TOTAL=$((TOTAL + 1))
-    # pattern.cjs escapeRegex, inlined (#5640)
-    rx=$(printf '%s' "$id" | sed 's/[][\.*+?^$(){}|]/\\&/g')
-    # an id counts when it stands alone: no word character and no "-" on either side
-    grep -Eq -- "(^|[^A-Za-z0-9_-])${rx}([^A-Za-z0-9_-]|\$)" "$REVIEW_FILE" || MISSING="${MISSING:+$MISSING,}\"$id\""
-  done < <(grep '^- ' "$MANIFEST")
-  printf '{"complete":%s,"missing_ids":[%s],"total":%s}' "$([ -z "$MISSING" ] && echo true || echo false)" "$MISSING" "$TOTAL" > "$RUN_DIR/.plan-coverage-$SLUG.json"
+  specforge gsd plan-coverage "$PHASE_ID" --review "$(< "$REVIEW_FILE")" --format json > "$RUN_DIR/.plan-coverage-$SLUG.json" || : > "$RUN_DIR/.plan-coverage-$SLUG.json"   # the phase's plans, each id standing alone in the review; a failed check leaves an empty report
+
+
+
+
+
+
+
+
+
+
+
 
 
 

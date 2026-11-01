@@ -156,6 +156,72 @@ fn the_uat_debt_follows_the_uat_test_kinds_rule() {
     }
 }
 
+/// Plan 05 review R5: a lane's plan coverage is `specforge gsd plan-coverage`, over the phase's own plans, not a shell
+/// loop over a manifest file. The manifest and the plan copies list the same plans: the phase's, where the
+/// `--depth 2` query also reached the next phase's 02-01 (upstream globs the phase's own `*-PLAN.md`).
+#[test]
+fn the_plan_coverage_is_specforges() {
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    let dir = tempfile::tempdir().expect("a run dir");
+    std::fs::write(
+        dir.path().join("gsd-review-s.md"),
+        "Reviewed 01-01; T-01-02 is a threat id, not the plan\n",
+    )
+    .expect("a review");
+    let text = asset("gsd-core/workflows/review.md");
+    let lines: Vec<&str> = text.lines().collect();
+    // the lanes' loop that reads each report: the last `for SLUG` before the line naming the report file
+    let report = lines
+        .iter()
+        .position(|l| {
+            l.trim_start()
+                .starts_with("REVIEW_FILE=\"$RUN_DIR/gsd-review-$SLUG.md\"")
+        })
+        .expect("the report's line");
+    let from = lines[..report]
+        .iter()
+        .rposition(|l| l.starts_with("for SLUG in "))
+        .expect("the lanes' loop");
+    let to = from
+        + lines[from..]
+            .iter()
+            .position(|l| *l == "done")
+            .expect("its end");
+    let setup = format!(
+        "RUN_DIR={}\nPHASE_ID=v1.0/01\nDISPATCH_SLUGS=s",
+        q(&dir.path().display().to_string())
+    );
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!(
+            "{setup}\n{}\ncat \"$RUN_DIR/.plan-coverage-s.json\"",
+            lines[from..=to].join("\n")
+        ),
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&out).ok(),
+        Some(serde_json::json!({"complete": false, "missing_ids": ["01-02"], "total": 2})),
+        "{out}{err}"
+    );
+    let (out, err) = run(
+        &sh,
+        &p,
+        "gsd-core/workflows/review.md",
+        &setup,
+        &[],
+        &format!(
+            "{}\n{}\nprintf '[%s]%s' \"$PLAN_COUNT\" \"$PLAN_ID_BULLETS\"; for f in \"$RUN_DIR\"/gsd-review-plan-*; do echo \"${{f##*/}}\"; done",
+            block(&text, "for PLAN_REF in $(specforge", "done"),
+            block(&text, "PLAN_COUNT=0", "done"),
+        ),
+    );
+    assert_eq!(
+        out, "[2]- 01-01\n- 01-02\ngsd-review-plan-01-01.md\ngsd-review-plan-01-02.md\n",
+        "{err}"
+    );
+}
+
 #[test]
 fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
     let Some(sh) = shell() else { return };
