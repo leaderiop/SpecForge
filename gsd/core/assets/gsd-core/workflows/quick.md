@@ -443,34 +443,34 @@ ${ISOLATION === "harness-worktree" ? `
 ORCHESTRATOR build-time embed (NOT a sub-agent runtime step): before this dispatch, read \`gsd-core/references/worktree-branch-check.md\`, substitute \`{EXPECTED_BASE}\` with the base SHA captured above (${EXPECTED_BASE}), substitute \`{EXPECTED_BASE_ALTERNATE}\` with \`${QUICK_PLAN_PARENT}\` when it differs from \`${EXPECTED_BASE}\` (otherwise empty), and replace this note with that fragment's \`<worktree_branch_check>\` block so the dispatched prompt carries the runnable guard verbatim — do not pass this instruction through in its place.
 </worktree_branch_check>
 
-FIRST ACTION after the worktree branch check: ensure the quick PLAN.md exists at a worktree-rooted relative path before any Read/Edit/Write path can be primed. If \`${QUICK_DIR}/${quick_id}-PLAN.md\` is absent, materialize it from the shared git object store:
+FIRST ACTION after the worktree branch check: make sure this worktree's own \`spec/quick.spec\` declares the quick plan \`plan ${quick_id}\` before any Read/Edit/Write path can be primed. The executor's graph is the worktree's \`spec/\`, so a plan that is only in the object store does not count: when the worktree was forked before the plan commit, restore \`spec/\` from \`${QUICK_PLAN_COMMIT}\`, and stop if the plan is still absent:
 
 \`\`\`bash
 QUICK_PLAN_COMMIT="${QUICK_PLAN_COMMIT}"
-QUICK_PLAN_PATH="${QUICK_DIR}/${quick_id}-PLAN.md"
-if [ ! -f "$QUICK_PLAN_PATH" ]; then
-  mkdir -p "$(dirname "$QUICK_PLAN_PATH")"
-  git show "${QUICK_PLAN_COMMIT}:${QUICK_PLAN_PATH}" > "$QUICK_PLAN_PATH" || {
-    echo "FATAL: unable to materialize quick plan from ${QUICK_PLAN_COMMIT}:${QUICK_PLAN_PATH}; refusing to continue." >&2
-    exit 42
-  }
+QUICK_PLAN_DECL="^plan ${quick_id} "
+# The quick plan is the entity "plan ${quick_id}" in spec/quick.spec, read from this
+# worktree's own copy. A worktree forked from QUICK_PLAN_COMMIT has it already. One
+# forked from the alternate base QUICK_PLAN_PARENT (a stale origin/HEAD, #1265)
+# predates the pre-dispatch commit: restore spec/ from QUICK_PLAN_COMMIT, which brings
+# exactly that commit's spec delta, as upstream materializes its PLAN.md from the
+# shared object store (#4996). The anchored pattern matches the declaration only,
+# not another entity's "plan ${quick_id}" reference.
+if ! grep -q "$QUICK_PLAN_DECL" spec/quick.spec 2>/dev/null; then
+  git restore --source="${QUICK_PLAN_COMMIT}" --worktree -- spec 2>/dev/null &&
+    echo "restored spec/ from ${QUICK_PLAN_COMMIT}: this worktree predates the plan commit"
 fi
-${DISCUSS_MODE ? `QUICK_CONTEXT_PATH="${QUICK_DIR}/${quick_id}-CONTEXT.md"
-if [ ! -f "$QUICK_CONTEXT_PATH" ] && git cat-file -e "${QUICK_PLAN_COMMIT}:$QUICK_CONTEXT_PATH" 2>/dev/null; then
-  mkdir -p "$(dirname "$QUICK_CONTEXT_PATH")"
-  git show "${QUICK_PLAN_COMMIT}:$QUICK_CONTEXT_PATH" > "$QUICK_CONTEXT_PATH" || {
-    echo "FATAL: unable to materialize quick context from ${QUICK_PLAN_COMMIT}:$QUICK_CONTEXT_PATH; refusing to continue." >&2
-    exit 42
-  }
+# Still absent: the plan commit holds no plan either, so there is nothing to execute.
+if ! grep -q "$QUICK_PLAN_DECL" spec/quick.spec 2>/dev/null; then
+  echo "FATAL: spec/quick.spec declares no plan ${quick_id}, in this worktree or at ${QUICK_PLAN_COMMIT}; refusing to continue." >&2
+  exit 42
 fi
-` : ''}${RESEARCH_MODE ? `QUICK_RESEARCH_PATH="${QUICK_DIR}/${quick_id}-RESEARCH.md"
-if [ ! -f "$QUICK_RESEARCH_PATH" ] && git cat-file -e "${QUICK_PLAN_COMMIT}:$QUICK_RESEARCH_PATH" 2>/dev/null; then
-  mkdir -p "$(dirname "$QUICK_RESEARCH_PATH")"
-  git show "${QUICK_PLAN_COMMIT}:$QUICK_RESEARCH_PATH" > "$QUICK_RESEARCH_PATH" || {
-    echo "FATAL: unable to materialize quick research from ${QUICK_PLAN_COMMIT}:$QUICK_RESEARCH_PATH; refusing to continue." >&2
-    exit 42
-  }
-fi
+echo "plan ${quick_id}: $(git rev-parse --show-toplevel)/spec/quick.spec"
+# From here on, read the plan at that worktree-rooted path (or specforge query), never
+# through a path into the main checkout (CC #36182 path-resolution drift).
+${DISCUSS_MODE ? `# --discuss: the locked decisions are entities under spec/ (there is no CONTEXT.md),
+# committed with the plan: this worktree has them, or the restore above brought them.
+` : ''}${RESEARCH_MODE ? `# --research: the findings are entities under spec/ (there is no RESEARCH.md),
+# committed with the plan: this worktree has them, or the restore above brought them.
 ` : ''}\`\`\`
 ` : `
 <sequential_execution>
@@ -602,10 +602,10 @@ If no active code-review step hook exists, skip with message "Code review skippe
 QUICK_SCOPE_RC=0
 QUICK_SCOPE_JSON=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --kinds commit --format json | jq -c '{status: "ok", files: ([.nodes[]|select(.kind=="commit")|.fields.files[]?]|unique)}') || QUICK_SCOPE_RC=$?
 if [ "$QUICK_SCOPE_RC" -ne 0 ] && [ "$QUICK_SCOPE_RC" -ne 69 ]; then QUICK_SCOPE_JSON=""; fi
-CHANGED_FILES=$(printf '%s' "$QUICK_SCOPE_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).files.join(' '))}catch{}})")
+CHANGED_FILES=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -r '.files | join(" ")' 2>/dev/null)
 if [ -z "$CHANGED_FILES" ]; then
   # Say WHY the scope is empty (no commits for this task, only excluded paths, or git could not be read).
-  QUICK_SCOPE_WHY=$(printf '%s' "$QUICK_SCOPE_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const v=JSON.parse(s);process.stdout.write(v.status+(v.reason?': '+v.reason:''))}catch{process.stdout.write('unresolvable: no resolver output')}})")
+  QUICK_SCOPE_WHY=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -er '.status + (if (.reason // "") != "" then ": " + .reason else "" end)' 2>/dev/null || echo 'unresolvable: no resolver output')
   echo "Quick-task review scope is empty (${QUICK_SCOPE_WHY})."
 fi
 ```

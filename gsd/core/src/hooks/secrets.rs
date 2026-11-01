@@ -29,6 +29,18 @@ fn deny(code: &str, tool: &str, target: &str) -> HookOutput {
             "Secret read guard (gsd.secret_read_guard): this Bash command is over {MAX_COMMAND_LENGTH} characters and \
              cannot be checked for secret-file reads. Split it into smaller commands."
         ),
+        "command-too-nested" => format!(
+            "Secret read guard (gsd.secret_read_guard): this Bash command nests command substitutions or heredocs \
+             deeper than {} levels and is denied rather than read, because what it runs cannot be checked for \
+             secret-file reads. Split it into smaller commands.",
+            shell::MAX_SPAN_DEPTH
+        ),
+        "command-too-complex" => format!(
+            "Secret read guard (gsd.secret_read_guard): this Bash command takes more than {} tokens to read \
+             across its nested scripts and heredoc bodies and is denied rather than read, because what it runs \
+             cannot be checked for secret-file reads. Split it into smaller commands.",
+            shell::MAX_SCAN_TOKENS
+        ),
         "glob-too-complex" => format!(
             "Secret read guard (gsd.secret_read_guard): the Grep glob '{target}' expands to more than 64 \
              alternatives and cannot be checked for secret-file matches. Use a narrower glob."
@@ -97,9 +109,17 @@ pub(super) fn secret_read_guard(f: &Facts) -> HookOutput {
             if command.len() > MAX_COMMAND_LENGTH {
                 return deny("command-too-large", tool, "");
             }
-            if let Some(hit) = scan::find_secret_read(&command, 0)
-                .or_else(|| scan::find_secret_read_under_other_readings(&command))
-            {
+            let (hit, stop) = shell::judged(|| {
+                scan::find_secret_read(&command, 0)
+                    .or_else(|| scan::find_secret_read_under_other_readings(&command))
+            });
+            // Judged before the read: a stopped scan did not read the rest, so no hit is no evidence.
+            match stop {
+                Some(shell::Stop::Nested) => return deny("command-too-nested", tool, ""),
+                Some(shell::Stop::Complex) => return deny("command-too-complex", tool, ""),
+                None => {}
+            }
+            if let Some(hit) = hit {
                 return deny("secret-read", tool, &hit);
             }
             if let Some(spawn) = debugger::find_debugger_spawn(&command, 0) {
@@ -115,6 +135,8 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
     c.hook("secret_read_guard", HookEvent::PreTool, |h| {
         h.description("Refuses a read of .env, .env.<suffix> or .secrets by a Read, a Grep or a shell command")
             .tools(&["read", "search", "shell"])
+            // a guard that cannot judge a command refuses it (F7); upstream fails open (#3911)
+            .on_failure_deny()
             .handler(|call| Ok(secret_read_guard(&Facts::of(call))));
     });
 }

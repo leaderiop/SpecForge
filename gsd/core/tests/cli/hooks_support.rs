@@ -47,12 +47,16 @@ pub fn install_in(p: &Project, host: &str, home: &Home) -> Run {
     run
 }
 
-/// Every string of `v` that is a hook command line (`specforge hook <route> …`).
+/// Every string of `v` that is a hook command line (`specforge hook <route> …`), as `sh` runs it: Codex's
+/// `commandWindows` twin of a fail-closed line (ADR 0324) is left out.
 fn commands_of(v: &Value, out: &mut Vec<String>) {
     match v {
         Value::String(s) if s.contains("specforge hook ") => out.push(s.clone()),
         Value::Array(a) => a.iter().for_each(|x| commands_of(x, out)),
-        Value::Object(o) => o.values().for_each(|x| commands_of(x, out)),
+        Value::Object(o) => o
+            .iter()
+            .filter(|(k, _)| k.as_str() != "commandWindows")
+            .for_each(|(_, x)| commands_of(x, out)),
         _ => {}
     }
 }

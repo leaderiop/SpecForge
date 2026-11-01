@@ -8,7 +8,7 @@
         "command": "specforge hook gsd.write_guard --host cursor --event pre_tool --tools write --paths 'spec/**/*.spec' # specforge-install"
       },
       {
-        "command": "specforge hook gsd.secret_read_guard --host cursor --event pre_tool --tools read,search,shell # specforge-install"
+        "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook gsd.secret_read_guard cannot run, so it denies' >&2; exit 2; }; specforge hook gsd.secret_read_guard --host cursor --event pre_tool --tools read,search,shell # specforge-install"
       },
       {
         "command": "specforge hook gsd.prompt_guard --host cursor --event pre_tool --tools write,edit --paths 'spec/**' # specforge-install"

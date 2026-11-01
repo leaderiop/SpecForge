@@ -70,7 +70,15 @@ fn every_ported_source_is_attributed() {
     all.extend(ported_hooks.into_iter().filter(|p| {
         !matches!(
             p.file_name().and_then(|n| n.to_str()),
-            Some("mod.rs" | "roster.rs" | "facts.rs" | "accounting.rs" | "corpus.rs")
+            Some(
+                "mod.rs"
+                    | "roster.rs"
+                    | "facts.rs"
+                    | "accounting.rs"
+                    | "corpus.rs"
+                    | "depth.rs"
+                    | "expansion.rs"
+            )
         )
     }));
     for path in all {

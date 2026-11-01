@@ -677,21 +677,21 @@ for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   grep -q "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
   grep -q "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
 
-  node -e '
-    const fs = require("fs");
-    const escapeRegex = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // pattern.cjs, inlined (#5640)
-    const manifest = fs.readFileSync(process.argv[1], "utf8");
-    const review = fs.readFileSync(process.argv[2], "utf8");
-    const ids = manifest.split("\n")
-      .filter((l) => l.startsWith("- "))
-      .map((l) => l.slice(2).trim())
-      .filter(Boolean);
-    const missing = ids.filter((id) => {
-      const re = new RegExp("(?<![\\w-])" + escapeRegex(id) + "(?![\\w-])");
-      return !re.test(review);
-    });
-    process.stdout.write(JSON.stringify({ complete: missing.length === 0, missing_ids: missing, total: ids.length }));
-  ' "$MANIFEST" "$REVIEW_FILE" > "$RUN_DIR/.plan-coverage-$SLUG.json"
+  jq -ncj --rawfile manifest "$MANIFEST" --rawfile review "$REVIEW_FILE" '
+    # pattern.cjs escapeRegex, inlined (#5640)
+    def escape_regex: gsub("(?<c>[.*+?^${}()|\\[\\]\\\\])"; "\\\(.c)");
+    # the manifest lists one plan id per "- " line
+    [ $manifest | split("\n")[]
+      | select(startswith("- "))
+      | .[2:] | sub("^\\s+"; "") | sub("\\s+$"; "")
+      | select(. != "") ] as $ids
+    # an id counts when it stands alone: no word character and no "-" on either side
+    | [ $ids[]
+      | . as $id
+      | select($review | test("(?<![A-Za-z0-9_-])" + ($id | escape_regex) + "(?![A-Za-z0-9_-])") | not)
+      ] as $missing
+    | {complete: ($missing | length == 0), missing_ids: $missing, total: ($ids | length)}
+  ' > "$RUN_DIR/.plan-coverage-$SLUG.json"
 done
 ```
 

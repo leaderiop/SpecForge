@@ -29,7 +29,7 @@ document).
 
 ```bash
 BATCH_ID="$RESUME_BATCH_ID"
-BATCH_MANIFEST_JSON=$(printf '%s' "$QB_RESUME_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(JSON.stringify(j.manifest))}catch{process.stdout.write("")}})')
+BATCH_MANIFEST_JSON=$(printf '%s' "$QB_RESUME_JSON" | jq -c '.manifest // empty' 2>/dev/null)
 ```
 
 Report to user:

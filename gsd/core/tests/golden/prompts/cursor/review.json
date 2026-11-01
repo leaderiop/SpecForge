@@ -61,7 +61,7 @@
     "**jq-dependent reviewer lanes.** `jq` is a production prerequisite for the",
     "`ollama`, `lm_studio`, `llama_cpp`, `opencode`, and `antigravity` lanes only. If"
   ],
-  "bytes": 61310,
+  "bytes": 61324,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6e426cf0855085b3f180697421133f9fd14e6780a25c59a29d5d22ba0be3f6da",
+    "digest": "sha256:a8acd8b1b909d1eda35c1e6ae22eb5cb9a8a04f4eb211335cd1eb7e61b0abe17",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "6e426cf0855085b3f180697421133f9fd14e6780a25c59a29d5d22ba0be3f6da"
+  "sha256": "a8acd8b1b909d1eda35c1e6ae22eb5cb9a8a04f4eb211335cd1eb7e61b0abe17"
 }

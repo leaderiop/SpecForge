@@ -24,7 +24,7 @@ true   # dispatch-isolation: there is no mode to record (worktree isolation is n
 `isolation == none` to 1 regardless of `--jobs`/capacity — row 6):
 ```bash
 QB_EXEC_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the batch router is not part of @gsd/core; one at a time
-EXEC_CONCURRENCY=$(printf '%s' "$QB_EXEC_CONC_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(String(j.concurrency))}catch{process.stdout.write("1")}})')
+EXEC_CONCURRENCY=$(printf '%s' "$QB_EXEC_CONC_JSON" | jq -er '.concurrency // 1' 2>/dev/null || echo 1)
 ```
 
 **Dispatch rounds.** Repeat until no item is eligible-and-not-yet-dispatched

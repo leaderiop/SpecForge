@@ -56,12 +56,12 @@
     "sha256": "93973c636e411451cf5df85e4eb43e6780af7f10fdfd7d3281b5b837b0fcf224"
   },
   ".cursor/agents/gsd-verifier.md": {
-    "bytes": 50520,
-    "sha256": "7c0e28f9c5371bfc586ed0ac34271f818a63ca34f5bcaac4b168603f15bcada0"
+    "bytes": 50396,
+    "sha256": "1b6b462cc261dc9328b5c22f58d97e6bc2797363595f57d959339b8cb0d6f9d0"
   },
   ".cursor/hooks.json": {
-    "bytes": 1903,
-    "sha256": "ddce85f7c5ac694cb2a27fbfc48bf6185f2da561ee10dce99950253c4e371d92"
+    "bytes": 2050,
+    "sha256": "ae54a828bdbfc9a40ee8ab0fd7ff6573a833c8b19ca62055a0af67e45529a1ea"
   },
   ".cursor/mcp.json": {
     "bytes": 132,

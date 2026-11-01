@@ -198,6 +198,38 @@ fn secret_read_guard_denies_cat_env_on_three_hosts() {
     }
 }
 
+/// F7: past the span reader's cap the real wasm denies; before it, the guest stack overflowed at about 2500 spans
+/// and the guard's `allow` failure policy let the read through.
+#[test]
+fn a_command_nested_past_the_cap_is_denied_not_trapped() {
+    let (p, home) = installed();
+    for shape in ["$(cat <<", "$(\""] {
+        for n in [2525, 5000] {
+            let command = format!("cat .env; : \"{})\"", shape.repeat(n));
+            for host in HOSTS {
+                let run = run_hook(
+                    &p,
+                    host,
+                    "gsd.secret_read_guard",
+                    &shell_event(&p, host, &command),
+                    &home,
+                );
+                assert!(
+                    !run.stderr.contains("E028"),
+                    "{host} {shape} x {n}: {}",
+                    run.stderr
+                );
+                let (denied, reason, _) = verdict(host, &run);
+                assert!(denied, "{host} {shape} x {n}: {}", run.all());
+                assert!(
+                    reason.contains("deeper than 128 levels"),
+                    "{host}: {reason}"
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn an_example_env_file_is_read() {
     let (p, home) = installed();

@@ -168,6 +168,13 @@ The assets are upstream's text; where the spec has no counterpart a line was def
 - Defaulted gaps: worktrees, the loop hooks, `intel`, `resolve-model`, learnings and the dispatch-isolation steps.
 - `init` JSON fields (`phase_dir`, `plan_count`, ...) have no counterpart: the text reads the graph (`specforge query`)
   and the ids named at the end of the text (`$PHASE_ID`, `$MILESTONE`, `$PROJECT`).
+- Shell: upstream's blocks read JSON (and the wave's worktree manifest) with `node -e`, because upstream is a node
+  program; here they use `jq`, a requirement of `@gsd/core` (plan 03, F9; `tests/cli/assets_jq/` runs each rewritten
+  line without node). node stays where the user's own JavaScript project runs (`KEEP` in `tests/port_tools.rs`) and in
+  `code-review-disposition.md`'s ledger builder, a Markdown parser with no jq form (`PENDING_NODE`). The edge-probe
+  steps of `spec-phase` and `specless-probe-fallback` still run upstream's `edge-probe.cjs` / `spec-section.cjs` with
+  `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs no runtime library (#5640), so the steps
+  stop at "not found" unless an upstream GSD install provides one.
 - `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
@@ -200,6 +207,11 @@ Found by REVIEW-r43 and kept, each on purpose or as a kernel limit (K20):
   E080 (K20), not changed here; `review-backlog` tells the user to run `specforge check` first.
 - A commit step of `autonomous`, `quick`, `review-backlog`, `pause-work` and `next` runs `git add spec && git commit`
   where upstream commits named files: spec edits the user has not committed are swept in.
+- `quick` in worktree mode (F8): upstream's pre-dispatch step commits `NN-PLAN.md` (and `-CONTEXT.md`, `-RESEARCH.md`)
+  and the executor materializes them; here the step commits `spec`, where the plan is `plan <id>` in
+  `spec/quick.spec`, and the executor checks its own worktree's `spec/quick.spec`, restoring `spec/` from
+  `QUICK_PLAN_COMMIT` when the plan is missing there. With no commit that declared the plan, there is no alternate
+  worktree base (upstream falls back to `HEAD`).
 - A lesson id `L-<phase>-<n>` is not unique across milestones: with `--reset-phase-numbers` the re-run rule (`specforge
   set` an existing id) overwrites an earlier milestone's lesson.
 - `/gsd-settings` writes no `~/.gsd/defaults.json` (it is upstream GSD's store and nothing here reads it): there are no
@@ -282,7 +294,7 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 | GSD hook | Contribution |
 |---|---|
 | gsd-read-guard, gsd-write-guard | `read_guard`, `write_guard` (`pre_tool`): the paths a workflow may touch; `write_guard` measures bytes, not lines |
-| gsd-secret-read-guard | `secret_read_guard` (`pre_tool`) |
+| gsd-secret-read-guard | `secret_read_guard` (`pre_tool`): fails closed (`on_failure` deny), where upstream fails open |
 | gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only, and a block would land after the read (see below) |
 | gsd-prompt-guard | `prompt_guard` (`pre_tool`): scans content written to spec files |
 | gsd-agent-isolation-guard | none: dropped in the roster, because `@gsd/core` runs its executors sequentially in the checkout and the guard would always allow (r44 post-fix N7; ACCEPTANCE's divergences) |
@@ -346,8 +358,21 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
 - Hooks of the injection family judge a file as in the spec root only when it is a `.spec` file (the kernel calls
   every path "in the spec root" when `spec_root` is `.`).
 - `write_guard` continues when an existing file's bytes are unreadable; upstream fails closed. `secret_read_guard`
-  reads the raw `command`, not shell words. `prompt_guard` does not scan a Codex `apply_patch`. The Codex "any
-  `session_id` is silent" rule of `read_guard` does not hold: Codex payloads carry one and the advice names the Read tool.
-- A host without `specforge` on its PATH runs no guard (exit 127 does not block).
+  reads the raw `command`, not shell words, and denies a command nested past 128 `$( )` spans (in double quotes or in
+  a heredoc tag) as `command-too-nested`: upstream's reader recurses without a cap, and a stack overflow lands in its
+  fail-open catch (`ON_CRASH = HOOK_ON_CRASH.ALLOW`, `hooks/gsd-secret-read-guard.js:138-140`). It also denies a
+  command whose scan reads more than 262144 tokens across its nested scripts, heredoc bodies and readings as
+  `command-too-complex`; upstream has no such bound, so a large command runs into its hook's timeout. It reads the
+  `$( )` and backtick bodies inside a parameter expansion (`echo ${x:-$(cat .env)}` is denied), which upstream's
+  lexer skips by jumping from `${` to the next `}` (`hooks/gsd-secret-read-guard.js:695-701`).
+  `prompt_guard` does not scan a Codex `apply_patch`. The Codex "any `session_id` is silent" rule of `read_guard` does
+  not hold: Codex payloads carry one and the advice names the Read tool.
+- A host without `specforge` on its PATH runs no guard (exit 127 does not block), except `secret_read_guard`, whose
+  line is rendered to fail closed (ADR 0324: Claude Code's `"onFailure": "block"`, the guarded `command -v specforge`
+  line on Codex and Cursor).
+- `secret_read_guard` declares `on_failure` deny: a trap, a timeout or a malformed answer denies the call. Upstream
+  fails open by design (`ON_CRASH = HOOK_ON_CRASH.ALLOW`, #3911), so that a bug in a hook on every Bash call cannot
+  brick a session; here a guard that cannot judge a command refuses it, as `command-too-nested` and
+  `command-too-complex` already do for the shapes known to stop it.
 - Hook latency (p50, 20 events, taskboard): `write_guard` 0.13 s, `spec_guard` 0.16 s; the budget is enforced by
   `hooks_guards.rs`.

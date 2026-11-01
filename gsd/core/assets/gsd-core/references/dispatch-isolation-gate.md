@@ -76,7 +76,7 @@ literal and wrong on any other harness-worktree host (Cursor declares the same c
 HARNESS_FLAG=""
 if [ "$ISOLATION" = "harness-worktree" ]; then
   HARNESS_FLAG=$(echo '{}' \
-    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(j&&j.harnessFlag?j.harnessFlag:"")}catch{process.stdout.write("")}})')
+    | jq -r '.harnessFlag | strings' 2>/dev/null)
   [ -n "$HARNESS_FLAG" ] || { echo "FATAL: runtime declares dispatch.isolation=harness-worktree but no harnessIsolationFlag — refusing to dispatch an agent that would believe it is isolated." >&2; exit 1; }
 fi
 ```

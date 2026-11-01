@@ -618,7 +618,7 @@ ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null || true
 Extract from INIT JSON:
 
 ```bash
-_gsd_field() { node -e "const o=JSON.parse(process.argv[1]); const v=o[process.argv[2]]; process.stdout.write(v==null?'':String(v))" "$1" "$2"; }
+_gsd_field() { printf '%s' "$1" | jq -r --arg k "$2" 'if .[$k] == null then empty else .[$k] | tostring end'; }
 STATE_PATH=$(_gsd_field "$INIT" state_path)
 ROADMAP_PATH=$(_gsd_field "$INIT" roadmap_path)
 REQUIREMENTS_PATH=$(_gsd_field "$INIT" requirements_path)

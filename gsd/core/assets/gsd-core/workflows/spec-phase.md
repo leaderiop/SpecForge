@@ -277,7 +277,7 @@ JSON
 # Guard — never invoke on an empty/invalid array, OR one still holding the heredoc
 # `<replace: …>` placeholder (a forgotten substitution would otherwise yield a
 # meaningful-looking but bogus coverage report). Fail loud, not silent no-op.
-if ! node -e 'const a=require(process.argv[1]);if(!Array.isArray(a)||a.length===0)process.exit(1);if(a.some(r=>typeof r.text!=="string"||!r.text.trim()||r.text.includes("<replace:")))process.exit(1)' "$REQS_JSON" 2>/dev/null; then
+if ! jq -e 'type == "array" and length > 0 and all(.[]; (.text | type) == "string" and (.text | test("\\S")) and (.text | contains("<replace:") | not))' "$REQS_JSON" >/dev/null 2>&1; then
   rm -f "$REQS_JSON"
   echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from the SPEC Requirements before Step 5.5 runs." >&2
   exit 1
@@ -300,7 +300,7 @@ if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
 fi
 rm -f "$REQS_JSON"
 # Exit-0-but-garbage guard: the report must parse as JSON with the expected { items[], coverage{} } shape.
-if ! printf '%s' "$COVERAGE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let r;try{r=JSON.parse(s)}catch{process.exit(1)}if(!r||!Array.isArray(r.items)||typeof r.coverage!=="object"||r.coverage===null)process.exit(1)})'; then
+if ! printf '%s' "$COVERAGE" | jq -e 'type == "object" and (.items | type) == "array" and (.coverage | type) == "object"' >/dev/null 2>&1; then
   echo "ERROR: edge-probe produced an unparseable or malformed coverage report — refusing to proceed with the resolution loop." >&2
   exit 1
 fi
@@ -319,8 +319,8 @@ echo "### (end edge-probe coverage report)"
 # a genuinely edge-free spec — the same fail-open shape as an invalid shape yielding
 # applicable:0. Surface it loudly; the author must explicitly confirm "no applicable edges"
 # below rather than silently emitting a green empty ## Edge Coverage section.
-APPLICABLE=$(printf '%s' "$COVERAGE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let n=0;try{n=JSON.parse(s).coverage.applicable}catch{n=0}process.stdout.write(String(n))})')
-UNCLASSIFIED=$(printf '%s' "$COVERAGE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let n=0;try{n=JSON.parse(s).coverage.unclassified}catch{n=0}process.stdout.write(String(n))})')
+APPLICABLE=$(printf '%s' "$COVERAGE" | jq -er '.coverage.applicable // 0' 2>/dev/null || echo 0)
+UNCLASSIFIED=$(printf '%s' "$COVERAGE" | jq -er '.coverage.unclassified // 0' 2>/dev/null || echo 0)
 # #4656: all-unclassified is the accidental-miss case the applicable:0 guard could never
 # reach — #1110's soft-signal rows make applicable non-zero by construction there.
 if [ "$APPLICABLE" = "0" ] || [ "$UNCLASSIFIED" = "$APPLICABLE" ]; then

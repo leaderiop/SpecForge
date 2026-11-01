@@ -1,6 +1,9 @@
 //! Black-box tests: the `specforge` binary on small projects that load the built `@gsd/core` (ADR gsd/0001 D5, D7).
 
 mod agents;
+// shells out through `bash` and links with `std::os::unix`
+#[cfg(unix)]
+mod assets_jq;
 mod baseline;
 // shells out through `bash` and links with `std::os::unix`
 #[cfg(unix)]
@@ -34,6 +37,7 @@ mod hooks_community;
 mod hooks_config;
 mod hooks_context;
 mod hooks_guards;
+mod hooks_hostile;
 mod hooks_isolation;
 mod hooks_scan;
 mod hooks_spec_root;
