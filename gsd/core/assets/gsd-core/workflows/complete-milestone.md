@@ -338,8 +338,8 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_REORG=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_REORG" == @file:* ]]; then INIT_REORG=$(cat "${INIT_REORG#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
 # Extract lines under ## Backlog through end of file (or next ## section)
@@ -360,8 +360,8 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_REORG=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_REORG" == @file:* ]]; then INIT_REORG=$(cat "${INIT_REORG#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
 printf '%s\n' "$ROADMAP_PATH" > a scratch value
@@ -403,8 +403,8 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_REORG=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_REORG" == @file:* ]]; then INIT_REORG=$(cat "${INIT_REORG#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
 ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
@@ -429,8 +429,8 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_REORG=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_REORG" == @file:* ]]; then INIT_REORG=$(cat "${INIT_REORG#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 : # no requirements file: the requirement entities are the archive
 : # nothing to remove: the requirement entities stay

@@ -209,12 +209,12 @@ if [ -z "$ROADMAP" ]; then
 else
   for PHASE_AT in $(specforge gsd progress-report --pick '.phases[].number' | awk '{print NR - 1}'); do
     PHASE_NUM=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].number")
-    # #3218: $PHASE_DATA is a `.phases[]` entry from `roadmap.analyze`, which
-    # emits `plan_count`/`summary_count` SCALARS (src/roadmap.cts) — it has
-    # never emitted `.plans`/`.summaries` ARRAYS. Reading those absent keys
-    # (even with a `// []` fallback) always produced 0, permanently disabling
-    # this resume-incomplete-phase check. Read the scalars the producer
-    # actually emits.
+    # #3218: each phase of the progress report carries its counts as
+    # `plans`/`summaries` SCALARS, read here by index — the report has no
+    # `plan_count`/`summary_count` keys. Reading absent keys (even with a
+    # `// 0` fallback) always produced 0, permanently disabling this
+    # resume-incomplete-phase check. Read the counts the report actually
+    # answers.
     PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].plans")
     SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[$PHASE_AT].summaries")
     if [ "${PLAN_COUNT:-0}" -gt "${SUMMARY_COUNT:-0}" ]; then

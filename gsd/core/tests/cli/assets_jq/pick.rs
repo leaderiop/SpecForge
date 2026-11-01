@@ -388,3 +388,39 @@ fn a_graph_read_keeps_its_exit_status() {
     let (out, code) = run(&sh, &p, &format!("PHASE_ID=nope\n{ship}\necho after"));
     assert_eq!((out.as_str(), code), ("", 1));
 }
+
+/// Review R4: a read of an id the graph does not have shows specforge's refusal on stderr; no `2>/dev/null` hides it.
+#[test]
+fn a_refused_read_shows_its_cause() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let setup = "UNDO_MILESTONE=nope; TARGET_PHASE=09; PLAN_PHASE=09; PLAN_ID=nope; PHASE_ID=nope";
+    for (file, start) in [
+        ("undo.md", "PHASE_DIR=$("),
+        ("undo.md", "MILESTONE_STATE=$("),
+        (
+            "execute-phase/steps/tdd-applicability-resolution.md",
+            "TDD_APPLICABLE_RAW=$(",
+        ),
+        (
+            "execute-phase/steps/executor-isolation-dispatch.md",
+            "_TDD_APPLICABLE_RAW=$(",
+        ),
+        ("plan-phase.md", "PHASE_REQ_IDS=$("),
+        ("verify-work.md", "VERIFICATION_FILE=$("),
+    ] {
+        let text = asset(&format!("gsd-core/workflows/{file}"));
+        let reads: Vec<&str> = text
+            .lines()
+            .map(str::trim_start)
+            .filter(|l| l.starts_with(start))
+            .collect();
+        assert!(!reads.is_empty(), "{file}: no line starts with {start}");
+        for code in reads {
+            let (_, err, _) = sh.run_in(p.root(), &format!("{setup}\n{code}"));
+            assert!(!err.trim().is_empty(), "{file}: no cause on stderr: {code}");
+        }
+    }
+}

@@ -648,7 +648,7 @@ If execution verification is waiting only on human UAT and this session recorded
 
 ```bash
 PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
-VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' 2>/dev/null | head -1)
+VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
 # #5118: stderr kept; an out-of-set report status is a hard error, never "no result".
 VERIFICATION_STATUS=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }
 VERIFICATION_STATUS_VALUE=$(printf '%s' "$VERIFICATION_STATUS" | jq -r '.status')
@@ -689,8 +689,8 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-EXECUTE_INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$EXECUTE_INIT" == @file:* ]]; then EXECUTE_INIT=$(cat "${EXECUTE_INIT#@file:}"); fi
+
+
 for _k in phase_dir phase_number verifier_model phase_req_ids requirements_path section_manifest response_language; do
   printf '%s=%s\n' "$_k" "$(specforge query "$PHASE_ID" --depth 1 --pick ".${_k}")"
 done

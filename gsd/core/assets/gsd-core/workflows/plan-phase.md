@@ -1468,7 +1468,7 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 PLAN_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' 2>/dev/null | paste -sd , -)
+PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
 PHASE_REQ_IDS="${PHASE_REQ_IDS:-TBD}"
 ```
 

@@ -274,8 +274,8 @@ Stage the phase archive move + source removal so they land in the same commit as
 ```bash
 COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
-INIT_STAGE=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_STAGE" == @file:* ]]; then INIT_STAGE=$(cat "${INIT_STAGE#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 ARCHIVE_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .archive_dir)
 PHASES_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .phases_dir)
@@ -290,8 +290,8 @@ Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is
 
 ```bash
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
-INIT_COMMIT=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_COMMIT" == @file:* ]]; then INIT_COMMIT=$(cat "${INIT_COMMIT#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
 PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
@@ -532,8 +532,8 @@ If "adjust": Return to scoping.
 **Commit requirements:**
 ```bash
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
-INIT_REQ=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_REQ" == @file:* ]]; then INIT_REQ=$(cat "${INIT_REQ#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 REQUIREMENTS_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .requirements_path)
 git add spec && git commit -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
@@ -621,8 +621,8 @@ Success criteria:
 **Commit roadmap** (after approval):
 ```bash
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
-INIT_ROADMAP=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_ROADMAP" == @file:* ]]; then INIT_ROADMAP=$(cat "${INIT_ROADMAP#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
 STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)

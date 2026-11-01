@@ -162,8 +162,8 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_MANAGER=$(specforge gsd progress-report --format json)
-if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 STATE_CONTENT=$(specforge gsd progress-report 2>/dev/null || true)
@@ -609,8 +609,8 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_MANAGER=$(specforge gsd progress-report --format json)
-if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 STATE_CONTENT=$(specforge gsd progress-report 2>/dev/null || true)
@@ -735,8 +735,8 @@ $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_MANAGER=$(specforge gsd progress-report --format json)
-if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
+
+
 # a field of the answer is read with --pick, never jq
 ARCHIVE_DIR=$(specforge gsd progress-report --pick .archive_dir)
 ls "${ARCHIVE_DIR}/v${milestone_version}-ROADMAP.md" 2>/dev/null || true

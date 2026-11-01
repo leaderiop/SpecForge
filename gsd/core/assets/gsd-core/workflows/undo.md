@@ -86,7 +86,7 @@ phase directory — not the root's same-numbered one.
 ```bash
 # the id names its milestone: UNDO_MILESTONE, not $MILESTONE (the open one), is the one the run is about
 UNDO_MILESTONE=$MILESTONE; case "$TARGET_PHASE" in */*) UNDO_MILESTONE=${TARGET_PHASE%%/*}; TARGET_PHASE=${TARGET_PHASE##*/};; esac
-PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${TARGET_PHASE}" --depth 0 --pick '.nodes[0].id' 2>/dev/null)
+PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${TARGET_PHASE}" --depth 0 --pick '.nodes[0].id')
 # the phase is an entity of the spec: its commits are the `commit` entities recorded under its plans, so there is no
 # directory to anchor a window on and no project root to resolve (PHASE_DIR holds the phase id).
 
@@ -126,7 +126,7 @@ second one:
 ```bash
 # No directory moves to an archive here, so the archived layout is the milestone: a phase of a shipped or
 # abandoned milestone is refused like an archived one, and the commits are selected by hand.
-MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --pick '.nodes[0].fields.state' 2>/dev/null)
+MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --pick '.nodes[0].fields.state')
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
@@ -264,13 +264,13 @@ phase number only within its milestone and workstream.
 
 ```bash
 UNDO_MILESTONE=$MILESTONE; case "$TARGET_PLAN" in */*) TARGET_PLAN_ID="$TARGET_PLAN"; UNDO_MILESTONE=${TARGET_PLAN%%/*}; TARGET_PLAN=${TARGET_PLAN##*/};; *) TARGET_PLAN_ID="$UNDO_MILESTONE/${TARGET_PLAN%%-*}/$TARGET_PLAN";; esac; PLAN_PHASE="${TARGET_PLAN%%-*}"
-PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${PLAN_PHASE}" --depth 0 --pick '.nodes[0].id' 2>/dev/null)
+PHASE_DIR=$(specforge query "$UNDO_MILESTONE/${PLAN_PHASE}" --depth 0 --pick '.nodes[0].id')
 # The commits are those of this repository, exactly as in MODE=phase.
 PROJECT_ROOT="."   # the commits are those of this repository
 # Same archived-resolution refusal as MODE=phase, and for the same reason — an archived
 # anchor selects a LATER milestone's same-numbered phase. Blanking PHASE_DIR keeps the
 # fail-closed rule below load-bearing.
-MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --pick '.nodes[0].fields.state' 2>/dev/null)
+MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 0 --pick '.nodes[0].fields.state')
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
