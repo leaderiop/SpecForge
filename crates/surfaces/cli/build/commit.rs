@@ -92,16 +92,26 @@ mod tests {
         let git = dir.path().join(".git");
         write(&git.join("HEAD"), "ref: refs/heads/main\n");
         write(&git.join("refs/heads/main"), &format!("{HASH}\n"));
-        let below = dir.path().join("crates/cli");
-        fs::create_dir_all(&below).unwrap();
 
-        let commit = of(&below);
+        let commit = of(dir.path());
 
         assert_eq!(commit.short.as_deref(), Some("9229143f5"));
         assert_eq!(
             commit.watched,
             [git.join("HEAD"), git.join("refs/heads/main")]
         );
+    }
+
+    /// A crate built from crates.io sits under `~/.cargo/registry/src/…`: a `.git` above it (a home kept in git) is
+    /// another repository's, so only the root's own `.git` names the commit.
+    #[test]
+    fn a_git_above_the_root_is_not_read() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir.path().join(".git/HEAD"), &format!("{HASH}\n"));
+        let root = dir.path().join(".cargo/registry/src/specforge-cli-0.3.0");
+        fs::create_dir_all(&root).unwrap();
+
+        assert_eq!(of(&root).short, None);
     }
 
     #[test]
