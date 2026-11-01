@@ -97,6 +97,10 @@ fn the_regression_gate_keeps_every_verification_when_no_phase_is_named() {
     assert_eq!(prior(""), "[v1.0/01/01-VERIFICATION]");
     assert_eq!(prior("02"), "[v1.0/01/01-VERIFICATION]");
     assert_eq!(prior("01"), "[]");
+    // plan 05 review R11: the phase is matched exactly, by its id's prefix, not as a substring of every id (`1` is in
+    // `v1.0`)
+    assert_eq!(prior("1"), "[v1.0/01/01-VERIFICATION]");
+    assert_eq!(prior("0"), "[v1.0/01/01-VERIFICATION]");
 }
 
 #[test]
