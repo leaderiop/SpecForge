@@ -8,6 +8,9 @@
 mod add;
 mod analyze;
 mod asking;
+#[cfg(test)]
+#[path = "../build/commit.rs"]
+mod build_commit;
 mod caller;
 mod check;
 mod collect;
@@ -61,10 +64,23 @@ use clap_complete::Shell;
 use outcome::Exit;
 use terminal::{Stream, Terminal};
 
+/// What `--version` prints after `specforge `: the package version, then the commit the build was made from
+/// (when it knew it) and the extension protocol this binary speaks, `0.3.0 (9229143f5, protocol 1.14.0)`.
+fn version() -> String {
+    let protocol = specforge_protocol_types::PROTOCOL_VERSION;
+    match env!("SPECFORGE_COMMIT") {
+        "" => format!("{} (protocol {protocol})", env!("CARGO_PKG_VERSION")),
+        commit => format!(
+            "{} ({commit}, protocol {protocol})",
+            env!("CARGO_PKG_VERSION")
+        ),
+    }
+}
+
 #[derive(Parser)]
 #[command(
     name = "specforge",
-    version,
+    version = version(),
     about = "SpecForge compiler",
     after_help = "Extensions add commands: specforge <extension> <command>, e.g. `specforge product features`.\n`specforge <extension> --help` lists an extension's commands."
 )]
