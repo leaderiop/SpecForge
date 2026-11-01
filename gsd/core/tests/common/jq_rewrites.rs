@@ -133,6 +133,9 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/execute-phase.md", 871),
     ("gsd-core/workflows/execute-phase.md", 893),
     ("gsd-core/workflows/execute-phase.md", 899),
+    // G4 plan 05 T1: a `*_HOOKS_JSON` holds one capability extension's answer per line, merged by no jq.
+    ("gsd-core/references/loop-hook-dispatch.md", 21),
+    ("gsd-core/workflows/autonomous.md", 552),
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[

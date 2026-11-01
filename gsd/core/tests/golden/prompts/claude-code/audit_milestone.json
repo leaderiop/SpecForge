@@ -61,7 +61,7 @@
     "",
     "- Parse version from arguments or detect current from ROADMAP.md"
   ],
-  "bytes": 24851,
+  "bytes": 24814,
   "end": [
     "",
     "<success_criteria>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:af281893b28865234ef47945e40376a4b62a3dedc6c8aa3fd7e33e955096260c",
+    "digest": "sha256:9d9fe7ac6d1f511ac194a6de8b64beaa68188e2d568fb83c9ba09cffdf73a594",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "af281893b28865234ef47945e40376a4b62a3dedc6c8aa3fd7e33e955096260c"
+  "sha256": "9d9fe7ac6d1f511ac194a6de8b64beaa68188e2d568fb83c9ba09cffdf73a594"
 }

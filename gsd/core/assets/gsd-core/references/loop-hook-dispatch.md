@@ -20,7 +20,7 @@ execute:wave:post, execute:post, verify:pre, verify:post, ship:pre, ship:post).
 }
 ```
 
-`activeHooks` is an array of enabled hook entries for the named point. It is empty (or absent)
+`activeHooks` is an array of enabled hook entries for the named point; a workflow's `*_HOOKS_JSON` holds one envelope per line, one per capability extension, and its `activeHooks` are those of every line, in order. It is empty (or absent)
 when no capability has registered an active hook at this point — treat that as a no-op.
 
 ## Dispatch rules by `kind`
