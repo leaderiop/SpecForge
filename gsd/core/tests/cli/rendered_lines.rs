@@ -412,22 +412,12 @@ fn the_post_fix_text_leftovers_stay_fixed() {
 /// (`src/prompts/`). gh's own `--jq` filter is not jq.
 #[test]
 fn no_rendered_line_runs_jq() {
-    let rx = Regex::new(r"(?:^|[|;&`]|\$\()\s*jq\s").expect("a regex");
-    for (line, runs) in [
-        ("x | jq -r .a", true),
-        ("jq -n", true),
-        ("X=$(jq -r .a f)", true),
-        ("gh pr view --jq '.a'", false),
-        ("with jq and git (jq is a requirement", false),
-    ] {
-        assert_eq!(rx.is_match(line), runs, "{line}");
-    }
     let found: Vec<String> = rendered()
         .iter()
         .flat_map(|(id, text)| {
             text.lines()
                 .enumerate()
-                .filter(|(_, l)| rx.is_match(l.trim_start()))
+                .filter(|(_, l)| super::command_word::runs_in_prose(l, "jq"))
                 .map(move |(n, l)| format!("{id}:{}: {}", n + 1, l.trim()))
         })
         .collect();

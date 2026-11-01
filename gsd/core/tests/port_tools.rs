@@ -5,6 +5,9 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
+#[path = "common/command_word.rs"]
+mod command_word;
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
@@ -295,49 +298,16 @@ fn shell_assets() -> Vec<(String, Vec<String>)> {
 /// no jq, and a `| jq -r` there leaves the variable empty (upstream #2589).
 #[test]
 fn no_shell_line_runs_jq() {
-    // jq run as a command: at the line's start, after `|`, `;`, `&`, `(` (and `$(`), `{`, `!` or a backtick, or after
-    // a shell keyword
-    let command = r"(^|[|;&({!`]|\b(?:if|then|else|elif|do|while|until)\s)\s*jq";
-    let jq = Regex::new(&format!(r"{command}\b")).expect("a regex");
-    // in prose a run names the tool (`jq`) as often as it runs it: a run runs jq when an argument follows
-    let inline = Regex::new(&format!(r"{command}\s+\S")).expect("a regex");
-    for (line, runs) in [
-        ("x | jq -r .a", true),
-        ("X=$(jq -r .a f)", true),
-        ("if ! jq -e . f; then", true),
-        ("a && jq . f", true),
-        ("done | jq -sc .", true),
-        ("else jq -rs . f; fi", true),
-        ("command -v jq >/dev/null 2>&1", false),
-        ("# jq -r .a", false),
-        (r#"echo "jq""#, false),
-        ("- [e.g. jq -r '.a' from state]", false),
-        (r#"echo "a | jq""#, false),
-        ("foo # x; jq", false),
-        ("X=$(a | jq .b)", true),
-        (r#"X="v $(a | jq -r .b)""#, true),
-        ("gh pr view 1 --json state --jq .state", false),
-    ] {
-        assert_eq!(jq.is_match(&code_of(line)), runs, "{line}");
-    }
-    for (run, runs) in [
-        ("jq", false),
-        ("jq -r .a f", true),
-        ("specforge export | jq '.nodes'", true),
-        ("gh pr view --jq .a", false),
-    ] {
-        assert_eq!(inline.is_match(&code_of(run)), runs, "{run}");
-    }
     let mut found = Vec::new();
     for (path, lines) in shell_assets() {
         for (n, code) in fenced_code(&lines) {
-            if jq.is_match(&code_of(code)) {
+            if command_word::runs(code, "jq") {
                 // the asset's line number: its line 1 is the attribution header
                 found.push(format!("{path}:{}: {code}", n + 2));
             }
         }
         for (n, run) in inline_runs(&lines) {
-            if inline.is_match(&code_of(run)) {
+            if command_word::runs_in_prose(run, "jq") {
                 found.push(format!("{path}:{}: `{run}`", n + 2));
             }
         }
@@ -363,72 +333,6 @@ fn inline_runs(lines: &[String]) -> Vec<(usize, &str)> {
         if !fenced {
             out.extend(text.split('`').skip(1).step_by(2).map(|run| (n, run)));
         }
-    }
-    out
-}
-
-/// `line` with what the shell does not run masked: the text of a quoted string (a `$(…)` or backtick inside double
-/// quotes stays, it runs) becomes `_`, and an unquoted `#` that starts a word ends the line.
-fn code_of(line: &str) -> String {
-    // the open contexts, innermost last: `'"'` a double-quoted string, `'('` a `$(…)` or `(`, `'`'` a backtick
-    let mut open: Vec<char> = Vec::new();
-    let mut out = String::with_capacity(line.len());
-    let mut chars = line.chars().peekable();
-    let mut prev = ' ';
-    while let Some(c) = chars.next() {
-        let quoted = open.last() == Some(&'"');
-        match c {
-            '\\' => {
-                out.push(if quoted { '_' } else { c });
-                if let Some(n) = chars.next() {
-                    out.push(if quoted { '_' } else { n });
-                }
-            }
-            '\'' if !quoted => {
-                out.push('_');
-                for n in chars.by_ref() {
-                    out.push('_');
-                    if n == '\'' {
-                        break;
-                    }
-                }
-            }
-            '"' if quoted => {
-                open.pop();
-                out.push('_');
-            }
-            '"' => {
-                open.push('"');
-                out.push('_');
-            }
-            '$' if chars.peek() == Some(&'(') => {
-                chars.next();
-                open.push('(');
-                out.push_str("$(");
-            }
-            '`' if open.last() == Some(&'`') => {
-                open.pop();
-                out.push(c);
-            }
-            '`' => {
-                open.push('`');
-                out.push(c);
-            }
-            _ if quoted => out.push('_'),
-            '(' => {
-                open.push('(');
-                out.push(c);
-            }
-            ')' => {
-                if open.last() == Some(&'(') {
-                    open.pop();
-                }
-                out.push(c);
-            }
-            '#' if prev.is_whitespace() || out.is_empty() => break,
-            _ => out.push(c),
-        }
-        prev = c;
     }
     out
 }

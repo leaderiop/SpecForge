@@ -23,6 +23,8 @@ mod cmd_verify;
 mod cmd_windows;
 mod cmd_workstreams;
 mod collect;
+#[path = "../common/command_word.rs"]
+mod command_word;
 mod commands;
 mod commands_support;
 mod decision_coverage;
