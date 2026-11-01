@@ -15,6 +15,7 @@
         "hooks": [
           {
             "command": "specforge hook gsd.secret_read_guard --host claude-code --event pre_tool --tools read,search,shell # specforge-install",
+            "onFailure": "block",
             "timeout": 10,
             "type": "command"
           }

@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use super::git::{name_only, scan_git_config};
 use super::names::{last_segment, names_secret};
-use super::shell::{Kind, Reading, Token, tokenize, with_reading};
+use super::shell::{Kind, Reading, Token, stopped, tokenize, with_reading};
 
 pub(super) const MAX_NESTING_DEPTH: usize = 3;
 
@@ -402,7 +402,13 @@ fn scan_xargs(operands: &[&Token], s: usize, segs: &Segments, depth: usize) -> O
 
 /// The first secret file `command` reads, as it is written.
 pub(super) fn find_secret_read(command: &str, depth: usize) -> Option<String> {
+    if stopped() {
+        return None;
+    }
     let (tokens, nested) = tokenize(command);
+    if stopped() {
+        return None;
+    }
     if depth < MAX_NESTING_DEPTH {
         for sub in &nested {
             if let Some(hit) = find_secret_read(sub, depth + 1) {
@@ -427,6 +433,9 @@ pub(super) fn find_secret_read(command: &str, depth: usize) -> Option<String> {
         }
     }
     for s in 0..=max_seg {
+        if stopped() {
+            return None;
+        }
         let Some(seg_tokens) = segs.by_seg.get(&s) else {
             continue;
         };

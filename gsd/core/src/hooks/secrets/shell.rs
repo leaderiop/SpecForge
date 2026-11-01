@@ -44,6 +44,58 @@ pub(super) fn with_reading<T>(r: Reading, f: impl FnOnce() -> T) -> T {
     f()
 }
 
+/// How many `$( )` spans the reader follows one inside another. Unbounded, the guest stack overflowed at about 2500
+/// (F7), and the guard's failure policy (allow) let the command through; real commands nest fewer than 10.
+pub(super) const MAX_SPAN_DEPTH: usize = 128;
+
+/// How many tokens one call's scan reads across all its rescans (nested scripts, heredoc bodies) and readings. Each
+/// rescan tokenizes again, so 600 KB of heredoc bodies ran past the 5000 ms budget. A call at the limit takes under
+/// 1 s end to end (0.65-0.83 s measured); a real command reads a few thousand.
+pub(super) const MAX_SCAN_TOKENS: usize = 1 << 18;
+
+/// Why a scan stopped before it read the whole command; the guard denies the command under that name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Stop {
+    /// A span nested deeper than `MAX_SPAN_DEPTH`.
+    Nested,
+    /// More than `MAX_SCAN_TOKENS` tokens read.
+    Complex,
+}
+
+thread_local! {
+    static STOP: Cell<Option<Stop>> = const { Cell::new(None) };
+    /// The tokens read so far inside `judged`; `None` outside it, where nothing is counted or stopped.
+    static SCANNED: Cell<Option<usize>> = const { Cell::new(None) };
+}
+
+fn stop(why: Stop) {
+    if SCANNED.get().is_some() && STOP.get().is_none() {
+        STOP.set(Some(why));
+    }
+}
+
+/// Whether the scan has stopped: what is left of it is not read.
+pub(super) fn stopped() -> bool {
+    STOP.with(Cell::get).is_some()
+}
+
+/// Runs the scan `f` from a zero work count, and says why it stopped, if it did.
+pub(super) fn judged<T>(f: impl FnOnce() -> T) -> (T, Option<Stop>) {
+    let outer = (STOP.replace(None), SCANNED.replace(Some(0)));
+    let out = f();
+    let why = STOP.replace(outer.0);
+    #[cfg(test)]
+    LAST_SCANNED.set(SCANNED.get().unwrap_or_default());
+    SCANNED.set(outer.1);
+    (out, why)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The tokens the last `judged` scan on this thread read: a test bounds the guard's work by it (F7).
+    pub(super) static LAST_SCANNED: Cell<usize> = const { Cell::new(0) };
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Kind {
     Word,
@@ -98,7 +150,15 @@ struct Tag {
     end: usize,
 }
 
-fn read_heredoc_tag(s: &[char], mut i: usize) -> Tag {
+#[cfg(test)]
+thread_local! {
+    /// The characters of the span tags sliced on this thread: a test bounds the span reader's work by it (F7).
+    pub(super) static TAG_CHARS: Cell<usize> = const { Cell::new(0) };
+}
+
+/// A heredoc tag in a span, and where its text is in `s`: the text is sliced only when a body line is read, because
+/// a tag holds the spans nested in it, and slicing it at every level made a deep nesting quadratic.
+fn read_heredoc_tag(s: &[char], mut i: usize, depth: usize) -> (Tag, (usize, usize)) {
     let strip_tabs = s.get(i) == Some(&'-');
     if strip_tabs {
         i += 1;
@@ -106,10 +166,11 @@ fn read_heredoc_tag(s: &[char], mut i: usize) -> Tag {
     while matches!(s.get(i), Some(' ' | '\t')) {
         i += 1;
     }
-    let (mut tag, mut quoted) = (String::new(), false);
+    let mut quoted = false;
+    let text;
     if let Some(&q @ ('\'' | '"')) = s.get(i) {
         let j = find(s, q, i + 1);
-        tag = sub(s, i + 1, j.unwrap_or(s.len()));
+        text = (i + 1, j.unwrap_or(s.len()));
         quoted = true;
         i = j.map_or(s.len(), |j| j + 1);
     } else {
@@ -117,6 +178,7 @@ fn read_heredoc_tag(s: &[char], mut i: usize) -> Tag {
             quoted = true;
             i += 1;
         }
+        let start = i;
         let words = reading().tags_as_words;
         while let Some(&c) = s.get(i) {
             if if words {
@@ -128,27 +190,23 @@ fn read_heredoc_tag(s: &[char], mut i: usize) -> Tag {
             }
             // A substitution inside the word belongs to the tag, taken literally (`E$(x)F` waits for `E$(x)F`).
             let end = match (words, c, s.get(i + 1)) {
-                (true, '$', Some('(')) => Some(paren_close(s, i + 2)),
-                (true, '$', Some('{')) => Some(find(s, '}', i).unwrap_or(s.len() - 1)),
+                (true, '$', Some('(')) => Some(paren_close(s, i + 2, depth + 1)),
+                (true, '$', Some('{')) => Some(brace_close(s, i + 2, depth + 1, &mut Vec::new())),
                 (true, '`', _) => Some(find(s, '`', i + 1).unwrap_or(s.len() - 1)),
                 _ => None,
             };
-            if let Some(e) = end {
-                tag += &sub(s, i, e + 1);
-                i = e + 1;
-            } else {
-                tag.push(c);
-                i += 1;
-            }
+            i = end.map_or(i + 1, |e| e + 1);
         }
+        text = (start, i);
     }
-    Tag {
-        tag,
+    let tag = Tag {
+        tag: String::new(),
         quoted,
         strip_tabs,
         seg: 0,
         end: i,
-    }
+    };
+    (tag, text)
 }
 
 /// The bodies of the heredocs `tags` opened, read line by line from `i`; the index after the last one read.
@@ -180,10 +238,14 @@ fn heredoc_bodies(s: &[char], mut i: usize, tags: &[Tag]) -> (Vec<(String, bool,
     (bodies, i)
 }
 
-/// The index of the `)` that closes a `$(` whose body starts at `i`, or the length.
-fn paren_close(s: &[char], mut i: usize) -> usize {
-    let mut depth = 1;
-    let mut tags: Vec<Tag> = Vec::new();
+/// The index of the `)` that closes a `$(` whose body starts at `i`, or the length; `depth` spans enclose it.
+fn paren_close(s: &[char], mut i: usize, depth: usize) -> usize {
+    if depth >= MAX_SPAN_DEPTH {
+        stop(Stop::Nested);
+        return s.len();
+    }
+    let mut parens = 1;
+    let mut tags: Vec<(Tag, (usize, usize))> = Vec::new();
     while i < s.len() {
         let ch = s[i];
         if ch == '\\' {
@@ -196,7 +258,7 @@ fn paren_close(s: &[char], mut i: usize) -> usize {
                 if s[i] == '\\' {
                     i += 2;
                 } else if s[i] == '$' && s.get(i + 1) == Some(&'(') {
-                    i = paren_close(s, i + 2) + 1;
+                    i = paren_close(s, i + 2, depth + 1) + 1;
                 } else if s[i] == '`' {
                     i = find(s, '`', i + 1).map_or(s.len(), |j| j + 1);
                 } else {
@@ -211,23 +273,66 @@ fn paren_close(s: &[char], mut i: usize) -> usize {
             && s.get(i + 1) == Some(&'<')
             && s.get(i + 2) != Some(&'<')
         {
-            let tag = read_heredoc_tag(s, i + 2);
-            i = tag.end;
+            let tag = read_heredoc_tag(s, i + 2, depth);
+            i = tag.0.end;
             tags.push(tag);
         } else if ch == '\n' && !tags.is_empty() {
+            let tags: Vec<Tag> = std::mem::take(&mut tags)
+                .into_iter()
+                .map(|(t, (a, b))| {
+                    #[cfg(test)]
+                    TAG_CHARS.with(|n| n.set(n.get() + b.saturating_sub(a)));
+                    Tag {
+                        tag: sub(s, a, b),
+                        ..t
+                    }
+                })
+                .collect();
             i = heredoc_bodies(s, i + 1, &tags).1;
-            tags.clear();
         } else {
             if ch == '(' {
-                depth += 1;
+                parens += 1;
             } else if ch == ')' {
-                depth -= 1;
-                if depth == 0 {
+                parens -= 1;
+                if parens == 0 {
                     return i;
                 }
             }
             i += 1;
         }
+    }
+    s.len()
+}
+
+/// The index of the `}` that closes a `${` whose body starts at `i`, or the length; `depth` spans enclose it. The
+/// `$( )` and backtick bodies inside go to `nested`: upstream jumped to the next `}` and read none of them, so
+/// `${x:-$(cat .env)}` ran unread (F7 review).
+fn brace_close(s: &[char], mut i: usize, depth: usize, nested: &mut Vec<String>) -> usize {
+    if depth >= MAX_SPAN_DEPTH {
+        stop(Stop::Nested);
+        return s.len();
+    }
+    let mut quoted = false;
+    while i < s.len() {
+        match (s[i], s.get(i + 1)) {
+            ('\\', _) => i += 1,
+            ('\'', _) if !quoted => i = find(s, '\'', i + 1).unwrap_or(s.len()),
+            ('"', _) => quoted = !quoted,
+            ('$', Some('(')) => {
+                let e = paren_close(s, i + 2, depth + 1);
+                nested.push(sub(s, i + 2, e));
+                i = e;
+            }
+            ('$', Some('{')) => i = brace_close(s, i + 2, depth + 1, nested),
+            ('`', _) => {
+                let e = find(s, '`', i + 1).unwrap_or(s.len());
+                nested.push(sub(s, i + 1, e));
+                i = e;
+            }
+            ('}', _) if !quoted => return i,
+            _ => {}
+        }
+        i += 1;
     }
     s.len()
 }
@@ -238,7 +343,7 @@ fn substitutions(body: &str, nested: &mut Vec<String>) {
     let mut i = 0;
     while i < s.len() {
         if s[i] == '$' && s.get(i + 1) == Some(&'(') {
-            let e = paren_close(&s, i + 2);
+            let e = paren_close(&s, i + 2, 0);
             nested.push(sub(&s, i + 2, e));
             i = e + 1;
         } else if s[i] == '`' {
@@ -338,7 +443,7 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
                         }
                         i += 2;
                     } else if c == '$' && at(i + 1) == Some('(') {
-                        let e = paren_close(&s, i + 2);
+                        let e = paren_close(&s, i + 2, 0);
                         lx.nested.push(sub(&s, i + 2, e));
                         i = e + 1;
                     } else if c == '`' {
@@ -365,14 +470,14 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
             }
             '$' if at(i + 1) == Some('(') => {
                 lx.has_word = true;
-                let e = paren_close(&s, i + 2);
+                let e = paren_close(&s, i + 2, 0);
                 lx.nested.push(sub(&s, i + 2, e));
                 lx.literal_in_tag(&s, i, e + 1);
                 i = e + 1;
             }
             '$' if at(i + 1) == Some('{') => {
                 lx.has_word = true;
-                let e = find(&s, '}', i).unwrap_or(s.len().saturating_sub(1));
+                let e = brace_close(&s, i + 2, 0, &mut lx.nested);
                 lx.buf += &sub(&s, i, e + 1);
                 i = e + 1;
             }
@@ -385,7 +490,7 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
             }
             '<' | '>' if at(i + 1) == Some('(') => {
                 lx.flush();
-                let e = paren_close(&s, i + 2);
+                let e = paren_close(&s, i + 2, 0);
                 let inner = sub(&s, i + 2, e);
                 lx.nested.push(inner.clone());
                 let mut t = token(Kind::Word, sub(&s, i, e + 1), lx.seg);
@@ -508,5 +613,11 @@ pub(super) fn tokenize(src: &str) -> (Vec<Token>, Vec<String>) {
         }
     }
     lx.flush();
+    if let Some(n) = SCANNED.get() {
+        SCANNED.set(Some(n + lx.tokens.len()));
+        if n + lx.tokens.len() > MAX_SCAN_TOKENS {
+            stop(Stop::Complex);
+        }
+    }
     (lx.tokens, lx.nested)
 }

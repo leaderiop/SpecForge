@@ -313,7 +313,11 @@ fn every_installed_hook_answers() {
         assert_eq!(commands.len(), lines, "{host}: {commands:?}");
         for command in &commands {
             assert!(parses(command), "{host}: {command}");
-            let route = command.split_whitespace().nth(2).unwrap_or_default();
+            let route = command
+                .split("specforge hook ")
+                .nth(1)
+                .and_then(|rest| rest.split_whitespace().next())
+                .unwrap_or_default();
             let run = run_hook(&p, host, route, &event_for(&p, host, route), &home);
             assert_eq!(run.code, 0, "{host} {route}: {}", run.all());
             if route != "gsd.statusline" && !run.stdout.trim().is_empty() {
