@@ -36,7 +36,7 @@ Emit:
 
 Search phase artifacts (CONTEXT.md, DISCUSSION-LOG.md, BUG-BRIEF.md, VERIFICATION.md, SUMMARY.md, HANDOFF.md files under the `phase` entities) for patterns:
 ```bash
-for ph in $(specforge query "$MILESTONE" --depth 3 --kinds phase --pick '.nodes[kind=phase].id'); do specforge query "$ph" --depth 0 --pick '.nodes[0].fields.goal' | grep -Eq 'defer to Phase|future phase|out of scope Phase|deferred to Phase' && echo "$ph"; done || true
+while IFS=$'\t' read -r ph goal; do case "$goal" in (*"defer to Phase"*|*"future phase"*|*"out of scope Phase"*|*"deferred to Phase"*) echo "$ph" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds phase --pick '.nodes[kind=phase]' --fields id,fields.goal) || true
 ```
 
 For each match, extract the referenced phase number. Cross-reference against ROADMAP.md phase list. If the referenced phase number is NOT in ROADMAP.md, flag as deferred scope not captured.

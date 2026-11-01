@@ -179,7 +179,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         ),
         (
             "gsd-core/workflows/pause-work.md",
-            "for s in $(specforge query \"$MILESTONE\"",
+            "while IFS=$'\\t' read -r s line",
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
@@ -187,7 +187,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
-            "for ph in $(specforge query \"$MILESTONE\"",
+            "while IFS=$'\\t' read -r ph goal",
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
@@ -420,4 +420,45 @@ fn the_requirements_guard_refuses_a_placeholder_or_an_empty_list() {
             assert_eq!(out, format!("{want}\n"), "{path}: {json}");
         }
     }
+}
+
+/// R2: the text scans read one `id<TAB>text` row per entity (`--fields`) and match in a `case`: a deferred goal and a
+/// placeholder one-liner are named by their entity's id, the others not.
+#[test]
+fn the_text_scans_read_one_row_per_entity() {
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    let scan = |path: &str, start: &str| run(&sh, &p, path, "MILESTONE=v1.0", &[start], "").0;
+    let deferred = (
+        "gsd-core/workflows/progress/steps/forensic-audit.md",
+        "while IFS=$'\\t' read -r ph goal",
+    );
+    let placeholder = (
+        "gsd-core/workflows/pause-work.md",
+        "while IFS=$'\\t' read -r s line",
+    );
+    assert_eq!(scan(deferred.0, deferred.1), "");
+    assert_eq!(scan(placeholder.0, placeholder.1), "");
+    let edit = |file: &str, from: &str, to: &str| {
+        let path = p.root().join(file);
+        let text = std::fs::read_to_string(&path).expect("the spec");
+        assert!(text.contains(from), "{from}");
+        std::fs::write(&path, text.replace(from, to)).expect("written");
+    };
+    edit(
+        "spec/v1.0.spec",
+        "\"Open tasks are listed and filtered\"",
+        "\"Open tasks are listed;\\tfiltering is deferred to Phase 9\"",
+    );
+    edit(
+        "spec/plans.spec",
+        "\"`taskboard add` and `taskboard done` over a board whose tasks complete by id.\"",
+        "\"TBD\"",
+    );
+    let phases = scan(deferred.0, deferred.1);
+    assert_eq!(phases.lines().count(), 1, "{phases}");
+    assert!(phases.starts_with("v1.0/"), "{phases}");
+    let summaries = scan(placeholder.0, placeholder.1);
+    assert_eq!(summaries.lines().count(), 1, "{summaries}");
+    assert!(summaries.contains("-SUMMARY"), "{summaries}");
 }

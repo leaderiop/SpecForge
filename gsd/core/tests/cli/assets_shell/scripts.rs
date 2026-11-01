@@ -23,7 +23,7 @@ fn the_commit_readers_read_the_commit_entities() {
     let run = |script: &str| sh.run_in(p.root(), script);
 
     let text = asset("gsd-core/workflows/execute-phase.md");
-    let produce = line(&text, "PLAN_HASHES=$(specforge").replace("{plan_padded}", "01");
+    let produce = line(&text, "PLAN_ROWS=$(specforge").replace("{plan_padded}", "01");
     let read = line(&text, "PLAN_COMMITS=$(").replace("{plan_padded}", "01");
     let (out, err, _) = run(&format!(
         "PHASE_NUMBER=01\n{produce}\n{read}\nprintf '%s' \"$PLAN_COMMITS\""

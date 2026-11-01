@@ -2,7 +2,7 @@
 
 **Status:** accepted (2026-11-01, GSD follow-ups G4, plan 03; amended by plan 05: `check`, `settings` and
 `export` take it, D6; the selector takes any key and `.` is the whole answer, D1; a dotted key and a scalar that is
-not a string, D1a). Extends [ADR
+not a string, D1a; `--fields` rows on `query` and `export`, D7). Extends [ADR
 0318](0318-a-command-is-told-its-host.md) (a host option added unless a command declares the name). No wire change.
 
 ## Context
@@ -54,6 +54,13 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   usage error, as on `query`). On `check` and `settings`, `--pick` makes `json` the default format and an explicit
   `--format human` is a usage error (exit 2); errors print as under `json`, and the exit code is the command's
   (`check` still exits 1 on an error it reports). `settings set` and `unset` take no `--pick`.
+- **D7. `--fields <keys>`** beside `--pick` on `query` and `export` prints one row per item the path reaches, its
+  cells the values at the comma-separated keys (each may be dotted), joined by a tab: two values of one entity on one
+  line, where two picks printed side by side would misalign once a value is missing. A cell prints as `--pick`
+  prints a value, a missing value or `null` is an empty cell, and an item that is `null` still holds a row. A
+  backslash, tab, newline or carriage return in a cell prints as `\\`, `\t`, `\n` or `\r`, so a row is one line.
+  `--fields` without `--pick` is a usage error (exit 2), and so is an empty key. Commands whose items are not
+  entities (`check`, `settings`, an extension command) do not take it: no prompt reads two of their values at once.
 - **D5.** The parser, walker and printer are one CLI module (`crates/surfaces/cli/src/pick.rs`). MCP is unchanged:
   an agent there has the JSON.
 

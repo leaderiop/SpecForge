@@ -56,7 +56,7 @@ fn printed(
     // `--pick` reads the command's own answer, whether or not this run answered a plan
     if let Some(pick) = pick {
         err!(terminal, "{}", output.stderr);
-        return match pick.printed(&output.stdout) {
+        return match pick.printed(&output.stdout, None) {
             Ok(lines) => {
                 out!(terminal, "{lines}");
                 output.exit_code

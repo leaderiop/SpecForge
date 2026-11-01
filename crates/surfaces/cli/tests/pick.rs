@@ -93,3 +93,31 @@ fn check_pick_refuses_an_explicit_human_format() {
     assert_eq!(ran.stdout, "");
     assert!(ran.stderr.contains("--pick"), "{}", ran.stderr);
 }
+
+#[test]
+fn fields_print_one_tab_separated_row_per_item() {
+    let dir = project();
+    let cli = Cli::on(&dir);
+    for command in ["export", "query"] {
+        let mut args = vec![command];
+        if command == "query" {
+            args.extend(["gamma", "--depth", "1"]);
+        }
+        args.extend(["--pick", ".nodes[]", "--fields", "kind,id,fields.missing"]);
+        let ran = cli.run(&args);
+        assert_eq!(ran.code, 0, "{command}: {}", ran.stderr);
+        // one row per node, a cell per key, and an empty cell where the value is missing
+        let mut rows: Vec<&str> = ran.stdout.lines().collect();
+        rows.sort_unstable();
+        let want: &[&str] = if command == "export" {
+            &["behavior\talpha\t", "feature\tgamma\t"]
+        } else {
+            &["feature\tgamma\t"]
+        };
+        assert_eq!(rows, want, "{command}");
+    }
+    let ran = cli.run(&["export", "--fields", "id"]);
+    assert_eq!(ran.code, 2, "--fields needs --pick: {}", ran.stderr);
+    let ran = cli.run(&["export", "--pick", ".nodes[]", "--fields", "a,,b"]);
+    assert_eq!(ran.code, 2, "an empty key: {}", ran.stderr);
+}

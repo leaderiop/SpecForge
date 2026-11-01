@@ -23,6 +23,16 @@ macro_rules! rules {
     };
 }
 
+/// The short help of `--fields`, beside `--pick` on `query` and `export`.
+pub(crate) const FIELDS_HELP: &str =
+    "With --pick: one tab-separated row per item reached, a cell per key";
+
+/// The long help of `--fields`.
+pub(crate) const FIELDS_LONG_HELP: &str = "With --pick: print one tab-separated row per item the path reaches, one cell \
+     per comma-separated key, in order, e.g. --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject. A key \
+     may be dotted. A cell prints as --pick prints a value, with a missing value or null as an empty cell, so the \
+     rows never misalign; a backslash, tab, newline or carriage return in a cell prints as \\\\, \\t, \\n or \\r.";
+
 /// The short help of `--pick`, on every command that takes it.
 pub(crate) const HELP: &str = "Print only the values at this path of the JSON answer, one per line";
 
@@ -136,6 +146,65 @@ fn field_is(item: &Value, key: &[String], wanted: &str) -> bool {
         }
         _ => false,
     }
+}
+
+/// A parsed `--fields` list: the dotted keys of a row's cells, in order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Fields(Vec<Vec<String>>);
+
+impl Fields {
+    /// Parse `a,b.c`; a refusal names the key that goes wrong.
+    pub(crate) fn parse(text: &str) -> Result<Self, String> {
+        text.split(',')
+            .map(|key| {
+                if key.is_empty() || key.split('.').any(str::is_empty) {
+                    Err(format!(
+                        "'{key}': a key is names joined by '.', and keys are joined by ','"
+                    ))
+                } else if key.contains(|c: char| c.is_whitespace() || "[]=".contains(c)) {
+                    Err(format!(
+                        "'{key}': a key holds no whitespace, '[', ']' or '='"
+                    ))
+                } else {
+                    Ok(key.split('.').map(str::to_string).collect())
+                }
+            })
+            .collect::<Result<_, _>>()
+            .map(Self)
+    }
+
+    /// The row of `item`: a cell per key, tab-separated.
+    fn row(&self, item: &Value) -> String {
+        self.0
+            .iter()
+            .map(|key| {
+                match key
+                    .iter()
+                    .try_fold(item, |value, segment| value.get(segment))
+                {
+                    None | Some(Value::Null) => String::new(),
+                    Some(Value::String(text)) => escaped(text),
+                    Some(other) => escaped(&other.to_string()),
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\t")
+    }
+}
+
+/// `text` with a backslash, tab, newline and carriage return written as `\\`, `\t`, `\n` and `\r`: one cell.
+fn escaped(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '\t' => out.push_str("\\t"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// A parsed `--pick` path.
@@ -260,14 +329,25 @@ impl Pick {
         text
     }
 
-    /// [`Self::lines`] for an answer printed as text: nothing for an empty answer, else `Err` with the answer when it
-    /// is not JSON.
-    pub(crate) fn printed(&self, answer: &str) -> Result<String, String> {
+    /// What `--pick` with `--fields` prints for `document`: one row per value reached, null included.
+    fn rows(&self, document: &Value, fields: &Fields) -> String {
+        self.values(document)
+            .into_iter()
+            .map(|item| fields.row(item) + "\n")
+            .collect()
+    }
+
+    /// [`Self::lines`] (or [`Self::rows`] with `fields`) for an answer printed as text: nothing for an empty answer,
+    /// else `Err` with the answer when it is not JSON.
+    pub(crate) fn printed(&self, answer: &str, fields: Option<&Fields>) -> Result<String, String> {
         if answer.trim().is_empty() {
             return Ok(String::new());
         }
         serde_json::from_str(answer)
-            .map(|document| self.lines(&document))
+            .map(|document| match fields {
+                Some(fields) => self.rows(&document, fields),
+                None => self.lines(&document),
+            })
             .map_err(|e| format!("error: --pick: the answer is not JSON ({e})\n"))
     }
 }
@@ -456,10 +536,40 @@ mod tests {
     }
 
     #[test]
+    fn fields_print_one_row_per_item_and_an_empty_cell_for_a_missing_value() {
+        let nodes = json!({"nodes": [
+            {"id": "c1", "fields": {"hash": "abc", "subject": "feat: a", "n": 2}},
+            {"id": "c2", "fields": {"subject": "tab\there\nnext \\ end"}},
+            {"id": "c3", "fields": {"hash": null, "files": ["a", "b"]}},
+        ]});
+        let fields = Fields::parse("fields.hash,fields.subject,id,fields.n,fields.files").unwrap();
+        let pick = Pick::parse(".nodes[]").unwrap();
+        assert_eq!(
+            pick.printed(&nodes.to_string(), Some(&fields)).unwrap(),
+            "abc\tfeat: a\tc1\t2\t\n\ttab\\there\\nnext \\\\ end\tc2\t\t\n\t\tc3\t\t[\"a\",\"b\"]\n"
+        );
+        // a value that is null still holds its row; an item missing from the path holds none
+        let one = Fields::parse("id").unwrap();
+        assert_eq!(
+            Pick::parse(".a[]")
+                .unwrap()
+                .rows(&json!({"a": [null, 1]}), &one),
+            "\n\n"
+        );
+        assert_eq!(
+            Pick::parse(".nodes[kind=x]").unwrap().rows(&nodes, &one),
+            ""
+        );
+        for bad in ["", "a,", ",a", "a..b", "a b", "a[0]", "a=b"] {
+            assert!(Fields::parse(bad).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
     fn an_answer_that_is_not_json_is_refused_and_an_empty_one_prints_nothing() {
         let pick = Pick::parse(".a").unwrap();
-        assert_eq!(pick.printed("{\"a\": 1}\n"), Ok("1\n".into()));
-        assert_eq!(pick.printed(""), Ok(String::new()));
-        assert!(pick.printed("done").unwrap_err().contains("not JSON"));
+        assert_eq!(pick.printed("{\"a\": 1}\n", None), Ok("1\n".into()));
+        assert_eq!(pick.printed("", None), Ok(String::new()));
+        assert!(pick.printed("done", None).unwrap_err().contains("not JSON"));
     }
 }
