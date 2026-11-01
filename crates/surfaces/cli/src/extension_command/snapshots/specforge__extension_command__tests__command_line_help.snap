@@ -75,6 +75,9 @@ Options:
           
           [possible values: claude-code, codex, cursor]
 
+      --pick <PATH>
+          Print only the values at this path of the command's own JSON answer, one per line, e.g. '.next_command'. The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[kind=<k>]` (the items whose `kind` is <k>). One line per value reached: a string bare (a newline in it is printed as is), an integer as is and any other number as an f64 (`1.0`, `-0.0`, `1e3` as `1000.0`), a boolean, object or array as compact JSON; null or a missing value prints nothing, and is not an error. It implies --format json (another --format is refused): errors print as they do under json, and the exit code is the command's, or 1 when it passed but its answer is not JSON. A writing command is picked from its own answer, never from the plan report --format json wraps it in.
+
   -h, --help
           Print help (see a summary with '-h')
 
@@ -84,7 +87,24 @@ List plain things
 Usage: specforge x plain [OPTIONS]
 
 Options:
-      --path <PATH>      A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration) [default: .]
-      --format <FORMAT>  Output format [default: human] [possible values: human, json]
-      --host <HOST>      The host calling the command: claude-code, codex or cursor [possible values: claude-code, codex, cursor]
-  -h, --help             Print help
+      --path <PATH>
+          A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format
+          
+          [default: human]
+          [possible values: human, json]
+
+      --host <HOST>
+          The host calling the command: claude-code, codex or cursor
+          
+          [possible values: claude-code, codex, cursor]
+
+      --pick <PATH>
+          Print only the values at this path of the command's own JSON answer, one per line, e.g. '.next_command'. The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[kind=<k>]` (the items whose `kind` is <k>). One line per value reached: a string bare (a newline in it is printed as is), an integer as is and any other number as an f64 (`1.0`, `-0.0`, `1e3` as `1000.0`), a boolean, object or array as compact JSON; null or a missing value prints nothing, and is not an error. It implies --format json (another --format is refused): errors print as they do under json, and the exit code is the command's, or 1 when it passed but its answer is not JSON. A writing command is picked from its own answer, never from the plan report --format json wraps it in.
+
+  -h, --help
+          Print help (see a summary with '-h')

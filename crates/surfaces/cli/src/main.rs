@@ -37,6 +37,7 @@ mod notes;
 mod options;
 mod outcome;
 mod outline;
+mod pick;
 mod project;
 mod prompt;
 mod providers;

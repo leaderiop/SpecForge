@@ -544,3 +544,136 @@ fn the_cli_sends_the_args_the_derivation_normalizes() {
         serde_json::json!({"strict": true})
     );
 }
+
+/// `specforge core quiet <args>` over `@t/core`, its export answering `stdout`, `stderr` and `exit_code`: the exit
+/// code, stdout and stderr the CLI printed.
+fn quiet(stdout: &str, stderr: &str, exit_code: i32, args: &[&str]) -> (i32, String, String) {
+    let answer = serde_json::json!({"exit_code": exit_code, "stdout": stdout, "stderr": stderr});
+    quiet_answering(
+        specforge_wasm::WasmCallResult::Ok(answer.to_string().into_bytes()),
+        args,
+    )
+}
+
+/// [`quiet`], its export answering `result`.
+fn quiet_answering(result: specforge_wasm::WasmCallResult, args: &[&str]) -> (i32, String, String) {
+    use specforge_project::testing::{CORE, GSD_WRITES_EXTENSIONS, GsdWrites, TestProject};
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&GSD_WRITES_EXTENSIONS)
+        .installing_enabled();
+    let runtime = std::sync::Arc::new(
+        GsdWrites::new()
+            .answering(CORE, "cmd__quiet", result)
+            .runtime(),
+    );
+    let env = project.environment_in(runtime as specforge_project::SharedRuntime);
+    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
+    let mut rest = vec!["quiet".to_string()];
+    rest.extend(args.iter().map(ToString::to_string));
+    rest.extend(["--path".to_string(), project.root().display().to_string()]);
+    let code = run_in(env, &project.project_root(), "core", rest, &[], &terminal);
+    (code, capture.stdout(), capture.stderr())
+}
+
+#[test]
+fn pick_prints_the_values_of_a_commands_json_answer() {
+    let answer = r#"{"s": "bare", "n": 3, "b": true, "o": {"k": [1, "x"]}, "z": null, "lines": "a\nb", "e": []}"#;
+    for (path, printed) in [
+        (".s", "bare\n"),
+        (".n", "3\n"),
+        (".b", "true\n"),
+        (".o", "{\"k\":[1,\"x\"]}\n"),
+        (".o.k[1]", "x\n"),
+        (".o.k[]", "1\nx\n"),
+        (".z", ""),
+        (".missing", ""),
+        (".e[0]", ""),
+        // a string holding a newline is printed as is: one value, two lines
+        (".lines", "a\nb\n"),
+    ] {
+        let (code, out, err) = quiet(answer, "", 0, &["--pick", path]);
+        assert_eq!((code, out.as_str()), (0, printed), "{path}: {err}");
+    }
+    let (code, out, _) = quiet(answer, "", 0, &["--format", "json", "--pick", ".s"]);
+    assert_eq!((code, out.as_str()), (0, "bare\n"));
+}
+
+#[test]
+fn pick_writes_a_refusal_as_json_with_its_exit_code() {
+    // the guest's own refusal: its stderr and exit code, nothing on stdout
+    let refused = "{\"code\":\"E900\",\"message\":\"no\"}\n";
+    let (code, out, err) = quiet("", refused, 3, &["--pick", ".s"]);
+    assert_eq!((code, out.as_str(), err.as_str()), (3, "", refused));
+    // the host's refusals are written as under --format json: a trapped export, an unknown option
+    let trap = specforge_wasm::WasmCallResult::Trap(specforge_wasm::WasmTrapInfo {
+        kind: "call_failed".into(),
+        message: "unreachable".into(),
+        export_name: "cmd__quiet".into(),
+    });
+    let (code, out, err) = quiet_answering(trap.clone(), &[]);
+    assert_eq!(code, 1);
+    assert!(
+        err.starts_with("error[E028]"),
+        "human without --pick: {err}"
+    );
+    let (code, out_picked, err) = quiet_answering(trap, &["--pick", ".s"]);
+    assert_eq!((code, out.as_str(), out_picked.as_str()), (1, "", ""));
+    let error: Value = serde_json::from_str(&err).expect(&err);
+    assert_eq!(error["code"], "E028");
+    let (code, _, err) = quiet("{}", "", 0, &["--nope", "--pick", ".s"]);
+    assert_eq!(code, 2);
+    let error: Value = serde_json::from_str(&err).expect(&err);
+    assert_eq!(error["code"], "INVALID_INPUT");
+}
+
+#[test]
+fn pick_refuses_a_format_other_than_json() {
+    for format in [&["--format", "human"][..], &["--format=human"]] {
+        let mut args = format.to_vec();
+        args.extend(["--pick", ".s"]);
+        let (code, out, err) = quiet(r#"{"s": "x"}"#, "", 0, &args);
+        assert_eq!((code, out.as_str()), (2, ""), "{format:?}: {err}");
+        let error: Value = serde_json::from_str(&err).expect(&err);
+        assert!(
+            error["message"].as_str().unwrap().contains("--pick"),
+            "{error}"
+        );
+    }
+}
+
+#[test]
+fn a_command_declaring_pick_keeps_it_and_is_not_asked_for_json() {
+    let mut c = contribution();
+    c.args
+        .push(arg("pick", CommandArgType::String, false, None));
+    let (args, format) = sent_by(&c, &["milestone-completion", "m1", "--pick", "x"]).unwrap();
+    assert_eq!(
+        (args["pick"].as_str(), format),
+        (Some("x"), CommandFormat::Human)
+    );
+    let command = declared(c);
+    let line = ["--pick".to_string(), "x".to_string()];
+    assert!(!asks_for_json(&line, kernel_picks(&command)));
+    assert!(asks_for_json(
+        &line,
+        kernel_picks(&declared(contribution()))
+    ));
+}
+
+#[test]
+fn a_malformed_pick_is_a_usage_error() {
+    let (code, out, err) = quiet("{}", "", 0, &["--pick", "s"]);
+    assert_eq!(code, 2, "{out}");
+    assert!(err.contains("byte 0"), "{err}");
+}
+
+#[test]
+fn pick_fails_a_command_whose_answer_is_not_json() {
+    let (code, out, err) = quiet("done", "", 0, &["--pick", ".s"]);
+    assert_eq!((code, out.as_str()), (1, ""), "{err}");
+    assert!(err.contains("not JSON"), "{err}");
+    // a command that already failed keeps its own exit code
+    let (code, _, _) = quiet("done", "", 3, &["--pick", ".s"]);
+    assert_eq!(code, 3);
+}
