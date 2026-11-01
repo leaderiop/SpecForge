@@ -54,14 +54,14 @@
     "",
     "```bash",
     "AUDITOR_MODEL=\"\"   # resolve-model is not part of @gsd/core: the host picks the model",
-    "VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" verify:post --format json 2>/dev/null || [ $? -eq 2 ] || echo \"⚠ $c-hooks failed: its hooks are left out\" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo \"⚠ jq failed: no capability hooks were read\" >&2)",
+    "VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" verify:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo \"⚠ $c-hooks failed: its hooks are left out\" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order",
     "```",
     "",
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"validate-phase\"`.",
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via /gsd-settings.\""
   ],
-  "bytes": 18406,
+  "bytes": 18369,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:892e957d9f6d7f492cf83651eaba18f3558a98c91de009200e2663fdf57c216a",
+    "digest": "sha256:54d0c4e21e4c4cace73ca1e82200201db00355f0dc51fa2956d8366a83df0a99",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "892e957d9f6d7f492cf83651eaba18f3558a98c91de009200e2663fdf57c216a"
+  "sha256": "54d0c4e21e4c4cace73ca1e82200201db00355f0dc51fa2956d8366a83df0a99"
 }

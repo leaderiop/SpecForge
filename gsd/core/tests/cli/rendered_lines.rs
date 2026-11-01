@@ -150,7 +150,7 @@ fn lacks(id: &str, needle: &str) {
 fn the_project_rooted_lines_list_by_kind() {
     has(
         "onboard",
-        "specforge export --kinds project,milestone,phase,requirement",
+        "for k in project milestone phase requirement; do specforge export --kinds \"$k\" --pick '.nodes[].id'",
     );
     has(
         "ingest_docs",
@@ -406,4 +406,20 @@ fn the_post_fix_text_leftovers_stay_fixed() {
         "a masked key is shown"
     );
     assert!(!integrations.contains("written plaintext only to `config.json`"));
+}
+
+/// G4 (plan 05): no rendered line runs jq, neither an asset's (`port_tools` scans those) nor one the Rust side writes
+/// (`src/prompts/`). gh's own `--jq` filter is not jq.
+#[test]
+fn no_rendered_line_runs_jq() {
+    let found: Vec<String> = rendered()
+        .iter()
+        .flat_map(|(id, text)| {
+            text.lines()
+                .enumerate()
+                .filter(|(_, l)| super::command_word::runs_in_prose(l, "jq"))
+                .map(move |(n, l)| format!("{id}:{}: {}", n + 1, l.trim()))
+        })
+        .collect();
+    assert!(found.is_empty(), "lines that run jq:\n{}", found.join("\n"));
 }

@@ -95,10 +95,10 @@ This returns all phases with implementation and verification projection. Use thi
 Compute readiness from `INIT_MANAGER`, not from roadmap counts:
 
 ```bash
-ALL_PHASES_VERIFIED=$(printf '%s' "$INIT_MANAGER" | jq -r '[
-  .phases[] | select((.number | tostring | test("^999(\\.|$)") | not))
-  | (.phase_complete == true and .verification_status == "passed")
-] | all')
+ALL_PHASES_VERIFIED=false; [ "$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases')" = "$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases_complete')" ] && ALL_PHASES_VERIFIED=true   # progress leaves the 999 backlog out (#3167); a phase is complete only once its verification passed
+
+
+
 ```
 
 If not all_phases_verified, verified_closeout must not proceed. Set `closeout_type=override_closeout`, show each phase whose `phase_complete !== true` or `verification_status !== 'passed'`, and require an explicit user choice:

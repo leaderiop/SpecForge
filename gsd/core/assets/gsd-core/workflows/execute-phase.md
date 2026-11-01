@@ -205,7 +205,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 MVP_FLAG_ARG=""
 if [[ "$GSD_ARGS" =~ (^|[[:space:]])--mvp([[:space:]]|$) ]]; then MVP_FLAG_ARG="--cli-flag"; fi
 MVP_MODE=$([ -n "$MVP_FLAG_ARG" ] && echo true || { [ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false; })
-EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 TDD_MODE="false"   # the loop capability is not part of @gsd/core: --tdd is read from the arguments
 ```
 
@@ -221,10 +221,10 @@ SUMMARY_PATH="{phase_dir}/{plan_padded}-SUMMARY.md"
 # letter-suffixed phase number (#4619, #4748), reachable from THIS branch only, bounded to
 # the latest reachable tag (milestone marker). One `<sha> <subject>` line per commit, newest first.
 PHASE_NUMBER="{phase_number}"
-PLAN_COMMITS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${PHASE_NUMBER}-{plan_padded}" --kinds commit --format json | jq -c '{commits: [.nodes[]|select(.kind=="commit")|{sha: .fields.hash, subject: .fields.subject}]}') && PLAN_SCOPE_RC=0 || PLAN_SCOPE_RC=$?
+PLAN_ROWS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${PHASE_NUMBER}-{plan_padded}" --kinds commit --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject) && PLAN_SCOPE_RC=0 || PLAN_SCOPE_RC=$?
 # Exit 69 (UNAVAILABLE) = "could not look": empty is then NOT "no commits". Fail closed (#5170).
 if [ "$PLAN_SCOPE_RC" -ne 0 ]; then echo "SAFE-RESUME GATE: could not resolve the plan's commits (evaluation-scope exit ${PLAN_SCOPE_RC}); not dispatching an executor on an unknown resume state." >&2; exit 1; fi
-PLAN_COMMITS=$(printf '%s' "$PLAN_COMMITS" | jq -r '.commits[] | "\(.sha[0:10]) \(.subject)"' 2>/dev/null)
+PLAN_COMMITS=$(printf '%s\n' "$PLAN_ROWS" | while IFS=$'\t' read -r h s; do [ -n "$h" ] && printf '%s %s\n' "${h:0:10}" "$s"; done)   # one <hash>TAB<subject> row per commit
 ```
 If production commits exist and `SUMMARY.md is missing` (no the spec manifest matches it: a match is a legal `external_job_waiting` deferral - reconcile per `docs/reference/planning-artifacts.md`, never re-dispatch), stop before spawning a
 new executor; continuing risks duplicate work and stale `STATE.md`/ROADMAP progress.
@@ -241,7 +241,7 @@ if [ "$TDD_MODE" = "true" ]; then
   if [ "$IS_BEHAVIOR_ADDING" = "true" ]; then
     # #5164: the RED commit is one of this plan's own commit entities (gsd-git files a commit under the
     # plan its subject names; the plan id carries the milestone): a test-file commit of another plan, or
-    # of none, is not this plan's RED commit. jq exit 4 (no answer to read) is "could not look".
+    # of none, is not this plan's RED commit. A query that exits non-zero is "could not look".
     # #4379: this pathspec IS the gate's definition of "a test file". It was
     # JS/TS-only, so Go tripped on every task; and `**/` never matches a
     # root-level path, so a root `foo.test.js` was invisible too. Bare globs
@@ -249,10 +249,10 @@ if [ "$TDD_MODE" = "true" ]; then
     # the gate pass on any in-scope commit. Trade-offs and the Rust gap:
     # references/tdd.md § Create first test file.
 
-    RED_COMMIT=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "$PLAN_ID" --kinds commit --format json | jq -ce --arg plan "$PLAN_ID" '{commits: [.nodes[] | select(.kind == "commit" and ((.fields.plan // "") as $p | $p == $plan or ($p | endswith("/" + $plan)))) | select(any(.fields.files[]?; test("\\.(test|spec)\\.|^(tests|__tests__)/|^test_.*\\.py$|_test\\.(go|py|exs|rb)$|_spec\\.rb$"))) | {sha: .fields.hash, subject: .fields.subject}]}') && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
+    RED_IDS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "$PLAN_ID" --kinds commit --pick ".nodes[fields.plan=$PLAN_ID].id") && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
     # Exit 69 (UNAVAILABLE) = the scope could not be resolved: that is not "missing RED commit" (#5170).
     if [ "$RED_SCOPE_RC" -ne 0 ]; then echo "TDD GATE UNAVAILABLE: could not resolve the plan's commits for ${PLAN_ID}/${TASK_ID} (evaluation-scope exit ${RED_SCOPE_RC})"; exit 1; fi
-    RED_COMMIT=$(printf '%s' "$RED_COMMIT" | jq -r '.commits[0] // empty | "\(.sha[0:10]) \(.subject)"' 2>/dev/null)
+    RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\t' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
     if [ -z "$RED_COMMIT" ]; then
       : # the last gate trip is not recorded: STATE is computed
       echo "TDD GATE TRIPPED: missing RED commit for ${PLAN_ID}/${TASK_ID}"
@@ -348,7 +348,7 @@ This updates Status, Last Activity, Current focus, Current Position, and plan co
 Load plan inventory with wave grouping in one call:
 
 ```bash
-PLAN_INDEX=$(specforge query "$PHASE_ID" --kinds plan --format json | jq -c '{plans: [.nodes[]|select(.kind=="plan")|{id: .id, wave: .fields.wave, autonomous: .fields.autonomous, has_summary: (.fields.status == "complete"), gap_closure: (.fields.gap_closure != null), blocked_by: (if .fields.status == "blocked" then ["a halted plan"] else [] end)}]}')
+PLAN_INDEX=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan]')   # one plan node per line: has_summary is fields.status "complete", gap_closure is fields.gap_closure set, blocked_by is ["a halted plan"] when fields.status is "blocked"
 ```
 
 Parse JSON for: `phase`, `plans[]`, `waves`, `incomplete`, `runnable`, `ready_plans`, `has_checkpoints` — full per-plan fields and the #4628 readiness rules: read and follow `execute-phase/steps/ready-wave-gate.md`.
@@ -371,9 +371,9 @@ are done. Blocked-and-incomplete must never be reported as finished.
 VERIFY_STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 VERIFY_ROUTE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification status failed — see the error above" >&2; exit 1; }; VERIFY_ROUTE=${VERIFY_ROUTE%%$'\n'*}; case "${VERIFY_ROUTE:-pending}" in passed) VERIFY_ROUTE=complete ;; gaps_found) VERIFY_ROUTE=gap-closure ;; human_needed) VERIFY_ROUTE=human ;; *) VERIFY_ROUTE=verify ;; esac
 # #3684: checkbox = marked-complete; report fields can claim a no-op write (#3685).
-ANALYZE=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '{phases: [.nodes[]|select(.kind=="phase")|{number: .fields.number, phase_number: .fields.number, roadmap_complete: (.fields.status == "complete")}]}')
-if [[ "$ANALYZE" == @file:* ]]; then ANALYZE=$(cat "${ANALYZE#@file:}"); fi
-PHASE_MARKED=$(echo "$ANALYZE"|jq -r --arg p "$PHASE_NUMBER" 'def n:sub("^0+(?=[0-9])";"");.phases[]|select(((.number//.phase_number|tostring|n))==($p|n))|.roadmap_complete'|head -1)
+PHASE_STATUS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.status')
+
+case "$PHASE_STATUS" in complete) PHASE_MARKED=true ;; *) PHASE_MARKED=false ;; esac
 ```
 
 Evaluate in this exact order — the first matching condition decides the outcome; do not evaluate
@@ -617,7 +617,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 2.75. **Execute:wave:pre capability dispatch:**
 
    ```bash
-   WAVE_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:wave:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+   WAVE_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:wave:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
    ```
 
    **Contribution dispatch:** inject every `kind == "contribution"` fragment per @gsd-core/references/loop-hook-dispatch.md (skip when none); one naming an alternate wave dispatch replaces step 3's inline loop.
@@ -649,13 +649,13 @@ increases monotonically across waves. `{status}` is `complete` (success),
    DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
    EXPECTED_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     if [ "${USE_WORKTREES:-true}" != "false" ] && [ "${USE_WORKTREES_FOR_PLAN:-true}" != "false" ] && [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then
-     M=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-wave-XXXXXX") && mv "$M" "$M.json" && WAVE_WORKTREE_MANIFEST="$M.json" || exit 1  # XXXXXX must be path-final on BSD/macOS (#1520)
+     M=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-wave-XXXXXX") && mv "$M" "$M.tsv" && WAVE_WORKTREE_MANIFEST="$M.tsv" || exit 1  # XXXXXX must be path-final on BSD/macOS (#1520)
      # Persist the dispatch-time orchestrator worktree root so wave-cleanup can pin back to the
      # orchestrator's OWN worktree — NOT `git worktree list`'s first entry (always the main
      # checkout), which pins a non-primary (per-phase lane) orchestrator off its branch (#630).
      # Dispatch runs from the orchestrator's lane, so show-toplevel here is the correct root.
      ORCH_ROOT=$(git rev-parse --show-toplevel)
-     jq -nc --arg root "$ORCH_ROOT" '{orchestrator_root: (if $root == "" then null else $root end), worktrees: []}' > "$WAVE_WORKTREE_MANIFEST"
+     printf 'orchestrator_root\t%s\n' "$ORCH_ROOT" > "$WAVE_WORKTREE_MANIFEST.tmp" && mv "$WAVE_WORKTREE_MANIFEST.tmp" "$WAVE_WORKTREE_MANIFEST"   # one tab-separated record per line: orchestrator_root<TAB>root, then worktree<TAB>path<TAB>branch per worktree
      export WAVE_WORKTREE_MANIFEST
    fi
    ```
@@ -870,7 +870,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    # list`'s first entry, which is always the main checkout and would pin a non-primary (per-phase
    # lane) orchestrator off its own branch, tripping the #3174 assertion below (#630). Byte-identical
    # for a primary orchestrator (its root IS the first entry); the fallback covers pre-#630 manifests.
-   PRIMARY_WT=$(jq -r '.orchestrator_root // empty | tostring' "$WAVE_WORKTREE_MANIFEST" 2>/dev/null)
+   PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
    [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
    if [ -z "$PRIMARY_WT" ]; then
      echo "FATAL: could not resolve orchestrator worktree before cleanup" >&2
@@ -892,13 +892,13 @@ increases monotonically across waves. `{status}` is `complete` (success),
    # Cleanup-tail: pin orchestrator CWD to its OWN worktree before cleanup-tail (#3174, #630).
    # Same fix as the templated path: resolve the dispatch-time orchestrator root from the manifest,
    # not `git worktree list`'s first entry (always the main checkout — wrong for a lane orchestrator).
-   PRIMARY_WT=$(jq -r '.orchestrator_root // empty | tostring' "$WAVE_WORKTREE_MANIFEST" 2>/dev/null)
+   PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
    [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
    if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before cleanup-tail (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
    # Cleanup-tail: remove residual agent worktrees after a cross-wave-dependency deviation.
    # Uses only the current wave manifest to avoid touching unrelated active agents (#3384).
    WT_PATHS_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-paths-XXXXXX")
-   { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else jq -rs 'if length == 0 then error("manifest is empty") elif length > 1 then error("manifest holds more than one document") else .[0] end | (.worktrees // []) | if type == "array" then .[] else error("worktrees is not a list") end | .worktree_path // empty' "$WAVE_WORKTREE_MANIFEST"; fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
+   { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else ( SEEN=0; ROOTS=0; while IFS= read -r l || [ -n "$l" ]; do tag=${l%%$'\t'*}; a=${l#"$tag"}; a=${a#$'\t'}; a=${a%%$'\t'*}; case "$tag" in '') continue ;; orchestrator_root) ROOTS=$((ROOTS + 1)); [ "$ROOTS" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest holds more than one orchestrator_root line" >&2; exit 1; } ;; worktree) [ -z "$a" ] || printf '%s\n' "$a" ;; *) echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: unknown record '$tag'" >&2; exit 1 ;; esac; SEEN=1; done < "$WAVE_WORKTREE_MANIFEST"; [ "$SEEN" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest is empty" >&2; exit 1; } ); fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
    while IFS= read -r WT; do
      [ -z "$WT" ] && continue
      WT_BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null)
@@ -982,10 +982,10 @@ increases monotonically across waves. `{status}` is `complete` (success),
    After worktree merge, post-merge tests, and tracking updates, dispatch capability hooks registered at `execute:wave:post`. The primary hook is the `ui.safety-gate` gate from the UI capability — it verifies that any frontend files changed in this wave conform to the UI-SPEC contract.
 
    ```bash
-   WAVE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:wave:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+   WAVE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:wave:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
    ```
 
-   Read the `activeHooks` array from `WAVE_POST_HOOKS_JSON` in-context (do NOT pipe through a shell parser).
+   Read the `activeHooks` of every line of `WAVE_POST_HOOKS_JSON`, one per capability extension, in-context (do NOT pipe through a shell parser).
 
    **If `activeHooks` is empty or absent:** Skip silently to step 5.8.
 
@@ -1066,10 +1066,10 @@ increases monotonically across waves. `{status}` is `complete` (success),
 7. **Handle failures:**
    **Step 7.0 — classify before branching (#3095):**
    ```bash
-   CLASS_JSON='{"class":"unknown"}'   # agent.classify-failure is not part of @gsd/core: match the sentinel in the return body yourself
-   CLASS=$(echo "$CLASS_JSON" | jq -r '.class')
-   SENTINEL=$(echo "$CLASS_JSON" | jq -r '.sentinel // empty')
-   RETRY_AFTER=$(echo "$CLASS_JSON" | jq -r '.retryAfterSeconds // empty')
+   CLASS=unknown   # agent.classify-failure is not part of @gsd/core: match the sentinel in the return body yourself
+   SENTINEL=
+   RETRY_AFTER=
+
    if [ -n "$RETRY_AFTER" ]; then RETRY_HINT="  Provider hinted retry-after: ${RETRY_AFTER}s"; else RETRY_HINT=""; fi
    ```
    One classifier branch handles sentinels across Claude/Copilot/Codex/Antigravity. Reference: `docs/research/provider-rate-limit-signals.md`.

@@ -50,7 +50,7 @@
     "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
     "```",
     "",
-    "Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints). The routing facts below are not in it, they come from the graph: `state_exists` is `milestone_version` non-null (the project state is computed); `roadmap_exists` is `phases` non-empty; `project_exists` and `planning_exists` are `specforge export --kinds project --format graph | jq '.nodes|length>0'`; `requirements_exists` is the same with `--kinds requirement`; `init_incomplete` is a project without a roadmap or without requirements; `has_interrupted_agent` is false (this extension keeps no agent registry).",
+    "Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints). The routing facts below are not in it, they come from the graph: `state_exists` is `milestone_version` non-null (the project state is computed); `roadmap_exists` is `phases` non-empty; `project_exists` and `planning_exists` are `[ -n \"$(specforge export --kinds project --pick '.nodes[].id')\" ]`; `requirements_exists` is the same with `--kinds requirement`; `init_incomplete` is a project without a roadmap or without requirements; `has_interrupted_agent` is false (this extension keeps no agent registry).",
     "",
     "**If `init_incomplete` is true (#4040 — interrupted bootstrap):** the spec exists but initialization never finished — the `requirement` entities, the `milestone` and `phase` entities or the project were never created. This is NOT a state-reconstruction case (the project state is computed). Route to initialization recovery: resume `/gsd-new-project`, which continues from the first missing entity and keeps the existing `project` entity and any already-created ones. Do not proceed to load_state.",
     "",
@@ -61,7 +61,7 @@
     "",
     "<step name=\"load_state\">"
   ],
-  "bytes": 20524,
+  "bytes": 20522,
   "end": [
     "",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f88a9607063784bc17396ed940968c9ab383429c22574e562ed54f9091ea1795",
+    "digest": "sha256:8a1cf6a0a8eacb110932b2c430ca525190d19fbd171959c0a1da78d13035804a",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "f88a9607063784bc17396ed940968c9ab383429c22574e562ed54f9091ea1795"
+  "sha256": "8a1cf6a0a8eacb110932b2c430ca525190d19fbd171959c0a1da78d13035804a"
 }

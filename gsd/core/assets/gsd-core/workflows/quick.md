@@ -301,10 +301,10 @@ If `section_manifest` is `null` or `"research-phase"` is in its `included` list:
 
 **Capability gate:**
 ```bash
-PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
-**Contribution dispatch (#3778):** read `PLAN_PRE_HOOKS_JSON.activeHooks` directly in context. In registry order, inject only active entries with `kind == "contribution"` and `into == "planner"` into each Quick planner prompt below, using `fragment.inline` verbatim plus resolved `configValues`. Do not paste `rendered`. Empty, inactive, incompatible, or non-planner entries inject nothing and do not error. Reuse this snapshot for revisions; do not render again.
+**Contribution dispatch (#3778):** read the `activeHooks` of every line of `PLAN_PRE_HOOKS_JSON`, one per capability extension, directly in context. In registry order, inject only active entries with `kind == "contribution"` and `into == "planner"` into each Quick planner prompt below, using `fragment.inline` verbatim plus resolved `configValues`. Do not paste `rendered`. Empty, inactive, incompatible, or non-planner entries inject nothing and do not error. Reuse this snapshot for revisions; do not render again.
 
 **If `$VALIDATE_MODE`:** Use `quick-full` mode with stricter constraints.
 
@@ -361,7 +361,7 @@ Return: ## PLANNING COMPLETE with plan path
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 After planner returns:
-1. Verify the plan is planned (it holds a task; the plan a discussion or research step made first holds none): `[ "$(specforge query "${quick_id}" --kinds task --depth 1 --format json | jq '[.nodes[]|select(.kind=="task")]|length')" -gt 0 ]`
+1. Verify the plan is planned (it holds a task; the plan a discussion or research step made first holds none): `[ -n "$(specforge query "${quick_id}" --kinds task --depth 1 --pick '.nodes[kind=task].id')" ]`
 2. Extract plan count (typically 1 for quick tasks)
 3. Report: "Plan created: plan ${quick_id}"
 
@@ -425,8 +425,8 @@ EXPECTED_BASE=$(git rev-parse HEAD)
 if [ "$ISOLATION" = "harness-worktree" ]; then   # keyed on ISOLATION like every other dispatch-coupled branch (#2652)
   # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
   # suffixless temp then append the extension — portable across BSD + GNU (#1520).
-  QUICK_WORKTREE_MANIFEST=$(mktemp "${TMPDIR:-/tmp}/gsd-quick-worktree-XXXXXX") && mv "$QUICK_WORKTREE_MANIFEST" "${QUICK_WORKTREE_MANIFEST}.json" && QUICK_WORKTREE_MANIFEST="${QUICK_WORKTREE_MANIFEST}.json" || exit 1
-  printf '{"worktrees":[]}\n' > "$QUICK_WORKTREE_MANIFEST"
+  QUICK_WORKTREE_MANIFEST=$(mktemp "${TMPDIR:-/tmp}/gsd-quick-worktree-XXXXXX") && mv "$QUICK_WORKTREE_MANIFEST" "${QUICK_WORKTREE_MANIFEST}.tsv" && QUICK_WORKTREE_MANIFEST="${QUICK_WORKTREE_MANIFEST}.tsv" || exit 1
+  : > "$QUICK_WORKTREE_MANIFEST"   # one tab-separated record per line, as the wave's manifest: worktree<TAB>path<TAB>branch<TAB>agent_id<TAB>expected_base<TAB>allowed_bases (comma-separated)
   export QUICK_WORKTREE_MANIFEST
 fi
 ```
@@ -542,7 +542,7 @@ SUMMARY.md and stop — the user must rerun with worktrees disabled.
 
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
-If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), append its returned `{agent_id, worktree_path, branch, expected_base, allowed_bases}` metadata to `QUICK_WORKTREE_MANIFEST` before cleanup. Set `expected_base` to `${EXPECTED_BASE}` and `allowed_bases` to `["${EXPECTED_BASE}", "${QUICK_PLAN_PARENT}"]` with duplicates and empty values removed. If any required field is unavailable, stop and ask for recovery; do not discover global worktrees.
+If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), append its returned metadata to `QUICK_WORKTREE_MANIFEST` before cleanup, one `worktree<TAB><worktree_path><TAB><branch><TAB><agent_id><TAB><expected_base><TAB><allowed_bases>` line. Set `expected_base` to `${EXPECTED_BASE}` and `allowed_bases` to `${EXPECTED_BASE},${QUICK_PLAN_PARENT}` with duplicates and empty values removed. If any required field is unavailable, stop and ask for recovery; do not discover global worktrees.
 
 After executor returns:
 1. **Worktree cleanup:** If the executor ran isolated (`ISOLATION = "harness-worktree"` at dispatch), merge the worktree branch back and clean up:
@@ -581,7 +581,7 @@ Skip this step entirely if `$FULL_MODE` is false.
 
 **Capability gate:**
 ```bash
-EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
 **Generic step dispatch (#3606):** dispatch every `kind == "step"` hook from `EXECUTE_POST_HOOKS_JSON` per @gsd-core/references/loop-hook-dispatch.md (skip silently when none); each step is advisory and best-effort. The code-review specialization below is one such hook, not a replacement for the generic dispatch.
@@ -597,15 +597,15 @@ If no active code-review step hook exists, skip with message "Code review skippe
 # lockfiles excluded. A `base..tip` range (the #4466 bound) still folds in every unrelated
 # commit interleaved inside the task's window (worktree merge-back, a shared tree, another
 # session); the union cannot. No commits for this task => empty scope => skip review.
-# Exit 69 (UNAVAILABLE) is the resolver's "could not look" (`status: unresolvable`); its JSON carries
-# the reason, so the capture must survive it (a bare assignment aborts under `set -e` and drops it).
+# A failed read leaves the scope empty, and the reason below names it (the `|| QUICK_SCOPE_RC=$?`
+# keeps the capture alive: a bare assignment aborts under `set -e`).
 QUICK_SCOPE_RC=0
-QUICK_SCOPE_JSON=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --kinds commit --format json | jq -c '{status: "ok", files: ([.nodes[]|select(.kind=="commit")|.fields.files[]?]|unique)}') || QUICK_SCOPE_RC=$?
-if [ "$QUICK_SCOPE_RC" -ne 0 ] && [ "$QUICK_SCOPE_RC" -ne 69 ]; then QUICK_SCOPE_JSON=""; fi
-CHANGED_FILES=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -r '.files | join(" ")' 2>/dev/null)
+QUICK_SCOPE_FILES=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --kinds commit --pick '.nodes[kind=commit].fields.files[]') || QUICK_SCOPE_RC=$?
+if [ "$QUICK_SCOPE_RC" -ne 0 ]; then QUICK_SCOPE_FILES=""; fi
+CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 if [ -z "$CHANGED_FILES" ]; then
-  # Say WHY the scope is empty (no commits for this task, only excluded paths, or git could not be read).
-  QUICK_SCOPE_WHY=$(printf '%s' "$QUICK_SCOPE_JSON" | jq -er '.status + (if (.reason // "") != "" then ": " + .reason else "" end)' 2>/dev/null || echo 'unresolvable: no resolver output')
+  # Say WHY the scope is empty: no commit names this task, or its commits could not be read.
+  QUICK_SCOPE_WHY=$([ "$QUICK_SCOPE_RC" -eq 0 ] && echo 'no commit names this task' || echo "its commits could not be read (exit $QUICK_SCOPE_RC)")
   echo "Quick-task review scope is empty (${QUICK_SCOPE_WHY})."
 fi
 ```

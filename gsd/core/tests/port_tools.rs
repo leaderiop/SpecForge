@@ -5,6 +5,9 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
+#[path = "common/command_word.rs"]
+mod command_word;
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
@@ -71,8 +74,9 @@ const VERBS: &[&str] = &[
     "schema", "set", "settings",
 ];
 
-/// Commands of `@gsd/security` that core's text asks for when it is loaded (plan 16 T5, T6).
-const EXTENSION_COMMANDS: &[&str] = &["security-gate", "threat-ids"];
+/// Commands of `@gsd/security` that core's text asks for when it is loaded (plan 16 T5, T6; `security-hooks` for the
+/// security gate, plan 05 review R9).
+const EXTENSION_COMMANDS: &[&str] = &["security-gate", "security-hooks", "threat-ids"];
 
 #[test]
 fn a_ported_line_names_only_declared_tools() {
@@ -211,11 +215,10 @@ fn fenced_code(lines: &[String]) -> Vec<(usize, &str)> {
     out
 }
 
-/// Plan 03 (F9): a shell block reads SpecForge's JSON (and its own state files) with `jq`, never node:
-/// a project that uses SpecForge may have no node at all. Only code counts: a line inside a fence that is not a `#`
-/// comment. Prose about a node script is not code.
+/// Plan 03 (F9): a shell block runs no node: a project that uses SpecForge may have no node at all. Only code counts:
+/// a line inside a fence that is not a `#` comment. Prose about a node script is not code.
 #[test]
-fn a_shell_block_reads_json_with_jq_never_node() {
+fn a_shell_block_runs_no_node() {
     let mut found = Vec::new();
     let listed: Vec<&(&str, &str)> = KEEP.iter().chain(PENDING_NODE).collect();
     let mut matched = vec![0; listed.len()];
@@ -265,20 +268,6 @@ fn a_shell_block_reads_json_with_jq_never_node() {
     }
 }
 
-/// G4 (plan 04): the `jq` lines a shell block keeps, as `(asset, trimmed line)`. Each reads what is not a SpecForge
-/// answer, so `--pick` cannot read it. `review.md`'s `detect_clis` probe (`command -v jq`) is not a jq run.
-const KEEP_JQ: &[(&str, &str)] = &[
-    // the plan-coverage check of a reviewer lane: it reads the lane's review file and the manifest as text, and
-    // tests each plan id against the review; upstream runs node here
-    (
-        "gsd-core/workflows/review.md",
-        r#"jq -ncj --rawfile manifest "$MANIFEST" --rawfile review "$REVIEW_FILE" '"#,
-    ),
-];
-
-/// The jq lines that wait for their rewrite (plan 04 T2-T4, plan 05), grouped by ticket. Plan 05 deletes it.
-const PENDING_JQ: &str = include_str!("common/pending_jq.txt");
-
 /// Every asset of `@gsd/core`, and of `@gsd/security` under `../security/assets/`, as `(path, its lines after the
 /// header)`.
 fn shell_assets() -> Vec<(String, Vec<String>)> {
@@ -304,135 +293,46 @@ fn shell_assets() -> Vec<(String, Vec<String>)> {
     out
 }
 
-/// G4 (plan 04 T1): a shell block reads a SpecForge answer with `--pick`, never with jq: Git Bash on Windows has no
-/// jq, and a `| jq -r` there leaves the variable empty (upstream #2589). A listed line is allowed; a listed line that
-/// no longer runs jq fails, so the lists cannot go stale.
+/// G4 (plan 04 T1, plan 05 T4): no shell block and no inline-code run of the prose runs jq: a SpecForge answer is
+/// read with `--pick`, a third party's answer by the agent, and gh filters with its own `--jq`. Git Bash on Windows has
+/// no jq, and a `| jq -r` there leaves the variable empty (upstream #2589).
 #[test]
-fn a_shell_block_reads_specforge_without_jq() {
-    // jq run as a command: at the line's start, after `|`, `;`, `&`, `(` (and `$(`), `{`, `!` or a backtick, or after
-    // a shell keyword
-    let jq = Regex::new(r"(^|[|;&({!`]|\b(?:if|then|else|elif|do|while|until)\s)\s*jq\b")
-        .expect("a regex");
-    for (line, runs) in [
-        ("x | jq -r .a", true),
-        ("X=$(jq -r .a f)", true),
-        ("if ! jq -e . f; then", true),
-        ("a && jq . f", true),
-        ("done | jq -sc .", true),
-        ("else jq -rs . f; fi", true),
-        ("command -v jq >/dev/null 2>&1", false),
-        ("# jq -r .a", false),
-        (r#"echo "jq""#, false),
-        ("- [e.g. jq -r '.a' from state]", false),
-        (r#"echo "a | jq""#, false),
-        ("foo # x; jq", false),
-        ("X=$(a | jq .b)", true),
-        (r#"X="v $(a | jq -r .b)""#, true),
-    ] {
-        assert_eq!(jq.is_match(&code_of(line)), runs, "{line}");
-    }
-    let pending = PENDING_JQ
-        .lines()
-        .filter(|l| !l.is_empty() && !l.starts_with('#'))
-        .map(|l| l.split_once('\t').expect("a row is <asset>\\t<line>"));
-    // (asset, line) -> (times listed, times run)
-    let mut listed = std::collections::BTreeMap::<(String, String), (usize, usize)>::new();
-    for (path, line) in KEEP_JQ.iter().copied().chain(pending) {
-        listed.entry((path.into(), line.into())).or_default().0 += 1;
-    }
+fn no_shell_line_runs_jq() {
     let mut found = Vec::new();
     for (path, lines) in shell_assets() {
         for (n, code) in fenced_code(&lines) {
-            if !jq.is_match(&code_of(code)) {
-                continue;
-            }
-            match listed.get_mut(&(path.clone(), code.to_string())) {
-                Some((_, runs)) => *runs += 1,
+            if command_word::runs(code, "jq") {
                 // the asset's line number: its line 1 is the attribution header
-                None => found.push(format!("{path}:{}: {code}", n + 2)),
+                found.push(format!("{path}:{}: {code}", n + 2));
+            }
+        }
+        for (n, run) in inline_runs(&lines) {
+            if command_word::runs_in_prose(run, "jq") {
+                found.push(format!("{path}:{}: `{run}`", n + 2));
             }
         }
     }
     assert!(
         found.is_empty(),
-        "{} jq reads in shell blocks; read a SpecForge answer with --pick:\n{}",
+        "{} jq runs; read a SpecForge answer with --pick:\n{}",
         found.len(),
         found.join("\n")
     );
-    let stale: Vec<String> = listed
-        .iter()
-        .filter(|(_, (times, runs))| times != runs)
-        .map(|((path, line), (times, runs))| format!("{path}: listed {times}, runs {runs}: {line}"))
-        .collect();
-    assert!(
-        stale.is_empty(),
-        "KEEP_JQ / PENDING_JQ rows that do not match their lines:\n{}",
-        stale.join("\n")
-    );
 }
 
-/// `line` with what the shell does not run masked: the text of a quoted string (a `$(…)` or backtick inside double
-/// quotes stays, it runs) becomes `_`, and an unquoted `#` that starts a word ends the line.
-fn code_of(line: &str) -> String {
-    // the open contexts, innermost last: `'"'` a double-quoted string, `'('` a `$(…)` or `(`, `'`'` a backtick
-    let mut open: Vec<char> = Vec::new();
-    let mut out = String::with_capacity(line.len());
-    let mut chars = line.chars().peekable();
-    let mut prev = ' ';
-    while let Some(c) = chars.next() {
-        let quoted = open.last() == Some(&'"');
-        match c {
-            '\\' => {
-                out.push(if quoted { '_' } else { c });
-                if let Some(n) = chars.next() {
-                    out.push(if quoted { '_' } else { n });
-                }
-            }
-            '\'' if !quoted => {
-                out.push('_');
-                for n in chars.by_ref() {
-                    out.push('_');
-                    if n == '\'' {
-                        break;
-                    }
-                }
-            }
-            '"' if quoted => {
-                open.pop();
-                out.push('_');
-            }
-            '"' => {
-                open.push('"');
-                out.push('_');
-            }
-            '$' if chars.peek() == Some(&'(') => {
-                chars.next();
-                open.push('(');
-                out.push_str("$(");
-            }
-            '`' if open.last() == Some(&'`') => {
-                open.pop();
-                out.push(c);
-            }
-            '`' => {
-                open.push('`');
-                out.push(c);
-            }
-            _ if quoted => out.push('_'),
-            '(' => {
-                open.push('(');
-                out.push(c);
-            }
-            ')' => {
-                if open.last() == Some(&'(') {
-                    open.pop();
-                }
-                out.push(c);
-            }
-            '#' if prev.is_whitespace() || out.is_empty() => break,
-            _ => out.push(c),
+/// The inline-code runs (`` `…` ``) of the lines outside a fence, with their line index.
+fn inline_runs(lines: &[String]) -> Vec<(usize, &str)> {
+    let mut out = Vec::new();
+    let mut fenced = false;
+    for (n, line) in lines.iter().enumerate() {
+        let text = line.trim();
+        if text.starts_with("```") || text.starts_with("~~~") {
+            fenced = !fenced;
+            continue;
         }
-        prev = c;
+        if !fenced {
+            out.extend(text.split('`').skip(1).step_by(2).map(|run| (n, run)));
+        }
     }
     out
 }

@@ -1,7 +1,8 @@
 use crate::notes::Notes;
 use crate::options;
 use crate::outcome::{Exit, Refusal};
-use crate::terminal::{Terminal, outln};
+use crate::pick::Pick;
+use crate::terminal::{Terminal, err, errln, out, outln};
 use specforge_ops::read::export;
 use specforge_ops::read::schema::SchemaRequest;
 use specforge_ops::view::ProjectView;
@@ -57,6 +58,12 @@ pub(crate) struct Args {
     /// `dot` and `markdown`.
     #[arg(long)]
     max_tokens: Option<usize>,
+
+    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = crate::pick::HELP, long_help = crate::pick::EXPORT_LONG_HELP)]
+    pick: Option<Pick>,
+
+    #[arg(long, value_name = "KEYS", requires = "pick", value_parser = crate::pick::Fields::parse, help = crate::pick::FIELDS_HELP, long_help = crate::pick::FIELDS_LONG_HELP)]
+    fields: Option<crate::pick::Fields>,
 }
 
 impl Args {
@@ -85,6 +92,14 @@ impl Args {
     /// export that schema replaces the cache, so the next export compares
     /// against it. The export is written whatever the comparison finds.
     pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+        // checked here, not by clap's `conflicts_with`: `--format` has a default, and `--format graph` is taken
+        if self.pick.is_some() && self.format != export::Format::Graph {
+            errln!(
+                terminal,
+                "error: --pick reads the graph format's JSON: it takes no --format context, brief, dot or markdown"
+            );
+            return Exit::Unjudged;
+        }
         let project = match self.project.compile() {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
@@ -105,7 +120,16 @@ impl Args {
             Ok(output) => output,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
-        outln!(terminal, "{}", output);
+        match &self.pick {
+            Some(pick) => match pick.printed(&output, self.fields.as_ref()) {
+                Ok(lines) => out!(terminal, "{lines}"),
+                Err(refused) => {
+                    err!(terminal, "{refused}");
+                    return Exit::Failed;
+                }
+            },
+            None => outln!(terminal, "{}", output),
+        }
 
         if let export::CacheWrite::WriteFailed { dir, error } = &recorded.cache {
             notes.warning(format_args!(

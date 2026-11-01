@@ -1,24 +1,24 @@
-//! Plan 03 (F9): the shell lines that read JSON with `jq` where upstream's run node, run under bash with a `PATH` that
-//! holds no node. Where node is installed, upstream's line runs on the same input and gives the same answer.
+//! The assets' shell lines, run under bash with a `PATH` that holds no jq and no node: `--pick` reads (plan 04, G4),
+//! the worktree manifest and the batch list as tab-separated lines, and the checks once written with jq (plan 05).
+//! Where node is installed, upstream's line runs on the same input and gives the same answer.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+mod answers;
+mod batch;
+mod manifest;
 mod pick;
-mod readers;
 mod scripts;
-
-/// The tools the lines below call; nothing else is on the `PATH`.
-const TOOLS: &[&str] = &[
-    "jq", "git", "cat", "mv", "rm", "mktemp", "grep", "head", "sed", "awk", "cut", "tr", "env",
-];
+mod shapes;
 
 /// The tools the `--pick` lines call besides `specforge`: no jq.
 const PICK_TOOLS: &[&str] = &[
     "git", "cat", "grep", "head", "tail", "sed", "awk", "cut", "tr", "wc", "sort", "paste", "env",
+    "date", "mktemp", "mv", "rm",
 ];
 
-/// `bash` with a `PATH` of [`TOOLS`] alone, or `None` (and a skip note) when bash or jq is absent.
+/// `bash` with a `PATH` of the named tools and `specforge` alone.
 struct Shell {
     bash: PathBuf,
     bin: tempfile::TempDir,
@@ -35,29 +35,21 @@ fn which(tool: &str) -> Option<PathBuf> {
 }
 
 impl Shell {
-    fn new() -> Option<Shell> {
-        let (Some(bash), Some(_)) = (which("bash"), which("jq")) else {
-            eprintln!("skipped: bash or jq is absent");
-            return None;
-        };
-        let bin = tempfile::tempdir().expect("a bin dir");
-        for tool in TOOLS {
-            if let Some(path) = which(tool) {
-                std::os::unix::fs::symlink(path, bin.path().join(tool)).expect("a link");
-            }
-        }
-        Some(Shell { bash, bin })
-    }
-
     /// G4 (plan 04): `bash` with a `PATH` of [`PICK_TOOLS`] and `specforge` (`SPECFORGE_BIN`), and no jq: a line that
     /// still ran jq would print nothing. `None` (and a skip note) when bash is absent.
     fn without_jq() -> Option<Shell> {
+        Shell::only(PICK_TOOLS)
+    }
+
+    /// `bash` with a `PATH` of `tools` and `specforge` (`SPECFORGE_BIN`) alone. `None` (and a skip note) when bash is
+    /// absent.
+    fn only(tools: &[&str]) -> Option<Shell> {
         let Some(bash) = which("bash") else {
             eprintln!("skipped: bash is absent");
             return None;
         };
         let bin = tempfile::tempdir().expect("a bin dir");
-        for tool in PICK_TOOLS {
+        for tool in tools {
             if let Some(path) = which(tool) {
                 std::os::unix::fs::symlink(path, bin.path().join(tool)).expect("a link");
             }
@@ -142,17 +134,6 @@ fn block(text: &str, start: &str, end: &str) -> String {
         .position(|l| l.contains(end))
         .unwrap_or_else(|| panic!("no line after {start} contains {end}"));
     lines[a..=b].join("\n")
-}
-
-/// The line after the first that starts (after its indent) with `start`.
-fn after<'a>(text: &'a str, start: &str) -> &'a str {
-    let mut lines = text
-        .lines()
-        .skip_while(|l| !l.trim_start().starts_with(start));
-    lines.next();
-    lines
-        .next()
-        .unwrap_or_else(|| panic!("nothing after {start}"))
 }
 
 /// `setup`, then our `code` (no node on the `PATH`), then `show`, prints `want`; so does upstream's `theirs` (node on

@@ -169,12 +169,14 @@ The assets are upstream's text; where the spec has no counterpart a line was def
 - `init` JSON fields (`phase_dir`, `plan_count`, ...) have no counterpart: the text reads the graph (`specforge query`)
   and the ids named at the end of the text (`$PHASE_ID`, `$MILESTONE`, `$PROJECT`).
 - Shell: upstream's blocks read JSON (and the wave's worktree manifest) with `node -e`, because upstream is a node
-  program; here they use `jq`, a requirement of `@gsd/core` (plan 03, F9; `tests/cli/assets_jq/` runs each rewritten
-  line without node). node stays where the user's own JavaScript project runs (`KEEP` in `tests/port_tools.rs`) and in
-  `code-review-disposition.md`'s ledger builder, a Markdown parser with no jq form (`PENDING_NODE`). The edge-probe
-  steps of `spec-phase` and `specless-probe-fallback` still run upstream's `edge-probe.cjs` / `spec-section.cjs` with
-  `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs no runtime library (#5640), so the steps
-  stop at "not found" unless an upstream GSD install provides one.
+  program, and its review lanes and its own JSON need jq. Here the blocks need neither: a value comes from `--pick`, a
+  document is read by the agent, gh filters with `--jq`, and the manifest and the batch list are tab-separated lines
+  (plans 03 and 05, F9 and G4; `tests/port_tools.rs` forbids a `jq` command word, `tests/cli/assets_shell/` runs each
+  rewritten line with no jq and no node). node stays where the user's own JavaScript project runs (`KEEP` in
+  `tests/port_tools.rs`) and in `code-review-disposition.md`'s ledger builder, a Markdown parser with no shell form
+  (`PENDING_NODE`). The edge-probe steps of `spec-phase` and `specless-probe-fallback` still run upstream's
+  `edge-probe.cjs` / `spec-section.cjs` with `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs
+  no runtime library (#5640), so the steps stop at "not found" unless an upstream GSD install provides one.
 - `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
@@ -253,6 +255,10 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `health`, `stats`, `progress_report` (`/gsd-health`, `/gsd-stats`) | nothing: they report from the computed values of the graph |
 | `smart_entry` (`/gsd-next`) | nothing: it is read-only, and classifies the project from its computed `status`, `backlog` and `verification.status` fields |
 | `resolve_package_manager <script>` (`specforge gsd resolve-package-manager build`; gsd-tools' `resolve-package-manager`, #5346) | nothing: it is read-only, and prints the command that runs a package script with the project's manager (`package.json`'s `packageManager`, else `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `bun.lockb`, else npm; `test` is `<pm> test`, bun's `bun run test`), for the build and test gates. It reads the files through declared reads (ADR 0293), at the project root only; a `package.json` over the host's 64 KiB text cap reads as one without the field (upstream: 1 MiB); a script name outside `^[A-Za-z0-9_][A-Za-z0-9:_-]{0,63}$` is refused `invalid_input` with a non-zero exit (upstream prints nothing and exits 0) |
+| `user_story_validate --story <text>` (`specforge gsd user-story-validate`; gsd-tools' `user-story validate`) | nothing: it is read-only, and answers whether the text is the canonical `As a <role>, I want to <capability>, so that <outcome>.` on one line, with upstream's per-clause errors, for `/gsd-mvp-phase`, the verifier and the MVP UAT framing. Divergence: the slots are flat fields `role`, `capability`, `outcome` (upstream nests them in `slots`), so a prompt picks `.role` |
+| `verification_debt [--milestone M] [--phase P]` (`specforge gsd verification-debt`; gsd-tools' `audit-uat` and `phase uat-passed`) | nothing: it is read-only, and counts the UAT tests still open by the uat_test kind's rule (pending or no result, blocked, an issue with an unresolved or no gap, a skip without a `Deferred follow-up` reason), for `/gsd-progress`'s debt lines and `/gsd-verify-work`'s gates: `{milestone, current, archived: [{milestone, open}], archived_total, blockers}`. Divergence: one answer of counts and ids, not upstream's audit report (`summary.total_items`, `parse_gap_files`) or its exit-code verdict; an archived milestone is a shipped one |
+| `plan_coverage <phase> --review <text>` (`specforge gsd plan-coverage`; review.md's inline node script, no gsd-tools verb) | nothing: it is read-only, and answers `{complete, missing_ids, total}`: whether a reviewer's text names each of the phase's plans (`phase` names it), an id standing alone with no word character or `-` beside it. The text is an argument (a command reads no runtime path), so a report over the platform's argument size cannot be checked |
+| `edge_probe_requirements --requirements <json>` (`specforge gsd edge-probe-requirements`; spec-phase.md's inline node guard, no gsd-tools verb) | nothing: it is read-only, and answers `{valid, errors, count}`: whether the requirements an agent wrote for the edge probe are a non-empty JSON array whose every item has a string `text`, not blank and with no `<replace:` placeholder, for `/gsd-spec-phase` and the specless probe fallback. Divergence: each failure is named (upstream's node only exits 1); the JSON is an argument, so a list over the platform's argument size cannot be checked |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |

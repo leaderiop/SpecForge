@@ -226,7 +226,7 @@ If `section_manifest` is `null` or `"reviews-prerequisite"` is in its `included`
 ## 3. Validate Phase
 
 ```bash
-PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_name: .nodes[0].fields.name, goal: .nodes[0].fields.goal, mode: (.nodes[0].fields.mode // ""), success_criteria: .nodes[0].fields.success_criteria}')
+PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0]')   # the phase node, compact: found when the query does not refuse it, phase_number is the last segment of its id, the rest are its fields
 ```
 
 **If `found` is false:** Error with available phases. **If `found` is true:** Extract `phase_number`, `phase_name`, `goal` from JSON.
@@ -316,7 +316,7 @@ Capability-driven dispatch, same lazy-init pattern already used elsewhere in thi
 
 ```bash
 if [ -z "${PLAN_PRE_HOOKS_JSON:-}" ]; then
-  PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+  PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 fi
 ```
 
@@ -414,7 +414,7 @@ fi
 ```bash
 PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
 if [ -z "${PLAN_PRE_HOOKS_JSON:-}" ]; then
-  PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+  PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 fi
 ```
 
@@ -480,7 +480,7 @@ test -f "${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md" && echo "VALIDATION_CREATED
 > Capability-driven dispatch. Resolves active `plan:pre` hooks via the capability registry; the security hook's `when` condition is evaluated by the registry.
 
 ```bash
-PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+PLAN_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
 **Contribution dispatch (#3606):** inject every `kind == "contribution"` fragment from `PLAN_PRE_HOOKS_JSON` per @gsd-core/references/loop-hook-dispatch.md, in array order, into the role each entry's `into` names — planner-targeted ones land in the prompt block below, orchestrator-targeted ones in your working context. The security specialization below is one such contribution, not a replacement for the generic dispatch.
@@ -512,11 +512,11 @@ Continue to step 5.6. Security config is passed to the planner in step 8.
 > **Config semantics (cutover fix):** `workflow.ui_phase` gates UI-SPEC *generation* (step); `workflow.ui_safety_gate` gates the *planning block* (gate). Both-on = identical to OLD §5.6. Intended change: `{ui_phase:true, ui_safety_gate:false}` now auto-generates in pipelines but does NOT block manual planning (each key controls exactly what its description says).
 
 ```bash
-PLAN_PRE_HOOKS_JSON=${PLAN_PRE_HOOKS_JSON:-$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)}
+PLAN_PRE_HOOKS_JSON=${PLAN_PRE_HOOKS_JSON:-$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)}   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 HOOKS_JSON="$PLAN_PRE_HOOKS_JSON"
 ```
 
-Read the `activeHooks` array directly from `PLAN_PRE_HOOKS_JSON` / `HOOKS_JSON` (in-context — do NOT invoke a shell pipeline).
+Read the `activeHooks` of every line of `PLAN_PRE_HOOKS_JSON` / `HOOKS_JSON`, one per capability extension (in-context — do NOT invoke a shell pipeline).
 
 **Branch 1 — all plan:pre hooks inactive (`activeHooks` is empty or absent):** Skip to step 6.
 
@@ -1369,15 +1369,15 @@ if [ "$GATE_CFG" != "false" ]; then
   # empty arg, so an unguarded empty glob would halt a context-less phase).
   CONTEXT_PATH=$(ls "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null | head -1)
   if [ -n "$CONTEXT_PATH" ]; then
-    GATE_RESULT=$(specforge check --format json) && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans)
+    GATE_RESULT=$(specforge check --pick '.[code=gsd/E310].message') && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans): one line per uncovered decision
     # 69 UNAVAILABLE (#5170) = the gate could not look: surface it and stop.
-    [ "$GATE_EXIT" -eq 0 ] || { echo "Decision coverage gate could not run (exit ${GATE_EXIT}): $GATE_RESULT"; exit 1; }
+    [ "$GATE_EXIT" -le 1 ] || { echo "Decision coverage gate could not run (exit ${GATE_EXIT}): $GATE_RESULT"; exit 1; }   # 1 is a finding of the check
     # BLOCKING: refuse to mark phase planned when a trackable decision is uncovered.
     # `passed: true` covers both real-pass and skipped cases (gate disabled / no CONTEXT.md /
     # no trackable decisions). Verify-phase counterpart deliberately omits this exit-1 — that
     # gate is non-blocking by design (review finding F15).
-    echo "$GATE_RESULT" | jq -e '(.passed // .data.passed) == true' >/dev/null || {
-      echo "$GATE_RESULT" | jq -r '(.message // .data.message // "Decision coverage gate failed.")'
+    [ -z "$GATE_RESULT" ] || {
+      printf '%s\n' "$GATE_RESULT"
       exit 1
     }
   fi
@@ -1466,13 +1466,13 @@ IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
 $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
-PLAN_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+PLAN_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
 PHASE_REQ_IDS="${PHASE_REQ_IDS:-TBD}"
 ```
 
-Read the `activeHooks` array from `PLAN_POST_HOOKS_JSON` in-context. If
+Read the `activeHooks` of every line of `PLAN_POST_HOOKS_JSON`, one per capability extension, in-context. If
 `activeHooks` is empty or absent, skip this step silently — do NOT key the skip
 on any one capability's gate being absent (#3606: that skip silently dropped
 every other registered hook at this point).

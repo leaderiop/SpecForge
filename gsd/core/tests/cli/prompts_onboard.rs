@@ -36,7 +36,7 @@ fn onboard_renders() {
         "Skip mapping",
         "@gsd/codebase",
         "not installed",
-        "specforge export --kinds project,milestone,phase,requirement",
+        "for k in project milestone phase requirement; do specforge export --kinds \"$k\" --pick '.nodes[].id'",
     ] {
         assert!(text.contains(word), "no '{word}'");
     }

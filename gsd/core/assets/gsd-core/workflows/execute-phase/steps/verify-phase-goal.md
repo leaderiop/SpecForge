@@ -43,8 +43,8 @@ fingerprinted yet, and gating on it here would be a no-op by construction (the a
 in `scripts/lint-verify-lifecycle-writes.allowlist.json`).
 
 ```bash
-VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
-SECURITY_GATE_JSON=$(case "$VERIFY_POST_HOOKS_JSON" in *'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
+VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
+SECURITY_GATE_JSON=$([ -z "$(specforge gsd security-hooks verify:post --pick '.activeHooks[capId=security].capId' 2>/dev/null)" ] || specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}')   # the gate runs when security-hooks answers an active security hook
 ```
 
 Dispatch every `kind == "step"` hook per @gsd-core/references/loop-hook-dispatch.md (skip when none). The secure-phase routing below applies when that specific hook is active.
@@ -70,7 +70,7 @@ If an active secure-phase step hook exists AND the audit exists: check `details.
 
 **Capability gate:**
 ```bash
-EXECUTE_POST_HOOKS_JSON=${EXECUTE_POST_HOOKS_JSON:-$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)}
+EXECUTE_POST_HOOKS_JSON=${EXECUTE_POST_HOOKS_JSON:-$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)}   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
 Dispatch `kind == "step"` hooks per @gsd-core/references/loop-hook-dispatch.md. `ref.skill == "code-review"`:
@@ -174,11 +174,11 @@ through the CLI over the report's covered set and copies the command's `covered_
 **Read the regenerated verdict** through the owner, keeping stderr:
 
 ```bash
-VERIFICATION=$(specforge query "$PHASE_ID" --kinds verification --format json | jq -c '[.nodes[]|select(.kind=="verification")][0].fields // {status: "pending"} | . + {route: (if .status == "passed" then "complete" elif .status == "gaps_found" then "gap-closure" elif .status == "human_needed" then "human" else "verify" end)}') || { echo "verification.status refused this phase's report — see the error above. The report the verifier wrote carries a status outside passed | gaps_found | human_needed; fix its frontmatter before continuing." >&2; exit 1; }
-STATUS=$(printf '%s' "$VERIFICATION" | jq -r '.status')
-ROUTE=$(printf '%s' "$VERIFICATION" | jq -r '.route')
-NEXT_ACTION=$(printf '%s' "$VERIFICATION" | jq -r '.next_action')
-NEXT_COMMAND=$(printf '%s' "$VERIFICATION" | jq -r '.next_command')
+STATUS=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification.status refused this phase's report — see the error above. The report the verifier wrote carries a status outside passed | gaps_found | human_needed; fix its frontmatter before continuing." >&2; exit 1; }; STATUS=${STATUS%%$'\n'*}; STATUS=${STATUS:-pending}
+case "$STATUS" in passed) ROUTE=complete ;; gaps_found) ROUTE=gap-closure ;; human_needed) ROUTE=human ;; *) ROUTE=verify ;; esac
+NEXT_ACTION=   # a verification has no next-command field: the route names the next step
+NEXT_COMMAND=   # a verification has no next-command field: the route names the next step
+
 ```
 
 A non-zero exit here is the write-time hard error (#5118): the report is rejected in the run that

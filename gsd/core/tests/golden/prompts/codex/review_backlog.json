@@ -11,7 +11,7 @@
     "",
     "1. **List backlog items:**",
     "   ```bash",
-    "   _BACKLOG=$(specforge export --kinds phase --format graph | jq -r '.nodes[]|select(.fields.backlog)|.id')   # roadmap-wide: the backlog of every milestone",
+    "   _BACKLOG=$(specforge export --kinds phase --pick '.nodes[fields.backlog=true].id')   # roadmap-wide: the backlog of every milestone",
     "   if [ -n \"$_BACKLOG\" ]; then echo \"$_BACKLOG\"; else echo \"No backlog items found\"; fi",
     "   ```",
     "",
@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 19609,
+  "bytes": 19587,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:7210ff70a89f70cf7e7a0fc924572e288f83fd1ba314c05ae74d2be473711ab2",
+    "digest": "sha256:714e846ae01cb5dc5989c69056834cee5a9b228f1c9bc271f6e8f57f0b2dbe98",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "7210ff70a89f70cf7e7a0fc924572e288f83fd1ba314c05ae74d2be473711ab2"
+  "sha256": "714e846ae01cb5dc5989c69056834cee5a9b228f1c9bc271f6e8f57f0b2dbe98"
 }

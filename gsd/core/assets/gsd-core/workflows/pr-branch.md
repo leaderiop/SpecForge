@@ -80,26 +80,26 @@ Read the sub-repo list from config using the canonical key path — `planning.su
 A non-zero exit code means the key is absent; treat that as "no sub-repos configured".
 
 ```bash
-SUB_REPOS_JSON="[]"   # planning.sub_repos: a sub-repository is another SpecForge project, so there are none to list
+# planning.sub_repos: a sub-repository is another SpecForge project, so there are none to list
 if [ $? -ne 0 ] || [ -z "$SUB_REPOS_JSON" ] || [ "$SUB_REPOS_JSON" = "null" ] || [ "$SUB_REPOS_JSON" = "[]" ]; then
   : # Not configured or empty — skip to analyze_commits
 fi
 ```
 
-Scan each sub-repo for uncommitted changes with jq and git (jq is a requirement of the
-shell blocks here, as git is). Write dirty repo names to a temp file so the list survives across
+Scan each sub-repo for uncommitted changes with git (the setting's list is split with `tr`; no
+JSON tool is needed). Write dirty repo names to a temp file so the list survives across
 subsequent command executions:
 
 ```bash
 ROOT=$(git rev-parse --show-toplevel)
 DIRTY_FILE=$(mktemp)
 
-printf '%s' "$SUB_REPOS_JSON" | jq -r '
+printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
   # One name per line, so a name may hold the safe characters only: an embedded
   # newline would otherwise split into two records before the shell reads them.
-  .[] | strings
-  | select(test("\\A[A-Za-z0-9._/-]+\\z"))
-' 2>/dev/null | {
+
+
+
   # realpath parity with the pr-subrepo seam's validatePath: resolve $ROOT through
   # symlinks once so the containment check below compares real paths, not text.
   realRoot=$(cd -P -- "$ROOT" 2>/dev/null && pwd -P) || realRoot=$ROOT
@@ -158,10 +158,10 @@ REPO_SAFE="${REPO_REL//\//-}"
 SUB_BRANCH="${CURRENT_BRANCH}-${REPO_SAFE}-pr"
 COMMIT_MSG="fix(${REPO_REL}): sync uncommitted changes for PR"
 
-RESULT=$(false)   # pr-subrepo: not available here, a sub-repository is another SpecForge project
+# pr-subrepo: not available here, a sub-repository is another SpecForge project
 
 
-SUBREPO_EXIT=$?
+SUBREPO_EXIT=1   # no seam ran, so no branch was pushed
 ```
 
 If the seam exited non-zero (stage/commit/push failure), report its error and move on to
@@ -175,14 +175,14 @@ if [ "$SUBREPO_EXIT" -ne 0 ]; then
 fi
 ```
 
-Only when `$SUBREPO_EXIT` is `0`, parse the structured result with jq and open the
+Only when `$SUBREPO_EXIT` is `0`, read `remote_slug` from the structured result and open the
 companion PR. If `remote_slug` is null (non-GitHub remote), skip `gh pr create` and show
 the push URL instead:
 
 ```bash
-REMOTE_SLUG=$(printf '%s' "$RESULT" | jq -r '
-  .remote_slug // empty
-' 2>/dev/null)
+# pr-subrepo is not available here: there is no remote_slug to read
+
+
 
 if [ -n "$REMOTE_SLUG" ]; then
   # Defense-in-depth: $REPO_REL was already validated by the dirty-scan filter and
@@ -194,9 +194,9 @@ if [ -n "$REMOTE_SLUG" ]; then
     # `cd -P` and `pwd -P` resolve symlinks, as realpathSync does; the containment test is the
     # dirty scan's, and any failure prints nothing
     realRoot=$(cd -P -- "$ROOT" && pwd -P) || exit 1
-    case "$REPO_REL" in /*) target=$REPO_REL ;; *) target=$realRoot/$REPO_REL ;; esac
+    case "$REPO_REL" in (/*) target=$REPO_REL ;; (*) target=$realRoot/$REPO_REL ;; esac
     resolved=$(cd -P -- "$target" && pwd -P) || exit 1
-    case "$resolved" in "$realRoot" | "$realRoot"/*) ;; *) exit 1 ;; esac
+    case "$resolved" in ("$realRoot" | "$realRoot"/*) ;; (*) exit 1 ;; esac
     printf '%s' "$resolved"
   ) 2>/dev/null)
 
@@ -250,7 +250,7 @@ constants — change one side and update the other, or the guard fails.
 ```bash
 # The spec root and the harness ledger (a file at the project root) are reviewer noise (U47); `app.spec` of a build is code.
 TRANSIENT_DIRS=""   # none: specforge-harness is a file
-SPEC_ROOT=$(jq -r '.spec_root // "spec"' specforge.json 2>/dev/null || echo spec)
+SPEC_ROOT="{{project:spec_root}}"   # the project's spec root, spelled by SpecForge at render (`.`: the project root)
 TRANSIENT_FILES="specforge-harness"
 
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.

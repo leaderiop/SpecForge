@@ -439,7 +439,7 @@ The `next_phase` and `next_phase_name` fields give you the next phase details.
 
 If you need additional context, use:
 ```bash
-ROADMAP=$(specforge query "$MILESTONE" --kinds phase --format json | jq -c '{phases: [.nodes[]|select(.kind=="phase")|{number: .fields.number, phase_number: .fields.number, roadmap_complete: (.fields.status == "complete")}]}')
+ROADMAP=$(specforge query "$MILESTONE" --kinds phase --pick '.nodes[kind=phase]')   # one phase node per line: its number is the last segment of its id, roadmap_complete is fields.status "complete"
 ```
 
 This returns all phases with goals, disk status, and completion info.

@@ -57,16 +57,33 @@ fn quick_creates_a_quick_plan() {
     for code in ["W323", "E302", "E401"] {
         assert!(!codes.contains(&code.to_string()), "{code}: {codes:?}");
     }
-    // P4: a plan with no phase starts and completes through the typed tools.
-    let started = gsd(&p, "start-plan", &[&id]);
-    assert_eq!(started.code, 0, "{}", started.all());
-    let ts = started
-        .stdout
-        .split("started ")
-        .nth(1)
-        .and_then(|s| s.split_whitespace().next())
-        .expect("a time")
-        .to_string();
+    // P4: a plan with no phase starts and completes through the typed tools. The prompt's STARTED line runs in bash
+    // with only specforge on the PATH (G4 plan 05: it picks the answer, no jq).
+    let line = text
+        .lines()
+        .find(|l| {
+            l.trim_start()
+                .starts_with("STARTED=$(specforge gsd start-plan")
+        })
+        .expect("the STARTED line");
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    // `/bin/bash`: the child's PATH holds specforge alone
+    let out = std::process::Command::new("/bin/bash")
+        .args([
+            "-c",
+            &format!("quick_id={id}\n{line}\nprintf '%s' \"$STARTED\""),
+        ])
+        .env("PATH", bin.parent().expect("a directory"))
+        .current_dir(p.root())
+        .stdin(std::process::Stdio::null())
+        .output()
+        .expect("bash");
+    let ts = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(
+        ts.len() == 20 && ts.ends_with('Z'),
+        "{ts:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let summary = command(&text, "specforge new summary", &id, &fill);
     let made = run(&p, &summary);
     assert_eq!(made.code, 0, "{summary:?}: {}", made.all());
@@ -226,27 +243,23 @@ fn the_batch_makes_one_quick_id_per_item() {
         std::process::Command::new("bash")
             .args([
                 "-c",
-                &format!("TASK_FILE=tasks.txt\n{line}\necho \"$QB_CREATE_JSON\""),
+                &format!("TASK_FILE=tasks.txt\n{line}\necho \"$QB_CREATE_LIST\""),
             ])
             .current_dir(dir.path())
             .output()
             .expect("bash")
     };
     let out = run("- Fix login\n* Add search\n\n1. Trim titles\n");
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout)
-        .unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&out.stdout)));
-    let items = json["manifest"]["items"].as_array().expect("items");
-    let tasks: Vec<&str> = items
-        .iter()
-        .map(|i| i["description"].as_str().expect("a description"))
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let items: Vec<(&str, &str)> = stdout
+        .lines()
+        .map(|l| l.split_once('\t').expect("quick_id<TAB>description"))
         .collect();
+    let tasks: Vec<&str> = items.iter().map(|(_, task)| *task).collect();
     assert_eq!(tasks, ["Fix login", "Add search", "Trim titles"]);
     let id = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
-    for item in items {
-        assert!(
-            id.is_match(item["quickId"].as_str().expect("an id")),
-            "{item}"
-        );
+    for (quick_id, _) in &items {
+        assert!(id.is_match(quick_id), "{quick_id}");
     }
     let one = run("- Only one\n");
     assert!(

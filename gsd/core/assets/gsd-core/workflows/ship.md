@@ -83,7 +83,7 @@ Verify the work is ready to ship:
 3. **On correct branch?**
    ```bash
    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
-   IS_PROTECTED=$(case "$CURRENT_BRANCH" in main|master|develop|release/*) echo true;; *) echo false;; esac) || IS_PROTECTED=""
+   IS_PROTECTED=$(case "$CURRENT_BRANCH" in (main|master|develop|release/*) echo true;; (*) echo false;; esac) || IS_PROTECTED=""
    if [ "$IS_PROTECTED" = true ]; then
      echo "⚠ Current branch '$CURRENT_BRANCH' is a protected branch; shipping should happen from a feature branch." >&2
    elif [ -z "$IS_PROTECTED" ]; then
@@ -110,11 +110,11 @@ Verify the work is ready to ship:
    Resolve active `ship:pre` hooks from the capability registry — the registry evaluates each hook's `when` condition, so do **not** read `workflow.security_enforcement` or `workflow.windows_enforce` directly:
 
    ```bash
-   SHIP_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" ship:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
-   SECURITY_GATE_JSON=$(case "$SHIP_PRE_HOOKS_JSON" in *'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
+   SHIP_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" ship:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
+   SECURITY_GATE_JSON=$([ -z "$(specforge gsd security-hooks ship:pre --pick '.activeHooks[capId=security].capId' 2>/dev/null)" ] || specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}')   # the gate runs when security-hooks answers an active security hook
    ```
 
-   Read the `activeHooks` array from `SHIP_PRE_HOOKS_JSON` in-context (do NOT pipe it through a shell parser).
+   Read the `activeHooks` of every line of `SHIP_PRE_HOOKS_JSON`, one per capability extension, in-context (do NOT pipe it through a shell parser).
 
    **If `activeHooks` is empty or absent:** skip this check silently and continue to the next preflight step. A capability whose `when` is off contributes no entry, and one that failed to load fails OPEN with its own warning from the resolver — neither is a block.
 
@@ -137,8 +137,8 @@ Verify the work is ready to ship:
    - **`capId == "broken-windows"`** (issue #1950) — enforce against the ledger's typed status. The ledger is the milestone's (cross-phase: the windows of every phase of the milestone, not this phase's alone):
 
      ```bash
-     WINDOWS_STATUS_JSON=$(specforge query "$MILESTONE" --depth 2 --kinds broken_window --format json | jq -c '{ledger: {open_count: ([.nodes[]|select(.kind=="broken_window")|select(.fields.status == "open")]|length)}}' 2>/dev/null || echo '')
-     WINDOWS_OPEN_COUNT=$(printf '%s' "$WINDOWS_STATUS_JSON" | jq -r '.ledger.open_count // "?"' 2>/dev/null || echo '?')
+     WINDOWS_STATUSES=$(specforge query "$MILESTONE" --depth 2 --kinds broken_window --pick '.nodes[kind=broken_window].fields.status' 2>/dev/null) || WINDOWS_STATUSES='?'
+     WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
      ```
 
      - **`WINDOWS_OPEN_COUNT == "0"`** → `block: false`; the gate passes.
@@ -434,13 +434,13 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
 5. **Parse JSON result:**
    If the command succeeded, parse the JSON output and report the verdict:
    ```bash
-   # Parse verdict and summary from REVIEW_OUTPUT JSON
-   VERDICT=$(echo "${REVIEW_OUTPUT}" | jq -rs '
-     # exactly one JSON object; anything else (none, two, not an object) is INVALID_JSON
-     if length == 1 and (.[0] | type) == "object" then .[0].verdict
-     else error("not one JSON object") end
-   ' 2>/dev/null \
-     || echo 'INVALID_JSON')
+   # The review command's raw answer: read it yourself. One JSON object whose verdict is APPROVED or REVISE;
+   # anything else (none, two, not an object) is INVALID_JSON
+     printf '%s\n' "${REVIEW_OUTPUT}"
+
+
+
+
    ```
    - If `verdict` is `"APPROVED"`: report approval with confidence and summary.
    - If `verdict` is `"REVISE"`: report issues found, list each issue with severity, file, line_range, description, and suggestion.
@@ -505,11 +505,11 @@ git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note pu
 STATUS="UNKNOWN"
 CHECKS=0
 for i in {1..5}; do
-  PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup -q '{head: .headRefOid, status: .mergeStateStatus, checks: ((.statusCheckRollup // []) | length)}' 2>/dev/null || echo '{"head":"","status":"UNKNOWN","checks":0}')
-  HEAD_OID=$(echo "$PR_STATE" | jq -r .head)
+  PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup --jq '"\(.headRefOid) \(.mergeStateStatus) \((.statusCheckRollup // []) | length)"' 2>/dev/null || echo '- UNKNOWN 0')   # gh's own --jq filter: "<head> <status> <checks>"
+  HEAD_OID=${PR_STATE%% *}
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ]; then
-    STATUS=$(echo "$PR_STATE" | jq -r .status)
-    CHECKS=$(echo "$PR_STATE" | jq -r .checks)
+    STATUS=$(echo "$PR_STATE" | cut -d' ' -f2)
+    CHECKS=${PR_STATE##* }
   fi
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ] && [ "$STATUS" != "UNKNOWN" ]; then
     break
@@ -534,10 +534,10 @@ fi
 > Capability-driven dispatch. Resolves active `ship:post` hooks via the capability registry; each hook's `when` is evaluated by the registry — no inline `config-get`. All `ship:post` hooks are post-ship and additive (`onError: skip`); a failure here never affects the already-created PR.
 
 ```bash
-SHIP_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" ship:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+SHIP_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" ship:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
-Read the `activeHooks` array directly from `SHIP_POST_HOOKS_JSON` in-context (do NOT pipe it through a shell parser).
+Read the `activeHooks` of every line of `SHIP_POST_HOOKS_JSON`, one per capability extension, in-context (do NOT pipe it through a shell parser).
 
 **Branch 1 — no active `ship:post` step hooks (`activeHooks` has no entry with `kind == "step"`):** Skip silently to the report.
 

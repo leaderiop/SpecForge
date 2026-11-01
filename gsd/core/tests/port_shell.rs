@@ -1,6 +1,6 @@
 //! The shell a ported workflow shows (REVIEW-r42 M4). The port rule checks which lines changed, not whether the new
 //! line is valid, so a mechanical `.planning/x` -> "the spec" swap left `rm -f the spec` in a bash fence. For each fenced
-//! bash block that differs from upstream's: it still parses where upstream's did, and none of its code lines carries
+//! bash block that differs from upstream's: it still parses where upstream's did (in each bash: `shells`), and none of its code lines carries
 //! prose standing in for a path.
 
 use std::io::Write;
@@ -91,8 +91,18 @@ fn fences(lines: &[String]) -> Vec<(usize, usize)> {
     out
 }
 
-fn parses(code: &str) -> bool {
-    let mut child = Command::new("bash")
+/// The shells a block must parse in: `bash` on the `PATH`, and `/bin/bash` where it exists (macOS's is bash 3.2, which
+/// cannot parse a bare `case` pattern inside `$(…)`; a `(pattern)` form parses in both).
+fn shells() -> Vec<&'static str> {
+    let mut out = vec!["bash"];
+    if Path::new("/bin/bash").exists() {
+        out.push("/bin/bash");
+    }
+    out
+}
+
+fn parses(bash: &str, code: &str) -> bool {
+    let mut child = Command::new(bash)
         .arg("-n")
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
@@ -118,8 +128,10 @@ fn a_changed_bash_block_still_parses() {
                 continue;
             }
             checked += 1;
-            if parses(&theirs[s..e].join("\n")) && !parses(&mine[s..e].join("\n")) {
-                broken.push(format!("{label}:{}", s + 2));
+            for bash in shells() {
+                if parses(bash, &theirs[s..e].join("\n")) && !parses(bash, &mine[s..e].join("\n")) {
+                    broken.push(format!("{label}:{} ({bash})", s + 2));
+                }
             }
         }
     }

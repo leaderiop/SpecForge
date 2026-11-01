@@ -3,7 +3,7 @@
 mod agents;
 // shells out through `bash` and links with `std::os::unix`
 #[cfg(unix)]
-mod assets_jq;
+mod assets_shell;
 mod baseline;
 // shells out through `bash` and links with `std::os::unix`
 #[cfg(unix)]
@@ -23,6 +23,8 @@ mod cmd_verify;
 mod cmd_windows;
 mod cmd_workstreams;
 mod collect;
+#[path = "../common/command_word.rs"]
+mod command_word;
 mod commands;
 mod commands_support;
 mod decision_coverage;

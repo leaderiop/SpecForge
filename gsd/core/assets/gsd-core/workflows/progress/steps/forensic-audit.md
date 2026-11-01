@@ -24,7 +24,7 @@ Read STATE.md `status` / `stopped_at` fields (from the STATE snapshot already lo
 
 Check for existence of:
 ```bash
-specforge export --kinds pause,handoff --format brief | jq -r '.nodes[]|.id' || true   # by kind: a pause or handoff outside a phase is linked to nothing
+specforge export --kinds pause,handoff --pick '.nodes[].id' || true   # by kind: a pause or handoff outside a phase is linked to nothing
 ```
 A `pause` entity is the handoff marker (`.continue-here.md` is not a file here).
 
@@ -36,7 +36,7 @@ Emit:
 
 Search phase artifacts (CONTEXT.md, DISCUSSION-LOG.md, BUG-BRIEF.md, VERIFICATION.md, SUMMARY.md, HANDOFF.md files under the `phase` entities) for patterns:
 ```bash
-specforge query "$MILESTONE" --depth 3 --kinds phase --format json | jq -r '.nodes[]|select(.fields.goal // "" | test("defer to Phase|future phase|out of scope Phase|deferred to Phase"))|.id' || true
+while IFS=$'\t' read -r ph goal; do case "$goal" in (*"defer to Phase"*|*"future phase"*|*"out of scope Phase"*|*"deferred to Phase"*) echo "$ph" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds phase --pick '.nodes[kind=phase]' --fields id,fields.goal) || true
 ```
 
 For each match, extract the referenced phase number. Cross-reference against ROADMAP.md phase list. If the referenced phase number is NOT in ROADMAP.md, flag as deferred scope not captured.
@@ -49,7 +49,7 @@ Emit:
 
 Check whether a `lesson` entity records pending work (there is no MEMORY.md here):
 ```bash
-specforge export --kinds lesson --format brief | jq -r '.nodes[]|.id' || true
+specforge export --kinds lesson --pick '.nodes[].id' || true
 ```
 
 If found, grep for entries containing: `pending`, `status`, `deferred`, `not yet run`, `backfill`, `blocking`.

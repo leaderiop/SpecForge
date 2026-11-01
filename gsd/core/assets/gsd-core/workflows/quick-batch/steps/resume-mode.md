@@ -29,7 +29,7 @@ document).
 
 ```bash
 BATCH_ID="$RESUME_BATCH_ID"
-BATCH_MANIFEST_JSON=$(printf '%s' "$QB_RESUME_JSON" | jq -c '.manifest // empty' 2>/dev/null)
+BATCH_MANIFEST_JSON=   # the manifest's items, one quick_id<TAB>description line each, from your notes of the batch: the batch router is not part of @gsd/core
 ```
 
 Report to user:

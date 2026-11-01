@@ -49,19 +49,19 @@
     "# hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)",
     "for lane in \"ollama http://localhost:11434 http://localhost:11434\" \"lm_studio http://localhost:1234 http://localhost:1234\" \"llama_cpp http://localhost:8080 http://localhost:8080\"; do read -r name def host <<<\"$lane\"; { [ -z \"$host\" ] || [ \"$host\" = null ]; } && host=$def; curl -s --max-time 2 \"$host/v1/models\" >/dev/null 2>&1 && echo \"$name:available\" || echo \"$name:missing\"; done",
     "",
-    "# jq prerequisite (#2589). The config/model/budget lookups in this workflow no",
-    "# longer need jq — they use the native --raw/--pick flags. But the lanes listed",
-    "# under \"jq-dependent reviewer lanes\" below parse structured JSON that specforge",
-    "# does not emit (OpenAI-compatible /v1/chat/completions responses, opencode's",
-    "# JSONL event stream, agy's conversation cache), so they cannot run without jq.",
-    "# Probe it here rather than letting each lane swallow exit 127 into empty output.",
-    "command -v jq >/dev/null 2>&1 && echo \"jq:available\" || echo \"jq:missing\"",
+    "# No JSON tool here (#2589): the config, model and budget lookups read --pick, and",
+    "# a structured lane answer (an OpenAI-compatible /v1/chat/completions response,",
+    "# opencode's JSONL event stream, agy's conversation cache) is written raw to the",
+    "# lane's output file for the agent to read, so no lane has a jq prerequisite.",
+    "",
+    "",
+    "",
     "```",
     "",
-    "**jq-dependent reviewer lanes.** `jq` is a production prerequisite for the",
-    "`ollama`, `lm_studio`, `llama_cpp`, `opencode`, and `antigravity` lanes only. If"
+    "**Structured reviewer lanes.** The `ollama`, `lm_studio`, `llama_cpp`, `opencode` and",
+    "`antigravity` lanes answer in JSON. Write each lane's raw answer to its output file and read"
   ],
-  "bytes": 60502,
+  "bytes": 59559,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2342b05cd5ba1e0683c4f62fb8b6f4970bbc8a2888938d3a5ab77a292a047db6",
+    "digest": "sha256:3e7246af22724b60637eb643d24fb309a7eec9878dc302838d60862354d29a40",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "2342b05cd5ba1e0683c4f62fb8b6f4970bbc8a2888938d3a5ab77a292a047db6"
+  "sha256": "3e7246af22724b60637eb643d24fb309a7eec9878dc302838d60862354d29a40"
 }

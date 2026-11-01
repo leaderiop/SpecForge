@@ -428,7 +428,7 @@ Anti-pattern scanning (Step 7) checks for code smells. Behavioral spot-checks go
 
 ```bash
 # API endpoint returns non-empty data
-curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | jq -e '(type == "array" or type == "object" or type == "string") and length > 0' >/dev/null
+curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | head -c 2000   # read the answer: it passes when it is non-empty data (an array, an object or a string with content)
 
 # CLI command produces expected output
 node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
@@ -647,13 +647,13 @@ Deferred items are informational only — they do not require closure plans.
 1. Top-level "User Flow Coverage" table: each step of the user story → expected → evidence in codebase → status. (Format defined in `gsd-core/references/verify-mvp-mode.md`.)
 2. Standard technical-check sections (API verification, error handling, etc.) follow below — only if the user flow coverage is complete.
 
-**User Story format guard:** Check the goal against its form:
+**User Story format guard:** Check the goal with the user-story command:
 
 ```bash
-USER_STORY_VALID=$(specforge check --format json | jq '[.diagnostics[]? | select(.code == "gsd/W205")] | length == 0')
+USER_STORY_VALID=$(specforge gsd user-story-validate --story "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')" --pick .valid)
 ```
 
-If `valid != true`, refuse to verify. Surface the discrepancy and ask the user to run `/gsd:mvp-phase ${PHASE}` to set a proper User Story goal. The canonical form is `/^As a .+, I want to .+, so that .+\.$/`. Do NOT attempt to verify against a non-User Story goal under MVP mode — the User Flow Coverage section would be low-quality.
+If `valid != true`, refuse to verify. Surface the discrepancy and ask the user to run `/gsd:mvp-phase ${PHASE}` to set a proper User Story goal. The command owns the canonical form `/^As a (\S.*?), I want to (\S.*?), so that (\S.*?)\.$/` on one line and answers per-error guidance in `errors[]` plus the slots `role`, `capability` and `outcome`. Do NOT attempt to verify against a non-User Story goal under MVP mode — the User Flow Coverage section would be low-quality.
 
 **Mode is all-or-nothing per phase** (PRD decision Q1, inherited from Phase 1). The MVP Mode Verification rules apply to the whole phase or not at all.
 

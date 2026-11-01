@@ -37,14 +37,14 @@ Normalize per `@~/.claude/gsd-core/references/phase-argument-parsing.md` (zero-p
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --format json | jq '{found: (.nodes|length>0), phase_name: .nodes[0].fields.name, goal: .nodes[0].fields.goal, mode: (.nodes[0].fields.mode // "")}')
-PHASE_FOUND=$(echo "$PHASE_INFO" | jq -r '.found')
-PHASE_NAME=$(echo "$PHASE_INFO" | jq -r '.phase_name')
-PHASE_GOAL=$(echo "$PHASE_INFO" | jq -r '.goal')
-PHASE_MODE=$(echo "$PHASE_INFO" | jq -r '.mode // ""')
-ANALYZE=$(specforge query "$MILESTONE" --kinds phase --format json | jq '{phases: [.nodes[] | select(.kind=="phase") | {phase_number: (.id|split("/")|last), disk_status: .fields.status}]}')
-if [[ "$ANALYZE" == @file:* ]]; then ANALYZE=$(cat "${ANALYZE#@file:}"); fi
-DISK_STATUS=$(echo "$ANALYZE" | jq -r --arg p "$PHASE" '.phases[] | select((.phase_number|tostring)==$p) | .disk_status' | head -1)
+
+PHASE_FOUND=true; specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].id' >/dev/null 2>&1 || PHASE_FOUND=false
+PHASE_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.name' 2>/dev/null)
+PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)
+PHASE_MODE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)
+
+
+DISK_STATUS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.status' 2>/dev/null)
 # ADR-3180 §7.4 (issue #3186, disk-strict, #2957): DISK_STATUS alone decides
 # completion — a ROADMAP checkbox carries no machine authority and is never
 # ORed in here. `roadmap.analyze`'s `disk_status` already routes through the
@@ -103,12 +103,12 @@ USER_STORY="As a ${ROLE}, I want to ${CAPABILITY}, so that ${OUTCOME}."
 
 If any of the three answers is empty or whitespace-only, error and re-prompt that single field. Do NOT proceed with a partial story.
 
-**Validate via the centralized User Story validator.** The verb owns the canonical regex `/^As a .+, I want to .+, so that .+\.$/` and surfaces per-error guidance:
+**Validate via the centralized User Story validator.** The command owns the canonical regex `/^As a (\S.*?), I want to (\S.*?), so that (\S.*?)\.$/` on one line and surfaces per-error guidance:
 
 ```bash
-USER_STORY_RESULT=$(printf '%s' "$USER_STORY" | grep -Eq '^As a .+, I want to .+, so that .+\.$' && echo '{"valid":true,"errors":[]}' || echo '{"valid":false,"errors":["Write the story as: As a <role>, I want to <capability>, so that <benefit>."]}')
-if [ "$(echo "$USER_STORY_RESULT" | jq -r '.valid')" != "true" ]; then
-  echo "$USER_STORY_RESULT" | jq -r '.errors[]' >&2
+USER_STORY_RESULT=$(specforge gsd user-story-validate --story "$USER_STORY" --pick .valid)
+if [ "$USER_STORY_RESULT" != "true" ]; then
+  specforge gsd user-story-validate --story "$USER_STORY" --pick '.errors[]' >&2
   # Re-prompt the offending field(s) per surfaced errors, then re-run validation.
   # Do not abort the workflow on first invalid draft.
   RE_PROMPT_USER_STORY=true

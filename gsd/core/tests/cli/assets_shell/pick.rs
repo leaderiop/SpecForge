@@ -155,6 +155,12 @@ fn a_graph_read_is_picked() {
         plans.starts_with("v1.0/01/01-01\nv1.0/01/01-02\n"),
         "{plans}"
     );
+    // review reads the phase's own plans (plan 05 review R5), as upstream's `*-PLAN.md` glob of the phase did
+    let own: String = plans
+        .lines()
+        .filter(|id| id.starts_with("v1.0/01/"))
+        .map(|id| format!("{id}\n"))
+        .collect();
     let review = line(&asset(&format!("{w}review.md")), "for PLAN_REF in $(").to_string();
     assert_eq!(
         run(
@@ -163,7 +169,7 @@ fn a_graph_read_is_picked() {
             &format!("{phase}\n{review} echo \"$PLAN_REF\"; done")
         )
         .0,
-        plans
+        own
     );
     let cases: &[(&str, &str, &str, &str, &str)] = &[
         ("plan-phase.md", phase, "DISK_PLANS=$(", "DISK_PLANS", "[2]"),
@@ -181,13 +187,13 @@ fn a_graph_read_is_picked() {
             "TASK_COUNT",
             "[2]",
         ),
-        // depth 2, as above: phase 02's plan too
+        // the progress report's count of the phase's own plans (plan 05 review R7), where depth 2 reached 02's too
         (
             "next.md",
             "PHASE_NUM=01",
             "PLAN_COUNT=$(",
             "PLAN_COUNT",
-            "[3]",
+            "[2]",
         ),
         (
             "execute-phase/steps/verify-phase-goal.md",

@@ -519,8 +519,8 @@ Extract requirement IDs from the plan's frontmatter (e.g., `requirements: [AUTH-
 **Shared-ID gate (#2388):** a requirement ID declared by more than one plan in this phase must not read `Complete` until every plan declaring it has finished (produced a `*-SUMMARY.md`) — otherwise the first plan to finish flips it `Complete` while its sibling plans are still running, before phase verification ever gets a chance to catch a real gap. Compute the ready subset first, then mark only those:
 
 ```bash
-READY='{"ready":[]}'   # requirements.ready-ids: the summary lists requirements_completed; nothing else to mark
-READY_IDS=$(printf '%s' "$READY" | jq -r '.ready[]' 2>/dev/null | tr '\n' ' ')
+READY_IDS=   # requirements.ready-ids: the summary lists requirements_completed; nothing else to mark
+
 if [ -n "$(printf '%s' "$READY_IDS" | tr -d '[:space:]')" ]; then
   : # requirements.mark-complete: a requirement is complete when a summary lists it
 fi
@@ -560,8 +560,8 @@ If the codebase map doesn't exist: skip.
 # in the window (#3926, #4459). The resolver widens to the phase-directory range, and says so
 # in its `status`/`reason`, when the phase has no recorded task commits.
 # Exit 69 (UNAVAILABLE) is "could not look", not "no files changed": say so rather than print nothing.
-SCOPE_JSON=$(git diff --name-only HEAD~1 2>/dev/null | jq -R . | jq -sc '{changedFiles: .}') && SCOPE_RC=0 || SCOPE_RC=$?
-if [ "$SCOPE_RC" -ne 0 ]; then echo "Warning: evaluation scope unavailable (exit ${SCOPE_RC}); no changed-file list, so the map update below is skipped, not 'nothing changed'." >&2; else printf '%s' "$SCOPE_JSON" | jq -r '.changedFiles[]' 2>/dev/null || true; fi
+SCOPE_FILES=$(git diff --name-only HEAD~1 2>/dev/null) && SCOPE_RC=0 || SCOPE_RC=$?
+if [ "$SCOPE_RC" -ne 0 ]; then echo "Warning: evaluation scope unavailable (exit ${SCOPE_RC}); no changed-file list, so the map update below is skipped, not 'nothing changed'." >&2; else [ -z "$SCOPE_FILES" ] || printf '%s\n' "$SCOPE_FILES"; fi
 ```
 
 Update only structural changes: new src/ dir → STRUCTURE.md | deps → STACK.md | file pattern → CONVENTIONS.md | API client → INTEGRATIONS.md | config → STACK.md | renamed → update paths. Skip code-only/bugfix/content changes.
@@ -579,9 +579,9 @@ counts, i.e. `status: superseded` plans excluded, matching this route's
 "outstanding work" question):
 
 ```bash
-PHASE_COUNTS=$(specforge query "$PHASE_ID" --depth 2 --kinds plan,summary --format json | jq -c '{plan_count: ([.nodes[]|select(.kind=="plan")]|length), summary_count: ([.nodes[]|select(.kind=="summary")]|length)}')
-PLAN_COUNT=$(echo "$PHASE_COUNTS" | jq -r '.plan_count // 0')
-SUMMARY_COUNT=$(echo "$PHASE_COUNTS" | jq -r '.summary_count // 0')
+
+PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[number=${PHASE_ID##*/}].plans")   # the phase's own plans
+SUMMARY_COUNT=$(specforge gsd progress-report --pick ".phases[number=${PHASE_ID##*/}].summaries")
 ```
 
 | Condition | Route | Action |

@@ -184,7 +184,7 @@ Write these answers inline before continuing. If a blocking anti-pattern cannot 
 </step>
 
 <step name="check_spec">
-Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --format json | jq -r '[.nodes[] | select(.kind == "phase_spec") | .id] | first // empty'); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
 
 **If `has_spec` is true:**
 1. Read the SPEC.md file at `spec_path`.
@@ -296,7 +296,7 @@ Read `@~/.claude/gsd-core/references/scout-codebase.md` — it contains the phas
 
 <step name="dispatch_discuss_pre_hooks">
 ```bash
-DISCUSS_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" discuss:pre --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+DISCUSS_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" discuss:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 Apply each entry in `activeHooks` per @~/.claude/gsd-core/references/loop-hook-dispatch.md. Empty list → continue to `analyze_phase`.
 </step>
@@ -415,7 +415,7 @@ Write the file.
 
 <step name="dispatch_discuss_post_hooks">
 ```bash
-DISCUSS_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" discuss:post --format json 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}' || echo "⚠ jq failed: no capability hooks were read" >&2)
+DISCUSS_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" discuss:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 Apply each entry in `activeHooks` per @~/.claude/gsd-core/references/loop-hook-dispatch.md. Empty list → continue to `confirm_creation`.
 </step>

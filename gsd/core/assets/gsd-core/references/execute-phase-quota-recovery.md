@@ -11,12 +11,12 @@ GSD swaps PROVIDER rather than waiting for a reset. `QUOTA_ATTEMPT` starts at 1 
 first quota failure of this phase and increments on each subsequent one.
 
 ```bash
-ESC_JSON='{"escalation":{"escalated":false,"exhausted":true}}'   # resolve-execution is not part of @gsd/core: no model escalation, wait for the reset
-ESCALATED=$(echo "$ESC_JSON" | jq -r '.escalation.escalated')
-EXHAUSTED=$(echo "$ESC_JSON" | jq -r '.escalation.exhausted')
-ESC_FROM=$(echo "$ESC_JSON" | jq -r '.escalation.from')
-ESC_TO=$(echo "$ESC_JSON" | jq -r '.escalation.to')
-ESC_TRIED=$(echo "$ESC_JSON" | jq -r '.escalation.attempted | join(" -> ")')
+ESCALATED=false   # resolve-execution is not part of @gsd/core: no model escalation, wait for the reset
+EXHAUSTED=true
+ESC_FROM=
+ESC_TO=
+ESC_TRIED=
+
 ```
 
 - **`ESCALATED == "true"`** — log the switch, honor the provider's own backoff

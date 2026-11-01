@@ -195,13 +195,14 @@ fn the_secure_phase_assets_are_upstreams_but_for_the_ported_lines() {
     assert_eq!(changed, 29, "the number of changed lines");
 }
 
-/// Plan 16 T4's line, asked here too: the hooks of every capability extension at `verify:post`.
+/// Plan 16 T4's line, asked here too: the hooks of every capability extension at `verify:post`, one answer per line
+/// (G4, plan 05 T1).
 #[test]
 fn the_hooks_line_asks_the_capability_extensions() {
     let workflow =
         gsd_security::prompts::asset("gsd-core/workflows/secure-phase.md").expect("the workflow");
     assert!(workflow.contains(
-        "VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" verify:post --format json 2>/dev/null; done | jq -sc '{activeHooks: (map(.activeHooks) | add // []), skippedHooks: (map(.skippedHooks) | add // [])}')"
+        "VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" verify:post --pick . 2>/dev/null; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order"
     ));
 }
 

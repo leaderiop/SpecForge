@@ -9,7 +9,7 @@ milestone sequence or remove stale entries.
 
 1. **List backlog items:**
    ```bash
-   _BACKLOG=$(specforge export --kinds phase --format graph | jq -r '.nodes[]|select(.fields.backlog)|.id')   # roadmap-wide: the backlog of every milestone
+   _BACKLOG=$(specforge export --kinds phase --pick '.nodes[fields.backlog=true].id')   # roadmap-wide: the backlog of every milestone
    if [ -n "$_BACKLOG" ]; then echo "$_BACKLOG"; else echo "No backlog items found"; fi
    ```
 
