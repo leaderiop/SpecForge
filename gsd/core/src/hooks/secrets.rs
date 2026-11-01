@@ -135,6 +135,8 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
     c.hook("secret_read_guard", HookEvent::PreTool, |h| {
         h.description("Refuses a read of .env, .env.<suffix> or .secrets by a Read, a Grep or a shell command")
             .tools(&["read", "search", "shell"])
+            // a guard that cannot judge a command refuses it (F7); upstream fails open (#3911)
+            .on_failure_deny()
             .handler(|call| Ok(secret_read_guard(&Facts::of(call))));
     });
 }

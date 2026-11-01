@@ -64,8 +64,8 @@
     "sha256": "0cef411e97da252c4737a82da37583fd44970a7c90d3786f225c73ca02c154fb"
   },
   ".codex/hooks.json": {
-    "bytes": 3635,
-    "sha256": "902d63e214c57c0f012933361055d49f5041c2d24fe692a8163b75ff974bbea1"
+    "bytes": 3928,
+    "sha256": "70e0ae61c33dbdfbe140d38208bd57ef8f06de04bce730ced875167828d31cb1"
   },
   ".codex/skills/gsd-add-tests/SKILL.md": {
     "bytes": 1018,

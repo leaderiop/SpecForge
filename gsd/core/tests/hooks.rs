@@ -160,10 +160,16 @@ fn every_declared_hook_is_valid() {
             );
         }
         assert!(!h.description.is_empty(), "{id}: a description");
+        // upstream's ON_CRASH is ALLOW on every hook; the secret guard fails closed here (F7)
+        let policy = if id == "secret_read_guard" {
+            "Deny"
+        } else {
+            "Allow"
+        };
         assert_eq!(
             format!("{:?}", h.on_failure),
-            "Allow",
-            "{id}: upstream's ON_CRASH is ALLOW on every hook"
+            policy,
+            "{id}: its failure policy"
         );
     }
 }

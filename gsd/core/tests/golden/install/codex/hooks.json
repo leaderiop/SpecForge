@@ -24,7 +24,8 @@
       {
         "hooks": [
           {
-            "command": "specforge hook gsd.secret_read_guard --host codex --event pre_tool --tools read,search,shell # specforge-install",
+            "command": "command -v specforge >/dev/null 2>&1 || { echo 'specforge is not on PATH: the hook gsd.secret_read_guard cannot run, so it denies' >&2; exit 2; }; specforge hook gsd.secret_read_guard --host codex --event pre_tool --tools read,search,shell # specforge-install",
+            "commandWindows": "specforge hook gsd.secret_read_guard --host codex --event pre_tool --tools read,search,shell # specforge-install",
             "timeout": 10,
             "type": "command"
           }

@@ -33,7 +33,7 @@ const SKIPPED: &[(&str, &str)] = &[
     ),
     (
         "gsd-secret-read-guard: scope and crash policy > malformed JSON fails OPEN (declared HOOK_ON_CRASH.ALLOW)",
-        "runtime: the kernel reads the event and applies on_failure (allow)",
+        "runtime: the kernel reads the event and applies on_failure, which is deny here (F7: SpecForge fails closed)",
     ),
 ];
 

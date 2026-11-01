@@ -282,7 +282,7 @@ GSD's `hooks/` become 15 typed hook contributions (K9, r44). `specforge install 
 | GSD hook | Contribution |
 |---|---|
 | gsd-read-guard, gsd-write-guard | `read_guard`, `write_guard` (`pre_tool`): the paths a workflow may touch; `write_guard` measures bytes, not lines |
-| gsd-secret-read-guard | `secret_read_guard` (`pre_tool`) |
+| gsd-secret-read-guard | `secret_read_guard` (`pre_tool`): fails closed (`on_failure` deny), where upstream fails open |
 | gsd-read-injection-scanner | `injection_scanner` (`post_tool`): scans what was read; advisory only, and a block would land after the read (see below) |
 | gsd-prompt-guard | `prompt_guard` (`pre_tool`): scans content written to spec files |
 | gsd-agent-isolation-guard | none: dropped in the roster, because `@gsd/core` runs its executors sequentially in the checkout and the guard would always allow (r44 post-fix N7; ACCEPTANCE's divergences) |
@@ -353,6 +353,12 @@ No host is run, so Codex and Cursor stay drafts. The table cross-checks the inst
   `command-too-complex`; upstream has no such bound, so a large command runs into its hook's timeout.
   `prompt_guard` does not scan a Codex `apply_patch`. The Codex "any `session_id` is silent" rule of `read_guard` does
   not hold: Codex payloads carry one and the advice names the Read tool.
-- A host without `specforge` on its PATH runs no guard (exit 127 does not block).
+- A host without `specforge` on its PATH runs no guard (exit 127 does not block), except `secret_read_guard`, whose
+  line is rendered to fail closed (ADR 0324: Claude Code's `"onFailure": "block"`, the guarded `command -v specforge`
+  line on Codex and Cursor).
+- `secret_read_guard` declares `on_failure` deny: a trap, a timeout or a malformed answer denies the call. Upstream
+  fails open by design (`ON_CRASH = HOOK_ON_CRASH.ALLOW`, #3911), so that a bug in a hook on every Bash call cannot
+  brick a session; here a guard that cannot judge a command refuses it, as `command-too-nested` and
+  `command-too-complex` already do for the shapes known to stop it.
 - Hook latency (p50, 20 events, taskboard): `write_guard` 0.13 s, `spec_guard` 0.16 s; the budget is enforced by
   `hooks_guards.rs`.
