@@ -91,6 +91,7 @@ mod surface_parity;
 mod toolchain;
 mod trace;
 mod value_forms;
+mod version;
 mod vscode_manifest;
 mod watch;
 mod watch_ready;
