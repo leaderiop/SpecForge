@@ -4,6 +4,8 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+mod batch;
+mod manifest;
 mod pick;
 mod readers;
 mod scripts;
@@ -17,6 +19,7 @@ const TOOLS: &[&str] = &[
 /// The tools the `--pick` lines call besides `specforge`: no jq.
 const PICK_TOOLS: &[&str] = &[
     "git", "cat", "grep", "head", "tail", "sed", "awk", "cut", "tr", "wc", "sort", "paste", "env",
+    "date", "mktemp", "mv", "rm",
 ];
 
 /// `bash` with a `PATH` of [`TOOLS`] alone, or `None` (and a skip note) when bash or jq is absent.
@@ -53,12 +56,18 @@ impl Shell {
     /// G4 (plan 04): `bash` with a `PATH` of [`PICK_TOOLS`] and `specforge` (`SPECFORGE_BIN`), and no jq: a line that
     /// still ran jq would print nothing. `None` (and a skip note) when bash is absent.
     fn without_jq() -> Option<Shell> {
+        Shell::only(PICK_TOOLS)
+    }
+
+    /// `bash` with a `PATH` of `tools` and `specforge` (`SPECFORGE_BIN`) alone. `None` (and a skip note) when bash is
+    /// absent.
+    fn only(tools: &[&str]) -> Option<Shell> {
         let Some(bash) = which("bash") else {
             eprintln!("skipped: bash is absent");
             return None;
         };
         let bin = tempfile::tempdir().expect("a bin dir");
-        for tool in PICK_TOOLS {
+        for tool in tools {
             if let Some(path) = which(tool) {
                 std::os::unix::fs::symlink(path, bin.path().join(tool)).expect("a link");
             }

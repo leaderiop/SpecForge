@@ -226,27 +226,23 @@ fn the_batch_makes_one_quick_id_per_item() {
         std::process::Command::new("bash")
             .args([
                 "-c",
-                &format!("TASK_FILE=tasks.txt\n{line}\necho \"$QB_CREATE_JSON\""),
+                &format!("TASK_FILE=tasks.txt\n{line}\necho \"$QB_CREATE_LIST\""),
             ])
             .current_dir(dir.path())
             .output()
             .expect("bash")
     };
     let out = run("- Fix login\n* Add search\n\n1. Trim titles\n");
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout)
-        .unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&out.stdout)));
-    let items = json["manifest"]["items"].as_array().expect("items");
-    let tasks: Vec<&str> = items
-        .iter()
-        .map(|i| i["description"].as_str().expect("a description"))
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let items: Vec<(&str, &str)> = stdout
+        .lines()
+        .map(|l| l.split_once('\t').expect("quick_id<TAB>description"))
         .collect();
+    let tasks: Vec<&str> = items.iter().map(|(_, task)| *task).collect();
     assert_eq!(tasks, ["Fix login", "Add search", "Trim titles"]);
     let id = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
-    for item in items {
-        assert!(
-            id.is_match(item["quickId"].as_str().expect("an id")),
-            "{item}"
-        );
+    for (quick_id, _) in &items {
+        assert!(id.is_match(quick_id), "{quick_id}");
     }
     let one = run("- Only one\n");
     assert!(

@@ -12,7 +12,7 @@ grammar `parseTaskList` enforces).
 If `$TASK_FILE` is set:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_JSON=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done | jq -Rn --arg id "$(date -u +%y%m%d)-batch" '{batchId: $id, manifest: {items: [inputs|split("\t")|{quickId: .[0], description: .[1], status: "pending", wave: 0}]}}')   # list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
+QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
 ```
 
 Otherwise, the inline list must land on disk first — `quick-batch create`
@@ -23,28 +23,28 @@ calling the verb.
 TASK_FILE="$(mktemp)"
 mkdir -p "$(dirname "$TASK_FILE")"
 printf '%s\n' "$INLINE_TASK_LIST" > "$TASK_FILE"
-QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_JSON=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done | jq -Rn --arg id "$(date -u +%y%m%d)-batch" '{batchId: $id, manifest: {items: [inputs|split("\t")|{quickId: .[0], description: .[1], status: "pending", wave: 0}]}}')   # list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
+QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
 rm -f "$TASK_FILE"
 ```
 
 ```bash
 QB_CREATE_RC=$?
-if [[ "$QB_CREATE_JSON" == @file:* ]]; then QB_CREATE_JSON=$(cat "${QB_CREATE_JSON#@file:}"); fi
+
 ```
 
 **If `$QB_CREATE_RC` is non-zero:** the task list failed to parse (fewer than
 2 items — row 2/12) or the dependency DAG was invalid. Print the CLI's error
 message verbatim and STOP. Do not dispatch anything.
 
-**Otherwise:** parse `$QB_CREATE_JSON` for `batchId` and `manifest` (every
+**Otherwise:** `$QB_CREATE_LIST` holds the batch's items, one per line (every
 item starts `pending`, wave `0` — no dependency/file-overlap signal exists
 yet before planning; this is expected, not a bug, per the design's negative-
 space note).
 
 ```bash
-BATCH_ID="$batchId"
-BATCH_MANIFEST_JSON=$(printf '%s' "$QB_CREATE_JSON" | jq -c '.manifest // empty' 2>/dev/null)
-ITEM_COUNT=$(printf '%s' "$BATCH_MANIFEST_JSON" | jq -er '.items | length' 2>/dev/null || echo 0)
+BATCH_ID="$(date -u +%y%m%d)-batch"
+BATCH_MANIFEST_JSON=$QB_CREATE_LIST   # the manifest's items, one quick_id<TAB>description line each: keep each item's status (pending) and wave (0) in your notes beside it
+ITEM_COUNT=$(printf '%s\n' "$BATCH_MANIFEST_JSON" | grep -c .)
 ```
 
 Report to user:

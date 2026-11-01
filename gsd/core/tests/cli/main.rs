@@ -3,7 +3,7 @@
 mod agents;
 // shells out through `bash` and links with `std::os::unix`
 #[cfg(unix)]
-mod assets_jq;
+mod assets_shell;
 mod baseline;
 // shells out through `bash` and links with `std::os::unix`
 #[cfg(unix)]

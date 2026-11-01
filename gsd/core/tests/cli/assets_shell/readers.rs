@@ -13,8 +13,7 @@ type Reader = (
 );
 
 /// T3: the one-line readers of a JSON answer. Each case's field path is the one the producing line above it writes:
-/// the batch manifest's own jq and the stubbed
-/// `{"concurrency":1}`.
+/// the stubbed `{"concurrency":1}`.
 const READERS: &[Reader] = &[
     (
         "gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md",
@@ -72,41 +71,6 @@ const READERS: &[Reader] = &[
                 true,
             ),
             ("not json", "0", true),
-        ],
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/batch-init.md",
-        "BATCH_MANIFEST_JSON=$(",
-        "QB_CREATE_JSON",
-        "BATCH_MANIFEST_JSON",
-        &[
-            (
-                r#"{"batchId":"x-batch","manifest":{"items":[{"quickId":"a","wave":0}]}}"#,
-                r#"{"items":[{"quickId":"a","wave":0}]}"#,
-                true,
-            ),
-            ("", "", true),
-        ],
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/batch-init.md",
-        "ITEM_COUNT=$(",
-        "BATCH_MANIFEST_JSON",
-        "ITEM_COUNT",
-        &[
-            (r#"{"items":[{"quickId":"a"},{"quickId":"b"}]}"#, "2", true),
-            ("", "0", true),
-            ("{}", "0", true),
-        ],
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/resume-mode.md",
-        "BATCH_MANIFEST_JSON=$(",
-        "QB_RESUME_JSON",
-        "BATCH_MANIFEST_JSON",
-        &[
-            (r#"{"manifest":{"items":[]}}"#, r#"{"items":[]}"#, true),
-            ("{}", "", true),
         ],
     ),
     (

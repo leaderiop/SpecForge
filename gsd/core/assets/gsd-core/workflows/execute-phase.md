@@ -649,13 +649,13 @@ increases monotonically across waves. `{status}` is `complete` (success),
    DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
    EXPECTED_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     if [ "${USE_WORKTREES:-true}" != "false" ] && [ "${USE_WORKTREES_FOR_PLAN:-true}" != "false" ] && [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then
-     M=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-wave-XXXXXX") && mv "$M" "$M.json" && WAVE_WORKTREE_MANIFEST="$M.json" || exit 1  # XXXXXX must be path-final on BSD/macOS (#1520)
+     M=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-wave-XXXXXX") && mv "$M" "$M.tsv" && WAVE_WORKTREE_MANIFEST="$M.tsv" || exit 1  # XXXXXX must be path-final on BSD/macOS (#1520)
      # Persist the dispatch-time orchestrator worktree root so wave-cleanup can pin back to the
      # orchestrator's OWN worktree — NOT `git worktree list`'s first entry (always the main
      # checkout), which pins a non-primary (per-phase lane) orchestrator off its branch (#630).
      # Dispatch runs from the orchestrator's lane, so show-toplevel here is the correct root.
      ORCH_ROOT=$(git rev-parse --show-toplevel)
-     jq -nc --arg root "$ORCH_ROOT" '{orchestrator_root: (if $root == "" then null else $root end), worktrees: []}' > "$WAVE_WORKTREE_MANIFEST"
+     printf 'orchestrator_root\t%s\n' "$ORCH_ROOT" > "$WAVE_WORKTREE_MANIFEST.tmp" && mv "$WAVE_WORKTREE_MANIFEST.tmp" "$WAVE_WORKTREE_MANIFEST"   # one tab-separated record per line: orchestrator_root<TAB>root, then worktree<TAB>path<TAB>branch per worktree
      export WAVE_WORKTREE_MANIFEST
    fi
    ```
@@ -870,7 +870,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    # list`'s first entry, which is always the main checkout and would pin a non-primary (per-phase
    # lane) orchestrator off its own branch, tripping the #3174 assertion below (#630). Byte-identical
    # for a primary orchestrator (its root IS the first entry); the fallback covers pre-#630 manifests.
-   PRIMARY_WT=$(jq -r '.orchestrator_root // empty | tostring' "$WAVE_WORKTREE_MANIFEST" 2>/dev/null)
+   PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
    [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
    if [ -z "$PRIMARY_WT" ]; then
      echo "FATAL: could not resolve orchestrator worktree before cleanup" >&2
@@ -892,13 +892,13 @@ increases monotonically across waves. `{status}` is `complete` (success),
    # Cleanup-tail: pin orchestrator CWD to its OWN worktree before cleanup-tail (#3174, #630).
    # Same fix as the templated path: resolve the dispatch-time orchestrator root from the manifest,
    # not `git worktree list`'s first entry (always the main checkout — wrong for a lane orchestrator).
-   PRIMARY_WT=$(jq -r '.orchestrator_root // empty | tostring' "$WAVE_WORKTREE_MANIFEST" 2>/dev/null)
+   PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
    [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
    if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before cleanup-tail (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
    # Cleanup-tail: remove residual agent worktrees after a cross-wave-dependency deviation.
    # Uses only the current wave manifest to avoid touching unrelated active agents (#3384).
    WT_PATHS_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-paths-XXXXXX")
-   { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else jq -rs 'if length == 0 then error("manifest is empty") elif length > 1 then error("manifest holds more than one document") else .[0] end | (.worktrees // []) | if type == "array" then .[] else error("worktrees is not a list") end | .worktree_path // empty' "$WAVE_WORKTREE_MANIFEST"; fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
+   { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else ( SEEN=0; ROOTS=0; while IFS= read -r l || [ -n "$l" ]; do tag=${l%%$'\t'*}; a=${l#"$tag"}; a=${a#$'\t'}; a=${a%%$'\t'*}; case "$tag" in '') continue ;; orchestrator_root) ROOTS=$((ROOTS + 1)); [ "$ROOTS" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest holds more than one orchestrator_root line" >&2; exit 1; } ;; worktree) [ -z "$a" ] || printf '%s\n' "$a" ;; *) echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: unknown record '$tag'" >&2; exit 1 ;; esac; SEEN=1; done < "$WAVE_WORKTREE_MANIFEST"; [ "$SEEN" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest is empty" >&2; exit 1; } ); fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
    while IFS= read -r WT; do
      [ -z "$WT" ] && continue
      WT_BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null)

@@ -143,7 +143,7 @@ QB_PLAN_CONC_JSON='{"concurrency":1}'   # quick-batch effective-concurrency: the
    `specforge query "${quick_id}" --depth 0 --format json` (the `depends_on` field)
    and `... files_modified`, then:
    ```bash
-QB_UPDATE_JSON=$(jq -n --argjson updates "$LAYER_UPDATES_JSON" '{updated: $updates}')   # quick-batch update: the batch router is not part of @gsd/core; keep the plan data in your notes
+QB_UPDATE_JSON="{\"updated\":${LAYER_UPDATES_JSON:-[]}}"   # quick-batch update: the batch router is not part of @gsd/core; keep the plan data in your notes
    ```
    `$LAYER_UPDATES_JSON` is a JSON array of `{quickId, dependsOn, plannedFiles}`
    objects, one per item planned this round. **If this call fails** (an

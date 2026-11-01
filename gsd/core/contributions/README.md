@@ -169,7 +169,7 @@ The assets are upstream's text; where the spec has no counterpart a line was def
 - `init` JSON fields (`phase_dir`, `plan_count`, ...) have no counterpart: the text reads the graph (`specforge query`)
   and the ids named at the end of the text (`$PHASE_ID`, `$MILESTONE`, `$PROJECT`).
 - Shell: upstream's blocks read JSON (and the wave's worktree manifest) with `node -e`, because upstream is a node
-  program; here they use `jq`, a requirement of `@gsd/core` (plan 03, F9; `tests/cli/assets_jq/` runs each rewritten
+  program; here they use `jq`, a requirement of `@gsd/core` (plan 03, F9; `tests/cli/assets_shell/` runs each rewritten
   line without node). node stays where the user's own JavaScript project runs (`KEEP` in `tests/port_tools.rs`) and in
   `code-review-disposition.md`'s ledger builder, a Markdown parser with no jq form (`PENDING_NODE`). The edge-probe
   steps of `spec-phase` and `specless-probe-fallback` still run upstream's `edge-probe.cjs` / `spec-section.cjs` with

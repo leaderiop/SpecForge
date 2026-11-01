@@ -224,6 +224,17 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/verify-work.md", 715),
     ("gsd-core/workflows/verify-work.md", 716),
     ("gsd-core/workflows/verify-work.md", 717),
+    // G4 plan 05 T3: the wave's worktree manifest is tab-separated lines, its file `.tsv`; the quick batch's list is
+    // `quick_id<TAB>description` lines, its merge-eligible prefix a bash array, its route a `case`.
+    ("gsd-core/workflows/execute-phase.md", 650),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 30),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 37),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 43),
+    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 11),
+    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 12),
+    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 16),
+    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 24),
+    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 30),
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[

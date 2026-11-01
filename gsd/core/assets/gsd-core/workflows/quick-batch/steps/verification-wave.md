@@ -62,7 +62,7 @@ as a verdict, and never drop the item silently.
 `routeVerificationOutcome`, `src/quick-batch-dispatch.cts` — the single
 source of truth for this routing, never re-derived inline):
 ```bash
-QB_VERIFY_ROUTE_JSON=$(jq -n --arg s "$STATUS" '{action: (if $s == "passed" then "complete" elif $s == "human_needed" then "human_needed" else "failed" end)}')   # quick-batch verification-routing: the batch router is not part of @gsd/core
+case "$STATUS" in passed) QB_VERIFY_ACTION=complete ;; human_needed) QB_VERIFY_ACTION=human_needed ;; *) QB_VERIFY_ACTION=failed ;; esac   # quick-batch verification-routing, its `action`: the batch router is not part of @gsd/core
 ```
 
 | `action` | Meaning | What this step does |
