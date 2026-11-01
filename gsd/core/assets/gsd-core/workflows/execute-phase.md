@@ -239,9 +239,9 @@ Offer these recovery options:
 if [ "$TDD_MODE" = "true" ]; then
   IS_BEHAVIOR_ADDING="true"   # task.is-behavior-adding is not part of @gsd/core: treat every task as behavior-adding
   if [ "$IS_BEHAVIOR_ADDING" = "true" ]; then
-    # #5164: the same resolver, scope and milestone bound as safe_resume_gate — anchored,
-    # zero-pad tolerant (#4003, #4619, #4748), this branch only. A padded literal grep
-    # hard-halted on a correct unpadded RED commit.
+    # #5164: the RED commit is one of this plan's own commit entities (gsd-git files a commit under the
+    # plan its subject names; the plan id carries the milestone): a test-file commit of another plan, or
+    # of none, is not this plan's RED commit. jq exit 4 (no answer to read) is "could not look".
     # #4379: this pathspec IS the gate's definition of "a test file". It was
     # JS/TS-only, so Go tripped on every task; and `**/` never matches a
     # root-level path, so a root `foo.test.js` was invisible too. Bare globs
@@ -249,10 +249,10 @@ if [ "$TDD_MODE" = "true" ]; then
     # the gate pass on any in-scope commit. Trade-offs and the Rust gap:
     # references/tdd.md § Create first test file.
 
-    RED_COMMIT=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; git log -n 1 --format=%H -- '*.test.*' '*.spec.*' 'tests/' '__tests__/' '*_test.go' 'test_*.py' '*_test.py' '*_test.exs' '*_spec.rb' '*_test.rb' 2>/dev/null) && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
+    RED_COMMIT=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "$PLAN_ID" --kinds commit --format json | jq -ce --arg plan "$PLAN_ID" '{commits: [.nodes[] | select(.kind == "commit" and ((.fields.plan // "") as $p | $p == $plan or ($p | endswith("/" + $plan)))) | select(any(.fields.files[]?; test("\\.(test|spec)\\.|^(tests|__tests__)/|^test_.*\\.py$|_test\\.(go|py|exs|rb)$|_spec\\.rb$"))) | {sha: .fields.hash, subject: .fields.subject}]}') && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?
     # Exit 69 (UNAVAILABLE) = the scope could not be resolved: that is not "missing RED commit" (#5170).
     if [ "$RED_SCOPE_RC" -ne 0 ]; then echo "TDD GATE UNAVAILABLE: could not resolve the plan's commits for ${PLAN_ID}/${TASK_ID} (evaluation-scope exit ${RED_SCOPE_RC})"; exit 1; fi
-    RED_COMMIT=$(git show -s --abbrev=10 --format='%h %s' "$RED_COMMIT" 2>/dev/null)   # the line above prints one sha, not JSON
+    RED_COMMIT=$(printf '%s' "$RED_COMMIT" | jq -r '.commits[0] // empty | "\(.sha[0:10]) \(.subject)"' 2>/dev/null)
     if [ -z "$RED_COMMIT" ]; then
       : # the last gate trip is not recorded: STATE is computed
       echo "TDD GATE TRIPPED: missing RED commit for ${PLAN_ID}/${TASK_ID}"
@@ -898,7 +898,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    # Cleanup-tail: remove residual agent worktrees after a cross-wave-dependency deviation.
    # Uses only the current wave manifest to avoid touching unrelated active agents (#3384).
    WT_PATHS_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-paths-XXXXXX")
-   { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else jq -rs 'if length == 0 then error("manifest is empty") else .[0] end | (.worktrees // []) | if type == "array" then .[] else error("worktrees is not a list") end | .worktree_path // empty' "$WAVE_WORKTREE_MANIFEST"; fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
+   { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else jq -rs 'if length == 0 then error("manifest is empty") elif length > 1 then error("manifest holds more than one document") else .[0] end | (.worktrees // []) | if type == "array" then .[] else error("worktrees is not a list") end | .worktree_path // empty' "$WAVE_WORKTREE_MANIFEST"; fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
    while IFS= read -r WT; do
      [ -z "$WT" ] && continue
      WT_BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null)

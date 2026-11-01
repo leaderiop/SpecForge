@@ -21,7 +21,11 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/references/specless-probe-fallback.md", 110),
     ("gsd-core/references/specless-probe-fallback.md", 115),
     ("gsd-core/workflows/execute-phase.md", 225),
-    // the TDD gate's line above prints one sha, not JSON: the commit is shown with git
+    // the TDD gate: its comment says the RED commit is one of the plan's own commit entities, and the
+    // reader takes that commit from the `{commits: [...]}` its producer builds with jq
+    ("gsd-core/workflows/execute-phase.md", 240),
+    ("gsd-core/workflows/execute-phase.md", 241),
+    ("gsd-core/workflows/execute-phase.md", 242),
     ("gsd-core/workflows/execute-phase.md", 253),
     (
         "gsd-core/workflows/execute-phase/steps/completion-reconciliation.md",

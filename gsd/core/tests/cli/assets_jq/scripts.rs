@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use super::{Shell, asset, block, both, has_node, line, q, run_with_node, upstream};
+use super::{Shell, asset, block, both, line, q, upstream};
 
 /// T3, end to end: the commit lines' producer (`specforge query … --kinds commit`) and reader, in a project whose plan
 /// 01-01 has a commit, with `specforge` on a `PATH` that holds no node. It confirms the field paths the readers name.
@@ -36,29 +36,6 @@ fn the_commit_readers_read_the_commit_entities() {
         "{err}"
     );
 
-    // the TDD gate's producer prints one sha; the reader names it with git (node's JSON.parse of it printed nothing)
-    let read = line(&text, "RED_COMMIT=$(git show");
-    let (out, err, _) = run(&format!(
-        "RED_COMMIT={hash}\n{read}\nprintf '%s' \"$RED_COMMIT\""
-    ));
-    assert_eq!(
-        out,
-        format!("{} feat(01-01): Store module", &hash[..10]),
-        "{err}"
-    );
-    let (out, _, _) = run(&format!("RED_COMMIT=\n{read}\nprintf '%s' \"$RED_COMMIT\""));
-    assert_eq!(out, "", "no RED commit is no RED commit");
-    if has_node() {
-        let up = upstream("gsd-core/workflows/execute-phase.md");
-        let theirs = line(&up, "RED_COMMIT=$(printf");
-        let script = format!("RED_COMMIT={hash}\n{theirs}\nprintf '%s' \"$RED_COMMIT\"");
-        assert_eq!(
-            run_with_node(&script),
-            "",
-            "upstream's reader on a plain sha"
-        );
-    }
-
     let text = asset("gsd-core/workflows/execute-phase/steps/completion-reconciliation.md");
     let produce = line(&text, "COMMITS_SCOPE=$(").replace("{phase_number}-{plan_padded}", "01-01");
     let read = line(&text, "if [ \"$COMMITS_SCOPE_RC\" -eq 0 ]");
@@ -66,6 +43,61 @@ fn the_commit_readers_read_the_commit_entities() {
         "{produce}\nCOMMITS_FOUND=\"\"\n{read}\nprintf '%s' \"$COMMITS_FOUND\""
     ));
     assert_eq!(out, hash, "{err}");
+}
+
+/// Review of plan 03, item 1: the TDD gate (execute-phase.md, `TDD_MODE`) runs from `RED_COMMIT=$(` through its
+/// `TDD GATE TRIPPED` exit. A test-file commit outside the plan, or a plan commit that touches no test file, is no RED
+/// commit; a commit of the plan that touches a test file is.
+#[test]
+fn the_tdd_gate_finds_the_red_commit_among_the_plans_own_commits() {
+    let Some(sh) = Shell::new() else { return };
+    std::os::unix::fs::symlink(
+        std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"),
+        sh.bin.path().join("specforge"),
+    )
+    .expect("a link");
+    let text = asset("gsd-core/workflows/execute-phase.md");
+    let gate = format!(
+        "PLAN_ID=v1.0/01/01-01\nTASK_ID=T1\n{}\n      exit 1\n    fi\nprintf '%s' \"$RED_COMMIT\"",
+        block(&text, "RED_COMMIT=$(", "TDD GATE TRIPPED")
+    );
+    let p = crate::harness::project("execute");
+    p.commit();
+    p.git_commit(
+        "feat(01-01): Store module",
+        &[("src/a.js", "x\n")],
+        "2026-10-29T09:00:00Z",
+    );
+    // a test file, but another plan's commit, then one no plan names
+    p.git_commit(
+        "test(01-02): failing test",
+        &[("test/done.test.js", "t\n")],
+        "2026-10-29T09:10:00Z",
+    );
+    p.git_commit(
+        "chore: tidy the tests",
+        &[("tests/x.rs", "t\n")],
+        "2026-10-29T09:20:00Z",
+    );
+    let (out, err, code) = sh.run_in(p.root(), &gate);
+    assert_eq!(
+        code, 1,
+        "no RED commit of 01-01: the gate trips\n{out}\n{err}"
+    );
+    assert!(out.contains("TDD GATE TRIPPED"), "{out}\n{err}");
+
+    let red = p.git_commit(
+        "test(01-01): failing store test",
+        &[("test/tasks.test.js", "t\n")],
+        "2026-10-29T09:30:00Z",
+    );
+    let (out, err, code) = sh.run_in(p.root(), &gate);
+    assert_eq!(code, 0, "{out}\n{err}");
+    assert_eq!(
+        out,
+        format!("{} test(01-01): failing store test", &red[..10]),
+        "{err}"
+    );
 }
 
 /// Runs `git args` in `dir` with no user configuration.
@@ -287,6 +319,11 @@ fn the_worktree_manifest_is_written_and_read_with_jq() {
         (Some(""), "[1]"),
         (Some("  \n"), "[1]"),
         (Some("{not json"), "[1]"),
+        // two documents: which one is the manifest is not known, so the cleanup refuses
+        (
+            Some(r#"{"worktrees":[{"worktree_path":"/w/a"}]} {"worktrees":[]}"#),
+            "[1]",
+        ),
         (
             Some(r#"{"worktrees":{"a":{"worktree_path":"/w/a"}}}"#),
             "[1]",
