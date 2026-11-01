@@ -721,3 +721,35 @@ fn a_phases_counts_are_read_by_its_own_id() {
         }
     }
 }
+
+/// Re-review of plan 05, item 6: the review text reaches `plan-coverage` as an argument, which a long review can
+/// overflow (32,767 characters for a whole command line on Windows). A failed check warns and leaves an incomplete
+/// report naming the failure, never the empty file a reader takes for "nothing to report".
+#[test]
+fn a_failed_plan_coverage_check_is_loud() {
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    let dir = tempfile::tempdir().expect("a run dir");
+    let review = dir.path().join("gsd-review-x.md");
+    std::fs::write(&review, "## 01-01\nfine\n").expect("a review");
+    let setup = format!(
+        "RUN_DIR={}\nSLUG=x\nREVIEW_FILE={}\nPHASE_ID=v1.0/99",
+        q(&dir.path().display().to_string()),
+        q(&review.display().to_string())
+    );
+    let (_, err) = run(
+        &sh,
+        &p,
+        "gsd-core/workflows/review.md",
+        &setup,
+        &["specforge gsd plan-coverage"],
+        "",
+    );
+    let report =
+        std::fs::read_to_string(dir.path().join(".plan-coverage-x.json")).expect("a report");
+    let report: serde_json::Value =
+        serde_json::from_str(&report).unwrap_or_else(|e| panic!("{e}: {report:?}\n{err}"));
+    assert_eq!(report["complete"], false, "{report}");
+    assert!(report["error"].is_string(), "{report}");
+    assert!(err.contains("plan-coverage failed for x"), "{err}");
+}

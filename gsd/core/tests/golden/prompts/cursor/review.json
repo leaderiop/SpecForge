@@ -61,7 +61,7 @@
     "**Structured reviewer lanes.** The `ollama`, `lm_studio`, `llama_cpp`, `opencode` and",
     "`antigravity` lanes answer in JSON. Write each lane's raw answer to its output file and read"
   ],
-  "bytes": 60294,
+  "bytes": 60751,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8fcdeb357ecfc8aefb705057c01421fc3b3c1e408ac8fa1d3017917b1b1c4cb2",
+    "digest": "sha256:40a284aaeec5db2b000d5947f5c4e0cf45480bfefcf035aead29f39719b823e9",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "8fcdeb357ecfc8aefb705057c01421fc3b3c1e408ac8fa1d3017917b1b1c4cb2"
+  "sha256": "40a284aaeec5db2b000d5947f5c4e0cf45480bfefcf035aead29f39719b823e9"
 }

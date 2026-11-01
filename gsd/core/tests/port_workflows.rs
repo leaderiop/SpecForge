@@ -23,6 +23,10 @@ mod quick_rewrites;
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
 /// told the agent something false.
 const REWRITTEN: &[(&str, usize)] = &[
+    // Plan 05 re-review item 6: a failed plan-coverage check is an incomplete report; the argument limit is named.
+    ("gsd-core/workflows/spec-phase.md", 280),
+    ("gsd-core/workflows/review.md", 696),
+    ("gsd-core/references/specless-probe-fallback.md", 98),
     // Plan 05 re-review item 4: a phase's counts are the progress report of that phase alone, by its id.
     ("gsd-core/workflows/progress.md", 249),
     ("gsd-core/workflows/progress.md", 248),

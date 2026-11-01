@@ -677,7 +677,7 @@ for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   grep -q "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
   grep -q "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
 
-  specforge gsd plan-coverage "$PHASE_ID" --review "$(< "$REVIEW_FILE")" --format json > "$RUN_DIR/.plan-coverage-$SLUG.json" || : > "$RUN_DIR/.plan-coverage-$SLUG.json"   # the phase's plans, each id standing alone in the review; a failed check leaves an empty report
+  specforge gsd plan-coverage "$PHASE_ID" --review "$(< "$REVIEW_FILE")" --format json > "$RUN_DIR/.plan-coverage-$SLUG.json" || { echo "⚠ plan-coverage failed for $SLUG (see the error above; the review is passed as an argument, and a command line over the platform's limit, 32,767 characters on Windows, cannot be run): its coverage is unknown" >&2; printf '%s\n' '{"complete":false,"missing_ids":null,"total":null,"error":"plan-coverage failed"}' > "$RUN_DIR/.plan-coverage-$SLUG.json"; }   # the phase's plans, each id standing alone in the review; a failed check is an incomplete report, never an empty one
 
 
 
@@ -695,7 +695,7 @@ for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
 done
 ```
 
-Each `${RUN_DIR}/.plan-coverage-<slug>.json` carries `{complete, missing_ids, total}` for one
+Each `${RUN_DIR}/.plan-coverage-<slug>.json` carries `{complete, missing_ids, total}` (with `error` and `complete: false` when the check failed: record that lane as incomplete, its coverage unknown) for one
 graded lane. Collect these into a `plan_coverage` frontmatter block — **only** when at least one
 graded lane has `complete: false` (mirrors the existing `trimmed_reviewers` precedent: present
 only when there is something to report):
