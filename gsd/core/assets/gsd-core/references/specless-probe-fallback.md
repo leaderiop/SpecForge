@@ -97,7 +97,7 @@ JSON
 # Guard — fail loud on empty/invalid array OR a still-present `<replace:>` placeholder (forgotten
 # substitution would yield a bogus report). Never a silent no-op.
 if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
-  echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from {phase_req_ids} before running." >&2
+  echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from {phase_req_ids} before running." >&2   # also when the JSON is over the command line's limit (32,767 characters on Windows): it is passed as an argument
   exit 1
 fi
 # Invoke + CAPTURE, exit-checked (engine FAILS CLOSED exit 2 on bad shape; a bare COVERAGE=$(node …)

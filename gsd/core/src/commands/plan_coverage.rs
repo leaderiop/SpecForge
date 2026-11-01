@@ -38,7 +38,8 @@ pub fn coverage(ids: &[&str], review: &str) -> Value {
 fn plan_coverage(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let phase = call.str("phase").ok_or("plan_coverage needs a phase")?;
     // shortcut: the text comes as an argument (a command reads no runtime path), so a review over the platform's
-    // argument size (128 KiB on Linux) cannot be passed; read the lane's file through the host when one exceeds it
+    // command-line limit (32,767 characters for a whole command line on Windows, 128 KiB per argument on Linux) cannot
+    // be passed; review.md warns and records the lane as incomplete. Upgrade: a host-read file argument
     let review = call
         .str("review")
         .ok_or("plan_coverage needs --review, the reviewer's text")?;

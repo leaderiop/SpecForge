@@ -102,6 +102,7 @@ they differ from `gsd-tools` v1.19.0 in these named ways. Backlog (`999.x`) phas
 | `stats.requirements_complete` | the `- [x]` checkbox lines | requirements of `status` `complete` (a `gaps_found` one is not counted) |
 | `percent`, `plan_percent` | `null` unless the phase scope is complete; capped at 100 | always a number, not capped (a summary never outnumbers its plans here) |
 | `progress_report` status of a phase nothing has begun | `Pending` | `Pending` (as `progress json`) |
+| `progress_report --phase <id>` | no such option: a workflow picks the phase by number from the current milestone | that phase alone, from its own milestone, so a later milestone's phase (or `--reset-phase-numbers`) reads its own counts |
 
 ### Waiting on the kernel
 

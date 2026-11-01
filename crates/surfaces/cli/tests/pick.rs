@@ -94,8 +94,10 @@ fn check_pick_refuses_an_explicit_human_format() {
     assert!(ran.stderr.contains("--pick"), "{}", ran.stderr);
 }
 
+/// Plan 05 re-review, item 5: the cells are joined by the ASCII unit separator (0x1f), which is not IFS whitespace, so
+/// `IFS=$'\x1f' read -r` keeps an empty cell where a tab would collapse it, under macOS's bash 3.2 as under bash 5.
 #[test]
-fn fields_print_one_tab_separated_row_per_item() {
+fn fields_rows_keep_an_empty_cell_under_a_plain_read() {
     let dir = project();
     let cli = Cli::on(&dir);
     for command in ["export", "query"] {
@@ -103,18 +105,41 @@ fn fields_print_one_tab_separated_row_per_item() {
         if command == "query" {
             args.extend(["gamma", "--depth", "1"]);
         }
-        args.extend(["--pick", ".nodes[]", "--fields", "kind,id,fields.missing"]);
+        args.extend(["--pick", ".nodes[]", "--fields", "fields.missing,kind,id"]);
         let ran = cli.run(&args);
         assert_eq!(ran.code, 0, "{command}: {}", ran.stderr);
         // one row per node, a cell per key, and an empty cell where the value is missing
         let mut rows: Vec<&str> = ran.stdout.lines().collect();
         rows.sort_unstable();
         let want: &[&str] = if command == "export" {
-            &["behavior\talpha\t", "feature\tgamma\t"]
+            &["\u{1f}behavior\u{1f}alpha", "\u{1f}feature\u{1f}gamma"]
         } else {
-            &["feature\tgamma\t"]
+            &["\u{1f}feature\u{1f}gamma"]
         };
         assert_eq!(rows, want, "{command}");
+        for bash in ["/bin/bash", "bash"] {
+            let read = format!(
+                "while IFS=$'\\x1f' read -r a b c; do printf '[%s][%s][%s]\\n' \"$a\" \"$b\" \"$c\"; done <<'EOF'\n{}EOF",
+                ran.stdout
+            );
+            let Ok(out) = std::process::Command::new(bash)
+                .args(["-c", &read])
+                .stdin(std::process::Stdio::null())
+                .output()
+            else {
+                continue;
+            };
+            let mut cells: Vec<String> = String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .map(str::to_string)
+                .collect();
+            cells.sort_unstable();
+            let want: Vec<String> = want
+                .iter()
+                .map(|row| format!("[{}]", row.replace('\u{1f}', "][")))
+                .collect();
+            assert_eq!(cells, want, "{command} under {bash}");
+        }
     }
     let ran = cli.run(&["export", "--fields", "id"]);
     assert_eq!(ran.code, 2, "--fields needs --pick: {}", ran.stderr);

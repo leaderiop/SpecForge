@@ -185,10 +185,10 @@ Run plan-phase **inline** (do NOT wrap it in Agent()). The convergence orchestra
 
 After plan-phase completes, verify plans were created. This asks "did initial
 planning write files to disk" — a planner-produced-nothing check, not
-outstanding-work counting — so it takes the PHYSICAL set (`plan_count_all`,
-`status: superseded` INCLUDED, #3218):
+outstanding-work counting — so it takes every plan of the phase (#3218), the progress
+report of this phase alone, by its id:
 ```bash
-PLAN_COUNT=$(specforge gsd progress-report --pick ".phases[number=${PHASE_ID##*/}].plans")   # every plan of the phase: a plan has no superseded status
+PLAN_COUNT=$(specforge gsd progress-report --phase "$PHASE_ID" --pick '.phases[0].plans')   # every plan of the phase: a plan has no superseded status
 ```
 
 If PLAN_COUNT == 0: Error — initial planning failed. Exit.

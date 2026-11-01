@@ -83,24 +83,26 @@ fn the_regression_gate_keeps_every_verification_when_no_phase_is_named() {
     let Some(sh) = shell() else { return };
     let p = taskboard();
     let path = "gsd-core/workflows/execute-phase/steps/regression-gate.md";
-    let prior = |number: &str| {
+    let prior = |phase: &str| {
         run(
             &sh,
             &p,
             path,
-            &format!("MILESTONE=v1.0\nPHASE_NUMBER={number}"),
+            &format!(
+                "MILESTONE=v1.0\nPHASE_ID={phase}\nPHASE_NUMBER={}",
+                phase.rsplit('/').next().unwrap_or("")
+            ),
             &["PRIOR_VERIFICATIONS=$("],
             "printf '[%s]' \"$PRIOR_VERIFICATIONS\"",
         )
         .0
     };
     assert_eq!(prior(""), "[v1.0/01/01-VERIFICATION]");
-    assert_eq!(prior("02"), "[v1.0/01/01-VERIFICATION]");
-    assert_eq!(prior("01"), "[]");
-    // plan 05 review R11: the phase is matched exactly, by its id's prefix, not as a substring of every id (`1` is in
-    // `v1.0`)
-    assert_eq!(prior("1"), "[v1.0/01/01-VERIFICATION]");
-    assert_eq!(prior("0"), "[v1.0/01/01-VERIFICATION]");
+    assert_eq!(prior("v1.0/02"), "[v1.0/01/01-VERIFICATION]");
+    // re-review item 9: the phase is matched by its exact id, `$PHASE_ID/`, never by a number under `$MILESTONE`
+    assert_eq!(prior("v1.0/01"), "[]");
+    assert_eq!(prior("v2.0/01"), "[v1.0/01/01-VERIFICATION]");
+    assert_eq!(prior("v1.0/0"), "[v1.0/01/01-VERIFICATION]");
 }
 
 #[test]
@@ -358,7 +360,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         ),
         (
             "gsd-core/workflows/pause-work.md",
-            "while IFS=$'\\t' read -r s line",
+            "while IFS=$'\\x1f' read -r s line",
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
@@ -366,7 +368,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
-            "while IFS=$'\\t' read -r ph goal",
+            "while IFS=$'\\x1f' read -r ph goal",
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
@@ -637,7 +639,7 @@ fn the_requirements_guard_refuses_a_placeholder_or_an_empty_list() {
     }
 }
 
-/// R2: the text scans read one `id<TAB>text` row per entity (`--fields`) and match in a `case`: a deferred goal and a
+/// R2: the text scans read one `id<0x1f>text` row per entity (`--fields`) and match in a `case`: a deferred goal and a
 /// placeholder one-liner are named by their entity's id, the others not.
 #[test]
 fn the_text_scans_read_one_row_per_entity() {
@@ -646,11 +648,11 @@ fn the_text_scans_read_one_row_per_entity() {
     let scan = |path: &str, start: &str| run(&sh, &p, path, "MILESTONE=v1.0", &[start], "").0;
     let deferred = (
         "gsd-core/workflows/progress/steps/forensic-audit.md",
-        "while IFS=$'\\t' read -r ph goal",
+        "while IFS=$'\\x1f' read -r ph goal",
     );
     let placeholder = (
         "gsd-core/workflows/pause-work.md",
-        "while IFS=$'\\t' read -r s line",
+        "while IFS=$'\\x1f' read -r s line",
     );
     assert_eq!(scan(deferred.0, deferred.1), "");
     assert_eq!(scan(placeholder.0, placeholder.1), "");
@@ -676,4 +678,117 @@ fn the_text_scans_read_one_row_per_entity() {
     let summaries = scan(placeholder.0, placeholder.1);
     assert_eq!(summaries.lines().count(), 1, "{summaries}");
     assert!(summaries.contains("-SUMMARY"), "{summaries}");
+}
+
+/// Re-review of plan 05, item 4: a phase's plan and summary counts are its own, read by its id, not the progress
+/// report's phase of the same number in the current milestone. Here a later milestone restarts its numbers
+/// (`--reset-phase-numbers`): v2.0/01 has two plans and no summary, v1.0/01 two plans with their summaries.
+#[test]
+fn a_phases_counts_are_read_by_its_own_id() {
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    p.write(
+        "spec/v2.0.spec",
+        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\n\
+         phase 01 \"Sync\" {\n  milestone v2.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync\"\n}\n\n\
+         plan 01-01 \"Sync model\" {\n  phase v2.0/01\n  type execute\n  objective \"Sync\"\n}\n\n\
+         plan 01-02 \"Sync command\" {\n  phase v2.0/01\n  type execute\n  objective \"Sync\"\n}\n",
+    );
+    for (path, starts, show) in [
+        (
+            "gsd-core/workflows/execute-plan.md",
+            &["PLAN_COUNT=$(", "SUMMARY_COUNT=$("][..],
+            "printf '%s/%s' \"$SUMMARY_COUNT\" \"$PLAN_COUNT\"",
+        ),
+        (
+            "gsd-core/workflows/progress.md",
+            &["X=$(", "Y=$("][..],
+            "printf '%s/%s' \"$Y\" \"$X\"",
+        ),
+        (
+            "gsd-core/workflows/plan-review-convergence.md",
+            &["PLAN_COUNT=$("][..],
+            "printf '?/%s' \"$PLAN_COUNT\"",
+        ),
+    ] {
+        for (phase, want) in [("v2.0/01", "0/2"), ("v1.0/01", "2/2"), ("v1.0/02", "0/1")] {
+            let want = if path.contains("convergence") {
+                format!("?/{}", &want[2..])
+            } else {
+                want.to_string()
+            };
+            let setup = format!("PHASE_ID={phase}\nCURRENT_PHASE={phase}");
+            let (out, err) = run(&sh, &p, path, &setup, starts, show);
+            assert_eq!(out, want, "{path} {phase}: {err}");
+        }
+    }
+}
+
+/// Re-review of plan 05, item 6: the review text reaches `plan-coverage` as an argument, which a long review can
+/// overflow (32,767 characters for a whole command line on Windows). A failed check warns and leaves an incomplete
+/// report naming the failure, never the empty file a reader takes for "nothing to report".
+#[test]
+fn a_failed_plan_coverage_check_is_loud() {
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    let dir = tempfile::tempdir().expect("a run dir");
+    let review = dir.path().join("gsd-review-x.md");
+    std::fs::write(&review, "## 01-01\nfine\n").expect("a review");
+    let setup = format!(
+        "RUN_DIR={}\nSLUG=x\nREVIEW_FILE={}\nPHASE_ID=v1.0/99",
+        q(&dir.path().display().to_string()),
+        q(&review.display().to_string())
+    );
+    let (_, err) = run(
+        &sh,
+        &p,
+        "gsd-core/workflows/review.md",
+        &setup,
+        &["specforge gsd plan-coverage"],
+        "",
+    );
+    let report =
+        std::fs::read_to_string(dir.path().join(".plan-coverage-x.json")).expect("a report");
+    let report: serde_json::Value =
+        serde_json::from_str(&report).unwrap_or_else(|e| panic!("{e}: {report:?}\n{err}"));
+    assert_eq!(report["complete"], false, "{report}");
+    assert!(report["error"].is_string(), "{report}");
+    assert!(err.contains("plan-coverage failed for x"), "{err}");
+}
+
+/// Re-review of plan 05, item 7: progress's debt step describes `verification-debt`'s own answer, `{milestone,
+/// current, archived, archived_total, blockers}`, not upstream's audit payload, and a debt that could not be read
+/// says so instead of counting as none.
+#[test]
+fn the_debt_step_reads_the_verification_debt_answer() {
+    let path = "gsd-core/workflows/progress.md";
+    let text = asset(path);
+    let step = block(&text, "**Step 1.6:", "**Step 1.7:");
+    for upstream in [
+        "parse_gap_files",
+        "summary.total_items",
+        "archived_milestone",
+        "getMilestonePhaseFilter",
+        "@file:",
+        "io.cjs",
+        "parse_gap: true",
+    ] {
+        assert!(!step.contains(upstream), "{path} still names {upstream}");
+    }
+    assert!(
+        step.contains("`{milestone, current, archived, archived_total, blockers}`"),
+        "{path}"
+    );
+    let Some(sh) = shell() else { return };
+    let p = taskboard();
+    let (out, err) = run(
+        &sh,
+        &p,
+        path,
+        "MILESTONE=v9.9",
+        &["DEBT=$(", "[ -n \"$DEBT\" ]"],
+        "printf '[%s]' \"$DEBT\"",
+    );
+    assert_eq!(out, "[]", "{err}");
+    assert!(err.contains("could not be read"), "{err}");
 }

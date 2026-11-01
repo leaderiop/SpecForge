@@ -39,8 +39,8 @@ If phase not found, exit with error: "Phase {PHASE_ARG} not found."
 Read the phase artifacts. PLAN.md and SUMMARY.md are required; VERIFICATION.md, UAT.md, and STATE.md are optional.
 
 **Required artifacts:**
-- the phase's plans (`specforge query "$PHASE_ID" --depth 2 --kinds plan --format context`)
-- the `summary` entities of its plans (`specforge query "$PHASE_ID" --depth 3 --kinds summary --format context`)
+- the phase's plans (`specforge query "$PHASE_ID" --depth 2 --kinds plan --pick ".nodes[fields.phase=$PHASE_ID].id"`, its own plans; read each one, `$PLAN_REF`, with `specforge query "$PLAN_REF" --depth 1 --format context`)
+- the `summary` entities of those plans (`specforge query "$PLAN_REF" --depth 1 --kinds summary --format context` for each)
 
 If PLAN.md or SUMMARY.md files are not found or missing, exit with error: "Required artifacts missing. PLAN.md and SUMMARY.md are required for learning extraction."
 
