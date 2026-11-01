@@ -985,7 +985,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    WAVE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:wave:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
    ```
 
-   Read the `activeHooks` array from `WAVE_POST_HOOKS_JSON` in-context (do NOT pipe through a shell parser).
+   Read the `activeHooks` of every line of `WAVE_POST_HOOKS_JSON`, one per capability extension, in-context (do NOT pipe through a shell parser).
 
    **If `activeHooks` is empty or absent:** Skip silently to step 5.8.
 

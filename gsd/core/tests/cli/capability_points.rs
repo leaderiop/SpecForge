@@ -78,15 +78,28 @@ fn the_hook_line_holds_one_answer_per_capability_extension() {
     for answer in &answers {
         assert!(answer["activeHooks"].is_array(), "{answer}");
     }
-    // the security gate's `case` reads the compact text of the security line
-    assert!(
-        lines
-            .lines()
-            .nth(1)
-            .unwrap()
-            .contains(r#""capId":"security""#),
-        "{lines}"
-    );
+    // the security gate asks `security-hooks` for its active security entries (plan 05 review R9): the pick prints
+    // the capId of each, as the answer's activeHooks hold them
+    let out = Command::new(std::env::var("SPECFORGE_BIN").expect("SPECFORGE_BIN"))
+        .current_dir(p.root())
+        .args([
+            "gsd",
+            "security-hooks",
+            "ship:pre",
+            "--pick",
+            ".activeHooks[capId=security].capId",
+        ])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .expect("specforge runs");
+    let active: String = answers[1]["activeHooks"]
+        .as_array()
+        .expect("activeHooks")
+        .iter()
+        .filter(|h| h["capId"] == "security")
+        .map(|_| "security\n")
+        .collect();
+    assert_eq!(String::from_utf8_lossy(&out.stdout), active, "{lines}");
 }
 
 /// `line` (the first line of `workflow` that starts with `var=`) run under `bash -c` in an empty project, with `bin`
@@ -148,43 +161,58 @@ fn a_capability_that_fails_is_warned_about_not_hidden() {
 
 /// REVIEW-security-part1 M2 and m3: the `security-gate` line of every workflow that has one fails closed when the
 /// command fails, and does not spawn it (or print an error) when no security hook is active, e.g. `@gsd/security`
-/// is not loaded.
+/// is not loaded. Plan 05 review R9: "active" is `security-hooks`' own answer, its active entries with `capId`
+/// security, not a substring of the hook line's text, which a skipped security hook also held.
 #[test]
 fn the_security_gate_line_fails_closed_and_stays_quiet_when_off() {
-    for (workflow, hooks) in [
-        ("ship.md", "SHIP_PRE_HOOKS_JSON"),
-        ("verify-work.md", "VERIFY_POST_HOOKS_JSON"),
+    for (workflow, hooks, point) in [
+        ("ship.md", "SHIP_PRE_HOOKS_JSON", "ship:pre"),
+        ("verify-work.md", "VERIFY_POST_HOOKS_JSON", "verify:post"),
         (
             "execute-phase/steps/verify-phase-goal.md",
             "VERIFY_POST_HOOKS_JSON",
+            "verify:post",
         ),
     ] {
         let bin = tempfile::tempdir().expect("a bin dir");
-        let marker = bin.path().join("spawned");
+        let (marker, asked) = (bin.path().join("spawned"), bin.path().join("asked"));
+        // `security-hooks` answers the pick: one `security` line when ACTIVE is set; the gate fails
         shim(
             bin.path(),
             "specforge",
             &format!(
-                "echo \"$@\" >> {}; echo 'no phase' >&2; exit 1",
+                "case \"$2\" in security-hooks) echo \"$@\" >> {}; [ -z \"$ACTIVE\" ] || echo security; exit 0;; esac\n\
+                 echo \"$@\" >> {}; echo 'no phase' >&2; exit 1",
+                asked.display(),
                 marker.display()
             ),
         );
-        let active = format!(
-            r#"{hooks}='{{"activeHooks":[{{"capId":"security","kind":"gate"}}],"skippedHooks":[]}}'"#
+        // the hook line names a security hook that is only skipped
+        let skipped = format!(
+            r#"{hooks}='{{"activeHooks":[],"skippedHooks":[{{"capId":"security","kind":"gate"}}]}}'"#
         );
-        let (json, _) = run_after(&active, workflow, "SECURITY_GATE_JSON", bin.path());
+        let (json, _) = run_after(
+            &format!("{skipped}\nexport ACTIVE=1"),
+            workflow,
+            "SECURITY_GATE_JSON",
+            bin.path(),
+        );
         let answer: serde_json::Value =
             serde_json::from_str(&json).unwrap_or_else(|e| panic!("{workflow}: {e}: {json}"));
         assert_eq!(answer["block"], true, "{workflow}: {json}");
         assert!(answer["details"]["exists"].is_null(), "{workflow}: {json}");
         assert!(marker.exists(), "{workflow}: the gate was not asked");
+        let question = std::fs::read_to_string(&asked).unwrap_or_default();
+        assert!(
+            question.contains(&format!("security-hooks {point}")),
+            "{workflow}: {question}"
+        );
         std::fs::remove_file(&marker).expect("the marker");
-        let off = format!(r#"{hooks}='{{"activeHooks":[],"skippedHooks":[]}}'"#);
-        let (json, err) = run_after(&off, workflow, "SECURITY_GATE_JSON", bin.path());
+        let (json, err) = run_after(&skipped, workflow, "SECURITY_GATE_JSON", bin.path());
         assert_eq!((json.as_str(), err.as_str()), ("", ""), "{workflow}");
         assert!(
             !marker.exists(),
-            "{workflow}: spawned with no security hook"
+            "{workflow}: spawned with no active security hook"
         );
     }
 }

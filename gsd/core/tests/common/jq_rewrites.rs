@@ -385,6 +385,16 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/review.md", 622),
     ("gsd-core/workflows/review.md", 623),
     ("gsd-core/workflows/review.md", 641),
+    // G4 plan 05 review R9: a `*_HOOKS_JSON` is one answer per capability extension, so the prose reads the
+    // `activeHooks` of every line.
+    ("gsd-core/references/autonomous-ui-design-contract.md", 13),
+    ("gsd-core/workflows/execute-phase.md", 986),
+    ("gsd-core/workflows/plan-phase.md", 517),
+    ("gsd-core/workflows/plan-phase.md", 1473),
+    ("gsd-core/workflows/quick.md", 305),
+    ("gsd-core/workflows/ship.md", 115),
+    ("gsd-core/workflows/ship.md", 538),
+    ("gsd-core/workflows/verify-work.md", 80),
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[

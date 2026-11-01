@@ -516,7 +516,7 @@ PLAN_PRE_HOOKS_JSON=${PLAN_PRE_HOOKS_JSON:-$(for c in ai codebase ops security u
 HOOKS_JSON="$PLAN_PRE_HOOKS_JSON"
 ```
 
-Read the `activeHooks` array directly from `PLAN_PRE_HOOKS_JSON` / `HOOKS_JSON` (in-context — do NOT invoke a shell pipeline).
+Read the `activeHooks` of every line of `PLAN_PRE_HOOKS_JSON` / `HOOKS_JSON`, one per capability extension (in-context — do NOT invoke a shell pipeline).
 
 **Branch 1 — all plan:pre hooks inactive (`activeHooks` is empty or absent):** Skip to step 6.
 
@@ -1472,7 +1472,7 @@ PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.r
 PHASE_REQ_IDS="${PHASE_REQ_IDS:-TBD}"
 ```
 
-Read the `activeHooks` array from `PLAN_POST_HOOKS_JSON` in-context. If
+Read the `activeHooks` of every line of `PLAN_POST_HOOKS_JSON`, one per capability extension, in-context. If
 `activeHooks` is empty or absent, skip this step silently — do NOT key the skip
 on any one capability's gate being absent (#3606: that skip silently dropped
 every other registered hook at this point).

@@ -71,8 +71,9 @@ const VERBS: &[&str] = &[
     "schema", "set", "settings",
 ];
 
-/// Commands of `@gsd/security` that core's text asks for when it is loaded (plan 16 T5, T6).
-const EXTENSION_COMMANDS: &[&str] = &["security-gate", "threat-ids"];
+/// Commands of `@gsd/security` that core's text asks for when it is loaded (plan 16 T5, T6; `security-hooks` for the
+/// security gate, plan 05 review R9).
+const EXTENSION_COMMANDS: &[&str] = &["security-gate", "security-hooks", "threat-ids"];
 
 #[test]
 fn a_ported_line_names_only_declared_tools() {

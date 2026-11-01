@@ -79,7 +79,7 @@ PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
 PHASE_NUMBER=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_number)
 ```
 
-Read the `activeHooks` array from `VERIFY_PRE_HOOKS_JSON` in-context (do NOT pipe through a shell parser).
+Read the `activeHooks` of every line of `VERIFY_PRE_HOOKS_JSON`, one per capability extension, in-context (do NOT pipe through a shell parser).
 
 **If `activeHooks` is empty or absent:** skip silently to `check_active_session`.
 
@@ -605,7 +605,7 @@ nonzero but every one is a verified gap resolution, #4983)
 
 ```bash
 VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --after-fingerprint "$PHASE_ID" --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
-SECURITY_GATE_JSON=$(case "$VERIFY_POST_HOOKS_JSON" in (*'"capId":"security"'*) specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}';; esac)
+SECURITY_GATE_JSON=$([ -z "$(specforge gsd security-hooks verify:post --after-fingerprint "$PHASE_ID" --pick '.activeHooks[capId=security].capId' 2>/dev/null)" ] || specforge gsd security-gate "$PHASE_ID" --format json 2>/dev/null || echo '{"block":true,"message":"security-gate could not be read","details":{"code":"SECURITY_GATE_READ_FAILED","exists":null,"threats_open":null}}')   # the gate runs when security-hooks answers an active security hook
 ```
 
 **Generic step dispatch:** dispatch every `kind == "step"` hook from `VERIFY_POST_HOOKS_JSON` per @gsd-core/references/loop-hook-dispatch.md (skip silently when none). Each step is advisory and best-effort — honor `onError` and continue. The secure-phase handling below is an additional specialization of one such hook, not a replacement for the generic dispatch. `--after-fingerprint "$PHASE_ID"` (#5105) moves a step whose declared artifact the phase already has (the capability extension decides: `@gsd/security` maps `SECURITY.md` to the phase having a `security_audit`) into `skippedHooks` instead of `activeHooks` — execute-phase already dispatched it before its own fingerprint (`execute-phase.md:1202`), so this re-dispatch is a no-op for that step and is not repeated here.
