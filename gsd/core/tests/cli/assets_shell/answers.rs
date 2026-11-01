@@ -265,6 +265,26 @@ fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
     assert_eq!(out, "tsv|");
 }
 
+/// Plan 05 review R12: `/gsd-pr-branch` holds no stub that stands for a sub-repository answer (`SUB_REPOS_JSON="[]"`,
+/// `RESULT=$(false)`, `REMOTE_SLUG=`): a sub-repository is another SpecForge project, so there is none, and the
+/// sub-repository step reports a failure without one.
+#[test]
+fn the_pr_branch_holds_no_sub_repository_stub() {
+    let Some(sh) = shell() else { return };
+    let text = asset("gsd-core/workflows/pr-branch.md");
+    for stub in ["SUB_REPOS_JSON=\"[]\"", "RESULT=$(false)", "REMOTE_SLUG="] {
+        assert!(
+            !text.lines().any(|l| l.trim_start().starts_with(stub)),
+            "{stub}"
+        );
+    }
+    let step = block(&text, "REPO_SAFE=", "SUBREPO_EXIT=");
+    let out = sh.run(&format!(
+        "REPO_REL=a\nCURRENT_BRANCH=main\n{step}\nprintf '[%s]' \"$SUBREPO_EXIT\""
+    ));
+    assert_eq!(out, "[1]");
+}
+
 #[test]
 fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
     let Some(sh) = shell() else { return };

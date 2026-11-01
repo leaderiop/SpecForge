@@ -427,6 +427,12 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/quick.md", 426),
     ("gsd-core/workflows/quick.md", 427),
     ("gsd-core/workflows/quick.md", 543),
+    // G4 plan 05 review R12: no seam ran for a sub-repository, so its exit is a failure; quick's empty-scope reason
+    // names what was read, with no resolver's exit 69.
+    ("gsd-core/workflows/pr-branch.md", 162),
+    ("gsd-core/workflows/quick.md", 598),
+    ("gsd-core/workflows/quick.md", 599),
+    ("gsd-core/workflows/quick.md", 605),
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[

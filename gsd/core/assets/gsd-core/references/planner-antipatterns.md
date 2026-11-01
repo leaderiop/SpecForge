@@ -210,16 +210,16 @@ Never emit `grep '714 tests'` or `grep '52 test files'` unless you ran the count
 
 **Bad — both sides default to "0" when files are missing:**
 ```bash
-EN_KEYS=$(grep -c '^  "' i18n/en.json 2>/dev/null || echo "0")
-DE_KEYS=$(grep -c '^  "' i18n/de.json 2>/dev/null || echo "0")
+EN_KEYS="${EN_KEYS:-0}"   # the agent's count of i18n/en.json's top-level keys, "0" when it could not read the file
+DE_KEYS="${DE_KEYS:-0}"   # the same for i18n/de.json
 [ "$EN_KEYS" = "$DE_KEYS" ] && echo "ok"
 ```
 If files don't exist (wrong path, etc.), both sides become `"0"`. Comparison passes. Gate certifies parity while measuring nothing.
 
 **Good — let failure propagate:**
 ```bash
-EN_KEYS=$(grep -c '^  "' src/i18n/en.json)
-DE_KEYS=$(grep -c '^  "' src/i18n/de.json)
+EN_KEYS="${EN_KEYS:?read src/i18n/en.json and count its top-level keys}"   # no count, no gate
+DE_KEYS="${DE_KEYS:?read src/i18n/de.json and count its top-level keys}"
 [ "$EN_KEYS" = "$DE_KEYS" ] && echo "ok"
 ```
 

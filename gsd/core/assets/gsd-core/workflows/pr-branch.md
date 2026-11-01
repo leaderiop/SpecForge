@@ -80,7 +80,7 @@ Read the sub-repo list from config using the canonical key path — `planning.su
 A non-zero exit code means the key is absent; treat that as "no sub-repos configured".
 
 ```bash
-SUB_REPOS_JSON="[]"   # planning.sub_repos: a sub-repository is another SpecForge project, so there are none to list
+# planning.sub_repos: a sub-repository is another SpecForge project, so there are none to list
 if [ $? -ne 0 ] || [ -z "$SUB_REPOS_JSON" ] || [ "$SUB_REPOS_JSON" = "null" ] || [ "$SUB_REPOS_JSON" = "[]" ]; then
   : # Not configured or empty — skip to analyze_commits
 fi
@@ -158,10 +158,10 @@ REPO_SAFE="${REPO_REL//\//-}"
 SUB_BRANCH="${CURRENT_BRANCH}-${REPO_SAFE}-pr"
 COMMIT_MSG="fix(${REPO_REL}): sync uncommitted changes for PR"
 
-RESULT=$(false)   # pr-subrepo: not available here, a sub-repository is another SpecForge project
+# pr-subrepo: not available here, a sub-repository is another SpecForge project
 
 
-SUBREPO_EXIT=$?
+SUBREPO_EXIT=1   # no seam ran, so no branch was pushed
 ```
 
 If the seam exited non-zero (stage/commit/push failure), report its error and move on to
@@ -180,7 +180,7 @@ companion PR. If `remote_slug` is null (non-GitHub remote), skip `gh pr create` 
 the push URL instead:
 
 ```bash
-REMOTE_SLUG=   # pr-subrepo is not available here: there is no remote_slug to read
+# pr-subrepo is not available here: there is no remote_slug to read
 
 
 
