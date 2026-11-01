@@ -32,33 +32,33 @@ command -v kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo "kimi-code
 # hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)
 for lane in "ollama http://localhost:11434 {{setting:review.ollama_host|}}" "lm_studio http://localhost:1234 {{setting:review.lm_studio_host|}}" "llama_cpp http://localhost:8080 {{setting:review.llama_cpp_host|}}"; do read -r name def host <<<"$lane"; { [ -z "$host" ] || [ "$host" = null ]; } && host=$def; curl -s --max-time 2 "$host/v1/models" >/dev/null 2>&1 && echo "$name:available" || echo "$name:missing"; done
 
-# jq prerequisite (#2589). The config/model/budget lookups in this workflow no
-# longer need jq — they use the native --raw/--pick flags. But the lanes listed
-# under "jq-dependent reviewer lanes" below parse structured JSON that specforge
-# does not emit (OpenAI-compatible /v1/chat/completions responses, opencode's
-# JSONL event stream, agy's conversation cache), so they cannot run without jq.
-# Probe it here rather than letting each lane swallow exit 127 into empty output.
-command -v jq >/dev/null 2>&1 && echo "jq:available" || echo "jq:missing"
+# No JSON tool here (#2589): the config, model and budget lookups read --pick, and
+# a structured lane answer (an OpenAI-compatible /v1/chat/completions response,
+# opencode's JSONL event stream, agy's conversation cache) is written raw to the
+# lane's output file for the agent to read, so no lane has a jq prerequisite.
+
+
+
 ```
 
-**jq-dependent reviewer lanes.** `jq` is a production prerequisite for the
-`ollama`, `lm_studio`, `llama_cpp`, `opencode`, and `antigravity` lanes only. If
-`detect_clis` reports `jq:missing`, treat those five as **undetected** — they
-follow the same "known-but-undetected" path as a missing CLI. Which path that is
+**Structured reviewer lanes.** The `ollama`, `lm_studio`, `llama_cpp`, `opencode` and
+`antigravity` lanes answer in JSON. Write each lane's raw answer to its output file and read
+the review text there (the response's message content; opencode's event text; agy's last
+reply). A lane is undetected only when its binary is missing or its server does not answer,
+and follows the same "known-but-undetected" path as a missing CLI. Which path that is
 depends on how the lane was selected (see the precedence rules below): reached
 through `review.default_reviewers` or `--all` it is an info note and the lane is
 ignored; named by an explicit flag it is an **error**, because the user asserted
-that lane. Tell the user to install jq:
+that lane.
 
-```
-NOTE: jq is not on PATH — the ollama, lm_studio, llama_cpp, opencode, and
-antigravity reviewer lanes are unavailable. Install jq (https://jqlang.org/download/)
-or select a lane that does not require it (--claude, --codex,
---coderabbit, --qwen, --cursor).
-```
 
-The remaining lanes (`claude`, `codex`, `coderabbit`, `qwen`, `cursor`)
-do not require jq and must stay selectable on a jq-less host.
+
+
+
+
+
+
+
 
 Parse flags from `$ARGUMENTS`:
 - `--claude` → include Claude
@@ -85,8 +85,8 @@ Reviewer-selection precedence:
 named on the command line and that cannot run is an **error**, surfaced and non-silent — even
 when other named lanes did run. Do not proceed with a thinner reviewer set and report success:
 `--codex --qwen` on a host without `qwen` fails, it does not quietly become a Codex-only
-review. This applies however the lane became unavailable — binary missing, prerequisite `jq`
-absent, or a local server not reachable.
+review. This applies however the lane became unavailable — binary missing
+or a local server not reachable.
 
 The asymmetry is deliberate: *not finding a lane nobody asked for is normal; failing to run a
 lane somebody asked for is an error.* A user who wants "whatever is available" has `--all`; a

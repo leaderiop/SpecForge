@@ -57,16 +57,20 @@ specforge check
 specforge settings --extension @gsd/core
 ```
 
-**Requirements.** The prompts' shell blocks need `bash` and `jq` on the `PATH` (and `git`, as upstream's do). node is
+**Requirements.** The prompts' shell blocks need `bash`, `git` and `specforge` on the `PATH`, and no jq anywhere: a value
+is read with `--pick` (`specforge query`, `export`, `check`, `settings` and the extension commands, ADR 0325), a document
+is read by the agent (`--format context` or `brief`, or a command's own JSON), gh filters its answers with `--jq`, and
+data a prompt owns (the wave's worktree manifest, the quick batch's list) is tab-separated lines. `gh` and the review
+lanes' own CLIs (codex, gemini, opencode, ollama, ...) are needed only for the steps that call those services. node is
 needed only where the user's own project is JavaScript: the dev-server probe of `references/checkpoints.md` and the
 verifier's module and CLI checks (`node -e "…require('$MODULE_PATH')…"`, `node $CLI_PATH`, at `agents/gsd-verifier.md`)
 (`KEEP` in `tests/port_tools.rs`). Beyond those, node is optional, only for these steps, which run upstream code
 @gsd/core does not install (`PENDING_NODE`): the edge probe `node "$EDGE_PROBE_JS"` (`workflows/spec-phase.md`,
 `references/specless-probe-fallback.md`), the spec-section check `node "$SPEC_SECTION_JS"`
 (`references/specless-probe-fallback.md`) and the disposition-ledger builder
-(`workflows/execute-phase/steps/code-review-disposition.md`). There is no health check for it: `health` is a guest command
-and cannot see the host's `PATH`. A block that needs jq fails on its first `jq` call with `command not found`, as one
-fails on a missing `git`.
+(`workflows/execute-phase/steps/code-review-disposition.md`). There is no health check for them: `health` is a guest
+command and cannot see the host's `PATH`. `tests/port_tools.rs` keeps jq out of every shell block and inline code run,
+and `tests/cli/assets_shell/` runs the rewritten lines with no jq and no node on the `PATH`.
 
 ## Folders
 

@@ -37,7 +37,7 @@ Read verification status via the canonical query (frontmatter-anchored, and tota
 STATUS=$(specforge query "${quick_id}" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "the verification of this task was refused — see the error above." >&2; exit 1; }; STATUS=${STATUS%%$'\n'*}; STATUS=${STATUS:-pending}
 ```
 
-`--pick status` returns the bare value, so this path needs **no `jq`**. That is deliberate: #2589
+`--pick` prints the bare value, so this path needs **no JSON tool**. That is deliberate: #2589
 established that a field read piped through jq yields an **empty** variable with no diagnostic on any
 machine without jq — the default on Windows/Git-Bash — which here would route a perfectly good
 `passed` verification into the recovery arm below.

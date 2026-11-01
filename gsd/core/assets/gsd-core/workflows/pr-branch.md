@@ -86,8 +86,8 @@ if [ $? -ne 0 ] || [ -z "$SUB_REPOS_JSON" ] || [ "$SUB_REPOS_JSON" = "null" ] ||
 fi
 ```
 
-Scan each sub-repo for uncommitted changes with jq and git (jq is a requirement of the
-shell blocks here, as git is). Write dirty repo names to a temp file so the list survives across
+Scan each sub-repo for uncommitted changes with git (the setting's list is split with `tr`; no
+JSON tool is needed). Write dirty repo names to a temp file so the list survives across
 subsequent command executions:
 
 ```bash
@@ -175,7 +175,7 @@ if [ "$SUBREPO_EXIT" -ne 0 ]; then
 fi
 ```
 
-Only when `$SUBREPO_EXIT` is `0`, parse the structured result with jq and open the
+Only when `$SUBREPO_EXIT` is `0`, read `remote_slug` from the structured result and open the
 companion PR. If `remote_slug` is null (non-GitHub remote), skip `gh pr create` and show
 the push URL instead:
 
