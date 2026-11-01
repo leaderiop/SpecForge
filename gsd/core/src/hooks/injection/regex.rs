@@ -23,13 +23,14 @@ fn js_space(c: char) -> bool {
 }
 
 #[derive(Debug, Clone)]
-enum Item {
+pub(super) enum Item {
     Ch(char),
     Space,
 }
 
+/// A parsed pattern, shared by the matcher and the test oracle of its differential test.
 #[derive(Debug, Clone)]
-enum Node {
+pub(super) enum Node {
     Char(char),
     Space,
     Class {
@@ -172,6 +173,19 @@ impl Parser<'_> {
     }
 }
 
+/// The tree of `source`, the text of a JavaScript regular expression literal.
+///
+/// # Panics
+///
+/// On syntax this matcher does not support.
+pub(super) fn parse(source: &str) -> Node {
+    let chars: Vec<char> = source.chars().collect();
+    let mut p = Parser { src: &chars, at: 0 };
+    let node = p.alt();
+    assert!(p.at == chars.len(), "unbalanced ')' in {source}");
+    node
+}
+
 impl Regex {
     /// Compiles `source`, the text of a JavaScript regular expression literal, for the `i` flag.
     ///
@@ -179,11 +193,9 @@ impl Regex {
     ///
     /// On syntax this matcher does not support.
     pub fn new(source: &str) -> Regex {
-        let chars: Vec<char> = source.chars().collect();
-        let mut p = Parser { src: &chars, at: 0 };
-        let node = p.alt();
-        assert!(p.at == chars.len(), "unbalanced ')' in {source}");
-        Regex { node }
+        Regex {
+            node: parse(source),
+        }
     }
 
     fn same(a: char, b: char) -> bool {
@@ -191,7 +203,7 @@ impl Regex {
     }
 
     /// Whether the one-character node `n` accepts `c`.
-    fn one(n: &Node, c: char) -> Option<bool> {
+    pub(super) fn one(n: &Node, c: char) -> Option<bool> {
         match n {
             Node::Char(x) => Some(Self::same(c, *x)),
             Node::Space => Some(js_space(c)),
