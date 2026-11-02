@@ -20,7 +20,7 @@ use specforge_component::fixtures::custom_bridge;
 use specforge_protocol_types::{CommandInput, RawGraph};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
-use specforge_wasm::{ExtensionCalls, Limits};
+use specforge_wasm::{ExtensionCalls, Limits, LoadError};
 
 /// The handshake of `@repro/grow` declaring a memory limit of `mb` MB: the
 /// answer of every export of the growing guest.
@@ -288,7 +288,7 @@ fn the_sandbox_contract_holds() {
 /// A runtime serving `@repro/limits`, a custom bridge guest held to a
 /// memory limit of 32 MB. Its handshake is not called, so `body` runs only
 /// in the calls a test makes.
-fn custom_guest(outside: &str, host: &str, body: &str) -> Result<ComponentRuntime, String> {
+fn custom_guest(outside: &str, host: &str, body: &str) -> Result<ComponentRuntime, LoadError> {
     guest_held_to(32, outside, host, body)
 }
 
@@ -298,7 +298,7 @@ fn guest_held_to(
     outside: &str,
     host: &str,
     body: &str,
-) -> Result<ComponentRuntime, String> {
+) -> Result<ComponentRuntime, LoadError> {
     let runtime = ComponentRuntime::new();
     runtime.load("@repro/limits", &custom_bridge(outside, host, body, "{}"))?;
     runtime.apply_limits(

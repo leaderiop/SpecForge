@@ -14,5 +14,5 @@ pub mod testing;
 pub use calls::{
     CallError, CallFailure, Encoded, ExtensionCalls, Handshake, Operation, pass_diagnostics,
 };
-pub use runtime::{ExtensionSettings, WasmCallResult, WasmRuntime, WasmTrapInfo};
+pub use runtime::{ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo};
 pub use sandbox::{Limits, Sandbox};

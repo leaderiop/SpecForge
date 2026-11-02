@@ -1,7 +1,7 @@
 #[cfg(feature = "testing")]
 use specforge_common::ExtensionEntry;
 #[cfg(feature = "testing")]
-use specforge_wasm::WasmRuntime;
+use specforge_wasm::{LoadError, WasmRuntime};
 
 /// One builtin extension: its package name, its crate under `extensions/`, the component
 /// `build-blobs` vendors into `extensions/<dir>/wasm/`, and the vendored bytes this host
@@ -66,7 +66,7 @@ pub const BUILTIN_VOCABULARY: &str = include_str!("../data/builtin-vocabulary.js
 ///
 /// Other entries (installed extensions, `.wasm` files) are skipped.
 #[cfg(feature = "testing")]
-pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Result<(), String> {
+pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Result<(), LoadError> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         if requested
             .iter()
@@ -81,7 +81,7 @@ pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Res
 /// Test support: puts all builtin Wasm extensions into a runtime outside the
 /// extension load (`Installed::load`).
 #[cfg(feature = "testing")]
-pub fn load_builtins(runtime: &dyn WasmRuntime) -> Result<(), String> {
+pub fn load_builtins(runtime: &dyn WasmRuntime) -> Result<(), LoadError> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         runtime.load(name, wasm_bytes)?;
     }

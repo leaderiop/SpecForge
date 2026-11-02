@@ -1,9 +1,12 @@
 //! What a binary declares, read the way every environment reads it.
 
-use specforge_common::{Diagnostic, codes};
+use specforge_common::Diagnostic;
 use specforge_protocol_types::ProtocolError;
 use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::{Loaded, load_declaration};
+
+use crate::LoadProblem;
+use crate::refusal::{self, Subject};
 
 /// The name a candidate is loaded under while it is read.
 const CANDIDATE: &str = "__candidate";
@@ -16,20 +19,21 @@ const CANDIDATE: &str = "__candidate";
 /// than the host's (ADR 0326). `add`, `publish` and `init` read a candidate
 /// through it.
 pub fn declaration_of(bytes: &[u8], runtime: &dyn WasmRuntime) -> Result<Loaded, Diagnostic> {
-    let invalid = |why: String| {
-        Diagnostic::new(
-            codes::E028,
-            format!("not a loadable SpecForge extension: {why}"),
-        )
-        .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2".to_string())
+    let refused = |problem: LoadProblem, declared: Option<String>| {
+        refusal::diagnostic(&problem, &Subject::Candidate { declared })
+            .expect("a refused load has its diagnostic")
     };
-    runtime.load(CANDIDATE, bytes).map_err(invalid)?;
+    runtime
+        .load(CANDIDATE, bytes)
+        .map_err(|error| refused(refusal::of_load(error), None))?;
     let loaded = load_declaration(runtime, CANDIDATE);
     runtime.unload(CANDIDATE);
-    loaded.map_err(|error| match error {
-        // Its message names the extension, both versions and the remedy.
-        ProtocolError::NewerVersion { .. } => Diagnostic::new(codes::E088, error.to_string()),
-        error => invalid(error.to_string()),
+    loaded.map_err(|error| {
+        let declared = match &error {
+            ProtocolError::NewerVersion { extension, .. } => Some(extension.clone()),
+            _ => None,
+        };
+        refused(refusal::of_protocol(error), declared)
     })
 }
 

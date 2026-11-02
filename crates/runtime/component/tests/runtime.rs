@@ -106,7 +106,7 @@ fn the_component_runtime_keeps_the_module_contract() {
 
 #[test]
 fn a_refused_load_names_no_load_key() {
-    let reason = ComponentRuntime::new()
+    let specforge_wasm::LoadError::Unloadable(reason) = ComponentRuntime::new()
         .load("@acme/the-key", b"not wasm")
         .unwrap_err();
 

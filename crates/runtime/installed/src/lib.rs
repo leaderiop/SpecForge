@@ -11,6 +11,7 @@ mod layout;
 mod load;
 mod lock;
 mod module;
+mod refusal;
 mod resolve;
 #[cfg(feature = "testing")]
 pub mod testing;

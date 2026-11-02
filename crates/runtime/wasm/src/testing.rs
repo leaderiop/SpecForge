@@ -17,7 +17,7 @@ use specforge_extension_sdk::{
     no_other_exports,
 };
 
-use crate::runtime::{ExtensionSettings, WasmCallResult, WasmRuntime, WasmTrapInfo};
+use crate::runtime::{ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo};
 use crate::sandbox::Limits;
 
 /// What builds an extension's contributions, per call (as its guest does).
@@ -69,6 +69,8 @@ pub struct InProcessRuntime {
     /// Binaries that serve an extension under whatever name they are
     /// loaded as ([`InProcessRuntime::binary`]).
     binaries: Vec<(Vec<u8>, Served)>,
+    /// Bytes whose load answers a refusal ([`InProcessRuntime::refusing`]).
+    refusals: Vec<(Vec<u8>, LoadError)>,
     overrides: Mutex<Overrides>,
     faults: Vec<(String, String)>,
     calls: Mutex<Vec<RecordedCall>>,
@@ -125,6 +127,13 @@ impl InProcessRuntime {
     ) -> Self {
         self.binaries
             .push((bytes.to_vec(), (Arc::new(build), no_other_exports)));
+        self
+    }
+
+    /// A load of exactly `bytes` answers `error`: the in-process seam for a refusal the component runtime gives
+    /// (an unknown host port, a foreign import), as [`Self::binary`] is for a declaration.
+    pub fn refusing(mut self, bytes: &[u8], error: LoadError) -> Self {
+        self.refusals.push((bytes.to_vec(), error));
         self
     }
 
@@ -225,7 +234,10 @@ impl WasmRuntime for InProcessRuntime {
     /// ([`InProcessRuntime::answer_raw`]), loads as it is (an extension
     /// served in process is whatever binary is installed under its name);
     /// any other bytes are no component it serves.
-    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
+    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), LoadError> {
+        if let Some((_, error)) = self.refusals.iter().find(|(known, _)| known == bytes) {
+            return Err(error.clone());
+        }
         let mut extensions = self.extensions.lock().expect("extensions lock");
         if let Some((_, served)) = self.binaries.iter().find(|(known, _)| known == bytes) {
             extensions.insert(name.to_string(), served.clone());
@@ -245,7 +257,9 @@ impl WasmRuntime for InProcessRuntime {
             extensions.insert(name.to_string(), (build, no_other_exports));
             return Ok(());
         }
-        Err("not a component the in-process runtime serves".to_string())
+        Err(LoadError::Unloadable(
+            "not a component the in-process runtime serves".to_string(),
+        ))
     }
 
     fn rename(&self, from: &str, to: &str) -> bool {

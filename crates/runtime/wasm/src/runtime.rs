@@ -65,6 +65,23 @@ impl ExtensionSettings {
     }
 }
 
+/// Why a runtime did not load a component (ADR 0326 D1a). Its text names no load key: the caller names its subject.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LoadError {
+    /// It does not compile as a component, or does not instantiate (a trap or a missing import in its start): why.
+    Unloadable(String),
+}
+
+impl std::fmt::Display for LoadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LoadError::Unloadable(reason) => f.write_str(reason),
+        }
+    }
+}
+
+impl std::error::Error for LoadError {}
+
 /// Testable abstraction over a Wasm runtime (wasmtime component engine).
 ///
 /// Compilation caching is a host-engine concern (wasmtime's native on-disk
@@ -76,9 +93,9 @@ impl ExtensionSettings {
 pub trait WasmRuntime: std::any::Any + Send + Sync {
     /// Compile the component `bytes` and register it under `name`,
     /// replacing what was loaded under it. The bytes are the ones the
-    /// caller checked: the runtime reads nothing else. A refusal's reason
-    /// names no key: the caller names its subject.
-    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String>;
+    /// caller checked: the runtime reads nothing else. A refusal names no
+    /// key: the caller names its subject.
+    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), LoadError>;
 
     /// Register what is loaded as `from` under `to` instead, without
     /// compiling it again. False when `from` is not loaded.
