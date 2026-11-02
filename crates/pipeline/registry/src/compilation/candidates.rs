@@ -106,6 +106,21 @@ impl CandidateVocabulary {
         self.kinds.get(keyword).map(String::as_str)
     }
 
+    /// What to do about the kind written `keyword` that no loaded extension declares: install the extension that
+    /// declares it, else search for one (E024, I210).
+    pub fn kind_remedy(&self, keyword: &str) -> String {
+        match self.kind_owner(keyword) {
+            Some(ext) => format!(
+                "install it with: {}",
+                specforge_common::remedy::command("specforge add {}", &[ext])
+            ),
+            None => format!(
+                "search for an extension that provides it with: {}",
+                specforge_common::remedy::command("specforge search {}", &[keyword])
+            ),
+        }
+    }
+
     /// The extension whose enhancement adds `field` to `kind`.
     pub fn field_owner(&self, kind: &str, field: &str) -> Option<&str> {
         self.fields

@@ -857,7 +857,7 @@ The host checks each route once, when the extension loads, against every loaded 
 route that cannot be followed (a kind or field it names is not loaded or declared, a `via` crosses a field that is not
 a reference or is computed or written by a verdict, an annotation reads a field a reached kind lacks or a judgement no
 judged rule makes on it) is E118, and is not registered. A start, step or annotation that reaches a kind of an optional
-peer the project does not load is skipped without a diagnostic (a step skipped takes the steps that go on from it). Several routes from one kind with not exactly one `default` is W195; the first in load order is followed.
+peer the project does not load is skipped without a diagnostic at load (a step skipped takes the steps that go on from it); a trace that follows the route says so, an I210 notice beside it. Several routes from one kind with not exactly one `default` is W195; the first in load order is followed.
 
 SDK: `c.route("requirement-thread", |r| { r.start("requirement").step("plan", "<plan.requirements", |s| { s.label("plan"); }); })`.
 

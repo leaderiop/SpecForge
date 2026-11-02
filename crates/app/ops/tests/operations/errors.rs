@@ -49,12 +49,13 @@ fn trace_nonexistent_returns_entity_not_found() {
     let err = specforge_ops::read::trace::trace(
         &project.view(),
         specforge_ops::read::trace::Target::Entity("nonexistent"),
+        specforge_ops::read::trace::Follow::Declared,
     )
     .unwrap_err();
     assert_eq!(err.error.kind, specforge_ops::OpErrorKind::EntityNotFound);
     assert_eq!(
         err.subject,
-        Some(specforge_ops::view::EntityField::EntityId)
+        Some(specforge_ops::read::trace::TraceField::EntityId)
     );
 }
 
@@ -68,6 +69,7 @@ fn tracing_an_unknown_entity_is_e003_with_a_suggestion() {
         specforge_ops::read::trace::trace(
             &project.view(),
             specforge_ops::read::trace::Target::Entity(id),
+            specforge_ops::read::trace::Follow::Declared,
         )
         .unwrap_err()
     };
@@ -216,6 +218,7 @@ fn a_missing_entity_is_one_refusal() {
             specforge_ops::read::trace::trace(
                 &view,
                 specforge_ops::read::trace::Target::Entity("logn"),
+                specforge_ops::read::trace::Follow::Declared,
             )
             .unwrap_err()
             .error,

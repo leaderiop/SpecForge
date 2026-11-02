@@ -184,6 +184,7 @@ fn trace_contract_entity_in_graph_produces_chain() {
     let outcome = specforge_ops::read::trace::trace(
         &project.view(),
         specforge_ops::read::trace::Target::Entity("c"),
+        specforge_ops::read::trace::Follow::Declared,
     )
     .unwrap();
     let json = serde_json::to_value(plain(outcome)).unwrap();
@@ -374,7 +375,7 @@ fn trace_data_contract_all_entities_traced() {
 )]
 fn trace_data_full_trace_covers_all_roots() {
     let graph = build_graph();
-    let traces = crate::view_support::every_chain(&graph, Default::default()).traces;
+    let traces = crate::view_support::every_chain_list(&graph, Default::default());
     let ids: Vec<&str> = traces.iter().map(|t| t.entity_id.as_str()).collect();
     assert!(ids.contains(&"a"), "root entity a must be traced");
     assert!(ids.contains(&"b"), "mid entity b must be traced");
@@ -420,7 +421,7 @@ fn trace_data_gaps_highlighted() {
     );
 
     // Without expectations nothing is missing.
-    let bare = crate::view_support::every_chain(&graph, Default::default()).traces;
+    let bare = crate::view_support::every_chain_list(&graph, Default::default());
     assert!(bare[0].missing.is_empty());
 }
 

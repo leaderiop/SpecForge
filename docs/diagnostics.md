@@ -1322,8 +1322,8 @@ a judgement no judged rule of that code makes on every kind it reaches. The
 message names the extension, the route, the step or annotation, and why. The
 route is not registered, so `trace` reads the generic reach for its kind. A part
 that reaches a kind of an optional peer the project does not load is not an
-error: it is skipped, and the trace says so. Fix the route's declaration in the
-extension.
+error: it is skipped, and the trace says so (I210). Fix the route's declaration
+in the extension.
 
 Owner: core
 Level: error
@@ -1960,6 +1960,22 @@ or an untracked file, or `worktree` when the project is in no repository, HEAD
 is unborn, or git can't be asked. The key is provenance: a reader compares it
 with HEAD to call a fact fresh, and a dirty collect replaces the previous one of
 that sha. Commit, then collect again, to file the facts under the commit.
+
+Owner: core
+Level: info
+```
+
+## I210
+
+```
+I210: Trace route step skipped
+
+A route `specforge trace` follows (ADR 0330) has a step or an annotation that
+reaches a kind of an optional peer the project does not load, so the registry
+skipped it (it is not E118). The trace goes on without it and says so: the
+message names the route, the step (or `<step>.<annotation>`) and the kind.
+Nothing is wrong with the project. Install the extension that declares the kind
+to follow the whole route.
 
 Owner: core
 Level: info

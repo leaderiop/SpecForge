@@ -974,9 +974,7 @@ fn a_read_view_about_one_entity_names_it() {
         },
     );
     assert_eq!(reviewed.unwrap_err().subject, about);
-    let traced = specforge_ops::read::trace::trace(
-        &view,
-        specforge_ops::read::trace::Target::Entity("ghost"),
-    );
-    assert_eq!(traced.unwrap_err().subject, about);
+    use specforge_ops::read::trace::{Follow, Target, TraceField, trace};
+    let traced = trace(&view, Target::Entity("ghost"), Follow::Declared);
+    assert_eq!(traced.unwrap_err().subject, Some(TraceField::EntityId));
 }

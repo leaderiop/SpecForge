@@ -12,7 +12,7 @@ use specforge_ops::read::export::{self, Format};
 use specforge_ops::read::query::{QueryRequest, query};
 use specforge_ops::read::schema::{self, SchemaRequest};
 use specforge_ops::read::stats::{self, Stats};
-use specforge_ops::read::trace::{self, Target, TraceOutcome};
+use specforge_ops::read::trace::{self, Follow, Target, TraceOutcome};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
 pub use specforge_project::testing::{TestProject, specs};
@@ -121,7 +121,7 @@ pub fn query_document(
 
 /// `specforge trace` (`cli/src/trace.rs`): the outcome.
 pub fn traced(project: &CompiledProject, target: Target<'_>) -> TraceOutcome {
-    trace::trace(&ProjectView::of(project), target)
+    trace::trace(&ProjectView::of(project), target, Follow::Declared)
         .unwrap_or_else(|e| panic!("trace refused: {e:?}"))
         .into_value_and_notices()
         .0

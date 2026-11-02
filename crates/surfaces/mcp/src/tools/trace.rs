@@ -3,7 +3,7 @@ use crate::tool::{CoreTool, Effect, ReplySpec, ToolGroup};
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_ops::read::plan::{AgentPlan, PlanOutcome};
-use specforge_ops::read::trace::{Ask, ChainDocument, Target, TraceChain, TraceField};
+use specforge_ops::read::trace::{Ask, Target, TraceChain, TraceDocument, TraceField};
 use specforge_ops::view::ProjectView;
 
 use crate::args::Arguments;
@@ -28,7 +28,7 @@ pub struct Args {
 #[derive(Debug, Serialize, Shape)]
 #[serde(untagged)]
 pub enum Reply {
-    Chain(ChainDocument<TraceChain>),
+    Chain(TraceDocument<TraceChain>),
     Plan(PlanOutcome),
 }
 
@@ -48,7 +48,9 @@ impl ArgumentOf<EntityField> for Tool {
 impl ArgumentOf<TraceField> for Tool {
     fn argument(field: TraceField) -> Option<&'static str> {
         match field {
+            TraceField::EntityId => Some("entity_id"),
             TraceField::Plan => Some("plan"),
+            TraceField::Route => None,
         }
     }
 }
@@ -74,14 +76,14 @@ impl CoreTool for Tool {
     type Returns = Answered<Reply>;
 
     fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
-        let entity_id = match Ask::of(args.entity_id.as_deref(), args.plan.as_ref())
+        let entity_id = match Ask::of(args.entity_id.as_deref(), args.plan.as_ref(), None, false)
             .map_err(|refusal| Box::new(Self::refused(refusal)))?
         {
             Ask::Plan(plan) => {
                 return Ok(Reply::Plan(specforge_ops::read::plan::check(&view, plan)).into());
             }
-            Ask::Trace(Target::Entity(entity_id)) => entity_id,
-            Ask::Trace(Target::Every) => return Err(every_is_not_offered()),
+            Ask::Trace(Target::Entity(entity_id), _) => entity_id,
+            Ask::Trace(Target::Every, _) => return Err(every_is_not_offered()),
         };
         let chain = specforge_ops::read::trace::chain(&view, entity_id)
             .map_err(|refusal: Refusal<EntityField>| Self::refused(refusal))?;

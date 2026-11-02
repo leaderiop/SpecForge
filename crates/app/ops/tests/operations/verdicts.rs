@@ -17,6 +17,7 @@ use specforge_project::testing::{
 };
 use specforge_protocol_types::EditPlan;
 use specforge_test_macros::test as specforge_test;
+use specforge_wasm::testing::InProcessRuntime;
 
 use crate::plans::{compiled, project, refused, serving};
 
@@ -203,7 +204,17 @@ fn set_verdict_compares_its_inputs_with_the_disk_under_the_lock() {
 /// Apply `ops`, a plan of a command of `@gsd/core`, over the GSD-shaped project through the host's judged rules
 /// (K7 T9): the refusal reason, or `applied`/`previewed`.
 pub(crate) fn gsd(project: &TestProject, ops: Value, dry_run: bool) -> String {
-    let compiled = project.compile_in(Arc::new(gsd_judged_runtime()) as SharedRuntime);
+    gsd_in(project, gsd_judged_runtime(), ops, dry_run)
+}
+
+/// [`gsd`], with `@gsd/core` served by `runtime`.
+pub(crate) fn gsd_in(
+    project: &TestProject,
+    runtime: InProcessRuntime,
+    ops: Value,
+    dry_run: bool,
+) -> String {
+    let compiled = project.compile_in(Arc::new(runtime) as SharedRuntime);
     let view = ProjectView::of(&compiled);
     let rules: Arc<dyn JudgedRules> = Arc::new(HostJudgedRules::of(&view));
     let plan: EditPlan = serde_json::from_value(json!({"ops": ops})).unwrap();

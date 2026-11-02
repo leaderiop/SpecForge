@@ -108,11 +108,11 @@ fn the_schema_and_its_publication_carry_the_records_notices() {
 )]
 fn a_trace_and_the_model_carry_the_records_notices() {
     use specforge_ops::read::model::{ModelOptions, model};
-    use specforge_ops::read::trace::{Target, trace};
+    use specforge_ops::read::trace::{Follow, Target, trace};
     let project = unreadable();
     let view = project.view();
 
-    let traced = trace(&view, Target::Entity("b")).unwrap();
+    let traced = trace(&view, Target::Entity("b"), Follow::Declared).unwrap();
     assert_eq!(codes(traced.notices()), ["I016"]);
     let document = serde_json::to_value(plain(traced)).unwrap();
     assert!(document.get("notices").is_none(), "{document}");

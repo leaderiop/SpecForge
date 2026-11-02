@@ -1,6 +1,6 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
-use specforge_ops::read::trace::{Target, TraceLink, TraceOutcome, trace};
+use specforge_ops::read::trace::{Follow, Target, TraceLink, TraceOutcome, trace};
 use specforge_registry::RegistryBuild;
 use specforge_test::prelude::*;
 
@@ -90,9 +90,9 @@ fn in_order(json: &str, keys: &[&str]) {
 fn one_entity_is_a_chain_every_entity_is_a_list_of_traces() {
     let project = Assembled::over(RegistryBuild::default()).graph(two_ways());
     let view = project.view();
-    let one = plain(trace(&view, Target::Entity("r")).unwrap());
-    assert!(matches!(one, TraceOutcome::Chain(_)));
-    assert_eq!(one.chains().len(), 1);
+    let one = plain(trace(&view, Target::Entity("r"), Follow::Declared).unwrap());
+    assert!(matches!(one, TraceOutcome::One(_)));
+    assert_eq!(one.traces().len(), 1);
     in_order(
         &serde_json::to_string(&one).unwrap(),
         &[
@@ -104,9 +104,9 @@ fn one_entity_is_a_chain_every_entity_is_a_list_of_traces() {
             "missing",
         ],
     );
-    let every = plain(trace(&view, Target::Every).unwrap());
+    let every = plain(trace(&view, Target::Every, Follow::Declared).unwrap());
     assert!(matches!(every, TraceOutcome::Every(_)));
-    assert_eq!(every.chains().len(), 4);
+    assert_eq!(every.traces().len(), 4);
     in_order(
         &serde_json::to_string(&every).unwrap(),
         &["schema_version", "traces"],

@@ -191,6 +191,8 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
     from the traced entity, and its edge label is the label of the edge it
     was first reached over, nearer entities first and each entity's edges
     in the order they are written. Links are listed by depth, then id.
+    A kind an extension declares a route from is traced along the route
+    instead (follow_trace_route); `--reach` asks for this chain.
   """
   verify unit "trace from entity shows upstream and downstream connections"
   verify unit "trace shows full chain depth"

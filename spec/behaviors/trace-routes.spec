@@ -45,3 +45,40 @@ behavior declare_trace_route "Declare a Trace Route" {
   verify unit "a route step of an optional peer the project does not load is skipped, not reported"
   verify unit "several routes from one kind without one default are W195, and the first in load order is followed"
 }
+
+behavior follow_trace_route "Follow a Trace Route" {
+  invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
+  contract   """
+    When an entity is traced, the system MUST follow the route its kind's extensions declare (ADR 0330): from the
+    entity, each step in declared order, from each match of the step it goes on from, selects entities in id order,
+    each a match under the match it came from. An annotation prints a field's values (lists flattened, a reference as
+    its target's name), the values of a field reached through a selector, or a judgement's outcome and freshness, and
+    its absent text when there is none. A kind with no route MUST be traced by the reach both ways, byte for byte as
+    before. A named route traces its start kind's entities, and the reach every entity's chain; a route no loaded
+    extension declares, or one of another kind, is invalid input about the route. A step or annotation the registry
+    skipped for an unloaded optional peer is an I210 notice beside the trace.
+  """
+  verify unit "trace follows the route its kind declares, step by step, each match under the match it came from"
+  verify unit "an annotation prints a field, a value reached through a selector, or a judgement's outcome and freshness"
+  verify unit "a kind with no route is traced by the generic reach, unchanged"
+  verify unit "a named route, the reach, and every entity are traced as asked, and a wrong route is refused"
+  verify unit "a step skipped for an unloaded optional peer is an I210 notice"
+}
+
+behavior render_trace_thread "Render a Trace Thread" {
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
+  contract   """
+    A route trace MUST render its thread as one line when each step has at most one match: the start, then each
+    step's match, its label, name and annotations, or `no <step>` when the step it goes on from has a match. With
+    more matches it MUST render a tree, depth first, two spaces per step it goes on from. A match is kept when every
+    step that goes on from its step has a kept match under it; the thread is complete when the start is kept. By
+    default only a complete thread prints, over its kept matches; an incomplete one prints one line naming what it
+    lacks, and `--partial` prints every match. The summary names each step's one match or counts its matches.
+  """
+  verify unit "a thread with at most one match per step prints on one line, a step with none as no <step>"
+  verify unit "several matches of a step print as branches of a tree"
+  verify unit "only a complete thread prints by default, its dead-end branches left out, and a partial one with --partial"
+  verify unit "the summary counts a step's matches"
+}

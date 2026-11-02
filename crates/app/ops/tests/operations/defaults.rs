@@ -115,7 +115,7 @@ fn query_trace_and_export_show_the_inherited_list() {
 
     assert!(
         plain(chain(&view, "b").unwrap())
-            .chain
+            .trace
             .downstream
             .iter()
             .any(|link| link.entity_id == "Repo")

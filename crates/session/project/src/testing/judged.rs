@@ -172,7 +172,7 @@ pub fn gsd_judged_wire() -> Value {
 }
 
 /// A local code as text (a host source never writes a core code's spelling as a literal, and these are `@gsd/core`'s).
-fn code(letter: char, number: u16) -> String {
+pub(super) fn code(letter: char, number: u16) -> String {
     format!("{letter}{number:03}")
 }
 

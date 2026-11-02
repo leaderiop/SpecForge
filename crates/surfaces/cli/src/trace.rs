@@ -2,7 +2,9 @@ use crate::notes::Notes;
 use crate::outcome::{Exit, OutputFormat, Refusal};
 use crate::terminal::{Terminal, out};
 use specforge_ops::read::plan::{AgentPlan, PlanOutcome};
-use specforge_ops::read::trace::{Ask, TraceChain, TraceLink, TraceOutcome};
+use specforge_ops::read::trace::{
+    Ask, Partial, RouteTrace, Trace, TraceChain, TraceLink, TraceOutcome,
+};
 use specforge_ops::view::ProjectView;
 
 // `specforge trace`'s command line.
@@ -44,21 +46,22 @@ impl Args {
         };
         let view = ProjectView::of(&project);
         // clap refuses an entity with --plan first; the reading is the operation's all the same.
-        let target = match Ask::of(self.entity.as_deref(), self.plan.as_ref()) {
-            Err(refusal) => {
-                return Refusal::of(self.format).report(terminal, &refusal.into_error());
-            }
-            Ok(Ask::Plan(plan)) => {
-                let outcome = specforge_ops::read::plan::check(&view, plan);
-                match self.format {
-                    OutputFormat::Human => out!(terminal, "{}", plan_text(&outcome)),
-                    OutputFormat::Json => terminal.json(&outcome),
+        let (target, follow) =
+            match Ask::of(self.entity.as_deref(), self.plan.as_ref(), None, false) {
+                Err(refusal) => {
+                    return Refusal::of(self.format).report(terminal, &refusal.into_error());
                 }
-                return Exit::of_verdict(outcome.ok);
-            }
-            Ok(Ask::Trace(target)) => target,
-        };
-        let traced = match specforge_ops::read::trace::trace(&view, target) {
+                Ok(Ask::Plan(plan)) => {
+                    let outcome = specforge_ops::read::plan::check(&view, plan);
+                    match self.format {
+                        OutputFormat::Human => out!(terminal, "{}", plan_text(&outcome)),
+                        OutputFormat::Json => terminal.json(&outcome),
+                    }
+                    return Exit::of_verdict(outcome.ok);
+                }
+                Ok(Ask::Trace(target, follow)) => (target, follow),
+            };
+        let traced = match specforge_ops::read::trace::trace(&view, target, follow) {
             Ok(traced) => traced,
             Err(refusal) => return Refusal::of(self.format).report(terminal, &refusal),
         };
@@ -99,14 +102,25 @@ fn plan_text(outcome: &PlanOutcome) -> String {
     text
 }
 
-/// The chains as terminal text, one block per chain, separated by a blank line.
+/// The traces as terminal text, one block per trace, separated by a blank line.
 fn trace_text(outcome: &TraceOutcome) -> String {
     outcome
-        .chains()
+        .traces()
         .iter()
-        .map(chain_text)
+        .map(|trace| match trace {
+            Trace::Chain(chain) => chain_text(chain),
+            Trace::Route(route) => route_text(route),
+        })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// A route's thread as terminal text: the thread when it is complete, else the line that says it is not.
+fn route_text(route: &RouteTrace) -> String {
+    let thread = route
+        .thread(Partial::No)
+        .unwrap_or_else(|| route.incomplete_line());
+    format!("{thread}\n")
 }
 
 /// A chain as terminal text: the entity, then its upstream, downstream and missing links, one per line. Missing

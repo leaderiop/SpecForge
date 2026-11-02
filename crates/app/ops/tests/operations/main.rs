@@ -122,6 +122,7 @@ mod state_safety;
 mod stats;
 mod trace;
 mod trace_order;
+mod trace_routes;
 mod trace_support;
 mod typed_blocks;
 mod use_bindings;

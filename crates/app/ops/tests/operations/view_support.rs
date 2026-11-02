@@ -11,7 +11,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_graph::Graph;
 use specforge_ops::read::plan::{PlanGapKind, PlanOutcome};
 use specforge_ops::read::stats::Stats;
-use specforge_ops::read::trace::TraceChain;
+use specforge_ops::read::trace::{Follow, Target, Trace, TraceChain, TraceOutcome, Traces, trace};
 pub use specforge_ops::testing::Viewed;
 pub use specforge_project::testing::Assembled;
 use specforge_project::{ExtensionLoad, Loaded};
@@ -145,7 +145,7 @@ pub fn chain_in(graph: &Graph, registries: RegistryBuild, entity_id: &str) -> Op
     let project = Assembled::over(registries).graph(graph.clone());
     specforge_ops::read::trace::chain(&project.view(), entity_id)
         .ok()
-        .map(|document| plain(document).chain)
+        .map(|document| plain(document).trace)
 }
 
 /// The chain of `entity_id` in `graph`, with no extension: nothing is
@@ -154,11 +154,26 @@ pub fn chain(graph: &Graph, entity_id: &str) -> TraceChain {
     chain_in(graph, RegistryBuild::default(), entity_id).unwrap()
 }
 
-/// Every entity's chain in `graph`, with `registries`, as the trace
-/// operation returns them.
-pub fn every_chain(graph: &Graph, registries: RegistryBuild) -> specforge_ops::read::trace::Traces {
+/// Every entity's trace in `graph`, with `registries`, as the trace
+/// operation returns them following the reach: the document.
+pub fn every_chain(graph: &Graph, registries: RegistryBuild) -> Traces {
     let project = Assembled::over(registries).graph(graph.clone());
-    plain(specforge_ops::read::trace::every(&project.view()))
+    match plain(trace(&project.view(), Target::Every, Follow::Reach).unwrap()) {
+        TraceOutcome::Every(traces) => traces,
+        TraceOutcome::One(_) => unreachable!("every entity is traced"),
+    }
+}
+
+/// [`every_chain`]'s chains: the reach traces every entity as a chain.
+pub fn every_chain_list(graph: &Graph, registries: RegistryBuild) -> Vec<TraceChain> {
+    every_chain(graph, registries)
+        .traces
+        .into_iter()
+        .map(|trace| match trace {
+            Trace::Chain(chain) => chain,
+            Trace::Route(_) => unreachable!("the reach follows no route"),
+        })
+        .collect()
 }
 
 /// A noticed read's value, its notices let go: for a test of the value.

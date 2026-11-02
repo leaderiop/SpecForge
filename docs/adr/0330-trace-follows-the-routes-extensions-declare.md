@@ -68,7 +68,8 @@ thread prints by default, a partial one with `--partial`.
   tree, two spaces per `from` hop, each line `→ <segment>`. A match is *kept* when every unskipped step that goes on
   from its step has a kept match under it; the thread is *complete* when the start is kept. By default only a
   complete thread prints, over its kept matches (dead-end branches left out); an incomplete one prints
-  `<start>: incomplete thread (no <step>, …); pass --partial to print it`. `--partial` prints every match with its
+  `<start>: incomplete thread (no <step>, …); print it with: specforge trace <id> --partial`, naming each step
+  reached with no kept match though every reached step after it has one. `--partial` prints every match with its
   `no <step>` markers. The summary (`thread: …`) counts a step's matches. A skipped step is an **I210** notice on the
   trace, beside its document, never in it (ADR 0130).
 - **D7. Surfaces (N1).** The CLI's `trace` takes `--route`, `--reach` and `--partial`. Absent `--format`, a route
