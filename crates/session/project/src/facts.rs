@@ -8,8 +8,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, SourceRoot, SourceSpan, Sym, codes};
 use specforge_parser::{
-    CURRENT_FORMAT_VERSION, Entity, EntityId, EntityKind, FieldMap, FieldValue, ListItem, SpecFile,
-    Written,
+    CURRENT_FORMAT_VERSION, Entity, EntityId, EntityKind, FieldEntry, FieldMap, FieldValue,
+    ListItem, SpecFile, Written,
 };
 use specforge_protocol_types::{Fact, FactStore};
 use specforge_registry::{Disk, EntitySnapshot, KindRegistry};
@@ -286,7 +286,13 @@ fn entity(fact: Fact, span: &SourceSpan) -> Entity {
     let mut fields = FieldMap::new();
     for (name, value) in fact.fields {
         if let Some(value) = field_value(value, span) {
-            fields.push(Sym::new(&name), value);
+            // Spanned as its list items are, so a single reference (`test_run.test`) is a written token too.
+            fields.push_entry(FieldEntry {
+                key: Sym::new(&name),
+                value,
+                annotations: Vec::new(),
+                value_span: Some(span.clone()),
+            });
         }
     }
     Entity {

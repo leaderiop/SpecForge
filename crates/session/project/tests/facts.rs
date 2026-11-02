@@ -103,6 +103,53 @@ fn a_served_fact_is_an_entity_every_query_reads() {
     assert!(codes(&project).is_empty(), "{:?}", project.diagnostics());
 }
 
+#[specforge_test(
+    behavior = "build_in_memory_graph",
+    verify = "a fact's single-value reference to another fact links like a written one"
+)]
+fn a_facts_single_value_reference_links_like_a_written_one() {
+    use specforge_extension_sdk::prelude::{ContributionsBuilder, ExtensionMeta, FieldType};
+    use specforge_project::testing::CODE;
+    use specforge_wasm::testing::InProcessRuntime;
+
+    // `@t/run`'s `run` names the `test` it ran in one reference, as a runner pack's `test_run` does.
+    let run = || {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/run", "1.0.0"));
+        c.peer(CODE, "^1.0");
+        c.kind("run", |k| {
+            k.collected(&["run"]).field("test", |f| {
+                f.field_type(FieldType::Reference).target_kind("test");
+            });
+        });
+        c
+    };
+    let mut enabled = COLLECTED_EXTENSIONS.to_vec();
+    enabled.push("@t/run");
+    let p = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&enabled)
+        .installing_enabled();
+    let mut facts = two_tests();
+    facts.as_array_mut().unwrap().push(
+        json!({"kind": "run", "id": "run:js:a.test.js#adds", "fields": {"test": "js:a.test.js#adds"}}),
+    );
+    stored(p.root(), "node", KEY, facts);
+
+    // Before its value kept a span, the edge was held by no written token: the debug build's edge check panicked.
+    let project = p.compile_in(Arc::new(
+        Collected::new().over(InProcessRuntime::new().with(run)),
+    ));
+
+    let ran: Vec<&str> = project
+        .graph()
+        .edges_from("run:js:a.test.js#adds")
+        .iter()
+        .map(|e| e.target.as_str())
+        .collect();
+    assert_eq!(ran, ["js:a.test.js#adds"]);
+    assert!(codes(&project).is_empty(), "{:?}", project.diagnostics());
+}
+
 #[test]
 fn a_store_the_ledger_does_not_record_is_w191_and_serves_nothing() {
     let p = collected();
