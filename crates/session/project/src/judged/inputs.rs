@@ -13,9 +13,9 @@ use specforge_protocol_types::JudgedFile;
 use specforge_registry::judged::{CITED, CITED_TESTS, JudgedRule, Selector};
 use specforge_registry::{Disk, EntitySnapshot, FileStamp};
 
-use super::select::{FileRef, Referrers, Select};
 use super::{DigestMemo, entity_digest, file_digest};
 use crate::coverage::{ReportRead, read_report};
+use crate::select::{FileRef, Selection};
 use crate::{CompiledProject, Environment};
 
 /// What a verdict cites (`cited`, `cited_tests`): entity references as written, file paths, test names.
@@ -120,7 +120,7 @@ pub(super) struct Cx<'a> {
     disk: &'a dyn Disk,
     memo: &'a DigestMemo,
     report: OnceCell<ReportRead>,
-    referrers: Referrers,
+    selection: Selection<'a>,
 }
 
 pub(super) fn hash(value: &Value) -> String {
@@ -143,22 +143,13 @@ impl<'a> Cx<'a> {
             disk,
             memo,
             report: OnceCell::new(),
-            referrers: Referrers::default(),
+            selection: Selection::of(graph, env.registries()),
         }
     }
 
     pub fn report(&self) -> &ReportRead {
         self.report
             .get_or_init(|| read_report(self.env.root(), self.entities, self.disk))
-    }
-
-    fn select(&self) -> Select<'_> {
-        Select {
-            graph: self.graph,
-            fields: self.env.registries().fields(),
-            forms: self.env.registries().field_forms(),
-            referrers: &self.referrers,
-        }
     }
 
     fn entity(&self, id: &str) -> String {
@@ -284,7 +275,7 @@ impl<'a> Cx<'a> {
         let Some(target) = rule.target(node.kind.raw.as_str()) else {
             return out;
         };
-        let select = self.select();
+        let select = &self.selection;
         for (name, selector) in &target.inputs {
             let shown = selector.to_string();
             let read = out.files.len();

@@ -1,6 +1,7 @@
-//! Selectors over a graph (ADR 0290): the entities and the files a judged rule's input picks for one entity.
-//! Resolution is type-directed like the registry's check (`reference_end`): a block field's next word is a member, a
-//! reference followed by more words begins the next hop. Every reference is read as the full path it resolves to.
+//! The one selector evaluator (ADR 0290, ADR 0330): the entities and the files a selector chain picks from one entity,
+//! for a judged rule's inputs and for a trace route's steps. Resolution is type-directed like the registry's check
+//! (`reference_end`): a block field's next word is a member, a reference followed by more words begins the next hop.
+//! Every reference is read as the full path it resolves to.
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -9,36 +10,47 @@ use std::rc::Rc;
 use serde_json::Value;
 use specforge_graph::{FieldForms, Graph, Node, wire};
 use specforge_protocol_types::{FieldType, FileBase};
-use specforge_registry::FieldRegistry;
 use specforge_registry::judged::{Chain, Head, Step};
+use specforge_registry::{FieldRegistry, RegistryBuild};
 
 /// A file a chain names, and the base its field reads it from.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) struct FileRef {
+pub(crate) struct FileRef {
     pub path: String,
     /// Read from the project root (else the spec root).
     pub project: bool,
 }
 
 /// For a `(kind, field path)`: each target the field of a `kind` entity names, with the entities that name it.
-pub(super) type Referrers = RefCell<BTreeMap<(String, String), Rc<BTreeMap<String, Vec<String>>>>>;
+type Referrers = RefCell<BTreeMap<(String, String), Rc<BTreeMap<String, Vec<String>>>>>;
 
-pub(super) struct Select<'a> {
-    pub graph: &'a Graph,
-    pub fields: &'a FieldRegistry,
-    pub forms: &'a FieldForms,
-    /// Built once per check and shared by every selector evaluation (not per judged entity).
-    pub referrers: &'a Referrers,
+/// Selector chains evaluated over one graph. Its referrer index is built on first use and shared by every chain it
+/// evaluates, so one `Selection` serves a whole check or a whole trace request, never one per entity.
+pub struct Selection<'a> {
+    graph: &'a Graph,
+    fields: &'a FieldRegistry,
+    forms: &'a FieldForms,
+    referrers: Referrers,
 }
 
-impl Select<'_> {
+impl<'a> Selection<'a> {
+    /// A selection over `graph`, read through the fields and forms `registries` declare.
+    pub fn of(graph: &'a Graph, registries: &'a RegistryBuild) -> Self {
+        Self {
+            graph,
+            fields: registries.fields(),
+            forms: registries.field_forms(),
+            referrers: Referrers::default(),
+        }
+    }
+
     /// The entities `chain` picks from `this`, by path.
     pub fn entities(&self, this: &str, chain: &Chain) -> BTreeSet<String> {
         self.run(this, chain, false).0
     }
 
     /// The files `chain` names from `this`: its last step ends at a file field.
-    pub fn files(&self, this: &str, chain: &Chain) -> BTreeSet<FileRef> {
+    pub(crate) fn files(&self, this: &str, chain: &Chain) -> BTreeSet<FileRef> {
         self.run(this, chain, true).1
     }
 
@@ -218,14 +230,7 @@ mod tests {
     fn referrer_steps_share_one_index_per_check() {
         let project = gsd_judged_project("");
         let compiled = project.compile_in(Arc::new(gsd_judged_runtime()) as crate::SharedRuntime);
-        let registries = compiled.environment().registries();
-        let referrers = Referrers::default();
-        let select = Select {
-            graph: compiled.graph(),
-            fields: registries.fields(),
-            forms: registries.field_forms(),
-            referrers: &referrers,
-        };
+        let select = Selection::of(compiled.graph(), compiled.environment().registries());
         let Ok(Selector::Entities(chain)) = Selector::parse("self.phase<decision.phase") else {
             panic!("an entities selector")
         };
@@ -233,6 +238,10 @@ mod tests {
         let second = select.entities("v1.0/03/03-03", &chain);
         assert_eq!(first, BTreeSet::from(["v1.0/03/D-01".to_string()]));
         assert_eq!(first, second);
-        assert_eq!(referrers.borrow().len(), 1, "one index serves every entity");
+        assert_eq!(
+            select.referrers.borrow().len(),
+            1,
+            "one index serves every entity"
+        );
     }
 }

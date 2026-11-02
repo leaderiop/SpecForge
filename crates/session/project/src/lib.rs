@@ -40,6 +40,7 @@ pub mod passes;
 mod policy;
 pub mod providers;
 mod raises;
+pub mod select;
 mod session;
 mod settings;
 mod setup;
