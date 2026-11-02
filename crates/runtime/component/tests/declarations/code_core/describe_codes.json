@@ -1,0 +1,25 @@
+{
+  "category": "codes",
+  "items": [
+    {
+      "code": "E101",
+      "explanation": "A reference written in a test fact's scheme (`js:<package>/<file>#<name>`) names a test that the fact stores the session served do not hold, while a store does hold facts of that scheme: the test was renamed, moved or deleted, or the reference is misspelled. The finding suggests the closest test of the same file. It is not reported while the citing entity's owner is pending (ADR 0329 D4): a test not written yet is TDD. Fix the reference, or run `specforge collect` if the test is new.",
+      "title": "A fact reference names no fact"
+    },
+    {
+      "code": "W102",
+      "explanation": "A reference written in a test fact's scheme (`js:…`) names no fact, and no fact store the session served holds facts of that scheme: on a fresh clone, or before the runner pack's collector ran, there is nothing to check it against. It is reported once per cited reference, and not while the citing entity's owner is pending. Run `specforge collect` with the runner pack that writes that scheme (`@javascript/node-test` for `js`).",
+      "title": "No facts of the reference's scheme were collected"
+    },
+    {
+      "code": "W401",
+      "explanation": "An entity whose owner is complete links a test whose last collected status is `failed`: the proof it cites does not hold. A pending owner's failing test is not reported (TDD). Fix the code or the test, and run `specforge collect` again.",
+      "title": "A linked test fails"
+    },
+    {
+      "code": "I402",
+      "explanation": "A test fact's `names` (the entities its runner's idiom says it proves) holds an id no entity of the project has: the entity was renamed or deleted, or the name is misspelled. Fix the name in the test, then collect again.",
+      "title": "A test names an entity that does not exist"
+    }
+  ]
+}

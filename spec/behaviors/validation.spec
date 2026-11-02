@@ -382,7 +382,7 @@ behavior judge_field_history "Judge Field History" {
     be append-only (ADR 0287). The builtins declare none, so their projects see no new diagnostic.
   """
   produces []
-  verify unit "no builtin or pinned example declaration declares a writer, an immutable or append-only flag, a baseline or computes"
+  verify unit "no builtin or pinned example declaration declares a writer other than a collected kind's, an immutable or append-only flag, a baseline or computes"
   verify unit "a field declares its writer and history, and the registry refuses a contradiction with W021"
   verify unit "a kind is append-only and a pass computes fields and names the baseline it reads, or W021"
   verify unit "a kind and a field may be human-only and a pass a guard, or W021"

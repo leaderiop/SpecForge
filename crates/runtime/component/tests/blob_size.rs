@@ -18,8 +18,11 @@ use specforge_component::committed::COMMITTED;
 // `Unknown` event, `git_when`) measured 4,874,602 B (+23,969 B, about 2.7 KB per blob). The product blob is 984,024 B,
 // 15,976 B under its cap, which is the binding limit now. The rule (the measured total rounded up to the next 100,000)
 // gives 4,900,000, with 25,398 B of headroom: the next minor will need to raise it. A build without the profile is
-// about 7 MB, well over it, so this still catches a profile regression.
-const TOTAL_BUDGET: usize = 4_900_000;
+// about 7 MB, well over it, so this still catches a profile regression. Protocol 1.15.0 (facts, `complete_when`,
+// `result`) and the tenth builtin, `@code/core` (416,157 B), measured 5,392,736 B; the nine grew 101,977 B together.
+// R1 sets 5,900,000, which covers `@code/core` and plan 03's `@javascript/node-test` (ADR 0328). The product blob is
+// 998,381 B, 1,619 B under its cap: the next minor that grows every blob must raise the cap or shrink product.
+const TOTAL_BUDGET: usize = 5_900_000;
 const BLOB_BUDGET: usize = 1_000_000;
 
 #[test]

@@ -548,7 +548,7 @@ fn a_hook_receives_the_versions_and_the_migrated_files() {
 
 #[specforge_test(
     behavior = "invoke_extension_migration_hooks",
-    verify = "the nine builtin extensions' hooks run in dependency order with no failure"
+    verify = "every builtin extension's hooks run in dependency order with no failure"
 )]
 fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
     // Every builtin loaded together, as a project enabling all of them
@@ -558,7 +558,7 @@ fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
         .iter()
         .map(|(name, _)| *name)
         .collect();
-    assert_eq!(names.len(), 9);
+    assert_eq!(names.len(), specforge_component::builtins::BUILTINS.len());
     let runtime = Arc::new(specforge_component::ComponentRuntime::new());
     specforge_component::builtins::load_builtins(runtime.as_ref()).unwrap();
     let declarations: Vec<ExtensionDeclaration> = names

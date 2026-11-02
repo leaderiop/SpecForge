@@ -1,4 +1,5 @@
 use specforge_common::Diagnostic;
+use specforge_component::builtins::BUILTINS;
 use specforge_project::testing::TestProject;
 use specforge_protocol_types::{DeclaredCategory, EntityKindDescriptor, ExtensionDeclaration};
 use specforge_wasm::WasmRuntime;
@@ -511,14 +512,14 @@ fn the_builtin_extensions_rules_register_cleanly() {
         .iter()
         .map(|(name, _)| *name)
         .collect();
-    assert_eq!(names.len(), 9, "{names:?}");
+    assert_eq!(names.len(), BUILTINS.len(), "{names:?}");
     let dir = TestProject::new()
         .config(|c| c["name"] = "all".into())
         .enabling(&names);
 
     let env = specforge_project::Environment::load(&dir.project_root(), Some(dir.runtime()));
 
-    assert_eq!(env.registries().declarations().len(), 9);
+    assert_eq!(env.registries().declarations().len(), BUILTINS.len());
     assert!(
         env.registries().rules().len() > 80,
         "{}",

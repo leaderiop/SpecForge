@@ -1,0 +1,163 @@
+{
+  "category": "entities",
+  "items": [
+    {
+      "description": "A test a runner ran, written by its runner pack's collector (ADR 0329): cite it by its id, js:<package>/<file>#<suite > … > name>",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The package the runner pack assigns the test to",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "package",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The test file, project-relative, with / separators",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "file",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The suites the test is nested in, outermost first",
+          "edge": null,
+          "field_type": "string_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "suite",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The test's own name",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "name",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "What its last run said: passed, failed or skipped",
+          "edge": null,
+          "enum_values": [
+            "passed",
+            "failed",
+            "skipped"
+          ],
+          "field_type": "enum",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The ids of the entities the test says it proves, in its runner's idiom (I402 when one is no entity)",
+          "edge": null,
+          "field_type": "string_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "names",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "test",
+      "open_fields": false,
+      "result": "status",
+      "schemes": [
+        "js"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
+    },
+    {
+      "description": "The run of a test (ADR 0329): run:<test id>, with the status the run gave it",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The test this is the run of",
+          "edge": "run_of",
+          "field_type": "reference",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "test",
+          "required": false,
+          "target_kind": "test"
+        },
+        {
+          "default_value": null,
+          "description": "What the run said: the test's own status",
+          "edge": null,
+          "enum_values": [
+            "passed",
+            "failed",
+            "skipped"
+          ],
+          "field_type": "enum",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "How long the run took, in milliseconds",
+          "edge": null,
+          "field_type": "integer",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "duration_ms",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "test_run",
+      "open_fields": false,
+      "schemes": [
+        "run"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
+    }
+  ]
+}

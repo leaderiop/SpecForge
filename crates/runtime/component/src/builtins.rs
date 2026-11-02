@@ -37,6 +37,7 @@ builtins! {
     "@specforge/vitest" in "vitest" as "specforge_ext_vitest.wasm",
     "@specforge/rust" in "rust" as "specforge_ext_rust.wasm",
     "@specforge/typescript" in "typescript" as "specforge_ext_typescript.wasm",
+    "@code/core" in "code/core" as "specforge_ext_code_core.wasm",
 }
 
 /// (name, bytes) of every builtin, read from [`BUILTINS`]: what the extension load reads

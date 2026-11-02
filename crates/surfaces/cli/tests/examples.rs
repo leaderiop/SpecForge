@@ -46,19 +46,13 @@ fn every_example_checks_byte_identically() {
 }
 
 #[test]
-fn a_project_of_all_nine_builtins_checks_identically() {
+fn a_project_of_every_builtin_checks_identically() {
+    let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
+        .iter()
+        .map(|(name, _)| *name)
+        .collect();
     let project = TestProject::new()
-        .enabling(&[
-            "@specforge/product",
-            "@specforge/software",
-            "@specforge/governance",
-            "@specforge/formal",
-            "@specforge/testing",
-            "@specforge/cargo-test",
-            "@specforge/vitest",
-            "@specforge/rust",
-            "@specforge/typescript",
-        ])
+        .enabling(&names)
         .file(
             "main.spec",
             "behavior login \"Login\" {\n  contract \"The system MUST sign a user in\"\n  verify unit \"a known user signs in\"\n}\n",

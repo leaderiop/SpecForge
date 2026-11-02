@@ -1,0 +1,14 @@
+{
+  "category": "edges",
+  "items": [
+    {
+      "description": "A run of a test",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "run_of",
+      "source_kind": "test_run",
+      "target_kind": "test"
+    }
+  ]
+}
