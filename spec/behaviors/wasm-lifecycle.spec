@@ -275,7 +275,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   }
   ensures {
     manifest_validated_emitted "manifest_validated event is emitted on successful validation"
-    invalid_manifest_diagnosed "declarations with missing required fields, or a handshake of another protocol major, produce a hard error"
+    invalid_manifest_diagnosed "declarations with missing required fields, or a handshake of another protocol major, produce a hard error (E088 for a major)"
     schema_validated           "the declaration is validated by the registry build (build_registries_from_declarations)"
   }
   contract   """
@@ -287,7 +287,10 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
     entities, if present, MUST be valid entity kind descriptors.
     Declarations missing required fields MUST produce a hard error. A
     handshake whose protocol major version differs from the host's MUST
-    fail the extension's load with E028. A handshake of the host's major
+    fail it with E088, naming the extension, both versions and, for a
+    newer one, the remedy to update specforge, for an older one to
+    install or rebuild the extension for the host's protocol; a version
+    that is not semver fails the handshake (E028). A handshake of the host's major
     whose minor is newer than the host's MUST fail it with E088, naming
     the extension and both versions (ADR 0326); an older minor loads.
   """
@@ -295,7 +298,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   verify unit "valid manifest passes validation"
   verify unit "missing required fields produce hard error"
   verify unit "an unknown describe key produces W138"
-  verify unit "a handshake whose protocol major differs from the host's produces E028"
+  verify unit "a handshake of an older minor of the host's major loads"
   verify unit "a handshake whose protocol minor is newer than the host's produces E088"
   verify unit "a handshake of another protocol major produces E088, saying which side is behind"
   verify unit "a handshake whose protocol version is not semver produces E028"

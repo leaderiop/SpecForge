@@ -76,14 +76,17 @@ pub use vocabulary::{
 /// Errors that can occur during the extension protocol lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProtocolError {
-    /// Host and extension protocol versions are incompatible.
-    IncompatibleVersion {
+    /// The extension speaks a newer major, or a newer minor of the host's major: what it declares that the host
+    /// does not know would be dropped (ADR 0326).
+    NewerVersion {
+        /// The name its handshake declares.
+        extension: String,
         host_version: String,
         extension_version: String,
     },
-    /// The extension speaks a newer minor of the host's major: what it declares that the host does not know
-    /// would be dropped (ADR 0326).
-    NewerVersion {
+    /// The extension speaks an older major than the host's: it was built for a protocol this host no longer
+    /// speaks (ADR 0326 D1b).
+    OlderVersion {
         /// The name its handshake declares.
         extension: String,
         host_version: String,
@@ -100,14 +103,6 @@ pub enum ProtocolError {
 impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::IncompatibleVersion {
-                host_version,
-                extension_version,
-            } => write!(
-                f,
-                "protocol version mismatch: host={}, extension={}",
-                host_version, extension_version
-            ),
             Self::NewerVersion {
                 extension,
                 host_version,
@@ -116,6 +111,16 @@ impl fmt::Display for ProtocolError {
                 f,
                 "extension '{extension}' speaks protocol {extension_version}, newer than the \
                  {host_version} this specforge speaks: update specforge"
+            ),
+            Self::OlderVersion {
+                extension,
+                host_version,
+                extension_version,
+            } => write!(
+                f,
+                "extension '{extension}' speaks protocol {extension_version}, older than the \
+                 {host_version} this specforge speaks: install a version built for protocol {}.x",
+                host_version.split('.').next().unwrap_or(host_version)
             ),
             Self::HandshakeFailed(reason) => write!(f, "handshake failed: {}", reason),
             Self::DescribeFailed { category, reason } => {

@@ -1249,18 +1249,21 @@ Level: error
 ```
 E088: Extension speaks a protocol this specforge does not
 
-An extension's handshake states a protocol version of the host's major but a
-newer minor (`1.15.0` under a `1.14.0` host, ADR 0326): it was built with a
-newer SDK and may declare what this specforge does not know and would drop, so
-it is not loaded; an older minor still loads. Or its component imports a
-`specforge:host` interface (a host port such as `specforge:host/http@9.9.0`)
-this specforge does not provide: the runtime reads a component's imports before
-it instantiates it, and the message names the port, its version and this
-specforge's protocol (ADR 0326 D1a). `specforge add`, `init` and `publish`
-refuse such a binary too. Update specforge to a release that speaks the
-extension's protocol, or provides the port (`specforge --version` names the
-protocol a binary speaks), or install a version of the extension built for this
-one.
+An extension's handshake states a newer protocol: a newer minor of the host's
+major (`1.15.0` under a `1.14.0` host) or a newer major (ADR 0326): it was built
+with a newer SDK and may declare what this specforge does not know and would
+drop, so it is not loaded; an older minor still loads. Or it states an older
+major (`0.9.0` under a `1.x` host): it was built for a protocol this specforge
+no longer speaks; install a version of the extension built for this protocol's
+major, or rebuild it with a specforge-extension-sdk of that protocol (ADR 0326
+D1b). Or its component imports a `specforge:host` interface (a host port such as
+`specforge:host/http@9.9.0`) this specforge does not provide: the runtime reads
+a component's imports before it instantiates it, and the message names the port,
+its version and this specforge's protocol (ADR 0326 D1a). `specforge add`,
+`init` and `publish` refuse such a binary too. Update specforge to a release
+that speaks the extension's protocol, or provides the port (`specforge
+--version` names the protocol a binary speaks), or install a version of the
+extension built for this one.
 
 Owner: core
 Level: error

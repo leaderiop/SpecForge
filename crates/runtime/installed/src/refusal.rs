@@ -77,6 +77,14 @@ pub(crate) fn of_protocol(error: ProtocolError) -> LoadProblem {
             declared: extension_version,
             host: host_version,
         },
+        ProtocolError::OlderVersion {
+            host_version,
+            extension_version,
+            ..
+        } => LoadProblem::OlderProtocol {
+            declared: extension_version,
+            host: host_version,
+        },
         error => LoadProblem::NoDeclaration {
             reason: error.to_string(),
         },
@@ -125,6 +133,19 @@ pub(crate) fn diagnostic(problem: &LoadProblem, subject: &Subject) -> Option<Dia
             .with_suggestion(format!(
                 "update specforge to a release that speaks protocol {declared} (`specforge --version` \
                  names it), or install a version of the extension built for protocol {host}"
+            )),
+        (LoadProblem::OlderProtocol { declared, host }, _) => subject
+            .says(
+                codes::E088,
+                format!(
+                    "speaks extension protocol {declared}, older than the {host} this specforge speaks, so it \
+                     is not loaded"
+                ),
+            )
+            .with_suggestion(format!(
+                "install a version of the extension built for protocol {}.x, or rebuild it with a \
+                 specforge-extension-sdk of that protocol",
+                semver::Version::parse(host).map_or_else(|_| host.clone(), |host| host.major.to_string())
             )),
         (LoadProblem::UnknownPorts { ports, host }, _) => subject
             .says(

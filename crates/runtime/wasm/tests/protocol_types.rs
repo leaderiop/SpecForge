@@ -651,14 +651,17 @@ fn describe_response_parse_collectors() {
 // ── Step 15: ProtocolError ──
 
 #[test]
-fn protocol_error_display_incompatible_version() {
-    let err = ProtocolError::IncompatibleVersion {
-        host_version: "1.0".to_string(),
-        extension_version: "2.0".to_string(),
+fn protocol_error_display_older_version() {
+    let err = ProtocolError::OlderVersion {
+        extension: "@acme/old".to_string(),
+        host_version: "2.1.0".to_string(),
+        extension_version: "1.4.0".to_string(),
     };
-    let msg = err.to_string();
-    assert!(msg.contains("host=1.0"));
-    assert!(msg.contains("extension=2.0"));
+    assert_eq!(
+        err.to_string(),
+        "extension '@acme/old' speaks protocol 1.4.0, older than the 2.1.0 this specforge speaks: install a \
+         version built for protocol 2.x"
+    );
 }
 
 #[test]

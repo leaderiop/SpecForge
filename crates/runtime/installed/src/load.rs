@@ -171,8 +171,10 @@ pub enum LoadProblem {
     /// E028: its declaration can't be read (handshake, describe, protocol
     /// major).
     NoDeclaration { reason: String },
-    /// E088: its handshake speaks a newer protocol minor than the host (ADR 0326).
+    /// E088: its handshake speaks a newer protocol major, or a newer minor of the host's major (ADR 0326).
     NewerProtocol { declared: String, host: String },
+    /// E088: its handshake speaks an older protocol major than the host (ADR 0326 D1b).
+    OlderProtocol { declared: String, host: String },
     /// E088: it imports `specforge:host` interfaces this host does not provide (ADR 0326 D1a).
     UnknownPorts { ports: Vec<String>, host: String },
     /// E028: it imports interfaces that are neither WASI nor a specforge host port (ADR 0326 D1a).
@@ -328,6 +330,7 @@ impl LoadProblem {
             | LoadProblem::NotAComponent { .. }
             | LoadProblem::NoDeclaration { .. }
             | LoadProblem::NewerProtocol { .. }
+            | LoadProblem::OlderProtocol { .. }
             | LoadProblem::UnknownPorts { .. }
             | LoadProblem::ForeignImports { .. } => {
                 unreachable!("a named entry names no file, or the step's problem")
@@ -384,6 +387,7 @@ impl LoadProblem {
             | LoadProblem::NotAComponent { .. }
             | LoadProblem::NoDeclaration { .. }
             | LoadProblem::NewerProtocol { .. }
+            | LoadProblem::OlderProtocol { .. }
             | LoadProblem::UnknownPorts { .. }
             | LoadProblem::ForeignImports { .. } => {
                 unreachable!("a file entry is not installed, or the step's problem")

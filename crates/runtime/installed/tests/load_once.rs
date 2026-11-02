@@ -252,7 +252,6 @@ fn load_speaking(protocol: &str) -> (Vec<specforge_common::Diagnostic>, InProces
     behavior = "validate_extension_manifest",
     verify = "a handshake of another protocol major produces E088, saying which side is behind"
 )]
-#[ignore = "plan 00 T5"]
 fn an_entry_of_a_newer_protocol_major_is_refused_with_e088() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     let major: u64 = PROTOCOL_VERSION.split('.').next().unwrap().parse().unwrap();
@@ -275,7 +274,6 @@ fn an_entry_of_a_newer_protocol_major_is_refused_with_e088() {
     behavior = "validate_extension_manifest",
     verify = "a handshake of another protocol major produces E088, saying which side is behind"
 )]
-#[ignore = "plan 00 T5"]
 fn an_entry_of_an_older_protocol_major_is_refused_with_e088() {
     let (reports, runtime) = load_speaking("0.9.0");
 

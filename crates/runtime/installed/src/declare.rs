@@ -15,9 +15,9 @@ const CANDIDATE: &str = "__candidate";
 /// extension (under a candidate name, then unloaded): its declaration and
 /// the warnings its load reports. E028 "not a loadable SpecForge extension:
 /// …" when it doesn't load or answer its declaration. Its warnings name what
-/// it declares, not the candidate name; E088 when its protocol minor is newer
-/// than the host's (ADR 0326). `add`, `publish` and `init` read a candidate
-/// through it.
+/// it declares, not the candidate name; E088 when it speaks another protocol
+/// major or a newer minor, or imports a host port this specforge lacks
+/// (ADR 0326). `add`, `publish` and `init` read a candidate through it.
 pub fn declaration_of(bytes: &[u8], runtime: &dyn WasmRuntime) -> Result<Loaded, Diagnostic> {
     let refused = |problem: LoadProblem, declared: Option<String>| {
         refusal::diagnostic(&problem, &Subject::Candidate { declared })
@@ -30,7 +30,8 @@ pub fn declaration_of(bytes: &[u8], runtime: &dyn WasmRuntime) -> Result<Loaded,
     runtime.unload(CANDIDATE);
     loaded.map_err(|error| {
         let declared = match &error {
-            ProtocolError::NewerVersion { extension, .. } => Some(extension.clone()),
+            ProtocolError::NewerVersion { extension, .. }
+            | ProtocolError::OlderVersion { extension, .. } => Some(extension.clone()),
             _ => None,
         };
         refused(refusal::of_protocol(error), declared)
@@ -154,7 +155,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "plan 00 T5"]
     fn a_candidate_of_a_newer_protocol_major_is_e088() {
         let bytes = b"\0asm a newer major";
         let major: u64 = specforge_protocol_types::PROTOCOL_VERSION
