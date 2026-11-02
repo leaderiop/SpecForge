@@ -3,6 +3,8 @@
 **Status:** accepted (2026-10-27, architecture round 30, plan K10). Amends [ADR 0026](0026-typed-diagnostic-codes.md)
 D3 and D4. Supersedes [ADR 0278](0278-a-code-is-explained-by-the-catalog-else-by-the-loaded-extensions-rules.md) D4 and
 amends its D1 to D3. Extended by [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md): a raise applies in the project's report.
+D2 and D3 amended by [ADR 0328](0328-a-builtin-is-embedded-and-a-non-specforge-builtin-catalogues-its-codes.md): "first party" is the
+`@specforge/` scope; a builtin outside it catalogues its codes and prints them namespaced.
 
 ## Context
 
