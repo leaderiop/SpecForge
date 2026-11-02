@@ -1,7 +1,7 @@
 # The guest wire carries only what guests compile
 
 **Status:** accepted (2026-10-11). Amends ADR 0036 D1, ADR 0041 D1, ADR 0044 D1, ADR 0012 D2 and D3, and ADR 0004
-D5-a.
+D5-a. Amended 2026-11-02: protocol 1.15 adds `routes`, a thirteenth category ([ADR 0330](0330-trace-follows-the-routes-extensions-declare.md)).
 
 Every builtin blob is built from `specforge-protocol-types`, the SDK, its macros and the coverage rule: `xtask
 build-builtins` records every file rustc reads for a blob and stales the blob when one changes. ADR 0044 D1 kept

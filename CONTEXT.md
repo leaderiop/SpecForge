@@ -874,7 +874,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_ops::read::{explore, review}`), the entities a trace's chains reach (`specforge_ops::read::trace::affected`, the trace prompt's
   affected and unverified entities), the plan check (`specforge_ops::read::plan::check`), the anchors of a source file and of an entity
   (`specforge_ops::read::navigate::{anchors_of_file, anchors_of_entity}`, ADR 0140), and the inference guide and plan
-  (`specforge_ops::read::infer::{guide, kind_guide, inference_plan}`). Each returns a typed outcome; the CLI,
+  (`specforge_ops::read::infer::{guide, kind_guide, inference_plan}`), and the route trace (`specforge_ops::read::trace::route`, a
+  **Thread**, ADR 0330). Each returns a typed outcome; the CLI,
   MCP (its tools and its prompts) and the LSP only render it. Its rules are tested in ops and stated by an ops-level
   behaviour; a surface's tests hold what the surface decides (ADR 0015).
 - **Noticed read**: a read view that reports what it noticed about the run beside its value: the schema notices and I020. It
@@ -913,6 +914,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (id, label) order (`Graph::reach`: the neighbourhood the exploration and the review read, a read selection's, `Graph::select`), or
   one way in written order (`Graph::reach_directed`: a trace's upstream and downstream, [ADR 0174](docs/adr/0174-the-graph-owns-directed-reach-and-degree.md)).
   Each reads only the edges of the entities it reaches. Not the entities a trace's chains reach (`trace::affected`).
+  A kind an extension declares a **Route** from is traced along it; `--reach` (MCP `reach`) asks for the reach (ADR 0330).
 - **Unreferenced entity**: an entity no edge from another entity points at: W012 for a `ref`, an extension's
   `no_incoming_edges` rule for its kinds, the coverage summary's `invariant_unreferenced`. No output calls one
   an orphan: the catalog titles, product `health`'s `unreferenced_counts` and the coverage summary's
@@ -1658,6 +1660,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   complete) does not hold, or, when its kind declares none, its nearest scope ancestor's that declares one does not.
   With no declaration in the chain it is not pending. A pass reads it as `PassEntity.pending`; `@code/core` leaves a
   pending entity's fact references unchecked (ADR 0329 D4).
+- **Route**: what an extension declares (the `routes` category) for `specforge trace` to follow from a start kind:
+  ordered steps, each going on from the start or an earlier step through selector steps (`<plan.requirements`), and
+  annotations that print a field, a value reached through a selector, or a judgement. One the registry can't follow is
+  E118; several from one kind without one default are W195 (ADR 0330).
+- **Thread**: what `trace` prints along a route: the start and each step's matches, joined by ` → ` on one line when no
+  step has more than one, else a tree. It is complete when one path reaches every step; only a complete thread prints
+  by default, a partial one with `--partial` (ADR 0330).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).
