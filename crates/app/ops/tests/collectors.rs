@@ -205,9 +205,12 @@ fn collect_maps_results_to_the_views_entities() {
     .unwrap();
 
     // Written at the view's root, with the view's entity only.
-    assert_eq!(outcome.report, dir.path().join("specforge-report.json"));
+    assert_eq!(
+        outcome.report,
+        Some(dir.path().join("specforge-report.json"))
+    );
     let written: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(&outcome.report).unwrap()).unwrap();
+        serde_json::from_slice(&std::fs::read(outcome.report.as_ref().unwrap()).unwrap()).unwrap();
     let results: Vec<&str> = written["results"]
         .as_object()
         .unwrap()

@@ -141,7 +141,7 @@ fn collect_and_apply_in(
     )
     .unwrap();
     let plans = std::mem::take(&mut outcome.plans);
-    let applied = apply_collected(&view, plans, false, caller())
+    let applied = apply_collected(&view, plans, Default::default(), false, caller())
         .map(|_| ())
         .map_err(|e| format!("{}: {}", e.code, e.message));
     (applied, runtime)
@@ -229,7 +229,7 @@ fn a_collect_without_plans_compiles_once() {
     };
     let before = passes();
     assert!(
-        apply_collected(&view, Vec::new(), false, caller())
+        apply_collected(&view, Vec::new(), Default::default(), false, caller())
             .unwrap()
             .is_empty()
     );

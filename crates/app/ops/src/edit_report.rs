@@ -4,7 +4,7 @@
 use serde::Serialize;
 use specforge_common::DiagnosticList;
 use specforge_common::shape::Shape;
-use specforge_protocol_types::EditPlan;
+use specforge_protocol_types::{EditPlan, Fact};
 
 /// What a plan will write.
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
@@ -40,4 +40,15 @@ pub struct CollectedPlan {
     /// Whether the collector declares `writes`.
     pub writes: bool,
     pub plan: EditPlan,
+}
+
+/// The facts a collect's collectors answered and the host admitted (ADR 0327), not yet stored: the host stores them in
+/// one change under the write lock with the plans (`authoring::apply::apply_collected`), since a write of the project
+/// is an `authoring` operation.
+#[derive(Debug, Clone, Default)]
+pub struct CollectedFacts {
+    /// The key they are filed under: the commit they were collected at, `<sha>-dirty` or `worktree`.
+    pub key: String,
+    /// Each collector's facts, in collector order: its name, its extension and its facts.
+    pub stores: Vec<(String, String, Vec<Fact>)>,
 }

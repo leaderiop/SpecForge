@@ -66,6 +66,16 @@ pub enum Located {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HistoryError(pub String);
 
+/// What git says of a worktree: its porcelain status as written (what a hook is given, ADR 0320), and whether it
+/// holds a change HEAD does not (a collect's key, ADR 0327 D3).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct WorktreeStatus {
+    /// `git status --porcelain=v2 --branch`, as git wrote it.
+    pub porcelain: String,
+    /// It lists a tracked change, a conflict or an untracked file.
+    pub dirty: bool,
+}
+
 impl std::fmt::Display for HistoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
@@ -130,8 +140,8 @@ pub trait History: Send + Sync {
     fn branch(&self, _place: &GitPlace) -> Result<String, HistoryError> {
         Err(HistoryError("this history cannot answer it".into()))
     }
-    /// `git status --porcelain=v2 --branch` in `place`, as git wrote it (ADR 0320).
-    fn status(&self, _place: &GitPlace) -> Result<String, HistoryError> {
+    /// The worktree's status in `place` (`git status --porcelain=v2 --branch`, ADR 0320, ADR 0327 D3).
+    fn status(&self, _place: &GitPlace) -> Result<WorktreeStatus, HistoryError> {
         Err(HistoryError("this history cannot answer it".into()))
     }
 }

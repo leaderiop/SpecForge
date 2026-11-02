@@ -113,7 +113,7 @@ pub(crate) fn record_citing(
     let mut ledger =
         harness::Ledger::parse(&std::fs::read_to_string(&file).unwrap_or_default()).ledger;
     ledger.insert(harness::Line {
-        path: entity.to_string(),
+        subject: entity.to_string(),
         digest: harness::digest(entity, &key, &bytes),
         key,
     });

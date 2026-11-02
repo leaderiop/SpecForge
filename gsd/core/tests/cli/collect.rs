@@ -253,8 +253,12 @@ fn a_repository_without_commits_is_e045() {
 const TRUTH: &str = "v1.0/01/01-01/TR1";
 const DELIVERABLE: &str = "v1.0/01/01-01/01-01-SUMMARY/D1";
 
-/// The report the collectors wrote, as `{entity: [(test name, status)]}`.
+/// The report the collectors wrote, as `{entity: [(test name, status)]}`; empty when none was written (a collect
+/// that records no test writes none).
 fn report(p: &Project) -> std::collections::BTreeMap<String, Vec<(String, String)>> {
+    if !p.exists("specforge-report.json") {
+        return Default::default();
+    }
     let report: serde_json::Value =
         serde_json::from_str(&p.read("specforge-report.json")).expect("a JSON report");
     report["results"]

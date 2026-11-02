@@ -504,6 +504,7 @@ behavior dispatch_collector "Dispatch Collector" {
     traps_reported               "a trap or malformed answer is E028"
     named_reports_only           "with --report only the named files are read: nothing the collector declares about its report, capture or command is resolved or refused"
     declared_files_passed        "a collector that declares reads receives their files' facts, held to the project as a pass's are"
+    facts_stored                 "a collector's admitted facts are stored under the collect's key and recorded by digest in specforge-harness, in one change under the write lock"
   }
   contract   """
     The host reads the report (the file itself, or every `*.json` file
@@ -532,7 +533,16 @@ behavior dispatch_collector "Dispatch Collector" {
     run and before the export, as a command's are (ADR 0293).
     Every collector receives the project root as `cwd`; one that declares
     `writes` also receives the date, the graph and the revisions. Its answer
-    may carry `facts`, the entities it observed (ADR 0327).
+    may carry `facts`, the entities it observed (ADR 0327): facts of a kind
+    no loaded extension declares a collector writes, an empty id, an id in
+    none of its kind's schemes or a repeated id are E116, and none of that
+    collector's facts is stored. The others are stored after every collector
+    ran, in `.specforge/facts/<key>/<collector>.json` (canonical JSON), under
+    HEAD's sha, `<sha>-dirty` for a dirty tree, or `worktree` with no commit
+    (I209 for either), and `specforge-harness` records one line per
+    collector, `<collector> facts:<key> <digest>`, replacing its last; the
+    store, the removal of its stores under other keys and the line are one
+    change under the write lock.
   """
   produces   [collector_dispatched]
   verify unit "reads a file or every json file in a directory"
@@ -542,7 +552,10 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "a collector receives the facts of the files it declares it reads, and none when it declares none"
   verify unit "a collector's read is held to the project and withholds a credential's text, as a pass's is"
   verify unit "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
-  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed"
+  verify unit "a collector's facts are stored under the key of the commit they were collected at and their digest is recorded in specforge-harness"
+  verify unit "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
+  verify unit "a dirty tree or a project in no repository files its facts under a key that says so, with I209"
+  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored"
 }
 
 behavior ingest_collector_report "Ingest Collector Report" {
@@ -571,13 +584,18 @@ behavior ingest_collector_report "Ingest Collector Report" {
     obligation it names, its duration) with the runner that recorded it.
     The report is read strictly: a status outside passed, failed and
     skipped, or a test without a name, makes it a report that cannot be
-    used (E045), and collect rewrites it. Results for entities the graph doesn't declare are
+    used (E045), and a collect that merges rewrites it. Results for entities the graph doesn't declare are
     dropped with a W115 warning. Skipped tests prove nothing, so they're
     counted but not recorded. `specforge analyze` reads the written report
     without `--test-results`.
+    A collector's answer is merged only when it carries test results, or
+    the report holds that runner's tests (an emptied answer still clears
+    them); the report is written only when a merge changed it. A facts-only
+    or plan-only answer creates and rewrites no report (ADR 0327).
   """
   produces   [collector_report_ingested]
   verify unit "merge replaces only the same runner"
+  verify unit "a collect whose answers carry facts and no test results creates and rewrites no report, in a run of one collector or several"
   verify unit "the recorded test report speaks the collect vocabulary, and a status outside it is a report that cannot be used"
   verify unit "the entities results may name are the entity snapshot's, with their obligation texts"
   verify integration "collect then analyze scores the recorded tests"

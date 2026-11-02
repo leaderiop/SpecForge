@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::history::{
     Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha, SharedHistory, Sized,
-    TreeEntry, default_history, set_default,
+    TreeEntry, WorktreeStatus, default_history, set_default,
 };
 
 /// Answers `located`, `head` and `files` as given.
@@ -34,7 +34,7 @@ pub struct FakeHistory {
     /// What `branch` answers.
     pub branch: String,
     /// What `status` answers.
-    pub status: String,
+    pub status: WorktreeStatus,
     asked: AtomicUsize,
     trees: AtomicUsize,
     blobs_asks: AtomicUsize,
@@ -64,7 +64,7 @@ impl FakeHistory {
             sizes_fail: None,
             tree_fail: None,
             branch: String::new(),
-            status: String::new(),
+            status: WorktreeStatus::default(),
             asked: AtomicUsize::new(0),
             trees: AtomicUsize::new(0),
             blobs_asks: AtomicUsize::new(0),
@@ -87,7 +87,7 @@ impl FakeHistory {
             sizes_fail: None,
             tree_fail: None,
             branch: String::new(),
-            status: String::new(),
+            status: WorktreeStatus::default(),
             asked: AtomicUsize::new(0),
             trees: AtomicUsize::new(0),
             blobs_asks: AtomicUsize::new(0),
@@ -120,7 +120,7 @@ impl History for FakeHistory {
     fn branch(&self, _: &GitPlace) -> Result<String, HistoryError> {
         Ok(self.branch.clone())
     }
-    fn status(&self, _: &GitPlace) -> Result<String, HistoryError> {
+    fn status(&self, _: &GitPlace) -> Result<WorktreeStatus, HistoryError> {
         Ok(self.status.clone())
     }
     fn locate(&self, _: &Path) -> Located {

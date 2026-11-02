@@ -8611,6 +8611,10 @@ expression: listing
               "extension": {
                 "type": "string"
               },
+              "facts": {
+                "minimum": 0,
+                "type": "integer"
+              },
               "failed": {
                 "minimum": 0,
                 "type": "integer"
@@ -8677,6 +8681,7 @@ expression: listing
               "ran",
               "files",
               "by_convention",
+              "facts",
               "entities",
               "passed",
               "failed",
@@ -8696,8 +8701,7 @@ expression: listing
       "required": [
         "status",
         "runners",
-        "diagnostics",
-        "report"
+        "diagnostics"
       ],
       "type": "object"
     },

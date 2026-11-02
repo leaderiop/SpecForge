@@ -249,14 +249,13 @@ impl CompiledProject {
         if keep_unseen {
             // The ledger was rewritten by another writer since this change was planned: its lines for entities, or
             // for values, neither project holds are that writer's, and stay.
-            let held = |project: &CompiledProject, l: &crate::harness::Line| {
-                if l.is_value() {
-                    harness
-                        .value(project.graph(), forms, &l.path, &l.key)
-                        .is_some()
-                } else {
-                    project.graph().node(&l.path).is_some()
-                }
+            let held = |project: &CompiledProject, l: &crate::harness::Line| match l.facts_of() {
+                // A fact store's line is the collect's to replace, never another writer's.
+                Some((collector, _)) => harness.has_collector(collector),
+                None if l.is_value() => harness
+                    .value(project.graph(), forms, &l.subject, &l.key)
+                    .is_some(),
+                None => project.graph().node(&l.subject).is_some(),
             };
             for line in ledger.lines().filter(|l| !held(self, l) && !held(after, l)) {
                 rewritten.insert(line.clone());

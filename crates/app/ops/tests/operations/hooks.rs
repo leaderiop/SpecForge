@@ -296,7 +296,10 @@ fn a_hook_that_reads_git_is_told_the_head() {
         shallow: false,
     });
     fake.branch = "agent-x".into();
-    fake.status = "# branch.head agent-x\n? new.txt\n".into();
+    fake.status = specforge_project::history::WorktreeStatus {
+        porcelain: "# branch.head agent-x\n? new.txt\n".into(),
+        dirty: true,
+    };
     let none = run_hook(
         &hosted,
         "write_guard",

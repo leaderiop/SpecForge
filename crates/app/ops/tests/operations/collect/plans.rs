@@ -50,7 +50,8 @@ fn a_collector_plan_creates_commits_and_records_results() {
     )
     .unwrap();
     let plans = std::mem::take(&mut outcome.plans);
-    let outcome = outcome.with_applied(apply_collected(&view, plans, false, caller()).unwrap());
+    let outcome = outcome
+        .with_applied(apply_collected(&view, plans, Default::default(), false, caller()).unwrap());
 
     let written = std::fs::read_to_string(p.root().join("commits.spec")).unwrap();
     assert!(written.contains("commit c1 \"C\""), "{written}");

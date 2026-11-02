@@ -28,6 +28,7 @@ mod compiled;
 mod compute;
 pub mod coverage;
 mod diagnostics_delta;
+pub mod facts;
 pub mod file_reads;
 mod guards;
 pub mod harness;

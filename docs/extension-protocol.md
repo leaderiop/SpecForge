@@ -206,8 +206,10 @@ A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed
 
 **A collector-written kind (ADR 0327, 1.15.0).** A kind may declare `writer: "collector"` and `schemes`, the
 prefixes of its ids (`"schemes": ["js"]` for ids such as `js:pkg/a.test.js#name`): its entities are a collector's
-`facts`, never written in a `.spec` file, and the kernel names no such kind. A field that declares
-`writer: "collector"` is W021 and loses its writer: a collector writes whole entities.
+`facts`, never written in a `.spec` file (E115), and the kernel names no such kind. A kind's writer other than
+`human` or `collector`, `schemes` on a kind no collector writes, a scheme that is no lowercase name or one a
+configured provider registers are W021 and dropped; a collected kind left with no scheme is W021 too. A field that
+declares `writer: "collector"` is W021 and loses its writer: a collector writes whole entities.
 
 How a value is written in `.spec` follows the type (ADR 0147): `enum`, `identifier`, `reference` and each `reference_list`
 item bare; `string` and each `string_list` item quoted. `specforge format` writes it and `check` warns W159 on the other form. A command's
@@ -648,7 +650,12 @@ declares `writer: "collector"`, with an id under one of the kind's `schemes`:
 ```
 
 `facts` is absent when it observed none. `cwd`, the project root, is in every collector's input from 1.15.0 on (a
-writing collector's only before), so a collector can name a file by its path from the root.
+writing collector's only before), so a collector can name a file by its path from the root. The host stores the
+facts in `.specforge/facts/<key>/<collector>.json` under HEAD's sha (`<sha>-dirty` for a dirty tree, `worktree` with
+no commit: I209) and records their digest in `specforge-harness` (`<collector> facts:<key> <digest>`, one line per
+collector); a fact of a kind no loaded extension declares a collector writes, or an id in none of its kind's
+`schemes`, is E116 and none of that collector's facts is stored. An answer with facts and no test results writes no
+`specforge-report.json`.
 
 ### Category: passes
 

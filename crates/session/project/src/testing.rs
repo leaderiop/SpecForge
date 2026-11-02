@@ -35,7 +35,7 @@ pub mod typed;
 
 pub use assembled::Assembled;
 pub use collected::{
-    CODE, COLLECTED_EXTENSIONS, Collected, NODE, NODE_REPORT, SPEC, collected_answer,
+    CODE, COLLECTED_EXTENSIONS, Collected, NODE, NODE_REPORT, SPEC, UNIT_REPORT, collected_answer,
     collected_wire,
 };
 pub use gsd::{

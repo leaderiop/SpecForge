@@ -36,6 +36,29 @@ impl Stager<'_> {
         Ok(self.caller.containment().resolve(&self.sources.path(key))?)
     }
 
+    /// What `key` holds now (`None`: not there); a file that is there and cannot be read is the error, so the journal
+    /// never records it as absent (a rollback would delete it).
+    pub(crate) fn read_if_there(&self, key: &str) -> Result<Option<Vec<u8>>, OpError> {
+        self.held(key)?.read_if_there().map_err(|error| {
+            OpError::new(
+                OpErrorKind::of_io(&error),
+                crate::FILE_UNREADABLE,
+                format!("failed to read {key}: {error}"),
+            )
+        })
+    }
+
+    /// The fact stores of `collector` filed under another key than `key`, listed now, under the lock, through the
+    /// caller's containment (ADR 0327 D4).
+    pub(crate) fn superseded_stores(&self, collector: &str, key: &str) -> Vec<String> {
+        specforge_project::facts::superseded(
+            &self.caller.containment().disk(),
+            self.sources.base(),
+            collector,
+            key,
+        )
+    }
+
     /// `key` held `before` (`None`: not there) and will hold `after`.
     pub(crate) fn write(
         &mut self,

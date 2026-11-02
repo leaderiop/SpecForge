@@ -235,6 +235,9 @@ catalog! {
     E115: Error core,
         "A fact written in a spec file",
         "A spec file writes an entity of a kind its extension declares `writer: \"collector\"` (ADR 0327). Such a kind's entities are facts: only `specforge collect` gives them, from what a collector observed, stores them in `.specforge/facts/<key>/<collector>.json` and records their digest in `specforge-harness`; the session serves the recorded stores read-only. A block of the kind in a `.spec` file is reported at the block, and is not a fact. Delete the block; to cite a fact, write its id in a reference (`proof [\"js:pkg/a.test.js#adds\"]`).";
+    E116: Error core,
+        "Facts a collector answered that the host refuses",
+        "A collector answered `facts` (ADR 0327) the host does not store: a fact of a kind no loaded extension declares `writer: \"collector\"`, an empty id, an id that names none of its kind's `schemes` (`js:` for `js:pkg/a.test.js#adds`), or an id the answer repeats. The message names the collector and the first reason. None of that collector's facts is stored, so its earlier store stays; the other collectors and the report merge go on (ADR 0303: an extension's error refuses no other fact). Fix the collector, or load the extension that declares the kind.";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";
@@ -367,6 +370,9 @@ catalog! {
     I205: Info core,
         "Test inputs not judged",
         "A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a `test(..)` selector, or a verdict that cites tests), or a check, compute or guard pass declares `reads_tests` (protocol 1.11.0), but there is no `specforge-report.json`: run `specforge collect`. The rule's other inputs are judged as usual and the test input is left out of the comparison, so a verdict is not made stale by a report that is not there. Nothing is wrong with the project. A report that exists but cannot be used is E045.";
+    I209: Info core,
+        "Facts filed under a key that is not a clean commit",
+        "`specforge collect` stored a collector's facts (ADR 0327) under a key that is not HEAD's sha: `<sha>-dirty` when the tree holds a tracked change, a conflict or an untracked file, or `worktree` when the project is in no repository, HEAD is unborn, or git can't be asked. The key is provenance: a reader compares it with HEAD to call a fact fresh, and a dirty collect replaces the previous one of that sha. Commit, then collect again, to file the facts under the commit.";
     I999: Info core,
         "Diagnostic output truncated",
         "More diagnostics were produced than the 100-diagnostic display limit, so only the first batch is shown. Fix the listed diagnostics and rerun the compiler to see the rest.";

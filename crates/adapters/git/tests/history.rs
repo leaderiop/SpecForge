@@ -354,6 +354,8 @@ fn history_answers_the_branch_and_status() {
     };
     assert_eq!(cli.branch(&place).unwrap(), "main");
     let status = cli.status(&place).unwrap();
+    assert!(status.dirty, "an untracked file");
+    let status = status.porcelain;
     assert!(status.contains("# branch.head main\n"), "{status}");
     assert!(status.contains("? n.txt\n"), "{status}");
     git(root, &["checkout", "-q", "--detach"]);
@@ -388,5 +390,8 @@ fn every_git_call_opts_out_of_the_optional_index_lock() {
     let Located::Repo(place) = cli.locate(&root) else {
         panic!("a repository");
     };
-    assert_eq!(cli.status(&place).unwrap(), "GIT_OPTIONAL_LOCKS=0\n");
+    assert_eq!(
+        cli.status(&place).unwrap().porcelain,
+        "GIT_OPTIONAL_LOCKS=0\n"
+    );
 }

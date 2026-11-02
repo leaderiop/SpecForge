@@ -1287,6 +1287,23 @@ Owner: core
 Level: error
 ```
 
+## E116
+
+```
+E116: Facts a collector answered that the host refuses
+
+A collector answered `facts` (ADR 0327) the host does not store: a fact of a
+kind no loaded extension declares `writer: "collector"`, an empty id, an id that
+names none of its kind's `schemes` (`js:` for `js:pkg/a.test.js#adds`), or an id
+the answer repeats. The message names the collector and the first reason. None
+of that collector's facts is stored, so its earlier store stays; the other
+collectors and the report merge go on (ADR 0303: an extension's error refuses no
+other fact). Fix the collector, or load the extension that declares the kind.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```
@@ -1902,6 +1919,22 @@ guard pass declares `reads_tests` (protocol 1.11.0), but there is no
 judged as usual and the test input is left out of the comparison, so a verdict
 is not made stale by a report that is not there. Nothing is wrong with the
 project. A report that exists but cannot be used is E045.
+
+Owner: core
+Level: info
+```
+
+## I209
+
+```
+I209: Facts filed under a key that is not a clean commit
+
+`specforge collect` stored a collector's facts (ADR 0327) under a key that is
+not HEAD's sha: `<sha>-dirty` when the tree holds a tracked change, a conflict
+or an untracked file, or `worktree` when the project is in no repository, HEAD
+is unborn, or git can't be asked. The key is provenance: a reader compares it
+with HEAD to call a fact fresh, and a dirty collect replaces the previous one of
+that sha. Commit, then collect again, to file the facts under the commit.
 
 Owner: core
 Level: info

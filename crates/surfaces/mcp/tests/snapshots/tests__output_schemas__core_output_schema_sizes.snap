@@ -29,7 +29,7 @@ specforge.settings 3694
 specforge.settings_set 2850
 specforge.verdict_inputs 1354
 specforge.doctor 6671
-specforge.collect 3609
+specforge.collect 3647
 specforge.render 262
 specforge.infer_progress 864
 specforge.infer_gaps 1101
@@ -37,4 +37,4 @@ specforge.infer_session 295
 specforge.find_implementation 502
 specforge.find_spec_for_source 642
 specforge.prompt 283
-total 71200
+total 71238

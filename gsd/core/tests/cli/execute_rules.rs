@@ -462,9 +462,10 @@ fn a_git_only_collect_leaves_the_checks_unjudged_even_under_strict() {
         T1,
     );
     assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
+    // A plan-only collect records no test, so it writes no report.
     assert!(
-        p.exists("specforge-report.json"),
-        "the git collect writes a report"
+        !p.exists("specforge-report.json"),
+        "the git collect writes no report"
     );
     // No test ever ran: no W408 (an Error under strict).
     assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));

@@ -309,6 +309,7 @@ behavior collect_harness_ledger "Keep the Harness Ledger" {
   verify unit "harness gc leaves a ledger alone when no loaded extension declares a harness field"
   verify unit "every host write of a project with a harness field takes the write lock, and one without creates no lock file"
   verify unit "the first ledger write adds the union attribute"
+  verify unit "a collect records one facts line per collector, replacing its last"
 }
 
 behavior apply_edit_plan "Apply an Edit Plan" {

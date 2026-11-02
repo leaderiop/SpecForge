@@ -903,8 +903,8 @@ type McpCollectResult "Mcp Collect Result" {
   runners     McpCollectRunner[]
   /// What collecting reported (W115: a test names an unknown entity).
   diagnostics Diagnostic[]
-  /// The written specforge-report.json, named from the project root (ADR 0102).
-  report      string @readonly
+  /// The written specforge-report.json, named from the project root (ADR 0102); absent when no collector's answer changed it.
+  report      string @readonly @optional
   verify unit "McpCollectResult schema is valid"
 }
 
@@ -925,6 +925,8 @@ type McpCollectRunner "What one runner's collection found" {
   skipped       integer
   /// Tests linked by naming convention rather than by the report.
   by_convention integer
+  /// The facts stored for it (ADR 0327): none when it answered none, or they were refused (E116).
+  facts         integer
   /// What a writing collector's plan did to the project (ADR 0289), as an edit reports it; absent when it answered none.
   plan          McpCollectPlan @optional
   verify unit "McpCollectRunner schema is valid"

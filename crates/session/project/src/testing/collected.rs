@@ -3,7 +3,8 @@
 //! - [`CODE`] (`@t/code`): the kind `test`, written by a collector under the scheme `js`, with the fields `file` and
 //!   `status`
 //! - [`NODE`] (`@t/node`, a peer of code): the collector `node` (`collect__node`, detected by `package.json`, its
-//!   report `.specforge/reports/node.xml`)
+//!   report `.specforge/reports/node.xml`), and `unit` (`collect__unit`, detected by `package.json` too, its report
+//!   `.specforge/reports/unit.json`), the reporting collector a mixed run pairs it with
 //! - [`SPEC`] (`@t/spec`): the kind `truth`, whose `proof` lists the tests that prove it
 //!
 //! The collector answers what the test gives it ([`Collected::answering`]): the fixture holds no handler, so a test
@@ -27,6 +28,8 @@ pub const COLLECTED_EXTENSIONS: [&str; 3] = [CODE, NODE, SPEC];
 
 /// The report `node` reads, from the project root.
 pub const NODE_REPORT: &str = ".specforge/reports/node.xml";
+/// The report `unit` reads, from the project root.
+pub const UNIT_REPORT: &str = ".specforge/reports/unit.json";
 
 /// The kinds of [`CODE`], as the wire carries them.
 pub fn collected_wire() -> Value {
@@ -65,7 +68,12 @@ impl Collected {
 
     /// The runtime serving the three extensions and the answers given.
     pub fn runtime(self) -> InProcessRuntime {
-        let mut runtime = InProcessRuntime::new().with(code).with(node).with(spec);
+        self.over(InProcessRuntime::new())
+    }
+
+    /// `runtime` serving the three extensions too, and the answers given (a mixed run with another fixture's).
+    pub fn over(self, runtime: InProcessRuntime) -> InProcessRuntime {
+        let mut runtime = runtime.with(code).with(node).with(spec);
         for (extension, export, result) in self.answers {
             runtime = runtime.answer_raw(&extension, &export, result);
         }
@@ -84,9 +92,12 @@ fn node() -> ContributionsBuilder {
     c.peer(CODE, "^1.0");
     c.raw_category(
         DeclaredCategory::Collectors,
-        json!([{"name": "node", "input_formats": ["junit"], "export": "collect__node",
-                "auto_detect": {"file_patterns": ["package.json"], "env_vars": []},
-                "report": NODE_REPORT}]),
+        json!([
+            {"name": "node", "input_formats": ["junit"], "export": "collect__node",
+             "auto_detect": {"file_patterns": ["package.json"], "env_vars": []}, "report": NODE_REPORT},
+            {"name": "unit", "input_formats": ["json"], "export": "collect__unit",
+             "auto_detect": {"file_patterns": ["package.json"], "env_vars": []}, "report": UNIT_REPORT},
+        ]),
     );
     c
 }

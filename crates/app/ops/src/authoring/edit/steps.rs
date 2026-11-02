@@ -236,9 +236,14 @@ fn conclude(
             (key, before, line_break.write(&after).into_owned())
         }),
     );
-    let change = change
-        .moving(raw_moves.clone())
-        .keeping_ledger(project, LedgerChange { set, moves });
+    let change = change.moving(raw_moves.clone()).keeping_ledger(
+        project,
+        LedgerChange {
+            set,
+            moves,
+            ..Default::default()
+        },
+    );
     let added = if change.is_empty() {
         Vec::new()
     } else {
