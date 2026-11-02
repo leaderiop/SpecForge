@@ -54,7 +54,7 @@ fn a_source_written_between_its_stamp_and_its_read_is_seen_next_time() {
         // The file is stamped when it is first asked about, before the write.
         assert!(disk.exists(&spec_root.join("a.spec")));
         fs::write(spec_root.join("a.spec"), NEW).unwrap();
-        sources::read(disk, &sources, "a.spec")
+        sources::read(disk, &sources, "a.spec", None)
     });
     assert_eq!(text(&read), Some(NEW));
     // The stamp is the old file's, so the next comparison catches up.
@@ -74,8 +74,8 @@ fn the_unrecorded_reads_are_the_ledgers() {
     );
 
     let sources = from_ledger.config().sources(root.dir());
-    let keys = ledger.discover(&sources);
-    assert_eq!(keys, unrecorded.discover(&sources));
+    let keys = ledger.discover(&sources, false);
+    assert_eq!(keys, unrecorded.discover(&sources, false));
     for key in &keys {
         let one = ledger.source(&sources, key);
         let two = unrecorded.source(&sources, key);
@@ -117,8 +117,8 @@ fn both_reads_read_each_source_through_the_disk_they_are_handed() {
     let env = Environment::read_through(&mut ledger, &root, |_| None);
     assert_eq!(env.config().name.as_deref(), Some("d"));
     let sources = env.config().sources(root.dir());
-    let keys = ledger.discover(&sources);
-    assert_eq!(keys, unrecorded.discover(&sources));
+    let keys = ledger.discover(&sources, false);
+    assert_eq!(keys, unrecorded.discover(&sources, false));
     assert!(!keys.is_empty());
     for key in &keys {
         let one = ledger.source(&sources, key);
@@ -161,9 +161,9 @@ fn a_dangling_link_is_read_as_gone_and_records_its_chain() {
     let env = Environment::read_through(&mut ledger, &root, |_| None);
     let sources = env.config().sources(root.dir());
 
-    let keys = ledger.discover(&sources);
+    let keys = ledger.discover(&sources, false);
     assert_eq!(keys, ["a.spec", "link.spec", "sub/b.spec"]);
-    assert_eq!(keys, unrecorded.discover(&sources));
+    assert_eq!(keys, unrecorded.discover(&sources, false));
     assert!(matches!(ledger.source(&sources, "link.spec"), Read::Gone));
     assert!(
         ledger

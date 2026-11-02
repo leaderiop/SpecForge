@@ -727,3 +727,65 @@ fn the_client_reports_directories_under_the_root() {
         "{watchers:?}"
     );
 }
+
+/// The absolute globs the client is asked to watch for `session`.
+fn globs(session: &specforge_project::ProjectSession) -> Vec<String> {
+    specforge_lsp::watchers::file_watchers(session.inputs(), false)
+        .into_iter()
+        .filter_map(|w| match w.glob_pattern {
+            tower_lsp::lsp_types::GlobPattern::String(glob) => Some(glob),
+            _ => None,
+        })
+        .collect()
+}
+
+const FACTS_KEY: &str = "0123456789abcdef0123456789abcdef01234567";
+
+/// A project holding `node`'s recorded fact store, enabling `extensions`.
+fn with_a_fact_store(extensions: &[&str]) -> specforge_project::testing::TestProject {
+    let p = specforge_project::testing::TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(extensions)
+        .installing_enabled()
+        .file("a.spec", "");
+    let facts = serde_json::json!([{"kind": "test", "id": "js:a.test.js#adds"}]);
+    specforge_project::testing::stored(p.root(), "node", FACTS_KEY, facts);
+    p
+}
+
+/// A collect writes a store and rewrites the ledger: the client reports both (ADR 0327 D9).
+#[spec(
+    behavior = "watch_file_system_for_changes",
+    verify = "a fact store and the harness ledger are watched inputs when a collector-written kind is loaded"
+)]
+fn the_watchers_cover_the_fact_store_when_a_collected_kind_is_loaded() {
+    use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected};
+    let p = with_a_fact_store(&COLLECTED_EXTENSIONS);
+    let session = p.session_in(std::sync::Arc::new(Collected::new().runtime()));
+    let root = p.root().to_string_lossy().into_owned();
+
+    let globs = globs(&session);
+
+    for glob in [
+        format!("{root}/.specforge/facts/*"),
+        format!("{root}/.specforge/facts/{FACTS_KEY}/*"),
+        format!("{root}/specforge-harness"),
+    ] {
+        assert!(globs.contains(&glob), "{glob} in {globs:?}");
+    }
+}
+
+#[test]
+fn no_fact_watcher_without_a_collected_kind() {
+    let p = with_a_fact_store(&[]);
+    let session = p.session_bare();
+
+    let globs = globs(&session);
+
+    assert!(
+        !globs
+            .iter()
+            .any(|glob| glob.contains(".specforge/facts") || glob.ends_with("specforge-harness")),
+        "{globs:?}"
+    );
+}

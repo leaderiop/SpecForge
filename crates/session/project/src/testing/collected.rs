@@ -5,7 +5,7 @@
 //! - [`NODE`] (`@t/node`, a peer of code): the collector `node` (`collect__node`, detected by `package.json`, its
 //!   report `.specforge/reports/node.xml`), and `unit` (`collect__unit`, detected by `package.json` too, its report
 //!   `.specforge/reports/unit.json`), the reporting collector a mixed run pairs it with
-//! - [`SPEC`] (`@t/spec`): the kind `truth`, whose `proof` lists the tests that prove it
+//! - [`SPEC`] (`@t/spec`, a peer of code): the kind `truth`, whose `proof` lists the tests that prove it
 //!
 //! The collector answers what the test gives it ([`Collected::answering`]): the fixture holds no handler, so a test
 //! spells the facts it expects the host to store.
@@ -81,6 +81,23 @@ impl Collected {
     }
 }
 
+/// Write `collector`'s store of `facts` (as the wire carries them, from [`NODE`]) under `key` in the project at
+/// `root`, and the `specforge-harness` line that records it, as a collect leaves them (ADR 0327 D2, D4).
+pub fn stored(root: &std::path::Path, collector: &str, key: &str, facts: Value) {
+    use crate::facts::Store;
+    use crate::harness::{LEDGER_FILE, Ledger, Line};
+    let facts = serde_json::from_value(facts).expect("facts as the wire carries them");
+    let bytes = Store::new(collector, NODE, key, facts).bytes();
+    let path = root.join(Store::path(collector, key));
+    std::fs::create_dir_all(path.parent().expect("a store path has a directory"))
+        .expect("the store's directory is made");
+    std::fs::write(&path, &bytes).expect("the store is written");
+    let ledger = root.join(LEDGER_FILE);
+    let mut lines = Ledger::parse(&std::fs::read_to_string(&ledger).unwrap_or_default()).ledger;
+    lines.insert(Line::facts(collector, key, &bytes));
+    std::fs::write(ledger, lines.canonical()).expect("the ledger is written");
+}
+
 fn code() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(CODE, "1.0.0"));
     c.raw_category(DeclaredCategory::Entities, collected_wire());
@@ -104,6 +121,7 @@ fn node() -> ContributionsBuilder {
 
 fn spec() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(SPEC, "1.0.0"));
+    c.peer(CODE, "^1.0");
     c.raw_category(
         DeclaredCategory::Entities,
         json!([{"name": "truth", "keyword": "truth", "fields": [

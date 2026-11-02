@@ -37,6 +37,7 @@ fn a_directory_link_on_the_way_to_an_environment_or_check_input_pointed_elsewher
             run.finish(Recording::Environment {
                 root: &root,
                 config: &config,
+                facts: false,
             });
         } else {
             let run = ledger.checks();

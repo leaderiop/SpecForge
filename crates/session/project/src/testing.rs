@@ -36,7 +36,7 @@ pub mod typed;
 pub use assembled::Assembled;
 pub use collected::{
     CODE, COLLECTED_EXTENSIONS, Collected, NODE, NODE_REPORT, SPEC, UNIT_REPORT, collected_answer,
-    collected_wire,
+    collected_wire, stored,
 };
 pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,

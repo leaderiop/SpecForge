@@ -34,6 +34,7 @@ mod tests;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use specforge_common::{ProjectRoot, SourceRoot};
 use specforge_registry::{Disk, PlainDisk};
@@ -108,8 +109,9 @@ pub(crate) trait Reads {
         root: &ProjectRoot,
         load: impl FnOnce(&dyn Disk) -> Environment,
     ) -> Environment;
-    /// The keys of the sources discovery finds under `sources` now, sorted.
-    fn discover(&mut self, sources: &SourceRoot) -> Vec<String>;
+    /// The keys of the sources discovery finds under `sources` now, sorted, then, when `facts` (a collector-written
+    /// kind is loaded), the keys of the fact stores (ADR 0327 D5).
+    fn discover(&mut self, sources: &SourceRoot, facts: bool) -> Vec<String>;
     /// Source `key` of `sources`: its text, its E025, or gone.
     fn source(&mut self, sources: &SourceRoot, key: &str) -> Read;
     /// Run `check` (the checks over one snapshot) with the disk they read
@@ -126,6 +128,8 @@ pub(crate) struct Unrecorded<'d> {
     sources: &'d dyn Disk,
     /// The disk the checks read: the plain file system, or a plan's overlay of it.
     checks: &'d dyn Disk,
+    /// The harness ledger the fact stores are checked against, read once by `discover` (ADR 0327 D5).
+    recorded: Option<crate::harness::Ledger>,
 }
 
 impl<'d> Unrecorded<'d> {
@@ -134,6 +138,7 @@ impl<'d> Unrecorded<'d> {
         Unrecorded {
             sources,
             checks: &PlainDisk,
+            recorded: None,
         }
     }
 
@@ -142,6 +147,7 @@ impl<'d> Unrecorded<'d> {
         Unrecorded {
             sources: &PlainDisk,
             checks,
+            recorded: None,
         }
     }
 }
@@ -162,12 +168,17 @@ impl Reads for Unrecorded<'_> {
         load(&PlainDisk)
     }
 
-    fn discover(&mut self, sources: &SourceRoot) -> Vec<String> {
-        walked_keys(sources)
+    fn discover(&mut self, sources: &SourceRoot, facts: bool) -> Vec<String> {
+        let mut keys = walked_keys(sources);
+        if facts {
+            keys.extend(crate::facts::keys(self.sources, sources.base()));
+            self.recorded = Some(crate::facts::recorded(self.sources, sources.base()));
+        }
+        keys
     }
 
     fn source(&mut self, sources: &SourceRoot, key: &str) -> Read {
-        sources::read(self.sources, sources, key)
+        sources::read(self.sources, sources, key, self.recorded.as_ref())
     }
 
     fn run_checks(&mut self, check: impl FnOnce(&dyn Disk)) {
@@ -196,6 +207,7 @@ impl Reads for Ledger {
         run.finish(Recording::Environment {
             root: root.dir(),
             config: environment.config(),
+            facts: environment.reads_facts(),
         });
         environment
     }
@@ -203,15 +215,22 @@ impl Reads for Ledger {
     /// Starts the record of the sources again: no source is stamped and no
     /// link hop recorded until it is read ([`Self::source`]); a held source is
     /// never read here (ADR 0106 D2, ADR 0129).
-    fn discover(&mut self, sources: &SourceRoot) -> Vec<String> {
+    fn discover(&mut self, sources: &SourceRoot, facts: bool) -> Vec<String> {
         self.record(Recording::Sources, Vec::new());
-        walked_keys(sources)
+        let mut keys = walked_keys(sources);
+        if facts {
+            keys.extend(self.record_facts(sources));
+        }
+        keys
     }
 
     /// Stamped, then read, each link hop included: a source written after its
     /// stamp is seen next time.
     fn source(&mut self, sources: &SourceRoot, key: &str) -> Read {
-        self.read_source(sources, key, |disk| sources::read(disk, sources, key))
+        let recorded = self.recorded.clone();
+        self.read_source(sources, key, |disk| {
+            sources::read(disk, sources, key, recorded.as_deref())
+        })
     }
 
     /// The checks' reads, each stamped and recorded as a check input when
@@ -231,6 +250,8 @@ pub(crate) struct Ledger {
     stamps: Stamps,
     /// The disk a source is read through; none reads the plain file system (ADR 0145).
     source_disk: Option<SourceDisk>,
+    /// The harness ledger the fact stores are checked against, read once with the `Facts` rows (ADR 0327 D5, D9).
+    recorded: Option<Arc<crate::harness::Ledger>>,
 }
 
 impl Ledger {
@@ -242,6 +263,7 @@ impl Ledger {
             inputs: SessionInputs::detached(),
             stamps: Stamps::default(),
             source_disk: None,
+            recorded: None,
         }
     }
 
@@ -277,6 +299,11 @@ impl Ledger {
         let Some(sources) = self.inputs.sources().cloned() else {
             return keys.iter().map(|key| (key.clone(), Read::Gone)).collect();
         };
+        // A store read again is checked against the ledger as it is now, read once for them all.
+        if self.inputs.reads_facts() && keys.iter().any(|key| crate::facts::is_fact_store(key)) {
+            self.record_facts(&sources);
+        }
+        let recorded = self.recorded.clone();
         keys.iter()
             .map(|key| {
                 let read = if self.inputs.excludes(key) {
@@ -284,11 +311,27 @@ impl Ledger {
                     self.forget_source(&sources, key);
                     Read::Gone
                 } else {
-                    self.read_source(&sources, key, |disk| sources::read(disk, &sources, key))
+                    self.read_source(&sources, key, |disk| {
+                        sources::read(disk, &sources, key, recorded.as_deref())
+                    })
                 };
                 (key.clone(), read)
             })
             .collect()
+    }
+
+    /// List the fact stores and stamp the harness ledger they are served by, recorded as the `Facts` rows (ADR 0327
+    /// D9): the stores' keys, sorted.
+    fn record_facts(&mut self, sources: &SourceRoot) -> Vec<String> {
+        let run = self.run();
+        let keys = crate::facts::keys(&RunDisk(&run, &PlainDisk), sources.base());
+        let ledger = sources.base().join(crate::harness::LEDGER_FILE);
+        let recorded = run.read(Reading::File, &ledger, &PlainDisk, |_| {
+            crate::facts::recorded(&PlainDisk, sources.base())
+        });
+        run.finish(Recording::Facts);
+        self.recorded = Some(Arc::new(recorded));
+        keys
     }
 
     /// One run of the checks' reads: each is stamped and recorded as a check
@@ -382,6 +425,7 @@ impl Ledger {
             inputs,
             stamps: Stamps::default(),
             source_disk: None,
+            recorded: None,
         }
     }
 

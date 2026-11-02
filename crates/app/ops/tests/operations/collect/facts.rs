@@ -404,3 +404,37 @@ fn a_collector_whose_answer_empties_its_earlier_results_still_clears_them() {
             .unwrap();
     assert_eq!(report["results"], json!({}), "{report}");
 }
+
+/// `@t/probe`: one check pass that finds nothing, whose input the test reads.
+fn probe() -> specforge_extension_sdk::prelude::ContributionsBuilder {
+    use specforge_extension_sdk::prelude::*;
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/probe", "1.0.0"));
+    c.pass("audit", |p| {
+        p.phase("check")
+            .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
+    });
+    c
+}
+
+#[test]
+fn a_pass_is_sent_the_fact_stores_the_session_served() {
+    let p = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[COLLECTED_EXTENSIONS.as_slice(), &["@t/probe"]].concat())
+        .installing_enabled()
+        .file("truths.spec", "truth T1 \"One\" {}\n");
+    specforge_project::testing::stored(p.root(), "node", SHA, two_tests());
+    let runtime = Arc::new(Collected::new().over(InProcessRuntime::new().with(probe)));
+
+    p.compile_in(runtime.clone());
+
+    let call = runtime
+        .calls()
+        .into_iter()
+        .find(|c| c.extension == "@t/probe" && c.export.ends_with("audit"))
+        .expect("the check pass ran");
+    assert_eq!(
+        call.input["fact_stores"],
+        json!([{"collector": "node", "key": SHA, "schemes": ["js"], "facts": 2}])
+    );
+}

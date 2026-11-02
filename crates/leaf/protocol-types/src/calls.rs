@@ -356,6 +356,9 @@ pub struct PassInput {
     /// The facts of the files the pass's `reads` name, by read name (protocol 1.11.0, ADR 0293).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub files: crate::FileMap,
+    /// The fact stores the session served, by collector and key (protocol 1.15.0, ADR 0327 D6).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fact_stores: Vec<FactStore>,
 }
 
 /// One entity in the snapshot handed to a compiler pass: its id, kind,
@@ -726,42 +729,6 @@ pub struct CollectOutput {
     pub facts: Vec<Fact>,
 }
 
-/// One collected entity (ADR 0327): a kind that declares `writer: "collector"`, an id in one of its schemes, and the
-/// values of its fields, by name.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Fact {
-    pub kind: String,
-    pub id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fields: BTreeMap<String, serde_json::Value>,
-}
-
-impl Fact {
-    /// The fact `id` of `kind`, with no title and no field.
-    pub fn new(kind: impl Into<String>, id: impl Into<String>) -> Self {
-        Fact {
-            kind: kind.into(),
-            id: id.into(),
-            title: None,
-            fields: BTreeMap::new(),
-        }
-    }
-
-    /// Its title.
-    pub fn title(mut self, title: impl Into<String>) -> Self {
-        self.title = Some(title.into());
-        self
-    }
-
-    /// The value of its field `name`.
-    pub fn field(mut self, name: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
-        self.fields.insert(name.into(), value.into());
-        self
-    }
-}
-
 /// A test the report doesn't link to an entity: its name, the name split
 /// into its path segments (`["tests", "add_item", "rejects_a_duplicate"]`,
 /// the test's own name last), and its [`TestStatus`].
@@ -792,7 +759,9 @@ pub struct MigrationInput {
 }
 
 mod evidence;
+mod facts;
 pub use evidence::{CommandEvidence, EntityEvidence};
+pub use facts::{Fact, FactStore};
 
 #[cfg(test)]
 mod tests;

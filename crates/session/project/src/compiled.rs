@@ -499,7 +499,7 @@ impl CompiledProject {
         held: &BTreeMap<String, &str>,
         reads: &mut impl Reads,
     ) -> Self {
-        let keys = reads.discover(env.sources());
+        let keys = reads.discover(env.sources(), env.reads_facts());
         let rooted = env.project_root().is_some();
         let sources = env.sources().clone();
         Self::built(env, &keys, held, rooted, |key| reads.source(&sources, key))

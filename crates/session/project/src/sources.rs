@@ -18,6 +18,8 @@ use specforge_graph::{FileChange, GraphBuild};
 use specforge_parser::{Previous, SpecFile, parse_incremental};
 use specforge_registry::Disk;
 
+use crate::facts;
+
 /// What reading one source gave.
 pub(crate) enum Read {
     Text(String),
@@ -29,8 +31,17 @@ pub(crate) enum Read {
 
 /// Read source `relative` of `sources` through `disk`: the one read of a
 /// `.spec` file. Its text; its E025 when it is there and is not UTF-8 text or
-/// cannot be read; `Gone` when the disk says `NotFound`.
-pub(crate) fn read(disk: &dyn Disk, sources: &SourceRoot, relative: &str) -> Read {
+/// cannot be read; `Gone` when the disk says `NotFound`. A fact store's key is read as one ([`facts::read`]), against
+/// the harness ledger `recorded` when the caller read it already.
+pub(crate) fn read(
+    disk: &dyn Disk,
+    sources: &SourceRoot,
+    relative: &str,
+    recorded: Option<&crate::harness::Ledger>,
+) -> Read {
+    if facts::is_fact_store(relative) {
+        return facts::read(disk, sources, relative, recorded);
+    }
     match disk.read(&sources.path(relative)) {
         Ok(bytes) => match String::from_utf8(bytes) {
             Ok(text) => Read::Text(text),
@@ -127,6 +138,15 @@ impl SourceCache {
     /// One cold-read source: parsed whole, or recorded unreadable.
     fn add(&mut self, key: String, read: Read, files: &mut Vec<SpecFile>) {
         match read {
+            Read::Text(text) if facts::is_fact_store(&key) => match facts::served(&key, &text) {
+                Ok(file) => {
+                    files.push(file);
+                    self.texts.insert(key, Arc::from(text));
+                }
+                Err(w192) => {
+                    self.unreadable.insert(key, w192);
+                }
+            },
             Read::Text(text) => {
                 files.push(parse_incremental(&text, &key, None).0);
                 self.texts.insert(key, Arc::from(text));
@@ -144,6 +164,16 @@ impl SourceCache {
     /// readable or gone).
     pub fn change(&mut self, path: &str, read: Read) -> FileChange {
         match read {
+            // A fact store is served, with no tree, or W192 when its text is no store.
+            Read::Text(text) if facts::is_fact_store(path) => match facts::served(path, &text) {
+                Ok(served) => {
+                    self.unreadable.remove(path);
+                    self.trees.remove(path);
+                    self.texts.insert(path.to_string(), Arc::from(text));
+                    FileChange::Parsed(served)
+                }
+                Err(w192) => self.change(path, Read::Unreadable(w192)),
+            },
             Read::Text(text) => {
                 self.unreadable.remove(path);
                 FileChange::Parsed(self.parse(path, text))
@@ -301,7 +331,7 @@ mod tests {
             ("new.spec".to_string(), "type fresh \"F\" {}\n"),
         ]);
         let (cache, files) = SourceCache::read_all(&["a.spec".to_string()], &held, |key| {
-            read(&disk, &spec_sources(), key)
+            read(&disk, &spec_sources(), key, None)
         });
         assert_eq!(files.len(), 2);
         assert!(files.iter().all(|f| f.entities.len() == 1));
@@ -323,17 +353,17 @@ mod tests {
         let spec = &spec_sources();
 
         assert!(matches!(
-            read(&disk, spec, "a.spec"),
+            read(&disk, spec, "a.spec", None),
             Read::Text(text) if text == "term alpha \"A\" {}\n"
         ));
-        let Read::Unreadable(bad) = read(&disk, spec, "bad.spec") else {
+        let Read::Unreadable(bad) = read(&disk, spec, "bad.spec", None) else {
             panic!("a file that is not UTF-8 is unreadable");
         };
         assert_eq!(
             bad.message,
             "cannot read bad.spec: stream did not contain valid UTF-8"
         );
-        assert!(matches!(read(&disk, spec, "gone.spec"), Read::Gone));
+        assert!(matches!(read(&disk, spec, "gone.spec", None), Read::Gone));
         assert_eq!(
             disk.asked(),
             [
@@ -349,7 +379,7 @@ mod tests {
             Path::new("/spec").join(path),
             b"term beta \"B\xff\xfe\" {\n}\n",
         );
-        read(&disk, &spec_sources(), path)
+        read(&disk, &spec_sources(), path, None)
     }
 
     #[test]

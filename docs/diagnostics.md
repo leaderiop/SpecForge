@@ -3795,6 +3795,36 @@ Owner: core
 Level: warning
 ```
 
+## W191
+
+```
+W191: A fact store the harness ledger does not record
+
+A file under `.specforge/facts/<key>/` is a collector's fact store (ADR 0327),
+but no `facts:` line of `specforge-harness` records exactly its collector, its
+key and its digest: it was collected on another commit or branch (the ledger is
+committed, the store is not), or it changed since. Its facts are not served, so
+the references to them are unheld. Run `specforge collect` to collect the facts
+again and record them.
+
+Owner: core
+Level: warning
+```
+
+## W192
+
+```
+W192: A fact store that cannot be read
+
+A file under `.specforge/facts/<key>/` (ADR 0327) does not read as a fact store:
+it cannot be read, is not JSON of the store's shape, or names a store version
+this specforge does not read. Its facts are not served. Run `specforge collect`
+to write it again.
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.

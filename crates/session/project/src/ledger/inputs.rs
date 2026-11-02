@@ -4,6 +4,9 @@
 use std::path::{Path, PathBuf};
 
 use specforge_common::{ProjectConfig, SourceRoot};
+use specforge_registry::PlainDisk;
+
+use crate::facts::FACTS_DIR;
 
 use super::chain;
 use super::key::{canonical, discovered_keys, in_canonical_dir, relative_canonical};
@@ -54,6 +57,8 @@ pub(super) struct OnDisk {
     /// The root and the spec root, canonical, taken when the value is made.
     pub(super) canonical_root: PathBuf,
     pub(super) canonical_spec_root: PathBuf,
+    /// A collector-written kind is loaded: the fact stores are sources (ADR 0327 D5).
+    pub(super) facts: bool,
 }
 
 impl OnDisk {
@@ -75,7 +80,7 @@ impl OnDisk {
     /// taken now.
     fn row(&self, class: Class, path: PathBuf, root_exists: bool) -> Recorded {
         let key = match class {
-            Class::Listing => canonical(&path),
+            Class::Listing | Class::Facts { listing: true } => canonical(&path),
             _ => in_canonical_dir(&path),
         };
         let pending = match class {
@@ -253,7 +258,9 @@ impl SessionInputs {
         }
         for row in &disk.rows {
             let entry = match &row.class {
-                Class::Listing => Watched::Listing(disk.respelled(row.key.clone())),
+                Class::Listing | Class::Facts { listing: true } => {
+                    Watched::Listing(disk.respelled(row.key.clone()))
+                }
                 // A hop is registered unless the sources glob covers it.
                 Class::Hop(_)
                     if relative_canonical(&disk.canonical_spec_root, &row.key)
@@ -309,6 +316,7 @@ impl SessionInputs {
             sources,
             rows: Vec::new(),
             canonical_root,
+            facts: false,
         };
         disk.rows = environment
             .into_iter()
@@ -324,9 +332,17 @@ impl SessionInputs {
     /// anew for its root and config (no check row or hop is kept). Detached:
     /// nothing, except an environment recording.
     pub(super) fn replace(&mut self, recording: &Recording<'_>, rows: Vec<(Class, PathBuf)>) {
-        if let Recording::Environment { root, config } = recording {
+        if let Recording::Environment {
+            root,
+            config,
+            facts,
+        } = recording
+        {
             let environment = rows.into_iter().map(|(_, path)| path).collect();
             *self = SessionInputs::opened(root, config, environment);
+            if let Some(disk) = self.disk_mut() {
+                disk.facts = *facts;
+            }
             return;
         }
         let Some(disk) = self.disk_mut() else {
@@ -348,17 +364,50 @@ impl SessionInputs {
     }
 
     /// The sources discovery finds at `key` now (a directory: all under it; a
-    /// source file: itself; else none), by key. The spec root's prefix is every source.
+    /// source file: itself; else none), by key. The spec root's prefix is every source; the fact stores' directory
+    /// every fact store, when they are sources.
     pub(crate) fn discover_at(&self, key: &str) -> Vec<String> {
         let Some(disk) = self.disk() else {
             return Vec::new();
         };
         let walked = disk.sources.walk_at(&disk.sources.path(key));
-        discovered_keys(&disk.sources, &walked)
+        let mut keys = discovered_keys(&disk.sources, &walked);
+        if disk.facts
+            && (Path::new(FACTS_DIR).starts_with(key) || Path::new(key).starts_with(FACTS_DIR))
+        {
+            let stores = crate::facts::keys(&PlainDisk, disk.sources.base());
+            keys.extend(
+                stores
+                    .into_iter()
+                    .filter(|store| Path::new(store).starts_with(key)),
+            );
+        }
+        keys
     }
 
-    /// A changed key the session ignores (never, detached).
+    /// The regions that are every source: the spec root's prefix, and the fact stores' directory when they are
+    /// sources.
+    pub(crate) fn everything(&self) -> Vec<String> {
+        let Some(disk) = self.disk() else {
+            return Vec::new();
+        };
+        let prefix = disk.sources.prefix();
+        let mut regions = vec![prefix.to_string_lossy().into_owned()];
+        if disk.facts && !Path::new(FACTS_DIR).starts_with(prefix) {
+            regions.push(FACTS_DIR.to_string());
+        }
+        regions
+    }
+
+    /// Whether the fact stores are sources (a collector-written kind is loaded; never, detached).
+    pub(crate) fn reads_facts(&self) -> bool {
+        self.disk().is_some_and(|disk| disk.facts)
+    }
+
+    /// A changed key the session ignores (never, detached): no source, and no fact store while they are sources.
     pub(crate) fn excludes(&self, key: &str) -> bool {
-        self.disk().is_some_and(|disk| !disk.sources.holds_key(key))
+        self.disk().is_some_and(|disk| {
+            !disk.sources.holds_key(key) && !(disk.facts && crate::facts::is_fact_store(key))
+        })
     }
 }

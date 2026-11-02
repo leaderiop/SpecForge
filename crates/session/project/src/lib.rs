@@ -714,6 +714,11 @@ impl Environment {
         &self.sources
     }
 
+    /// Whether a collector-written kind is loaded: then the fact stores are sources (ADR 0327 D5).
+    pub fn reads_facts(&self) -> bool {
+        self.registries.kinds().any_collected()
+    }
+
     /// Read and parse the sources `keys` names (each through `read`), build
     /// their graph and resolve their imports: the one cold build every
     /// compile and session open starts from (ADR 0032).
@@ -742,7 +747,7 @@ impl Environment {
 pub(crate) struct SourceBuild {
     pub sources: SourceCache,
     pub graph: GraphBuild,
-    /// E025 for the unreadable sources, then the resolver's (E025, I004,
+    /// E025 for the unreadable sources, W191/W192 for the fact stores not served, then the resolver's (E025, I004,
     /// W113, W027).
     pub imports: Vec<Diagnostic>,
 }

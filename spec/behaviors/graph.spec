@@ -39,6 +39,12 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
     A block that writes a key twice, at any depth, MUST be E081 at each later
     entry, and its node MUST hold the first entry of each key; a later entry's
     names stay tokens and link nothing (ADR 0215).
+    When a collector-written kind is loaded, each fact store under
+    `.specforge/facts/` that a `facts:` line of specforge-harness records
+    (its collector, key and digest) MUST be built as one file of read-only
+    entities; a store no line records is W191 and one that does not read
+    W192, and neither is served. With no such kind loaded, no fact store and
+    no ledger is read for facts (ADR 0327 D5).
   """
   verify unit "graph contains one node per entity"
   verify unit "graph contains one edge per resolved reference"
@@ -48,6 +54,8 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify contract "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_dangling_edges"
   verify unit "W060 carries actionable suggestion"
   verify unit "W061 carries actionable suggestion"
+  verify unit "a fact store specforge-harness records is served as read-only entities; one it does not is W191, one that does not read W192"
+  verify integration "a project that loads no collector-written kind reads no fact store and compiles byte-identically"
   verify unit "build_graph emits W061 for reference cycles"
   verify unit "W061 names the cycle's entities in its data"
   verify unit "W061 names every entity of a cycle, one whose cycle closes through an entity already walked included"

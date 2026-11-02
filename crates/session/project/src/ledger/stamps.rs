@@ -39,6 +39,7 @@ use super::chain::followed;
 use super::inputs::SessionInputs;
 use super::reach::Reach;
 use super::recorded::{Class, Recording};
+use crate::facts::FACTS_DIR;
 
 /// Coarse filesystems record modification times to the second (some to
 /// two); an entry modified this close to when it was stamped is racy.
@@ -139,7 +140,7 @@ impl Stamps {
     ) {
         match recording {
             Recording::Environment { .. } => self.inputs = inputs,
-            Recording::Checks => {
+            Recording::Checks | Recording::Facts => {
                 self.inputs.retain(|(class, _), _| !recording.covers(class));
                 self.inputs.extend(inputs);
             }
@@ -186,14 +187,59 @@ impl Stamps {
         let Some(root) = inputs.sources() else {
             return Changes::default();
         };
-        let everything = [root.prefix().to_string_lossy().into_owned()];
-        let regions: &[String] = match scope {
-            Scope::Everything => &everything,
-            Scope::Reached(reach) => &reach.regions,
-        };
         let mut changes = Changes::default();
+        // A moved `Facts` row: the stores' listing (`regions` gains their directory) or the ledger they are served by
+        // (every fact store is read again).
+        let mut facts = Vec::new();
+        let mut moved_rows = |changes: &mut Changes, class: &Class, path: &Path| match class {
+            Class::Facts { listing } => facts.push(*listing),
+            _ => note(changes, class, path),
+        };
+        match scope {
+            Scope::Everything => {
+                for ((class, path), entry) in &self.inputs {
+                    if !unchanged(path, entry.as_ref(), &PlainDisk) {
+                        moved_rows(&mut changes, class, path);
+                    }
+                }
+            }
+            Scope::Reached(reach) => {
+                let mut memo: BTreeMap<(&Class, &Path), bool> = BTreeMap::new();
+                for (path, reached) in &reach.inputs {
+                    for (class, recorded) in reached {
+                        let moved = *memo
+                            .entry((class, recorded.as_path()))
+                            .or_insert_with(|| self.moved(class, recorded, root, sources));
+                        if moved {
+                            moved_rows(&mut changes, class, path);
+                        }
+                    }
+                }
+                for (path, class) in &reach.pending {
+                    moved_rows(&mut changes, class, path);
+                }
+            }
+        }
+        let mut regions: Vec<String> = match scope {
+            Scope::Everything => inputs.everything(),
+            Scope::Reached(reach) => reach.regions.clone(),
+        };
+        if !facts.is_empty() && !regions.iter().any(|r| Path::new(FACTS_DIR).starts_with(r)) {
+            regions.push(FACTS_DIR.to_string());
+        }
+        if facts.contains(&false) {
+            // The ledger moved: every store is read again; one that reads as the session holds it changes nothing.
+            changes.sources.extend(
+                inputs.discover_at(FACTS_DIR).into_iter().chain(
+                    self.sources
+                        .keys()
+                        .filter(|key| crate::facts::is_fact_store(key))
+                        .cloned(),
+                ),
+            );
+        }
         let mut seen = std::collections::BTreeSet::new();
-        for region in regions {
+        for region in &regions {
             let discovered = inputs.discover_at(region);
             for key in &discovered {
                 // A key never read is changed, whether or not its path exists now.
@@ -217,31 +263,6 @@ impl Stamps {
                 }
             }
         }
-        match scope {
-            Scope::Everything => {
-                for ((class, path), entry) in &self.inputs {
-                    if !unchanged(path, entry.as_ref(), &PlainDisk) {
-                        note(&mut changes, class, path);
-                    }
-                }
-            }
-            Scope::Reached(reach) => {
-                let mut memo: BTreeMap<(&Class, &Path), bool> = BTreeMap::new();
-                for (path, reached) in &reach.inputs {
-                    for (class, recorded) in reached {
-                        let moved = *memo
-                            .entry((class, recorded.as_path()))
-                            .or_insert_with(|| self.moved(class, recorded, root, sources));
-                        if moved {
-                            note(&mut changes, class, path);
-                        }
-                    }
-                }
-                for (path, class) in &reach.pending {
-                    note(&mut changes, class, path);
-                }
-            }
-        }
         changes.sources.sort();
         changes.sources.dedup();
         for list in [&mut changes.environment, &mut changes.check_inputs] {
@@ -259,6 +280,8 @@ fn note(changes: &mut Changes, class: &Class, path: &Path) {
         Class::Environment => changes.environment.push(path.to_path_buf()),
         Class::Check | Class::Listing | Class::Ref => changes.check_inputs.push(path.to_path_buf()),
         Class::Hop(key) => changes.sources.push(key.clone()),
+        // `changes` reads the fact stores again for it.
+        Class::Facts { .. } => {}
     }
 }
 

@@ -742,4 +742,10 @@ catalog! {
     W169: Warning core,
         "Older specforge on PATH",
         "`specforge doctor` ran the first `specforge` on PATH with `--version` and it speaks an older extension protocol minor than the specforge running doctor, or than an extension the project loads, or names no protocol at all (a release from before `--version` named it). The hooks and the MCP server that `specforge install` writes run `specforge` from PATH, so they run that binary, which refuses the project's newer extensions (E088) or would drop what they declare. Update the specforge on PATH, or put this one first on PATH (ADR 0326).";
+    W191: Warning core,
+        "A fact store the harness ledger does not record",
+        "A file under `.specforge/facts/<key>/` is a collector's fact store (ADR 0327), but no `facts:` line of `specforge-harness` records exactly its collector, its key and its digest: it was collected on another commit or branch (the ledger is committed, the store is not), or it changed since. Its facts are not served, so the references to them are unheld. Run `specforge collect` to collect the facts again and record them.";
+    W192: Warning core,
+        "A fact store that cannot be read",
+        "A file under `.specforge/facts/<key>/` (ADR 0327) does not read as a fact store: it cannot be read, is not JSON of the store's shape, or names a store version this specforge does not read. Its facts are not served. Run `specforge collect` to write it again.";
 }

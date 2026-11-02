@@ -9,6 +9,7 @@ use specforge_common::PROJECT_FILE;
 use super::inputs::SessionInputs;
 use super::key::{canonical, relative_canonical};
 use super::recorded::Class;
+use crate::facts::FACTS_DIR;
 
 /// What a batch of changed paths reaches of what a session read
 /// ([`SessionInputs::reach`]).
@@ -69,6 +70,20 @@ impl SessionInputs {
                         regions.push(directory.to_string_lossy().into_owned());
                     }
                     _ => regions.push(relative.to_string_lossy().into_owned()),
+                }
+            }
+            // A fact store, or a directory at or above theirs, while they are sources (ADR 0327 D9).
+            if disk.facts {
+                if disk
+                    .canonical_root
+                    .join(FACTS_DIR)
+                    .starts_with(&canonical_path)
+                {
+                    regions.push(FACTS_DIR.to_string());
+                } else if let Some(relative) = relative_canonical(&disk.canonical_root, &in_dir)
+                    && Path::new(&relative).starts_with(FACTS_DIR)
+                {
+                    regions.push(relative);
                 }
             }
             let mut reached: Vec<(Class, PathBuf)> = Vec::new();

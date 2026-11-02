@@ -28,6 +28,7 @@ mod entity_snapshot;
 mod environment;
 mod environment_reads;
 mod extension_calls;
+mod facts;
 mod field_types;
 mod file_reads;
 mod fixture;
