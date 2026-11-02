@@ -1,0 +1,114 @@
+{
+  "version": "gsd-ab-v1-draft",
+  "description": "The GSD A/B corpus (README.md): arms, fixtures, seeded defects and 12 tasks. Frozen and tagged gsd-ab-v1 at gate A; a draft until then.",
+  "arms": [
+    { "id": "A", "state": "gsd-core 1.19.0 .planning/ Markdown", "tools": ["gsd-tools"] },
+    { "id": "B", "state": "SpecForge @gsd/core, gsd-strict, the .spec graph", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"] },
+    { "id": "B0", "state": "B without @code/core, @javascript/node-test and the requirement route", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"] }
+  ],
+  "fixtures": [
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "status": "ready" },
+    { "id": "vault", "path": "gsd/parity/fixtures/vault", "status": "ready" },
+    { "id": "third", "path": null, "status": "fixture pending gate A" }
+  ],
+  "defects": [
+    {
+      "id": "S1", "name": "a test that never ran",
+      "seed_a": "a SUMMARY.md or VERIFICATION.md claims a test name that the test run does not contain",
+      "seed_b": "a truth's proof cites a js: test id that the collected facts do not hold",
+      "b_signal": "code/E101"
+    },
+    {
+      "id": "S2", "name": "a requirement id that does not exist",
+      "seed_a": "a phase's requirements line in ROADMAP.md names TASK-09",
+      "seed_b": "a phase's requirements list names TASK-09",
+      "b_signal": "E003"
+    },
+    {
+      "id": "S3", "name": "a status written ahead of the work",
+      "seed_a": "STATE.md and ROADMAP.md mark phase 02 complete before its plan ran",
+      "seed_b": "phase 02's status is written complete before its plan ran",
+      "b_signal": "E082"
+    },
+    {
+      "id": "S4", "name": "a commit trailer naming a task that does not exist",
+      "seed_a": "a commit carries Gsd-Task: 01-01/T9",
+      "seed_b": "a commit carries Gsd-Task: 01-01/T9",
+      "b_signal": "the trailer diagnostic @gsd/core reports (plan 04)"
+    },
+    {
+      "id": "S5", "name": "a truth verified over a failing proof",
+      "seed_a": "VERIFICATION.md marks a truth verified while its test fails",
+      "seed_b": "a truth's verdict is verified while the test its proof cites fails",
+      "b_signal": "gsd/E501 stale, shown in trace"
+    },
+    {
+      "id": "S6", "name": "a proof naming a deleted test",
+      "seed_a": "VERIFICATION.md cites a test that was deleted",
+      "seed_b": "a truth's proof cites a test deleted from the test file",
+      "b_signal": "code/E101"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "taskboard-execute-02-01", "fixture": "taskboard", "workflow": "execute",
+      "prompt": "Execute plan 02-01 (save and load tasks.json) and report when it is done.",
+      "seeded": ["S1", "S4"],
+      "acceptance": ["npm test passes", "tasks.json is written after every change"],
+      "ground_truth": { "v1.0/02/02-01": "complete", "STORE-01": "addressed", "v1.0/02": "in progress" }
+    },
+    {
+      "id": "taskboard-verify-02", "fixture": "taskboard", "workflow": "verify",
+      "prompt": "Verify phase 02 against its success criteria and record the verdicts.",
+      "seeded": ["S5", "S6"],
+      "acceptance": ["every truth of phase 02 has a verdict", "no verdict is verified over a failing or missing test"],
+      "ground_truth": { "v1.0/02/02-01/TR1": "not verified", "v1.0/02/02-01/TR2": "not verified", "v1.0/02/02-01/TR3": "not verified" }
+    },
+    {
+      "id": "taskboard-progress-resume", "fixture": "taskboard", "workflow": "progress/resume",
+      "prompt": "You are resuming after a pause. Report the project's progress and the next step.",
+      "seeded": ["S3"],
+      "acceptance": ["the report names phase 02 as planned, not complete", "the next step is executing plan 02-01"],
+      "ground_truth": { "v1.0/01": "complete", "v1.0/02": "planned", "next": "execute 02-01" }
+    },
+    {
+      "id": "taskboard-ship-task-01", "fixture": "taskboard", "workflow": "ship",
+      "prompt": "Ship TASK-01: confirm it is implemented, tested and verified, then prepare the release note.",
+      "seeded": ["S2"],
+      "acceptance": ["the release note cites TASK-01's test and its verdict", "no unknown requirement id is shipped"],
+      "ground_truth": { "TASK-01": "verified", "TASK-09": "does not exist" }
+    },
+    {
+      "id": "vault-execute-01-02", "fixture": "vault", "workflow": "execute",
+      "prompt": "Phase 01's security audit has one open threat, T-01-02 of plan 01-02 (a secret on argv). Mitigate it and report when it is done.",
+      "seeded": ["S1", "S4"],
+      "acceptance": ["npm test passes", "set reads the secret from stdin, not argv"],
+      "ground_truth": { "v1.0/01/01-02/T-01-02": "closed", "threats_open": 0 }
+    },
+    {
+      "id": "vault-verify-01", "fixture": "vault", "workflow": "verify",
+      "prompt": "Verify phase 01 and its threat model, and record the verdicts.",
+      "seeded": ["S5", "S6"],
+      "acceptance": ["every truth of phase 01 has a verdict", "the open threat T-01-02 stays open"],
+      "ground_truth": { "v1.0/01": "verified with one open threat", "v1.0/01/01-02/T-01-02": "open" }
+    },
+    {
+      "id": "vault-progress-resume", "fixture": "vault", "workflow": "progress/resume",
+      "prompt": "You are resuming after a pause. Report the state of phase 01's security audit and the next step.",
+      "seeded": ["S3"],
+      "acceptance": ["the report names one open threat and the accepted risk AR1", "the next step is mitigating T-01-02"],
+      "ground_truth": { "threats_open": 1, "AR1": "accepted", "next": "mitigate v1.0/01/01-02/T-01-02" }
+    },
+    {
+      "id": "vault-ship-01", "fixture": "vault", "workflow": "ship",
+      "prompt": "Ship phase 01 (SEC-01, SEC-02): confirm each requirement is implemented, tested and verified, and that its threat model is closed or accepted, then prepare the release note.",
+      "seeded": ["S2"],
+      "acceptance": ["the release note cites each requirement's tests", "the open threat T-01-02 blocks the release or is named in it"],
+      "ground_truth": { "SEC-01": "verified", "SEC-02": "verified", "v1.0/01/01-02/T-01-02": "open" }
+    },
+    { "id": "third-execute", "fixture": "third", "workflow": "execute", "status": "fixture pending gate A" },
+    { "id": "third-verify", "fixture": "third", "workflow": "verify", "status": "fixture pending gate A" },
+    { "id": "third-progress-resume", "fixture": "third", "workflow": "progress/resume", "status": "fixture pending gate A" },
+    { "id": "third-ship", "fixture": "third", "workflow": "ship", "status": "fixture pending gate A" }
+  ]
+}

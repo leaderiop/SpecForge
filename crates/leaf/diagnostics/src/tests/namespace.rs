@@ -9,6 +9,9 @@ fn a_namespace_is_the_scope_and_name_and_core_is_the_scope() {
         ("@acme/lint", Some("acme.lint")),
         ("@a/b.c", Some("a.b.c")),
         ("@specforge/product", None),
+        // A builtin outside @specforge is namespaced like a third party (ADR 0328 D2).
+        ("@code/core", Some("code")),
+        ("@javascript/node-test", Some("javascript.node-test")),
     ] {
         assert_eq!(
             code_namespace(extension).as_deref(),
@@ -18,6 +21,7 @@ fn a_namespace_is_the_scope_and_name_and_core_is_the_scope() {
     }
     assert_eq!(qualify("@gsd/core", "E101"), "gsd/E101");
     assert_eq!(qualify("@specforge/product", "W041"), "W041");
+    assert_eq!(qualify("@code/core", "E101"), "code/E101");
 }
 
 #[test]

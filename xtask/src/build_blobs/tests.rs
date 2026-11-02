@@ -38,7 +38,7 @@ fn a_stage_lock_must_be_a_subset_of_the_extensions() {
 
 #[test]
 fn a_stage_mirrors_the_repo_layout() {
-    let stage = Path::new("/r/target/blob-stage/product");
+    let stage = Path::new("/r/target/blob-stage/extensions/product");
     assert_eq!(
         stage_key(stage, &stage.join("crates/x/src/lib.rs")),
         Some("crates/x/src/lib.rs".to_string())
@@ -54,22 +54,10 @@ fn builtins() -> impl Iterator<Item = &'static CommittedBlob> {
         .filter(|blob| blob.crate_dir.starts_with("extensions/"))
 }
 
-#[test]
-fn every_stage_name_is_unique() {
-    let mut names = BTreeSet::new();
-    for blob in COMMITTED {
-        assert!(
-            names.insert(stage_name(blob)),
-            "{}: stage name {} is taken",
-            blob.name,
-            stage_name(blob)
-        );
-    }
-}
-
 /// The crates a builtin blob compiles besides its own sources: the guest wire, the SDK and its
-/// macros, the coverage rule and the cycle answer (ADR 0039, 0050, 0196). A host-only module in one of them, or a new
-/// path dependency of a guest, shows here as an input outside this list.
+/// macros, the coverage rule and the cycle answer (ADR 0039, 0050, 0196), and any extension library it links (ADR
+/// 0328 D3). A host-only module in one of them, or a new path dependency of a guest, shows here as an input outside
+/// this list.
 const GUEST_CRATES: &[&str] = &[
     "crates/leaf/protocol-types/",
     "crates/runtime/extension-sdk/",
@@ -77,6 +65,47 @@ const GUEST_CRATES: &[&str] = &[
     "crates/leaf/coverage/",
     "crates/leaf/cycles/",
 ];
+
+/// Whether `key` (a repo-relative input) lies in an extension library: a crate
+/// `extensions/<family>/<dir>` with no `wasm/`, which no blob is built from and builtins link.
+fn in_extension_library(root: &Path, key: &str) -> bool {
+    let mut segments = key.split('/');
+    let (Some("extensions"), Some(family), Some(dir), Some(_)) = (
+        segments.next(),
+        segments.next(),
+        segments.next(),
+        segments.next(),
+    ) else {
+        return false;
+    };
+    let library = root.join("extensions").join(family).join(dir);
+    library.join("Cargo.toml").is_file() && !library.join("wasm").exists()
+}
+
+#[test]
+fn an_input_under_an_extension_library_is_a_guest_crate_input() {
+    /// A directory removed when dropped, so a failing assert leaves nothing behind (xtask has no `tempfile`).
+    struct TempDir(PathBuf);
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let root = TempDir(std::env::temp_dir().join(format!("xtask-library-{}", std::process::id())));
+    for dir in ["extensions/code/junit", "extensions/code/core/wasm"] {
+        std::fs::create_dir_all(root.0.join(dir)).unwrap();
+    }
+    std::fs::write(root.0.join("extensions/code/junit/Cargo.toml"), "").unwrap();
+    std::fs::write(root.0.join("extensions/code/core/Cargo.toml"), "").unwrap();
+    let found = [
+        "extensions/code/junit/src/lib.rs",
+        "extensions/code/core/src/lib.rs",
+        "extensions/code/junit",
+        "extensions/product/src/lib.rs",
+    ]
+    .map(|key| in_extension_library(&root.0, key));
+    assert_eq!(found, [true, false, false, false]);
+}
 
 #[test]
 fn a_builtin_compiles_only_its_own_sources_and_the_guest_crates() {
@@ -90,8 +119,9 @@ fn a_builtin_compiles_only_its_own_sources_and_the_guest_crates() {
             assert!(
                 key == WORKSPACE_INHERITED
                     || key.starts_with(&own)
-                    || GUEST_CRATES.iter().any(|guest| key.starts_with(guest)),
-                "{name} compiles {key}, outside its own sources and the guest crates"
+                    || GUEST_CRATES.iter().any(|guest| key.starts_with(guest))
+                    || in_extension_library(root, key),
+                "{name} compiles {key}, outside its own sources, the guest crates and the extension libraries"
             );
         }
         assert!(

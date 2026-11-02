@@ -6,9 +6,16 @@ use crate::checks::Selection;
 use crate::run::Ctx;
 
 /// What can break the workspace: itself, the root manifest and lockfile (a version bump must reach
-/// `gsd/core/Cargo.toml`) and every crate: the tests run through the `specforge` binary, which is built from all of
-/// them, and the SDK is one of them.
-pub const TRIGGER: &[&str] = &["gsd/**", "crates/**", "Cargo.toml", "Cargo.lock"];
+/// `gsd/core/Cargo.toml`), every crate and every builtin's committed blob: the tests run through the `specforge`
+/// binary, which is built from all the crates and embeds the blobs, and the SDK is one of the crates. A builtin's
+/// sources are the `builtins` check's: a source change without a re-vendor fails there, so only the blob triggers.
+pub const TRIGGER: &[&str] = &[
+    "gsd/**",
+    "crates/**",
+    "Cargo.toml",
+    "Cargo.lock",
+    "extensions/**/*.wasm",
+];
 
 /// Stops at the first failing step: clippy for native and wasm, the release wasm build, the `specforge` CLI build,
 /// then `cargo nextest run` (every test binary at once; `cargo test` runs them one after another) with
@@ -93,9 +100,16 @@ mod tests {
             "crates/app/ops/src/lib.rs",
             "crates/surfaces/cli/src/main.rs",
             "Cargo.toml",
+            "extensions/software/wasm/specforge_ext_software.wasm",
+            "extensions/code/core/wasm/x.wasm",
         ] {
             assert_eq!(selection(&[path]), Selection::Everything, "{path}");
         }
         assert_eq!(selection(&["docs/guide.md"]), Selection::Skip);
+        assert_eq!(
+            selection(&["extensions/software/src/lib.rs"]),
+            Selection::Skip,
+            "a builtin's sources are the builtins check's"
+        );
     }
 }

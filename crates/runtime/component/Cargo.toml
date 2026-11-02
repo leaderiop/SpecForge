@@ -31,6 +31,8 @@ specforge-component = { path = ".", features = ["testing"] }
 # The runtime contract and the SDK-declared greet served in process.
 specforge-extension-sdk = { path = "../extension-sdk" }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
+# The registry build's reading of a declaration's `codes` (builtin_codes).
+specforge-registry = { workspace = true }
 specforge-wasm = { workspace = true, features = ["testing"] }
 tempfile = { workspace = true }
 serde_json = { workspace = true }

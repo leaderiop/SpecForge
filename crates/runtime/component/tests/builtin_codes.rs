@@ -3,7 +3,9 @@
 //! catalog (a guest that did would be rebuilt on every explanation edit,
 //! ADR 0026 D4); the registry build checks each rule when it registers it
 //! (`Codebook::check`, W150), and this test checks them all, so a
-//! mismatch fails a test and not only a user's compile.
+//! mismatch fails a test and not only a user's compile. A `@specforge/`
+//! builtin's codes are bare, in the static catalog; any other builtin
+//! catalogues its own, as a third party does (ADR 0286 D2, ADR 0328 D2).
 #![allow(
     clippy::unwrap_used,
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
@@ -38,13 +40,29 @@ fn builtin_rules_use_their_own_codes() {
             .expect("builtin declares itself")
             .declaration;
         assert_eq!(declaration.name(), *name, "a builtin is named by its blob");
-        // A builtin's codes are in the static catalog, bare (ADR 0286 D2).
-        assert!(declaration.codes.is_empty(), "{name} declares `codes`");
+        // A first-party builtin's codes are in the static catalog, bare (ADR 0286 D2); any other
+        // builtin's rules are checked against the static catalog plus its own (ADR 0328 D2).
+        let mut book = Codebook::default();
+        if name.starts_with("@specforge/") {
+            assert!(declaration.codes.is_empty(), "{name} declares `codes`");
+        } else {
+            assert!(
+                !declaration.codes.is_empty(),
+                "{name} is no @specforge/ builtin and catalogues no codes"
+            );
+            // The registry build's own reading, which also drops a malformed entry (E030).
+            let codes = specforge_registry::extension_codes(&declaration);
+            assert_eq!(
+                codes.len(),
+                declaration.codes.len(),
+                "{name}: a catalogued code is malformed"
+            );
+            book.add(name, codes)
+                .unwrap_or_else(|shared| panic!("{name}: {shared:?}"));
+        }
         for rule in &declaration.validation_rules {
             checked += 1;
-            if let Err(misuse) =
-                Codebook::default().check(declaration.name(), &rule.code, level(&rule.severity))
-            {
+            if let Err(misuse) = book.check(declaration.name(), &rule.code, level(&rule.severity)) {
                 problems.push(format!(
                     "{name}: rule '{}' ({:?}) uses {misuse}",
                     rule.code, rule.severity

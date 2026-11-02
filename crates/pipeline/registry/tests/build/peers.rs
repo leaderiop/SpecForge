@@ -268,7 +268,7 @@ fn peer_dependency_checking_holds() {
 )]
 fn governance_peer_on_software_is_optional() {
     let handshake = specforge_repo_root::repo_root()
-        .join("crates/runtime/component/tests/declarations/governance/handshake.json");
+        .join("crates/runtime/component/tests/declarations/specforge_governance/handshake.json");
     let handshake: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(handshake).unwrap()).unwrap();
     let software = handshake["peer_dependencies"]

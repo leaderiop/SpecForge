@@ -10,7 +10,7 @@ use crate::checks::{self, Selection};
 use crate::doc_links;
 use crate::judge;
 use crate::layers;
-use crate::repo::{OUTSIDE_WORKSPACE, Repo};
+use crate::repo::{EXTENSION_CRATES, Repo, outside_workspace_patterns};
 use crate::root_layout;
 use crate::run::{CARGO_AUDIT, Ctx, Mode, TREE_SITTER};
 use crate::size_cap;
@@ -518,16 +518,20 @@ fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String
     Ok(found)
 }
 
-/// The manifests outside the workspace (`OUTSIDE_WORKSPACE`): the guests, the fixtures and the example
-/// projects' extensions.
+/// The manifests outside the workspace (`outside_workspace_patterns`): the guests and extension libraries, the
+/// fixtures, the example projects' extensions and the `@gsd` workspace.
 pub(crate) fn outside_workspace(repo: &Repo) -> Vec<String> {
-    OUTSIDE_WORKSPACE
+    outside_workspace_patterns()
         .iter()
         .flat_map(|pattern| crate::repo::expand(&repo.root, pattern))
         .collect()
 }
 
-/// The guests' manifests: `extensions/*/Cargo.toml`.
+/// The guests' and the extension libraries' manifests: `extensions/<dir>/Cargo.toml` and
+/// `extensions/<family>/<pack>/Cargo.toml` (ADR 0328 D3).
 fn guests_of(repo: &Repo) -> Vec<String> {
-    crate::repo::expand(&repo.root, "extensions/*/Cargo.toml")
+    EXTENSION_CRATES
+        .iter()
+        .flat_map(|dirs| crate::repo::expand(&repo.root, &format!("{dirs}/Cargo.toml")))
+        .collect()
 }

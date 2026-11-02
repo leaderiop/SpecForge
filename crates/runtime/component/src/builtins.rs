@@ -4,12 +4,12 @@ use specforge_common::ExtensionEntry;
 use specforge_wasm::{LoadError, WasmRuntime};
 
 /// One builtin extension: its package name, its crate under `extensions/`, the component
-/// `build-blobs` vendors into `extensions/<dir>/wasm/`, and the vendored bytes this host
-/// embeds.
+/// `build-blobs` vendors into `<crate_dir>/wasm/`, and the vendored bytes this host embeds.
+/// Name and crate follow one rule: `extensions/<dir>` is `@specforge/<dir>`, and
+/// `extensions/<family>/<pack>` is `@<family>/<pack>` (ADR 0328 D3).
 pub struct Builtin {
     pub name: &'static str,
-    pub dir: &'static str,
-    /// Its crate, from the repository root: `extensions/<dir>`.
+    /// Its crate, from the repository root: `extensions/<dir>` or `extensions/<family>/<pack>`.
     pub crate_dir: &'static str,
     pub artifact: &'static str,
     pub bytes: &'static [u8],
@@ -20,7 +20,6 @@ macro_rules! builtins {
         /// Every builtin this host embeds, in the order `init` and the listings use.
         pub const BUILTINS: &[Builtin] = &[$(Builtin {
             name: $name,
-            dir: $dir,
             crate_dir: concat!("extensions/", $dir),
             artifact: $artifact,
             bytes: include_bytes!(concat!("../../../../extensions/", $dir, "/wasm/", $artifact)),

@@ -82,7 +82,7 @@ fn software_builder() -> ContributionsBuilder {
 }
 
 /// The pinned wire declaration of the `software` builtin
-/// (`crates/runtime/component/tests/declarations/software/`, generated from the
+/// (`crates/runtime/component/tests/declarations/specforge_software/`, generated from the
 /// vendored blob by `xtask revendor`).
 fn pinned(dir: &str, file: &str) -> String {
     let path = specforge_repo_root::repo_root()
@@ -115,7 +115,7 @@ fn load_pinned(dir: &str) -> ExtensionDeclaration {
 #[ignore = "R1 revendor"]
 fn the_builders_declare_what_the_builtin_declares() {
     let built = software_builder().declaration();
-    let software = load_pinned("software");
+    let software = load_pinned("specforge_software");
     assert_eq!(built.handshake, software.handshake, "handshake");
     let behavior = &built.entities[0];
     let builtin = software

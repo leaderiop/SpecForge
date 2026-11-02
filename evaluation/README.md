@@ -45,3 +45,10 @@ Unrecorded. The claim in `docs/vision/north-star.md` stays an unverified
 hypothesis until a labeled pair of run files covers all tasks — which is
 exactly the point: the number is now checkable by anyone with an API key
 and an afternoon.
+
+## GSD A/B (proof lane)
+
+[`gsd-ab/`](gsd-ab/README.md) holds the pre-registered protocol of the GSD A/B: does an agent that keeps its project
+state in a checked graph (SpecForge `@gsd/core`) report fewer false "verified" and less state drift than one that keeps
+it in Markdown (gsd-core)? It is a draft until gate A; `python3 -I evaluation/gsd-ab/score.py --self-test` checks its
+scorer.
