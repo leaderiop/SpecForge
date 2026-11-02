@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use probe_support::{ALL, Bait, PROBE, granted_nothing, probe_runtime};
 use serde_json::json;
 use specforge_component::ComponentRuntime;
+use specforge_component::fixtures::custom_bridge;
 use specforge_protocol_types::{CommandInput, RawGraph};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
@@ -94,72 +95,6 @@ fn bridge_component(pages: u32, spin: u32, fill: bool, answer: &str) -> Vec<u8> 
         .replace("PAGES", &pages.to_string())
         .replace("SPIN", &spin.to_string());
     custom_bridge("", "", &body, answer)
-}
-
-/// A `specforge:bridge` component whose `call` runs `body` (wat
-/// instructions, with the locals `$left` and `$old` free to use), then
-/// answers `Ok(answer)`. `outside` is component-level wat placed before the
-/// core module (imports, other core modules and instances). `host` is wat
-/// placed first in the core module: its imports, all from a module `"host"`
-/// that `outside` defines as the core instance `$host`, then any other
-/// declaration.
-///
-/// The result is lowered through a return area at offset 0: the `ok`
-/// discriminant (0), the answer's pointer (16) and its length. The answer
-/// itself sits at offset 16 and the bump allocator (`realloc`, for the
-/// arguments the host lowers) starts at 8192.
-fn custom_bridge(outside: &str, host: &str, body: &str, answer: &str) -> Vec<u8> {
-    let escaped: String = answer.bytes().map(|byte| format!("\\{byte:02x}")).collect();
-    let with = if outside.contains("(core instance $host") {
-        r#"(with "host" (instance $host))"#
-    } else {
-        ""
-    };
-    let wat = r#"
-(component
-  (type $call_sig
-    (func (param "name" string) (param "export-name" string) (param "input" (list u8))
-      (result (result (list u8) (error string)))))
-  OUTSIDE
-  (core module $core
-    IMPORTS
-    (memory (export "memory") 1)
-    (data (i32.const 16) "ANSWER")
-    (global $heap (mut i32) (i32.const 8192))
-    (func $realloc (export "realloc")
-      (param $old_ptr i32) (param $old_size i32) (param $align i32) (param $new_size i32)
-      (result i32)
-      (local $ret i32)
-      (local.set $ret
-        (i32.and
-          (i32.add (i32.add (global.get $heap) (local.get $align)) (i32.const 15))
-          (i32.const -16)))
-      (global.set $heap (i32.add (local.get $ret) (local.get $new_size)))
-      (local.get $ret))
-    (func (export "call") (param i32 i32 i32 i32 i32 i32) (result i32)
-      (local $left i32)
-      (local $old i32)
-      BODY
-      (i32.store (i32.const 0) (i32.const 0))
-      (i32.store (i32.const 4) (i32.const 16))
-      (i32.store (i32.const 8) (i32.const ANSWER_LEN))
-      (i32.const 0)))
-  (core instance $inst (instantiate $core WITH))
-  (func $lifted (type $call_sig)
-    (canon lift
-      (core func $inst "call")
-      (memory (core memory $inst "memory"))
-      (realloc (core func $inst "realloc"))
-      string-encoding=utf8))
-  (export "call" (func $lifted)))
-"#
-    .replace("OUTSIDE", outside)
-    .replace("IMPORTS", host)
-    .replace("WITH", with)
-    .replace("BODY", body)
-    .replace("ANSWER_LEN", &answer.len().to_string())
-    .replace("ANSWER", &escaped);
-    wat::parse_str(wat).expect("the bridge component's wat parses")
 }
 
 fn answered(result: &WasmCallResult) -> bool {

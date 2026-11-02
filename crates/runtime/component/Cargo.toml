@@ -11,7 +11,8 @@ autotests = false
 # `builtins::load_builtins` and `load_builtins_for`: put builtins into a
 # runtime outside the extension load, for tests. `committed`: the list of every
 # committed blob and its wire answers.
-testing = ["dep:specforge-protocol-types", "dep:serde_json", "dep:specforge-repo-root"]
+# `fixtures`: the wat-built bridge components the runtime's tests load.
+testing = ["dep:specforge-protocol-types", "dep:serde_json", "dep:specforge-repo-root", "dep:wat"]
 
 [dependencies]
 specforge-wasm = { path = "../wasm" }
@@ -21,6 +22,7 @@ wasmtime-wasi = "49.0.2"
 specforge-protocol-types = { path = "../../leaf/protocol-types", optional = true }
 serde_json = { workspace = true, optional = true }
 specforge-repo-root = { path = "../../leaf/repo-root", optional = true }
+wat = { version = "=1.261.0", optional = true }
 
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }
@@ -31,7 +33,6 @@ specforge-extension-sdk = { path = "../extension-sdk" }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
 specforge-wasm = { workspace = true, features = ["testing"] }
 tempfile = { workspace = true }
-wat = "=1.261.0"
 serde_json = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
