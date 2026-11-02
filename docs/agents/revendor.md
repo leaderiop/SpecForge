@@ -21,19 +21,23 @@ Run it from the main checkout, or from a worktree outside the repository directo
 `rustup target add wasm32-wasip2`.
 
 It refreshes the lockfile of every committed blob's crate, rebuilds every committed blob
-(`specforge_component::committed::COMMITTED`: the nine builtins, the four fixtures and the marketing example's extension) into `<crate>/wasm/` with its
+(`specforge_component::committed::COMMITTED`: every builtin, the four fixtures and the marketing example's extension) into `<crate>/wasm/` with its
 `inputs.json`, rewrites the declaration snapshots of every SDK blob in
 `crates/runtime/component/tests/declarations/` and the builtin vocabulary
 (`crates/runtime/component/data/builtin-vocabulary.json`, ADR 0122), runs `build-blobs --check` and the declarations test (with its
 ignored tests), and prints the `git add` line that stages exactly those paths.
 
-A new committed blob is listed in `crates/runtime/component/src/committed.rs` first.
+A new committed blob is listed in `crates/runtime/component/src/committed.rs` first; a new builtin is a row of
+`BUILTINS` (`crates/runtime/component/src/builtins.rs`), which `COMMITTED` lists first. A builtin's crate is
+`extensions/<dir>` (`@specforge/<dir>`) or, in a family, `extensions/<family>/<pack>` (`@<family>/<pack>`); a crate there
+without `wasm/` is an extension library (`extensions/code/junit`), an rlib no blob of its own. A library is an input of
+every builtin that links it, so editing it re-vendors those builtins.
 `every_committed_wasm_is_listed` (xtask) fails for a `.wasm` file git tracks that the list does not name.
 
 ## Profile
 
 The blobs are built with `--profile blob` (root `Cargo.toml`: opt-level `z`, fat LTO, one codegen unit, strip), not with the
-workspace's `release`: the nine builtins go from 7.0 MB to 3.1 MB, which also shrinks the CLI that embeds them. The table is
+workspace's `release`: the nine builtins of the time went from 7.0 MB to 3.1 MB, which also shrinks the CLI that embeds them. The table is
 an input of every blob (`Cargo.toml#workspace-inherited`), so editing it re-vendors them. Trap frames lose function names;
 to debug a guest, rebuild its crate with a plain `cargo build --release`.
 
