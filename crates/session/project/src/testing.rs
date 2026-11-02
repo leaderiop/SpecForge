@@ -20,6 +20,7 @@
 //! [`ProjectSession::apply`].
 
 pub mod assembled;
+pub mod collected;
 pub mod gsd;
 pub mod gsd_facts;
 pub mod gsd_hosts;
@@ -33,6 +34,10 @@ pub mod specs;
 pub mod typed;
 
 pub use assembled::Assembled;
+pub use collected::{
+    CODE, COLLECTED_EXTENSIONS, Collected, NODE, NODE_REPORT, SPEC, collected_answer,
+    collected_wire,
+};
 pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,
     gsd_member_history_runtime,

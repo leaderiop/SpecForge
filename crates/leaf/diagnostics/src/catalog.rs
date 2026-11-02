@@ -17,72 +17,9 @@
 //! constant for every core code ([`codes`](crate::codes)). An `E`/`W`/`I`/`A`
 //! prefix that contradicts the entry's level does not compile.
 //!
-//! To add a code: add its entry here, name it at the emit site through
+//! The macro is in `catalog_macro.rs`. To add a code: add its entry here, name it at the emit site through
 //! `codes::X`, then regenerate the docs with
 //! `SPECFORGE_BLESS=1 cargo test -p specforge-diagnostics explain_docs_sync`.
-
-/// Generates `pub mod codes` (a constant for every core code) and
-/// `pub const CATALOG: &[CodeEntry]` from a table of entries
-/// `IDENT [= "ID"]: Level owner, "title", "explanation";`. `owner` is `core`
-/// or an extension's short name (`product` for `@specforge/product`). The
-/// one table is in this file; the macro is exported only so that its
-/// compile-time checks can be shown in a doctest (see [`Code`](crate::Code)).
-#[doc(hidden)]
-#[macro_export]
-macro_rules! catalog {
-    (@id $ident:ident []) => {
-        stringify!($ident)
-    };
-    (@id $ident:ident [$id:literal]) => {
-        $id
-    };
-    (@owner core) => {
-        "core"
-    };
-    (@owner $ext:ident) => {
-        concat!("@specforge/", stringify!($ext))
-    };
-    // A core code whose pass sets its level.
-    (@const $ident:ident [$($id:literal)?] SetByPass core $title:literal) => {
-        #[doc = concat!("`", $crate::catalog!(@id $ident [$($id)?]), "`: ", $title, " (level set by its pass).")]
-        pub const $ident: $crate::GradedCode =
-            $crate::GradedCode::catalogued($crate::catalog!(@id $ident [$($id)?]));
-    };
-    // A core code at a fixed level.
-    (@const $ident:ident [$($id:literal)?] $level:ident core $title:literal) => {
-        #[doc = concat!("`", $crate::catalog!(@id $ident [$($id)?]), "`: ", $title, " (", stringify!($level), ").")]
-        pub const $ident: $crate::Code =
-            $crate::Code::catalogued($crate::catalog!(@id $ident [$($id)?]), $crate::Level::$level);
-    };
-    // An extension's code: no host constant, but its prefix is still checked.
-    (@const $ident:ident [$($id:literal)?] $level:ident $ext:ident $title:literal) => {
-        const _: () = assert!(
-            $crate::prefix_states($crate::catalog!(@id $ident [$($id)?]), $crate::Level::$level),
-            "an E/W/I/A prefix states the code's level"
-        );
-    };
-    ($( $ident:ident $(= $id:literal)? : $level:ident $owner:ident, $title:literal, $explanation:literal; )*) => {
-        /// A typed constant for every core code in [`CATALOG`]: `codes::W112`
-        /// is a [`Code`](crate::Code) at the code's level, `codes::R_RES_005`
-        /// names `R-RES-005` (`-` becomes `_`), and `codes::A010` is a
-        /// [`GradedCode`](crate::GradedCode). Extension-owned codes have none:
-        /// extensions report codes as text, checked where they enter the host.
-        pub mod codes {
-            $( $crate::catalog!(@const $ident [$($id)?] $level $owner $title); )*
-        }
-
-        /// Every catalogued code, sorted by code.
-        pub const CATALOG: &[$crate::CodeEntry] = &[
-            $( $crate::CodeEntry {
-                code: $crate::catalog!(@id $ident [$($id)?]),
-                title: $title,
-                owner: $crate::catalog!(@owner $owner),
-                level: $crate::Level::$level,
-                explanation: $explanation,
-            }, )*
-        ];
-    };
-}
 
 catalog! {
     A001: SetByPass testing,
@@ -295,6 +232,9 @@ catalog! {
     E088: Error core,
         "Extension speaks a protocol this specforge does not",
         "An extension's handshake states a newer protocol: a newer minor of the host's major (`1.16.0` under a `1.15.0` host) or a newer major (ADR 0326): it was built with a newer SDK and may declare what this specforge does not know and would drop, so it is not loaded; an older minor still loads. Or it states an older major (`0.9.0` under a `1.x` host): it was built for a protocol this specforge no longer speaks; install a version of the extension built for this protocol's major, or rebuild it with a specforge-extension-sdk of that protocol (ADR 0326 D1b). Or its component imports a `specforge:host` interface (a host port such as `specforge:host/http@9.9.0`) this specforge does not provide: the runtime reads a component's imports before it instantiates it, and the message names the port, its version and this specforge's protocol (ADR 0326 D1a). `specforge add`, `init` and `publish` refuse such a binary too. Update specforge to a release that speaks the extension's protocol, or provides the port (`specforge --version` names the protocol a binary speaks), or install a version of the extension built for this one.";
+    E115: Error core,
+        "A fact written in a spec file",
+        "A spec file writes an entity of a kind its extension declares `writer: \"collector\"` (ADR 0327). Such a kind's entities are facts: only `specforge collect` gives them, from what a collector observed, stores them in `.specforge/facts/<key>/<collector>.json` and records their digest in `specforge-harness`; the session serves the recorded stores read-only. A block of the kind in a `.spec` file is reported at the block, and is not a fact. Delete the block; to cite a fact, write its id in a reference (`proof [\"js:pkg/a.test.js#adds\"]`).";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";

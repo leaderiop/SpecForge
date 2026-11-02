@@ -12,6 +12,7 @@
 //! when the catalog lists a code nothing emits.
 
 #[macro_use]
+mod catalog_macro;
 mod catalog;
 mod code;
 mod codebook;

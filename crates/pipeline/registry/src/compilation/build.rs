@@ -197,6 +197,46 @@ pub struct RegistryBuild {
 }
 
 impl RegistryBuild {
+    /// Drop from each collected kind (ADR 0327) a scheme a configured provider registers (`gh`, `jira`): a fact id
+    /// in it would read as that provider's `ref`. Each is W021, and a kind left with no scheme is W021 too.
+    pub fn refuse_provider_schemes(&mut self, providers: &HashSet<String>) {
+        let mut kinds: Vec<&mut crate::KindRegistryEntry> = self
+            .kinds
+            .iter_mut()
+            .filter(|entry| entry.is_collected())
+            .collect();
+        kinds.sort_by(|a, b| a.kind_name.cmp(&b.kind_name));
+        for entry in kinds {
+            let refuse = |what: String| {
+                Reported::new(
+                    BuildPart::Registries,
+                    Diagnostic::new(
+                        specforge_common::codes::W021,
+                        format!(
+                            "extension '{}': kind '{}' {what}",
+                            entry.source_extension, entry.kind_name
+                        ),
+                    ),
+                )
+            };
+            let mut refused = Vec::new();
+            entry.declared.schemes.retain(|scheme| {
+                let theirs = providers.contains(scheme);
+                if theirs {
+                    refused.push(refuse(format!(
+                        "declares the scheme '{scheme}', which a configured provider registers: its facts would \
+                         read as that provider's references"
+                    )));
+                }
+                !theirs
+            });
+            if !refused.is_empty() && entry.declared.schemes.is_empty() {
+                refused.push(refuse(crate::registries::no_scheme()));
+            }
+            self.registry_diagnostics.extend(refused);
+        }
+    }
+
     /// The kinds the declarations register, each under its keyword (first
     /// in load order wins, E026).
     pub fn kinds(&self) -> &KindRegistry {

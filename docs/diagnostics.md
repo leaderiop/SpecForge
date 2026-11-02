@@ -1269,6 +1269,24 @@ Owner: core
 Level: error
 ```
 
+## E115
+
+```
+E115: A fact written in a spec file
+
+A spec file writes an entity of a kind its extension declares `writer:
+"collector"` (ADR 0327). Such a kind's entities are facts: only `specforge
+collect` gives them, from what a collector observed, stores them in
+`.specforge/facts/<key>/<collector>.json` and records their digest in
+`specforge-harness`; the session serves the recorded stores read-only. A block
+of the kind in a `.spec` file is reported at the block, and is not a fact.
+Delete the block; to cite a fact, write its id in a reference (`proof
+["js:pkg/a.test.js#adds"]`).
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```

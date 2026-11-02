@@ -369,6 +369,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
   verify unit "collector contribution parsed from manifest"
   verify unit "a collector's declared reads are checked as a pass's (W021) and listed with their owner"
   verify unit "a kind may declare writer collector and its schemes, and a field that declares writer collector is W021"
+  verify unit "a kind's writer is human or collector, and only a collector-written kind declares schemes"
   verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location"
 }
 

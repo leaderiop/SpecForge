@@ -318,6 +318,7 @@ impl Environment {
             registries.probe(&WasmVerdicts::probe_only(runtime));
         }
         let providers = Providers::register(read.config.raw.as_ref(), registries.declarations());
+        registries.refuse_provider_schemes(&providers.schemes());
         let structural_only = registries.declarations().is_empty().then(|| {
             structural_only_notice(
                 read.found,

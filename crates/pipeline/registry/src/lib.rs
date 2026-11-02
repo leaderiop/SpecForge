@@ -48,7 +48,7 @@ pub use entity::{
 };
 
 // --- E014: the shortest and longest entity IDs ---
-pub use checks::{ID_LENGTH, IdRefusal, refused_id};
+pub use checks::{FACTS_DIR, ID_LENGTH, IdRefusal, filed, is_fact_store, refused_id};
 
 // --- The entity snapshot: every entity of one built graph as the checks read it (ADR 0019, ADR 0115) ---
 pub use snapshot::{EntitySnapshot, Standing};

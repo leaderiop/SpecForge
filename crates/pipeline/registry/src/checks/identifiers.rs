@@ -62,10 +62,13 @@ pub fn refused_id(id: &str, kinds: &KindRegistry) -> Option<IdRefusal> {
 }
 
 /// E014: identifier length contract ([`ID_LENGTH`] chars) — the documented naming
-/// convention.
-pub(super) fn length(entities: &[EntityRecord]) -> Vec<Diagnostic> {
+/// convention. A collected kind's facts are exempt (ADR 0327 D8): their ids are their tool's.
+pub(super) fn length(entities: &[EntityRecord], kinds: &KindRegistry) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for entity in entities {
+        if kinds.is_collected(&entity.kind) {
+            continue;
+        }
         let (id, span) = (entity.name.as_str(), &entity.span);
         let len = id.chars().count();
         if ID_LENGTH.contains(&len) {

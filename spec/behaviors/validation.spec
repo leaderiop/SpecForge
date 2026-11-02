@@ -442,3 +442,22 @@ behavior record_harness_values "Record Harness Values" {
   verify unit "two writers both land their lines"
   verify unit "a rename planned on an unchanged ledger re-keys a line another writer added"
 }
+
+behavior check_collected_kinds "Check Collected Kinds" {
+  features [ci_integration]
+  category validation
+  requires {
+    collected_kind_loaded "a loaded kind declares writer collector (ADR 0327)"
+  }
+  ensures {
+    e115_in_spec_file "an entity of a collected kind whose source is not a fact store is E115, at its block"
+    id_length_exempt  "a collected kind's ids are exempt from E014: their length is their tool's"
+  }
+  contract """
+    A kind its extension declares `writer: "collector"` has its entities from `specforge collect` only: they are
+    served from `.specforge/facts/<key>/<collector>.json` when `specforge-harness` records the store's digest. A
+    block of the kind in a spec file is E115 and is not a fact.
+  """
+  produces []
+  verify unit "an entity of a kind a collector writes, written in a spec file, is E115"
+}

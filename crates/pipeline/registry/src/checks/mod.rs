@@ -12,6 +12,7 @@ mod refs;
 mod value_forms;
 mod values;
 mod writers;
+pub use writers::{FACTS_DIR, filed, is_fact_store};
 
 use specforge_common::Diagnostic;
 
@@ -25,7 +26,8 @@ impl RegistryBuild {
     ///
     /// 1. W012: a `ref` nothing references;
     /// 2. unless [`Self::structural_only`]: E024 unknown kind, E013
-    ///    reserved ID, E014 identifier length, W020 unknown field or E079 the other side of a relation, W158 verify
+    ///    reserved ID, E014 identifier length (a collected kind's facts exempt), W020 unknown field or E079 the other
+    ///    side of a relation, E082 a computed value or E115 a fact written in a spec file, W158 verify
     ///    statements on a kind that accepts none, E061 value not of its declared type, W159 value written in the other form than its field's;
     ///    when structural-only with extensions loaded, one W151 instead;
     /// 3. the rule set ([`crate::rules::Rules::check`]), asking `verdicts`
@@ -52,7 +54,7 @@ impl RegistryBuild {
         } else {
             diagnostics.extend(kinds::unknown(entities, &self.kinds, &self.candidates)); // E024
             diagnostics.extend(identifiers::reserved(entities, &self.kinds)); // E013
-            diagnostics.extend(identifiers::length(entities)); // E014
+            diagnostics.extend(identifiers::length(entities, &self.kinds)); // E014
             diagnostics.extend(fields::unknown(
                 entities,
                 &self.kinds,
@@ -77,6 +79,7 @@ impl RegistryBuild {
                         .map(|rule| rule.code.clone())
                 },
             )); // E082
+            diagnostics.extend(writers::collected_written(entities, &self.kinds)); // E115
             diagnostics.extend(obligations::refused(entities, &self.kinds)); // W158
             diagnostics.extend(values::mistyped(entities, &self.kinds, &self.fields)); // E061
             diagnostics.extend(value_forms::off_form(entities, &self.kinds, &self.fields)); // W159

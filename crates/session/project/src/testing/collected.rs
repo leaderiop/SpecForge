@@ -1,0 +1,135 @@
+//! The extensions the facts tests share (ADR 0327), served in process and written as the wire carries them:
+//!
+//! - [`CODE`] (`@t/code`): the kind `test`, written by a collector under the scheme `js`, with the fields `file` and
+//!   `status`
+//! - [`NODE`] (`@t/node`, a peer of code): the collector `node` (`collect__node`, detected by `package.json`, its
+//!   report `.specforge/reports/node.xml`)
+//! - [`SPEC`] (`@t/spec`): the kind `truth`, whose `proof` lists the tests that prove it
+//!
+//! The collector answers what the test gives it ([`Collected::answering`]): the fixture holds no handler, so a test
+//! spells the facts it expects the host to store.
+
+use serde_json::{Value, json};
+use specforge_extension_sdk::DeclaredCategory;
+use specforge_extension_sdk::prelude::{ContributionsBuilder, ExtensionMeta};
+use specforge_wasm::WasmCallResult;
+use specforge_wasm::testing::InProcessRuntime;
+
+/// The extension that declares the collected kind `test`.
+pub const CODE: &str = "@t/code";
+/// A peer of [`CODE`] that declares the collector `node`.
+pub const NODE: &str = "@t/node";
+/// The extension whose `truth` cites tests.
+pub const SPEC: &str = "@t/spec";
+
+/// The three extensions' names, as a project enables them.
+pub const COLLECTED_EXTENSIONS: [&str; 3] = [CODE, NODE, SPEC];
+
+/// The report `node` reads, from the project root.
+pub const NODE_REPORT: &str = ".specforge/reports/node.xml";
+
+/// The kinds of [`CODE`], as the wire carries them.
+pub fn collected_wire() -> Value {
+    json!([{"name": "test", "keyword": "test", "writer": "collector", "schemes": ["js"], "fields": [
+        {"name": "file", "field_type": "string"},
+        {"name": "status", "field_type": "string"},
+    ]}])
+}
+
+/// A `collect__node` answer: no results, and `facts` as the wire carries them.
+pub fn collected_answer(facts: Value) -> WasmCallResult {
+    WasmCallResult::Ok(
+        json!({"entity_results": [], "facts": facts})
+            .to_string()
+            .into_bytes(),
+    )
+}
+
+/// The three extensions, served in process.
+#[derive(Default)]
+pub struct Collected {
+    answers: Vec<(String, String, WasmCallResult)>,
+}
+
+impl Collected {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// `export` of `extension` answers `result` (the first answer to an export wins).
+    pub fn answering(mut self, extension: &str, export: &str, result: WasmCallResult) -> Self {
+        self.answers
+            .push((extension.to_string(), export.to_string(), result));
+        self
+    }
+
+    /// The runtime serving the three extensions and the answers given.
+    pub fn runtime(self) -> InProcessRuntime {
+        let mut runtime = InProcessRuntime::new().with(code).with(node).with(spec);
+        for (extension, export, result) in self.answers {
+            runtime = runtime.answer_raw(&extension, &export, result);
+        }
+        runtime
+    }
+}
+
+fn code() -> ContributionsBuilder {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(CODE, "1.0.0"));
+    c.raw_category(DeclaredCategory::Entities, collected_wire());
+    c
+}
+
+fn node() -> ContributionsBuilder {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(NODE, "1.0.0"));
+    c.peer(CODE, "^1.0");
+    c.raw_category(
+        DeclaredCategory::Collectors,
+        json!([{"name": "node", "input_formats": ["junit"], "export": "collect__node",
+                "auto_detect": {"file_patterns": ["package.json"], "env_vars": []},
+                "report": NODE_REPORT}]),
+    );
+    c
+}
+
+fn spec() -> ContributionsBuilder {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(SPEC, "1.0.0"));
+    c.raw_category(
+        DeclaredCategory::Entities,
+        json!([{"name": "truth", "keyword": "truth", "fields": [
+            {"name": "proof", "field_type": "reference_list", "target_kind": "test"},
+        ]}]),
+    );
+    c
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_wasm::WasmRuntime;
+
+    #[test]
+    fn the_fixture_serves_a_collected_kind_a_collector_and_a_citing_kind() {
+        let runtime = Collected::new().runtime();
+        let declarations: Vec<_> = COLLECTED_EXTENSIONS
+            .iter()
+            .map(|name| specforge_wasm::protocol::load_declaration(&runtime, name).unwrap())
+            .collect();
+
+        let test = &declarations[0].declaration.entities[0];
+        assert_eq!(
+            (test.writer.as_deref(), &test.schemes[..]),
+            (Some("collector"), &["js".to_string()][..])
+        );
+        assert_eq!(
+            declarations[1].declaration.collectors[0].export,
+            "collect__node"
+        );
+        assert_eq!(
+            declarations[2].declaration.entities[0].fields[0]
+                .target_kind
+                .as_deref(),
+            Some("test")
+        );
+        assert!(runtime.unload(CODE));
+    }
+}

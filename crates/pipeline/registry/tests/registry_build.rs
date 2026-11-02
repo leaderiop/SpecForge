@@ -485,3 +485,123 @@ fn a_field_declaring_writer_collector_is_w021_and_dropped() {
     );
     assert_eq!(build.fields().get("test", "file").unwrap().writer(), None);
 }
+
+/// `@acme/x` declaring the kind `test` as `f` makes it.
+fn kind_declared(f: impl FnOnce(&mut KindBuilder)) -> ExtensionDeclaration {
+    let mut c = extension("@acme/x", "1.0.0");
+    c.kind("test", |k| {
+        f(k);
+    });
+    c.declaration()
+}
+
+#[spec(
+    behavior = "register_collector_contributions",
+    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
+)]
+fn a_collected_kind_keeps_its_writer_and_schemes() {
+    let build = build_registries(vec![kind_declared(|k| {
+        k.collected(&["js", "rust_test"]);
+    })]);
+
+    assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
+    let kind = build.kinds().get("test").unwrap();
+    assert!(kind.is_collected());
+    assert!(!kind.is_human_only());
+    assert_eq!(kind.schemes(), ["js", "rust_test"]);
+}
+
+#[spec(
+    behavior = "register_collector_contributions",
+    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
+)]
+fn a_kind_writer_other_than_human_or_collector_is_w021() {
+    let mut declaration = kind_declared(|_| {});
+    declaration.entities[0].writer = Some("computed".to_string());
+
+    let build = build_registries(vec![declaration]);
+
+    let w021 = coded(&build, "W021");
+    assert_eq!(w021.len(), 1, "{:?}", diagnostics(&build));
+    assert_eq!(
+        w021[0].message,
+        "extension '@acme/x': kind 'test' declares writer 'computed': expected 'human' or 'collector'"
+    );
+    assert_eq!(build.kinds().get("test").unwrap().declared.writer, None);
+}
+
+#[spec(
+    behavior = "register_collector_contributions",
+    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
+)]
+fn schemes_without_writer_collector_are_w021_and_dropped() {
+    let mut declaration = kind_declared(|_| {});
+    declaration.entities[0].schemes = vec!["js".to_string()];
+
+    let build = build_registries(vec![declaration]);
+
+    let w021 = coded(&build, "W021");
+    assert_eq!(w021.len(), 1, "{:?}", diagnostics(&build));
+    assert!(
+        w021[0]
+            .message
+            .contains("declares schemes [js] without writer 'collector'"),
+        "{}",
+        w021[0].message
+    );
+    assert!(build.kinds().get("test").unwrap().schemes().is_empty());
+}
+
+#[spec(
+    behavior = "register_collector_contributions",
+    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
+)]
+fn a_collected_kind_without_schemes_is_w021() {
+    let build = build_registries(vec![kind_declared(|k| {
+        k.collected(&["JS", "-x"]);
+    })]);
+
+    let messages: Vec<&str> = coded(&build, "W021")
+        .iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(messages.len(), 3, "{messages:?}");
+    assert!(
+        messages[0].contains("the scheme 'JS', which is not a lowercase name"),
+        "{messages:?}"
+    );
+    assert!(
+        messages[1].contains("the scheme '-x', which is not a lowercase name"),
+        "{messages:?}"
+    );
+    assert!(
+        messages[2]
+            .contains("its facts name no scheme, so no reference resolves to one on a fresh clone")
+    );
+    let kind = build.kinds().get("test").unwrap();
+    assert!(kind.is_collected(), "it stays collector-written");
+    assert!(kind.schemes().is_empty());
+}
+
+#[spec(
+    behavior = "register_collector_contributions",
+    verify = "a kind's writer is human or collector, and only a collector-written kind declares schemes"
+)]
+fn a_collected_kinds_scheme_a_provider_registers_is_w021() {
+    let mut build = build_registries(vec![kind_declared(|k| {
+        k.collected(&["gh", "js"]);
+    })]);
+
+    build.refuse_provider_schemes(&["gh".to_string()].into_iter().collect());
+
+    let w021 = coded(&build, "W021");
+    assert_eq!(w021.len(), 1, "{:?}", diagnostics(&build));
+    assert!(
+        w021[0]
+            .message
+            .contains("declares the scheme 'gh', which a configured provider registers"),
+        "{}",
+        w021[0].message
+    );
+    assert_eq!(build.kinds().get("test").unwrap().schemes(), ["js"]);
+}

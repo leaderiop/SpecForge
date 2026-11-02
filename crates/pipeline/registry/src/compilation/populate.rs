@@ -243,6 +243,19 @@ fn register_entity_kinds(
 ) {
     for kind in &declaration.entities {
         let keyword = keyword(kind);
+        let mut kind = kind.clone();
+        for problem in crate::registries::read_writer(&mut kind) {
+            diagnostics.push(Reported::new(
+                BuildPart::Registries,
+                Diagnostic::new(
+                    codes::W021,
+                    format!(
+                        "extension '{}': kind '{keyword}' {problem}",
+                        declaration.name()
+                    ),
+                ),
+            ));
+        }
         let entry = KindRegistryEntry {
             kind_name: keyword.to_string(),
             source_extension: declaration.name().to_string(),
@@ -250,7 +263,7 @@ fn register_entity_kinds(
             supports_verify: kind.supports_verify,
             allowed_verify_kinds: kind.verify_kinds.clone(),
             scoped_by: None,
-            declared: kind.clone(),
+            declared: kind,
         };
         if let Some(existing) = registry.register(entry) {
             // Duplicate — first extension wins (already registered), emit E026
