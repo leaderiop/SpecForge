@@ -432,3 +432,28 @@ fn a_third_party_rule_code_its_extension_catalogues_registers_silently() {
         diagnostics(&build)
     );
 }
+
+#[spec(
+    behavior = "register_collector_contributions",
+    verify = "a collector's declared reads are checked as a pass's (W021) and listed with their owner"
+)]
+fn a_collectors_malformed_read_is_w021_and_served_empty() {
+    let mut c = extension("@acme/x", "1.0.0");
+    c.collector("x", |collector| {
+        collector
+            .reads("Bad Name", FileReadSpec::glob("package.json"))
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+
+    let build = build_registries(vec![c.declaration()]);
+
+    let w021 = coded(&build, "W021");
+    assert_eq!(w021.len(), 1, "{:?}", diagnostics(&build));
+    assert!(
+        w021[0]
+            .message
+            .contains("collector 'x' declares the read 'Bad Name', which is not served: "),
+        "{}",
+        w021[0].message
+    );
+}

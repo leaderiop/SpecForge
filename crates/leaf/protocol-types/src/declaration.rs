@@ -496,7 +496,10 @@ static AUTO_DETECT: Shape = Shape {
 };
 static COLLECTOR: Shape = Shape {
     fields: struct_fields::<CollectorDescriptor>,
-    nested: &[("auto_detect", Nested::One(&AUTO_DETECT))],
+    nested: &[
+        ("auto_detect", Nested::One(&AUTO_DETECT)),
+        ("reads", Nested::List(&READ)),
+    ],
 };
 static ANALYZER: Shape = Shape {
     fields: struct_fields::<AnalyzerDescriptor>,

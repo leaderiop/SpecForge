@@ -416,7 +416,7 @@ type McpExtensionInfo "Mcp Extension Info" {
   /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
   /// load); "not_configured" (installed, but not enabled).
   status           "loaded" | "not_loaded" | "not_configured"
-  /// The file reads its passes and commands declare (ADR 0293), each with what it asks for; absent while it
+  /// The file reads its passes, commands and collectors declare (ADR 0293), each with what it asks for; absent while it
   /// declares none.
   reads            McpDeclaredRead[] @optional
   verify unit "McpExtensionInfo schema is valid"
@@ -590,14 +590,14 @@ type McpDoctorExtension "Mcp Doctor Extension" {
   /// load); "not_configured" (installed, but not enabled).
   status            "loaded" | "not_loaded" | "not_configured"
   enhancement_count integer
-  /// The file reads its passes and commands declare (ADR 0293), each with what it asks for; absent while it
+  /// The file reads its passes, commands and collectors declare (ADR 0293), each with what it asks for; absent while it
   /// declares none.
   reads             McpDeclaredRead[] @optional
   verify unit "McpDoctorExtension schema is valid"
 }
 
 type McpDeclaredRead "Mcp Declared Read" {
-  /// The pass or command that declares the read: "pass:<name>" or "command:<id>".
+  /// The pass, command or collector that declares the read: "pass:<name>", "command:<id>" or "collector:<name>".
   owner string
   name  string
   /// The "kind.field" whose paths are read; absent for a glob read.

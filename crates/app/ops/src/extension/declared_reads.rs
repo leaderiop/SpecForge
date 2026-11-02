@@ -5,10 +5,10 @@ use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_protocol_types::ExtensionDeclaration;
 
-/// One read a pass or command declares (`McpDeclaredRead`).
+/// One read a pass, command or collector declares (`McpDeclaredRead`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct DeclaredRead {
-    /// The pass or command that declares it: `pass:<name>` or `command:<id>`.
+    /// The pass, command or collector that declares it: `pass:<name>`, `command:<id>` or `collector:<name>`.
     pub owner: String,
     pub name: String,
     /// The `kind.field` whose paths are read.
@@ -30,7 +30,8 @@ impl DeclaredRead {
     }
 }
 
-/// Every read the passes and commands of `declaration` declare, passes first, in declaration order.
+/// Every read the passes, commands and collectors of `declaration` declare, passes first, then commands, then
+/// collectors, in declaration order.
 pub fn declared_reads(declaration: &ExtensionDeclaration) -> Vec<DeclaredRead> {
     let row = |owner: String, read: &specforge_protocol_types::FileRead| DeclaredRead {
         owner,
@@ -48,5 +49,45 @@ pub fn declared_reads(declaration: &ExtensionDeclaration) -> Vec<DeclaredRead> {
         .commands
         .iter()
         .flat_map(|c| c.reads.iter().map(|r| row(format!("command:{}", c.id), r)));
-    passes.chain(commands).collect()
+    let collectors = declaration.collectors.iter().flat_map(|c| {
+        c.reads
+            .iter()
+            .map(|r| row(format!("collector:{}", c.name), r))
+    });
+    passes.chain(commands).chain(collectors).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, FileReadSpec};
+
+    #[test]
+    fn a_collectors_reads_are_listed_after_the_commands() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/reads", "1.0.0"));
+        c.collector("node", |collector| {
+            collector
+                .reads("manifest", FileReadSpec::glob("package.json").text())
+                .collect(|_| Ok(Default::default()));
+        });
+        c.command("go", |cmd| {
+            cmd.title("Go")
+                .description("Go")
+                .reads("plans", FileReadSpec::field("plan.files"))
+                .handler(|_| specforge_extension_sdk::CommandOutput::ok("go"));
+        });
+
+        let owners: Vec<String> = declared_reads(&c.declaration())
+            .iter()
+            .map(DeclaredRead::line)
+            .collect();
+
+        assert_eq!(
+            owners,
+            [
+                "command:go plans: plan.files",
+                "collector:node manifest: package.json (with text)"
+            ]
+        );
+    }
 }

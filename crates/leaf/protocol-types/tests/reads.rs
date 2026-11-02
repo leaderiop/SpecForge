@@ -7,9 +7,9 @@
 
 use serde_json::{Value, json};
 use specforge_protocol_types::{
-    CommandDescriptor, CommandInput, CompilerPassDescriptor, DeclaredCategory, DescribeResponse,
-    ExtensionDeclaration, FileFact, FileFacts, FileRead, HandshakeResponse, PROTOCOL_VERSION,
-    PassInput, UnknownKey,
+    CollectorDescriptor, CommandDescriptor, CommandInput, CompilerPassDescriptor, DeclaredCategory,
+    DescribeResponse, ExtensionDeclaration, FileFact, FileFacts, FileRead, HandshakeResponse,
+    PROTOCOL_VERSION, PassInput, UnknownKey,
 };
 
 fn round_trip<T>(value: &T) -> Value
@@ -167,4 +167,67 @@ fn an_unknown_key_in_a_read_is_w138() {
         [("surfaces", "bsae"), ("passes", "txet")],
         "{unknown:?}"
     );
+}
+
+#[test]
+fn a_collector_declaring_reads_round_trips() {
+    let collector = CollectorDescriptor {
+        name: "node".into(),
+        export: "collect__node".into(),
+        reads: vec![FileRead {
+            name: "manifest".into(),
+            glob: Some("package.json".into()),
+            text: true,
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let written = round_trip(&collector);
+    assert_eq!(
+        written["reads"],
+        json!([{"name": "manifest", "glob": "package.json", "text": true}])
+    );
+    assert!(
+        serde_json::to_value(CollectorDescriptor::default())
+            .unwrap()
+            .get("reads")
+            .is_none()
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a describe item key the protocol does not define produces W138"
+)]
+fn an_unknown_key_in_a_collectors_read_is_w138() {
+    let handshake = HandshakeResponse {
+        protocol_version: PROTOCOL_VERSION.to_string(),
+        name: "@acme/reads".to_string(),
+        version: "0.1.0".to_string(),
+        ..Default::default()
+    };
+    let mut unknown = Vec::new();
+    ExtensionDeclaration::from_wire(
+        handshake,
+        |category| {
+            let items = match category {
+                DeclaredCategory::Collectors => json!([
+                    {"name": "node", "input_formats": [], "export": "collect__node",
+                     "reads": [{"name": "manifest", "glob": "package.json", "txet": true}]},
+                ]),
+                _ => json!([]),
+            };
+            Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items,
+            })
+        },
+        |key| unknown.push(key),
+    )
+    .unwrap();
+    let keys: Vec<(&str, &str)> = unknown
+        .iter()
+        .map(|UnknownKey { category, key, .. }| (*category, key.as_str()))
+        .collect();
+    assert_eq!(keys, [("collectors", "txet")], "{unknown:?}");
 }

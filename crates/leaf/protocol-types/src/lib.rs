@@ -463,6 +463,9 @@ pub struct CollectorDescriptor {
     /// It answers an edit plan the host applies, and receives the graph and revisions (protocol 1.9.0).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub writes: bool,
+    /// The project files the collector reads; its input's `files` carries their facts (ADR 0293).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<FileRead>,
 }
 
 // ── Analyzer Protocol Types ──

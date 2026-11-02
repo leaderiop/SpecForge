@@ -367,6 +367,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
   """
   produces   [collector_registered]
   verify unit "collector contribution parsed from manifest"
+  verify unit "a collector's declared reads are checked as a pass's (W021) and listed with their owner"
   verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location"
 }
 

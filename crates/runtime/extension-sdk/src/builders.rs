@@ -695,6 +695,7 @@ impl CollectorBuilder {
                 report: None,
                 capture: None,
                 writes: false,
+                reads: Vec::new(),
             },
             collect: None,
         }
