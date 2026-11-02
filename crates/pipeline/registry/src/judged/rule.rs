@@ -62,7 +62,7 @@ fn is_judge(text: &str) -> bool {
     is_word(text.strip_prefix(PROMPT_JUDGE).unwrap_or(text))
 }
 
-fn is_word(text: &str) -> bool {
+pub(crate) fn is_word(text: &str) -> bool {
     !text.is_empty()
         && text
             .chars()
@@ -164,6 +164,38 @@ fn check_paths(selector: &Selector) -> Result<(), String> {
     Ok(())
 }
 
+/// Who reads a chain the registry checks: a judged rule's verdict, or a trace route (ADR 0330). It picks the reason a
+/// computed or verdict-written reference is refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Reader {
+    Verdict,
+    Route,
+}
+
+/// Why a chain cannot be walked.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum WalkError {
+    /// It names, or its reference reaches only, `kind`, which no loaded extension declares.
+    Unloaded { kind: String, why: String },
+    /// Anything else.
+    Invalid(String),
+}
+
+impl WalkError {
+    /// The reason, whichever it is.
+    pub(crate) fn why(self) -> String {
+        match self {
+            WalkError::Unloaded { why, .. } | WalkError::Invalid(why) => why,
+        }
+    }
+}
+
+impl From<String> for WalkError {
+    fn from(why: String) -> Self {
+        WalkError::Invalid(why)
+    }
+}
+
 /// The words of `path` the first field of `kind` takes: a block field takes the member words after it, down to the
 /// reference that ends it (`requires.phase`); `Err` when `kind` declares none, or it ends in no reference.
 /// Type-directed (ADR 0290): the words left are the next step's.
@@ -171,6 +203,7 @@ pub(crate) fn reference_end(
     registries: Registries<'_>,
     kind: &str,
     words: &[&str],
+    reader: Reader,
 ) -> Result<usize, String> {
     for end in 1..=words.len() {
         let path = words[..end].join(".");
@@ -179,7 +212,7 @@ pub(crate) fn reference_end(
             .get_path(kind, &path)
             .ok_or_else(|| format!("kind '{kind}' declares no field '{path}'"))?;
         if form.field_type().is_reference() {
-            forbid_written(kind, &path, form.writer())?;
+            forbid_written(kind, &path, form.writer(), reader)?;
             return Ok(end);
         }
         if !form.field_type().is_block() {
@@ -189,22 +222,27 @@ pub(crate) fn reference_end(
     Err(format!("'{kind}.{}' is not a reference", words.join(".")))
 }
 
-/// What a chain's first `steps` steps reach, statically: the kinds its entities may be of.
-fn walk(
+/// What a chain's first `steps` steps reach, statically, from entities of the kinds `this` (its `self`): the kinds
+/// its entities may be of.
+pub(crate) fn walk(
     chain: &Chain,
     steps: usize,
-    target: &str,
+    this: &BTreeSet<String>,
     registries: Registries<'_>,
-) -> Result<BTreeSet<String>, String> {
+    reader: Reader,
+) -> Result<BTreeSet<String>, WalkError> {
     let loaded = |kind: &String| {
         if registries.kinds.contains(kind) {
             Ok(())
         } else {
-            Err(format!("kind '{kind}' is not loaded"))
+            Err(WalkError::Unloaded {
+                kind: kind.clone(),
+                why: format!("kind '{kind}' is not loaded"),
+            })
         }
     };
     let mut kinds: BTreeSet<String> = match &chain.head {
-        Head::This => BTreeSet::from([target.to_string()]),
+        Head::This => this.clone(),
         Head::Kinds(kinds) => {
             kinds.iter().try_for_each(loaded)?;
             kinds.iter().cloned().collect()
@@ -212,7 +250,7 @@ fn walk(
     };
     for step in &chain.steps[..steps] {
         kinds = match step {
-            Step::Path(path) => follow(registries, kinds, path)?,
+            Step::Path(path) => follow(registries, kinds, path, reader)?,
             Step::Referrers {
                 kinds: sources,
                 path,
@@ -223,28 +261,28 @@ fn walk(
                 // forward path from each.
                 let mut ends = BTreeSet::new();
                 for kind in sources {
-                    let end = reference_end(registries, kind, &words)?;
+                    let end = reference_end(registries, kind, &words, reader)?;
                     ends.insert(end);
                     let targets = targets_of(registries, kind, &words[..end].join("."));
                     if !targets.is_empty() && targets.is_disjoint(&kinds) {
-                        return Err(format!(
+                        return Err(WalkError::Invalid(format!(
                             "'{kind}.{path}' names no kind of the entities before it"
-                        ));
+                        )));
                     }
                 }
                 let end = match ends.iter().collect::<Vec<_>>()[..] {
                     [one] => *one,
                     _ => {
-                        return Err(format!(
+                        return Err(WalkError::Invalid(format!(
                             "'{path}' ends at a different reference in each of its kinds"
-                        ));
+                        )));
                     }
                 };
                 let referrers: BTreeSet<String> = sources.iter().cloned().collect();
                 if end == words.len() {
                     referrers
                 } else {
-                    follow(registries, referrers, &words[end..].join("."))?
+                    follow(registries, referrers, &words[end..].join("."), reader)?
                 }
             }
         };
@@ -253,25 +291,36 @@ fn walk(
 }
 
 /// One hop from `kinds` along the reference the first words of `words` end at: the words it took and the kinds it
-/// reaches.
+/// reaches. A reference whose target kinds are all unloaded is [`WalkError::Unloaded`], naming the first.
 fn hop(
     registries: Registries<'_>,
     kinds: &BTreeSet<String>,
     words: &[&str],
-) -> Result<(usize, BTreeSet<String>), String> {
+    reader: Reader,
+) -> Result<(usize, BTreeSet<String>), WalkError> {
     let mut ends = BTreeSet::new();
     let mut reached = BTreeSet::new();
+    let mut unloaded = BTreeSet::new();
     for kind in kinds {
-        let end = reference_end(registries, kind, words)?;
+        let end = reference_end(registries, kind, words, reader)?;
         ends.insert(end);
-        reached.extend(targets_of(registries, kind, &words[..end].join(".")));
+        let path = words[..end].join(".");
+        reached.extend(targets_of(registries, kind, &path));
+        if let Some((_, form)) = registries.fields.get_path(kind, &path) {
+            let absent = |k: &&String| !registries.kinds.contains(k);
+            unloaded.extend(form.target_kinds().iter().filter(absent).cloned());
+        }
     }
-    match (ends.len(), reached.is_empty()) {
-        (1, false) => Ok((ends.into_iter().next().unwrap_or(1), reached)),
-        _ => Err(format!(
+    let why = || {
+        format!(
             "'{}' reaches no one kind of loaded entities",
             words.join(".")
-        )),
+        )
+    };
+    match (ends.len(), reached.is_empty(), unloaded.into_iter().next()) {
+        (1, false, _) => Ok((ends.into_iter().next().unwrap_or(1), reached)),
+        (1, true, Some(kind)) => Err(WalkError::Unloaded { kind, why: why() }),
+        _ => Err(WalkError::Invalid(why())),
     }
 }
 
@@ -280,11 +329,12 @@ fn follow(
     registries: Registries<'_>,
     mut kinds: BTreeSet<String>,
     path: &str,
-) -> Result<BTreeSet<String>, String> {
+    reader: Reader,
+) -> Result<BTreeSet<String>, WalkError> {
     let words: Vec<&str> = path.split('.').collect();
     let mut at = 0;
     while at < words.len() {
-        let (taken, reached) = hop(registries, &kinds, &words[at..])?;
+        let (taken, reached) = hop(registries, &kinds, &words[at..], reader)?;
         at += taken;
         kinds = reached;
     }
@@ -317,7 +367,8 @@ fn ends_at_file(
         if at + 1 >= words.len() {
             return Err(format!("'{path}' is not a file field"));
         }
-        let (taken, reached) = hop(registries, &kinds, &words[at..])?;
+        let (taken, reached) =
+            hop(registries, &kinds, &words[at..], Reader::Verdict).map_err(WalkError::why)?;
         at += taken;
         kinds = reached;
     }
@@ -338,10 +389,20 @@ fn targets_of(registries: Registries<'_>, kind: &str, path: &str) -> BTreeSet<St
         .unwrap_or_default()
 }
 
-fn forbid_written(kind: &str, path: &str, writer: Option<FieldWriter>) -> Result<(), String> {
-    match writer {
-        Some(FieldWriter::Computed | FieldWriter::Verdict) => Err(format!(
+/// A computed or verdict-written reference makes no edge (ADR 0299 D1): a verdict cannot read what it helps write, and
+/// a route cannot follow it.
+fn forbid_written(
+    kind: &str,
+    path: &str,
+    writer: Option<FieldWriter>,
+    reader: Reader,
+) -> Result<(), String> {
+    match (writer, reader) {
+        (Some(FieldWriter::Computed | FieldWriter::Verdict), Reader::Verdict) => Err(format!(
             "'{kind}.{path}' is computed or written by a verdict: a verdict cannot read what it helps write"
+        )),
+        (Some(FieldWriter::Computed | FieldWriter::Verdict), Reader::Route) => Err(format!(
+            "'{kind}.{path}' is computed or written by a verdict: it makes no edge, so a route cannot follow it"
         )),
         _ => Ok(()),
     }
@@ -359,17 +420,21 @@ pub(crate) fn resolve(
         if !registries.kinds.contains(&target.kind) {
             return Err(format!("target kind '{}' is not loaded", target.kind));
         }
+        let this = BTreeSet::from([target.kind.clone()]);
         for (name, selector) in &target.inputs {
             let why = |why: String| format!("target '{}': input '{name}': {why}", target.kind);
+            let walked = |steps: usize, chain: &Chain| {
+                walk(chain, steps, &this, registries, Reader::Verdict).map_err(|e| why(e.why()))
+            };
             match selector {
                 Selector::Entities(chain) | Selector::Tests(chain) => {
-                    walk(chain, chain.steps.len(), &target.kind, registries).map_err(why)?;
+                    walked(chain.steps.len(), chain)?;
                 }
                 Selector::FilesOf(chain) => {
                     let (last, steps) = chain.steps.split_last().ok_or_else(|| {
                         why("file() of a chain needs a step ending at a file field".into())
                     })?;
-                    let kinds = walk(chain, steps.len(), &target.kind, registries).map_err(why)?;
+                    let kinds = walked(steps.len(), chain)?;
                     match last {
                         Step::Path(path) => ends_at_file(registries, kinds, path).map_err(why)?,
                         Step::Referrers { kinds, path } => {

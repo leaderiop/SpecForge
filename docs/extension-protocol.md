@@ -853,6 +853,12 @@ kind and goes through ordered `steps`; `trace` prints the thread it finds instea
   entities `of` (selector steps) picks from it; `judgement` is a judged rule's code, the extension's own (`E901`) or
   qualified (`gsd/E901`), printed as its outcome and freshness (`verified, fresh`).
 
+The host checks each route once, when the extension loads, against every loaded kind, field and judged rule. A
+route that cannot be followed (a kind or field it names is not loaded or declared, a `via` crosses a field that is not
+a reference or is computed or written by a verdict, an annotation reads a field a reached kind lacks or a judgement no
+judged rule makes on it) is E118, and is not registered. A start, step or annotation that reaches a kind of an optional
+peer the project does not load is skipped without a diagnostic (a step skipped takes the steps that go on from it). Several routes from one kind with not exactly one `default` is W195; the first in load order is followed.
+
 SDK: `c.route("requirement-thread", |r| { r.start("requirement").step("plan", "<plan.requirements", |s| { s.label("plan"); }); })`.
 
 ## Operate

@@ -238,6 +238,9 @@ catalog! {
     E116: Error core,
         "Facts a collector answered that the host refuses",
         "A collector answered `facts` (ADR 0327) the host does not store: a fact of a kind no loaded extension declares `writer: \"collector\"`, an empty id, an id that names none of its kind's `schemes` (`js:` for `js:pkg/a.test.js#adds`), or an id the answer repeats. The message names the collector and the first reason. None of that collector's facts is stored, so its earlier store stays; the other collectors and the report merge go on (ADR 0303: an extension's error refuses no other fact). Fix the collector, or load the extension that declares the kind.";
+    E118: Error core,
+        "Route cannot be followed",
+        "An extension declares a route (`routes`, protocol 1.15, ADR 0330) that `specforge trace` cannot follow: its name is not kebab case or not unique in the extension; it has no step; its start kind is not loaded; a step's name is not a word, repeats one, or is `start`; a step's `from` names no earlier step; its `via` is not selector steps (`<invoice.order`, `.items`), names a kind that is not loaded or a field the kind does not declare, or crosses a field that is not a reference or that is computed or written by a verdict (such a reference makes no edge); an annotation has not exactly one of `field` and `judgement`, gives `of` without a field, reads a field a kind it reaches does not declare, or names a judgement no judged rule of that code makes on every kind it reaches. The message names the extension, the route, the step or annotation, and why. The route is not registered, so `trace` reads the generic reach for its kind. A part that reaches a kind of an optional peer the project does not load is not an error: it is skipped, and the trace says so. Fix the route's declaration in the extension.";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";
@@ -748,4 +751,7 @@ catalog! {
     W192: Warning core,
         "A fact store that cannot be read",
         "A file under `.specforge/facts/<key>/` (ADR 0327) does not read as a fact store: it cannot be read, is not JSON of the store's shape, or names a store version this specforge does not read. Its facts are not served. Run `specforge collect` to write it again.";
+    W195: Warning core,
+        "Ambiguous trace route",
+        "Several routes the loaded extensions declare (ADR 0330) start at one kind, and not exactly one of them is marked `default`: none is, or several are. `specforge trace` follows the first in load order from that kind, which the message names with every route. Mark one route `default` in its extension, or pass `--route <name>` to trace along another.";
 }

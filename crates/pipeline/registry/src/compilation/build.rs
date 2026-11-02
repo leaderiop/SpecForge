@@ -25,7 +25,7 @@ use super::sides;
 use super::validate::validate_extension_testability;
 use crate::rules::{CustomVerdicts, Registries, Rules};
 use crate::{
-    CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, SettingsRegistry,
+    CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, RouteRegistry, SettingsRegistry,
     refuse_malformed_tool_schemas, register_surface_contributions,
 };
 
@@ -173,6 +173,8 @@ pub struct RegistryBuild {
     codes: Codebook,
     /// What the extensions declare as settings, presets and secrets, checked (ADR 0288).
     settings: SettingsRegistry,
+    /// The routes `specforge trace` follows, checked against the registries and the judged rules (ADR 0330).
+    routes: RouteRegistry,
     /// The extensions' commands as the CLI and MCP route them; a shadowed
     /// one is E039 (ADR 0097).
     pub(crate) commands: CommandRoutes,
@@ -184,7 +186,7 @@ pub struct RegistryBuild {
     /// order, extension by extension within each.
     declaration_diagnostics: Vec<Reported>,
     /// Populate (E026, W018, W019, W021, I004, then the edge types' W021),
-    /// W017, the rule set's (W150, W147 or W112 per declared rule), then
+    /// W017, the rule set's (W150, W147 or W112 per declared rule), then the routes' E118 and W195, then
     /// E039 for a shared code namespace, then the settings' W019 and W021 — in that order.
     registry_diagnostics: Vec<Reported>,
     /// The custom rules' probes (W112), set by [`Self::probe`]; empty until then.
@@ -289,6 +291,11 @@ impl RegistryBuild {
     /// The settings, presets and secrets the loaded extensions declare (ADR 0288).
     pub fn settings(&self) -> &SettingsRegistry {
         &self.settings
+    }
+
+    /// The routes `specforge trace` follows, and the one followed from each kind (ADR 0330).
+    pub fn routes(&self) -> &RouteRegistry {
+        &self.routes
     }
 
     /// Every declared pass with its extension, in order (both phases).
@@ -514,16 +521,17 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         BuildPart::Surfaces,
         crate::refuse_prompts(&mut declarations, &judge),
     ));
-    let (rules, rule_diagnostics) = Rules::build(
-        &declarations,
-        Registries {
-            kinds: &kinds,
-            fields: &fields,
-            edges: &edges,
-        },
-        &codes,
-    );
+    let registries = Registries {
+        kinds: &kinds,
+        fields: &fields,
+        edges: &edges,
+    };
+    let (rules, rule_diagnostics) = Rules::build(&declarations, registries, &codes);
     registry_diagnostics.extend(about(BuildPart::Rules, rule_diagnostics));
+    // The routes read the judged rules their judgements name: E118, W195.
+    let (routes, route_diagnostics) =
+        crate::registries::build_routes(&declarations, registries, &rules);
+    registry_diagnostics.extend(about(BuildPart::Registries, route_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
 
@@ -549,6 +557,7 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         rules,
         codes,
         settings,
+        routes,
         commands,
         passes,
         declaration_diagnostics,

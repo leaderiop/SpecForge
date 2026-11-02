@@ -180,7 +180,10 @@ fn apply_entity_enhancements(
 }
 
 /// Whether `declaration` declares an optional peer the project does not load.
-fn has_unloaded_optional_peer(declaration: &ExtensionDeclaration, loaded: &[&str]) -> bool {
+pub(crate) fn has_unloaded_optional_peer(
+    declaration: &ExtensionDeclaration,
+    loaded: &[&str],
+) -> bool {
     declaration
         .peers()
         .iter()

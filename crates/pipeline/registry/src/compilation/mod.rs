@@ -24,4 +24,5 @@ pub use build::{
 };
 pub use candidates::CandidateVocabulary;
 pub use codes::extension_codes;
+pub(crate) use populate::has_unloaded_optional_peer;
 pub use reads::read_problem;
