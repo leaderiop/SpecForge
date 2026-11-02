@@ -4,7 +4,7 @@
 
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use specforge_protocol_types::{CollectInput, CommandInput, HookInput, PassInput};
+use specforge_protocol_types::{CollectInput, CommandInput, HookInput, PassInput, RouteDescriptor};
 
 fn golden(name: &str) -> Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -43,6 +43,7 @@ fn every_golden_encodes_byte_equal() {
     ] {
         round_trips::<PassInput>(pass, None);
     }
+    round_trips::<Vec<RouteDescriptor>>("routes.items.json", None);
 }
 
 /// `name` without its `now`, as a 1.10 host sent it.

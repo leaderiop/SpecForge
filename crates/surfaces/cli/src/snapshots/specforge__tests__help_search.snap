@@ -27,6 +27,7 @@ Options:
           - feature_flags:    feature flags
           - codes:            diagnostic code catalog
           - settings:         typed settings, presets and secrets
+          - routes:           trace routes
 
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)

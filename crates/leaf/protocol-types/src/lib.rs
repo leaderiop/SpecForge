@@ -40,6 +40,7 @@ mod judged;
 mod plan;
 mod prompt;
 mod reads;
+mod route;
 mod settings;
 mod surface;
 pub mod tool_input;
@@ -61,6 +62,7 @@ pub use prompt::{
     PromptRole, PromptStep, ServedSlash,
 };
 pub use reads::{FileFact, FileFacts, FileMap, FileRead};
+pub use route::{ROUTE_START, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor};
 pub use settings::{
     Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
     UnreadableItem, is_segment, valid_name,

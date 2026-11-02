@@ -131,6 +131,7 @@ The host reads every string and object key of a handshake or describe answer pri
 | `feature_flags` | Feature flag descriptors, each read as a bool setting (below) | Always |
 | `codes` | The extension's diagnostic code catalog (protocol 1.7.0) | Always, from a guest of 1.7 or later |
 | `settings` | Typed settings, presets and secrets (protocol 1.8.0) | Always, from a guest of 1.8 or later |
+| `routes` | The routes `specforge trace` follows from a kind (protocol 1.15.0) | Always, from a guest of 1.15 or later |
 
 ### Category: entities
 
@@ -814,6 +815,46 @@ Returns the extension's diagnostic code catalog (protocol 1.7.0, ADR 0286): one 
 
 SDK: `c.code("E901", |d| { d.title(..).explanation(..).docs(..); })`.
 
+### Category: routes
+
+Returns the routes `specforge trace` follows (protocol 1.15.0, ADR 0330). A route starts at an entity of its `start`
+kind and goes through ordered `steps`; `trace` prints the thread it finds instead of the generic reach.
+
+```json
+{
+  "category": "routes",
+  "items": [
+    {
+      "name": "requirement-thread",
+      "description": "A requirement's thread: its plans, tasks, commits, tests and truths",
+      "start": "requirement",
+      "steps": [
+        {"name": "plan", "via": "<plan.requirements", "label": "plan"},
+        {"name": "task", "via": "<task.plan"},
+        {"name": "commit", "via": "<commit.task", "annotations": [{"field": "linked_by"}]},
+        {"name": "test", "from": "start", "via": "<truth.requirement.proof",
+         "annotations": [{"field": "status", "of": "<test_run.test", "absent": "not run"}]},
+        {"name": "truth", "from": "start", "via": "<truth.requirement", "annotations": [{"judgement": "E901"}]}
+      ]
+    }
+  ]
+}
+```
+
+- `name` is kebab case, unique among the extension's routes; the host qualifies it by the extension's short name
+  (`gsd/requirement-thread`). `default: true` marks the route followed when several start at one kind.
+- A step's `name` is a word, unique in the route and never `start`. `from` is `start` or an earlier step's name;
+  absent, the previous step (the start for the first). `via` is selector steps, the judged rules' grammar without a
+  head (`<kind.field` reads the entities of `kind` whose `field` names it, `.field` the entities its `field` names;
+  several hops in one step are allowed). Each entity of `from` gives its matches, in id order.
+- `label` is the word printed before each match's name (`plan 01-01`).
+- An annotation (on the route, for the start, or on a step) has exactly one of `field` and `judgement`, and an optional
+  `absent` printed when there is nothing to print. `field` is a field (or `block.member`) of the entity, or of the
+  entities `of` (selector steps) picks from it; `judgement` is a judged rule's code, the extension's own (`E901`) or
+  qualified (`gsd/E901`), printed as its outcome and freshness (`verified, fresh`).
+
+SDK: `c.route("requirement-thread", |r| { r.start("requirement").step("plan", "<plan.requirements", |s| { s.label("plan"); }); })`.
+
 ## Operate
 
 Once the declaration is loaded, the host calls an extension's exports on
@@ -1024,7 +1065,7 @@ or answered.
 | `1.12.0` | A command may declare `human` (ADR 0301): the host runs it only for a person at a terminal. A setting may declare `gates_when_on` and be of type `number` (ADR 0305). A judgement a pass is sent carries `cited_tests`, the tests its verdict cites (ADR 0304). A 1.11 host ignores `human`, `gates_when_on` and `cited_tests`, and drops a `number` setting (W019). |
 | `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and refuses the `surfaces` declaration of a guest that writes a `when` list (a 1.12 `when` is one string, and a list fails the whole category: `DescribeFailed`), so such a guest needs a 1.13.0 host; a `when` of one name is still a string. |
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
-| `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's. |
+| `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). An extension may declare `routes`, the steps `specforge trace` follows from a kind (ADR 0330). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's; a guest older than 1.15 is not asked for `routes`. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
 `1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the

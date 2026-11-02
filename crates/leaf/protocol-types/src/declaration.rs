@@ -18,9 +18,9 @@ use crate::{
     DescribeResponse, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
     FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, FileRead, HandshakeResponse,
     HookDescriptor, McpResourceDescriptor, McpToolDescriptor, PeerDependency, PresetDescriptor,
-    PromptArgDescriptor, PromptDescriptor, PromptStep, ProtocolError, SecretDescriptor,
-    SettingDescriptor, SettingsItem, SkillDescriptor, SlashCommandDescriptor, SurfaceDescriptor,
-    ValidationRuleDescriptor,
+    PromptArgDescriptor, PromptDescriptor, PromptStep, ProtocolError, RouteAnnotationDescriptor,
+    RouteDescriptor, RouteStepDescriptor, SecretDescriptor, SettingDescriptor, SettingsItem,
+    SkillDescriptor, SlashCommandDescriptor, SurfaceDescriptor, ValidationRuleDescriptor,
 };
 
 /// Everything one extension declares: its handshake and every describe
@@ -55,10 +55,13 @@ pub struct ExtensionDeclaration {
     /// The settings, presets and secrets it declares (protocol 1.8.0, ADR 0288).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub settings: Vec<SettingsItem>,
+    /// The routes `specforge trace` follows from its kinds (protocol 1.15.0, ADR 0330).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub routes: Vec<RouteDescriptor>,
 }
 
 /// A describe category, in the order the host reads them (ADR 0012 D2). The
-/// protocol defines no other: a guest answers these twelve and nothing else
+/// protocol defines no other: a guest answers these thirteen and nothing else
 /// (ADR 0050).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeclaredCategory {
@@ -74,12 +77,13 @@ pub enum DeclaredCategory {
     FeatureFlags,
     Codes,
     Settings,
+    Routes,
 }
 
 impl DeclaredCategory {
     /// Every describe category, in the host's read order: the protocol's one
     /// list of them.
-    pub const ALL: [DeclaredCategory; 12] = [
+    pub const ALL: [DeclaredCategory; 13] = [
         DeclaredCategory::Entities,
         DeclaredCategory::Edges,
         DeclaredCategory::SharedFields,
@@ -92,6 +96,7 @@ impl DeclaredCategory {
         DeclaredCategory::FeatureFlags,
         DeclaredCategory::Codes,
         DeclaredCategory::Settings,
+        DeclaredCategory::Routes,
     ];
 
     /// Its wire name (`shared_fields`).
@@ -109,6 +114,7 @@ impl DeclaredCategory {
             DeclaredCategory::FeatureFlags => "feature_flags",
             DeclaredCategory::Codes => "codes",
             DeclaredCategory::Settings => "settings",
+            DeclaredCategory::Routes => "routes",
         }
     }
 
@@ -118,6 +124,7 @@ impl DeclaredCategory {
         match self {
             DeclaredCategory::Codes => (1, 7),
             DeclaredCategory::Settings => (1, 8),
+            DeclaredCategory::Routes => (1, 15),
             _ => (1, 0),
         }
     }
@@ -145,6 +152,7 @@ impl DeclaredCategory {
             DeclaredCategory::FeatureFlags => &FEATURE_FLAG,
             DeclaredCategory::Codes => &CODE,
             DeclaredCategory::Settings => &SETTING,
+            DeclaredCategory::Routes => &ROUTE,
         }
     }
 }
@@ -244,6 +252,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::FeatureFlags => !self.feature_flags.is_empty(),
             DeclaredCategory::Codes => !self.codes.is_empty(),
             DeclaredCategory::Settings => !self.settings.is_empty(),
+            DeclaredCategory::Routes => !self.routes.is_empty(),
         }
     }
 
@@ -273,6 +282,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::FeatureFlags => to_items(&self.feature_flags),
             DeclaredCategory::Codes => to_items(&self.codes),
             DeclaredCategory::Settings => to_items(&self.settings),
+            DeclaredCategory::Routes => to_items(&self.routes),
         }
     }
 
@@ -304,6 +314,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::FeatureFlags => self.feature_flags = parse(name, items)?,
             DeclaredCategory::Codes => self.codes = parse(name, items)?,
             DeclaredCategory::Settings => self.settings = parse(name, items)?,
+            DeclaredCategory::Routes => self.routes = parse(name, items)?,
         }
         Ok(())
     }
@@ -530,6 +541,21 @@ static SECRET: Shape = Shape {
 static FEATURE_FLAG: Shape = Shape {
     fields: struct_fields::<FeatureFlagDescriptor>,
     nested: &[],
+};
+static ROUTE_ANNOTATION: Shape = Shape {
+    fields: struct_fields::<RouteAnnotationDescriptor>,
+    nested: &[],
+};
+static ROUTE_STEP: Shape = Shape {
+    fields: struct_fields::<RouteStepDescriptor>,
+    nested: &[("annotations", Nested::List(&ROUTE_ANNOTATION))],
+};
+static ROUTE: Shape = Shape {
+    fields: struct_fields::<RouteDescriptor>,
+    nested: &[
+        ("steps", Nested::List(&ROUTE_STEP)),
+        ("annotations", Nested::List(&ROUTE_ANNOTATION)),
+    ],
 };
 
 fn report_unknown_keys(

@@ -11,8 +11,9 @@ use specforge_protocol_types::{
     CompilerPassDescriptor, DECLARED_CATEGORIES, DeclaredCategory, DescribeResponse,
     EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration,
     FeatureFlagDescriptor, FieldDescriptor, HandshakeResponse, PROTOCOL_VERSION, PeerDependency,
-    ProtocolError, SettingDescriptor, SettingsItem, SurfaceDescriptor, UnknownKey,
-    ValidationRuleDescriptor, ValidationSeverity,
+    ProtocolError, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
+    SettingDescriptor, SettingsItem, SurfaceDescriptor, UnknownKey, ValidationRuleDescriptor,
+    ValidationSeverity,
 };
 
 fn field(name: &str) -> FieldDescriptor {
@@ -125,6 +126,20 @@ fn full() -> ExtensionDeclaration {
             field_type: "bool".to_string(),
             ..Default::default()
         })],
+        routes: vec![RouteDescriptor {
+            name: "report-thread".to_string(),
+            start: "report".to_string(),
+            steps: vec![RouteStepDescriptor {
+                name: "chart".to_string(),
+                via: "<chart.report".to_string(),
+                annotations: vec![RouteAnnotationDescriptor {
+                    field: Some("title".to_string()),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
     }
 }
 

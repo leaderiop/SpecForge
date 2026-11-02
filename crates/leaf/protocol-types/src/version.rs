@@ -42,9 +42,9 @@
 /// declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`,
 /// `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the
 /// event `file_changed`; `HookEvent` also decodes an unknown event as `Unknown`, so a newer guest's event costs one
-/// hook; 1.15.0 is ADR 0327's: a collector answers `facts`, a kind may declare `writer: "collector"` and its
-/// `schemes`, and every collector's input carries `cwd`; ADR 0326 D1a/D1b (ports plan 00): a collector declares
-/// `reads` and its input carries `files`.
-/// ADR 0329 adds to the same 1.15.0: a kind may declare `complete_when`, a collector-written kind the enum field
-/// holding its facts' `result`, a pass entity carries `pending`, and an unheld reference carries its `span`.
+/// hook; 1.15.0 is ADR 0327's, ADR 0326 D1a/D1b's (ports plan 00), ADR 0329's and ADR 0330's: a collector answers
+/// `facts`, may declare `reads` (its input then carries `files`), and every collector's input carries `cwd`; a kind
+/// may declare `writer: "collector"` and its `schemes`, `complete_when`, and (collector-written) the enum field holding
+/// its facts' `result`; a pass entity carries `pending`, an unheld reference its `span`; and an extension declares
+/// `routes` (a describe category), the steps `specforge trace` follows from a kind.
 pub const PROTOCOL_VERSION: &str = "1.15.0";

@@ -23,9 +23,11 @@ use specforge_component::committed::COMMITTED;
 // nine grew 101,977 B together. R1 sets 5,900,000 (ADR 0328), which leaves 400,877 B of headroom: less than plan 03's
 // `@javascript/node-test`, whose SDK floor alone is about 428 KB, so plan 03 must raise it or shrink a blob. The
 // product blob is 998,381 B, 1,619 B under its cap: the next minor that grows every blob must raise the cap or shrink
-// product.
+// product. ADR 0330's `routes` (route, step and annotation descriptors, in every blob) measured 5,630,853 B: +131,730 B,
+// about 13 KB per blob; the total keeps 269,147 B of headroom. The product blob is 1,011,905 B, so its cap takes the
+// rule's next step, 1,100,000, with 88,095 B of headroom.
 const TOTAL_BUDGET: usize = 5_900_000;
-const BLOB_BUDGET: usize = 1_000_000;
+const BLOB_BUDGET: usize = 1_100_000;
 
 #[test]
 fn committed_builtins_stay_under_their_size_budget() {
