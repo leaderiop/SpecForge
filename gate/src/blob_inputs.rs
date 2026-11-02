@@ -87,16 +87,18 @@ pub fn inherited_tables(manifest: &str) -> String {
     out
 }
 
-/// The crates that commit a blob, as `repo::expand` patterns: the builtins, the fixtures and the example projects'
-/// extensions.
-pub const BLOB_CRATES: &[&str] = &["extensions/*", "fixtures/*", "examples/*/extension"];
+/// The crates that commit a blob besides the builtins ([`crate::repo::EXTENSION_CRATES`]), as `repo::expand`
+/// patterns: the fixtures and the example projects' extensions.
+pub const BLOB_CRATES: &[&str] = &["fixtures/*", "examples/*/extension"];
 
-/// Every committed blob with a record: the crate directories (`extensions/<dir>`, `fixtures/<dir>`,
-/// `examples/<dir>/extension`, sorted) whose `wasm/inputs.json` exists.
+/// Every committed blob with a record: the crate directories (`extensions/<dir>`, `extensions/<family>/<pack>`,
+/// `fixtures/<dir>`, `examples/<dir>/extension`, sorted) whose `wasm/inputs.json` exists; an extension library has
+/// none, so it is no blob.
 pub fn blobs(repo_root: &Path) -> Result<Vec<String>, String> {
     let suffix = format!("/wasm/{FILE}");
-    let mut found: Vec<String> = BLOB_CRATES
+    let mut found: Vec<String> = crate::repo::EXTENSION_CRATES
         .iter()
+        .chain(BLOB_CRATES)
         .flat_map(|pattern| crate::repo::expand(repo_root, &format!("{pattern}{suffix}")))
         .filter_map(|record| record.strip_suffix(&suffix).map(str::to_owned))
         .collect();

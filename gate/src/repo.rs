@@ -69,21 +69,39 @@ pub const PROJECTS: &[&str] = &[
 ];
 
 /// `.spec` directories that are no project's `spec_root` but are still written for `specforge format`: the `@gsd`
-/// fixtures the black-box tests and the parity twin read (a pattern as in [`OUTSIDE_WORKSPACE`]).
+/// fixtures the black-box tests and the parity twin read (a pattern as in [`outside_workspace_patterns`]).
 pub const FIXTURE_SPEC_DIRS: &[&str] = &[
     "gsd/core/tests/projects/*/spec",
     "gsd/security/tests/projects/*/spec",
     "gsd/parity/fixtures/*/spec",
 ];
 
-/// The crates outside the workspace, each its own manifest (was `ci.yml:54,75,92`, `gate.sh:184`): the guests, the
-/// fixtures, each example project's own extension and the `@gsd` workspace (a pattern without a `*` names one path).
-pub const OUTSIDE_WORKSPACE: &[&str] = &[
-    "extensions/*/Cargo.toml",
+/// The two depths an extension crate sits at, as `expand` patterns: `extensions/<dir>` and
+/// `extensions/<family>/<pack>` (ADR 0328 D3). Every list of extension crates (rustfmt's manifests, the guests, the
+/// blob crates) reads it.
+pub const EXTENSION_CRATES: [&str; 2] = ["extensions/*", "extensions/*/*"];
+
+/// The other crates outside the workspace, each its own manifest: the fixtures, each example project's own
+/// extension and the `@gsd` workspace (a pattern without a `*` names one path).
+const OTHER_OUTSIDE_WORKSPACE: &[&str] = &[
     "fixtures/*/Cargo.toml",
     "examples/*/extension/Cargo.toml",
     "gsd/Cargo.toml",
 ];
+
+/// The manifests of the crates outside the workspace, as `expand` patterns (was `ci.yml:54,75,92`, `gate.sh:184`):
+/// the guests and extension libraries ([`EXTENSION_CRATES`]), then `OTHER_OUTSIDE_WORKSPACE`.
+pub fn outside_workspace_patterns() -> Vec<String> {
+    EXTENSION_CRATES
+        .iter()
+        .map(|dirs| format!("{dirs}/Cargo.toml"))
+        .chain(
+            OTHER_OUTSIDE_WORKSPACE
+                .iter()
+                .map(|pattern| pattern.to_string()),
+        )
+        .collect()
+}
 
 /// `pattern` expanded under `root`: every path that exists, sorted, where each `*` segment stands for any entry of the
 /// directory before it (`extensions/*/*/Cargo.toml` reaches two levels down). A `*` is a whole segment; an unreadable

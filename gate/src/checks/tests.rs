@@ -1,5 +1,5 @@
 use super::*;
-use crate::repo::{OUTSIDE_WORKSPACE, this_repo};
+use crate::repo::{outside_workspace_patterns, this_repo};
 
 fn check(name: &str) -> &'static Check {
     CHECKS
@@ -126,7 +126,7 @@ fn an_unformatted_guest_is_judged_by_the_hook() {
         selection("rustfmt", Mode::Hook, &["docs/guide.md"]),
         Selection::Skip
     );
-    let manifests = OUTSIDE_WORKSPACE
+    let manifests = outside_workspace_patterns()
         .iter()
         .flat_map(|pattern| crate::repo::expand(&this_repo().root, pattern))
         .count();

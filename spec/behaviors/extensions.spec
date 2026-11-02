@@ -156,6 +156,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify unit "a .wasm file entry's load warnings name the extension it declares"
   verify unit "missing extension produces diagnostic"
   verify unit "every builtin is listed once, by the directory its crate lives in"
+  verify unit "a layout under extensions/ that breaks the naming rule is named, and a family's builtins and libraries are read by it"
   verify unit "every fixture crate is listed once, by its directory under fixtures/"
   verify unit "every example's extension crate is listed once, by its directory under examples/"
   verify unit "a declaration declares entity types and validations"
