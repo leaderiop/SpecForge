@@ -501,6 +501,7 @@ behavior dispatch_collector "Dispatch Collector" {
     report_files_passed          "the export receives every report file with its project-relative path and text"
     traps_reported               "a trap or malformed answer is E028"
     named_reports_only           "with --report only the named files are read: nothing the collector declares about its report, capture or command is resolved or refused"
+    declared_files_passed        "a collector that declares reads receives their files' facts, held to the project as a pass's are"
   }
   contract   """
     The host reads the report (the file itself, or every `*.json` file
@@ -524,13 +525,18 @@ behavior dispatch_collector "Dispatch Collector" {
     already wrote at the declared location; `--report` dispatches only the
     files it names, so a collector's declared report, capture and command are
     neither resolved nor refused.
+    A collector that declares `reads` receives `files`: the facts and
+    capped text of the project files it names, read by the host after the
+    run and before the export, as a command's are (ADR 0293).
   """
   produces   [collector_dispatched]
   verify unit "reads a file or every json file in a directory"
   verify unit "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
   verify unit "--report reads only the named files, whatever the collector declares"
   verify unit "each report file reaches the collector by its project path, however it was named"
-  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only"
+  verify unit "a collector receives the facts of the files it declares it reads, and none when it declares none"
+  verify unit "a collector's read is held to the project and withholds a credential's text, as a pass's is"
+  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed"
 }
 
 behavior ingest_collector_report "Ingest Collector Report" {

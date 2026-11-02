@@ -32,6 +32,7 @@ fn every_golden_encodes_byte_equal() {
     round_trips::<CommandInput>("command.input.json", Some("graph"));
     round_trips::<CommandInput>("command.writes.input.json", Some("graph"));
     round_trips::<CollectInput>("collect.input.json", None);
+    round_trips::<CollectInput>("collect.reads.input.json", None);
     round_trips::<HookInput>("hook.input.json", None);
     round_trips::<HookInput>("hook.facts.input.json", None);
     for pass in [

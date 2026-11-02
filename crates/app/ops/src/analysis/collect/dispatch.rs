@@ -108,6 +108,15 @@ pub(super) fn dispatch_over(
         revisions: writing
             .map(|view| crate::revision::of_project(view.project()))
             .unwrap_or_default(),
+        files: match view {
+            // A collect runs once: its files are read from the plain disk (ADR 0293).
+            Some(view) if !collector.reads.is_empty() => specforge_project::file_reads::read(
+                &collector.reads,
+                view.entities(),
+                &view.env().file_source(&specforge_registry::PlainDisk),
+            ),
+            _ => Default::default(),
+        },
     };
     let Some(runtime) = runtime else {
         return Err(CallError::new(

@@ -597,7 +597,8 @@ the absolute report path, also exported as `SPECFORGE_REPORT`), where the
 report lands (`report`, a file or directory inside the project; default
 `.specforge/reports/<name>.json`), whether the host also keeps the command's
 standard output (`capture: "stdout"`, for runners whose results only appear
-there), and the pure export that maps the report to entities.
+there), the project files it reads (`reads`, as a pass's: see "File reads" under
+the passes category; ports plan 00 R1-b), and the pure export that maps the report to entities.
 
 ```json
 {
@@ -617,7 +618,8 @@ there), and the pure export that maps the report to entities.
 ```
 
 The host calls the export with a `CollectInput`, `{"reports": [{"path",
-"content"}], "stdout"?}` (`stdout` only when the collector captures it), and
+"content"}], "stdout"?, "files"?}` (`stdout` only when the collector captures it; `files`, the facts of the files
+it `reads`, by read name, read after the run from the plain disk and absent when it declares none), and
 reads a `CollectOutput`, `{"entity_results": [{"entity_id", "test_results":
 [{"name", "status", "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name",
 "path", "status"}]}` (each test a `TestResult`), with `status` a `TestStatus`:
@@ -657,7 +659,7 @@ entity (ADR 0284). A pass answers host diagnostics, bare or as
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
 A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface, the `graph` a command, a prompt, a hook or a writing collector receives included (as `fields`, with the judgements beside them; ADR 0299, no protocol change); a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
 
-**File reads (1.11.0, ADR 0293).** A pass or a command may declare `reads`, a list of `{"name", "field"?, "glob"?,
+**File reads (1.11.0, ADR 0293).** A pass, a command or a collector may declare `reads`, a list of `{"name", "field"?, "glob"?,
 "base"?, "text"?}`: the project files it wants the host to read, because a guest has no file system. Exactly one of
 `field` (`kind.field` or `kind.field.member`: the paths the entities of that kind write there, read as `file_exists`
 reads them) or `glob` (project-relative, `/`-separated; `*`, `?` and a `**` segment, at most four of them; never `..` or an absolute path).

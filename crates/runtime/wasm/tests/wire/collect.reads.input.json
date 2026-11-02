@@ -1,0 +1,23 @@
+{
+  "reports": [
+    {
+      "content": "{}",
+      "path": "target/report.json"
+    }
+  ],
+  "cwd": "/p",
+  "files": {
+    "manifest": {
+      "facts": [
+        {
+          "path": "package.json",
+          "exists": true,
+          "bytes": 2,
+          "lines": 1,
+          "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "text": "{}"
+        }
+      ]
+    }
+  }
+}

@@ -4,7 +4,7 @@
 use crate::machine::CommandApproval;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::{ExtensionDeclaration, FileRead};
 use std::path::Path;
 
 /// A collector contributed by an enabled extension.
@@ -21,6 +21,8 @@ pub struct Collector {
     pub capture: Option<String>,
     /// It answers an edit plan, so it receives the graph and the revisions (ADR 0289).
     pub writes: bool,
+    /// The project files it reads; its input's `files` carries their facts (ADR 0293).
+    pub reads: Vec<FileRead>,
 }
 
 /// The only `capture` value: the command's standard output.
@@ -47,6 +49,7 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
                     .unwrap_or_else(|| format!(".specforge/reports/{}.json", c.name)),
                 capture: c.capture.clone(),
                 writes: c.writes,
+                reads: c.reads.clone(),
             })
         })
         .collect()

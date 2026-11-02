@@ -181,7 +181,7 @@ type ExtensionSpecifier "Parsed Extension Specifier" {
 // by the host and the SDK (ADR 0013). An optional field the host leaves
 // unset is absent from the wire, never null.
 
-type CollectInput "What a collect__<name> export receives: the runner's report files and, when the collector captures it, the command's standard output." {
+type CollectInput "What a collect__<name> export receives: the runner's report files, when the collector captures it, the command's standard output, and the facts of the files it declares it reads." {
   reports CollectReportFile[]
   stdout  string @optional
   verify unit "CollectInput schema is valid"

@@ -570,7 +570,9 @@ in a report answers its `Err`), plus the tests the report doesn't link
 (`unlinked`), which the host links by naming convention when it can. With `capture_stdout()`, the command's output still
 reaches the user's terminal, and the host also keeps it (in
 `<name>.stdout.txt` inside a report directory) and passes it as
-`CollectInput::stdout`. The guest never runs anything itself.
+`CollectInput::stdout`. `k.reads(name, FileReadSpec::glob("package.json").text())` declares a project file the
+collector reads, as a command's `reads` does: its input's `files[name]` holds the facts (and, with `.text()`, the
+capped text), read by the host after the run. The guest never runs anything itself.
 
 ### Compiler passes
 

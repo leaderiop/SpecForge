@@ -681,6 +681,9 @@ pub struct CollectInput<G = GraphWire> {
     pub graph: Option<G>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub revisions: BTreeMap<String, String>,
+    /// The facts of the files the collector `reads`, by read name (ADR 0293).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub files: crate::FileMap,
 }
 
 impl<G> Default for CollectInput<G> {
@@ -693,6 +696,7 @@ impl<G> Default for CollectInput<G> {
             now: None,
             graph: None,
             revisions: BTreeMap::new(),
+            files: crate::FileMap::new(),
         }
     }
 }
