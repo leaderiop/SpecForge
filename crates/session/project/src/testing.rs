@@ -59,8 +59,10 @@ pub use judged::{
     gsd_judged_project, gsd_judged_rules, gsd_judged_runtime, gsd_judged_wire,
 };
 pub use routed::{
-    GSD_ROUTED_SPEC, declare_gsd_routed, declare_requirement_thread, gsd_routed_builder,
-    gsd_routed_project, gsd_routed_runtime, gsd_routed_serving, gsd_routed_wire,
+    GSD_ROUTED_FACTS_SPEC, GSD_ROUTED_SPEC, ROUTED_TEST, declare_gsd_routed,
+    declare_gsd_routed_facts, declare_requirement_thread, gsd_routed_builder, gsd_routed_facts,
+    gsd_routed_facts_builder, gsd_routed_facts_wire, gsd_routed_project, gsd_routed_runtime,
+    gsd_routed_serving, gsd_routed_wire,
 };
 pub use scoped::{SCOPED_EXTENSION, scoped_extension, scoped_kinds};
 pub use settings::{

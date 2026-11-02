@@ -13,9 +13,10 @@ use specforge_ops::read::trace::{
 };
 use specforge_ops::view::ProjectView;
 use specforge_project::testing::{
-    GSD_JUDGED_SPEC, GSD_ROUTED_SPEC, TestProject, gsd_judged_project, gsd_judged_runtime,
-    gsd_routed_builder, gsd_routed_project, gsd_routed_runtime, gsd_routed_serving,
-    gsd_routed_wire,
+    GSD_JUDGED_SPEC, GSD_ROUTED_FACTS_SPEC, GSD_ROUTED_SPEC, ROUTED_TEST, TestProject,
+    gsd_judged_project, gsd_judged_runtime, gsd_routed_builder, gsd_routed_facts,
+    gsd_routed_facts_builder, gsd_routed_project, gsd_routed_runtime, gsd_routed_serving,
+    gsd_routed_wire, stored,
 };
 use specforge_project::{CompiledProject, SharedRuntime};
 use specforge_test_macros::test as specforge_test;
@@ -459,4 +460,57 @@ fn the_summary_counts_branches() {
         thread(&no_plan).summary(),
         "thread: no plan → auth-keeps-session (passed) → TR1 missing"
     );
+}
+
+/// [`GSD_ROUTED_FACTS_SPEC`] over `@gsd/core` whose tests and runs are facts, `node`'s store of them recorded when
+/// `collected`.
+fn with_facts(collected: bool) -> RouteTrace {
+    let project = gsd_routed_project(GSD_ROUTED_FACTS_SPEC);
+    if collected {
+        stored(
+            project.root(),
+            "node",
+            "0123456789abcdef0123456789abcdef01234567",
+            gsd_routed_facts(),
+        );
+    }
+    let compiled =
+        project.compile_in(Arc::new(gsd_routed_serving(gsd_routed_facts_builder)) as SharedRuntime);
+    let reported: Vec<_> = compiled
+        .diagnostics()
+        .iter()
+        .filter(|d| d.code == "E003" || d.code == "E115" || d.code == "E116")
+        .map(|d| d.message.clone())
+        .collect();
+    assert!(reported.is_empty(), "{reported:?}");
+    thread_of(&compiled, "AUTH-07")
+}
+
+#[specforge_test(
+    behavior = "follow_trace_route",
+    verify = "a route step reaches collector-written facts through a scheme reference, and an unheld one is no match"
+)]
+fn a_route_step_follows_a_scheme_reference_into_a_fact_entity() {
+    let route = with_facts(true);
+    assert_eq!(
+        route.text,
+        format!(
+            "AUTH-07 → plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → {ROUTED_TEST} (passed) → TR1 missing"
+        )
+    );
+    assert_eq!(route.steps[3].matches[0].entity_id, ROUTED_TEST);
+}
+
+#[specforge_test(
+    behavior = "follow_trace_route",
+    verify = "a route step reaches collector-written facts through a scheme reference, and an unheld one is no match"
+)]
+fn an_unheld_scheme_reference_is_no_match() {
+    let route = with_facts(false);
+    assert_eq!(
+        route.text,
+        "AUTH-07 → plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → no test → TR1 missing"
+    );
+    assert!(route.steps[3].matches.is_empty());
+    assert_eq!(route.missing, ["test"]);
 }

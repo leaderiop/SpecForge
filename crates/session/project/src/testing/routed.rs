@@ -11,6 +11,48 @@ use specforge_wasm::testing::InProcessRuntime;
 use super::TestProject;
 use super::judged::{GSD_JUDGED, code, declare_gsd_judged, gsd_judged_passes, gsd_judged_wire};
 
+/// The text both specs share: the requirement, its phase, plan, task and commit, and the truth up to the test it
+/// cites.
+macro_rules! thread_up_to_proof {
+    () => {
+        r#"milestone v1.0 "One" {}
+
+requirement AUTH-07 "Sessions" {}
+
+phase 03 "Three" {
+  milestone v1.0
+  requirements [AUTH-07]
+}
+
+plan 03-02 "Session tokens" {
+  phase 03
+  requirements [AUTH-07]
+  files_modified ["src/auth/session.ts"]
+}
+
+task T1 "Task" {
+  plan 03-02
+}
+
+commit 5e2a91c0d3b4 "Keep the session" {
+  task v1.0/03/03-02/T1
+  linked_by "Gsd-Task"
+}
+
+truth TR1 "Tokens survive a reload" {
+  plan 03-02
+  requirement AUTH-07
+  proof ["#
+    };
+}
+
+/// The id of the test the truth of [`GSD_ROUTED_FACTS_SPEC`] cites, a fact of the scheme `js`.
+macro_rules! routed_test {
+    () => {
+        "js:app/test/auth.test.js#keeps a session"
+    };
+}
+
 /// [`gsd_judged_wire`], with a truth's `requirement` and `proof`, and the kinds `commit`, `test` and `test_run`.
 pub fn gsd_routed_wire() -> Value {
     let mut kinds = gsd_judged_wire();
@@ -36,6 +78,31 @@ pub fn gsd_routed_wire() -> Value {
         ]}),
     ]);
     kinds
+}
+
+/// The id of the test the truth of [`GSD_ROUTED_FACTS_SPEC`] cites, a fact of the scheme `js`.
+pub const ROUTED_TEST: &str = routed_test!();
+
+/// [`gsd_routed_wire`], with `test` and `test_run` written by a collector under the scheme `js` (ADR 0327): facts,
+/// never written in a spec.
+pub fn gsd_routed_facts_wire() -> Value {
+    let mut kinds = gsd_routed_wire();
+    for kind in kinds.as_array_mut().expect("the kinds are a list") {
+        if kind["name"] == "test" || kind["name"] == "test_run" {
+            kind["writer"] = json!("collector");
+            kind["schemes"] = json!(["js"]);
+        }
+    }
+    kinds
+}
+
+/// The facts a collect of [`GSD_ROUTED_FACTS_SPEC`]'s project stores (as the wire carries them): the test the truth
+/// cites, and its passing run.
+pub fn gsd_routed_facts() -> Value {
+    json!([
+        {"kind": "test", "id": ROUTED_TEST, "fields": {}},
+        {"kind": "test_run", "id": format!("{ROUTED_TEST}@1"), "fields": {"test": ROUTED_TEST, "status": "passed"}},
+    ])
 }
 
 /// The route `requirement-thread`, as plan 04 declares it.
@@ -69,13 +136,29 @@ pub fn declare_gsd_routed(c: &mut ContributionsBuilder) {
     declare_requirement_thread(c);
 }
 
+/// [`declare_gsd_routed`], with `test` and `test_run` facts ([`gsd_routed_facts_wire`]).
+pub fn declare_gsd_routed_facts(c: &mut ContributionsBuilder) {
+    declare_gsd_routed(c);
+    c.raw_category(DeclaredCategory::Entities, gsd_routed_facts_wire());
+}
+
+/// [`gsd_routed_builder`] over [`declare_gsd_routed_facts`].
+pub fn gsd_routed_facts_builder() -> ContributionsBuilder {
+    gsd_routed_extension(declare_gsd_routed_facts)
+}
+
 /// The extension: [`declare_gsd_routed`] and the compute pass `plan_status`, under the short name `gsd` the real
 /// `@gsd/core` routes its commands by (so its route is `gsd/requirement-thread`).
 pub fn gsd_routed_builder() -> ContributionsBuilder {
+    gsd_routed_extension(declare_gsd_routed)
+}
+
+/// `@gsd/core` under the short name `gsd`, as `declare` contributes it, with the compute pass `plan_status`.
+fn gsd_routed_extension(declare: fn(&mut ContributionsBuilder)) -> ContributionsBuilder {
     let mut meta = ExtensionMeta::new(GSD_JUDGED, "0.1.0");
     meta.short = Some("gsd".to_string());
     let mut c = ContributionsBuilder::new(meta);
-    declare_gsd_routed(&mut c);
+    declare(&mut c);
     c.raw_category(DeclaredCategory::Passes, gsd_judged_passes());
     c
 }
@@ -103,34 +186,9 @@ pub fn gsd_routed_runtime() -> InProcessRuntime {
 
 /// One requirement's whole thread: a plan, its task, the task's commit, the truth that proves the requirement, the
 /// test it cites and that test's passing run. The truth has no verdict.
-pub const GSD_ROUTED_SPEC: &str = r#"milestone v1.0 "One" {}
-
-requirement AUTH-07 "Sessions" {}
-
-phase 03 "Three" {
-  milestone v1.0
-  requirements [AUTH-07]
-}
-
-plan 03-02 "Session tokens" {
-  phase 03
-  requirements [AUTH-07]
-  files_modified ["src/auth/session.ts"]
-}
-
-task T1 "Task" {
-  plan 03-02
-}
-
-commit 5e2a91c0d3b4 "Keep the session" {
-  task v1.0/03/03-02/T1
-  linked_by "Gsd-Task"
-}
-
-truth TR1 "Tokens survive a reload" {
-  plan 03-02
-  requirement AUTH-07
-  proof [auth-keeps-session]
+pub const GSD_ROUTED_SPEC: &str = concat!(
+    thread_up_to_proof!(),
+    r#"auth-keeps-session]
 }
 
 test auth-keeps-session "keeps a session" {}
@@ -139,7 +197,12 @@ test_run R1 "A run" {
   test auth-keeps-session
   status passed
 }
-"#;
+"#
+);
+
+/// [`GSD_ROUTED_SPEC`] without the test and its run, which are facts there: the truth cites [`ROUTED_TEST`].
+pub const GSD_ROUTED_FACTS_SPEC: &str =
+    concat!(thread_up_to_proof!(), "\"", routed_test!(), "\"]\n}\n");
 
 /// A project over `@gsd/core` with the route, whose spec is `spec`, with the instructions file `CLAUDE.md` and the
 /// source file `src/auth/session.ts` the judged rules read.

@@ -64,6 +64,7 @@ behavior follow_trace_route "Follow a Trace Route" {
   verify unit "a kind with no route is traced by the generic reach, unchanged"
   verify unit "a named route, the reach, and every entity are traced as asked, and a wrong route is refused"
   verify unit "a step skipped for an unloaded optional peer is an I210 notice"
+  verify unit "a route step reaches collector-written facts through a scheme reference, and an unheld one is no match"
 }
 
 behavior render_trace_thread "Render a Trace Thread" {
