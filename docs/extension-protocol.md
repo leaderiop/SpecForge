@@ -84,7 +84,7 @@ Peer dependencies are SemVer ranges read as Cargo reads them; one rule judges th
 
 What an extension contributes is what it declares in the describe categories; nothing on the handshake says it (ADR 0050).
 
-The host checks `protocol_version`: a major version other than its own fails the extension's load (E028), and so does a newer minor of its major (E088, see Protocol Versions); its handshake's `sandbox_policy` limits every later call into it (see Sandbox).
+The host checks `protocol_version`: a major version other than its own fails the extension's load (E088, saying which side is behind), and so does a newer minor of its major (E088, see Protocol Versions); one that is not semver fails the handshake (E028); its handshake's `sandbox_policy` limits every later call into it (see Sandbox).
 
 ### Describe
 
@@ -953,9 +953,10 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 
 The protocol version is semver (`specforge_protocol_types::PROTOCOL_VERSION`). The host loads every
 guest of its major version built for its own minor or an older one, and sends its own version as
-`host_version` in every handshake request. A guest of a newer minor is refused with E088, naming the
-extension and both versions (ADR 0326): it may declare what this host would drop, so it needs a
-specforge at least as new. `specforge --version` names the protocol a binary speaks
+`host_version` in every handshake request. A guest of a newer minor, or of a newer major, is refused with E088,
+naming the extension and both versions (ADR 0326): it may declare what this host would drop, so it needs a
+specforge at least as new. A guest of an older major is E088 too, with the remedy to install or rebuild it for the
+host's major (ADR 0326 D1b). `specforge --version` names the protocol a binary speaks
 (`specforge 0.3.0 (9229143f5, protocol 1.14.0)`). A guest built with the SDK declares the SDK's version in
 its handshake and its registry manifest.
 
@@ -982,7 +983,8 @@ or answered.
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
-`1.0.x` refuses a `1.1.0` guest (E088). A newer patch of the host's minor loads.
+`1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the
+host's minor loads.
 
 ### Sandbox
 
@@ -996,6 +998,10 @@ project is refused). No other declaration grants more access (ADR 0037, ADR 0293
 the user's terminal either: the host reads a handshake, describe, pass or validator answer, and a
 call's failure text, printable where it reads them (ADR 0244); a command's output and an MCP tool's
 or resource's answer are the extension's own and are written as answered.
+
+**Imports.** A guest imports only `wasi:*` and the `specforge:host` interfaces its host provides (none at 1.x). The host
+checks this before it instantiates the component (ADR 0326 D1a): an unknown `specforge:host` port is E088, naming the
+port, its version and the host's protocol, and an interface that is neither is E028 naming it.
 
 The handshake's `sandbox_policy` declares limits, which the host enforces on every call:
 

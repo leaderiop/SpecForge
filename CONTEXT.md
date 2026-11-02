@@ -391,7 +391,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Extension load**: turning a project's `extensions` entries into loaded extensions and their
   declarations, once per environment load (`Installed::load`, over the `WasmRuntime` port): a
   builtin from its embedded binary, an installed extension from its pinned module, a `.wasm` file
-  entry from its file under the package name it declares (E072 when it declares none, ADR 0223). Which extension each entry names is decided once
+  entry from its file under the package name it declares (E072 when it declares none, ADR 0223). The runtime first lists
+  the component's imports (ADR 0326 D1a): an unknown `specforge:host` port is E088, a foreign import E028; a handshake of
+  another protocol major, or a newer minor, is E088 too. Which extension each entry names is decided once
   (`Installed::resolve`: a builtin's name before a lock entry, `.wasm` file entries after every named
   entry), and the lock plan reads the same decision: a named entry names an
   extension by its text (`ExtensionEntry::names`), a `.wasm` file entry only by what its component declares, once
