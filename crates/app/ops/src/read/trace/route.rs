@@ -79,6 +79,7 @@ pub struct RouteMatch {
 /// What one annotation printed of one entity, by what it reads (the registry's [`RouteAnnotation`]).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 #[serde(tag = "source", rename_all = "lowercase")]
+#[shape(define)]
 pub enum Annotated {
     /// A field's values.
     Field {

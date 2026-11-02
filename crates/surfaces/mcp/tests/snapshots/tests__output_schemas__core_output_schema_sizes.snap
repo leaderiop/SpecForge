@@ -4,7 +4,7 @@ expression: "lines.join(\"\\n\")"
 ---
 specforge.query 7598
 specforge.analyze 3759
-specforge.trace 1776
+specforge.trace 3389
 specforge.search 481
 specforge.explain 786
 specforge.schema 2177
@@ -37,4 +37,4 @@ specforge.infer_session 295
 specforge.find_implementation 502
 specforge.find_spec_for_source 642
 specforge.prompt 283
-total 71452
+total 73065

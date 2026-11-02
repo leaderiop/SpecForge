@@ -254,66 +254,118 @@ pub fn trace(
     target: Target,
     follow: Follow,
 ) -> Result<Noticed<TraceOutcome>, Refusal<TraceField>> {
-    let named = match follow {
-        Follow::Route(name) => Some(named_route(view, name)?),
-        Follow::Declared | Follow::Reach => None,
-    };
-    let routes = view.registries().routes();
-    let route_of = |node: &Node| match follow {
-        Follow::Declared => routes.followed(node.kind.raw.as_str()),
-        Follow::Route(_) => named,
-        Follow::Reach => None,
-    };
-    let expectations = TraceExpectations::of(view.registries());
-    let selection = Selection::of(view.graph(), view.registries());
-    let mut followed: Vec<&Route> = Vec::new();
-    let mut trace_of = |node: &Node| -> Trace {
-        match route_of(node) {
+    if let Target::Entity(entity_id) = target {
+        return Ok(trace_one(view, entity_id, follow)?.map(TraceOutcome::One));
+    }
+    let mut tracer = Tracer::new(view, follow)?;
+    let mut nodes: Vec<&Node> = view
+        .graph()
+        .nodes()
+        .into_iter()
+        .filter(|node| {
+            tracer
+                .named
+                .is_none_or(|route| route.start == node.kind.raw.as_str())
+        })
+        .collect();
+    nodes.sort_by(|a, b| a.id.raw.as_str().cmp(b.id.raw.as_str()));
+    let traces = nodes.into_iter().map(|node| tracer.trace(node)).collect();
+    Ok(tracer.noticed(TraceOutcome::Every(Traces {
+        schema_version: view.versioned_schema().version().to_string(),
+        traces,
+    })))
+}
+
+/// [`trace`] of [`Target::Entity`]: one entity's trace, as its document.
+pub fn trace_one(
+    view: &ProjectView,
+    entity_id: &str,
+    follow: Follow,
+) -> Result<Noticed<TraceDocument<Trace>>, Refusal<TraceField>> {
+    let mut tracer = Tracer::new(view, follow)?;
+    let node = view.entity(entity_id, TraceField::EntityId)?.node;
+    if let Some(route) = tracer.named
+        && route.start != node.kind.raw.as_str()
+    {
+        return Err(another_kind(route, entity_id, node.kind.raw.as_str()));
+    }
+    let trace = tracer.trace(node);
+    Ok(tracer.noticed(TraceDocument {
+        schema_version: view.versioned_schema().version().to_string(),
+        trace,
+    }))
+}
+
+/// One trace request: what it follows, and the routes it followed, whose skips its notices say.
+struct Tracer<'a> {
+    view: &'a ProjectView<'a>,
+    follow: Follow<'a>,
+    /// The route [`Follow::Route`] names.
+    named: Option<&'a Route>,
+    expectations: TraceExpectations,
+    selection: Selection<'a>,
+    followed: Vec<&'a Route>,
+}
+
+impl<'a> Tracer<'a> {
+    /// The request following `follow`; a route no loaded extension declares is refused.
+    fn new(view: &'a ProjectView<'a>, follow: Follow<'a>) -> Result<Self, Refusal<TraceField>> {
+        let named = match follow {
+            Follow::Route(name) => Some(named_route(view, name)?),
+            Follow::Declared | Follow::Reach => None,
+        };
+        Ok(Tracer {
+            view,
+            follow,
+            named,
+            expectations: TraceExpectations::of(view.registries()),
+            selection: Selection::of(view.graph(), view.registries()),
+            followed: Vec::new(),
+        })
+    }
+
+    /// `node`'s trace: along the route it follows, else its reach.
+    fn trace(&mut self, node: &Node) -> Trace {
+        let route = match self.follow {
+            Follow::Declared => self
+                .view
+                .registries()
+                .routes()
+                .followed(node.kind.raw.as_str()),
+            Follow::Route(_) => self.named,
+            Follow::Reach => None,
+        };
+        match route {
             Some(route) => {
-                if !followed.iter().any(|seen| seen.name == route.name) {
-                    followed.push(route);
+                if !self.followed.iter().any(|seen| seen.name == route.name) {
+                    self.followed.push(route);
                 }
-                Trace::Route(Box::new(RouteTrace::of(view, &selection, route, node)))
+                Trace::Route(Box::new(RouteTrace::of(
+                    self.view,
+                    &self.selection,
+                    route,
+                    node,
+                )))
             }
             None => Trace::Chain(traced(
-                view.graph(),
-                view.registries().field_forms(),
+                self.view.graph(),
+                self.view.registries().field_forms(),
                 node,
-                &expectations,
+                &self.expectations,
             )),
         }
-    };
-    let schema_version = view.versioned_schema().version().to_string();
-    let outcome = match target {
-        Target::Entity(entity_id) => {
-            let node = view.entity(entity_id, TraceField::EntityId)?.node;
-            if let Some(route) = named
-                && route.start != node.kind.raw.as_str()
-            {
-                return Err(another_kind(route, entity_id, node.kind.raw.as_str()));
-            }
-            TraceOutcome::One(TraceDocument {
-                schema_version,
-                trace: trace_of(node),
-            })
-        }
-        Target::Every => {
-            let mut nodes: Vec<&Node> = view
-                .graph()
-                .nodes()
+    }
+
+    /// `value`, with what versioning the schema reported and each followed route's skips.
+    fn noticed<T>(self, value: T) -> Noticed<T> {
+        let mut notices = self.view.versioned_schema().notices();
+        notices.extend(
+            self.followed
                 .into_iter()
-                .filter(|node| named.is_none_or(|route| route.start == node.kind.raw.as_str()))
-                .collect();
-            nodes.sort_by(|a, b| a.id.raw.as_str().cmp(b.id.raw.as_str()));
-            TraceOutcome::Every(Traces {
-                schema_version,
-                traces: nodes.into_iter().map(&mut trace_of).collect(),
-            })
-        }
-    };
-    let mut notices = view.versioned_schema().notices();
-    notices.extend(followed.into_iter().flat_map(|route| skipped(view, route)));
-    Ok(Noticed::new(outcome, notices))
+                .flat_map(|route| skipped(self.view, route)),
+        );
+        Noticed::new(value, notices)
+    }
 }
 
 /// The route of the qualified `name`: refused, listing the routes, when no loaded extension declares it.

@@ -771,7 +771,9 @@ type McpEditResult "Mcp Edit Result" {
   verify unit "McpEditResult schema is valid"
 }
 
-type McpTraceResult "Mcp Trace Result" = McpTraceChainResult | McpTracePlanResult
+type McpTraceResult "Mcp Trace Result" = McpTraceChainResult
+  | McpTraceRouteResult
+  | McpTracePlanResult
 
 type McpTraceChainResult "Trace tool response when entity_id is provided" {
   schema_version string
@@ -805,6 +807,65 @@ type McpMissingLink "An expected reference field an entity writes no reference i
   required      boolean
   status        "resolved" | "missing"
   verify unit "McpMissingLink schema is valid"
+}
+
+type McpTraceRouteResult "Trace tool response when the entity's kind has a route, or a route is named" {
+  schema_version string
+  entity_id      string   @readonly
+  entity_kind    string   @readonly
+  /// The route's qualified name (gsd/requirement-thread).
+  route          string
+  /// What the start entity's annotations print.
+  annotations    McpTraceAnnotation[]
+  /// Every step the route registered, in declared order, with every match.
+  steps          McpTraceRouteStep[]
+  /// The steps and annotations the route skips for an optional peer the project does not load; absent when none.
+  skipped        string[] @optional
+  /// At least one path reaches every step: specforge trace prints the thread by default.
+  complete       boolean
+  /// The steps the thread falls short at, in declared order.
+  missing        string[]
+  /// The thread over every match, as specforge trace --partial prints it.
+  text           string
+  verify unit "Trace tool response along a route conforms to schema"
+}
+
+type McpTraceRouteStep "One step of a route trace" {
+  name    string
+  /// start, or the name of the step it goes on from.
+  from    string
+  /// The word printed before each match's name; absent when the step has none.
+  label   string @optional
+  matches McpTraceRouteMatch[]
+  verify unit "McpTraceRouteStep schema is valid"
+}
+
+type McpTraceRouteMatch "An entity a route step reached from one match of the step it goes on from" {
+  entity_id   string @readonly
+  entity_kind string @readonly
+  name        string
+  /// The entity it was reached from.
+  parent      string
+  annotations McpTraceAnnotation[]
+  verify unit "McpTraceRouteMatch schema is valid"
+}
+
+type McpTraceAnnotation "What one route annotation printed of one entity" {
+  /// What it reads: a field's values, or a judged rule's judgement.
+  source  "field" | "judgement"
+  /// The field read; a field's only.
+  name    string   @optional
+  /// The field's values, in order, each once; a field's only.
+  values  string[] @optional
+  /// The judged rule's qualified code; a judgement's only.
+  code    string   @optional
+  /// The judgement's state; a judgement's only, absent when the rule has not judged it.
+  state   string   @optional
+  /// The judgement's recorded outcome; a judgement's only, absent when none is recorded.
+  outcome string   @optional
+  /// What the thread prints for it; absent when it prints nothing.
+  text    string   @optional
+  verify unit "McpTraceAnnotation schema is valid"
 }
 
 type McpTracePlanResult "Trace tool response when plan parameter is provided" {

@@ -735,7 +735,7 @@ reply_type! {
     mcp_rename_result => "McpRenameResult", "McpRenameResult schema is valid",
     text_edit => "TextEdit", "TextEdit schema is valid",
     mcp_trace_link => "McpTraceLink", "McpTraceLink schema is valid",
-    mcp_missing_link => "McpMissingLink", "McpMissingLink schema is valid",
+    mcp_missing_link => "McpMissingLink", "McpMissingLink schema is valid", mcp_trace_route_result => "McpTraceRouteResult", "Trace tool response along a route conforms to schema", mcp_trace_route_step => "McpTraceRouteStep", "McpTraceRouteStep schema is valid", mcp_trace_route_match => "McpTraceRouteMatch", "McpTraceRouteMatch schema is valid", mcp_trace_annotation => "McpTraceAnnotation", "McpTraceAnnotation schema is valid",
     mcp_analyze_result => "McpAnalyzeResult", "McpAnalyzeResult schema is valid",
     mcp_analyze_pass => "McpAnalyzePass", "McpAnalyzePass schema is valid",
     mcp_gate_met => "McpGateMet", "McpGateMet schema is valid",
