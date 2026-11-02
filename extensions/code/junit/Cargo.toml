@@ -1,0 +1,13 @@
+[package]
+name = "specforge-code-junit"
+version = "1.0.0"
+edition = "2021"
+description = "The JUnit reader and test-fact minting every @code/core runner pack links (ADR 0329 D7); no guest"
+publish = false
+
+# An extension library (ADR 0328 D3): an rlib a builtin links, never embedded.
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+specforge-extension-sdk = { path = "../../../crates/runtime/extension-sdk" }
