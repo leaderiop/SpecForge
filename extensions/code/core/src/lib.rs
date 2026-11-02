@@ -13,16 +13,27 @@
 //! it catalogues its codes and they print namespaced: `code/E101` (ADR 0328 D2).
 //!
 //! Its check pass `refs` judges a reference in its schemes that no fact holds (E101, or W102 when no store holds
-//! facts of that scheme), unless the citing entity is pending (ADR 0329 D4, D5).
+//! facts of that scheme), unless the citing entity is pending (ADR 0329 D4, D5); its check pass `proof` reports a
+//! complete entity linking a failed test (W401) and a test naming no entity (I402) (D6).
 
 use specforge_extension_sdk::prelude::*;
 
+mod proof;
 mod refs;
 
+/// The kind of a test fact.
+const TEST_KIND: &str = "test";
+/// The kind of the run of a test.
+const RUN_KIND: &str = "test_run";
 /// The scheme of a `test`'s id.
 const TEST_SCHEME: &str = "js";
 /// The scheme of a `test_run`'s id.
 const RUN_SCHEME: &str = "run";
+
+/// The field holding a `test`'s result (`result`), and a `test_run`'s status.
+const RESULT: &str = "status";
+/// The field holding the ids of the entities a `test` says it proves.
+const NAMES: &str = "names";
 
 /// A test's status: the `TestStatus` names, the one vocabulary of the collect wire.
 const STATUS: Vocabulary = Vocabulary::new(&["passed", "failed", "skipped"]);
@@ -36,13 +47,13 @@ struct CodeCore;
 
 impl Contributions for CodeCore {
     fn contribute(c: &mut ContributionsBuilder) {
-        c.kind("test", |k| {
+        c.kind(TEST_KIND, |k| {
             k.description(
                 "A test a runner ran, written by its runner pack's collector (ADR 0329): cite it by its id, \
                  js:<package>/<file>#<suite > … > name>",
             )
             .collected(&[TEST_SCHEME])
-            .result("status")
+            .result(RESULT)
             .field("package", |f| {
                 f.field_type(FieldType::String)
                     .description("The package the runner pack assigns the test to");
@@ -59,29 +70,29 @@ impl Contributions for CodeCore {
                 f.field_type(FieldType::String)
                     .description("The test's own name");
             })
-            .field("status", |f| {
+            .field(RESULT, |f| {
                 f.vocabulary(&STATUS)
                     .description("What its last run said: passed, failed or skipped");
             })
-            .field("names", |f| {
+            .field(NAMES, |f| {
                 f.field_type(FieldType::StringList).description(
                     "The ids of the entities the test says it proves, in its runner's idiom (I402 when one is \
                      no entity)",
                 );
             });
         });
-        c.kind("test_run", |k| {
+        c.kind(RUN_KIND, |k| {
             k.description(
                 "The run of a test (ADR 0329): run:<test id>, with the status the run gave it",
             )
             .collected(&[RUN_SCHEME])
             .field("test", |f| {
                 f.field_type(FieldType::Reference)
-                    .target_kind("test")
+                    .target_kind(TEST_KIND)
                     .edge("run_of")
                     .description("The test this is the run of");
             })
-            .field("status", |f| {
+            .field(RESULT, |f| {
                 f.vocabulary(&STATUS)
                     .description("What the run said: the test's own status");
             })
@@ -92,12 +103,15 @@ impl Contributions for CodeCore {
         });
         c.edge("run_of", |e| {
             e.description("A run of a test")
-                .source_kind("test_run")
-                .target_kind("test");
+                .source_kind(RUN_KIND)
+                .target_kind(TEST_KIND);
         });
 
         c.pass("refs", |p| {
             p.phase("check").run(refs::refs);
+        });
+        c.pass("proof", |p| {
+            p.phase("check").run(proof::proof);
         });
 
         c.code("E101", |d| {

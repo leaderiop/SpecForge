@@ -17,12 +17,13 @@ const OWNER: &str = "@t/owner";
 const KEY: &str = "0123456789abcdef0123456789abcdef01234567";
 const ADDS: &str = "js:app/test/a.test.js#board > adds";
 
-/// `node`'s store: the test `ADDS`, passed, and its run.
-fn adds() -> Value {
+/// `node`'s store: the test `ADDS`, its last run giving `status`, naming `names`, and its run.
+fn adds(status: &str, names: &[&str]) -> Value {
     json!([
         {"kind": "test", "id": ADDS, "title": "board > adds",
-         "fields": {"package": "app", "file": "test/a.test.js", "suite": ["board"], "name": "adds", "status": "passed"}},
-        {"kind": "test_run", "id": format!("run:{ADDS}"), "fields": {"test": ADDS, "status": "passed"}},
+         "fields": {"package": "app", "file": "test/a.test.js", "suite": ["board"], "name": "adds", "status": status,
+                    "names": names}},
+        {"kind": "test_run", "id": format!("run:{ADDS}"), "fields": {"test": ADDS, "status": status}},
     ])
 }
 
@@ -65,6 +66,18 @@ fn compiled(p: &TestProject) -> CompiledProject {
     p.compile_in(Arc::new(Collected::new().peering(CODE_CORE).over(beside)))
 }
 
+/// `@code/core`'s findings: `(code, entity, message)`.
+fn about(p: &CompiledProject) -> Vec<(String, String, String)> {
+    p.diagnostics()
+        .iter()
+        .filter(|d| d.code.as_str().starts_with("code/"))
+        .map(|d| {
+            let entity = d.subject().map(str::to_string).unwrap_or_default();
+            (d.code.to_string(), entity, d.message.clone())
+        })
+        .collect()
+}
+
 /// `@code/core`'s findings: `(code, line, suggestion)`.
 fn found(p: &CompiledProject) -> Vec<(String, usize, Option<String>)> {
     p.diagnostics()
@@ -91,7 +104,7 @@ fn citing(cited: &str) -> String {
 )]
 fn a_fact_ref_to_a_missing_test_is_code_e101() {
     let p = project(&[("truths.spec", &citing("js:app/test/a.test.js#board > add"))]);
-    stored(p.root(), "node", KEY, adds());
+    stored(p.root(), "node", KEY, adds("passed", &[]));
 
     let compiled = compiled(&p);
 
@@ -153,7 +166,7 @@ fn a_fact_ref_of_a_pending_owner_is_unchecked() {
 )]
 fn a_held_fact_ref_links_and_reports_nothing() {
     let p = project(&[("truths.spec", &citing(ADDS))]);
-    stored(p.root(), "node", KEY, adds());
+    stored(p.root(), "node", KEY, adds("passed", &[]));
 
     let compiled = compiled(&p);
 
@@ -165,5 +178,51 @@ fn a_held_fact_ref_links_and_reports_nothing() {
             .iter()
             .any(|e| e.target.as_str() == ADDS),
         "T1 links the test"
+    );
+}
+
+#[specforge_test_macros::test(behavior = "cc_check_proof", verify = "a failing proof is code/W401")]
+fn a_failing_proof_is_code_w401() {
+    let plans = format!(
+        "{}\nplan open \"Open\" {{\n  status open\n}}\n\nstep later \"Later\" {{\n  plan open\n  proof [\"{ADDS}\"]\n}}\n",
+        citing(ADDS)
+    );
+    let p = project(&[("truths.spec", &plans)]);
+    stored(p.root(), "node", KEY, adds("failed", &[]));
+
+    let compiled = compiled(&p);
+
+    // The pending step links the failed test too, and is not reported.
+    assert_eq!(
+        about(&compiled),
+        [(
+            "code/W401".to_string(),
+            "T1".to_string(),
+            format!("`T1` links the test `{ADDS}`, whose last collected run failed")
+        )],
+        "{:?}",
+        compiled.diagnostics()
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "cc_check_proof",
+    verify = "a test naming a missing entity is code/I402"
+)]
+fn a_test_naming_a_missing_entity_is_code_i402() {
+    let p = project(&[("truths.spec", &citing(ADDS))]);
+    stored(p.root(), "node", KEY, adds("passed", &["T1", "T9"]));
+
+    let compiled = compiled(&p);
+
+    assert_eq!(
+        about(&compiled),
+        [(
+            "code/I402".to_string(),
+            ADDS.to_string(),
+            format!("the test `{ADDS}` names `T9`, which is no entity of the project")
+        )],
+        "{:?}",
+        compiled.diagnostics()
     );
 }

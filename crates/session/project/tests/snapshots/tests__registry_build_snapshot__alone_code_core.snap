@@ -7,6 +7,10 @@ expression: "digest(&load(&runtime, &[name]))"
     {
       "extension": "@code/core",
       "name": "refs"
+    },
+    {
+      "extension": "@code/core",
+      "name": "proof"
     }
   ],
   "commands": [],

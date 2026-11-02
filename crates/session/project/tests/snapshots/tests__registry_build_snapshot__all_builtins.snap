@@ -15,6 +15,10 @@ expression: "digest(&load(&runtime, &all))"
     {
       "extension": "@code/core",
       "name": "refs"
+    },
+    {
+      "extension": "@code/core",
+      "name": "proof"
     }
   ],
   "commands": [
