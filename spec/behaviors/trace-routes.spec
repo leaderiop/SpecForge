@@ -85,3 +85,16 @@ behavior render_trace_thread "Render a Trace Thread" {
   verify unit "specforge trace prints a route trace's thread, and --reach the generic chain"
   verify unit "specforge trace prints a route's thread as human text unless --format json is given, and any other trace as json"
 }
+
+behavior show_trace_thread "Show a Trace Thread" {
+  invariants [lsp_response_latency]
+  category   query
+  contract   """
+    A code lens at the name of an entity of a kind a route is followed from MUST say its thread's summary, and the
+    hover on it MUST show the route's name and the thread over every match. One selection serves all of a file's
+    lenses. An entity of a kind no route starts at has neither (ADR 0330).
+  """
+  verify unit "a code lens on a routed entity says its thread's summary"
+  verify unit "an entity of a kind no route starts at has no thread lens"
+  verify unit "the hover on a routed entity shows its thread"
+}

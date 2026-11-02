@@ -30,6 +30,7 @@ mod hover;
 mod hover_declared;
 mod hover_members;
 mod hover_obligations;
+mod hover_thread;
 mod hover_verdicts;
 mod identity;
 mod lifecycle;
