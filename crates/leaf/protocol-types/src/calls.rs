@@ -416,6 +416,10 @@ pub struct PassEntity {
     /// and no core diagnostic; whether one is wrong is the kind's extension's to judge.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unheld: Vec<UnheldReference>,
+    /// Its owner is not complete (protocol 1.15.0, ADR 0329 D4): its kind's `complete_when` does not hold, or, when
+    /// its kind declares none, the nearest scope ancestor's whose kind declares one does not. Sent only when true.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pending: bool,
 }
 
 /// One resolved reference in the snapshot (label = edge label, e.g.

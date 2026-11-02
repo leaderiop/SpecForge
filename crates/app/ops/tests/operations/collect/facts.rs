@@ -498,7 +498,9 @@ fn a_pass_is_sent_each_unheld_reference() {
         .clone();
     assert_eq!(
         t1["unheld"],
-        json!([{"field": "proof", "id": "js:a.test.js#adds"}])
+        json!([{"field": "proof", "id": "js:a.test.js#adds", "span": {
+            "file": "truths.spec", "start_line": 2, "start_col": 11, "end_line": 2, "end_col": 28,
+        }}])
     );
     assert!(
         call.input.get("fact_stores").is_none(),

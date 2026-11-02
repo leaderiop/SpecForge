@@ -209,6 +209,10 @@ fn entity_kind_descriptor_full_round_trip() {
         inference_guide: None,
         writer: None,
         schemes: vec![],
+        complete_when: Some(CompleteWhen {
+            field: "status".to_string(),
+            values: vec!["done".to_string()],
+        }),
     };
     let json = serde_json::to_string(&entity).unwrap();
     let decoded: EntityKindDescriptor = serde_json::from_str(&json).unwrap();

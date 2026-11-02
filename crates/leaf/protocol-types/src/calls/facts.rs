@@ -41,11 +41,14 @@ impl Fact {
 }
 
 /// A reference an entity writes in a fact scheme that names no fact the session served (ADR 0327 D6): its field (the
-/// declared path) and the id written. The graph holds no edge for it and reports nothing.
+/// declared path), the id written and where it is written (protocol 1.15.0, ADR 0329 D5: inside its quotes). The
+/// graph holds no edge for it and reports nothing.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UnheldReference {
     pub field: String,
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub span: Option<super::PassSpan>,
 }
 
 /// One fact store the session served (ADR 0327 D5, D6): whose it is, the key it is filed under, the schemes of the

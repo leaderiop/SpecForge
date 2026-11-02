@@ -93,6 +93,16 @@ impl KindBuilder {
         self.0.schemes = schemes.iter().map(|scheme| scheme.to_string()).collect();
         self
     }
+    /// The kind's entities are complete while its enum field `field` holds one of `values`, else pending (ADR 0329
+    /// D4): a pass reads it as `PassEntity::pending`, on them and on the entities they scope that declare none. A
+    /// `field` the kind does not declare as an enum, or a value outside it, is W021 and the declaration is dropped.
+    pub fn complete_when(&mut self, field: &str, values: &[&str]) -> &mut Self {
+        self.0.complete_when = Some(crate::CompleteWhen {
+            field: field.to_string(),
+            values: values.iter().map(|value| value.to_string()).collect(),
+        });
+        self
+    }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
         self.0.semantic_token = Some(t.to_string());
         self

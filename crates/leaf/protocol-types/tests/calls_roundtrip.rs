@@ -322,3 +322,25 @@ fn collect_output_with_facts_round_trips_and_omits_an_empty_list() {
     let empty = serde_json::to_value(CollectOutput::default()).unwrap();
     assert!(empty.get("facts").is_none(), "{empty}");
 }
+
+#[specforge_test_macros::test(type = "PassEntity", verify = "PassEntity schema is valid")]
+fn a_pass_entity_carries_pending_and_its_unheld_spans_and_omits_them_when_absent() {
+    use specforge_protocol_types::PassEntity;
+
+    let held = json!({
+        "id": "tr1", "kind": "truth", "fields": {}, "incoming_edge_count": 0, "outgoing_edge_count": 0,
+        "testable": false, "owes_none": false, "verify_kinds": [], "verify_texts": [],
+        "unheld": [{"field": "proof", "id": "js:a.test.js#adds",
+                    "span": {"file": "a.spec", "start_line": 3, "start_col": 10, "end_line": 3, "end_col": 29}}],
+        "pending": true
+    });
+    let entity: PassEntity = round_trips(&held);
+    assert!(entity.pending);
+    assert_eq!(entity.unheld[0].span.as_ref().unwrap().start_col, 10);
+
+    let plain = serde_json::to_value(PassEntity::default()).unwrap();
+    assert!(
+        plain.get("pending").is_none() && plain.get("unheld").is_none(),
+        "{plain}"
+    );
+}

@@ -740,3 +740,27 @@ fn a_kind_written_by_a_collector_round_trips_with_its_schemes() {
     let plain = serde_json::to_value(kind("feature", &[])).unwrap();
     assert!(plain.get("schemes").is_none(), "{plain}");
 }
+
+#[specforge_test_macros::test(
+    type = "EntityKindDescriptor",
+    verify = "EntityKindDescriptor schema is valid"
+)]
+fn a_kind_round_trips_when_its_entities_are_complete() {
+    let owner = EntityKindDescriptor {
+        complete_when: Some(specforge_protocol_types::CompleteWhen {
+            field: "status".to_string(),
+            values: vec!["complete".to_string()],
+        }),
+        ..kind("plan", &["status"])
+    };
+    let wire = serde_json::to_value(&owner).unwrap();
+    assert_eq!(
+        wire["complete_when"],
+        json!({"field": "status", "values": ["complete"]})
+    );
+    let back: EntityKindDescriptor = serde_json::from_value(wire).unwrap();
+    assert_eq!(back, owner);
+
+    let plain = serde_json::to_value(kind("feature", &[])).unwrap();
+    assert!(plain.get("complete_when").is_none(), "{plain}");
+}

@@ -333,6 +333,18 @@ pub struct EntityKindDescriptor {
     /// With `writer: "collector"`: the schemes its ids are written in (`js` for `js:pkg/file#name`), protocol 1.15.0.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub schemes: Vec<String>,
+    /// Its entities are complete while a field holds one of some values, else pending (protocol 1.15.0, ADR 0329
+    /// D4); a pass reads it as `PassEntity::pending`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub complete_when: Option<CompleteWhen>,
+}
+
+/// When a kind's entities are complete (ADR 0329 D4): while `field`, an enum field of the kind, holds one of
+/// `values`. Unwritten, or holding another value, the entity is pending.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CompleteWhen {
+    pub field: String,
+    pub values: Vec<String>,
 }
 
 // ── Edge Type Descriptor ──

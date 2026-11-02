@@ -45,4 +45,6 @@
 /// hook; 1.15.0 is ADR 0327's: a collector answers `facts`, a kind may declare `writer: "collector"` and its
 /// `schemes`, and every collector's input carries `cwd`; ADR 0326 D1a/D1b (ports plan 00): a collector declares
 /// `reads` and its input carries `files`.
+/// ADR 0329 adds to the same 1.15.0: a kind may declare `complete_when`, a pass entity carries `pending`, and an
+/// unheld reference carries its `span`.
 pub const PROTOCOL_VERSION: &str = "1.15.0";

@@ -440,3 +440,23 @@ fn the_sdk_declares_a_kind_a_collector_writes() {
     assert_eq!(kind.writer.as_deref(), Some("collector"));
     assert_eq!(kind.schemes, ["js", "rust"]);
 }
+
+#[test]
+fn the_sdk_declares_when_a_kinds_entities_are_complete() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "0.1.0"));
+    b.kind("plan", |k| {
+        k.complete_when("status", &["complete", "shipped"])
+            .field("status", |f| {
+                f.vocabulary(&Vocabulary::new(&["draft", "complete", "shipped"]));
+            });
+    });
+    let kind = &b.declaration().entities[0];
+
+    assert_eq!(
+        kind.complete_when,
+        Some(specforge_extension_sdk::CompleteWhen {
+            field: "status".to_string(),
+            values: vec!["complete".to_string(), "shipped".to_string()],
+        })
+    );
+}
