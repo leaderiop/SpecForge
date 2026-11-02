@@ -144,19 +144,19 @@ fn write_snapshots() -> Result<usize, String> {
         runtime
             .load(blob.name, &blob.read())
             .map_err(|e| format!("{}: {e}", blob.name))?;
-        let dir = root.join(blob.snapshot_dir());
+        let dir = root.join(blob.key());
         std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         for answer in wire_answers(&runtime, blob)? {
             let path = dir.join(&answer.file);
             std::fs::write(&path, &answer.bytes).map_err(|e| format!("{}: {e}", path.display()))?;
             written += 1;
         }
-        kept.push(blob.snapshot_dir());
+        kept.push(blob.key());
     }
     for entry in std::fs::read_dir(&root).map_err(|e| format!("{}: {e}", root.display()))? {
         let entry = entry.map_err(|e| e.to_string())?;
         let name = entry.file_name().to_string_lossy().into_owned();
-        if entry.path().is_dir() && !kept.contains(&name.as_str()) {
+        if entry.path().is_dir() && !kept.contains(&name) {
             std::fs::remove_dir_all(entry.path())
                 .map_err(|e| format!("{}: {e}", entry.path().display()))?;
         }

@@ -38,7 +38,7 @@ fn a_stage_lock_must_be_a_subset_of_the_extensions() {
 
 #[test]
 fn a_stage_mirrors_the_repo_layout() {
-    let stage = Path::new("/r/target/blob-stage/product");
+    let stage = Path::new("/r/target/blob-stage/extensions/product");
     assert_eq!(
         stage_key(stage, &stage.join("crates/x/src/lib.rs")),
         Some("crates/x/src/lib.rs".to_string())
@@ -52,19 +52,6 @@ fn builtins() -> impl Iterator<Item = &'static CommittedBlob> {
     COMMITTED
         .iter()
         .filter(|blob| blob.crate_dir.starts_with("extensions/"))
-}
-
-#[test]
-fn every_stage_name_is_unique() {
-    let mut names = BTreeSet::new();
-    for blob in COMMITTED {
-        assert!(
-            names.insert(stage_name(blob)),
-            "{}: stage name {} is taken",
-            blob.name,
-            stage_name(blob)
-        );
-    }
 }
 
 /// The crates a builtin blob compiles besides its own sources: the guest wire, the SDK and its

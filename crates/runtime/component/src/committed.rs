@@ -22,7 +22,7 @@ use std::path::PathBuf;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Guest {
     /// Built with `specforge-extension-sdk`. Its handshake says the host's `PROTOCOL_VERSION`.
-    /// Its handshake and every describe answer are pinned under [`snapshots`]`/<snapshot_dir>/`,
+    /// Its handshake and every describe answer are pinned under [`snapshots`]`/<key>/`,
     /// and they round-trip through `ExtensionDeclaration` byte for byte. The exception is
     /// `legacy_keys`: (category, key) pairs the blob declares on purpose although the protocol
     /// no longer defines them. Its declaration must report exactly those as unknown keys, and a
@@ -65,16 +65,23 @@ impl CommittedBlob {
         std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
     }
 
-    /// The directory its wire answers are pinned in, under [`snapshots`]: its name's last
-    /// segment (`software`, `greet`, `probe`).
-    pub fn snapshot_dir(&self) -> &'static str {
-        self.name.rsplit('/').next().unwrap_or(self.name)
+    /// Its key, the directory its wire answers are pinned in under [`snapshots`]: its whole name
+    /// without `@`, with `/` turned into `_` (`specforge_software`, `code_core`, `sdk_greet`), so two
+    /// packs with one last segment (`@rust/source`, `@javascript/source`) keep apart (ADR 0328 D4).
+    pub fn key(&self) -> String {
+        key_of(self.name)
     }
 
     /// Whether it is built with the SDK.
     pub const fn is_sdk(&self) -> bool {
         matches!(self.guest, Guest::Sdk { .. })
     }
+}
+
+/// The key of the blob named `name`: the name without `@`, with `/` turned into `_` (`@specforge/product` is
+/// `specforge_product`, `@code/core` is `code_core`). One rule for every snapshot keyed by a blob (ADR 0328 D4).
+pub fn key_of(name: &str) -> String {
+    name.trim_start_matches('@').replace('/', "_")
 }
 
 /// `@sdk/greet`, the SDK's worked example (`docs/extension-sdk.md`).
@@ -167,7 +174,7 @@ pub fn pinned_builtin_declarations() -> Result<Vec<ExtensionDeclaration>, String
     COMMITTED[..BUILTINS.len()]
         .iter()
         .map(|blob| {
-            let dir = root.join(blob.snapshot_dir());
+            let dir = root.join(blob.key());
             let read = |file: &str| -> Result<String, String> {
                 let path = dir.join(file);
                 std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))

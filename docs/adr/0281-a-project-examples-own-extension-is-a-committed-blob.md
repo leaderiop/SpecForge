@@ -54,6 +54,7 @@ An example's extension is rustfmt-checked and wasm-clippy-checked (the `guests` 
 
 ## What would reopen it
 
-- A second `examples/*/extension`: the stage name (the crate dir's last segment) collides, and
-  `every_stage_name_is_unique` and `the_snapshots_are_the_sdk_blobs` say so.
+- A second `examples/*/extension` no longer collides: since [ADR 0328](0328-a-builtin-is-embedded-and-a-non-specforge-builtin-catalogues-its-codes.md)
+  D4 a blob is staged under its whole crate dir and keyed by its whole name, and `the_snapshots_are_the_sdk_blobs`
+  asserts both unique.
 - A user asking for drift detection of their own `.wasm` file entries: the product check above.

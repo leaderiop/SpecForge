@@ -2,7 +2,7 @@
 //! (`specforge_component::committed::COMMITTED`), pinned byte for byte: each
 //! blob's `__handshake` answer and its `__describe` answer for every category
 //! the protocol supports equal the generated files under
-//! `tests/declarations/<dir>/`.
+//! `tests/declarations/<key>/` (`CommittedBlob::key`).
 //!
 //! A change that is meant to change a declaration re-vendors the blobs,
 //! and rewrites the files (`cargo run -p xtask --bin revendor` does both)
@@ -40,9 +40,9 @@ fn sdk_declarations_match_their_snapshots() {
             .load(blob.name, &blob.read())
             .unwrap_or_else(|e| panic!("{}: {e}", blob.name));
         for answer in wire_answers(&runtime, blob).unwrap() {
-            let path = snapshots().join(blob.snapshot_dir()).join(&answer.file);
+            let path = snapshots().join(blob.key()).join(&answer.file);
             if std::fs::read(&path).ok() != Some(answer.bytes) {
-                stale.push(format!("{}/{}", blob.snapshot_dir(), answer.file));
+                stale.push(format!("{}/{}", blob.key(), answer.file));
             }
         }
     }
@@ -65,11 +65,11 @@ fn the_snapshots_are_the_sdk_blobs() {
     let mut crate_dirs = BTreeSet::new();
     for blob in COMMITTED {
         assert!(names.insert(blob.name), "{}: listed twice", blob.name);
-        let last = blob.crate_dir.rsplit('/').next().unwrap();
         assert!(
-            crate_dirs.insert(last),
-            "{}: crate directory name {last} is not unique",
-            blob.name
+            crate_dirs.insert(blob.crate_dir),
+            "{}: crate directory {} is listed twice",
+            blob.name,
+            blob.crate_dir
         );
         assert!(
             blob.path().is_file(),
@@ -80,10 +80,10 @@ fn the_snapshots_are_the_sdk_blobs() {
     }
     for blob in sdk_blobs() {
         assert!(
-            dirs.insert(blob.snapshot_dir()),
-            "{}: snapshot directory {} is not unique",
+            dirs.insert(blob.key()),
+            "{}: snapshot key {} is not unique",
             blob.name,
-            blob.snapshot_dir()
+            blob.key()
         );
     }
 
@@ -94,7 +94,7 @@ fn the_snapshots_are_the_sdk_blobs() {
         .filter(|entry| entry.path().is_dir())
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
         .collect();
-    let expected: BTreeSet<String> = dirs.iter().map(|d| d.to_string()).collect();
+    let expected: BTreeSet<String> = dirs;
     assert_eq!(on_disk, expected, "snapshot directories vs SDK blobs");
 
     let files: BTreeSet<String> = std::iter::once("handshake.json".to_string())
