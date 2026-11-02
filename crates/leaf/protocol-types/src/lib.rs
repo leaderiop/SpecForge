@@ -333,6 +333,10 @@ pub struct EntityKindDescriptor {
     /// With `writer: "collector"`: the schemes its ids are written in (`js` for `js:pkg/file#name`), protocol 1.15.0.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub schemes: Vec<String>,
+    /// With `writer: "collector"`: the enum field holding a fact's result, its values `TestStatus` names (protocol
+    /// 1.15.0, ADR 0329 D3): what a reader of a reference to the fact takes as the fact's own result.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<String>,
     /// Its entities are complete while a field holds one of some values, else pending (protocol 1.15.0, ADR 0329
     /// D4); a pass reads it as `PassEntity::pending`.
     #[serde(default, skip_serializing_if = "Option::is_none")]

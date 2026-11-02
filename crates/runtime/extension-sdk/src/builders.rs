@@ -93,6 +93,13 @@ impl KindBuilder {
         self.0.schemes = schemes.iter().map(|scheme| scheme.to_string()).collect();
         self
     }
+    /// With [`Self::collected`]: the enum field holding a fact's result, its values `TestStatus` names (ADR 0329
+    /// D3), what a reader of a reference to the fact takes as its result. On a kind no collector writes, or naming a
+    /// field that is no such enum, it is W021 and dropped.
+    pub fn result(&mut self, field: &str) -> &mut Self {
+        self.0.result = Some(field.to_string());
+        self
+    }
     /// The kind's entities are complete while its enum field `field` holds one of `values`, else pending (ADR 0329
     /// D4): a pass reads it as `PassEntity::pending`, on them and on the entities they scope that declare none. A
     /// `field` the kind does not declare as an enum, or a value outside it, is W021 and the declaration is dropped.

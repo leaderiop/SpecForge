@@ -244,7 +244,9 @@ fn register_entity_kinds(
     for kind in &declaration.entities {
         let keyword = keyword(kind);
         let mut kind = kind.clone();
-        for problem in crate::registries::read_writer(&mut kind) {
+        let mut problems = crate::registries::read_writer(&mut kind);
+        problems.extend(crate::registries::read_result(&mut kind));
+        for problem in problems {
             diagnostics.push(Reported::new(
                 BuildPart::Registries,
                 Diagnostic::new(

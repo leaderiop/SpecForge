@@ -725,20 +725,25 @@ fn a_misspelt_prompt_key_is_reported_unknown() {
     type = "EntityKindDescriptor",
     verify = "EntityKindDescriptor schema is valid"
 )]
-fn a_kind_written_by_a_collector_round_trips_with_its_schemes() {
+fn a_kind_written_by_a_collector_round_trips_with_its_schemes_and_result() {
     let collected = EntityKindDescriptor {
         writer: Some("collector".to_string()),
         schemes: vec!["js".to_string()],
+        result: Some("status".to_string()),
         ..kind("test", &["file"])
     };
     let wire = serde_json::to_value(&collected).unwrap();
     assert_eq!(wire["writer"], "collector");
     assert_eq!(wire["schemes"], json!(["js"]));
+    assert_eq!(wire["result"], "status");
     let back: EntityKindDescriptor = serde_json::from_value(wire).unwrap();
     assert_eq!(back, collected);
 
     let plain = serde_json::to_value(kind("feature", &[])).unwrap();
-    assert!(plain.get("schemes").is_none(), "{plain}");
+    assert!(
+        plain.get("schemes").is_none() && plain.get("result").is_none(),
+        "{plain}"
+    );
 }
 
 #[specforge_test_macros::test(

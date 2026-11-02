@@ -2686,7 +2686,10 @@ Who writes a kind is checked as well (ADR 0289): a kind `writer` other than
 `human`, a `human` field marked `required` on a kind that is not human-only (an
 agent could then create no entity of the kind), a `guard` pass that declares
 `computes`, and a `guard` pass that reports the code of a judged rule of its
-extension (ADR 0302). The `settings` category is checked too (ADR 0288): a
+extension (ADR 0302). A kind's `result` is checked too (ADR 0329): on a kind no
+collector writes, naming a field the kind does not declare or one that is no
+`enum`, or an enum whose values are not all test statuses (`passed`, `failed`,
+`skipped`), it is dropped. The `settings` category is checked too (ADR 0288): a
 setting named twice or not a dotted name or a family (`*` segments), of a type
 the field forms do not have, with a default its type refuses, with `gates` or
 `gates_when_on` (ADR 0305) on a type other than `bool` or on a family (only a

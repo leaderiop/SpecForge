@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use specforge_protocol_types::{EntityKindDescriptor, FieldWriter};
+use specforge_protocol_types::{EntityKindDescriptor, FieldType, FieldWriter, TestStatus};
 
 /// One registered entity kind: what its extension declared, and what the
 /// registry build resolved of it. Everything else is read from `declared`
@@ -38,6 +38,11 @@ impl KindRegistryEntry {
     /// The schemes its facts' ids are written in (`js` for `js:pkg/a.test.js#adds`): a collected kind's only.
     pub fn schemes(&self) -> &[String] {
         &self.declared.schemes
+    }
+
+    /// The enum field holding its facts' result (ADR 0329 D3): a collected kind's only, as the registry kept it.
+    pub fn result(&self) -> Option<&str> {
+        self.declared.result.as_deref()
     }
 }
 
@@ -80,6 +85,53 @@ pub(crate) fn read_writer(declared: &mut EntityKindDescriptor) -> Vec<String> {
         problems.push(no_scheme());
     }
     problems
+}
+
+/// `declared`'s `result` as the registry keeps it (ADR 0329 D3), and why it dropped it (W021, a message after "kind
+/// '<k>' "): it is kept on a collected kind naming an enum field the kind declares whose values are all `TestStatus`
+/// names. Read after [`read_writer`], so a writer it dropped leaves the kind uncollected.
+pub(crate) fn read_result(declared: &mut EntityKindDescriptor) -> Option<String> {
+    let field = declared.result.as_deref()?;
+    let why = if declared.writer.as_deref() != Some(FieldWriter::Collector.as_str()) {
+        "only a fact has a result of its own, and no collector writes the kind".to_string()
+    } else {
+        let statuses = enum_outside(declared, field, |values| {
+            values
+                .iter()
+                .map(String::as_str)
+                .filter(|v| !TestStatus::ALL.iter().any(|s| s.as_str() == *v))
+                .collect()
+        });
+        match statuses {
+            Err(why) => why,
+            Ok((outside, _)) if outside.is_empty() => return None,
+            Ok((outside, _)) => format!(
+                "its values [{}] are not test statuses (passed, failed, skipped)",
+                outside.join(", ")
+            ),
+        }
+    };
+    let message = format!("declares result '{field}': {why}");
+    declared.result = None;
+    Some(message)
+}
+
+/// Of `declared`'s enum field `name`: the values `outside` picks from its own (W021 names them), and its own; or W021's
+/// reason when the kind declares no field `name`, or one that is not an enum.
+fn enum_outside<'a>(
+    declared: &'a EntityKindDescriptor,
+    name: &str,
+    outside: impl FnOnce(&'a [String]) -> Vec<&'a str>,
+) -> Result<(Vec<&'a str>, &'a [String]), String> {
+    let field = declared
+        .fields
+        .iter()
+        .find(|f| f.name == name)
+        .ok_or("it is not one of its fields")?;
+    if FieldType::parse(&field.field_type) != Some(FieldType::Enum) {
+        return Err("it is not an enum field".to_string());
+    }
+    Ok((outside(&field.enum_values), &field.enum_values))
 }
 
 /// What a collected kind left with no scheme is told (W021).

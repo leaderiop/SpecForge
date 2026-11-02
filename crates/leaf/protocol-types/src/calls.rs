@@ -626,6 +626,20 @@ pub enum TestStatus {
     Skipped,
 }
 
+impl TestStatus {
+    /// Every status.
+    pub const ALL: [TestStatus; 3] = [TestStatus::Passed, TestStatus::Failed, TestStatus::Skipped];
+
+    /// Its name on the wire: `passed`, `failed` or `skipped`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TestStatus::Passed => "passed",
+            TestStatus::Failed => "failed",
+            TestStatus::Skipped => "skipped",
+        }
+    }
+}
+
 /// One test: its name, what the run said of it, the obligation it names
 /// (`verify`, the statement's exact text) and how long it took. A collector
 /// answers it, `specforge-report.json` keeps it with the runner that

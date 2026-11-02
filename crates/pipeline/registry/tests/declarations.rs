@@ -298,3 +298,57 @@ fn a_declared_default_value_reaches_the_field_registry() {
 fn no_findings(_: &PassInput) -> Vec<PassDiagnostic> {
     Vec::new()
 }
+
+#[specforge_test_macros::test(
+    behavior = "cc_kind_result",
+    verify = "a result field must be a status enum of a collector-written kind"
+)]
+fn a_result_field_must_be_a_status_enum_of_a_collector_written_kind() {
+    let statuses = Vocabulary::new(&["passed", "failed", "skipped"]);
+    let build = build_registries(vec![crate::support::declare("@acme/code", |c| {
+        c.kind("test", |k| {
+            k.collected(&["js"]).result("status").field("status", |f| {
+                f.vocabulary(&statuses);
+            });
+        });
+        c.kind("run", |k| {
+            k.collected(&["run"])
+                .result("outcome")
+                .field("outcome", |f| {
+                    f.vocabulary(&Vocabulary::new(&["passed", "flaky"]));
+                });
+        });
+        c.kind("check", |k| {
+            k.collected(&["chk"]).result("note").field("note", |f| {
+                f.field_type(FieldType::String);
+            });
+        });
+        c.kind("lint", |k| {
+            k.collected(&["lint"]).result("missing");
+        });
+        c.kind("case", |k| {
+            k.result("status").field("status", |f| {
+                f.vocabulary(&statuses);
+            });
+        });
+    })]);
+
+    assert_eq!(build.kinds().get("test").unwrap().result(), Some("status"));
+    for kind in ["run", "check", "lint", "case"] {
+        assert_eq!(build.kinds().get(kind).unwrap().result(), None, "{kind}");
+    }
+    let mut refused: Vec<&str> = crate::support::coded(&build, "W021")
+        .into_iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    refused.sort();
+    assert_eq!(
+        refused,
+        [
+            "extension '@acme/code': kind 'case' declares result 'status': only a fact has a result of its own, and no collector writes the kind",
+            "extension '@acme/code': kind 'check' declares result 'note': it is not an enum field",
+            "extension '@acme/code': kind 'lint' declares result 'missing': it is not one of its fields",
+            "extension '@acme/code': kind 'run' declares result 'outcome': its values [flaky] are not test statuses (passed, failed, skipped)",
+        ]
+    );
+}

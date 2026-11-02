@@ -460,3 +460,16 @@ fn the_sdk_declares_when_a_kinds_entities_are_complete() {
         })
     );
 }
+
+#[test]
+fn the_sdk_declares_the_field_holding_a_facts_result() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/code", "0.1.0"));
+    b.kind("test", |k| {
+        k.collected(&["js"]).result("status");
+    });
+
+    assert_eq!(
+        b.declaration().entities[0].result.as_deref(),
+        Some("status")
+    );
+}
