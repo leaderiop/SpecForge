@@ -65,7 +65,7 @@ pub(crate) enum OutputFormat {
 }
 
 /// The `--format human|json` flag every core command with a JSON form takes
-/// (`#[command(flatten)]`; `trace` declares its own, json by default).
+/// (`#[command(flatten)]`; `trace` declares its own: human for a route's thread, json otherwise).
 #[derive(clap::Args, Clone, Copy, Debug)]
 pub(crate) struct OutputArg {
     /// Output format: human or json

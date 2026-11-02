@@ -29,9 +29,8 @@ Options:
           [default: .]
 
       --format <FORMAT>
-          Output format: json or human
+          Output format: human or json (default: human for a route's thread, json otherwise)
           
-          [default: json]
           [possible values: human, json]
 
   -h, --help

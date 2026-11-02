@@ -7,6 +7,8 @@ D3's "failed runs" is defined by [ADR 0170](0170-a-failed-run-is-an-outcomes-fac
 did not do all it was asked; an E069 the run went around fails `ok` only.
 D5b's "every core command" is the commands with a --format human|json flag; a fixed-format command's refusal is
 D5c (round 21, plan 09).
+D5b's "`trace`'s default stays json" is amended by [ADR 0330](0330-trace-follows-the-routes-extensions-declare.md)
+(2026-11-02): it stays json, except a route's thread, which is human; a refusal decided before any outcome keeps json.
 
 ADR 0024 D7 said operations fail with a kind decided where the failure is raised. The read views that
 read the recorded test report did not: they returned the project crate's `ReportError`, and MCP (a
