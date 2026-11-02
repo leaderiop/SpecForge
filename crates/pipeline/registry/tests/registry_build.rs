@@ -457,3 +457,31 @@ fn a_collectors_malformed_read_is_w021_and_served_empty() {
         w021[0].message
     );
 }
+
+#[spec(
+    behavior = "register_collector_contributions",
+    verify = "a kind may declare writer collector and its schemes, and a field that declares writer collector is W021"
+)]
+fn a_field_declaring_writer_collector_is_w021_and_dropped() {
+    let mut c = extension("@acme/x", "1.0.0");
+    c.kind("test", |k| {
+        k.field("file", |f| {
+            f.field_type(FieldType::String);
+        });
+    });
+    let mut declaration = c.declaration();
+    declaration.entities[0].fields[0].writer = Some("collector".to_string());
+
+    let build = build_registries(vec![declaration]);
+
+    let w021 = coded(&build, "W021");
+    assert_eq!(w021.len(), 1, "{:?}", diagnostics(&build));
+    assert!(
+        w021[0].message.contains(
+            "declares writer 'collector': a collector writes whole entities; declare it on the kind"
+        ),
+        "{}",
+        w021[0].message
+    );
+    assert_eq!(build.fields().get("test", "file").unwrap().writer(), None);
+}

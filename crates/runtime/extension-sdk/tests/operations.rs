@@ -52,6 +52,7 @@ fn extension() -> ContributionsBuilder {
                 }],
                 unlinked: Vec::new(),
                 plan: None,
+                facts: Vec::new(),
             })
         });
     });
@@ -425,4 +426,35 @@ fn the_sdk_reads_a_number_setting() {
     assert_eq!(message(r#"{"entities":[],"edges":[]}"#), "Some(0.5) None");
     let carried = r#"{"entities":[],"edges":[],"settings":{"ratio":75,"name":"x"}}"#;
     assert_eq!(message(carried), "Some(75.0) None");
+}
+
+#[test]
+fn the_sdk_collector_answers_facts() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/code", "1.0.0"));
+    c.collector("node", |k| {
+        k.collect(|input: &CollectInput| {
+            let mut output = CollectOutput::default();
+            output.facts.push(
+                Fact::new("test", "js:a.test.js#adds")
+                    .title("adds")
+                    .field("file", "a.test.js")
+                    .field("line", 3),
+            );
+            output.facts[0]
+                .fields
+                .insert("cwd".into(), input.cwd.clone().unwrap_or_default().into());
+            Ok(output)
+        });
+    });
+
+    let answer = c
+        .dispatch_export("collect__node", br#"{"reports": [], "cwd": "/p"}"#)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&answer).unwrap(),
+        json!({"entity_results": [], "facts": [{"kind": "test", "id": "js:a.test.js#adds", "title": "adds",
+               "fields": {"cwd": "/p", "file": "a.test.js", "line": 3}}]})
+    );
 }

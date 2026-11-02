@@ -65,7 +65,7 @@ use outcome::Exit;
 use terminal::{Stream, Terminal};
 
 /// What `--version` prints after `specforge `: the package version, then the commit the build was made from
-/// (when it knew it) and the extension protocol this binary speaks, `0.3.0 (9229143f5, protocol 1.14.0)`.
+/// (when it knew it) and the extension protocol this binary speaks, `0.3.0 (9229143f5, protocol 1.15.0)`.
 fn version() -> String {
     let protocol = specforge_protocol_types::PROTOCOL_VERSION;
     match env!("SPECFORGE_COMMIT") {

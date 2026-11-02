@@ -196,7 +196,15 @@ type CollectReportFile "Collect Report File" {
 type CollectOutput "What a collect__<name> export answers: tests grouped by the entity each proves, and the tests the report links to none (the host links them by naming convention)." {
   entity_results CollectEntityResult[]
   unlinked       CollectUnlinkedTest[] @optional
+  facts          Fact[]                @optional
   verify unit "CollectOutput schema is valid"
+}
+
+type Fact "An entity a collector observed (ADR 0327): its kind (one its extension declares writer collector), its id under one of the kind's schemes, its title, and the values of its fields, by name." {
+  kind  string
+  id    string
+  title string @optional
+  verify unit "Fact schema is valid"
 }
 
 type CollectEntityResult "Collect Entity Result" {

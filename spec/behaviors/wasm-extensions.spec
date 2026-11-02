@@ -368,6 +368,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
   produces   [collector_registered]
   verify unit "collector contribution parsed from manifest"
   verify unit "a collector's declared reads are checked as a pass's (W021) and listed with their owner"
+  verify unit "a kind may declare writer collector and its schemes, and a field that declares writer collector is W021"
   verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location"
 }
 
@@ -528,6 +529,9 @@ behavior dispatch_collector "Dispatch Collector" {
     A collector that declares `reads` receives `files`: the facts and
     capped text of the project files it names, read by the host after the
     run and before the export, as a command's are (ADR 0293).
+    Every collector receives the project root as `cwd`; one that declares
+    `writes` also receives the date, the graph and the revisions. Its answer
+    may carry `facts`, the entities it observed (ADR 0327).
   """
   produces   [collector_dispatched]
   verify unit "reads a file or every json file in a directory"
@@ -536,6 +540,7 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "each report file reaches the collector by its project path, however it was named"
   verify unit "a collector receives the facts of the files it declares it reads, and none when it declares none"
   verify unit "a collector's read is held to the project and withholds a credential's text, as a pass's is"
+  verify unit "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
   verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed"
 }
 

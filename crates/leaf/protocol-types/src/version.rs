@@ -42,5 +42,7 @@
 /// declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`,
 /// `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the
 /// event `file_changed`; `HookEvent` also decodes an unknown event as `Unknown`, so a newer guest's event costs one
-/// hook.
-pub const PROTOCOL_VERSION: &str = "1.14.0";
+/// hook; 1.15.0 is ADR 0327's: a collector answers `facts`, a kind may declare `writer: "collector"` and its
+/// `schemes`, and every collector's input carries `cwd`; ADR 0326 D1a/D1b (ports plan 00): a collector declares
+/// `reads` and its input carries `files`.
+pub const PROTOCOL_VERSION: &str = "1.15.0";

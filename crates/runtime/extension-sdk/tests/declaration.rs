@@ -426,3 +426,17 @@ fn a_judged_rule_builds_the_descriptor_the_host_reads() {
         })
     );
 }
+
+#[test]
+fn the_sdk_declares_a_kind_a_collector_writes() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/code", "0.1.0"));
+    b.kind("test", |k| {
+        k.collected(&["js", "rust"]).field("file", |f| {
+            f.field_type(FieldType::String);
+        });
+    });
+    let kind = &b.declaration().entities[0];
+
+    assert_eq!(kind.writer.as_deref(), Some("collector"));
+    assert_eq!(kind.schemes, ["js", "rust"]);
+}

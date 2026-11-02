@@ -6,7 +6,7 @@ use serde_json::json;
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_installed::testing::install_module;
 use specforge_installed::{Builtins, Installed, LoadProblem};
-use specforge_protocol_types::DeclaredCategory;
+use specforge_protocol_types::{DeclaredCategory, PROTOCOL_VERSION};
 use specforge_registry::PlainDisk;
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo};
@@ -201,7 +201,7 @@ fn an_entry_of_a_newer_protocol_minor_is_refused_with_e088() {
     let dir = TempDir::new().unwrap();
     let builtins = Builtins(&[("@acme/new", &b"\0asm new"[..])]);
     let handshake = json!({
-        "protocol_version": "1.15.0", "name": "@acme/new", "version": "1.0.0",
+        "protocol_version": newer_minor(), "name": "@acme/new", "version": "1.0.0",
         "peer_dependencies": [], "sandbox_policy": null,
     });
     let runtime = InProcessRuntime::new()
@@ -220,12 +220,23 @@ fn an_entry_of_a_newer_protocol_minor_is_refused_with_e088() {
     assert_eq!(reports[0].code, "E088");
     assert_eq!(
         reports[0].message,
-        "extension '@acme/new' speaks extension protocol 1.15.0, newer than the 1.14.0 this specforge \
-         speaks, so it is not loaded"
+        format!(
+            "extension '@acme/new' speaks extension protocol {}, newer than the {PROTOCOL_VERSION} this \
+             specforge speaks, so it is not loaded",
+            newer_minor()
+        )
     );
     let suggestion = reports[0].suggestion.as_deref().unwrap();
     assert!(suggestion.starts_with("update specforge"), "{suggestion}");
     assert!(!runtime.unload("@acme/new"), "nothing is left loaded");
+}
+
+/// The minor after the host's protocol: what a guest built with the next SDK speaks.
+fn newer_minor() -> String {
+    let mut parts = PROTOCOL_VERSION.split('.');
+    let major = parts.next().unwrap();
+    let minor: u64 = parts.next().unwrap().parse().unwrap();
+    format!("{major}.{}.0", minor + 1)
 }
 
 /// An entry `@acme/major` whose handshake speaks `protocol`, loaded alone: what was reported, and the runtime.

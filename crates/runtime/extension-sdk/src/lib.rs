@@ -616,7 +616,7 @@ pub mod prelude {
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-        CollectorBuilder, PlanBuilder,
+        CollectorBuilder, Fact, PlanBuilder,
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{
@@ -662,7 +662,7 @@ mod raw_category_tests;
 
 pub use specforge_protocol_types::{
     CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-    CommandError, CommandEvidence, CommandFormat, CommandOutput, EntityEvidence, EntityTests,
+    CommandError, CommandEvidence, CommandFormat, CommandOutput, EntityEvidence, EntityTests, Fact,
     GraphEdge, GraphNode, GraphWire, McpResourceContent, McpResourceRequest, MigrationInput,
     PassAnswer, PassBaseline, PassBaselineEntity, PassDiagnostic, PassEdge, PassEntity, PassInput,
     PassOutput, PassSeverity, PassSpan, PassValue, ScanRequest, ScanResponse, ScannedItem,

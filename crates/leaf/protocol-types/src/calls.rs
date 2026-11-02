@@ -662,8 +662,9 @@ impl TestResults {
 /// files, read from the declared report location, and the command's
 /// standard output when the collector captures it.
 ///
-/// A collector that declares `writes` also receives the project root, the host's date, the graph and the
-/// revisions of the sources (protocol 1.9.0). `G` is how the graph is held, as in [`CommandInput`].
+/// Every collector receives the project root as `cwd`, canonical (protocol 1.15.0, ADR 0327). A collector that
+/// declares `writes` also receives the host's date, the graph and the revisions of the sources (protocol 1.9.0).
+/// `G` is how the graph is held, as in [`CommandInput`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CollectInput<G = GraphWire> {
     #[serde(default)]
@@ -720,6 +721,45 @@ pub struct CollectOutput {
     /// What a collector that declares `writes` asks the host to write (protocol 1.9.0).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plan: Option<EditPlan>,
+    /// The entities the collector observed (protocol 1.15.0, ADR 0327): stored by the host, served read-only.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub facts: Vec<Fact>,
+}
+
+/// One collected entity (ADR 0327): a kind that declares `writer: "collector"`, an id in one of its schemes, and the
+/// values of its fields, by name.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Fact {
+    pub kind: String,
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, serde_json::Value>,
+}
+
+impl Fact {
+    /// The fact `id` of `kind`, with no title and no field.
+    pub fn new(kind: impl Into<String>, id: impl Into<String>) -> Self {
+        Fact {
+            kind: kind.into(),
+            id: id.into(),
+            title: None,
+            fields: BTreeMap::new(),
+        }
+    }
+
+    /// Its title.
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    /// The value of its field `name`.
+    pub fn field(mut self, name: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
+        self.fields.insert(name.into(), value.into());
+        self
+    }
 }
 
 /// A test the report doesn't link to an entity: its name, the name split

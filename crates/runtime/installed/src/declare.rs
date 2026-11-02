@@ -103,8 +103,12 @@ mod tests {
     #[test]
     fn a_candidate_of_a_newer_protocol_minor_is_e088() {
         let bytes = b"\0asm a newer candidate";
+        let version = specforge_protocol_types::PROTOCOL_VERSION;
+        let (major, rest) = version.split_once('.').unwrap();
+        let minor: u64 = rest.split('.').next().unwrap().parse().unwrap();
+        let newer = format!("{major}.{}.0", minor + 1);
         let handshake = serde_json::json!({
-            "protocol_version": "1.15.0", "name": "@acme/candidate", "version": "2.1.0",
+            "protocol_version": newer, "name": "@acme/candidate", "version": "2.1.0",
             "peer_dependencies": [], "sandbox_policy": null,
         });
         let runtime = InProcessRuntime::new()
@@ -122,8 +126,10 @@ mod tests {
         assert_eq!(error.code, "E088");
         assert_eq!(
             error.message,
-            "extension '@acme/candidate' speaks protocol 1.15.0, newer than the 1.14.0 this specforge \
-             speaks: update specforge"
+            format!(
+                "extension '@acme/candidate' speaks protocol {newer}, newer than the {version} this \
+                 specforge speaks: update specforge"
+            )
         );
     }
 

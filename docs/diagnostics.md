@@ -1250,7 +1250,7 @@ Level: error
 E088: Extension speaks a protocol this specforge does not
 
 An extension's handshake states a newer protocol: a newer minor of the host's
-major (`1.15.0` under a `1.14.0` host) or a newer major (ADR 0326): it was built
+major (`1.16.0` under a `1.15.0` host) or a newer major (ADR 0326): it was built
 with a newer SDK and may declare what this specforge does not know and would
 drop, so it is not loaded; an older minor still loads. Or it states an older
 major (`0.9.0` under a `1.x` host): it was built for a protocol this specforge

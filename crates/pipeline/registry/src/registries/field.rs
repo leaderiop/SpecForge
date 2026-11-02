@@ -498,7 +498,7 @@ fn read(
 }
 
 /// The writer `declared` states, with whatever contradicts it dropped and listed in `problems` (ADR 0287): an
-/// unknown writer is dropped; `harness` on a member is dropped (a ledger key is an entity and a field); a computed
+/// unknown writer is dropped, and so is `collector` (a collector writes whole entities, ADR 0327); `harness` on a member is dropped (a ledger key is an entity and a field); a computed
 /// field is never `required`, `immutable` or `append_only` (those are dropped), and one that is also `derived_from`
 /// has two writers, so its writer is dropped.
 fn read_writer(
@@ -516,6 +516,15 @@ fn read_writer(
                 format!(
                     "declares writer '{name}': expected 'computed', 'harness', 'human' or 'verdict'"
                 ),
+            );
+            declared.writer = None;
+            return None;
+        }
+        Some(FieldWriter::Collector) => {
+            refuse(
+                problems,
+                path,
+                "declares writer 'collector': a collector writes whole entities; declare it on the kind".into(),
             );
             declared.writer = None;
             return None;

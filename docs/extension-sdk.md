@@ -222,6 +222,7 @@ impl Contributions for Greet {
                         entity_results,
                         unlinked: Vec::new(),
                         plan: None,
+                        facts: Vec::new(),
                     })
                 });
         });
@@ -303,6 +304,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 - `open_fields(bool)` -- unknown fields are accepted
 - `has_body_parser()` -- declares that the kind's body carries syntax of its own; the core grammar reads every body and reports its parse errors whatever the flag says
 - `contract_target()`, `declares_types()`, `scoped_by(field)`, `verify_kinds(&[..])`, `inference_guide(..)`
+- `collected(&["js"])` -- a kind a collector writes (ADR 0327): `writer: "collector"` and the `schemes` its ids start with (`js:pkg/a.test.js#adds`); its entities are a collector's `facts`, never written in a `.spec` file
 - LSP and DOT metadata, requested by the host only where it needs them: `semantic_token(..)`, `lsp_icon(..)`, `dot_shape(..)`, `dot_color(..)`, `dot_fillcolor(..)`
 - `field(name, |f| ..)` -- a field of the kind
 
@@ -573,6 +575,17 @@ reaches the user's terminal, and the host also keeps it (in
 `CollectInput::stdout`. `k.reads(name, FileReadSpec::glob("package.json").text())` declares a project file the
 collector reads, as a command's `reads` does: its input's `files[name]` holds the facts (and, with `.text()`, the
 capped text), read by the host after the run. The guest never runs anything itself.
+
+A handler may also answer `facts` (protocol 1.15.0, ADR 0327), the entities it observed, each of a kind its
+extension declares `collected(..)`:
+
+```rust
+let mut output = CollectOutput { entity_results: vec![], ..Default::default() };
+output.facts.push(Fact::new("test", "js:pkg/a.test.js#adds").title("adds").field("file", "pkg/a.test.js"));
+```
+
+`CollectInput::cwd` holds the project root for every collector, so a handler can name a report's files from the
+root.
 
 ### Compiler passes
 

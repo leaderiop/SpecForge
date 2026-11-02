@@ -113,6 +113,7 @@ impl Contributions for Greet {
                         entity_results,
                         unlinked: Vec::new(),
                         plan: None,
+                        facts: Vec::new(),
                     })
                 });
         });

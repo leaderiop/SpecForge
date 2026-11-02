@@ -326,10 +326,13 @@ pub struct EntityKindDescriptor {
     /// value.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub append_only: bool,
-    /// Who writes its entities other than their author (protocol 1.9.0, ADR 0289): only `human` (an agent-facing
-    /// write is refused).
+    /// Who writes its entities other than their author: `human` (protocol 1.9.0, ADR 0289: an agent-facing write is
+    /// refused) or `collector` (protocol 1.15.0, ADR 0327: its entities are facts a collector writes, never typed).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub writer: Option<String>,
+    /// With `writer: "collector"`: the schemes its ids are written in (`js` for `js:pkg/file#name`), protocol 1.15.0.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schemes: Vec<String>,
 }
 
 // ── Edge Type Descriptor ──

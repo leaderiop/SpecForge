@@ -149,6 +149,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             .collect(),
         unlinked,
         plan: None,
+        facts: Vec::new(),
     })
 }
 

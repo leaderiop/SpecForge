@@ -165,10 +165,10 @@ fn an_older_minor_protocol_still_loads() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.14.0");
-    // A guest built with the 1.0 SDK loads under a 1.14 host: an older minor of the host's major.
+    assert_eq!(PROTOCOL_VERSION, "1.15.0");
+    // A guest built with the 1.0 SDK loads under a 1.15 host: an older minor of the host's major.
     let loaded = load_declaration(&guest_answering("1.0.0"), "@test/older")
-        .expect("a 1.0.0 guest loads under a 1.14.0 host");
+        .expect("a 1.0.0 guest loads under a 1.15.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
 }
 
@@ -176,14 +176,14 @@ fn an_older_minor_protocol_still_loads() {
     behavior = "validate_extension_manifest",
     verify = "a handshake of an older minor of the host's major loads"
 )]
-fn a_1_10_guest_still_loads_under_a_1_14_host() {
+fn a_1_10_guest_still_loads_under_a_1_15_host() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.14.0");
+    assert_eq!(PROTOCOL_VERSION, "1.15.0");
     // A guest of the version before the file reads, the list items and `now` loads: only the major is checked.
     let loaded = load_declaration(&guest_answering("1.10.0"), "@test/older")
-        .expect("a 1.10.0 guest loads under a 1.14.0 host");
+        .expect("a 1.10.0 guest loads under a 1.15.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
 }
 
@@ -191,15 +191,15 @@ fn a_1_10_guest_still_loads_under_a_1_14_host() {
     behavior = "validate_extension_manifest",
     verify = "a handshake of an older minor of the host's major loads"
 )]
-fn a_1_11_guest_still_loads_under_a_1_14_host() {
+fn a_1_11_guest_still_loads_under_a_1_15_host() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.14.0");
+    assert_eq!(PROTOCOL_VERSION, "1.15.0");
     // A guest of the version before `human`, `gates_when_on`, `cited_tests` and `number` loads: only the major is
     // checked.
     let loaded = load_declaration(&guest_answering("1.11.0"), "@test/older")
-        .expect("a 1.11.0 guest loads under a 1.14.0 host");
+        .expect("a 1.11.0 guest loads under a 1.15.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
 }
 
@@ -207,14 +207,14 @@ fn a_1_11_guest_still_loads_under_a_1_14_host() {
     behavior = "validate_extension_manifest",
     verify = "a handshake of an older minor of the host's major loads"
 )]
-fn a_1_12_guest_still_loads_under_a_1_14_host() {
+fn a_1_12_guest_still_loads_under_a_1_15_host() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.14.0");
+    assert_eq!(PROTOCOL_VERSION, "1.15.0");
     // A guest of the version before `rest`, `slash_commands`, `when` lists and `host` loads: only the major is checked.
     let loaded = load_declaration(&guest_answering("1.12.0"), "@test/older")
-        .expect("a 1.12.0 guest loads under a 1.14.0 host");
+        .expect("a 1.12.0 guest loads under a 1.15.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
 }
 
@@ -222,15 +222,15 @@ fn a_1_12_guest_still_loads_under_a_1_14_host() {
     behavior = "validate_extension_manifest",
     verify = "a handshake of an older minor of the host's major loads"
 )]
-fn a_1_13_guest_still_loads_under_a_1_14_host() {
+fn a_1_13_guest_still_loads_under_a_1_15_host() {
     use specforge_protocol_types::PROTOCOL_VERSION;
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.14.0");
+    assert_eq!(PROTOCOL_VERSION, "1.15.0");
     // A guest of the version before a hook's `hosts`, `reads_git` and `reads_settings` loads: only the major is
     // checked.
     let loaded = load_declaration(&guest_answering("1.13.0"), "@test/older")
-        .expect("a 1.13.0 guest loads under a 1.14.0 host");
+        .expect("a 1.13.0 guest loads under a 1.15.0 host");
     assert_eq!(loaded.declaration.name(), "@test/older");
 }
 
@@ -242,24 +242,51 @@ fn a_newer_minor_protocol_is_refused() {
     use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "1.14.0");
-    // A guest built for 1.15 may declare what 1.14 would drop: it is refused, naming itself and both versions.
-    let error = load_declaration(&guest_answering("1.15.0"), "@test/older").unwrap_err();
+    // A guest built for the next minor may declare what this host would drop: it is refused, naming itself and
+    // both versions.
+    let newer = newer_minor();
+    let error = load_declaration(&guest_answering(&newer), "@test/older").unwrap_err();
     assert_eq!(
         error,
         ProtocolError::NewerVersion {
             extension: "@test/older".into(),
-            host_version: "1.14.0".into(),
-            extension_version: "1.15.0".into(),
+            host_version: PROTOCOL_VERSION.into(),
+            extension_version: newer.clone(),
         }
     );
     assert_eq!(
         error.to_string(),
-        "extension '@test/older' speaks protocol 1.15.0, newer than the 1.14.0 this specforge speaks: \
-         update specforge"
+        format!(
+            "extension '@test/older' speaks protocol {newer}, newer than the {PROTOCOL_VERSION} this specforge \
+             speaks: update specforge"
+        )
     );
     // A newer patch of the host's minor still loads.
-    load_declaration(&guest_answering("1.14.3"), "@test/older").expect("a 1.14.3 guest loads");
+    let patch = format!("{}.3", PROTOCOL_VERSION.rsplit_once('.').unwrap().0);
+    load_declaration(&guest_answering(&patch), "@test/older").expect("a newer patch loads");
+}
+
+/// The minor after the host's (`1.16.0` under `1.15.0`): what a newer guest speaks.
+fn newer_minor() -> String {
+    let mut parts = specforge_protocol_types::PROTOCOL_VERSION.split('.');
+    let major = parts.next().unwrap();
+    let minor: u64 = parts.next().unwrap().parse().unwrap();
+    format!("{major}.{}.0", minor + 1)
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake of an older minor of the host's major loads"
+)]
+fn a_1_14_guest_still_loads_under_a_1_15_host() {
+    use specforge_protocol_types::PROTOCOL_VERSION;
+    use specforge_wasm::protocol::load_declaration;
+
+    assert_eq!(PROTOCOL_VERSION, "1.15.0");
+    // A guest of the version before facts, collected kinds and a collector's reads loads: an older minor.
+    let loaded = load_declaration(&guest_answering("1.14.0"), "@test/older")
+        .expect("a 1.14.0 guest loads under a 1.15.0 host");
+    assert_eq!(loaded.declaration.name(), "@test/older");
 }
 
 /// The host protocol's major.

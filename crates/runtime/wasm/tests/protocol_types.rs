@@ -26,7 +26,7 @@ fn handshake_request_json_field_names() {
 
 #[test]
 fn protocol_version_constant() {
-    assert_eq!(PROTOCOL_VERSION, "1.14.0");
+    assert_eq!(PROTOCOL_VERSION, "1.15.0");
 }
 
 // ── Step 2: HandshakeResponse ──
@@ -208,6 +208,7 @@ fn entity_kind_descriptor_full_round_trip() {
         verify_kinds: vec!["smoke".to_string(), "contract".to_string()],
         inference_guide: None,
         writer: None,
+        schemes: vec![],
     };
     let json = serde_json::to_string(&entity).unwrap();
     let decoded: EntityKindDescriptor = serde_json::from_str(&json).unwrap();

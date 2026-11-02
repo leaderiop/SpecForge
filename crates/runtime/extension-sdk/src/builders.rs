@@ -85,6 +85,14 @@ impl KindBuilder {
         self.0.writer = Some(FieldWriter::Human.as_str().to_string());
         self
     }
+    /// The kind's entities are facts a collector writes (ADR 0327): never typed in a `.spec` file (E115) nor edited,
+    /// stored by `specforge collect` and served read-only. `schemes` are the prefixes of their ids (`js` for
+    /// `js:pkg/file#name`); a reference written in one that names no fact is unheld, not E003.
+    pub fn collected(&mut self, schemes: &[&str]) -> &mut Self {
+        self.0.writer = Some(FieldWriter::Collector.as_str().to_string());
+        self.0.schemes = schemes.iter().map(|scheme| scheme.to_string()).collect();
+        self
+    }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
         self.0.semantic_token = Some(t.to_string());
         self
@@ -702,7 +710,9 @@ impl CollectorBuilder {
     }
     /// What the collector does: `handler` receives the report files
     /// ([`CollectInput`]) and answers the results ([`CollectOutput`]), or
-    /// why it could not read them.
+    /// why it could not read them. It may also answer the entities it observed
+    /// (`CollectOutput::facts`, [`Fact`](crate::Fact), ADR 0327) of a kind declared
+    /// [`KindBuilder::collected`].
     pub fn collect(
         &mut self,
         handler: impl Fn(&CollectInput) -> Result<CollectOutput, String> + 'static,

@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.14.0" }
+{ "host_version": "1.15.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.14.0",
+  "protocol_version": "1.15.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -203,6 +203,11 @@ array of strings; `enum_list` a list of its `enum_values` (a word twice is E061)
 
 A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them); and `file_base`, `spec` (the default) or `project`, where a `file_reference` field's relative paths start. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
 A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored. A field, a block member or a kind of 1.9.0 may declare `writer: "human"` (ADR 0289): only a person writes it, and an extension's plan, the MCP tools and a non-interactive CLI are refused `human_only`; a `required` field of a kind that is not human-only is W021, since an agent could then create no entity. A set, unset or link of an existing human-only entity is refused the same way, and so is an agent's delete of an entity holding a value a person wrote (a human-only field, or a block member declared human); computed and harness values are not checked on delete (ADR 0298).
+
+**A collector-written kind (ADR 0327, 1.15.0).** A kind may declare `writer: "collector"` and `schemes`, the
+prefixes of its ids (`"schemes": ["js"]` for ids such as `js:pkg/a.test.js#name`): its entities are a collector's
+`facts`, never written in a `.spec` file, and the kernel names no such kind. A field that declares
+`writer: "collector"` is W021 and loses its writer: a collector writes whole entities.
 
 How a value is written in `.spec` follows the type (ADR 0147): `enum`, `identifier`, `reference` and each `reference_list`
 item bare; `string` and each `string_list` item quoted. `specforge format` writes it and `check` warns W159 on the other form. A command's
@@ -633,6 +638,18 @@ test's name split into segments, its own name last); the host links them by
 naming convention when it can (`entity_id__obligation_slug`, or a module
 named after an entity).
 
+A collector of 1.15.0 may also answer `facts` (ADR 0327), the entities it observed, each of a kind its extension
+declares `writer: "collector"`, with an id under one of the kind's `schemes`:
+
+```json
+{ "entity_results": [],
+  "facts": [{ "kind": "test", "id": "js:pkg/a.test.js#adds", "title": "adds",
+              "fields": { "file": "pkg/a.test.js", "status": "passed" } }] }
+```
+
+`facts` is absent when it observed none. `cwd`, the project root, is in every collector's input from 1.15.0 on (a
+writing collector's only before), so a collector can name a file by its path from the root.
+
 ### Category: passes
 
 Returns compiler pass descriptors. Each pass declares ordering constraints relative to the built-in resolve phase and other passes.
@@ -948,6 +965,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.12.0` | the same as `1.0.0` |
 | `1.13.0` | the same as `1.0.0` |
 | `1.14.0` | the same as `1.0.0` |
+| `1.15.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -957,7 +975,7 @@ guest of its major version built for its own minor or an older one, and sends it
 naming the extension and both versions (ADR 0326): it may declare what this host would drop, so it needs a
 specforge at least as new. A guest of an older major is E088 too, with the remedy to install or rebuild it for the
 host's major (ADR 0326 D1b). `specforge --version` names the protocol a binary speaks
-(`specforge 0.3.0 (9229143f5, protocol 1.14.0)`). A guest built with the SDK declares the SDK's version in
+(`specforge 0.3.0 (9229143f5, protocol 1.15.0)`). A guest built with the SDK declares the SDK's version in
 its handshake and its registry manifest.
 
 The minor moves when a payload changes in a way every older guest survives: a field added, removed or
@@ -981,6 +999,7 @@ or answered.
 | `1.12.0` | A command may declare `human` (ADR 0301): the host runs it only for a person at a terminal. A setting may declare `gates_when_on` and be of type `number` (ADR 0305). A judgement a pass is sent carries `cited_tests`, the tests its verdict cites (ADR 0304). A 1.11 host ignores `human`, `gates_when_on` and `cited_tests`, and drops a `number` setting (W019). |
 | `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and refuses the `surfaces` declaration of a guest that writes a `when` list (a 1.12 `when` is one string, and a list fails the whole category: `DescribeFailed`), so such a guest needs a 1.13.0 host; a `when` of one name is still a string. |
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
+| `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
 `1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the

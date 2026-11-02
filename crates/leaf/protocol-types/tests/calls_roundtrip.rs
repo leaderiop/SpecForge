@@ -300,3 +300,25 @@ fn a_pass_answer_carries_computed_values_and_omits_none() {
             .is_none()
     );
 }
+
+#[specforge_test_macros::test(type = "CollectOutput", verify = "CollectOutput schema is valid")]
+fn collect_output_with_facts_round_trips_and_omits_an_empty_list() {
+    use specforge_protocol_types::{CollectOutput, Fact};
+
+    let answer = json!({
+        "entity_results": [],
+        "facts": [{"kind": "test", "id": "js:a.test.js#adds", "title": "adds",
+                   "fields": {"file": "a.test.js", "status": "passed"}}]
+    });
+    let output: CollectOutput = round_trips(&answer);
+    assert_eq!(
+        output.facts,
+        [Fact::new("test", "js:a.test.js#adds")
+            .title("adds")
+            .field("file", "a.test.js")
+            .field("status", "passed")]
+    );
+
+    let empty = serde_json::to_value(CollectOutput::default()).unwrap();
+    assert!(empty.get("facts").is_none(), "{empty}");
+}
