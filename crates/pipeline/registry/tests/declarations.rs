@@ -352,3 +352,63 @@ fn a_result_field_must_be_a_status_enum_of_a_collector_written_kind() {
         ]
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "cc_owner_pending",
+    verify = "complete_when names an enum value of its kind"
+)]
+fn complete_when_names_an_enum_value_of_its_kind() {
+    let states = Vocabulary::new(&["draft", "complete"]);
+    let build = build_registries(vec![crate::support::declare("@acme/plans", |c| {
+        c.kind("plan", |k| {
+            k.complete_when("status", &["complete"])
+                .field("status", |f| {
+                    f.vocabulary(&states);
+                });
+        });
+        c.kind("goal", |k| {
+            k.complete_when("status", &["done"]).field("status", |f| {
+                f.vocabulary(&states);
+            });
+        });
+        c.kind("task", |k| {
+            k.complete_when("title", &["x"]).field("title", |f| {
+                f.field_type(FieldType::String);
+            });
+        });
+        c.kind("step", |k| {
+            k.complete_when("state", &["complete"]);
+        });
+        c.kind("epic", |k| {
+            k.complete_when("status", &[]).field("status", |f| {
+                f.vocabulary(&states);
+            });
+        });
+    })]);
+
+    let plan = build.kinds().get("plan").unwrap().complete_when().unwrap();
+    assert_eq!(
+        (plan.field.as_str(), &plan.values[..]),
+        ("status", &["complete".to_string()][..])
+    );
+    for kind in ["goal", "task", "step", "epic"] {
+        assert!(
+            build.kinds().get(kind).unwrap().complete_when().is_none(),
+            "{kind}"
+        );
+    }
+    let mut refused: Vec<&str> = crate::support::coded(&build, "W021")
+        .into_iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    refused.sort();
+    assert_eq!(
+        refused,
+        [
+            "extension '@acme/plans': kind 'epic' declares complete_when 'status': it names no value, so no entity of the kind would ever be complete",
+            "extension '@acme/plans': kind 'goal' declares complete_when 'status': [done] are not among its values [draft, complete]",
+            "extension '@acme/plans': kind 'step' declares complete_when 'state': it is not one of its fields",
+            "extension '@acme/plans': kind 'task' declares complete_when 'title': it is not an enum field",
+        ]
+    );
+}

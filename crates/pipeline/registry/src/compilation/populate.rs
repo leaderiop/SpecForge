@@ -246,6 +246,7 @@ fn register_entity_kinds(
         let mut kind = kind.clone();
         let mut problems = crate::registries::read_writer(&mut kind);
         problems.extend(crate::registries::read_result(&mut kind));
+        problems.extend(crate::registries::read_complete_when(&mut kind));
         for problem in problems {
             diagnostics.push(Reported::new(
                 BuildPart::Registries,

@@ -197,7 +197,8 @@ fn standing_counts_as_the_coverage_rule_does() {
                         exemption: exemption.clone(),
                         declared,
                     };
-                    let entity = specforge_coverage::Entity::from(&pass_entity(&record, &standing));
+                    let entity =
+                        specforge_coverage::Entity::from(&pass_entity(&record, &standing, false));
                     assert_eq!(standing.counting(), entity.counting(), "{standing:?}");
                     assert_eq!(entity.owes_none, !standing.owes_obligations());
                     assert_eq!(standing.counting().exempt(), testable && !standing.counts());

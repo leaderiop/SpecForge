@@ -2689,7 +2689,10 @@ agent could then create no entity of the kind), a `guard` pass that declares
 extension (ADR 0302). A kind's `result` is checked too (ADR 0329): on a kind no
 collector writes, naming a field the kind does not declare or one that is no
 `enum`, or an enum whose values are not all test statuses (`passed`, `failed`,
-`skipped`), it is dropped. The `settings` category is checked too (ADR 0288): a
+`skipped`), it is dropped. So is a kind's `complete_when` (ADR 0329): naming a
+field the kind does not declare or one that is no `enum`, no value, or a value
+the enum does not take, it is dropped and the kind's entities follow their
+scope's owner state. The `settings` category is checked too (ADR 0288): a
 setting named twice or not a dotted name or a family (`*` segments), of a type
 the field forms do not have, with a default its type refuses, with `gates` or
 `gates_when_on` (ADR 0305) on a type other than `bool` or on a family (only a

@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use specforge_protocol_types::{EntityKindDescriptor, FieldType, FieldWriter, TestStatus};
+use specforge_protocol_types::{
+    CompleteWhen, EntityKindDescriptor, FieldType, FieldWriter, TestStatus,
+};
 
 /// One registered entity kind: what its extension declared, and what the
 /// registry build resolved of it. Everything else is read from `declared`
@@ -43,6 +45,11 @@ impl KindRegistryEntry {
     /// The enum field holding its facts' result (ADR 0329 D3): a collected kind's only, as the registry kept it.
     pub fn result(&self) -> Option<&str> {
         self.declared.result.as_deref()
+    }
+
+    /// When its entities are complete (ADR 0329 D4), as the registry kept it.
+    pub fn complete_when(&self) -> Option<&CompleteWhen> {
+        self.declared.complete_when.as_ref()
     }
 }
 
@@ -113,6 +120,35 @@ pub(crate) fn read_result(declared: &mut EntityKindDescriptor) -> Option<String>
     };
     let message = format!("declares result '{field}': {why}");
     declared.result = None;
+    Some(message)
+}
+
+/// `declared`'s `complete_when` as the registry keeps it (ADR 0329 D4), and why it dropped it (W021, a message after
+/// "kind '<k>' "): it is kept when it names an enum field the kind declares and at least one value, each one of the
+/// field's.
+pub(crate) fn read_complete_when(declared: &mut EntityKindDescriptor) -> Option<String> {
+    let when = declared.complete_when.as_ref()?;
+    let values = enum_outside(declared, &when.field, |values| {
+        when.values
+            .iter()
+            .map(String::as_str)
+            .filter(|v| !values.iter().any(|e| e == v))
+            .collect()
+    });
+    let why = match values {
+        Err(why) => why,
+        Ok(_) if when.values.is_empty() => {
+            "it names no value, so no entity of the kind would ever be complete".to_string()
+        }
+        Ok((outside, _)) if outside.is_empty() => return None,
+        Ok((outside, values)) => format!(
+            "[{}] are not among its values [{}]",
+            outside.join(", "),
+            values.join(", ")
+        ),
+    };
+    let message = format!("declares complete_when '{}': {why}", when.field);
+    declared.complete_when = None;
     Some(message)
 }
 

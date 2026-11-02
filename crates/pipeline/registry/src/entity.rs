@@ -45,6 +45,9 @@ pub struct EntityRecord {
     pub methods: Vec<MethodRecord>,
     /// Its references in a fact scheme that name no fact (ADR 0327 D6), in written order.
     pub unheld: Vec<specforge_protocol_types::UnheldReference>,
+    /// The path of the entity it is scoped by, as its scope field names it (ADR 0284); `None`: the project. What its
+    /// owner state is read up (ADR 0329 D4). Host-internal: never on the wire.
+    pub scope: Option<String>,
 }
 
 /// One written field: its key, its field text (ADR 0019), its value's shape
@@ -231,6 +234,7 @@ impl EntityRecord {
             exemption: None,
             methods: Vec::new(),
             unheld: Vec::new(),
+            scope: None,
         }
     }
 
