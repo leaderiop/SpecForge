@@ -8,8 +8,11 @@
 //! It is a test adapter: the "guest" runs in the host process, with no
 //! sandbox, no fuel and no deadline (it records the limits the host applies).
 //! Sandbox obligations stay proven only through the component runtime.
+//!
+//! Beside another runtime ([`InProcessRuntime::beside`]), what it cannot serve (a builtin's real component) loads
+//! there, so one project mixes extensions served in process with components.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use specforge_extension_sdk::{
@@ -76,6 +79,28 @@ pub struct InProcessRuntime {
     calls: Mutex<Vec<RecordedCall>>,
     limits: Mutex<Vec<(String, Limits)>>,
     settings: Mutex<std::collections::HashMap<String, ExtensionSettings>>,
+    /// The runtime a load this one cannot serve goes to ([`InProcessRuntime::beside`]).
+    beside: Option<Beside>,
+}
+
+/// The runtime beside an in-process one, and the names loaded in it, whose calls, limits, settings, renames and
+/// unloads go there.
+struct Beside {
+    runtime: Arc<dyn WasmRuntime>,
+    loaded: Mutex<BTreeSet<String>>,
+}
+
+impl Beside {
+    fn loaded(&self) -> std::sync::MutexGuard<'_, BTreeSet<String>> {
+        self.loaded.lock().expect("beside lock")
+    }
+
+    /// `name` loads in process now: what was loaded beside under it is unloaded there.
+    fn forget(&self, name: &str) {
+        if self.loaded().remove(name) {
+            self.runtime.unload(name);
+        }
+    }
 }
 
 impl InProcessRuntime {
@@ -135,6 +160,51 @@ impl InProcessRuntime {
     pub fn refusing(mut self, bytes: &[u8], error: LoadError) -> Self {
         self.refusals.push((bytes.to_vec(), error));
         self
+    }
+
+    /// Load in `runtime` what this one cannot serve (bytes that are no binary, served name or spelled module it
+    /// knows: a builtin's component), and route that name there from then on. Its calls are recorded here too.
+    pub fn beside(mut self, runtime: Arc<dyn WasmRuntime>) -> Self {
+        self.beside = Some(Beside {
+            runtime,
+            loaded: Mutex::default(),
+        });
+        self
+    }
+
+    /// The runtime beside this one, when `name` was loaded in it.
+    fn beside_of(&self, name: &str) -> Option<&Beside> {
+        self.beside.as_ref().filter(|b| b.loaded().contains(name))
+    }
+
+    /// The runtime `name` was loaded in beside this one, if it was.
+    fn delegate(&self, name: &str) -> Option<&dyn WasmRuntime> {
+        self.beside_of(name).map(|b| b.runtime.as_ref())
+    }
+
+    /// Serve `name` in process, if `bytes` are a binary it was given or spell a module, or it serves or answers that
+    /// name already ([`WasmRuntime::load`]); false when only the runtime beside can.
+    fn load_here(&self, name: &str, bytes: &[u8]) -> bool {
+        let mut extensions = self.extensions.lock().expect("extensions lock");
+        if let Some((_, served)) = self.binaries.iter().find(|(known, _)| known == bytes) {
+            extensions.insert(name.to_string(), served.clone());
+            return true;
+        }
+        let answered = self
+            .overrides
+            .lock()
+            .expect("overrides lock")
+            .iter()
+            .any(|(extension, ..)| extension == name);
+        if extensions.contains_key(name) || answered {
+            return true;
+        }
+        if let Some(meta) = spelled(bytes) {
+            let build: Build = Arc::new(move || ContributionsBuilder::new(meta.clone()));
+            extensions.insert(name.to_string(), (build, no_other_exports));
+            return true;
+        }
+        false
     }
 
     /// `runtime` as the in-process runtime, if it is one.
@@ -238,31 +308,29 @@ impl WasmRuntime for InProcessRuntime {
         if let Some((_, error)) = self.refusals.iter().find(|(known, _)| known == bytes) {
             return Err(error.clone());
         }
-        let mut extensions = self.extensions.lock().expect("extensions lock");
-        if let Some((_, served)) = self.binaries.iter().find(|(known, _)| known == bytes) {
-            extensions.insert(name.to_string(), served.clone());
+        if self.load_here(name, bytes) {
+            if let Some(beside) = &self.beside {
+                beside.forget(name);
+            }
             return Ok(());
         }
-        let answered = self
-            .overrides
-            .lock()
-            .expect("overrides lock")
-            .iter()
-            .any(|(extension, ..)| extension == name);
-        if extensions.contains_key(name) || answered {
-            return Ok(());
-        }
-        if let Some(meta) = spelled(bytes) {
-            let build: Build = Arc::new(move || ContributionsBuilder::new(meta.clone()));
-            extensions.insert(name.to_string(), (build, no_other_exports));
-            return Ok(());
-        }
-        Err(LoadError::Unloadable(
-            "not a component the in-process runtime serves".to_string(),
-        ))
+        let Some(beside) = &self.beside else {
+            return Err(LoadError::Unloadable(
+                "not a component the in-process runtime serves".to_string(),
+            ));
+        };
+        beside.runtime.load(name, bytes)?;
+        beside.loaded().insert(name.to_string());
+        Ok(())
     }
 
     fn rename(&self, from: &str, to: &str) -> bool {
+        if let Some(beside) = self.beside_of(from) {
+            let mut loaded = beside.loaded();
+            loaded.remove(from);
+            loaded.insert(to.to_string());
+            return beside.runtime.rename(from, to);
+        }
         let mut extensions = self.extensions.lock().expect("extensions lock");
         match extensions.remove(from) {
             Some(served) => {
@@ -274,6 +342,10 @@ impl WasmRuntime for InProcessRuntime {
     }
 
     fn unload(&self, name: &str) -> bool {
+        if let Some(beside) = self.beside_of(name) {
+            beside.loaded().remove(name);
+            return beside.runtime.unload(name);
+        }
         self.extensions
             .lock()
             .expect("extensions lock")
@@ -282,6 +354,9 @@ impl WasmRuntime for InProcessRuntime {
     }
 
     fn apply_limits(&self, extension: &str, limits: Limits) {
+        if let Some(beside) = self.delegate(extension) {
+            beside.apply_limits(extension, limits);
+        }
         self.limits
             .lock()
             .expect("limits lock")
@@ -289,6 +364,9 @@ impl WasmRuntime for InProcessRuntime {
     }
 
     fn apply_settings(&self, extension: &str, settings: ExtensionSettings) {
+        if let Some(beside) = self.delegate(extension) {
+            beside.apply_settings(extension, settings.clone());
+        }
         self.settings
             .lock()
             .expect("settings lock")
@@ -329,6 +407,9 @@ impl WasmRuntime for InProcessRuntime {
             .map(|(_, _, _, result)| result.clone());
         if let Some(result) = overridden {
             return result;
+        }
+        if let Some(beside) = self.delegate(extension) {
+            return beside.call_export(extension, export, input);
         }
         let served = self
             .extensions

@@ -3,7 +3,12 @@ source: crates/session/project/tests/registry_build_snapshot.rs
 expression: "digest(&load(&runtime, &[name]))"
 ---
 {
-  "check_passes": [],
+  "check_passes": [
+    {
+      "extension": "@code/core",
+      "name": "refs"
+    }
+  ],
   "commands": [],
   "diagnostics": [],
   "edges": {

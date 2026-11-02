@@ -11,8 +11,13 @@
 //! no collector: a runner pack (`@javascript/node-test`) collects, minting the facts with the linked
 //! `specforge-code-junit` library, so every pack names a test the same way. It is a builtin outside `@specforge`, so
 //! it catalogues its codes and they print namespaced: `code/E101` (ADR 0328 D2).
+//!
+//! Its check pass `refs` judges a reference in its schemes that no fact holds (E101, or W102 when no store holds
+//! facts of that scheme), unless the citing entity is pending (ADR 0329 D4, D5).
 
 use specforge_extension_sdk::prelude::*;
+
+mod refs;
 
 /// The scheme of a `test`'s id.
 const TEST_SCHEME: &str = "js";
@@ -89,6 +94,10 @@ impl Contributions for CodeCore {
             e.description("A run of a test")
                 .source_kind("test_run")
                 .target_kind("test");
+        });
+
+        c.pass("refs", |p| {
+            p.phase("check").run(refs::refs);
         });
 
         c.code("E101", |d| {

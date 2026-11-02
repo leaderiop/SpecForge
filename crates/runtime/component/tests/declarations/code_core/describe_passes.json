@@ -1,4 +1,11 @@
 {
   "category": "passes",
-  "items": []
+  "items": [
+    {
+      "after": null,
+      "before": null,
+      "name": "refs",
+      "phase": "check"
+    }
+  ]
 }

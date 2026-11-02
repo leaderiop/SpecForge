@@ -54,6 +54,53 @@ fn a_binary_is_served_under_the_name_it_is_loaded_as() {
 }
 
 #[test]
+fn what_it_cannot_serve_loads_in_the_runtime_beside_it() {
+    use specforge_wasm::protocol::load_declaration;
+    use std::sync::Arc;
+
+    // The runtime beside it stands for the component runtime: it serves `@contract/crash` by its bytes.
+    let beside = Arc::new(InProcessRuntime::new().binary(b"\0asm component", crashing));
+    let runtime = InProcessRuntime::new()
+        .with(|| ContributionsBuilder::new(ExtensionMeta::new("@contract/served", "1.0.0")))
+        .binary(b"\0asm local", crashing)
+        .beside(beside.clone());
+
+    runtime.load("@contract/served", b"anything").unwrap();
+    runtime.load("@contract/crash", b"\0asm component").unwrap();
+    // A load it refuses is refused beside it too.
+    assert!(runtime.load("@contract/none", b"\0asm other").is_err());
+
+    let loaded = load_declaration(&runtime, "@contract/crash").unwrap();
+    assert_eq!(loaded.declaration.name(), "@contract/crash");
+    // Its calls are recorded here and answered beside it; a name served here is not sent there.
+    load_declaration(&runtime, "@contract/served").unwrap();
+    assert!(
+        runtime
+            .calls()
+            .iter()
+            .any(|c| c.extension == "@contract/crash")
+    );
+    assert!(
+        beside
+            .calls()
+            .iter()
+            .all(|c| c.extension == "@contract/crash")
+    );
+    assert!(runtime.rename("@contract/crash", "@contract/renamed"));
+    assert!(load_declaration(&runtime, "@contract/renamed").is_ok());
+    assert!(runtime.unload("@contract/renamed"));
+    assert!(!beside.unload("@contract/renamed"), "unloaded beside it");
+
+    // A reload it can serve itself takes the name back, and unloads it beside it.
+    runtime.load("@contract/crash", b"\0asm component").unwrap();
+    runtime.load("@contract/crash", b"\0asm local").unwrap();
+    assert!(!beside.unload("@contract/crash"), "unloaded beside it");
+    beside.clear_calls();
+    load_declaration(&runtime, "@contract/crash").unwrap();
+    assert!(beside.calls().is_empty(), "served in process");
+}
+
+#[test]
 fn a_module_whose_bytes_spell_a_declaration_loads_under_any_name() {
     use specforge_extension_sdk::PeerDependency;
     use specforge_wasm::protocol::load_declaration;

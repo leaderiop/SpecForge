@@ -5,6 +5,8 @@ use specforge_protocol_types::{DeclaredCategory, EntityKindDescriptor, Extension
 use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::load_declaration;
 
+mod code_core;
+
 /// A Wasm runtime holding the builtin extensions `ext_names` — the only way
 /// extensions exist now (WASM-only migration, Phase 7: the native mirror
 /// tier is gone).

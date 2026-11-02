@@ -8,7 +8,8 @@
 //! - [`SPEC`] (`@t/spec`, a peer of code): the kind `truth`, whose `proof` lists the tests that prove it
 //!
 //! The collector answers what the test gives it ([`Collected::answering`]): the fixture holds no handler, so a test
-//! spells the facts it expects the host to store.
+//! spells the facts it expects the host to store. [`Collected::peering`] puts a builtin (`@code/core`) in [`CODE`]'s
+//! place.
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::DeclaredCategory;
@@ -53,6 +54,8 @@ pub fn collected_answer(facts: Value) -> WasmCallResult {
 #[derive(Default)]
 pub struct Collected {
     answers: Vec<(String, String, WasmCallResult)>,
+    /// The builtin [`NODE`] and [`SPEC`] peer in place of [`CODE`] ([`Collected::peering`]).
+    builtin: Option<String>,
 }
 
 impl Collected {
@@ -67,14 +70,32 @@ impl Collected {
         self
     }
 
+    /// [`NODE`] and [`SPEC`] peer the builtin `builtin` (`@code/core`, whose kind `test` they write and cite), and
+    /// [`CODE`] is not served: its `test` would clash with the builtin's (E026). The project enables `builtin`
+    /// beside them, and the runtime given to [`Self::over`] loads its component beside
+    /// ([`InProcessRuntime::beside`]).
+    pub fn peering(mut self, builtin: &str) -> Self {
+        self.builtin = Some(builtin.to_string());
+        self
+    }
+
     /// The runtime serving the three extensions and the answers given.
     pub fn runtime(self) -> InProcessRuntime {
         self.over(InProcessRuntime::new())
     }
 
-    /// `runtime` serving the three extensions too, and the answers given (a mixed run with another fixture's).
+    /// `runtime` serving the three extensions too (two when [`Self::peering`] a builtin), and the answers given (a
+    /// mixed run with another fixture's).
     pub fn over(self, runtime: InProcessRuntime) -> InProcessRuntime {
-        let mut runtime = runtime.with(code).with(node).with(spec);
+        let peer = self.builtin.unwrap_or_else(|| CODE.to_string());
+        let runtime = match peer.as_str() {
+            CODE => runtime.with(code),
+            _ => runtime,
+        };
+        let (node_peer, spec_peer) = (peer.clone(), peer);
+        let mut runtime = runtime
+            .with(move || node(&node_peer))
+            .with(move || spec(&spec_peer));
         for (extension, export, result) in self.answers {
             runtime = runtime.answer_raw(&extension, &export, result);
         }
@@ -105,9 +126,10 @@ fn code() -> ContributionsBuilder {
     c
 }
 
-fn node() -> ContributionsBuilder {
+/// The collectors, peering `peer`, the extension that declares `test`.
+fn node(peer: &str) -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(NODE, "1.0.0"));
-    c.peer(CODE, "^1.0");
+    c.peer(peer, "^1.0");
     c.raw_category(
         DeclaredCategory::Collectors,
         json!([
@@ -120,9 +142,10 @@ fn node() -> ContributionsBuilder {
     c
 }
 
-fn spec() -> ContributionsBuilder {
+/// The citing kind `truth`, peering `peer`, the extension that declares `test`.
+fn spec(peer: &str) -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(SPEC, "1.0.0"));
-    c.peer(CODE, "^1.0");
+    c.peer(peer, "^1.0");
     c.raw_category(
         DeclaredCategory::Entities,
         json!([{"name": "truth", "keyword": "truth", "fields": [

@@ -11,6 +11,10 @@ expression: "digest(&load(&runtime, &all))"
     {
       "extension": "@specforge/formal",
       "name": "analysis_available"
+    },
+    {
+      "extension": "@code/core",
+      "name": "refs"
     }
   ],
   "commands": [

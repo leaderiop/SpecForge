@@ -34,7 +34,7 @@
     "crates/runtime/extension-sdk/src/contrib.rs": "68d63b1213a97250f15f6483640adff7aa887c10bb862db47d8bbfc476f10a68",
     "crates/runtime/extension-sdk/src/guest.rs": "d1805a20fb3cb635e1765026c31cfa7e9d14716573bcb39f8519f91d7a0d3466",
     "crates/runtime/extension-sdk/src/host_contrib.rs": "2330a86d4c0de420600b94f97b8f96447a75f48ea0619ad473af853cb3930e0d",
-    "crates/runtime/extension-sdk/src/lib.rs": "dced19cff0385a9b37acd5f8130ddbe92bcf71c3cbfffa614aa75111018a2216",
+    "crates/runtime/extension-sdk/src/lib.rs": "148196ca4397918c8bd5f98264c0d0cb3a39149911295a389e6117b7800afc88",
     "crates/runtime/extension-sdk/src/operations.rs": "5abc571e460dd645044eb5b5c40e505bec76f4ca12600ae1e23a1eb77895c2f4",
     "crates/runtime/extension-sdk/src/plan.rs": "719467d93f3e6f8c8fc8c76c5c2aae5ec5386af4de26b5cbed426e65545dd6bc",
     "crates/runtime/extension-sdk/src/prompt.rs": "4e94ccabe872fc30c3c2cdc0f70f3088f201eba1c8330213ab04412c6d2ff4d9",
