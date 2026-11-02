@@ -227,3 +227,69 @@ fn an_entry_of_a_newer_protocol_minor_is_refused_with_e088() {
     assert!(suggestion.starts_with("update specforge"), "{suggestion}");
     assert!(!runtime.unload("@acme/new"), "nothing is left loaded");
 }
+
+/// An entry `@acme/major` whose handshake speaks `protocol`, loaded alone: what was reported, and the runtime.
+fn load_speaking(protocol: &str) -> (Vec<specforge_common::Diagnostic>, InProcessRuntime) {
+    let dir = TempDir::new().unwrap();
+    let builtins = Builtins(&[("@acme/major", &b"\0asm major"[..])]);
+    let handshake = json!({
+        "protocol_version": protocol, "name": "@acme/major", "version": "1.0.0",
+        "peer_dependencies": [], "sandbox_policy": null,
+    });
+    let runtime = InProcessRuntime::new()
+        .binary(b"\0asm major", extension("@acme/major"))
+        .answer_raw(
+            "@acme/major",
+            "__handshake",
+            WasmCallResult::Ok(serde_json::to_vec(&handshake).unwrap()),
+        );
+    let loaded =
+        Installed::at(dir.path()).load(&entries(&["@acme/major"]), &builtins, &runtime, &PlainDisk);
+    (reported(dir.path(), &loaded), runtime)
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake of another protocol major produces E088, saying which side is behind"
+)]
+#[ignore = "plan 00 T5"]
+fn an_entry_of_a_newer_protocol_major_is_refused_with_e088() {
+    use specforge_protocol_types::PROTOCOL_VERSION;
+    let major: u64 = PROTOCOL_VERSION.split('.').next().unwrap().parse().unwrap();
+
+    let (reports, runtime) = load_speaking(&format!("{}.0.0", major + 1));
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E088");
+    assert!(
+        reports[0]
+            .message
+            .contains(&format!("newer than the {PROTOCOL_VERSION}")),
+        "{:?}",
+        reports[0]
+    );
+    assert!(!runtime.unload("@acme/major"), "nothing is left loaded");
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake of another protocol major produces E088, saying which side is behind"
+)]
+#[ignore = "plan 00 T5"]
+fn an_entry_of_an_older_protocol_major_is_refused_with_e088() {
+    let (reports, runtime) = load_speaking("0.9.0");
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E088");
+    assert!(
+        reports[0].message.contains("older than"),
+        "{:?}",
+        reports[0]
+    );
+    let suggestion = reports[0].suggestion.as_deref().unwrap();
+    assert!(
+        suggestion.starts_with("install a version of the extension built for protocol"),
+        "{suggestion}"
+    );
+    assert!(!runtime.unload("@acme/major"), "nothing is left loaded");
+}

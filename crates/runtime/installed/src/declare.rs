@@ -123,6 +123,34 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "plan 00 T5"]
+    fn a_candidate_of_a_newer_protocol_major_is_e088() {
+        let bytes = b"\0asm a newer major";
+        let major: u64 = specforge_protocol_types::PROTOCOL_VERSION
+            .split('.')
+            .next()
+            .and_then(|major| major.parse().ok())
+            .unwrap();
+        let handshake = serde_json::json!({
+            "protocol_version": format!("{}.0.0", major + 1), "name": "@acme/candidate",
+            "version": "2.1.0", "peer_dependencies": [], "sandbox_policy": null,
+        });
+        let runtime = InProcessRuntime::new()
+            .binary(bytes, || {
+                ContributionsBuilder::new(ExtensionMeta::new("@acme/candidate", "2.1.0"))
+            })
+            .answer_raw(
+                CANDIDATE,
+                "__handshake",
+                specforge_wasm::WasmCallResult::Ok(serde_json::to_vec(&handshake).unwrap()),
+            );
+
+        let error = declaration_of(bytes, &runtime).unwrap_err();
+
+        assert_eq!(error.code, "E088");
+    }
+
+    #[test]
     fn bytes_that_are_not_a_component_are_e028() {
         let runtime = InProcessRuntime::new();
 

@@ -19,6 +19,8 @@ mod declarations;
 mod epoch_deadline;
 #[path = "greet_sdk.rs"]
 mod greet_sdk;
+#[path = "imports.rs"]
+mod imports;
 #[path = "native_tier_gate.rs"]
 mod native_tier_gate;
 #[path = "product_blob.rs"]

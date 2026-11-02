@@ -54,6 +54,8 @@ behavior load_wasm_module "Load Wasm Module" {
   verify unit "the command an E028 or E070 suggestion names reinstalls the recorded path as one shell word, whatever the path holds"
   verify unit "the hash is checked over the bytes the runtime compiles"
   verify unit "missing .wasm produces ExtensionError"
+  verify unit "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
+  verify unit "a component importing an interface that is neither WASI nor a specforge host port is refused with E028 naming it"
   verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
 }
 
@@ -289,5 +291,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   verify unit "an unknown describe key produces W138"
   verify unit "a handshake whose protocol major differs from the host's produces E028"
   verify unit "a handshake whose protocol minor is newer than the host's produces E088"
+  verify unit "a handshake of another protocol major produces E088, saying which side is behind"
+  verify unit "a handshake whose protocol version is not semver produces E028"
   verify contract "Validate Extension Manifest: extension declaration validation holds — declaration_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
 }

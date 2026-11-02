@@ -273,3 +273,66 @@ fn a_newer_minor_protocol_is_refused() {
     // A newer patch of the host's minor still loads.
     load_declaration(&guest_answering("1.14.3"), "@test/older").expect("a 1.14.3 guest loads");
 }
+
+/// The host protocol's major.
+fn host_major() -> u64 {
+    specforge_protocol_types::PROTOCOL_VERSION
+        .split('.')
+        .next()
+        .and_then(|major| major.parse().ok())
+        .expect("the host protocol is semver")
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake of another protocol major produces E088, saying which side is behind"
+)]
+#[ignore = "plan 00 T5"]
+fn a_newer_protocol_major_is_refused_as_newer() {
+    use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
+    use specforge_wasm::protocol::load_declaration;
+
+    let newer = format!("{}.0.0", host_major() + 1);
+    let error = load_declaration(&guest_answering(&newer), "@test/older").unwrap_err();
+    assert_eq!(
+        error,
+        ProtocolError::NewerVersion {
+            extension: "@test/older".into(),
+            host_version: PROTOCOL_VERSION.into(),
+            extension_version: newer,
+        }
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake of another protocol major produces E088, saying which side is behind"
+)]
+#[ignore = "plan 00 T5"]
+fn an_older_protocol_major_is_refused_as_older() {
+    use specforge_protocol_types::PROTOCOL_VERSION;
+    use specforge_wasm::protocol::load_declaration;
+
+    let error = load_declaration(&guest_answering("0.9.0"), "@test/older").unwrap_err();
+    let text = error.to_string();
+    assert!(
+        text.contains(&format!("older than the {PROTOCOL_VERSION}")),
+        "{text}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake whose protocol version is not semver produces E028"
+)]
+#[ignore = "plan 00 T5"]
+fn a_protocol_version_that_is_not_semver_fails_the_handshake() {
+    use specforge_protocol_types::ProtocolError;
+    use specforge_wasm::protocol::load_declaration;
+
+    let error = load_declaration(&guest_answering("99.0"), "@test/older").unwrap_err();
+    assert!(
+        matches!(error, ProtocolError::HandshakeFailed(_)),
+        "{error:?}"
+    );
+}
