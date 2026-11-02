@@ -1614,6 +1614,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Harness value**: the value of a `harness` field, which only a command's plan sets; the **Harness ledger**
   (`specforge-harness`, one `path key digest` line per recorded value, merged by union) says it was; with no line it
   is E083. A **Move record** (`<new> moved:<old>`) follows an entity across a rename so its lines and its history do.
+  The ledger also holds the digest of each fact store, one line per collector (ADR 0327).
 - **History port**: the trait (`specforge_project::history::History`) that locates the repository, names commits and
   merge-bases and lists files at one; the git CLI is its only adapter (ADR 0287).
 - **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
@@ -1627,6 +1628,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   of the file it writes, and a file that changed since is `stale_revision` (ADR 0289).
 - **Writing command**: a command (or collector) that declares `writes`: it receives `revisions`, may answer a plan,
   takes the host's `--dry-run` and is a mutation on MCP (ADR 0289).
+- **Fact**: an entity a collector writes, of a kind that declares `writer: "collector"`. It is never typed or edited,
+  and is served read-only from the fact store (ADR 0327).
+- **Collector-written kind**: a kind whose `writer` is `collector`; it declares its `schemes`.
+- **Fact store**: `.specforge/facts/<key>/<collector>.json`, git-ignored, one file per collector and key, recorded by a
+  `<collector> facts:<key> <digest>` line of the harness ledger.
+- **Fact key**: the commit a collect ran at (`<sha>`, `<sha>-dirty`), or `worktree`.
+- **Fact scheme**: a scheme a collector-written kind declares. A reference written in it that names no fact is
+  **unheld**: no edge and no core diagnostic; the kind's extension judges it.
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).
