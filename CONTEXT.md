@@ -1650,6 +1650,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Fact key**: the commit a collect ran at (`<sha>`, `<sha>-dirty`), or `worktree`.
 - **Fact scheme**: a scheme a collector-written kind declares. A reference written in it that names no fact is
   **unheld**: no edge and no core diagnostic; the kind's extension judges it.
+- **Test fact**: a `test` or `test_run` fact of `@code/core` (ADR 0329): a test a runner ran, its status its result
+  (`result("status")`), and the run of it. A runner pack mints both with `specforge_code_junit::facts`.
+- **Test id**: a test fact's id, `js:<package>/<file>#<s1 > … > name>`: the package the pack assigns it to, its file
+  under that package and its suite path; a top-level test is `#<name>`. Its run is `run:<test id>` (ADR 0329 D2).
+- **Owner state**: whether an entity is **pending**: its kind's `complete_when` (a field and the values that make it
+  complete) does not hold, or, when its kind declares none, its nearest scope ancestor's that declares one does not.
+  With no declaration in the chain it is not pending. A pass reads it as `PassEntity.pending`; `@code/core` leaves a
+  pending entity's fact references unchecked (ADR 0329 D4).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).

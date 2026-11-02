@@ -1,6 +1,6 @@
 # Tests belong to extensions: `@specforge/testing` plus one extension per test runner
 
-**Status:** accepted. Amended by [ADR 0094](0094-obligations-are-an-entitys-own-member.md) (placement of `verify` statements; W158 for W020). Amended by [ADR 0125](0125-collects-machine-is-one-port-the-caller-passes.md) (Execution: the command and the consent store are one port the caller passes; every refusal that needs no run comes before any command runs). Amended by [ADR 0280](0280-invariant-is-governances-and-formal-needs-no-software.md) (invariant's owner is governance; `init` enables governance with software). Amended by [ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md) (Linkage: a spec file may cite a test fact).
+**Status:** accepted. Amended by [ADR 0094](0094-obligations-are-an-entitys-own-member.md) (placement of `verify` statements; W158 for W020). Amended by [ADR 0125](0125-collects-machine-is-one-port-the-caller-passes.md) (Execution: the command and the consent store are one port the caller passes; every refusal that needs no run comes before any command runs). Amended by [ADR 0280](0280-invariant-is-governances-and-formal-needs-no-software.md) (invariant's owner is governance; `init` enables governance with software). Amended by [ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md) (Linkage: a spec file may cite a test fact), with [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) (how `@code/core` judges a cited one).
 
 Test concepts are spread across the core compiler today. `verify` is core grammar. The `analyze`
 coverage pass, the `specforge-report.json` shape and the `collect` normalizer are hard-coded to
@@ -48,7 +48,8 @@ successful `collect`.
 **Amendment (2026-11-02, ADR 0327).** A spec file may cite a test fact by a scheme reference
 (`proof ["js:pkg/file.test.js#name"]`): a collector writes the fact, and the citation does not rot silently,
 because `@code/core`'s E101, W102 and I402 report a reference no fact holds. "Spec files carry no test paths" now
-means "no path a tool can't check".
+means "no path a tool can't check". [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) says how: a
+reference whose owner is still pending is not checked, and one no store of its scheme was collected for is W102.
 
 **Consequences.** This is a breaking change for any project that uses `verify`: it must enable
 `@specforge/testing`, which `init` does whenever it enables `@specforge/software`. This repository's

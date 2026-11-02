@@ -12,6 +12,9 @@ use tree_sitter_specforge::kind;
 )]
 fn the_lexer_agrees_with_the_grammar_on_every_edited_form() {
     let checked = std::cell::Cell::new(0usize);
+    // The edited files parsed, and those where at least one leaf was checked.
+    let cases = std::cell::Cell::new(0usize);
+    let reached = std::cell::Cell::new(0usize);
     let mut runner = TestRunner::new(property_config());
     let result = runner.run(&edited_corpus(), |case| {
         let text = &case.edited;
@@ -25,6 +28,8 @@ fn the_lexer_agrees_with_the_grammar_on_every_edited_form() {
         let lexemes = lex(text);
         let by_start: std::collections::HashMap<usize, _> =
             lexemes.iter().map(|l| (l.start, l)).collect();
+        cases.set(cases.get() + 1);
+        let before = checked.get();
         let mut cursor = tree.root_node().walk();
         for form in tree.root_node().children(&mut cursor) {
             // A form with an ERROR or MISSING node is the recovery's, not the grammar's reading, and what
@@ -80,14 +85,21 @@ fn the_lexer_agrees_with_the_grammar_on_every_edited_form() {
                 );
             }
         }
+        if checked.get() > before {
+            reached.set(reached.get() + 1);
+        }
         Ok(())
     });
     if let Err(failure) = result {
         panic!("{failure}");
     }
+    // A ratio, not a count: the fixed seed draws other files as the corpus grows, but most edited files must still
+    // hold an intact form whose leaves are checked (242 of 256 when the floor was set), or the walk checks nothing.
     assert!(
-        checked.get() > 10_000,
-        "checked only {} leaves",
+        reached.get() * 4 >= cases.get() * 3,
+        "only {} of {} edited files had a leaf checked ({} leaves)",
+        reached.get(),
+        cases.get(),
         checked.get()
     );
 }
