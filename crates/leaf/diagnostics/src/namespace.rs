@@ -1,9 +1,12 @@
 //! A third-party code's text: `<namespace>/<letter><three digits>`. The host
 //! computes the namespace from the extension's package name and adds it where
 //! a code enters (rule registration, pass findings); core's and the
-//! `@specforge/*` builtins' codes stay bare (ADR 0286).
+//! `@specforge/*` builtins' codes stay bare (ADR 0286). First party is the
+//! scope, not being a builtin: a builtin outside `@specforge/` (`@code/core`)
+//! is namespaced like a third party (`code/E101`, ADR 0328 D1).
 
-/// The scope of the extensions the project ships and documents.
+/// The scope of the first-party extensions, whose codes are bare: the only
+/// scope the static catalog describes.
 pub(crate) const FIRST_PARTY: &str = "@specforge/";
 
 /// The namespace of extension `extension` (its declared name): `@gsd/core`
