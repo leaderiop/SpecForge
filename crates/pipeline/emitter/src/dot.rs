@@ -193,6 +193,7 @@ mod dot_escape_tests {
                 raw: Sym::new("behavior"),
             },
             scope: None,
+            unheld: Vec::new(),
             title: Some("}\"; hack graph".to_string()),
             fields,
             source_span: SourceSpan {

@@ -111,6 +111,7 @@ fn known_entities_are_the_snapshots_records() {
             },
         ],
         scope: None,
+        unheld: Vec::new(),
         verdicts: Vec::new(),
     });
     let fixture = specforge_project::testing::Assembled::new().graph(graph);

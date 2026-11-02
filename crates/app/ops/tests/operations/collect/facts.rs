@@ -438,3 +438,70 @@ fn a_pass_is_sent_the_fact_stores_the_session_served() {
         json!([{"collector": "node", "key": SHA, "schemes": ["js"], "facts": 2}])
     );
 }
+
+/// A project citing a test no store holds: a fresh clone (the store is git-ignored), with `extra` enabled too.
+fn citing(extra: &[&str]) -> TestProject {
+    TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[COLLECTED_EXTENSIONS.as_slice(), extra].concat())
+        .installing_enabled()
+        .file(
+            "truths.spec",
+            "truth T1 \"One\" {\n  proof [\"js:a.test.js#adds\"]\n}\n",
+        )
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a fresh clone with no fact store reports no unresolved reference for its fact references"
+)]
+fn a_fresh_clone_has_no_unresolved_reference_for_its_fact_scheme_refs() {
+    let p = citing(&[]);
+
+    let project = p.compile_in(Arc::new(Collected::new().runtime()));
+
+    assert!(
+        project.diagnostics().iter().all(|d| d.code != "E003"),
+        "{:?}",
+        project.diagnostics()
+    );
+    assert!(project.graph().edges_from("T1").is_empty());
+    let unheld: Vec<&str> = project
+        .graph()
+        .node("T1")
+        .unwrap()
+        .unheld
+        .iter()
+        .map(|u| u.id.as_str())
+        .collect();
+    assert_eq!(unheld, ["js:a.test.js#adds"]);
+}
+
+#[test]
+fn a_pass_is_sent_each_unheld_reference() {
+    let p = citing(&["@t/probe"]);
+    let runtime = Arc::new(Collected::new().over(InProcessRuntime::new().with(probe)));
+
+    p.compile_in(runtime.clone());
+
+    let call = runtime
+        .calls()
+        .into_iter()
+        .find(|c| c.extension == "@t/probe" && c.export.ends_with("audit"))
+        .expect("the check pass ran");
+    let t1 = call.input["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == "T1")
+        .expect("T1 is sent")
+        .clone();
+    assert_eq!(
+        t1["unheld"],
+        json!([{"field": "proof", "id": "js:a.test.js#adds"}])
+    );
+    assert!(
+        call.input.get("fact_stores").is_none(),
+        "no store was served"
+    );
+}

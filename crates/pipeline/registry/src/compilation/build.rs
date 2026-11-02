@@ -235,6 +235,8 @@ impl RegistryBuild {
             }
             self.registry_diagnostics.extend(refused);
         }
+        // The graph reads the schemes kept.
+        self.graph_inputs = self.derived_graph_inputs();
     }
 
     /// The kinds the declarations register, each under its keyword (first

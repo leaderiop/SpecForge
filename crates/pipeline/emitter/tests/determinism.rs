@@ -39,6 +39,7 @@ fn build_graph() -> Graph {
             obligations: Vec::new(),
             verdicts: Vec::new(),
             scope: None,
+            unheld: Vec::new(),
         });
     }
 
@@ -328,6 +329,7 @@ fn file_emission_order_independent_of_filesystem() {
             obligations: Vec::new(),
             verdicts: Vec::new(),
             scope: None,
+            unheld: Vec::new(),
         });
     }
 
@@ -358,6 +360,7 @@ fn file_emission_order_independent_of_filesystem() {
             obligations: Vec::new(),
             verdicts: Vec::new(),
             scope: None,
+            unheld: Vec::new(),
         });
     }
 

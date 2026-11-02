@@ -2882,6 +2882,22 @@ expression: listing
           ],
           "type": "object"
         },
+        "UnheldJson": {
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "id"
+          ],
+          "type": "object"
+        },
         "VerdictJson": {
           "additionalProperties": false,
           "properties": {
@@ -3001,6 +3017,12 @@ expression: listing
         },
         "title": {
           "type": "string"
+        },
+        "unheld": {
+          "items": {
+            "$ref": "#/$defs/UnheldJson"
+          },
+          "type": "array"
         },
         "verdicts": {
           "items": {

@@ -37,6 +37,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         obligations: Vec::new(),
         verdicts: Vec::new(),
         scope: None,
+        unheld: Vec::new(),
     }
 }
 
@@ -151,6 +152,7 @@ fn json_includes_fields() {
         obligations: Vec::new(),
         verdicts: Vec::new(),
         scope: None,
+        unheld: Vec::new(),
     });
 
     let json = crate::support::emit_json(&graph);
@@ -245,6 +247,7 @@ fn json_includes_source_location() {
         obligations: Vec::new(),
         verdicts: Vec::new(),
         scope: None,
+        unheld: Vec::new(),
     });
 
     let json = crate::support::emit_json(&graph);

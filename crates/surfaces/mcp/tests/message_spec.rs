@@ -694,7 +694,7 @@ reply_type! {
     annotation_json => "AnnotationJson", "AnnotationJson schema is valid",
     parameter_json => "ParameterJson", "ParameterJson schema is valid",
     verdict_json => "VerdictJson", "VerdictJson schema is valid", judgement_json => "JudgementJson", "JudgementJson schema is valid",
-    method_json => "MethodJson", "MethodJson schema is valid",
+    method_json => "MethodJson", "MethodJson schema is valid", unheld_json => "UnheldJson", "UnheldJson schema is valid",
     mcp_definition_result => "McpDefinitionResult", "McpDefinitionResult schema is valid",
     mcp_reference_location => "McpReferenceLocation", "McpReferenceLocation schema is valid",
     mcp_reference_result => "McpReferenceResult", "McpReferenceResult schema is valid",

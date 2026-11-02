@@ -294,6 +294,7 @@ fn placed(graph: &mut Graph, path: &str, kind: &str, scope: Option<&str>) {
         obligations: Vec::new(),
         verdicts: Vec::new(),
         scope: scope.map(Sym::new),
+        unheld: Vec::new(),
     });
 }
 

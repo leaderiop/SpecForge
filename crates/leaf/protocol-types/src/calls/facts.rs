@@ -40,6 +40,14 @@ impl Fact {
     }
 }
 
+/// A reference an entity writes in a fact scheme that names no fact the session served (ADR 0327 D6): its field (the
+/// declared path) and the id written. The graph holds no edge for it and reports nothing.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnheldReference {
+    pub field: String,
+    pub id: String,
+}
+
 /// One fact store the session served (ADR 0327 D5, D6): whose it is, the key it is filed under, the schemes of the
 /// kinds of its facts and how many facts it holds. A pass reads it to tell a reference no fact holds from one no
 /// store was served for.

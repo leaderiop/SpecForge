@@ -412,6 +412,10 @@ pub struct PassEntity {
     /// absent.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub judgements: Vec<crate::Judgement>,
+    /// Its references in a fact scheme that name no fact the session served (protocol 1.15.0, ADR 0327 D6): no edge
+    /// and no core diagnostic; whether one is wrong is the kind's extension's to judge.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unheld: Vec<UnheldReference>,
 }
 
 /// One resolved reference in the snapshot (label = edge label, e.g.
@@ -761,7 +765,7 @@ pub struct MigrationInput {
 mod evidence;
 mod facts;
 pub use evidence::{CommandEvidence, EntityEvidence};
-pub use facts::{Fact, FactStore};
+pub use facts::{Fact, FactStore, UnheldReference};
 
 #[cfg(test)]
 mod tests;

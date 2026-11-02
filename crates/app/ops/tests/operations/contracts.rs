@@ -37,6 +37,7 @@ fn node_with_fields(id: &str, kind: &str, contract: &str, status: &str) -> Node 
         obligations: Vec::new(),
         verdicts: Vec::new(),
         scope: None,
+        unheld: Vec::new(),
     }
 }
 
@@ -60,6 +61,7 @@ fn testable_node(id: &str) -> Node {
             description: "it works".to_string(),
         }],
         scope: None,
+        unheld: Vec::new(),
         verdicts: Vec::new(),
     }
 }

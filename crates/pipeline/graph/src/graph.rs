@@ -34,6 +34,17 @@ pub struct Node {
     /// resolves to none; `None`: the project. Never derived by splitting `id` on `/`, since a scheme ref id may hold
     /// one.
     pub scope: Option<Sym>,
+    /// The references it writes in a fact scheme that name no fact (ADR 0327 D6), in written order: no edge, no
+    /// diagnostic. The linker sets them.
+    pub unheld: Vec<Unheld>,
+}
+
+/// A reference in a fact scheme that names no fact: the field (its declared path) and the id written, and where.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Unheld {
+    pub field: Sym,
+    pub id: String,
+    pub span: Option<SourceSpan>,
 }
 
 impl Node {
@@ -66,6 +77,7 @@ impl Node {
             obligations: Vec::new(),
             verdicts: Vec::new(),
             scope: None,
+            unheld: Vec::new(),
         }
     }
 }

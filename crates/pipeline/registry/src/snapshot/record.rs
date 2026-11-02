@@ -116,6 +116,14 @@ pub(super) fn record(
                 returns: m.returns.clone(),
             })
             .collect(),
+        unheld: node
+            .unheld
+            .iter()
+            .map(|u| specforge_protocol_types::UnheldReference {
+                field: u.field.to_string(),
+                id: u.id.clone(),
+            })
+            .collect(),
     };
     (record, referenced)
 }

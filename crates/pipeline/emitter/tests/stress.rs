@@ -40,6 +40,7 @@ fn build_graph(n: usize) -> Graph {
             obligations: Vec::new(),
             verdicts: Vec::new(),
             scope: None,
+            unheld: Vec::new(),
         });
         if i > 0 {
             graph.add_edge(Edge {

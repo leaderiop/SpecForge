@@ -238,6 +238,8 @@ type McpInspectResult "Mcp Inspect Result" {
   referenced_by       string[]
   /// The entities this one references (outgoing), distinct, sorted.
   refers_to           string[]
+  /// Its references in a fact scheme that name no fact (ADR 0327): why they have no edge; absent when none.
+  unheld              UnheldJson[]    @optional
   /// Its verdict statements as the graph export writes them; absent when it has none.
   verdicts            VerdictJson[]   @optional
   /// Where each judged rule that judges it stands (ADR 0290); absent when none does.
@@ -251,6 +253,12 @@ type McpInspectResult "Mcp Inspect Result" {
   /// The diagnostics about the entity, as specforge.validate reports them.
   diagnostics         Diagnostic[]
   verify unit "McpInspectResult schema is valid"
+}
+
+type UnheldJson "A reference in a fact scheme that names no fact: its field and the id written" {
+  field string
+  id    string
+  verify unit "UnheldJson schema is valid"
 }
 
 type McpDefinitionResult "Mcp Definition Result" {

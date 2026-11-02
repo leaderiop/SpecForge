@@ -25,6 +25,7 @@ fn node(id: &str) -> Node {
         obligations: Vec::new(),
         verdicts: Vec::new(),
         scope: None,
+        unheld: Vec::new(),
     }
 }
 

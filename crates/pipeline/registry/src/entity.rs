@@ -43,6 +43,8 @@ pub struct EntityRecord {
     pub exemption: Option<Exemption>,
     /// Its declared methods (ports), in order.
     pub methods: Vec<MethodRecord>,
+    /// Its references in a fact scheme that name no fact (ADR 0327 D6), in written order.
+    pub unheld: Vec<specforge_protocol_types::UnheldReference>,
 }
 
 /// One written field: its key, its field text (ADR 0019), its value's shape
@@ -228,6 +230,7 @@ impl EntityRecord {
             linked: Linked::default(),
             exemption: None,
             methods: Vec::new(),
+            unheld: Vec::new(),
         }
     }
 

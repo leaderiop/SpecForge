@@ -26,6 +26,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         obligations: Vec::new(),
         verdicts: Vec::new(),
         scope: None,
+        unheld: Vec::new(),
     }
 }
 

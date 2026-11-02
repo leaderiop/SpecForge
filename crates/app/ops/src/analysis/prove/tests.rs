@@ -32,6 +32,7 @@ fn node(id: &str, kind: &str, fields: FieldMap) -> Node {
         obligations: Vec::new(),
         verdicts: Vec::new(),
         scope: None,
+        unheld: Vec::new(),
     }
 }
 

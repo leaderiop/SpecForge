@@ -2,13 +2,11 @@
 //! field's [`Target`]. The linker makes the edge when the decision says so and reports what the
 //! decision names.
 
-use std::collections::BTreeMap;
-
 use specforge_common::{Diagnostic, DiagnosticData, Sym, codes, find_close_match};
 
 use crate::field_form::Reference;
 use crate::scope::Found;
-use crate::{Graph, Node, Targets};
+use crate::{Graph, GraphInputs, Node, Targets};
 
 /// What one written reference is.
 pub(super) enum Resolution<'g> {
@@ -37,19 +35,24 @@ pub(super) enum Resolution<'g> {
     Unavailable {
         kinds: Vec<(&'g str, Option<&'g str>)>,
     },
+    /// It names no entity, its id is in the scheme of a collector-written kind its field takes, and no store served
+    /// that fact (ADR 0327 D6): no edge, no diagnostic; the node keeps it, and a pass is sent it.
+    Unheld,
 }
 
 impl Graph {
-    /// The resolution of `id`, written in a field whose target is `target`; `owners` is
-    /// `GraphInputs::target_owners` (an absent kind's provider). `from` is the path of the entity holding it:
-    /// its scope chain answers (ADR 0284). `None` for a scope field, which has no chain yet.
+    /// The resolution of `id`, written in a field whose target is `target`, read with `inputs`: their
+    /// `target_owners` name an absent kind's provider, their `fact_schemes` a scheme's collected kinds. `from` is the
+    /// path of the entity holding it: its scope chain answers (ADR 0284). `None` for a scope field, which has no chain
+    /// yet.
     pub(super) fn resolve<'g>(
         &'g self,
         target: Option<Targets<'g>>,
-        owners: &'g BTreeMap<String, String>,
+        inputs: &'g GraphInputs,
         from: Option<Sym>,
         id: &str,
     ) -> Resolution<'g> {
+        let owners = &inputs.target_owners;
         let admits = |kind: &str| target.as_ref().is_none_or(|t| t.admits(kind));
         let found = self.scopes.resolve(from, id, &admits);
         let named = |path: Sym| self.nodes[&path].kind.raw.as_str();
@@ -95,6 +98,15 @@ impl Graph {
                     .map(|kind| (kind, owners.get(kind).map(String::as_str)))
                     .collect(),
             },
+            None if specforge_common::scheme::of(id).is_some_and(|scheme| {
+                inputs
+                    .fact_schemes
+                    .get(scheme)
+                    .is_some_and(|kinds| kinds.iter().any(|kind| admits(kind)))
+            }) =>
+            {
+                Resolution::Unheld
+            }
             None => {
                 let Found::None(paths) = found else {
                     unreachable!("the other outcomes returned")
@@ -137,6 +149,11 @@ impl Graph {
 }
 
 impl Resolution<'_> {
+    /// Whether it is a fact no store served (ADR 0327 D6).
+    pub(super) fn is_unheld(&self) -> bool {
+        matches!(self, Self::Unheld)
+    }
+
     /// The entity it names, when it links: the edge's target.
     pub(super) fn path(&self) -> Option<Sym> {
         match self {
@@ -158,7 +175,7 @@ impl Resolution<'_> {
             .clone()
             .unwrap_or_else(|| node.source_span.clone());
         match self {
-            Self::Linked { .. } => None,
+            Self::Linked { .. } | Self::Unheld => None,
             Self::Mistyped {
                 target,
                 provider,

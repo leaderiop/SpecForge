@@ -173,6 +173,10 @@ behavior link_entity_references "Link Entity References" {
     even when the build drops the block. A project has one spec block,
     whatever its name: a second one is E002 naming the first, and is not
     placed (ADR 0282 D2).
+    A reference that names no entity, whose id starts with the scheme of a
+    collector-written kind its field takes, MUST be unheld: no edge and no
+    diagnostic, kept on its node and sent to a pass; E022 and I004 are
+    decided before it (ADR 0327 D6).
   """
   verify unit "reference list IDs create graph edges"
   verify unit "unresolvable reference produces E003"
@@ -207,6 +211,9 @@ behavior link_entity_references "Link Entity References" {
   verify unit "a reference field declaring several target kinds takes an entity of any of them and refuses another, naming each"
   verify unit "a surface finds a numeric id whatever its zero padding, and a reference in the spec text does not"
   verify unit "a rooted spelling is never a suffix, numeric or not"
+  verify unit "a reference in a fact scheme that names no fact is unheld: no edge and no core diagnostic"
+  verify unit "a fact scheme reference whose target kind is absent stays I004, and one of the wrong kind E022"
+  verify integration "a fresh clone with no fact store reports no unresolved reference for its fact references"
 }
 
 behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension References" {

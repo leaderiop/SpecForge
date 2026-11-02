@@ -40,6 +40,7 @@ fn build_graph() -> Graph {
             obligations: Vec::new(),
             verdicts: Vec::new(),
             scope: None,
+            unheld: Vec::new(),
         });
     }
 
