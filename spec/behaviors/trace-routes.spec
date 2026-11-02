@@ -38,4 +38,5 @@ behavior declare_trace_route "Declare a Trace Route" {
   """
   verify unit "a routes category round trips on the wire and a 1.14 guest is never asked for it"
   verify unit "an unknown key of a route, a step or an annotation is reported"
+  verify unit "an SDK route builds the descriptor the host reads"
 }

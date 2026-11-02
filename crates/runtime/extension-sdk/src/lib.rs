@@ -34,10 +34,10 @@ pub use specforge_protocol_types::{
     CompleteWhen, DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor,
     EntityKindDescriptor, ExtensionDeclaration, FeatureFlagDescriptor, FieldConstraintDescriptor,
     FieldDescriptor, HandshakeResponse, PeerDependency, PromptDescriptor, ProtocolError,
-    SandboxPolicy, SecretDescriptor, ServedSlash, SettingDescriptor, SettingsItem, StateView,
-    Trigger, TriggerKind, ValidationRuleDescriptor, ValidationSeverity, ValidatorContext,
-    ValidatorEntity, ValidatorField, ValidatorMethod, ValidatorParam, ValidatorRef,
-    ValidatorVerdict,
+    RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor, SandboxPolicy,
+    SecretDescriptor, ServedSlash, SettingDescriptor, SettingsItem, StateView, Trigger,
+    TriggerKind, ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorEntity,
+    ValidatorField, ValidatorMethod, ValidatorParam, ValidatorRef, ValidatorVerdict,
 };
 
 use specforge_protocol_types::{DescribeResponse, pass_export};
@@ -72,6 +72,7 @@ pub mod host_contrib;
 mod plan;
 pub mod prompt;
 mod reads;
+mod route;
 mod settings;
 pub use builders::{
     AnalyzerBuilder, CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
@@ -86,6 +87,7 @@ pub use host_contrib::{
 pub use plan::{PlanBuilder, Verdict};
 pub use prompt::{PromptArgBuilder, PromptBuilder, PromptCall, PromptStepBuilder};
 pub use reads::FileReadSpec;
+pub use route::{Annotates, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder};
 pub use settings::{PresetBuilder, PresetEntryBuilder, SettingBuilder, Settings};
 
 /// Identity of the extension: what `__handshake` reports.
@@ -610,10 +612,10 @@ pub mod prelude {
         Vocabulary,
     };
     pub use crate::{
-        ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,
-        CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge, GraphNode,
-        McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
-        PromptStepBuilder,
+        Annotates, ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence,
+        CommandFormat, CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge,
+        GraphNode, McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
+        PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,

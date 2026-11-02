@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_typescript.wasm",
-  "artifact_sha256": "fe24d9d5b205ddbdfcad98bd3242cce54187a7c0a96ce619e7c8c6506f3a926f",
+  "artifact_sha256": "5a4a57499ca43dbecbd15ff4c7078553ae5b243e87fde5eab056ec200db67a10",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "287183058189d351212ccba7b2637bb86cec4d6960a06c31740bfb12ba9fd56f",
@@ -33,11 +33,12 @@
     "crates/runtime/extension-sdk/src/contrib.rs": "68d63b1213a97250f15f6483640adff7aa887c10bb862db47d8bbfc476f10a68",
     "crates/runtime/extension-sdk/src/guest.rs": "d1805a20fb3cb635e1765026c31cfa7e9d14716573bcb39f8519f91d7a0d3466",
     "crates/runtime/extension-sdk/src/host_contrib.rs": "2330a86d4c0de420600b94f97b8f96447a75f48ea0619ad473af853cb3930e0d",
-    "crates/runtime/extension-sdk/src/lib.rs": "148196ca4397918c8bd5f98264c0d0cb3a39149911295a389e6117b7800afc88",
+    "crates/runtime/extension-sdk/src/lib.rs": "bb54c32e9a8ed212714f63eecb1ab552a268e535efe9a1067bec718130740952",
     "crates/runtime/extension-sdk/src/operations.rs": "5abc571e460dd645044eb5b5c40e505bec76f4ca12600ae1e23a1eb77895c2f4",
     "crates/runtime/extension-sdk/src/plan.rs": "719467d93f3e6f8c8fc8c76c5c2aae5ec5386af4de26b5cbed426e65545dd6bc",
     "crates/runtime/extension-sdk/src/prompt.rs": "4e94ccabe872fc30c3c2cdc0f70f3088f201eba1c8330213ab04412c6d2ff4d9",
     "crates/runtime/extension-sdk/src/reads.rs": "eb25ca708bd682ed2c804fcf81f4cd7dc67ffd5e0d7a415335aa872cb0f41706",
+    "crates/runtime/extension-sdk/src/route.rs": "a81851e96dc1df5b2b325497e34f301f016e15b6743fd9a49eef9aeb9b8f80f6",
     "crates/runtime/extension-sdk/src/settings.rs": "fefc5cf7aa60ea7ae846809521ed2a97b55cd40cf06e0ed17ceb9e9c139f6732",
     "crates/runtime/extension-sdk/src/surface.rs": "43b00053ed3dc4f4022608b75a39f6a9a5110ad23d6dc4f45d5cfedc257c2a98",
     "crates/runtime/extension-sdk/src/surface/call.rs": "31696031c31f193790bb17aa55d66e73ed6c8973ba91d30c4d8a31c658e6e00d",
