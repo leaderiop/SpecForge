@@ -33,6 +33,7 @@ pub mod builtins;
 pub mod committed;
 #[cfg(feature = "testing")]
 pub mod fixtures;
+mod imports;
 
 /// Per-instance state: the WASI context (no capability) and the memory
 /// ceiling the limiter enforces. Builtins are pure-compute, but wasip2
@@ -411,6 +412,13 @@ impl WasmRuntime for ComponentRuntime {
     fn load(&self, name: &str, bytes: &[u8]) -> Result<(), LoadError> {
         let component = Component::from_binary(&self.engine, bytes)
             .map_err(|e| LoadError::Unloadable(format!("failed to compile component: {e}")))?;
+        // Read before instantiating: the linker would refuse an unknown port as a missing implementation.
+        imports::admit(
+            component
+                .component_type()
+                .imports(&self.engine)
+                .map(|(name, _)| name),
+        )?;
         self.instantiate_with_fuel(name, component, self.fuel)
             .map_err(LoadError::Unloadable)
     }

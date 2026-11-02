@@ -70,12 +70,51 @@ impl ExtensionSettings {
 pub enum LoadError {
     /// It does not compile as a component, or does not instantiate (a trap or a missing import in its start): why.
     Unloadable(String),
+    /// It imports interfaces of `specforge:host` this host does not provide (`specforge:host/http@9.9.0`): a guest
+    /// built for a newer host.
+    UnknownPorts(Vec<String>),
+    /// It imports interfaces that are neither `wasi:*` nor `specforge:host`: no specforge provides them.
+    ForeignImports(Vec<String>),
+}
+
+/// `host port a`, `host ports a and b`: the `specforge:host` interfaces a guest imports, as a message names them.
+pub fn host_ports(ports: &[String]) -> String {
+    let noun = if ports.len() == 1 { "port" } else { "ports" };
+    format!("host {noun} {}", listed(ports))
+}
+
+/// `imports the host port a, which this specforge<at> does not provide`: why a guest importing `ports` this host
+/// lacks is refused; `at` (` (extension protocol 1.15.0)`, or empty) says which specforge.
+pub fn unprovided(ports: &[String], at: &str) -> String {
+    format!(
+        "imports the {}, which this specforge{at} does not provide",
+        host_ports(ports)
+    )
+}
+
+/// `imports a, which is neither WASI nor a specforge host port`: why a guest importing `interfaces` is refused.
+pub fn foreign(interfaces: &[String]) -> String {
+    format!(
+        "imports {}, which is neither WASI nor a specforge host port",
+        listed(interfaces)
+    )
+}
+
+/// `a`, `a and b`, `a, b and c`.
+pub fn listed(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
 }
 
 impl std::fmt::Display for LoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LoadError::Unloadable(reason) => f.write_str(reason),
+            LoadError::UnknownPorts(ports) => f.write_str(&unprovided(ports, "")),
+            LoadError::ForeignImports(interfaces) => f.write_str(&foreign(interfaces)),
         }
     }
 }

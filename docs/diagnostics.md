@@ -380,25 +380,27 @@ E028: Extension load or execution failure
 
 An extension failed somewhere in its lifecycle: its binary is missing,
 unreadable (no permission, not a regular file, larger than 64 MiB) or does not
-load as a component, or `specforge.lock` can't be read so nothing is known to be
-installed (a `.wasm` file entry of `specforge.json` also when the file declares
-another name than the entry writes, the name of a builtin, or an extension
-another entry already loads); its handshake or one of its describe categories
-failed or does not parse, so its declaration cannot be read (`specforge add` and
-`specforge publish` refuse such a binary); or a call the host makes on the
-loaded extension failed. The host calls thirteen exports: the handshake and
-describe, a command, an MCP tool, an MCP resource, a compiler pass, a collector,
-a custom validator, a scanner, the migration hook, an MCP prompt, the renderer
-of an agent's or skill's body and a hook. Each call fails when the export traps
-(a limit of its sandbox included: its time, its fuel or its memory, the trap
-naming which), when the extension does not route it, or when it answers output
-that is not the protocol type the operation owes (a collector's test whose
-status is not `passed`, `failed` or `skipped`, say); the message names the
-operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
-...`). What the failure costs is the operation's: a check pass's is the
-compile's error, an analyze pass's a finding of that pass, a scanner's makes
-`infer` approximate. Report the failure to the extension's author, and confirm
-the extension is installed and up to date.
+load as a component (it imports an interface that is neither WASI nor a
+specforge host port, say, which no specforge provides: the message names it), or
+`specforge.lock` can't be read so nothing is known to be installed (a `.wasm`
+file entry of `specforge.json` also when the file declares another name than the
+entry writes, the name of a builtin, or an extension another entry already
+loads); its handshake or one of its describe categories failed or does not
+parse, so its declaration cannot be read (`specforge add` and `specforge
+publish` refuse such a binary); or a call the host makes on the loaded extension
+failed. The host calls thirteen exports: the handshake and describe, a command,
+an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator,
+a scanner, the migration hook, an MCP prompt, the renderer of an agent's or
+skill's body and a hook. Each call fails when the export traps (a limit of its
+sandbox included: its time, its fuel or its memory, the trap naming which), when
+the extension does not route it, or when it answers output that is not the
+protocol type the operation owes (a collector's test whose status is not
+`passed`, `failed` or `skipped`, say); the message names the operation, the
+export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What
+the failure costs is the operation's: a check pass's is the compile's error, an
+analyze pass's a finding of that pass, a scanner's makes `infer` approximate.
+Report the failure to the extension's author, and confirm the extension is
+installed and up to date.
 
 Owner: core
 Level: error
@@ -1245,15 +1247,20 @@ Level: error
 ## E088
 
 ```
-E088: Extension speaks a newer protocol
+E088: Extension speaks a protocol this specforge does not
 
 An extension's handshake states a protocol version of the host's major but a
 newer minor (`1.15.0` under a `1.14.0` host, ADR 0326): it was built with a
 newer SDK and may declare what this specforge does not know and would drop, so
-it is not loaded; an older minor still loads. `specforge add`, `init` and
-`publish` refuse such a binary too. Update specforge to a release that speaks
-the extension's protocol (`specforge --version` names the one a binary speaks),
-or install a version of the extension built for this one.
+it is not loaded; an older minor still loads. Or its component imports a
+`specforge:host` interface (a host port such as `specforge:host/http@9.9.0`)
+this specforge does not provide: the runtime reads a component's imports before
+it instantiates it, and the message names the port, its version and this
+specforge's protocol (ADR 0326 D1a). `specforge add`, `init` and `publish`
+refuse such a binary too. Update specforge to a release that speaks the
+extension's protocol, or provides the port (`specforge --version` names the
+protocol a binary speaks), or install a version of the extension built for this
+one.
 
 Owner: core
 Level: error

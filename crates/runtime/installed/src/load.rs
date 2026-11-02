@@ -173,6 +173,10 @@ pub enum LoadProblem {
     NoDeclaration { reason: String },
     /// E088: its handshake speaks a newer protocol minor than the host (ADR 0326).
     NewerProtocol { declared: String, host: String },
+    /// E088: it imports `specforge:host` interfaces this host does not provide (ADR 0326 D1a).
+    UnknownPorts { ports: Vec<String>, host: String },
+    /// E028: it imports interfaces that are neither WASI nor a specforge host port (ADR 0326 D1a).
+    ForeignImports { interfaces: Vec<String> },
     /// E028, file entry: the file does not exist.
     FileMissing { path: PathBuf },
     /// E028, file entry: declares another name than the one written before
@@ -323,7 +327,9 @@ impl LoadProblem {
             | LoadProblem::NotAPackageName { .. }
             | LoadProblem::NotAComponent { .. }
             | LoadProblem::NoDeclaration { .. }
-            | LoadProblem::NewerProtocol { .. } => {
+            | LoadProblem::NewerProtocol { .. }
+            | LoadProblem::UnknownPorts { .. }
+            | LoadProblem::ForeignImports { .. } => {
                 unreachable!("a named entry names no file, or the step's problem")
             }
         }
@@ -377,7 +383,9 @@ impl LoadProblem {
             | LoadProblem::NotAPackageName { .. }
             | LoadProblem::NotAComponent { .. }
             | LoadProblem::NoDeclaration { .. }
-            | LoadProblem::NewerProtocol { .. } => {
+            | LoadProblem::NewerProtocol { .. }
+            | LoadProblem::UnknownPorts { .. }
+            | LoadProblem::ForeignImports { .. } => {
                 unreachable!("a file entry is not installed, or the step's problem")
             }
         }

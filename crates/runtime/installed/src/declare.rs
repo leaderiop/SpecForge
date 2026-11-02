@@ -127,6 +127,33 @@ mod tests {
     }
 
     #[test]
+    fn a_candidate_importing_a_host_port_this_specforge_lacks_is_e088() {
+        let bytes = b"\0asm a newer port";
+        let port = "specforge:host/http@9.9.0".to_string();
+        let runtime = InProcessRuntime::new()
+            .refusing(bytes, specforge_wasm::LoadError::UnknownPorts(vec![port]));
+
+        let error = declaration_of(bytes, &runtime).unwrap_err();
+
+        assert_eq!(error.code, "E088");
+        assert!(
+            error.message.starts_with(
+                "not a loadable SpecForge extension: it imports the host port specforge:host/http@9.9.0"
+            ),
+            "{}",
+            error.message
+        );
+        assert!(
+            error
+                .suggestion
+                .as_deref()
+                .unwrap()
+                .starts_with("update specforge"),
+            "{error:?}"
+        );
+    }
+
+    #[test]
     #[ignore = "plan 00 T5"]
     fn a_candidate_of_a_newer_protocol_major_is_e088() {
         let bytes = b"\0asm a newer major";

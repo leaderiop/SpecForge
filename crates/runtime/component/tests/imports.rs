@@ -17,7 +17,6 @@ const NEWER_PORT: &str = "specforge:host/http@9.9.0";
     behavior = "load_wasm_module",
     verify = "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
 )]
-#[ignore = "plan 00 T4"]
 fn a_component_importing_a_host_port_this_specforge_lacks_is_refused_naming_it() {
     let runtime = ComponentRuntime::new();
 
@@ -35,7 +34,6 @@ fn a_component_importing_a_host_port_this_specforge_lacks_is_refused_naming_it()
     behavior = "load_wasm_module",
     verify = "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
 )]
-#[ignore = "plan 00 T4"]
 fn a_component_importing_an_empty_host_port_instance_is_refused_too() {
     let runtime = ComponentRuntime::new();
 
@@ -48,7 +46,6 @@ fn a_component_importing_an_empty_host_port_instance_is_refused_too() {
     behavior = "load_wasm_module",
     verify = "a component importing an interface that is neither WASI nor a specforge host port is refused with E028 naming it"
 )]
-#[ignore = "plan 00 T4"]
 fn a_component_importing_a_foreign_interface_is_refused_naming_it() {
     let runtime = ComponentRuntime::new();
 

@@ -293,3 +293,61 @@ fn an_entry_of_an_older_protocol_major_is_refused_with_e088() {
     );
     assert!(!runtime.unload("@acme/major"), "nothing is left loaded");
 }
+
+/// An entry `@acme/importing` whose load the runtime refuses with `error`: what was reported, and the runtime.
+fn load_refused(
+    error: specforge_wasm::LoadError,
+) -> (Vec<specforge_common::Diagnostic>, InProcessRuntime) {
+    let dir = TempDir::new().unwrap();
+    let builtins = Builtins(&[("@acme/importing", &b"\0asm importing"[..])]);
+    let runtime = InProcessRuntime::new().refusing(b"\0asm importing", error);
+    let loaded = Installed::at(dir.path()).load(
+        &entries(&["@acme/importing"]),
+        &builtins,
+        &runtime,
+        &PlainDisk,
+    );
+    (reported(dir.path(), &loaded), runtime)
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_wasm_module",
+    verify = "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
+)]
+fn an_entry_importing_a_host_port_this_specforge_lacks_is_refused_with_e088() {
+    use specforge_protocol_types::PROTOCOL_VERSION;
+    let port = "specforge:host/http@9.9.0".to_string();
+
+    let (reports, runtime) = load_refused(specforge_wasm::LoadError::UnknownPorts(vec![port]));
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E088");
+    assert_eq!(
+        reports[0].message,
+        format!(
+            "extension '@acme/importing' imports the host port specforge:host/http@9.9.0, which this specforge \
+             (extension protocol {PROTOCOL_VERSION}) does not provide, so it is not loaded"
+        )
+    );
+    let suggestion = reports[0].suggestion.as_deref().unwrap();
+    assert!(suggestion.starts_with("update specforge"), "{suggestion}");
+    assert!(!runtime.unload("@acme/importing"), "nothing is left loaded");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_wasm_module",
+    verify = "a component importing an interface that is neither WASI nor a specforge host port is refused with E028 naming it"
+)]
+fn an_entry_importing_a_foreign_interface_is_e028_naming_it() {
+    let interface = "acme:x/y@1.0.0".to_string();
+
+    let (reports, _) = load_refused(specforge_wasm::LoadError::ForeignImports(vec![interface]));
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E028");
+    assert_eq!(
+        reports[0].message,
+        "extension '@acme/importing' imports acme:x/y@1.0.0, which is neither WASI nor a specforge host port, \
+         so no specforge loads it"
+    );
+}

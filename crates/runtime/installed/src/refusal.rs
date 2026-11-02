@@ -4,8 +4,9 @@
 use std::path::Path;
 
 use specforge_common::{Diagnostic, codes};
-use specforge_protocol_types::ProtocolError;
+use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
 use specforge_wasm::LoadError;
+use specforge_wasm::runtime::{foreign, listed, unprovided};
 
 use crate::LoadProblem;
 
@@ -57,6 +58,11 @@ impl Subject<'_> {
 pub(crate) fn of_load(error: LoadError) -> LoadProblem {
     match error {
         LoadError::Unloadable(reason) => LoadProblem::NotAComponent { reason },
+        LoadError::UnknownPorts(ports) => LoadProblem::UnknownPorts {
+            ports,
+            host: PROTOCOL_VERSION.to_string(),
+        },
+        LoadError::ForeignImports(interfaces) => LoadProblem::ForeignImports { interfaces },
     }
 }
 
@@ -120,6 +126,23 @@ pub(crate) fn diagnostic(problem: &LoadProblem, subject: &Subject) -> Option<Dia
                 "update specforge to a release that speaks protocol {declared} (`specforge --version` \
                  names it), or install a version of the extension built for protocol {host}"
             )),
+        (LoadProblem::UnknownPorts { ports, host }, _) => subject
+            .says(
+                codes::E088,
+                format!(
+                    "{}, so it is not loaded",
+                    unprovided(ports, &format!(" (extension protocol {host})"))
+                ),
+            )
+            .with_suggestion(format!(
+                "update specforge to a release that provides {} (`specforge --version` names the protocol a \
+                 binary speaks), or install a version of the extension built for protocol {host}",
+                listed(ports)
+            )),
+        (LoadProblem::ForeignImports { interfaces }, _) => subject.says(
+            codes::E028,
+            format!("{}, so no specforge loads it", foreign(interfaces)),
+        ),
         _ => return None,
     })
 }

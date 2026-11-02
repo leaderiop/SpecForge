@@ -32,6 +32,7 @@ behavior load_wasm_module "Load Wasm Module" {
     extension_loaded_via_runtime "the binary is loaded into the runtime engine (component compilation itself is cached by the engine — see compile_wasm_component_with_cache)"
     tampered_binary_refused      "a binary whose hash no longer matches the specforge.lock pin, or that declares another extension, version or peers than its lock entry records, is refused with E070"
     missing_binary_diagnosed     "missing .wasm binary produces ExtensionError diagnostic"
+    imports_admitted             "a component is instantiated only when it imports nothing but wasi:* and the specforge:host interfaces this host provides"
   }
   contract   """
     When the compiler loads an extension, it MUST read its .wasm binary
@@ -46,6 +47,11 @@ behavior load_wasm_module "Load Wasm Module" {
     Component compilation caching is the engine's concern (see
     compile_wasm_component_with_cache). Missing .wasm files MUST produce
     an ExtensionError diagnostic.
+    Before it instantiates a component the runtime MUST list its imports:
+    an interface of `specforge:host` the host does not provide MUST fail
+    the load with E088 naming the interface, its version and the host's
+    protocol, and one that is neither `wasi:*` nor `specforge:host` with
+    E028 naming it (ADR 0326 D1a).
   """
   produces   [extension_loaded]
   verify unit "loads .wasm binary from manifest path"
@@ -56,7 +62,7 @@ behavior load_wasm_module "Load Wasm Module" {
   verify unit "missing .wasm produces ExtensionError"
   verify unit "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
   verify unit "a component importing an interface that is neither WASI nor a specforge host port is refused with E028 naming it"
-  verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
+  verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed, imports_admitted"
 }
 
 behavior initialize_wasm_extension "Initialize Wasm Extension" {
