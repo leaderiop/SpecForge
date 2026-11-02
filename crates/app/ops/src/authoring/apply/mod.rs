@@ -6,7 +6,7 @@
 
 mod collector;
 mod command;
-mod flags;
+pub(crate) mod flags;
 pub(crate) mod hand;
 mod judged;
 mod lower;
@@ -43,10 +43,12 @@ pub const COMPUTED_FIELD: &str = "computed_field";
 pub const HARNESS_FIELD: &str = "harness_field";
 /// A plan names a revision of a file that is not the file's now.
 pub const STALE_REVISION: &str = "stale_revision";
+/// A write of a collected entity, a fact (ADR 0327): only `specforge collect` writes one.
+pub const COLLECTED: &str = "collected";
 
 /// The slugs a write refuses an agent with (ADR 0289): the code is the contract, so a surface that maps the failure by
 /// its kind keeps it.
-pub const WRITE_REFUSALS: [&str; 7] = [
+pub const WRITE_REFUSALS: [&str; 8] = [
     INVALID_PLAN,
     UNDECLARED_WRITE,
     HUMAN_ONLY,
@@ -54,6 +56,7 @@ pub const WRITE_REFUSALS: [&str; 7] = [
     HARNESS_FIELD,
     STALE_REVISION,
     NOT_JUDGED,
+    COLLECTED,
 ];
 
 /// One operation of a lowered plan: its number in the plan, from 1.

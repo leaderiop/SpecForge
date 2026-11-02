@@ -197,6 +197,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify unit "a rename edits a declaration whose name is written below its kind"
   verify unit "a rename whose file changed on disk since the compile is refused as conflict, and nothing is written"
   verify integration "a rename that cannot put a file back names it in files_written"
+  verify integration "a rename of a collected entity, or of one a fact names, is refused with why"
 }
 
 behavior provide_mcp_edit_tool "Provide MCP Edit Tool" {

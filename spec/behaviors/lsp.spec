@@ -526,6 +526,7 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "a rename keeps the scope and edits every segment naming the entity"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
   verify unit "rename edits a use binding's imported name, never its alias"
+  verify integration "a rename of a collected entity, or of one a fact names, is refused with why"
 }
 
 behavior emit_live_diagnostics "Live Diagnostics" {

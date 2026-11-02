@@ -118,6 +118,25 @@ pub enum Edit {
     },
 }
 
+impl Edit {
+    /// The entity the edit changes: none for a create, whose entity is not there yet.
+    pub fn entity_id(&self) -> Option<&str> {
+        match self {
+            Edit::Create { .. } => None,
+            Edit::Set { entity_id, .. }
+            | Edit::Append { entity_id, .. }
+            | Edit::Unset { entity_id, .. }
+            | Edit::Remove { entity_id, .. }
+            | Edit::Link { entity_id, .. }
+            | Edit::Unlink { entity_id, .. }
+            | Edit::Retitle { entity_id, .. }
+            | Edit::AddVerify { entity_id, .. }
+            | Edit::RemoveVerify { entity_id, .. }
+            | Edit::Delete { entity_id, .. } => Some(entity_id),
+        }
+    }
+}
+
 /// An edit and, when its caller read the file it changes, the revision of that file (ADR 0289, U9): `stale_revision`
 /// when the file is no longer at it. For `create`, the revision of the target file (`absent` for a new one).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Shape)]

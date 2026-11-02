@@ -536,3 +536,42 @@ fn the_lsp_rename_and_fixes_are_versioned() {
         "{edits:?}"
     );
 }
+
+/// A rename of a fact, a collected entity, is refused for the editor too (ADR 0327): the editor gets why, once.
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "a rename of a collected entity, or of one a fact names, is refused with why"
+)]
+fn rename_of_a_collected_entity_is_refused_with_why() {
+    use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored};
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("truths.spec"),
+        "truth T1 \"One\" {\n  proof [\"js:a.test.js#adds\"]\n}\n",
+    )
+    .unwrap();
+    stored(
+        dir.path(),
+        "node",
+        "0123456789abcdef0123456789abcdef01234567",
+        serde_json::json!([{"kind": "test", "id": "js:a.test.js#adds", "fields": {"file": "a.test.js"}}]),
+    );
+    let served =
+        crate::served::Served::served_by(dir, Collected::new().runtime(), &COLLECTED_EXTENSIONS)
+            .open(&["truths.spec"]);
+    let uri = served.uri("truths.spec");
+
+    let refused =
+        answers::rename(&served.state(), &uri, Position::new(1, 12), "renamed").unwrap_err();
+
+    assert_eq!(
+        refused.code,
+        tower_lsp::jsonrpc::ErrorCode::InvalidParams,
+        "{refused:?}"
+    );
+    assert!(
+        refused.message.contains("collected by 'node'"),
+        "{}",
+        refused.message
+    );
+}

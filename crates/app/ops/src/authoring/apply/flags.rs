@@ -1,9 +1,10 @@
 //! What a plan may not write (ADR 0289): checked per operation before anything is planned, so the refusal names the
 //! operation and not a later E080. A computed value is never written; a harness value only by the extension that
 //! declares the field or one that names it a peer; `verdict` is no field. An existing human-only entity is not edited,
-//! and an entity holding a person's value is not deleted (ADR 0298).
+//! and an entity holding a person's value is not deleted (ADR 0298). A collected entity, a fact, is written by no edit,
+//! whoever asks (ADR 0327).
 
-use super::{COMPUTED_FIELD, HARNESS_FIELD, HUMAN_ONLY, Op, Origin, Surface, invalid};
+use super::{COLLECTED, COMPUTED_FIELD, HARNESS_FIELD, HUMAN_ONLY, Op, Origin, Surface, invalid};
 use crate::OpError;
 use crate::OpErrorKind;
 use crate::authoring::edit::{Edit, Input, Step};
@@ -72,6 +73,9 @@ pub(crate) fn check(
             Step::Verdict(_) => {}
             Step::Rename { entity, to } => {
                 if let Some(kind) = kinds.of(entity) {
+                    let original = kinds.original(entity);
+                    collected(view, op.number, plan, &kind, Some(&original))?;
+                    collected_referrers(view, op.number, plan, &original, "rename")?;
                     human_kind(view, origin, op.number, plan, &kind)?;
                     human_referrers(view, origin, op.number, plan, &kinds.original(entity))?;
                     let from = kinds.original(entity);
@@ -98,6 +102,7 @@ pub(crate) fn verdict(
     let Some(kind) = kinds.of(&step.entity) else {
         return Ok(());
     };
+    collected(view, step.number, true, &kind, Some(&step.entity))?;
     human_kind(view, origin, step.number, true, &kind)?;
     for field in step.member.values.keys() {
         write(view, origin, step.number, true, &kind, field, None)?;
@@ -113,6 +118,14 @@ fn edit_flags(
     plan: bool,
     edit: &Edit,
 ) -> Result<(), OpError> {
+    // A fact is written by its collector alone, whoever asks (ADR 0327).
+    if let Edit::Create { kind, .. } = edit {
+        collected(view, number, plan, kind, None)?;
+    } else if let Some(id) = edit.entity_id()
+        && let Some(kind) = kinds.of(id)
+    {
+        collected(view, number, plan, &kind, Some(&kinds.original(id)))?;
+    }
     match edit {
         Edit::Create {
             kind, id, fields, ..
@@ -199,6 +212,7 @@ fn edit_flags(
                 human_held(view, origin, number, plan, kinds.of(entity_id), &original)?;
                 // The references it removes are writes to the entities that hold them.
                 if *unlink_references {
+                    collected_referrers(view, number, plan, &original, "delete")?;
                     human_referrers(view, origin, number, plan, &original)?;
                 }
                 Ok(())
@@ -408,6 +422,7 @@ fn enforce(
     };
     match writer {
         Some(FieldWriter::Computed) => Err(refuse(
+            OpErrorKind::InvalidInput,
             COMPUTED_FIELD,
             number,
             plan,
@@ -416,6 +431,7 @@ fn enforce(
             ),
         )),
         Some(FieldWriter::Harness) if !may_write_harness(view, origin, source) => Err(refuse(
+            OpErrorKind::InvalidInput,
             HARNESS_FIELD,
             number,
             plan,
@@ -623,8 +639,120 @@ fn human_referrers(
     Ok(())
 }
 
-fn refuse(code: &'static str, number: usize, plan: bool, message: String) -> OpError {
-    let error = OpError::new(OpErrorKind::InvalidInput, code, message);
+/// A write of the entity `id` of `kind` (a create when `None`), refused for every caller when the kind is collected:
+/// its entities are facts only `specforge collect` writes (ADR 0327).
+fn collected(
+    view: &ProjectView<'_>,
+    number: usize,
+    plan: bool,
+    kind: &str,
+    id: Option<&str>,
+) -> Result<(), OpError> {
+    if !view.registries().kinds().is_collected(kind) {
+        return Ok(());
+    }
+    let what = match id {
+        None => {
+            format!("{kind} entities are facts a collector writes: `specforge collect` gives them")
+        }
+        Some(id) => {
+            let file = match view.graph().scopes().find(id) {
+                Found::One(path) => view
+                    .graph()
+                    .node(path.as_str())
+                    .map(|n| n.source_span.file.to_string()),
+                _ => None,
+            };
+            let by = match file.as_deref().and_then(specforge_project::facts::filed) {
+                Some((collector, _)) => {
+                    format!("'{collector}' ({})", file.as_deref().unwrap_or_default())
+                }
+                None => "a collector".to_string(),
+            };
+            format!(
+                "{kind} '{id}' is a fact collected by {by}: it changes when its source does and `specforge collect` \
+                 runs, never by an edit"
+            )
+        }
+    };
+    Err(fact(number, plan, what))
+}
+
+/// A rename of `id`, or a delete that unlinks the references to it (`change`), would rewrite the facts that name it:
+/// refused for every caller, since a fact is no edit's to change.
+fn collected_referrers(
+    view: &ProjectView<'_>,
+    number: usize,
+    plan: bool,
+    id: &str,
+    change: &str,
+) -> Result<(), OpError> {
+    let scopes = view.graph().scopes();
+    let Found::One(path) = scopes.find(id) else {
+        return Ok(());
+    };
+    let kinds = view.registries().kinds();
+    let named = view
+        .graph()
+        .edges_to(path.as_str())
+        .into_iter()
+        .find(|edge| {
+            scopes
+                .kind(edge.source.as_str())
+                .is_some_and(|kind| kinds.is_collected(kind.as_str()))
+        });
+    match named {
+        Some(edge) => Err(fact(
+            number,
+            plan,
+            format!(
+                "{id} is named by '{}' of the fact '{}', which an edit cannot rewrite; {change} it, then run \
+                 `specforge collect`",
+                edge.label, edge.source
+            ),
+        )),
+        None => Ok(()),
+    }
+}
+
+/// A rename of `id` refused for every caller, the editor's own included: a collected entity, or one a fact names
+/// (ADR 0327). `rename::plan` asks it first, so the LSP's direct call is refused too.
+pub(crate) fn collected_rename(view: &ProjectView<'_>, id: &str) -> Result<(), OpError> {
+    let kinds = Kinds {
+        view,
+        made: BTreeMap::new(),
+        renamed: BTreeMap::new(),
+    };
+    if let Some(kind) = kinds.of(id) {
+        collected(view, 1, false, &kind, Some(id))?;
+    }
+    collected_referrers(view, 1, false, id, "rename")
+}
+
+fn fact(number: usize, plan: bool, what: String) -> OpError {
+    let at = if plan {
+        format!("operation {number}: ")
+    } else {
+        String::new()
+    };
+    refuse(
+        OpErrorKind::PermissionDenied,
+        COLLECTED,
+        number,
+        plan,
+        format!("{at}{what}"),
+    )
+    .with_suggestion("change what the collector reads, then run `specforge collect`")
+}
+
+fn refuse(
+    kind: OpErrorKind,
+    code: &'static str,
+    number: usize,
+    plan: bool,
+    message: String,
+) -> OpError {
+    let error = OpError::new(kind, code, message);
     if plan {
         error.with_data(serde_json::json!({"op": number}))
     } else {

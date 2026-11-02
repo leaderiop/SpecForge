@@ -9,6 +9,7 @@ mod anchors;
 mod call_graph;
 mod captures;
 mod collect;
+mod collected;
 mod command_host;
 mod command_now;
 mod compiled_support;

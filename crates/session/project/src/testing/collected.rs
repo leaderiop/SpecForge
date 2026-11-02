@@ -36,6 +36,7 @@ pub fn collected_wire() -> Value {
     json!([{"name": "test", "keyword": "test", "writer": "collector", "schemes": ["js"], "fields": [
         {"name": "file", "field_type": "string"},
         {"name": "status", "field_type": "string"},
+        {"name": "covers", "field_type": "reference_list"},
     ]}])
 }
 
