@@ -176,3 +176,57 @@ fn trace_human_marks_missing_links() {
     assert!(text.starts_with("checkout [feature]\n"), "{text}");
     assert!(!text.contains("MISSING"), "{text}");
 }
+
+#[specforge_test(
+    behavior = "follow_trace_route",
+    verify = "a named route, the reach, and every entity are traced as asked, and a wrong route is refused"
+)]
+fn a_route_no_extension_declares_is_refused() {
+    let dir = TestProject::new()
+        .without_config()
+        .files(&[("main.spec", SPEC_CONTENT)]);
+    let json = Cli::on(&dir).run(&["trace", "alpha", "--route", "nope"]);
+    assert_eq!(json.code, 1, "{}", json.stderr);
+    let refusal: serde_json::Value = serde_json::from_str(&json.stdout).unwrap();
+    assert_eq!(refusal["code"], "unknown_route", "{refusal}");
+    let human = Cli::on(&dir).run(&["trace", "alpha", "--route", "nope", "--format", "human"]);
+    assert_eq!(human.code, 1);
+    assert!(
+        human.stderr.contains("Unknown route 'nope'"),
+        "{}",
+        human.stderr
+    );
+}
+
+#[specforge_test(
+    behavior = "render_trace_thread",
+    verify = "specforge trace prints a route trace's thread, and --reach the generic chain"
+)]
+fn reach_is_the_generic_chain() {
+    let dir = TestProject::new()
+        .without_config()
+        .files(&[("main.spec", SPEC_CONTENT)]);
+    let reach = Cli::on(&dir).run(&["trace", "alpha", "--reach", "--format", "json"]);
+    let declared = Cli::on(&dir).run(&["trace", "alpha", "--format", "json"]);
+    assert_eq!(reach.code, 0, "{}", reach.stderr);
+    assert_eq!(reach.stdout, declared.stdout);
+}
+
+#[test]
+fn route_and_plan_conflict() {
+    let dir = TestProject::new()
+        .without_config()
+        .files(&[("main.spec", SPEC_CONTENT), ("plan.json", "{}")]);
+    let plan = dir.root().join("plan.json");
+    let output = Cli::on(&dir).run(&["trace", "--route", "x", "--plan", plan.to_str().unwrap()]);
+    assert_eq!(output.code, 2, "{}", output.stderr);
+}
+
+#[test]
+fn partial_and_reach_conflict() {
+    let dir = TestProject::new()
+        .without_config()
+        .files(&[("main.spec", SPEC_CONTENT)]);
+    let output = Cli::on(&dir).run(&["trace", "alpha", "--reach", "--partial"]);
+    assert_eq!(output.code, 2, "{}", output.stderr);
+}

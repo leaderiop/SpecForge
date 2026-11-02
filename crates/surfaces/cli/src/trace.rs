@@ -17,6 +17,19 @@ pub(crate) struct Args {
     #[arg(long, value_name = "FILE", value_parser = plan_file, conflicts_with = "entity")]
     plan: Option<AgentPlan>,
 
+    /// Follow this route (its qualified name, `<extension>/<route>`); with no entity, trace every entity of its
+    /// start kind
+    #[arg(long, value_name = "NAME", conflicts_with_all = ["plan", "reach"])]
+    route: Option<String>,
+
+    /// Trace the entity's reach both ways, whatever route starts at its kind
+    #[arg(long, conflicts_with = "plan")]
+    reach: bool,
+
+    /// Print a route's thread even when it is incomplete, with a `no <step>` marker where it falls short
+    #[arg(long, conflicts_with_all = ["plan", "reach"])]
+    partial: bool,
+
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
@@ -34,11 +47,13 @@ fn plan_file(path: &str) -> Result<AgentPlan, String> {
 
 impl Args {
     /// `specforge trace [entity]`: the trace operation over the project
-    /// compiled at `path`: one entity's chain, or every entity's when none
-    /// is named. Expected edges come from the loaded extensions'
-    /// registries; the ones a chain lacks are reported as missing. With
-    /// `--plan`, the plan check of an agent plan file instead (exit 1 when
-    /// the plan fails).
+    /// compiled at `path`: one entity's trace, or every entity's when none
+    /// is named. An entity of a kind a loaded extension declares a route
+    /// from is traced along it (`--route` names one, `--reach` asks for the
+    /// chain instead); any other by its chain, whose expected edges come
+    /// from the loaded extensions' registries and are reported missing
+    /// when lacking. With `--plan`, the plan check of an agent plan file
+    /// instead (exit 1 when the plan fails).
     pub(crate) fn run(self, terminal: &Terminal) -> Exit {
         let project = match self.project.compile() {
             Ok(project) => project,
@@ -46,21 +61,25 @@ impl Args {
         };
         let view = ProjectView::of(&project);
         // clap refuses an entity with --plan first; the reading is the operation's all the same.
-        let (target, follow) =
-            match Ask::of(self.entity.as_deref(), self.plan.as_ref(), None, false) {
-                Err(refusal) => {
-                    return Refusal::of(self.format).report(terminal, &refusal.into_error());
+        let (target, follow) = match Ask::of(
+            self.entity.as_deref(),
+            self.plan.as_ref(),
+            self.route.as_deref(),
+            self.reach,
+        ) {
+            Err(refusal) => {
+                return Refusal::of(self.format).report(terminal, &refusal.into_error());
+            }
+            Ok(Ask::Plan(plan)) => {
+                let outcome = specforge_ops::read::plan::check(&view, plan);
+                match self.format {
+                    OutputFormat::Human => out!(terminal, "{}", plan_text(&outcome)),
+                    OutputFormat::Json => terminal.json(&outcome),
                 }
-                Ok(Ask::Plan(plan)) => {
-                    let outcome = specforge_ops::read::plan::check(&view, plan);
-                    match self.format {
-                        OutputFormat::Human => out!(terminal, "{}", plan_text(&outcome)),
-                        OutputFormat::Json => terminal.json(&outcome),
-                    }
-                    return Exit::of_verdict(outcome.ok);
-                }
-                Ok(Ask::Trace(target, follow)) => (target, follow),
-            };
+                return Exit::of_verdict(outcome.ok);
+            }
+            Ok(Ask::Trace(target, follow)) => (target, follow),
+        };
         let traced = match specforge_ops::read::trace::trace(&view, target, follow) {
             Ok(traced) => traced,
             Err(refusal) => return Refusal::of(self.format).report(terminal, &refusal),
@@ -68,10 +87,21 @@ impl Args {
 
         let outcome = Notes::new(terminal, self.format).noticed(traced);
         match self.format {
-            OutputFormat::Human => out!(terminal, "{}", trace_text(&outcome)),
+            OutputFormat::Human => out!(terminal, "{}", trace_text(&outcome, self.partial())),
             OutputFormat::Json => terminal.json(&outcome),
         }
         Exit::Passed
+    }
+}
+
+impl Args {
+    /// Whether a route's incomplete thread prints (`--partial`).
+    fn partial(&self) -> Partial {
+        if self.partial {
+            Partial::Yes
+        } else {
+            Partial::No
+        }
     }
 }
 
@@ -103,22 +133,22 @@ fn plan_text(outcome: &PlanOutcome) -> String {
 }
 
 /// The traces as terminal text, one block per trace, separated by a blank line.
-fn trace_text(outcome: &TraceOutcome) -> String {
+fn trace_text(outcome: &TraceOutcome, partial: Partial) -> String {
     outcome
         .traces()
         .iter()
         .map(|trace| match trace {
             Trace::Chain(chain) => chain_text(chain),
-            Trace::Route(route) => route_text(route),
+            Trace::Route(route) => route_text(route, partial),
         })
         .collect::<Vec<_>>()
         .join("\n")
 }
 
-/// A route's thread as terminal text: the thread when it is complete, else the line that says it is not.
-fn route_text(route: &RouteTrace) -> String {
+/// A route's thread as terminal text: the thread `partial` prints, else the line that says it is incomplete.
+fn route_text(route: &RouteTrace, partial: Partial) -> String {
     let thread = route
-        .thread(Partial::No)
+        .thread(partial)
         .unwrap_or_else(|| route.incomplete_line());
     format!("{thread}\n")
 }
@@ -258,6 +288,53 @@ mod tests {
                 "  missing:\n",
                 "    MISSING b -invariants-> [invariant] (depth 1)\n",
             )
+        );
+    }
+
+    /// The trace of AUTH-07 over the routed GSD fixture whose spec is `spec`, along its kind's route.
+    fn routed(spec: &str) -> TraceOutcome {
+        use specforge_project::SharedRuntime;
+        use specforge_project::testing::{gsd_routed_project, gsd_routed_runtime};
+        let project = gsd_routed_project(spec);
+        let compiled =
+            project.compile_in(std::sync::Arc::new(gsd_routed_runtime()) as SharedRuntime);
+        let traced = specforge_ops::read::trace::trace(
+            &ProjectView::of(&compiled),
+            specforge_ops::read::trace::Target::Entity("AUTH-07"),
+            specforge_ops::read::trace::Follow::Declared,
+        );
+        let (terminal, _) = crate::terminal::Terminal::captured("", crate::terminal::Facts::PIPED);
+        Notes::new(&terminal, OutputFormat::Human).noticed(traced.unwrap())
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "render_trace_thread",
+        verify = "specforge trace prints a route trace's thread, and --reach the generic chain"
+    )]
+    fn a_route_trace_prints_its_thread_text() {
+        use specforge_project::testing::GSD_ROUTED_SPEC;
+        assert_eq!(
+            trace_text(&routed(GSD_ROUTED_SPEC), Partial::No),
+            "AUTH-07 → plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → auth-keeps-session (passed) → TR1 \
+             missing\n"
+        );
+    }
+
+    #[test]
+    fn an_incomplete_route_trace_prints_its_one_line_unless_partial() {
+        use specforge_project::testing::GSD_ROUTED_SPEC;
+        let spec = GSD_ROUTED_SPEC.replace(
+            "  requirements [AUTH-07]\n  files_modified",
+            "  files_modified",
+        );
+        let outcome = routed(&spec);
+        assert_eq!(
+            trace_text(&outcome, Partial::No),
+            "AUTH-07: incomplete thread (no plan); print it with: specforge trace AUTH-07 --partial\n"
+        );
+        assert_eq!(
+            trace_text(&outcome, Partial::Yes),
+            "AUTH-07 → no plan → auth-keeps-session (passed) → TR1 missing\n"
         );
     }
 }

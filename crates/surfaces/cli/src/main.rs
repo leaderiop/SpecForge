@@ -105,7 +105,7 @@ enum Commands {
     Outline(outline::Args),
     /// Query the graph at multiple resolutions
     Query(query::Args),
-    /// Show traceability chain for an entity, or for every entity
+    /// Show an entity's thread along its kind's route, its traceability chain, or every entity's
     Trace(trace::Args),
     /// Format .spec files
     Format(format::Args),

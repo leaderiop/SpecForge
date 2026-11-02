@@ -82,4 +82,5 @@ behavior render_trace_thread "Render a Trace Thread" {
   verify unit "several matches of a step print as branches of a tree"
   verify unit "only a complete thread prints by default, its dead-end branches left out, and a partial one with --partial"
   verify unit "the summary counts a step's matches"
+  verify unit "specforge trace prints a route trace's thread, and --reach the generic chain"
 }
