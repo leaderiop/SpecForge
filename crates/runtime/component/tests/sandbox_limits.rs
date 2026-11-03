@@ -464,3 +464,50 @@ fn a_call_cut_at_its_budget_names_the_budget() {
         trap_message(&result)
     );
 }
+
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "under a work budget a call is held to its instructions, not to the time budget its caller gave"
+)]
+fn a_work_budget_replaces_the_callers_time_budget() {
+    // A budget of 0 ms traps at the guest's first checkpoint, unless the work budget lifts it.
+    let runtime = ComponentRuntime::new().with_work_budget(1_000_000);
+    runtime
+        .load("@repro/spin", &bridge_component(0, 50_000, false, "{}"))
+        .expect("the spinning guest instantiates");
+    let result = runtime.call_export_within("@repro/spin", "anything", b"{}", 0);
+    assert!(answered(&result), "{result:?}");
+
+    // Work past the budget traps, naming it, whatever the time budget.
+    let runtime = ComponentRuntime::new().with_work_budget(1_000_000);
+    runtime
+        .load("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
+        .expect("the spinning guest instantiates");
+    let result = runtime.call_export_within("@repro/spin", "anything", b"{}", u32::MAX);
+    assert_eq!(trap_kind(&result), "fuel_exhausted", "{result:?}");
+    assert!(
+        trap_message(&result).contains("1000000"),
+        "{}",
+        trap_message(&result)
+    );
+
+    // The extension's own limit still holds.
+    let runtime = ComponentRuntime::new().with_work_budget(u64::MAX);
+    runtime
+        .load("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .expect("the spinning guest instantiates");
+    runtime.apply_limits(
+        "@repro/spin",
+        Limits {
+            execution_ms: 50,
+            ..Limits::CEILING
+        },
+    );
+    let result = runtime.call_export_within("@repro/spin", "anything", b"{}", 10);
+    assert_eq!(trap_kind(&result), "deadline_exceeded", "{result:?}");
+    assert!(
+        trap_message(&result).contains("50 ms execution limit"),
+        "{}",
+        trap_message(&result)
+    );
+}

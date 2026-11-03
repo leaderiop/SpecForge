@@ -179,6 +179,23 @@ struct PluginInstance {
 /// before each), shared by every surface.
 pub const DEFAULT_FUEL_LIMIT: u64 = 30_000 * 20_000_000;
 
+/// The environment variable that holds every call to a work budget
+/// ([`ComponentRuntime::with_work_budget`]): a positive number of
+/// instructions.
+pub const WORK_BUDGET_ENV: &str = "SPECFORGE_WASM_FUEL";
+
+/// The work budget `value` of [`WORK_BUDGET_ENV`] selects: `None` when it
+/// is unset, the value back when it is no positive number.
+fn work_budget(value: Option<std::ffi::OsString>) -> Result<Option<u64>, std::ffi::OsString> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    match value.to_str().and_then(|s| s.parse::<u64>().ok()) {
+        Some(fuel) if fuel > 0 => Ok(Some(fuel)),
+        _ => Err(value),
+    }
+}
+
 /// Granularity of the epoch ticker: a plugin's `max_execution_ms` deadline is
 /// never enforced early, and overshoots by at most two of these intervals
 /// (plus scheduling delay). 10 ms keeps deadline precision well under any
@@ -248,6 +265,9 @@ pub struct ComponentRuntime {
     /// still serialize (audit C7-10).
     plugins: Mutex<HashMap<String, Arc<Mutex<PluginInstance>>>>,
     fuel: u64,
+    /// Whether `fuel` replaces the time budget a caller gives a call
+    /// ([`Self::with_work_budget`]).
+    work_bound: bool,
     /// Drives epoch interruption; must outlive every `Store`.
     _ticker: EpochTicker,
 }
@@ -304,17 +324,42 @@ impl ComponentRuntime {
             );
         }
         let engine = Engine::new(&config).expect("engine initializes");
-        Self {
+        let runtime = Self {
             _ticker: EpochTicker::spawn(engine.clone()),
             engine,
             plugins: Mutex::new(HashMap::new()),
             fuel: DEFAULT_FUEL_LIMIT,
+            work_bound: false,
+        };
+        match work_budget(std::env::var_os(WORK_BUDGET_ENV)) {
+            Ok(Some(fuel)) => runtime.with_work_budget(fuel),
+            Ok(None) => runtime,
+            Err(value) => {
+                eprintln!(
+                    "warning: {WORK_BUDGET_ENV}={value:?} is not a positive number of \
+                     instructions; it is ignored"
+                );
+                runtime
+            }
         }
     }
 
     /// Deterministic per-call instruction budget, enforced by the engine.
     pub fn with_fuel_limit(mut self, fuel: u64) -> Self {
         self.fuel = fuel;
+        self
+    }
+
+    /// Hold every call to `fuel` instructions (at most
+    /// [`DEFAULT_FUEL_LIMIT`]) in place of the time budget its caller gives
+    /// it (a hook's `timeout_ms`): whether such a call answers then depends
+    /// on its input, not on how busy the machine is. The extension's own
+    /// limit (`max_execution_ms`) still holds, as a loose ceiling. What
+    /// [`WORK_BUDGET_ENV`] selects: a test bounds a guest's work with it on
+    /// a loaded machine.
+    pub fn with_work_budget(mut self, fuel: u64) -> Self {
+        self.fuel = fuel.min(DEFAULT_FUEL_LIMIT);
+        self.work_bound = true;
         self
     }
 
@@ -509,6 +554,9 @@ impl WasmRuntime for ComponentRuntime {
                 export_name: export.to_string(),
             });
         }
+        // Under a work budget the fuel bounds the call, and only the
+        // extension's own limit is a deadline.
+        let max_ms = if self.work_bound { u32::MAX } else { max_ms };
         store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms.min(max_ms))));
         match bindings.call_call(&mut *store, name, export, input) {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
@@ -641,7 +689,23 @@ fn enable_compile_cache(config: &mut Config, dir: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod deadline_tests {
-    use super::{EPOCH_TICK_MS, ms_to_ticks};
+    use super::{EPOCH_TICK_MS, ms_to_ticks, work_budget};
+
+    #[test]
+    fn a_work_budget_is_a_positive_number_of_instructions() {
+        assert_eq!(work_budget(None), Ok(None));
+        assert_eq!(
+            work_budget(Some("4000000000".into())),
+            Ok(Some(4_000_000_000))
+        );
+        for refused in ["0", "-1", "", "2e9", "lots"] {
+            assert_eq!(
+                work_budget(Some(refused.into())),
+                Err(refused.into()),
+                "{refused}"
+            );
+        }
+    }
 
     #[test]
     fn ms_to_ticks_never_undercounts_the_budget() {

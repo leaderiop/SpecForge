@@ -18,6 +18,8 @@ pub const HOSTS: [&str; 3] = ["claude-code", "codex", "cursor"];
 /// A temp `HOME` and a `bin/` with a `specforge` symlink: what a host's shell finds.
 pub struct Home {
     dir: tempfile::TempDir,
+    /// The work budget the hooks run under (`SPECFORGE_WASM_FUEL`), in place of their timeout.
+    fuel: Option<u64>,
 }
 
 impl Home {
@@ -27,7 +29,14 @@ impl Home {
         std::fs::create_dir_all(&bin).expect("bin");
         let binary = std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN");
         std::os::unix::fs::symlink(binary, bin.join("specforge")).expect("a symlink");
-        Home { dir }
+        Home { dir, fuel: None }
+    }
+
+    /// Hooks run here are held to `fuel` instructions instead of their timeout: a bound on their work that holds
+    /// however busy the machine is.
+    pub fn with_work_budget(mut self, fuel: u64) -> Self {
+        self.fuel = Some(fuel);
+        self
     }
 
     pub fn path(&self) -> &Path {
@@ -111,7 +120,11 @@ pub fn run_installed(p: &Project, command: &str, stdin: &str, home: &Home) -> Ru
         home.bin().display(),
         std::env::var("PATH").unwrap_or_default()
     );
-    let mut child = Command::new("sh")
+    let mut sh = Command::new("sh");
+    if let Some(fuel) = home.fuel {
+        sh.env("SPECFORGE_WASM_FUEL", fuel.to_string());
+    }
+    let mut child = sh
         .arg("-c")
         .arg(command)
         .current_dir(p.root())
