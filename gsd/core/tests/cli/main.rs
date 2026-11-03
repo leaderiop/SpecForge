@@ -53,6 +53,9 @@ mod judged;
 mod judged_flow;
 mod judged_refusals;
 mod ladder;
+#[path = "../common/node.rs"]
+mod node;
+mod node_test;
 mod parity_discuss;
 mod parity_gate_cutover;
 mod parity_plans;

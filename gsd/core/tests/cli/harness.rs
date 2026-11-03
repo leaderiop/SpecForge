@@ -113,9 +113,15 @@ pub fn project(name: &str) -> Project {
     )
 }
 
-/// The parity suite's taskboard fixture: its `spec/` twin of the GSD project beside its `.planning/`.
+/// The builtins the taskboard twin loads beside `@gsd/core`: the test facts and the runner pack that collects them,
+/// so its tests run against the project as the requirement thread configures it.
+pub const TWIN_BUILTINS: [&str; 2] = ["@code/core", "@javascript/node-test"];
+
+/// The parity suite's taskboard fixture: its `spec/` twin of the GSD project beside its `.planning/`, loading
+/// [`TWIN_BUILTINS`].
 pub fn taskboard() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"))
+        .with_builtins(&TWIN_BUILTINS)
 }
 
 /// The security parity suite's vault fixture: its `spec/` twin of the GSD project beside its `.planning/`.
@@ -133,6 +139,7 @@ pub fn taskboard_at(inside: &str) -> Project {
         &Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"),
         inside,
     )
+    .with_builtins(&TWIN_BUILTINS)
 }
 
 fn from_dir(source: &Path) -> Project {
@@ -539,6 +546,16 @@ impl Project {
         all.extend_from_slice(args);
         all.extend(["--yes", "--format", "json"]);
         self.run(&all)
+    }
+
+    /// `collect --runner node-test --no-run` over the twin's recorded JUnit report (`goldens/taskboard/junit.xml`),
+    /// put where `@javascript/node-test` reads it: the thread's test facts without running node.
+    pub fn collect_node_test_golden(&self) -> Run {
+        let golden =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
+        let report = std::fs::read_to_string(&golden).expect("the twin's recorded JUnit report");
+        self.write(".specforge/reports/node-test.xml", &report);
+        self.collect(&["--runner", "node-test", "--no-run"])
     }
 
     /// Records one passing test for the `execute` project's deliverable check (`test/tasks.test.js#adds a task`), as
