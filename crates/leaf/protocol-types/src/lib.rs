@@ -35,6 +35,7 @@ mod code_catalog;
 pub mod command_args;
 mod contrib;
 mod declaration;
+mod effects;
 mod field;
 mod judged;
 mod plan;
@@ -53,6 +54,10 @@ pub use contrib::*;
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
     protocol_minor,
+};
+pub use effects::{
+    EffectRecord, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
+    OutcomeClass, ProcessRequest, REDACTED, Redirected, UnknownClass, Unreachable,
 };
 pub use field::FieldDescriptor;
 pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgement};

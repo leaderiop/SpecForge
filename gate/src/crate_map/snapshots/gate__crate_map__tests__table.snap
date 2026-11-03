@@ -47,7 +47,7 @@ From parsed files to output: import resolution, the graph build, the Registry bu
 
 ### `kernel`
 
-The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols and the project root.
+The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols, the project root, and the effect plane's ports and containment.
 
 | Crate | Package | Owns |
 |---|---|---|

@@ -1,0 +1,33 @@
+[package]
+name = "specforge-effects"
+description = "The effect plane: the Process, Http and Fs ports every host effect goes through, their canonical digests and the one path containment (ADR 0335)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+autotests = false
+
+[features]
+# `specforge_effects::testing`: the ports' fakes and the contracts every adapter keeps. No production code reads it.
+testing = []
+
+[dependencies]
+# `find_close_match` for a contained suggestion; `path_glob` for a walk.
+specforge-common = { path = "../common" }
+# `Sha256`, and the package ceiling an HTTP body is held to.
+specforge-package = { path = "../../leaf/package" }
+# The wire types of every request and outcome class.
+specforge-protocol-types = { path = "../../leaf/protocol-types" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+specforge-effects = { path = ".", features = ["testing"] }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
+
+[[test]]
+name = "suite"
+path = "tests/suite.rs"

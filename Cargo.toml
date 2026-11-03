@@ -11,6 +11,7 @@ members = [
     "crates/leaf/repo-root",
     # kernel
     "crates/kernel/common",
+    "crates/kernel/effects",
     "crates/kernel/parser",
     "crates/kernel/shape-macros",
     "crates/kernel/tree-sitter",

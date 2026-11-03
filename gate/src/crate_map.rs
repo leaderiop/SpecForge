@@ -43,7 +43,7 @@ fn owns(layer: &str) -> Option<&'static str> {
             "From parsed files to output: import resolution, the graph build, the Registry build and its checks, formatting, migration and the export formats."
         }
         "kernel" => {
-            "The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols and the project root."
+            "The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols, the project root, and the effect plane's ports and containment."
         }
         "leaf" => {
             "Crates with no SpecForge dependency but the guest wire: the wire itself, the diagnostic catalog, the coverage rule, the cycle answer, package names and the repository root. Guests build from some of them (ADR 0050)."

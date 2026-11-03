@@ -95,11 +95,12 @@ From parsed files to output: import resolution, the graph build, the Registry bu
 
 ### `kernel`
 
-The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols and the project root.
+The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols, the project root, and the effect plane's ports and containment.
 
 | Crate | Package | Owns |
 |---|---|---|
 | [`common`](kernel/common/) | `specforge-common` | What every host crate shares: the diagnostic and its source span, the interned symbol, the project root and its specforge.json, .spec discovery, the JSON shape (ADR 0048) and how diagnostics print |
+| [`effects`](kernel/effects/) | `specforge-effects` | The effect plane: the Process, Http and Fs ports every host effect goes through, their canonical digests and the one path containment (ADR 0335) |
 | [`parser`](kernel/parser/) | `specforge-parser` | The .spec language read from text: the one lexer, the recovered syntax, the AST, the expression grammar and the format version (ADR 0038, ADR 0063) |
 | [`shape-macros`](kernel/shape-macros/) | `specforge-shape-macros` | Derive macro for specforge-common: a type's JSON shape is derived beside its serialization (ADR 0048) |
 | [`tree-sitter`](kernel/tree-sitter/) | `tree-sitter-specforge` | The tree-sitter grammar of the .spec language: grammar.js, the generated parser and its scanner, the node-kind and field vocabulary, and the editor queries |

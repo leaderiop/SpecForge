@@ -77,6 +77,13 @@ module specforge_parser "specforge-parser" {
   tags        ["parser", "pipeline"]
 }
 
+module specforge_effects "specforge-effects" {
+  family      core
+  description "The effect plane: the Process, Http and Fs ports every host effect goes through, their canonical digests and the one path containment (ADR 0335)"
+  depends_on  [specforge_common, specforge_package, specforge_protocol_types]
+  tags        ["kernel"]
+}
+
 module specforge_shape_macros "specforge-shape-macros" {
   family      core
   description "Derive macro for specforge-common: a type's JSON shape is derived beside its serialization (ADR 0048)"

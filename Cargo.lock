@@ -2911,6 +2911,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-effects"
+version = "0.3.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specforge-common",
+ "specforge-effects",
+ "specforge-package",
+ "specforge-protocol-types",
+ "tempfile",
+]
+
+[[package]]
 name = "specforge-emitter"
 version = "0.3.0"
 dependencies = [
