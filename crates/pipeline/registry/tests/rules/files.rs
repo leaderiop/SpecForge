@@ -591,3 +591,97 @@ fn a_missing_path_in_a_block_member_points_at_the_member() {
     assert_eq!(messages(&diagnostics), ["b1: missing 'gone.md'"]);
     assert_eq!(diagnostics[0].span.as_ref().map(|s| s.start_line), Some(7));
 }
+
+/// The diagnostics of the checks over a behavior `alpha` listing `paths` in its `gherkin`, read through
+/// `PlainDisk`: `proj/spec/` is the spec root and holds `Readme.md`, and `outside/secret.txt` lies outside
+/// `proj/`. `paths` is given the temporary directory, so an absolute path can name the outside file.
+fn plain(paths: impl FnOnce(&Path) -> Vec<String>) -> Vec<Diagnostic> {
+    let dir = tempfile::TempDir::new().unwrap();
+    let base = dir.path().canonicalize().unwrap();
+    let (project, spec, outside) = (
+        base.join("proj"),
+        base.join("proj/spec"),
+        base.join("outside"),
+    );
+    std::fs::create_dir_all(&spec).unwrap();
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::write(spec.join("Readme.md"), "read me").unwrap();
+    std::fs::write(outside.join("secret.txt"), "secret").unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(outside.join("secret.txt"), spec.join("link.md")).unwrap();
+    let written = paths(&base);
+    let written: Vec<&str> = written.iter().map(String::as_str).collect();
+    let records = [
+        EntityRecord::new("behavior", "alpha", span("main.spec")).with_list("gherkin", &written)
+    ];
+    build([gherkin()]).check(
+        &RuleInput {
+            entities: &records,
+            edges: &[],
+            spec_root: &spec,
+            project_root: &project,
+            disk: &specforge_registry::PlainDisk,
+        },
+        &NoVerdicts,
+    )
+}
+
+fn codes(diagnostics: &[Diagnostic]) -> Vec<String> {
+    diagnostics.iter().map(|d| d.code.to_string()).collect()
+}
+
+#[test]
+#[ignore = "pin: 01-D1, flipped by 01 T7"]
+fn contained_a_path_climbing_out_is_e094() {
+    let diagnostics = plain(|_| vec!["../../outside/secret.txt".into()]);
+    assert_eq!(codes(&diagnostics), ["E094"], "{diagnostics:?}");
+}
+
+#[test]
+#[ignore = "pin: 01-D2, flipped by 01 T7"]
+fn contained_an_absolute_path_is_e094() {
+    let diagnostics = plain(|base| {
+        vec![
+            base.join("outside/secret.txt")
+                .to_string_lossy()
+                .into_owned(),
+        ]
+    });
+    assert_eq!(codes(&diagnostics), ["E094"], "{diagnostics:?}");
+}
+
+#[cfg(unix)]
+#[test]
+#[ignore = "pin: 01-D3, flipped by 01 T7"]
+fn contained_a_link_out_is_e094() {
+    let diagnostics = plain(|_| vec!["link.md".into()]);
+    assert_eq!(codes(&diagnostics), ["E094"], "{diagnostics:?}");
+}
+
+#[test]
+#[ignore = "pin: 01-D4, flipped by 01 T7"]
+fn contained_a_case_mismatch_is_w174() {
+    let diagnostics = plain(|_| vec!["README.md".into()]);
+    assert_eq!(codes(&diagnostics), ["W174"], "{diagnostics:?}");
+    assert!(
+        diagnostics[0].message.contains("Readme.md")
+            || diagnostics[0]
+                .suggestion
+                .as_deref()
+                .is_some_and(|s| s.contains("Readme.md")),
+        "{diagnostics:?}"
+    );
+}
+
+#[test]
+#[ignore = "pin: 01-D5, flipped by 01 T7"]
+fn contained_a_suggestion_never_lists_outside_its_root() {
+    let diagnostics = plain(|_| vec!["../../outside/secrat.txt".into()]);
+    assert!(!diagnostics.is_empty());
+    assert!(
+        diagnostics
+            .iter()
+            .all(|d| !d.suggestion.as_deref().unwrap_or("").contains("secret")),
+        "{diagnostics:?}"
+    );
+}
