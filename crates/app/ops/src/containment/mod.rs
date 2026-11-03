@@ -15,6 +15,8 @@ pub use file::{ReadFailure, declared};
 
 use std::path::{Path, PathBuf};
 
+use specforge_effects::RealFs;
+
 use crate::{OpError, OpErrorKind};
 
 /// The code of every refusal [`Outside`] becomes through `From` (an `OpError` code string, not a
@@ -60,7 +62,7 @@ impl Containment {
     /// The paths that land inside `root`, as it is on disk now.
     pub fn within(root: &Path) -> Self {
         Containment {
-            root: Some(landing(root)),
+            root: Some(RealFs::landing(root)),
         }
     }
 
@@ -101,7 +103,7 @@ impl Containment {
 
     /// The name `named`, read at `at`, held: its landing checked against the root when bounded.
     fn hold(&self, named: PathBuf, at: PathBuf) -> Result<Held, Outside> {
-        let real = landing(&at);
+        let real = RealFs::landing(&at);
         match &self.root {
             Some(root) if !real.starts_with(root) => Err(Outside {
                 named,
@@ -156,11 +158,6 @@ impl From<Outside> for OpError {
             ),
         )
     }
-}
-
-/// Where `path` lands on the real file system (`specforge_effects::contained::landing`).
-pub(crate) fn landing(path: &Path) -> PathBuf {
-    specforge_effects::RealFs::landing(path)
 }
 
 #[cfg(test)]

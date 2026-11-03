@@ -1,7 +1,7 @@
 //! What a hook is told that its sandbox cannot read (ADR 0292): the paths its tool names with what the disk says of
 //! them, a shell tool's command as words, and the commit a `git commit` makes.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde_json::Value;
 use specforge_project::history::{History, Located};
@@ -27,37 +27,11 @@ pub fn path_names(input: &Value) -> Vec<String> {
     out
 }
 
-/// `path` made absolute against `cwd`, with `.` and `..` resolved and, as far as the path exists, its links.
-fn absolute(cwd: &Path, path: &str) -> PathBuf {
-    let joined = if Path::new(path).is_absolute() {
-        PathBuf::from(path)
-    } else {
-        cwd.join(path)
-    };
-    // Component by component, so a link is followed before a `..` after it (as the OS does) and a path that does not
-    // exist yet is its nearest existing ancestor's real path plus the rest.
-    let mut resolved = PathBuf::new();
-    for part in joined.components() {
-        match part {
-            std::path::Component::ParentDir => {
-                resolved.pop();
-            }
-            std::path::Component::CurDir => {}
-            other => {
-                resolved.push(other);
-                if let Ok(real) = std::fs::canonicalize(&resolved) {
-                    resolved = real;
-                }
-            }
-        }
-    }
-    resolved
-}
-
 /// `path` relative to `root` with `/`, when it lies inside.
 pub fn relative_to(root: &Path, cwd: &Path, path: &str) -> Option<String> {
     let real_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-    let inside = absolute(cwd, path);
+    // Made absolute against `cwd` and walked link by link, so a link is followed before a `..` after it (ADR 0335).
+    let inside = specforge_effects::RealFs::landing(&cwd.join(path));
     let rel = inside.strip_prefix(&real_root).ok()?;
     Some(rel.to_string_lossy().replace('\\', "/"))
 }
@@ -79,7 +53,9 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
                     || rel == spec_root
                     || rel.starts_with(&format!("{spec_root}/"));
                 PathFact {
-                    real: absolute(cwd, &name).to_string_lossy().into_owned(),
+                    real: specforge_effects::RealFs::landing(&cwd.join(&name))
+                        .to_string_lossy()
+                        .into_owned(),
                     path: rel,
                     in_project: true,
                     in_spec_root,
@@ -90,7 +66,9 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
                 }
             }
             None => PathFact {
-                real: absolute(cwd, &name).to_string_lossy().into_owned(),
+                real: specforge_effects::RealFs::landing(&cwd.join(&name))
+                    .to_string_lossy()
+                    .into_owned(),
                 path: name,
                 in_project: false,
                 in_spec_root: false,
@@ -320,12 +298,10 @@ mod tests {
         std::fs::create_dir_all(base.join("wt")).unwrap();
         std::os::unix::fs::symlink(base.join("main/src"), base.join("wt/mainsrc")).unwrap();
         let wt = base.join("wt");
-        assert_eq!(
-            absolute(&wt, "mainsrc/new/a.ts"),
-            base.join("main/src/new/a.ts")
-        );
+        let landing = |path: &str| specforge_effects::RealFs::landing(&wt.join(path));
+        assert_eq!(landing("mainsrc/new/a.ts"), base.join("main/src/new/a.ts"));
         // `..` after a link is the link target's parent, as the OS reads it.
-        assert_eq!(absolute(&wt, "mainsrc/../x.ts"), base.join("main/x.ts"));
+        assert_eq!(landing("mainsrc/../x.ts"), base.join("main/x.ts"));
     }
 
     fn commit_of(command: &str) -> Option<CommitFact> {

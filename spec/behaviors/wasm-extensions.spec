@@ -557,6 +557,7 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "each report file reaches the collector by its project path, however it was named"
   verify unit "a collector receives the facts of the files it declares it reads, and none when it declares none"
   verify unit "a collector's read is held to the project and withholds a credential's text, as a pass's is"
+  verify unit "a read path whose case differs from the disk is absent on every OS"
   verify unit "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
   verify unit "a collector's facts are stored under the key of the commit they were collected at and their digest is recorded in specforge-harness"
   verify unit "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
