@@ -1,0 +1,24 @@
+[package]
+name = "specforge-process"
+description = "The adapter behind the effect plane's Process port: the one runner every spawn goes through, with a deadline, a group or Job kill, an environment policy, Windows program resolution and output caps (ADR 0335)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+specforge-effects = { path = "../../kernel/effects" }
+
+# Path and manifest dependencies, not workspace ones: the blobs' inputs hash the root's (R34), and no guest needs them.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Console", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+[dev-dependencies]
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

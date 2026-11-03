@@ -5,7 +5,7 @@ expression: render_stack(&map)
 | Layer | Owns | Crates |
 |---|---|---|
 | `surfaces` | The programs: the specforge CLI, the language server, the MCP server and the package registry server. Each turns its protocol into calls on the layers below. | [`cli`](crates/surfaces/cli/) |
-| `adapters` | The package registry over HTTP, from both ends: its contract, the client, and the adapter behind the operations' Registry port (ADR 0010, ADR 0044). |  |
+| `adapters` | Pure-Rust adapters behind the effect plane's and the operations' ports: the process runner, git, the package registry and the agent hosts (ADR 0010, ADR 0044, ADR 0335). |  |
 | `app` | The user-level operations every surface shares: a typed request in, a typed outcome or a refusal out (ADR 0015). |  |
 | `session` | A project as it lives: the environment load, the compile, and the project session kept current from the file system and the editor (ADR 0047). |  |
 | `runtime` | Extensions: the host side of the protocol, the wasmtime component runtime, the installed extensions, and the SDK guests are written with (ADR 0013, ADR 0028). |  |

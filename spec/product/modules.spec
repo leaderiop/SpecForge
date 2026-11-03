@@ -288,6 +288,13 @@ module specforge_ops_registry "specforge-ops-registry" {
   tags        ["adapters"]
 }
 
+module specforge_process "specforge-process" {
+  family      integration
+  description "The adapter behind the effect plane's Process port: the one runner every spawn goes through, with a deadline, a group or Job kill, an environment policy, Windows program resolution and output caps (ADR 0335)"
+  depends_on  [specforge_effects]
+  tags        ["adapters"]
+}
+
 module specforge_registry_client "specforge-registry-client" {
   family      integration
   description "The package-registry client: search, resolve and publish over HTTP, credentials, publisher key pinning and package signing"

@@ -3230,6 +3230,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-process"
+version = "0.3.0"
+dependencies = [
+ "libc",
+ "specforge-effects",
+ "tempfile",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "specforge-project"
 version = "0.3.0"
 dependencies = [
