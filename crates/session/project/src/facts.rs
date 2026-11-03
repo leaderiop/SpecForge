@@ -7,6 +7,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, SourceRoot, SourceSpan, Sym, codes};
+use specforge_graph::field_form::spell;
+use specforge_graph::{FieldForm, FieldForms, Reading};
 use specforge_parser::{
     CURRENT_FORMAT_VERSION, Entity, EntityId, EntityKind, FieldEntry, FieldMap, FieldValue,
     ListItem, SpecFile, Written,
@@ -244,10 +246,11 @@ pub(crate) fn read(
 }
 
 /// The store `text` of the fact store `key` as one file of read-only entities (D5): each fact an entity of its kind,
-/// id, title and fields, spanned at the file's first character. A field's value is read by its JSON form: a string (a
-/// quoted reference too), an integer, a bool, an array of strings as a list of quoted items. W192 when the text is no
-/// store this specforge reads.
-pub(crate) fn served(key: &str, text: &str) -> Result<SpecFile, Diagnostic> {
+/// id, title and fields, spanned at the file's first character. A field's value is read from its JSON by the field's
+/// form in `forms`, as a `.spec` file writes it (ADR 0234): a string a word field holds bare is the bare word (an
+/// enum's `passed`, a reference's id), any other string text; an integer, a bool; an array of strings a list whose
+/// items are written as the field writes each. W192 when the text is no store this specforge reads.
+pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFile, Diagnostic> {
     let store = serde_json::from_str::<Store>(text).map_err(|e| unreadable(key, e))?;
     if store.store != Store::VERSION {
         return Err(unreadable(
@@ -273,7 +276,7 @@ pub(crate) fn served(key: &str, text: &str) -> Result<SpecFile, Diagnostic> {
         entities: store
             .facts
             .into_iter()
-            .map(|fact| entity(fact, &span))
+            .map(|fact| entity(fact, &span, forms))
             .collect(),
         errors: Vec::new(),
         format_version: CURRENT_FORMAT_VERSION,
@@ -281,11 +284,15 @@ pub(crate) fn served(key: &str, text: &str) -> Result<SpecFile, Diagnostic> {
     })
 }
 
-/// One fact as an entity spanned at `span`: titled by its id when it gives no title.
-fn entity(fact: Fact, span: &SourceSpan) -> Entity {
+/// One fact as an entity spanned at `span`, its values read by `forms`: titled by its id when it gives no title.
+fn entity(fact: Fact, span: &SourceSpan, forms: &FieldForms) -> Entity {
     let mut fields = FieldMap::new();
     for (name, value) in fact.fields {
-        if let Some(value) = field_value(value, span) {
+        let form = match forms.reading(&fact.kind, &name) {
+            Reading::Declared(form) => Some(form),
+            Reading::Member | Reading::Undeclared => None,
+        };
+        if let Some(value) = field_value(value, form, span) {
             // Spanned as its list items are, so a single reference (`test_run.test`) is a written token too.
             fields.push_entry(FieldEntry {
                 key: Sym::new(&name),
@@ -319,10 +326,17 @@ fn entity(fact: Fact, span: &SourceSpan) -> Entity {
     }
 }
 
-/// A fact's JSON value as a field value; `None` for a form no field holds (an object, a fraction, a null).
-fn field_value(value: serde_json::Value, span: &SourceSpan) -> Option<FieldValue> {
+/// A fact's JSON value as a field value of `form` (none for an undeclared field: text, items quoted); `None` for a
+/// form no field holds (an object, a fraction, a null).
+fn field_value(
+    value: serde_json::Value,
+    form: Option<&FieldForm>,
+    span: &SourceSpan,
+) -> Option<FieldValue> {
     use serde_json::Value;
+    let written = |text: &str| form.map_or(Written::Quoted, |form| spell::form(form, text));
     Some(match value {
+        Value::String(text) if written(&text) == Written::Bare => FieldValue::Identifier(text),
         Value::String(text) => FieldValue::String(text),
         Value::Bool(b) => FieldValue::Boolean(b),
         Value::Number(n) => FieldValue::Integer(n.as_i64()?),
@@ -331,9 +345,9 @@ fn field_value(value: serde_json::Value, span: &SourceSpan) -> Option<FieldValue
                 .into_iter()
                 .map(|item| match item {
                     Value::String(text) => Some(ListItem {
+                        written: written(&text),
                         text,
                         span: span.clone(),
-                        written: Written::Quoted,
                     }),
                     _ => None,
                 })
@@ -392,6 +406,7 @@ mod tests {
 
     use specforge_common::Exclude;
     use specforge_registry::MemoryDisk;
+    use std::collections::HashMap;
 
     const KEY: &str = ".specforge/facts/abc/node.json";
 
@@ -443,7 +458,7 @@ mod tests {
             panic!("a recorded store is served");
         };
 
-        let file = served(KEY, &text).unwrap();
+        let file = served(KEY, &text, &FieldForms::default()).unwrap();
 
         assert_eq!(file.path.as_str(), KEY);
         let ids: Vec<&str> = file.entities.iter().map(|e| e.id.raw.as_str()).collect();
@@ -487,9 +502,9 @@ mod tests {
     #[test]
     fn an_unreadable_fact_store_is_w192() {
         // A recorded store is read as it is, and parsed once, when it is served: no form of it is dropped silently.
-        let not_json = served(KEY, "{ not json").unwrap_err();
+        let not_json = served(KEY, "{ not json", &FieldForms::default()).unwrap_err();
         let newer = r#"{"store": 2, "collector": "node", "extension": "@t/node", "key": "abc", "facts": []}"#;
-        let newer = served(KEY, newer).unwrap_err();
+        let newer = served(KEY, newer, &FieldForms::default()).unwrap_err();
         let Read::Text(_) = read(
             &disk(b"{ not json", Some(recording(b"{ not json"))),
             &root(),
@@ -519,6 +534,51 @@ mod tests {
         ));
     }
 
+    /// `test`'s `status` declared an enum and its `names` a reference list.
+    fn declared() -> FieldForms {
+        use specforge_protocol_types::FieldType;
+        let field = |name: &str| ("test".to_string(), name.to_string());
+        let status = FieldForm::new(FieldType::Enum, vec!["passed".into(), "failed".into()]);
+        let names = FieldForm::new(FieldType::ReferenceList, Vec::new());
+        FieldForms::new(
+            HashMap::from([(field("status"), status), (field("names"), names)]),
+            BTreeSet::new(),
+            BTreeSet::from(["test".to_string()]),
+        )
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "build_in_memory_graph",
+        verify = "a fact's value is read by its field's form, as a spec file writes it: a word field's word is bare"
+    )]
+    fn a_facts_strings_are_read_by_their_fields_form() {
+        let fact = Fact::new("test", "js:a#b")
+            .field("status", "passed")
+            .field("file", "a.test.js")
+            .field("names", serde_json::json!(["v1/TR1", "a b"]));
+        let text =
+            String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact]).bytes()).unwrap();
+
+        let file = served(KEY, &text, &declared()).unwrap();
+
+        let fields = &file.entities[0].fields;
+        assert_eq!(
+            fields.get("status"),
+            Some(&FieldValue::Identifier("passed".into()))
+        );
+        assert_eq!(
+            fields.get("file"),
+            Some(&FieldValue::String("a.test.js".into())),
+            "an undeclared field's string stays text"
+        );
+        let Some(FieldValue::List(names)) = fields.get("names") else {
+            panic!("an array of strings is a list");
+        };
+        let names: Vec<(&str, Written)> =
+            names.iter().map(|n| (n.text.as_str(), n.written)).collect();
+        assert_eq!(names, [("v1/TR1", Written::Bare), ("a b", Written::Quoted)]);
+    }
+
     #[test]
     fn a_facts_field_values_become_field_values_by_their_form() {
         let fact = Fact::new("test", "js:a#b")
@@ -531,7 +591,7 @@ mod tests {
         let text =
             String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact]).bytes()).unwrap();
 
-        let file = served(KEY, &text).unwrap();
+        let file = served(KEY, &text, &FieldForms::default()).unwrap();
 
         let fields = &file.entities[0].fields;
         assert_eq!(

@@ -14,7 +14,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, SourceRoot, codes};
-use specforge_graph::{FileChange, GraphBuild};
+use specforge_graph::{FieldForms, FileChange, GraphBuild};
 use specforge_parser::{Previous, SpecFile, parse_incremental};
 use specforge_registry::Disk;
 
@@ -110,11 +110,13 @@ impl SourceCache {
     ///
     /// A `held` text (by source key) is read in place of its file: no file a
     /// buffer holds is read. A held key discovery does not find (a new file
-    /// not yet saved) is parsed too; the caller passes only source keys.
+    /// not yet saved) is parsed too; the caller passes only source keys. A fact
+    /// store's values are read by their fields' `forms`.
     pub fn read_all(
         keys: &[String],
         held: &BTreeMap<String, &str>,
         mut read: impl FnMut(&str) -> Read,
+        forms: &FieldForms,
     ) -> (Self, Vec<SpecFile>) {
         let mut cache = SourceCache::empty();
         let mut files = Vec::with_capacity(keys.len() + held.len());
@@ -125,28 +127,35 @@ impl SourceCache {
                 None => read(key),
             };
             seen.insert(key.clone());
-            cache.add(key.clone(), text, &mut files);
+            cache.add(key.clone(), text, &mut files, forms);
         }
         for (key, text) in held {
             if !seen.contains(key) {
-                cache.add(key.clone(), Read::Text((*text).to_string()), &mut files);
+                cache.add(
+                    key.clone(),
+                    Read::Text((*text).to_string()),
+                    &mut files,
+                    forms,
+                );
             }
         }
         (cache, files)
     }
 
     /// One cold-read source: parsed whole, or recorded unreadable.
-    fn add(&mut self, key: String, read: Read, files: &mut Vec<SpecFile>) {
+    fn add(&mut self, key: String, read: Read, files: &mut Vec<SpecFile>, forms: &FieldForms) {
         match read {
-            Read::Text(text) if facts::is_fact_store(&key) => match facts::served(&key, &text) {
-                Ok(file) => {
-                    files.push(file);
-                    self.texts.insert(key, Arc::from(text));
+            Read::Text(text) if facts::is_fact_store(&key) => {
+                match facts::served(&key, &text, forms) {
+                    Ok(file) => {
+                        files.push(file);
+                        self.texts.insert(key, Arc::from(text));
+                    }
+                    Err(w192) => {
+                        self.unreadable.insert(key, w192);
+                    }
                 }
-                Err(w192) => {
-                    self.unreadable.insert(key, w192);
-                }
-            },
+            }
             Read::Text(text) => {
                 files.push(parse_incremental(&text, &key, None).0);
                 self.texts.insert(key, Arc::from(text));
@@ -161,19 +170,21 @@ impl SourceCache {
     /// One source's new state: its parse (reusing the retained tree,
     /// through `parse_incremental`'s `Previous`), or its removal when it is
     /// gone or can no longer be read (then its E025 is kept until it is
-    /// readable or gone).
-    pub fn change(&mut self, path: &str, read: Read) -> FileChange {
+    /// readable or gone). A fact store's values are read by their fields' `forms`.
+    pub fn change(&mut self, path: &str, read: Read, forms: &FieldForms) -> FileChange {
         match read {
             // A fact store is served, with no tree, or W192 when its text is no store.
-            Read::Text(text) if facts::is_fact_store(path) => match facts::served(path, &text) {
-                Ok(served) => {
-                    self.unreadable.remove(path);
-                    self.trees.remove(path);
-                    self.texts.insert(path.to_string(), Arc::from(text));
-                    FileChange::Parsed(served)
+            Read::Text(text) if facts::is_fact_store(path) => {
+                match facts::served(path, &text, forms) {
+                    Ok(served) => {
+                        self.unreadable.remove(path);
+                        self.trees.remove(path);
+                        self.texts.insert(path.to_string(), Arc::from(text));
+                        FileChange::Parsed(served)
+                    }
+                    Err(w192) => self.change(path, Read::Unreadable(w192), forms),
                 }
-                Err(w192) => self.change(path, Read::Unreadable(w192)),
-            },
+            }
             Read::Text(text) => {
                 self.unreadable.remove(path);
                 FileChange::Parsed(self.parse(path, text))
@@ -307,7 +318,11 @@ mod tests {
             "",
             "behavior bar \"Bar\" { contract \"y\" }",
         ] {
-            let change = cache.change("a.spec", Read::Text(text.to_string()));
+            let change = cache.change(
+                "a.spec",
+                Read::Text(text.to_string()),
+                &FieldForms::default(),
+            );
             let FileChange::Parsed(ref parsed) = change else {
                 panic!("a readable text is parsed");
             };
@@ -330,9 +345,12 @@ mod tests {
             ("a.spec".to_string(), "type held \"H\" {}\n"),
             ("new.spec".to_string(), "type fresh \"F\" {}\n"),
         ]);
-        let (cache, files) = SourceCache::read_all(&["a.spec".to_string()], &held, |key| {
-            read(&disk, &spec_sources(), key, None)
-        });
+        let (cache, files) = SourceCache::read_all(
+            &["a.spec".to_string()],
+            &held,
+            |key| read(&disk, &spec_sources(), key, None),
+            &FieldForms::default(),
+        );
         assert_eq!(files.len(), 2);
         assert!(files.iter().all(|f| f.entities.len() == 1));
         assert!(cache.text("new.spec").is_some());
@@ -386,7 +404,11 @@ mod tests {
     fn a_gone_source_drops_its_unreadable_diagnostic() {
         let mut cache = SourceCache::empty();
         assert!(matches!(
-            cache.change("bad.spec", unreadable_source("bad.spec")),
+            cache.change(
+                "bad.spec",
+                unreadable_source("bad.spec"),
+                &FieldForms::default()
+            ),
             FileChange::Removed(_)
         ));
         let messages: Vec<&str> = cache.unreadable().map(|d| d.message.as_str()).collect();
@@ -396,15 +418,23 @@ mod tests {
         );
 
         assert!(matches!(
-            cache.change("bad.spec", Read::Gone),
+            cache.change("bad.spec", Read::Gone, &FieldForms::default()),
             FileChange::Removed(_)
         ));
         assert_eq!(cache.unreadable().count(), 0);
 
         // A source that becomes readable is parsed and no longer reported.
-        cache.change("bad.spec", unreadable_source("bad.spec"));
+        cache.change(
+            "bad.spec",
+            unreadable_source("bad.spec"),
+            &FieldForms::default(),
+        );
         assert!(matches!(
-            cache.change("bad.spec", Read::Text("// ok\n".to_string())),
+            cache.change(
+                "bad.spec",
+                Read::Text("// ok\n".to_string()),
+                &FieldForms::default()
+            ),
             FileChange::Parsed(_)
         ));
         assert_eq!(cache.unreadable().count(), 0);

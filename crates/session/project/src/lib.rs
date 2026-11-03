@@ -734,7 +734,8 @@ impl Environment {
         held: &BTreeMap<String, &str>,
         read: impl FnMut(&str) -> sources::Read,
     ) -> SourceBuild {
-        let (sources, files) = SourceCache::read_all(keys, held, read);
+        let (sources, files) =
+            SourceCache::read_all(keys, held, read, self.registries.field_forms());
         let graph = self.graph_of(files);
         let imports = sources.import_diagnostics(&graph, self.sources.prefix());
         SourceBuild {

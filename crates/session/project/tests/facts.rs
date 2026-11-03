@@ -104,6 +104,33 @@ fn a_served_fact_is_an_entity_every_query_reads() {
 }
 
 #[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a fact's word is read bare, and a collector's fact is never W159"
+)]
+fn a_facts_word_is_read_bare_and_no_fact_is_w159() {
+    let p = collected();
+    // `status` is a word field: its JSON string is the word. `file` is a text field, given a number.
+    let facts = json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "fields": {"file": 7, "status": "passed"}},
+    ]);
+    stored(p.root(), "node", KEY, facts);
+
+    let project = compiled(&p);
+
+    let adds = project.graph().node("js:a.test.js#adds").expect("the fact");
+    assert_eq!(
+        adds.fields.get("status"),
+        Some(&specforge_parser::FieldValue::Identifier("passed".into()))
+    );
+    // A fact has no text to rewrite: not even the number on a text field is W159.
+    assert!(
+        !codes(&project).contains(&"W159".to_string()),
+        "{:?}",
+        project.diagnostics()
+    );
+}
+
+#[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "a fact's single-value reference to another fact links like a written one"
 )]

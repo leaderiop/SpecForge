@@ -548,9 +548,10 @@ impl CompiledProject {
     /// the memo starts again and the imports are resolved again (none
     /// when detached). The checks have not run.
     pub(crate) fn apply(&mut self, reads: Vec<(String, Read)>) -> Applied {
+        let forms = self.env.registries().field_forms();
         let changes: Vec<FileChange> = reads
             .into_iter()
-            .map(|(path, read)| self.sources.change(&path, read))
+            .map(|(path, read)| self.sources.change(&path, read, forms))
             .collect();
         let applied = self.graph.apply(changes);
         self.digests = Arc::new(self.digests.after(&applied.delta));

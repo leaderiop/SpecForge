@@ -56,6 +56,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "W061 carries actionable suggestion"
   verify unit "a fact store specforge-harness records is served as read-only entities; one it does not is W191, one that does not read W192"
   verify unit "a fact's single-value reference to another fact links like a written one"
+  verify unit "a fact's value is read by its field's form, as a spec file writes it: a word field's word is bare"
   verify integration "a project that loads no collector-written kind reads no fact store and compiles byte-identically"
   verify unit "build_graph emits W061 for reference cycles"
   verify unit "W061 names the cycle's entities in its data"

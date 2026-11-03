@@ -1,7 +1,7 @@
 //! The extensions the facts tests share (ADR 0327), served in process and written as the wire carries them:
 //!
-//! - [`CODE`] (`@t/code`): the kind `test`, written by a collector under the scheme `js`, with the fields `file` and
-//!   `status`
+//! - [`CODE`] (`@t/code`): the kind `test`, written by a collector under the scheme `js`, with the fields `file`, a
+//!   word `status` (`passed`, `failed`, `skipped`) and `covers`
 //! - [`NODE`] (`@t/node`, a peer of code): the collector `node` (`collect__node`, detected by `package.json`, its
 //!   report `.specforge/reports/node.xml`), and `unit` (`collect__unit`, detected by `package.json` too, its report
 //!   `.specforge/reports/unit.json`), the reporting collector a mixed run pairs it with
@@ -36,7 +36,7 @@ pub const UNIT_REPORT: &str = ".specforge/reports/unit.json";
 pub fn collected_wire() -> Value {
     json!([{"name": "test", "keyword": "test", "writer": "collector", "schemes": ["js"], "fields": [
         {"name": "file", "field_type": "string"},
-        {"name": "status", "field_type": "string"},
+        {"name": "status", "field_type": "enum", "enum_values": ["passed", "failed", "skipped"]},
         {"name": "covers", "field_type": "reference_list"},
     ]}])
 }

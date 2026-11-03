@@ -505,6 +505,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a quoted word on a word field and a bare word on a text field are W159"
   verify unit "a bare word on a kind that takes members is not W159"
   verify unit "a value E061 refuses is not W159"
+  verify unit "a fact's word is read bare, and a collector's fact is never W159"
   verify unit "a value a defaults block writes in the other form is W159 once, at the default"
   verify unit "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
   verify unit "a list item's W159 writes the whole list in its field's form"
