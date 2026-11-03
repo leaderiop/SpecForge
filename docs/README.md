@@ -33,7 +33,7 @@ New here? Start with the [root README](../README.md), then [what SpecForge is fo
 | [Troubleshooting](guides/spec-troubleshooting.md) | Diagnostic codes and their fixes |
 | [Product getting started](guides/product-getting-started.md) | `@specforge/product`: personas, channels, journeys, features, milestones, releases |
 | [Formal verification](guides/formal-verification.md) | Machine-checkable bounds and claims proved with z3 |
-| [Rust test tracing](guides/rust-test-tracing.md), [vitest test tracing](guides/vitest-test-tracing.md) | Link tests to the obligations they prove: `specforge collect`, `analyze coverage` |
+| [Rust test tracing](guides/rust-test-tracing.md), [vitest test tracing](guides/vitest-test-tracing.md), [node --test facts](guides/node-test-facts.md) | Link tests to the obligations they prove: `specforge collect`, `analyze coverage` |
 | [Demo script](demo.md) | A walkthrough on `examples/shop`, then the same engine on a product plan |
 
 ## Examples

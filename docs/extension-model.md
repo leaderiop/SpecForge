@@ -96,7 +96,7 @@ Extensions load in peer order: an extension loads after the peers it declares.
 
 ## The builtins are examples
 
-SpecForge ships ten builtin extensions. They are a starter set, aimed at software and product work, and they
+SpecForge ships eleven builtin extensions. They are a starter set, aimed at software and product work, and they
 are written with the same SDK any extension uses:
 
 | Builtin | Shows how to |
@@ -109,6 +109,7 @@ are written with the same SDK any extension uses:
 | `@specforge/cargo-test`, `@specforge/vitest` | Declare a collector for one test runner |
 | `@specforge/rust`, `@specforge/typescript` | Declare a source analyzer for `specforge infer` |
 | `@code/core` | Declare collector-written kinds, a family builtin's own codes, and check passes over facts |
+| `@javascript/node-test` | Declare a collector that reads project files and answers facts, with an extension library (`specforge-code-junit`) |
 
 The [extension inventory](extension-inventory.md) lists exactly what each declares; the
 [entity pages](entities/) document each builtin kind.

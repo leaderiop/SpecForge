@@ -9,7 +9,8 @@ Together the four vocabulary builtins declare 22 entity kinds and 56 edge types.
 `@specforge/testing` and the runner extensions `@specforge/cargo-test` and `@specforge/vitest` handle test
 obligations and results ([ADR 0002](adr/0002-test-runner-extensions.md)); `@specforge/rust` and
 `@specforge/typescript` read source code for `specforge infer`. `@code/core`, the first builtin of a family
-(ADR 0328), declares the two collector-written kinds of test facts ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md)).
+(ADR 0328), declares the two collector-written kinds of test facts ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md)), and
+`@javascript/node-test` collects them from `node --test`.
 
 The counts and lists on this page are read from the builtins' pinned declarations
 (`crates/runtime/component/tests/declarations/`); tests hold the kind count and the edge tables to them.
@@ -28,6 +29,7 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@specforge/rust` | 0 | 0 | -- | none |
 | `@specforge/typescript` | 0 | 0 | -- | none |
 | `@code/core` | 2 (collector-written) | 1 | -- | none |
+| `@javascript/node-test` | 0 | 0 | -- | code/core (required) |
 
 Extensions load after the peers they declare; extensions with no peer between them keep the order
 `specforge.json` lists them in (ADR 0041). A required peer must be loaded (E027); an optional one, when loaded,
@@ -260,16 +262,19 @@ obligations the spec does not declare (A016). `--min` gates CI on proof coverage
 
 ### Runner extensions
 
-Each test runner has its own extension that requires `@specforge/testing` and declares one collector: the files
-that select it, the command `specforge collect` runs (after you approve it, or with `--yes`), where the report
-lands, and a pure mapping from the report to entities.
+Each test runner has its own extension that declares one collector: the files that select it, the command
+`specforge collect` runs (after you approve it, or with `--yes`), where the report lands, and a pure mapping from the
+report. `@specforge/cargo-test` and `@specforge/vitest` require `@specforge/testing` and map the report to entities;
+`@javascript/node-test` requires `@code/core` and maps it to test facts.
 
 | Extension | Detected by | How a test names its entity |
 |-----------|-------------|-----------------------------|
 | `@specforge/cargo-test` | `Cargo.toml` | `#[specforge_test(behavior = "...", verify = "...")]`, or tests named `entity_id__obligation_slug` or inside `mod entity_id` ([guide](guides/rust-test-tracing.md)) |
 | `@specforge/vitest` | `vitest.config.*`, `vitest.workspace.*` | `meta: { specforge: { behavior: "...", verify: "..." } }` ([guide](guides/vitest-test-tracing.md)) |
+| `@javascript/node-test` | `package.json` | the entity cites the test: `js:<package>/<file>#<test>` in a `proof` field ([guide](guides/node-test-facts.md)) |
 
-Spec files carry no test paths: the link lives in the tests. `specforge init` enables `@specforge/testing` with
+With cargo-test and vitest, spec files carry no test paths: the link lives in the tests. With node-test it runs the
+other way: the test names nothing, and the entity cites the test's id. `specforge init` enables `@specforge/testing` with
 `@specforge/software`, and a runner extension when it finds that runner in the project.
 
 Proof today is test-centred. A general notion of evidence for non-software work (a signed record, an audit
@@ -304,6 +309,10 @@ Neither kind is scoped: a reference names the fact whole. Its check passes judge
 
 An entity is pending while its owner is (its kind's `complete_when`, or its nearest scope ancestor's): its references
 are not checked and its failing tests are not reported, so a test not written yet is TDD, not an error.
+
+`@javascript/node-test` is its first runner pack: its collector `node-test`, detected by a `package.json`, runs
+`node --test` with the `spec` reporter to standard output and the `junit` reporter to `.specforge/reports/node-test.xml`,
+and names each test after the nearest `package.json` with a `name` ([guide](guides/node-test-facts.md)).
 
 ## Related
 
