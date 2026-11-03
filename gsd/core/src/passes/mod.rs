@@ -17,6 +17,7 @@ mod roadmap;
 mod scan;
 mod schema_drift;
 mod scope;
+mod thread;
 mod verify_paths;
 mod verify_rules;
 mod waves;

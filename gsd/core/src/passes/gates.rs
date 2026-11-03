@@ -15,6 +15,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::derive::{ladder::window_status, verify::by_phase};
 use super::plans::{link, links, of_kind, phase_of, text};
+use super::thread::{Evidence, Thread};
 use crate::digest::scope_of;
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
@@ -272,6 +273,7 @@ fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
         return Vec::new();
     };
     let commits = crate::passes::commits::commits(input);
+    let thread = Thread::of(input);
     let mut seen = BTreeSet::new();
     let mut found = Vec::new();
     for phase in phases(input, subject) {
@@ -300,11 +302,9 @@ fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
                 })
                 .collect();
             let passing = |task: &PassEntity| {
-                input.test_results.as_ref().is_some_and(|report| {
-                    let results = || report.of(&task.id).iter().chain(report.of(requirement));
-                    results().any(|r| r.status == TestStatus::Passed)
-                        && !results().any(|r| r.status == TestStatus::Failed)
-                })
+                let linked = thread.linked(&task.id).into_iter();
+                thread.evidence(linked.chain(thread.linked(requirement)).map(|(_, s)| s))
+                    == Evidence::Passed
             };
             let missing = if tasks.is_empty() {
                 "no task of its plans"

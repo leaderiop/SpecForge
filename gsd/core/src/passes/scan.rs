@@ -19,6 +19,7 @@ use std::collections::BTreeSet;
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::{link, of_kind, strings};
+use super::thread::{Evidence, Thread};
 use facts::{Reads, Served, key, reads};
 use patterns::{Severity, anti_patterns, is_literal};
 
@@ -122,12 +123,10 @@ fn compute(input: &PassInput) -> PassOutput {
 
 /// A linked test ran: one recorded test of the entity passed or failed.
 fn ran(input: &PassInput, id: &str) -> bool {
-    input.test_results.as_ref().is_some_and(|report| {
-        report
-            .of(id)
-            .iter()
-            .any(|t| matches!(t.status, TestStatus::Passed | TestStatus::Failed))
-    })
+    matches!(
+        Thread::of(input).of_entity(id),
+        Evidence::Passed | Evidence::Failed
+    )
 }
 
 fn artifact_state(artifact: &PassEntity, served: Served) -> &'static str {
