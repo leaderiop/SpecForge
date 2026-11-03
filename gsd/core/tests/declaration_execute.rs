@@ -162,6 +162,7 @@ fn the_commit_kind_is_harness_written() {
             "hash",
             "task",
             "plan",
+            "linked_by",
             "type",
             "subject",
             "at",
@@ -311,7 +312,7 @@ fn the_model_counts_its_fields() {
     .iter()
     .map(|k| fields_of(k).len())
     .sum();
-    assert_eq!(total, 22 + 6 + 5 + 11 + 6 + 10 + 5);
+    assert_eq!(total, 22 + 6 + 5 + 12 + 6 + 10 + 5);
 }
 
 #[test]
@@ -330,10 +331,11 @@ fn the_git_collector_runs_git_log_and_writes_a_plan() {
     );
     // Merges are read (for the parents a commit descends through), not recorded.
     assert!(git.run.contains(&"log".to_string()) && !git.run.contains(&"--no-merges".to_string()));
-    assert!(
-        git.run
-            .contains(&"--format=%x00%H%x1f%P%x1f%at%x1f%s".to_string())
-    );
+    // The trailer before the subject, unfolded: the subject stays last (ADR 0331 D3).
+    assert!(git.run.contains(
+        &"--format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s"
+            .to_string()
+    ));
     // Named explicitly (`--runner gsd-git`): a detected collector would be selected by a plain `specforge collect`.
     assert!(git.auto_detect.is_none());
     assert_eq!(git.input_formats, ["git-log"]);

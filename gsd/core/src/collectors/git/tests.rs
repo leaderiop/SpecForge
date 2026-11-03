@@ -3,6 +3,8 @@ use specforge_extension_sdk::{GraphWire, PlanOp};
 
 use super::*;
 
+mod trailers;
+
 fn head(kind: &str, scope: Option<&str>, description: &str) -> Option<Header<'static>> {
     // The strings are 'static literals in these tests.
     let (scope, description): (Option<&'static str>, &'static str) = (
@@ -107,7 +109,7 @@ fn a_quoted_path_is_unquoted() {
 
 #[test]
 fn a_binary_numstat_counts_zero() {
-    let log = "\u{0}aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u{1f}\u{1f}0\u{1f}feat(01-01): x\n\n3\t1\tsrc/a.js\n-\t-\timg/logo.png\n create mode 100644 src/a.js\n create mode 100644 img/logo.png\n";
+    let log = "\u{0}aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u{1f}\u{1f}0\u{1f}\u{1f}feat(01-01): x\n\n3\t1\tsrc/a.js\n-\t-\timg/logo.png\n create mode 100644 src/a.js\n create mode 100644 img/logo.png\n";
     let [commit] = &parse(log)[..] else {
         panic!("one commit");
     };
@@ -118,7 +120,7 @@ fn a_binary_numstat_counts_zero() {
 
 #[test]
 fn a_created_path_may_hold_spaces() {
-    let log = "\u{0}bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\u{1f}\u{1f}60\u{1f}docs: x\n\n1\t0\tmy notes.md\n create mode 100644 my notes.md\n";
+    let log = "\u{0}bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\u{1f}\u{1f}60\u{1f}\u{1f}docs: x\n\n1\t0\tmy notes.md\n create mode 100644 my notes.md\n";
     assert_eq!(parse(log)[0].created, ["my notes.md"]);
     assert_eq!(parse(log)[0].at, "1970-01-01T00:01:00Z");
 }
@@ -141,13 +143,20 @@ fn an_empty_log_is_no_plan() {
 }
 
 fn node(id: &str, kind: &str, title: &str) -> GraphNode {
-    GraphNode {
+    let mut node = GraphNode {
         id: id.into(),
         kind: kind.into(),
         title: Some(title.into()),
         file: Some("spec/plans.spec".into()),
         ..Default::default()
+    };
+    // A task's `plan` reference, as the graph export writes it: its parent plan's id.
+    if kind == "task"
+        && let Some((plan, _)) = id.rsplit_once('/')
+    {
+        node.fields.insert("plan".into(), json!(plan));
     }
+    node
 }
 
 fn created(output: &CollectOutput) -> Vec<(String, BTreeMap<String, Value>)> {
@@ -165,12 +174,12 @@ fn created(output: &CollectOutput) -> Vec<(String, BTreeMap<String, Value>)> {
 #[test]
 fn only_commits_naming_a_plan_are_recorded_oldest_first() {
     let log = [
-        "\u{0}2222222222222222222222222222222222222222\u{1f}\u{1f}20\u{1f}feat(01-01): Store module\n\n1\t0\ta.js\n",
-        "\u{0}1111111111111111111111111111111111111111\u{1f}\u{1f}10\u{1f}docs(pause): wip\n",
-        "\u{0}3333333333333333333333333333333333333333\u{1f}\u{1f}30\u{1f}docs(01-01): complete store plan\n",
-        "\u{0}4444444444444444444444444444444444444444\u{1f}\u{1f}40\u{1f}feat(gsd): x\n",
-        "\u{0}5555555555555555555555555555555555555555\u{1f}\u{1f}50\u{1f}feat(01-01): STORE   module\n",
-        "\u{0}6666666666666666666666666666666666666666\u{1f}\u{1f}60\u{1f}feat(02-01): unknown plan\n",
+        "\u{0}2222222222222222222222222222222222222222\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): Store module\n\n1\t0\ta.js\n",
+        "\u{0}1111111111111111111111111111111111111111\u{1f}\u{1f}10\u{1f}\u{1f}docs(pause): wip\n",
+        "\u{0}3333333333333333333333333333333333333333\u{1f}\u{1f}30\u{1f}\u{1f}docs(01-01): complete store plan\n",
+        "\u{0}4444444444444444444444444444444444444444\u{1f}\u{1f}40\u{1f}\u{1f}feat(gsd): x\n",
+        "\u{0}5555555555555555555555555555555555555555\u{1f}\u{1f}50\u{1f}\u{1f}feat(01-01): STORE   module\n",
+        "\u{0}6666666666666666666666666666666666666666\u{1f}\u{1f}60\u{1f}\u{1f}feat(02-01): unknown plan\n",
     ]
     .concat();
     let input = CollectInput {
@@ -209,7 +218,7 @@ fn only_commits_naming_a_plan_are_recorded_oldest_first() {
 fn a_commit_the_project_holds_is_not_recorded_again() {
     let input = CollectInput {
         stdout: Some(
-            "\u{0}2222222222222222222222222222222222222222\u{1f}\u{1f}20\u{1f}feat(01-01): x\n"
+            "\u{0}2222222222222222222222222222222222222222\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): x\n"
                 .to_string(),
         ),
         graph: Some(GraphWire {
@@ -228,7 +237,7 @@ fn a_commit_the_project_holds_is_not_recorded_again() {
 fn two_tasks_with_one_title_name_the_plan_only() {
     let input = CollectInput {
         stdout: Some(
-            "\u{0}2222222222222222222222222222222222222222\u{1f}\u{1f}20\u{1f}feat(01-01): Same\n"
+            "\u{0}2222222222222222222222222222222222222222\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): Same\n"
                 .to_string(),
         ),
         graph: Some(GraphWire {
@@ -262,7 +271,7 @@ fn plan_graph() -> Option<GraphWire> {
 #[test]
 fn control_characters_in_a_subject_or_a_path_are_replaced() {
     let log = format!(
-        "\u{0}{HASH}\u{1f}\u{1f}20\u{1f}fix(01-01): colour \u{1b}[31mred\u{1b}[0m\u{2028}x\u{7f}\n\n1\t0\tdir/\u{1b}a\u{2028}b.js\n create mode 100644 dir/\u{1b}a\u{2028}b.js\n"
+        "\u{0}{HASH}\u{1f}\u{1f}20\u{1f}\u{1f}fix(01-01): colour \u{1b}[31mred\u{1b}[0m\u{2028}x\u{7f}\n\n1\t0\tdir/\u{1b}a\u{2028}b.js\n create mode 100644 dir/\u{1b}a\u{2028}b.js\n"
     );
     let [commit] = &parse(&log)[..] else {
         panic!("one commit");
@@ -280,7 +289,7 @@ fn control_characters_in_a_subject_or_a_path_are_replaced() {
 fn a_subject_cannot_forge_a_record() {
     // The separators the collector used to split on are plain text in a subject now.
     let log = format!(
-        "\u{0}{HASH}\u{1f}\u{1f}20\u{1f}feat(01-01): forged\u{1e}deadbeef\u{1f}0\u{1f}feat(01-01): Store module\n"
+        "\u{0}{HASH}\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): forged\u{1e}deadbeef\u{1f}0\u{1f}feat(01-01): Store module\n"
     );
     let (commits, skipped) = parse_all(&log);
     assert_eq!(commits.len(), 1);
@@ -290,20 +299,20 @@ fn a_subject_cannot_forge_a_record() {
 
 #[test]
 fn a_bad_header_skips_its_commit_and_is_named() {
-    let ok = format!("\u{0}{HASH}\u{1f}\u{1f}20\u{1f}feat(01-01): Store module\n");
+    let ok = format!("\u{0}{HASH}\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): Store module\n");
     for bad in [
-        "\u{0}deadbeef\u{1f}\u{1f}20\u{1f}feat(01-01): x\n".to_string(),
+        "\u{0}deadbeef\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): x\n".to_string(),
         format!(
-            "\u{0}{}\u{1f}\u{1f}20\u{1f}feat(01-01): x\n",
+            "\u{0}{}\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): x\n",
             "g".repeat(40)
         ),
         format!(
-            "\u{0}{}\u{1f}\u{1f}20\u{1f}feat(01-01): x\n",
+            "\u{0}{}\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): x\n",
             "A".repeat(40)
         ),
-        format!("\u{0}{HASH}\u{1f}\u{1f}999999999999999\u{1f}feat(01-01): x\n"),
-        format!("\u{0}{HASH}\u{1f}\u{1f}-1\u{1f}feat(01-01): x\n"),
-        format!("\u{0}{HASH}\u{1f}deadbeef\u{1f}20\u{1f}feat(01-01): x\n"),
+        format!("\u{0}{HASH}\u{1f}\u{1f}999999999999999\u{1f}\u{1f}feat(01-01): x\n"),
+        format!("\u{0}{HASH}\u{1f}\u{1f}-1\u{1f}\u{1f}feat(01-01): x\n"),
+        format!("\u{0}{HASH}\u{1f}deadbeef\u{1f}20\u{1f}\u{1f}feat(01-01): x\n"),
     ] {
         let input = CollectInput {
             stdout: Some(format!("{bad}{ok}")),
@@ -321,19 +330,19 @@ fn a_bad_header_skips_its_commit_and_is_named() {
 fn a_task_is_named_as_the_executor_words_it() {
     let log = [
         format!(
-            "\u{0}{}\u{1f}\u{1f}50\u{1f}feat(01-01): implement store module (#12)\n",
+            "\u{0}{}\u{1f}\u{1f}50\u{1f}\u{1f}feat(01-01): implement store module (#12)\n",
             "5".repeat(40)
         ),
         format!(
-            "\u{0}{}\u{1f}\u{1f}40\u{1f}test(01-01): add failing test for store module\n",
+            "\u{0}{}\u{1f}\u{1f}40\u{1f}\u{1f}test(01-01): add failing test for store module\n",
             "4".repeat(40)
         ),
         format!(
-            "\u{0}{}\u{1f}\u{1f}30\u{1f}feat(01-01): scaffold the thing\n",
+            "\u{0}{}\u{1f}\u{1f}30\u{1f}\u{1f}feat(01-01): scaffold the thing\n",
             "3".repeat(40)
         ),
         format!(
-            "\u{0}{}\u{1f}\u{1f}20\u{1f}Revert \"feat(01-01): Store module\"\n",
+            "\u{0}{}\u{1f}\u{1f}20\u{1f}\u{1f}Revert \"feat(01-01): Store module\"\n",
             "2".repeat(40)
         ),
     ]
@@ -364,6 +373,7 @@ fn git_collector_writes_line_counts_as_numbers() {
     let commit = Commit {
         hash: "a".repeat(40),
         at: "2026-10-01T00:00:00Z".into(),
+        trailers: String::new(),
         subject: "feat(01-01): x".into(),
         parents: Vec::new(),
         files: Vec::new(),
@@ -371,16 +381,23 @@ fn git_collector_writes_line_counts_as_numbers() {
         insertions: 12,
         deletions: 3,
     };
-    let written = fields(&commit, "feat", "v1.0/01/01-01", None, &[]);
+    let plan = node("v1.0/01/01-01", "plan", "Store");
+    let linked = Linked {
+        plan: &plan,
+        task: None,
+        kind: Some("feat".into()),
+        unread: Trailer::None,
+    };
+    let written = fields(&commit, &linked, &[]);
     assert_eq!(written["insertions"], serde_json::json!(12));
     assert_eq!(written["deletions"], serde_json::json!(3));
 }
 
-/// A record of `git log --format=%x00%H%x1f%P%x1f%at%x1f%s`: the hash of `c`, the parents' hashes, the time, the subject.
+/// A record of `git log` with [`FORMAT`]: the hash of `c`, the parents' hashes, the time, no trailer, the subject.
 fn line(c: char, parents: &[char], at: u32, subject: &str) -> String {
     let parents: Vec<String> = parents.iter().map(|p| p.to_string().repeat(40)).collect();
     format!(
-        "\u{0}{}\u{1f}{}\u{1f}{at}\u{1f}{subject}\n",
+        "\u{0}{}\u{1f}{}\u{1f}{at}\u{1f}\u{1f}{subject}\n",
         c.to_string().repeat(40),
         parents.join(" ")
     )
@@ -521,7 +538,7 @@ fn synthetic(parents: &[Vec<usize>], scopes: &[Option<String>]) -> String {
                 format!("feat({s}): step {i}")
             });
             format!(
-                "\u{0}{}\u{1f}{}\u{1f}{}\u{1f}{subject}\n",
+                "\u{0}{}\u{1f}{}\u{1f}{}\u{1f}\u{1f}{subject}\n",
                 hash_of(i),
                 ps.join(" "),
                 1000 + i

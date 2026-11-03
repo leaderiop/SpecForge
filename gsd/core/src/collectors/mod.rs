@@ -7,6 +7,8 @@ mod git;
 mod graph;
 mod junit;
 
+pub(crate) use git::LinkedBy;
+
 use specforge_extension_sdk::prelude::*;
 
 pub fn declare(c: &mut ContributionsBuilder) {

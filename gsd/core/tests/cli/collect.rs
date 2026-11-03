@@ -42,6 +42,7 @@ fn a_commit_naming_a_plan_is_written_into_its_plan_file() {
     assert_eq!(fields["hash"], hash.as_str(), "{fields}");
     assert_eq!(fields["task"], "v1.0/01/01-01/T1", "{fields}");
     assert_eq!(fields["plan"], "v1.0/01/01-01", "{fields}");
+    assert_eq!(fields["linked_by"], "title", "{fields}");
     assert_eq!(fields["type"], "feat", "{fields}");
     assert_eq!(fields["subject"], "feat(01-01): Store module", "{fields}");
     assert_eq!(fields["files"], serde_json::json!(["src/a.js"]), "{fields}");
@@ -61,7 +62,7 @@ fn a_commit_naming_a_plan_is_written_into_its_plan_file() {
     let ledger = p.read("specforge-harness");
     assert_eq!(
         ledger.lines().filter(|l| l.starts_with(name)).count(),
-        11,
+        12,
         "{ledger}"
     );
     p.passing_tests();
@@ -263,7 +264,6 @@ fn a_plain_collect_in_a_repository_records_the_commits() {
 
 /// 04-D3: the executor's `Gsd-Task:` trailer names the task of a commit whose subject names no plan.
 #[test]
-#[ignore = "04 T12"]
 fn a_trailer_names_the_task_of_a_commit_without_a_scope() {
     let p = repository();
     let hash = p.git_commit(
