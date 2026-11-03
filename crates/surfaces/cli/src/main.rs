@@ -210,10 +210,12 @@ fn declared() -> clap::Command {
 }
 
 fn main() {
+    // A program the runner started is in its own group, out of the terminal's reach: Ctrl-C ends it here.
+    specforge_process::stop_on_interrupt();
     // History is read through the git command line, only when a project declares it (ADR 0287).
-    specforge_project::history::set_default(Some(std::sync::Arc::new(
-        specforge_git::GitCli::default(),
-    )));
+    specforge_project::history::set_default(Some(std::sync::Arc::new(specforge_git::GitCli::new(
+        std::sync::Arc::new(specforge_process::Runner),
+    ))));
     let cli = Cli::try_parse().unwrap_or_else(|error| {
         // clap exits 2 on a usage error, which a host reads as a block; `hook` refuses with 1 (ADR 0324).
         let hook = std::env::args().nth(1).as_deref() == Some("hook");

@@ -12,8 +12,8 @@ use specforge_protocol_types::{
 use crate::fs::{FileKind, FsStat, READ_CEILING};
 use crate::http::{Any, scheme, status_class};
 use crate::{
-    Contained, Fs, FsOutcome, Http, HttpOutcome, Lookup, Output, Ports, Process, ProcessClass,
-    ProcessOutcome, Redirects, Resolved, RootName, Roots,
+    Ceiling, Contained, Fs, FsOutcome, Http, HttpOutcome, Lookup, Output, Ports, Process,
+    ProcessClass, ProcessOutcome, Redirects, Resolved, RootName, Roots,
 };
 
 /// Ports of fakes that answer nothing: every program is not found, every URL unreachable, every file missing.
@@ -57,7 +57,13 @@ impl FakeProcess {
 }
 
 impl Process for FakeProcess {
-    fn run(&self, request: &ProcessRequest, _dir: &Path, output: Output<'_>) -> ProcessOutcome {
+    fn run_within(
+        &self,
+        request: &ProcessRequest,
+        _dir: &Path,
+        output: Output<'_>,
+        _ceiling: Ceiling,
+    ) -> ProcessOutcome {
         self.requests
             .lock()
             .expect("no request panics")

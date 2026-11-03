@@ -18,6 +18,7 @@ specforge-graph = { path = "../../pipeline/graph" }
 specforge-ops = { path = "../../app/ops" }
 specforge-parser = { workspace = true }
 specforge-git = { path = "../../adapters/git" }
+specforge-process = { path = "../../adapters/process" }
 specforge-project = { path = "../../session/project" }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-registry = { path = "../../pipeline/registry" }

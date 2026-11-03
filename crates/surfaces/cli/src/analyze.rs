@@ -62,7 +62,10 @@ pub(crate) struct Args {
 impl Args {
     /// The solver `--prove` asks.
     fn solver(&self) -> Z3 {
-        Z3::with_timeout(std::time::Duration::from_secs(self.prove_timeout))
+        Z3::new(
+            std::sync::Arc::new(specforge_process::Runner),
+            std::time::Duration::from_secs(self.prove_timeout),
+        )
     }
 
     /// The analysis the flags ask for: any pass name (the passes are the
@@ -232,7 +235,7 @@ mod summary_tests {
 
     #[test]
     fn the_flags_build_the_analysis_options() {
-        let (plain_args, z3) = (args(&[]), super::Z3::default());
+        let (plain_args, z3) = (args(&[]), args(&[]).solver());
         let (terminal, _) = Terminal::captured("", Facts::PIPED);
         let caller = crate::caller::of(false, OutputFormat::Human, &terminal);
         let plain = plain_args.options(&z3, caller);

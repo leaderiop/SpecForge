@@ -16,7 +16,6 @@ pub mod package;
 pub mod path_glob;
 pub mod peers;
 mod present;
-pub mod process;
 mod project;
 mod project_path;
 mod project_root;

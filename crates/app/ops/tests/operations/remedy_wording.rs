@@ -444,7 +444,7 @@ fn a_flag_is_bare_unless_a_program_precedes_it_in_its_clause() {
         "or run `specforge collect --yes`; reading",
         "raise `specforge analyze --prove-timeout`",
         "cargo build --release --target wasm32-wasip2",
-        "`z3 --version` failed: exit status: 1",
+        "`z3 --version` exited with status 1",
         "--out={report}",
         "||--o{",
         "specforge update --major moves them together",

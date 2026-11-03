@@ -78,7 +78,10 @@ impl McpState {
             events: Box::new(Discard),
             subscriptions: Subscriptions::new(),
             extension_runtime: None,
-            solver: Arc::new(Z3::default()),
+            solver: Arc::new(Z3::new(
+                Arc::new(specforge_process::Runner),
+                Z3::DEFAULT_TIMEOUT,
+            )),
             collector_machine: Arc::new(ProcessMachine::user()),
             host: None,
         }

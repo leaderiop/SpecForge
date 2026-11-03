@@ -4,9 +4,9 @@ use tower_lsp::Server;
 
 #[tokio::main]
 async fn main() {
-    specforge_project::history::set_default(Some(std::sync::Arc::new(
-        specforge_git::GitCli::default(),
-    )));
+    specforge_project::history::set_default(Some(std::sync::Arc::new(specforge_git::GitCli::new(
+        std::sync::Arc::new(specforge_process::Runner),
+    ))));
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
     let (service, socket) = specforge_lsp::backend::service();

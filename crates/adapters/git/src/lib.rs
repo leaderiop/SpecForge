@@ -6,79 +6,114 @@
 //! are asked only for the files a pass reads; from git 2.44 `GIT_NO_LAZY_FETCH=1` makes git answer "missing" for a
 //! blob a partial clone lacks. An older git does not know the variable and fetches those files, and only those.
 
-use std::ffi::OsString;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::time::Duration;
 
-use specforge_common::process::{Ran, RunError, run_with};
+use specforge_effects::process::request;
+use specforge_effects::{EnvVar, Output, ProcessClass, SharedProcess};
 use specforge_project::history::{
     Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha, Sized, TreeEntry,
     WorktreeStatus,
 };
 
-/// Runs `git` from `PATH`.
+/// Runs `git` from `PATH` through the effect plane's Process port (ADR 0335).
 pub struct GitCli {
-    program: OsString,
+    process: SharedProcess,
+    program: PathBuf,
     timeout: Duration,
 }
 
-impl Default for GitCli {
-    fn default() -> Self {
+impl GitCli {
+    /// `git` from `PATH`, run by `process`, every call given up after 10 s.
+    pub fn new(process: SharedProcess) -> Self {
         GitCli {
-            program: "git".into(),
+            process,
+            program: PathBuf::from("git"),
             timeout: Duration::from_secs(10),
+        }
+    }
+
+    /// Every call given up after `timeout`, for a caller with a tighter budget than the default 10 s (a hook's).
+    pub fn with_timeout(process: SharedProcess, timeout: Duration) -> Self {
+        GitCli {
+            timeout,
+            ..GitCli::new(process)
         }
     }
 }
 
-impl GitCli {
-    /// Every call given up after `timeout`, for a caller with a tighter budget than the default 10 s (a hook's).
-    pub fn with_timeout(timeout: Duration) -> Self {
-        GitCli {
-            timeout,
-            ..GitCli::default()
-        }
-    }
+/// A call that ran to its exit.
+struct Ran {
+    code: i32,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
 }
 
 /// How one call failed.
 enum Failed {
     NotInstalled,
+    /// The directory it was asked about does not exist: no repository is there.
+    NoDirectory,
     Other(String),
+}
+
+impl std::fmt::Display for Failed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Failed::NotInstalled => f.write_str("git is not installed"),
+            Failed::NoDirectory => f.write_str("git's directory does not exist"),
+            Failed::Other(why) => f.write_str(why),
+        }
+    }
 }
 
 impl GitCli {
     /// The program run in place of `git` (a test's way to fake a missing or broken git).
-    pub fn with_program(program: impl Into<OsString>) -> Self {
+    pub fn with_program(process: SharedProcess, program: impl AsRef<Path>) -> Self {
         GitCli {
-            program: program.into(),
-            ..Self::default()
+            program: program.as_ref().to_path_buf(),
+            ..Self::new(process)
         }
     }
 
+    /// One call in `dir` (git's `-C`: the program runs there): its exit code and output, or how it failed.
     fn call(&self, dir: &Path, args: &[&str], input: Option<Vec<u8>>) -> Result<Ran, Failed> {
-        let mut command = Command::new(&self.program);
-        command
-            .args(["-c", "core.fsmonitor=false", "--literal-pathspecs", "-C"])
-            .arg(dir)
-            .args(args)
-            .env("LC_ALL", "C")
-            .env("GIT_TERMINAL_PROMPT", "0")
-            .env("GIT_NO_LAZY_FETCH", "1")
-            .env("GIT_OPTIONAL_LOCKS", "0")
-            .env_remove("GIT_DIR")
-            .env_remove("GIT_WORK_TREE")
-            .env_remove("GIT_INDEX_FILE");
-        run_with(&mut command, input, self.timeout).map_err(|error| match error {
-            RunError::NotFound => Failed::NotInstalled,
-            RunError::CannotStart(e) => Failed::Other(format!("git cannot start: {e}")),
-            RunError::TimedOut => Failed::Other(format!(
+        // A request carries words: a program path that is not one is refused, never mangled into another path.
+        let Some(program) = self.program.to_str() else {
+            return Err(Failed::Other(format!(
+                "git's program path is not UTF-8: {}",
+                self.program.display()
+            )));
+        };
+        let argv = [program, "-c", "core.fsmonitor=false", "--literal-pathspecs"]
+            .into_iter()
+            .chain(args.iter().copied());
+        let mut asked = request(argv, self.timeout);
+        asked.stdin = input;
+        asked.env = vec![
+            EnvVar::set("LC_ALL", "C"),
+            EnvVar::set("GIT_TERMINAL_PROMPT", "0"),
+            EnvVar::set("GIT_NO_LAZY_FETCH", "1"),
+            EnvVar::set("GIT_OPTIONAL_LOCKS", "0"),
+            EnvVar::removed("GIT_DIR"),
+            EnvVar::removed("GIT_WORK_TREE"),
+            EnvVar::removed("GIT_INDEX_FILE"),
+        ];
+        let ran = self.process.run(&asked, dir, Output::Buffer);
+        match ran.class {
+            ProcessClass::Exited(code) => Ok(Ran {
+                code,
+                stdout: ran.stdout,
+                stderr: ran.stderr,
+            }),
+            ProcessClass::NotFound => Err(Failed::NotInstalled),
+            ProcessClass::NoDirectory => Err(Failed::NoDirectory),
+            ProcessClass::DeadlineExceeded => Err(Failed::Other(format!(
                 "git did not answer within {} seconds",
                 self.timeout.as_secs()
-            )),
-            RunError::Lost => Failed::Other("git ended without an answer".to_string()),
-        })
+            ))),
+            other => Err(Failed::Other(format!("git {other}"))),
+        }
     }
 
     /// A call that must succeed.
@@ -89,29 +124,27 @@ impl GitCli {
         input: Option<Vec<u8>>,
     ) -> Result<Vec<u8>, HistoryError> {
         match self.call(dir, args, input) {
-            Ok(ran) if ran.status.success() => Ok(ran.stdout),
+            Ok(ran) if ran.code == 0 => Ok(ran.stdout),
             Ok(ran) => Err(HistoryError(format!(
                 "git {} failed: {}",
                 args.first().copied().unwrap_or(""),
                 String::from_utf8_lossy(&ran.stderr).trim()
             ))),
-            Err(Failed::NotInstalled) => Err(HistoryError("git is not installed".into())),
-            Err(Failed::Other(why)) => Err(HistoryError(why)),
+            Err(failed) => Err(HistoryError(failed.to_string())),
         }
     }
 
     /// A call whose exit 1 with no output is "no such thing".
     fn maybe(&self, dir: &Path, args: &[&str]) -> Result<Option<Sha>, HistoryError> {
         match self.call(dir, args, None) {
-            Ok(ran) if ran.status.success() => {
+            Ok(ran) if ran.code == 0 => {
                 Ok(Some(Sha::new(String::from_utf8_lossy(&ran.stdout).trim())))
             }
-            Ok(ran) if ran.status.code() == Some(1) && ran.stdout.is_empty() => Ok(None),
+            Ok(ran) if ran.code == 1 && ran.stdout.is_empty() => Ok(None),
             Ok(ran) => Err(HistoryError(
                 String::from_utf8_lossy(&ran.stderr).trim().to_string(),
             )),
-            Err(Failed::NotInstalled) => Err(HistoryError("git is not installed".into())),
-            Err(Failed::Other(why)) => Err(HistoryError(why)),
+            Err(failed) => Err(HistoryError(failed.to_string())),
         }
     }
 
@@ -151,13 +184,11 @@ impl History for GitCli {
             None,
         ) {
             Ok(ran) => ran,
-            Err(Failed::NotInstalled) => {
-                return Located::Unavailable("git is not installed".into());
-            }
-            Err(Failed::Other(why)) => return Located::Unavailable(why),
+            Err(Failed::NoDirectory) => return Located::NotARepository,
+            Err(failed) => return Located::Unavailable(failed.to_string()),
         };
         let stderr = String::from_utf8_lossy(&ran.stderr);
-        if !ran.status.success() {
+        if ran.code != 0 {
             return if stderr.contains("not a git repository") {
                 Located::NotARepository
             } else if stderr.contains("dubious ownership") {

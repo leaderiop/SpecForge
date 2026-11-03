@@ -42,7 +42,7 @@ fn history_reads_the_commits_files() {
     std::fs::write(root.join("spec/deep/b é.spec"), "two\n").unwrap();
     std::fs::write(root.join("other.txt"), "x").unwrap();
     git(root, &["init", "-q", "-b", "main"]);
-    let cli = GitCli::default();
+    let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
     let Located::Repo(place) = cli.locate(root) else {
         panic!("a repository");
     };
@@ -64,8 +64,14 @@ fn history_reads_the_commits_files() {
     assert_eq!(cli.commit(&place, "no-such-ref").unwrap(), None);
     let outside = tempfile::tempdir().unwrap();
     assert_eq!(cli.locate(outside.path()), Located::NotARepository);
+    // A directory that does not exist holds no repository; it is not a missing git.
+    assert_eq!(cli.locate(&root.join("gone")), Located::NotARepository);
     assert!(matches!(
-        GitCli::with_program("no-such-git-program").locate(root),
+        GitCli::with_program(
+            std::sync::Arc::new(specforge_process::Runner),
+            "no-such-git-program"
+        )
+        .locate(root),
         Located::Unavailable(_)
     ));
 }
@@ -88,7 +94,7 @@ fn history_reads_only_the_specs_and_the_ledger() {
     git(root, &["init", "-q", "-b", "main"]);
     git(root, &["add", "-A"]);
     git(root, &["commit", "-q", "-m", "c1"]);
-    let cli = GitCli::default();
+    let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
     let Located::Repo(place) = cli.locate(root) else {
         panic!("a repository");
     };
@@ -115,7 +121,7 @@ fn history_reads_named_files_at_a_commit() {
     git(root, &["add", "-A"]);
     git(root, &["commit", "-q", "-m", "c1"]);
     std::fs::write(root.join("src/a.ts"), "changed\n").unwrap();
-    let cli = GitCli::default();
+    let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
     let Located::Repo(place) = cli.locate(root) else {
         panic!("a repository");
     };
@@ -155,7 +161,7 @@ fn history_lists_a_commits_tree() {
     git(root, &["init", "-q", "-b", "main"]);
     git(root, &["add", "-A"]);
     git(root, &["commit", "-q", "-m", "c1"]);
-    let cli = GitCli::default();
+    let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
     let Located::Repo(place) = cli.locate(root) else {
         panic!("a repository");
     };
@@ -187,7 +193,7 @@ fn history_gives_the_sizes_of_the_named_files() {
     git(root, &["init", "-q", "-b", "main"]);
     git(root, &["add", "-A"]);
     git(root, &["commit", "-q", "-m", "c1"]);
-    let cli = GitCli::default();
+    let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
     let Located::Repo(place) = cli.locate(root) else {
         panic!("a repository");
     };
@@ -249,7 +255,7 @@ fn old_git(dir: &Path) -> GitCli {
     )
     .unwrap();
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-    GitCli::with_program(script)
+    GitCli::with_program(std::sync::Arc::new(specforge_process::Runner), script)
 }
 
 #[cfg(unix)]
@@ -286,7 +292,7 @@ fn a_listing_never_fetches_a_missing_blob() {
     let Some(clone) = blobless_clone(dir.path()) else {
         return;
     };
-    let cli = GitCli::default();
+    let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
     let Located::Repo(place) = cli.locate(&clone) else {
         panic!("a repository");
     };
@@ -323,7 +329,7 @@ fn a_directory_that_is_not_utf8_is_refused() {
     git(root, &["init", "-q", "-b", "main"]);
     git(root, &["add", "-A"]);
     git(root, &["commit", "-q", "-m", "c1"]);
-    let cli = GitCli::default();
+    let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
     let Located::Repo(place) = cli.locate(root) else {
         panic!("a repository");
     };
@@ -333,6 +339,12 @@ fn a_directory_that_is_not_utf8_is_refused() {
     let why = cli.files(&place, &head, odd).expect_err("refused");
     assert!(why.0.contains("UTF-8"), "{why}");
     cli.tree(&place, &head, odd).expect_err("refused");
+    // A program path that is not UTF-8 is refused, never run as a mangled other path.
+    let odd_git = GitCli::with_program(std::sync::Arc::new(specforge_process::Runner), odd);
+    assert!(
+        matches!(odd_git.locate(root), Located::Unavailable(why) if why.contains("UTF-8")),
+        "refused"
+    );
 }
 
 #[specforge_test(
@@ -348,7 +360,7 @@ fn history_answers_the_branch_and_status() {
     git(root, &["init", "-q", "-b", "main"]);
     git(root, &["commit", "-q", "--allow-empty", "-m", "c1"]);
     std::fs::write(root.join("n.txt"), "x").unwrap();
-    let cli = GitCli::default();
+    let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
     let Located::Repo(place) = cli.locate(root) else {
         panic!("a repository");
     };
@@ -386,7 +398,7 @@ fn every_git_call_opts_out_of_the_optional_index_lock() {
     )
     .unwrap();
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let cli = GitCli::with_program(script);
+    let cli = GitCli::with_program(std::sync::Arc::new(specforge_process::Runner), script);
     let Located::Repo(place) = cli.locate(&root) else {
         panic!("a repository");
     };

@@ -10,9 +10,12 @@ use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::terminal::{Terminal, errln, outln};
 use serde_json::json;
 use specforge_common::{Code, codes};
+use specforge_effects::process::BUILD_CEILING;
+use specforge_effects::{Ceiling, Process, ProcessClass};
 use specforge_ops::extension::{LocalComponent, WASM_TARGET, not_a_builtins_name, target_dir};
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_package::PackageName;
+use specforge_process::Runner;
 use std::path::{Path, PathBuf};
 
 /// The diagnostic for an extension project that isn't there or isn't
@@ -188,31 +191,52 @@ fn run_build(path: &Path, format: OutputFormat, terminal: &Terminal) -> Exit {
     // for it (`WASM_TARGET`, `target_dir`: the crate's own `target/`, whatever CARGO_TARGET_DIR says).
     // Cargo runs in the crate, so it names that directory from there, whatever `--dir`'s spelling.
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-    let output = match std::process::Command::new(cargo)
-        .args([
+    let target = target_dir(Path::new("")).to_string_lossy().into_owned();
+    let mut build = specforge_effects::process::request(
+        [
+            cargo.as_str(),
             "build",
             "--release",
             "--target",
             WASM_TARGET,
             "--target-dir",
-        ])
-        .arg(target_dir(Path::new("")))
-        // Plain stderr, so its first error line is matched whatever CARGO_TERM_COLOR says.
-        .env("CARGO_TERM_COLOR", "never")
-        .current_dir(path)
-        .output()
-    {
-        Ok(output) => output,
-        Err(e) => {
+            &target,
+        ],
+        BUILD_CEILING,
+    );
+    // `request` holds a deadline to the request ceiling; the host's own build is held to its own.
+    build.deadline_ms = BUILD_CEILING.as_millis() as u64;
+    // Plain stderr, so its first error line is matched whatever CARGO_TERM_COLOR says.
+    build.env = vec![specforge_effects::EnvVar::set("CARGO_TERM_COLOR", "never")];
+    let output = Runner.run_within(
+        &build,
+        path,
+        specforge_effects::Output::Buffer,
+        Ceiling::HostBuild,
+    );
+    match &output.class {
+        ProcessClass::Exited(_) => {}
+        ProcessClass::DeadlineExceeded => {
             return Refusal::of(format).coded(
                 terminal,
                 OpErrorKind::Internal,
                 NOT_BUILT,
-                format!("cannot run cargo: {e}"),
+                format!(
+                    "cargo build did not finish within {} minutes",
+                    BUILD_CEILING.as_secs() / 60
+                ),
             );
         }
-    };
-    if !output.status.success() {
+        other => {
+            return Refusal::of(format).coded(
+                terminal,
+                OpErrorKind::Internal,
+                NOT_BUILT,
+                format!("cargo {other}"),
+            );
+        }
+    }
+    if !output.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let first_error = stderr.lines().find(|l| l.starts_with("error"));
         if let Some(line) = first_error.filter(|l| sdk_unresolved(l)) {

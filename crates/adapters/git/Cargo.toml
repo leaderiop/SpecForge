@@ -7,10 +7,12 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-specforge-common = { workspace = true }
+# Every git call runs through the effect plane's Process port (ADR 0335).
+specforge-effects = { path = "../../kernel/effects" }
 specforge-project = { workspace = true }
 
 [dev-dependencies]
+specforge-process = { path = "../process" }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }

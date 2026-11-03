@@ -51,11 +51,12 @@ impl Args {
         let renderers: Vec<&dyn specforge_ops::host::HostRenderer> =
             hosts.iter().map(AsRef::as_ref).collect();
         let caller = crate::caller::of(false, self.output.format, terminal);
-        let report = diagnose(&view, &Z3::default()).with_hosts(
+        let process = std::sync::Arc::new(specforge_process::Runner);
+        let report = diagnose(&view, &Z3::new(process.clone(), Z3::DEFAULT_TIMEOUT)).with_hosts(
             specforge_ops::host::diagnose::findings(&view, &renderers, caller),
         );
         let credentials = User::current().credential_health();
-        let found = OnPath::find(std::env::var_os("PATH").as_deref());
+        let found = OnPath::find(std::env::var_os("PATH").as_deref(), &*process);
         let path_binary = on_path::finding(found.as_ref(), &view);
 
         match self.output.format {

@@ -35,6 +35,31 @@ fn a_missing_program_is_not_found() {
     assert_eq!(outcome.class, ProcessClass::NotFound, "{outcome:?}");
 }
 
+#[test]
+fn a_missing_directory_is_not_a_missing_program() {
+    let gone = std::env::temp_dir().join("specforge-no-such-directory");
+    let outcome = Runner.run(
+        &request(["git", "--version"], Duration::from_secs(5)),
+        &gone,
+        Output::Buffer,
+    );
+    assert_eq!(outcome.class, ProcessClass::NoDirectory, "{outcome:?}");
+}
+
+#[cfg(unix)]
+#[test]
+fn the_host_build_ceiling_passes_the_request_ceiling() {
+    use specforge_effects::Ceiling;
+    use specforge_effects::process::{BUILD_CEILING, DEADLINE_CEILING};
+    assert!(Ceiling::HostBuild.limit() > Ceiling::Request.limit());
+    assert_eq!(Ceiling::Request.limit(), DEADLINE_CEILING);
+    assert_eq!(BUILD_CEILING, Duration::from_secs(30 * 60));
+    let mut asked = sh("exit 0", Duration::from_secs(5));
+    asked.deadline_ms = BUILD_CEILING.as_millis() as u64;
+    let outcome = Runner.run_within(&asked, Path::new("/"), Output::Buffer, Ceiling::HostBuild);
+    assert_eq!(outcome.class, ProcessClass::Exited(0), "{outcome:?}");
+}
+
 #[cfg(unix)]
 #[test]
 fn a_grandchild_dies_with_the_group() {

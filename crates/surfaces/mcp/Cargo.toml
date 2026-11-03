@@ -24,6 +24,7 @@ specforge-registry = { workspace = true }
 specforge-mcp-macros = { path = "../mcp-macros" }
 specforge-ops = { workspace = true }
 specforge-ops-registry = { path = "../../adapters/ops-registry" }
+specforge-process = { path = "../../adapters/process" }
 # What an entity ID is (`lex::is_entity_id`), for the entity resources' 400 case.
 specforge-parser = { workspace = true }
 specforge-project = { workspace = true }

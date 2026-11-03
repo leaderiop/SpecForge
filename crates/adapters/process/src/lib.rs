@@ -12,8 +12,10 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
-use specforge_effects::process::{DEADLINE_CEILING, OUTPUT_CAP, started_now, text};
-use specforge_effects::{Output, Process, ProcessClass, ProcessOutcome, ProcessRequest, Shown};
+use specforge_effects::process::{OUTPUT_CAP, started_now, text};
+use specforge_effects::{
+    Ceiling, Output, Process, ProcessClass, ProcessOutcome, ProcessRequest, Shown,
+};
 
 mod group;
 
@@ -76,7 +78,13 @@ pub fn resolve(program: &str, path: Option<&OsStr>, pathext: Option<&OsStr>) -> 
 }
 
 impl Process for Runner {
-    fn run(&self, request: &ProcessRequest, dir: &Path, output: Output<'_>) -> ProcessOutcome {
+    fn run_within(
+        &self,
+        request: &ProcessRequest,
+        dir: &Path,
+        output: Output<'_>,
+        ceiling: Ceiling,
+    ) -> ProcessOutcome {
         let started = started_now();
         let at = |class| ProcessOutcome {
             started,
@@ -126,6 +134,10 @@ impl Process for Runner {
         group::isolate(&mut command);
         let mut child = match command.spawn() {
             Ok(child) => child,
+            // A missing working directory also spawns NotFound: told apart, it is not a missing program.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound && !dir.is_dir() => {
+                return at(ProcessClass::NoDirectory);
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 return at(ProcessClass::NotFound);
             }
@@ -135,7 +147,7 @@ impl Process for Runner {
             Ok(group) => group,
             Err(why) => return at(ProcessClass::CannotStart(why)),
         };
-        let deadline = Duration::from_millis(request.deadline_ms).min(DEADLINE_CEILING);
+        let deadline = Duration::from_millis(request.deadline_ms).min(ceiling.limit());
         let cap = request.output_cap.min(OUTPUT_CAP);
         let mut outcome = Watch {
             child: &mut child,

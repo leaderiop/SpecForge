@@ -36,7 +36,7 @@ fn the_baseline_reads_a_source_file_through_git() {
         ]}]),
     ));
     let env = project.environment_in(runtime.clone());
-    let git = GitCli::default();
+    let git = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
     let Located::Repo(place) = git.locate(root) else {
         panic!("a repository")
     };

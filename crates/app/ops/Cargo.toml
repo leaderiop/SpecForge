@@ -40,6 +40,8 @@ strsim = { workspace = true }
 
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }
+# The one process runner, in the tests that run a real program (a fake z3, a specforge on PATH).
+specforge-process = { path = "../../adapters/process" }
 # The production adapter, in the tests that load the builtins.
 specforge-component = { workspace = true, features = ["testing"] }
 specforge-ops = { path = ".", features = ["testing"] }

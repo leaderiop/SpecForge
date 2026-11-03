@@ -8,15 +8,47 @@ use std::time::{Duration, SystemTime};
 
 use specforge_protocol_types::{OutcomeClass, ProcessRequest};
 
-/// No run outlives this, whatever its request asks.
+/// No run a request or an extension asks for outlives this, whatever its request asks.
 pub const DEADLINE_CEILING: Duration = Duration::from_secs(600);
+/// The ceiling of the host's own `extension build`: a cold release build of a wasm component can pass 600 s.
+pub const BUILD_CEILING: Duration = Duration::from_secs(30 * 60);
 /// The most bytes kept of each of stdout and stderr.
 pub const OUTPUT_CAP: u64 = 64 * 1024 * 1024;
 
-/// Runs one program. Every adapter holds the run to the request's deadline (at most [`DEADLINE_CEILING`]) and its
-/// output cap, ends the program's whole process group when either passes, and never panics: a failure is a class.
+/// Runs one program. Every adapter holds the run to the request's deadline (at most its [`Ceiling`]) and its output
+/// cap, ends the program's whole process group when either passes, and never panics: a failure is a class.
 pub trait Process: Send + Sync {
-    fn run(&self, request: &ProcessRequest, dir: &Path, output: Output<'_>) -> ProcessOutcome;
+    /// `request`, held to [`Ceiling::Request`]: what any process a request or an extension asks for is held to.
+    fn run(&self, request: &ProcessRequest, dir: &Path, output: Output<'_>) -> ProcessOutcome {
+        self.run_within(request, dir, output, Ceiling::Request)
+    }
+
+    /// `request`, held to `ceiling`. Only the host's own work names a ceiling past the request's.
+    fn run_within(
+        &self,
+        request: &ProcessRequest,
+        dir: &Path,
+        output: Output<'_>,
+        ceiling: Ceiling,
+    ) -> ProcessOutcome;
+}
+
+/// The most a run's deadline may be: a host-owned choice, never part of the wire request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ceiling {
+    /// [`DEADLINE_CEILING`]: any process a request or an extension asks for.
+    Request,
+    /// [`BUILD_CEILING`]: the host's own `extension build`.
+    HostBuild,
+}
+
+impl Ceiling {
+    pub fn limit(self) -> Duration {
+        match self {
+            Ceiling::Request => DEADLINE_CEILING,
+            Ceiling::HostBuild => BUILD_CEILING,
+        }
+    }
 }
 
 /// A process port as the composition root shares it.
@@ -56,6 +88,8 @@ pub enum ProcessClass {
     OutputCapped,
     /// No such program.
     NotFound,
+    /// The directory it was to run in does not exist.
+    NoDirectory,
     /// Found and not started (permissions, an empty argv, …), with why.
     CannotStart(String),
     /// Started, and its end could not be observed (waiting failed, or the capture could not be written), with why.
@@ -72,7 +106,27 @@ impl ProcessClass {
             ProcessClass::DeadlineExceeded => OutcomeClass::Deadline,
             ProcessClass::OutputCapped => OutcomeClass::Capped,
             ProcessClass::NotFound => OutcomeClass::NotFound,
+            ProcessClass::NoDirectory => OutcomeClass::Missing,
             ProcessClass::CannotStart(_) | ProcessClass::Lost(_) => OutcomeClass::CannotStart,
+        }
+    }
+}
+
+/// How a run ended, in words that follow the program's name ("git was not found", "z3 did not finish before its
+/// deadline"): the one message every caller shows.
+impl std::fmt::Display for ProcessClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProcessClass::Exited(code) => write!(f, "exited with status {code}"),
+            ProcessClass::Signalled => f.write_str("was ended by a signal"),
+            ProcessClass::DeadlineExceeded => f.write_str("did not finish before its deadline"),
+            ProcessClass::OutputCapped => f.write_str("was stopped when its output passed the cap"),
+            ProcessClass::NotFound => f.write_str("was not found"),
+            ProcessClass::NoDirectory => {
+                f.write_str("cannot run: the directory it runs in does not exist")
+            }
+            ProcessClass::CannotStart(why) => write!(f, "cannot start: {why}"),
+            ProcessClass::Lost(why) => write!(f, "ended without an answer: {why}"),
         }
     }
 }

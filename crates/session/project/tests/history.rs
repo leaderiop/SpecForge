@@ -394,8 +394,9 @@ fn git(root: &Path, args: &[&str]) {
     verify = "a commit re-checks the session"
 )]
 fn a_commit_rechecks_the_session() {
-    let _installed =
-        specforge_project::testing::history::install(Arc::new(specforge_git::GitCli::default()));
+    let _installed = specforge_project::testing::history::install(Arc::new(
+        specforge_git::GitCli::new(std::sync::Arc::new(specforge_process::Runner)),
+    ));
     let (project, mut session) = committed_session("context");
     let root = project.root().canonicalize().unwrap();
     let e084 = |session: &specforge_project::ProjectSession| {
@@ -427,8 +428,9 @@ fn a_commit_rechecks_the_session() {
     verify = "refs outside the root are watched by their directories own entries"
 )]
 fn refs_outside_the_root_are_watched_by_their_directorys_entries() {
-    let _installed =
-        specforge_project::testing::history::install(Arc::new(specforge_git::GitCli::default()));
+    let _installed = specforge_project::testing::history::install(Arc::new(
+        specforge_git::GitCli::new(std::sync::Arc::new(specforge_process::Runner)),
+    ));
     let project = computed::project("decision D \"D\" {\n  phase 03\n  origin context\n}\n");
     // The git directory lives outside the project (what a linked worktree's common directory is).
     let elsewhere = tempfile::tempdir().unwrap();

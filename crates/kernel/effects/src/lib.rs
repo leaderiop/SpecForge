@@ -16,7 +16,7 @@ pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, RootName, Root
 pub use digest::{canonical, digest};
 pub use fs::{Fs, FsOutcome, SharedFs};
 pub use http::{Http, HttpOutcome, Redirects, SharedHttp};
-pub use process::{Output, Process, ProcessClass, ProcessOutcome, SharedProcess, Shown};
+pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, SharedProcess, Shown};
 // `EffectRecord` and `EffectRequest` have no caller yet: plan 03's effect journal writes and serves them.
 pub use specforge_protocol_types::{
     EffectRecord, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,

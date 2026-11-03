@@ -56,7 +56,10 @@ impl Args {
         let cwd = std::env::current_dir().unwrap_or_default();
         // A hook's git facts degrade quietly after 1.5 s, as upstream's probes do (ADR 0320).
         specforge_project::history::set_default(Some(std::sync::Arc::new(
-            specforge_git::GitCli::with_timeout(std::time::Duration::from_millis(1_500)),
+            specforge_git::GitCli::with_timeout(
+                std::sync::Arc::new(specforge_process::Runner),
+                std::time::Duration::from_millis(1_500),
+            ),
         )));
         self.run_with(&stdin, &cwd, crate::project::load_dir, terminal)
     }

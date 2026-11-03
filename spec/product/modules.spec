@@ -263,7 +263,7 @@ module specforge_ops "specforge-ops" {
 module specforge_git "specforge-git" {
   family      integration
   description "The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287)"
-  depends_on  [specforge_common, specforge_project]
+  depends_on  [specforge_effects, specforge_project]
   tags        ["adapters"]
 }
 
@@ -324,11 +324,13 @@ module specforge_cli "specforge-cli" {
     specforge_common,
     specforge_component,
     specforge_diagnostics,
+    specforge_effects,
     specforge_formatter,
     specforge_mcp,
     specforge_ops,
     specforge_ops_registry,
     specforge_package,
+    specforge_process,
     specforge_project,
     specforge_protocol_types,
     specforge_watch,
@@ -354,6 +356,7 @@ module specforge_lsp "specforge-lsp" {
     specforge_graph,
     specforge_ops,
     specforge_parser,
+    specforge_process,
     specforge_project,
     specforge_protocol_types,
     specforge_registry,
@@ -383,6 +386,7 @@ module specforge_mcp "specforge-mcp" {
     specforge_ops,
     specforge_ops_registry,
     specforge_parser,
+    specforge_process,
     specforge_project,
     specforge_protocol_types,
     specforge_registry,
