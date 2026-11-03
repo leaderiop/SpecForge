@@ -17,9 +17,9 @@ impl Args {
     /// `specforge providers`: the providers `specforge.json` configures, in
     /// declaration order, each with the status the scheme registry built from
     /// the loaded extensions gives it.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
-        let project = match self.project.compile() {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };

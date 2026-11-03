@@ -54,7 +54,7 @@ fn the_configured_registry_over_http_keeps_the_registry_contract() {
     }
     let dir = project(server.config_entry());
     denying(dir.home(), &denied);
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", crate::http())
         .as_user(User::at(dir.home(), Some(server.token().to_string())));
 
     assert_registry_contract(&registry, &published);
@@ -78,7 +78,7 @@ fn the_configured_registry_over_memory_keeps_the_registry_contract() {
         { "alias": "local", "url": "https://local.invalid", "default_registry": true }
     ]));
     denying(dir.home(), &denied);
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", crate::http())
         .with_client(client)
         .as_user(User::at(dir.home(), Some("token".to_string())));
 
@@ -108,7 +108,7 @@ fn a_published_manifest_is_read_without_downloading_the_binary() {
         { "alias": "local", "url": "https://local.invalid", "default_registry": true }
     ]));
     denying(dir.home(), &denied);
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", crate::http())
         .with_client(client.clone())
         .as_user(User::at(dir.home(), Some("token".to_string())));
     let base = PackageName::parse("@contract/base").unwrap();

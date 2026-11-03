@@ -79,7 +79,7 @@ impl Args {
     /// compiled at `path`. The document on stdout; the notices (I020) on
     /// stderr; a refusal as `error[CODE]` with the closest entity as its
     /// hint (exit 1).
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         // checked here, not by clap's `conflicts_with`: `--format` has a default, and `--format graph` is taken
         if self.pick.is_some()
             && (self.format != Format::Graph || self.inputs.is_some() || self.include_coverage)
@@ -91,7 +91,7 @@ impl Args {
             );
             return Exit::Unjudged;
         }
-        let project = match self.project.compile() {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
@@ -322,7 +322,7 @@ mod tests {
             let line = Line::try_parse_from(argv).unwrap_or_else(|e| panic!("{e}"));
             let (terminal, capture) = Terminal::captured("", Facts::PIPED);
             // refused before the project is compiled: `--path` is `.`, which is not the fixture
-            let exit = line.args.run(&terminal);
+            let exit = line.args.run(&terminal, &crate::ports());
             assert_eq!(exit.code(), 2, "{format}");
             assert!(capture.stdout().is_empty());
             assert!(capture.stderr().contains("--pick"), "{}", capture.stderr());

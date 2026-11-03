@@ -581,9 +581,9 @@ fn a_v_field_written_by_hand_is_e082() {
     verify = "re-verification reads the baseline's judgements"
 )]
 fn re_verification_reads_the_baselines_judgements() {
+    use specforge_effects::git::{Git, Located, Sha};
+    use specforge_effects::testing::FakeGit;
     use specforge_project::baseline::Baseline;
-    use specforge_project::history::{History, Located, Sha};
-    use specforge_project::testing::FakeHistory;
     use std::path::{Path, PathBuf};
     // A truth passing at HEAD (fresh over that commit's files) and failing now is a regression; one stale at HEAD is
     // not "passing there".
@@ -593,7 +593,7 @@ fn re_verification_reads_the_baselines_judgements() {
     let id = Sha::new("a".repeat(40));
     // The baseline at a commit holding the spec, the ledger and `claude` as the instructions file.
     let at = |claude: &str| {
-        let mut fake = FakeHistory::repo(project.root(), id.as_str(), Vec::new());
+        let mut fake = FakeGit::repo(project.root(), id.as_str(), Vec::new());
         fake.blobs = vec![
             (PathBuf::from("CLAUDE.md"), claude.as_bytes().to_vec()),
             (
@@ -601,12 +601,12 @@ fn re_verification_reads_the_baselines_judgements() {
                 b"export const session = 1;\n".to_vec(),
             ),
         ];
-        let Located::Repo(place) = History::locate(&fake, project.root()) else {
+        let Located::Repo(place) = Git::locate(&fake, project.root()) else {
             panic!("a repository")
         };
         let fetch = |keys: &[String]| {
             let asked: Vec<PathBuf> = keys.iter().map(PathBuf::from).collect();
-            let found = History::blobs(&fake, &place, &id, &asked).unwrap();
+            let found = Git::blobs(&fake, &place, &id, &asked).unwrap();
             keys.iter()
                 .cloned()
                 .zip(found.into_iter().map(|(_, bytes)| bytes))

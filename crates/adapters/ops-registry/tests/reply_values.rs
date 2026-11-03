@@ -109,7 +109,7 @@ fn project(fake: &Fake) -> (TestProject, ConfiguredRegistry) {
         r#"{{"name":"p","version":"0.1.0","spec_root":"spec","extensions":[],"registries":[{{"alias":"main","url":"{}","default_registry":true}}]}}"#,
         fake.root
     ));
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", crate::http())
         .as_user(User::at(dir.home(), None));
     (dir, registry)
 }

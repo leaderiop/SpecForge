@@ -89,7 +89,8 @@ impl Session {
     pub fn spawn() -> Session {
         let (client_to_server, server_stdin) = tokio::io::duplex(1 << 20);
         let (server_stdout, server_to_client) = tokio::io::duplex(1 << 20);
-        let (service, socket) = specforge_lsp::backend::service();
+        let (service, socket) =
+            specforge_lsp::backend::service(specforge_effects::testing::ports());
         let server = tokio::spawn(async move {
             Server::new(server_stdin, server_stdout, socket)
                 .serve(service)

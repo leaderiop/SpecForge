@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use specforge_protocol_types::{
@@ -10,18 +11,23 @@ use specforge_protocol_types::{
 };
 
 use crate::fs::{FileKind, FsStat, READ_CEILING, held};
+use crate::git::{
+    Blob, CommitFile, Git, GitError, GitPlace, Located, Sha, Sized, TreeEntry, WorktreeStatus,
+};
 use crate::http::{Any, scheme, status_class};
 use crate::{
     Ceiling, Fs, FsOutcome, Http, HttpOutcome, Lookup, Output, Ports, Process, ProcessClass,
     ProcessOutcome, Redirects, Roots,
 };
 
-/// Ports of fakes that answer nothing: every program is not found, every URL unreachable, every file missing.
+/// Ports of fakes that answer nothing: every program is not found, every URL unreachable, every file missing, no
+/// directory a repository.
 pub fn ports() -> Ports {
     Ports {
         process: Arc::new(FakeProcess::new()),
         http: Arc::new(FakeHttp::new()),
         fs: Arc::new(FakeFs::new()),
+        git: Arc::new(FakeGit::none()),
     }
 }
 
@@ -398,4 +404,221 @@ pub fn fs_contract(port: &dyn Fs, roots: &Roots) {
     assert_eq!(outside.class, OutcomeClass::Outside, "{outside:?}");
     let denied = port.run(roots, &request(".env", FsOp::Read { max_bytes: 1024 }));
     assert_eq!(denied.class, OutcomeClass::Denied, "{denied:?}");
+}
+
+/// The `Git` contract over `dir`, a directory in no repository: it is located as no repository, or as git that
+/// cannot be asked (not installed), never as a repository.
+pub fn git_contract(port: &dyn Git, dir: &Path) {
+    let located = port.locate(dir);
+    assert!(
+        matches!(located, Located::NotARepository | Located::Unavailable(_)),
+        "{located:?}"
+    );
+}
+
+/// Answers `located`, `head` and `files` as given.
+pub struct FakeGit {
+    pub located: Located,
+    pub head: Result<Option<Sha>, GitError>,
+    pub files: Result<Vec<CommitFile>, GitError>,
+    /// Other revisions it knows by name: their commit and the files at it.
+    pub named: Vec<(String, Sha, Vec<CommitFile>)>,
+    /// The other files it holds at every commit (what `blobs` answers).
+    pub blobs: Vec<CommitFile>,
+    /// What `blobs` answers instead, when set: git failing to read the files.
+    pub blobs_fail: Option<GitError>,
+    /// The entries its tree holds besides the files and `blobs`, with the size `sizes` answers (`None`: a link or a
+    /// submodule).
+    pub listed: Vec<(PathBuf, Option<u64>)>,
+    /// Regular files its tree lists that git cannot give: `sizes` answers `None` for them.
+    pub lost: Vec<PathBuf>,
+    /// Every path `blobs` was asked for, in order.
+    pub blobs_paths: Mutex<Vec<PathBuf>>,
+    /// What `sizes` answers instead, when set: git failing to read the sizes.
+    pub sizes_fail: Option<GitError>,
+    /// What `tree` answers instead, when set: git failing to list the tree.
+    pub tree_fail: Option<GitError>,
+    /// What `branch` answers.
+    pub branch: String,
+    /// What `status` answers.
+    pub status: WorktreeStatus,
+    asked: AtomicUsize,
+    trees: AtomicUsize,
+    blobs_asks: AtomicUsize,
+    any: AtomicUsize,
+}
+
+impl FakeGit {
+    /// A repository at `toplevel` whose `HEAD` is `sha` and whose files at it are `files`.
+    pub fn repo(toplevel: &Path, sha: &str, files: Vec<CommitFile>) -> Self {
+        FakeGit {
+            located: Located::Repo(GitPlace {
+                toplevel: toplevel
+                    .canonicalize()
+                    .unwrap_or_else(|_| toplevel.to_path_buf()),
+                git_dir: toplevel.join(".git"),
+                common_dir: toplevel.join(".git"),
+                shallow: false,
+            }),
+            head: Ok(Some(Sha::new(sha))),
+            files: Ok(files),
+            named: Vec::new(),
+            blobs: Vec::new(),
+            blobs_fail: None,
+            listed: Vec::new(),
+            lost: Vec::new(),
+            blobs_paths: Mutex::new(Vec::new()),
+            sizes_fail: None,
+            tree_fail: None,
+            branch: String::new(),
+            status: WorktreeStatus::default(),
+            asked: AtomicUsize::new(0),
+            trees: AtomicUsize::new(0),
+            blobs_asks: AtomicUsize::new(0),
+            any: AtomicUsize::new(0),
+        }
+    }
+
+    /// A directory that is no repository.
+    pub fn none() -> Self {
+        FakeGit {
+            located: Located::NotARepository,
+            head: Ok(None),
+            files: Ok(Vec::new()),
+            named: Vec::new(),
+            blobs: Vec::new(),
+            blobs_fail: None,
+            listed: Vec::new(),
+            lost: Vec::new(),
+            blobs_paths: Mutex::new(Vec::new()),
+            sizes_fail: None,
+            tree_fail: None,
+            branch: String::new(),
+            status: WorktreeStatus::default(),
+            asked: AtomicUsize::new(0),
+            trees: AtomicUsize::new(0),
+            blobs_asks: AtomicUsize::new(0),
+            any: AtomicUsize::new(0),
+        }
+    }
+
+    /// How many times the files at a commit were asked for.
+    pub fn files_asked(&self) -> usize {
+        self.asked.load(Ordering::SeqCst)
+    }
+
+    /// How many times a commit's tree was asked for.
+    pub fn trees_asked(&self) -> usize {
+        self.trees.load(Ordering::SeqCst)
+    }
+
+    /// How many times named files were asked for.
+    pub fn blobs_asked(&self) -> usize {
+        self.blobs_asks.load(Ordering::SeqCst)
+    }
+
+    /// How many questions of any kind were asked.
+    pub fn questions(&self) -> usize {
+        self.any.load(Ordering::SeqCst)
+    }
+}
+
+impl Git for FakeGit {
+    fn branch(&self, _: &GitPlace) -> Result<String, GitError> {
+        Ok(self.branch.clone())
+    }
+    fn status(&self, _: &GitPlace) -> Result<WorktreeStatus, GitError> {
+        Ok(self.status.clone())
+    }
+    fn locate(&self, _: &Path) -> Located {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        self.located.clone()
+    }
+    fn commit(&self, _: &GitPlace, revision: &str) -> Result<Option<Sha>, GitError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        if revision == "HEAD" {
+            return self.head.clone();
+        }
+        Ok(self
+            .named
+            .iter()
+            .find(|(name, ..)| name == revision)
+            .map(|(_, sha, _)| sha.clone()))
+    }
+    fn merge_base(&self, _: &GitPlace, a: &Sha, _: &Sha) -> Result<Option<Sha>, GitError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        Ok(Some(a.clone()))
+    }
+    fn files(
+        &self,
+        _: &GitPlace,
+        commit: &Sha,
+        _: &Path,
+        wanted: &dyn Fn(&Path) -> bool,
+    ) -> Result<Vec<CommitFile>, GitError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        self.asked.fetch_add(1, Ordering::SeqCst);
+        let files = match self.named.iter().find(|(_, sha, _)| sha == commit) {
+            Some((_, _, files)) => files.clone(),
+            None => self.files.clone()?,
+        };
+        Ok(files.into_iter().filter(|(path, _)| wanted(path)).collect())
+    }
+    fn tree(&self, _: &GitPlace, commit: &Sha, _: &Path) -> Result<Vec<TreeEntry>, GitError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        self.trees.fetch_add(1, Ordering::SeqCst);
+        if let Some(error) = &self.tree_fail {
+            return Err(error.clone());
+        }
+        let files = match self.named.iter().find(|(_, sha, _)| sha == commit) {
+            Some((_, _, files)) => files.clone(),
+            None => self.files.clone()?,
+        };
+        Ok(files
+            .iter()
+            .chain(&self.blobs)
+            .map(|(path, _)| (path.clone(), true))
+            .chain(
+                self.listed
+                    .iter()
+                    .map(|(path, size)| (path.clone(), size.is_some())),
+            )
+            .chain(self.lost.iter().map(|path| (path.clone(), true)))
+            .collect())
+    }
+    fn sizes(&self, _: &GitPlace, _: &Sha, paths: &[PathBuf]) -> Result<Vec<Sized>, GitError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        if let Some(error) = &self.sizes_fail {
+            return Err(error.clone());
+        }
+        let size = |path: &PathBuf| {
+            let held = self.blobs.iter().find(|(held, _)| held == path);
+            held.map(|(_, bytes)| bytes.len() as u64).or_else(|| {
+                let listed = self.listed.iter().find(|(held, _)| held == path);
+                listed.and_then(|(_, size)| *size)
+            })
+        };
+        Ok(paths
+            .iter()
+            .map(|path| (path.clone(), size(path)))
+            .collect())
+    }
+    fn blobs(&self, _: &GitPlace, _: &Sha, paths: &[PathBuf]) -> Result<Vec<Blob>, GitError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        self.blobs_asks.fetch_add(1, Ordering::SeqCst);
+        self.blobs_paths
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .extend(paths.iter().cloned());
+        if let Some(error) = &self.blobs_fail {
+            return Err(error.clone());
+        }
+        Ok(paths
+            .iter()
+            .map(|path| {
+                let held = self.blobs.iter().find(|(held, _)| held == path);
+                (path.clone(), held.map(|(_, bytes)| bytes.clone()))
+            })
+            .collect())
+    }
 }

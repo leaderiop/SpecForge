@@ -47,6 +47,8 @@ specforge-component = { workspace = true, features = ["testing"] }
 specforge-ops = { path = ".", features = ["testing"] }
 # The project a test builds, and the sample sources.
 specforge-project = { workspace = true, features = ["testing"] }
+# The fake ports (a scripted git), injected where a test compiles a project.
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 # Extensions declared with the SDK, served in process.
 specforge-extension-sdk = { path = "../../runtime/extension-sdk" }
 # One diagnostic of each kind the host builds, for the diagnostics JSON pin.

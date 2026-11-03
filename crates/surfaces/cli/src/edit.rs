@@ -25,12 +25,13 @@ pub(crate) fn execute(
     dry_run: bool,
     format: OutputFormat,
     terminal: &Terminal,
+    ports: &specforge_effects::Ports,
 ) -> Exit {
     let edits = match edits {
         Ok(edits) => edits,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
-    let compiled = match project.compile() {
+    let compiled = match project.compile(ports) {
         Ok(compiled) => compiled,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
@@ -132,9 +133,9 @@ pub(crate) struct SetArgs {
 }
 
 impl SetArgs {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
-        let compiled = match self.project.compile() {
+        let compiled = match self.project.compile(ports) {
             Ok(compiled) => compiled,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
@@ -212,7 +213,7 @@ pub(crate) struct UnsetArgs {
 }
 
 impl UnsetArgs {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let edits = Ok(vec![Edit::Unset {
             entity_id: self.entity,
             field: self.field,
@@ -224,6 +225,7 @@ impl UnsetArgs {
             self.dry_run,
             self.output.format,
             terminal,
+            ports,
         )
     }
 }
@@ -263,12 +265,17 @@ pub(crate) struct LinkArgs {
 }
 
 impl LinkArgs {
-    pub(crate) fn run(self, add: bool, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(
+        self,
+        add: bool,
+        terminal: &Terminal,
+        ports: &specforge_effects::Ports,
+    ) -> Exit {
         let entity_id = self.entity.clone();
         let edit = match (&self.verify, &self.field, &self.target) {
             (Some(verify), _, _) => {
                 // The reading of the text needs the entity's kind, so the project is read first (ADR 0237).
-                let compiled = match self.project.compile() {
+                let compiled = match self.project.compile(ports) {
                     Ok(compiled) => compiled,
                     Err(error) => {
                         return Refusal::of(self.output.format).report(terminal, &error);
@@ -320,6 +327,7 @@ impl LinkArgs {
             self.dry_run,
             self.output.format,
             terminal,
+            ports,
         )
     }
 }
@@ -351,7 +359,7 @@ pub(crate) struct DeleteArgs {
 }
 
 impl DeleteArgs {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let edits = Ok(vec![Edit::Delete {
             entity_id: self.entity,
             unlink_references: self.unlink_references,
@@ -363,6 +371,7 @@ impl DeleteArgs {
             self.dry_run,
             self.output.format,
             terminal,
+            ports,
         )
     }
 }

@@ -114,6 +114,7 @@ pub(crate) fn cited_of(view: &ProjectView<'_>, cites: &[Cite]) -> Result<Cited, 
             }
             Cite::File { file } => {
                 // inside the project, reached through no link out, spelled as on disk (ADR 0335)
+                // RealFs is only Contained's Lookup here (it looks paths up, reads no file): not an Fs effect.
                 let held = view.root().is_some_and(|root| {
                     Contained::project(root, view.env().spec_root(), &RealFs)
                         .resolve(file, RootName::Project)

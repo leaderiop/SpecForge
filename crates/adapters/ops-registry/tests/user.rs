@@ -30,7 +30,7 @@ fn a_kept_token_whose_secret_is_gone_refuses_the_read() {
         r#"{"registries":{"https://local.invalid":{}}}"#,
     )
     .unwrap();
-    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add", crate::http())
         .with_client(client.clone())
         .as_user(User::at(project.home(), None));
 
@@ -62,7 +62,7 @@ fn a_read_carries_the_credential_kept_for_its_root_only() {
     )
     .unwrap();
     let client = MemoryClient::new();
-    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add", crate::http())
         .with_client(client.clone())
         .as_user(User::at(project.home(), None));
 
@@ -95,7 +95,7 @@ fn registry_for(
     client: &MemoryClient,
     operation: &str,
 ) -> ConfiguredRegistry {
-    ConfiguredRegistry::for_project(&project.project_root(), operation)
+    ConfiguredRegistry::for_project(&project.project_root(), operation, crate::http())
         .with_client(client.clone())
         .as_user(User::at(project.home(), None))
 }
@@ -226,7 +226,7 @@ fn two_entries_with_one_alias_keep_two_credentials() {
             { "alias": "main", "url": "https://other.invalid", "default_registry": true }
         ]);
     });
-    ConfiguredRegistry::for_project(&other.project_root(), "login")
+    ConfiguredRegistry::for_project(&other.project_root(), "login", crate::http())
         .with_client(client.clone())
         .as_user(User::at(project.home(), None))
         .log_in(Some("main"), TokenSource::Given("t".into()))

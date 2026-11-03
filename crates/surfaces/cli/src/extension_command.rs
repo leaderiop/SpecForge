@@ -58,7 +58,12 @@ const PICK: &str = "pick";
 /// surfaces) is loaded to route the command; the project is compiled from it
 /// (its sources read, its graph built and checked) only once a declared
 /// command is matched.
-pub fn run(argv: &[String], builtins: &[String], terminal: &Terminal) -> i32 {
+pub fn run(
+    argv: &[String],
+    builtins: &[String],
+    terminal: &Terminal,
+    ports: &specforge_effects::Ports,
+) -> i32 {
     let Some((first, rest)) = argv.split_first() else {
         return INVALID_INPUT_EXIT;
     };
@@ -93,7 +98,8 @@ pub fn run(argv: &[String], builtins: &[String], terminal: &Terminal) -> i32 {
         Some(Arc::new(
             specforge_component::ComponentRuntime::with_user_cache(),
         )),
-    );
+    )
+    .with_git(std::sync::Arc::clone(&ports.git));
     run_in(env, &root, &ext, rest, builtins, terminal)
 }
 

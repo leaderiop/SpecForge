@@ -172,14 +172,13 @@ fn c4_the_pass_input_of_an_analysis() {
 fn c4_the_pass_input_of_a_compile_carries_the_baseline() {
     let dir = project();
     let head = fs::read(dir.root().join("a.spec")).unwrap();
-    let fake = Arc::new(specforge_project::testing::FakeHistory::repo(
+    let fake: specforge_effects::SharedGit = Arc::new(specforge_effects::testing::FakeGit::repo(
         dir.root(),
         "1a2b3c4d00000000000000000000000000000000",
         vec![("a.spec".into(), head)],
     ));
-    let _installed = specforge_project::testing::history::install(fake);
     let runtime = Arc::new(runtime());
-    dir.compile_in(runtime.clone());
+    dir.compile_with(runtime.clone(), Some(fake));
     // flipped in T6: `test_results` and `proved_claims` are absent, not null
     golden(
         "pass.check.input.json",

@@ -512,16 +512,15 @@ fn previous_is_the_baseline_of_the_declared_kinds() {
     let head = format!("{}{spec}", crate::computed::BASE);
     let project = crate::computed::project(spec);
     let sha = "9f8e7d6000000000000000000000000000000000";
-    let fake = Arc::new(specforge_project::testing::FakeHistory::repo(
+    let fake: specforge_effects::SharedGit = Arc::new(specforge_effects::testing::FakeGit::repo(
         project.root(),
         sha,
         vec![("a.spec".into(), head.into_bytes())],
     ));
-    let _installed = specforge_project::testing::history::install(fake);
     let runtime = Arc::new(specforge_project::testing::gsd_history_runtime(
         json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]),
     ));
-    project.compile_in(runtime.clone());
+    project.compile_with(runtime.clone(), Some(fake));
     let input = last_input(&runtime, "__pass_verify_status");
     let previous = &input["previous"];
     assert_eq!(previous["revision"], sha);

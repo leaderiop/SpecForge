@@ -176,9 +176,9 @@ fn a_hook_is_told_the_real_path_and_toplevel_of_an_outside_path() {
             && git(&other_root, &["init", "-q", "-b", "main"])
     );
     std::os::unix::fs::symlink(other_root.join("src"), root.join("mainsrc")).unwrap();
-    let _git = specforge_project::testing::install(std::sync::Arc::new(
-        specforge_git::GitCli::new(std::sync::Arc::new(specforge_process::Runner)),
-    ));
+    let project = project.with_git(std::sync::Arc::new(specforge_git::GitCli::new(
+        std::sync::Arc::new(specforge_process::Runner),
+    )));
     let canonical_root = std::fs::canonicalize(&root).unwrap();
     let write = |file: &std::path::Path| {
         json!({"hook_event_name": "PreToolUse", "tool_name": "Write", "session_id": "s1", "cwd": root,

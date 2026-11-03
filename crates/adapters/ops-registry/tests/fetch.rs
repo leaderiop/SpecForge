@@ -130,7 +130,7 @@ impl Project {
     }
 
     fn registry(&self) -> ConfiguredRegistry {
-        ConfiguredRegistry::for_project(&self.dir.project_root(), "add")
+        ConfiguredRegistry::for_project(&self.dir.project_root(), "add", crate::http())
             .with_client(self.client.clone())
             .as_user(User::at(self.dir.home(), None))
     }
@@ -741,9 +741,9 @@ fn an_expired_stored_credential_refuses_a_read() {
 #[test]
 fn the_environment_token_is_not_sent_on_a_read() {
     let project = Project::on(Reply::unsigned());
-    let registry = ConfiguredRegistry::for_project(&project.dir.project_root(), "add")
-        .with_client(project.client.clone())
-        .as_user(User::at(project.dir.home(), Some("env".to_string())));
+    let registry = project
+        .registry()
+        .as_user(User::at(project.dir.home(), Some("env".into())));
 
     registry.versions(&name(NAME)).unwrap();
 

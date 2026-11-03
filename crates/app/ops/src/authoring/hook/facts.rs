@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use serde_json::Value;
-use specforge_project::history::{History, Located};
+use specforge_effects::git::{Git, Located};
 use specforge_protocol_types::{CommitFact, GitFacts, PathFact};
 
 use crate::host::shell;
@@ -83,7 +83,7 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
 
 /// What git says of the repository `cwd` is in (ADR 0320): none outside one, or when git cannot be asked. `status`
 /// adds the porcelain status; a branch git cannot give is empty, a status it cannot give is none.
-pub fn git(history: &dyn History, cwd: &Path, status: bool) -> Option<GitFacts> {
+pub fn git(history: &dyn Git, cwd: &Path, status: bool) -> Option<GitFacts> {
     let Located::Repo(place) = history.locate(cwd) else {
         return None;
     };
@@ -102,7 +102,7 @@ pub fn git(history: &dyn History, cwd: &Path, status: bool) -> Option<GitFacts> 
 /// For a path outside the project, the repository it is in and whether it is inside a `.git` directory (ADR 0320).
 // shortcut: `in_git_dir` is by name, so a `--separate-git-dir` repository's directory is not seen; upgrade when a
 // hook needs it.
-pub fn outside_git(history: &dyn History, fact: &mut PathFact) {
+pub fn outside_git(history: &dyn Git, fact: &mut PathFact) {
     let real = Path::new(&fact.real);
     fact.in_git_dir = real.components().any(|c| c.as_os_str() == ".git");
     if let Some(Located::Repo(place)) = real

@@ -1,12 +1,13 @@
 //! The effect plane (ADR 0335): every effect the host performs, for an extension, a check, a CLI verb or itself,
-//! goes through one of the ports the caller passes, [`Process`], [`Http`] and [`Fs`]. Each is an object-safe
-//! trait shared as an `Arc`; the adapters are pure-Rust crates under `crates/adapters`, the fakes are [`testing`]'s.
+//! goes through one of the four ports the caller passes, [`Process`], [`Http`], [`Fs`] and [`Git`]. Each is an
+//! object-safe trait shared as an `Arc`; the adapters are pure-Rust crates under `crates/adapters`, the fakes are [`testing`]'s.
 //! [`digest`] gives each request and outcome its canonical digest, and [`contained`] decides where a written path
 //! may lead.
 
 pub mod contained;
 mod digest;
 pub mod fs;
+pub mod git;
 pub mod http;
 pub mod process;
 #[cfg(feature = "testing")]
@@ -15,6 +16,7 @@ pub mod testing;
 pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, RootName, Roots};
 pub use digest::{canonical, digest};
 pub use fs::{Fs, FsOutcome, SharedFs};
+pub use git::{Git, SharedGit};
 pub use http::{Http, HttpOutcome, Redirects, SharedHttp};
 pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, SharedProcess, Shown};
 // `EffectRecord` and `EffectRequest` have no caller yet: plan 03's effect journal writes and serves them.
@@ -29,4 +31,5 @@ pub struct Ports {
     pub process: SharedProcess,
     pub http: SharedHttp,
     pub fs: SharedFs,
+    pub git: SharedGit,
 }

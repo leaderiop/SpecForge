@@ -54,8 +54,8 @@ impl Args {
     /// from the loaded extensions' registries and are reported missing
     /// when lacking. With `--plan`, the plan check of an agent plan file
     /// instead (exit 1 when the plan fails).
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let project = match self.project.compile() {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::of(self.asked_or_json()).report(terminal, &error),
         };

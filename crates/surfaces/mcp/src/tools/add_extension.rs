@@ -86,8 +86,11 @@ impl CoreTool for Tool {
         // The project the call installs into: the served one, or the one
         // `path` names.
         let root = project.root;
-        let registry =
-            specforge_ops_registry::ConfiguredRegistry::for_project(root, "add_extension");
+        let registry = specforge_ops_registry::ConfiguredRegistry::for_project(
+            root,
+            "add_extension",
+            std::sync::Arc::clone(&project.ports.http),
+        );
         // The shared operation `specforge add` runs. The call's caller asks nobody, so a publisher
         // key change is refused rather than re-pinned.
         let request = AddRequest {

@@ -1,4 +1,4 @@
-//! The git adapter reads a repository's commits through the History port (ADR 0287). Each test makes its own
+//! The git adapter reads a repository's commits through the Git port (ADR 0287, ADR 0335). Each test makes its own
 //! repository; one without a `git` on `PATH` is skipped.
 
 #![allow(
@@ -9,9 +9,15 @@
 use std::path::Path;
 use std::process::Command;
 
+use specforge_effects::git::{Git, Located, Sha};
 use specforge_git::GitCli;
-use specforge_project::history::{History, Located, Sha};
 use specforge_test::prelude::*;
+
+/// What a baseline asks the files of: the specs and the harness ledger.
+fn baseline(path: &Path) -> bool {
+    path.extension().is_some_and(|e| e == "spec")
+        || path.file_name().is_some_and(|n| n == "specforge-harness")
+}
 
 fn git(root: &Path, args: &[&str]) {
     let status = Command::new("git")
@@ -25,6 +31,13 @@ fn git(root: &Path, args: &[&str]) {
 
 fn has_git() -> bool {
     Command::new("git").arg("--version").output().is_ok()
+}
+
+#[test]
+fn the_git_cli_keeps_the_git_contract() {
+    let dir = tempfile::tempdir().unwrap();
+    let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
+    specforge_effects::testing::git_contract(&cli, dir.path());
 }
 
 #[specforge_test(
@@ -51,7 +64,9 @@ fn history_reads_the_commits_files() {
     git(root, &["commit", "-q", "-m", "c1"]);
     std::fs::write(root.join("spec/a.spec"), "changed\n").unwrap();
     let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
-    let mut files = cli.files(&place, &head, Path::new("spec")).unwrap();
+    let mut files = cli
+        .files(&place, &head, Path::new("spec"), &baseline)
+        .unwrap();
     files.sort();
     assert_eq!(
         files,
@@ -99,7 +114,7 @@ fn history_reads_only_the_specs_and_the_ledger() {
         panic!("a repository");
     };
     let head = cli.commit(&place, "HEAD").unwrap().unwrap();
-    let mut files = cli.files(&place, &head, Path::new("")).unwrap();
+    let mut files = cli.files(&place, &head, Path::new(""), &baseline).unwrap();
     files.sort();
     let names: Vec<_> = files.iter().map(|(p, _)| p.to_string_lossy()).collect();
     assert_eq!(names, ["a.spec", "specforge-harness"]);
@@ -336,7 +351,9 @@ fn a_directory_that_is_not_utf8_is_refused() {
     let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
     // a mangled pathspec would list nothing, and every file would read as absent
     let odd = Path::new(std::ffi::OsStr::from_bytes(b"caf\xe9"));
-    let why = cli.files(&place, &head, odd).expect_err("refused");
+    let why = cli
+        .files(&place, &head, odd, &baseline)
+        .expect_err("refused");
     assert!(why.0.contains("UTF-8"), "{why}");
     cli.tree(&place, &head, odd).expect_err("refused");
     // A program path that is not UTF-8 is refused, never run as a mangled other path.

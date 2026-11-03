@@ -52,12 +52,12 @@ pub(crate) struct Args {
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        collect_at(&self, terminal)
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        collect_at(&self, terminal, ports)
     }
 }
 
-fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
+fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
     let format = options.output.format;
     // The project the path is in (ADR 0029 D6); collect refuses one that is none.
     let root = match options.project.root() {
@@ -65,7 +65,7 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
 
-    let project = crate::project::compile_at(&root);
+    let project = crate::project::compile_at(&root, ports);
 
     let mode = if !options.reports.is_empty() {
         Mode::Reports(&options.reports)
@@ -98,7 +98,7 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
     let mut outcome = match collect::collect(
         &view,
         request,
-        &ProcessMachine::user(std::sync::Arc::new(specforge_process::Runner)),
+        &ProcessMachine::user(std::sync::Arc::clone(&ports.process)),
     ) {
         Ok(outcome) => outcome,
         Err(e) => {

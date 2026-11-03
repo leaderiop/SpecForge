@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use specforge_common::ProjectRoot;
 use specforge_component::ComponentRuntime;
+use specforge_effects::{Ports, SharedGit};
 use specforge_ops::OpError;
 use specforge_project::{CompiledProject, Environment, SharedRuntime};
 
@@ -80,13 +81,21 @@ impl ProjectArg {
     /// (`specforge_ops::view::ProjectView::of`). The compiled project's
     /// environment holds that runtime, which every operation over its view
     /// calls extensions in.
-    pub(crate) fn compile(&self) -> Result<CompiledProject, OpError> {
-        Ok(compile_at(&self.root()?))
+    pub(crate) fn compile(&self, ports: &Ports) -> Result<CompiledProject, OpError> {
+        Ok(compile_at(&self.root()?, ports))
     }
 
     /// [`Self::compile`] with the extensions in `runtime` (`check`'s tests give theirs).
-    pub(crate) fn compile_in(&self, runtime: SharedRuntime) -> Result<CompiledProject, OpError> {
-        Ok(CompiledProject::compile(&self.root()?, Some(runtime)))
+    pub(crate) fn compile_in(
+        &self,
+        runtime: SharedRuntime,
+        ports: &Ports,
+    ) -> Result<CompiledProject, OpError> {
+        Ok(compiled(
+            &self.root()?,
+            Some(runtime),
+            Arc::clone(&ports.git),
+        ))
     }
 
     /// The project at `path` (tests that hold a path already).
@@ -96,7 +105,8 @@ impl ProjectArg {
     }
 }
 
-/// The environment of the project at `dir`, its root falling back to the current directory, its sources not read.
+/// The environment of the project at `dir`, its root falling back to the current directory, its sources not read,
+/// with no git port: the caller gives its own.
 pub(crate) fn load_dir(dir: &Path) -> Environment {
     let root = ProjectRoot::of(dir).unwrap_or_else(|_| {
         ProjectRoot::of(Path::new(".")).expect("the current directory is a root")
@@ -105,8 +115,21 @@ pub(crate) fn load_dir(dir: &Path) -> Environment {
 }
 
 /// [`ProjectArg::compile`] for a root already resolved.
-pub(crate) fn compile_at(root: &ProjectRoot) -> CompiledProject {
-    CompiledProject::compile(root, Some(Arc::new(ComponentRuntime::with_user_cache())))
+pub(crate) fn compile_at(root: &ProjectRoot, ports: &Ports) -> CompiledProject {
+    compiled(
+        root,
+        Some(Arc::new(ComponentRuntime::with_user_cache())),
+        Arc::clone(&ports.git),
+    )
+}
+
+/// The project at `root` compiled in `runtime` from the plain file system, asking `git` of version control.
+pub(crate) fn compiled(
+    root: &ProjectRoot,
+    runtime: Option<SharedRuntime>,
+    git: SharedGit,
+) -> CompiledProject {
+    CompiledProject::of(Environment::load(root, runtime).with_git(git))
 }
 
 #[cfg(test)]

@@ -99,6 +99,25 @@ impl Served {
         Self::initialize(project, server, params, true)
     }
 
+    /// [`Self::initialized_in`], the server asking `git` of version control (a
+    /// `specforge_effects::testing::FakeGit`), its other ports fakes.
+    pub fn initialized_in_git(
+        project: TestProject,
+        runtime: SharedRuntime,
+        git: specforge_effects::SharedGit,
+    ) -> Self {
+        let project = project.installing_enabled();
+        project.record_declarations(&*runtime);
+        let server = McpServer::over(specforge_effects::Ports {
+            git,
+            ..specforge_effects::testing::ports()
+        })
+        .with_solver(z3_ready())
+        .with_collector_machine(no_approvals())
+        .with_extension_runtime(runtime);
+        Self::over_with(project, server, json!({}))
+    }
+
     /// [`Self::initialized_in`], the `initialize` also sending `params`.
     pub fn initialized_in_with(
         project: TestProject,

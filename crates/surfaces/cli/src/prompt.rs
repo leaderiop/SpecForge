@@ -72,9 +72,9 @@ impl Args {
         }
     }
 
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let rest = self.words();
-        let project = match self.project_of(&rest).compile() {
+        let project = match self.project_of(&rest).compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };

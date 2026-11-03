@@ -17,9 +17,9 @@ impl Args {
     /// `specforge extensions`: every extension the project enables, has
     /// locked or loaded, alphabetically, with the entity kinds each
     /// registered and how many of the project's entities use them.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
-        let project = match self.project.compile() {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };

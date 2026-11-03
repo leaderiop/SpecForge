@@ -3,6 +3,7 @@ use crate::document::Document;
 use crate::files::{Files, Findings, Publish};
 use crate::pending::Pending;
 use crate::publish::Publication;
+use specforge_effects::SharedGit;
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
@@ -31,6 +32,8 @@ pub struct LspState {
     client: ClientSupport,
     /// The ledger changes of the renames answered and not yet landed (ADR 0289).
     pending: Pending,
+    /// The git port every session it opens is given (ADR 0287, ADR 0335); none in a test that gives none.
+    git: Option<SharedGit>,
 }
 
 /// The session, or what readers see while it is out for an update.
@@ -50,19 +53,34 @@ impl Default for LspState {
 }
 
 impl LspState {
-    /// A state with no project open (a detached session).
+    /// A state with no project open (a detached session), and no git port.
     pub fn new() -> Self {
+        Self::with(None)
+    }
+
+    /// A state with no project open, every session it opens asking `git` of version control.
+    pub fn with_git(git: SharedGit) -> Self {
+        Self::with(Some(git))
+    }
+
+    fn with(git: Option<SharedGit>) -> Self {
         let mut state = Self {
             files: Files::default(),
-            project: Project::Held(Box::new(ProjectSession::detached())),
+            project: Project::Held(Box::new(detached(git.as_ref()))),
             last_token_signature: 0,
             shutdown: false,
             format_notices: HashSet::new(),
             client: ClientSupport::default(),
             pending: Pending::default(),
+            git,
         };
         state.last_token_signature = state.token_signature();
         state
+    }
+
+    /// A session with no project, opening the next one with this state's git port.
+    pub fn detached(&self) -> ProjectSession {
+        detached(self.git.as_ref())
     }
 
     /// What the client declared that shapes an answer.
@@ -257,7 +275,7 @@ impl LspState {
     /// shutdown it is dropped (its runtime freed) for an empty one.
     pub fn set_session(&mut self, session: ProjectSession) {
         self.project = Project::Held(Box::new(if self.shutdown {
-            ProjectSession::detached()
+            self.detached()
         } else {
             session
         }));
@@ -300,7 +318,7 @@ impl LspState {
         }
         self.pending = Pending::default();
         // Dropping the session frees its graph and its Wasm runtime.
-        self.project = Project::Held(Box::new(ProjectSession::detached()));
+        self.project = Project::Held(Box::new(self.detached()));
         self.rekey();
     }
 
@@ -325,5 +343,13 @@ impl LspState {
     fn rekey(&mut self) {
         let sources = self.environment().sources().clone();
         self.files.rekey(&sources);
+    }
+}
+
+/// A detached session, given `git` when there is one.
+fn detached(git: Option<&SharedGit>) -> ProjectSession {
+    match git {
+        Some(git) => ProjectSession::detached().with_git(Arc::clone(git)),
+        None => ProjectSession::detached(),
     }
 }

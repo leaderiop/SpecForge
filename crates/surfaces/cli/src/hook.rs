@@ -47,7 +47,7 @@ pub(crate) struct Args {
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let mut stdin = Vec::new();
         // One byte past the limit says it was passed; a stdin that cannot be read is what was read of it.
         let _ = std::io::stdin()
@@ -55,13 +55,13 @@ impl Args {
             .read_to_end(&mut stdin);
         let cwd = std::env::current_dir().unwrap_or_default();
         // A hook's git facts degrade quietly after 1.5 s, as upstream's probes do (ADR 0320).
-        specforge_project::history::set_default(Some(std::sync::Arc::new(
-            specforge_git::GitCli::with_timeout(
-                std::sync::Arc::new(specforge_process::Runner),
+        let git: specforge_effects::SharedGit =
+            std::sync::Arc::new(specforge_git::GitCli::with_timeout(
+                std::sync::Arc::clone(&ports.process),
                 std::time::Duration::from_millis(1_500),
-            ),
-        )));
-        self.run_with(&stdin, &cwd, crate::project::load_dir, terminal)
+            ));
+        let load = |dir: &Path| crate::project::load_dir(dir).with_git(git);
+        self.run_with(&stdin, &cwd, load, terminal)
     }
 
     /// Over `stdin`; `load` loads the environment at a root, and is called only for an event the hook fires on.

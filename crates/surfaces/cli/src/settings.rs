@@ -2,7 +2,7 @@ use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal, Written};
 use crate::terminal::{Terminal, errln, outln};
 use specforge_ops::extension::{self, SetRequest, SettingChange};
 use specforge_ops::view::ProjectView;
-use specforge_project::{CompiledProject, SharedRuntime};
+use specforge_project::SharedRuntime;
 
 // `specforge settings`'s command line: the listing, or `set` and `unset` (ADR 0296).
 #[derive(clap::Args)]
@@ -114,6 +114,7 @@ fn write(
     runtime: Option<SharedRuntime>,
     target: Target<'_>,
     change: SettingChange,
+    ports: &specforge_effects::Ports,
 ) -> Exit {
     let Target {
         project,
@@ -129,8 +130,10 @@ fn write(
     };
     let path = root.dir();
     let compiled = match runtime {
-        Some(runtime) => CompiledProject::compile(&root, Some(runtime)),
-        None => crate::project::compile_at(&root),
+        Some(runtime) => {
+            crate::project::compiled(&root, Some(runtime), std::sync::Arc::clone(&ports.git))
+        }
+        None => crate::project::compile_at(&root, ports),
     };
     let request = SetRequest {
         extension,
@@ -168,12 +171,17 @@ fn write(
 impl Args {
     /// `specforge settings`: each loaded extension's settings as `specforge.json` and the presets resolve them
     /// (ADR 0288), then the diagnostics reading them produced. Exit 1 when one is an error.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        self.run_in(terminal, None)
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        self.run_in(terminal, None, ports)
     }
 
     /// [`Self::run`] with the extensions in `runtime` when given.
-    pub(crate) fn run_in(self, terminal: &Terminal, runtime: Option<SharedRuntime>) -> Exit {
+    pub(crate) fn run_in(
+        self,
+        terminal: &Terminal,
+        runtime: Option<SharedRuntime>,
+        ports: &specforge_effects::Ports,
+    ) -> Exit {
         match self.action {
             Some(Action::Set(a)) => {
                 let json = match a
@@ -209,6 +217,7 @@ impl Args {
                         dry_run: a.dry_run,
                     },
                     change,
+                    ports,
                 );
             }
             Some(Action::Unset(a)) => {
@@ -223,6 +232,7 @@ impl Args {
                         dry_run: a.dry_run,
                     },
                     SettingChange::Unset,
+                    ports,
                 );
             }
             None => {}
@@ -232,8 +242,8 @@ impl Args {
             Err(exit) => return exit,
         };
         let compiled = match runtime {
-            Some(runtime) => self.project.compile_in(runtime),
-            None => self.project.compile(),
+            Some(runtime) => self.project.compile_in(runtime, ports),
+            None => self.project.compile(ports),
         };
         let project = match compiled {
             Ok(project) => project,

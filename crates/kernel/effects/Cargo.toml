@@ -1,6 +1,6 @@
 [package]
 name = "specforge-effects"
-description = "The effect plane: the Process, Http and Fs ports every host effect goes through, their canonical digests and the one path containment (ADR 0335)"
+description = "The effect plane: the Process, Http, Fs and Git ports every host effect goes through, their canonical digests and the one path containment (ADR 0335)"
 edition.workspace = true
 version.workspace = true
 license.workspace = true

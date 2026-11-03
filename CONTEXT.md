@@ -1631,10 +1631,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge-harness`, one `path key digest` line per recorded value, merged by union) says it was; with no line it
   is E083. A **Move record** (`<new> moved:<old>`) follows an entity across a rename so its lines and its history do.
   The ledger also holds the digest of each fact store, one line per collector (ADR 0327).
-- **History port**: the trait (`specforge_project::history::History`) that locates the repository, names commits and
-  merge-bases and lists files at one; the git CLI is its only adapter (ADR 0287).
+- **Git port**: the effect plane's trait (`specforge_effects::git::Git`, formerly the History port) that locates the
+  repository, names commits and merge-bases and lists files at one; the git CLI is its only adapter (ADR 0287,
+  ADR 0335). A surface gives it to each environment and session it opens; with none given, no git is asked.
 - **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
-  read through the `History` port only when something declares history; what an immutable or append-only value is
+  read through the **Git port** only when something declares history; what an immutable or append-only value is
   judged against and what a pass receives as `previous` (ADR 0287); a compute pass's declared reads see the files
   the commit holds (ADR 0300). The old build cache and `lifecycle_field` are gone.
 - **Edit plan**: what a writing command or collector answers to write (`EditPlan`, protocol 1.9.0): ordered typed ops

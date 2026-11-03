@@ -1,6 +1,6 @@
 [package]
 name = "specforge-git"
-description = "The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287)"
+description = "The adapter behind the effect plane's Git port: the git command line through the Process port, read-only, hardened, with a deadline on every call (ADR 0287, ADR 0335)"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
@@ -9,9 +9,9 @@ repository.workspace = true
 [dependencies]
 # Every git call runs through the effect plane's Process port (ADR 0335).
 specforge-effects = { path = "../../kernel/effects" }
-specforge-project = { workspace = true }
 
 [dev-dependencies]
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 specforge-process = { path = "../process" }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

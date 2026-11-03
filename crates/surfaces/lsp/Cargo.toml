@@ -18,6 +18,9 @@ specforge-graph = { path = "../../pipeline/graph" }
 specforge-ops = { path = "../../app/ops" }
 specforge-parser = { workspace = true }
 specforge-git = { path = "../../adapters/git" }
+specforge-effects = { path = "../../kernel/effects" }
+specforge-fs = { path = "../../adapters/fs" }
+specforge-http = { path = "../../adapters/http" }
 specforge-process = { path = "../../adapters/process" }
 specforge-project = { path = "../../session/project" }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
@@ -31,6 +34,8 @@ serde_json = { workspace = true }
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }
 specforge-project = { path = "../../session/project", features = ["testing"] }
+# The fake ports (`specforge_effects::testing`): a test gives a surface fakes, or a fake git.
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 tree-sitter = { workspace = true }
 specforge-component = { path = "../../runtime/component", features = ["testing"] }
 specforge-installed = { path = "../../runtime/installed", features = ["testing"] }

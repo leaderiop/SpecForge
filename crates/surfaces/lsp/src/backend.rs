@@ -15,12 +15,14 @@ use crate::reaction::Reaction;
 use crate::views;
 use crate::{ClientSupport, LspState, answers};
 
+use specforge_effects::Ports;
 use specforge_ops::authoring::format;
 
 /// The language server's service: the LSP methods and the editor client's own requests (ADR 0268).
-/// `main` and the tests build it here, so both serve the same methods.
-pub fn service() -> (LspService<Backend>, ClientSocket) {
-    LspService::build(Backend::new)
+/// `main` and the tests build it here, so both serve the same methods; every project it opens asks `ports`' git port
+/// of version control.
+pub fn service(ports: Ports) -> (LspService<Backend>, ClientSocket) {
+    LspService::build(move |client| Backend::new(client, ports))
         .custom_method(views::GRAPH, Backend::graph)
         .custom_method(views::ENTITY, Backend::entity)
         .finish()
@@ -55,8 +57,8 @@ pub struct Backend {
 }
 
 impl Backend {
-    pub fn new(client: Client) -> Self {
-        let state = Arc::new(RwLock::new(LspState::new()));
+    pub fn new(client: Client, ports: Ports) -> Self {
+        let state = Arc::new(RwLock::new(LspState::with_git(ports.git)));
         let (gone, closed) = watch::channel(());
         let runtime = RuntimeSource::project();
         let reaction: Shared = Arc::new(Mutex::new(Reaction::new(

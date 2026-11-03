@@ -99,7 +99,7 @@ pub fn run(
         .as_ref()
         .is_none_or(|s| on(view, extension, std::slice::from_ref(s)));
     let history = ((declared.reads_git || declared.reads_git_status) && git_on)
-        .then(|| view.env().history())
+        .then(|| view.env().git())
         .flatten();
     let tool = event.tool.as_ref();
     let at = crate::extension::command::instant();

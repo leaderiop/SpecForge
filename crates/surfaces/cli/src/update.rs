@@ -36,13 +36,14 @@ impl Args {
     /// `specforge update`: the shared update operation, presented. Exit 1
     /// when it fails outright or when any extension fails (nothing is then
     /// applied).
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
         let root = match self.project.root() {
             Ok(root) => root,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
-        let registry = ConfiguredRegistry::for_project(&root, "update");
+        let registry =
+            ConfiguredRegistry::for_project(&root, "update", std::sync::Arc::clone(&ports.http));
         let runtime = specforge_component::ComponentRuntime::with_user_cache();
         let request = UpdateRequest {
             root: &root,

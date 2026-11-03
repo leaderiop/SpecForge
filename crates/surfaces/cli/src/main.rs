@@ -62,6 +62,8 @@ mod watch;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use outcome::Exit;
+use specforge_effects::Ports;
+use std::sync::Arc;
 use terminal::{Stream, Terminal};
 
 /// What `--version` prints after `specforge `: the package version, then the commit the build was made from
@@ -212,10 +214,6 @@ fn declared() -> clap::Command {
 fn main() {
     // A program the runner started is in its own group, out of the terminal's reach: Ctrl-C ends it here.
     specforge_process::stop_on_interrupt();
-    // History is read through the git command line, only when a project declares it (ADR 0287).
-    specforge_project::history::set_default(Some(std::sync::Arc::new(specforge_git::GitCli::new(
-        std::sync::Arc::new(specforge_process::Runner),
-    ))));
     let cli = Cli::try_parse().unwrap_or_else(|error| {
         // clap exits 2 on a usage error, which a host reads as a block; `hook` refuses with 1 (ADR 0324).
         let hook = std::env::args().nth(1).as_deref() == Some("hook");
@@ -226,6 +224,7 @@ fn main() {
         error.exit()
     });
     let terminal = Terminal::process();
+    let ports = ports();
 
     let exit_code = match cli.command {
         // An extension command's exit code is its own (ADR 0011).
@@ -234,12 +233,23 @@ fn main() {
                 .get_subcommands()
                 .map(|c| c.get_name().to_string())
                 .collect();
-            extension_command::run(&argv, &builtins, &terminal)
+            extension_command::run(&argv, &builtins, &terminal, &ports)
         }
-        command => run(command, &terminal).code(),
+        command => run(command, &terminal, &ports).code(),
     };
     terminal.flush();
     std::process::exit(exit_code);
+}
+
+/// The CLI's composition root (ADR 0335): the effect plane's adapters, built once and passed to every command.
+fn ports() -> Ports {
+    let process: specforge_effects::SharedProcess = Arc::new(specforge_process::Runner);
+    Ports {
+        git: Arc::new(specforge_git::GitCli::new(Arc::clone(&process))),
+        process,
+        http: Arc::new(specforge_http::Client::new()),
+        fs: Arc::new(specforge_fs::LocalFs),
+    }
 }
 
 /// `specforge completions`: the built-ins, and the commands the extensions
@@ -263,53 +273,53 @@ fn completions(shell: Shell, project: &project::ProjectArg, terminal: &Terminal)
 }
 
 /// Run one core command at `terminal`.
-fn run(command: Commands, terminal: &Terminal) -> Exit {
+fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
     match command {
         Commands::Init(args) => args.run(terminal),
-        Commands::Check(args) => args.run(terminal),
-        Commands::Export(args) => args.run(terminal),
-        Commands::Schema(args) => args.run(terminal),
-        Commands::Model(args) => args.run(terminal),
-        Commands::Outline(args) => args.run(terminal),
-        Commands::Query(args) => args.run(terminal),
-        Commands::Trace(args) => args.run(terminal),
+        Commands::Check(args) => args.run(terminal, ports),
+        Commands::Export(args) => args.run(terminal, ports),
+        Commands::Schema(args) => args.run(terminal, ports),
+        Commands::Model(args) => args.run(terminal, ports),
+        Commands::Outline(args) => args.run(terminal, ports),
+        Commands::Query(args) => args.run(terminal, ports),
+        Commands::Trace(args) => args.run(terminal, ports),
         Commands::Format(args) => args.run(terminal),
-        Commands::Stats(args) => args.run(terminal),
-        Commands::Explore(args) => args.run(terminal),
-        Commands::Review(args) => args.run(terminal),
-        Commands::InferGuide(args) => args.run(terminal),
-        Commands::Prompt(args) => args.run(terminal),
-        Commands::Add(args) => args.run(terminal),
-        Commands::Analyze(args) => args.run(terminal),
-        Commands::Watch(args) => args.run(terminal),
-        Commands::New(args) => args.run(terminal),
-        Commands::Set(args) => args.run(terminal),
-        Commands::Unset(args) => args.run(terminal),
-        Commands::Link(args) => args.run(true, terminal),
-        Commands::Unlink(args) => args.run(false, terminal),
-        Commands::Delete(args) => args.run(terminal),
-        Commands::Remove(args) => args.run(terminal),
-        Commands::Extensions(args) => args.run(terminal),
-        Commands::Publish(args) => args.run(terminal),
-        Commands::Search(args) => args.run(terminal),
-        Commands::Update(args) => args.run(terminal),
-        Commands::Login(args) => args.run(terminal),
-        Commands::Logout(args) => args.run(terminal),
-        Commands::Providers(args) => args.run(terminal),
-        Commands::Settings(args) => args.run(terminal),
-        Commands::Collect(args) => args.run(terminal),
-        Commands::Harness { action } => action.run(terminal),
-        Commands::Hook(args) => args.run(terminal),
-        Commands::Install(args) => args.run(terminal),
-        Commands::Uninstall(args) => args.run(terminal),
-        Commands::Doctor(args) => args.run(terminal),
-        Commands::Mcp(args) => args.run(terminal),
+        Commands::Stats(args) => args.run(terminal, ports),
+        Commands::Explore(args) => args.run(terminal, ports),
+        Commands::Review(args) => args.run(terminal, ports),
+        Commands::InferGuide(args) => args.run(terminal, ports),
+        Commands::Prompt(args) => args.run(terminal, ports),
+        Commands::Add(args) => args.run(terminal, ports),
+        Commands::Analyze(args) => args.run(terminal, ports),
+        Commands::Watch(args) => args.run(terminal, ports),
+        Commands::New(args) => args.run(terminal, ports),
+        Commands::Set(args) => args.run(terminal, ports),
+        Commands::Unset(args) => args.run(terminal, ports),
+        Commands::Link(args) => args.run(true, terminal, ports),
+        Commands::Unlink(args) => args.run(false, terminal, ports),
+        Commands::Delete(args) => args.run(terminal, ports),
+        Commands::Remove(args) => args.run(terminal, ports),
+        Commands::Extensions(args) => args.run(terminal, ports),
+        Commands::Publish(args) => args.run(terminal, ports),
+        Commands::Search(args) => args.run(terminal, ports),
+        Commands::Update(args) => args.run(terminal, ports),
+        Commands::Login(args) => args.run(terminal, ports),
+        Commands::Logout(args) => args.run(terminal, ports),
+        Commands::Providers(args) => args.run(terminal, ports),
+        Commands::Settings(args) => args.run(terminal, ports),
+        Commands::Collect(args) => args.run(terminal, ports),
+        Commands::Harness { action } => action.run(terminal, ports),
+        Commands::Hook(args) => args.run(terminal, ports),
+        Commands::Install(args) => args.run(terminal, ports),
+        Commands::Uninstall(args) => args.run(terminal, ports),
+        Commands::Doctor(args) => args.run(terminal, ports),
+        Commands::Mcp(args) => args.run(terminal, ports),
         Commands::Completions { shell, project } => completions(shell, &project, terminal),
         Commands::Explain(args) => args.run(terminal),
         Commands::Migrate(args) => args.run(terminal),
-        Commands::InferStatus(args) => args.run(terminal),
+        Commands::InferStatus(args) => args.run(terminal, ports),
         Commands::External(_) => unreachable!("main runs an extension command itself"),
-        Commands::Extension { action } => action.run(terminal),
+        Commands::Extension { action } => action.run(terminal, ports),
     }
 }
 

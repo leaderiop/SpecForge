@@ -14,14 +14,16 @@ pub(crate) struct Args {
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         // The client drives the handshake; its `initialize` serves the
         // project at or above `root` unless it names a `projectRoot` of its
         // own; a stateless request is served it without one. However the connection ends, the client has left and the
         // command passed: a closed stdout ends the output quietly, as for
         // every command (ADR 0029 D4b), and a broken input is the client's
         // end (ADR 0062 D4).
-        McpServer::with_project_root(self.root).serve_stdio(terminal.input(), terminal.output());
+        McpServer::over(ports.clone())
+            .serving(self.root)
+            .serve_stdio(terminal.input(), terminal.output());
         Exit::Passed
     }
 }
@@ -77,7 +79,7 @@ mod tests {
         let exit = Args {
             root: dir.path().to_path_buf(),
         }
-        .run(&terminal);
+        .run(&terminal, &crate::ports());
 
         assert!(matches!(exit, Exit::Passed));
         assert!(terminal.closed());

@@ -1,6 +1,7 @@
 use specforge_effects::http::{Any, SameScheme, get};
 use specforge_effects::testing::{
-    FakeFs, FakeHttp, FakeProcess, fs_contract, http_contract, process_contract,
+    FakeFs, FakeGit, FakeHttp, FakeProcess, fs_contract, git_contract, http_contract,
+    process_contract,
 };
 use specforge_effects::{
     Http, OutcomeClass, Output, Process, ProcessClass, Redirected, Roots, Shown,
@@ -9,6 +10,11 @@ use specforge_effects::{
 #[test]
 fn the_fake_process_keeps_the_process_contract() {
     process_contract(&FakeProcess::new());
+}
+
+#[test]
+fn the_fake_git_keeps_the_git_contract() {
+    git_contract(&FakeGit::none(), std::path::Path::new("/nowhere"));
 }
 
 #[test]

@@ -87,6 +87,8 @@ pub struct ProjectRef<'a> {
     pub solver: &'a dyn Solver,
     /// The host's collector machine (the server's): what `specforge.collect` runs commands on.
     pub machine: &'a dyn CollectorMachine,
+    /// The server's effect-plane adapters (ADR 0335): what a tool reaches the network and the disk through.
+    pub ports: &'a specforge_effects::Ports,
     /// The project view, built once for the call: rooted at the project
     /// root, reporting what the server reports for the project.
     view: ProjectView<'a>,
@@ -221,6 +223,7 @@ impl<'s> Call<'s> {
                     source: self.state.source(),
                     solver: &*self.state.solver,
                     machine: &*self.state.collector_machine,
+                    ports: &self.state.ports,
                     view,
                     served: true,
                 })
@@ -241,6 +244,7 @@ impl<'s> Call<'s> {
                     source: self.state.source(),
                     solver: &*self.state.solver,
                     machine: &*self.state.collector_machine,
+                    ports: &self.state.ports,
                     view,
                     served: false,
                 })

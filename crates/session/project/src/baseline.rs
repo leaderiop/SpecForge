@@ -1,4 +1,4 @@
-//! The baseline (ADR 0287): the project compiled at the commit `HEAD` names, read through the [`History`] port. What
+//! The baseline (ADR 0287): the project compiled at the commit `HEAD` names, read through the [`Git`] port. What
 //! a field `immutable` or `append_only` is judged against, and a pass's `previous`. Nothing here runs unless the
 //! project declares history ([`declared`]).
 //!
@@ -20,8 +20,8 @@ use specforge_registry::RegistryBuild;
 use specforge_wasm::WasmRuntime;
 
 use crate::Environment;
-use crate::history::{CommitFile, GitPlace, History, Located, Sha, TreeEntry};
 use crate::sources::Read;
+use specforge_effects::git::{CommitFile, Git, GitPlace, Located, Sha, TreeEntry};
 
 /// One entity at the baseline: its kind, each field it wrote as the host reads it (`graph::wire`), and the values
 /// the compute passes gave it, by written path.
@@ -85,7 +85,7 @@ pub struct HeldBaseline {
     pub read: BaselineRead,
 }
 
-/// What reading the baseline gave: the baseline, none (nothing declares history, or no port is installed), or the
+/// What reading the baseline gave: the baseline, none (nothing declares history, or no git port is given), or the
 /// notice that says why there is none.
 pub type BaselineRead = Result<Option<Arc<Baseline>>, Diagnostic>;
 
@@ -96,12 +96,12 @@ pub struct UnknownRevision(pub String);
 impl Baseline {
     /// What the files `HEAD` is named by hold, read through `disk` (a session records each as a ref input): `HEAD`,
     /// the loose ref it names, `packed-refs` and a reftable's list; outside a repository, the missing `.git`
-    /// (`git init` changes it). `None` when nothing declares history or no port is installed: nothing is read.
+    /// (`git init` changes it). `None` when nothing declares history or no git port is given: nothing is read.
     pub fn ref_stamp(env: &Environment, disk: &dyn specforge_registry::Disk) -> Option<RefStamp> {
         if !declared(env.registries()) {
             return None;
         }
-        let history = env.history()?;
+        let history = env.git()?;
         let read = |path: &Path| disk.read_ref(path).map_err(|e| e.kind());
         let Located::Repo(place) = env.place(&*history) else {
             return Some(vec![read(&env.root().join(".git"))]);
@@ -121,10 +121,10 @@ impl Baseline {
     }
 
     /// The baseline at the merge-base of `revision` and `HEAD` (`check --since`): `Ok(None)` when nothing declares
-    /// history or no port is installed, the I204 or W164 that says why there is none, and `UnknownRevision` for a
+    /// history or no git port is given, the I204 or W164 that says why there is none, and `UnknownRevision` for a
     /// revision the repository does not name. The revision is resolved even when nothing declares history.
     pub fn since(env: &Environment, revision: &str) -> Result<BaselineRead, UnknownRevision> {
-        let Some(history) = env.history() else {
+        let Some(history) = env.git() else {
             return Ok(Ok(None));
         };
         let unreadable = |why: String| {
@@ -332,13 +332,13 @@ impl Baseline {
         }
     }
 
-    /// The baseline of `env`'s project at `HEAD`: `Ok(None)` when nothing declares history or no history port is
-    /// installed, and the I204 or W164 that says why there is none otherwise.
+    /// The baseline of `env`'s project at `HEAD`: `Ok(None)` when nothing declares history or no git port is
+    /// given, and the I204 or W164 that says why there is none otherwise.
     pub fn of_head(env: &Environment) -> BaselineRead {
         if !declared(env.registries()) {
             return Ok(None);
         }
-        let Some(history) = env.history() else {
+        let Some(history) = env.git() else {
             return Ok(None);
         };
         let unreadable = |why: String| {
@@ -374,7 +374,7 @@ impl Baseline {
     /// the files the history gives.
     pub fn at(
         env: &Environment,
-        history: &dyn History,
+        history: &dyn Git,
         place: &GitPlace,
         commit: &Sha,
     ) -> Result<Arc<Baseline>, String> {
@@ -398,8 +398,15 @@ impl Baseline {
                 let within = root.strip_prefix(&place.toplevel).map_err(|_| {
                     "the project is outside the repository's working tree".to_string()
                 })?;
+                // Only what a baseline compiles: the specs and the ledger.
+                let wanted = |path: &Path| {
+                    path.extension().is_some_and(|e| e == "spec")
+                        || path
+                            .file_name()
+                            .is_some_and(|n| n == crate::harness::LEDGER_FILE)
+                };
                 let files = history
-                    .files(place, commit, within)
+                    .files(place, commit, within, &wanted)
                     .map_err(|e| e.to_string())?;
                 // The commit's tree, only for a compute pass that reads files (ADR 0300).
                 let tree = if env

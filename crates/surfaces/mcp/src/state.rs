@@ -1,4 +1,5 @@
 use specforge_common::{Diagnostic, ProjectConfig, ProjectRoot};
+use specforge_effects::Ports;
 use specforge_graph::Graph;
 use specforge_ops::Containment;
 use specforge_ops::analysis::collect::{CollectorMachine, ProcessMachine};
@@ -64,27 +65,34 @@ pub struct McpState {
     pub(crate) collector_machine: Arc<dyn CollectorMachine>,
     /// The host the client named in `initialize` (`clientInfo.name`), when it is one SpecForge renders prompts for.
     pub(crate) host: Option<specforge_ops::host::Host>,
+    /// The effect plane's adapters (ADR 0335), the ones the host built ([`crate::McpServer::over`]): every session
+    /// the server opens asks `ports.git` of version control, and the solver and the collector machine run through
+    /// `ports.process` unless the host gave others.
+    pub(crate) ports: Ports,
 }
 
 impl McpState {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(ports: Ports) -> Self {
         Self {
             phase: ServerPhase::Uninitialized,
             protocol_version: crate::lifecycle::LATEST_PROTOCOL_VERSION,
-            session: ProjectSession::detached(),
+            session: ProjectSession::detached().with_git(Arc::clone(&ports.git)),
             generation: 0,
             surfaces: ExtensionSurfaceTable::empty(),
             root: None,
             events: Box::new(Discard),
             subscriptions: Subscriptions::new(),
             extension_runtime: None,
-            solver: Arc::new(Z3::new(
-                Arc::new(specforge_process::Runner),
-                Z3::DEFAULT_TIMEOUT,
-            )),
-            collector_machine: Arc::new(ProcessMachine::user(Arc::new(specforge_process::Runner))),
+            solver: Arc::new(Z3::new(Arc::clone(&ports.process), Z3::DEFAULT_TIMEOUT)),
+            collector_machine: Arc::new(ProcessMachine::user(Arc::clone(&ports.process))),
             host: None,
+            ports,
         }
+    }
+
+    /// A session with no project, opening the next one with the server's git port.
+    pub(crate) fn detached(&self) -> ProjectSession {
+        ProjectSession::detached().with_git(Arc::clone(&self.ports.git))
     }
 
     /// The server's root is `root` from now on (`initialize`): the project
@@ -240,7 +248,9 @@ impl McpState {
     /// A session of the project at `root`, its extensions running as
     /// [`Self::source`] says: how another project a call names is opened.
     pub(crate) fn open(&self, root: &ProjectRoot) -> ProjectSession {
-        ProjectSession::open_through(root, self.source(), Some(contained(root)))
+        let mut session = self.detached();
+        session.reopen_through(root, self.source(), Some(contained(root)), |_| {});
+        session
     }
 
     /// Bring the served project up to date with disk (behavior
@@ -306,7 +316,7 @@ impl McpState {
         self.phase = ServerPhase::ShuttingDown;
         // The queue stays: the host sends it after the shutdown response.
         let released = self.subscriptions.disconnect(&mut *self.events);
-        self.session = ProjectSession::detached();
+        self.session = self.detached();
         self.generation += 1;
         self.surfaces = ExtensionSurfaceTable::empty();
         released

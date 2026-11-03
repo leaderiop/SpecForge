@@ -3,14 +3,13 @@
 use std::sync::Arc;
 
 use serde_json::json;
+use specforge_effects::testing::FakeGit;
 use specforge_ops::authoring::edit::{self, Input};
 use specforge_ops::authoring::rename;
 use specforge_ops::read::navigate::Navigator;
 use specforge_ops::view::ProjectView;
 use specforge_package::Sha256;
-use specforge_project::testing::{
-    FakeHistory, GSD_EXTENSION, TestProject, gsd_history_runtime, history,
-};
+use specforge_project::testing::{GSD_EXTENSION, TestProject, gsd_history_runtime};
 use specforge_test_macros::test as specforge_test;
 
 const BASE: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\n";
@@ -55,12 +54,12 @@ fn a_typed_edit_of_a_computed_harness_or_immutable_field_is_refused() {
     );
     let decision = "decision D \"D\" {\n  phase 03\n  origin context\n}\n";
     let committed = gsd(decision);
-    let fake = Arc::new(FakeHistory::repo(
+    let fake = Arc::new(FakeGit::repo(
         committed.root(),
         &"a".repeat(40),
         vec![("a.spec".into(), format!("{BASE}{decision}").into_bytes())],
     ));
-    let _installed = history::install(fake);
+    let committed = committed.with_git(fake);
     assert_eq!(
         refused(&committed, "v1.0/03/D", "origin", "project").as_deref(),
         Some("E080")

@@ -25,6 +25,10 @@ specforge-mcp-macros = { path = "../mcp-macros" }
 specforge-ops = { workspace = true }
 specforge-ops-registry = { path = "../../adapters/ops-registry" }
 specforge-process = { path = "../../adapters/process" }
+specforge-effects = { path = "../../kernel/effects" }
+specforge-fs = { path = "../../adapters/fs" }
+specforge-git = { path = "../../adapters/git" }
+specforge-http = { path = "../../adapters/http" }
 # What an entity ID is (`lex::is_entity_id`), for the entity resources' 400 case.
 specforge-parser = { workspace = true }
 specforge-project = { workspace = true }
@@ -37,11 +41,13 @@ chrono = { version = "0.4.41", optional = true }
 [features]
 # `specforge_mcp::testing`: the MCP driver over a `TestProject` (`Served`), the request helpers and `EventLog`, a
 # sink that keeps every event a server records, stamped, for tests (`McpServer::with_events`).
-testing = ["dep:chrono", "specforge-project/testing", "specforge-ops/testing", "specforge-wasm/testing"]
+testing = ["dep:chrono", "specforge-effects/testing", "specforge-project/testing", "specforge-ops/testing", "specforge-wasm/testing"]
 
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }
 specforge-mcp = { path = ".", features = ["testing"] }
+# The fake ports (`specforge_effects::testing`): a test gives a surface fakes, or a fake git.
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 # The committed blobs the tests load (`specforge_component::committed`).
 specforge-component = { path = "../../runtime/component", features = ["testing"] }
 chrono = "0.4.41"

@@ -40,7 +40,9 @@ chrono = "0.4.41"
 specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
 specforge-ops = { workspace = true }
+specforge-fs = { path = "../../adapters/fs" }
 specforge-git = { path = "../../adapters/git" }
+specforge-http = { path = "../../adapters/http" }
 specforge-hosts = { path = "../../adapters/hosts" }
 specforge-ops-registry = { path = "../../adapters/ops-registry" }
 specforge-process = { path = "../../adapters/process" }
@@ -53,6 +55,8 @@ specforge-project = { workspace = true, features = ["testing"] }
 specforge-mcp = { workspace = true, features = ["testing"] }
 specforge-ops = { workspace = true, features = ["testing"] }
 specforge-registry = { workspace = true }
+# The fake ports (`specforge_effects::testing`): a test gives a surface fakes, or a fake git.
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 specforge-emitter = { path = "../../pipeline/emitter" }
 # Extensions declared with the SDK, served in process (`specforge_wasm::testing`).
 specforge-extension-sdk = { path = "../../runtime/extension-sdk" }
@@ -69,7 +73,6 @@ specforge-lsp = { path = "../lsp" }
 tokio = { workspace = true }
 specforge-registry-server = { path = "../registry-server", features = ["testing"] }
 specforge-registry-client = { path = "../../adapters/registry-client", features = ["testing"] }
-specforge-http = { path = "../../adapters/http" }
 tower-lsp = { workspace = true }
 specforge-graph = { path = "../../pipeline/graph" }
 

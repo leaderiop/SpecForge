@@ -24,7 +24,7 @@ pub(crate) struct Args {
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let (query, contributes, format) =
             (self.query.as_str(), self.contributes, self.output.format);
         // No registry configured: fail before any network call (ADR 0004 N1).
@@ -32,7 +32,8 @@ impl Args {
             Ok(root) => root,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
-        let registry = ConfiguredRegistry::for_project(&root, "search");
+        let registry =
+            ConfiguredRegistry::for_project(&root, "search", std::sync::Arc::clone(&ports.http));
         let searched = registry.search(query, contributes);
         let notes = Notes::new(terminal, format);
         notes.beside(&registry.reported());

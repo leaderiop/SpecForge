@@ -1,4 +1,4 @@
-//! The adapter behind `specforge-project`'s [`History`] port: the git command line (ADR 0287). Read-only, and
+//! The adapter behind the effect plane's [`Git`] port: the git command line (ADR 0287, ADR 0335). Read-only, and
 //! hardened: no stdin, no prompt, no optional lock, no fsmonitor, a fixed locale, the repository the directory is in
 //! and not the one the caller's environment names, and a deadline on every call.
 //!
@@ -9,12 +9,11 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use specforge_effects::git::{
+    Blob, CommitFile, Git, GitError, GitPlace, Located, Sha, Sized, TreeEntry, WorktreeStatus,
+};
 use specforge_effects::process::request;
 use specforge_effects::{EnvVar, Output, ProcessClass, SharedProcess};
-use specforge_project::history::{
-    Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha, Sized, TreeEntry,
-    WorktreeStatus,
-};
 
 /// Runs `git` from `PATH` through the effect plane's Process port (ADR 0335).
 pub struct GitCli {
@@ -117,49 +116,42 @@ impl GitCli {
     }
 
     /// A call that must succeed.
-    fn ok(
-        &self,
-        dir: &Path,
-        args: &[&str],
-        input: Option<Vec<u8>>,
-    ) -> Result<Vec<u8>, HistoryError> {
+    fn ok(&self, dir: &Path, args: &[&str], input: Option<Vec<u8>>) -> Result<Vec<u8>, GitError> {
         match self.call(dir, args, input) {
             Ok(ran) if ran.code == 0 => Ok(ran.stdout),
-            Ok(ran) => Err(HistoryError(format!(
+            Ok(ran) => Err(GitError(format!(
                 "git {} failed: {}",
                 args.first().copied().unwrap_or(""),
                 String::from_utf8_lossy(&ran.stderr).trim()
             ))),
-            Err(failed) => Err(HistoryError(failed.to_string())),
+            Err(failed) => Err(GitError(failed.to_string())),
         }
     }
 
     /// A call whose exit 1 with no output is "no such thing".
-    fn maybe(&self, dir: &Path, args: &[&str]) -> Result<Option<Sha>, HistoryError> {
+    fn maybe(&self, dir: &Path, args: &[&str]) -> Result<Option<Sha>, GitError> {
         match self.call(dir, args, None) {
             Ok(ran) if ran.code == 0 => {
                 Ok(Some(Sha::new(String::from_utf8_lossy(&ran.stdout).trim())))
             }
             Ok(ran) if ran.code == 1 && ran.stdout.is_empty() => Ok(None),
-            Ok(ran) => Err(HistoryError(
+            Ok(ran) => Err(GitError(
                 String::from_utf8_lossy(&ran.stderr).trim().to_string(),
             )),
-            Err(failed) => Err(HistoryError(failed.to_string())),
+            Err(failed) => Err(GitError(failed.to_string())),
         }
     }
 
     /// `git ls-tree -r -z --full-tree` of `commit` under `dir` (from the top). Never `-l`: that looks up every blob's
     /// size, and in a partial clone git older than 2.44 fetches each missing blob to answer.
-    fn ls_tree(&self, place: &GitPlace, commit: &Sha, dir: &Path) -> Result<Vec<u8>, HistoryError> {
+    fn ls_tree(&self, place: &GitPlace, commit: &Sha, dir: &Path) -> Result<Vec<u8>, GitError> {
         let mut args = vec!["ls-tree", "-r", "-z", "--full-tree", commit.as_str()];
         let pathspec = if dir.as_os_str().is_empty() {
             None
         } else {
             // a pathspec that is not UTF-8 would be mangled into another one and list nothing: refuse it instead
             let dir = dir.to_str().ok_or_else(|| {
-                HistoryError(
-                    "the project's directory is not valid UTF-8, so git cannot list it".into(),
-                )
+                GitError("the project's directory is not valid UTF-8, so git cannot list it".into())
             })?;
             Some(format!("{dir}/"))
         };
@@ -170,7 +162,7 @@ impl GitCli {
     }
 }
 
-impl History for GitCli {
+impl Git for GitCli {
     fn locate(&self, dir: &Path) -> Located {
         let ran = match self.call(
             dir,
@@ -219,7 +211,7 @@ impl History for GitCli {
         })
     }
 
-    fn commit(&self, place: &GitPlace, revision: &str) -> Result<Option<Sha>, HistoryError> {
+    fn commit(&self, place: &GitPlace, revision: &str) -> Result<Option<Sha>, GitError> {
         let spelled = format!("{revision}^{{commit}}");
         self.maybe(
             &place.toplevel,
@@ -227,7 +219,7 @@ impl History for GitCli {
         )
     }
 
-    fn merge_base(&self, place: &GitPlace, a: &Sha, b: &Sha) -> Result<Option<Sha>, HistoryError> {
+    fn merge_base(&self, place: &GitPlace, a: &Sha, b: &Sha) -> Result<Option<Sha>, GitError> {
         self.maybe(
             &place.toplevel,
             &["merge-base", "--end-of-options", a.as_str(), b.as_str()],
@@ -239,7 +231,8 @@ impl History for GitCli {
         place: &GitPlace,
         commit: &Sha,
         dir: &Path,
-    ) -> Result<Vec<CommitFile>, HistoryError> {
+        wanted: &dyn Fn(&Path) -> bool,
+    ) -> Result<Vec<CommitFile>, GitError> {
         let listing = self.ls_tree(place, commit, dir)?;
         // `<mode> SP <type> SP <object> TAB <path> NUL`; a symlink or a submodule is no file.
         let mut blobs: Vec<(PathBuf, String)> = Vec::new();
@@ -250,13 +243,10 @@ impl History for GitCli {
             };
             let mut parts = meta.split(' ');
             let (mode, kind, object) = (parts.next(), parts.next(), parts.next());
-            // only what a baseline compiles: the specs and the ledger, so a repository's images, lockfiles and vendored
-            // trees are never read
-            let wanted = path.ends_with(".spec")
-                || path.rsplit('/').next() == Some(specforge_project::harness::LEDGER_FILE);
+            // only what the caller wants, so a repository's images, lockfiles and vendored trees are never read
             if kind == Some("blob")
                 && mode != Some("120000")
-                && wanted
+                && wanted(Path::new(path))
                 && let Some(object) = object
             {
                 blobs.push((PathBuf::from(path), object.to_string()));
@@ -278,28 +268,23 @@ impl History for GitCli {
                 .iter()
                 .position(|b| *b == b'\n')
                 .map(|i| at + i)
-                .ok_or_else(|| HistoryError("git cat-file answered a short reply".into()))?;
+                .ok_or_else(|| GitError("git cat-file answered a short reply".into()))?;
             let header = String::from_utf8_lossy(&answer[at..end]).into_owned();
             let size = match header.split(' ').collect::<Vec<_>>()[..] {
                 [sha, "blob", size] if sha == object => size.parse::<usize>().ok(),
                 _ => None,
             }
-            .ok_or_else(|| HistoryError(format!("git cat-file cannot give {object}: {header}")))?;
+            .ok_or_else(|| GitError(format!("git cat-file cannot give {object}: {header}")))?;
             let body = answer
                 .get(end + 1..end + 1 + size)
-                .ok_or_else(|| HistoryError("git cat-file answered a short reply".into()))?;
+                .ok_or_else(|| GitError("git cat-file answered a short reply".into()))?;
             files.push((path, body.to_vec()));
             at = end + 1 + size + 1;
         }
         Ok(files)
     }
 
-    fn tree(
-        &self,
-        place: &GitPlace,
-        commit: &Sha,
-        dir: &Path,
-    ) -> Result<Vec<TreeEntry>, HistoryError> {
+    fn tree(&self, place: &GitPlace, commit: &Sha, dir: &Path) -> Result<Vec<TreeEntry>, GitError> {
         let listing = self.ls_tree(place, commit, dir)?;
         // `<mode> SP <type> SP <object> TAB <path> NUL`
         let mut entries = Vec::new();
@@ -322,7 +307,7 @@ impl History for GitCli {
         place: &GitPlace,
         commit: &Sha,
         paths: &[PathBuf],
-    ) -> Result<Vec<Sized>, HistoryError> {
+    ) -> Result<Vec<Sized>, GitError> {
         // `--batch-check` prints `<object> blob <size>` or `<name> missing`; one line per name asked
         let askable = |path: &&PathBuf| !path.to_string_lossy().contains('\n');
         let request: String = paths
@@ -340,7 +325,7 @@ impl History for GitCli {
         )?;
         let text = String::from_utf8_lossy(&answer);
         let mut lines = text.lines();
-        let short = || HistoryError("git cat-file answered a short reply".into());
+        let short = || GitError("git cat-file answered a short reply".into());
         let mut found = Vec::with_capacity(paths.len());
         for path in paths {
             if !askable(&path) {
@@ -362,7 +347,7 @@ impl History for GitCli {
         place: &GitPlace,
         commit: &Sha,
         paths: &[PathBuf],
-    ) -> Result<Vec<Blob>, HistoryError> {
+    ) -> Result<Vec<Blob>, GitError> {
         // a path with a newline cannot be asked of `--batch`; it reads as missing
         let askable = |path: &&PathBuf| !path.to_string_lossy().contains('\n');
         let request: String = paths
@@ -378,7 +363,7 @@ impl History for GitCli {
             &["cat-file", "--batch"],
             Some(request.into_bytes()),
         )?;
-        let short = || HistoryError("git cat-file answered a short reply".into());
+        let short = || GitError("git cat-file answered a short reply".into());
         let mut at = 0;
         let mut found = Vec::with_capacity(paths.len());
         for path in paths {
@@ -408,12 +393,12 @@ impl History for GitCli {
     }
     // shortcut: these calls use the adapter's 10 s deadline, past a hook's budget of `timeout_ms + 5 s`; a host that
     // kills the hook first fails open, as upstream does when its probe times out. Upgrade for a hard bound (ADR 0320).
-    fn branch(&self, place: &GitPlace) -> Result<String, HistoryError> {
+    fn branch(&self, place: &GitPlace) -> Result<String, GitError> {
         let out = self.ok(&place.toplevel, &["branch", "--show-current"], None)?;
         Ok(String::from_utf8_lossy(&out).trim().to_string())
     }
 
-    fn status(&self, place: &GitPlace) -> Result<WorktreeStatus, HistoryError> {
+    fn status(&self, place: &GitPlace) -> Result<WorktreeStatus, GitError> {
         let out = self.ok(
             &place.toplevel,
             &["status", "--porcelain=v2", "--branch"],

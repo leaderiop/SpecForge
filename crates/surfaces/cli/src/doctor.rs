@@ -38,8 +38,8 @@ impl Args {
     /// their enhancements, conflicts, shadowed keywords, installed
     /// binaries) plus registry credential health. Exit 1 on any
     /// error-level finding or credential failure.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let project = match self.project.compile() {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::of(self.output.format).report(terminal, &error),
         };
@@ -51,7 +51,7 @@ impl Args {
         let renderers: Vec<&dyn specforge_ops::host::HostRenderer> =
             hosts.iter().map(AsRef::as_ref).collect();
         let caller = crate::caller::of(false, self.output.format, terminal);
-        let process = std::sync::Arc::new(specforge_process::Runner);
+        let process = std::sync::Arc::clone(&ports.process);
         let report = diagnose(&view, &Z3::new(process.clone(), Z3::DEFAULT_TIMEOUT)).with_hosts(
             specforge_ops::host::diagnose::findings(&view, &renderers, caller),
         );

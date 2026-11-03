@@ -6,6 +6,8 @@
 use std::sync::Arc;
 
 use serde_json::{Value, json};
+use specforge_effects::SharedGit;
+use specforge_effects::testing::FakeGit;
 use specforge_ops::analysis::collect::{self, Mode, Outcome, Request};
 use specforge_ops::authoring::apply::apply_collected;
 use specforge_ops::testing::{ScriptedMachine, caller};
@@ -13,8 +15,8 @@ use specforge_ops::view::ProjectView;
 use specforge_project::facts::Store;
 use specforge_project::harness::digest;
 use specforge_project::testing::{
-    COLLECTED_EXTENSIONS, Collected, FakeHistory, GSD_WRITES_EXTENSIONS, GsdWrites, NODE,
-    NODE_REPORT, TestProject, UNIT_REPORT, collected_answer, history,
+    COLLECTED_EXTENSIONS, Collected, GSD_WRITES_EXTENSIONS, GsdWrites, NODE, NODE_REPORT,
+    TestProject, UNIT_REPORT, collected_answer,
 };
 use specforge_protocol_types::Fact;
 use specforge_test_macros::test as specforge_test;
@@ -58,9 +60,14 @@ fn nothing() -> WasmCallResult {
 }
 
 /// Collect `runner` (every detected collector when `None`) from the reports on disk, served by `runtime`, and store
-/// its facts as the surfaces do; a plan is left in the outcome.
-fn collect(project: &TestProject, runtime: InProcessRuntime, runner: Option<&str>) -> Outcome {
-    let compiled = project.compile_in(Arc::new(runtime));
+/// its facts as the surfaces do, the project asking `git` of version control; a plan is left in the outcome.
+fn collect(
+    project: &TestProject,
+    git: &SharedGit,
+    runtime: InProcessRuntime,
+    runner: Option<&str>,
+) -> Outcome {
+    let compiled = project.compile_with(Arc::new(runtime), Some(Arc::clone(git)));
     let view = ProjectView::of(&compiled);
     let mut outcome = collect::collect(
         &view,
@@ -104,9 +111,9 @@ fn codes(outcome: &Outcome) -> Vec<&str> {
 )]
 fn collect_stores_a_collectors_facts_under_the_head_commit_and_records_their_digest() {
     let p = project();
-    let _history = history::install(Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new())));
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
 
-    let outcome = collect(&p, serving(two_tests(), nothing()), Some("node"));
+    let outcome = collect(&p, &git, serving(two_tests(), nothing()), Some("node"));
 
     let bytes = std::fs::read(p.root().join(Store::path("node", SHA))).unwrap();
     let facts: Vec<Fact> = serde_json::from_value(two_tests()).unwrap();
@@ -130,14 +137,14 @@ fn collect_stores_a_collectors_facts_under_the_head_commit_and_records_their_dig
 )]
 fn a_dirty_tree_files_facts_under_the_commit_and_dirty_with_i209() {
     let p = project();
-    let mut fake = FakeHistory::repo(p.root(), SHA, Vec::new());
-    fake.status = specforge_project::history::WorktreeStatus {
+    let mut fake = FakeGit::repo(p.root(), SHA, Vec::new());
+    fake.status = specforge_effects::git::WorktreeStatus {
         porcelain: "# branch.head main\n? notes.txt\n".into(),
         dirty: true,
     };
-    let _history = history::install(Arc::new(fake));
+    let git: SharedGit = Arc::new(fake);
 
-    let outcome = collect(&p, serving(two_tests(), nothing()), Some("node"));
+    let outcome = collect(&p, &git, serving(two_tests(), nothing()), Some("node"));
 
     assert!(
         p.root()
@@ -165,9 +172,9 @@ fn a_dirty_tree_files_facts_under_the_commit_and_dirty_with_i209() {
 )]
 fn a_project_in_no_repository_files_facts_under_worktree_with_i209() {
     let p = project();
-    let _history = history::install(Arc::new(FakeHistory::none()));
+    let git: SharedGit = Arc::new(FakeGit::none());
 
-    let outcome = collect(&p, serving(two_tests(), nothing()), Some("node"));
+    let outcome = collect(&p, &git, serving(two_tests(), nothing()), Some("node"));
 
     assert!(p.root().join(Store::path("node", "worktree")).is_file());
     assert_eq!(codes(&outcome), ["I209"]);
@@ -185,14 +192,15 @@ fn a_project_in_no_repository_files_facts_under_worktree_with_i209() {
 fn a_second_collect_replaces_the_collectors_line_and_its_store() {
     let p = project();
     {
-        let _history = history::install(Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new())));
-        collect(&p, serving(two_tests(), nothing()), Some("node"));
+        let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+        collect(&p, &git, serving(two_tests(), nothing()), Some("node"));
     }
     let next = "fedcba9876543210fedcba9876543210fedcba98";
-    let _history = history::install(Arc::new(FakeHistory::repo(p.root(), next, Vec::new())));
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), next, Vec::new()));
 
     collect(
         &p,
+        &git,
         serving(json!([two_tests()[0]]), nothing()),
         Some("node"),
     );
@@ -216,10 +224,10 @@ fn a_second_collect_replaces_the_collectors_line_and_its_store() {
 )]
 fn a_fact_of_a_kind_no_collector_writes_is_e116_and_nothing_is_stored() {
     let p = project();
-    let _history = history::install(Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new())));
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
     let facts = json!([two_tests()[0], {"kind": "truth", "id": "js:x#y"}]);
 
-    let outcome = collect(&p, serving(facts, nothing()), Some("node"));
+    let outcome = collect(&p, &git, serving(facts, nothing()), Some("node"));
 
     assert_eq!(codes(&outcome), ["E116"]);
     assert!(
@@ -247,10 +255,10 @@ fn a_fact_of_a_kind_no_collector_writes_is_e116_and_nothing_is_stored() {
 )]
 fn a_fact_whose_id_names_none_of_its_kinds_schemes_is_e116() {
     let p = project();
-    let _history = history::install(Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new())));
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
     let facts = json!([{"kind": "test", "id": "rust:a#b"}]);
 
-    let outcome = collect(&p, serving(facts, nothing()), Some("node"));
+    let outcome = collect(&p, &git, serving(facts, nothing()), Some("node"));
 
     assert_eq!(codes(&outcome), ["E116"]);
     assert!(
@@ -266,10 +274,10 @@ fn a_fact_whose_id_names_none_of_its_kinds_schemes_is_e116() {
 #[test]
 fn a_collect_with_no_facts_writes_no_store_and_no_line() {
     let p = project();
-    let fake = Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new()));
-    let _history = history::install(fake.clone());
+    let fake = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+    let git: SharedGit = fake.clone();
 
-    let outcome = collect(&p, serving(json!([]), nothing()), Some("node"));
+    let outcome = collect(&p, &git, serving(json!([]), nothing()), Some("node"));
 
     assert!(!p.root().join(".specforge/facts").exists());
     assert!(!p.root().join("specforge-harness").exists());
@@ -301,12 +309,12 @@ fn facts_and_their_line_land_beside_another_writers_line() {
         "specforge-harness",
         format!("# specforge-harness 1\nv1.0/03/U1 result {value}\n"),
     );
-    let _history = history::install(Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new())));
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
     let runtime = Collected::new()
         .answering(NODE, "collect__node", collected_answer(two_tests()))
         .over(GsdWrites::new().runtime());
 
-    collect(&p, runtime, Some("node"));
+    collect(&p, &git, runtime, Some("node"));
 
     let ledger = ledger(&p);
     assert!(
@@ -322,9 +330,9 @@ fn facts_and_their_line_land_beside_another_writers_line() {
 )]
 fn a_facts_only_collect_creates_no_report_and_rewrites_none() {
     let p = project();
-    let _history = history::install(Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new())));
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
 
-    let outcome = collect(&p, serving(two_tests(), nothing()), Some("node"));
+    let outcome = collect(&p, &git, serving(two_tests(), nothing()), Some("node"));
     assert!(outcome.report.is_none());
     assert!(!p.root().join("specforge-report.json").exists());
 
@@ -335,7 +343,7 @@ fn a_facts_only_collect_creates_no_report_and_rewrites_none() {
         .unwrap()
         .modified()
         .unwrap();
-    let outcome = collect(&p, serving(two_tests(), nothing()), Some("node"));
+    let outcome = collect(&p, &git, serving(two_tests(), nothing()), Some("node"));
     assert!(outcome.report.is_none());
     assert_eq!(
         std::fs::read_to_string(p.root().join("specforge-report.json")).unwrap(),
@@ -354,14 +362,14 @@ fn a_facts_only_collect_creates_no_report_and_rewrites_none() {
 )]
 fn a_mixed_run_of_a_plan_only_and_a_facts_only_collector_writes_no_report() {
     let p = project();
-    let _history = history::install(Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new())));
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
     let plan_only = WasmCallResult::Ok(
         json!({"entity_results": [], "plan": {"ops": []}})
             .to_string()
             .into_bytes(),
     );
 
-    let outcome = collect(&p, serving(two_tests(), plan_only), None);
+    let outcome = collect(&p, &git, serving(two_tests(), plan_only), None);
 
     assert_eq!(outcome.runners.len(), 2, "both collectors ran");
     assert_eq!(outcome.plans.len(), 1, "the plan is kept for the caller");
@@ -373,9 +381,9 @@ fn a_mixed_run_of_a_plan_only_and_a_facts_only_collector_writes_no_report() {
 #[test]
 fn a_mixed_run_with_one_reporting_collector_writes_only_its_runners_entries() {
     let p = project();
-    let _history = history::install(Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new())));
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
 
-    let outcome = collect(&p, serving(two_tests(), proving()), None);
+    let outcome = collect(&p, &git, serving(two_tests(), proving()), None);
 
     assert!(outcome.report.is_some());
     let report: Value =
@@ -390,10 +398,10 @@ fn a_mixed_run_with_one_reporting_collector_writes_only_its_runners_entries() {
 #[test]
 fn a_collector_whose_answer_empties_its_earlier_results_still_clears_them() {
     let p = project();
-    let _history = history::install(Arc::new(FakeHistory::repo(p.root(), SHA, Vec::new())));
-    collect(&p, serving(json!([]), proving()), Some("unit"));
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+    collect(&p, &git, serving(json!([]), proving()), Some("unit"));
 
-    let outcome = collect(&p, serving(json!([]), nothing()), Some("unit"));
+    let outcome = collect(&p, &git, serving(json!([]), nothing()), Some("unit"));
 
     assert!(
         outcome.report.is_some(),

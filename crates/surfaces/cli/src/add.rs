@@ -34,14 +34,15 @@ pub(crate) struct Args {
 
 impl Args {
     /// `specforge add`: the shared add operation, presented.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
         let root = match self.project.root() {
             Ok(root) => root,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
         let path = root.dir();
-        let registry = ConfiguredRegistry::for_project(&root, "add");
+        let registry =
+            ConfiguredRegistry::for_project(&root, "add", std::sync::Arc::clone(&ports.http));
         let runtime = specforge_component::ComponentRuntime::with_user_cache();
         let request = AddRequest {
             root: &root,

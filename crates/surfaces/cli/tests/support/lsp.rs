@@ -26,7 +26,9 @@ impl Client {
     pub fn start() -> Self {
         let (writer, server_in) = tokio::io::duplex(1 << 20);
         let (server_out, reader) = tokio::io::duplex(1 << 20);
-        let (service, socket) = LspService::new(specforge_lsp::backend::Backend::new);
+        let (service, socket) = LspService::new(|client| {
+            specforge_lsp::backend::Backend::new(client, specforge_effects::testing::ports())
+        });
         let server = tokio::spawn(async move {
             Server::new(server_in, server_out, socket)
                 .serve(service)

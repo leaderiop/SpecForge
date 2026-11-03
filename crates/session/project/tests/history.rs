@@ -6,9 +6,11 @@ use std::process::Command;
 use std::sync::Arc;
 
 use serde_json::json;
+use specforge_effects::SharedGit;
+use specforge_effects::git::{GitError, Located};
+use specforge_effects::testing::FakeGit;
 use specforge_project::Watched;
-use specforge_project::history::{HistoryError, Located};
-use specforge_project::testing::{FakeHistory, TestProject, gsd_history_runtime};
+use specforge_project::testing::{TestProject, gsd_history_runtime};
 
 use crate::computed;
 use specforge_test::prelude::*;
@@ -45,8 +47,8 @@ pub(crate) fn git_repo(root: &Path) {
 fn an_unflagged_project_records_no_git_ref_and_no_ledger_as_a_check_input() {
     let dir = TestProject::new().files(&[("a.spec", "term alpha_one \"A\" {}\n")]);
     git_repo(dir.root());
-    let fake = Arc::new(FakeHistory::none());
-    let _installed = specforge_project::testing::history::install(fake.clone());
+    let fake = Arc::new(FakeGit::none());
+    let dir = dir.with_git(fake.clone());
     let session = dir.session_bare();
     for watched in session.inputs().watched() {
         let path = match &watched {
@@ -66,13 +68,12 @@ fn an_unflagged_project_records_no_git_ref_and_no_ledger_as_a_check_input() {
 
 const DECISION: &str = "decision D1 \"D\" {\n  phase 03\n}\n";
 
-fn compiled_with(
-    fake: &Arc<FakeHistory>,
-    project: &TestProject,
-) -> Vec<specforge_common::Diagnostic> {
-    let _installed = specforge_project::testing::history::install(fake.clone());
+fn compiled_with(fake: &Arc<FakeGit>, project: &TestProject) -> Vec<specforge_common::Diagnostic> {
     project
-        .compile_in(Arc::new(gsd_history_runtime(json!([]))))
+        .compile_with(
+            Arc::new(gsd_history_runtime(json!([]))),
+            Some(fake.clone() as SharedGit),
+        )
         .diagnostics()
 }
 
@@ -82,18 +83,18 @@ fn compiled_with(
 )]
 fn no_history_is_i204_only_when_history_is_declared() {
     let flagged = computed::project(DECISION);
-    let outside = Arc::new(FakeHistory::none());
+    let outside = Arc::new(FakeGit::none());
     let found = compiled_with(&outside, &flagged);
     assert_eq!(computed::with_code(&found, "I204").len(), 1, "{found:?}");
     // an unborn HEAD
-    let mut unborn = FakeHistory::repo(flagged.root(), "a".repeat(40).as_str(), Vec::new());
+    let mut unborn = FakeGit::repo(flagged.root(), "a".repeat(40).as_str(), Vec::new());
     unborn.head = Ok(None);
     let found = compiled_with(&Arc::new(unborn), &flagged);
     let i204 = computed::with_code(&found, "I204");
     assert_eq!(i204.len(), 1, "{found:?}");
     assert!(i204[0].message.contains("no commit yet"), "{i204:?}");
     // a commit: nothing to say
-    let at_head = Arc::new(FakeHistory::repo(
+    let at_head = Arc::new(FakeGit::repo(
         flagged.root(),
         "b".repeat(40).as_str(),
         Vec::new(),
@@ -102,9 +103,11 @@ fn no_history_is_i204_only_when_history_is_declared() {
     assert!(computed::with_code(&found, "I204").is_empty(), "{found:?}");
     // nothing declares history: the port is never asked
     let unflagged = TestProject::new().files(&[("a.spec", "term alpha_one \"A\" {}\n")]);
-    let silent = Arc::new(FakeHistory::none());
-    let _installed = specforge_project::testing::history::install(silent.clone());
-    let found = unflagged.compile_bare().diagnostics();
+    let silent = Arc::new(FakeGit::none());
+    let found = unflagged
+        .with_git(silent.clone())
+        .compile_bare()
+        .diagnostics();
     assert!(computed::with_code(&found, "I204").is_empty(), "{found:?}");
     assert_eq!(silent.questions(), 0);
 }
@@ -115,14 +118,14 @@ fn no_history_is_i204_only_when_history_is_declared() {
 )]
 fn an_unreadable_baseline_is_w164() {
     let project = computed::project(DECISION);
-    let mut missing = FakeHistory::none();
+    let mut missing = FakeGit::none();
     missing.located = Located::Unavailable("git is not installed".into());
     let found = compiled_with(&Arc::new(missing), &project);
     let w164 = computed::with_code(&found, "W164");
     assert_eq!(w164.len(), 1, "{found:?}");
     assert!(w164[0].message.contains("git is not installed"), "{w164:?}");
-    let mut broken = FakeHistory::repo(project.root(), "c".repeat(40).as_str(), Vec::new());
-    broken.files = Err(HistoryError("the objects are not here (shallow)".into()));
+    let mut broken = FakeGit::repo(project.root(), "c".repeat(40).as_str(), Vec::new());
+    broken.files = Err(GitError("the objects are not here (shallow)".into()));
     let found = compiled_with(&Arc::new(broken), &project);
     let w164 = computed::with_code(&found, "W164");
     assert_eq!(w164.len(), 1, "{found:?}");
@@ -136,7 +139,7 @@ fn an_unreadable_baseline_is_w164() {
 )]
 fn the_baseline_is_cached_by_commit_and_environment() {
     let project = computed::project(DECISION);
-    let fake = Arc::new(FakeHistory::repo(
+    let fake = Arc::new(FakeGit::repo(
         project.root(),
         "d".repeat(40).as_str(),
         Vec::new(),
@@ -149,7 +152,7 @@ fn the_baseline_is_cached_by_commit_and_environment() {
         "one commit, one environment: one compile"
     );
     // another commit
-    let other = Arc::new(FakeHistory::repo(
+    let other = Arc::new(FakeGit::repo(
         project.root(),
         "e".repeat(40).as_str(),
         Vec::new(),
@@ -212,7 +215,7 @@ fn judged(head: &str, now: &str, ledger: Option<&str>) -> Vec<specforge_common::
     if let Some(ledger) = ledger {
         project.write("specforge-harness", ledger);
     }
-    let fake = Arc::new(FakeHistory::repo(
+    let fake = Arc::new(FakeGit::repo(
         project.root(),
         HEAD,
         vec![("a.spec".into(), head.as_bytes().to_vec())],
@@ -374,9 +377,17 @@ fn committed_session(origin: &str) -> (TestProject, specforge_project::ProjectSe
         "decision D \"D\" {{\n  phase 03\n  origin {origin}\n}}\n"
     ));
     git_repo(project.root());
+    let project = project.with_git(git_cli());
     let runtime = Arc::new(gsd_history_runtime(json!([])));
     let session = project.session_in(runtime);
     (project, session)
+}
+
+/// The git command line, as a surface's git port asks it.
+fn git_cli() -> SharedGit {
+    Arc::new(specforge_git::GitCli::new(Arc::new(
+        specforge_process::Runner,
+    )))
 }
 
 fn git(root: &Path, args: &[&str]) {
@@ -394,9 +405,6 @@ fn git(root: &Path, args: &[&str]) {
     verify = "a commit re-checks the session"
 )]
 fn a_commit_rechecks_the_session() {
-    let _installed = specforge_project::testing::history::install(Arc::new(
-        specforge_git::GitCli::new(std::sync::Arc::new(specforge_process::Runner)),
-    ));
     let (project, mut session) = committed_session("context");
     let root = project.root().canonicalize().unwrap();
     let e084 = |session: &specforge_project::ProjectSession| {
@@ -428,9 +436,6 @@ fn a_commit_rechecks_the_session() {
     verify = "refs outside the root are watched by their directories own entries"
 )]
 fn refs_outside_the_root_are_watched_by_their_directorys_entries() {
-    let _installed = specforge_project::testing::history::install(Arc::new(
-        specforge_git::GitCli::new(std::sync::Arc::new(specforge_process::Runner)),
-    ));
     let project = computed::project("decision D \"D\" {\n  phase 03\n  origin context\n}\n");
     // The git directory lives outside the project (what a linked worktree's common directory is).
     let elsewhere = tempfile::tempdir().unwrap();
@@ -448,6 +453,7 @@ fn refs_outside_the_root_are_watched_by_their_directorys_entries() {
     );
     git(project.root(), &["add", "-A"]);
     git(project.root(), &["commit", "-q", "-m", "c"]);
+    let project = project.with_git(git_cli());
     let session = project.session_in(Arc::new(gsd_history_runtime(json!([]))));
     let gitdir = gitdir.canonicalize().unwrap();
     let root = project.root().canonicalize().unwrap();
@@ -467,16 +473,18 @@ fn judged_members(journal: bool, head: &str, now: &str) -> Vec<specforge_common:
         .enabling(&[specforge_project::testing::GSD_EXTENSION])
         .installing_enabled()
         .file("a.spec", now);
-    let fake = Arc::new(FakeHistory::repo(
+    let fake = Arc::new(FakeGit::repo(
         project.root(),
         HEAD,
         vec![("a.spec".into(), head.as_bytes().to_vec())],
     ));
-    let _installed = specforge_project::testing::history::install(fake);
     project
-        .compile_in(Arc::new(
-            specforge_project::testing::gsd_member_history_runtime(journal),
-        ))
+        .compile_with(
+            Arc::new(specforge_project::testing::gsd_member_history_runtime(
+                journal,
+            )),
+            Some(fake as SharedGit),
+        )
         .diagnostics()
 }
 
@@ -553,7 +561,7 @@ fn a_renumbering_chain_is_judged_through_both_move_records() {
     let project = computed::project("");
     project.write("a.spec", renumbered("04", "05", ["a", "b"]));
     project.write("specforge-harness", &ledger);
-    let fake = Arc::new(FakeHistory::repo(
+    let fake = Arc::new(FakeGit::repo(
         project.root(),
         HEAD,
         vec![

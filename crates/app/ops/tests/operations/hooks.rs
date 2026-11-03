@@ -283,12 +283,12 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
     verify = "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the porcelain status"
 )]
 fn a_hook_that_reads_git_is_told_the_head() {
-    use specforge_project::history::{GitPlace, Located};
-    use specforge_project::testing::{FakeHistory, install};
+    use specforge_effects::git::{GitPlace, Located};
+    use specforge_effects::testing::FakeGit;
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let root = std::fs::canonicalize(hosted.project.root()).unwrap();
     let top = root.display().to_string();
-    let mut fake = FakeHistory::none();
+    let mut fake = FakeGit::none();
     fake.located = Located::Repo(GitPlace {
         toplevel: root.clone(),
         git_dir: root.join(".git"),
@@ -296,7 +296,7 @@ fn a_hook_that_reads_git_is_told_the_head() {
         shallow: false,
     });
     fake.branch = "agent-x".into();
-    fake.status = specforge_project::history::WorktreeStatus {
+    fake.status = specforge_effects::git::WorktreeStatus {
         porcelain: "# branch.head agent-x\n? new.txt\n".into(),
         dirty: true,
     };
@@ -307,7 +307,18 @@ fn a_hook_that_reads_git_is_told_the_head() {
     );
     assert_eq!(none.answer["decision"], "allow");
     assert!(hosted.input("hook__write_guard").get("git").is_none());
-    let _held = install(std::sync::Arc::new(fake));
+    // The same project compiled again, its environment asking the fake git port.
+    let crate::host_support::Hosted {
+        project, runtime, ..
+    } = hosted;
+    let project = project.with_git(std::sync::Arc::new(fake));
+    let compiled =
+        project.compile_in(std::sync::Arc::clone(&runtime) as specforge_project::SharedRuntime);
+    let hosted = crate::host_support::Hosted {
+        project,
+        runtime,
+        compiled,
+    };
     run_hook(
         &hosted,
         "write_guard",

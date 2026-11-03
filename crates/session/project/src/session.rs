@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectConfig, ProjectRoot};
+use specforge_effects::SharedGit;
 use specforge_graph::{Applied, GraphDelta, NodeChange};
 
 use crate::buffers::{Buffer, Held};
@@ -155,6 +156,8 @@ pub struct ProjectSession {
     /// The editor buffers the session holds: each is the truth for its file
     /// until released (ADR 0046).
     held: Held,
+    /// The git port each environment load is given (ADR 0287, ADR 0335); none: no judgement against history.
+    git: Option<SharedGit>,
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -168,6 +171,8 @@ struct OpeningProject {
     /// What the loaded environment depends on, stamped; the sources are
     /// stamped by `finish`.
     ledger: Ledger,
+    /// The git port the environment was given.
+    git: Option<SharedGit>,
 }
 
 impl OpeningProject {
@@ -200,6 +205,7 @@ impl OpeningProject {
             source: self.source,
             ledger,
             held,
+            git: self.git,
         };
         session.project.check(&mut session.ledger);
         session
@@ -215,7 +221,15 @@ impl ProjectSession {
             source: RuntimeSource::Fixed(None),
             ledger: Ledger::detached(),
             held: Held::default(),
+            git: None,
         }
+    }
+
+    /// The same session, every environment it loads from now on (an open into it, a reopen, a reload) asking `git` of
+    /// version control: a surface gives it to a detached session, then opens the project into it.
+    pub fn with_git(mut self, git: SharedGit) -> Self {
+        self.git = Some(git);
+        self
     }
 
     /// Open the project at `root`, running its extensions in the project's
@@ -245,7 +259,7 @@ impl ProjectSession {
         source: RuntimeSource,
         disk: Option<SourceDisk>,
     ) -> Self {
-        Self::begin_open(root, source, disk).finish()
+        Self::begin_open(root, source, disk, None).finish()
     }
 
     /// The first half of [`Self::open_from`] and [`Self::reopen`]: the
@@ -255,18 +269,23 @@ impl ProjectSession {
         root: &ProjectRoot,
         source: RuntimeSource,
         disk: Option<SourceDisk>,
+        git: Option<SharedGit>,
     ) -> OpeningProject {
         // The ledger stamps each input in the read that reads it: the config,
         // the lock and the modules in the environment load, the sources by
         // `finish`.
         let mut ledger = Ledger::opening_through(disk);
-        let env = Environment::read_through(&mut ledger, root, |config| {
+        let mut env = Environment::read_through(&mut ledger, root, |config| {
             source.runtime_for(root.dir(), config)
         });
+        if let Some(git) = &git {
+            env = env.with_git(Arc::clone(git));
+        }
         OpeningProject {
             env: Arc::new(env),
             source,
             ledger,
+            git,
         }
     }
 
@@ -497,7 +516,7 @@ impl ProjectSession {
         loaded: impl FnOnce(&Arc<Environment>),
     ) -> Update {
         self.update(|s| {
-            let opening = Self::begin_open(root, source, disk);
+            let opening = Self::begin_open(root, source, disk, s.git.clone());
             loaded(opening.environment());
             let buffers = std::mem::take(&mut s.held).into_buffers();
             let mut next = opening.finish_holding(buffers);

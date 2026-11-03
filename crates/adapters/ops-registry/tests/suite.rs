@@ -17,3 +17,8 @@ mod requests;
 mod search;
 #[path = "user.rs"]
 mod user;
+
+/// The Http port a registry is built with; a test that gives it a client of its own never reaches it.
+fn http() -> specforge_effects::SharedHttp {
+    std::sync::Arc::new(specforge_http::Client::new())
+}

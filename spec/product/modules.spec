@@ -79,7 +79,7 @@ module specforge_parser "specforge-parser" {
 
 module specforge_effects "specforge-effects" {
   family      core
-  description "The effect plane: the Process, Http and Fs ports every host effect goes through, their canonical digests and the one path containment (ADR 0335)"
+  description "The effect plane: the Process, Http, Fs and Git ports every host effect goes through, their canonical digests and the one path containment (ADR 0335)"
   depends_on  [specforge_common, specforge_package, specforge_protocol_types]
   tags        ["kernel"]
 }
@@ -269,8 +269,8 @@ module specforge_fs "specforge-fs" {
 
 module specforge_git "specforge-git" {
   family      integration
-  description "The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287)"
-  depends_on  [specforge_effects, specforge_project]
+  description "The adapter behind the effect plane's Git port: the git command line through the Process port, read-only, hardened, with a deadline on every call (ADR 0287, ADR 0335)"
+  depends_on  [specforge_effects]
   tags        ["adapters"]
 }
 
@@ -293,7 +293,7 @@ module specforge_ops_registry "specforge-ops-registry" {
   description "Which registries a project uses, and the adapter behind specforge-ops' Registry port: the fetch policy over the registry client and the publish signed as the user (ADR 0010)"
   depends_on  [
     specforge_common,
-    specforge_http,
+    specforge_effects,
     specforge_ops,
     specforge_package,
     specforge_protocol_types,
@@ -337,11 +337,13 @@ module specforge_cli "specforge-cli" {
   depends_on  [
     specforge_git,
     specforge_hosts,
+    specforge_http,
     specforge_common,
     specforge_component,
     specforge_diagnostics,
     specforge_effects,
     specforge_formatter,
+    specforge_fs,
     specforge_mcp,
     specforge_ops,
     specforge_ops_registry,
@@ -369,7 +371,10 @@ module specforge_lsp "specforge-lsp" {
     specforge_git,
     specforge_common,
     specforge_diagnostics,
+    specforge_effects,
+    specforge_fs,
     specforge_graph,
+    specforge_http,
     specforge_ops,
     specforge_parser,
     specforge_process,
@@ -397,7 +402,11 @@ module specforge_mcp "specforge-mcp" {
   depends_on  [
     specforge_common,
     specforge_component,
+    specforge_effects,
+    specforge_fs,
+    specforge_git,
     specforge_graph,
+    specforge_http,
     specforge_mcp_macros,
     specforge_ops,
     specforge_ops_registry,

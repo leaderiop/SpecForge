@@ -15,6 +15,7 @@ pub use file::{ReadFailure, declared};
 
 use std::path::{Path, PathBuf};
 
+// RealFs only looks paths up (where a link lands): a Lookup, not an Fs effect, so it reads no file past the Fs port.
 use specforge_effects::RealFs;
 
 use crate::{OpError, OpErrorKind};

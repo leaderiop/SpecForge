@@ -216,17 +216,19 @@ pub struct ConfiguredRegistry {
 }
 
 impl ConfiguredRegistry {
-    /// The registries `root`'s `specforge.json` configures, over HTTP. Reads nothing yet; `operation`
-    /// names the command in E063.
-    pub fn for_project(root: &specforge_common::ProjectRoot, operation: &str) -> Self {
+    /// The registries `root`'s `specforge.json` configures, reached through `http`, the surface's Http port. Reads
+    /// nothing yet; `operation` names the command in E063.
+    pub fn for_project(
+        root: &specforge_common::ProjectRoot,
+        operation: &str,
+        http: specforge_effects::SharedHttp,
+    ) -> Self {
         Self {
             root: root.clone(),
             operation: operation.to_string(),
             registries: OnceLock::new(),
             store: OnceLock::new(),
-            client: Box::new(Retrying::new(HttpRegistryClient::new(std::sync::Arc::new(
-                specforge_http::Client::new(),
-            )))),
+            client: Box::new(Retrying::new(HttpRegistryClient::new(http))),
             user: User::current(),
             reported_by_policy: PolicyReports::default(),
         }
@@ -741,6 +743,7 @@ mod tests {
         let registry = ConfiguredRegistry::for_project(
             &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
             "update",
+            std::sync::Arc::new(specforge_http::Client::new()),
         );
         assert!(registry.reported().is_empty());
         let sdk = PackageName::parse("@sdk/greet").unwrap();

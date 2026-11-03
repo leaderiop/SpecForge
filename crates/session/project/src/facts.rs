@@ -19,8 +19,8 @@ pub use specforge_registry::{FACTS_DIR, filed, is_fact_store};
 
 use crate::Environment;
 use crate::harness::{LEDGER_FILE, Ledger, Line};
-use crate::history::Located;
 use crate::sources::Read;
+use specforge_effects::git::Located;
 
 /// One store file, `.specforge/facts/<key>/<collector>.json`: the facts one collector answered, filed under one key.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -91,10 +91,10 @@ impl KeyReason {
 /// is clean, `<sha>-dirty` when it is not, `worktree` when there is no commit to name; with why, unless it is clean.
 pub fn key(env: &Environment) -> (String, Option<KeyReason>) {
     const WORKTREE: &str = "worktree";
-    let Some(history) = env.history() else {
+    let Some(history) = env.git() else {
         return (
             WORKTREE.into(),
-            Some(KeyReason::NoHistory("no history is installed".into())),
+            Some(KeyReason::NoHistory("no git port is given".into())),
         );
     };
     let place = match env.place(history.as_ref()) {

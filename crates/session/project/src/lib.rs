@@ -59,6 +59,7 @@ use specforge_common::{
     ConfigProblem, ConfigRead, Diagnostic, ProjectConfig, ProjectRoot, SourceRoot, codes,
     project_config_from,
 };
+use specforge_effects::git::{Git, Located, SharedGit};
 use specforge_graph::{Computed, GraphBuild, SpecFile};
 use specforge_installed::{Builtins, Installed};
 use specforge_registry::{
@@ -178,12 +179,12 @@ pub struct Environment {
     /// compiled project is on disk is [`CompiledProject::root`]. For a loaded environment,
     /// [`Self::root`] is its `dir()`.
     root: Option<ProjectRoot>,
-    /// What this environment asks of version control, when it is not the process's default
-    /// ([`history::default_history`]).
-    history: Option<history::SharedHistory>,
+    /// What this environment asks of version control (ADR 0287, ADR 0335): the git port its surface gave; none:
+    /// no judgement against history.
+    git: Option<SharedGit>,
     /// Where the repository is, once a locate found one (a project outside one is asked again each check, so
     /// `git init` is seen).
-    place: std::sync::OnceLock<history::Located>,
+    place: std::sync::OnceLock<Located>,
 }
 
 impl Environment {
@@ -202,32 +203,32 @@ impl Environment {
             structural_only: None,
             runtime: None,
             root: None,
-            history: None,
+            git: None,
             place: Default::default(),
         }
     }
 
-    /// This environment asking `history` of version control instead of the process's default.
-    pub fn with_history(mut self, history: history::SharedHistory) -> Self {
-        self.history = Some(history);
+    /// This environment asking `git` of version control.
+    pub fn with_git(mut self, git: SharedGit) -> Self {
+        self.git = Some(git);
         self
     }
 
-    /// Where the repository of this project is, asked of `history`: a repository once found is kept.
-    pub(crate) fn place(&self, history: &dyn history::History) -> history::Located {
+    /// Where the repository of this project is, asked of `git`: a repository once found is kept.
+    pub(crate) fn place(&self, git: &dyn Git) -> Located {
         if let Some(found) = self.place.get() {
             return found.clone();
         }
-        let located = history.locate(self.root());
-        if matches!(located, history::Located::Repo(_)) {
+        let located = git.locate(self.root());
+        if matches!(located, Located::Repo(_)) {
             let _ = self.place.set(located.clone());
         }
         located
     }
 
-    /// The history port: this environment's own, else the process's default; none: no judgement against history.
-    pub fn history(&self) -> Option<history::SharedHistory> {
-        self.history.clone().or_else(history::default_history)
+    /// The git port this environment was given; none: no judgement against history.
+    pub fn git(&self) -> Option<SharedGit> {
+        self.git.clone()
     }
 
     /// A bare build for a project assembled in memory: a registry build made
@@ -368,7 +369,7 @@ impl Environment {
             structural_only,
             runtime,
             root: None,
-            history: None,
+            git: None,
             place: Default::default(),
         }
     }

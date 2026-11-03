@@ -104,6 +104,14 @@ impl Served {
         self
     }
 
+    /// The server asks `git` of version control, as `main` gives it the git command line (ADR 0335). Before
+    /// [`Self::open`]: the state is a fresh one holding it.
+    pub fn git(mut self, git: specforge_effects::SharedGit) -> Served {
+        assert!(self.reaction.is_none(), "give the git port before opening");
+        self.state = Arc::new(RwLock::new(LspState::with_git(git)));
+        self
+    }
+
     /// The written `specforge.json` carries `settings` (ADR 0288).
     pub fn settings(mut self, settings: serde_json::Value) -> Served {
         self.settings = settings;

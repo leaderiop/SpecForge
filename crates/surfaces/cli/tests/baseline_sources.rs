@@ -5,9 +5,9 @@ use std::process::Command;
 use std::sync::Arc;
 
 use serde_json::{Value, json};
+use specforge_effects::git::{Git, Located};
 use specforge_git::GitCli;
 use specforge_project::baseline::Baseline;
-use specforge_project::history::{History, Located};
 use specforge_project::testing::{LIB_RS, gsd_facts_project, gsd_facts_serving, pass_input};
 use specforge_test_macros::test as specforge_test;
 

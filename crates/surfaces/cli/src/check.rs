@@ -58,7 +58,7 @@ impl Args {
         }
     }
 
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = match self.output.format(terminal) {
             Ok(format) => format,
             Err(exit) => return exit,
@@ -71,6 +71,7 @@ impl Args {
             (format, self.output.pick()),
             &self.options(),
             terminal,
+            ports,
         )
     }
 }
@@ -85,6 +86,7 @@ fn run_in(
     (format, pick): (OutputFormat, Option<&Pick>),
     options: &CheckOptions,
     terminal: &Terminal,
+    ports: &specforge_effects::Ports,
 ) -> Exit {
     // Notes for a person: a JSON reader's stderr stays empty (ADR 0120).
     let notes = Notes::new(terminal, format);
@@ -93,7 +95,7 @@ fn run_in(
             "note: --lint pedantic is the default: info diagnostics are always reported"
         ));
     }
-    let compiled = match project.compile_in(runtime) {
+    let compiled = match project.compile_in(runtime, ports) {
         Ok(compiled) => compiled,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
@@ -220,6 +222,7 @@ mod tests {
                 (OutputFormat::Human, None),
                 &CheckOptions::default(),
                 &terminal,
+                &crate::ports(),
             );
             (exit, capture)
         };

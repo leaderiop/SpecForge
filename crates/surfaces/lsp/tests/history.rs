@@ -36,11 +36,11 @@ fn git(root: &Path, args: &[&str]) {
     verify = "the LSP republishes after a commit"
 )]
 fn the_lsp_republishes_after_a_commit() {
-    let _installed = specforge_project::testing::history::install(Arc::new(
-        specforge_git::GitCli::new(std::sync::Arc::new(specforge_process::Runner)),
-    ));
     let served = Served::new(&[("main.spec", "thing a \"A\" {\n  origin one\n}\n")])
-        .extension("@t/immutable", declare);
+        .extension("@t/immutable", declare)
+        .git(Arc::new(specforge_git::GitCli::new(Arc::new(
+            specforge_process::Runner,
+        ))));
     let root = served.root().canonicalize().unwrap();
     git(&root, &["init", "-q", "-b", "main"]);
     git(&root, &["add", "-A"]);
