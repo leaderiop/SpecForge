@@ -12,7 +12,7 @@ use specforge_protocol_types::{
 
 use crate::fs::{FileKind, FsStat, READ_CEILING, held};
 use crate::git::{
-    Blob, CommitFile, Git, GitError, GitPlace, Located, Sha, Sized, TreeEntry, WorktreeStatus,
+    Blob, CommitFile, Git, GitError, GitPlace, GitStatus, Located, Sha, Sized, TreeEntry,
 };
 use crate::http::{Any, scheme, status_class};
 use crate::{
@@ -441,7 +441,7 @@ pub struct FakeGit {
     /// What `branch` answers.
     pub branch: String,
     /// What `status` answers.
-    pub status: WorktreeStatus,
+    pub status: GitStatus,
     asked: AtomicUsize,
     trees: AtomicUsize,
     blobs_asks: AtomicUsize,
@@ -471,7 +471,7 @@ impl FakeGit {
             sizes_fail: None,
             tree_fail: None,
             branch: String::new(),
-            status: WorktreeStatus::default(),
+            status: GitStatus::default(),
             asked: AtomicUsize::new(0),
             trees: AtomicUsize::new(0),
             blobs_asks: AtomicUsize::new(0),
@@ -494,7 +494,7 @@ impl FakeGit {
             sizes_fail: None,
             tree_fail: None,
             branch: String::new(),
-            status: WorktreeStatus::default(),
+            status: GitStatus::default(),
             asked: AtomicUsize::new(0),
             trees: AtomicUsize::new(0),
             blobs_asks: AtomicUsize::new(0),
@@ -527,7 +527,7 @@ impl Git for FakeGit {
     fn branch(&self, _: &GitPlace) -> Result<String, GitError> {
         Ok(self.branch.clone())
     }
-    fn status(&self, _: &GitPlace) -> Result<WorktreeStatus, GitError> {
+    fn status(&self, _: &GitPlace) -> Result<GitStatus, GitError> {
         Ok(self.status.clone())
     }
     fn locate(&self, _: &Path) -> Located {

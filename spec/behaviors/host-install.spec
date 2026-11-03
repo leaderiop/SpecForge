@@ -82,15 +82,16 @@ behavior run_a_hook "Run a Hook" {
     peers, computes the facts a sandboxed guest cannot read, calls the hook's export within its declared timeout and
     maps the answer to the host's protocol (ADR 0292). A trap, a timeout or a malformed answer applies the hook's
     on_failure policy. A hook that reads no graph and writes nothing is answered over the loaded environment, without a
-    compile (ADR 0324). A hook that declares reads_git is told its repository's head (and status), and every path its
-    real path (ADR 0320). A hook may name settings of other extensions it reads, and is sent their values (ADR 0323).
-    file_changed fires when a file a hook names changes; Claude Code wires it (ADR 0321).
+    compile (ADR 0324). A hook that declares reads_git is told its repository's head (and typed status), and every
+    path its real path (ADR 0320). A hook may name settings of other extensions it reads, and is sent their values
+    (ADR 0323). file_changed fires when a file a hook names changes; Claude Code wires it (ADR 0321).
   """
   verify unit "the human guard denies a shell call that runs a human-attested command, from the served descriptors"
   verify unit "the human guard denies a line that names specforge and cannot be read"
-  verify unit "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the porcelain status"
+  verify unit "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the typed status"
   verify unit "a hook is told an outside path's real path, and with reads_git its toplevel and whether it is inside a git directory"
-  verify unit "history answers the branch and the porcelain status of a repository"
+  verify unit "history answers the branch and the typed status of a repository"
+  verify unit "a git status round-trips as its branch and typed entries, and is dirty unless every entry is ignored"
   verify unit "a shell tool's hook is told its command split into commands"
   verify unit "a hook that reads no graph and writes nothing is answered without compiling the project"
   verify unit "a command without state has a byte-equal input"

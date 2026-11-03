@@ -28,8 +28,8 @@ pub struct Git {
     pub git_dir: String,
     /// Empty when `HEAD` is detached.
     pub branch: String,
-    /// `reads_git_status`: `git status --porcelain=v2 --branch`.
-    pub status: Option<String>,
+    /// The `git` input with `status`: the worktree's typed status (protocol 2.0.0).
+    pub status: Option<GitStatus>,
 }
 
 /// The tool and the facts of a hook call.

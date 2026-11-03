@@ -108,7 +108,7 @@ pub fn key(env: &Environment) -> (String, Option<KeyReason>) {
         Err(error) => return (WORKTREE.into(), Some(KeyReason::NoHistory(error.0))),
     };
     match history.status(&place) {
-        Ok(status) if status.dirty => (format!("{}-dirty", sha.as_str()), Some(KeyReason::Dirty)),
+        Ok(status) if status.dirty() => (format!("{}-dirty", sha.as_str()), Some(KeyReason::Dirty)),
         Ok(_) => (sha.as_str().to_string(), None),
         Err(error) => (WORKTREE.into(), Some(KeyReason::NoHistory(error.0))),
     }

@@ -138,10 +138,13 @@ fn collect_stores_a_collectors_facts_under_the_head_commit_and_records_their_dig
 fn a_dirty_tree_files_facts_under_the_commit_and_dirty_with_i209() {
     let p = project();
     let mut fake = FakeGit::repo(p.root(), SHA, Vec::new());
-    fake.status = specforge_effects::git::WorktreeStatus {
-        porcelain: "# branch.head main\n? notes.txt\n".into(),
-        dirty: true,
-    };
+    fake.status.entries.push(specforge_effects::git::GitEntry {
+        kind: specforge_effects::git::GitEntryKind::Untracked,
+        path: "notes.txt".into(),
+        orig_path: None,
+        index: None,
+        worktree: None,
+    });
     let git: SharedGit = Arc::new(fake);
 
     let outcome = collect(&p, &git, serving(two_tests(), nothing()), Some("node"));

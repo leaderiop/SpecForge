@@ -9,7 +9,7 @@
 use std::path::Path;
 use std::process::Command;
 
-use specforge_effects::git::{Git, Located, Sha};
+use specforge_effects::git::{Git, GitEntryKind, Located, Sha};
 use specforge_git::GitCli;
 use specforge_test::prelude::*;
 
@@ -366,7 +366,7 @@ fn a_directory_that_is_not_utf8_is_refused() {
 
 #[specforge_test(
     behavior = "run_a_hook",
-    verify = "history answers the branch and the porcelain status of a repository"
+    verify = "history answers the branch and the typed status of a repository"
 )]
 fn history_answers_the_branch_and_status() {
     if !has_git() {
@@ -383,10 +383,15 @@ fn history_answers_the_branch_and_status() {
     };
     assert_eq!(cli.branch(&place).unwrap(), "main");
     let status = cli.status(&place).unwrap();
-    assert!(status.dirty, "an untracked file");
-    let status = status.porcelain;
-    assert!(status.contains("# branch.head main\n"), "{status}");
-    assert!(status.contains("? n.txt\n"), "{status}");
+    assert!(status.dirty(), "an untracked file");
+    assert_eq!(status.branch.head.as_deref(), Some("main"));
+    assert!(
+        status
+            .entries
+            .iter()
+            .any(|e| e.kind == GitEntryKind::Untracked && e.path == "n.txt"),
+        "{status:?}"
+    );
     git(root, &["checkout", "-q", "--detach"]);
     assert_eq!(cli.branch(&place).unwrap(), "");
 }
@@ -397,7 +402,7 @@ fn history_answers_the_branch_and_status() {
 #[cfg(unix)]
 #[specforge_test(
     behavior = "run_a_hook",
-    verify = "history answers the branch and the porcelain status of a repository"
+    verify = "history answers the branch and the typed status of a repository"
 )]
 fn every_git_call_opts_out_of_the_optional_index_lock() {
     use std::os::unix::fs::PermissionsExt;
@@ -411,7 +416,7 @@ fn every_git_call_opts_out_of_the_optional_index_lock() {
     let script = dir.path().join("env-git");
     std::fs::write(
         &script,
-        "#!/bin/sh\ncase \" $* \" in *\" status \"*) echo \"GIT_OPTIONAL_LOCKS=${GIT_OPTIONAL_LOCKS-unset}\"; exit 0;; esac\nexec git \"$@\"\n",
+        "#!/bin/sh\ncase \" $* \" in *\" status \"*) printf '# branch.head locks-%s\\0' \"${GIT_OPTIONAL_LOCKS-unset}\"; exit 0;; esac\nexec git \"$@\"\n",
     )
     .unwrap();
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -420,7 +425,7 @@ fn every_git_call_opts_out_of_the_optional_index_lock() {
         panic!("a repository");
     };
     assert_eq!(
-        cli.status(&place).unwrap().porcelain,
-        "GIT_OPTIONAL_LOCKS=0\n"
+        cli.status(&place).unwrap().branch.head.as_deref(),
+        Some("locks-0")
     );
 }

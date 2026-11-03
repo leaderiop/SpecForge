@@ -383,9 +383,102 @@ pub struct GitFacts {
     /// `git branch --show-current`: empty when `HEAD` is detached.
     #[serde(default)]
     pub branch: String,
-    /// The `git` input with `status`: `git status --porcelain=v2 --branch`, as git wrote it.
+    /// The `git` input with `status`: the worktree's typed status (protocol 2.0.0).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
+    pub status: Option<GitStatus>,
+}
+
+/// What git says of a worktree (protocol 2.0.0, ADR 0337 D2): its branch and its entries, parsed once by the host's
+/// Git adapter (`git status --porcelain=v2 --branch -z`, or a library filling the same type).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GitStatus {
+    pub branch: GitBranch,
+    /// In git's order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entries: Vec<GitEntry>,
+}
+
+impl GitStatus {
+    /// It holds a change `HEAD` does not: an entry that is not `ignored` (ADR 0327 D3).
+    pub fn dirty(&self) -> bool {
+        self.entries.iter().any(|e| e.kind != GitEntryKind::Ignored)
+    }
+}
+
+/// The `# branch.*` headers.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GitBranch {
+    /// `branch.oid`; none for `(initial)`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oid: Option<String>,
+    /// `branch.head`; none for `(detached)`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head: Option<String>,
+    /// `branch.upstream`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream: Option<String>,
+    /// `branch.ab +A -B`; 0 without an upstream.
+    #[serde(default)]
+    pub ahead: u32,
+    #[serde(default)]
+    pub behind: u32,
+}
+
+/// One path git lists.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GitEntry {
+    pub kind: GitEntryKind,
+    /// From the repository's top, `/`-separated.
+    pub path: String,
+    /// The path it was renamed or copied from (`renamed` only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orig_path: Option<String>,
+    /// The index's change (X); none when unchanged, untracked or ignored.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index: Option<GitChange>,
+    /// The worktree's change (Y); likewise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worktree: Option<GitChange>,
+}
+
+/// The kind of a status line: `1`, `2` (a copy included), `u`, `?` and `!`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GitEntryKind {
+    Changed,
+    Renamed,
+    Unmerged,
+    Untracked,
+    Ignored,
+}
+
+/// One side's change: `M`, `T`, `A`, `D`, `R`, `C` and `U`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GitChange {
+    Modified,
+    TypeChanged,
+    Added,
+    Deleted,
+    Renamed,
+    Copied,
+    Unmerged,
+}
+
+impl GitChange {
+    /// The change porcelain writes as `letter`; none for `.` or an unknown letter.
+    pub fn of(letter: char) -> Option<Self> {
+        Some(match letter {
+            'M' => GitChange::Modified,
+            'T' => GitChange::TypeChanged,
+            'A' => GitChange::Added,
+            'D' => GitChange::Deleted,
+            'R' => GitChange::Renamed,
+            'C' => GitChange::Copied,
+            'U' => GitChange::Unmerged,
+            _ => return None,
+        })
+    }
 }
 
 /// The commit a `pre_commit` hook fires on.

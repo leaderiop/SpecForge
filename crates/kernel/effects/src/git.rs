@@ -7,6 +7,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+/// The typed status a hook is given (protocol 2.0.0) is what the port answers.
+pub use specforge_protocol_types::{GitBranch, GitChange, GitEntry, GitEntryKind, GitStatus};
+
 /// A full commit id (hex).
 #[derive(
     Debug,
@@ -63,16 +66,6 @@ pub enum Located {
 /// Why a question about history had no answer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitError(pub String);
-
-/// What git says of a worktree: its porcelain status as written (what a hook is given, ADR 0320), and whether it
-/// holds a change HEAD does not (a collect's key, ADR 0327 D3).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct WorktreeStatus {
-    /// `git status --porcelain=v2 --branch`, as git wrote it.
-    pub porcelain: String,
-    /// It lists a tracked change, a conflict or an untracked file.
-    pub dirty: bool,
-}
 
 impl std::fmt::Display for GitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -135,8 +128,8 @@ pub trait Git: Send + Sync {
     fn branch(&self, _place: &GitPlace) -> Result<String, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
-    /// The worktree's status in `place` (`git status --porcelain=v2 --branch`, ADR 0320, ADR 0327 D3).
-    fn status(&self, _place: &GitPlace) -> Result<WorktreeStatus, GitError> {
+    /// The worktree's typed status in `place` (porcelain v2 parsed once, ADR 0320, ADR 0337).
+    fn status(&self, _place: &GitPlace) -> Result<GitStatus, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
 }

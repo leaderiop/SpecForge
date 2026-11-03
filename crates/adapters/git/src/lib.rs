@@ -10,7 +10,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use specforge_effects::git::{
-    Blob, CommitFile, Git, GitError, GitPlace, Located, Sha, Sized, TreeEntry, WorktreeStatus,
+    Blob, CommitFile, Git, GitBranch, GitChange, GitEntry, GitEntryKind, GitError, GitPlace,
+    GitStatus, Located, Sha, Sized, TreeEntry,
 };
 use specforge_effects::process::request;
 use specforge_effects::{EnvVar, Output, ProcessClass, SharedProcess};
@@ -398,43 +399,153 @@ impl Git for GitCli {
         Ok(String::from_utf8_lossy(&out).trim().to_string())
     }
 
-    fn status(&self, place: &GitPlace) -> Result<WorktreeStatus, GitError> {
+    fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
         let out = self.ok(
             &place.toplevel,
-            &["status", "--porcelain=v2", "--branch"],
+            &["status", "--porcelain=v2", "--branch", "-z"],
             None,
         )?;
-        let porcelain = String::from_utf8_lossy(&out).into_owned();
-        Ok(WorktreeStatus {
-            dirty: dirty(&porcelain),
-            porcelain,
-        })
+        Ok(parse_status(&out))
     }
 }
 
-/// Whether a `git status --porcelain=v2` lists a tracked change (`1`, `2`), a conflict (`u`) or an untracked file
-/// (`?`).
-fn dirty(porcelain: &str) -> bool {
-    porcelain
-        .lines()
-        .any(|line| matches!(line.split(' ').next(), Some("1" | "2" | "u" | "?")))
+/// `git status --porcelain=v2 --branch -z` as a [`GitStatus`]: NUL-terminated records with unquoted paths, a rename's
+/// original path the record after it. A record of a kind this parser does not know is skipped.
+fn parse_status(out: &[u8]) -> GitStatus {
+    let text = String::from_utf8_lossy(out);
+    let mut records = text.split('\0').filter(|r| !r.is_empty());
+    let mut status = GitStatus::default();
+    while let Some(record) = records.next() {
+        if let Some(header) = record.strip_prefix("# ") {
+            branch_header(&mut status.branch, header);
+            continue;
+        }
+        // How many fields come before the path: `1 XY sub mH mI mW hH hI`, `2 XY sub mH mI mW hH hI Xscore`,
+        // `u XY sub m1 m2 m3 mW h1 h2 h3`, `?`, `!`.
+        let (kind, before) = match record.split(' ').next() {
+            Some("1") => (GitEntryKind::Changed, 8),
+            Some("2") => (GitEntryKind::Renamed, 9),
+            Some("u") => (GitEntryKind::Unmerged, 10),
+            Some("?") => (GitEntryKind::Untracked, 1),
+            Some("!") => (GitEntryKind::Ignored, 1),
+            _ => continue,
+        };
+        let parts: Vec<&str> = record.splitn(before + 1, ' ').collect();
+        let Some(path) = parts.get(before) else {
+            continue;
+        };
+        let mut xy = parts
+            .get(1)
+            .filter(|_| before > 1)
+            .into_iter()
+            .flat_map(|xy| xy.chars());
+        let (index, worktree) = (xy.next(), xy.next());
+        let orig_path = if kind == GitEntryKind::Renamed {
+            records.next().map(str::to_string)
+        } else {
+            None
+        };
+        status.entries.push(GitEntry {
+            kind,
+            path: path.to_string(),
+            orig_path,
+            index: index.and_then(GitChange::of),
+            worktree: worktree.and_then(GitChange::of),
+        });
+    }
+    status
+}
+
+/// One `# branch.<key> <value>` header into `branch`.
+fn branch_header(branch: &mut GitBranch, header: &str) {
+    let (key, value) = header.split_once(' ').unwrap_or((header, ""));
+    match key {
+        "branch.oid" if value != "(initial)" => branch.oid = Some(value.to_string()),
+        "branch.head" if value != "(detached)" => branch.head = Some(value.to_string()),
+        "branch.upstream" => branch.upstream = Some(value.to_string()),
+        "branch.ab" => {
+            for count in value.split(' ') {
+                if let Some(ahead) = count.strip_prefix('+') {
+                    branch.ahead = ahead.parse().unwrap_or(0);
+                } else if let Some(behind) = count.strip_prefix('-') {
+                    branch.behind = behind.parse().unwrap_or(0);
+                }
+            }
+        }
+        _ => {}
+    }
 }
 
 #[cfg(test)]
 mod status_tests {
-    use super::dirty;
+    use super::*;
 
     #[test]
-    fn a_tree_is_dirty_by_a_tracked_change_a_conflict_or_an_untracked_file() {
-        assert!(!dirty("# branch.oid abc\n# branch.head main\n"));
-        for line in [
-            "1 .M N... 100644 100644 100644 a b f",
-            "2 R. x",
-            "u UU x",
-            "? new.txt",
-        ] {
-            assert!(dirty(&format!("# branch.head main\n{line}\n")), "{line}");
-        }
-        assert!(!dirty("! ignored.txt\n"));
+    fn porcelain_v2_parses_into_a_git_status() {
+        let out = [
+            "# branch.oid 1234abcd",
+            "# branch.head main",
+            "# branch.upstream origin/main",
+            "# branch.ab +2 -1",
+            "1 .M N... 100644 100644 100644 aaa bbb src/a file.rs",
+            "1 A. N... 000000 100644 100644 000 ccc new.rs",
+            "2 R. N... 100644 100644 100644 ddd ddd R100 to.rs",
+            "from.rs",
+            "u UU N... 100644 100644 100644 100644 e1 e2 e3 both.rs",
+            "? untracked é.txt",
+            "! target",
+            "x an unknown kind",
+            "",
+        ]
+        .join("\0");
+        let status = parse_status(out.as_bytes());
+        assert_eq!(
+            status.branch,
+            GitBranch {
+                oid: Some("1234abcd".into()),
+                head: Some("main".into()),
+                upstream: Some("origin/main".into()),
+                ahead: 2,
+                behind: 1,
+            }
+        );
+        let entry = |kind, path: &str, orig: Option<&str>, index, worktree| GitEntry {
+            kind,
+            path: path.into(),
+            orig_path: orig.map(Into::into),
+            index,
+            worktree,
+        };
+        use GitChange::{Added, Modified};
+        use GitEntryKind::{Changed, Ignored, Untracked};
+        assert_eq!(
+            status.entries,
+            [
+                entry(Changed, "src/a file.rs", None, None, Some(Modified)),
+                entry(Changed, "new.rs", None, Some(Added), None),
+                entry(
+                    GitEntryKind::Renamed,
+                    "to.rs",
+                    Some("from.rs"),
+                    Some(GitChange::Renamed),
+                    None
+                ),
+                entry(
+                    GitEntryKind::Unmerged,
+                    "both.rs",
+                    None,
+                    Some(GitChange::Unmerged),
+                    Some(GitChange::Unmerged),
+                ),
+                entry(Untracked, "untracked é.txt", None, None, None),
+                entry(Ignored, "target", None, None, None),
+            ]
+        );
+        assert!(status.dirty());
+
+        // `(initial)` and `(detached)` name no commit and no branch; only an ignored file is not dirty.
+        let bare = parse_status(b"# branch.oid (initial)\0# branch.head (detached)\0! target\0");
+        assert_eq!(bare.branch, GitBranch::default());
+        assert!(!bare.dirty());
     }
 }

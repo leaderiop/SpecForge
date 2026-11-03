@@ -82,7 +82,7 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
 }
 
 /// What git says of the repository `cwd` is in (ADR 0320): none outside one, or when git cannot be asked. `status`
-/// adds the porcelain status; a branch git cannot give is empty, a status it cannot give is none.
+/// adds the typed status; a branch git cannot give is empty, a status it cannot give is none.
 pub fn git(history: &dyn Git, cwd: &Path, status: bool) -> Option<GitFacts> {
     let Located::Repo(place) = history.locate(cwd) else {
         return None;
@@ -92,7 +92,7 @@ pub fn git(history: &dyn Git, cwd: &Path, status: bool) -> Option<GitFacts> {
         git_dir: place.git_dir.to_string_lossy().into_owned(),
         branch: history.branch(&place).unwrap_or_default(),
         status: if status {
-            history.status(&place).ok().map(|status| status.porcelain)
+            history.status(&place).ok()
         } else {
             None
         },

@@ -158,8 +158,8 @@ pub(super) fn statusline(f: &Facts, o: &Options) -> HookOutput {
         format::git_segment(
             f.git
                 .as_ref()
-                .and_then(|g| g.status.as_deref())
-                .and_then(format::parse_git_status)
+                .and_then(|g| g.status.as_ref())
+                .map(format::GitInfo::of)
                 .as_ref(),
         )
     } else {

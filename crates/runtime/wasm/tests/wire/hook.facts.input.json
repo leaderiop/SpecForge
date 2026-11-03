@@ -12,7 +12,21 @@
     "toplevel": "/p",
     "git_dir": "/p/.git/worktrees/agent-x",
     "branch": "worktree-agent-x",
-    "status": "# branch.head worktree-agent-x\n"
+    "status": {
+      "branch": {
+        "head": "worktree-agent-x",
+        "ahead": 1,
+        "behind": 0
+      },
+      "entries": [
+        {
+          "kind": "renamed",
+          "path": "b.rs",
+          "orig_path": "a.rs",
+          "index": "renamed"
+        }
+      ]
+    }
   },
   "other_settings": {
     "@t/ui:workflow.ui_phase": true

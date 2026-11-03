@@ -623,8 +623,9 @@ pub mod prelude {
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{
-        Attribution, Decision, HookEvent, HookOutput, PromptOutput, RenderKind, ServedSlash,
-        StatePatch, StateView, Trigger, TriggerKind,
+        Attribution, Decision, GitBranch, GitChange, GitEntry, GitEntryKind, GitStatus, HookEvent,
+        HookOutput, PromptOutput, RenderKind, ServedSlash, StatePatch, StateView, Trigger,
+        TriggerKind,
     };
     pub use specforge_protocol_types::{
         SandboxPolicy, ValidationSeverity, ValidatorContext, ValidatorVerdict,

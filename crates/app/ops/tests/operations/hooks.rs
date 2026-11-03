@@ -280,7 +280,7 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
 
 #[specforge_test(
     behavior = "run_a_hook",
-    verify = "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the porcelain status"
+    verify = "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the typed status"
 )]
 fn a_hook_that_reads_git_is_told_the_head() {
     use specforge_effects::git::{GitPlace, Located};
@@ -296,10 +296,11 @@ fn a_hook_that_reads_git_is_told_the_head() {
         shallow: false,
     });
     fake.branch = "agent-x".into();
-    fake.status = specforge_effects::git::WorktreeStatus {
-        porcelain: "# branch.head agent-x\n? new.txt\n".into(),
-        dirty: true,
-    };
+    fake.status = serde_json::from_value(json!({
+        "branch": {"head": "agent-x"},
+        "entries": [{"kind": "untracked", "path": "new.txt"}],
+    }))
+    .unwrap();
     let none = run_hook(
         &hosted,
         "write_guard",
@@ -339,7 +340,8 @@ fn a_hook_that_reads_git_is_told_the_head() {
     );
     assert_eq!(
         hosted.input("hook__context_monitor")["git"]["status"],
-        "# branch.head agent-x\n? new.txt\n"
+        json!({"branch": {"head": "agent-x", "ahead": 0, "behind": 0},
+               "entries": [{"kind": "untracked", "path": "new.txt"}]})
     );
 }
 

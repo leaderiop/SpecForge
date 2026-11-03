@@ -315,10 +315,11 @@ pub(super) fn line_ported(port: &mut dyn FnMut(&str)) {
     );
 }
 
-/// `parseGitStatus` and `buildGitSegment` over the raw status text, and the flag through the hook.
+/// `parseGitStatus` (as `GitInfo::of` over the typed status) and `buildGitSegment`, and the flag through the hook.
 fn git_ported(port: &mut dyn FnMut(&str)) {
     use crate::hooks::facts::Git;
-    use crate::hooks::statusline::format::{GitInfo, git_segment, parse_git_status};
+    use crate::hooks::statusline::format::{GitInfo, git_segment};
+    use specforge_extension_sdk::prelude::GitStatus;
 
     let info = |branch: &str, ahead, behind, staged, unstaged, untracked| GitInfo {
         branch: branch.into(),
@@ -328,30 +329,37 @@ fn git_ported(port: &mut dyn FnMut(&str)) {
         unstaged,
         untracked,
     };
-    assert_eq!(parse_git_status(""), None);
-    assert_eq!(parse_git_status("? some-file\n"), None);
+    let typed = |wire: Value| -> GitStatus { serde_json::from_value(wire).expect("a git status") };
+    let of = |wire: Value| GitInfo::of(&typed(wire));
+    assert_eq!(None::<&GitStatus>.map(GitInfo::of), None);
     port("parseGitStatus > returns null for non-string / missing branch header");
-    let clean = "# branch.oid abc123\n# branch.head main\n# branch.upstream origin/main\n# branch.ab +0 -0\n";
-    assert_eq!(parse_git_status(clean), Some(info("main", 0, 0, 0, 0, 0)));
+    let clean = json!({"branch": {"oid": "abc123", "head": "main", "upstream": "origin/main"}});
+    assert_eq!(of(clean), info("main", 0, 0, 0, 0, 0));
     port("parseGitStatus > parses a clean, in-sync branch");
-    let dirty = "# branch.oid abc123\n# branch.head feat/x\n# branch.upstream origin/feat/x\n# branch.ab +2 -1\n\
-        1 M. N... 100644 100644 100644 aaa bbb staged-only.txt\n1 .M N... 100644 100644 100644 aaa bbb unstaged-only.txt\n\
-        1 MM N... 100644 100644 100644 aaa bbb both.txt\n2 R. N... 100644 100644 100644 aaa bbb R100 new.txt\told.txt\n\
-        ? untracked-1.txt\n? untracked-2.txt\n";
-    assert_eq!(parse_git_status(dirty), Some(info("feat/x", 2, 1, 3, 2, 2)));
+    let dirty = json!({
+        "branch": {"oid": "abc123", "head": "feat/x", "upstream": "origin/feat/x", "ahead": 2, "behind": 1},
+        "entries": [
+            {"kind": "changed", "path": "staged-only.txt", "index": "modified"},
+            {"kind": "changed", "path": "unstaged-only.txt", "worktree": "modified"},
+            {"kind": "changed", "path": "both.txt", "index": "modified", "worktree": "modified"},
+            {"kind": "renamed", "path": "new.txt", "orig_path": "old.txt", "index": "renamed"},
+            {"kind": "untracked", "path": "untracked-1.txt"},
+            {"kind": "untracked", "path": "untracked-2.txt"},
+        ],
+    });
+    assert_eq!(of(dirty), info("feat/x", 2, 1, 3, 2, 2));
     port("parseGitStatus > counts staged, unstaged, untracked, ahead, behind");
-    let conflict = parse_git_status(
-        "# branch.head main\nu UU N... 100644 100644 100644 100644 aaa bbb ccc conflict.txt\n",
-    )
-    .expect("a branch");
+    let conflict = of(json!({
+        "branch": {"head": "main"},
+        "entries": [{"kind": "unmerged", "path": "conflict.txt", "index": "unmerged", "worktree": "unmerged"}],
+    }));
     assert_eq!((conflict.unstaged, conflict.staged), (1, 0));
     port("parseGitStatus > counts unmerged (conflict) entries as unstaged");
-    assert_eq!(
-        parse_git_status("# branch.head (detached)\n").map(|i| i.branch),
-        Some("(detached)".to_string())
-    );
+    assert_eq!(of(json!({"branch": {}})).branch, "(detached)");
     port("parseGitStatus > detached HEAD passes through as \"(detached)\"");
-    let local = parse_git_status("# branch.head local-only\n? new.txt\n").expect("a branch");
+    let local = of(
+        json!({"branch": {"head": "local-only"}, "entries": [{"kind": "untracked", "path": "new.txt"}]}),
+    );
     assert_eq!((local.ahead, local.behind, local.untracked), (0, 0, 1));
     port("parseGitStatus > no upstream (no branch.ab line) leaves ahead/behind at 0");
 
@@ -375,14 +383,14 @@ fn git_ported(port: &mut dyn FnMut(&str)) {
     port("buildGitSegment > omits zero markers");
 
     // the flag through the hook: the segment follows the directory, and only while `show_git` is on
-    let facts = |text: &str| Facts {
+    let facts = |wire: Value| Facts {
         host: "claude-code".into(),
         status: Some(status(json!("Claude"), None, None, Value::Null)),
         git: Some(Git {
             toplevel: "/t/myproject".into(),
             git_dir: "/t/myproject/.git".into(),
             branch: "main".into(),
-            status: Some(text.into()),
+            status: Some(typed(wire)),
         }),
         ..Facts::default()
     };
@@ -391,7 +399,10 @@ fn git_ported(port: &mut dyn FnMut(&str)) {
         ..opts("end", false, false)
     };
     let line = |f: &Facts, o: &Options| plain(&statusline(f, o).statusline.expect("a line"));
-    let f = facts("# branch.head main\n1 A. N... 0 0 0 a b x\n? y\n");
+    let f = facts(json!({"branch": {"head": "main"}, "entries": [
+        {"kind": "changed", "path": "x", "index": "added"},
+        {"kind": "untracked", "path": "y"},
+    ]}));
     assert!(
         line(&f, &on).contains("myproject \u{2502} main+1?1"),
         "{}",
@@ -402,7 +413,7 @@ fn git_ported(port: &mut dyn FnMut(&str)) {
         !line(
             &Facts {
                 git: None,
-                ..facts("")
+                ..facts(json!({"branch": {}}))
             },
             &on
         )
