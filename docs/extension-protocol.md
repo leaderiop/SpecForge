@@ -133,6 +133,36 @@ The host reads every string and object key of a handshake or describe answer pri
 | `settings` | Typed settings, presets and secrets (protocol 1.8.0) | Always, from a guest of 1.8 or later |
 | `routes` | The routes `specforge trace` follows from a kind (protocol 1.15.0) | Always, from a guest of 1.15 or later |
 
+### Inputs (2.0.0, ADR 0337)
+
+What a pass, command, prompt, hook or collector needs the host to read for it before the call, it declares as one list,
+`inputs`, of tagged items. Each item names its kind in `input`; the host serves what the call's kind is served and
+nothing else:
+
+| `input` | Keys | Served to | The call's input carries |
+|---|---|---|---|
+| `files` | `name`, `field` or `glob`, `base`?, `text`? | pass, command, collector | `files`, the facts (and capped text) under `name` (see "File reads" under [Category: passes](#category-passes)) |
+| `tests` | | pass | `test_results`, the recorded test report |
+| `state` | | command, prompt, hook | `state`, the extension's state |
+| `graph` | | prompt, hook | `graph` |
+| `slash_commands` | | prompt | `slash_commands` |
+| `git` | `status`?, `when`? | hook | `git`; with `"status": true` its typed `status`, `{"branch": {"oid"?, "head"?, "upstream"?, "ahead", "behind"}, "entries": [{"kind", "path", "orig_path"?, "index"?, "worktree"?}]}`; `when` names a bool setting the facts are collected under |
+| `setting` | `extension`, `name` | hook | `other_settings["<extension>:<name>"]` |
+
+An input the call's kind is not served, a second `tests`, `state`, `graph`, `slash_commands` or `git` input, or a
+`setting` that names the call's own extension (read it with `Settings::current`) or no extension and setting, is W021
+and served empty; the call is kept. A key no input defines is W138. Protocol 1.x spelled these as `reads`,
+`reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and
+`reads_settings`; a 2.0.0 host reads none of them.
+
+```json
+"inputs": [
+  { "input": "files", "name": "sources", "glob": "src/**/*.rs", "text": true },
+  { "input": "state" },
+  { "input": "git", "status": true, "when": "statusline.show_git" }
+]
+```
+
 ### Category: entities
 
 Returns entity kind descriptors. Each descriptor declares a DSL keyword, its fields, and metadata for LSP and DOT rendering.
@@ -459,8 +489,8 @@ that does not know the field ignores it). The host reads the declaration by one 
   dropped): it records what a person says, so the host runs it only for a person at a terminal. An MCP call, and the
   command line without a terminal, are refused `human_only` before the export runs, `--dry-run` included. A 1.11 host
   ignores the key.
-- **Reads and the clock (1.11.0, ADR 0293, ADR 0294).** A command may declare `reads` (see "File reads" under
-  [Category: passes](#category-passes)); its input then carries `files`, and it always carries `now`, the host's clock.
+- **Inputs and the clock (ADR 0293, ADR 0294, ADR 0337).** A command may declare `files` and `state` inputs (see
+  [Inputs](#inputs-200-adr-0337)); its input then carries `files`, and it always carries `now`, the host's clock.
 - **Gates (1.10.0, ADR 0291).** A command may declare `gates`, local codes of its extension, and `subject`, the
   name of one of its args (a `reference`'s entity scopes the gates; absent, the project). Before the export runs
   the host evaluates the gate in the subject's scope: a gated code fails while the project holds an error of that
@@ -493,7 +523,7 @@ describe files written into an agent host's project directory by `specforge inst
 | `agents` | `id` (kebab-case), `description`, `tools` (host-neutral classes), `model`, `effort`, `color`, `variants` and `variant_setting`, `when`, `attribution` | one agent file per host; its body is the `render__` export's |
 | `skills` | `id`, `description`, `tools`, `argument_hint`, `when`, `attribution` | one skill per host; its body is the `render__` export's |
 | `slash_commands` | exactly one of `prompt` or `command` (an id of the extension), `argument_hint`, `tools`, `effort`, `when`, `attribution` | a skill named `<short>-<route>` that holds a trampoline: it calls the prompt or command through its own surface |
-| `hooks` | `id` (snake_case), `description`, `event`, `tools`, `paths`, `timeout_ms` (5 s unless set), `on_failure` (`allow` or `deny`), `reads_graph`, `reads_state`, `writes`, `when`, `hosts`, `reads_git`, `reads_git_status`, `git_when`, `reads_settings`, `export` (`hook__<id>`) | one entry in the host's hook configuration that runs `specforge hook <short>.<id>` |
+| `hooks` | `id` (snake_case), `description`, `event`, `tools`, `paths`, `timeout_ms` (5 s unless set), `on_failure` (`allow` or `deny`), `inputs` (`graph`, `state`, `git`, `setting`), `writes`, `when`, `hosts`, `export` (`hook__<id>`) | one entry in the host's hook configuration that runs `specforge hook <short>.<id>` |
 
 A `tools` item is a class, not a host's tool name: `read`, `write`, `edit`, `shell`, `search`, `web_fetch`,
 `web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`. Each host's adapter maps a class to its
@@ -526,16 +556,17 @@ clock at the call, `YYYY-MM-DDTHH:MM:SSZ`: RFC 3339, UTC, seconds, a literal `Z`
 is its date; an input without one omits the key.
 
 **Hook members of 1.14.0 (ADR 0320-0324).** `hosts` (ADR 0322) limits the hosts a hook is installed on (`claude-code`,
-`codex`, `cursor`; none: all). `reads_git` (ADR 0320) sends `git`: the `toplevel`, `git_dir`, `branch` and, with
-`reads_git_status`, the porcelain `status` of the repository the `cwd` is in, and, for an out-of-project path, its
+`codex`, `cursor`; none: all). A `git` input (ADR 0320) sends `git`: the `toplevel`, `git_dir`, `branch` and, with
+`"status": true`, the typed `status` of the repository the `cwd` is in, and, for an out-of-project path, its
 `toplevel` and `in_git_dir`; every `PathFact` carries its `real` path. A shell tool's command also arrives as `commands`
 (split at control operators) and a commit's `cleanup` lists its cleanup modes. The event `file_changed` (ADR 0321)
 names the files it watches in `paths` (file names, not globs) and carries what happened as `change` (`change`, `add`,
-`unlink`); only Claude Code wires it. `reads_settings` (ADR 0323), entries `<extension>:<setting>` of other extensions,
-sends their values as `other_settings`. A hook whose `on_failure` is `deny` is installed with a line that denies (exit
+`unlink`); only Claude Code wires it. A `setting` input (ADR 0323), `{"input": "setting", "extension", "name"}` of
+another extension, sends its value in `other_settings` under `<extension>:<name>`; one naming the hook's own extension
+is W021, served empty, and the hook is kept. A hook whose `on_failure` is `deny` is installed with a line that denies (exit
 2) when `specforge` is not on the host's PATH (ADR 0324).
 
-**State (1.10.0, ADR 0292).** A hook, command or prompt that declares `reads_state` is sent `state`:
+**State (1.10.0, ADR 0292).** A hook, command or prompt that declares the `state` input is sent `state`:
 `{"project": {…}, "session": {…}}` (`session` only when the host names one; a CLI command has none). It answers a
 `state` of `{"project": <patch>, "session": <patch>}`, JSON merge patches (RFC 7396). The host applies them after any
 plan, under the write lock, into `.specforge/state/<extension>/project.json` and `sessions/<id>.json`, each an object
@@ -566,7 +597,6 @@ a command, commands first; a prompt whose name is taken is E039 and runs on no s
       { "id": "check", "title": "Check the plans" }
     ],
     "when": "workflow.research",
-    "reads_graph": false,
     "attribution": { "upstream": "gsd-core", "path": "workflows/plan-phase.md", "version": "1.18.0",
                      "license": "MIT", "copyright": "Copyright (c) 2026 Open GSD" }
   }]
@@ -588,8 +618,8 @@ a command, commands first; a prompt whose name is taken is E039 and runs on no s
   tool and CLI line with the state of its gate now. A prompt is not a contract: an agent may skip a step, and only a
   command's own gate refuses.
 - **`when`** names a bool setting of the extension, or a list of them (1.13.0, ADR 0317); while any is false the prompt is neither listed nor served.
-- **`reads_graph`** sends the export the graph, as a command's, with its computed values and judgements (ADR 0299). Absent, a workflow reads through tools.
-- **`reads_slash_commands`** (1.13.0, ADR 0316) sends the export `slash_commands`, the list an install writes (`when` applied, sorted by name), so a router lists what the project serves.
+- **A `graph` input** sends the export the graph, as a command's, with its computed values and judgements (ADR 0299). Absent, a workflow reads through tools.
+- **A `slash_commands` input** (1.13.0, ADR 0316) sends the export `slash_commands`, the list an install writes (`when` applied, sorted by name), so a router lists what the project serves.
 - **A tail and a picked subject (1.13.0, ADR 0314).** One `string` argument may declare `rest: true`, never the subject: a word no positional slot takes goes to it, joined by one space (given by name and by words it is "given twice"; an unknown `--option` is refused; after a `--` among the prompt's words every word is a tail word). On the command line the first `--` is the host's: it reads `--path`, `--format` and `--host` only before it, removes it, and hands everything after it to the prompt, whose own boundary is a second `--`; a prompt's `path` or `format` argument is given after the first `--`. A subject that is not `required` is positional; absent, the host calls the export first and the answer's `subject` must be the path of an entity of the subject's kinds (else E028), and the gate then runs for it. A given subject wins. Prompts are read-only (ADR 0291), so the export runs before the gate.
 - **Rendering.** The `prompt__` export receives `PromptInput` and answers at least one message. The host appends one
   message of its own: the prompt as `@ext@version:id`, a `sha256:` digest of the export's message texts, the
@@ -614,8 +644,8 @@ the absolute report path, also exported as `SPECFORGE_REPORT`), where the
 report lands (`report`, a file or directory inside the project; default
 `.specforge/reports/<name>.json`), whether the host also keeps the command's
 standard output (`capture: "stdout"`, for runners whose results only appear
-there), the project files it reads (`reads`, as a pass's: see "File reads" under
-the passes category; ports plan 00 R1-b), and the pure export that maps the report to entities.
+there), the project files it reads (`files` inputs, as a pass's: see [Inputs](#inputs-200-adr-0337); ports plan 00
+R1-b), and the pure export that maps the report to entities.
 
 ```json
 {
@@ -636,7 +666,7 @@ the passes category; ports plan 00 R1-b), and the pure export that maps the repo
 
 The host calls the export with a `CollectInput`, `{"reports": [{"path",
 "content"}], "stdout"?, "files"?}` (`stdout` only when the collector captures it; `files`, the facts of the files
-it `reads`, by read name, read after the run from the plain disk and absent when it declares none), and
+its `files` inputs name, by read name, read after the run from the plain disk and absent when it declares none), and
 reads a `CollectOutput`, `{"entity_results": [{"entity_id", "test_results":
 [{"name", "status", "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name",
 "path", "status"}]}` (each test a `TestResult`), with `status` a `TestStatus`:
@@ -678,7 +708,7 @@ watch, the LSP, MCP). Passes with any other phase, or none, run only under
 (`{"entities", "edges", "test_results"?, "proved_claims"?, "previous"?, "files"?, "fact_stores"?}`;
 `test_results` is the recorded test report as `TestResults`, `{"runner"?,
 "results": {"<id>": {"tests": [TestResult]}}}`, sent to an analyze pass and, since 1.11.0, to a check, compute or guard
-pass that declares `reads_tests: true` (ADR 0293: with no report recorded the host reports I205 once, with one that
+pass that declares the `tests` input (ADR 0293: with no report recorded the host reports I205 once, with one that
 cannot be used E045; a pass that does not declare it is sent none, as before);
 each entity is `{"id", "kind", "fields", "incoming_edge_count",
 "outgoing_edge_count", "span"?, "testable", "owes_none", "verify_kinds",
@@ -702,8 +732,9 @@ means. A `PassEntity` carries `pending: true` (1.15.0, ADR 0329 D4) while its ow
 `complete_when` does not hold, or, when its kind declares none, the nearest scope ancestor's whose kind declares one
 does not; it is absent otherwise, and decided on the snapshot the passes read, computed values included. A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface, the `graph` a command, a prompt, a hook or a writing collector receives included (as `fields`, with the judgements beside them; ADR 0299, no protocol change); a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
 
-**File reads (1.11.0, ADR 0293).** A pass, a command or a collector may declare `reads`, a list of `{"name", "field"?, "glob"?,
-"base"?, "text"?}`: the project files it wants the host to read, because a guest has no file system. Exactly one of
+**File reads (1.11.0, ADR 0293).** A pass, a command or a collector may declare `files` inputs, each
+`{"input": "files", "name", "field"?, "glob"?, "base"?, "text"?}`: the project files it wants the host to read, because
+a guest has no file system. Exactly one of
 `field` (`kind.field` or `kind.field.member`: the paths the entities of that kind write there, read as `file_exists`
 reads them) or `glob` (project-relative, `/`-separated; `*`, `?` and a `**` segment, at most four of them; never `..` or an absolute path).
 `name` is a word, unique among the owner's reads. `base` (`spec` or `project`, default `project`) says where a field's
@@ -877,8 +908,8 @@ Every call but the handshake and describe also carries the extension's own `sett
 |---|---|---|---|
 | Handshake | `__handshake` | `HandshakeRequest` `{"host_version"}` | `HandshakeResponse` |
 | Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
-| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "now"?, "host"?, "graph", "revisions"?, "files"?}`; `graph` carries computed values and judgements (ADR 0299); `cwd` is the project root, absolute and canonical; `now` is `YYYY-MM-DDTHH:MM:SSZ` (1.11.0, ADR 0294) and `files` holds the command's declared reads (1.11.0, ADR 0293); `host` (1.13.0, ADR 0318) is `claude-code`, `codex` or `cursor` when known | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
-| Prompt | the prompt's `export` (`prompt__<id>`) | `PromptInput` `{"args", "cwd", "today", "graph"?, "host"?, "slash_commands"?}`; `graph` carries computed values and judgements (ADR 0299); `args` are typed, a reference its full path; `host` is `claude-code`, `codex` or `cursor` when known; `slash_commands` (1.13.0, ADR 0316) are the project's served slash commands `{"name", "extension", "prompt"?, "tool"?, "cli"}`, sent to a prompt that declares `reads_slash_commands` | `PromptOutput` `{"messages": [{"role": "user" or "assistant", "text"}], "subject"?}`, at least one message; `subject` (1.13.0, ADR 0314) is the full path of the entity picked when the caller gave none |
+| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "now"?, "host"?, "graph", "revisions"?, "files"?}`; `graph` carries computed values and judgements (ADR 0299); `cwd` is the project root, absolute and canonical; `now` is `YYYY-MM-DDTHH:MM:SSZ` (1.11.0, ADR 0294) and `files` holds the command's `files` inputs (1.11.0, ADR 0293); `host` (1.13.0, ADR 0318) is `claude-code`, `codex` or `cursor` when known | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
+| Prompt | the prompt's `export` (`prompt__<id>`) | `PromptInput` `{"args", "cwd", "today", "graph"?, "host"?, "slash_commands"?}`; `graph` carries computed values and judgements (ADR 0299); `args` are typed, a reference its full path; `host` is `claude-code`, `codex` or `cursor` when known; `slash_commands` (1.13.0, ADR 0316) are the project's served slash commands `{"name", "extension", "prompt"?, "tool"?, "cli"}`, sent to a prompt that declares the `slash_commands` input | `PromptOutput` `{"messages": [{"role": "user" or "assistant", "text"}], "subject"?}`, at least one message; `subject` (1.13.0, ADR 0314) is the full path of the entity picked when the caller gave none |
 | MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
 | MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
 | Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |
@@ -1082,7 +1113,7 @@ host's minor loads.
 An extension runs with no capability: its component's WASI context preopens no directory, passes
 no environment, arguments or stdin, discards stdout and stderr, and refuses sockets and name
 lookup. What it needs it is handed in each call's input (a scanner gets each file's content, a
-command the graph, a pass or command that declares `reads` the facts and capped text of exactly the project files it
+command the graph, a pass or command that declares `files` inputs the facts and capped text of exactly the project files it
 names, read by the host: the one thing a declaration does grant, so `specforge extensions` and `specforge doctor` list
 every declared read, a text read withholds files that look like credentials, and a file whose real path leaves the
 project is refused). No other declaration grants more access (ADR 0037, ADR 0293). No text an extension supplies acts on

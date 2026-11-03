@@ -280,7 +280,7 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
 
 #[specforge_test(
     behavior = "run_a_hook",
-    verify = "a hook that declares reads_git is told its repository's toplevel, git directory and branch, and with reads_git_status the typed status"
+    verify = "a hook that declares the git input is told its repository's toplevel, git directory and branch, and with status the typed status"
 )]
 fn a_hook_that_reads_git_is_told_the_head() {
     use specforge_effects::git::{GitPlace, Located};

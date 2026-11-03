@@ -403,11 +403,11 @@ descriptor, and routes the export to the handler. The CLI runs it as `specforge 
 | `cmd.category(..)` | A CLI grouping |
 | `cmd.arg(name, \|a\| ..)` | Declares an arg (below) |
 | `cmd.handler(\|call\| ..)` | The function answering it: `CommandCall` in, `CommandOutput` out |
-| `cmd.reads(name, FileReadSpec::field("kind.field").text())` | Project files the host reads for the call (protocol 1.11.0, ADR 0293): `call.files(name)` holds their facts and, with `.text()`, their capped text; `FileReadSpec::glob("src/**/*.rs")` names files by pattern |
+| `cmd.input(Input::files(name, FileReadSpec::field("kind.field").text()))` | Project files the host reads for the call (ADR 0293, ADR 0337): `call.files(name)` holds their facts and, with `.text()`, their capped text; `FileReadSpec::glob("src/**/*.rs")` names files by pattern. `cmd.input(Input::State)` asks for the extension's state |
 
 A command's `call.now()` is the host's clock when it was called, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds; protocol 1.11.0, ADR 0294), the same instant as `call.today()`; a hook's `call.now()` and a writing collector's input carry it too. A prompt and a pass are not told the time.
 
-A command's `call.host()` is the host that called it (`claude-code`, `codex` or `cursor`, when known; protocol 1.13.0, ADR 0318): on the command line it is `--host <host>`, which the host adds to every extension command, so a command declares no arg of that name. After `cmd.reads_state()` (a command or a prompt), `call.state()` holds the extension's `StateView` (ADR 0310). `Trigger` and `TriggerKind` are in the prelude, and `Settings::number(key)` reads a number setting.
+A command's `call.host()` is the host that called it (`claude-code`, `codex` or `cursor`, when known; protocol 1.13.0, ADR 0318): on the command line it is `--host <host>`, which the host adds to every extension command, so a command declares no arg of that name. After `cmd.input(Input::State)` (a command or a prompt), `call.state()` holds the extension's `StateView` (ADR 0310). `Trigger` and `TriggerKind` are in the prelude, and `Settings::number(key)` reads a number setting.
 
 An arg is a string unless its builder says otherwise:
 
@@ -464,7 +464,8 @@ c.render(|call| Ok(format!("# {}\n", call.id())));
 ```
 
 `agent`, `skill` and `hook` panic on a name already declared, so the extension's first test finds it. A hook builder
-has `tools`, `paths`, `timeout_ms`, `on_failure_deny`, `reads_graph`, `reads_state`, `writes` and `when`; its handler
+has `tools`, `paths`, `timeout_ms`, `on_failure_deny`, `input` (`Graph`, `State`, `git()`, `setting(..)`), `writes`
+and `when`; its handler
 receives the host's facts (`call.facts()`) and `call.plan()` builds an edit plan the way a writing command does. The
 extension reads and patches its state through `HookInput.state` and `HookOutput::with_state`.
 
@@ -493,8 +494,8 @@ c.prompt("plan_phase", |p| {
 ```
 
 `PromptCall` reads the typed arguments (`str`, `bool`, `integer`, `list`), `host()` (`claude-code`, `codex` or
-`cursor` when known), `cwd()`, `today()` and, after `p.reads_graph()`, `graph()`, after `p.reads_state()`, `state()`, and
-after `p.reads_slash_commands()`, `slash_commands()` (the project's served slash commands). `p.when("setting")` serves
+`cursor` when known), `cwd()`, `today()` and, after `p.input(Input::Graph)`, `graph()`, after `p.input(Input::State)`,
+`state()`, and after `p.input(Input::SlashCommands)`, `slash_commands()` (the project's served slash commands). `p.when("setting")` serves
 the prompt only while a bool setting of the extension is not false; call it again to require another (all must be on).
 `a.rest()` makes a string argument the free-text tail; an argument that is not `required()` and is the `subject` is
 optional, and the handler answers `PromptOutput::user(..).with_subject(path)` for the entity it picked. An argument is `string`, `integer`, `bool`, `date`,
@@ -573,8 +574,8 @@ in a report answers its `Err`), plus the tests the report doesn't link
 (`unlinked`), which the host links by naming convention when it can. With `capture_stdout()`, the command's output still
 reaches the user's terminal, and the host also keeps it (in
 `<name>.stdout.txt` inside a report directory) and passes it as
-`CollectInput::stdout`. `k.reads(name, FileReadSpec::glob("package.json").text())` declares a project file the
-collector reads, as a command's `reads` does: its input's `files[name]` holds the facts (and, with `.text()`, the
+`CollectInput::stdout`. `k.input(Input::files(name, FileReadSpec::glob("package.json").text()))` declares a project
+file the collector reads, as a command's `files` input does: its input's `files[name]` holds the facts (and, with `.text()`, the
 capped text), read by the host after the run. The guest never runs anything itself.
 
 A handler may also answer `facts` (protocol 1.15.0, ADR 0327), the entities it observed, each of a kind its
@@ -618,14 +619,15 @@ and `specforge check` exits 1 on its errors. Check passes run in their
 after/before order; a trap or malformed answer is E028. Any other phase, or
 none, runs the pass only under `specforge analyze`, which skips check passes.
 
-A pass may declare `p.reads(name, FileReadSpec::field("plan.files_modified"))` or `FileReadSpec::glob(..)` (add `.text()` for the
+A pass may declare `p.input(Input::files(name, FileReadSpec::field("plan.files_modified")))` or `FileReadSpec::glob(..)`
+(add `.text()` for the
 file's text, at most 64 KiB; `.base(FileBase::Spec)` for a field whose relative paths start at the spec) and receives the facts
 under `input.files[name]` (protocol 1.11.0, ADR 0293): `{path, entity?, exists, bytes?, lines?, digest?, text?, error?}`,
 and `truncated` on a glob that matched over 2000 files. A file the host reads is a check input, so the pass runs again
-when it changes. `p.reads_tests()` makes a check, compute or guard pass receive the recorded test report as `test_results`
+when it changes. `p.input(Input::Tests)` makes a check, compute or guard pass receive the recorded test report as `test_results`
 (an analyze pass always does); with no report recorded the host reports I205 once, and E045 for one it cannot use.
-Limit: the git baseline (`previous`) a compute pass is given is computed without the test report, so a value a `reads_tests`
-compute pass derives from tests is unknown in `previous` and known now; compare such a value against `previous` only for
+Limit: the git baseline (`previous`) a compute pass is given is computed without the test report, so a value a compute pass
+with the `tests` input derives from tests is unknown in `previous` and known now; compare such a value against `previous` only for
 fields the pass does not derive from tests.
 
 A pass receives `PassInput`: `entities` (each with its field texts by name

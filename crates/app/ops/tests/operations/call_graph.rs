@@ -278,7 +278,7 @@ fn a_plan_echoing_a_verdict_value_it_read_is_refused() {
 
 #[specforge_test(
     behavior = "compute_field_values",
-    verify = "the graph a reads_graph hook receives carries the computed values"
+    verify = "the graph a hook with the graph input receives carries the computed values"
 )]
 fn a_hooks_graph_carries_the_computed_values() {
     let project = hosts_project(json!({}), json!({}));

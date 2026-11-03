@@ -150,7 +150,7 @@ fn an_unreadable_event_applies_the_failure_policy() {
 #[cfg(unix)]
 #[specforge_test(
     behavior = "run_a_hook",
-    verify = "a hook is told an outside path's real path, and with reads_git its toplevel and whether it is inside a git directory"
+    verify = "a hook is told an outside path's real path, and with the git input its toplevel and whether it is inside a git directory"
 )]
 fn a_hook_is_told_the_real_path_and_toplevel_of_an_outside_path() {
     use std::process::Command;

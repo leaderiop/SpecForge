@@ -587,9 +587,9 @@ same code when `specforge-report.json` exists but can't be read or parsed (a
 recorded test's status is `passed`, `failed` or `skipped`, and every test has a
 name: a report in another vocabulary, such as one written before 1.4, is not
 usable), or when a judged rule reads the report (ADR 0290), or when a check,
-compute or guard pass that declares `reads_tests` is sent it (protocol 1.11.0),
-or when a `--test-results` (`test_results`) file can't be read or doesn't exist
-(over MCP: `schema_mismatch`, `permission_denied`, `file_not_found`,
+compute or guard pass that declares the `tests` input is sent it (ADR 0293, ADR
+0337), or when a `--test-results` (`test_results`) file can't be read or doesn't
+exist (over MCP: `schema_mismatch`, `permission_denied`, `file_not_found`,
 `invalid_input` when `specforge-report.json` is a link that leads outside the
 project, or `internal_error`), rather than scoring the project as if no test
 ran: run `specforge collect` again to rewrite it, or fix or remove the file.
@@ -1974,13 +1974,13 @@ I205: Test inputs not judged
 
 A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a
 `test(..)` selector, or a verdict that cites tests), or a check, compute or
-guard pass declares `reads_tests` (protocol 1.11.0), but no test results are
-recorded: there is no `specforge-report.json`, or every chain of a `test(..)`
-input reads references whose facts no collect has stored (ADR 0331). Run
-`specforge collect`. The rule's other inputs are judged as usual and the test
-input is left out of the comparison, so a verdict is not made stale by results
-that are not there. Nothing is wrong with the project. A report that exists but
-cannot be used is E045.
+guard pass declares the `tests` input (ADR 0293, ADR 0337), but no test results
+are recorded: there is no `specforge-report.json`, or every chain of a
+`test(..)` input reads references whose facts no collect has stored (ADR 0331).
+Run `specforge collect`. The rule's other inputs are judged as usual and the
+test input is left out of the comparison, so a verdict is not made stale by
+results that are not there. Nothing is wrong with the project. A report that
+exists but cannot be used is E045.
 
 Owner: core
 Level: info
@@ -2807,12 +2807,15 @@ command the extension declares, `tools` or `paths` on a hook of an event that
 takes none, a `timeout_ms` of 0 or above the ceiling (30 s, or the sandbox's),
 `writes` on a `statusline` hook, a hook export that is not `hook__<id>`, an
 attribution with an empty field, and a prompt step whose `agent` is no agent of
-the extension or of a declared peer. A pass's or command's `reads` that the host
-would serve empty are W021 too (ADR 0293), the pass or command being kept: a
-read whose name is no word or is repeated, that names neither or both of `field`
-and `glob`, a `field` that is not `kind.field` or that no loaded extension
-declares, a `base` on a glob or other than `spec` or `project`, and a glob that
-is empty, absolute, climbs with `..`, or has more than four `**` segments.
+the extension or of a declared peer. An input the host would serve empty is W021
+too (ADR 0293, ADR 0337), the call being kept: an input its call kind is not
+served, a collector's included, or a second one of a kind served once (`tests`,
+`state`, `graph`, `slash_commands`, `git`), a `setting` input naming the call's
+own extension or no extension and setting, and a `files` input whose name is no
+word or is repeated, that names neither or both of `field` and `glob`, a `field`
+that is not `kind.field` or that no loaded extension declares, a `base` on a
+glob or other than `spec` or `project`, and a glob that is empty, absolute,
+climbs with `..`, or has more than four `**` segments.
 
 Owner: core
 Level: warning
