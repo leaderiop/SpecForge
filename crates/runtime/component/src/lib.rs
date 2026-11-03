@@ -175,9 +175,13 @@ struct PluginInstance {
     settings: Option<ExtensionSettings>,
 }
 
+/// The host's reference rate, in instructions per millisecond: what turns
+/// a time budget into a work budget.
+pub const FUEL_PER_MS: u64 = 20_000_000;
+
 /// Deterministic instruction budget, given whole to every call (refilled
-/// before each), shared by every surface.
-pub const DEFAULT_FUEL_LIMIT: u64 = 30_000 * 20_000_000;
+/// before each), shared by every surface: 30 s at [`FUEL_PER_MS`].
+pub const DEFAULT_FUEL_LIMIT: u64 = 30_000 * FUEL_PER_MS;
 
 /// The environment variable that holds every call to a work budget
 /// ([`ComponentRuntime::with_work_budget`]): a positive number of
@@ -357,12 +361,12 @@ impl ComponentRuntime {
     }
 
     /// Hold every call to `fuel` instructions (at most
-    /// [`DEFAULT_FUEL_LIMIT`]) in place of the time budget its caller gives
-    /// it (a hook's `timeout_ms`): whether such a call answers then depends
-    /// on its input, not on how busy the machine is. The extension's own
-    /// limit (`max_execution_ms`) still holds, as a loose ceiling. What
-    /// [`WORK_BUDGET_ENV`] selects: a test bounds a guest's work with it on
-    /// a loaded machine.
+    /// [`DEFAULT_FUEL_LIMIT`]) in place of any clock: the time budget its
+    /// caller gives it (a hook's `timeout_ms`) is lifted, and the
+    /// extension's own limit (`max_execution_ms`) holds as work, at
+    /// [`FUEL_PER_MS`]. Whether such a call answers then depends on its
+    /// input, not on how busy the machine is. What [`WORK_BUDGET_ENV`]
+    /// selects: a test bounds a guest's work with it on a loaded machine.
     pub fn with_work_budget(mut self, fuel: u64) -> Self {
         self.fuel = fuel.min(DEFAULT_FUEL_LIMIT);
         self.work_bound = true;
@@ -402,8 +406,21 @@ impl ComponentRuntime {
         Ok(())
     }
 
+    /// What holds one entry into a plugin under `limits`: its instructions
+    /// and its deadline, in milliseconds (`max_ms` is its caller's time
+    /// budget). Under a work budget no clock runs: the extension's limit is
+    /// held as the work it allows at [`FUEL_PER_MS`].
+    fn budget(&self, fuel: u64, limits: Limits, max_ms: u32) -> (u64, u32) {
+        if self.work_bound {
+            let limit = u64::from(limits.execution_ms).saturating_mul(FUEL_PER_MS);
+            (fuel.min(limit), u32::MAX)
+        } else {
+            (fuel, limits.execution_ms.min(max_ms))
+        }
+    }
+
     /// A new instance of `component`, with `fuel`, `limits`' memory ceiling
-    /// and its wall-clock budget armed.
+    /// and its budget armed.
     fn fresh_instance(
         &self,
         component: &Component,
@@ -425,13 +442,14 @@ impl ComponentRuntime {
             },
         );
         store.limiter(|state| &mut state.memory);
+        let (fuel, deadline_ms) = self.budget(fuel, limits, u32::MAX);
         store
             .set_fuel(fuel)
             .map_err(|e| format!("failed to set fuel: {e}"))?;
         // With epoch interruption enabled, stores start with a deadline of
         // zero ticks and would trap immediately — arm the plugin's
-        // wall-clock budget before any guest code can run.
-        store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms)));
+        // budget before any guest code can run.
+        store.set_epoch_deadline(ms_to_ticks(u64::from(deadline_ms)));
 
         let bindings = Bridge::instantiate(&mut store, component, &linker)
             .map_err(|e| format!("failed to instantiate component: {e}"))?;
@@ -553,17 +571,15 @@ impl WasmRuntime for ComponentRuntime {
         // Every call gets the whole fuel budget and the whole wall-clock
         // budget: a long session never spends one call's allowance on the
         // next.
-        if let Err(e) = store.set_fuel(*fuel) {
+        let (call_fuel, deadline_ms) = self.budget(*fuel, *limits, max_ms);
+        if let Err(e) = store.set_fuel(call_fuel) {
             return WasmCallResult::Trap(WasmTrapInfo {
                 kind: "call_failed".to_string(),
                 message: format!("failed to set fuel for {name}: {e}"),
                 export_name: export.to_string(),
             });
         }
-        // Under a work budget the fuel bounds the call, and only the
-        // extension's own limit is a deadline.
-        let max_ms = if self.work_bound { u32::MAX } else { max_ms };
-        store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms.min(max_ms))));
+        store.set_epoch_deadline(ms_to_ticks(u64::from(deadline_ms)));
         match bindings.call_call(&mut *store, name, export, input) {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
             Ok(Err(message)) => WasmCallResult::Trap(WasmTrapInfo {
@@ -581,6 +597,11 @@ impl WasmRuntime for ComponentRuntime {
                     "memory_limit_exceeded" => format!(
                         "grew past its {} MB memory limit (sandbox_policy.max_memory_mb)",
                         limits.memory_mb
+                    ),
+                    "fuel_exhausted" if call_fuel < *fuel => format!(
+                        "spent the work of its {} ms execution limit ({call_fuel} instructions \
+                         under a work budget; sandbox_policy.max_execution_ms)",
+                        limits.execution_ms
                     ),
                     "fuel_exhausted" => {
                         format!("spent its fuel budget ({fuel} instructions) in one call")
