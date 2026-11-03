@@ -325,25 +325,11 @@ pub struct Outcome {
     pub digest: String,
 }
 
-/// The request an [`EffectRecord`] keeps.
+/// An effect a guest or the host asks for: what the effects journal keys its record by (ADR 0337 D3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "port", rename_all = "snake_case")]
 pub enum EffectRequest {
     Process(ProcessRequest),
     Http(HttpRequest),
     Fs(FsRequest),
-}
-
-/// One performed effect (ADR 0335 D3): the request and its digest, the outcome, when it was observed and how long
-/// it may be served again.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EffectRecord {
-    pub request: EffectRequest,
-    pub request_digest: String,
-    pub outcome: Outcome,
-    /// Milliseconds since the Unix epoch.
-    pub observed_at: u64,
-    /// Seconds the record may answer for the request; `None`: it is not served again.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ttl_s: Option<u64>,
 }

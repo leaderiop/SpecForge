@@ -276,8 +276,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `inputs: Vec<Input>` on a pass, command, prompt, hook or collector: `files` (a `FileRead`), `tests`, `state`,
   `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`) or `setting { extension, name }`.
   One table says what each call kind is served; an input it is not served is W021 and is served empty (ADR 0337 D2).
-- **Effect record**: one performed effect as the journal keeps it (`EffectRecord`, ADR 0335 D3): the canonical
-  request and its digest, the outcome's class and digest, `observed_at` and `ttl_s`.
+- **Effect record**: one performed effect as the journal keeps it (`specforge_effects::EffectRecord`, ADR 0335 D3,
+  ADR 0337 D3): what may be shown of the request (never a secret) and its digest, the outcome's class and digest,
+  `observed_at`, `ttl_s`, and the digest of a payload kept beside it.
 - **Effects journal**: `.specforge/effects/journal/`, one effect record per request digest, per machine and gitignored;
   a fresh record answers the request again, an unreadable one is a miss (`specforge_effects::EffectJournal`, ADR 0337
   D3). A record a check consulted is a recorded input whose change or expiry re-runs the checks (D5). Not the

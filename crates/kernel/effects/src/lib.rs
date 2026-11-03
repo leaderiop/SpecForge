@@ -9,21 +9,24 @@ mod digest;
 pub mod fs;
 pub mod git;
 pub mod http;
+pub mod journal;
 pub mod process;
 #[cfg(feature = "testing")]
 pub mod testing;
+mod time;
 
 pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, RootName, Roots};
 pub use digest::{canonical, digest};
 pub use fs::{Fs, FsOutcome, SharedFs};
 pub use git::{Git, SharedGit};
 pub use http::{Http, HttpOutcome, Redirects, SharedHttp};
+pub use journal::{EffectJournal, EffectRecord, RecordDigest};
 pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, SharedProcess, Shown};
-// `EffectRecord` and `EffectRequest` have no caller yet: plan 03's effect journal writes and serves them.
 pub use specforge_protocol_types::{
-    EffectRecord, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
-    OutcomeClass, ProcessRequest, Redirected, Unreachable,
+    EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome, OutcomeClass,
+    ProcessRequest, Redirected, Unreachable,
 };
+pub use time::{ClockError, UnixMillis};
 
 /// The ports a surface builds once, at its composition root, and passes down.
 #[derive(Clone)]
