@@ -253,13 +253,68 @@ fn a_repository_without_commits_is_e045() {
 
 /// 04-D2: a plain `collect --yes` in a repository with a commit runs gsd-git, as a GSD project's own collect does.
 #[test]
-#[ignore = "04 T13"]
 fn a_plain_collect_in_a_repository_records_the_commits() {
     let p = repository();
     let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
     let run = p.run(&["collect", "--yes", "--format", "json"]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(recorded(&p), [&hash[..12]]);
+}
+
+/// gsd-git's runner result in a `collect --format json` answer.
+fn gsd_git(run: &Run) -> serde_json::Value {
+    let answer: serde_json::Value =
+        serde_json::from_str(&run.stdout).unwrap_or_else(|e| panic!("JSON ({e}): {}", run.all()));
+    answer["runners"]
+        .as_array()
+        .and_then(|runners| runners.iter().find(|r| r["name"] == "gsd-git"))
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// 04-U2: a repository with no commit yet has no branch ref, so gsd-git is not detected (and `git log` would fail).
+#[test]
+fn a_plain_collect_in_an_unborn_repository_does_not_run_gsd_git() {
+    let p = project("execute");
+    p.init_repository();
+    let run = p.run(&["collect", "--yes", "--format", "json"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("E058"), "{}", run.all());
+    assert!(recorded(&p).is_empty());
+}
+
+/// Detected, gsd-git with no capture of an earlier run is skipped, not E045 (ADR 0331).
+#[test]
+fn a_plain_collect_without_a_run_skips_gsd_git() {
+    let p = repository();
+    p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let run = p.run(&["collect", "--no-run", "--yes", "--format", "json"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let git = gsd_git(&run);
+    assert!(git["skip_reason"].is_string(), "{}", run.all());
+    assert!(recorded(&p).is_empty());
+    // The human output says so under the runner.
+    let human = p.run(&["collect", "--no-run", "--yes"]);
+    assert_eq!(human.code, 0, "{}", human.all());
+    assert!(
+        human.stdout.contains("gsd-git: skipped: "),
+        "{}",
+        human.all()
+    );
+}
+
+/// Detected, gsd-git whose `git` cannot start is skipped, not E045.
+#[cfg(unix)]
+#[test]
+fn a_plain_collect_without_git_on_path_skips_gsd_git() {
+    let p = repository();
+    p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let empty = tempfile::tempdir().expect("an empty directory");
+    let path = empty.path().to_str().expect("a UTF-8 path");
+    let run = p.run_with(&["collect", "--yes", "--format", "json"], &[("PATH", path)]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(gsd_git(&run)["skip_reason"].is_string(), "{}", run.all());
+    assert!(recorded(&p).is_empty());
 }
 
 /// 04-D3: the executor's `Gsd-Task:` trailer names the task of a commit whose subject names no plan.

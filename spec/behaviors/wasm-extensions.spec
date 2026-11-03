@@ -471,8 +471,12 @@ behavior run_collector_command "Run Collector Command" {
     arguments and `SPECFORGE_REPORT` set to the absolute report path. Its
     output goes to the terminal, to stderr under `--format json`, and
     nowhere under MCP. Test runners exit non-zero when tests fail, so the
-    exit status only matters when no report was written, which is E045.
-    A collector that declares `capture: "stdout"` gets the command's
+    exit status only matters when no report was written, which is E045
+    for a collector `--runner` names or the one the project enabled. A
+    collector chosen by detection that gives no evidence (no report, no
+    captured output, a command that cannot start) is skipped instead: its
+    runner result gives its `skip_reason`, and the other collectors'
+    results, facts and plans are kept (ADR 0331). A collector that declares `capture: "stdout"` gets the command's
     standard output too: it still reaches the terminal (or stderr) as it
     is produced, and is also written to `<collector>.stdout.txt` inside a
     report directory (next to a report file), which `--no-run` reads back.
@@ -487,6 +491,8 @@ behavior run_collector_command "Run Collector Command" {
   verify unit "command line expands the report placeholder"
   verify unit "a captured stdout is kept in every output mode"
   verify unit "an unknown capture is refused"
+  verify unit "a detected collector with no evidence is skipped and the others are kept"
+  verify unit "a named collector with no evidence is still E045"
   verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_ignored, report_path_exported, failing_tests_recorded, refused_before_running"
 }
 

@@ -98,6 +98,30 @@ pub struct RunnerResult {
     /// What a writing collector's plan did to the project (ADR 0289), as `specforge.edit` reports an edit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plan: Option<EditDocument>,
+    /// Why a collector chosen by detection gave no evidence (its E045 message: no report, no captured output, a
+    /// command that cannot start), so it was skipped and the others kept (ADR 0331, amending ADR 0125 D5); nothing
+    /// of it is recorded, so it reports no run and no file. A collector `--runner` names, or the one the project
+    /// enabled, fails with E045 instead.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_reason: Option<String>,
+}
+
+impl RunnerResult {
+    /// `collector`, skipped for `why`: nothing ran, read or recorded.
+    fn skipped(collector: &Collector, why: String) -> Self {
+        Self {
+            name: collector.name.clone(),
+            extension: collector.extension.clone(),
+            ran: false,
+            exit_code: None,
+            files: 0,
+            stats: MergeStats::default(),
+            by_convention: 0,
+            facts: 0,
+            plan: None,
+            skip_reason: Some(why),
+        }
+    }
 }
 
 /// The outcome of a successful collect.
@@ -199,7 +223,7 @@ pub fn collect(
     let (asking, containment) = (caller.asking(), caller.containment());
     let known = &KnownEntities::of(view.entities());
     let available = collectors(view.registries().declarations());
-    let selected = select(&available, runner, root)?;
+    let (selected, chosen) = select(&available, runner, root)?;
     if let Mode::Reports(_) = mode
         && selected.len() > 1
     {
@@ -250,7 +274,15 @@ pub fn collect(
             stdout,
             exit_code,
             ran,
-        } = source.gather(collector, root, containment, machine, &mut *announce)?;
+        } = match source.gather(collector, root, containment, machine, &mut *announce) {
+            Ok(evidence) => evidence,
+            // Detection chose it, so the project did not ask for it: no evidence skips it (ADR 0331).
+            Err(error) if chosen == Chosen::Detected && error.code == codes::E045.id() => {
+                runners.push(RunnerResult::skipped(collector, error.message));
+                continue;
+            }
+            Err(error) => return Err(error.into()),
+        };
 
         let mut collected = dispatch_over(
             view.runtime().map(|r| r.as_ref()),
@@ -309,6 +341,7 @@ pub fn collect(
             by_convention: by_convention_count,
             facts: stored,
             plan: None,
+            skip_reason: None,
         });
     }
 
@@ -345,6 +378,15 @@ pub enum CollectField {
     Runner,
 }
 
+/// How [`select`] chose the collectors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Chosen {
+    /// `--runner` named it, or it is the one the project enabled: no evidence is E045.
+    Named,
+    /// Their detection files are present: one with no evidence is skipped (ADR 0331).
+    Detected,
+}
+
 /// The collectors to use: the one `runner` names, else every collector
 /// whose detection files are present. A runner no collector answers to is
 /// invalid input about the runner (E058).
@@ -352,7 +394,7 @@ fn select<'a>(
     available: &'a [Collector],
     runner: Option<&str>,
     root: &Path,
-) -> Result<Vec<&'a Collector>, Refusal<CollectField>> {
+) -> Result<(Vec<&'a Collector>, Chosen), Refusal<CollectField>> {
     if available.is_empty() {
         return Err(fail(
             OpErrorKind::PreconditionFailed,
@@ -373,7 +415,7 @@ fn select<'a>(
         return available
             .iter()
             .find(|c| c.name == runner || c.extension == runner)
-            .map(|c| vec![c])
+            .map(|c| (vec![c], Chosen::Named))
             .ok_or_else(|| {
                 fail(
                     OpErrorKind::InvalidInput,
@@ -388,7 +430,7 @@ fn select<'a>(
     // decides between several (vitest configured inside vite.config.ts,
     // for one, has no file of its own to detect).
     if detected.is_empty() && available.len() == 1 {
-        return Ok(vec![&available[0]]);
+        return Ok((vec![&available[0]], Chosen::Named));
     }
     if detected.is_empty() {
         return Err(fail(
@@ -402,7 +444,7 @@ fn select<'a>(
         )
         .into());
     }
-    Ok(detected)
+    Ok((detected, Chosen::Detected))
 }
 
 /// The report `collect` merges new results into: `specforge-report.json`,

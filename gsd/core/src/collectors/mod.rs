@@ -1,7 +1,8 @@
 //! The collectors of `@gsd/core`: what brings the outside world into the project (`spec/execute.md`).
 //!
-//! Neither declares `detect_files`: a GSD project names the one it wants, `specforge collect --runner gsd-git`. A
-//! detected collector with no command would make a plain `specforge collect` fail for every runner (E045).
+//! `gsd-git` is detected by a branch ref (`.git/refs/heads/*` or `.git/packed-refs`: a repository with a commit, ADR
+//! 0331 D4), so a plain `specforge collect` records the commits; where it gives no evidence (`--no-run`, no `git`)
+//! the host skips it. `gsd-junit` declares no detection: it has no command, so a plain collect could never run it.
 
 mod git;
 mod graph;

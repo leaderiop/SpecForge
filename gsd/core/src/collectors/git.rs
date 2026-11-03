@@ -70,7 +70,9 @@ impl LinkedBy {
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.collector(NAME, |k| {
+        // A branch ref: a repository with a commit. An unborn one has neither, and `git log` fails there (04-U2).
         k.input_format("git-log")
+            .detect_files(&[".git/refs/heads/*", ".git/packed-refs"])
             .run(&[
                 "git",
                 "-c",

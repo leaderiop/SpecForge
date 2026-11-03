@@ -125,6 +125,10 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
         terminal.json(&outcome.document());
     } else {
         for r in &outcome.runners {
+            if let Some(why) = &r.skip_reason {
+                outln!(terminal, "{}: skipped: {why}", r.name);
+                continue;
+            }
             let s = &r.stats;
             let by_convention = match r.by_convention {
                 0 => String::new(),

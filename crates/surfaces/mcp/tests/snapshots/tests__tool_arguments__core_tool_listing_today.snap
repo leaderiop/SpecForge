@@ -8873,6 +8873,9 @@ expression: listing
               "ran": {
                 "type": "boolean"
               },
+              "skip_reason": {
+                "type": "string"
+              },
               "skipped": {
                 "minimum": 0,
                 "type": "integer"

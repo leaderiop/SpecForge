@@ -998,6 +998,8 @@ type McpCollectRunner "What one runner's collection found" {
   facts         integer
   /// What a writing collector's plan did to the project (ADR 0289), as an edit reports it; absent when it answered none.
   plan          McpCollectPlan @optional
+  /// Why a collector chosen by detection was skipped (its E045 message, ADR 0331); absent when it was not.
+  skip_reason   string         @optional
   verify unit "McpCollectRunner schema is valid"
 }
 

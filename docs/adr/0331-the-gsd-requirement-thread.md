@@ -58,7 +58,7 @@ At the base, `@gsd/core` could walk the first three hops and no further:
   has one; an unborn repository and a linked worktree (`.git` is a file) have neither, and name `--runner gsd-git`.
   gsd-junit stays undetected: it runs no command, so a plain collect would always find its report missing.
   - **A collector chosen by detection that yields no evidence is skipped, not fatal** (amends ADR 0125 D5). Its
-    `RunnerResult` carries `skipped` with the E045 message, and the other collectors' results, facts and plans are
+    `RunnerResult` carries `skip_reason` with the E045 message, and the other collectors' results, facts and plans are
     kept. A collector named by `--runner` still fails with E045; refusals decided before any run (E058, consent) stay
     fatal. So detecting gsd-git never turns `--no-run`, a missing `git` or an orphan branch into a failed collect.
 - **D5. One module reads the tests of an entity** (`passes/thread.rs`), with one meaning of "no test":
