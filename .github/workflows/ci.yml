@@ -171,6 +171,32 @@ jobs:
           path: target/specforge
           retention-days: 1
 
+  effect-plane:
+    # The effect plane's adapters on the other two OSes (ADR 0335): the process group or Job kill, PATHEXT and `.cmd`
+    # shims, the platform TLS verifier, the file walk and git through the runner. Not one of `cargo gate`'s shards; it
+    # builds only these crates.
+    name: Effect plane (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: effect-plane
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      - name: The ports' adapters
+        run: cargo nextest run -p specforge-effects -p specforge-process -p specforge-fs -p specforge-http -p specforge-git
+      - name: The collector machine's runner tests
+        run: cargo nextest run -p specforge-ops --lib -E "test(/^analysis::collect::process::/)"
+
   dogfood:
     # Every test of every partition and guest reported into target/specforge; dogfood judges them together.
     name: Check list (dogfood)
