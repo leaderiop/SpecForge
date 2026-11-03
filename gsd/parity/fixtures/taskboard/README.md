@@ -10,4 +10,8 @@ and how the goldens are recorded.
 - `spec/`: the SpecForge twin of the roadmap (project, requirements, milestone and phases) and of phase 2's discussion
   (`discuss.spec`) and of the three `PLAN.md` files (`plans.spec`: a bare `<verify>` is `verify_text`) and of phase 1's two `SUMMARY.md` files and their deliverables, compared with the
   goldens and `.planning/` by `gsd/core/tests/cli/parity_roadmap.rs`, `parity_discuss.rs`, `parity_plans.rs` and `parity_state.rs`.
-- `specforge-harness`: the ledger line of the twin research's `context_digest`.
+- Phase 1's three truths name the requirement they prove (`requirement`) and the test that proves it (`proof`,
+  `js:taskboard/test/tasks.test.js#<test name>`, a fact `@code/core` serves once `@javascript/node-test` has collected
+  it), so `specforge trace TASK-01` follows the requirement to its plan, tasks, commits, test and truth.
+- `specforge-harness`: the ledger lines of phase 1's seven verifier verdicts (recorded over the collected tests) and of
+  the UAT results and the twin research's `context_digest`.

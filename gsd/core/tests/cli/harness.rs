@@ -103,6 +103,8 @@ pub struct Project {
     root: PathBuf,
     /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component.
     extensions: Vec<(String, Option<PathBuf>)>,
+    /// The codes the fixture says by its own design, left out of [`Project::report_all`] ([`Project::quieting`]).
+    quiet: Vec<&'static str>,
 }
 
 pub fn project(name: &str) -> Project {
@@ -120,8 +122,7 @@ pub const TWIN_BUILTINS: [&str; 2] = ["@code/core", "@javascript/node-test"];
 /// The parity suite's taskboard fixture: its `spec/` twin of the GSD project beside its `.planning/`, loading
 /// [`TWIN_BUILTINS`].
 pub fn taskboard() -> Project {
-    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"))
-        .with_builtins(&TWIN_BUILTINS)
+    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard")).twin()
 }
 
 /// The security parity suite's vault fixture: its `spec/` twin of the GSD project beside its `.planning/`.
@@ -139,7 +140,7 @@ pub fn taskboard_at(inside: &str) -> Project {
         &Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"),
         inside,
     )
-    .with_builtins(&TWIN_BUILTINS)
+    .twin()
 }
 
 fn from_dir(source: &Path) -> Project {
@@ -157,6 +158,7 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
         dir,
         root,
         extensions: vec![("@gsd/core".to_string(), Some(wasm))],
+        quiet: Vec::new(),
     };
     p.settings(serde_json::json!({}));
     p
@@ -204,6 +206,19 @@ impl Project {
         self.extensions
             .push((name.to_string(), Some(required(var))));
         self.rewrite_extensions();
+        self
+    }
+
+    /// The taskboard twin's setup: [`TWIN_BUILTINS`] loaded, and its truths' `proof`s quiet until collected: each of
+    /// the three says `code/W102` ("no facts were collected") on a copy no collect has run on, and the tests of the
+    /// other rules are not about facts. `parity_thread.rs` counts it raw.
+    fn twin(self) -> Self {
+        self.with_builtins(&TWIN_BUILTINS).quieting("code/W102")
+    }
+
+    /// Leaves `code` out of [`Project::report_all`] (and so of every report built on it) for this fixture alone.
+    fn quieting(mut self, code: &'static str) -> Self {
+        self.quiet.push(code);
         self
     }
 
@@ -344,23 +359,29 @@ impl Project {
 
     /// [`Project::findings`] with the judged rules' diagnostics.
     pub fn findings_all(&self) -> Vec<(String, String)> {
-        let run = self.run(&["check", "--format", "json"]);
-        let diagnostics: serde_json::Value = serde_json::from_str(&run.stdout)
-            .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
-        let mut found: Vec<(String, String)> = diagnostics
-            .as_array()
-            .expect("a list")
-            .iter()
-            .filter(|d| d["code"].as_str().is_some_and(|c| c.starts_with("gsd/")))
-            .map(|d| {
-                (
-                    d["code"].as_str().unwrap_or_default().to_string(),
-                    d["message"].as_str().unwrap_or_default().to_string(),
-                )
-            })
+        let mut found: Vec<(String, String)> = self
+            .checked()
+            .into_iter()
+            .filter(|(code, _)| code.starts_with("gsd/"))
             .collect();
         found.sort();
         found
+    }
+
+    /// `(code, message)` of every diagnostic of `specforge check --format json`, in report order, nothing left out.
+    pub fn checked(&self) -> Vec<(String, String)> {
+        let run = self.run(&["check", "--format", "json"]);
+        let found: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+        found
+            .as_array()
+            .expect("a list")
+            .iter()
+            .filter_map(|d| {
+                let text = |key: &str| d[key].as_str().unwrap_or_default().to_string();
+                Some((d["code"].as_str()?.to_string(), text("message")))
+            })
+            .collect()
     }
 
     /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`), in report order,
@@ -438,20 +459,13 @@ impl Project {
         );
     }
 
-    /// [`Project::report`] with the judged rules' diagnostics.
+    /// [`Project::report`] with the judged rules' diagnostics; the fixture's quiet codes left out too
+    /// ([`Project::quieting`]).
     pub fn report_all(&self) -> Vec<(String, String)> {
-        let run = self.run(&["check", "--format", "json"]);
-        let found: serde_json::Value = serde_json::from_str(&run.stdout)
-            .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
-        found
-            .as_array()
-            .expect("a list")
-            .iter()
-            .filter_map(|d| {
-                let text = |key: &str| d[key].as_str().unwrap_or_default().to_string();
-                Some((d["code"].as_str()?.to_string(), text("message")))
-            })
+        self.checked()
+            .into_iter()
             .filter(|(code, _)| code != "I204" && code != "I205")
+            .filter(|(code, _)| !self.quiet.contains(&code.as_str()))
             .collect()
     }
 

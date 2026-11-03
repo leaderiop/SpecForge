@@ -409,13 +409,16 @@ fn an_artifacts_file_change_makes_e501_stale() {
     );
 }
 
-/// R-12: a report whose tests link to another entity (a task of the plan) and none to a truth leaves the truth's
-/// `tests` input `none`, so the twin's fresh verdicts stay fresh after the collect.
+/// R-12: a report whose tests link to another entity (a task of the plan) and none to a truth adds nothing to the
+/// truth's `tests` input, so the twin's fresh verdicts stay fresh after the collect. The truths' proofs are collected
+/// first: a report beside proofs no store holds is read alone, and stales them (ADR 0331 D7).
 #[test]
 fn an_unrelated_report_leaves_the_twins_verdicts_fresh() {
     let p = taskboard();
     let truth = "v1.0/01/01-01/TR1";
     assert_eq!(state(&p, truth, "E501").0, "fresh");
+    let facts = p.collect_node_test_golden();
+    assert_eq!(facts.code, 0, "{}", facts.all());
     p.write(
         "junit.xml",
         "<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n<testcase name=\"a task test [gsd:v1.0/01/01-01/T1]\" classname=\"other\"/>\n</testsuite>\n</testsuites>\n",
