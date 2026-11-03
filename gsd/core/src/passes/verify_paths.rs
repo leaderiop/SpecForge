@@ -136,8 +136,13 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
         return Vec::new();
     };
     let mut found = Vec::new();
+    // Once per plan, not per task: a plan's tasks all read the same list, and building it walks the plan's tasks.
+    let mut declared_by_plan: BTreeMap<&str, Vec<String>> = BTreeMap::new();
     for task in of_kind(input, "task") {
-        let declared = declared_paths(input, crate::digest::scope_of(&task.id));
+        let plan = crate::digest::scope_of(&task.id);
+        let declared = declared_by_plan
+            .entry(plan)
+            .or_insert_with(|| declared_paths(input, plan));
         for command in commands(task) {
             let said = |code: &str, severity, what: String| {
                 PassDiagnostic::new(
@@ -160,7 +165,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
                     "which runs outside the project: it differs between worktrees, so it is not checked".into(),
                 )),
                 Verdict::At(target) => {
-                    if let Some(why) = broken(&reads, &target, &declared) {
+                    if let Some(why) = broken(&reads, &target, declared) {
                         found.push(
                             said("E320", PassSeverity::Error, format!("but {why}")).with_suggestion(
                                 "fix the path, or list the directory in the plan's task files so it counts as created",
