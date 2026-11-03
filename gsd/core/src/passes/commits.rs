@@ -5,10 +5,13 @@ use specforge_extension_sdk::prelude::*;
 
 use crate::passes::plans::{of_kind, strings, text};
 
+#[cfg(test)]
+mod tests;
+
 /// One recorded commit.
 #[derive(Debug, Clone, Default)]
 pub struct Commit {
-    /// The entity id: `<plan>/<12 hex>`.
+    /// The entity id: the first 12 hex digits of its hash (`commit` is in the project scope).
     pub id: String,
     pub subject: String,
     /// `feat`, `fix`, `test` ...
