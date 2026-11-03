@@ -261,6 +261,25 @@ fn a_plain_collect_in_a_repository_records_the_commits() {
     assert_eq!(recorded(&p), [&hash[..12]]);
 }
 
+/// 04-D3: the executor's `Gsd-Task:` trailer names the task of a commit whose subject names no plan.
+#[test]
+#[ignore = "04 T12"]
+fn a_trailer_names_the_task_of_a_commit_without_a_scope() {
+    let p = repository();
+    let hash = p.git_commit(
+        "chore: wire it\n\nGsd-Task: 01-01/T1\n",
+        &[("src/w.js", "w\n")],
+        T0,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+    let fields = p.fields_of(&hash[..12]);
+    assert_eq!(fields["task"], "v1.0/01/01-01/T1", "{fields}");
+    assert_eq!(fields["plan"], "v1.0/01/01-01", "{fields}");
+    assert_eq!(fields["linked_by"], "Gsd-Task", "{fields}");
+}
+
 const TRUTH: &str = "v1.0/01/01-01/TR1";
 const DELIVERABLE: &str = "v1.0/01/01-01/01-01-SUMMARY/D1";
 
