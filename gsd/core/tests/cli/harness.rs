@@ -46,6 +46,14 @@ fn existing_file(var: &str, value: &std::ffi::OsStr) -> Result<PathBuf, String> 
     }
 }
 
+/// The work every `specforge` run of these tests holds a guest call to, in wasm instructions (`SPECFORGE_WASM_FUEL`),
+/// in place of any clock: a hook's `timeout_ms` and an extension's `max_execution_ms` (held as the work it allows).
+/// Whether a call answers then depends on its input, not on how busy the machine is: under the workspace's tests a
+/// 2.6 s hook passed its 5000 ms timeout, and a 3.5 s pass its 30 s limit (#157, #159). The most a call of the suite
+/// spends (2026-11-03): 5.6 G, the secret guard on 127 closed spans (`hooks_hostile`); about half a hook's timeout
+/// at the ~4 G instructions/s measured on a loaded machine.
+pub const WORK: u64 = 10_000_000_000;
+
 /// The pinned time of the baseline commit.
 const BASELINE_AT: &str = "2026-10-28T08:00:00Z";
 
@@ -288,6 +296,7 @@ impl Project {
         let mut child = Command::new(required("SPECFORGE_BIN"))
             .args(args)
             .env("SPECFORGE_WASMTIME_CACHE", compile_cache())
+            .env("SPECFORGE_WASM_FUEL", WORK.to_string())
             .envs(env.iter().copied())
             .current_dir(&self.root)
             .stdin(Stdio::piped())
@@ -329,6 +338,7 @@ impl Project {
         let output = Command::new(required("SPECFORGE_BIN"))
             .args(args)
             .env("SPECFORGE_WASMTIME_CACHE", compile_cache())
+            .env("SPECFORGE_WASM_FUEL", WORK.to_string())
             .current_dir(&self.root)
             .stdin(Stdio::from(slave))
             .stdout(Stdio::piped())

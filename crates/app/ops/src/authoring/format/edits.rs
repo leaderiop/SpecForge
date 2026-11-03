@@ -317,6 +317,42 @@ pub(super) mod tests {
         inputs
     }
 
+    /// `check` over every input, which adds what failed and answers how many cases it checked: the inputs are
+    /// independent, so they are spread over the machine's threads (one thread took ~4.5 s for ~4,800 formats).
+    /// The failures come back sorted, and the number of cases checked.
+    fn over_inputs(
+        inputs: &[Input],
+        check: impl Fn(&Input, &mut Vec<String>) -> usize + Sync,
+    ) -> (usize, Vec<String>) {
+        let threads = std::thread::available_parallelism().map_or(1, usize::from);
+        let (checked, mut failures) = std::thread::scope(|scope| {
+            let workers: Vec<_> = (0..threads)
+                .map(|first| {
+                    let check = &check;
+                    scope.spawn(move || {
+                        let mut failures = Vec::new();
+                        let checked = inputs
+                            .iter()
+                            .skip(first)
+                            .step_by(threads)
+                            .map(|input| check(input, &mut failures))
+                            .sum::<usize>();
+                        (checked, failures)
+                    })
+                })
+                .collect();
+            workers
+                .into_iter()
+                .map(|worker| worker.join().expect("a checking thread"))
+                .fold((0, Vec::new()), |(n, mut all), (m, failures)| {
+                    all.extend(failures);
+                    (n + m, all)
+                })
+        });
+        failures.sort();
+        (checked, failures)
+    }
+
     /// Whether `edits` hold the shape `FormattedDocument::edits` promises over `source`.
     fn well_formed(source: &str, edits: &[Edit]) -> Result<(), String> {
         for (n, edit) in edits.iter().enumerate() {
@@ -358,9 +394,7 @@ pub(super) mod tests {
                 insert_spaces: false,
             }),
         ];
-        let mut failures = Vec::new();
-        let mut checked = 0;
-        for input in corpus_inputs() {
+        let (checked, failures) = over_inputs(&corpus_inputs(), |input, failures| {
             for editor in editors {
                 let doc = document(
                     Place::Detached,
@@ -370,7 +404,6 @@ pub(super) mod tests {
                     &crate::authoring::format::Forms::none(),
                 );
                 let edits = doc.edits();
-                checked += 1;
                 let shape = well_formed(&input.text, &edits);
                 if apply(&input.text, &edits) != doc.formatted
                     || shape.is_err()
@@ -379,7 +412,8 @@ pub(super) mod tests {
                     failures.push(format!("{} {editor:?}: {shape:?}", input.name));
                 }
             }
-        }
+            editors.len()
+        });
         assert!(checked > 4000, "{checked}");
         assert!(failures.is_empty(), "{failures:#?}");
     }
@@ -393,19 +427,19 @@ pub(super) mod tests {
         verify = "applying the formatting edits to the document gives the formatted text byte for byte"
     )]
     fn a_range_formats_edits_rebuild_its_text_over_the_corpus() {
-        let mut failures = Vec::new();
-        let mut checked = 0;
-        for input in corpus_inputs() {
+        let (checked, failures) = over_inputs(&corpus_inputs(), |input, failures| {
             if input.corpus == usize::MAX
                 || !["reindented", "crlf", "noise"]
                     .iter()
                     .any(|layout| input.name.ends_with(layout))
             {
-                continue;
+                return 0;
             }
             // Every 5th line, every 40th under `spec/`.
             let step = if input.corpus == 0 { 40 } else { 5 };
-            for line in (0..input.text.lines().count()).step_by(step) {
+            let lines = (0..input.text.lines().count()).step_by(step);
+            let checked = lines.len();
+            for line in lines {
                 let lines = Lines {
                     first: line,
                     last: line,
@@ -418,7 +452,6 @@ pub(super) mod tests {
                     &crate::authoring::format::Forms::none(),
                 );
                 let edits = doc.edits();
-                checked += 1;
                 let shape = well_formed(&input.text, &edits);
                 if apply(&input.text, &edits) != doc.formatted
                     || shape.is_err()
@@ -427,7 +460,8 @@ pub(super) mod tests {
                     failures.push(format!("{} line {line}: {shape:?}", input.name));
                 }
             }
-        }
+            checked
+        });
         assert!(checked > 1000, "{checked}");
         assert!(failures.is_empty(), "{failures:#?}");
     }

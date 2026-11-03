@@ -19,7 +19,7 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   ensures {
     no_capability_granted   "a component is granted no capability: no preopened directory, environment, arguments or stdin, no socket and no name lookup, whatever its declaration asks for"
     memory_limit_enforced   "the instance's linear memory cannot grow past the extension's memory limit; a growth past it traps the call (memory_limit_exceeded)"
-    execution_time_enforced "each call is held to the extension's wall-clock limit by epoch interruption (deadline_exceeded) and to the host's fuel budget, given whole to every call (fuel_exhausted); under a work budget (SPECFORGE_WASM_FUEL) the fuel replaces the time budget a caller gives a call"
+    execution_time_enforced "each call is held to the extension's wall-clock limit by epoch interruption (deadline_exceeded) and to the host's fuel budget, given whole to every call (fuel_exhausted); under a work budget (SPECFORGE_WASM_FUEL) no clock runs: the fuel replaces the time budget a caller gives a call, and the extension's limit holds as the work it allows"
     deadline_never_early    "a call is never interrupted before its max_execution_ms budget has elapsed"
     violations_trapped      "a call that crosses a limit traps and fails with E028 naming the limit's kind; the extension's next call gets a fresh instance under the same limits"
   }
@@ -42,11 +42,14 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
     that crosses a limit fails with E028, its message naming the limit;
     the extension's next call gets a fresh instance under the same limits.
     A work budget (SPECFORGE_WASM_FUEL, a positive number of instructions,
-    at most the host's fuel budget) MUST replace the fuel budget and lift
-    the time budget a caller gives a call (a hook's timeout_ms), the
-    extension's own limit staying its deadline: whether such a call
-    answers depends on its input, not on how busy the machine is. Tests
-    bound a guest's work with it; a host's hooks keep their timeout.
+    at most the host's fuel budget) MUST replace the fuel budget and stop
+    every clock: the time budget a caller gives a call (a hook's
+    timeout_ms) is lifted, and the extension's own max_execution_ms holds
+    as the work it allows at the host's reference rate (20 M instructions
+    per ms, the rate its fuel budget is set at; fuel_exhausted naming the
+    limit). Whether such a call answers depends on its input, not on how
+    busy the machine is. Tests bound a guest's work with it; a host's
+    hooks and limits keep their clocks.
   """
   produces   []
   verify unit "memory limit enforced via linear memory cap"
@@ -57,6 +60,7 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   verify unit "a call that crosses a limit traps with the limit's kind, and the next call gets a fresh instance under the same limits"
   verify unit "a call cut at the budget its caller gave names that budget, not the extension's limit"
   verify unit "under a work budget a call is held to its instructions, not to the time budget its caller gave"
+  verify unit "under a work budget the extension's own limit holds as the work it allows, and no clock runs"
   verify unit "an extension waiting on a timer is stopped instead of blocking the host"
   verify unit "an extension that cannot be restarted after a trap is unloaded, and its next call says why"
   verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, no_capability_granted, memory_limit_enforced, execution_time_enforced, deadline_never_early, violations_trapped"

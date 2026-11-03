@@ -490,8 +490,14 @@ fn a_work_budget_replaces_the_callers_time_budget() {
         "{}",
         trap_message(&result)
     );
+}
 
-    // The extension's own limit still holds.
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "under a work budget the extension's own limit holds as the work it allows, and no clock runs"
+)]
+fn under_a_work_budget_the_extensions_limit_is_work() {
+    // The limit's work: 50 ms at the reference rate. A spin past it traps on its instructions, naming the limit.
     let runtime = ComponentRuntime::new().with_work_budget(u64::MAX);
     runtime
         .load("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
@@ -504,10 +510,27 @@ fn a_work_budget_replaces_the_callers_time_budget() {
         },
     );
     let result = runtime.call_export_within("@repro/spin", "anything", b"{}", 10);
-    assert_eq!(trap_kind(&result), "deadline_exceeded", "{result:?}");
+    assert_eq!(trap_kind(&result), "fuel_exhausted", "{result:?}");
+    let work = 50 * specforge_component::FUEL_PER_MS;
     assert!(
-        trap_message(&result).contains("50 ms execution limit"),
+        trap_message(&result).contains("50 ms execution limit")
+            && trap_message(&result).contains(&work.to_string()),
         "{}",
         trap_message(&result)
     );
+
+    // Work inside the limit answers however long it takes: a 1 ms limit is 20 M instructions, not a millisecond.
+    let runtime = ComponentRuntime::new().with_work_budget(u64::MAX);
+    runtime
+        .load("@repro/spin", &bridge_component(0, 1_000_000, false, "{}"))
+        .expect("the spinning guest instantiates");
+    runtime.apply_limits(
+        "@repro/spin",
+        Limits {
+            execution_ms: 1,
+            ..Limits::CEILING
+        },
+    );
+    let result = runtime.call_export_within("@repro/spin", "anything", b"{}", 0);
+    assert!(answered(&result), "{result:?}");
 }

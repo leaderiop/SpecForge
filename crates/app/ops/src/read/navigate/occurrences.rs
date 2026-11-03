@@ -203,40 +203,41 @@ impl Navigator<'_> {
     /// that holds it (`held_by`: an inherited reference once per block that takes it; a default no block takes and a `use`
     /// binding not at all), and the declaration when asked. A token the compiled text does not spell (a reference whose value has no
     /// bytes that spell its ID, ADR 0218, among them) is its holder's block with [`Precision::Entity`].
-    ///
-    /// shortcut: this walks every compiled file per call; add a per-project token index if a project of ~20k
-    /// entities makes find_references slow.
     pub fn references(
         &self,
         id: &str,
         query: ReferenceQuery,
     ) -> Result<Vec<Occurrence>, Refusal<EntityField>> {
         let node = self.view.entity(id, EntityField::EntityId)?.node;
+        let id = node.id.raw;
         let incoming = matches!(query.direction, Direction::Incoming | Direction::Both);
         let outgoing = matches!(query.direction, Direction::Outgoing | Direction::Both);
         let graph = self.view.graph();
         let mut occurrences = Vec::new();
-        for (_, file) in self.view.project().parsed() {
-            for token in self.found(file) {
-                let shown = self.token(&token);
-                for &holder in &token.held_by {
-                    let wanted = (incoming && token.target.as_str() == id)
-                        || (outgoing && holder.as_str() == id);
-                    let Some(block) = graph.node(holder.as_str()).filter(|_| wanted) else {
-                        continue;
-                    };
-                    occurrences.push(Occurrence {
-                        holder,
-                        target: token.target,
-                        field: Some(token.field),
-                        role: Role::Reference,
-                        span: match shown.precision {
-                            Precision::Token => shown.span.clone(),
-                            Precision::Entity => block.source_span.clone(),
-                        },
-                        precision: shown.precision,
-                    });
-                }
+        for token in self.written() {
+            let named = incoming && token.target == id;
+            let holders = token
+                .held_by
+                .iter()
+                .filter(|&&holder| named || (outgoing && holder == id));
+            // Spelled once a holder is wanted: most tokens name neither end of the question.
+            let mut shown = None;
+            for &holder in holders {
+                let Some(block) = graph.node(holder.as_str()) else {
+                    continue;
+                };
+                let shown = shown.get_or_insert_with(|| self.token(token));
+                occurrences.push(Occurrence {
+                    holder,
+                    target: token.target,
+                    field: Some(token.field),
+                    role: Role::Reference,
+                    span: match shown.precision {
+                        Precision::Token => shown.span.clone(),
+                        Precision::Entity => block.source_span.clone(),
+                    },
+                    precision: shown.precision,
+                });
             }
         }
         if query.include_declaration {
@@ -256,12 +257,10 @@ impl Navigator<'_> {
     ) -> Result<Vec<Token>, Refusal<EntityField>> {
         let node = self.view.entity(id, EntityField::EntityId)?.node;
         let mut tokens: Vec<Token> = self
-            .view
-            .project()
-            .parsed()
-            .flat_map(|(_, file)| self.found(file))
-            .filter(|t| t.target.as_str() == id)
-            .map(|t| self.token(&t))
+            .written()
+            .iter()
+            .filter(|t| t.target == node.id.raw)
+            .map(|t| self.token(t))
             .collect();
         if include_declaration {
             let definition = self.definition_of(node);
@@ -275,22 +274,32 @@ impl Navigator<'_> {
         Ok(tokens)
     }
 
-    /// Every written token of the compile, grouped by the entity it names: one scan of the parsed files, each group
-    /// what [`Self::tokens`] answers for that entity without its declaration. For a caller that reads many entities.
+    /// Every written token of the compile, grouped by the entity it names, each group what [`Self::tokens`] answers
+    /// for that entity without its declaration. For a caller that reads many entities.
     pub fn tokens_by_target(&self) -> std::collections::HashMap<String, Vec<Token>> {
         let mut groups: std::collections::HashMap<String, Vec<Token>> = Default::default();
-        for (_, file) in self.view.project().parsed() {
-            for t in self.found(file) {
-                groups
-                    .entry(t.target.as_str().to_string())
-                    .or_default()
-                    .push(self.token(&t));
-            }
+        for t in self.written() {
+            groups
+                .entry(t.target.as_str().to_string())
+                .or_default()
+                .push(self.token(t));
         }
         for tokens in groups.values_mut() {
             sort_tokens(tokens);
         }
         groups
+    }
+
+    /// The tokens the graph's finder reads in every compiled parse that name an entity of the graph, in the parses'
+    /// order: read once per navigator, so a caller that asks about many entities scans the project once.
+    fn written(&self) -> &[WrittenToken] {
+        self.written.get_or_init(|| {
+            self.view
+                .project()
+                .parsed()
+                .flat_map(|(_, file)| self.found(file))
+                .collect()
+        })
     }
 
     /// The tokens the graph's finder reads in `file` (a compiled parse) that name an entity of the graph.
