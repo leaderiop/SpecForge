@@ -3285,6 +3285,7 @@ dependencies = [
  "specforge-coverage",
  "specforge-cycles",
  "specforge-diagnostics",
+ "specforge-effects",
  "specforge-extension-sdk",
  "specforge-graph",
  "specforge-package",

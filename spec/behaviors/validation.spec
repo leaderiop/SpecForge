@@ -212,6 +212,8 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   ensures {
     missing_files_diagnosed "Every non-existent file path in a file-reference field produces an E016 diagnostic"
     existing_files_pass     "File-reference fields pointing to existing files produce no diagnostic"
+    paths_contained         "A file-reference path that leaves its root (absolute, a climbing .., a link out) produces E094 and is not read"
+    case_reported           "A file-reference path that exists only under another case produces W174 naming the disk's spelling"
   }
   contract   """
     This behavior performs generic file-path validation for any entity
@@ -223,7 +225,13 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
     will all be validated by this same mechanism.
 
     File existence (E016): every file path in a file-reference field
-    MUST reference an existing file relative to the spec root.
+    MUST reference an existing file inside the root it is read in: the
+    spec root, the project root where the field declares that base, or
+    the root a `<spec>/` or `<project>/` prefix names (ADR 0335). A path
+    that leaves its root (absolute, a `..` above it, a link out) is
+    E094, an unknown prefix E095, a case variant of a file on disk W174
+    and a backslash W175; a suggestion names only a sibling inside the
+    root.
     Non-existent files MUST produce an E016 diagnostic. A field is a
     file reference on the kinds whose registry entry declares it so: a
     field of the same name on another kind is not one. Its value names
@@ -247,7 +255,12 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "a bare word on a file-reference field is a path"
   verify integration "a compile checks a bare word on a file-reference field as a path"
   verify unit "a file field declaring the project base reads its relative paths from the directory of specforge.json"
-  verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
+  verify unit "a file reference whose .. climbs out of its root is E094"
+  verify unit "an absolute file reference is E094"
+  verify unit "a file reference through a link out of its root is E094"
+  verify unit "a file reference whose case differs from the disk is W174 naming the disk's spelling"
+  verify unit "a missing file reference outside its root suggests no name from outside it"
+  verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass, paths_contained, case_reported"
 }
 
 // W017 (testable kind without verify support) is registry_build_kinds, in behaviors/zero-entity-registries.spec.

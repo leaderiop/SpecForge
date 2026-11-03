@@ -10,8 +10,10 @@ use specforge_cycles::cycles;
 use super::files;
 use super::verdicts::{CustomCall, CustomVerdicts, Subject, Verdict, VerdictError};
 use super::{Origin, Rule};
+use crate::disk::DiskLookup;
 use crate::entity::{Direction, EntityRecord, FieldRecord, RuleInput};
 use specforge_common::SourceSpan;
+use specforge_effects::contained::Contained;
 use specforge_graph::field_form::declared_path;
 use specforge_protocol_types::FileBase;
 
@@ -490,24 +492,57 @@ pub(super) fn probe(rule: &Rule, verdicts: &dyn CustomVerdicts) -> Option<Diagno
     }
 }
 
-/// A `file_exists` rule over `input`: each path an entity it applies to names in `field` that
-/// does not exist, by entity id then path order, with a close sibling as the help
-/// ([`files::missing`], ADR 0118). `{value}` is the missing path.
+/// A `file_exists` rule over `input`, by entity id then path order ([`files::checked`], ADR 0118, ADR 0335): a path
+/// that does not exist is the rule's own code, with a contained close sibling as the help (`{value}` is the path); one
+/// that leaves its root is E094, one under an unknown root E095, a case variant W174 and a backslash W175.
 fn missing_files(
     rule: &Rule,
     field: &str,
     base: FileBase,
     input: &RuleInput<'_>,
 ) -> Vec<Diagnostic> {
+    // One `Contained` per rule: a directory is listed once however many paths it holds.
+    let lookup = DiskLookup(input.disk);
+    let contained = Contained::project(input.project_root, input.spec_root, &lookup);
     let mut diagnostics = Vec::new();
     for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
-        for missing in files::missing(record, field, base, input) {
-            let violation = Violation {
-                suggestion: missing.suggestion,
-                span: missing.span,
-                ..Violation::value(missing.path)
+        for finding in files::checked(record, field, base, &contained, input.disk) {
+            let (path, id) = (finding.path, &record.id);
+            let core = |code, message: String, suggestion: String| {
+                let mut diagnostic = Diagnostic::new(code, message).with_suggestion(suggestion);
+                diagnostic.span = finding.span.clone().or_else(|| Some(record.span.clone()));
+                diagnostic
             };
-            diagnostics.push(report(rule, record, violation));
+            diagnostics.push(match finding.problem {
+                files::Problem::Missing { suggestion } => {
+                    let violation = Violation {
+                        suggestion: suggestion.map(|close| format!("did you mean '{close}'?")),
+                        span: finding.span.clone(),
+                        ..Violation::value(path)
+                    };
+                    report(rule, record, violation)
+                }
+                files::Problem::Leaves(why) => core(
+                    codes::E094,
+                    format!("path '{path}' in entity '{id}' leaves its root: {why}"),
+                    "name a file inside the root; a spec-rooted field names a project file as `<project>/…`".into(),
+                ),
+                files::Problem::UnknownRoot(name) => core(
+                    codes::E095,
+                    format!("path '{path}' in entity '{id}' names the root '<{name}>', which is not declared"),
+                    "write `<spec>/…` or `<project>/…`, or drop the prefix for the field's own root".into(),
+                ),
+                files::Problem::Case(disk) => core(
+                    codes::W174,
+                    format!("path '{path}' in entity '{id}' differs in case from the file on disk, '{disk}'"),
+                    format!("write '{disk}'"),
+                ),
+                files::Problem::Backslashes => core(
+                    codes::W175,
+                    format!("path '{path}' in entity '{id}' uses backslashes"),
+                    format!("write '{}'", path.replace('\\', "/")),
+                ),
+            });
         }
     }
     diagnostics

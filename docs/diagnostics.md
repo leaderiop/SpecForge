@@ -270,8 +270,10 @@ E016: Referenced file does not exist
 A file-reference field on an entity, or a file-reference member of a typed block
 or block list item, points at a path that doesn't exist under the field's base:
 the spec root, or, when the field declares `file_base` `project`, the project
-root. Fix the path, or create the missing file; a similarly-named file is
-suggested when one is found.
+root. A path is read inside the root it names: one that leaves it is E094, not
+E016, and one that exists under another case is W174. Fix the path, or create
+the missing file; a similarly-named file in the path's own directory inside its
+root is suggested when one is found.
 
 Owner: core
 Level: error
@@ -1264,6 +1266,38 @@ its version and this specforge's protocol (ADR 0326 D1a). `specforge add`,
 that speaks the extension's protocol, or provides the port (`specforge
 --version` names the protocol a binary speaks), or install a version of the
 extension built for this one.
+
+Owner: core
+Level: error
+```
+
+## E094
+
+```
+E094: Path leaves its root
+
+A file-reference field, or a file-reference member of a typed block, names a
+path that leaves the root it is read in (ADR 0335): an absolute path
+(`/etc/passwd`, `C:/x`), a `..` that climbs above the root, or a link whose
+target lies outside it. Every path the host reads is resolved inside a root, the
+spec root or the project root, or the root its `<name>/` prefix names: lexically
+first, then link by link on disk. The path is not read and no sibling is
+suggested. Name a file inside the root; a spec-rooted field names a project file
+as `<project>/…`.
+
+Owner: core
+Level: error
+```
+
+## E095
+
+```
+E095: Unknown path root
+
+A file-reference path starts with a `<name>/` prefix that names no root (ADR
+0335). The roots are `<spec>` and `<project>`; a path without a prefix is read
+in the field's own root (the spec root, or the project root where the field
+declares `file_base` `project`). Write a known prefix, or drop it.
 
 Owner: core
 Level: error
@@ -3839,6 +3873,34 @@ before `--version` named it). The hooks and the MCP server that `specforge
 install` writes run `specforge` from PATH, so they run that binary, which
 refuses the project's newer extensions (E088) or would drop what they declare.
 Update the specforge on PATH, or put this one first on PATH (ADR 0326).
+
+Owner: core
+Level: warning
+```
+
+## W174
+
+```
+W174: Path case differs from the disk
+
+A file-reference path names a file that exists only under another case
+(`README.md` for `Readme.md`) (ADR 0335). Each name is compared with its
+directory's listing on every OS, so a spec that passes on a case-insensitive
+macOS or Windows disk does not fail on Linux. The message names the spelling on
+disk; write it.
+
+Owner: core
+Level: warning
+```
+
+## W175
+
+```
+W175: Path uses backslashes
+
+A file-reference path uses `\` as a separator (ADR 0335). It is read as `/`, so
+the path resolves on every OS, but a spec writes `/`. Replace each backslash
+with `/`.
 
 Owner: core
 Level: warning

@@ -166,7 +166,7 @@ fn the_suggestion_appears_in_the_rendered_help() {
 
 #[spec(
     behavior = "validate_file_reference_paths",
-    verify = "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
+    verify = "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass, paths_contained, case_reported"
 )]
 fn the_file_reference_contract_holds() {
     let dir = root_with(&["exists.feature"]);
@@ -177,19 +177,34 @@ fn the_file_reference_contract_holds() {
     );
     assert_eq!(errors.len(), 1, "only the missing file should produce E016");
     assert!(errors[0].message.contains("missing.feature"));
+    // paths_contained and case_reported.
+    let records = [EntityRecord::new("behavior", "alpha", span("main.spec"))
+        .with_list("gherkin", &["../out.feature", "features/EXISTS.feature"])];
+    let diagnostics = build([gherkin()]).check(
+        &RuleInput {
+            entities: &records,
+            edges: &[],
+            spec_root: Path::new(ROOT),
+            project_root: Path::new(ROOT),
+            disk: &dir,
+        },
+        &NoVerdicts,
+    );
+    assert_eq!(codes(&diagnostics), ["E094", "W174"], "{diagnostics:?}");
 }
 
 #[test]
-fn e016_lists_the_directory_of_a_missing_file_only() {
+fn e016_lists_each_directory_on_a_path_once() {
     let disk = root_with(&["alpha.feature"]);
     let errors = e016(&disk, &["features/alpha.feature", "features/beta.feature"]);
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert_eq!(
         disk.asked(),
         [
+            Asked::List("/spec".into()),
+            Asked::List("/spec/features".into()),
             Asked::Exists("/spec/features/alpha.feature".into()),
             Asked::Exists("/spec/features/beta.feature".into()),
-            Asked::List("/spec/features".into()),
         ]
     );
 }
@@ -248,16 +263,15 @@ fn the_checks_read_only_through_their_disk() {
         disk.asked(),
         [
             // The extensions' `file_exists` rules by code, then the host's E016 rules by kind
-            // and field: W901 over `guide`, a missing path lists its directory.
-            exists("/spec/guide.md".into()),
+            // and field: W901 over `guide` lists the directories on its path, then reads it.
             list("/spec".into()),
-            // E016 over `note.docs`, entity by entity.
+            exists("/spec/guide.md".into()),
+            // E016 over `note.docs`, entity by entity, each directory once per rule.
+            list("/spec".into()),
             exists("/spec/more/one.md".into()),
             list("/spec/more".into()),
             exists("/spec/a.md".into()),
-            list("/spec".into()),
             exists("/spec/a.md".into()),
-            list("/spec".into()),
         ]
     );
 }
@@ -284,7 +298,7 @@ fn docs_and_notes() -> ExtensionDeclaration {
     })
 }
 
-/// The paths the checks asked whether they exist, and their E016s.
+/// The directories the checks listed, and their E016s.
 fn reads_and_errors(records: &[EntityRecord]) -> (Vec<PathBuf>, Vec<Diagnostic>) {
     let build = build([docs_and_notes()]);
     let disk = MemoryDisk::new();
@@ -300,7 +314,7 @@ fn reads_and_errors(records: &[EntityRecord]) -> (Vec<PathBuf>, Vec<Diagnostic>)
         .asked()
         .into_iter()
         .filter_map(|asked| match asked {
-            Asked::Exists(path) => Some(path),
+            Asked::List(path) => Some(path),
             _ => None,
         })
         .collect();
@@ -324,7 +338,7 @@ fn a_field_named_like_another_kinds_file_reference_is_not_one() {
     assert!(errors[0].message.contains("'missing.md'"), "{errors:?}");
     assert_eq!(
         exists,
-        [std::path::Path::new("/nonexistent/spec").join("missing.md")],
+        [std::path::Path::new("/nonexistent/spec")],
         "the note's tags are not read"
     );
 }
@@ -342,10 +356,7 @@ fn a_single_path_is_checked() {
 
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert!(errors[0].message.contains("'missing.md'"), "{errors:?}");
-    assert_eq!(
-        exists,
-        [std::path::Path::new("/nonexistent/spec").join("missing.md")]
-    );
+    assert_eq!(exists, [std::path::Path::new("/nonexistent/spec")]);
 }
 
 /// `note` with `guide` (a single path, a file reference) and `docs` (a list of paths, a file
@@ -429,13 +440,17 @@ fn a_file_exists_rule_suggests_a_close_sibling() {
     let f001 = coded_in(&diagnostics, "test.notes/W901");
     assert_eq!(f001.len(), 1, "{diagnostics:?}");
     assert_eq!(f001[0].suggestion.as_deref(), Some("did you mean 'NOTE'?"));
-    let asked = disk.asked();
-    let exists = asked
-        .iter()
-        .position(|a| *a == Asked::Exists("/spec/NOTES".into()))
-        .unwrap();
-    assert_eq!(asked.last(), Some(&Asked::List("/spec".into())));
-    assert!(exists < asked.len() - 1);
+    // W901, then E016 over the same file-reference field, each list the spec root once and read the path.
+    let (exists, list) = (Asked::Exists, Asked::List);
+    assert_eq!(
+        disk.asked(),
+        [
+            list("/spec".into()),
+            exists("/spec/NOTES".into()),
+            list("/spec".into()),
+            exists("/spec/NOTES".into()),
+        ]
+    );
 }
 
 #[spec(
@@ -457,8 +472,7 @@ fn file_exists_reports_missing_file_reference_field_targets() {
         naming("b4", "/spec/features/login.feature"),
     ];
 
-    // Relative paths are the spec root's; absolute ones are checked as
-    // written.
+    // Relative paths are the spec root's; an absolute one leaves it (E094).
     let input = RuleInput {
         entities: &entities,
         edges: &[],
@@ -468,13 +482,22 @@ fn file_exists_reports_missing_file_reference_field_targets() {
     };
     let diagnostics = built.rules.check(&input, &NoVerdicts);
     assert_eq!(
-        messages(&diagnostics),
+        diagnostics
+            .iter()
+            .map(|d| (d.code.to_string(), d.message.as_str()))
+            .collect::<Vec<_>>(),
         [
-            "behavior 'b2' references missing file",
-            "behavior 'b3' references missing file",
+            ("test/E101".into(), "behavior 'b2' references missing file"),
+            (
+                "E094".into(),
+                "path '/nonexistent/file.feature' in entity 'b3' leaves its root: it is absolute"
+            ),
+            (
+                "E094".into(),
+                "path '/spec/features/login.feature' in entity 'b4' leaves its root: it is absolute"
+            ),
         ]
     );
-    assert!(diagnostics.iter().all(|d| d.code == "test/E101"));
 }
 
 #[spec(
@@ -499,13 +522,12 @@ fn file_exists_resolves_against_the_spec_root_not_the_working_directory() {
         messages(&built.rules.check(&input, &NoVerdicts)),
         ["b1: missing 'Cargo.toml'"]
     );
-    // The rule asks for the spec root's file, never the working directory's, and lists the spec
-    // root for the missing file's close sibling.
+    // The rule lists the spec root and reads its file, never the working directory's.
     assert_eq!(
         beside.asked(),
         [
-            Asked::Exists("/spec/Cargo.toml".into()),
-            Asked::List("/spec".into())
+            Asked::List("/spec".into()),
+            Asked::Exists("/spec/Cargo.toml".into())
         ]
     );
 }
@@ -542,16 +564,14 @@ fn file_exists_checks_each_item_of_a_list_field() {
         messages(&diagnostics),
         ["b1: missing 'b.md'", "b3: missing 'a.md, b.md'"]
     );
-    // The rule asks about every item against the spec root, in entity order, and lists the
-    // directory of each missing one.
+    // One listing of the spec root, then each item read as written, in entity order.
     assert_eq!(
         disk.asked(),
         [
+            Asked::List(root.to_path_buf()),
             Asked::Exists(root.join("a.md")),
             Asked::Exists(root.join("b.md")),
-            Asked::List(root.to_path_buf()),
             Asked::Exists(root.join("a.md, b.md")),
-            Asked::List(root.to_path_buf()),
         ]
     );
 }
@@ -630,15 +650,19 @@ fn codes(diagnostics: &[Diagnostic]) -> Vec<String> {
     diagnostics.iter().map(|d| d.code.to_string()).collect()
 }
 
-#[test]
-#[ignore = "pin: 01-D1, flipped by 01 T7"]
+#[spec(
+    behavior = "validate_file_reference_paths",
+    verify = "a file reference whose .. climbs out of its root is E094"
+)]
 fn contained_a_path_climbing_out_is_e094() {
     let diagnostics = plain(|_| vec!["../../outside/secret.txt".into()]);
     assert_eq!(codes(&diagnostics), ["E094"], "{diagnostics:?}");
 }
 
-#[test]
-#[ignore = "pin: 01-D2, flipped by 01 T7"]
+#[spec(
+    behavior = "validate_file_reference_paths",
+    verify = "an absolute file reference is E094"
+)]
 fn contained_an_absolute_path_is_e094() {
     let diagnostics = plain(|base| {
         vec![
@@ -651,15 +675,19 @@ fn contained_an_absolute_path_is_e094() {
 }
 
 #[cfg(unix)]
-#[test]
-#[ignore = "pin: 01-D3, flipped by 01 T7"]
+#[spec(
+    behavior = "validate_file_reference_paths",
+    verify = "a file reference through a link out of its root is E094"
+)]
 fn contained_a_link_out_is_e094() {
     let diagnostics = plain(|_| vec!["link.md".into()]);
     assert_eq!(codes(&diagnostics), ["E094"], "{diagnostics:?}");
 }
 
-#[test]
-#[ignore = "pin: 01-D4, flipped by 01 T7"]
+#[spec(
+    behavior = "validate_file_reference_paths",
+    verify = "a file reference whose case differs from the disk is W174 naming the disk's spelling"
+)]
 fn contained_a_case_mismatch_is_w174() {
     let diagnostics = plain(|_| vec!["README.md".into()]);
     assert_eq!(codes(&diagnostics), ["W174"], "{diagnostics:?}");
@@ -673,8 +701,10 @@ fn contained_a_case_mismatch_is_w174() {
     );
 }
 
-#[test]
-#[ignore = "pin: 01-D5, flipped by 01 T7"]
+#[spec(
+    behavior = "validate_file_reference_paths",
+    verify = "a missing file reference outside its root suggests no name from outside it"
+)]
 fn contained_a_suggestion_never_lists_outside_its_root() {
     let diagnostics = plain(|_| vec!["../../outside/secrat.txt".into()]);
     assert!(!diagnostics.is_empty());

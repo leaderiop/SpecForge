@@ -28,7 +28,7 @@
     "crates/surfaces/cli/tests/parity.rs": 1231,
     "crates/surfaces/cli/tests/read_views.rs": 1288,
     "crates/surfaces/cli/tests/registry.rs": 1623,
-    "crates/surfaces/cli/tests/watch.rs": 957,
+    "crates/surfaces/cli/tests/watch.rs": 950,
     "crates/surfaces/lsp/tests/contracts.rs": 996,
     "crates/surfaces/lsp/tests/reaction.rs": 1000,
     "crates/surfaces/mcp/tests/call_target.rs": 1211,

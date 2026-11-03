@@ -590,18 +590,12 @@ fn a_detached_session_has_no_inputs() {
 /// paths of every input the session reaches, as a test spells them:
 /// config, lock, module, then each of `docs` resolved against
 /// the root (the spec root), and a sibling of the last in its directory.
+/// A file reference never reaches outside the root (ADR 0335): the module is the outside input.
 struct InputsLayout {
     project: TestProject,
-    _outside: TempDir,
     _far: TempDir,
-    elsewhere: TempDir,
     /// The module in `_far`, and the directory it lies in.
     module: PathBuf,
-    /// A file that exists in an existing directory outside the root.
-    out_guide: PathBuf,
-    /// A file in a directory outside the root that does not exist, in a
-    /// directory (`elsewhere`) nothing else is in.
-    far_guide: PathBuf,
     /// A file in a directory under the root that does not exist.
     missing_sub: PathBuf,
     /// Another file in that missing directory.
@@ -609,14 +603,10 @@ struct InputsLayout {
 }
 
 fn inputs_layout() -> InputsLayout {
-    let outside = TempDir::new().unwrap();
     let far = TempDir::new().unwrap();
-    let elsewhere = TempDir::new().unwrap();
     let module_dir = fs::canonicalize(far.path()).unwrap().join("mods");
     fs::create_dir_all(&module_dir).unwrap();
     let module = module_dir.join("ext.wasm");
-    let outside_name = outside.path().file_name().unwrap().to_string_lossy();
-    let elsewhere_name = elsewhere.path().file_name().unwrap().to_string_lossy();
     let project = passes_project("");
     fs::write(
         project.root().join("specforge.json"),
@@ -631,20 +621,14 @@ fn inputs_layout() -> InputsLayout {
     write(
         project.root(),
         "a.spec",
-        &format!(
-            "gadget doc \"Doc\" {{\n  docs [\"../{outside_name}/guide.md\", \"missing/sub.md\", \"../{elsewhere_name}/far/deep/guide.md\"]\n}}\n"
-        ),
+        "gadget doc \"Doc\" {\n  docs [\"missing/sub.md\"]\n}\n",
     );
     let root = project.root();
     InputsLayout {
-        out_guide: root.join(format!("../{outside_name}/guide.md")),
-        far_guide: root.join(format!("../{elsewhere_name}/far/deep/guide.md")),
         missing_sub: root.join("missing/sub.md"),
         missing_x: root.join("missing/x.md"),
         project,
-        _outside: outside,
         _far: far,
-        elsewhere,
         module,
     }
 }
@@ -667,24 +651,11 @@ fn every_input_lies_under_a_watch_root() {
         .map(|root| root.dir)
         .collect();
 
-    // A directory created on the way to the missing directory outside the
-    // root is the input's change, whatever the stamps say.
-    let elsewhere = fs::canonicalize(layout.elsewhere.path()).unwrap();
-    fs::create_dir(elsewhere.join("far")).unwrap();
-    assert_eq!(
-        session
-            .changes([elsewhere.join("far").as_path()])
-            .check_inputs(),
-        vec![elsewhere.join("far")]
-    );
-
     let inputs = [
         root.join("specforge.json"),
         root.join("specforge.lock"),
         layout.module.clone(),
-        layout.out_guide.clone(),
         layout.missing_sub.clone(),
-        layout.far_guide.clone(),
         // A file in a missing file's directory changes the E016 suggestion.
         layout.missing_x.clone(),
     ];
@@ -700,22 +671,11 @@ fn every_input_lies_under_a_watch_root() {
             .map(|dir| dir.join(path.file_name().unwrap()))
             .unwrap();
         assert!(
-            roots.iter().any(|watched| canonical.starts_with(watched))
-                || canonical.starts_with(&elsewhere),
+            roots.iter().any(|watched| canonical.starts_with(watched)),
             "{} is under no watch root of {roots:?}",
             path.display()
         );
     }
-
-    // The missing directory outside the root is watched from its nearest
-    // existing ancestor, for that ancestor's own entries.
-    assert!(
-        session.inputs().watch_roots().contains(&WatchRoot {
-            dir: elsewhere.clone(),
-            recursive: false
-        }),
-        "{roots:?}"
-    );
 }
 
 /// A source that becomes a symlink, or stops being one, moves what a

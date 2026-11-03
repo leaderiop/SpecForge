@@ -148,6 +148,7 @@ module specforge_registry "specforge-registry" {
     specforge_coverage,
     specforge_cycles,
     specforge_diagnostics,
+    specforge_effects,
     specforge_graph,
     specforge_package,
     specforge_parser,

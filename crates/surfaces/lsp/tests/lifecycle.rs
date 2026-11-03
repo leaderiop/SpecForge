@@ -458,18 +458,14 @@ fn the_watchers_cover_what_the_session_classifies() {
     use specforge_project::ProjectSession;
     use tower_lsp::lsp_types::GlobPattern;
 
-    let outside = tempfile::TempDir::new().unwrap();
     let far = tempfile::TempDir::new().unwrap();
     let module_dir = std::fs::canonicalize(far.path()).unwrap().join("mods");
     std::fs::create_dir_all(&module_dir).unwrap();
     let module = module_dir.join("ext.wasm");
-    // From `spec/`, two levels up is the parent of the root: the sibling
-    // temp directory `outside`.
-    let outside_name = outside.path().file_name().unwrap().to_string_lossy();
-    let reference = format!("../../{outside_name}/guide.md");
-    let dir = crate::session::docref_project(&format!(
-        "gadget gadget_one \"G\" {{\n  docs [\"{reference}\", \"missing/sub.md\"]\n}}\n"
-    ));
+    // A file reference stays in its root (ADR 0335): the module is the input outside it.
+    let dir = crate::session::docref_project(
+        "gadget gadget_one \"G\" {\n  docs [\"<project>/docs/guide.md\", \"missing/sub.md\"]\n}\n",
+    );
     let root = dir.path();
     std::fs::write(
         root.join("specforge.json"),
@@ -496,7 +492,6 @@ fn the_watchers_cover_what_the_session_classifies() {
         })
         .collect();
     let spec_root = root.join("spec");
-    let canonical_outside = std::fs::canonicalize(outside.path()).unwrap();
     // The inputs as the watchers spell them: under the root as opened,
     // canonical outside it.
     let spelled = [
@@ -504,10 +499,7 @@ fn the_watchers_cover_what_the_session_classifies() {
         (root.join("specforge.lock"), root.join("specforge.lock")),
         (root.join("ext/docref.wasm"), root.join("ext/docref.wasm")),
         (module.clone(), module),
-        (
-            spec_root.join(&reference),
-            canonical_outside.join("guide.md"),
-        ),
+        (root.join("docs/guide.md"), root.join("docs/guide.md")),
         (
             spec_root.join("missing/sub.md"),
             spec_root.join("missing/sub.md"),

@@ -55,7 +55,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify integration "a specforge.lock change reloads the environment"
   verify integration "a .wasm file no extension loads changes nothing"
   verify integration "after spec_root changes, files under the new spec root are watched"
-  verify integration "after an edit names a file outside the watched directories, a change to it is seen"
+  verify integration "after an edit names a file outside the spec root, a change to it is seen"
   verify integration "a file the checks read is seen when it is created in a directory that did not exist"
   verify unit "a fact store and the harness ledger are watched inputs when a collector-written kind is loaded"
   verify integration "the ready event names the spec root as the path given names the project"

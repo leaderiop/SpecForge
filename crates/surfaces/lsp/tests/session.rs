@@ -61,7 +61,8 @@ pub fn docref_project(spec: &str) -> tempfile::TempDir {
 
 /// A gadget of the docref project naming `../docs/guide.md` (from `spec/`:
 /// `docs/guide.md` under the root), which does not exist.
-pub const NAMES_GUIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"../docs/guide.md\"]\n}\n";
+pub const NAMES_GUIDE: &str =
+    "gadget gadget_one \"G\" {\n  docs [\"<project>/docs/guide.md\"]\n}\n";
 
 /// The `didChangeWatchedFiles` watchers of a `client/registerCapability` request.
 pub fn registered_globs(registration: &Value) -> Vec<String> {

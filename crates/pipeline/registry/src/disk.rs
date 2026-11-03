@@ -48,6 +48,20 @@ pub trait Disk {
     }
 }
 
+/// A [`Disk`] as `Contained` asks it (ADR 0335): its links resolved, and its listings, so a session records what a
+/// check listed.
+pub struct DiskLookup<'a>(pub &'a dyn Disk);
+
+impl specforge_effects::Lookup for DiskLookup<'_> {
+    fn canonical(&self, path: &Path) -> Option<PathBuf> {
+        self.0.canonical(path)
+    }
+
+    fn names(&self, dir: &Path) -> Option<Vec<String>> {
+        self.0.list(dir)
+    }
+}
+
 /// What a file looked like (see [`Disk::stamp`]): its length and modification time, and its content's hash when the
 /// time alone cannot be trusted (modified within the filesystem's granularity of now), or when a disk has no time.
 #[derive(Debug, Clone, PartialEq, Eq)]

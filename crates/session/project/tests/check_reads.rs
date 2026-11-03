@@ -8,7 +8,6 @@ use serde_json::json;
 use specforge_project::testing::TestProject;
 use specforge_project::{ProjectSession, SharedRuntime, UpdateKind, Watched};
 use specforge_test::prelude::*;
-use tempfile::TempDir;
 
 use crate::changes::file_rule_extension;
 use crate::check_passes::{passes_extension, project as passes_project};
@@ -23,7 +22,8 @@ fn e016(session: &ProjectSession) -> usize {
 }
 
 /// A `file_reference` path that is a symlink is read through the link: its
-/// target, created or deleted, must re-run the checks.
+/// target, created or deleted, must re-run the checks. The target lies in the
+/// project: a link out of it is E094 (ADR 0335).
 #[cfg(unix)]
 #[specforge_test(
     behavior = "classify_project_changes",
@@ -31,31 +31,13 @@ fn e016(session: &ProjectSession) -> usize {
 )]
 fn a_symlinked_check_inputs_target_reruns_the_checks() {
     let dir: TestProject = passes_project("gadget doc \"Doc\" {\n  docs [\"link.md\"]\n}\n");
-    let root = dir.root();
-    let outside = TempDir::new().unwrap();
-    let outside = fs::canonicalize(outside.path()).unwrap();
-    let target = outside.join("target.md");
+    let root = fs::canonicalize(dir.root()).unwrap();
+    fs::create_dir_all(root.join("real")).unwrap();
+    let target = root.join("real/target.md");
     std::os::unix::fs::symlink(&target, root.join("link.md")).unwrap();
     let ext = Arc::new(passes_extension());
     let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
     assert_eq!(e016(&session), 1, "{:?}", session.project().diagnostics());
-    assert!(
-        session
-            .inputs()
-            .watch_roots()
-            .iter()
-            .any(|w| outside.starts_with(&w.dir) || w.dir == outside),
-        "{:?}",
-        session.inputs().watch_roots()
-    );
-    assert!(
-        session
-            .inputs()
-            .watched()
-            .contains(&Watched::File(target.clone())),
-        "{:?}",
-        session.inputs().watched()
-    );
 
     fs::write(&target, "# target\n").unwrap();
     let update = session
@@ -81,18 +63,17 @@ fn a_symlinked_check_inputs_target_reruns_the_checks() {
 )]
 fn a_check_input_link_pointed_elsewhere_reruns_the_checks() {
     let dir: TestProject = passes_project("gadget doc \"Doc\" {\n  docs [\"link.md\"]\n}\n");
-    let root = dir.root();
-    let outside = TempDir::new().unwrap();
-    let outside = fs::canonicalize(outside.path()).unwrap();
-    fs::write(outside.join("target.md"), "# target\n").unwrap();
+    let root = fs::canonicalize(dir.root()).unwrap();
+    fs::create_dir_all(root.join("real")).unwrap();
+    fs::write(root.join("real/target.md"), "# target\n").unwrap();
     let link = root.join("link.md");
-    std::os::unix::fs::symlink(outside.join("target.md"), &link).unwrap();
+    std::os::unix::fs::symlink(root.join("real/target.md"), &link).unwrap();
     let ext = Arc::new(passes_extension());
     let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
     assert_eq!(e016(&session), 0, "{:?}", session.project().diagnostics());
 
     fs::remove_file(&link).unwrap();
-    std::os::unix::fs::symlink(outside.join("missing.md"), &link).unwrap();
+    std::os::unix::fs::symlink(root.join("real/missing.md"), &link).unwrap();
     let update = session
         .apply(&session.changes([link.as_path()]))
         .expect("the link was pointed elsewhere");
@@ -142,8 +123,8 @@ fn a_file_beside_a_missing_file_exists_file_changes_its_suggestion() {
     );
 }
 
-/// The inputs are the reads: each path asked, and the directory E016's
-/// suggestion listed for a missing one, nothing else.
+/// The inputs are the reads: each path as written, and the directories `Contained` listed on its way
+/// (ADR 0335), the missing one among them.
 #[specforge_test(
     behavior = "classify_project_changes",
     verify = "a session's check inputs are the paths its checks read"
@@ -162,12 +143,9 @@ fn the_check_inputs_are_the_paths_the_checks_asked() {
     for expected in [
         Watched::File(root.join("a.md")),
         Watched::File(root.join("missing/b.md")),
+        Watched::Listing(root.clone()),
         Watched::Listing(root.join("missing")),
     ] {
         assert!(watched.contains(&expected), "{expected:?} in {watched:?}");
     }
-    assert!(
-        !watched.contains(&Watched::Listing(root.clone())),
-        "{watched:?}"
-    );
 }

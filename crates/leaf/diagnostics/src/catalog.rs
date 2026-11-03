@@ -72,7 +72,7 @@ catalog! {
         "The `depends_on` edges between `milestone` entities form a cycle. Break the cycle by removing or inverting one of the dependencies.";
     E016: Error core,
         "Referenced file does not exist",
-        "A file-reference field on an entity, or a file-reference member of a typed block or block list item, points at a path that doesn't exist under the field's base: the spec root, or, when the field declares `file_base` `project`, the project root. Fix the path, or create the missing file; a similarly-named file is suggested when one is found.";
+        "A file-reference field on an entity, or a file-reference member of a typed block or block list item, points at a path that doesn't exist under the field's base: the spec root, or, when the field declares `file_base` `project`, the project root. A path is read inside the root it names: one that leaves it is E094, not E016, and one that exists under another case is W174. Fix the path, or create the missing file; a similarly-named file in the path's own directory inside its root is suggested when one is found.";
     E019: Error core,
         "Unsupported format version",
         "A `.spec` file's `// specforge-format: MAJOR.MINOR` header declares a version newer than this build supports, or the header itself doesn't parse; `specforge migrate --target-version` reports the same for a target it can't parse or doesn't support. Lower the declared version or upgrade SpecForge.";
@@ -232,6 +232,12 @@ catalog! {
     E088: Error core,
         "Extension speaks a protocol this specforge does not",
         "An extension's handshake states a newer protocol: a newer minor of the host's major (`1.16.0` under a `1.15.0` host) or a newer major (ADR 0326): it was built with a newer SDK and may declare what this specforge does not know and would drop, so it is not loaded; an older minor still loads. Or it states an older major (`0.9.0` under a `1.x` host): it was built for a protocol this specforge no longer speaks; install a version of the extension built for this protocol's major, or rebuild it with a specforge-extension-sdk of that protocol (ADR 0326 D1b). Or its component imports a `specforge:host` interface (a host port such as `specforge:host/http@9.9.0`) this specforge does not provide: the runtime reads a component's imports before it instantiates it, and the message names the port, its version and this specforge's protocol (ADR 0326 D1a). `specforge add`, `init` and `publish` refuse such a binary too. Update specforge to a release that speaks the extension's protocol, or provides the port (`specforge --version` names the protocol a binary speaks), or install a version of the extension built for this one.";
+    E094: Error core,
+        "Path leaves its root",
+        "A file-reference field, or a file-reference member of a typed block, names a path that leaves the root it is read in (ADR 0335): an absolute path (`/etc/passwd`, `C:/x`), a `..` that climbs above the root, or a link whose target lies outside it. Every path the host reads is resolved inside a root, the spec root or the project root, or the root its `<name>/` prefix names: lexically first, then link by link on disk. The path is not read and no sibling is suggested. Name a file inside the root; a spec-rooted field names a project file as `<project>/…`.";
+    E095: Error core,
+        "Unknown path root",
+        "A file-reference path starts with a `<name>/` prefix that names no root (ADR 0335). The roots are `<spec>` and `<project>`; a path without a prefix is read in the field's own root (the spec root, or the project root where the field declares `file_base` `project`). Write a known prefix, or drop it.";
     E115: Error core,
         "A fact written in a spec file",
         "A spec file writes an entity of a kind its extension declares `writer: \"collector\"` (ADR 0327). Such a kind's entities are facts: only `specforge collect` gives them, from what a collector observed, stores them in `.specforge/facts/<key>/<collector>.json` and records their digest in `specforge-harness`; the session serves the recorded stores read-only. A block of the kind in a `.spec` file is reported at the block, and is not a fact. Delete the block; to cite a fact, write its id in a reference (`proof [\"js:pkg/a.test.js#adds\"]`).";
@@ -748,6 +754,12 @@ catalog! {
     W169: Warning core,
         "Older specforge on PATH",
         "`specforge doctor` ran the first `specforge` on PATH with `--version` and it speaks an older extension protocol minor than the specforge running doctor, or than an extension the project loads, or names no protocol at all (a release from before `--version` named it). The hooks and the MCP server that `specforge install` writes run `specforge` from PATH, so they run that binary, which refuses the project's newer extensions (E088) or would drop what they declare. Update the specforge on PATH, or put this one first on PATH (ADR 0326).";
+    W174: Warning core,
+        "Path case differs from the disk",
+        "A file-reference path names a file that exists only under another case (`README.md` for `Readme.md`) (ADR 0335). Each name is compared with its directory's listing on every OS, so a spec that passes on a case-insensitive macOS or Windows disk does not fail on Linux. The message names the spelling on disk; write it.";
+    W175: Warning core,
+        "Path uses backslashes",
+        "A file-reference path uses `\\` as a separator (ADR 0335). It is read as `/`, so the path resolves on every OS, but a spec writes `/`. Replace each backslash with `/`.";
     W191: Warning core,
         "A fact store the harness ledger does not record",
         "A file under `.specforge/facts/<key>/` is a collector's fact store (ADR 0327), but no `facts:` line of `specforge-harness` records exactly its collector, its key and its digest: it was collected on another commit or branch (the ledger is committed, the store is not), or it changed since. Its facts are not served, so the references to them are unheld. Run `specforge collect` to collect the facts again and record them.";

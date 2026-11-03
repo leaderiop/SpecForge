@@ -14,6 +14,8 @@ path = "tests/main.rs"
 [dependencies]
 specforge-common = { workspace = true }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
+# `Contained`: every checked path resolves in the root it names (ADR 0335).
+specforge-effects = { path = "../../kernel/effects" }
 specforge-package = { path = "../../leaf/package" }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-graph = { path = "../graph" }
