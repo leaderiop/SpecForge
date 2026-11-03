@@ -3,6 +3,7 @@
 **Status:** accepted (2026-10-31, kernel round K20b, plan 14). Extends [ADR
 0291](0291-an-extension-contributes-mcp-prompts.md), [ADR
 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md). Takes extension protocol 1.13.0.
+Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md): `reads_slash_commands` is the `slash_commands` input (`Input::SlashCommands`).
 
 ## Context
 

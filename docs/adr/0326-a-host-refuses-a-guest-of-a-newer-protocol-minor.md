@@ -3,6 +3,7 @@
 **Status:** accepted (2026-11-01, R0 of the Beyond Parity build plan, version drift fixes C and D). Amends the protocol
 check of [ADR 0012](0012-one-extension-declaration.md) (the declaration's load checks the protocol major). No
 wire change: the handshake already states `protocol_version`.
+Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) (D2: the 1.x line ends at 1.15.0; every 1.x guest is an older major).
 
 ## Context
 
@@ -57,3 +58,9 @@ the older releases, which is what the version says.
   that protocol. A `protocol_version` that is not semver is a failed handshake (E028).
 - **Why no bump.** No payload changes: what is refused, and how, is host-side.
 - **Consequence.** The ports round's 2.0.0 host refuses a 1.x guest with E088 and no further change.
+
+## Amendment (2026-11-03, ports round, [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md))
+
+- **D2.** The 1.x line ends at 1.15.0. The ports protocol is 2.0.0, so every 1.x guest is an older major and D1b
+  refuses it with E088 as older; no mapping changes. "An older minor loads" is tested against a named host, since
+  `check_protocol_version(host, response)` is a pure function of both versions.

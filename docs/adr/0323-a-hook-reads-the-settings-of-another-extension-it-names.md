@@ -4,6 +4,7 @@
 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md).
 Amends [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) (a call carries only its
 extension's settings: a hook may name others'). Takes extension protocol 1.14.0.
+Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md): a `reads_settings` entry is a `setting` input (`Input::Setting { extension, name }`).
 
 ## Context
 

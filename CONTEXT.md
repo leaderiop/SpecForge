@@ -272,6 +272,22 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   W174, a backslash W175. E016, judged file inputs, K11 reads and a request's **Containment** all resolve through it.
 - **Root (of a path)**: the directory a written path is read against: `project`, `spec`, or a named one; a
   `<root>/` prefix names another (`specforge_effects::Roots`, `RootName`).
+- **Input (of a call)**: one thing a call declares the host serves it before the call, one variant of
+  `inputs: Vec<Input>` on a pass, command, prompt, hook or collector: `files` (a `FileRead`), `tests`, `state`,
+  `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`) or `setting { extension, name }`.
+  One table says what each call kind is served; an input it is not served is W021 and is served empty (ADR 0337 D2).
+- **Effect record**: one performed effect as the journal keeps it (`EffectRecord`, ADR 0335 D3): the canonical
+  request and its digest, the outcome's class and digest, `observed_at` and `ttl_s`.
+- **Effects journal**: `.specforge/effects/journal/`, one effect record per request digest, per machine and gitignored;
+  a fresh record answers the request again, an unreadable one is a miss (`specforge_effects::EffectJournal`, ADR 0337
+  D3). A record a check consulted is a recorded input whose change or expiry re-runs the checks (D5). Not the
+  **Write journal**.
+- **Effects mode**: whether a run performs, reuses or replays an http or process effect: `online`, `auto` (a fresh
+  record, else performed when approved), `cached` (a fresh record only) or `replay` (any record, a miss refuses the
+  run). Sessions are `cached`; the CLI's `--effects` chooses, `check` defaulting to `auto` when someone can answer
+  (ADR 0337 D4).
+- **Machine diagnostic**: a finding this machine decided (its approvals, its network, its journal), flagged
+  `machine`; `--strict` never promotes it and the gate's warning baseline never counts it (I206, I207; ADR 0337 D7).
 - **Containment**: what a request may reach on disk: every path (the CLI, ADR 0092 D6) or the paths that land inside
   one directory (an MCP request's bound, or the call's project). Lent by the **Caller** in the operation's request and
   applied where the operation opens or writes the file (a lock plan narrows it to its project, ADR 0137) (`specforge_ops::Containment`, ADR 0104). MCP builds one per call (`Call`), bounds the call's views by it and
@@ -1700,7 +1716,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `previous`, and its errors refuse the write (ADR 0289).
 - **Write lock**: `.specforge/write.lock`, held by every host write of a project that has a `.specforge/`.
 - **Write journal**: the record of a commit in progress; the next writer rolls an interrupted one back, and W167 reports
-  one that is pending (ADR 0289).
+  one that is pending (ADR 0289). Not the **Effects journal**.
 - **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
   a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288). A
   setting may be a `number` (a decimal within inclusive bounds) and a bool setting may declare `gates_when_on` codes (ADR 0305).

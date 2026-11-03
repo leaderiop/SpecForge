@@ -1,6 +1,7 @@
 # Recorded inputs are one table, and the class decides
 
 **Status:** accepted (2026-10-17, architecture round 14, plan 01). Extended by [ADR 0287](0287-who-writes-a-field-is-declared.md) (a ref input is watched by its directory's own entries). Amended by [ADR 0173](0173-a-link-chain-is-every-link-the-file-system-follows.md): a recorded input also keeps the directory links on the way to it; a change at one is its change, and each one's directory is watched for its own entries. Implements [ADR 0114](0114-environment-inputs-are-recorded-as-read.md) D3 and [ADR 0129](0129-a-source-read-is-a-recorded-read.md) D3 in one place. Amends ADR 0030 D6 and ADR 0106 D5. Keeps ADR 0106 D4, ADR 0129's rejected "a stamp per hop" and ADR 0114's rejected "`read_link` on the port". Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (recorded inputs include a verdict's digests).
+Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) (a row class `Effect { expires }`: a record changes or expires).
 
 ADR 0114 D3 and ADR 0129 D3 give one rule for what a session read: every input is keyed by its own name in its
 canonical directory, and each link hop it followed is an input of its own. The ledger wrote that rule once per kind:
@@ -42,3 +43,10 @@ never saw a symlinked source come back when a hop's missing directory outside th
 An input whose change is not a reload, a re-run of the checks or a source reread (a per-source check input, say), or
 symlinked directories as sources (ADR 0073 D5). A dangling source link that comes alive is covered by
 [ADR 0141](0141-a-session-names-the-dangling-source-links-it-reads.md), which names the key and lets the read record.
+
+## Amendment (2026-11-03, ports round, [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md))
+
+- The table gains one class, `Effect { expires }`, ordered after `Facts`: one row per effects-journal record a check
+  consulted. A row is stale when its record file changes or when `expires <= now`, and its change is a check change.
+- Expiry needs a clock: the table answers `next_expiry`, `SessionWatch` wakes at it, and the LSP applies `expired()`
+  before it answers a request. fs and git reads need no new row (`Check` and `Ref`).

@@ -7,6 +7,7 @@ reopen condition ("a reader port into `specforge-installed`"). Amends
 [ADR 0030](0030-a-sessions-inputs-are-one-value.md) D3 and D4, ADR 0106 D1, ADR 0107 D1 and D4, and
 [ADR 0028](0028-installed-extensions-are-one-module.md) D3 (round 7 amendment).
 D3 is completed for sources by [ADR 0129](0129-a-source-read-is-a-recorded-read.md): a source is read through the same `RunDisk`.
+Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) (an effects-journal record a check consulted is an environment-independent check input).
 
 ## Context
 
@@ -59,3 +60,9 @@ the read follows, which is the drift ADR 0107's Context already names for check 
 
 An environment read the port cannot express (a module directory listing, metadata), or a lower layer that needs the
 port.
+
+## Amendment (2026-11-03, ports round, [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md))
+
+- An effects-journal record a check consulted (an HTTP answer, a process run) is a check input like an environment
+  file: recorded as read, by its path under `.specforge/effects/journal/`, a missing record included. Its change or
+  its expiry re-runs the checks; it is never a source.
