@@ -225,7 +225,10 @@ fn must_haves_golden() {
     assert_eq!(
         fields,
         [
-            ("truth", vec!["plan", "text", "verification", "criterion"]),
+            (
+                "truth",
+                vec!["plan", "text", "requirement", "verification", "criterion"]
+            ),
             (
                 "artifact",
                 vec![
@@ -250,7 +253,7 @@ fn must_haves_golden() {
         .map(|(k, f)| (k, f.into_iter().map(String::from).collect()))
     );
     let total: usize = fields.iter().map(|(_, f)| f.len()).sum();
-    assert_eq!(total, 21);
+    assert_eq!(total, 22);
     for (kind, required) in [
         ("truth", vec!["plan", "text"]),
         ("artifact", vec!["plan", "path", "provides"]),
@@ -270,6 +273,17 @@ fn must_haves_golden() {
         }
         assert_eq!(field_of(kind, "plan")["immutable"], true, "{kind}");
     }
+}
+
+/// A truth names the requirement it proves, and the requirement reads its truths back as `truths` (ADR 0331 D1): the
+/// requirement declares no field for them.
+#[test]
+fn a_truth_names_its_requirement_with_an_inverse() {
+    let requirement = field_of("truth", "requirement");
+    assert_eq!(requirement["target_kind"], "requirement");
+    assert_eq!(requirement["inverse_of"], "truths");
+    assert_ne!(requirement["required"], true);
+    assert!(!fields_of("requirement").contains(&"truths".to_string()));
 }
 
 #[test]
@@ -309,10 +323,10 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
     assert_eq!(kind_of("user_setup")["scoped_by"], "plan");
 }
 
-/// `plan.md` lists 77 fields over its nine kinds. The model fixes: `task.commits` waits for `commit` (r38), which is 1
+/// `plan.md` lists 78 fields over its nine kinds. The model fixes: `task.commits` waits for `commit` (r38), which is 1
 /// fewer, and `task.verify_text`, `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification`
-/// are 4 more: 77 - 1 + 4 = 80. `plan.gap_closure` is declared with the UAT kinds (r39), and `artifact.state` and
-/// `key_link.state` (computed by the scan) are 2 more: 82.
+/// are 4 more: 78 - 1 + 4 = 81. `plan.gap_closure` is declared with the UAT kinds (r39), and `artifact.state` and
+/// `key_link.state` (computed by the scan) are 2 more: 83.
 #[test]
 fn the_plan_kinds_declare_every_field_of_plan_md() {
     let kinds = [
@@ -327,7 +341,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 77 - 1 + 4 + 2, "the kinds' fields");
+    assert_eq!(total, 78 - 1 + 4 + 2, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of

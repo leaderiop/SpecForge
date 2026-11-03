@@ -22,6 +22,9 @@ pub const TRUTH: Kind = Kind::new(
     &[
         rf("plan", "plan").r().i().doc("parent"),
         str("text").r().doc("the truth, as a user observes it"),
+        rf("requirement", "requirement")
+            .inverse("truths")
+            .doc("the requirement it proves; the requirement reads its truths back as `truths`"),
         en("verification", TRUTH_VERIFICATION)
             .u()
             .doc("explicit: a named passing test; backstop: judged"),
