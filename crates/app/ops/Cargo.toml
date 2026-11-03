@@ -17,6 +17,8 @@ testing = ["dep:specforge-extension-sdk", "specforge-project/testing", "specforg
 serde = { workspace = true }
 serde_json = { workspace = true }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
+# The effect plane: its ports, and `Contained`, the one path containment (ADR 0335).
+specforge-effects = { path = "../../kernel/effects" }
 specforge-common = { workspace = true }
 specforge-emitter = { path = "../../pipeline/emitter" }
 specforge-formatter = { workspace = true }

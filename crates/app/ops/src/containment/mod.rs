@@ -13,18 +13,13 @@ mod file;
 pub use disk::ContainedDisk;
 pub use file::{ReadFailure, declared};
 
-use std::collections::VecDeque;
-use std::ffi::OsString;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use crate::{OpError, OpErrorKind};
 
 /// The code of every refusal [`Outside`] becomes through `From` (an `OpError` code string, not a
 /// catalogue diagnostic: ADR 0092 D5).
 pub const OUTSIDE_ROOT: &str = "outside_root";
-
-/// The most symlinks one name may go through before it lands at itself (the open then fails).
-const MAX_LINKS: usize = 40;
 
 /// What a request may reach. Built by the surface, carried in the operation's request.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,58 +158,9 @@ impl From<Outside> for OpError {
     }
 }
 
-/// One step of a path still to walk.
-enum Step {
-    Root(OsString),
-    Parent,
-    Name(OsString),
-}
-
-fn steps(path: &Path) -> impl Iterator<Item = Step> {
-    path.components().filter_map(|component| match component {
-        Component::Prefix(_) | Component::RootDir => Some(Step::Root(component.as_os_str().into())),
-        Component::CurDir => None,
-        Component::ParentDir => Some(Step::Parent),
-        Component::Normal(name) => Some(Step::Name(name.to_os_string())),
-    })
-}
-
-/// Where `path` lands: made absolute and walked component by component. `..` leaves the real
-/// directory reached so far (after its symlinks); every existing component is replaced by its
-/// canonical form; a symlink whose target does not exist is replaced by its target (read against
-/// the link's directory) and the walk goes on, at most [`MAX_LINKS`] times (then the name lands at
-/// itself and the open fails). A missing tail is joined on.
+/// Where `path` lands on the real file system (`specforge_effects::contained::landing`).
 pub(crate) fn landing(path: &Path) -> PathBuf {
-    let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
-    let mut pending: VecDeque<Step> = steps(&path).collect();
-    let mut landed = PathBuf::new();
-    let mut links = 0;
-    while let Some(step) = pending.pop_front() {
-        match step {
-            Step::Root(root) => landed.push(root),
-            Step::Parent => {
-                landed.pop();
-            }
-            Step::Name(name) => {
-                landed.push(&name);
-                if let Ok(real) = std::fs::canonicalize(&landed) {
-                    landed = real;
-                } else if links < MAX_LINKS
-                    && let Ok(target) = std::fs::read_link(&landed)
-                {
-                    links += 1;
-                    landed.pop();
-                    for step in steps(&target).collect::<Vec<_>>().into_iter().rev() {
-                        pending.push_front(step);
-                    }
-                    if target.is_absolute() {
-                        landed = PathBuf::new();
-                    }
-                }
-            }
-        }
-    }
-    landed
+    specforge_effects::RealFs::landing(path)
 }
 
 #[cfg(test)]

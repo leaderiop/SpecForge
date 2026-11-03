@@ -84,6 +84,35 @@ fn the_fake_http_follows_redirects_as_an_adapter_must() {
 
 #[test]
 fn the_fake_fs_keeps_the_fs_contract() {
-    let fake = FakeFs::new().with_file("/p/a.txt", "a\n");
+    let fake = FakeFs::new()
+        .with_file("/p/a.txt", "a\n")
+        .with_file("/p/.env", "K=v");
     fs_contract(&fake, &Roots::new("/p", "/p/spec"));
+}
+
+#[test]
+fn the_fake_fs_reads_no_secret_through_a_link() {
+    use specforge_effects::{Fs, FsOp, FsRequest};
+    let fake = FakeFs::new()
+        .with_file("/p/a.txt", "a\n")
+        .with_file("/p/.env", "K=v")
+        .with_link("/p/notes.txt", ".env")
+        .with_link("/p/plain.txt", "a.txt");
+    let roots = Roots::new("/p", "/p/spec");
+    let read = |path: &str| {
+        fake.run(
+            &roots,
+            &FsRequest {
+                root: "project".into(),
+                path: path.into(),
+                op: FsOp::Read { max_bytes: 1024 },
+            },
+        )
+    };
+    let secret = read("notes.txt");
+    assert_eq!(secret.class, OutcomeClass::Denied, "{secret:?}");
+    assert!(secret.bytes.is_empty());
+    let plain = read("plain.txt");
+    assert_eq!(plain.class, OutcomeClass::Ok, "{plain:?}");
+    assert_eq!(plain.bytes, b"a\n");
 }

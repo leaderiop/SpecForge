@@ -13,6 +13,7 @@
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
 
+use specforge_effects::contained::withheld;
 use specforge_protocol_types::{FileFact, FileFacts, FileRead};
 use specforge_registry::{Disk, EntitySnapshot, paths_named, read_problem};
 
@@ -360,25 +361,6 @@ fn inside(root: &Path, written: &str, base: &Path) -> Option<PathBuf> {
         .ok()
         .map(Path::to_path_buf)
         .filter(|rel| !rel.as_os_str().is_empty())
-}
-
-/// Whether the file at `path` looks like it holds a credential, which a read for text does not hand to a guest:
-/// `.env` and `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `.npmrc`, `.netrc`, `credentials*` and
-/// `.git/config`. shortcut: names only, and no project can opt a file in; upgrade when a project needs to.
-fn withheld(path: &str) -> bool {
-    let path = path.to_ascii_lowercase();
-    let name = path.rsplit('/').next().unwrap_or_default();
-    name == ".env"
-        || name.starts_with(".env.")
-        || name.ends_with(".pem")
-        || name.ends_with(".key")
-        || name.starts_with("id_rsa")
-        || name.starts_with("id_ed25519")
-        || name == ".npmrc"
-        || name == ".netrc"
-        || name.starts_with("credentials")
-        || path == ".git/config"
-        || path.ends_with("/.git/config")
 }
 
 fn slashed(path: &Path) -> String {

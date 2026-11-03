@@ -12,7 +12,7 @@ pub mod process;
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use contained::{RootName, Roots};
+pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, RootName, Roots};
 pub use digest::{canonical, digest};
 pub use fs::{Fs, FsOutcome, SharedFs};
 pub use http::{Http, HttpOutcome, Redirects, SharedHttp};

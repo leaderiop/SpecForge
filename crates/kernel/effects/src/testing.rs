@@ -2,7 +2,7 @@
 //! `*_contract` function.
 
 use std::collections::BTreeMap;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use specforge_protocol_types::{
@@ -12,8 +12,8 @@ use specforge_protocol_types::{
 use crate::fs::{FileKind, FsStat, READ_CEILING};
 use crate::http::{Any, scheme, status_class};
 use crate::{
-    Fs, FsOutcome, Http, HttpOutcome, Output, Ports, Process, ProcessClass, ProcessOutcome,
-    Redirects, RootName, Roots,
+    Contained, Fs, FsOutcome, Http, HttpOutcome, Lookup, Output, Ports, Process, ProcessClass,
+    ProcessOutcome, Redirects, Resolved, RootName, Roots,
 };
 
 /// Ports of fakes that answer nothing: every program is not found, every URL unreachable, every file missing.
@@ -209,10 +209,12 @@ impl Http for FakeHttp {
     }
 }
 
-/// A file port over files held in memory, by absolute path; a directory is any prefix of a file's path.
+/// A file port over files held in memory, by absolute path; a directory is any prefix of a file's path. With a
+/// link given ([`Self::with_link`]) it is a disk with links: a path is resolved through them.
 #[derive(Default)]
 pub struct FakeFs {
     files: BTreeMap<PathBuf, Vec<u8>>,
+    links: BTreeMap<PathBuf, PathBuf>,
 }
 
 impl FakeFs {
@@ -227,25 +229,42 @@ impl FakeFs {
         self
     }
 
+    /// The link at `path` points at `target` (relative to the link's directory, or absolute).
+    pub fn with_link(mut self, path: impl Into<PathBuf>, target: impl Into<PathBuf>) -> Self {
+        self.links.insert(path.into(), target.into());
+        self
+    }
+
     fn is_dir(&self, path: &Path) -> bool {
         self.files.keys().any(|f| f != path && f.starts_with(path))
+    }
+
+    /// `path` with its last name's links followed (its parent already real), at most `MAX_LINKS` of them.
+    fn followed(&self, path: &Path, hops: usize) -> Option<PathBuf> {
+        match self.links.get(path) {
+            Some(_) if hops >= crate::contained::MAX_LINKS => None,
+            Some(target) => {
+                let parent = path.parent().unwrap_or(Path::new(""));
+                let landed = crate::contained::landing(self, &parent.join(target));
+                self.followed(&landed, hops + 1)
+            }
+            None => {
+                (self.files.contains_key(path) || self.is_dir(path)).then(|| path.to_path_buf())
+            }
+        }
     }
 }
 
 impl Fs for FakeFs {
     fn run(&self, roots: &Roots, request: &FsRequest) -> FsOutcome {
-        let Some(root) = roots.get(&RootName::of(&request.root)) else {
-            return FsOutcome::of(OutcomeClass::Outside);
+        let held = match held(roots, self, request) {
+            Ok(held) => held,
+            Err(class) => return FsOutcome::of(class),
         };
-        let mut rel = PathBuf::new();
-        for component in Path::new(&request.path).components() {
-            match component {
-                Component::Normal(name) => rel.push(name),
-                Component::CurDir => {}
-                _ => return FsOutcome::of(OutcomeClass::Outside),
-            }
-        }
-        let at = root.join(&rel);
+        let root = roots.get(&held.root).unwrap_or(&held.at).to_path_buf();
+        let rel = held.rel.as_str();
+        // Where the path lands: a link is read through.
+        let at = held.real.clone().unwrap_or_else(|| held.at.clone());
         let file = self.files.get(&at);
         let stat = match file {
             Some(bytes) => FsStat {
@@ -264,6 +283,8 @@ impl Fs for FakeFs {
         outcome.stat = Some(stat);
         match &request.op {
             FsOp::Stat => {}
+            // The written name or where it lands: `notes.txt -> .env` is not read.
+            FsOp::Read { .. } if held.withheld => return FsOutcome::of(OutcomeClass::Denied),
             FsOp::Read { max_bytes } => {
                 let bytes = file.map(Vec::as_slice).unwrap_or_default();
                 let max = usize::try_from((*max_bytes).min(READ_CEILING)).unwrap_or(usize::MAX);
@@ -274,8 +295,8 @@ impl Fs for FakeFs {
                 let mut entries: Vec<String> = self
                     .files
                     .keys()
-                    .filter_map(|f| f.strip_prefix(root).ok())
-                    .filter(|f| f.starts_with(&rel))
+                    .filter_map(|f| f.strip_prefix(&root).ok())
+                    .filter(|f| f.starts_with(rel) || rel.is_empty())
                     .map(|f| f.to_string_lossy().replace('\\', "/"))
                     .filter(|f| {
                         glob.as_deref()
@@ -290,6 +311,62 @@ impl Fs for FakeFs {
             }
         }
         outcome
+    }
+}
+
+impl Lookup for FakeFs {
+    fn canonical(&self, path: &Path) -> Option<PathBuf> {
+        if self.links.is_empty() {
+            return None;
+        }
+        self.followed(path, 0)
+    }
+
+    fn read_link(&self, path: &Path) -> Option<PathBuf> {
+        self.links.get(path).cloned()
+    }
+
+    fn names(&self, dir: &Path) -> Option<Vec<String>> {
+        let mut names: Vec<String> = self
+            .files
+            .keys()
+            .chain(self.links.keys())
+            .filter_map(|f| f.strip_prefix(dir).ok()?.components().next())
+            .filter_map(|c| c.as_os_str().to_str().map(str::to_string))
+            .collect();
+        names.sort();
+        names.dedup();
+        (!names.is_empty()).then_some(names)
+    }
+}
+
+/// Where `request` leads in `roots`, as every `Fs` adapter decides it ([`Contained`] over `lookup`): the whole
+/// [`Resolved`] (its root, root-relative path, where it lands and whether the written name or the landing is
+/// withheld), the root itself an empty path; or the class of a refusal (`outside`) or of a path that is absent as
+/// written (`missing`, a case variant included).
+pub fn held(
+    roots: &Roots,
+    lookup: &dyn Lookup,
+    request: &FsRequest,
+) -> Result<Resolved, OutcomeClass> {
+    let name = RootName::of(&request.root);
+    let root = roots.get(&name).ok_or(OutcomeClass::Outside)?.to_path_buf();
+    if matches!(request.path.as_str(), "" | "." | "./") {
+        return Ok(Resolved {
+            root: name,
+            rel: String::new(),
+            at: root,
+            real: None,
+            exists: true,
+            case: None,
+            backslashes: false,
+            withheld: false,
+        });
+    }
+    match Contained::new(roots, lookup).resolve(&request.path, name) {
+        Ok(resolved) if resolved.exists && resolved.case.is_none() => Ok(resolved),
+        Ok(_) => Err(OutcomeClass::Missing),
+        Err(_) => Err(OutcomeClass::Outside),
     }
 }
 
@@ -326,8 +403,9 @@ pub fn http_contract(port: &dyn Http) {
     assert!(outcome.body.is_empty());
 }
 
-/// The `Fs` contract over `roots`, whose project root holds `a.txt` with `a\n` and no `missing.txt`: the file reads
-/// back, a missing one is missing, and a path that climbs out of its root is outside.
+/// The `Fs` contract over `roots`, whose project root holds `a.txt` with `a\n`, a `.env` and no `missing.txt`: the
+/// file reads back, a missing one is missing, a path that climbs out of its root is outside, and a withheld name is
+/// denied.
 pub fn fs_contract(port: &dyn Fs, roots: &Roots) {
     let request = |path: &str, op: FsOp| FsRequest {
         root: "project".into(),
@@ -342,4 +420,6 @@ pub fn fs_contract(port: &dyn Fs, roots: &Roots) {
     assert_eq!(missing.class, OutcomeClass::Missing, "{missing:?}");
     let outside = port.run(roots, &request("../a.txt", FsOp::Stat));
     assert_eq!(outside.class, OutcomeClass::Outside, "{outside:?}");
+    let denied = port.run(roots, &request(".env", FsOp::Read { max_bytes: 1024 }));
+    assert_eq!(denied.class, OutcomeClass::Denied, "{denied:?}");
 }

@@ -214,6 +214,7 @@ module specforge_project "specforge-project" {
     specforge_component,
     specforge_coverage,
     specforge_diagnostics,
+    specforge_effects,
     specforge_extension_sdk,
     specforge_graph,
     specforge_installed,
@@ -241,6 +242,7 @@ module specforge_ops "specforge-ops" {
   depends_on  [
     specforge_common,
     specforge_diagnostics,
+    specforge_effects,
     specforge_emitter,
     specforge_extension_sdk,
     specforge_formatter,
