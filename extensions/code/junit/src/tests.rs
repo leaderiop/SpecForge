@@ -163,6 +163,29 @@ fn a_file_outside_cwd_is_none() {
 }
 
 #[test]
+fn a_file_that_climbs_out_through_dot_dot_is_outside() {
+    for escaping in [
+        "../x.test.js",
+        "./test/../../x.test.js",
+        r"..\x.test.js",
+        "/project/../x.test.js",
+        "/project/test/../../elsewhere/x.test.js",
+    ] {
+        assert_eq!(relative(escaping, "/project"), None, "{escaping}");
+    }
+    for (inside, expected) in [
+        ("test/../src/a.test.js", "src/a.test.js"),
+        ("/project/test/./unit/../a.test.js", "test/a.test.js"),
+    ] {
+        assert_eq!(
+            relative(inside, "/project").as_deref(),
+            Some(expected),
+            "{inside}"
+        );
+    }
+}
+
+#[test]
 fn a_duplicate_id_keeps_the_worst_status() {
     let case = |status, seconds| Case {
         suites: vec!["board".to_string()],

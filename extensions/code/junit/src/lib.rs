@@ -116,18 +116,38 @@ fn attr(attrs: &[(String, String)], key: &str) -> String {
 /// the same way first: a `\\?\` (or `\\?\UNC\`) verbatim prefix is stripped, `\` is folded to `/`, a drive letter
 /// compares case-insensitively and a trailing `/` is dropped. The host's `cwd` is the canonical root, so the other
 /// spelling of macOS's `/private` alias (`/private/var` and `/var`, `/private/tmp` and `/tmp`) is tried too. A
-/// relative `path` is taken as project-relative already, without its `./`.
+/// relative `path` is taken as project-relative already. Either way its `.` and `..` segments are resolved, and a
+/// path that climbs out of the project through `..` lies outside it, as an absolute one elsewhere does.
 pub fn relative(path: &str, cwd: &str) -> Option<String> {
     let path = normal(path);
     if !is_absolute(&path) {
-        return Some(path.trim_start_matches("./").to_string());
+        return contained(&path);
     }
     let cwd = normal(cwd);
-    aliases(&cwd).iter().find_map(|root| {
-        aliases(&path)
-            .iter()
-            .find_map(|spelling| under(spelling, root))
-    })
+    aliases(&cwd)
+        .iter()
+        .find_map(|root| {
+            aliases(&path)
+                .iter()
+                .find_map(|spelling| under(spelling, root))
+        })
+        .and_then(|rest| contained(&rest))
+}
+
+/// The project-relative `path` with its `.` and `..` segments resolved, or `None` when a `..` climbs out of the
+/// project or nothing is left.
+fn contained(path: &str) -> Option<String> {
+    let mut kept: Vec<&str> = Vec::new();
+    for segment in path.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                kept.pop()?;
+            }
+            name => kept.push(name),
+        }
+    }
+    (!kept.is_empty()).then(|| kept.join("/"))
 }
 
 /// `path` with no verbatim prefix, `/` separators and no trailing `/`.
