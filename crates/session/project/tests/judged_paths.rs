@@ -172,3 +172,24 @@ fn a_referrer_path_continues_forward() {
     let own = inputs(&compile(&p));
     assert_ne!(digest(&first, "requirements"), digest(&own, "requirements"));
 }
+
+#[cfg(unix)]
+#[test]
+#[ignore = "pin: 01-D6, flipped by 01 T8"]
+fn a_file_input_through_a_link_out_is_unreadable() {
+    let p = project();
+    let outside = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        outside.path().join("secret.ts"),
+        "export const secret = 1;\n",
+    )
+    .unwrap();
+    std::os::unix::fs::symlink(
+        outside.path().join("secret.ts"),
+        p.root().join("src/out.ts"),
+    )
+    .unwrap();
+    p.write("a.spec", SPEC.replace("src/a.ts", "src/out.ts"));
+    let inputs = inputs(&compile(&p));
+    assert_eq!(digest(&inputs, "code"), "unreadable", "{:?}", inputs.files);
+}
