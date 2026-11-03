@@ -1667,6 +1667,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Thread**: what `trace` prints along a route: the start and each step's matches, joined by ` → ` on one line when no
   step has more than one, else a tree. It is complete when one path reaches every step; only a complete thread prints
   by default, a partial one with `--partial` (ADR 0330).
+- **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
+  names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
+  take as its result (ADR 0331 D6).
+- **Requirement thread**: requirement → plan → task → commit (found by its `Gsd-Task:` trailer or its title,
+  `commit.linked_by`) → the proving test (`truth.proof`) → its result → the truth's verdict: what `@gsd/core`'s route
+  `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace` prints (ADR 0331).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).
