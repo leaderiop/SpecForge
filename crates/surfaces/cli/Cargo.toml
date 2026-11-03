@@ -31,7 +31,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 specforge-common = { workspace = true }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
-specforge-effects = { path = "../../kernel/effects" }
+specforge-effects = { path = "../../kernel/effects", features = ["clap"] }
 specforge-formatter = { workspace = true }
 specforge-package = { path = "../../leaf/package" }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }

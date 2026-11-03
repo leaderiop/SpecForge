@@ -130,9 +130,12 @@ fn write(
     };
     let path = root.dir();
     let compiled = match runtime {
-        Some(runtime) => {
-            crate::project::compiled(&root, Some(runtime), std::sync::Arc::clone(&ports.git))
-        }
+        Some(runtime) => crate::project::compiled(
+            &root,
+            Some(runtime),
+            ports,
+            specforge_effects::EffectsMode::Cached,
+        ),
         None => crate::project::compile_at(&root, ports),
     };
     let request = SetRequest {

@@ -808,6 +808,16 @@ expression: listing
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
+        "effects": {
+          "description": "Whether this check performs, reuses or replays an http or process effect (ADR 0337): cached (the default) performs none and answers from the effects journal; replay answers only from it and refuses not_in_journal on a miss; online and auto perform effects for this call, re-running the checks over the served project",
+          "enum": [
+            "online",
+            "auto",
+            "cached",
+            "replay"
+          ],
+          "type": "string"
+        },
         "lint": {
           "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)",
           "items": {

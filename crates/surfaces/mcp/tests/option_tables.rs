@@ -83,6 +83,11 @@ fn name_lists() -> Vec<(&'static str, &'static str, &'static [&'static str])> {
             "lint",
             specforge_project::LINT_PROFILE_NAMES,
         ),
+        (
+            "specforge.validate",
+            "effects",
+            &specforge_effects::EffectsMode::NAMES,
+        ),
     ]
 }
 

@@ -2,14 +2,19 @@
 //! collector's command (`collect`) when someone can answer.
 
 use crate::outcome::OutputFormat;
-use crate::terminal::Terminal;
+use crate::terminal::{Facts, Terminal};
 use specforge_ops::asking::{Asker, Asking, ExpectedFrom, Question};
 
 /// Who a command can ask: `--yes` answers everything; a human-format command whose stdin is a terminal asks
 /// it; under `--format json`, or with nobody at stdin, nobody can be asked.
 pub(crate) fn of<'t>(yes: bool, format: OutputFormat, terminal: &'t Terminal) -> Asking<'t> {
-    let can_answer = format == OutputFormat::Human && terminal.facts().interactive;
-    Asking::of(yes, can_answer.then_some(terminal as &dyn Asker))
+    let answers = can_answer(format, terminal.facts());
+    Asking::of(yes, answers.then_some(terminal as &dyn Asker))
+}
+
+/// Whether someone can answer a command of `format` run under `facts`: human output, and a terminal at stdin.
+pub(crate) fn can_answer(format: OutputFormat, facts: Facts) -> bool {
+    format == OutputFormat::Human && facts.interactive
 }
 
 impl Asker for Terminal {
@@ -68,6 +73,7 @@ mod tests {
         color_out: false,
         color_err: false,
         interactive: true,
+        ci: false,
     };
 
     fn change(from: ExpectedFrom) -> Question<'static> {

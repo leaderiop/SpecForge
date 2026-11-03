@@ -243,6 +243,23 @@ fn a_disk_change_to_an_open_document_is_ignored() {
 }
 
 #[test]
+fn the_served_session_performs_no_effect() {
+    let served = two_files();
+    let state = served.state();
+    let effects = state
+        .session()
+        .expect("a session")
+        .project()
+        .environment()
+        .effects();
+    assert_eq!(effects.mode(), specforge_effects::EffectsMode::Cached);
+    assert!(
+        effects.ports().is_none(),
+        "an editor's session holds no port"
+    );
+}
+
+#[test]
 fn readers_keep_the_last_graph_while_the_session_is_out() {
     let mut served = two_files();
     let (rebuilding, found) = served.rebuilding(|state| {

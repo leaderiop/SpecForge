@@ -24,6 +24,7 @@ mod tests {
         color_out: false,
         color_err: false,
         interactive: true,
+        ci: false,
     };
 
     #[test]

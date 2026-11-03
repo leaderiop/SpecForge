@@ -32,12 +32,21 @@ pub(crate) struct Args {
     /// Check every incremental rebuild against a cold rebuild (slower)
     #[arg(long, default_value_t = false)]
     verify_incremental: bool,
+
+    #[command(flatten)]
+    effects: crate::effects::EffectsOption,
 }
 
 impl Args {
     pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let mode = crate::effects::mode(
+            self.effects.effects,
+            crate::effects::Command::Other,
+            false,
+            terminal.facts().ci,
+        );
         watch_project(
-            &self.project,
+            (&self.project, mode),
             self.output.format,
             self.verify_incremental,
             terminal,
@@ -47,7 +56,7 @@ impl Args {
 }
 
 fn watch_project(
-    project: &ProjectArg,
+    (project, mode): (&ProjectArg, specforge_effects::EffectsMode),
     format: OutputFormat,
     verify_incremental: bool,
     terminal: &Terminal,
@@ -59,7 +68,9 @@ fn watch_project(
         Ok(root) => root,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
-    let mut session = ProjectSession::detached().with_git(std::sync::Arc::clone(&ports.git));
+    let mut session = ProjectSession::detached()
+        .with_git(std::sync::Arc::clone(&ports.git))
+        .with_effects(mode, ports.clone());
     session.reopen(&root, RuntimeSource::project(), |_| {});
     if verify_incremental {
         session.set_verify_incremental(true);

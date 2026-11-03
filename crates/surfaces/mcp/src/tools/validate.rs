@@ -5,7 +5,7 @@ use crate::target::ProjectRef;
 use crate::target::{AnyProject, Project};
 use crate::tool::{CoreTool, Effect, ToolGroup};
 use specforge_ops::analysis::check::{
-    CheckField, CheckOptions, check, parse_lint_profiles, parse_severity,
+    CheckField, CheckOptions, check, parse_effects, parse_lint_profiles, parse_severity,
 };
 
 /// `specforge.validate`'s arguments.
@@ -21,6 +21,9 @@ pub struct Args {
     lint: Vec<String>,
     /// Judge immutable and append-only history against the merge-base of this git revision and HEAD, for this call only
     since: Option<String>,
+    /// Whether this check performs, reuses or replays an http or process effect (ADR 0337): cached (the default) performs none and answers from the effects journal; replay answers only from it and refuses not_in_journal on a miss; online and auto perform effects for this call, re-running the checks over the served project
+    #[arg(names = &specforge_effects::EffectsMode::NAMES)]
+    effects: Option<String>,
 }
 
 /// The `_meta` key of validate's verdict: `{ok, errors, warnings, infos,
@@ -40,6 +43,7 @@ impl ArgumentOf<CheckField> for Tool {
             CheckField::Severity => Some("severity_filter"),
             CheckField::LintProfiles => Some("lint"),
             CheckField::Since => Some("since"),
+            CheckField::Effects => Some("effects"),
         }
     }
 }
@@ -62,18 +66,36 @@ impl CoreTool for Tool {
             .transpose()
             .map_err(Self::refused)?;
         let lint_profiles = parse_lint_profiles(&args.lint).map_err(Self::refused)?;
+        let mode = args
+            .effects
+            .as_deref()
+            .map(parse_effects)
+            .transpose()
+            .map_err(Self::refused)?;
+        // The served project performs no effect; another mode runs its checks again for this call.
+        let effects = mode
+            .filter(|mode| *mode != specforge_effects::EffectsMode::Cached)
+            .map(|mode| {
+                std::sync::Arc::new(specforge_project::effects::of(
+                    mode,
+                    project.ports,
+                    project.root,
+                ))
+            });
         let options = CheckOptions {
             strict: args.strict,
             lint_profiles,
             severity,
             since: args.since,
+            effects,
         };
-        let outcome = check(&project.view(), &options).map_err(Self::refused)?;
+        let view = project.view();
+        let outcome = check(&view, &options).map_err(Self::refused)?;
         let shown: Vec<specforge_common::Diagnostic> =
             outcome.shown().into_iter().cloned().collect();
         Ok(Answer::new(Text(specforge_common::serialize_diagnostics(
             &shown,
-            project.view().registries().codes(),
+            view.registries().codes(),
         )))
         .with_meta(VERDICT_META, outcome.verdict_json()))
     }

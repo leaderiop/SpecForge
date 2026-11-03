@@ -20,7 +20,7 @@ pub(crate) enum Stream {
 }
 
 /// What a command decides by, fixed when its terminal is made.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct Facts {
     /// What is written to stdout may be coloured (`analyze`, `explain`).
     pub color_out: bool,
@@ -28,6 +28,8 @@ pub(crate) struct Facts {
     pub color_err: bool,
     /// Stdin is a terminal: someone can answer a prompt.
     pub interactive: bool,
+    /// The run is CI's (`CI` set, and not `false` or `0`): nobody answers, whatever stdin is.
+    pub ci: bool,
 }
 
 impl Facts {
@@ -37,6 +39,7 @@ impl Facts {
         color_out: false,
         color_err: false,
         interactive: false,
+        ci: false,
     };
 
     /// The process's: each stream's colour by [`color`] over `NO_COLOR`,
@@ -49,8 +52,14 @@ impl Facts {
             color_out: color(no.as_deref(), force.as_deref(), io::stdout().is_terminal()),
             color_err: color(no.as_deref(), force.as_deref(), io::stderr().is_terminal()),
             interactive: io::stdin().is_terminal(),
+            ci: ci(var("CI").as_deref()),
         }
     }
+}
+
+/// Whether `CI` names a CI run: set, non-empty, and not `false` or `0`.
+fn ci(value: Option<&OsStr>) -> bool {
+    value.is_some_and(|v| !v.is_empty() && v != "0" && !v.eq_ignore_ascii_case("false"))
 }
 
 /// Whether a stream is coloured; the first match wins: `NO_COLOR` set to a
@@ -449,6 +458,7 @@ mod tests {
         color_out: false,
         color_err: false,
         interactive: true,
+        ci: false,
     };
 
     #[test]

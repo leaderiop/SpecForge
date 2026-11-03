@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectConfig, ProjectRoot};
-use specforge_effects::SharedGit;
+use specforge_effects::{EffectsMode, Ports, SharedGit};
 use specforge_graph::{Applied, GraphDelta, NodeChange};
 
 use crate::buffers::{Buffer, Held};
@@ -156,8 +156,16 @@ pub struct ProjectSession {
     /// The editor buffers the session holds: each is the truth for its file
     /// until released (ADR 0046).
     held: Held,
-    /// The git port each environment load is given (ADR 0287, ADR 0335); none: no judgement against history.
+    /// What each environment load is given of the outside.
+    outside: Outside,
+}
+
+/// What a session's every environment load is given of the outside: the git port (ADR 0287, ADR 0335; none: no
+/// judgement against history) and the effects mode and ports a surface chose (ADR 0337 D4; none: `cached`).
+#[derive(Clone, Default)]
+struct Outside {
     git: Option<SharedGit>,
+    effects: Option<(EffectsMode, Ports)>,
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -171,8 +179,8 @@ struct OpeningProject {
     /// What the loaded environment depends on, stamped; the sources are
     /// stamped by `finish`.
     ledger: Ledger,
-    /// The git port the environment was given.
-    git: Option<SharedGit>,
+    /// What the environment was given of the outside.
+    outside: Outside,
 }
 
 impl OpeningProject {
@@ -205,7 +213,7 @@ impl OpeningProject {
             source: self.source,
             ledger,
             held,
-            git: self.git,
+            outside: self.outside,
         };
         session.project.check(&mut session.ledger);
         session
@@ -221,14 +229,21 @@ impl ProjectSession {
             source: RuntimeSource::Fixed(None),
             ledger: Ledger::detached(),
             held: Held::default(),
-            git: None,
+            outside: Outside::default(),
         }
     }
 
     /// The same session, every environment it loads from now on (an open into it, a reopen, a reload) asking `git` of
     /// version control: a surface gives it to a detached session, then opens the project into it.
     pub fn with_git(mut self, git: SharedGit) -> Self {
-        self.git = Some(git);
+        self.outside.git = Some(git);
+        self
+    }
+
+    /// The same session, every environment it loads from now on running its effects in `mode` through `ports`
+    /// (`watch`'s `--effects`, built by [`crate::effects::of`]).
+    pub fn with_effects(mut self, mode: EffectsMode, ports: Ports) -> Self {
+        self.outside.effects = Some((mode, ports));
         self
     }
 
@@ -259,7 +274,7 @@ impl ProjectSession {
         source: RuntimeSource,
         disk: Option<SourceDisk>,
     ) -> Self {
-        Self::begin_open(root, source, disk, None).finish()
+        Self::begin_open(root, source, disk, Outside::default()).finish()
     }
 
     /// The first half of [`Self::open_from`] and [`Self::reopen`]: the
@@ -269,7 +284,7 @@ impl ProjectSession {
         root: &ProjectRoot,
         source: RuntimeSource,
         disk: Option<SourceDisk>,
-        git: Option<SharedGit>,
+        outside: Outside,
     ) -> OpeningProject {
         // The ledger stamps each input in the read that reads it: the config,
         // the lock and the modules in the environment load, the sources by
@@ -278,14 +293,17 @@ impl ProjectSession {
         let mut env = Environment::read_through(&mut ledger, root, |config| {
             source.runtime_for(root.dir(), config)
         });
-        if let Some(git) = &git {
+        if let Some(git) = &outside.git {
             env = env.with_git(Arc::clone(git));
+        }
+        if let Some((mode, ports)) = &outside.effects {
+            env = env.with_effects(crate::effects::of(*mode, ports, root));
         }
         OpeningProject {
             env: Arc::new(env),
             source,
             ledger,
-            git,
+            outside,
         }
     }
 
@@ -516,7 +534,7 @@ impl ProjectSession {
         loaded: impl FnOnce(&Arc<Environment>),
     ) -> Update {
         self.update(|s| {
-            let opening = Self::begin_open(root, source, disk, s.git.clone());
+            let opening = Self::begin_open(root, source, disk, s.outside.clone());
             loaded(opening.environment());
             let buffers = std::mem::take(&mut s.held).into_buffers();
             let mut next = opening.finish_holding(buffers);

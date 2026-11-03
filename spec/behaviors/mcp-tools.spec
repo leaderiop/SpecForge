@@ -116,6 +116,8 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     over every reported diagnostic whatever severity_filter shows.
   """
   verify unit "each catalogued diagnostic carries its title"
+  verify unit "validate advertises effects, and a call without it performs no effect"
+  verify unit "validate's effects re-runs the check for that request only, and replay refuses nothing it holds"
   verify unit "specforge.validate tool triggers compilation"
   verify unit "response includes all diagnostics as Graph Protocol diagnostics"
   verify unit "severity_filter restricts returned diagnostics"

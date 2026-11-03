@@ -16,6 +16,7 @@ mod check;
 mod collect;
 mod doctor;
 mod edit;
+mod effects;
 mod explain;
 mod explore;
 mod export;

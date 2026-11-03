@@ -15,6 +15,9 @@ pub(crate) struct Args {
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
+    #[command(flatten)]
+    effects: crate::effects::EffectsOption,
+
     /// Promote warnings to errors
     #[arg(long)]
     strict: bool,
@@ -55,6 +58,7 @@ impl Args {
             lint_profiles: self.lint.clone(),
             severity: self.severity,
             since: self.since.clone(),
+            effects: None,
         }
     }
 
@@ -65,8 +69,14 @@ impl Args {
         };
         let runtime: SharedRuntime =
             Arc::new(specforge_component::ComponentRuntime::with_user_cache());
+        let mode = crate::effects::mode(
+            self.effects.effects,
+            crate::effects::Command::Check,
+            crate::asking::can_answer(format, terminal.facts()),
+            terminal.facts().ci,
+        );
         run_in(
-            &self.project,
+            (&self.project, mode),
             runtime,
             (format, self.output.pick()),
             &self.options(),
@@ -81,7 +91,7 @@ impl Args {
 /// severity filter shows rendered, and the verdict over everything as the
 /// exit code. With a pick, the JSON form prints only the values it reaches.
 fn run_in(
-    project: &crate::project::ProjectArg,
+    (project, mode): (&crate::project::ProjectArg, specforge_effects::EffectsMode),
     runtime: SharedRuntime,
     (format, pick): (OutputFormat, Option<&Pick>),
     options: &CheckOptions,
@@ -95,7 +105,7 @@ fn run_in(
             "note: --lint pedantic is the default: info diagnostics are always reported"
         ));
     }
-    let compiled = match project.compile_in(runtime, ports) {
+    let compiled = match project.compile_for(runtime, ports, mode) {
         Ok(compiled) => compiled,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
@@ -217,7 +227,10 @@ mod tests {
         let human = |dir: &tempfile::TempDir| {
             let (terminal, capture) = Terminal::captured("", Facts::PIPED);
             let exit = run_in(
-                &crate::project::ProjectArg::at(dir.path()),
+                (
+                    &crate::project::ProjectArg::at(dir.path()),
+                    specforge_effects::EffectsMode::Cached,
+                ),
                 std::sync::Arc::new(audit_extension()),
                 (OutputFormat::Human, None),
                 &CheckOptions::default(),

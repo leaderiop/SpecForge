@@ -8,7 +8,8 @@ use std::sync::Arc;
 
 use specforge_common::ProjectRoot;
 use specforge_component::ComponentRuntime;
-use specforge_effects::{Ports, SharedGit};
+use specforge_effects::{EffectsMode, Ports};
+
 use specforge_ops::OpError;
 use specforge_project::{CompiledProject, Environment, SharedRuntime};
 
@@ -82,7 +83,12 @@ impl ProjectArg {
     /// environment holds that runtime, which every operation over its view
     /// calls extensions in.
     pub(crate) fn compile(&self, ports: &Ports) -> Result<CompiledProject, OpError> {
-        Ok(compile_at(&self.root()?, ports))
+        Ok(compiled(
+            &self.root()?,
+            Some(Arc::new(ComponentRuntime::with_user_cache())),
+            ports,
+            EffectsMode::Cached,
+        ))
     }
 
     /// [`Self::compile`] with the extensions in `runtime` (`check`'s tests give theirs).
@@ -91,11 +97,17 @@ impl ProjectArg {
         runtime: SharedRuntime,
         ports: &Ports,
     ) -> Result<CompiledProject, OpError> {
-        Ok(compiled(
-            &self.root()?,
-            Some(runtime),
-            Arc::clone(&ports.git),
-        ))
+        self.compile_for(runtime, ports, EffectsMode::Cached)
+    }
+
+    /// [`Self::compile_in`] in effects `mode` (`check`'s, chosen under its terminal's facts).
+    pub(crate) fn compile_for(
+        &self,
+        runtime: SharedRuntime,
+        ports: &Ports,
+        mode: EffectsMode,
+    ) -> Result<CompiledProject, OpError> {
+        Ok(compiled(&self.root()?, Some(runtime), ports, mode))
     }
 
     /// The project at `path` (tests that hold a path already).
@@ -119,17 +131,22 @@ pub(crate) fn compile_at(root: &ProjectRoot, ports: &Ports) -> CompiledProject {
     compiled(
         root,
         Some(Arc::new(ComponentRuntime::with_user_cache())),
-        Arc::clone(&ports.git),
+        ports,
+        EffectsMode::Cached,
     )
 }
 
-/// The project at `root` compiled in `runtime` from the plain file system, asking `git` of version control.
+/// The project at `root` compiled in `runtime` from the plain file system, asking `ports.git` of version control,
+/// its effects in `mode` over the project's journal. Until grants (ports plan 02), `auto` approves no effect.
 pub(crate) fn compiled(
     root: &ProjectRoot,
     runtime: Option<SharedRuntime>,
-    git: SharedGit,
+    ports: &Ports,
+    mode: EffectsMode,
 ) -> CompiledProject {
-    CompiledProject::of(Environment::load(root, runtime).with_git(git))
+    CompiledProject::of(specforge_project::effects::environment(
+        root, runtime, ports, mode,
+    ))
 }
 
 #[cfg(test)]

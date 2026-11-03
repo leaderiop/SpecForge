@@ -56,3 +56,29 @@ fn validate_since_judges_per_request() {
     let unknown = server.call_tool("specforge.validate", json!({"since": "nosuch"}));
     assert_eq!(unknown["result"]["isError"], true, "{unknown}");
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "validate's effects re-runs the check for that request only, and replay refuses nothing it holds"
+)]
+fn validate_effects_reruns_per_request() {
+    let runtime: SharedRuntime = Arc::new(gsd_history_runtime(json!([])));
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[GSD_EXTENSION])
+        .file("a.spec", decision("project"));
+    let fake = FakeGit::repo(
+        project.root(),
+        &"a".repeat(40),
+        vec![("a.spec".into(), decision("project").into_bytes())],
+    );
+    let mut server = Served::initialized_in_git(project, runtime, Arc::new(fake));
+    let plain = codes(&server.call_tool("specforge.validate", json!({})));
+    // No check asks for an effect yet: every mode reports what the served session does, and replay misses nothing.
+    for mode in ["replay", "online", "auto", "cached"] {
+        let reply = server.call_tool("specforge.validate", json!({"effects": mode}));
+        assert_eq!(codes(&reply), plain, "{mode}: {reply}");
+    }
+    let unknown = server.call_tool("specforge.validate", json!({"effects": "always"}));
+    assert_eq!(unknown["result"]["isError"], true, "{unknown}");
+}

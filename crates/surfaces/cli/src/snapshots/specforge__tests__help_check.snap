@@ -12,6 +12,15 @@ Options:
           
           [default: .]
 
+      --effects <EFFECTS>
+          Whether the run performs, reuses or replays an http or process effect (ADR 0337): `check` runs `auto` when someone can answer outside CI, every other run `cached`
+
+          Possible values:
+          - online: Performed when granted; the answer is journaled
+          - auto:   A fresh record; else performed when approved; else not performed
+          - cached: A fresh record; else not performed
+          - replay: Any record, expired or not; else a miss
+
       --strict
           Promote warnings to errors
 

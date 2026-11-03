@@ -217,6 +217,33 @@ fn validate_advertises_severity_filter() {
     );
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "validate advertises effects, and a call without it performs no effect"
+)]
+fn validate_advertises_effects_defaulting_to_cached() {
+    let tools = advertised_properties();
+    let validate = tools
+        .get("specforge.validate")
+        .expect("validate advertised");
+    assert!(
+        validate.iter().any(|p| p == "effects"),
+        "specforge.validate reads 'effects' (validate.rs) but does not advertise it"
+    );
+    let tool = crate::support::core_tools()
+        .into_iter()
+        .find(|t| t.name == "specforge.validate")
+        .unwrap();
+    let effects = &tool.input_schema["properties"]["effects"];
+    assert!(
+        effects["description"]
+            .as_str()
+            .unwrap()
+            .contains("cached (the default)"),
+        "{effects}"
+    );
+}
+
 #[test]
 fn search_advertises_field_value_references() {
     let tools = advertised_properties();
