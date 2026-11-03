@@ -388,6 +388,7 @@ fn diagnostic(rule: &Rule, message: String, record: &EntityRecord) -> Diagnostic
     let mut diagnostic = match &rule.origin {
         Origin::Extension(extension) => {
             Diagnostic::from_extension(extension, rule.code.clone(), rule.severity, message)
+                .decided_by_machine(rule.declared.machine)
         }
         Origin::Host => Diagnostic::untyped(rule.code.clone(), rule.severity, message),
     };

@@ -43,6 +43,9 @@ pub struct CodeEntry {
     /// `E`/`W`/`I` prefix states it (the table does not compile otherwise);
     /// an `A###` finding's severity is set by its pass.
     pub level: Level,
+    /// This machine decides it (its approvals, its network or its journal), not the project: `--strict` never
+    /// promotes it and the gate's warning baseline never counts it (ADR 0337 D7).
+    pub machine: bool,
     /// What triggers the diagnostic and how to fix it.
     pub explanation: &'static str,
 }

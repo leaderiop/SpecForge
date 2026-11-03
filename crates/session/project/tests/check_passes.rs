@@ -468,6 +468,7 @@ fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
             title: "t".to_string(),
             explanation: "e".to_string(),
             docs: None,
+            machine: false,
         }],
     )
     .unwrap();
@@ -529,4 +530,43 @@ fn previous_is_the_baseline_of_the_declared_kinds() {
     let fields = &previous["entities"]["v1.0/03/V"]["fields"];
     assert_eq!(fields["phase"], "v1.0/03");
     assert_eq!(fields["status"], "passed", "computed values are included");
+}
+
+/// A pass finding of a code the extension catalogs `machine` is marked machine where it enters the host
+/// (ADR 0337 D7); its other findings are the project's.
+#[test]
+fn a_pass_finding_of_a_machine_code_is_marked_machine() {
+    let output = PassOutput {
+        diagnostics: vec![
+            PassDiagnostic::new("W951", PassSeverity::Warning, "unreachable"),
+            PassDiagnostic::new("W950", PassSeverity::Warning, "plain"),
+        ],
+        summary: Default::default(),
+        values: Vec::new(),
+    };
+    let code = |local: &str, machine| specforge_diagnostics::ExtensionCode {
+        local: local.to_string(),
+        title: "t".to_string(),
+        explanation: "e".to_string(),
+        docs: None,
+        machine,
+    };
+    let mut book = specforge_diagnostics::Codebook::default();
+    book.add("@acme/links", vec![code("W950", false), code("W951", true)])
+        .unwrap();
+    let findings = specforge_project::passes::pass_findings(
+        "@acme/links",
+        "links",
+        output,
+        &specforge_registry::EntitySnapshot::default(),
+        &book,
+    );
+    let marked: Vec<_> = findings
+        .iter()
+        .map(|d| (d.code.as_str(), d.machine))
+        .collect();
+    assert_eq!(
+        marked,
+        [("acme.links/W950", false), ("acme.links/W951", true)]
+    );
 }

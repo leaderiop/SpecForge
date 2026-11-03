@@ -128,6 +128,8 @@ pub fn pass_findings(
         entities.get(id).map(|(record, _)| record.span.clone())
     });
     for finding in &mut findings {
+        // Where an extension's finding enters: its code says whether this machine decides it (ADR 0337 D7).
+        finding.machine = codes.machine(extension, &finding.code);
         finding.code = qualify(extension, &finding.code);
     }
     findings.append(&mut misused);

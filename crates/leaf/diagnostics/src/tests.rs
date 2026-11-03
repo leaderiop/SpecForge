@@ -174,6 +174,24 @@ fn code_constants_are_their_catalog_entries() {
     );
 }
 
+/// The `machine` codes are the effects summaries, I206 for now (each later ticket and plan adds its own): the constant and the
+/// entry agree, and every other core code is the project's.
+#[specforge_test(
+    invariant = "diagnostic_code_uniqueness",
+    verify = "a core code's constant carries its catalogued machine marker"
+)]
+fn machine_codes_are_effect_summaries() {
+    let machine: Vec<&str> = CATALOG
+        .iter()
+        .filter(|e| e.machine)
+        .map(|e| e.code)
+        .collect();
+    assert_eq!(machine, ["I206"]);
+    assert!(codes::I206.machine());
+    assert_eq!(codes::I206.level(), Level::Info);
+    assert!(!codes::W112.machine());
+}
+
 /// C3: hand-written docs cite only catalogued codes. `docs/diagnostics.md`
 /// is generated from the catalog, and ADRs are dated records that quote
 /// the codes of their time; an extension's local code (E901) is never in the static catalog.

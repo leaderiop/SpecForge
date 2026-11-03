@@ -46,6 +46,7 @@ impl Severity {
 ///     suggestion: None,
 ///     data: None,
 ///     origin: None,
+///     machine: false,
 /// };
 /// ```
 #[non_exhaustive]
@@ -75,6 +76,11 @@ pub struct Diagnostic {
     /// described as another owner's. Serialized only when set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<String>,
+    /// This machine decided it (its approvals, its network or its journal), not the project (ADR 0337 D7): `--strict`
+    /// never promotes it, and the gate's warning baseline never counts it. Set from its code's catalog entry, or
+    /// the extension's `CodeDescriptor.machine`; serialized only when set.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub machine: bool,
 }
 
 /// A diagnostic's structured payload: the values its message names, as
@@ -186,7 +192,9 @@ impl Diagnostic {
     /// A diagnostic of a core code, at the code's catalogued level:
     /// `Diagnostic::new(codes::W112, message)` is a warning.
     pub fn new(code: Code, message: impl Into<String>) -> Self {
-        Self::untyped(code.id(), Severity::of(code), message)
+        let mut diagnostic = Self::untyped(code.id(), Severity::of(code), message);
+        diagnostic.machine = code.machine();
+        diagnostic
     }
 
     /// An analyze finding (`A###`) at the severity its pass grades it.
@@ -211,6 +219,7 @@ impl Diagnostic {
             suggestion: None,
             data: None,
             origin: None,
+            machine: false,
         }
     }
 
@@ -240,6 +249,12 @@ impl Diagnostic {
             Some(DiagnosticData::Subject { entity }) => Some(entity),
             _ => None,
         }
+    }
+
+    /// Mark it decided by this machine, not the project (an extension code's `CodeDescriptor.machine`).
+    pub fn decided_by_machine(mut self, machine: bool) -> Self {
+        self.machine = machine;
+        self
     }
 
     /// Whether this diagnostic is of `code`.

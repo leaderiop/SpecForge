@@ -47,6 +47,8 @@ pub(super) fn build(
         for descriptor in &declaration.validation_rules {
             diagnostics.extend(code_misuse(codes, extension, descriptor, &mut misused));
             let built = shape(descriptor, extension).and_then(|mut rule| {
+                // Where an extension's finding enters: its code says whether this machine decides it.
+                rule.declared.machine = codes.machine(extension, &descriptor.code);
                 if rule.declared.judged.is_some() && !judged_codes.insert(descriptor.code.clone()) {
                     return Err(cannot_fire(
                         extension,
@@ -452,6 +454,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
             }),
             wasm_function: r.wasm_function.clone(),
             judged,
+            machine: false,
         },
     })
 }

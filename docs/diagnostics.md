@@ -1986,6 +1986,24 @@ Owner: core
 Level: info
 ```
 
+## I206
+
+```
+I206: Value checks not run
+
+Some value checks were not run on this machine (ADR 0337): the run was offline,
+in `cached` mode with no fresh record in the effects journal
+(`.specforge/effects/`), or the effect was not approved here. One summary per
+compile counts them by scope (`links 2, registries 3`). The values are left
+unchecked, not failed, and nothing is wrong with the project. Run `specforge
+check` at a terminal (it runs `--effects auto`), or `--effects online`, to
+perform them. A `machine` diagnostic: `--strict` never promotes it, and the
+gate's warning baseline never counts it.
+
+Owner: core
+Level: info
+```
+
 ## I209
 
 ```

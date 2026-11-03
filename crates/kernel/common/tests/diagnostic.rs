@@ -145,3 +145,24 @@ fn placed_at_subject_takes_the_first_known_subjects_span() {
         None
     );
 }
+
+#[specforge_test(
+    invariant = "diagnostic_code_uniqueness",
+    verify = "a diagnostic of a machine code is marked machine, and serializes the mark only when set"
+)]
+fn a_machine_code_builds_a_machine_diagnostic() {
+    let machine = Diagnostic::new(codes::I206, "2 value checks not run (links 2)");
+    assert!(machine.machine, "I206 is catalogued machine");
+    assert_eq!(serde_json::to_value(&machine).unwrap()["machine"], true);
+    let project = Diagnostic::new(codes::W112, "m");
+    assert!(!project.machine);
+    assert!(
+        serde_json::to_value(&project)
+            .unwrap()
+            .get("machine")
+            .is_none()
+    );
+    let extension = Diagnostic::from_extension("@acme/links", "W900", Severity::Warning, "m")
+        .decided_by_machine(true);
+    assert!(extension.machine, "an extension code's descriptor marks it");
+}

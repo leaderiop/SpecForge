@@ -379,6 +379,9 @@ catalog! {
     I205: Info core,
         "Test inputs not judged",
         "A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a `test(..)` selector, or a verdict that cites tests), or a check, compute or guard pass declares the `tests` input (ADR 0293, ADR 0337), but no test results are recorded: there is no `specforge-report.json`, or every chain of a `test(..)` input reads references whose facts no collect has stored (ADR 0331). Run `specforge collect`. The rule's other inputs are judged as usual and the test input is left out of the comparison, so a verdict is not made stale by results that are not there. Nothing is wrong with the project. A report that exists but cannot be used is E045.";
+    I206: Info core machine,
+        "Value checks not run",
+        "Some value checks were not run on this machine (ADR 0337): the run was offline, in `cached` mode with no fresh record in the effects journal (`.specforge/effects/`), or the effect was not approved here. One summary per compile counts them by scope (`links 2, registries 3`). The values are left unchecked, not failed, and nothing is wrong with the project. Run `specforge check` at a terminal (it runs `--effects auto`), or `--effects online`, to perform them. A `machine` diagnostic: `--strict` never promotes it, and the gate's warning baseline never counts it.";
     I209: Info core,
         "Facts filed under a key that is not a clean commit",
         "`specforge collect` stored a collector's facts (ADR 0327) under a key that is not HEAD's sha: `<sha>-dirty` when the tree holds a tracked change, a conflict or an untracked file, or `worktree` when the project is in no repository, HEAD is unborn, or git can't be asked. The key is provenance: a reader compares it with HEAD to call a fact fresh, and a dirty collect replaces the previous one of that sha. Commit, then collect again, to file the facts under the commit.";

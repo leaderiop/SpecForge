@@ -47,6 +47,7 @@ pub fn catalogue_rule_codes(mut declaration: ExtensionDeclaration) -> ExtensionD
                     title: "A test rule".to_string(),
                     explanation: "A test rule's finding.".to_string(),
                     docs: None,
+                    machine: false,
                 });
         }
     }

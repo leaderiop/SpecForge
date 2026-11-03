@@ -54,8 +54,10 @@ invariant diagnostic_code_uniqueness "Diagnostic Code Uniqueness" {
   risk      high
   verify property "Diagnostic Code Uniqueness guarantee holds"
   verify unit "a core code's constant carries its catalogued level and owner"
+  verify unit "a core code's constant carries its catalogued machine marker"
   verify unit "a host diagnostic's severity is its code's catalogued level"
   verify unit "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
   verify unit "a third-party extension's code is its namespace and its own local code"
   verify unit "an extension's code never prints as a core code or another extension's"
+  verify unit "a diagnostic of a machine code is marked machine, and serializes the mark only when set"
 }

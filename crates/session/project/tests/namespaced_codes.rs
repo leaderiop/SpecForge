@@ -17,6 +17,7 @@ fn findings(
             title: "t".to_string(),
             explanation: "e".to_string(),
             docs: None,
+            machine: false,
         }],
     )
     .unwrap();

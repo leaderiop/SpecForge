@@ -399,6 +399,12 @@ impl CodeBuilder {
         self.0.docs = Some(url.to_string());
         self
     }
+    /// A finding of this code is decided by the machine that runs the check (its approvals, network or effects
+    /// journal), not the project: `--strict` never promotes it and the gate's warning baseline never counts it.
+    pub fn machine(&mut self) -> &mut Self {
+        self.0.machine = true;
+        self
+    }
 }
 
 /// Builder for [`ValidationRuleDescriptor`], with a `custom` rule's

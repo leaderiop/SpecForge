@@ -1083,6 +1083,8 @@ behavior check_diagnostic_policy "Apply the Diagnostic Policy Once" {
   verify unit "the verdict is taken over every reported diagnostic, never the filtered ones"
   verify unit "strict promotes warnings before the verdict, so a strict check with warnings is not clean"
   verify unit "--lint pedantic is accepted and changes nothing"
+  verify unit "strict never promotes a machine diagnostic, an extension's included"
+  verify unit "the value checks a run did not perform are one I206, counted by scope"
 }
 
 behavior filter_reported_diagnostics "Filter Reported Diagnostics by Severity" {

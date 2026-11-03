@@ -41,6 +41,7 @@ pub fn extension_codes(declaration: &ExtensionDeclaration) -> Vec<ExtensionCode>
             title: entry.title.clone(),
             explanation: entry.explanation.clone(),
             docs: entry.docs.clone(),
+            machine: entry.machine,
         })
         .collect()
 }

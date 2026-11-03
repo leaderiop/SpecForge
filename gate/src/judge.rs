@@ -33,12 +33,20 @@ pub fn spec_verdict(
             .iter()
             .filter(|d| severity(d) == Some("Error"))
             .collect();
-        let mut warnings: BTreeMap<String, u64> = BTreeMap::new();
+        // A machine warning is this machine's network, approvals or journal, not the project's: it is never counted
+        // against the baseline, only named (ADR 0337 D7).
+        let (mut warnings, mut machine): (BTreeMap<String, u64>, BTreeMap<String, u64>) =
+            Default::default();
         for d in diagnostics
             .iter()
             .filter(|d| severity(d) == Some("Warning"))
         {
-            *warnings
+            let counted = if d["machine"] == true {
+                &mut machine
+            } else {
+                &mut warnings
+            };
+            *counted
                 .entry(d["code"].as_str().unwrap_or("?").to_string())
                 .or_default() += 1;
         }
@@ -47,6 +55,17 @@ pub fn spec_verdict(
             errors.len(),
             warnings.values().sum::<u64>()
         ));
+        if !machine.is_empty() {
+            let named: Vec<String> = machine
+                .iter()
+                .map(|(code, n)| format!("{code} {n}"))
+                .collect();
+            lines.push(format!(
+                "  {} machine warnings not judged: {}",
+                machine.values().sum::<u64>(),
+                named.join(", ")
+            ));
+        }
         for d in &errors {
             let span = &d["span"];
             lines.push(format!(
@@ -280,6 +299,30 @@ mod tests {
         let refused = spec_verdict(&found(".", warnings("W003", 2)), &baseline, true);
         assert!(refused.failed && refused.new_baseline.is_none());
         assert!(refused.lines.last().unwrap().contains("not written"));
+    }
+
+    #[test]
+    fn machine_warnings_stay_out_of_the_baseline() {
+        let baseline = allowed(&[(".", "W003", 1)]);
+        let diagnostics = json!([
+            {"severity": "Warning", "code": "W003", "message": "m"},
+            {"severity": "Warning", "code": "checks/W172", "message": "m", "machine": true},
+            {"severity": "Warning", "code": "checks/W172", "message": "m", "machine": true},
+        ]);
+        let verdict = spec_verdict(&found(".", diagnostics), &baseline, true);
+        assert!(!verdict.failed, "{:?}", verdict.lines);
+        assert_eq!(
+            verdict.new_baseline,
+            Some(baseline),
+            "the project's counts are as they were"
+        );
+        assert_eq!(
+            verdict.lines,
+            [
+                ".: 0 errors, 1 warnings",
+                "  2 machine warnings not judged: checks/W172 2"
+            ]
+        );
     }
 
     #[test]

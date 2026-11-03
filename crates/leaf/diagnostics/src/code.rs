@@ -37,6 +37,7 @@ use crate::Level;
 pub struct Code {
     id: &'static str,
     level: Level,
+    machine: bool,
 }
 
 impl Code {
@@ -44,7 +45,7 @@ impl Code {
     /// `const` item, so a failed assertion is a compile error at that code.
     /// Host source never calls it (it would spell a code as text).
     #[doc(hidden)]
-    pub const fn catalogued(id: &'static str, level: Level) -> Code {
+    pub const fn catalogued(id: &'static str, level: Level, machine: bool) -> Code {
         assert!(
             !matches!(level, Level::SetByPass),
             "a code whose pass sets its level is a GradedCode"
@@ -53,7 +54,7 @@ impl Code {
             prefix_states(id, level),
             "an E/W/I prefix states the code's level"
         );
-        Code { id, level }
+        Code { id, level, machine }
     }
 
     /// The code as text (`W112`, `R-RES-005`).
@@ -64,6 +65,11 @@ impl Code {
     /// The catalogued level; never [`Level::SetByPass`].
     pub const fn level(self) -> Level {
         self.level
+    }
+
+    /// Whether this machine decides it, not the project (its catalog entry's `machine` marker, ADR 0337 D7).
+    pub const fn machine(self) -> bool {
+        self.machine
     }
 
     /// Whether a diagnostic's text code is this one (consumers compare with
@@ -161,7 +167,7 @@ mod tests {
 
     #[test]
     fn a_code_prints_and_matches_its_id() {
-        let code = Code::catalogued("W112", Level::Warning);
+        let code = Code::catalogued("W112", Level::Warning, false);
         assert_eq!(code.to_string(), "W112");
         assert!(code.matches("W112"));
         assert!(!code.matches("W113"));

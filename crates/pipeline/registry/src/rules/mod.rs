@@ -91,6 +91,8 @@ struct Declared {
     wasm_function: Option<String>,
     /// A judged rule's declaration, and the rule it registers (ADR 0290).
     judged: Option<(JudgedDescriptor, JudgedRule)>,
+    /// Its code is decided by this machine, not the project (`Codebook::machine`, ADR 0337 D7): so is each finding.
+    machine: bool,
 }
 
 #[derive(Debug, Clone)]

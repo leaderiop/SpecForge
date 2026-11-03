@@ -113,12 +113,14 @@ fn full() -> ExtensionDeclaration {
                 title: "Report without a title".to_string(),
                 explanation: "Give the report a title.".to_string(),
                 docs: Some("https://acme.dev/codes#r001".to_string()),
+                machine: true,
             },
             CodeDescriptor {
                 code: "R002".to_string(),
                 title: "Chart without an axis".to_string(),
                 explanation: "Name the chart's axis.".to_string(),
                 docs: None,
+                machine: false,
             },
         ],
         settings: vec![SettingsItem::Setting(SettingDescriptor {

@@ -491,7 +491,8 @@ fn first_problem(lines: &[String]) -> String {
         .map_or_else(String::new, |l| l.trim().to_string())
 }
 
-/// `specforge check --path <project> --format json` for every project: each one's diagnostics.
+/// `specforge check --path <project> --format json --effects cached` for every project: each one's diagnostics. The
+/// gate never reaches the network: it judges what the effects journal holds (ADR 0337 D7).
 fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String> {
     let specforge = ctx.specforge()?;
     let mut found = BTreeMap::new();
@@ -502,6 +503,8 @@ fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String
             &project.root,
             "--format",
             "json",
+            "--effects",
+            "cached",
         ]))?;
         let diagnostics: Value = serde_json::from_str(&out).map_err(|e| {
             format!(
