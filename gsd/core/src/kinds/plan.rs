@@ -59,7 +59,8 @@ pub const PLAN: Kind = Kind::new(
             .doc("derived from the plan-check verdict and the summary"),
     ],
 )
-.scoped_by("phase");
+.scoped_by("phase")
+.complete_when("status", &["complete"]);
 
 const TASK_TYPE: &[&str] = &["auto", "tdd", "tracer", "manual"];
 const RATING: &[&str] = &["reversible", "costly", "one_way"];
@@ -101,7 +102,8 @@ pub const TASK: Kind = Kind::new(
             .doc("done when its plan's summary lists it complete"),
     ],
 )
-.scoped_by("plan");
+.scoped_by("plan")
+.complete_when("status", &["done"]);
 
 const CHECKPOINT_KIND: &[&str] = &["human_verify", "decision", "human_action", "tdd_review"];
 const GATE: &[&str] = &["blocking", "blocking_human", "advisory"];

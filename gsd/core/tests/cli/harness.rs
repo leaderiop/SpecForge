@@ -101,8 +101,8 @@ pub struct Project {
     dir: tempfile::TempDir,
     /// The project's root: the temp dir, or a directory inside it.
     root: PathBuf,
-    /// The loaded extensions as `(name, component)`, `@gsd/core` first.
-    extensions: Vec<(String, PathBuf)>,
+    /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component.
+    extensions: Vec<(String, Option<PathBuf>)>,
 }
 
 pub fn project(name: &str) -> Project {
@@ -149,7 +149,7 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
     let p = Project {
         dir,
         root,
-        extensions: vec![("@gsd/core".to_string(), wasm)],
+        extensions: vec![("@gsd/core".to_string(), Some(wasm))],
     };
     p.settings(serde_json::json!({}));
     p
@@ -173,7 +173,10 @@ impl Project {
         let extensions: Vec<String> = self
             .extensions
             .iter()
-            .map(|(name, wasm)| format!("{name}={}", wasm.display()))
+            .map(|(name, wasm)| match wasm {
+                Some(wasm) => format!("{name}={}", wasm.display()),
+                None => name.clone(),
+            })
             .collect();
         let manifest = serde_json::json!({
             "name": "gsd-test",
@@ -191,12 +194,26 @@ impl Project {
         reason = "@gsd/security's tests include this file and use it; core's do not"
     )]
     pub fn with_extension(mut self, name: &str, var: &str) -> Self {
-        self.extensions.push((name.to_string(), required(var)));
+        self.extensions
+            .push((name.to_string(), Some(required(var))));
+        self.rewrite_extensions();
+        self
+    }
+
+    /// Loads the builtins `names` too, by name, after `@gsd/core`.
+    pub fn with_builtins(mut self, names: &[&str]) -> Self {
+        self.extensions
+            .extend(names.iter().map(|name| (name.to_string(), None)));
+        self.rewrite_extensions();
+        self
+    }
+
+    /// Rewrites `specforge.json`'s extensions, its spec root and `@gsd/core`'s settings kept.
+    fn rewrite_extensions(&self) {
         let manifest = self.manifest();
         let spec_root = manifest["spec_root"].as_str().unwrap_or("spec").to_string();
         let core = manifest["settings"]["@gsd/core"].clone();
         self.settings_in(&spec_root, core);
-        self
     }
 
     /// Sets the settings block of `extension` (`@gsd/security`) in `specforge.json`.

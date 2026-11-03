@@ -430,6 +430,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "TruthProof",
+        "source_kind": "truth",
+        "target_kind": "test"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "ArtifactPlan",
         "source_kind": "artifact",
         "target_kind": "plan"
@@ -3950,6 +3959,12 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "complete"
+          ]
+        },
         "description": "A plan: the work of one phase in tasks, with its must-haves (GSD NN-MM-PLAN.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -4249,6 +4264,12 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "done"
+          ]
+        },
         "description": "A task of a plan (GSD <task>)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -4808,6 +4829,17 @@
             "name": "requirement",
             "required": false,
             "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "the tests that prove it: `@code/core` test facts, quoted (`\"js:pkg/a.test.js#adds\"`)",
+            "edge": "TruthProof",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "proof",
+            "required": false,
+            "target_kind": "test"
           },
           {
             "default_value": null,

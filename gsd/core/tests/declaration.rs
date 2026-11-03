@@ -20,6 +20,19 @@ fn the_handshake_names_gsd_core_and_its_tracked_release() {
     );
 }
 
+/// A truth's `proof` names `@code/core`'s test facts (ADR 0331 D2), and a project works without them: the peer is
+/// optional, so `specforge add @gsd/core` does not enable it and a project without it is no W021.
+#[test]
+fn the_handshake_names_code_core_as_an_optional_peer() {
+    let host = MockHost::new(build());
+    let handshake: serde_json::Value =
+        serde_json::from_str(&host.handshake_json()).expect("the handshake is JSON");
+    assert_eq!(
+        handshake["peer_dependencies"],
+        serde_json::json!([{"name": "@code/core", "version": "^1.0", "optional": true}])
+    );
+}
+
 /// D-r44-23: the extension\'s version is the crate\'s, so a bump moves `Cargo.toml` and the lock and no test.
 #[test]
 fn the_handshake_names_the_crate_version() {

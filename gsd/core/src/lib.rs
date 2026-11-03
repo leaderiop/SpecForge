@@ -22,6 +22,9 @@ use specforge_extension_sdk::prelude::*;
 /// The gsd-core release this crate tracks; `[package.metadata.gsd] tracks` in `Cargo.toml` says the same.
 pub const TRACKS: &str = concat!("gsd-core@", gsd_kit::tracked_version!());
 
+/// The `@code/core` versions a truth's `proof` reads the `test` facts of (ADR 0331 D2); a project works without it.
+const CODE_CORE_RANGE: &str = "^1.0";
+
 #[specforge_extension_sdk::extension(
     name = "@gsd/core",
     short = "gsd",
@@ -32,6 +35,7 @@ struct GsdCore;
 impl Contributions for GsdCore {
     fn contribute(c: &mut ContributionsBuilder) {
         c.meta.keywords.push(format!("tracks:{TRACKS}"));
+        c.optional_peer("@code/core", CODE_CORE_RANGE);
         agents::declare(c);
         kinds::declare(c);
         rules::declare(c);

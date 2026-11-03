@@ -85,6 +85,7 @@ mod prompts_spec;
 mod prompts_support;
 mod prompts_verify;
 mod prompts_workspace;
+mod proof;
 mod queries;
 mod quick_context;
 mod reference;
