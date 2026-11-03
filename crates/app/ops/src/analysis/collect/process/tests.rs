@@ -156,3 +156,53 @@ fn consent_is_keyed_by_project_extension_and_command() {
     machine.approve(&changed).unwrap();
     assert_eq!(machine.load().approved.len(), 1, "approval replaced");
 }
+
+#[cfg(unix)]
+#[test]
+#[ignore = "pin: 01-D8, flipped by 01 T12"]
+fn a_command_past_the_deadline_is_stopped() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    let (tx, rx) = std::sync::mpsc::channel();
+    // The run is left to finish on its thread when the pin fails.
+    std::thread::spawn(move || {
+        let argv = vec!["sh".to_string(), "-c".into(), "sleep 30".into()];
+        let ran = run(
+            &argv,
+            &root,
+            &root.join("r.json"),
+            None,
+            RunnerOutput::Discard,
+        );
+        let _ = tx.send(ran.is_err());
+    });
+    let stopped = rx.recv_timeout(std::time::Duration::from_secs(5));
+    assert_eq!(stopped, Ok(true), "the command outlived its deadline");
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "pin: 01-D9, flipped by 01 T12"]
+#[expect(
+    unsafe_code,
+    reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
+)]
+fn a_cmd_shim_on_path_runs() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("shim.cmd"), "@exit /b 3\r\n").unwrap();
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let mut paths = vec![dir.path().to_path_buf()];
+    paths.extend(std::env::split_paths(&path));
+    // SAFETY: no other thread of this test reads the environment.
+    unsafe { std::env::set_var("PATH", std::env::join_paths(paths).unwrap()) };
+    let argv = vec!["shim".to_string()];
+    let ran = run(
+        &argv,
+        dir.path(),
+        &dir.path().join("r.json"),
+        None,
+        RunnerOutput::Discard,
+    )
+    .unwrap();
+    assert_eq!(ran.exit_code, Some(3));
+}
