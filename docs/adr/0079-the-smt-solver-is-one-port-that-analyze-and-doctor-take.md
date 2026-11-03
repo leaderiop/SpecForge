@@ -2,6 +2,7 @@
 
 **Status:** accepted (2026-10-13, architecture round 9, plan 09). Leaves ADR 0004 D3-f and ADR 0009 A's
 "Next step" as they are.
+Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) (D4: the runner enforces the adapter's timeouts, process group included).
 
 `specforge analyze --prove` asks z3 whether the declared bounds are consistent and entail the declared claims;
 `specforge doctor` says whether z3 is installed. The solver sat behind three seams: a private `Solver` trait in
@@ -57,3 +58,9 @@ use the real z3 and fail with how to install it when it is missing.
 - Doctor's JSON and MCP replies say `W098` where they said `z3_missing`; the human report prints the toolchain
   finding in a "Toolchain:" section.
 - The prove summary's `solver` is `null` when no solver runs.
+
+## Amendment (2026-11-03, ports round, [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md))
+
+- **D4:** the adapter still states its timeouts; the one runner (`specforge-process`, the `Process` port) enforces
+  them. A solve or probe past its deadline has its whole process group (a Job object on Windows) killed, so a
+  grandchild left holding a pipe does not outlive it.

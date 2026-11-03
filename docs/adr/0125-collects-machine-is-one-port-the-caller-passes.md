@@ -4,6 +4,7 @@
 ("Execution"). Mirrors [ADR 0079](0079-the-smt-solver-is-one-port-that-analyze-and-doctor-take.md). Leaves ADR 0110 and
 ADR 0112 as they are. Amended by round 15, plan 07 (D7: each mode checks only the locations it reads).
 Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (D5: a collector chosen by detection whose run yields no evidence is skipped, not fatal).
+Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) (D1: `ProcessMachine` runs through the `Process` port, held to a deadline ceiling and an output cap, with the env policy).
 
 `collect` orders consent, a command run, a report read and a merge, but it reached the machine directly: a child
 process, the wall clock and the user's consent file through `HOME`. No ops test could run the flow past consent: every
@@ -81,3 +82,9 @@ D5's list is the refusals of the locations a mode reads (D7). `collect --report`
 report (E058), an unknown capture (E058) or a declared report that lands outside (`outside_root`). Rejected: one
 module per mode (three modules sharing the declared locations, for three modes unchanged since ADR 0002); an `Option`
 for the declared locations (the mode and the option could disagree).
+
+## Amendment (2026-11-03, ports round, [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md))
+
+- **D1:** `ProcessMachine` runs the approved command through the `Process` port the caller passes. The run is held to
+  the collector deadline (a 600 s ceiling) and a 64 MiB output cap; a stopped run is E045 naming why. The command
+  gets the parent's environment minus a secret deny-list. The clock of D3 is the runner's.

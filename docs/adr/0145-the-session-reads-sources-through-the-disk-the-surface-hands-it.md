@@ -1,6 +1,7 @@
 # The session reads sources through the disk the surface hands it
 
 **Status:** accepted (2026-10-17, round 14 follow-up H1). D5 is amended by [ADR 0146](0146-a-file-with-more-than-one-name-is-not-read-through-a-bound.md): a file with more than one name is refused over MCP; D1-D4 stand. **Amended by ADR 0158 (2026-10-19):** D1: what the session compiles from what it read (a typed edit's edited project) reads no source again, and a migration reads its sources through the request's containment. Amends [ADR 0092](0092-a-path-an-mcp-request-names-resolves-inside-the-served-project.md) D8 (a read of a project source is bounded too, not only a mutation), [ADR 0129](0129-a-source-read-is-a-recorded-read.md) D1 (the recording run wraps the disk it is given), [ADR 0139](0139-a-compiled-project-reads-its-recorded-report-through-the-disk-it-is-handed.md) D2 (the surface decides the disk, now also for sources) and [ADR 0144](0144-a-project-file-is-written-by-replacing-its-name.md) D3 (the read exposure of a hard link now has one home, here). **Amended by ADR 0166 (2026-10-19):** D1: a one-shot compile is handed a source disk too (`CompiledProject::compile_through`).
+Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) (D3: checks resolve paths through `Contained`, not plain; D4: a spec root outside the project is its own root).
 
 Over MCP the session read every `.spec` source through `PlainDisk`, which follows symlinks wherever they lead. A
 `spec/leak.spec` linked to a file outside the project was parsed: the parser quoted its text in E001 messages and its
@@ -51,3 +52,11 @@ a file that is not text). The pins are `source_links.rs` (MCP), `tests/source_di
 
 `Disk` gaining a metadata method; a stated promise that a sandboxed agent cannot learn the contents of outside files
 (the `nlink` refusal returns); a content leak through `specforge.json` or the lock.
+
+## Amendment (2026-11-03, ports round, [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md))
+
+- **D3:** checks no longer read plain paths. A checked path (E016) resolves through `Contained`: it is contained in the
+  root it names, so a path that climbs out, is absolute or links out is E094, whatever disk the surface handed. A file
+  outside the project is reachable only through a named root.
+- **D4:** a `spec_root` outside the project is its own root: `spec`-rooted paths are contained in it, and `Roots` flags
+  it as outside the project, so a grant treats it as an outside root. Over MCP every source is still E025.

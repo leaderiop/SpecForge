@@ -1,6 +1,7 @@
 # An extension's sandbox is the limits the host enforces
 
 **Status:** accepted (2026-10-07). D1 extended by [ADR 0244](0244-an-extensions-text-is-read-printable-where-the-host-reads-it.md): no extension text acts on the terminal. Extended by [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md): no secret crosses into a guest. Extended by [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md): a hook is given host-computed facts, never a capability.
+Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) (D1: no capability beyond the `specforge:host` ports a grant binds; D5: one clause superseded).
 
 An extension's handshake declared a sandbox policy of seven fields and each surface an override of
 three. The host read one: `max_execution_ms`, clamped to 30 s. `max_memory_mb` was read by nobody,
@@ -75,3 +76,11 @@ content). Rejected: keeping them as ignored fields, the lie this decision remove
 - A project that must tighten a specific third-party extension below its own declaration: a
   `specforge.json` override, threaded through every load path.
 - A guest that needs more than 512 MB: raise `Limits::CEILING`, with a measurement.
+
+## Amendment (2026-11-03, ports round, [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md))
+
+- **D1** is amended: a component is granted no capability beyond the `specforge:host` ports a grant binds. Its WASI
+  context still grants nothing.
+- **D5:** only the clause "and no extension needs it (an analyzer is handed each file's content)" is superseded: value
+  checkers and the serves-itself programme need HTTP, git and contained files, which the host's ports provide. The
+  rest of D5 stands, "addresses, not names; rebinding" included: no socket is granted.

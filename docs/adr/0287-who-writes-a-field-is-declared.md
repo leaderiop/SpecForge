@@ -8,6 +8,7 @@ C (the build cache and `lifecycle_field`). Extends [ADR 0014](0014-the-session-k
 [ADR 0133](0133-recorded-inputs-are-one-table.md), [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md),
 [ADR 0184](0184-a-typed-edit-and-a-rename-write-one-planned-change.md) and
 [ADR 0282](0282-an-unknown-type-name-is-the-hosts-e004-and-a-project-has-one-spec-block.md). Takes extension protocol 1.8.0. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (a `verdict` writer, the `verdict:<rule>` ledger key, baseline judgements) and by [ADR 0299](0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) (the graph a call receives carries them) and by [ADR 0300](0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) (a compute pass at the baseline reads the commit's files).
+Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) (D6: History is the `Git` port the caller passes; no process default).
 
 ## Context
 
@@ -65,3 +66,9 @@ Protocol 1.8.0; the product extension's blob and the builtins are rebuilt after 
 W144 is retired. A plain `check` in CI compares `HEAD` with itself: judge a branch with `check --since origin/main` and
 a full-depth clone. The LSP rename (a client-applied edit) does not carry the ledger until K5. Only a change that
 rewrites the ledger takes the write lock; K5 widens it to every host write.
+
+## Amendment (2026-11-03, ports round, [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md))
+
+- **D6:** the `History` port is the effect plane's `Git` port (`specforge_effects::Git`), and the caller passes it
+  (`Environment::with_git`, `ProjectSession::with_git`). There is no process-wide default: with no port given, no git
+  is asked. Which adapter answers it is the composition root's choice.

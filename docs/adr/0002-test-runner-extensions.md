@@ -1,6 +1,7 @@
 # Tests belong to extensions: `@specforge/testing` plus one extension per test runner
 
 **Status:** accepted. Amended by [ADR 0094](0094-obligations-are-an-entitys-own-member.md) (placement of `verify` statements; W158 for W020). Amended by [ADR 0125](0125-collects-machine-is-one-port-the-caller-passes.md) (Execution: the command and the consent store are one port the caller passes; every refusal that needs no run comes before any command runs). Amended by [ADR 0280](0280-invariant-is-governances-and-formal-needs-no-software.md) (invariant's owner is governance; `init` enables governance with software). Amended by [ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md) (Linkage: a spec file may cite a test fact), with [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) (how `@code/core` judges a cited one).
+Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) (Execution: two sentences superseded; every spawn goes through the one `Process` port).
 
 Test concepts are spread across the core compiler today. `verify` is core grammar. The `analyze`
 coverage pass, the `specforge-report.json` shape and the `collect` normalizer are hard-coded to
@@ -67,3 +68,13 @@ it is the pure crate `specforge-coverage`, owned by `@specforge/testing` and lin
 - **Execution.** Consent to run a collector's command is the operation's `Asking`: `--yes` is `Yes`, MCP is
   `Nobody`, the CLI's terminal is the `Asker` ([ADR 0110](0110-who-can-be-asked-is-one-value-handed-to-an-operation.md)).
   The consent store is still read first.
+
+## Amendment (2026-11-03, ports round, [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md))
+
+- **Superseded:** "extensions stay pure wasm with no process, file or network access". The host owns every effect
+  through one effect plane of four ports (`Process`, `Http`, `Fs`, `Git`); a later decision of the round lets an
+  effectful call reach them, granted.
+- **Superseded:** "We rejected a guest-side `exec` host import: it would open a real hole in the sandbox and need a new
+  permission model, and nothing requires the guest to choose the command at runtime." The permission model is the
+  effect plane's grant; the collector's declared command still runs on the extension's behalf, now through the one
+  runner, held to a deadline and an output cap.
