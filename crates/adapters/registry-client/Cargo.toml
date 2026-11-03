@@ -1,6 +1,6 @@
 [package]
 name = "specforge-registry-client"
-description = "The package-registry client: search, resolve and publish over HTTP, credentials, publisher key pinning and package signing"
+description = "The package-registry client: search, resolve and publish through the effect plane's Http port, credentials, publisher key pinning and package signing"
 edition.workspace = true
 version.workspace = true
 license.workspace = true

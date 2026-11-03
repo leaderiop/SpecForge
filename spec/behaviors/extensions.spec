@@ -830,7 +830,7 @@ behavior search_registry "Search Registry" {
   invariants [diagnostic_determinism, multi_error_collection, offline_first_extension_resolution]
   category   query
   types      [RegistryConfig, SearchQuery, SearchResults, SearchHit, CompilerConfig]
-  ports      [RegistryClient]
+  ports      [RegistryClient, Http]
   produces   [registry_search_completed]
   requires {
     registries_available      "At least one registry is configured in specforge.json"

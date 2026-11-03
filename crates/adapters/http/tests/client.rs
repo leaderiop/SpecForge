@@ -62,7 +62,7 @@ fn private(url: &str) -> HttpRequest {
     }
 }
 
-#[test]
+#[specforge_test_macros::test(port = "Http", verify = "Http contract is satisfied")]
 fn the_client_keeps_the_http_contract() {
     specforge_effects::testing::http_contract(&Client::new());
 }

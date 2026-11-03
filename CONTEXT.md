@@ -254,6 +254,24 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   no project before it runs (ADR 0014, ADR 0024). The `path`, and every path an argument names, resolves inside
   the served project (while none is served, the server's root): one that leaves it is `invalid_input`, so
   "another project" is one nested in the served one (`specforge_ops::Containment`, ADR 0092, ADR 0104).
+- **Effect plane**: every effect the host performs (for an extension, a check, a CLI verb or itself) goes through one of
+  four **ports** the caller passes: Process, Http, Fs and Git (`specforge_effects`, ADR 0335). Each is an object-safe
+  trait shared as an `Arc`; a surface builds the adapters once, at its composition root (`specforge_effects::Ports`).
+  Each request and outcome has a canonical digest, and an outcome's class (`ok`, `exit:<n>`, `deadline`, `capped`,
+  `outside`, `unreachable:tls`, ...) is the same on every OS.
+- **Port (effect)**: one of the effect plane's four traits and its adapter: **Process** (`specforge_process::Runner`:
+  a deadline, a process group or Job kill, an environment without secrets, PATHEXT, output caps), **Http**
+  (`specforge_http::Client`: rustls on ring with the platform verifier, redirects followed under the caller's policy,
+  private addresses refused, a whole-request timeout, a body cap), **Fs** (`specforge_fs::LocalFs`: std::fs behind
+  **Contained**) and **Git** (`specforge_git::GitCli`: the git command line through the Process port, read-only). Tests
+  use `specforge_effects::testing`'s fakes, held to the same `*_contract` functions; there is no process-global
+  default, so with no git port given no git is asked.
+- **Contained**: the one path containment (`specforge_effects::Contained`, ADR 0335): a path written in a **root** is
+  resolved lexically, then where its links land, its case checked against the disk and its name against the
+  deny-list (a withheld name). One that leaves its root is refused (E094), an unknown root is E095, a case variant
+  W174, a backslash W175. E016, judged file inputs, K11 reads and a request's **Containment** all resolve through it.
+- **Root (of a path)**: the directory a written path is read against: `project`, `spec`, or a named one; a
+  `<root>/` prefix names another (`specforge_effects::Roots`, `RootName`).
 - **Containment**: what a request may reach on disk: every path (the CLI, ADR 0092 D6) or the paths that land inside
   one directory (an MCP request's bound, or the call's project). Lent by the **Caller** in the operation's request and
   applied where the operation opens or writes the file (a lock plan narrows it to its project, ADR 0137) (`specforge_ops::Containment`, ADR 0104). MCP builds one per call (`Call`), bounds the call's views by it and
@@ -276,7 +294,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Project file**: a file of the project an operation reads or writes. It is opened only as a **held path**
   (`specforge_ops::Containment::resolve`): at where its name landed (`real`), and replaced
   atomically through a temp created new beside it, keeping its permissions (ADR 0104, ADR 0112, ADR 0128), and read through the **regular read**.
-- **Held path**: a name a request's containment resolved (`specforge_ops::Held`, ADR 0272): as the caller wrote it
+- **Held path**: a name a request's containment resolved (`specforge_ops::Held`, ADR 0272; where it lands is
+  **Contained**'s walk, `RealFs::landing`): as the caller wrote it
   (`named`, what every message quotes), read against its base (`at`, links not followed: where an owned name is
   written, what a runner is handed), and where it lands (`real`, what is opened). A document or record names it by
   its project path (`Held::shown`), and a file under a held directory is its `entry`.

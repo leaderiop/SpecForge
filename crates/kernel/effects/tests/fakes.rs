@@ -7,12 +7,12 @@ use specforge_effects::{
     Http, OutcomeClass, Output, Process, ProcessClass, Redirected, Roots, Shown,
 };
 
-#[test]
+#[specforge_test_macros::test(port = "Process", verify = "Process contract is satisfied")]
 fn the_fake_process_keeps_the_process_contract() {
     process_contract(&FakeProcess::new());
 }
 
-#[test]
+#[specforge_test_macros::test(port = "Git", verify = "Git contract is satisfied")]
 fn the_fake_git_keeps_the_git_contract() {
     git_contract(&FakeGit::none(), std::path::Path::new("/nowhere"));
 }
@@ -43,7 +43,7 @@ fn the_fake_process_answers_its_script_and_records_requests() {
     assert_eq!(fake.requests().len(), 3);
 }
 
-#[test]
+#[specforge_test_macros::test(port = "Http", verify = "Http contract is satisfied")]
 fn the_fake_http_keeps_the_http_contract() {
     http_contract(&FakeHttp::new());
 }
@@ -88,7 +88,7 @@ fn the_fake_http_follows_redirects_as_an_adapter_must() {
     );
 }
 
-#[test]
+#[specforge_test_macros::test(port = "Fs", verify = "Fs contract is satisfied")]
 fn the_fake_fs_keeps_the_fs_contract() {
     let fake = FakeFs::new()
         .with_file("/p/a.txt", "a\n")

@@ -449,7 +449,7 @@ behavior run_collector_command "Run Collector Command" {
   invariants [extension_isolation]
   category   command
   types      [CollectorDescriptor]
-  ports      [FileSystem, CollectorMachine]
+  ports      [FileSystem, CollectorMachine, Process]
   requires {
     command_approved "approve_collector_command allowed the command"
   }

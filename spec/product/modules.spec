@@ -312,7 +312,7 @@ module specforge_process "specforge-process" {
 
 module specforge_registry_client "specforge-registry-client" {
   family      integration
-  description "The package-registry client: search, resolve and publish over HTTP, credentials, publisher key pinning and package signing"
+  description "The package-registry client: search, resolve and publish through the effect plane's Http port, credentials, publisher key pinning and package signing"
   depends_on  [
     specforge_common,
     specforge_effects,

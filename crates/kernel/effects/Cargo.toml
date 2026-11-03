@@ -22,6 +22,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
 specforge-effects = { path = ".", features = ["testing"] }
 tempfile = { workspace = true }
 

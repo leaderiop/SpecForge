@@ -33,7 +33,7 @@ fn has_git() -> bool {
     Command::new("git").arg("--version").output().is_ok()
 }
 
-#[test]
+#[specforge_test(port = "Git", verify = "Git contract is satisfied")]
 fn the_git_cli_keeps_the_git_contract() {
     let dir = tempfile::tempdir().unwrap();
     let cli = GitCli::new(std::sync::Arc::new(specforge_process::Runner));

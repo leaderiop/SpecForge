@@ -11,6 +11,8 @@ specforge-common = { workspace = true }
 specforge-effects = { path = "../../kernel/effects" }
 
 [dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
 specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 tempfile = { workspace = true }
 

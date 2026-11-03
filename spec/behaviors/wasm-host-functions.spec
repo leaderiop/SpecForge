@@ -133,7 +133,7 @@ behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_
 behavior provide_host_function_read_file "Provide Host Function: read_file" {
   category query
   types    [HostFunctionBinding, SandboxPolicy]
-  ports    [WasmRuntime, FileSystem]
+  ports    [WasmRuntime, FileSystem, Fs]
   requires {
     parser_call_site "call originates from a parser contribution export (not validator, renderer, or provider)"
     spec_root_known  "project's spec root path is known for path scoping enforcement"

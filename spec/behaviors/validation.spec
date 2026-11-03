@@ -339,7 +339,7 @@ behavior report_entities_without_contract_obligations "Report Entities Without C
 behavior read_git_baseline "Read the Git Baseline" {
   features [ci_integration]
   category validation
-  ports    [FileSystem]
+  ports    [FileSystem, Git]
   requires {
     history_declared "an immutable or append-only field, an append-only kind, or a pass naming a baseline kind is loaded"
   }

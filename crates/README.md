@@ -51,7 +51,7 @@ Pure-Rust adapters behind the effect plane's and the operations' ports: the proc
 | [`http`](adapters/http/) | `specforge-http` | The adapter behind the effect plane's Http port: one lazily built reqwest client on rustls with ring and the platform verifier, its redirects followed under the caller's policy, private addresses refused, a whole-request timeout and a body cap (ADR 0335) |
 | [`ops-registry`](adapters/ops-registry/) | `specforge-ops-registry` | Which registries a project uses, and the adapter behind specforge-ops' Registry port: the fetch policy over the registry client and the publish signed as the user (ADR 0010) |
 | [`process`](adapters/process/) | `specforge-process` | The adapter behind the effect plane's Process port: the one runner every spawn goes through, with a deadline, a group or Job kill, an environment policy, Windows program resolution and output caps (ADR 0335) |
-| [`registry-client`](adapters/registry-client/) | `specforge-registry-client` | The package-registry client: search, resolve and publish over HTTP, credentials, publisher key pinning and package signing |
+| [`registry-client`](adapters/registry-client/) | `specforge-registry-client` | The package-registry client: search, resolve and publish through the effect plane's Http port, credentials, publisher key pinning and package signing |
 | [`registry-wire`](adapters/registry-wire/) | `specforge-registry-wire` | The package registry's HTTP contract: paths, JSON bodies, the publish form, the package signature, error codes (ADR 0044, ADR 0061) |
 
 ### `app`

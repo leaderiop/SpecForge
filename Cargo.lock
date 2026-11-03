@@ -3006,6 +3006,8 @@ dependencies = [
  "specforge-effects",
  "specforge-package",
  "specforge-protocol-types",
+ "specforge-test",
+ "specforge-test-macros",
  "tempfile",
 ]
 
@@ -3085,6 +3087,8 @@ version = "0.3.0"
 dependencies = [
  "specforge-common",
  "specforge-effects",
+ "specforge-test",
+ "specforge-test-macros",
  "tempfile",
 ]
 
@@ -3139,6 +3143,8 @@ dependencies = [
  "rustls",
  "rustls-platform-verifier",
  "specforge-effects",
+ "specforge-test",
+ "specforge-test-macros",
  "tokio",
  "url",
  "webpki-root-certs",
@@ -3355,6 +3361,8 @@ version = "0.3.0"
 dependencies = [
  "libc",
  "specforge-effects",
+ "specforge-test",
+ "specforge-test-macros",
  "tempfile",
  "windows-sys 0.59.0",
 ]

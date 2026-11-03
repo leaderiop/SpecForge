@@ -20,6 +20,8 @@ tokio = { workspace = true }
 webpki-root-certs = { workspace = true }
 
 [dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
 specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 
 [lints]
