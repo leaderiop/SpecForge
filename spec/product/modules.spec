@@ -260,6 +260,13 @@ module specforge_ops "specforge-ops" {
   tags        ["app"]
 }
 
+module specforge_fs "specforge-fs" {
+  family      integration
+  description "The adapter behind the effect plane's Fs port: std::fs behind Contained, a capped read that never answers a withheld file, and a bounded walk that skips dependency directories and does not descend through links (ADR 0335)"
+  depends_on  [specforge_common, specforge_effects]
+  tags        ["adapters"]
+}
+
 module specforge_git "specforge-git" {
   family      integration
   description "The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287)"

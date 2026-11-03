@@ -12,7 +12,7 @@ The programs: the specforge CLI, the language server, the MCP server and the pac
 
 ### `adapters`
 
-Pure-Rust adapters behind the effect plane's and the operations' ports: the process runner, HTTP, git, the package registry and the agent hosts (ADR 0010, ADR 0044, ADR 0335).
+Pure-Rust adapters behind the effect plane's and the operations' ports: the process runner, HTTP, files, git, the package registry and the agent hosts (ADR 0010, ADR 0044, ADR 0335).
 
 | Crate | Package | Owns |
 |---|---|---|

@@ -41,10 +41,11 @@ The programs: the specforge CLI, the language server, the MCP server and the pac
 
 ### `adapters`
 
-Pure-Rust adapters behind the effect plane's and the operations' ports: the process runner, HTTP, git, the package registry and the agent hosts (ADR 0010, ADR 0044, ADR 0335).
+Pure-Rust adapters behind the effect plane's and the operations' ports: the process runner, HTTP, files, git, the package registry and the agent hosts (ADR 0010, ADR 0044, ADR 0335).
 
 | Crate | Package | Owns |
 |---|---|---|
+| [`fs`](adapters/fs/) | `specforge-fs` | The adapter behind the effect plane's Fs port: std::fs behind Contained, a capped read that never answers a withheld file, and a bounded walk that skips dependency directories and does not descend through links (ADR 0335) |
 | [`git`](adapters/git/) | `specforge-git` | The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287) |
 | [`hosts`](adapters/hosts/) | `specforge-hosts` | The agent hosts' adapters behind specforge-ops' host port: Claude Code, Codex and Cursor file layouts, config merges and hook protocols, which know no contribution's meaning (ADR 0292) |
 | [`http`](adapters/http/) | `specforge-http` | The adapter behind the effect plane's Http port: one lazily built reqwest client on rustls with ring and the platform verifier, its redirects followed under the caller's policy, private addresses refused, a whole-request timeout and a body cap (ADR 0335) |

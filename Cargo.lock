@@ -3079,6 +3079,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-fs"
+version = "0.3.0"
+dependencies = [
+ "specforge-common",
+ "specforge-effects",
+ "tempfile",
+]
+
+[[package]]
 name = "specforge-git"
 version = "0.3.0"
 dependencies = [

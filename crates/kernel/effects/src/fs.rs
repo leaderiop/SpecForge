@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use specforge_protocol_types::{FsRequest, OutcomeClass};
 
-use crate::Roots;
+use crate::{Contained, Lookup, Resolved, RootName, Roots};
 
 /// The most bytes one read answers.
 pub const READ_CEILING: u64 = 1024 * 1024;
@@ -13,8 +13,19 @@ pub const READ_CEILING: u64 = 1024 * 1024;
 pub const FILE_CEILING: u64 = 64 * 1024 * 1024;
 /// The most entries a walk visits (ADR 0293 D4).
 pub const WALK_VISITS: usize = 20_000;
-/// Directories a walk does not enter unless the glob names them (ADR 0293 D4).
-pub const SKIPPED: &[&str] = &[".git", "node_modules", "target", ".specforge"];
+/// Directories a walk or a glob does not enter unless a literal segment of the pattern names them (ADR 0293 D4):
+/// version control, the tool's own state, and the usual build and dependency output.
+pub const SKIPPED: &[&str] = &[
+    ".git",
+    ".specforge",
+    ".next",
+    ".venv",
+    "dist",
+    "node_modules",
+    "target",
+    "vendor",
+    ".svn",
+];
 
 /// Performs one file effect. Every adapter resolves the request's path in its root first: a path that leaves it is
 /// `outside`, a withheld name `denied`, an absent one `missing`.
@@ -67,4 +78,34 @@ pub struct FsStat {
     pub size: u64,
     /// Milliseconds since the Unix epoch, when the file system keeps it.
     pub modified_ms: Option<u64>,
+}
+
+/// Where `request` leads in `roots`, as every `Fs` adapter decides it ([`Contained`] over `lookup`): the whole
+/// [`Resolved`] (its root, root-relative path, where it lands and whether the written name or the landing is
+/// withheld), the root itself an empty path; or the class of a refusal (`outside`) or of a path that is absent as
+/// written (`missing`, a case variant included).
+pub fn held(
+    roots: &Roots,
+    lookup: &dyn Lookup,
+    request: &FsRequest,
+) -> Result<Resolved, OutcomeClass> {
+    let name = RootName::of(&request.root);
+    let root = roots.get(&name).ok_or(OutcomeClass::Outside)?.to_path_buf();
+    if matches!(request.path.as_str(), "" | "." | "./") {
+        return Ok(Resolved {
+            root: name,
+            rel: String::new(),
+            at: root,
+            real: None,
+            exists: true,
+            case: None,
+            backslashes: false,
+            withheld: false,
+        });
+    }
+    match Contained::new(roots, lookup).resolve(&request.path, name) {
+        Ok(resolved) if resolved.exists && resolved.case.is_none() => Ok(resolved),
+        Ok(_) => Err(OutcomeClass::Missing),
+        Err(_) => Err(OutcomeClass::Outside),
+    }
 }

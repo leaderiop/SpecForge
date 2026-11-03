@@ -9,11 +9,11 @@ use specforge_protocol_types::{
     FsOp, FsRequest, HttpRequest, OutcomeClass, ProcessRequest, Redirected, Unreachable,
 };
 
-use crate::fs::{FileKind, FsStat, READ_CEILING};
+use crate::fs::{FileKind, FsStat, READ_CEILING, held};
 use crate::http::{Any, scheme, status_class};
 use crate::{
-    Ceiling, Contained, Fs, FsOutcome, Http, HttpOutcome, Lookup, Output, Ports, Process,
-    ProcessClass, ProcessOutcome, Redirects, Resolved, RootName, Roots,
+    Ceiling, Fs, FsOutcome, Http, HttpOutcome, Lookup, Output, Ports, Process, ProcessClass,
+    ProcessOutcome, Redirects, Roots,
 };
 
 /// Ports of fakes that answer nothing: every program is not found, every URL unreachable, every file missing.
@@ -343,36 +343,6 @@ impl Lookup for FakeFs {
         names.sort();
         names.dedup();
         (!names.is_empty()).then_some(names)
-    }
-}
-
-/// Where `request` leads in `roots`, as every `Fs` adapter decides it ([`Contained`] over `lookup`): the whole
-/// [`Resolved`] (its root, root-relative path, where it lands and whether the written name or the landing is
-/// withheld), the root itself an empty path; or the class of a refusal (`outside`) or of a path that is absent as
-/// written (`missing`, a case variant included).
-pub fn held(
-    roots: &Roots,
-    lookup: &dyn Lookup,
-    request: &FsRequest,
-) -> Result<Resolved, OutcomeClass> {
-    let name = RootName::of(&request.root);
-    let root = roots.get(&name).ok_or(OutcomeClass::Outside)?.to_path_buf();
-    if matches!(request.path.as_str(), "" | "." | "./") {
-        return Ok(Resolved {
-            root: name,
-            rel: String::new(),
-            at: root,
-            real: None,
-            exists: true,
-            case: None,
-            backslashes: false,
-            withheld: false,
-        });
-    }
-    match Contained::new(roots, lookup).resolve(&request.path, name) {
-        Ok(resolved) if resolved.exists && resolved.case.is_none() => Ok(resolved),
-        Ok(_) => Err(OutcomeClass::Missing),
-        Err(_) => Err(OutcomeClass::Outside),
     }
 }
 

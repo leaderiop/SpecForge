@@ -15,6 +15,7 @@ use std::path::Path;
 
 use specforge_effects::RootName;
 use specforge_effects::contained::{Contained, Resolved};
+use specforge_effects::fs::SKIPPED;
 
 use specforge_protocol_types::{FileFact, FileFacts, FileRead};
 use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_problem};
@@ -29,19 +30,6 @@ pub const TEXT_BUDGET: usize = 1024 * 1024;
 pub const MAX_FILES: usize = 2000;
 /// The most entries (files and directories) one glob visits, matched or not.
 pub const MAX_VISITS: usize = 20_000;
-/// Directories a glob does not enter unless a literal segment of the pattern names them: version control, the tool's
-/// own state, and the usual build and dependency output.
-const SKIPPED: [&str; 9] = [
-    ".git",
-    ".specforge",
-    ".next",
-    ".venv",
-    "dist",
-    "node_modules",
-    "target",
-    "vendor",
-    ".svn",
-];
 
 /// Where the files are read from.
 #[derive(Clone, Copy)]

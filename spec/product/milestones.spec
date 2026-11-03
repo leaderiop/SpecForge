@@ -437,7 +437,7 @@ milestone wasm_host_functions "Phase 15: Wasm Host Functions" {
   contributors  ["specforge-team"]
   depends_on    [wasm_runtime]
   features      [wasm_host_function_api]
-  modules       [specforge_wasm]
+  modules       [specforge_wasm, specforge_fs]
   tags          ["h2", "runtime"]
   exit_criteria [
     "The bridge world imports the seven host functions (query_graph, emit_diagnostic, add_graph_node, add_graph_edge, read_file, emit_file, http_get) and an SDK guest calls each",

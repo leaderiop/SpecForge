@@ -1,0 +1,18 @@
+[package]
+name = "specforge-fs"
+description = "The adapter behind the effect plane's Fs port: std::fs behind Contained, a capped read that never answers a withheld file, and a bounded walk that skips dependency directories and does not descend through links (ADR 0335)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+specforge-common = { workspace = true }
+specforge-effects = { path = "../../kernel/effects" }
+
+[dev-dependencies]
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
