@@ -1,10 +1,9 @@
-use std::io::Read as _;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, SystemTime};
 
-use reqwest::StatusCode;
-use reqwest::blocking::{Client, RequestBuilder, Response};
-use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
+use http::StatusCode;
 use serde::de::DeserializeOwned;
+use specforge_effects::http::{Any, MAX_REDIRECTS};
+use specforge_effects::{Header, HttpOutcome, HttpRequest, OutcomeClass, SharedHttp, Unreachable};
 use specforge_registry_wire::reply::{self, Failure};
 use specforge_registry_wire::{
     ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit, SearchQuery,
@@ -18,29 +17,53 @@ use specforge_package::MAX_PACKAGE_BYTES;
 use specforge_package::PackageName;
 use specforge_package::Version;
 
+/// The registry protocol over the effect plane's `Http` port (ADR 0335): the token is a sensitive header (dropped on
+/// a redirect to another origin), every call is held to one timeout, and every body to its cap.
 pub struct HttpRegistryClient {
-    client: Client,
-    timeout: std::time::Duration,
+    http: SharedHttp,
+    timeout: Duration,
 }
 
 impl HttpRegistryClient {
-    pub fn new() -> Self {
+    pub fn new(http: SharedHttp) -> Self {
         Self {
-            client: Client::builder()
-                .timeout(std::time::Duration::from_secs(30))
-                .build()
-                .expect("failed to build HTTP client"),
-            timeout: std::time::Duration::from_secs(30),
+            http,
+            timeout: Duration::from_secs(30),
         }
     }
 
-    pub fn with_timeout(mut self, timeout: std::time::Duration) -> Self {
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
-        self.client = Client::builder()
-            .timeout(timeout)
-            .build()
-            .expect("failed to build HTTP client");
         self
+    }
+
+    /// `method url` with `credential` as its bearer token, its body read up to `cap` bytes. A registry is where its
+    /// user configured it, so a private address is allowed.
+    fn call(
+        &self,
+        method: &str,
+        url: &str,
+        credential: Option<&RegistryCredential>,
+        cap: u64,
+    ) -> HttpRequest {
+        HttpRequest {
+            method: method.into(),
+            url: url.into(),
+            headers: credential
+                .map(|c| Header::sensitive("Authorization", format!("Bearer {}", c.token())))
+                .into_iter()
+                .collect(),
+            body: None,
+            body_cap: cap,
+            timeout_ms: self.timeout.as_millis() as u64,
+            max_redirects: MAX_REDIRECTS,
+            allow_private: true,
+            keep_headers: vec!["retry-after".into()],
+        }
+    }
+
+    fn send(&self, request: &HttpRequest) -> HttpOutcome {
+        self.http.request(request, &Any)
     }
 
     /// `GET address` with `credential`, its answer read as `T`.
@@ -50,29 +73,8 @@ impl HttpRegistryClient {
         credential: Option<&RegistryCredential>,
         subject: &str,
     ) -> Result<T, RegistryError> {
-        let resp = self.send(authorized(self.client.get(address), credential), address)?;
-        answer(resp, address, subject, self.timeout)
-    }
-
-    /// Send `request` to `url`: a timeout is `Timeout { url }`, any other transport failure `NetworkError`.
-    fn send(&self, request: RequestBuilder, url: &str) -> Result<Response, RegistryError> {
-        request.send().map_err(|e| {
-            if e.is_timeout() {
-                RegistryError::Timeout {
-                    url: url.to_string(),
-                }
-            } else {
-                RegistryError::NetworkError {
-                    message: e.to_string(),
-                }
-            }
-        })
-    }
-}
-
-impl Default for HttpRegistryClient {
-    fn default() -> Self {
-        Self::new()
+        let outcome = self.send(&self.call("GET", address, credential, MAX_PACKAGE_BYTES));
+        answer(outcome, address, subject)
     }
 }
 
@@ -120,14 +122,12 @@ impl RegistryClient for HttpRegistryClient {
         // The registry's token goes to the registry, not to wherever it points a download.
         let credential =
             credential.filter(|c| c.is_for(registry) && registry.url.same_origin(wasm_url));
-        let resp = self.send(authorized(self.client.get(wasm_url), credential), wasm_url)?;
-        match resp.status() {
-            StatusCode::OK => {
-                body_of(resp, metadata.download_limit(), self.timeout).map_err(|why| {
-                    unread(why, wasm_url, &subject_of(metadata), || over_text(metadata))
-                })
-            }
-            _ => Err(failure_of(resp, wasm_url, wasm_url, self.timeout)),
+        let outcome = self.send(&self.call("GET", wasm_url, credential, metadata.download_limit()));
+        match outcome.status {
+            Some(200) | None => read(outcome).map(|(_, body)| body).map_err(|why| {
+                unread(why, wasm_url, &subject_of(metadata), || over_text(metadata))
+            }),
+            Some(_) => Err(failure_of(outcome, wasm_url, wasm_url)),
         }
     }
 
@@ -156,9 +156,7 @@ impl RegistryClient for HttpRegistryClient {
         let (name, version) = (package.name(), package.version());
         let url = registry.url.address(&Call::Version(name, version));
 
-        // Build the multipart body explicitly: reqwest's blocking multipart
-        // wrapper can fail with a body error on large wasm parts, while an
-        // explicit body is deterministic and length-known.
+        // The multipart body is built here: deterministic and length-known.
         let boundary = format!(
             "specforge-{}",
             std::time::SystemTime::now()
@@ -166,25 +164,25 @@ impl RegistryClient for HttpRegistryClient {
                 .map(|d| d.as_nanos())
                 .unwrap_or(0)
         );
-        let body = form::body(&boundary, manifest_json, wasm, Some(&signature.to_json()));
+        let mut request = self.call("PUT", &url, credential, MAX_PACKAGE_BYTES);
+        request
+            .headers
+            .push(Header::plain("Content-Type", form::content_type(&boundary)));
+        request.body = Some(form::body(
+            &boundary,
+            manifest_json,
+            wasm,
+            Some(&signature.to_json()),
+        ));
 
-        let mut request = self
-            .client
-            .put(&url)
-            .header(CONTENT_TYPE, form::content_type(&boundary))
-            .body(body);
-        if let Some(credential) = credential {
-            request = request.header(AUTHORIZATION, format!("Bearer {}", credential.token()));
-        }
-
-        let resp = self.send(request, &url)?;
-        if resp.status() == StatusCode::CONFLICT {
+        let outcome = self.send(&request);
+        if outcome.status == Some(409) {
             return Err(RegistryError::DuplicateVersion {
                 name: name.to_string(),
                 version: version.to_string(),
             });
         }
-        answer(resp, &url, &format!("{name}@{version}"), self.timeout)
+        answer(outcome, &url, &format!("{name}@{version}"))
     }
 
     fn authenticate(
@@ -193,59 +191,38 @@ impl RegistryClient for HttpRegistryClient {
         credential: &RegistryCredential,
     ) -> Result<Option<Timestamp>, RegistryError> {
         let url = registry.url.address(&Call::AuthVerify);
-        let request = self
-            .client
-            .post(&url)
-            .header(AUTHORIZATION, format!("Bearer {}", credential.token()))
-            .header(CONTENT_TYPE, "application/json")
-            .body("{}");
-        let resp = self.send(request, &url)?;
-        let body: TokenVerified = answer(resp, &url, registry.url.as_str(), self.timeout)?;
+        let mut request = self.call("POST", &url, Some(credential), MAX_PACKAGE_BYTES);
+        request
+            .headers
+            .push(Header::plain("Content-Type", "application/json"));
+        request.body = Some(b"{}".to_vec());
+        let body: TokenVerified = answer(self.send(&request), &url, registry.url.as_str())?;
         Ok(body.expires_at)
     }
 }
 
-/// Why a body was not read to its end.
+/// Why a call's answer was not read to its end.
 enum Unread {
     /// Longer than its limit: its `Content-Length` said so, or its `limit + 1`th byte arrived.
     Over,
-    /// Still arriving when the client's timeout ran out.
+    /// No answer, or a body still arriving, when the call's timeout ran out.
     Late,
-    /// The transport failed while reading it.
-    Broken(std::io::Error),
+    /// The transport failed while reading the body.
+    Broken(String),
+    /// No answer came: what the transport said.
+    Unanswered(String),
 }
 
-/// At most `limit` bytes of `resp`'s body, all of it within `timeout` of the first read (ADR 0250). No more than
-/// `limit + 1` bytes are ever held, and a `Content-Length` over `limit` is refused before any byte is read. The
-/// deadline is checked between reads; one read waits at most the client's own timeout.
-fn body_of(resp: Response, limit: u64, timeout: Duration) -> Result<Vec<u8>, Unread> {
-    let deadline = Instant::now() + timeout;
-    let length = resp.content_length();
-    if length.is_some_and(|n| n > limit) {
-        return Err(Unread::Over);
-    }
-    let mut body = Vec::with_capacity(length.unwrap_or(0) as usize); // at most limit: checked above
-    let mut reader = resp.take(limit + 1);
-    let mut chunk = [0u8; 64 * 1024];
-    loop {
-        let read = match reader.read(&mut chunk) {
-            Ok(read) => read,
-            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-            Err(e) if e.kind() == std::io::ErrorKind::TimedOut || Instant::now() >= deadline => {
-                return Err(Unread::Late);
-            }
-            Err(e) => return Err(Unread::Broken(e)),
-        };
-        if read == 0 {
-            return Ok(body);
-        }
-        body.extend_from_slice(&chunk[..read]);
-        if body.len() as u64 > limit {
-            return Err(Unread::Over);
-        }
-        if Instant::now() >= deadline {
-            return Err(Unread::Late);
-        }
+/// An answer's status and whole body (ADR 0250: the port read at most the call's cap, all of it within its
+/// timeout), or why there is none.
+fn read(outcome: HttpOutcome) -> Result<(u16, Vec<u8>), Unread> {
+    let detail = outcome.detail.unwrap_or_default();
+    match (outcome.class, outcome.status) {
+        (OutcomeClass::Ok | OutcomeClass::Status(_), Some(status)) => Ok((status, outcome.body)),
+        (OutcomeClass::Capped, _) => Err(Unread::Over),
+        (OutcomeClass::Unreachable(Unreachable::Timeout), _) => Err(Unread::Late),
+        (OutcomeClass::Unreachable(_), Some(_)) => Err(Unread::Broken(detail)),
+        _ => Err(Unread::Unanswered(detail)),
     }
 }
 
@@ -295,20 +272,19 @@ fn unread(
         Unread::Broken(e) => RegistryError::NetworkError {
             message: format!("failed to read the response body: {e}"),
         },
+        Unread::Unanswered(message) => RegistryError::NetworkError { message },
     }
 }
 
-/// `resp`, the answer to the call sent to `address`, read the one way every call reads (ADR 0044 D2 as amended
+/// `outcome`, the answer to the call sent to `address`, read the one way every call reads (ADR 0044 D2 as amended
 /// by ADR 0075).
 fn answer<T: DeserializeOwned>(
-    resp: Response,
+    outcome: HttpOutcome,
     address: &str,
     subject: &str,
-    timeout: Duration,
 ) -> Result<T, RegistryError> {
-    let status = resp.status().as_u16();
-    let retry_after = retry_after_of(&resp);
-    let body = body_of(resp, MAX_PACKAGE_BYTES, timeout).map_err(|why| {
+    let retry_after = outcome.header("retry-after").map(str::to_string);
+    let (status, body) = read(outcome).map_err(|why| {
         unread(why, address, subject, || {
             "the answer is larger than 64 MiB (67108864 bytes), more than any registry answer may be"
                 .into()
@@ -325,29 +301,13 @@ fn answer<T: DeserializeOwned>(
     })
 }
 
-/// `request` with `credential` as its bearer token, when there is one.
-fn authorized(request: RequestBuilder, credential: Option<&RegistryCredential>) -> RequestBuilder {
-    match credential {
-        Some(credential) => request.header(AUTHORIZATION, format!("Bearer {}", credential.token())),
-        None => request,
-    }
-}
-
-/// The `Retry-After` header of `resp`, when it has a readable one.
-fn retry_after_of(resp: &Response) -> Option<String> {
-    resp.headers()
-        .get(RETRY_AFTER)
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_string)
-}
-
-/// Read a failure answer to the call sent to `address`: its status, `Retry-After` and body, as [`error_of`] sees
-/// them.
-fn failure_of(resp: Response, address: &str, subject: &str, timeout: Duration) -> RegistryError {
-    let status = resp.status().as_u16();
-    let retry_after = retry_after_of(&resp);
+/// Read a failure answer (`outcome` has a status) to the call sent to `address`: its status, `Retry-After` and
+/// body, as [`error_of`] sees them.
+fn failure_of(outcome: HttpOutcome, address: &str, subject: &str) -> RegistryError {
+    let status = outcome.status.unwrap_or_default();
+    let retry_after = outcome.header("retry-after").map(str::to_string);
     // An over-long or broken failure body is read as none: the status alone decides.
-    let body = body_of(resp, MAX_PACKAGE_BYTES, timeout).unwrap_or_default();
+    let body = read(outcome).map(|(_, body)| body).unwrap_or_default();
     error_of(
         reply::failure(status, &body),
         retry_after.as_deref(),
@@ -742,7 +702,7 @@ mod tests {
         };
         let name = PackageName::parse("@acme/thing").unwrap();
         let other = RegistryRoot::parse("http://127.0.0.1:1/a").unwrap();
-        let client = HttpRegistryClient::new();
+        let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
 
         let _ = client.versions(&name, &registry, Some(&RegistryCredential::new(other, "t")));
         assert_eq!(

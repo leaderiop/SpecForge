@@ -24,8 +24,31 @@ fn reply(name: &str, version: &str, wasm: &[u8]) -> PackageMetadata {
     )
 }
 
-fn get(url: &str) -> reqwest::blocking::Response {
-    reqwest::blocking::get(url).expect("the local registry answers")
+/// The local registry's answer to a `GET` of `url`.
+struct Got(specforge_effects::HttpOutcome);
+
+impl Got {
+    fn json<T: serde::de::DeserializeOwned>(self) -> serde_json::Result<T> {
+        serde_json::from_slice(&self.0.body)
+    }
+
+    fn body(self) -> Vec<u8> {
+        self.0.body
+    }
+}
+
+fn get(url: &str) -> Got {
+    use specforge_effects::Http as _;
+    let request = specforge_effects::HttpRequest {
+        allow_private: true,
+        ..specforge_effects::http::get(url)
+    };
+    let outcome = specforge_http::Client::new().request(&request, &specforge_effects::http::Any);
+    assert!(
+        outcome.status.is_some(),
+        "the local registry answers: {outcome:?}"
+    );
+    Got(outcome)
 }
 
 #[test]
@@ -55,9 +78,8 @@ fn a_stored_package_is_served_as_published() {
     let download = get(&registry
         .root()
         .address(&Call::Download(&tool(), &Version::new(1, 0, 0))))
-    .bytes()
-    .unwrap();
-    assert_eq!(download.as_ref(), wasm);
+    .body();
+    assert_eq!(download.as_slice(), wasm);
 
     assert_eq!(
         registry.requests(),

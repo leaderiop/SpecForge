@@ -14,6 +14,7 @@ specforge-ops = { workspace = true }
 specforge-package = { path = "../../leaf/package" }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-registry-client = { path = "../registry-client" }
+specforge-http = { path = "../http" }
 specforge-registry-wire = { path = "../registry-wire" }
 
 [dev-dependencies]

@@ -274,11 +274,19 @@ module specforge_hosts "specforge-hosts" {
   tags        ["adapters"]
 }
 
+module specforge_http "specforge-http" {
+  family      integration
+  description "The adapter behind the effect plane's Http port: one lazily built reqwest client on rustls with ring and the platform verifier, its redirects followed under the caller's policy, private addresses refused, a whole-request timeout and a body cap (ADR 0335)"
+  depends_on  [specforge_effects]
+  tags        ["adapters"]
+}
+
 module specforge_ops_registry "specforge-ops-registry" {
   family      integration
   description "Which registries a project uses, and the adapter behind specforge-ops' Registry port: the fetch policy over the registry client and the publish signed as the user (ADR 0010)"
   depends_on  [
     specforge_common,
+    specforge_http,
     specforge_ops,
     specforge_package,
     specforge_protocol_types,
@@ -300,6 +308,7 @@ module specforge_registry_client "specforge-registry-client" {
   description "The package-registry client: search, resolve and publish over HTTP, credentials, publisher key pinning and package signing"
   depends_on  [
     specforge_common,
+    specforge_effects,
     specforge_package,
     specforge_protocol_types,
     specforge_registry_wire,

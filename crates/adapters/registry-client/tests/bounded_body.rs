@@ -158,7 +158,7 @@ fn a_download_larger_than_its_reply_declares_is_refused_before_it_is_read() {
         Body::Length(metadata_json(Some(10)).into_bytes()),
         Body::Length(vec![0; 1024 * 1024]),
     );
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
     let error = refused(client.download(&metadata, &registry, None));
@@ -178,7 +178,7 @@ fn a_chunked_download_is_cut_at_the_size_its_reply_declares() {
         Body::Length(metadata_json(Some(10)).into_bytes()),
         Body::zeros(1024 * 1024),
     );
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
     let error = refused(client.download(&metadata, &registry, None));
@@ -198,7 +198,7 @@ fn a_download_whose_reply_declares_no_size_is_held_to_64_mib() {
         Body::Length(metadata_json(None).into_bytes()),
         Body::zeros(MAX + 1),
     );
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
     let error = refused(client.download(&metadata, &registry, None));
@@ -223,7 +223,10 @@ fn a_registry_answer_larger_than_64_mib_is_refused() {
         Body::zeros(0),
     );
     let (name, version) = the_package();
-    let error = refused(HttpRegistryClient::new().metadata(&name, &version, &registry, None));
+    let error = refused(
+        HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()))
+            .metadata(&name, &version, &registry, None),
+    );
     let message = r009(error);
     assert!(message.contains("64 MiB"), "{message}");
 }
@@ -242,7 +245,8 @@ fn a_body_still_arriving_after_the_timeout_is_r004() {
             every: Duration::from_millis(100),
         },
     );
-    let client = HttpRegistryClient::new().with_timeout(Duration::from_secs(1));
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()))
+        .with_timeout(Duration::from_secs(1));
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
     let started = Instant::now();

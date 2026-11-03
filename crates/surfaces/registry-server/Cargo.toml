@@ -37,7 +37,8 @@ testing = ["dep:tempfile"]
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 tower = { version = "0.5", features = ["util"] }
-reqwest = { workspace = true }
+specforge-effects = { path = "../../kernel/effects" }
+specforge-http = { path = "../../adapters/http" }
 tempfile = { workspace = true }
 specforge-registry-client = { path = "../../adapters/registry-client" }
 specforge-registry-server = { path = ".", features = ["testing"] }

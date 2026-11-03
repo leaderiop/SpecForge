@@ -34,7 +34,7 @@ fn publish_stores_the_declaration_the_binary_declares() {
     assert_eq!(published["version"], "0.1.0");
 
     // The stored manifest is exactly greet's declaration.
-    let served = HttpRegistryClient::new()
+    let served = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()))
         .metadata(
             &specforge_package::PackageName::parse("@sdk/greet").unwrap(),
             &specforge_package::Version::new(0, 1, 0),
@@ -113,7 +113,7 @@ fn publish_greet(project: &TestProject, token: Option<&str>) -> Run {
 }
 
 fn greet_is_published(registry: &LocalRegistry) -> bool {
-    HttpRegistryClient::new()
+    HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()))
         .metadata(
             &specforge_package::PackageName::parse("@sdk/greet").unwrap(),
             &specforge_package::Version::new(0, 1, 0),

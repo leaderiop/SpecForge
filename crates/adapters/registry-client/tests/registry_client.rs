@@ -318,7 +318,7 @@ fn a_download_address_a_registry_sends_reaches_its_diagnostic_printable() {
             "R006",
         ),
     ];
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     for (wasm_url, enveloped, code) in cases {
         let registry = serving_download_address(wasm_url, enveloped);
         let metadata = client.metadata(&name, &version, &registry, None).unwrap();

@@ -224,7 +224,9 @@ impl ConfiguredRegistry {
             operation: operation.to_string(),
             registries: OnceLock::new(),
             store: OnceLock::new(),
-            client: Box::new(Retrying::new(HttpRegistryClient::new())),
+            client: Box::new(Retrying::new(HttpRegistryClient::new(std::sync::Arc::new(
+                specforge_http::Client::new(),
+            )))),
             user: User::current(),
             reported_by_policy: PolicyReports::default(),
         }

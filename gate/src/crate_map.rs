@@ -28,7 +28,7 @@ fn owns(layer: &str) -> Option<&'static str> {
             "The programs: the specforge CLI, the language server, the MCP server and the package registry server. Each turns its protocol into calls on the layers below."
         }
         "adapters" => {
-            "Pure-Rust adapters behind the effect plane's and the operations' ports: the process runner, git, the package registry and the agent hosts (ADR 0010, ADR 0044, ADR 0335)."
+            "Pure-Rust adapters behind the effect plane's and the operations' ports: the process runner, HTTP, git, the package registry and the agent hosts (ADR 0010, ADR 0044, ADR 0335)."
         }
         "app" => {
             "The user-level operations every surface shares: a typed request in, a typed outcome or a refusal out (ADR 0015)."

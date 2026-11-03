@@ -1,0 +1,26 @@
+[package]
+name = "specforge-http"
+description = "The adapter behind the effect plane's Http port: one lazily built reqwest client on rustls with ring and the platform verifier, its redirects followed under the caller's policy, private addresses refused, a whole-request timeout and a body cap (ADR 0335)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+specforge-effects = { path = "../../kernel/effects" }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+rustls-platform-verifier = { workspace = true }
+url = "2.5"
+# The resolver's blocking lookup runs on the client's runtime as `spawn_blocking`.
+tokio = { workspace = true }
+
+# Mozilla's roots beside the system's, for a Linux host that has none.
+[target.'cfg(target_os = "linux")'.dependencies]
+webpki-root-certs = { workspace = true }
+
+[dev-dependencies]
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
+
+[lints]
+workspace = true
