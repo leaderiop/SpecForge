@@ -19,7 +19,7 @@ use specforge_registry::{Disk, DiskLookup, EntitySnapshot, FileStamp};
 use super::{DigestMemo, entity_digest, file_digest};
 use crate::coverage::{ReportRead, read_report};
 use crate::select::{FileRef, Selection};
-use crate::{CompiledProject, Environment};
+use crate::{CheckedValues, CompiledProject, Environment, ValueOutcome};
 
 /// What a verdict cites (`cited`, `cited_tests`): entity references as written, file paths, test names.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -68,6 +68,9 @@ pub struct Inputs {
     /// chains could be read (entities that are no facts with no usable report, references whose facts no collect has
     /// stored; ADR 0331 D7), and `cited_tests` with no usable report. Each digests as `none`, and freshness skips it.
     pub unjudged: Vec<String>,
+    /// The inputs of [`Self::unjudged`] left unjudged because a value they read was not checked on this machine
+    /// (`unknown`, I206): counted for I207, not I205 (ADR 0337 §6).
+    pub unchecked: Vec<String>,
     /// Each named input as it was read: what it picked and its digest.
     pub reports: Vec<InputReport>,
     /// What the verdict cites, resolved, and its digest.
@@ -113,6 +116,7 @@ pub fn inputs(
         project.entities(),
         disk,
         project.digests(),
+        project.checked_values(),
     );
     Some(cx.inputs(node, rule, cited))
 }
@@ -124,6 +128,8 @@ pub(super) struct Cx<'a> {
     entities: &'a EntitySnapshot,
     disk: &'a dyn Disk,
     memo: &'a DigestMemo,
+    /// The outcome class of each value the checks checked (ADR 0337 §6).
+    checked: &'a CheckedValues,
     report: OnceCell<ReportRead>,
     selection: Selection<'a>,
     /// The schemes the served fact stores hold facts of, read once.
@@ -162,6 +168,7 @@ impl<'a> Cx<'a> {
         entities: &'a EntitySnapshot,
         disk: &'a dyn Disk,
         memo: &'a DigestMemo,
+        checked: &'a CheckedValues,
     ) -> Self {
         Self {
             env,
@@ -169,6 +176,7 @@ impl<'a> Cx<'a> {
             entities,
             disk,
             memo,
+            checked,
             report: OnceCell::new(),
             selection: Selection::of(graph, env.registries()),
             held: OnceCell::new(),
@@ -189,12 +197,26 @@ impl<'a> Cx<'a> {
         })
     }
 
-    fn entity_set(&self, selector: &str, ids: impl IntoIterator<Item = String>) -> Value {
+    /// The digest of an `entities` input: `[digest, id]` per entity, as before checked values (ADR 0290), or
+    /// `[digest, id, {"checks": [[field, item, checker, class], ...]}]` for an entity whose values were checked (ADR
+    /// 0337 §6). When a value was observed is never digested. `true` with it when a check was not performed (`unknown`).
+    fn entity_set(&self, selector: &str, ids: impl IntoIterator<Item = String>) -> (Value, bool) {
+        let mut unknown = false;
         let members: Vec<Value> = ids
             .into_iter()
-            .map(|id| json!([self.entity(&id), id]))
+            .map(|id| match self.checked.of(&id) {
+                [] => json!([self.entity(&id), id]),
+                checks => {
+                    unknown |= checks.iter().any(|c| c.outcome == ValueOutcome::Unknown);
+                    let checks: Vec<Value> = checks
+                        .iter()
+                        .map(|c| json!([c.field, c.item, c.checker, c.outcome.tag()]))
+                        .collect();
+                    json!([self.entity(&id), id, {"checks": checks}])
+                }
+            })
             .collect();
-        json!({"selector": selector, "members": members})
+        (json!({"selector": selector, "members": members}), unknown)
     }
 
     /// A file's digest and where it is shown: `absent` and `unreadable` are digests, and a `.spec` source digests as
@@ -404,11 +426,13 @@ impl<'a> Cx<'a> {
                 Selector::Entities(chain) => {
                     let ids = select.entities(id, chain);
                     let members: Vec<String> = ids.iter().cloned().collect();
-                    (
-                        "entities",
-                        members,
-                        Some(hash(&self.entity_set(&shown, ids))),
-                    )
+                    let (set, unknown) = self.entity_set(&shown, ids);
+                    // A check not performed leaves the input unjudged, as a missing report does (I207, not I205).
+                    if unknown {
+                        out.unjudged.push(name.clone());
+                        out.unchecked.push(name.clone());
+                    }
+                    ("entities", members, Some(hash(&set)))
                 }
                 Selector::FilesOf(chain) => {
                     let value = self.files(&shown, &select.files(id, chain), &mut out.files);

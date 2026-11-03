@@ -72,7 +72,7 @@ use specforge_wasm::WasmRuntime;
 use verdicts::WasmVerdicts;
 
 pub use buffers::Buffer;
-pub use compiled::CompiledProject;
+pub use compiled::{CheckedValue, CheckedValues, CompiledProject, ValueOutcome};
 pub use diagnostics_delta::DiagnosticsDelta;
 pub use ledger::{Changes, Consulted, SessionInputs, SourceDisk, WatchRoot, Watched};
 use ledger::{Reads, Unrecorded};
@@ -511,6 +511,7 @@ impl Environment {
             disk,
             &baseline::Baseline::of_head(self),
             &judged::DigestMemo::default(),
+            &CheckedValues::default(),
         )
         .diagnostics
     }
@@ -527,6 +528,7 @@ impl Environment {
         disk: &dyn Disk,
         baseline: &baseline::BaselineRead,
         digests: &judged::DigestMemo,
+        checked: &CheckedValues,
     ) -> Checked {
         let runtime = self.runtime.as_deref();
         let mut diagnostics = Vec::new();
@@ -560,7 +562,7 @@ impl Environment {
         };
         let mut found = judged::Evaluated::default();
         if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
-            found = judged::evaluate(self, build.graph(), entities, disk, digests, bytes);
+            found = judged::evaluate(self, build.graph(), entities, disk, digests, checked, bytes);
             diagnostics.append(&mut found.diagnostics);
         }
         // The `V` fields the fresh verdicts give are values before any compute pass runs (ADR 0290).

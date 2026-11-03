@@ -2004,6 +2004,23 @@ Owner: core
 Level: info
 ```
 
+## I207
+
+```
+I207: Checked values not judged
+
+A judged rule (ADR 0290) reads an entity whose checked values include one this
+machine did not check (I206): its outcome is `unknown`. Like a missing test
+report (I205), that input is left out of the freshness comparison, so a verdict
+is not made stale, nor red, by a check that did not run offline or on a fresh
+clone (ADR 0337). Run the checks with effects (`specforge check` at a terminal,
+or `--effects online`) to judge it. A `machine` diagnostic: `--strict` never
+promotes it.
+
+Owner: core
+Level: info
+```
+
 ## I209
 
 ```

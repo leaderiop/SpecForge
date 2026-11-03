@@ -174,7 +174,7 @@ fn code_constants_are_their_catalog_entries() {
     );
 }
 
-/// The `machine` codes are the effects summaries, I206 for now (each later ticket and plan adds its own): the constant and the
+/// The `machine` codes are the effects summaries, I206 and I207 (each later plan adds its own): the constant and the
 /// entry agree, and every other core code is the project's.
 #[specforge_test(
     invariant = "diagnostic_code_uniqueness",
@@ -186,9 +186,11 @@ fn machine_codes_are_effect_summaries() {
         .filter(|e| e.machine)
         .map(|e| e.code)
         .collect();
-    assert_eq!(machine, ["I206"]);
-    assert!(codes::I206.machine());
-    assert_eq!(codes::I206.level(), Level::Info);
+    assert_eq!(machine, ["I206", "I207"]);
+    for code in [codes::I206, codes::I207] {
+        assert!(code.machine(), "{code}");
+        assert_eq!(code.level(), Level::Info, "{code}");
+    }
     assert!(!codes::W112.machine());
 }
 

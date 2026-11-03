@@ -382,6 +382,9 @@ catalog! {
     I206: Info core machine,
         "Value checks not run",
         "Some value checks were not run on this machine (ADR 0337): the run was offline, in `cached` mode with no fresh record in the effects journal (`.specforge/effects/`), or the effect was not approved here. One summary per compile counts them by scope (`links 2, registries 3`). The values are left unchecked, not failed, and nothing is wrong with the project. Run `specforge check` at a terminal (it runs `--effects auto`), or `--effects online`, to perform them. A `machine` diagnostic: `--strict` never promotes it, and the gate's warning baseline never counts it.";
+    I207: Info core machine,
+        "Checked values not judged",
+        "A judged rule (ADR 0290) reads an entity whose checked values include one this machine did not check (I206): its outcome is `unknown`. Like a missing test report (I205), that input is left out of the freshness comparison, so a verdict is not made stale, nor red, by a check that did not run offline or on a fresh clone (ADR 0337). Run the checks with effects (`specforge check` at a terminal, or `--effects online`) to judge it. A `machine` diagnostic: `--strict` never promotes it.";
     I209: Info core,
         "Facts filed under a key that is not a clean commit",
         "`specforge collect` stored a collector's facts (ADR 0327) under a key that is not HEAD's sha: `<sha>-dirty` when the tree holds a tracked change, a conflict or an untracked file, or `worktree` when the project is in no repository, HEAD is unborn, or git can't be asked. The key is provenance: a reader compares it with HEAD to call a fact fresh, and a dirty collect replaces the previous one of that sha. Commit, then collect again, to file the facts under the commit.";

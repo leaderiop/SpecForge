@@ -37,6 +37,7 @@ mod harness;
 mod history;
 mod journal;
 mod judged;
+mod judged_checked;
 mod judged_paths;
 mod judged_proof;
 mod judged_review;

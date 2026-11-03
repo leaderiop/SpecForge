@@ -63,14 +63,34 @@ pub(crate) fn record_citing(
     cited: &Cited,
     cites: &str,
 ) {
-    let compiled = compile(project);
+    record_from(
+        project,
+        &compile(project),
+        entity,
+        rule,
+        outcome,
+        cited,
+        cites,
+    );
+}
+
+/// [`record_citing`], the inputs read from `compiled`.
+pub(crate) fn record_from(
+    project: &TestProject,
+    compiled: &CompiledProject,
+    entity: &str,
+    rule: &str,
+    outcome: &str,
+    cited: &Cited,
+    cites: &str,
+) {
     let env = compiled.environment();
     let judged = env.registries().judged_rule(rule).expect("a judged rule");
     let node = compiled
         .graph()
         .node(entity)
         .expect("the entity is declared");
-    let now = specforge_project::judged::inputs(&compiled, &PlainDisk, entity, judged, cited)
+    let now = specforge_project::judged::inputs(compiled, &PlainDisk, entity, judged, cited)
         .expect("the rule judges the entity");
     let digests: String = now
         .digests
