@@ -72,6 +72,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify unit "a batch of an unchanged source and a created named file is rechecked"
   verify unit "a source whose directory link is pointed elsewhere is seen"
   verify unit "a named file behind a directory link pointed elsewhere is rechecked"
+  verify unit "a watch wakes when an effect record the checks consulted expires and runs the checks again"
 }
 
 behavior classify_project_changes "Classify Project Changes" {
@@ -166,6 +167,12 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a directory link on the way to an input outside the root is watched by its own directory"
   verify unit "a directory link on the way to an environment or check input pointed elsewhere is that input's change"
   verify unit "a change under a spec root outside the project, through a link too, is that source's change"
+  verify unit "an effect record a check consulted re-runs the checks once it expires"
+  verify unit "an effect record a check consulted re-runs the checks when it is rewritten"
+  verify unit "an effect record a check consulted that is fresh and unchanged changes nothing"
+  verify unit "a session wakes at the earliest expiry of the effect records its checks consulted"
+  verify unit "an expired effect record beside the fact stores' rows re-runs the checks and reads no fact store"
+  verify unit "the LSP applies an expired effect record the checks consulted before it answers a request"
 }
 
 behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {

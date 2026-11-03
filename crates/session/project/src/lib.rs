@@ -74,7 +74,7 @@ use verdicts::WasmVerdicts;
 pub use buffers::Buffer;
 pub use compiled::CompiledProject;
 pub use diagnostics_delta::DiagnosticsDelta;
-pub use ledger::{Changes, SessionInputs, SourceDisk, WatchRoot, Watched};
+pub use ledger::{Changes, Consulted, SessionInputs, SourceDisk, WatchRoot, Watched};
 use ledger::{Reads, Unrecorded};
 pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile};
 pub use providers::Providers;

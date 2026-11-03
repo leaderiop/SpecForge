@@ -105,7 +105,8 @@ fn watch_project(
     // environment input reloads the environment, a check input re-runs the
     // checks; anything else changes nothing.
     let debug = std::env::var("SPECFORGE_WATCH_DEBUG").is_ok();
-    for batch in &batches {
+    // An effect record the checks consulted wakes the loop when it expires: the checks run again (ADR 0337 D5).
+    while let Some(batch) = watch.next_batch(&batches) {
         if debug {
             let changes = watch
                 .session()

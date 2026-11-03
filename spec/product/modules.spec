@@ -233,7 +233,7 @@ module specforge_watch "specforge-watch" {
   family      core
   description "What keeps a project session current from the file system: the file watcher, and the debounce rule and the follow loop watch and the LSP share (ADR 0035, ADR 0099)"
   features    [incremental_compilation]
-  depends_on  [specforge_project]
+  depends_on  [specforge_effects, specforge_project]
   tags        ["watch", "incremental"]
 }
 

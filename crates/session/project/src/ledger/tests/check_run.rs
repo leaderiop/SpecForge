@@ -7,6 +7,7 @@ use specforge_common::ProjectConfig;
 use specforge_registry::{Disk, PlainDisk};
 use specforge_test_macros::test as specforge_test;
 
+use super::NOW;
 use crate::ledger::recorded::Recording;
 use crate::ledger::{Ledger, Reading, SessionInputs, Watched};
 
@@ -35,7 +36,7 @@ fn a_check_input_written_between_its_stamp_and_its_read_is_seen_next_time() {
         fs::read(path).ok()
     });
     run.finish(Recording::Checks);
-    assert_eq!(ledger.stale().check_inputs, [doc]);
+    assert_eq!(ledger.stale(NOW).check_inputs, [doc]);
 }
 
 #[test]
@@ -56,7 +57,7 @@ fn a_missing_check_input_records_its_directory() {
     );
     let other = root.join("docs/other.md");
     fs::write(&other, "x").unwrap();
-    assert_eq!(ledger.changes([other.as_path()]).check_inputs, [other]);
+    assert_eq!(ledger.changes([other.as_path()], NOW).check_inputs, [other]);
 }
 
 #[test]

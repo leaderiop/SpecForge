@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectConfig, ProjectRoot};
-use specforge_effects::{EffectsMode, Ports, SharedGit};
+use specforge_effects::{EffectsMode, Ports, SharedGit, UnixMillis};
 use specforge_graph::{Applied, GraphDelta, NodeChange};
 
 use crate::buffers::{Buffer, Held};
@@ -396,7 +396,7 @@ impl ProjectSession {
     /// Every file a buffer holds is left out. A detached session returns
     /// nothing: its sources are its buffers.
     pub fn changes<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Changes {
-        let mut changes = self.ledger.changes(paths);
+        let mut changes = self.ledger.changes(paths, UnixMillis::now_or_end());
         self.held.leave_out(&mut changes.sources);
         changes
     }
@@ -612,9 +612,30 @@ impl ProjectSession {
     /// it read, every file a buffer holds left out, whatever happened to it.
     /// A session that was not opened from disk reports nothing.
     pub fn stale(&self) -> Changes {
-        let mut changes = self.ledger.stale();
+        let mut changes = self.ledger.stale(UnixMillis::now_or_end());
         self.held.leave_out(&mut changes.sources);
         changes
+    }
+
+    /// The effect records a check consulted that have expired by now (ADR 0337 D5): check inputs whose change is the
+    /// clock's, not the disk's. What a server applies before a request, though no file changed. A clock that
+    /// cannot be read expires them all (`UnixMillis::now_or_end`): no record is fresh by a clock that cannot vouch.
+    pub fn expired(&self) -> Changes {
+        self.ledger.expired(UnixMillis::now_or_end())
+    }
+
+    /// When the earliest effect record a check consulted expires: when a watch wakes to run the checks again.
+    /// None: no record a check consulted expires.
+    pub fn next_expiry(&self) -> Option<UnixMillis> {
+        self.ledger.next_expiry()
+    }
+
+    /// Record `consulted` as the effect records the last run of the checks consulted, in place of that run's
+    /// check inputs (tests: a session whose checks consulted the effects journal, ADR 0337 D5).
+    #[cfg(feature = "testing")]
+    pub fn stamp_consulted(&mut self, consulted: Vec<crate::Consulted>) {
+        use crate::ledger::Reads;
+        self.ledger.run_checks(|_| consulted);
     }
 
     /// Bring the session up to date with disk, without a watcher: apply

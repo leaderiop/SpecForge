@@ -3585,6 +3585,7 @@ dependencies = [
  "serde_json",
  "specforge-common",
  "specforge-component",
+ "specforge-effects",
  "specforge-project",
  "specforge-test",
  "specforge-test-macros",

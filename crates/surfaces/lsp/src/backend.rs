@@ -350,6 +350,11 @@ impl Backend {
         method: &str,
         answer: impl FnOnce(&LspState) -> Result<T>,
     ) -> Result<T> {
+        // An effect record the checks consulted whose time is up is applied first (ADR 0337 D5).
+        let expired = (self.state.read().await.session()).is_some_and(|s| !s.expired().is_empty());
+        if expired {
+            react(&self.reaction, Change::Expired).await;
+        }
         let outcome = {
             let state = self.state.read().await;
             crate::unwind::unwinding(|| answer(&state))

@@ -8,6 +8,7 @@ use std::sync::Arc;
 use specforge_common::ProjectRoot;
 use specforge_test_macros::test as specforge_test;
 
+use super::NOW;
 use crate::ledger::{Ledger, Reads, SessionInputs, Unrecorded};
 use crate::sources::{self, Read};
 use crate::{CompiledProject, Environment};
@@ -58,7 +59,7 @@ fn a_source_written_between_its_stamp_and_its_read_is_seen_next_time() {
     });
     assert_eq!(text(&read), Some(NEW));
     // The stamp is the old file's, so the next comparison catches up.
-    assert_eq!(ledger.stale().sources, ["a.spec", "sub/b.spec"]);
+    assert_eq!(ledger.stale(NOW).sources, ["a.spec", "sub/b.spec"]);
 }
 
 #[test]
@@ -140,10 +141,10 @@ fn a_held_key_is_not_stamped_until_it_is_read() {
     let env = Environment::read_through(&mut ledger, &root, |_| None);
     let held = BTreeMap::from([("a.spec".to_string(), NEW)]);
     CompiledProject::read(Arc::new(env), &held, &mut ledger);
-    assert_eq!(ledger.stale().sources, ["a.spec"]);
+    assert_eq!(ledger.stale(NOW).sources, ["a.spec"]);
     let reads = ledger.reread(&["a.spec".to_string()]);
     assert_eq!(text(&reads[0].1), Some(OLD));
-    assert!(ledger.stale().is_empty());
+    assert!(ledger.stale(NOW).is_empty());
 }
 
 #[cfg(unix)]

@@ -37,6 +37,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::{ProjectRoot, SourceRoot};
+use specforge_effects::UnixMillis;
 use specforge_registry::{Disk, PlainDisk};
 
 use crate::Environment;
@@ -117,7 +118,17 @@ pub(crate) trait Reads {
     /// Run `check` (the checks over one snapshot) with the disk they read
     /// through (ADR 0107): the ledger's records and stamps each read as a
     /// check input; `Unrecorded`'s only reads.
-    fn run_checks(&mut self, check: impl FnOnce(&dyn Disk));
+    fn run_checks(&mut self, check: impl FnOnce(&dyn Disk) -> Vec<Consulted>);
+}
+
+/// An effects journal record a run of the checks consulted, with when its answer expires
+/// (`specforge_effects::mode::Log`; none: no clock runs the checks again for it).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Consulted {
+    /// The record file.
+    pub path: PathBuf,
+    /// When its answer expires.
+    pub expires: Option<UnixMillis>,
 }
 
 /// A one-shot compile's reads: the same steps, nothing recorded, no stamp (ADR
@@ -181,7 +192,7 @@ impl Reads for Unrecorded<'_> {
         sources::read(self.sources, sources, key, self.recorded.as_ref())
     }
 
-    fn run_checks(&mut self, check: impl FnOnce(&dyn Disk)) {
+    fn run_checks(&mut self, check: impl FnOnce(&dyn Disk) -> Vec<Consulted>) {
         check(self.checks);
     }
 }
@@ -235,9 +246,12 @@ impl Reads for Ledger {
 
     /// The checks' reads, each stamped and recorded as a check input when
     /// the run finishes.
-    fn run_checks(&mut self, check: impl FnOnce(&dyn Disk)) {
+    fn run_checks(&mut self, check: impl FnOnce(&dyn Disk) -> Vec<Consulted>) {
         let run = self.checks();
-        check(&RunDisk(&run, &PlainDisk));
+        let consulted = check(&RunDisk(&run, &PlainDisk));
+        for Consulted { path, expires } in consulted {
+            run.read(Reading::Effect { expires }, &path, &PlainDisk, |_| ());
+        }
         run.finish(Recording::Checks);
     }
 }
@@ -429,21 +443,36 @@ impl Ledger {
         }
     }
 
-    /// What changed on disk among what `paths` reach (ADR 0073).
-    pub(crate) fn changes<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Changes {
+    /// What changed on disk among what `paths` reach (ADR 0073), and the effect records expired by `now`.
+    pub(crate) fn changes<'p>(
+        &self,
+        paths: impl IntoIterator<Item = &'p Path>,
+        now: UnixMillis,
+    ) -> Changes {
         let reach = self.inputs.reach(paths);
         let disk = self.source_disk();
         let sources: &dyn Disk = disk.as_deref().map_or(&PlainDisk, |d| d);
         self.stamps
-            .changes(&self.inputs, Scope::Reached(&reach), sources)
+            .changes(&self.inputs, Scope::Reached(&reach), sources, now)
     }
 
-    /// Everything that differs from what was read.
-    pub(crate) fn stale(&self) -> Changes {
+    /// The checks' inputs whose effect record has expired by `now` (ADR 0337 D5): what a session applies before a
+    /// request, though no file changed.
+    pub(crate) fn expired(&self, now: UnixMillis) -> Changes {
+        self.stamps.expired(now)
+    }
+
+    /// When the earliest effect record a check consulted expires: when a watch wakes.
+    pub(crate) fn next_expiry(&self) -> Option<UnixMillis> {
+        self.stamps.next_expiry()
+    }
+
+    /// Everything that differs from what was read, and the effect records expired by `now`.
+    pub(crate) fn stale(&self, now: UnixMillis) -> Changes {
         let disk = self.source_disk();
         let sources: &dyn Disk = disk.as_deref().map_or(&PlainDisk, |d| d);
         self.stamps
-            .changes(&self.inputs, Scope::Everything, sources)
+            .changes(&self.inputs, Scope::Everything, sources, now)
     }
 }
 
@@ -458,6 +487,9 @@ pub(crate) enum Reading {
     Listing,
     /// A file the git baseline is named by: reached as a file, watched by its directory's own entries.
     Ref,
+    /// An effects journal record a check consulted, with when it expires (ADR 0337 D5): reached as a file, and
+    /// changed once `expires` passes.
+    Effect { expires: Option<UnixMillis> },
 }
 
 /// One run of reads the ledger records (ADR 0106 D4, ADR 0114). Reading needs

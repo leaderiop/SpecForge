@@ -40,6 +40,9 @@ pub enum Change {
     /// changed on disk while it did not (`ProjectSession::stale`, which
     /// leaves out every held buffer).
     CatchUp,
+    /// A request is about to be answered: apply the effect records the checks consulted whose time is up
+    /// (`ProjectSession::expired`, ADR 0337 D5), so the answer is not older than the clock allows.
+    Expired,
 }
 
 /// What a change will apply: exactly one step ([`Plan::of`]).
@@ -87,7 +90,8 @@ impl Plan {
     ///   (`ProjectSession::changes`, which leaves out every held buffer; a
     ///   reload keeps them);
     /// - `CatchUp`: what the session finds changed on disk since it last
-    ///   read it (`ProjectSession::stale`).
+    ///   read it (`ProjectSession::stale`);
+    /// - `Expired`: the effect records the checks consulted whose time is up (`ProjectSession::expired`).
     ///
     /// `None` when it asks nothing: no session is held, every edited
     /// document was closed since, the closed document was opened again, no
@@ -156,6 +160,7 @@ impl Plan {
                 Step::Disk { changes, landing }
             }
             Change::CatchUp => Step::on_disk(session.stale())?,
+            Change::Expired => Step::on_disk(session.expired())?,
         };
         Some(Plan(step))
     }

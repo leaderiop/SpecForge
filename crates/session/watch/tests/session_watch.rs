@@ -697,3 +697,41 @@ fn a_named_file_behind_a_directory_link_pointed_elsewhere_is_rechecked() {
         codes(applied(&events[0]))
     );
 }
+
+#[spec(
+    behavior = "watch_file_system_for_changes",
+    verify = "a watch wakes when an effect record the checks consulted expires and runs the checks again"
+)]
+fn watch_wakes_at_the_next_expiry() {
+    let now = || specforge_effects::UnixMillis::now().unwrap();
+    let fixture = Fixture::new(PLAIN);
+    fixture.write(".specforge/effects/journal/ab/record.json", "{}");
+    let record = fixture
+        .root
+        .join(".specforge/effects/journal/ab/record.json");
+    let mut session =
+        ProjectSession::open(&specforge_common::ProjectRoot::of(&fixture.root).unwrap());
+    let expiry = now().plus(std::time::Duration::from_millis(200));
+    session.stamp_consulted(vec![specforge_project::Consulted {
+        path: record,
+        expires: Some(expiry),
+    }]);
+    let mut watch = SessionWatch::start(session, Recorder::default()).unwrap();
+    let (sender, batches) = std::sync::mpsc::channel();
+
+    let batch = watch.next_batch(&batches).expect("the clock's batch");
+    assert!(batch.is_empty(), "no file changed");
+    assert!(now() >= expiry, "woken at the expiry, not before");
+    let events = watch.changed(&batch);
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert_eq!(applied(&events[0]).update.kind, UpdateKind::Checks);
+    assert_eq!(
+        watch.session().next_expiry(),
+        None,
+        "the run consulted no record"
+    );
+
+    // Nothing expires: the loop waits on its watchers alone, and ends when they do.
+    drop(sender);
+    assert!(watch.next_batch(&batches).is_none());
+}

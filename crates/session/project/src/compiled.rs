@@ -563,18 +563,17 @@ impl CompiledProject {
         applied
     }
 
-    /// Every check on the current graph, over a snapshot of it taken now
-    /// (ADR 0019), in the environment's runtime, reading the file system
-    /// through the disk `reads` gives them (ADR 0107); the memo starts again
-    /// from that snapshot.
+    /// Every check on the current graph, over a snapshot of it taken now (ADR 0019), in the environment's runtime,
+    /// reading the file system through the disk `reads` gives them (ADR 0107), each effect record it consults an
+    /// input (ADR 0337 D5); the memo starts again from that snapshot.
     pub(crate) fn check(&mut self, reads: &mut impl Reads) {
         let env = Arc::clone(&self.env);
         let this = &*self;
         let graph = &this.graph;
         let mut outcome = None;
-        let held = self.baseline.clone();
-        let mut baseline = None;
+        let (held, mut baseline) = (self.baseline.clone(), None);
         reads.run_checks(|disk| {
+            this.effects().take_log();
             // The files `HEAD` is named by are read first, so each is an input of this run: a commit changes one.
             let stamp = crate::baseline::Baseline::ref_stamp(&env, disk);
             let read = match held {
@@ -605,6 +604,7 @@ impl CompiledProject {
                 diagnostics.extend(crate::journal::pending(root, disk));
             }
             outcome = Some((diagnostics, entities, checked.computed, checked.judgements));
+            this.consulted()
         });
         self.checks_skipped = false;
         self.baseline = baseline;

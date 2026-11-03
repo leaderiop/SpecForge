@@ -5,7 +5,7 @@ use std::sync::Arc;
 use specforge_effects::Effects;
 
 use super::CompiledProject;
-use crate::ledger::Unrecorded;
+use crate::ledger::{Consulted, Unrecorded};
 
 impl CompiledProject {
     /// The effects its checks were served in: one call's own ([`Self::effects_rerun`]), else its environment's.
@@ -22,5 +22,14 @@ impl CompiledProject {
         project.effects = Some(effects);
         project.check(&mut Unrecorded::plain());
         project
+    }
+
+    /// The effect records this run of the checks consulted (ADR 0337 D5): each an input of the checks.
+    pub(super) fn consulted(&self) -> Vec<Consulted> {
+        let log = self.effects().log();
+        let consulted = log.consulted.into_iter();
+        consulted
+            .map(|(path, expires)| Consulted { path, expires })
+            .collect()
     }
 }

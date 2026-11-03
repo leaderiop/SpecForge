@@ -7,6 +7,7 @@ use specforge_common::ProjectConfig;
 use specforge_registry::{Disk, PlainDisk};
 use specforge_test_macros::test as specforge_test;
 
+use super::NOW;
 use crate::ledger::chain::way;
 use crate::ledger::disk::RunDisk;
 use crate::ledger::key::in_canonical_dir;
@@ -47,7 +48,7 @@ fn a_directory_link_on_the_way_to_an_environment_or_check_input_pointed_elsewher
 
         fs::remove_file(root.join("vendor")).unwrap();
         std::os::unix::fs::symlink(out.join("v2"), root.join("vendor")).unwrap();
-        let changes = ledger.changes([root.join("vendor").as_path()]);
+        let changes = ledger.changes([root.join("vendor").as_path()], NOW);
         let moved = if environment {
             &changes.environment
         } else {

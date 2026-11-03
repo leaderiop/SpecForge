@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Duration;
 
+use specforge_effects::UnixMillis;
 use specforge_project::{Changes, ProjectSession, Update, WatchRoot};
 
 use crate::{Debouncer, Follower, Following, SpecWatcher};
@@ -141,7 +142,8 @@ impl<W: Watchers> SessionWatch<W> {
     /// watchers follow, then the session catches up on what changed while
     /// they did not (`ensure_fresh`), and again while that catch-up moves it
     /// ([`Following`]). Empty when the batch changes nothing the session is
-    /// built from.
+    /// built from. An effect record the checks consulted whose time is up is a change of any batch, an empty one
+    /// too ([`Self::next_batch`]).
     pub fn changed(&mut self, batch: &[PathBuf]) -> Vec<WatchEvent> {
         let changes = self.session.changes(batch.iter().map(PathBuf::as_path));
         let changed = self.labels(&changes);
@@ -154,6 +156,24 @@ impl<W: Watchers> SessionWatch<W> {
             self.follow(&mut events);
         }
         events
+    }
+
+    /// The next batch: the next one `batches` sends, or, once the earliest effect record the checks consulted
+    /// expires with none sent, an empty one, which runs the checks again for the clock (ADR 0337 D5). `None` when
+    /// `batches` is closed.
+    pub fn next_batch(&self, batches: &mpsc::Receiver<Vec<PathBuf>>) -> Option<Vec<PathBuf>> {
+        let Some(expiry) = self.session.next_expiry() else {
+            return batches.recv().ok();
+        };
+        // A clock that cannot be read wakes nobody: the watchers' next batch runs the checks.
+        let Ok(now) = UnixMillis::now() else {
+            return batches.recv().ok();
+        };
+        match batches.recv_timeout(now.until(expiry)) {
+            Ok(batch) => Some(batch),
+            Err(mpsc::RecvTimeoutError::Timeout) => Some(Vec::new()),
+            Err(mpsc::RecvTimeoutError::Disconnected) => None,
+        }
     }
 
     /// Follow the session's inputs: the watchers move, then the session

@@ -295,6 +295,14 @@ impl Served {
         Url::from_file_path(self.dir.path().join(file)).unwrap()
     }
 
+    /// `f` over the session the state holds.
+    pub fn with_session<R>(
+        &self,
+        f: impl FnOnce(&mut specforge_project::ProjectSession) -> R,
+    ) -> R {
+        f(self.state.blocking_write().session_mut().expect("held"))
+    }
+
     /// The state, read.
     pub fn state(&self) -> RwLockReadGuard<'_, LspState> {
         self.state.blocking_read()
