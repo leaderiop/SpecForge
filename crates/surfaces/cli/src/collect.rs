@@ -95,7 +95,11 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
     // The view is rooted where the project compiled: the report lands where
     // every view over the project reads it.
     let view = ProjectView::of(&project);
-    let mut outcome = match collect::collect(&view, request, &ProcessMachine::user()) {
+    let mut outcome = match collect::collect(
+        &view,
+        request,
+        &ProcessMachine::user(std::sync::Arc::new(specforge_process::Runner)),
+    ) {
         Ok(outcome) => outcome,
         Err(e) => {
             return Refusal::of(format).report(terminal, &e);

@@ -270,5 +270,6 @@ fn run_command(
             (RunFailure::Capture(e) | RunFailure::NotRun(e), _) => {
                 format!("failed to run `{}`: {e}", argv.join(" "))
             }
+            (RunFailure::Stopped { why }, _) => format!("`{}` {why}", argv.join(" ")),
         })
 }

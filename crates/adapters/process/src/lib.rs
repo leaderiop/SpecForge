@@ -272,9 +272,7 @@ impl Watch<'_> {
                         (Output::Buffer, Stream::Err) => err.extend_from_slice(&chunk),
                         (Output::Tee { capture, .. }, Stream::Out) => {
                             if let Err(e) = capture.write_all(&chunk) {
-                                break Some(ProcessClass::Lost(format!(
-                                    "its output could not be captured: {e}"
-                                )));
+                                break Some(ProcessClass::Uncaptured(format!("{e}")));
                             }
                             // The terminal going away mustn't lose the capture.
                             let _ = shown.write_all(&chunk).and_then(|()| shown.flush());

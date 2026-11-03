@@ -82,7 +82,7 @@ impl McpState {
                 Arc::new(specforge_process::Runner),
                 Z3::DEFAULT_TIMEOUT,
             )),
-            collector_machine: Arc::new(ProcessMachine::user()),
+            collector_machine: Arc::new(ProcessMachine::user(Arc::new(specforge_process::Runner))),
             host: None,
         }
     }

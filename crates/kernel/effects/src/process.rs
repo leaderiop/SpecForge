@@ -92,6 +92,8 @@ pub enum ProcessClass {
     NoDirectory,
     /// Found and not started (permissions, an empty argv, …), with why.
     CannotStart(String),
+    /// Its output could not be written to the caller's capture: the run was stopped, the capture is short.
+    Uncaptured(String),
     /// Started, and its end could not be observed (waiting failed, or the capture could not be written), with why.
     Lost(String),
 }
@@ -107,7 +109,9 @@ impl ProcessClass {
             ProcessClass::OutputCapped => OutcomeClass::Capped,
             ProcessClass::NotFound => OutcomeClass::NotFound,
             ProcessClass::NoDirectory => OutcomeClass::Missing,
-            ProcessClass::CannotStart(_) | ProcessClass::Lost(_) => OutcomeClass::CannotStart,
+            ProcessClass::CannotStart(_) | ProcessClass::Lost(_) | ProcessClass::Uncaptured(_) => {
+                OutcomeClass::CannotStart
+            }
         }
     }
 }
@@ -126,6 +130,9 @@ impl std::fmt::Display for ProcessClass {
                 f.write_str("cannot run: the directory it runs in does not exist")
             }
             ProcessClass::CannotStart(why) => write!(f, "cannot start: {why}"),
+            ProcessClass::Uncaptured(why) => {
+                write!(f, "had output that could not be captured: {why}")
+            }
             ProcessClass::Lost(why) => write!(f, "ended without an answer: {why}"),
         }
     }

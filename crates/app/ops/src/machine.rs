@@ -53,6 +53,8 @@ pub enum RunFailure {
     NotRun(std::io::Error),
     /// Its standard output could not be written to the capture.
     Capture(std::io::Error),
+    /// It was stopped, with its whole process group: past the collector deadline or its output cap (ADR 0335).
+    Stopped { why: String },
 }
 
 /// One approval: this project may run this extension's collector with this command. A changed command is a

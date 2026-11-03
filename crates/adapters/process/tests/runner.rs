@@ -60,6 +60,38 @@ fn the_host_build_ceiling_passes_the_request_ceiling() {
     assert_eq!(outcome.class, ProcessClass::Exited(0), "{outcome:?}");
 }
 
+/// A capture that cannot be written: a full disk.
+#[cfg(unix)]
+struct Full;
+
+#[cfg(unix)]
+impl std::io::Write for Full {
+    fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+        Err(std::io::Error::other("no space left"))
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_capture_that_cannot_be_written_stops_the_run_as_uncaptured() {
+    let outcome = Runner.run(
+        &sh("echo hi", Duration::from_secs(5)),
+        &std::env::temp_dir(),
+        Output::Tee {
+            capture: &mut Full,
+            shown: specforge_effects::Shown::Discard,
+        },
+    );
+    assert_eq!(
+        outcome.class,
+        ProcessClass::Uncaptured("no space left".into()),
+        "{outcome:?}"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn a_grandchild_dies_with_the_group() {

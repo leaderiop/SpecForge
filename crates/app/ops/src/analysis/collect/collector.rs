@@ -157,11 +157,12 @@ pub(super) fn capture_path(
 }
 
 /// The captured standard output at `held`, if there is one. Runner output
-/// isn't always UTF-8 (tests print what they like), so it's read lossily.
+/// isn't always UTF-8 (tests print what they like), so it's read lossily, and
+/// `\r\n` as `\n` (a Windows runner's lines).
 pub(super) fn read_capture(held: &Held) -> Option<String> {
     held.read()
         .ok()
-        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        .map(|bytes| specforge_effects::process::text(&bytes))
 }
 
 /// The declared command with `{report}` expanded.

@@ -493,6 +493,8 @@ behavior run_collector_command "Run Collector Command" {
   verify unit "an unknown capture is refused"
   verify unit "a detected collector with no evidence is skipped and the others are kept"
   verify unit "a named collector with no evidence is still E045"
+  verify unit "a collector command past its deadline is stopped"
+  verify unit "a .cmd shim on PATH runs as a collector command on Windows"
   verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_ignored, report_path_exported, failing_tests_recorded, refused_before_running"
 }
 
