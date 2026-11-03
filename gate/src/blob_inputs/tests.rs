@@ -9,11 +9,12 @@ fn fed(paths: &[&str]) -> Vec<String> {
 }
 
 /// The blobs that record their inputs today: the builtins. The fixtures join at the round's re-vendor.
-const BUILTIN_CRATES: [&str; 10] = [
+const BUILTIN_CRATES: [&str; 11] = [
     "extensions/cargo-test",
     "extensions/code/core",
     "extensions/formal",
     "extensions/governance",
+    "extensions/javascript/node-test",
     "extensions/product",
     "extensions/rust",
     "extensions/software",
@@ -32,6 +33,14 @@ fn a_record_round_trips_byte_for_byte() {
         let written = std::fs::read(scratch.path().join(shown(&builtin))).unwrap();
         assert_eq!(original, written, "{builtin}");
     }
+}
+
+#[test]
+fn a_change_to_the_junit_library_feeds_the_builtins_that_link_it() {
+    assert_eq!(
+        fed(&["extensions/code/junit/src/lib.rs"]),
+        ["extensions/javascript/node-test"]
+    );
 }
 
 #[test]

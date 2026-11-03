@@ -4,8 +4,10 @@
 //! ADR 0026 D4); the registry build checks each rule when it registers it
 //! (`Codebook::check`, W150), and this test checks them all, so a
 //! mismatch fails a test and not only a user's compile. A `@specforge/`
-//! builtin's codes are bare, in the static catalog; any other builtin
-//! catalogues its own, as a third party does (ADR 0286 D2, ADR 0328 D2).
+//! builtin's codes are bare, in the static catalog, and it declares none; any
+//! other builtin that reports (`specforge_registry::reports`: rules or
+//! passes) catalogues its own, as a third party does, and one that only
+//! collects has none to catalogue (ADR 0286 D2, ADR 0328 D2).
 #![allow(
     clippy::unwrap_used,
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
@@ -47,8 +49,8 @@ fn builtin_rules_use_their_own_codes() {
             assert!(declaration.codes.is_empty(), "{name} declares `codes`");
         } else {
             assert!(
-                !declaration.codes.is_empty(),
-                "{name} is no @specforge/ builtin and catalogues no codes"
+                !specforge_registry::reports(&declaration) || !declaration.codes.is_empty(),
+                "{name} is no @specforge/ builtin, reports through rules or passes, and catalogues no codes"
             );
             // The registry build's own reading, which also drops a malformed entry (E030).
             let codes = specforge_registry::extension_codes(&declaration);

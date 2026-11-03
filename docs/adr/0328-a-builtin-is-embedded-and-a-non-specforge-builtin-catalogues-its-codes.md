@@ -23,9 +23,11 @@ declaration and registry-build snapshots) or of their crate dir (the build stage
   name, whose name no `.wasm` file entry may take (ADR 0214), whatever its scope. First party is the `@specforge/`
   scope only (`FIRST_PARTY` in `specforge-diagnostics`): its codes are bare and live in the static catalogue (ADR
   0286 D2).
-- **D2. A builtin outside `@specforge` catalogues its codes.** It declares the `codes` category as a third party does
-  (ADR 0286 D3), and its findings print namespaced: `@code/core`'s E101 prints `code/E101`. Its rules are checked
-  against the static catalogue plus its own. A `@specforge/` builtin still declares none.
+- **D2. A builtin outside `@specforge` that reports catalogues its codes.** It declares the `codes` category as a
+  third party does (ADR 0286 D3), and its findings print namespaced: `@code/core`'s E101 prints `code/E101`. Its rules
+  are checked against the static catalogue plus its own. A `@specforge/` builtin still declares none. It reports
+  through validation rules or passes (`specforge_registry::reports`); one that only collects (`@javascript/node-test`)
+  has no code to catalogue.
 - **D3. One naming rule, two shapes.**
 
   | Crate dir | Name | Artifact |

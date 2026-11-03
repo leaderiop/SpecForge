@@ -99,6 +99,51 @@ fn vitest_declares_its_collector() {
 }
 
 #[specforge_test_macros::test(
+    behavior = "nt_declare_node_test_collector",
+    verify = "node-test declares its collector, its reads and its peer"
+)]
+fn node_test_declares_its_collector() {
+    let manifest = load_via_protocol("@javascript/node-test");
+    let peers: Vec<(&str, bool)> = manifest
+        .peers()
+        .iter()
+        .map(|p| (p.name.as_str(), p.optional))
+        .collect();
+    assert_eq!(
+        peers,
+        [("@code/core", false)],
+        "code/core is a required peer"
+    );
+    let collectors = collectors(std::slice::from_ref(&manifest));
+    assert_eq!(collectors.len(), 1);
+    let c = &collectors[0];
+    assert_eq!(c.name, "node-test");
+    assert_eq!(c.export, "collect__node_test");
+    assert_eq!(c.detect, ["package.json"]);
+    assert_eq!(
+        c.run,
+        [
+            "node",
+            "--test",
+            "--test-reporter=spec",
+            "--test-reporter-destination=stdout",
+            "--test-reporter=junit",
+            "--test-reporter-destination={report}",
+        ]
+    );
+    assert_eq!(c.report, ".specforge/reports/node-test.xml");
+    assert_eq!(
+        c.reads,
+        [specforge_protocol_types::FileRead {
+            name: "packages".into(),
+            glob: Some("**/package.json".into()),
+            text: true,
+            ..Default::default()
+        }]
+    );
+}
+
+#[specforge_test_macros::test(
     behavior = "ct_declare_cargo_collector",
     verify = "cargo-test declares its collector"
 )]

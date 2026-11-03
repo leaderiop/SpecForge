@@ -1297,6 +1297,7 @@ expression: "digest(&load(&runtime, &all))"
   },
   "ext_short": {
     "@code/core": "core",
+    "@javascript/node-test": "node-test",
     "@specforge/cargo-test": "cargo-test",
     "@specforge/formal": "formal",
     "@specforge/governance": "governance",
@@ -1346,6 +1347,10 @@ expression: "digest(&load(&runtime, &all))"
     ],
     [
       "@code/core",
+      "1.0.0"
+    ],
+    [
+      "@javascript/node-test",
       "1.0.0"
     ]
   ],

@@ -25,8 +25,10 @@ use specforge_component::committed::COMMITTED;
 // product blob is 998,381 B, 1,619 B under its cap: the next minor that grows every blob must raise the cap or shrink
 // product. ADR 0330's `routes` (route, step and annotation descriptors, in every blob) measured 5,630,853 B: +131,730 B,
 // about 13 KB per blob; the total keeps 269,147 B of headroom. The product blob is 1,011,905 B, so its cap takes the
-// rule's next step, 1,100,000, with 88,095 B of headroom.
-const TOTAL_BUDGET: usize = 5_900_000;
+// rule's next step, 1,100,000, with 88,095 B of headroom. The eleventh builtin, `@javascript/node-test` (524,429 B: the
+// SDK, serde_json and the linked JUnit reader of `specforge-code-junit`), brings the total to 6,155,282 B, 96 KB more
+// than the 428 KB SDK floor R1 planned for; the rule gives 6,200,000, with 44,718 B of headroom.
+const TOTAL_BUDGET: usize = 6_200_000;
 const BLOB_BUDGET: usize = 1_100_000;
 
 #[test]

@@ -25,5 +25,5 @@ pub use build::{
 };
 pub use candidates::CandidateVocabulary;
 pub(crate) use candidates::UnloadedPeers;
-pub use codes::extension_codes;
+pub use codes::{extension_codes, reports};
 pub use reads::read_problem;
