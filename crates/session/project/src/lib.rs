@@ -28,6 +28,7 @@ mod compiled;
 mod compute;
 pub mod coverage;
 mod diagnostics_delta;
+pub mod effects;
 pub mod facts;
 pub mod file_reads;
 mod guards;
@@ -36,6 +37,7 @@ pub mod history;
 pub mod journal;
 pub mod judged;
 mod ledger;
+mod outside;
 pub mod passes;
 mod policy;
 pub mod providers;
@@ -59,7 +61,7 @@ use specforge_common::{
     ConfigProblem, ConfigRead, Diagnostic, ProjectConfig, ProjectRoot, SourceRoot, codes,
     project_config_from,
 };
-use specforge_effects::git::{Git, Located, SharedGit};
+use specforge_effects::git::{Located, SharedGit};
 use specforge_graph::{Computed, GraphBuild, SpecFile};
 use specforge_installed::{Builtins, Installed};
 use specforge_registry::{
@@ -185,6 +187,9 @@ pub struct Environment {
     /// Where the repository is, once a locate found one (a project outside one is asked again each check, so
     /// `git init` is seen).
     place: std::sync::OnceLock<Located>,
+    /// Whether a run performs, reuses or replays an http or process effect (ADR 0337 D4): `cached` over the
+    /// project's effects journal unless a surface chooses (detached with no project root), so a compile performs none.
+    effects: specforge_effects::Effects,
 }
 
 impl Environment {
@@ -205,30 +210,10 @@ impl Environment {
             root: None,
             git: None,
             place: Default::default(),
+            effects: specforge_effects::Effects::cached(
+                specforge_effects::EffectJournal::detached(),
+            ),
         }
-    }
-
-    /// This environment asking `git` of version control.
-    pub fn with_git(mut self, git: SharedGit) -> Self {
-        self.git = Some(git);
-        self
-    }
-
-    /// Where the repository of this project is, asked of `git`: a repository once found is kept.
-    pub(crate) fn place(&self, git: &dyn Git) -> Located {
-        if let Some(found) = self.place.get() {
-            return found.clone();
-        }
-        let located = git.locate(self.root());
-        if matches!(located, Located::Repo(_)) {
-            let _ = self.place.set(located.clone());
-        }
-        located
-    }
-
-    /// The git port this environment was given; none: no judgement against history.
-    pub fn git(&self) -> Option<SharedGit> {
-        self.git.clone()
     }
 
     /// A bare build for a project assembled in memory: a registry build made
@@ -371,6 +356,9 @@ impl Environment {
             root: None,
             git: None,
             place: Default::default(),
+            effects: specforge_effects::Effects::cached(
+                specforge_effects::EffectJournal::detached(),
+            ),
         }
     }
 
@@ -401,6 +389,9 @@ impl Environment {
         };
         Environment {
             root: Some(root.clone()),
+            effects: specforge_effects::Effects::cached(
+                specforge_effects::EffectJournal::for_root(root),
+            ),
             ..Self::assemble(read, installed, load)
         }
     }

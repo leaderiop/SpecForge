@@ -10,6 +10,8 @@ autotests = false
 [features]
 # `specforge_effects::testing`: the ports' fakes and the contracts every adapter keeps. No production code reads it.
 testing = []
+# `EffectsMode` as a clap `ValueEnum`: the CLI's `--effects` is the enum itself.
+clap = ["dep:clap"]
 
 [dependencies]
 # `find_close_match` for a contained suggestion; `path_glob` for a walk.
@@ -18,6 +20,7 @@ specforge-common = { path = "../common" }
 specforge-package = { path = "../../leaf/package" }
 # The wire types of every request and outcome class.
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
+clap = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

@@ -209,6 +209,7 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
   verify integration "after the LSP's watchers move, the session catches up on what changed while they did"
   verify integration "the LSP's catch-up keeps an open buffer"
   verify unit "a nested project appearing below the spec root takes its files out of the session, and its removal puts them back"
+  verify unit "a project opens with cached effects and no ports, over its own effects journal"
   verify unit "a source that reads as the session holds it does not drop a check input changed with it"
   verify unit "a changed source and a changed check input run the checks once"
   verify unit "an environment reload covers a check input changed with it"

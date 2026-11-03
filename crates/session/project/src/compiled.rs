@@ -12,6 +12,7 @@ use specforge_graph::{
 };
 
 mod disk;
+mod effects;
 mod judged;
 
 use crate::coverage::{REPORT_FILE, Recorded, RecordedCoverage, ReportError, TestReport};
@@ -51,28 +52,23 @@ pub struct CompiledProject {
     /// E025 for the unreadable sources, then the resolver's (E025, I004,
     /// W113, W027).
     import_diagnostics: Vec<Diagnostic>,
-    /// What the checks on the graph reported: the registry build's checks
-    /// and the extensions' rules, then the check-phase passes. Empty when
-    /// the last update skipped them.
+    /// What the checks on the graph reported: the registry build's checks and the extensions' rules, then the
+    /// check-phase passes. Empty when the last update skipped them.
     check_diagnostics: Vec<Diagnostic>,
     /// The values the compute passes gave at the last check (ADR 0287); empty when the checks were skipped.
     computed: Arc<Computed>,
     judgements: Arc<crate::judged::Judgements>,
     digests: Arc<crate::judged::DigestMemo>,
-    /// The graph's entity snapshot, the recorded test report and the
-    /// coverage: seeded with the snapshot the checks read; made over the
-    /// graph on first use after an update that skipped them.
+    /// The graph's entity snapshot, the recorded test report and the coverage: seeded with the snapshot the checks
+    /// read; made over the graph on first use after an update that skipped them.
     recorded: OnceLock<RecordedCoverage>,
-    /// What it reports ([`Self::diagnostics`]), in the one report order,
-    /// made on first use after a change and shared: a session's update holds
-    /// it as what the session reports now, and the next update as what it
-    /// reported before (ADR 0074).
+    /// What it reports ([`Self::diagnostics`]), in the one report order, made on first use after a change and
+    /// shared: a session's update holds it as what the session reports now, and the next as what it reported
+    /// before (ADR 0074).
     reported: OnceLock<Arc<[Diagnostic]>>,
-    /// The one answer to rooted or detached ([`Self::root`], ADR 0047 D4, ADR 0121).
-    /// `false` for a detached project (no project on disk: an editor with
-    /// no workspace folder, MCP while nothing is served): it has no root,
-    /// and imports are not resolved, with no spec root to resolve them
-    /// against (ADR 0030 D5).
+    /// The one answer to rooted or detached ([`Self::root`], ADR 0047 D4, ADR 0121). `false` for a detached
+    /// project (no project on disk: an editor with no workspace folder, MCP while nothing is served): it has no
+    /// root, and imports are not resolved, with no spec root to resolve them against (ADR 0030 D5).
     on_disk: bool,
     /// The last update skipped the checks (the typing fast path): none is
     /// reported until an update runs them (ADR 0136 D4).
@@ -83,30 +79,27 @@ pub struct CompiledProject {
     /// Renames applied to the editor's buffers and not yet saved (ADR 0289): the checks read the ledger as they will
     /// have written it. Empty but for a session of an editor.
     ledger_overlay: Vec<Arc<crate::harness::LedgerOverlay>>,
+    /// One call's own effects ([`Self::effects_rerun`]); none: the environment's.
+    effects: Option<Arc<specforge_effects::Effects>>,
 }
 
 impl CompiledProject {
-    /// Compile the project at `root`, its extensions loaded into `runtime`
-    /// (without one no extension loads), which its environment holds, its
-    /// sources read from the plain file system. It keeps no stamp (ADR 0030).
+    /// Compile the project at `root`, its extensions loaded into `runtime` (without one no extension loads), which
+    /// its environment holds, its sources read from the plain file system. It keeps no stamp (ADR 0030).
     pub fn compile(root: &ProjectRoot, runtime: Option<SharedRuntime>) -> Self {
         Self::compile_through(Environment::load(root, runtime), &PlainDisk)
     }
 
-    /// The project of `env`, each source read through `sources` (ADR 0166): a
-    /// surface that bounds its request hands its containment's disk, and a
-    /// source the disk refuses is that source's E025, absent from the graph
-    /// (ADR 0145 D2). The environment and the checks read the plain file
-    /// system (ADR 0145 D3), as a session's do. A caller that read the
-    /// environment first (a migration plans with its field forms, ADR 0186)
-    /// compiles in that load.
+    /// The project of `env`, each source read through `sources` (ADR 0166): a surface that bounds its request hands
+    /// its containment's disk, and a source the disk refuses is that source's E025, absent from the graph (ADR 0145
+    /// D2). The environment and the checks read the plain file system (ADR 0145 D3), as a session's do. A caller
+    /// that read the environment first (a migration plans with its field forms, ADR 0186) compiles in that load.
     pub fn compile_through(env: Environment, sources: &dyn Disk) -> Self {
         Self::checked(env, &mut Unrecorded::through(sources))
     }
 
-    /// Compile the project of an environment already loaded (the CLI routes
-    /// an extension command on it first): its sources read from the plain
-    /// file system, its graph built and checked in the environment's runtime.
+    /// Compile the project of an environment already loaded (the CLI routes an extension command on it first): its
+    /// sources read from the plain file system, its graph built and checked in the environment's runtime.
     pub fn of(env: Environment) -> Self {
         Self::checked(env, &mut Unrecorded::plain())
     }
@@ -431,6 +424,7 @@ impl CompiledProject {
             on_disk: false,
             checks_skipped: false,
             ledger_overlay: Vec::new(),
+            effects: None,
             baseline: None,
         }
     }
@@ -456,6 +450,7 @@ impl CompiledProject {
             on_disk,
             checks_skipped: false,
             ledger_overlay: Vec::new(),
+            effects: None,
             baseline: None,
         }
     }
@@ -486,6 +481,7 @@ impl CompiledProject {
             on_disk: rooted,
             checks_skipped: false,
             ledger_overlay: Vec::new(),
+            effects: None,
             baseline: None,
         }
     }
@@ -535,6 +531,7 @@ impl CompiledProject {
             on_disk,
             checks_skipped: false,
             ledger_overlay: Vec::new(),
+            effects: None,
             baseline: None,
         }
     }

@@ -10,6 +10,7 @@ pub mod fs;
 pub mod git;
 pub mod http;
 pub mod journal;
+pub mod mode;
 pub mod process;
 #[cfg(feature = "testing")]
 pub mod testing;
@@ -20,7 +21,8 @@ pub use digest::{canonical, digest};
 pub use fs::{Fs, FsOutcome, SharedFs};
 pub use git::{Git, SharedGit};
 pub use http::{Http, HttpOutcome, Redirects, SharedHttp};
-pub use journal::{EffectJournal, EffectRecord, RecordDigest};
+pub use journal::{Answer, EffectJournal, EffectRecord, RecordDigest};
+pub use mode::{Effects, EffectsMode, Served};
 pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, SharedProcess, Shown};
 pub use specforge_protocol_types::{
     EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome, OutcomeClass,
