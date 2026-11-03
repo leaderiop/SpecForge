@@ -19,11 +19,12 @@ mod occurrences;
 mod references;
 mod text;
 
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use specforge_common::{SourceSpan, Sym};
+use specforge_graph::WrittenToken;
 
 use crate::view::ProjectView;
 
@@ -51,10 +52,12 @@ pub(crate) use text::SourceText;
 /// its spans are positions in, by the key spans name it (relative to the spec
 /// root). Each file's text is indexed once per navigator. A file the compile
 /// holds no text of has none: its occurrences fall back to the holder's block
-/// (`Precision::Entity`). No surface hands it another text (ADR 0116).
+/// (`Precision::Entity`). No surface hands it another text (ADR 0116). The
+/// tokens the graph's finder reads are read once per navigator too.
 pub struct Navigator<'a> {
     view: ProjectView<'a>,
     texts: RefCell<HashMap<Sym, Option<Rc<SourceText>>>>,
+    written: OnceCell<Vec<WrittenToken>>,
 }
 
 impl<'a> Navigator<'a> {
@@ -62,6 +65,7 @@ impl<'a> Navigator<'a> {
         Navigator {
             view,
             texts: RefCell::new(HashMap::new()),
+            written: OnceCell::new(),
         }
     }
 
