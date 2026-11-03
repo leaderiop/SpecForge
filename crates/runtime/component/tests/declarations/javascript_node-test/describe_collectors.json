@@ -12,14 +12,15 @@
       "input_formats": [
         "junit-xml"
       ],
-      "name": "node-test",
-      "reads": [
+      "inputs": [
         {
           "glob": "**/package.json",
+          "input": "files",
           "name": "packages",
           "text": true
         }
       ],
+      "name": "node-test",
       "report": ".specforge/reports/node-test.xml",
       "run": [
         "node",

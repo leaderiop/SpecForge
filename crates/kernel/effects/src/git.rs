@@ -95,7 +95,7 @@ pub type Sized = (PathBuf, Option<u64>);
 pub type TreeEntry = (PathBuf, bool);
 
 /// What the host asks of version control. Every method is read-only, and none runs unless a project declares
-/// history or a hook declares `reads_git` (ADR 0320).
+/// history or a hook declares the `git` input (ADR 0320, ADR 0337 D2).
 pub trait Git: Send + Sync {
     /// The repository `dir` is in.
     fn locate(&self, dir: &Path) -> Located;

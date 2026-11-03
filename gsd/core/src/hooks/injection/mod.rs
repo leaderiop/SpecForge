@@ -326,7 +326,10 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
     c.hook("injection_scanner", HookEvent::PostTool, |h| {
         h.description("Warns of prompt-injection phrases in what a read, fetch or search returned")
             .tools(&["read", "web_fetch", "web_search"])
-            .reads_setting("@gsd/security", "security.injection_blocking")
+            .input(Input::setting(
+                "@gsd/security",
+                "security.injection_blocking",
+            ))
             .handler(|call| Ok(scanner(&Facts::of(call))));
     });
     c.hook("prompt_guard", HookEvent::PreTool, |h| {

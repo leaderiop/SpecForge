@@ -19,9 +19,9 @@ use specforge_wasm::testing::InProcessRuntime;
 /// The compute pass `scan`: it reads the files `plan.files_modified` names and the sources under `src`.
 fn scan_runtime() -> InProcessRuntime {
     gsd_facts_serving(
-        json!([{"name": "scan", "phase": "compute", "baseline": ["plan"], "reads": [
-            {"name": "modified", "field": "plan.files_modified", "text": true},
-            {"name": "sources", "glob": "src/**/*.rs"},
+        json!([{"name": "scan", "phase": "compute", "baseline": ["plan"], "inputs": [
+            {"input": "files", "name": "modified", "field": "plan.files_modified", "text": true},
+            {"input": "files", "name": "sources", "glob": "src/**/*.rs"},
         ]}]),
     )
 }
@@ -386,8 +386,8 @@ fn a_path_only_a_computed_value_names_is_read_in_a_later_run() {
     ]);
     let passes = json!([
         {"name": "first", "phase": "compute", "baseline": ["plan"], "computes": ["plan.touched"]},
-        {"name": "second", "phase": "compute", "baseline": ["plan"], "reads": [
-            {"name": "touched", "field": "plan.touched", "text": true},
+        {"name": "second", "phase": "compute", "baseline": ["plan"], "inputs": [
+            {"input": "files", "name": "touched", "field": "plan.touched", "text": true},
         ]},
     ]);
     let none = json!({"diagnostics": [], "summary": {}, "values": []});

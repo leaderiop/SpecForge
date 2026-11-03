@@ -477,7 +477,7 @@ fn no_picked_subject_is_project_wide_and_a_word_is_the_subject() {
 fn router(settings: Value) -> Served {
     let descriptor = json!({
         "id": "router", "title": "Router", "description": "Routes", "export": "prompt__router",
-        "args": [], "reads_slash_commands": true,
+        "args": [], "inputs": [{"input": "slash_commands"}],
     });
     served_with(
         project("fine", "ok", settings),

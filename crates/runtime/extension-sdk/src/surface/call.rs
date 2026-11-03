@@ -66,7 +66,7 @@ impl<'a> CommandCall<'a> {
         self.input.is_json()
     }
 
-    /// The extension's state, for a command that declares `reads_state`; `None` otherwise: the host sends nothing
+    /// The extension's state, for a command that declares the `state` input; `None` otherwise: the host sends nothing
     /// (ADR 0310).
     pub fn state(&self) -> Option<&'a StateView> {
         self.input.state.as_ref()

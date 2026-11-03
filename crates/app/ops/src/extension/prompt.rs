@@ -21,7 +21,7 @@ use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 pub use args::{PromptArgs, words};
 pub use judged::JudgedRuleRef;
 
-use super::command::{ExtensionCommand, ExtensionCommands, canonical, graph_export, today};
+use super::command::{ExtensionCommand, ExtensionCommands, canonical, today};
 use super::gate::{self, Gate, GateState};
 use crate::host::Host;
 use crate::view::ProjectView;
@@ -224,22 +224,15 @@ pub fn render(
         .and_then(|name| args.get(name))
         .and_then(Value::as_str)
         .map(str::to_string);
+    let served = super::inputs::Serve::new(view, &prompt.extension, &declared.inputs);
     let input = PromptInput::<RawGraph> {
         args,
         cwd: canonical(root).display().to_string(),
         today: today(),
-        graph: declared.reads_graph.then(|| {
-            RawGraph::new(graph_export(view)).expect("the graph export is one JSON value")
-        }),
+        graph: served.graph(),
         host: host.map(|h| h.as_str().to_string()),
-        state: declared
-            .reads_state
-            .then(|| crate::host::state::read(view, &prompt.extension, None)),
-        slash_commands: if declared.reads_slash_commands {
-            crate::host::render::served_slashes(view)
-        } else {
-            Vec::new()
-        },
+        state: served.state(None),
+        slash_commands: served.slash_commands(),
     };
     let call = || {
         let Some(runtime) = view.runtime() else {

@@ -30,7 +30,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
     });
     c.pass("verify_paths", |p| {
         p.phase("check")
-            .reads("targets", FileReadSpec::field("task.verify_paths").text())
+            .input(Input::files(
+                "targets",
+                FileReadSpec::field("task.verify_paths").text(),
+            ))
             .run(check);
     });
 }

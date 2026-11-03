@@ -29,7 +29,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
         let names: Vec<&str> = computes.iter().map(String::as_str).collect();
         p.compute()
             .computes(&names)
-            .reads_tests()
+            .input(Input::Tests)
             .baseline(&[
                 "verification",
                 "truth",

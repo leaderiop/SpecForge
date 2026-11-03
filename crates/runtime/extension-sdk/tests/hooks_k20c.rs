@@ -15,8 +15,11 @@ fn the_hook_builder_declares_hosts_git_and_other_settings() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
     c.hook("h", HookEvent::PreTool, |h| {
         h.hosts(&["codex", "cursor"])
-            .reads_git_status()
-            .reads_setting("@gsd/security", "security.injection_blocking")
+            .input(Input::git().status())
+            .input(Input::setting(
+                "@gsd/security",
+                "security.injection_blocking",
+            ))
             .handler(|_| Ok(HookOutput::default()));
     });
     c.hook("plain", HookEvent::PostTool, |h| {
@@ -24,13 +27,20 @@ fn the_hook_builder_declares_hosts_git_and_other_settings() {
     });
     let hooks = c.declaration().surfaces.hooks;
     assert_eq!(hooks[0].hosts, ["codex", "cursor"]);
-    assert!(hooks[0].reads_git && hooks[0].reads_git_status);
+    let inputs = specforge_protocol_types::Inputs(&hooks[0].inputs);
     assert_eq!(
-        hooks[0].reads_settings,
-        ["@gsd/security:security.injection_blocking"]
+        inputs.git(),
+        Some(specforge_protocol_types::GitInput {
+            status: true,
+            when: None
+        })
+    );
+    assert_eq!(
+        inputs.settings().collect::<Vec<_>>(),
+        [("@gsd/security", "security.injection_blocking")]
     );
     let plain = serde_json::to_value(&hooks[1]).unwrap();
-    for key in ["hosts", "reads_git", "reads_git_status", "reads_settings"] {
+    for key in ["hosts", "inputs"] {
         assert!(plain.get(key).is_none(), "{key}: {plain}");
     }
 }

@@ -1,4 +1,4 @@
-//! K12: a check, compute or guard pass that declares `reads_tests` receives the recorded test report, and none
+//! K12: a check, compute or guard pass that declares the `tests` input receives the recorded test report, and none
 //! recorded is I205 once (E045 when it cannot be used). A pass that does not declare it is sent what 1.10 sent.
 
 use std::sync::Arc;
@@ -39,7 +39,7 @@ fn reading(phase: &str) -> Value {
     } else {
         json!([])
     };
-    json!([{"name": "p", "phase": phase, "reads_tests": true, "computes": computes}])
+    json!([{"name": "p", "phase": phase, "inputs": [{"input": "tests"}], "computes": computes}])
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn a_check_pass_sees_the_recorded_report() {
 
     let input = pass_input(&runtime, "tests");
     assert!(input["test_results"].is_object(), "{input}");
-    // A pass that does not declare `reads_tests` is sent what 1.10 sent.
+    // A pass that does not declare the `tests` input is sent what 1.10 sent.
     assert!(pass_input(&runtime, "lists").get("test_results").is_none());
     assert_eq!(count(&compiled.diagnostics(), "I205"), 0);
 }
@@ -109,8 +109,8 @@ fn no_report_is_i205_once() {
 #[test]
 fn several_passes_reading_tests_report_i205_once() {
     let passes = json!([
-        {"name": "a", "phase": "check", "reads_tests": true},
-        {"name": "b", "phase": "check", "reads_tests": true},
+        {"name": "a", "phase": "check", "inputs": [{"input": "tests"}]},
+        {"name": "b", "phase": "check", "inputs": [{"input": "tests"}]},
     ]);
     let (compiled, ..) = compile(passes, None);
     let diagnostics = compiled.diagnostics();
@@ -123,7 +123,7 @@ fn several_passes_reading_tests_report_i205_once() {
 fn i205_is_not_repeated_when_a_judged_rule_already_reported_it() {
     let passes = json!([
         {"name": "plan_status", "phase": "compute", "computes": ["plan.status"]},
-        {"name": "tests", "phase": "check", "reads_tests": true},
+        {"name": "tests", "phase": "check", "inputs": [{"input": "tests"}]},
     ]);
     let runtime = Arc::new(
         InProcessRuntime::new()
@@ -164,8 +164,8 @@ fn i205_is_not_repeated_when_a_judged_rule_already_reported_it() {
 #[test]
 fn an_unusable_report_is_e045_once() {
     let passes = json!([
-        {"name": "a", "phase": "check", "reads_tests": true},
-        {"name": "b", "phase": "check", "reads_tests": true},
+        {"name": "a", "phase": "check", "inputs": [{"input": "tests"}]},
+        {"name": "b", "phase": "check", "inputs": [{"input": "tests"}]},
     ]);
     let (compiled, ..) = compile(passes, Some("not json"));
     let diagnostics = compiled.diagnostics();

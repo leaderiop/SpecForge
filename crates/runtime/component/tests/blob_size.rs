@@ -27,8 +27,10 @@ use specforge_component::committed::COMMITTED;
 // about 13 KB per blob; the total keeps 269,147 B of headroom. The product blob is 1,011,905 B, so its cap takes the
 // rule's next step, 1,100,000, with 88,095 B of headroom. The eleventh builtin, `@javascript/node-test` (524,429 B: the
 // SDK, serde_json and the linked JUnit reader of `specforge-code-junit`), brings the total to 6,155,282 B, 96 KB more
-// than the 428 KB SDK floor R1 planned for; the rule gives 6,200,000, with 44,718 B of headroom.
-const TOTAL_BUDGET: usize = 6_200_000;
+// than the 428 KB SDK floor R1 planned for; the rule gives 6,200,000, with 44,718 B of headroom. Protocol 2.0.0's
+// one list of inputs (an internally tagged `Input`, ADR 0337) measured 6,276,792 B; the rule gives 6,300,000, with
+// 23,208 B of headroom. The product blob is 1,021,477 B, 78,523 B under its cap.
+const TOTAL_BUDGET: usize = 6_300_000;
 const BLOB_BUDGET: usize = 1_100_000;
 
 #[test]

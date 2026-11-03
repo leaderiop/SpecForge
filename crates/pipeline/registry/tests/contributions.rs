@@ -145,14 +145,14 @@ fn a_contribution_the_registry_refuses_is_w021() {
             hook("elsewhere", "pre_tool", json!({"hosts": ["windsurf"]})),
             hook("cursor_only", "pre_tool", json!({"hosts": ["cursor"]})),
             hook("from_the_future", "a_future_event", json!({})),
-            hook("git_on_a_non_setting", "pre_tool", json!({"git_when": "models.nope"})),
+            hook("git_on_a_non_setting", "pre_tool", json!({"inputs": [{"input": "git", "when": "models.nope"}]})),
             hook("watch_nothing", "file_changed", json!({})),
             hook("watch_with_tools", "file_changed", json!({"paths": ["specforge.json"], "tools": ["write"]})),
             hook("watch_a_glob", "file_changed", json!({"paths": ["*.json"]})),
             hook("watch_nested", "file_changed", json!({"paths": ["config/app.json"]})),
-            hook("reads_no_setting", "pre_tool", json!({"reads_settings": ["@t/ui"]})),
-            hook("reads_own_setting", "pre_tool", json!({"reads_settings": ["@t/core:models.planner"]})),
-            hook("reads_a_peer_setting", "pre_tool", json!({"reads_settings": ["@t/ui:workflow.ui_phase"]})),
+            hook("reads_no_setting", "pre_tool", json!({"inputs": [{"input": "setting", "extension": "@t/ui", "name": ""}]})),
+            hook("reads_own_setting", "pre_tool", json!({"inputs": [{"input": "setting", "extension": "@t/core", "name": "models.planner"}]})),
+            hook("reads_a_peer_setting", "pre_tool", json!({"inputs": [{"input": "setting", "extension": "@t/ui", "name": "workflow.ui_phase"}]})),
             hook("watch_a_file", "file_changed", json!({"paths": ["specforge.json"]})),
         ],
     }))]);
@@ -198,6 +198,8 @@ fn a_contribution_the_registry_refuses_is_w021() {
         [
             "fine",
             "cursor_only",
+            "reads_no_setting",
+            "reads_own_setting",
             "reads_a_peer_setting",
             "watch_a_file"
         ]
@@ -206,8 +208,8 @@ fn a_contribution_the_registry_refuses_is_w021() {
         "its event is one this host does not know",
         "a file_changed hook names the files it watches in paths",
         "the event 'file_changed' takes no tools",
-        "its reads_settings '@t/ui' is not <extension>:<setting>",
-        "its reads_settings '@t/core:models.planner' names its own extension: read it with Settings::current",
+        "declares the input '@t/ui:', which is not served: it does not name an extension and a setting",
+        "declares the input '@t/core:models.planner', which is not served: it names its own extension: read it with Settings::current",
         "a file_changed hook's paths are file names, not globs: '*.json'",
         "a file_changed hook's paths are bare file names of the project root, not 'config/app.json'",
     ] {
@@ -216,6 +218,46 @@ fn a_contribution_the_registry_refuses_is_w021() {
             "{why}: {messages:#?}"
         );
     }
+}
+
+#[specforge_test(
+    behavior = "load_extension_declaration",
+    verify = "an input its call kind is not served, or a second one of a kind served once, is W021 and served empty, and the call is kept"
+)]
+fn an_input_its_call_kind_is_not_served_is_w021_and_served_empty() {
+    let build = build_registries(vec![core(json!({
+        "commands": [{"id": "go", "title": "Go", "description": "Go", "export": "cmd__go",
+                      "inputs": [{"input": "state"}, {"input": "git"}, {"input": "state"}]}],
+        "prompts": [{"id": "plan_phase", "title": "P", "description": "P", "export": "prompt__plan_phase",
+                     "inputs": [{"input": "graph"}, {"input": "tests"}]}],
+        "hooks": [hook("guard", "pre_tool", json!({"inputs": [
+            {"input": "files", "name": "src", "glob": "src/**"}, {"input": "git", "status": true}]}))],
+    }))]);
+    let messages = w021(&build);
+    for said in [
+        "command 'go' declares the input 'git', which is not served: its kind of call is not served it",
+        "command 'go' declares the input 'state', which is not served: it is declared twice",
+        "prompt 'plan_phase' declares the input 'tests', which is not served: its kind of call is not served it",
+        "hook 'guard' declares the input 'files', which is not served: its kind of call is not served it",
+    ] {
+        assert!(
+            messages.iter().any(|m| m.contains(said)),
+            "{said}: {messages:#?}"
+        );
+    }
+    assert_eq!(messages.len(), 4, "{messages:#?}");
+    // Each call is kept: an input is served empty, never the call refused.
+    assert_eq!(asked::hooks(&build), ["guard"]);
+    let served = |kind, input| specforge_registry::served(kind, &input);
+    use specforge_protocol_types::Input;
+    use specforge_registry::CallKind;
+    assert!(served(CallKind::Pass, Input::Tests) && !served(CallKind::Command, Input::Tests));
+    assert!(served(CallKind::Hook, Input::git()) && !served(CallKind::Prompt, Input::git()));
+    assert!(served(
+        CallKind::Collector,
+        Input::Files(Default::default())
+    ));
+    assert!(!served(CallKind::Hook, Input::Files(Default::default())));
 }
 
 #[specforge_test(

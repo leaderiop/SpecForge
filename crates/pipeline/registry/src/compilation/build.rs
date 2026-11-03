@@ -130,14 +130,10 @@ impl DeclaredPass {
         &self.pass.baseline
     }
 
-    /// The project files the pass reads (ADR 0293), as declared; a malformed read is W021 at the declaration check.
-    pub fn reads(&self) -> &[specforge_protocol_types::FileRead] {
-        &self.pass.reads
-    }
-
-    /// Whether the pass receives the recorded test report (a check, compute or guard pass; protocol 1.11.0).
-    pub fn reads_tests(&self) -> bool {
-        self.pass.reads_tests
+    /// What the pass declares the host serves it (ADR 0337 D2): its file reads (ADR 0293; a malformed read is W021 at
+    /// the declaration check) and the recorded test report (a check, compute or guard pass).
+    pub fn inputs(&self) -> specforge_protocol_types::Inputs<'_> {
+        specforge_protocol_types::Inputs(&self.pass.inputs)
     }
 
     /// `<extension>:<pass>`, the name `specforge analyze` runs it by.
@@ -418,7 +414,7 @@ impl RegistryBuild {
         self.passes.iter().filter(|p| p.is_guard_phase())
     }
 
-    /// How many check, compute or guard passes declare `reads_tests`: the compile then reads the recorded report once
+    /// How many check, compute or guard passes declare the `tests` input: the compile then reads the recorded report once
     /// (and says I205 or E045 when it cannot).
     pub fn passes_reading_tests(&self) -> usize {
         let compile_or_write =
@@ -426,7 +422,7 @@ impl RegistryBuild {
         self.passes
             .iter()
             .filter(compile_or_write)
-            .filter(|p| p.reads_tests())
+            .filter(|p| p.inputs().tests())
             .count()
     }
 

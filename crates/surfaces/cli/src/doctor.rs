@@ -134,7 +134,7 @@ fn render_human(
             ext.source,
             ext.enhancement_count
         );
-        for read in &ext.reads {
+        for read in &ext.inputs {
             line!("      reads {}", read.line());
         }
     }
@@ -335,12 +335,14 @@ mod tests {
         let mut declaration = declaring_feature_and_uses("acme");
         declaration.passes = vec![specforge_protocol_types::CompilerPassDescriptor {
             name: "scan".into(),
-            reads: vec![specforge_protocol_types::FileRead {
-                name: "env".into(),
-                glob: Some(".env*".into()),
-                text: true,
-                ..Default::default()
-            }],
+            inputs: vec![specforge_protocol_types::Input::Files(
+                specforge_protocol_types::FileRead {
+                    name: "env".into(),
+                    glob: Some(".env*".into()),
+                    text: true,
+                    ..Default::default()
+                },
+            )],
             ..Default::default()
         }];
         let project = specforge_project::testing::Assembled::over(

@@ -512,8 +512,8 @@ pub(crate) fn settle(
 }
 
 /// The view's graph as the graph export a call receives (ADR 0299): authored values, the computed values of the
-/// checked compile and each entity's judgements, as `specforge export` shows them. A command, a `reads_graph` prompt,
-/// a `reads_graph` hook and a writing collector get this. A call that needs what a person wrote, never what a pass
+/// checked compile and each entity's judgements, as `specforge export` shows them. A command, a prompt or hook
+/// that declares the `graph` input and a writing collector get this. A call that needs what a person wrote, never what a pass
 /// derived, uses [`authored_export`].
 pub(crate) fn graph_export(view: &ProjectView<'_>) -> String {
     let versioned = view.versioned_schema();
@@ -559,6 +559,8 @@ fn run_on(
     let mut args = command.normalize(given).map_err(RunError::Args)?;
     let root = view.project_root().map_err(RunError::NoProject)?;
     super::gate::admit(view, command, &mut args).map_err(|e| RunError::Gate(Box::new(e)))?;
+    let served =
+        super::inputs::Serve::new(view, command.extension(), &command.declaration().inputs);
     let input = CommandInput {
         args,
         cwd: canonical(root).display().to_string(),
@@ -573,20 +575,8 @@ fn run_on(
         } else {
             Default::default()
         },
-        state: command
-            .declaration()
-            .reads_state
-            .then(|| crate::host::state::read(view, command.extension(), None)),
-        files: if command.declaration().reads.is_empty() {
-            Default::default()
-        } else {
-            // A command runs once: its files are read from the plain disk (ADR 0293).
-            specforge_project::file_reads::read(
-                &command.declaration().reads,
-                view.entities(),
-                &view.env().file_source(&specforge_registry::PlainDisk),
-            )
-        },
+        state: served.state(None),
+        files: served.files(),
     };
     let Some(runtime) = view.runtime() else {
         return Err(RunError::Call(CallError::new(

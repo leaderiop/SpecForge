@@ -171,7 +171,7 @@ impl ReportRead {
 }
 
 /// The report at `root`, read through `disk` once: the one reader of a judged rule's `test(..)` input and of a pass
-/// that declares `reads_tests`.
+/// that declares the `tests` input.
 pub(crate) fn read_report(root: &Path, entities: &EntitySnapshot, disk: &dyn Disk) -> ReportRead {
     let path = root.join(REPORT_FILE);
     match disk.read(&path) {

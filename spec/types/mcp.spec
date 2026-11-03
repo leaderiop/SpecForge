@@ -424,9 +424,9 @@ type McpExtensionInfo "Mcp Extension Info" {
   /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
   /// load); "not_configured" (installed, but not enabled).
   status           "loaded" | "not_loaded" | "not_configured"
-  /// The file reads its passes, commands and collectors declare (ADR 0293), each with what it asks for; absent while it
-  /// declares none.
-  reads            McpDeclaredRead[] @optional
+  /// The inputs its passes, commands, prompts, hooks and collectors declare (ADR 0293, ADR 0337), each with what it
+  /// asks for; absent while it declares none.
+  inputs           McpDeclaredRead[] @optional
   verify unit "McpExtensionInfo schema is valid"
 }
 
@@ -598,15 +598,20 @@ type McpDoctorExtension "Mcp Doctor Extension" {
   /// load); "not_configured" (installed, but not enabled).
   status            "loaded" | "not_loaded" | "not_configured"
   enhancement_count integer
-  /// The file reads its passes, commands and collectors declare (ADR 0293), each with what it asks for; absent while it
-  /// declares none.
-  reads             McpDeclaredRead[] @optional
+  /// The inputs its passes, commands, prompts, hooks and collectors declare (ADR 0293, ADR 0337), each with what it
+  /// asks for; absent while it declares none.
+  inputs            McpDeclaredRead[] @optional
   verify unit "McpDoctorExtension schema is valid"
 }
 
 type McpDeclaredRead "Mcp Declared Read" {
-  /// The pass, command or collector that declares the read: "pass:<name>", "command:<id>" or "collector:<name>".
+  /// The call that declares the input: "pass:<name>", "command:<id>", "prompt:<id>", "hook:<id>" or
+  /// "collector:<name>".
   owner string
+  /// The input's tag (ADR 0337): files, tests, state, graph, slash_commands, git or setting.
+  input string
+  /// A files input's read name, a setting's "<extension>:<name>", "status" for a git input that asks for it; else
+  /// empty.
   name  string
   /// The "kind.field" whose paths are read; absent for a glob read.
   field string @optional

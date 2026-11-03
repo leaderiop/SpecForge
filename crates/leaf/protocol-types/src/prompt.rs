@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::GraphWire;
+use crate::{GraphWire, Input};
 
 /// An MCP prompt an extension contributes: served as `specforge.<short>.<id>`, rendered by `export`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -26,15 +26,10 @@ pub struct PromptDescriptor {
     /// The steps the agent takes, in order: rendered with each one's gate state.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub steps: Vec<PromptStep>,
-    /// The export receives the graph, as a command does. Absent, a workflow reads through tools.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_graph: bool,
-    /// The export receives the extension's state (protocol 1.10.0, ADR 0292).
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_state: bool,
-    /// The export receives the slash commands the project serves, as `slash_commands` (protocol 1.13.0, ADR 0316).
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_slash_commands: bool,
+    /// What the host serves the prompt before the call: `graph` (absent, a workflow reads through tools), `state`
+    /// and `slash_commands` (ADR 0337 D2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inputs: Vec<Input>,
     /// Bool settings of the extension: while one is false the prompt is not served.
     #[serde(
         default,
@@ -114,10 +109,10 @@ pub struct PromptInput<G = GraphWire> {
     /// The host the prompt is rendered for (`claude-code`, `codex`, `cursor`), when known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
-    /// A prompt that declares `reads_state`: the extension's state, read only.
+    /// A prompt that declares the `state` input: the extension's state, read only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::StateView>,
-    /// A prompt that declares `reads_slash_commands`: the slash commands the project serves, sorted by name
+    /// A prompt that declares the `slash_commands` input: the slash commands the project serves, sorted by name
     /// (protocol 1.13.0, ADR 0316).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub slash_commands: Vec<ServedSlash>,

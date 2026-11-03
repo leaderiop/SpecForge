@@ -43,7 +43,7 @@ pub struct PassContext<'a> {
     /// Where a pass that declares `reads` has its files read from (ADR 0293). Absent, such a pass is sent no
     /// `files`.
     pub files: Option<FileSource<'a>>,
-    /// The recorded report, for a check, compute or guard pass that declares `reads_tests` (protocol 1.11.0); an
+    /// The recorded report, for a check, compute or guard pass that declares the `tests` input (protocol 1.11.0); an
     /// analyze pass is given `test_results` instead. Absent, no pass is sent a report it did not ask `analyze` for.
     pub reported: Option<&'a TestResults>,
 }
@@ -205,11 +205,12 @@ pub fn run_extension_passes<'p>(
         summary.insert("extension".into(), declared.extension.clone().into());
         summary.insert("pass".into(), pass.name.clone().into());
         summary.insert("entities_analyzed".into(), entities_analyzed.into());
-        // A pass that declares `reads` is given the facts of its files, one that declares `reads_tests` the recorded
-        // report, so its payload is its own (ADR 0293).
+        // A pass that declares `files` inputs is given the facts of its files, one that declares `tests` the recorded
+        // report, so its payload is its own (ADR 0293, ADR 0337 D2).
         let own;
-        let tests = context.reported.filter(|_| declared.reads_tests());
-        let input: &Encoded<PassInput> = match (context.files, declared.reads()) {
+        let tests = context.reported.filter(|_| declared.inputs().tests());
+        let reads = declared.inputs().files();
+        let input: &Encoded<PassInput> = match (context.files, reads.as_slice()) {
             (files, reads) if tests.is_some() || (files.is_some() && !reads.is_empty()) => {
                 own = ExtensionCalls::encode(&PassInput {
                     previous: context

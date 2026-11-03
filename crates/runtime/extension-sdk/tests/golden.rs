@@ -176,11 +176,7 @@ fn the_builtins_declare_no_host_contribution() {
                 assert!(item.get(key).is_none(), "{}: {key}", surfaces.display());
             }
             for command in item["commands"].as_array().into_iter().flatten() {
-                assert!(
-                    command.get("reads_state").is_none(),
-                    "{}",
-                    surfaces.display()
-                );
+                assert!(command.get("inputs").is_none(), "{}", surfaces.display());
             }
         }
         checked += 1;
@@ -205,7 +201,7 @@ fn a_guest_declares_each_host_contribution() {
     c.command("stats", |s| {
         s.title("Stats")
             .description("Stats")
-            .reads_state()
+            .input(Input::State)
             .handler(|_| CommandOutput::ok(""));
     });
     c.agent("flow-planner", |a| {
@@ -228,7 +224,7 @@ fn a_guest_declares_each_host_contribution() {
             .tools(&["write"])
             .on_failure_deny()
             .timeout_ms(3_000)
-            .reads_state()
+            .input(Input::State)
             .handler(|_| Ok(HookOutput::deny("no")));
     });
     c.render(|call| Ok(format!("# {}", call.id())));
@@ -240,5 +236,8 @@ fn a_guest_declares_each_host_contribution() {
     assert_eq!(surfaces["hooks"][0]["export"], "hook__write_guard");
     assert_eq!(surfaces["hooks"][0]["timeout_ms"], 3_000);
     assert_eq!(surfaces["hooks"][0]["on_failure"], "deny");
-    assert_eq!(surfaces["commands"][0]["reads_state"], true);
+    assert_eq!(
+        surfaces["commands"][0]["inputs"],
+        serde_json::json!([{"input": "state"}])
+    );
 }

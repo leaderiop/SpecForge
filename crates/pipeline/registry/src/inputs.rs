@@ -1,11 +1,37 @@
-//! The file reads a pass or command declares (ADR 0293): the problems of a read as declared, which the declaration
-//! check reports (W021) and the host serves empty.
+//! A call's inputs (ADR 0337 D2): the one table of what each call kind is served, and the problems of the inputs an
+//! extension declares, which the declaration check reports (W021) and the host serves empty, keeping the call. A file
+//! read's own problems are ADR 0293's.
 
 use std::collections::HashSet;
 
-use specforge_protocol_types::{ExtensionDeclaration, FileRead};
+use specforge_protocol_types::{ExtensionDeclaration, FileRead, Input, InputKind};
 
-use super::populate::keyword;
+use crate::compilation::populate::keyword;
+
+/// The kinds of call that declare inputs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CallKind {
+    Pass,
+    Command,
+    Prompt,
+    Hook,
+    Collector,
+}
+
+/// Whether a call of `kind` is served `input`: exactly what each kind was served before the fold. A pass gets the
+/// entities and a command and a writing collector the graph without asking; a hook's files are its tool's paths
+/// (ADR 0293 D6).
+pub fn served(kind: CallKind, input: &Input) -> bool {
+    use CallKind::*;
+    match input.kind() {
+        InputKind::Files => matches!(kind, Pass | Command | Collector),
+        InputKind::Tests => kind == Pass,
+        InputKind::State => matches!(kind, Command | Prompt | Hook),
+        InputKind::Graph => matches!(kind, Prompt | Hook),
+        InputKind::SlashCommands => kind == Prompt,
+        InputKind::Git | InputKind::Setting => kind == Hook,
+    }
+}
 
 /// Why `read` cannot be served as declared, or `None` when its shape is sound: a name that is no word, neither or both
 /// of `field` and `glob`, a field that is not `kind.field`, a glob that is absolute, climbs with `..`, has an empty
@@ -76,26 +102,64 @@ fn is_word(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
 }
 
-/// The messages (W021) about the reads `declaration` makes: a read with a [`read_problem`], a name two reads of one
-/// owner share, and a field no loaded extension declares.
+/// Why the `setting` input `extension:name` of `owner`'s call is served empty: it names `owner` itself (its own
+/// settings are read with `Settings::current`), or not an extension and a setting.
+pub fn setting_problem(owner: &str, extension: &str, name: &str) -> Option<&'static str> {
+    if extension == owner {
+        Some("it names its own extension: read it with Settings::current")
+    } else if extension.is_empty() || name.is_empty() {
+        Some("it does not name an extension and a setting")
+    } else {
+        None
+    }
+}
+
+/// The messages (W021) about the inputs `declaration` makes: an input its call kind is not served, a second input of
+/// a tag that is one per call (all but `files` and `setting`), a `setting` with a [`setting_problem`], a read with a
+/// [`read_problem`], a name two reads of one owner share, and a field no loaded extension declares.
 pub(crate) fn problems(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
 ) -> Vec<String> {
     let name = declaration.name();
     let mut messages = Vec::new();
-    let mut check = |owner: String, reads: &[FileRead]| {
-        let mut seen = HashSet::new();
-        for read in reads {
-            let said = |why: &str| {
-                format!(
-                    "extension '{name}': {owner} declares the read '{}', which is not served: {why}",
-                    read.name
-                )
+    let mut check = |owner: String, kind: CallKind, inputs: &[Input]| {
+        let mut tags = HashSet::new();
+        let mut names = HashSet::new();
+        for input in inputs {
+            let tag = input.tag();
+            let said = |what: String, why: &str| {
+                format!("extension '{name}': {owner} declares {what}, which is not served: {why}")
             };
+            if !served(kind, input) {
+                messages.push(said(
+                    format!("the input '{tag}'"),
+                    "its kind of call is not served it",
+                ));
+                continue;
+            }
+            let read = match input {
+                Input::Files(read) => read,
+                Input::Setting {
+                    extension,
+                    name: setting,
+                } => {
+                    if let Some(why) = setting_problem(name, extension, setting) {
+                        messages.push(said(format!("the input '{extension}:{setting}'"), why));
+                    }
+                    continue;
+                }
+                _ => {
+                    if !tags.insert(tag) {
+                        messages.push(said(format!("the input '{tag}'"), "it is declared twice"));
+                    }
+                    continue;
+                }
+            };
+            let said = |why: &str| said(format!("the read '{}'", read.name), why);
             if let Some(why) = read_problem(read) {
                 messages.push(said(&why));
-            } else if !seen.insert(read.name.as_str()) {
+            } else if !names.insert(read.name.as_str()) {
                 messages.push(said("another read of the same owner has its name"));
             } else if let Some(field) = &read.field
                 && !declares_field(loaded, field)
@@ -107,13 +171,30 @@ pub(crate) fn problems(
         }
     };
     for pass in &declaration.passes {
-        check(format!("pass '{}'", pass.name), &pass.reads);
+        check(
+            format!("pass '{}'", pass.name),
+            CallKind::Pass,
+            &pass.inputs,
+        );
     }
-    for command in &declaration.surfaces.commands {
-        check(format!("command '{}'", command.id), &command.reads);
+    let surfaces = &declaration.surfaces;
+    for command in &surfaces.commands {
+        let owner = format!("command '{}'", command.id);
+        check(owner, CallKind::Command, &command.inputs);
+    }
+    for prompt in &surfaces.prompts {
+        check(
+            format!("prompt '{}'", prompt.id),
+            CallKind::Prompt,
+            &prompt.inputs,
+        );
+    }
+    for hook in &surfaces.hooks {
+        check(format!("hook '{}'", hook.id), CallKind::Hook, &hook.inputs);
     }
     for collector in &declaration.collectors {
-        check(format!("collector '{}'", collector.name), &collector.reads);
+        let owner = format!("collector '{}'", collector.name);
+        check(owner, CallKind::Collector, &collector.inputs);
     }
     messages
 }

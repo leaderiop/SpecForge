@@ -103,18 +103,6 @@ impl PromptBuilder {
         self
     }
 
-    /// The handler receives the graph ([`PromptCall::graph`]); a workflow usually reads through tools.
-    pub fn reads_graph(&mut self) -> &mut Self {
-        self.descriptor.reads_graph = true;
-        self
-    }
-
-    /// The handler receives the slash commands the project serves ([`PromptCall::slash_commands`], ADR 0316).
-    pub fn reads_slash_commands(&mut self) -> &mut Self {
-        self.descriptor.reads_slash_commands = true;
-        self
-    }
-
     /// The prompt is served while the bool setting `setting` of the extension is not false; each call adds a setting,
     /// and all must be on (ADR 0317).
     pub fn when(&mut self, setting: &str) -> &mut Self {
@@ -278,17 +266,17 @@ impl PromptCall<'_> {
     pub fn today(&self) -> &str {
         &self.0.today
     }
-    /// The extension's state, for a prompt that declares [`PromptBuilder::reads_state`]; `None` otherwise: the host
+    /// The extension's state, for a prompt that declares the `state` input; `None` otherwise: the host
     /// sends nothing (ADR 0310).
     pub fn state(&self) -> Option<&StateView> {
         self.0.state.as_ref()
     }
-    /// The slash commands the project serves, for a prompt that declares [`PromptBuilder::reads_slash_commands`];
+    /// The slash commands the project serves, for a prompt that declares the `slash_commands` input;
     /// empty otherwise.
     pub fn slash_commands(&self) -> &[ServedSlash] {
         &self.0.slash_commands
     }
-    /// The project's graph, for a prompt that declares [`PromptBuilder::reads_graph`].
+    /// The project's graph, for a prompt that declares the `graph` input.
     pub fn graph(&self) -> Option<&GraphWire> {
         self.0.graph.as_ref()
     }

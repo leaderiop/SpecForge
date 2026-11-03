@@ -256,6 +256,8 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify unit "a code catalog crosses the wire and a guest older than 1.7 is not asked for it"
   verify unit "a code entry is declared with its title, explanation and docs"
   verify unit "a describe item key the protocol does not define produces W138"
+  verify unit "a call's inputs are one tagged list on the wire, and a descriptor that declares none writes no inputs"
+  verify unit "an input its call kind is not served, or a second one of a kind served once, is W021 and served empty, and the call is kept"
   verify unit "the declared categories are the protocol's only describe categories"
   verify unit "an absent short is the name's last segment"
   verify unit "a declaration's default short name is its package name's base"

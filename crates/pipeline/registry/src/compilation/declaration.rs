@@ -370,9 +370,9 @@ pub(crate) fn consistency(
             }
         }
     }
-    // ADR 0293: a read the host would serve empty is told, once.
+    // ADR 0293, ADR 0337 D2: an input the host would serve empty is told, once.
     diagnostics.extend(
-        super::reads::problems(declaration, loaded)
+        crate::inputs::problems(declaration, loaded)
             .into_iter()
             .map(warn),
     );

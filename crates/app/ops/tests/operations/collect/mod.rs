@@ -42,7 +42,7 @@ pub struct Runner {
     run: Vec<String>,
     report: String,
     capture: Option<String>,
-    reads: Vec<FileRead>,
+    reads: Vec<specforge_protocol_types::Input>,
     answer: Answer,
 }
 
@@ -83,9 +83,9 @@ impl Runner {
     }
 
     /// It declares `read` under `name`.
-    pub fn reading(mut self, name: &str, mut read: FileRead) -> Self {
-        read.name = name.to_string();
-        self.reads.push(read);
+    pub fn reading(mut self, name: &str, read: FileRead) -> Self {
+        self.reads
+            .push(specforge_protocol_types::Input::files(name, read));
         self
     }
 
@@ -129,7 +129,7 @@ impl Runner {
         // The report and the capture as declared, whatever they are.
         declaration.collectors[0].report = Some(self.report.clone());
         declaration.collectors[0].capture = self.capture.clone();
-        declaration.collectors[0].reads = self.reads.clone();
+        declaration.collectors[0].inputs = self.reads.clone();
         declaration
     }
 }

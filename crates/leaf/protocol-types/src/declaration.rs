@@ -16,7 +16,7 @@ use crate::{
     AgentDescriptor, AnalyzerDescriptor, Attribution, AutoDetectConfig, CodeDescriptor,
     CollectorDescriptor, CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor,
     DescribeResponse, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
-    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, FileRead, HandshakeResponse,
+    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse,
     HookDescriptor, McpResourceDescriptor, McpToolDescriptor, PeerDependency, PresetDescriptor,
     PromptArgDescriptor, PromptDescriptor, PromptStep, ProtocolError, RouteAnnotationDescriptor,
     RouteDescriptor, RouteStepDescriptor, SecretDescriptor, SettingDescriptor, SettingsItem,
@@ -436,13 +436,16 @@ static ARG: Shape = Shape {
     fields: struct_fields::<CommandArgDescriptor>,
     nested: &[],
 };
-static READ: Shape = Shape {
-    fields: struct_fields::<FileRead>,
+static INPUT: Shape = Shape {
+    fields: crate::inputs::input_keys,
     nested: &[],
 };
 static COMMAND: Shape = Shape {
     fields: struct_fields::<CommandDescriptor>,
-    nested: &[("args", Nested::List(&ARG)), ("reads", Nested::List(&READ))],
+    nested: &[
+        ("args", Nested::List(&ARG)),
+        ("inputs", Nested::List(&INPUT)),
+    ],
 };
 static TOOL: Shape = Shape {
     fields: struct_fields::<McpToolDescriptor>,
@@ -470,6 +473,7 @@ static PROMPT: Shape = Shape {
         ("args", Nested::List(&PROMPT_ARG)),
         ("steps", Nested::List(&PROMPT_STEP)),
         ("attribution", Nested::One(&ATTRIBUTION)),
+        ("inputs", Nested::List(&INPUT)),
     ],
 };
 static AGENT: Shape = Shape {
@@ -486,7 +490,7 @@ static SLASH: Shape = Shape {
 };
 static HOOK: Shape = Shape {
     fields: struct_fields::<HookDescriptor>,
-    nested: &[],
+    nested: &[("inputs", Nested::List(&INPUT))],
 };
 static SURFACE: Shape = Shape {
     fields: struct_fields::<SurfaceDescriptor>,
@@ -509,7 +513,7 @@ static COLLECTOR: Shape = Shape {
     fields: struct_fields::<CollectorDescriptor>,
     nested: &[
         ("auto_detect", Nested::One(&AUTO_DETECT)),
-        ("reads", Nested::List(&READ)),
+        ("inputs", Nested::List(&INPUT)),
     ],
 };
 static ANALYZER: Shape = Shape {
@@ -518,7 +522,7 @@ static ANALYZER: Shape = Shape {
 };
 static PASS: Shape = Shape {
     fields: struct_fields::<CompilerPassDescriptor>,
-    nested: &[("reads", Nested::List(&READ))],
+    nested: &[("inputs", Nested::List(&INPUT))],
 };
 static CODE: Shape = Shape {
     fields: struct_fields::<CodeDescriptor>,
@@ -654,7 +658,7 @@ fn item_name(item: &Value, index: usize) -> String {
 /// The keys a `#[derive(Deserialize)]` struct accepts, read from the
 /// derive: it hands them to `deserialize_struct`, where this deserializer
 /// records them and stops.
-fn struct_fields<T: DeserializeOwned>() -> &'static [&'static str] {
+pub(crate) fn struct_fields<T: DeserializeOwned>() -> &'static [&'static str] {
     let mut names = FieldNames(None);
     let _ = T::deserialize(&mut names);
     names

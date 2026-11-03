@@ -1,4 +1,4 @@
-//! The SDK declares a file read and `reads_tests` (protocol 1.11.0, ADR 0293) and a command reads its `files`.
+//! The SDK declares a call's inputs (protocol 2.0.0, ADR 0337 D2) and a command reads its `files` (ADR 0293).
 #![allow(
     clippy::unwrap_used,
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
@@ -6,28 +6,31 @@
 
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::testing::{CommandFeed, call_every_command, call_every_command_with};
-use specforge_protocol_types::{FileFact, FileFacts};
+use specforge_protocol_types::{FileFact, FileFacts, Inputs};
 
 #[test]
-fn the_sdk_declares_reads_and_reads_tests() {
+fn the_sdk_declares_files_and_tests_inputs() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/reads", "1.0.0"));
     c.pass("audit", |p| {
         p.phase("check")
-            .reads(
+            .input(Input::files(
                 "modified",
                 FileReadSpec::field("plan.files_modified").text(),
-            )
-            .reads(
+            ))
+            .input(Input::files(
                 "sources",
                 FileReadSpec::glob("src/**/*.rs").base(FileBase::Spec),
-            )
-            .reads_tests()
+            ))
+            .input(Input::Tests)
             .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
     });
     c.command("verify", |cmd| {
         cmd.title("Verify")
             .description("Verify")
-            .reads("plans", FileReadSpec::field("plan.files_modified"))
+            .input(Input::files(
+                "plans",
+                FileReadSpec::field("plan.files_modified"),
+            ))
             .handler(|call: &CommandCall| {
                 let seen = call.files("plans").map_or(0, |f| f.facts.len());
                 CommandOutput::ok(format!("{seen}"))
@@ -35,16 +38,17 @@ fn the_sdk_declares_reads_and_reads_tests() {
     });
     let declaration = c.declaration();
 
-    let pass = &declaration.passes[0];
-    assert!(pass.reads_tests);
-    assert_eq!(pass.reads.len(), 2);
-    assert_eq!(pass.reads[0].name, "modified");
-    assert_eq!(pass.reads[0].field.as_deref(), Some("plan.files_modified"));
-    assert!(pass.reads[0].text);
-    assert_eq!(pass.reads[1].glob.as_deref(), Some("src/**/*.rs"));
-    assert_eq!(pass.reads[1].base.as_deref(), Some("spec"));
-    let command = &declaration.surfaces.commands[0];
-    assert_eq!(command.reads[0].name, "plans");
+    let pass = Inputs(&declaration.passes[0].inputs);
+    assert!(pass.tests());
+    let reads = pass.files();
+    assert_eq!(reads.len(), 2);
+    assert_eq!(reads[0].name, "modified");
+    assert_eq!(reads[0].field.as_deref(), Some("plan.files_modified"));
+    assert!(reads[0].text);
+    assert_eq!(reads[1].glob.as_deref(), Some("src/**/*.rs"));
+    assert_eq!(reads[1].base.as_deref(), Some("spec"));
+    let command = Inputs(&declaration.surfaces.commands[0].inputs);
+    assert_eq!(command.files()[0].name, "plans");
 }
 
 #[test]
@@ -69,7 +73,7 @@ fn the_harness_feeds_a_command_its_files_and_an_explicit_now() {
     c.command("count", |cmd| {
         cmd.title("Count")
             .description("Count")
-            .reads("src", FileReadSpec::glob("src/*.rs").text())
+            .input(Input::files("src", FileReadSpec::glob("src/*.rs").text()))
             .handler(|call: &CommandCall| {
                 let facts = call
                     .files("src")
@@ -112,17 +116,20 @@ fn the_harness_feeds_a_command_its_files_and_an_explicit_now() {
 }
 
 #[test]
-fn the_sdk_declares_a_collectors_reads() {
+fn the_sdk_declares_a_collectors_files_input() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/reads", "1.0.0"));
     c.collector("node", |collector| {
         collector
-            .reads("manifest", FileReadSpec::glob("package.json").text())
+            .input(Input::files(
+                "manifest",
+                FileReadSpec::glob("package.json").text(),
+            ))
             .collect(|_| Ok(CollectOutput::default()));
     });
 
     let declaration = c.declaration();
 
-    let reads = &declaration.collectors[0].reads;
+    let reads = Inputs(&declaration.collectors[0].inputs).files();
     assert_eq!(reads.len(), 1);
     assert_eq!(reads[0].name, "manifest");
     assert_eq!(reads[0].glob.as_deref(), Some("package.json"));

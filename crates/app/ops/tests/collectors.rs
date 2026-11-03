@@ -133,13 +133,15 @@ fn node_test_declares_its_collector() {
     );
     assert_eq!(c.report, ".specforge/reports/node-test.xml");
     assert_eq!(
-        c.reads,
-        [specforge_protocol_types::FileRead {
-            name: "packages".into(),
-            glob: Some("**/package.json".into()),
-            text: true,
-            ..Default::default()
-        }]
+        c.inputs,
+        [specforge_protocol_types::Input::Files(
+            specforge_protocol_types::FileRead {
+                name: "packages".into(),
+                glob: Some("**/package.json".into()),
+                text: true,
+                ..Default::default()
+            }
+        )]
     );
 }
 

@@ -267,7 +267,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.command("propose_refactor", |cmd| {
         cmd.description("Score the files a phase's plans modified with upstream's decision-point scorer and record a refactor proposal for the top function over the threshold or up by more than the jump delta; records nothing when none crosses")
             .writes()
-            .reads("files", FileReadSpec::field("plan.files_modified").text())
+            .input(Input::files("files", FileReadSpec::field("plan.files_modified").text()))
             .arg("phase", |a| {
                 a.required().description("the phase whose plans' files are scored");
             })

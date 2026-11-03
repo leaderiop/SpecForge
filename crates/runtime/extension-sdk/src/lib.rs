@@ -26,8 +26,8 @@ pub use wit_bindgen as __wit_bindgen;
 /// the decision to the rule's `wasm_function` (see
 /// [`RuleBuilder::wasm_function`]).
 pub use specforge_protocol_types::{
-    CheckKind, Cite, ConstraintKind, EditPlan, FieldType, FieldWriter, FileBase, PlanObligation,
-    PlanOp,
+    CheckKind, Cite, ConstraintKind, EditPlan, FieldType, FieldWriter, FileBase, Input,
+    PlanObligation, PlanOp,
 };
 
 pub use specforge_protocol_types::{
@@ -605,11 +605,11 @@ pub mod prelude {
     pub use crate::{
         AnalyzerBuilder, CheckKind, CodeBuilder, ConstraintKind, Contributions,
         ContributionsBuilder, EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder,
-        FieldConstraintBuilder, FieldType, FileBase, FileReadSpec, KindBuilder, MigrationInput,
-        PassAnswer, PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic, PassEdge,
-        PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue, RuleBuilder,
-        ScanRequest, ScanResponse, ScannedItem, Settings, TestResult, TestResults, TestStatus,
-        Vocabulary,
+        FieldConstraintBuilder, FieldType, FileBase, FileReadSpec, Input, KindBuilder,
+        MigrationInput, PassAnswer, PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic,
+        PassEdge, PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue,
+        RuleBuilder, ScanRequest, ScanResponse, ScannedItem, Settings, TestResult, TestResults,
+        TestStatus, Vocabulary,
     };
     pub use crate::{
         Annotates, ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence,

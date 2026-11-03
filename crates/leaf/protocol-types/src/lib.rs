@@ -37,6 +37,7 @@ mod contrib;
 mod declaration;
 mod effects;
 mod field;
+mod inputs;
 mod judged;
 mod plan;
 mod prompt;
@@ -60,6 +61,7 @@ pub use effects::{
     OutcomeClass, ProcessRequest, REDACTED, Redirected, UnknownClass, Unreachable,
 };
 pub use field::FieldDescriptor;
+pub use inputs::{GitInput, Input, InputKind, Inputs};
 pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgement};
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
 pub use prompt::{
@@ -489,9 +491,9 @@ pub struct CollectorDescriptor {
     /// It answers an edit plan the host applies, and receives the graph and revisions (protocol 1.9.0).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub writes: bool,
-    /// The project files the collector reads; its input's `files` carries their facts (ADR 0293).
+    /// What the host serves the collector before the call: `files` (ADR 0293, ADR 0337 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reads: Vec<FileRead>,
+    pub inputs: Vec<Input>,
 }
 
 // ── Analyzer Protocol Types ──
@@ -603,12 +605,10 @@ pub struct CompilerPassDescriptor {
     /// codes it names (protocol 1.10.0, ADR 0291).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reports: Vec<String>,
-    /// The project files the pass reads; the input's `files` carries their facts (protocol 1.11.0, ADR 0293).
+    /// What the host serves the pass before the call: `files` (their facts in the input's `files`, ADR 0293) and
+    /// `tests` (the recorded report as `test_results`, a check, compute or guard pass) (ADR 0337 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reads: Vec<FileRead>,
-    /// A check, compute or guard pass receives the recorded test report as `test_results` (protocol 1.11.0).
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_tests: bool,
+    pub inputs: Vec<Input>,
 }
 
 // ── Feature Flag Descriptor ──

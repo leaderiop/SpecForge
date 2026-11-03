@@ -94,7 +94,7 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
     c.hook("worktree_path_guard", HookEvent::PreTool, |h| {
         h.description("Refuses a write from an agent's worktree to a path in another repository")
             .tools(&["write", "edit"])
-            .reads_git()
+            .input(Input::git())
             .handler(|call| Ok(worktree_path_guard(&Facts::of(call))));
     });
 }

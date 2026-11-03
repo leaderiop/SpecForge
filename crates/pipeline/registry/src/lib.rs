@@ -56,9 +56,11 @@ pub use snapshot::{EntitySnapshot, Standing};
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
     BuildPart, CHECK_PHASE, COMPUTE_PHASE, CandidateVocabulary, DeclaredPass, RegistryBuild,
-    build_registries, build_registries_with, extension_codes, read_problem, reports,
+    build_registries, build_registries_with, extension_codes, reports,
 };
+pub use inputs::{CallKind, read_problem, served};
 pub use rules::paths_named;
 
 // Module paths external code names directly (`specforge_registry::surface::`).
+pub mod inputs;
 pub mod surface;

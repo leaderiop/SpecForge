@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::{Attribution, EditPlan, GraphWire, Revision};
+use crate::{Attribution, EditPlan, GraphWire, Input, Revision};
 
 /// `when` on the wire (protocol 1.13.0, ADR 0317): a setting name or a list of them, all of which must be on. A name
 /// reads and writes as a string, so a declaration with one is byte-for-byte what it was; several write a list.
@@ -131,10 +131,6 @@ pub struct HookDescriptor {
     /// What a trap, a timeout or a malformed answer does.
     #[serde(default, skip_serializing_if = "OnFailure::is_allow")]
     pub on_failure: OnFailure,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_graph: bool,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_state: bool,
     /// The hook may answer an edit plan (the host applies it with `Origin::Hook`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub writes: bool,
@@ -144,20 +140,11 @@ pub struct HookDescriptor {
     /// The hosts it is installed on, each one of [`HOOK_HOSTS`]; empty: every host (ADR 0322).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hosts: Vec<String>,
-    /// The input carries `git` (the repository the `cwd` is in) and, for an out-of-project path, its `toplevel` and
-    /// `in_git_dir` (ADR 0320).
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_git: bool,
-    /// `git.status` too, `git status --porcelain=v2 --branch` as git wrote it; implies `reads_git`.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_git_status: bool,
-    /// A bool setting of the extension: git facts are collected only while it is on, so a hook that needs them for an
-    /// option pays for them only then. Unset: always (ADR 0320).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub git_when: Option<String>,
-    /// Settings of other extensions the input carries as `other_settings`, each `<extension>:<setting>` (ADR 0323).
+    /// What the host serves the hook before the call: `graph`, `state`, `git` (the repository the `cwd` is in and,
+    /// for an out-of-project path, its `toplevel` and `in_git_dir`, ADR 0320) and `setting`s of other extensions, in
+    /// `other_settings` (ADR 0323) (ADR 0337 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reads_settings: Vec<String>,
+    pub inputs: Vec<Input>,
     /// `hook__<id>`.
     pub export: String,
 }
@@ -327,10 +314,10 @@ pub struct HookInput<G = GraphWire> {
     /// `file_changed`: what happened to the file (`change`, `add` or `unlink`), its path in `paths` (ADR 0321).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub change: Option<String>,
-    /// A hook that declares `reads_git` (ADR 0320): none outside a repository.
+    /// A hook that declares the `git` input (ADR 0320): none outside a repository.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub git: Option<GitFacts>,
-    /// A hook that declares `reads_settings`: the value of each setting, keyed as the hook wrote it (ADR 0323).
+    /// A hook that declares `setting` inputs: the value of each setting, keyed as the hook wrote it (ADR 0323).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub other_settings: BTreeMap<String, Value>,
     /// `user_prompt`: what the user typed.
@@ -342,13 +329,13 @@ pub struct HookInput<G = GraphWire> {
     /// `statusline`: the host's status JSON (model, context window).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<Value>,
-    /// A hook that declares `reads_graph`.
+    /// A hook that declares the `graph` input.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub graph: Option<G>,
     /// A hook that declares `writes`: the revision of every source of the compile, as a writing command's.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub revisions: BTreeMap<String, Revision>,
-    /// A hook that declares `reads_state`.
+    /// A hook that declares the `state` input.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<StateView>,
 }
@@ -378,10 +365,10 @@ pub struct PathFact {
     /// The path made absolute against the `cwd`, `.` and `..` resolved, links followed as far as it exists (ADR 0320).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub real: String,
-    /// `reads_git`, outside the project: the top directory of the repository the real path is in.
+    /// The `git` input, outside the project: the top directory of the repository the real path is in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub toplevel: Option<String>,
-    /// `reads_git`, outside the project: a component of the real path is `.git`.
+    /// The `git` input, outside the project: a component of the real path is `.git`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub in_git_dir: bool,
 }
@@ -396,7 +383,7 @@ pub struct GitFacts {
     /// `git branch --show-current`: empty when `HEAD` is detached.
     #[serde(default)]
     pub branch: String,
-    /// `reads_git_status`: `git status --porcelain=v2 --branch`, as git wrote it.
+    /// The `git` input with `status`: `git status --porcelain=v2 --branch`, as git wrote it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
 }

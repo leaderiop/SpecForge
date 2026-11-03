@@ -191,17 +191,17 @@ fn source_path(spec: &Spec) -> Option<String> {
 pub fn declare(c: &mut ContributionsBuilder, spec: &'static Spec) {
     c.prompt(spec.id, |p| {
         p.title(spec.title)
-            .reads_graph()
+            .input(specforge_extension_sdk::Input::Graph)
             .description(spec.description);
         // `update` is our text, not a port: its prompt names no upstream file (its slash binding does)
         if let Some(path) = source_path(spec) {
             p.attribution(attribution(&path));
         }
         if spec.reads_state {
-            p.reads_state();
+            p.input(specforge_extension_sdk::Input::State);
         }
         if spec.reads_slash_commands {
-            p.reads_slash_commands();
+            p.input(specforge_extension_sdk::Input::SlashCommands);
         }
         args::declare(p, spec.args);
         if let Some(subject) = spec.subject {

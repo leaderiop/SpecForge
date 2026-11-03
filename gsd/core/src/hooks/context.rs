@@ -173,7 +173,7 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
         h.description("Warns when the context window is running out")
             .tools(&["shell", "write", "edit", "agent"])
             .when("hooks.context_warnings")
-            .reads_state()
+            .input(Input::State)
             .handler(|call| {
                 let s = Settings::current();
                 let th = resolve_thresholds(

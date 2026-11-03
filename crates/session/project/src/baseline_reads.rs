@@ -155,8 +155,9 @@ pub(crate) fn compute_at(
     };
     // Learn the files the reads name without calling a guest, so each pass runs once.
     for pass in env.registries().compute_passes() {
-        if !pass.reads().is_empty() {
-            crate::file_reads::read(pass.reads(), &seen, &env.file_source(&disk));
+        let reads = pass.inputs().files();
+        if !reads.is_empty() {
+            crate::file_reads::read(&reads, &seen, &env.file_source(&disk));
         }
     }
     loop {

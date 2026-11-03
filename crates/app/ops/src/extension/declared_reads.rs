@@ -1,15 +1,19 @@
-//! The file reads an extension declares (ADR 0293), as `specforge extensions` and `specforge doctor` list them: a
-//! declared read is a capability a user should be able to see, so each is named with what it asks for.
+//! The inputs an extension declares (ADR 0293, ADR 0337 D2), as `specforge extensions` and `specforge doctor` list
+//! them: a declared input is a capability a user should be able to see, so each is named with what it asks for.
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::{ExtensionDeclaration, Input};
 
-/// One read a pass, command or collector declares (`McpDeclaredRead`).
+/// One input a pass, command, prompt, hook or collector declares (`McpDeclaredRead`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct DeclaredRead {
-    /// The pass, command or collector that declares it: `pass:<name>`, `command:<id>` or `collector:<name>`.
+    /// The call that declares it: `pass:<name>`, `command:<id>`, `prompt:<id>`, `hook:<id>` or `collector:<name>`.
     pub owner: String,
+    /// The input's tag: `files`, `tests`, `state`, `graph`, `slash_commands`, `git` or `setting`.
+    pub input: String,
+    /// A `files` input's read name, a `setting`'s `<extension>:<name>`, `status` for a `git` input that asks for it;
+    /// else empty.
     pub name: String,
     /// The `kind.field` whose paths are read.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -22,62 +26,101 @@ pub struct DeclaredRead {
 }
 
 impl DeclaredRead {
-    /// The line both surfaces print: `owner name: field or glob (text)`.
+    /// The line both surfaces print: `owner name: field or glob (text)` for a file read, else `owner input [name]`.
     pub fn line(&self) -> String {
+        if self.input != "files" {
+            return [self.owner.as_str(), &self.input, &self.name]
+                .iter()
+                .filter(|part| !part.is_empty())
+                .copied()
+                .collect::<Vec<_>>()
+                .join(" ");
+        }
         let what = self.field.as_deref().or(self.glob.as_deref()).unwrap_or("");
         let text = if self.text { " (with text)" } else { "" };
         format!("{} {}: {what}{text}", self.owner, self.name)
     }
 }
 
-/// Every read the passes, commands and collectors of `declaration` declare, passes first, then commands, then
-/// collectors, in declaration order.
-pub fn declared_reads(declaration: &ExtensionDeclaration) -> Vec<DeclaredRead> {
-    let row = |owner: String, read: &specforge_protocol_types::FileRead| DeclaredRead {
-        owner,
-        name: read.name.clone(),
-        field: read.field.clone(),
-        glob: read.glob.clone(),
-        text: read.text,
+/// Every input the passes, commands, prompts, hooks and collectors of `declaration` declare, in that order, each in
+/// declaration order.
+pub fn declared_inputs(declaration: &ExtensionDeclaration) -> Vec<DeclaredRead> {
+    let row = |owner: &str, input: &Input| {
+        let mut row = DeclaredRead {
+            owner: owner.to_string(),
+            input: input.tag().to_string(),
+            name: String::new(),
+            field: None,
+            glob: None,
+            text: false,
+        };
+        match input {
+            Input::Files(read) => {
+                row.name = read.name.clone();
+                row.field = read.field.clone();
+                row.glob = read.glob.clone();
+                row.text = read.text;
+            }
+            Input::Setting { extension, name } => row.name = format!("{extension}:{name}"),
+            Input::Git { status: true, .. } => row.name = "status".to_string(),
+            _ => {}
+        }
+        row
     };
-    let passes = declaration
-        .passes
-        .iter()
-        .flat_map(|p| p.reads.iter().map(|r| row(format!("pass:{}", p.name), r)));
-    let commands = declaration
-        .surfaces
-        .commands
-        .iter()
-        .flat_map(|c| c.reads.iter().map(|r| row(format!("command:{}", c.id), r)));
-    let collectors = declaration.collectors.iter().flat_map(|c| {
-        c.reads
-            .iter()
-            .map(|r| row(format!("collector:{}", c.name), r))
-    });
-    passes.chain(commands).chain(collectors).collect()
+    let surfaces = &declaration.surfaces;
+    let owners = (declaration.passes.iter())
+        .map(|p| (format!("pass:{}", p.name), &p.inputs))
+        .chain((surfaces.commands.iter()).map(|c| (format!("command:{}", c.id), &c.inputs)))
+        .chain((surfaces.prompts.iter()).map(|p| (format!("prompt:{}", p.id), &p.inputs)))
+        .chain((surfaces.hooks.iter()).map(|h| (format!("hook:{}", h.id), &h.inputs)))
+        .chain(
+            (declaration.collectors.iter()).map(|c| (format!("collector:{}", c.name), &c.inputs)),
+        );
+    owners
+        .flat_map(|(owner, inputs)| {
+            inputs
+                .iter()
+                .map(move |input| row(&owner, input))
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, FileReadSpec};
+    use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, FileReadSpec, Input};
 
     #[test]
-    fn a_collectors_reads_are_listed_after_the_commands() {
+    fn every_input_is_listed_by_owner_collectors_last() {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/reads", "1.0.0"));
         c.collector("node", |collector| {
             collector
-                .reads("manifest", FileReadSpec::glob("package.json").text())
+                .input(Input::files(
+                    "manifest",
+                    FileReadSpec::glob("package.json").text(),
+                ))
                 .collect(|_| Ok(Default::default()));
         });
         c.command("go", |cmd| {
             cmd.title("Go")
                 .description("Go")
-                .reads("plans", FileReadSpec::field("plan.files"))
+                .input(Input::files("plans", FileReadSpec::field("plan.files")))
+                .input(Input::State)
                 .handler(|_| specforge_extension_sdk::CommandOutput::ok("go"));
         });
 
-        let owners: Vec<String> = declared_reads(&c.declaration())
+        c.hook(
+            "guard",
+            specforge_extension_sdk::prelude::HookEvent::PreTool,
+            |h| {
+                h.input(Input::git().status())
+                    .input(Input::setting("@gsd/security", "x.y"))
+                    .handler(|_| Ok(Default::default()));
+            },
+        );
+
+        let owners: Vec<String> = declared_inputs(&c.declaration())
             .iter()
             .map(DeclaredRead::line)
             .collect();
@@ -86,6 +129,9 @@ mod tests {
             owners,
             [
                 "command:go plans: plan.files",
+                "command:go state",
+                "hook:guard git status",
+                "hook:guard setting @gsd/security:x.y",
                 "collector:node manifest: package.json (with text)"
             ]
         );

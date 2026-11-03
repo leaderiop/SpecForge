@@ -76,7 +76,7 @@ fn print_human(terminal: &Terminal, entries: &[extension::ExtensionInfo]) {
             entry.name,
             entry.source
         );
-        for read in &entry.reads {
+        for read in &entry.inputs {
             outln!(terminal, "      reads {}", read.line());
         }
     }
@@ -103,10 +103,11 @@ mod tests {
             entity_kinds: Vec::new(),
             entity_count: 0,
             validation_rules: 0,
-            reads,
+            inputs: reads,
         };
         let read = extension::DeclaredRead {
             owner: "pass:scan".into(),
+            input: "files".into(),
             name: "env".into(),
             field: None,
             glob: Some(".env*".into()),

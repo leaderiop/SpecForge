@@ -12,7 +12,7 @@ use super::plans::{children, name_of, of_kind, rows, text};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("execute", |p| {
-        p.phase("check").reads_tests().run(check);
+        p.phase("check").input(Input::Tests).run(check);
     });
 }
 

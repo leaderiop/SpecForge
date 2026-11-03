@@ -720,7 +720,7 @@ impl CollectorBuilder {
                 report: None,
                 capture: None,
                 writes: false,
-                reads: Vec::new(),
+                inputs: Vec::new(),
             },
             collect: None,
         }

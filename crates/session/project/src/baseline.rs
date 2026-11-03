@@ -412,7 +412,7 @@ impl Baseline {
                 let tree = if env
                     .registries()
                     .compute_passes()
-                    .any(|pass| !pass.reads().is_empty())
+                    .any(|pass| !pass.inputs().files().is_empty())
                 {
                     history
                         .tree(place, commit, within)

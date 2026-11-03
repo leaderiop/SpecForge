@@ -30,9 +30,9 @@ fn the_baseline_reads_a_source_file_through_git() {
     crate::history::git_repo(root);
     project.write("src/lib.rs", "pub fn two() {}\n");
     let runtime = Arc::new(gsd_facts_serving(
-        json!([{"name": "scan", "phase": "compute", "baseline": ["plan"], "reads": [
-            {"name": "modified", "field": "plan.files_modified", "text": true},
-            {"name": "sources", "glob": "src/**/*.rs"},
+        json!([{"name": "scan", "phase": "compute", "baseline": ["plan"], "inputs": [
+            {"input": "files", "name": "modified", "field": "plan.files_modified", "text": true},
+            {"input": "files", "name": "sources", "glob": "src/**/*.rs"},
         ]}]),
     ));
     let env = project.environment_in(runtime.clone());

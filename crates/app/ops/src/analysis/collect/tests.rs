@@ -16,7 +16,7 @@ fn collector(report: &str) -> Collector {
         report: report.into(),
         capture: None,
         writes: false,
-        reads: Vec::new(),
+        inputs: Vec::new(),
     }
 }
 

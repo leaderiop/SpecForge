@@ -80,7 +80,7 @@ impl CompiledProject {
         let baseline = crate::baseline::Baseline::of_project(self);
         let report = named
             .iter()
-            .any(|declared| declared.reads_tests())
+            .any(|declared| declared.inputs().tests())
             .then(|| {
                 crate::coverage::read_report(
                     self.env.root(),

@@ -258,7 +258,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.command("workstreams", |cmd| {
         cmd.description("Manage workstreams: list them, show their status and progress, create one, say whether one is complete, or switch to one")
             .writes()
-            .reads_state()
+            .input(Input::State)
             .arg("action", |a| {
                 a.required().one_of(ACTIONS).description("what to do");
             })

@@ -36,24 +36,39 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("scan", |p| {
         p.compute()
             .computes(COMPUTES)
-            .reads(
+            .input(Input::files(
                 "modified",
                 FileReadSpec::field("plan.files_modified").text(),
-            )
-            .reads("artifacts", FileReadSpec::field("artifact.path").text())
-            .reads("links", FileReadSpec::field("key_link.from").text())
-            .reads("link_targets", FileReadSpec::field("key_link.to").text())
-            .reads("rows", FileReadSpec::field("validation_row.file"))
-            .reads("wave0", FileReadSpec::field("wave0_item.path"))
-            .reads_tests()
+            ))
+            .input(Input::files(
+                "artifacts",
+                FileReadSpec::field("artifact.path").text(),
+            ))
+            .input(Input::files(
+                "links",
+                FileReadSpec::field("key_link.from").text(),
+            ))
+            .input(Input::files(
+                "link_targets",
+                FileReadSpec::field("key_link.to").text(),
+            ))
+            .input(Input::files(
+                "rows",
+                FileReadSpec::field("validation_row.file"),
+            ))
+            .input(Input::files(
+                "wave0",
+                FileReadSpec::field("wave0_item.path"),
+            ))
+            .input(Input::Tests)
             .run(compute);
     });
     c.pass("scan_check", |p| {
         p.phase("check")
-            .reads(
+            .input(Input::files(
                 "modified",
                 FileReadSpec::field("plan.files_modified").text(),
-            )
+            ))
             .run(check);
     });
 }

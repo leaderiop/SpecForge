@@ -196,10 +196,9 @@ pub(super) fn statusline(f: &Facts, o: &Options) -> HookOutput {
 pub(super) fn declare(c: &mut ContributionsBuilder) {
     c.hook("statusline", HookEvent::Statusline, |h| {
         h.description("Renders the status line from the graph and the session")
-            .reads_graph()
-            .reads_state()
-            .reads_git_status()
-            .git_when("statusline.show_git")
+            .input(Input::Graph)
+            .input(Input::State)
+            .input(Input::git().status().when("statusline.show_git"))
             .handler(|call| Ok(statusline(&Facts::of(call), &Options::current())));
     });
 }

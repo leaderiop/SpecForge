@@ -436,7 +436,7 @@ fn a_command_reads_the_state_it_is_sent() {
         cmd.title("Active")
             .description("The active widget")
             .category("query")
-            .reads_state()
+            .input(crate::Input::State)
             .handler(|call| {
                 let active = call
                     .state()

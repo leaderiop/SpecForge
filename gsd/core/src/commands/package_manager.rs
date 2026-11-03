@@ -93,9 +93,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.required()
                     .description("the package script: build, test, lint ...");
             })
-            .reads("package_json", FileReadSpec::glob("package.json").text());
+            .input(Input::files("package_json", FileReadSpec::glob("package.json").text()));
         for (name, file, _) in LOCKFILES {
-            cmd.reads(name, FileReadSpec::glob(file));
+            cmd.input(Input::files(name, FileReadSpec::glob(file)));
         }
         cmd.handler(|call| run(call, resolve_package_manager));
     });

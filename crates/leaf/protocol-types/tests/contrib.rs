@@ -15,7 +15,7 @@ use specforge_protocol_types::SurfaceDescriptor;
 fn host_contributions_round_trip() {
     let wire = json!({
         "commands": [{"id": "stats", "title": "Stats", "description": "Stats", "export": "cmd__stats", "args": [],
-                      "reads_state": true}],
+                      "inputs": [{"input": "state"}]}],
         "agents": [{"id": "t-planner", "description": "Plans", "tools": ["read", "write", "mcp:context7/*"],
                     "model": "setting:models.planner", "effort": "high", "color": "green",
                     "variants": ["compact"], "variant_setting": "context_profile", "when": "workflow.on",
@@ -24,8 +24,9 @@ fn host_contributions_round_trip() {
         "slash_commands": [{"prompt": "plan_phase", "argument_hint": "<phase>", "tools": ["read"], "effort": "max"},
                            {"command": "stats", "tools": ["read"]}],
         "hooks": [{"id": "write_guard", "description": "Guards", "event": "pre_tool", "tools": ["write"],
-                   "paths": ["{spec_root}/**"], "timeout_ms": 3000, "on_failure": "deny", "reads_graph": true,
-                   "reads_state": true, "writes": true, "when": "workflow.hooks", "export": "hook__write_guard"}],
+                   "paths": ["{spec_root}/**"], "timeout_ms": 3000, "on_failure": "deny",
+                   "writes": true, "when": "workflow.hooks", "export": "hook__write_guard",
+                   "inputs": [{"input": "graph"}, {"input": "state"}]}],
     });
     let parsed: SurfaceDescriptor = serde_json::from_value(wire.clone()).unwrap();
     assert_eq!(serde_json::to_value(&parsed).unwrap(), wire);

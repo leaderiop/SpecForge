@@ -1,4 +1,4 @@
-//! A command that declares `reads` is sent the facts of its files (ADR 0293); one that declares none is sent no
+//! A command that declares `files` inputs is sent the facts of its files (ADR 0293); one that declares none is sent no
 //! `files`.
 
 use super::*;
@@ -6,7 +6,11 @@ use super::*;
 fn reading(reads: Value) -> ExtensionCommand {
     declared(json!({
         "id": "reading", "title": "Reading", "description": "", "export": "cmd__ok", "args": [],
-        "reads": reads,
+        "inputs": reads.as_array().into_iter().flatten().map(|read| {
+            let mut input = read.clone();
+            input["input"] = json!("files");
+            input
+        }).collect::<Vec<_>>(),
     }))
 }
 

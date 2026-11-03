@@ -14,8 +14,7 @@ mod edge_types;
 mod graph_inputs;
 mod host;
 mod peers;
-mod populate;
-mod reads;
+pub(crate) mod populate;
 mod sides;
 mod validate;
 
@@ -26,4 +25,3 @@ pub use build::{
 pub use candidates::CandidateVocabulary;
 pub(crate) use candidates::UnloadedPeers;
 pub use codes::{extension_codes, reports};
-pub use reads::read_problem;

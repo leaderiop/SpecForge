@@ -166,10 +166,9 @@ fn answer(
     let env = load(&root);
     // The spec guard reads the graph for the spec root; an unknown route is answered from the registries alone.
     let compile = args.route == SPEC_GUARD
-        || env
-            .registries()
-            .hook(&args.route)
-            .is_some_and(|h| h.item.reads_graph || h.item.writes);
+        || env.registries().hook(&args.route).is_some_and(|h| {
+            specforge_protocol_types::Inputs(&h.item.inputs).graph() || h.item.writes
+        });
     let project = if compile {
         CompiledProject::of(env)
     } else {

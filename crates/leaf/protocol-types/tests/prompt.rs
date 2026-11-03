@@ -65,7 +65,7 @@ fn a_prompt_declaration_round_trips() {
                 {"id": "check", "title": "Check", "agent": "plan-checker"},
                 {"id": "next", "title": "Next", "prompt": "execute_phase"},
             ],
-            "reads_graph": true, "when": "workflow.research",
+            "inputs": [{"input": "graph"}], "when": "workflow.research",
             "attribution": {
                 "upstream": "gsd-core", "path": "gsd-core/workflows/plan-phase.md", "version": "1.18.0",
                 "license": "MIT", "copyright": "Copyright (c) 2026 Open GSD",
