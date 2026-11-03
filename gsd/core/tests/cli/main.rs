@@ -62,6 +62,7 @@ mod parity_plans;
 mod parity_roadmap;
 mod parity_scenario;
 mod parity_state;
+mod parity_thread;
 mod parity_verify;
 mod plan;
 mod plan_rules;

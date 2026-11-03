@@ -25,8 +25,10 @@ fn goldens(dir: &Path) -> Vec<(String, String)> {
 }
 
 fn check(script: &str, goldens_dir: &str) {
-    if !node::node_runs() {
-        eprintln!("node does not run here: {script} cannot run, nothing to check");
+    if !node::node_test_runs() {
+        eprintln!(
+            "node --test with the JUnit reporter does not run here: {script} cannot run, nothing to check"
+        );
         return;
     }
     let fake = tempfile::tempdir().expect("a temp dir");

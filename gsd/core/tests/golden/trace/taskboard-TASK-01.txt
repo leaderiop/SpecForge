@@ -1,0 +1,1 @@
+TASK-01 → plan 01-01 → T1 → <sha> (Gsd-Task) → js:taskboard/test/tasks.test.js#a task is added with the next id (passed) → TR1 verified, fresh

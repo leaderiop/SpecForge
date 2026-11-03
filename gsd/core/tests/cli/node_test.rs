@@ -1,11 +1,11 @@
 //! The taskboard twin's tests as the thread's test facts: `@javascript/node-test` (a [`TWIN_BUILTINS`] builtin)
 //! answers a `test` and a `test_run` fact per test of node's JUnit report, from the recorded golden or from a live
-//! `node --test`, and both name the tests alike (R-1). A live run skips where node is absent.
+//! `node --test`, and both name the tests alike (R-1). A live run skips where node cannot write the JUnit report.
 //!
 //! [`TWIN_BUILTINS`]: super::harness::TWIN_BUILTINS
 
 use super::harness::{Project, taskboard};
-use super::node::node_runs;
+use super::node::node_test_runs;
 
 /// The twin's three tests, in `test/tasks.test.js` of the package `taskboard`.
 const TESTS: [&str; 3] = [
@@ -73,8 +73,8 @@ fn the_twins_junit_golden_collects_as_the_threads_test_facts() {
 
 #[test]
 fn node_test_runs_the_twins_own_tests() {
-    if !node_runs() {
-        eprintln!("node does not run here: node --test cannot run on the twin, nothing to check");
+    if !node_test_runs() {
+        eprintln!("node --test with the JUnit reporter does not run here: nothing to check");
         return;
     }
     let p = taskboard();
@@ -97,8 +97,8 @@ fn node_test_runs_the_twins_own_tests() {
 
 #[test]
 fn a_failing_twin_test_exits_1_and_is_still_recorded() {
-    if !node_runs() {
-        eprintln!("node does not run here: node --test cannot run on the twin, nothing to check");
+    if !node_test_runs() {
+        eprintln!("node --test with the JUnit reporter does not run here: nothing to check");
         return;
     }
     let p = taskboard();
