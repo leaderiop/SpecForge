@@ -301,6 +301,14 @@ fn an_entry_of_an_older_protocol_major_is_refused_with_e088() {
         "{suggestion}"
     );
     assert!(!runtime.unload("@acme/major"), "nothing is left loaded");
+    // The guest every builtin was before protocol 2.0.0 (ADR 0337) is older too.
+    let (reports, _) = load_speaking("1.15.0");
+    assert_eq!(reports[0].code, "E088");
+    assert!(
+        reports[0].message.contains("older than"),
+        "{:?}",
+        reports[0]
+    );
 }
 
 /// An entry `@acme/importing` whose load the runtime refuses with `error`: what was reported, and the runtime.

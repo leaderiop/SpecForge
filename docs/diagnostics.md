@@ -1253,10 +1253,10 @@ Level: error
 E088: Extension speaks a protocol this specforge does not
 
 An extension's handshake states a newer protocol: a newer minor of the host's
-major (`1.16.0` under a `1.15.0` host) or a newer major (ADR 0326): it was built
+major (`2.1.0` under a `2.0.0` host) or a newer major (ADR 0326): it was built
 with a newer SDK and may declare what this specforge does not know and would
 drop, so it is not loaded; an older minor still loads. Or it states an older
-major (`0.9.0` under a `1.x` host): it was built for a protocol this specforge
+major (`1.15.0` under a `2.x` host): it was built for a protocol this specforge
 no longer speaks; install a version of the extension built for this protocol's
 major, or rebuild it with a specforge-extension-sdk of that protocol (ADR 0326
 D1b). Or its component imports a `specforge:host` interface (a host port such as
@@ -3871,12 +3871,12 @@ Level: warning
 W169: Older specforge on PATH
 
 `specforge doctor` ran the first `specforge` on PATH with `--version` and it
-speaks an older extension protocol minor than the specforge running doctor, or
-than an extension the project loads, or names no protocol at all (a release from
-before `--version` named it). The hooks and the MCP server that `specforge
-install` writes run `specforge` from PATH, so they run that binary, which
-refuses the project's newer extensions (E088) or would drop what they declare.
-Update the specforge on PATH, or put this one first on PATH (ADR 0326).
+speaks an older extension protocol than the specforge running doctor, or than an
+extension the project loads, or names no protocol at all (a release from before
+`--version` named it). The hooks and the MCP server that `specforge install`
+writes run `specforge` from PATH, so they run that binary, which refuses the
+project's newer extensions (E088) or would drop what they declare. Update the
+specforge on PATH, or put this one first on PATH (ADR 0326).
 
 Owner: core
 Level: warning

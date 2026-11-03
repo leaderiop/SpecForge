@@ -1,50 +1,17 @@
 //! The protocol version the host and the guests speak, and what each minor added.
 
-/// Protocol version for the extension wire format (semver). The host loads
-/// every guest of its major version whose minor is not newer than its own
-/// (ADR 0326: a newer guest is refused, E088). The minor moves when a payload's
-/// values change meaning or an optional field is added; the major moves
-/// only when an older guest could no longer be decoded or answered.
-/// `docs/extension-protocol.md` ("Protocol versions") lists what each
-/// version guarantees; 1.2.0 is ADR 0050's: the declared categories are the
-/// only describe categories, and the handshake says `providers` instead of
-/// carrying contribution flags; 1.3.0 is ADR 0060's: an enhancement declares
-/// no edge types (an edge type is declared once, in `edges`); 1.4.0 is
-/// ADR 0069's: a recorded test's status is `passed`, `failed` or `skipped`,
-/// and a pass's test results carry `duration_ms`; 1.5.0 is ADR 0094's: an
-/// entity's `verify` statements are no field text, so a pass's and a validator's
-/// `fields` carry no `verify` entry; 1.6.0 is ADR 0234's: a field's type may be `date`, and
-/// the primitives a validator gets include `date`; 1.7.0 is ADR 0284's: a kind may declare the
-/// reference field its entities are scoped by (`scoped_by`), and a pass's entity ids and edges are
-/// paths; the same 1.7.0 is ADR 0285's: a field's type may be `enum_list` or `block_list`, and a field
-/// may declare `members`, `target_kinds`, `minimum`, `maximum` and `file_base`; and the same 1.7.0 is ADR 0286's: an extension catalogs its codes (`codes`), and a
-/// rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`; 1.8.0 is ADR
-/// 0287's: a field declares who writes it (`writer`) and its history (`immutable`, `append_only`), a kind may be
-/// `append_only`, a pass declares `phase: "compute"`, the fields it `computes` and the `baseline` kinds it reads
-/// and answers `values`, and a pass's `previous` is the git baseline; the same 1.8.0 is ADR 0288's: an extension declares typed `settings`
-/// (a new describe category), and a call input may carry the extension's own `settings`; 1.9.0 is ADR 0289's: a command or collector may
-/// `writes` and answer an edit `plan` the host applies, a kind or field may be written by a `human` only, a pass may be
-/// a `guard`, and a writing command's input carries the `revisions` of the sources it was compiled from; the same 1.9.0 is ADR 0290's:
-/// a rule may be `judged` (it holds while a fresh verdict says so), a field may be written by a `verdict`, and a pass
-/// entity and a command's graph node carry the `judgements` of the rules that judge them; 1.10.0 is ADR 0291's: an
-/// extension declares `prompts` in its surfaces and the host calls their `prompt__*` export, a command declares the
-/// `gates` it waits on and the `subject` that scopes them, a pass declares the codes it `reports`, and a guard pass's
-/// input says what `trigger`ed it; ADR 0292 adds to the same 1.10.0 the `agents`, `skills`, `slash_commands` and `hooks` of an
-/// extension's surfaces, the `render__` and `hook__<id>` exports, and the `state` a hook or command keeps; 1.11.0 is ADR
-/// 0293's: a pass or command declares the project files it `reads` (and a pass `reads_tests`), and its input carries
-/// their `files` (facts and capped text); ADR 0294 adds to the same 1.11.0 the items of a list field in a pass's and a
-/// validator's `values`, and the `now` of a command, collector or hook input; ADR 0295: a judged rule's `judge` may be
-/// `prompt:<id>`; ADR 0296: `specforge settings set` writes the settings an extension declares; 1.12.0 is ADR
-/// 0301's: a command may be `human`; ADR 0304's: a pass's judgement carries `cited_tests`; ADR 0305's: a setting may
-/// declare `gates_when_on` and be of type `number`; 1.13.0 is ADRs 0310, 0314, 0316, 0317 and 0318: a command and a
-/// prompt read state, a prompt takes a free-text tail and may pick its subject, a prompt is sent the served slash
-/// commands, `when` names several settings, and a command is told its host; 1.14.0 is ADR 0320-0323's: a hook may
-/// declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`,
-/// `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the
-/// event `file_changed`; `HookEvent` also decodes an unknown event as `Unknown`, so a newer guest's event costs one
-/// hook; 1.15.0 is ADR 0327's, ADR 0326 D1a/D1b's (ports plan 00), ADR 0329's and ADR 0330's: a collector answers
-/// `facts`, may declare `reads` (its input then carries `files`), and every collector's input carries `cwd`; a kind
-/// may declare `writer: "collector"` and its `schemes`, `complete_when`, and (collector-written) the enum field holding
-/// its facts' `result`; a pass entity carries `pending`, an unheld reference its `span`; and an extension declares
-/// `routes` (a describe category), the steps `specforge trace` follows from a kind.
-pub const PROTOCOL_VERSION: &str = "1.15.0";
+/// Protocol version for the extension wire format (semver). The host loads every guest of its major version whose
+/// minor is not newer than its own; a guest of another major, older or newer, is refused (ADR 0326: E088, saying which
+/// side is behind). The minor moves when a payload's values change meaning or an optional field is added; the major
+/// moves only when an older guest could no longer be decoded or answered.
+///
+/// 2.0.0 is ADR 0337's (the ports round). A 1.x guest is refused as older. Its items:
+/// - a pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`
+///   (`files`, `tests`, `state`, `graph`, `slash_commands`, `git`, `setting`), replacing the nine `reads*` keys
+///   (ports plan 03);
+/// - a hook's `git` input with `status` carries a typed `GitStatus`, not porcelain text (ports plan 03).
+///
+/// The rounds that add to 2.0.0 (grants, host imports, value checks) add their item here and to the 2.0.0 row of
+/// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; they do
+/// not bump. A 2.0.0 describe category goes after `routes`.
+pub const PROTOCOL_VERSION: &str = "2.0.0";

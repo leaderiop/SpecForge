@@ -117,7 +117,7 @@ pub const BRIDGE: CommittedBlob = CommittedBlob {
     crate_dir: "fixtures/test-component",
     artifact: "specforge_test_component.wasm",
     guest: Guest::Bridge {
-        canned_protocol: "1.0.0",
+        canned_protocol: "2.0.0",
     },
 };
 

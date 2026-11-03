@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.15.0" }
+{ "host_version": "2.0.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.15.0",
+  "protocol_version": "2.0.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -1069,6 +1069,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.13.0` | the same as `1.0.0` |
 | `1.14.0` | the same as `1.0.0` |
 | `1.15.0` | the same as `1.0.0` |
+| `2.0.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -1077,8 +1078,10 @@ guest of its major version built for its own minor or an older one, and sends it
 `host_version` in every handshake request. A guest of a newer minor, or of a newer major, is refused with E088,
 naming the extension and both versions (ADR 0326): it may declare what this host would drop, so it needs a
 specforge at least as new. A guest of an older major is E088 too, with the remedy to install or rebuild it for the
-host's major (ADR 0326 D1b). `specforge --version` names the protocol a binary speaks
-(`specforge 0.3.0 (9229143f5, protocol 1.15.0)`). A guest built with the SDK declares the SDK's version in
+host's major (ADR 0326 D1b). Since 2.0.0 (ADR 0337) every 1.x guest is such an older major: it declared its inputs
+as the `reads*` keys, which a 2.0.0 host no longer reads, so it is refused with E088 rather than loaded with its
+inputs unserved. `specforge --version` names the protocol a binary speaks
+(`specforge 0.3.0 (9229143f5, protocol 2.0.0)`). A guest built with the SDK declares the SDK's version in
 its handshake and its registry manifest.
 
 The minor moves when a payload changes in a way every older guest survives: a field added, removed or
@@ -1103,6 +1106,7 @@ or answered.
 | `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and refuses the `surfaces` declaration of a guest that writes a `when` list (a 1.12 `when` is one string, and a list fails the whole category: `DescribeFailed`), so such a guest needs a 1.13.0 host; a `when` of one name is still a string. |
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
 | `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). An extension may declare `routes`, the steps `specforge trace` follows from a kind (ADR 0330). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's; a guest older than 1.15 is not asked for `routes`. |
+| `2.0.0` | ADR 0337 (the ports round). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
 `1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the

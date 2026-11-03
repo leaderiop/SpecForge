@@ -664,7 +664,7 @@ mod declared_in_process {
     )]
     fn an_unsupported_protocol_major_fails_the_load() {
         let handshake = serde_json::to_vec(&specforge_protocol_types::HandshakeResponse {
-            protocol_version: "2.0.0".to_string(),
+            protocol_version: "3.0.0".to_string(),
             name: "@acme/reports".to_string(),
             version: "0.1.0".to_string(),
             ..Default::default()

@@ -58,7 +58,7 @@ impl OnPath {
         Some(OnPath { program, answer })
     }
 
-    /// The protocol its version line names (`specforge 0.3.0 (9229143f5, protocol 1.15.0)`); none from a
+    /// The protocol its version line names (`specforge 0.3.0 (9229143f5, protocol 2.0.0)`); none from a
     /// binary too old to print one.
     fn protocol(&self) -> Option<&str> {
         let (_, version) = self
@@ -72,7 +72,7 @@ impl OnPath {
 }
 
 /// What doctor says of `found`, the `specforge` on PATH, against this binary's protocol and the protocols of the
-/// extensions `view` loaded: W169 when it speaks an older minor (or names none), an info finding when there is
+/// extensions `view` loaded: W169 when it speaks an older protocol (or names none), an info finding when there is
 /// no `specforge` on PATH, nothing when it is new enough.
 pub fn finding(found: Option<&OnPath>, view: &ProjectView) -> Option<Finding> {
     let Some(found) = found else {
@@ -241,7 +241,7 @@ mod tests {
     fn a_specforge_on_path_of_this_protocol_or_newer_says_nothing() {
         for line in [
             format!("specforge 0.3.0 (9229143f5, protocol {PROTOCOL_VERSION})"),
-            "specforge 0.4.0 (protocol 1.99.0)".to_string(),
+            "specforge 0.4.0 (protocol 2.99.0)".to_string(),
         ] {
             assert!(judged(Some(&answering(Some(&line)))).is_none(), "{line}");
         }

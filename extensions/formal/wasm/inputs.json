@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_formal.wasm",
-  "artifact_sha256": "b46e052d3465c61c9812f0fab6ede2b3277c0723efce7290c1a01f7222dd598c",
+  "artifact_sha256": "cb34dab55d6ed1abb4db3f2f1e36be26ec66f872fb8b4426e7e15581cd969dc2",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9566c33b63edf6f83a0624a96fa8d1b4e605c4b558117a14f3ea89c13793c4d3",
@@ -29,7 +29,7 @@
     "crates/leaf/protocol-types/src/surface.rs": "ed764ed33dc2ba43385fead589902aac8b7cafda04b4514ae5458e5943df9824",
     "crates/leaf/protocol-types/src/tool_input.rs": "0e7e9603b820339efea2266baafcd42ba39323b287b0f682a2bb509227590b17",
     "crates/leaf/protocol-types/src/trigger.rs": "4e76e4d280ed72934f33b823c9c2bb2a80648b1fb227c594ba9385ee2c60d422",
-    "crates/leaf/protocol-types/src/version.rs": "dbdbaffad0361574f96bc366b5af59c15b6c5062c929093b8ae451a9ccb0cc4d",
+    "crates/leaf/protocol-types/src/version.rs": "d47fac44303e54450757d09f7a17cdf33fbb5e0976947159f24d52b8ef2cd9e5",
     "crates/leaf/protocol-types/src/vocabulary.rs": "f7826bb59e7c102c4b14e1c28837e29de671423fd45b0e7ac55c748d97a5e31b",
     "crates/runtime/extension-sdk-macros/Cargo.toml": "2845656f0847efeddb37aecc91031adc3396747949aa0e090cdad31644824544",
     "crates/runtime/extension-sdk-macros/src/lib.rs": "05b9dfd092444a55acc0993f35172ee3d0e4db9b6b1bed77682ce912ba54f67a",

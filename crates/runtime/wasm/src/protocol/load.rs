@@ -47,7 +47,7 @@ pub fn load_declaration(
             _ => ProtocolError::HandshakeFailed(reason(&error)),
         }
     })?;
-    check_protocol_version(&response)?;
+    check_protocol_version(PROTOCOL_VERSION, &response)?;
     let protocol_version = response.protocol_version.clone();
     // The limits the extension declares (the ceiling when it declares
     // none) hold every call after the handshake.
@@ -90,14 +90,15 @@ fn reason(error: &CallError) -> String {
     }
 }
 
-/// The extension's protocol must be semver, share the host's major and be of no newer minor: a newer guest may
+/// The extension's protocol must be semver, share the `host`'s major and be of no newer minor: a newer guest may
 /// declare what this host would drop, and an older major was built for a protocol this host no longer speaks
-/// (ADR 0326 D1, D1b).
-fn check_protocol_version(response: &HandshakeResponse) -> Result<(), ProtocolError> {
-    let host = semver::Version::parse(PROTOCOL_VERSION).map_err(|e| {
-        ProtocolError::HandshakeFailed(format!(
-            "invalid host protocol version '{PROTOCOL_VERSION}': {e}"
-        ))
+/// (ADR 0326 D1, D1b). Pure, so a test can name a host other than [`PROTOCOL_VERSION`] (ADR 0337).
+pub fn check_protocol_version(
+    host: &str,
+    response: &HandshakeResponse,
+) -> Result<(), ProtocolError> {
+    let host_semver = semver::Version::parse(host).map_err(|e| {
+        ProtocolError::HandshakeFailed(format!("invalid host protocol version '{host}': {e}"))
     })?;
     let extension = semver::Version::parse(&response.protocol_version).map_err(|_| {
         ProtocolError::HandshakeFailed(format!(
@@ -107,17 +108,17 @@ fn check_protocol_version(response: &HandshakeResponse) -> Result<(), ProtocolEr
     })?;
     let (extension_name, host_version, extension_version) = (
         response.name.clone(),
-        PROTOCOL_VERSION.to_string(),
+        host.to_string(),
         response.protocol_version.clone(),
     );
-    if extension.major < host.major {
+    if extension.major < host_semver.major {
         return Err(ProtocolError::OlderVersion {
             extension: extension_name,
             host_version,
             extension_version,
         });
     }
-    if extension.major > host.major || extension.minor > host.minor {
+    if extension.major > host_semver.major || extension.minor > host_semver.minor {
         return Err(ProtocolError::NewerVersion {
             extension: extension_name,
             host_version,
