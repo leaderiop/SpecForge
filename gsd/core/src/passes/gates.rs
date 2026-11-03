@@ -265,9 +265,10 @@ fn w404(input: &PassInput) -> Vec<PassDiagnostic> {
 }
 
 /// E515: each complete requirement of a phase in scope traces to a task, a commit and a passing test (gsd-plus).
-/// A task traces it when its plan names the requirement, it is not `manual`, a recorded commit names it and the
-/// report holds a passed result for the task or the requirement and no failed one. Like a window, a requirement is
-/// outside a phase's path, so the diagnostic names the gate's subject.
+/// A task traces it when its plan names the requirement, it is not `manual`, a recorded commit names it, and the
+/// results linked to the task or the requirement, with the proofs of the truths that name the requirement (ADR 0331
+/// D5), hold a passed one and no failed one. Like a window, a requirement is outside a phase's path, so the diagnostic
+/// names the gate's subject.
 fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input) else {
         return Vec::new();
@@ -301,10 +302,13 @@ fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
                         .any(|c| c.task.as_deref() == Some(t.id.as_str()))
                 })
                 .collect();
+            let proofs = thread.requirement_proofs(requirement);
             let passing = |task: &PassEntity| {
                 let linked = thread.linked(&task.id).into_iter();
-                thread.evidence(linked.chain(thread.linked(requirement)).map(|(_, s)| s))
-                    == Evidence::Passed
+                let linked = linked
+                    .chain(thread.linked(requirement))
+                    .chain(proofs.iter().copied());
+                thread.evidence(linked.map(|(_, s)| s)) == Evidence::Passed
             };
             let missing = if tasks.is_empty() {
                 "no task of its plans"
@@ -322,7 +326,7 @@ fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
                 format!(
                     "complete requirement '{requirement}' does not trace to a task, a commit and a passing test: {missing}"
                 ),
-                "link a passing test to the task with [gsd:<task id>] and record the commit",
+                "link a passing test to the task with [gsd:<task id>], or name it in the `proof` of a truth that names the requirement, and record the commit",
             ));
         }
     }

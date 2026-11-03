@@ -8,10 +8,10 @@
 //! newly trigger it. A future writer of `result` without a `source`, or an `issue` recorded without `reported`, would.
 //!
 //! `gsd/E502` needs a fresh passing `gsd/E501` judgement and a recorded test run, and both of its inputs are inputs of
-//! E501 (`truth self`, `tests test(self)`): a new or changed result stales the verdict first, so a recorded test never
-//! makes E502 appear. It appears only when a verifier records `verified` over results that contradict it, and that
-//! record is refused (E080 names it): the verifier records `failed` instead. Silent without a test run (no report, or
-//! one with no result: `passes::thread`).
+//! E501 (`truth self`, `tests test(self, self.proof)`): a new or changed result, tagged or of a proof's test fact,
+//! stales the verdict first, so a recorded test never makes E502 appear. It appears only when a verifier records
+//! `verified` over results that contradict it, and that record is refused (E080 names it): the verifier records
+//! `failed` instead. Silent without a test run (no report, or one with no result, and no test fact: `passes::thread`).
 //!
 //! Also ports gsd-core bin/lib modules: gate-verify-failure-directions.cjs.
 
@@ -91,8 +91,8 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     found
 }
 
-/// Why recorded tests contradict a verdict on an explicit truth: a test recorded for it, or one its fresh passing
-/// `gsd/E501` judgement cites by name (`cited_tests`, anywhere in the report), failed, or none passed. `None` for a
+/// Why recorded tests contradict a verdict on an explicit truth: a test recorded for it or its proof names, or one its
+/// fresh passing `gsd/E501` judgement cites by name (`cited_tests`, anywhere in the report), failed, or none passed. `None` for a
 /// backstop truth, without a report or without such a verdict. `derive` reads the same predicate (`verify.rs`).
 pub(crate) fn contradicted(input: &PassInput, t: &PassEntity) -> Option<&'static str> {
     if text(t, "verification") != Some("explicit") {

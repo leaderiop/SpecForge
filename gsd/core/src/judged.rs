@@ -69,7 +69,7 @@ const E501: &[Target] = &[
             ("truth", "self"),
             ("plan", "self.plan"),
             ("phase", "self.plan.phase"),
-            ("tests", "test(self)"),
+            ("tests", "test(self, self.proof)"),
             ("files", "file(self.plan.files_modified)"),
         ],
         unless_set: &[],

@@ -90,3 +90,88 @@ fn a_checks_ref_names_its_results() {
         Evidence::NoTest
     );
 }
+
+/// `input` holding `facts` as `@code/core` test facts `(id, name, file, status)` and `proofs` as `(truth, fact)`
+/// `proof` edges.
+fn with_facts(
+    report: Option<Value>,
+    facts: &[(&str, &str, &str, &str)],
+    proofs: &[(&str, &str)],
+) -> PassInput {
+    let mut input = input(report);
+    for (id, name, file, status) in facts {
+        input.entities.push(
+            serde_json::from_value(json!({
+                "id": id, "kind": "test",
+                "fields": { "name": name, "file": file, "status": status },
+            }))
+            .expect("a test fact"),
+        );
+    }
+    for (truth, fact) in proofs {
+        input.edges.push(PassEdge {
+            source: truth.to_string(),
+            target: fact.to_string(),
+            label: "proof".to_string(),
+        });
+    }
+    input
+}
+
+const ADDS: &str = "js:taskboard/test/tasks.test.js#adds";
+const LISTS: &str = "js:taskboard/test/tasks.test.js#lists";
+
+#[test]
+fn a_truths_proof_results_are_linked_to_it() {
+    let input = with_facts(
+        Some(json!({ "results": { "TR1": tests(&[("tagged", "passed")]) } })),
+        &[
+            (ADDS, "adds", "test/tasks.test.js", "failed"),
+            (LISTS, "lists", "test/tasks.test.js", "passed"),
+        ],
+        &[("TR1", ADDS)],
+    );
+    let thread = Thread::of(&input);
+    assert_eq!(
+        thread.linked("TR1"),
+        [("tagged", TestStatus::Passed), (ADDS, TestStatus::Failed)]
+    );
+    assert_eq!(thread.proof("TR1"), [(ADDS, TestStatus::Failed)]);
+    assert_eq!(thread.of_entity("TR1"), Evidence::Failed);
+}
+
+#[test]
+fn a_test_fact_is_a_test_run() {
+    let input = with_facts(None, &[(ADDS, "adds", "test/tasks.test.js", "passed")], &[]);
+    let thread = Thread::of(&input);
+    assert!(thread.ran());
+    assert_eq!(thread.of_entity("TR1"), Evidence::NoTest);
+}
+
+#[test]
+fn a_checks_ref_names_a_fact_by_its_name_and_file() {
+    let input = with_facts(
+        None,
+        &[
+            (ADDS, "adds", "test/tasks.test.js", "passed"),
+            (
+                "js:other/test/other.test.js#adds",
+                "adds",
+                "test/other.test.js",
+                "failed",
+            ),
+        ],
+        &[],
+    );
+    let thread = Thread::of(&input);
+    assert_eq!(
+        thread.named("D1", "test/tasks.test.js#adds"),
+        [TestStatus::Passed]
+    );
+    assert_eq!(thread.named("D1", "test/missing.test.js#adds"), []);
+    // A ref with no file names the test in every file.
+    assert_eq!(
+        thread.named("D1", "adds"),
+        [TestStatus::Passed, TestStatus::Failed]
+    );
+}
