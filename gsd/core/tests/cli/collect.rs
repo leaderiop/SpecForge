@@ -250,6 +250,17 @@ fn a_repository_without_commits_is_e045() {
     }
 }
 
+/// 04-D2: a plain `collect --yes` in a repository with a commit runs gsd-git, as a GSD project's own collect does.
+#[test]
+#[ignore = "04 T13"]
+fn a_plain_collect_in_a_repository_records_the_commits() {
+    let p = repository();
+    let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let run = p.run(&["collect", "--yes", "--format", "json"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+}
+
 const TRUTH: &str = "v1.0/01/01-01/TR1";
 const DELIVERABLE: &str = "v1.0/01/01-01/01-01-SUMMARY/D1";
 
