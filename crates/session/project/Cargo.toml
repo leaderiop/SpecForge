@@ -21,7 +21,7 @@ specforge-common = { workspace = true }
 specforge-component = { workspace = true }
 specforge-coverage = { path = "../../leaf/coverage" }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
-# The credential deny-list K11 reads apply (`contained::withheld`, ADR 0293 D3a).
+# `Contained` and the credential deny-list: K11 reads and judged file inputs resolve through them (ADR 0335).
 specforge-effects = { path = "../../kernel/effects" }
 specforge-graph = { path = "../../pipeline/graph" }
 specforge-package = { path = "../../leaf/package" }

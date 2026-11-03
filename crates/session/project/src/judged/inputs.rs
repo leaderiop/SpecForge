@@ -5,14 +5,16 @@
 use std::cell::OnceCell;
 use std::collections::BTreeSet;
 use std::io::ErrorKind;
-use std::path::{Component, Path, PathBuf};
+use std::path::Path;
 
 use serde_json::{Value, json};
+use specforge_effects::RootName;
+use specforge_effects::contained::Contained;
 use specforge_graph::{Graph, Node, wire};
 use specforge_package::Sha256;
 use specforge_protocol_types::JudgedFile;
 use specforge_registry::judged::{CITED, CITED_TESTS, Chain, JudgedRule, Selector};
-use specforge_registry::{Disk, EntitySnapshot, FileStamp};
+use specforge_registry::{Disk, DiskLookup, EntitySnapshot, FileStamp};
 
 use super::{DigestMemo, entity_digest, file_digest};
 use crate::coverage::{ReportRead, read_report};
@@ -199,22 +201,27 @@ impl<'a> Cx<'a> {
     /// the entities it declares, so a verdict recorded into it does not stale a reader of it.
     fn file(&self, file: &FileRef) -> JudgedFile {
         let root = self.env.root();
+        let lookup = DiskLookup(self.disk);
         let base = if file.project {
-            root
+            RootName::Project
         } else {
-            self.env.spec_root()
+            RootName::Spec
         };
-        let abs = normalize(&base.join(&file.path));
-        // A file outside the project is not read: an absolute path, or one that climbs out with `..`.
-        let inside = abs.starts_with(root) || abs.starts_with(normalize(self.env.spec_root()));
-        let shown = if inside {
-            abs.strip_prefix(root)
-                .unwrap_or(&abs)
-                .to_string_lossy()
-                .replace('\\', "/")
-        } else {
-            file.path.clone()
+        // A file outside its root is not read: an absolute path, a `..` that climbs out, a link out (ADR 0335).
+        let contained = Contained::project(root, self.env.spec_root(), &lookup);
+        let Ok(resolved) = contained.resolve(&file.path, base) else {
+            return JudgedFile {
+                path: file.path.clone(),
+                digest: "unreadable".to_string(),
+            };
         };
+        let variant = resolved.case.is_some();
+        let abs = resolved.at;
+        let shown = abs
+            .strip_prefix(root)
+            .unwrap_or(&abs)
+            .to_string_lossy()
+            .replace('\\', "/");
         let declared_by = |abs: &Path| -> Vec<(String, String)> {
             let key = abs
                 .strip_prefix(self.env.spec_root())
@@ -237,7 +244,8 @@ impl<'a> Cx<'a> {
             })
         };
         let digest = match self.disk.stamp(&abs) {
-            _ if !inside => "unreadable".to_string(),
+            // Only a case variant on disk: absent, as to every reader of a project file, on every OS (ADR 0335 D3).
+            _ if variant => "absent".to_string(),
             Err(e) if e.kind() == ErrorKind::NotFound => "absent".to_string(),
             Err(_) => "unreadable".to_string(),
             Ok(stamp) if abs.extension().is_some_and(|e| e == "spec") => {
@@ -514,18 +522,3 @@ impl<'a> Cx<'a> {
 
 /// The digest of a `test(..)` input that links nothing, and of one that could not be judged ([`Inputs::unjudged`]).
 pub(super) const NONE: &str = "none";
-
-/// `path` with `.` and `..` resolved lexically.
-fn normalize(path: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                out.pop();
-            }
-            other => out.push(other),
-        }
-    }
-    out
-}

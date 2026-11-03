@@ -174,8 +174,10 @@ fn a_referrer_path_continues_forward() {
 }
 
 #[cfg(unix)]
-#[test]
-#[ignore = "pin: 01-D6, flipped by 01 T8"]
+#[specforge_test(
+    behavior = "digest_judged_inputs",
+    verify = "a file input that links out of the project digests as unreadable"
+)]
 fn a_file_input_through_a_link_out_is_unreadable() {
     let p = project();
     let outside = tempfile::TempDir::new().unwrap();
@@ -191,5 +193,23 @@ fn a_file_input_through_a_link_out_is_unreadable() {
     .unwrap();
     p.write("a.spec", SPEC.replace("src/a.ts", "src/out.ts"));
     let inputs = inputs(&compile(&p));
-    assert_eq!(digest(&inputs, "code"), "unreadable", "{:?}", inputs.files);
+    let out = inputs
+        .files
+        .iter()
+        .find(|f| f.path == "src/out.ts")
+        .unwrap_or_else(|| panic!("{:?}", inputs.files));
+    assert_eq!(out.digest, "unreadable", "{:?}", inputs.files);
+}
+
+#[specforge_test(
+    behavior = "digest_judged_inputs",
+    verify = "a file input that only a case variant on disk matches digests as absent on every OS"
+)]
+fn a_file_input_spelled_in_another_case_is_absent() {
+    let p = project();
+    // On disk: `src/a.ts`. A case-insensitive file system would open `src/A.ts`; the containment does not.
+    p.write("a.spec", SPEC.replace("src/a.ts", "src/A.ts"));
+    let inputs = inputs(&compile(&p));
+    assert_eq!(inputs.files.len(), 1, "{:?}", inputs.files);
+    assert_eq!(inputs.files[0].digest, "absent", "{:?}", inputs.files);
 }

@@ -92,6 +92,8 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a proof the store does not hold leaves the input unjudged, and one the store lost stales it"
   verify unit "a cited entity is digested by the resolution that accepted it"
   verify unit "a cited file outside the project is not read"
+  verify unit "a file input that links out of the project digests as unreadable"
+  verify unit "a file input that only a case variant on disk matches digests as absent on every OS"
   verify unit "a spec source that declares nothing digests as its bytes"
   verify unit "a reference digests as the graph links it"
   verify unit "incremental digests equal cold digests"
@@ -149,6 +151,7 @@ behavior answer_judged_inputs "Answer a Judged Rule's Inputs" {
   verify unit "the inputs query answers the basis a set_verdict checks"
   verify unit "the verdict inputs tool answers what the inputs query answers"
   verify unit "a cited file is a relative path inside the project"
+  verify unit "a cited file that links out of the project is unknown"
   verify unit "inspect, query, the graph export and a command's graph list each entity's judgements"
   verify unit "a pass sees the tests a verdict cites"
 }

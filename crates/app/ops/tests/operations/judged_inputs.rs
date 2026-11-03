@@ -157,8 +157,10 @@ fn a_cited_file_is_a_relative_path_inside_the_project() {
 }
 
 #[cfg(unix)]
-#[test]
-#[ignore = "pin: 01-D7, flipped by 01 T8"]
+#[specforge_test(
+    behavior = "answer_judged_inputs",
+    verify = "a cited file that links out of the project is unknown"
+)]
 fn a_cited_file_through_a_link_out_is_unknown() {
     let project = gsd_judged_project("");
     let outside = tempfile::TempDir::new().unwrap();

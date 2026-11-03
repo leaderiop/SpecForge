@@ -3,15 +3,16 @@
 //! <entity> --inputs <rule>` and `specforge.verdict_inputs` render it.
 
 use std::collections::BTreeMap;
-use std::path::{Component, Path};
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
+use specforge_effects::RootName;
+use specforge_effects::contained::{Contained, RealFs};
 use specforge_graph::Found;
 use specforge_project::judged::Cited;
 use specforge_project::judged::{InputsRefusal, describe};
 use specforge_protocol_types::Cite;
-use specforge_registry::{Disk, PlainDisk};
+use specforge_registry::PlainDisk;
 
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
@@ -112,13 +113,12 @@ pub(crate) fn cited_of(view: &ProjectView<'_>, cites: &[Cite]) -> Result<Cited, 
                 cited.entities.push(entity.clone());
             }
             Cite::File { file } => {
-                // inside the project: a relative path that never climbs out
-                let held = Path::new(file)
-                    .components()
-                    .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
-                    && view
-                        .root()
-                        .is_some_and(|root| PlainDisk.exists(&root.join(file)));
+                // inside the project, reached through no link out, spelled as on disk (ADR 0335)
+                let held = view.root().is_some_and(|root| {
+                    Contained::project(root, view.env().spec_root(), &RealFs)
+                        .resolve(file, RootName::Project)
+                        .is_ok_and(|resolved| resolved.exists && resolved.case.is_none())
+                });
                 if !held {
                     return Err(file.clone());
                 }
