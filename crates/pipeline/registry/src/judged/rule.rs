@@ -8,6 +8,7 @@ use specforge_common::Severity;
 use specforge_protocol_types::{FieldType, FieldWriter, JudgedDescriptor};
 
 use super::selector::{Chain, Head, Selector, Step};
+use crate::compilation::UnloadedPeers;
 use crate::rules::Registries;
 
 /// The name a verdict's cited files and entities digest under: an input cannot take it.
@@ -409,12 +410,15 @@ fn forbid_written(
 }
 
 /// Every selector of the rule resolved, and every field it names declared: `Err` is the reason the rule can never
-/// work, which is W112.
+/// work, which is W112. An entity or test chain that reaches only a kind of an optional peer the project does not
+/// load (`unloaded`) is inert, as a route's step is (ADR 0330): it selects nothing, and the rule is kept (ADR 0331
+/// D7). A chain into any other kind no loaded extension declares is W112.
 pub(crate) fn resolve(
     targets: &[JudgedTargetRule],
     descriptor: &JudgedDescriptor,
     extension: &str,
     registries: Registries<'_>,
+    unloaded: &UnloadedPeers<'_>,
 ) -> Result<(), String> {
     for target in targets {
         if !registries.kinds.contains(&target.kind) {
@@ -424,17 +428,20 @@ pub(crate) fn resolve(
         for (name, selector) in &target.inputs {
             let why = |why: String| format!("target '{}': input '{name}': {why}", target.kind);
             let walked = |steps: usize, chain: &Chain| {
-                walk(chain, steps, &this, registries, Reader::Verdict).map_err(|e| why(e.why()))
+                walk(chain, steps, &this, registries, Reader::Verdict)
+            };
+            let selects = |chain: &Chain| match walked(chain.steps.len(), chain) {
+                Err(WalkError::Unloaded { kind, .. }) if unloaded.declare(&kind) => Ok(()),
+                walked => walked.map(drop).map_err(|e| why(e.why())),
             };
             match selector {
-                Selector::Entities(chain) | Selector::Tests(chain) => {
-                    walked(chain.steps.len(), chain)?;
-                }
+                Selector::Entities(chain) => selects(chain)?,
+                Selector::Tests(chains) => chains.iter().try_for_each(selects)?,
                 Selector::FilesOf(chain) => {
                     let (last, steps) = chain.steps.split_last().ok_or_else(|| {
                         why("file() of a chain needs a step ending at a file field".into())
                     })?;
-                    let kinds = walked(steps.len(), chain)?;
+                    let kinds = walked(steps.len(), chain).map_err(|e| why(e.why()))?;
                     match last {
                         Step::Path(path) => ends_at_file(registries, kinds, path).map_err(why)?,
                         Step::Referrers { kinds, path } => {

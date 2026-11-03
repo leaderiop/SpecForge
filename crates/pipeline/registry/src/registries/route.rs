@@ -1,6 +1,7 @@
 //! The routes `specforge trace` follows (ADR 0330), each checked once against the loaded kinds, fields and judged
 //! rules: a route that cannot be followed is E118 and is not registered; several from one kind without one default
-//! are W195. A part that reaches a kind of an optional peer the project does not load is skipped, not reported.
+//! are W195. A part that reaches a kind of an optional peer the project does not load (as the candidate vocabulary
+//! credits the kind) is skipped, not reported.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -10,7 +11,7 @@ use specforge_protocol_types::{
     ExtensionDeclaration, ROUTE_START, RouteAnnotationDescriptor, RouteDescriptor, is_valid_short,
 };
 
-use crate::compilation::has_unloaded_optional_peer;
+use crate::compilation::UnloadedPeers;
 use crate::judged::{Chain, Head, Reader, Selector, WalkError, is_word, walk};
 use crate::rules::{Registries, Rules};
 
@@ -150,6 +151,7 @@ pub(crate) fn build(
     declarations: &[ExtensionDeclaration],
     registries: Registries<'_>,
     rules: &Rules,
+    candidates: &crate::CandidateVocabulary,
 ) -> (RouteRegistry, Vec<Diagnostic>) {
     let loaded: Vec<&str> = declarations.iter().map(|d| d.name()).collect();
     let mut registry = RouteRegistry::default();
@@ -161,7 +163,7 @@ pub(crate) fn build(
                 declaration,
                 registries,
                 rules,
-                optional: has_unloaded_optional_peer(declaration, &loaded),
+                unloaded: UnloadedPeers::of(declaration, &loaded, candidates),
             };
             let checked = if names.insert(descriptor.name.as_str()) {
                 check.route(descriptor)
@@ -254,9 +256,9 @@ struct Check<'a> {
     declaration: &'a ExtensionDeclaration,
     registries: Registries<'a>,
     rules: &'a Rules,
-    /// Whether its extension declares an optional peer the project does not load: then a part that reaches an
-    /// unloaded kind is skipped.
-    optional: bool,
+    /// The optional peers of its extension the project does not load: a part that reaches a kind of theirs is
+    /// skipped, and a part that reaches any other kind no loaded extension declares is E118.
+    unloaded: UnloadedPeers<'a>,
 }
 
 /// What a declared step reached.
@@ -281,7 +283,7 @@ impl Check<'_> {
             return Err("a route has at least one step".into());
         }
         if !self.registries.kinds.contains(&d.start) {
-            return match self.optional {
+            return match self.unloaded.declare(&d.start) {
                 true => Ok(None),
                 false => Err(format!("start kind '{}' is not loaded", d.start)),
             };
@@ -363,7 +365,7 @@ impl Check<'_> {
             Reader::Route,
         )
         .map_err(|e| match e {
-            WalkError::Unloaded { .. } if self.optional => e,
+            WalkError::Unloaded { ref kind, .. } if self.unloaded.declare(kind) => e,
             other => WalkError::Invalid(other.why()),
         })
     }

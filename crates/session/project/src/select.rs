@@ -54,6 +54,26 @@ impl<'a> Selection<'a> {
         self.run(this, chain, true).1
     }
 
+    /// The ids written in the last step's field of the entities before it that name no fact (ADR 0327 D6): what
+    /// `chain` would pick from `this` were they held. Only a last `.field` step names any.
+    // shortcut: a last step of one field only; a path that goes on past a reference (`a.b`) finds none of `b`'s.
+    pub fn unheld(&self, this: &str, chain: &Chain) -> BTreeSet<String> {
+        let Some((Step::Path(field), before)) = chain.steps.split_last() else {
+            return BTreeSet::new();
+        };
+        let holders = Chain {
+            head: chain.head.clone(),
+            steps: before.to_vec(),
+        };
+        self.entities(this, &holders)
+            .iter()
+            .filter_map(|id| self.graph.node(id))
+            .flat_map(|node| &node.unheld)
+            .filter(|unheld| unheld.field.as_str() == field)
+            .map(|unheld| unheld.id.clone())
+            .collect()
+    }
+
     fn run(&self, this: &str, chain: &Chain, files: bool) -> (BTreeSet<String>, BTreeSet<FileRef>) {
         let mut set: BTreeSet<String> = match &chain.head {
             Head::This => BTreeSet::from([this.to_string()]),

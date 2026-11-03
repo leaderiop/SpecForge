@@ -3,6 +3,7 @@
 //! one whose digests all agree.
 
 use std::cell::OnceCell;
+use std::collections::BTreeSet;
 use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 
@@ -10,7 +11,7 @@ use serde_json::{Value, json};
 use specforge_graph::{Graph, Node, wire};
 use specforge_package::Sha256;
 use specforge_protocol_types::JudgedFile;
-use specforge_registry::judged::{CITED, CITED_TESTS, JudgedRule, Selector};
+use specforge_registry::judged::{CITED, CITED_TESTS, Chain, JudgedRule, Selector};
 use specforge_registry::{Disk, EntitySnapshot, FileStamp};
 
 use super::{DigestMemo, entity_digest, file_digest};
@@ -61,8 +62,10 @@ pub struct Inputs {
     pub digests: Vec<(String, String)>,
     /// The files its `file()` inputs and `cited` read, with their digests.
     pub files: Vec<JudgedFile>,
-    /// A `test(..)` input could not be digested: no report, or an unusable one.
-    pub tests_unjudged: bool,
+    /// The names of the inputs that could not be judged, `cited_tests` included: a `test(..)` input none of whose
+    /// chains could be read (entities that are no facts with no usable report, references whose facts no collect has
+    /// stored; ADR 0331 D7), and `cited_tests` with no usable report. Each digests as `none`, and freshness skips it.
+    pub unjudged: Vec<String>,
     /// Each named input as it was read: what it picked and its digest.
     pub reports: Vec<InputReport>,
     /// What the verdict cites, resolved, and its digest.
@@ -121,6 +124,28 @@ pub(super) struct Cx<'a> {
     memo: &'a DigestMemo,
     report: OnceCell<ReportRead>,
     selection: Selection<'a>,
+    /// The schemes the served fact stores hold facts of, read once.
+    held: OnceCell<BTreeSet<String>>,
+}
+
+/// What a `test(..)` input reads now (ADR 0331 D7).
+struct Tested {
+    /// Every entity its chains pick, and every reference they name that is no held fact, sorted.
+    members: Vec<String>,
+    /// The results of the chains that could be read, sorted: empty when nothing is linked (the value `none`, judged
+    /// and compared like any digest); `None` when no chain could be read, so the input is not judged.
+    results: Option<Vec<Value>>,
+}
+
+/// What one chain of a `test(..)` input reads of one entity it picks or reference it names.
+enum Read {
+    /// A result, digested.
+    Result(Value),
+    /// It links no test.
+    Nothing,
+    /// What it needs is not recorded: no usable report for an entity that is no fact, or no store of a reference's
+    /// scheme.
+    Unrecorded,
 }
 
 pub(super) fn hash(value: &Value) -> String {
@@ -144,6 +169,7 @@ impl<'a> Cx<'a> {
             memo,
             report: OnceCell::new(),
             selection: Selection::of(graph, env.registries()),
+            held: OnceCell::new(),
         }
     }
 
@@ -244,6 +270,92 @@ impl<'a> Cx<'a> {
         value
     }
 
+    /// Whether a served store holds facts of `scheme`.
+    fn holds(&self, scheme: &str) -> bool {
+        self.held
+            .get_or_init(|| {
+                crate::facts::stores(self.entities)
+                    .into_iter()
+                    .flat_map(|store| store.schemes)
+                    .collect()
+            })
+            .contains(scheme)
+    }
+
+    /// What `test(chains)` reads from `this`. Each chain counts on its own: it reads the entities it picks and the
+    /// references it names that are no held fact. A fact whose kind names its result field is `[id, status]`
+    /// (`unknown` while unwritten); any other entity is `[id, [[name, status]…]]` from the report, nothing when it has
+    /// none, unrecorded without a usable report; an unheld reference is `[id, absent]` while a store holds its scheme
+    /// (the test is gone), unrecorded while none does (a fresh clone). A chain that reads only unrecorded items is not
+    /// judged and adds nothing; the input is judged when one chain is, or when no chain picks anything.
+    fn tests(&self, this: &str, chains: &[Chain]) -> Tested {
+        let select = &self.selection;
+        let mut members = BTreeSet::new();
+        let (mut results, mut judged, mut unjudged) = (Vec::new(), false, false);
+        for chain in chains {
+            let picked = select.entities(this, chain);
+            let unheld = select.unheld(this, chain);
+            let reads: Vec<Read> = picked
+                .iter()
+                .map(|id| self.read(id))
+                .chain(unheld.iter().map(|id| self.unheld(id)))
+                .collect();
+            members.extend(picked);
+            members.extend(unheld);
+            if reads.is_empty() {
+                continue;
+            }
+            if reads.iter().all(|read| matches!(read, Read::Unrecorded)) {
+                unjudged = true;
+                continue;
+            }
+            judged = true;
+            results.extend(reads.into_iter().filter_map(|read| match read {
+                Read::Result(value) => Some(value),
+                Read::Nothing | Read::Unrecorded => None,
+            }));
+        }
+        results.sort_by_key(Value::to_string);
+        results.dedup();
+        Tested {
+            members: members.into_iter().collect(),
+            results: (judged || !unjudged).then_some(results),
+        }
+    }
+
+    /// What a `test(..)` chain reads of `id`, an entity it picks.
+    fn read(&self, id: &str) -> Read {
+        let Some(node) = self.graph.node(id) else {
+            return Read::Nothing;
+        };
+        let registries = self.env.registries();
+        match registries
+            .kinds()
+            .collected(node.kind.raw.as_str())
+            .and_then(|kind| kind.result())
+        {
+            Some(field) => {
+                let status = wire::resolved(self.graph, registries.field_forms(), node, field)
+                    .and_then(|value| value.as_value().as_str().map(str::to_string))
+                    .unwrap_or_else(|| "unknown".to_string());
+                Read::Result(json!([id, status]))
+            }
+            None => match self.tests_of(id) {
+                None => Read::Unrecorded,
+                Some(tests) if tests.is_empty() => Read::Nothing,
+                Some(tests) => Read::Result(json!([id, tests])),
+            },
+        }
+    }
+
+    /// What a `test(..)` chain reads of `id`, a reference it names that is no held fact.
+    fn unheld(&self, id: &str) -> Read {
+        match specforge_common::scheme::of(id).is_some_and(|scheme| self.holds(scheme)) {
+            true => Read::Result(json!([id, "absent"])),
+            false => Read::Unrecorded,
+        }
+    }
+
     /// The recorded tests of `id`, as `[name, status]`; `None` without a usable report.
     fn tests_of(&self, id: &str) -> Option<Vec<Value>> {
         let ReportRead::Read(results) = self.report() else {
@@ -279,15 +391,20 @@ impl<'a> Cx<'a> {
         for (name, selector) in &target.inputs {
             let shown = selector.to_string();
             let read = out.files.len();
-            let (kind, members, value) = match selector {
+            // `None`: the input could not be judged.
+            let (kind, members, digest) = match selector {
                 Selector::Entities(chain) => {
                     let ids = select.entities(id, chain);
                     let members: Vec<String> = ids.iter().cloned().collect();
-                    ("entities", members, Some(self.entity_set(&shown, ids)))
+                    (
+                        "entities",
+                        members,
+                        Some(hash(&self.entity_set(&shown, ids))),
+                    )
                 }
                 Selector::FilesOf(chain) => {
                     let value = self.files(&shown, &select.files(id, chain), &mut out.files);
-                    ("files", Vec::new(), Some(value))
+                    ("files", Vec::new(), Some(hash(&value)))
                 }
                 Selector::Files(paths) => {
                     let files = paths
@@ -297,23 +414,16 @@ impl<'a> Cx<'a> {
                             project: true,
                         })
                         .collect();
-                    (
-                        "files",
-                        Vec::new(),
-                        Some(self.files(&shown, &files, &mut out.files)),
-                    )
+                    let value = self.files(&shown, &files, &mut out.files);
+                    ("files", Vec::new(), Some(hash(&value)))
                 }
-                Selector::Tests(chain) => {
-                    let ids = select.entities(id, chain);
-                    let tests: Option<Vec<Value>> = ids
-                        .iter()
-                        .map(|t| self.tests_of(t).map(|tests| json!([t, tests])))
-                        .collect();
-                    (
-                        "tests",
-                        ids.into_iter().collect(),
-                        tests.map(|tests| json!({"selector": shown, "tests": tests})),
-                    )
+                Selector::Tests(chains) => {
+                    let Tested { members, results } = self.tests(id, chains);
+                    let digest = results.map(|tests| match tests.is_empty() {
+                        true => NONE.to_string(),
+                        false => hash(&json!({"selector": shown, "tests": tests})),
+                    });
+                    ("tests", members, digest)
                 }
             };
             let members = if kind == "files" {
@@ -321,13 +431,10 @@ impl<'a> Cx<'a> {
             } else {
                 members
             };
-            let digest = match value {
-                Some(value) => hash(&value),
-                None => {
-                    out.tests_unjudged = true;
-                    NONE.to_string()
-                }
-            };
+            let digest = digest.unwrap_or_else(|| {
+                out.unjudged.push(name.clone());
+                NONE.to_string()
+            });
             out.reports.push(InputReport {
                 name: name.clone(),
                 selector: shown,
@@ -395,7 +502,7 @@ impl<'a> Cx<'a> {
                         .push((CITED_TESTS.to_string(), hash(&Value::Array(seen))));
                 }
                 _ => {
-                    out.tests_unjudged = true;
+                    out.unjudged.push(CITED_TESTS.to_string());
                     out.digests
                         .push((CITED_TESTS.to_string(), NONE.to_string()));
                 }
@@ -405,7 +512,7 @@ impl<'a> Cx<'a> {
     }
 }
 
-/// The digest a `test(..)` input has when no report could be read.
+/// The digest of a `test(..)` input that links nothing, and of one that could not be judged ([`Inputs::unjudged`]).
 pub(super) const NONE: &str = "none";
 
 /// `path` with `.` and `..` resolved lexically.

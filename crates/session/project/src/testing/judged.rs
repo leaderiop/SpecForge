@@ -7,6 +7,10 @@
 //! and `milestone_audit`, and the eight judged rules of the model with every selector of its inputs table:
 //! the plan check (W311, W313, W315, W316), E501 on a truth, an artifact and a key link, E202, W203, W205. `scores` is
 //! bound by E202's `values`, `legitimacy` by W205's `outcome_fields`.
+//!
+//! A truth's `proof` names `test` facts, which [`CODE_CORE`] declares, an optional peer of `@gsd/core` here as the
+//! real one is: without it the proof chain of E501's `tests` input is inert (the builtin vocabulary credits `test` to
+//! `@code/core`); [`gsd_judged_tests_project`] loads it.
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::DeclaredCategory;
@@ -17,6 +21,9 @@ use super::TestProject;
 
 /// The extension that declares the kinds and the rules.
 pub const GSD_JUDGED: &str = "@gsd/core";
+/// The optional peer that declares the collected kind `test` a truth's `proof` names: `@code/core`, served in
+/// process with [`code_core_tests`], the shape of the builtin's `test`.
+pub const CODE_CORE: &str = "@code/core";
 
 /// What the plan-check rules read of a plan (`rules.md`, K7 D8).
 pub const PLAN_CHECK_INPUTS: [(&str, &str); 11] = [
@@ -127,7 +134,11 @@ pub fn gsd_judged_wire() -> Value {
         ),
         // A person's audit: judged like `package_audit`, and never written by an agent (its verdict included).
         json!({"name": "sealed_audit", "keyword": "sealed_audit", "writer": "human", "fields": []}),
-        kind("truth", Some("plan"), vec![reference("plan", "plan")]),
+        kind(
+            "truth",
+            Some("plan"),
+            vec![reference("plan", "plan"), references("proof", "test")],
+        ),
         kind(
             "artifact",
             Some("plan"),
@@ -209,7 +220,7 @@ pub fn gsd_judged_rules() -> Value {
         "judged": judged("gsd-verifier", &["passed", "failed"], &["passed"], json!([
             {"kind": "truth", "inputs": inputs(&[
                 ("truth", "self"), ("plan", "self.plan"), ("phase", "self.plan.phase"),
-                ("code", "file(self.plan.files_modified)"), ("tests", "test(self)")])},
+                ("code", "file(self.plan.files_modified)"), ("tests", "test(self, self.proof)")])},
             {"kind": "artifact", "inputs": inputs(&[
                 ("artifact", "self"), ("plan", "self.plan"), ("code", "file(self.path)")])},
             {"kind": "key_link", "unless_set": ["pattern"], "inputs": inputs(&[
@@ -248,6 +259,7 @@ pub fn gsd_judged_rules() -> Value {
 
 /// The kinds, the rules and the `plan_check` setting of `@gsd/core`, as `c` contributes them (no pass).
 pub fn declare_gsd_judged(c: &mut ContributionsBuilder) {
+    c.optional_peer(CODE_CORE, "^1.0");
     c.raw_category(DeclaredCategory::Entities, gsd_judged_wire());
     super::declare_rules(c, gsd_judged_rules());
     // A judged rule's judge is an agent of its extension (W112, ADR 0292).
@@ -288,17 +300,38 @@ pub fn gsd_judged_passes() -> Value {
     json!([{"name": "plan_status", "phase": "compute", "computes": ["plan.status"]}])
 }
 
-/// `@gsd/core` served in process.
+/// The kind `test` as the builtin `@code/core` declares it, as the wire carries it: written by a collector under the
+/// scheme `js`, its result its `status`, named by its `file` and `name`.
+pub fn code_core_tests() -> Value {
+    json!([{"name": "test", "keyword": "test", "writer": "collector", "schemes": ["js"], "result": "status",
+    "fields": [
+        {"name": "file", "field_type": "string"},
+        {"name": "name", "field_type": "string"},
+        {"name": "status", "field_type": "enum", "enum_values": ["passed", "failed", "skipped"]},
+    ]}])
+}
+
+/// [`CODE_CORE`]: the kind [`code_core_tests`].
+pub fn code_core_builder() -> ContributionsBuilder {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(CODE_CORE, "1.0.0"));
+    c.raw_category(DeclaredCategory::Entities, code_core_tests());
+    c
+}
+
+/// `@gsd/core` and [`CODE_CORE`] served in process (a project loads the second only when it enables it).
 pub fn gsd_judged_runtime() -> InProcessRuntime {
-    InProcessRuntime::new().with(gsd_judged_builder).answer_raw(
-        GSD_JUDGED,
-        "__pass_plan_status",
-        specforge_wasm::WasmCallResult::Ok(
-            json!({"diagnostics": [], "summary": {}, "values": []})
-                .to_string()
-                .into_bytes(),
-        ),
-    )
+    InProcessRuntime::new()
+        .with(gsd_judged_builder)
+        .with(code_core_builder)
+        .answer_raw(
+            GSD_JUDGED,
+            "__pass_plan_status",
+            specforge_wasm::WasmCallResult::Ok(
+                json!({"diagnostics": [], "summary": {}, "values": []})
+                    .to_string()
+                    .into_bytes(),
+            ),
+        )
 }
 
 /// The phase, decisions, plan, truth and the like the judged tests read.
@@ -346,9 +379,19 @@ package_audit PA "Audit" {
 /// A project over `@gsd/core` whose spec is [`GSD_JUDGED_SPEC`] and `extra`, the instructions file `CLAUDE.md` and a
 /// source file `src/auth/session.ts` on disk.
 pub fn gsd_judged_project(extra: &str) -> TestProject {
+    judged_project(&[GSD_JUDGED], extra)
+}
+
+/// [`gsd_judged_project`] that also loads [`CODE_CORE`], so a truth's `proof` links to the `test` facts a store
+/// holds.
+pub fn gsd_judged_tests_project(extra: &str) -> TestProject {
+    judged_project(&[GSD_JUDGED, CODE_CORE], extra)
+}
+
+fn judged_project(extensions: &[&str], extra: &str) -> TestProject {
     TestProject::new()
         .config(|c| c["name"] = "p".into())
-        .enabling(&[GSD_JUDGED])
+        .enabling(extensions)
         .installing_enabled()
         .file("a.spec", format!("{GSD_JUDGED_SPEC}{extra}"))
         .file("CLAUDE.md", "# Instructions\n")

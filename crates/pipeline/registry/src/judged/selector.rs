@@ -2,7 +2,7 @@
 //! canonical text, which is what the digests use.
 //!
 //! ```text
-//! selector := "file" "(" ( string ( "," string )* | chain ) ")" | "test" "(" chain ")" | chain
+//! selector := "file" "(" ( string ( "," string )* | chain ) ")" | "test" "(" chain ( "," chain )* ")" | chain
 //! chain    := head step*
 //! head     := "self" | kinds
 //! kinds    := word ( "|" word )*
@@ -46,8 +46,8 @@ pub enum Selector {
     FilesOf(Chain),
     /// Files: these paths from the project root.
     Files(Vec<String>),
-    /// The recorded tests of the entities.
-    Tests(Chain),
+    /// The recorded tests of the entities the chains pick, together (ADR 0331 D7).
+    Tests(Vec<Chain>),
 }
 
 impl Selector {
@@ -207,9 +207,12 @@ impl Parser<'_> {
             return Ok(selector);
         }
         if self.call("test") {
-            let chain = self.chain()?;
+            let mut chains = vec![self.chain()?];
+            while self.eat(',') {
+                chains.push(self.chain()?);
+            }
             self.expect(')')?;
-            return Ok(Selector::Tests(chain));
+            return Ok(Selector::Tests(chains));
         }
         Ok(Selector::Entities(self.chain()?))
     }
@@ -232,12 +235,21 @@ impl fmt::Display for Chain {
 }
 
 impl fmt::Display for Selector {
-    /// The canonical text: no spaces, `", "` between the strings of `file()`.
+    /// The canonical text: no spaces, `", "` between the strings of `file()` and the chains of `test()`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Selector::Entities(chain) => write!(f, "{chain}"),
             Selector::FilesOf(chain) => write!(f, "file({chain})"),
-            Selector::Tests(chain) => write!(f, "test({chain})"),
+            Selector::Tests(chains) => {
+                f.write_str("test(")?;
+                for (i, chain) in chains.iter().enumerate() {
+                    if i > 0 {
+                        f.write_str(", ")?;
+                    }
+                    write!(f, "{chain}")?;
+                }
+                f.write_str(")")
+            }
             Selector::Files(paths) => {
                 f.write_str("file(")?;
                 for (i, path) in paths.iter().enumerate() {
@@ -276,6 +288,13 @@ mod tests {
         assert!(Selector::parse("self.").is_err());
         assert!(Selector::parse("self phase").is_err());
         assert!(Selector::parse("file()").is_err());
+        assert_eq!(
+            Selector::parse("test( self ,self.plan )")
+                .unwrap()
+                .to_string(),
+            "test(self, self.plan)"
+        );
+        assert!(Selector::parse("test(self,)").is_err());
         // `file` and `test` are kinds only when no `(` follows.
         assert_eq!(
             Selector::parse("file.path").unwrap().to_string(),
@@ -320,7 +339,7 @@ mod tests {
         prop_oneof![
             chain().prop_map(Selector::Entities),
             chain().prop_map(Selector::FilesOf),
-            chain().prop_map(Selector::Tests),
+            prop::collection::vec(chain(), 1..3).prop_map(Selector::Tests),
             prop::collection::vec("[ -~]{1,8}", 1..3).prop_map(Selector::Files),
         ]
     }

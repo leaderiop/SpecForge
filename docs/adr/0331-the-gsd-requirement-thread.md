@@ -85,12 +85,18 @@ At the base, `@gsd/core` could walk the first three hops and no further:
     results, `[name, status]`;
   - is the value **`none`** when nothing is linked: judged, and compared like any digest. A recorded `none` stays fresh
     while nothing is linked, and a linked test that vanishes stales the verdict;
-  - is **unjudged** when a selected entity that is no fact has no usable report, or a proof item is unheld while no
-    store holds facts of its scheme (a fresh clone). An unheld item while a store holds its scheme is `[id, absent]`;
+  - reads each chain on its own. A chain's item is **unrecorded** when it is an entity that is no fact with no usable
+    report, or a reference unheld while no store holds facts of its scheme (a fresh clone); an unheld reference while
+    a store holds its scheme is `[id, absent]`. A chain whose every item is unrecorded adds nothing; one that picks
+    nothing decides nothing. The input is **unjudged** only when no chain is read and one is unrecorded, so
+    `test(self, self.proof)` after a facts-only collect (no report) compares the proof's results;
   - `Inputs.unjudged` names the unjudged inputs, and freshness skips exactly those. I205 names both causes.
-  - A chain through a reference whose declared target kinds are all unloaded is **inert**: it selects nothing and
-    the rule is registered. A field that does not exist, or is no reference, is still W112. This holds for every
-    selector, so `test(self, self.proof)` keeps E501 in a project without `@code/core`.
+  - A chain into a kind an **unloaded optional peer** of the rule's extension declares is **inert**: it selects
+    nothing and the rule is registered. The kind's owner is read from the candidate vocabulary (ADR 0122, amended:
+    it now decides this beside the suggestions), so a kind no candidate credits to such a peer, a misspelt one say,
+    is W112, as a field that does not exist or is no reference is. A route's step or annotation is skipped (I210) by
+    the same test, and any other unloaded kind is E118 (amends ADR 0330). So `test(self, self.proof)` keeps E501 in a
+    project without `@code/core`.
 
   `@gsd/core`'s truth input is `test(self, self.proof)`: tags still stale a verdict, and so does the proof.
 - **D8. The requirement route.** `@gsd/core` declares the route `requirement-thread` (`gsd/requirement-thread`): from

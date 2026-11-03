@@ -200,8 +200,9 @@ impl Rules {
         declarations: &[ExtensionDeclaration],
         registries: Registries<'_>,
         codes: &Codebook,
+        candidates: &crate::CandidateVocabulary,
     ) -> (Rules, Vec<Diagnostic>) {
-        build::build(declarations, registries, codes)
+        build::build(declarations, registries, codes, candidates)
     }
 
     /// Run every rule over `input`: each rule in order, its entities by id

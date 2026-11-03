@@ -21,7 +21,7 @@ fn trace_answers_the_route_document() {
     assert_eq!(document["route"], "gsd/requirement-thread", "{document}");
     assert_eq!(
         document["text"],
-        "AUTH-07 → plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → auth-keeps-session (passed) → TR1 missing"
+        "AUTH-07 → plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing"
     );
     assert_eq!(document["complete"], true);
     let named = server.tool(

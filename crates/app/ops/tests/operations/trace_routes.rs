@@ -13,10 +13,9 @@ use specforge_ops::read::trace::{
 };
 use specforge_ops::view::ProjectView;
 use specforge_project::testing::{
-    GSD_JUDGED_SPEC, GSD_ROUTED_FACTS_SPEC, GSD_ROUTED_SPEC, ROUTED_TEST, TestProject,
-    gsd_judged_project, gsd_judged_runtime, gsd_routed_builder, gsd_routed_facts,
-    gsd_routed_facts_builder, gsd_routed_project, gsd_routed_runtime, gsd_routed_serving,
-    gsd_routed_wire, stored,
+    CODE_CORE, GSD_JUDGED, GSD_JUDGED_SPEC, GSD_ROUTED_SPEC, ROUTED_TEST, TestProject,
+    gsd_judged_project, gsd_judged_runtime, gsd_routed_builder, gsd_routed_project,
+    gsd_routed_project_over, gsd_routed_runtime, gsd_routed_serving, stored,
 };
 use specforge_project::{CompiledProject, SharedRuntime};
 use specforge_test_macros::test as specforge_test;
@@ -25,17 +24,17 @@ use specforge_wasm::testing::InProcessRuntime;
 use crate::view_support::plain;
 
 /// The thread every test starts from: one plan, task, commit, test (passing) and truth (no verdict).
-const WHOLE: &str = "AUTH-07 → plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → auth-keeps-session (passed) → TR1 missing";
+const WHOLE: &str = "AUTH-07 → plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing";
 
-/// `spec` compiled over `@gsd/core` with the route, `runtime` serving it.
-fn compiled_in(spec: &str, runtime: InProcessRuntime) -> (TestProject, CompiledProject) {
-    let project = gsd_routed_project(spec);
+/// `project` compiled, `runtime` serving `@gsd/core` with the route and `@code/core`.
+fn compiled_in(project: TestProject, runtime: InProcessRuntime) -> (TestProject, CompiledProject) {
     let compiled = project.compile_in(Arc::new(runtime) as SharedRuntime);
     (project, compiled)
 }
 
+/// `spec` compiled over `@gsd/core` with the route and `@code/core`, the test it cites collected.
 fn compiled(spec: &str) -> (TestProject, CompiledProject) {
-    compiled_in(spec, gsd_routed_runtime())
+    compiled_in(gsd_routed_project(spec), gsd_routed_runtime())
 }
 
 /// The trace of `id` as `follow` asks, with its notices' codes.
@@ -92,7 +91,7 @@ fn a_requirement_is_traced_along_its_route_in_one_line() {
             ("plan", "v1.0/03/03-02", "AUTH-07"),
             ("task", "v1.0/03/03-02/T1", "v1.0/03/03-02"),
             ("commit", "5e2a91c0d3b4", "v1.0/03/03-02/T1"),
-            ("test", "auth-keeps-session", "AUTH-07"),
+            ("test", ROUTED_TEST, "AUTH-07"),
             ("truth", "v1.0/03/03-02/TR1", "AUTH-07"),
         ]
     );
@@ -156,6 +155,31 @@ fn a_fresh_verdict_reads_outcome_and_freshness() {
 }
 
 #[specforge_test(
+    behavior = "follow_trace_route",
+    verify = "an annotation prints a field, a value reached through a selector, or a judgement's outcome and freshness"
+)]
+fn an_annotation_reads_a_field_of_the_entities_a_selector_reaches() {
+    // The route as declared, its plan step also printing the `linked_by` of its tasks' commits.
+    let runtime = gsd_routed_serving(|| {
+        let mut c = gsd_routed_builder();
+        let mut routes = serde_json::to_value(gsd_routed_builder().declaration().routes).unwrap();
+        routes[0]["steps"][0]["annotations"] =
+            json!([{"field": "linked_by", "of": "<task.plan<commit.task", "absent": "no commit"}]);
+        c.raw_category(DeclaredCategory::Routes, routes);
+        c
+    });
+    let (_project, compiled) = compiled_in(gsd_routed_project(GSD_ROUTED_SPEC), runtime);
+    let route = thread_of(&compiled, "AUTH-07");
+    assert!(
+        route
+            .text
+            .starts_with("AUTH-07 → plan 03-02 (Gsd-Task) → T1 → "),
+        "{}",
+        route.text
+    );
+}
+
+#[specforge_test(
     behavior = "render_trace_thread",
     verify = "several matches of a step print as branches of a tree"
 )]
@@ -169,7 +193,7 @@ fn several_matches_render_as_branches() {
     → T1
       → 5e2a91c0d3b4 (Gsd-Task)
       → 7b3c11aa09fe (Gsd-Task)
-  → auth-keeps-session (passed)
+  → js:app/test/auth.test.js#keeps a session (passed)
   → TR1 missing";
     assert_eq!(route.text, tree);
     assert_eq!(route.thread(Partial::No).as_deref(), Some(tree));
@@ -190,7 +214,7 @@ fn no_commit() -> String {
 fn a_step_with_no_match_prints_no_and_its_descendants_nothing() {
     assert_eq!(
         thread(&no_commit()).text,
-        "AUTH-07 → plan 03-02 → T1 → no commit → auth-keeps-session (passed) → TR1 missing"
+        "AUTH-07 → plan 03-02 → T1 → no commit → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing"
     );
     let no_plan = GSD_ROUTED_SPEC.replace(
         "  requirements [AUTH-07]\n  files_modified",
@@ -199,20 +223,28 @@ fn a_step_with_no_match_prints_no_and_its_descendants_nothing() {
     let route = thread(&no_plan);
     assert_eq!(
         route.text,
-        "AUTH-07 → no plan → auth-keeps-session (passed) → TR1 missing"
+        "AUTH-07 → no plan → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing"
     );
     assert_eq!(route.missing, ["plan"]);
 }
 
 #[specforge_test(behavior = "follow_trace_route")]
 fn an_absent_fact_prints_the_absent_text() {
-    let spec = GSD_ROUTED_SPEC.replace(
-        "test_run R1 \"A run\" {\n  test auth-keeps-session\n  status passed\n}\n",
-        "",
+    // The cited test is collected, with no status recorded.
+    let project = gsd_routed_project_over(GSD_ROUTED_SPEC, &[GSD_JUDGED, CODE_CORE]);
+    let unrun = json!([{"kind": "test", "id": ROUTED_TEST, "fields": {"name": "keeps a session"}}]);
+    stored(
+        project.root(),
+        "node",
+        "fedcba9876543210fedcba9876543210fedcba98",
+        unrun,
     );
-    let route = thread(&spec);
+    let (_project, compiled) = compiled_in(project, gsd_routed_runtime());
+    let route = thread_of(&compiled, "AUTH-07");
     assert!(
-        route.text.contains(" → auth-keeps-session (not run) → "),
+        route
+            .text
+            .contains(&format!(" → {ROUTED_TEST} (not run) → ")),
         "{}",
         route.text
     );
@@ -258,7 +290,7 @@ fn a_complete_thread_leaves_dead_end_branches_out() {
       → 5e2a91c0d3b4 (Gsd-Task)
     → T2
       → no commit
-  → auth-keeps-session (passed)
+  → js:app/test/auth.test.js#keeps a session (passed)
   → TR1 missing"
     );
 }
@@ -382,34 +414,17 @@ fn every_entity_is_traced_as_its_own_trace_and_a_route_traces_its_start_kind() {
     assert_eq!(ids(&reach).len(), all.len());
 }
 
-/// `@gsd/core` with the route, declaring `test` and `test_run` no more: they are an optional peer's, `@code/core`.
-fn without_tests() -> InProcessRuntime {
-    gsd_routed_serving(|| {
-        let mut c = gsd_routed_builder();
-        let mut kinds = gsd_routed_wire();
-        kinds
-            .as_array_mut()
-            .unwrap()
-            .retain(|kind| kind["name"] != "test" && kind["name"] != "test_run");
-        c.raw_category(DeclaredCategory::Entities, kinds);
-        c.optional_peer("@code/core", "^1.0.0");
-        c
-    })
-}
-
 #[specforge_test(
     behavior = "follow_trace_route",
     verify = "a step skipped for an unloaded optional peer is an I210 notice"
 )]
 fn a_skipped_step_is_an_i210_notice() {
-    let spec = GSD_ROUTED_SPEC
-        .replace("  proof [auth-keeps-session]\n", "")
-        .replace("test auth-keeps-session \"keeps a session\" {}\n", "")
-        .replace(
-            "test_run R1 \"A run\" {\n  test auth-keeps-session\n  status passed\n}\n",
-            "",
-        );
-    let (_project, compiled) = compiled_in(&spec, without_tests());
+    // `@code/core`, the optional peer that declares `test`, is not loaded.
+    let spec = GSD_ROUTED_SPEC.replace(&format!("  proof [\"{ROUTED_TEST}\"]\n"), "");
+    let (_project, compiled) = compiled_in(
+        gsd_routed_project_over(&spec, &[GSD_JUDGED]),
+        gsd_routed_runtime(),
+    );
     let view = ProjectView::of(&compiled);
     let traced = trace(&view, Target::Entity("AUTH-07"), Follow::Declared).unwrap();
     let skipped: Vec<_> = traced
@@ -443,14 +458,14 @@ fn a_skipped_step_is_an_i210_notice() {
 fn the_summary_counts_branches() {
     assert_eq!(
         thread(GSD_ROUTED_SPEC).summary(),
-        "thread: plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → auth-keeps-session (passed) → TR1 missing"
+        "thread: plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing"
     );
     let spec = format!(
         "{GSD_ROUTED_SPEC}\ncommit 7b3c11aa09fe \"Another\" {{\n  task v1.0/03/03-02/T1\n  linked_by \"Gsd-Task\"\n}}\n"
     );
     assert_eq!(
         thread(&spec).summary(),
-        "thread: plan 03-02 → T1 → 2 commits → auth-keeps-session (passed) → TR1 missing"
+        "thread: plan 03-02 → T1 → 2 commits → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing"
     );
     let no_plan = GSD_ROUTED_SPEC.replace(
         "  requirements [AUTH-07]\n  files_modified",
@@ -458,24 +473,17 @@ fn the_summary_counts_branches() {
     );
     assert_eq!(
         thread(&no_plan).summary(),
-        "thread: no plan → auth-keeps-session (passed) → TR1 missing"
+        "thread: no plan → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing"
     );
 }
 
-/// [`GSD_ROUTED_FACTS_SPEC`] over `@gsd/core` whose tests and runs are facts, `node`'s store of them recorded when
-/// `collected`.
+/// [`GSD_ROUTED_SPEC`] over `@gsd/core` and `@code/core`, the test the truth cites collected when `collected`.
 fn with_facts(collected: bool) -> RouteTrace {
-    let project = gsd_routed_project(GSD_ROUTED_FACTS_SPEC);
-    if collected {
-        stored(
-            project.root(),
-            "node",
-            "0123456789abcdef0123456789abcdef01234567",
-            gsd_routed_facts(),
-        );
-    }
-    let compiled =
-        project.compile_in(Arc::new(gsd_routed_serving(gsd_routed_facts_builder)) as SharedRuntime);
+    let project = match collected {
+        true => gsd_routed_project(GSD_ROUTED_SPEC),
+        false => gsd_routed_project_over(GSD_ROUTED_SPEC, &[GSD_JUDGED, CODE_CORE]),
+    };
+    let (_project, compiled) = compiled_in(project, gsd_routed_runtime());
     let reported: Vec<_> = compiled
         .diagnostics()
         .iter()

@@ -159,9 +159,8 @@ pub struct RegistryBuild {
     pub(crate) fields: FieldRegistry,
     /// Every field's form and the kinds that take any field, derived once.
     field_forms: FieldForms,
-    /// What every graph built in this build reads of its declarations (ADR 0032, ADR 0123):
-    /// derived by `build_registries` and again by `with_candidates`, so it always names the
-    /// owners the build's vocabulary knows.
+    /// What every graph built in this build reads of its declarations (ADR 0032, ADR 0123),
+    /// naming the owners the build's vocabulary knows.
     graph_inputs: GraphInputs,
     pub(crate) edges: EdgeRegistry,
     /// The rule set: the extensions' rules (checked and resolved against
@@ -193,8 +192,8 @@ pub struct RegistryBuild {
     probe_diagnostics: Vec<Diagnostic>,
     /// Refused MCP tools (E055) and surface conflicts (E039).
     surface_diagnostics: Vec<Reported>,
-    /// The extensions the host could enable, for the checks' suggestions only (ADR 0122), set by
-    /// [`Self::with_candidates`]; empty until then.
+    /// The extensions the host could enable (ADR 0122), as [`build_registries_with`] was handed
+    /// them: the checks' suggestions, and which kinds are an unloaded optional peer's.
     pub(crate) candidates: CandidateVocabulary,
 }
 
@@ -350,17 +349,6 @@ impl RegistryBuild {
         })
     }
 
-    /// The build, suggesting from `candidates` (ADR 0122), its graph inputs derived again from
-    /// them (they name the owner of an absent kind). Nothing else `build_registries` derives
-    /// depends on it, and it changes no diagnostic but their suggestions. The session applies the
-    /// builtins' with the build; a build never handed one suggests `specforge search`.
-    #[must_use]
-    pub fn with_candidates(mut self, candidates: CandidateVocabulary) -> Self {
-        self.candidates = candidates;
-        self.graph_inputs = self.derived_graph_inputs();
-        self
-    }
-
     /// What the checks' suggestions read: the extensions the host could enable, by kind keyword
     /// and enhancement field.
     pub fn candidates(&self) -> &CandidateVocabulary {
@@ -457,7 +445,20 @@ impl RegistryBuild {
 
 /// Build every registry and derived input from the loaded declarations, given in entry order:
 /// the build puts them in load order first (ADR 0041), and everything after reads that order.
+/// It knows no candidate vocabulary: its suggestions say `specforge search`, and no kind is an
+/// unloaded optional peer's ([`build_registries_with`]).
 pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuild {
+    build_registries_with(declarations, CandidateVocabulary::default())
+}
+
+/// [`build_registries`], knowing what extensions the host could enable (ADR 0122): the checks
+/// suggest the one that declares an absent kind, the graph inputs name it, and a judged chain or a
+/// route part that reaches a kind of an unloaded optional peer is inert (ADR 0331 D7). The session
+/// hands the builtins' vocabulary.
+pub fn build_registries_with(
+    declarations: Vec<ExtensionDeclaration>,
+    candidates: CandidateVocabulary,
+) -> RegistryBuild {
     let mut declarations = peers::in_load_order(declarations);
     // The declarations themselves: E030, W021, the peers' E073 and E027, then W145.
     let mut declaration_diagnostics: Vec<Reported> =
@@ -526,11 +527,11 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         fields: &fields,
         edges: &edges,
     };
-    let (rules, rule_diagnostics) = Rules::build(&declarations, registries, &codes);
+    let (rules, rule_diagnostics) = Rules::build(&declarations, registries, &codes, &candidates);
     registry_diagnostics.extend(about(BuildPart::Rules, rule_diagnostics));
     // The routes read the judged rules their judgements name: E118, W195.
     let (routes, route_diagnostics) =
-        crate::registries::build_routes(&declarations, registries, &rules);
+        crate::registries::build_routes(&declarations, registries, &rules, &candidates);
     registry_diagnostics.extend(about(BuildPart::Registries, route_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
@@ -545,8 +546,9 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     surface_diagnostics.extend(about(BuildPart::Collision, duplicates));
 
     let field_forms = graph_inputs::field_forms(&kinds, &fields);
-    // A build handed no vocabulary owns nothing (`CandidateVocabulary::default()`).
-    let graph_inputs = graph_inputs::derive(&kinds, &fields, &field_forms, |_| None);
+    let graph_inputs = graph_inputs::derive(&kinds, &fields, &field_forms, |kind| {
+        candidates.kind_owner(kind).map(str::to_string)
+    });
     RegistryBuild {
         declarations,
         kinds,
@@ -564,6 +566,6 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         registry_diagnostics,
         probe_diagnostics: Vec::new(),
         surface_diagnostics,
-        candidates: CandidateVocabulary::default(),
+        candidates,
     }
 }

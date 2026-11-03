@@ -246,11 +246,11 @@ fn the_graph_inputs_name_each_absent_target_kinds_owner() {
     let vocabulary = crate::support::candidates(&[product]);
 
     // A build never handed a vocabulary names no owner.
-    let unhanded = build([software]);
+    let unhanded = build([software.clone()]);
     assert!(unhanded.graph_inputs().target_owners.is_empty());
 
-    // Handing it one derives the inputs again, with no order to call them in.
-    let handed = unhanded.with_candidates(vocabulary);
+    // A build handed one names the owners it knows.
+    let handed = crate::support::build_with([software], vocabulary);
     let inputs = handed.graph_inputs();
     assert_eq!(inputs.target_owners.len(), 1, "{:?}", inputs.target_owners);
     assert_eq!(inputs.target_owners["feature"], "@t/product");
@@ -305,8 +305,7 @@ fn a_graph_built_in_the_registry_build_reads_its_inputs_and_schemes() {
             });
         });
     });
-    let handed =
-        crate::support::build([software]).with_candidates(crate::support::candidates(&[product]));
+    let handed = crate::support::build_with([software], crate::support::candidates(&[product]));
     let empty = handed.graph_of([], HashSet::new());
     assert_eq!(empty.inputs().target_owners["feature"], "@t/product");
 }

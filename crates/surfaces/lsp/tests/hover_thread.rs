@@ -1,15 +1,17 @@
 //! The hover on an entity of a kind a route starts at shows its thread (ADR 0330).
 
-use specforge_project::testing::{GSD_JUDGED, GSD_ROUTED_SPEC, gsd_routed_runtime};
+use specforge_project::testing::{
+    CODE_CORE, GSD_JUDGED, GSD_ROUTED_SPEC, gsd_routed_project, gsd_routed_runtime,
+};
 use specforge_test_macros::test as spec;
 
 use crate::served::Served;
 
-/// `spec` served over `@gsd/core` with the route `gsd/requirement-thread` (the code lens tests' too).
+/// `spec` served over `@gsd/core` with the route `gsd/requirement-thread` and `@code/core`, with the routed
+/// fixture's collected test (the code lens tests' too).
 pub fn routed_served(spec: &str) -> Served {
-    let dir = tempfile::TempDir::new().unwrap();
-    std::fs::write(dir.path().join("a.spec"), spec).unwrap();
-    Served::served_by(dir, gsd_routed_runtime(), &[GSD_JUDGED]).open(&["a.spec"])
+    let dir = gsd_routed_project(spec).into_dir();
+    Served::served_by(dir, gsd_routed_runtime(), &[GSD_JUDGED, CODE_CORE]).open(&["a.spec"])
 }
 
 #[spec(

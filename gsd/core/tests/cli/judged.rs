@@ -412,7 +412,6 @@ fn an_artifacts_file_change_makes_e501_stale() {
 /// R-12: a report whose tests link to another entity (a task of the plan) and none to a truth leaves the truth's
 /// `tests` input `none`, so the twin's fresh verdicts stay fresh after the collect.
 #[test]
-#[ignore = "04 T8"]
 fn an_unrelated_report_leaves_the_twins_verdicts_fresh() {
     let p = taskboard();
     let truth = "v1.0/01/01-01/TR1";

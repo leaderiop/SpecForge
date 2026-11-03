@@ -34,7 +34,7 @@ impl RegistryBuild {
     ///    for `custom` rules.
     ///
     /// The suggestions of E024, W151 and W020 come from the build's candidate vocabulary
-    /// ([`Self::with_candidates`], ADR 0122); it changes no other part of a diagnostic.
+    /// ([`crate::build_registries_with`], ADR 0122); it changes no other part of a diagnostic.
     ///
     /// Each check reports its entities in record (id) order. The rule set's
     /// `file_exists` rules, E016 among them (the host builds one per

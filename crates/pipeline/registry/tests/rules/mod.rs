@@ -17,11 +17,11 @@ use specforge_common::{Diagnostic, SourceSpan, Sym};
 use specforge_protocol_types::{
     ExtensionDeclaration, FieldConstraintDescriptor, ValidationRuleDescriptor, ValidationSeverity,
 };
-use specforge_registry::RegistryBuild;
 use specforge_registry::entity::{Direction, EdgeRecord, EntityRecord, RuleInput};
 use specforge_registry::rules::{NoVerdicts, Rules};
+use specforge_registry::{CandidateVocabulary, RegistryBuild};
 
-use crate::support::{NoDisk, build, declare};
+use crate::support::{NoDisk, declare};
 
 /// What the build made of some declared rules: the rule set and the
 /// diagnostics its rules step reported (W112 and W147, then W023).
@@ -47,7 +47,15 @@ impl Built {
 /// diagnostics (W112, W147 and W023, the only ones of those codes the build
 /// reports).
 pub fn rules_of(declarations: Vec<ExtensionDeclaration>) -> Built {
-    let build = build(declarations);
+    rules_with(declarations, CandidateVocabulary::default())
+}
+
+/// [`rules_of`], the build knowing the extensions `candidates` names.
+pub fn rules_with(
+    declarations: Vec<ExtensionDeclaration>,
+    candidates: CandidateVocabulary,
+) -> Built {
+    let build = crate::support::build_with(declarations, candidates);
     let diagnostics = build
         .diagnostics()
         .filter(|d| ["W112", "W147"].contains(&d.code.as_str()))

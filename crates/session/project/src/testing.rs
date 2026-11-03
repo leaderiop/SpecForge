@@ -55,14 +55,14 @@ pub use gsd_writes::{
 };
 pub use history::{FakeHistory, Installed, install};
 pub use judged::{
-    GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, declare_gsd_judged, gsd_judged_builder,
-    gsd_judged_project, gsd_judged_rules, gsd_judged_runtime, gsd_judged_wire,
+    CODE_CORE, GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, code_core_builder, code_core_tests,
+    declare_gsd_judged, gsd_judged_builder, gsd_judged_project, gsd_judged_rules,
+    gsd_judged_runtime, gsd_judged_tests_project, gsd_judged_wire,
 };
 pub use routed::{
-    GSD_ROUTED_FACTS_SPEC, GSD_ROUTED_SPEC, ROUTED_TEST, declare_gsd_routed,
-    declare_gsd_routed_facts, declare_requirement_thread, gsd_routed_builder, gsd_routed_facts,
-    gsd_routed_facts_builder, gsd_routed_facts_wire, gsd_routed_project, gsd_routed_runtime,
-    gsd_routed_serving, gsd_routed_wire,
+    GSD_ROUTED_SPEC, ROUTED_TEST, declare_gsd_routed, declare_requirement_thread,
+    gsd_routed_builder, gsd_routed_facts, gsd_routed_project, gsd_routed_project_over,
+    gsd_routed_runtime, gsd_routed_serving, gsd_routed_wire,
 };
 pub use scoped::{SCOPED_EXTENSION, scoped_extension, scoped_kinds};
 pub use settings::{

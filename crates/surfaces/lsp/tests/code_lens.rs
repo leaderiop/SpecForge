@@ -164,7 +164,7 @@ fn a_routed_entity_has_a_thread_lens() {
     assert_eq!(
         threads,
         [
-            "thread: plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → auth-keeps-session (passed) → TR1 missing"
+            "thread: plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing"
         ],
         "{titles:?}"
     );

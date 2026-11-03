@@ -13,6 +13,7 @@ use specforge_protocol_types::{
 
 use super::check::{Check, EdgeScope, Obligations, ValueConstraint};
 use super::{Declared, DeclaredConstraint, Origin, Registries, Rule, Rules};
+use crate::compilation::UnloadedPeers;
 use crate::judged::{self, JudgedRule};
 
 /// The statement that declares an entity's obligations.
@@ -22,11 +23,14 @@ pub(super) fn build(
     declarations: &[ExtensionDeclaration],
     registries: Registries<'_>,
     codes: &Codebook,
+    candidates: &crate::CandidateVocabulary,
 ) -> (Rules, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     let mut rules = Vec::new();
+    let loaded: Vec<&str> = declarations.iter().map(|d| d.name()).collect();
     for declaration in declarations {
         let extension = declaration.name();
+        let unloaded = UnloadedPeers::of(declaration, &loaded, candidates);
         // The (code, severity) pairs already reported as W150: a code an
         // extension declares for several target kinds is reported once.
         let mut misused = HashSet::new();
@@ -86,7 +90,7 @@ pub(super) fn build(
                     }
                 }
                 let unread = ignore_unread(descriptor, &mut rule);
-                Ok((resolve(rule, registries)?, unread))
+                Ok((resolve(rule, registries, &unloaded)?, unread))
             });
             match built {
                 Ok((rule, unread)) => {
@@ -459,6 +463,11 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
 /// structural) is dropped (inert), as ADR 0020 D5 says: it belongs to an
 /// optional peer that is not installed, and its entities are E024.
 ///
+/// A judged rule's chain into a kind of an optional peer the project does not
+/// load (`unloaded`, as the candidate vocabulary credits the kind) is inert;
+/// a chain into any other kind no loaded extension declares is W112
+/// ([`judged::resolve`]).
+///
 /// A rule that reads `verify` statements (an allowlist, or an obligation
 /// rule whose obligations are statements) on a declared kind that accepts
 /// none can neither be satisfied nor violated: W112.
@@ -472,10 +481,20 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
 /// project and the rule is dropped (inert). A cycle rule follows every
 /// field that writes its edge type. An edge or cycle rule whose edge type no
 /// loaded extension declares is dropped (inert).
-fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, Diagnostic> {
+fn resolve(
+    mut rule: Rule,
+    registries: Registries<'_>,
+    unloaded: &UnloadedPeers<'_>,
+) -> Result<Option<Rule>, Diagnostic> {
     if let Some((declared, judged)) = &rule.declared.judged {
-        judged::resolve(&judged.targets, declared, rule.origin.name(), registries)
-            .map_err(|why| cannot_fire(rule.origin.name(), &rule.code, &why))?;
+        judged::resolve(
+            &judged.targets,
+            declared,
+            rule.origin.name(),
+            registries,
+            unloaded,
+        )
+        .map_err(|why| cannot_fire(rule.origin.name(), &rule.code, &why))?;
     }
     if let Some(kind) = rule.target.as_deref()
         && !registries.kinds.contains(kind)

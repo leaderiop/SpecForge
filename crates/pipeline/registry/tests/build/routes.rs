@@ -6,7 +6,7 @@ use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{FieldType, Parent, RouteAnnotation, Skipped};
 use specforge_test_macros::test as spec;
 
-use crate::support::{build, coded, declare, optional_peer};
+use crate::support::{build, build_with, candidates, coded, declare, optional_peer};
 
 /// `@acme/work`: a `need`, the `plan`s that answer it, their `task`s and the `claim`s on a task (with a `status` and a
 /// computed reference); a need names its `checks`, `@acme/proof`'s kind; the judged rule W901 judges a need. `f` adds
@@ -340,7 +340,11 @@ fn a_step_of_an_unloaded_optional_peer_is_skipped_silently_and_recorded() {
             r.start("check").step("need", "<need.checks", |_| {});
         });
     };
-    let built = build([work_with_proof_peer(declare_routes)]);
+    // `@acme/proof`, which declares `check`, is a candidate the host could enable.
+    let built = build_with(
+        [work_with_proof_peer(declare_routes)],
+        candidates(&[proof()]),
+    );
     assert!(
         coded(&built, "E118").is_empty(),
         "{:?}",
@@ -381,14 +385,19 @@ fn a_step_of_an_unloaded_optional_peer_is_skipped_silently_and_recorded() {
             "step 'again'"
         ]
     );
-    // Without the optional peer the same route is E118.
-    let built = build([work(declare_routes)]);
-    assert_eq!(
-        coded(&built, "E118").len(),
-        2,
-        "{:?}",
-        coded(&built, "E118")
-    );
+    // Without the optional peer the same route is E118, and so it is with one the vocabulary does not credit
+    // with `check` (a misspelt kind is no peer's).
+    for built in [
+        build_with([work(declare_routes)], candidates(&[proof()])),
+        build([work_with_proof_peer(declare_routes)]),
+    ] {
+        assert_eq!(
+            coded(&built, "E118").len(),
+            2,
+            "{:?}",
+            coded(&built, "E118")
+        );
+    }
 }
 
 #[spec(

@@ -336,8 +336,8 @@ mod tests {
         use specforge_project::testing::GSD_ROUTED_SPEC;
         assert_eq!(
             trace_text(&routed(GSD_ROUTED_SPEC), Partial::No),
-            "AUTH-07 → plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → auth-keeps-session (passed) → TR1 \
-             missing\n"
+            "AUTH-07 → plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → js:app/test/auth.test.js#keeps a \
+             session (passed) → TR1 missing\n"
         );
     }
 
@@ -355,7 +355,7 @@ mod tests {
         );
         assert_eq!(
             trace_text(&outcome, Partial::Yes),
-            "AUTH-07 → no plan → auth-keeps-session (passed) → TR1 missing\n"
+            "AUTH-07 → no plan → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing\n"
         );
     }
 

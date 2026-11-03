@@ -6,7 +6,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_test_macros::test as spec;
 
 use crate::support::written::checked;
-use crate::support::{build, candidates, coded_in, declare, product, software};
+use crate::support::{build, build_with, candidates, coded_in, declare, product, software};
 
 /// An entity of `kind` named `id`, with an empty body.
 fn entity(kind: &str, id: &str) -> String {
@@ -80,7 +80,7 @@ fn detect_unknown_kinds_contract() {
 fn suggest_missing_ext_known_keyword() {
     // `feature` is a keyword the vocabulary the build is handed knows.
     let diags = checked(
-        &build([software()]).with_candidates(candidates(&[product()])),
+        &build_with([software()], candidates(&[product()])),
         &[("test.spec", &entity("feature", "f1"))],
     );
     let e024 = coded_in(&diags, "E024");
@@ -119,7 +119,7 @@ fn suggest_missing_ext_unknown_keyword() {
     verify = "Suggest Missing Extensions: missing extension suggestions holds — e024_diagnostic_emitted, suggestion_provided, no_network"
 )]
 fn suggest_missing_ext_contract() {
-    let build = build([software()]).with_candidates(candidates(&[product()]));
+    let build = build_with([software()], candidates(&[product()]));
     // ensures: a keyword the vocabulary knows gets the extension suggestion.
     let d1 = checked(&build, &[("test.spec", &entity("feature", "f1"))]);
     assert!(
@@ -269,8 +269,10 @@ fn a_build_with_no_kind_checks_no_kind() {
     verify = "extensions that load but declare no entity kind report one W151 naming the unchecked entities"
 )]
 fn kindless_extensions_report_one_w151() {
-    let kindless =
-        build([declare("@test/kindless", |_| {})]).with_candidates(candidates(&[software()]));
+    let kindless = build_with(
+        [declare("@test/kindless", |_| {})],
+        candidates(&[software()]),
+    );
     assert!(kindless.structural_only());
 
     // Two non-structural entities: one W151 naming how many and which kinds.

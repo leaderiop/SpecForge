@@ -39,7 +39,6 @@ fn a_recorded_none_goes_stale_once_a_report_exists() {
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a report that links no test to an entity stales none of its verdicts"
 )]
-#[ignore = "04 T8"]
 fn a_report_that_links_no_test_stales_no_verdict() {
     let project = gsd_judged_project("");
     record(&project, TRUTH, E501, "passed");

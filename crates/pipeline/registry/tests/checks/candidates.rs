@@ -5,7 +5,7 @@ use specforge_common::Diagnostic;
 use specforge_test_macros::test as spec;
 
 use crate::support::written::checked;
-use crate::support::{build, candidates, coded_in, declare, formal, product, software};
+use crate::support::{build, build_with, candidates, coded_in, declare, formal, product, software};
 
 const TEXT: &str =
     "feature f1 \"F\" {\n}\n\ninvariant i1 \"I\" {\n  expression \"x\"\n}\n\nxyzzy x1 \"X\" {\n}\n";
@@ -28,7 +28,7 @@ fn without_suggestions(diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
 )]
 fn the_candidate_vocabulary_changes_only_suggestions() {
     let bare = checked(&build([software()]), &[("t.spec", TEXT)]);
-    let handed = build([software()]).with_candidates(candidates(&[product(), formal()]));
+    let handed = build_with([software()], candidates(&[product(), formal()]));
     let with = checked(&handed, &[("t.spec", TEXT)]);
 
     // The same codes, messages, spans and order.
@@ -54,11 +54,11 @@ fn the_candidate_vocabulary_changes_only_suggestions() {
     );
 
     // W151, over a build that declares no kind.
-    let kindless = || build([declare("@test/kindless", |_| {})]);
+    let kindless = || declare("@test/kindless", |_| {});
     let text = "behavior b1 \"B\" {\n}\n";
-    let bare = checked(&kindless(), &[("t.spec", text)]);
+    let bare = checked(&build([kindless()]), &[("t.spec", text)]);
     let with = checked(
-        &kindless().with_candidates(candidates(&[software()])),
+        &build_with([kindless()], candidates(&[software()])),
         &[("t.spec", text)],
     );
     assert_eq!(coded_in(&with, "W151").len(), 1, "{with:?}");

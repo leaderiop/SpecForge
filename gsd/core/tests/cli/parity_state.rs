@@ -346,8 +346,8 @@ fn taskboard_coverage_matches_recorded_tests() {
             assert_eq!(given, expected, "{id}/{}", d.id);
         }
     }
-    // A report goes stale the verdicts recorded over `none` tests: the verifier looks again.
-    assert!(p.verify_phase("v1.0/01") > 0);
+    // A report that links no test to a truth stales none of its verdicts (ADR 0331 D7).
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     p.check_exact(&[]);
     let check = p.run(&["check"]);
     assert!(!check.all().contains("I205"), "{}", check.all());
@@ -366,8 +366,8 @@ fn the_twin_reports_only_unrecorded_verdicts_with_and_without_a_report() {
         &report.display().to_string(),
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
-    // A report goes stale the verdicts recorded over `none` tests: the verifier looks again.
-    assert!(p.verify_phase("v1.0/01") > 0);
+    // A report that links no test to a truth stales none of its verdicts (ADR 0331 D7).
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     p.check_exact(&[]);
     // With a report the harness hides I205 for every project: a stray one would be invisible, so count it raw.
     let check = p.run(&["check"]);

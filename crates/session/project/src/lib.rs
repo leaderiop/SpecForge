@@ -62,7 +62,7 @@ use specforge_common::{
 use specforge_graph::{Computed, GraphBuild, SpecFile};
 use specforge_installed::{Builtins, Installed};
 use specforge_registry::{
-    CandidateVocabulary, Disk, EntitySnapshot, RegistryBuild, build_registries,
+    CandidateVocabulary, Disk, EntitySnapshot, RegistryBuild, build_registries_with,
     rules::{CustomVerdicts, NoVerdicts},
 };
 use specforge_wasm::WasmRuntime;
@@ -287,8 +287,9 @@ impl Environment {
     /// `installed` is:
     /// - one E069 per config problem, in file order, then the load's
     ///   diagnostics;
-    /// - the registry build of the loaded declarations, suggesting from the builtins' vocabulary
-    ///   ([`builtin_vocabulary`]); in a runtime, each
+    /// - the registry build of the loaded declarations, over the builtins' vocabulary
+    ///   ([`builtin_vocabulary`]: the suggestions, and which kinds are an unloaded optional peer's); in a
+    ///   runtime, each
     ///   custom rule's `wasm_function` called once there on a probe entity
     ///   (W112 for one that does not answer a verdict);
     /// - the configured `providers` registered against the loaded
@@ -313,7 +314,7 @@ impl Environment {
             enabled,
             declarations,
         } = loaded;
-        let mut registries = build_registries(declarations).with_candidates(builtin_vocabulary());
+        let mut registries = build_registries_with(declarations, builtin_vocabulary());
         // A custom rule's wasm_function is resolved against its extension
         // now, so a name it does not export is reported once (W112).
         if let Some(runtime) = runtime.as_deref() {

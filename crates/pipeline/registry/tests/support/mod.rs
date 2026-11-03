@@ -12,7 +12,9 @@ use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::entity::{EntityRecord, RuleInput};
 use specforge_registry::rules::NoVerdicts;
-use specforge_registry::{CandidateVocabulary, Disk, RegistryBuild, build_registries};
+use specforge_registry::{
+    CandidateVocabulary, Disk, RegistryBuild, build_registries, build_registries_with,
+};
 
 /// A builder for the extension `name`, version 1.0.0.
 pub fn extension(name: &str) -> ContributionsBuilder {
@@ -156,6 +158,14 @@ pub fn candidates(declarations: &[ExtensionDeclaration]) -> CandidateVocabulary 
 /// The registry build of `declarations`, in this load order.
 pub fn build(declarations: impl IntoIterator<Item = ExtensionDeclaration>) -> RegistryBuild {
     build_registries(declarations.into_iter().collect())
+}
+
+/// [`build`], knowing the extensions `candidates` names (ADR 0122).
+pub fn build_with(
+    declarations: impl IntoIterator<Item = ExtensionDeclaration>,
+    candidates: CandidateVocabulary,
+) -> RegistryBuild {
+    build_registries_with(declarations.into_iter().collect(), candidates)
 }
 
 /// A file system with nothing on it: every file the checks ask for is missing.
