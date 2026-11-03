@@ -113,7 +113,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 - `gsd/E508` (what a verdict cites exists when it is recorded) is retired: the host already refuses it. `set_verdict`
   is refused `verdict_refused` with reason `cite` (ADR 0289 D6), and a changed cited input stales the verdict (ADR 0290
   D3). The roster maps `gate-evidence` to that refusal.
-- Rules that read project files are *buildable* since protocol 1.11.0 (K11): they declare `reads` and are sent the facts and
+- Rules that read project files are *buildable* since protocol 1.11.0 (K11): they declare `files` inputs and are sent the facts and
   capped text of those files. `gsd/E320` is built (r37; a compute pass writes `task.verify_paths`, which the check pass
   reads). `gsd/E505` is built (r39), with the scan pass that computes the file facts under `gsd/E501`: `artifact.state`
   (`missing`, `min_lines` as upstream counts, `contains`, `exports` by substring as upstream) and `key_link.state` (a
@@ -121,7 +121,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   `unchecked`). `gsd/E505` judges the plans that have a summary only, so writing a plan is never refused for a file it
   names. A file the host did not serve (its 1 MiB text budget is charged per entity and path) makes the phase's
   verification `scan_partial`, which keeps it from `passed`.
-- Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), by declaring `reads_tests`: `gsd/W408`
+- Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), by declaring the `tests` input: `gsd/W408`
   (r38) is built, as is the derive pass for a deliverable check's status; `gsd/E515` is built (K20a) as a guard.
   `gsd/W403` reads the recorded commits, not the report.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;

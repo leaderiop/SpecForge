@@ -81,8 +81,7 @@ static SPEC_PHASE: Spec = Spec {
         tools: &["read", "write", "shell", "search", "ask_user"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: Some(judging),
 };
 
@@ -108,8 +107,7 @@ static MVP_PHASE: Spec = Spec {
         tools: &["read", "write", "shell", "search", "agent", "ask_user"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 

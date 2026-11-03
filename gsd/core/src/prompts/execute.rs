@@ -96,8 +96,7 @@ static EXECUTE_PLAN: Spec = Spec {
     gates: GATES,
     steps: PLAN_STEPS,
     slash: None,
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: Some(sequential),
 };
 
@@ -117,8 +116,7 @@ static EXECUTE_PHASE: Spec = Spec {
         ],
         effort: Some("max"),
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: Some(sequential),
 };
 

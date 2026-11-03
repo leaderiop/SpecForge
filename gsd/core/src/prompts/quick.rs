@@ -112,8 +112,7 @@ static QUICK: Spec = Spec {
         ],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: Some(quick_plan),
 };
 
@@ -138,8 +137,7 @@ static QUICK_BATCH: Spec = Spec {
         tools: &["read", "write", "edit", "search", "shell", "agent"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: Some(quick_batch_plan),
 };
 
@@ -157,8 +155,7 @@ static FAST: Spec = Spec {
         tools: &["read", "write", "edit", "shell", "search"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 

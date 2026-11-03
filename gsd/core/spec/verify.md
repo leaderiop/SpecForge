@@ -34,8 +34,8 @@ the item and its plan, the code the item or its plan names, and every file the v
 
 The passes that read project files (artifact facts, a key link's `pattern`, `anti_patterns`, `validation_row.file_exists`,
 `wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and built in r39 (the scan pass; the refactor trigger's complexity waits for r41; the verify command's own paths are `gsd/E320`, built in r37): a pass declares the paths it
-reads (`reads`) and receives a `FileFact` per file (`exists`, `bytes`, `lines`, `digest`) and, for declared text reads, the text.
-Every status computed from test evidence declares `reads_tests` (K12): compute, check and guard passes then receive the
+reads (a `files` input) and receives a `FileFact` per file (`exists`, `bytes`, `lines`, `digest`) and, for declared text reads, the text.
+Every status computed from test evidence declares the `tests` input (K12): compute, check and guard passes then receive the
 recorded test report, and I205 says once when none is recorded.
 The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `disposition.at`) are the host's clock,
 `CommandInput.now` (K14).

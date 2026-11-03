@@ -15,13 +15,13 @@ pub struct PathFact {
     pub new_bytes: Option<u64>,
     /// The path made absolute against the hook's `cwd`, links followed as far as it exists (ADR 0320).
     pub real: String,
-    /// `reads_git`, outside the project: the top directory of the repository the real path is in.
+    /// The `git` input, outside the project: the top directory of the repository the real path is in.
     pub toplevel: Option<String>,
-    /// `reads_git`, outside the project: a component of the real path is `.git`.
+    /// The `git` input, outside the project: a component of the real path is `.git`.
     pub in_git_dir: bool,
 }
 
-/// What the host read of the repository the hook's `cwd` is in (`reads_git`, ADR 0320).
+/// What the host read of the repository the hook's `cwd` is in (the `git` input, ADR 0320).
 #[derive(Debug, Clone, Default)]
 pub struct Git {
     pub toplevel: String,
@@ -55,21 +55,21 @@ pub struct Facts<'a> {
     pub commit_message: Option<String>,
     /// `pre_commit`: the mode of each cleanup directive of the commit, in order.
     pub commit_cleanup: Vec<String>,
-    /// A hook that declares `reads_state`: the session's state (none: no session, or none sent).
+    /// A hook that declares the `state` input: the session's state (none: no session, or none sent).
     pub session_state: Option<serde_json::Map<String, Value>>,
     /// The host's session, if it names one.
     pub session: Option<String>,
     /// `statusline`: the host's status JSON.
     pub status: Option<Value>,
-    /// A hook that declares `reads_state`: the project's state.
+    /// A hook that declares the `state` input: the project's state.
     pub project_state: serde_json::Map<String, Value>,
     /// `@gsd/security`'s `security.injection_blocking` is true (a hook that declares it; ADR 0323).
     pub injection_blocking: bool,
     /// `file_changed`: what happened to the file (`change`, `add` or `unlink`).
     pub change: Option<String>,
-    /// A hook that declares `reads_graph`.
+    /// A hook that declares the `graph` input.
     pub graph: Option<&'a CommandGraph>,
-    /// A hook that declares `reads_git`: none outside a repository.
+    /// A hook that declares the `git` input: none outside a repository.
     pub git: Option<Git>,
 }
 

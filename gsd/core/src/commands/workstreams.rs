@@ -124,7 +124,7 @@ fn report(call: &CommandCall<'_>, action: &str) -> Result<CommandOutput, String>
     if all.is_empty() {
         human.push_str("no workstreams\n");
     }
-    // Only `progress` says which workstream is active, as upstream's does (`reads_state`).
+    // Only `progress` says which workstream is active, as upstream's does (the `state` input).
     let Some(active) = active else {
         return Ok(answer(call, json!({ "workstreams": rows }), human, None));
     };

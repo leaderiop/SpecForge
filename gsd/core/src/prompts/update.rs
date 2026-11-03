@@ -54,8 +54,7 @@ static UPDATE: Spec = Spec {
         tools: &["read", "write", "edit", "shell", "search", "ask_user"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 

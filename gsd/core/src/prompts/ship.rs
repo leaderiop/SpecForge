@@ -39,8 +39,7 @@ static COMPLETE_MILESTONE: Spec = Spec {
         tools: &["read", "write", "shell", "search"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 
@@ -58,8 +57,7 @@ static SHIP: Spec = Spec {
         tools: &["read", "shell", "search", "write", "ask_user"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 

@@ -74,8 +74,7 @@ static NEW_PROJECT: Spec = Spec {
         tools: &["read", "shell", "search", "write", "agent", "ask_user"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: Some(idea),
 };
 
@@ -93,8 +92,7 @@ static NEW_MILESTONE: Spec = Spec {
         tools: &["read", "write", "shell", "search", "agent", "ask_user"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: Some(name),
 };
 

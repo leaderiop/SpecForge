@@ -32,8 +32,7 @@ static PAUSE_WORK: Spec = Spec {
         tools: &["read", "write", "shell", "search"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 
@@ -51,8 +50,7 @@ static RESUME_WORK: Spec = Spec {
         tools: &["read", "shell", "search", "write", "ask_user", "skill"],
         effort: None,
     }),
-    reads_state: true,
-    reads_slash_commands: false,
+    inputs: &[specforge_extension_sdk::Input::State],
     tail: Some(workflow::workstream_tail),
 };
 
