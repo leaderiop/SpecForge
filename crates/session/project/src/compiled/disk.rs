@@ -4,19 +4,19 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use specforge_registry::PlainDisk;
-
 use super::CompiledProject;
 use crate::ledger::{Reads, Unrecorded};
-use crate::sources::{self, Read};
+use crate::sources::Read;
 
 impl CompiledProject {
     /// Whether a source other than `except` is not what this project read: its file differs, has gone, or has
     /// appeared since. `except` are the files a write is about to change itself.
     pub fn sources_moved(&self, except: &BTreeSet<String>) -> bool {
         let sources_root = self.env.sources();
-        let now: BTreeSet<String> = Unrecorded::plain()
-            .discover(sources_root)
+        // One plain read: the harness ledger a fact store is checked against is read once, by `discover`.
+        let mut plain = Unrecorded::plain();
+        let now: BTreeSet<String> = plain
+            .discover(sources_root, self.env.reads_facts())
             .into_iter()
             .filter(|key| !except.contains(key))
             .collect();
@@ -30,16 +30,13 @@ impl CompiledProject {
         if now != had {
             return true;
         }
-        had.iter().any(|key| {
-            match (
-                sources::read(&PlainDisk, sources_root, key),
-                self.sources.text(key),
-            ) {
+        had.iter().any(
+            |key| match (plain.source(sources_root, key), self.sources.text(key)) {
                 (Read::Text(disk), Some(read)) => disk != **read,
                 (Read::Gone, Some(_)) | (Read::Text(_), None) => true,
                 _ => false,
-            }
-        })
+            },
+        )
     }
 
     /// This project as if `texts` (by source key) were written over the sources on disk now, then every check, the

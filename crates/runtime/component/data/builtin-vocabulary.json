@@ -22,6 +22,8 @@
     "refinement": "@specforge/formal",
     "release": "@specforge/product",
     "term": "@specforge/product",
+    "test": "@code/core",
+    "test_run": "@code/core",
     "type": "@specforge/software"
   },
   "fields": {

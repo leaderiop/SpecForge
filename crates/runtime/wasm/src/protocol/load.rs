@@ -90,28 +90,38 @@ fn reason(error: &CallError) -> String {
     }
 }
 
-/// The extension's protocol must share the host's major version (semver), and its minor be no newer than the
-/// host's: a newer guest may declare what this host would drop (ADR 0326).
+/// The extension's protocol must be semver, share the host's major and be of no newer minor: a newer guest may
+/// declare what this host would drop, and an older major was built for a protocol this host no longer speaks
+/// (ADR 0326 D1, D1b).
 fn check_protocol_version(response: &HandshakeResponse) -> Result<(), ProtocolError> {
-    let incompatible = || ProtocolError::IncompatibleVersion {
-        host_version: PROTOCOL_VERSION.to_string(),
-        extension_version: response.protocol_version.clone(),
-    };
     let host = semver::Version::parse(PROTOCOL_VERSION).map_err(|e| {
         ProtocolError::HandshakeFailed(format!(
             "invalid host protocol version '{PROTOCOL_VERSION}': {e}"
         ))
     })?;
-    let extension =
-        semver::Version::parse(&response.protocol_version).map_err(|_| incompatible())?;
-    if host.major != extension.major {
-        return Err(incompatible());
+    let extension = semver::Version::parse(&response.protocol_version).map_err(|_| {
+        ProtocolError::HandshakeFailed(format!(
+            "protocol_version '{}' is not a semver version",
+            response.protocol_version
+        ))
+    })?;
+    let (extension_name, host_version, extension_version) = (
+        response.name.clone(),
+        PROTOCOL_VERSION.to_string(),
+        response.protocol_version.clone(),
+    );
+    if extension.major < host.major {
+        return Err(ProtocolError::OlderVersion {
+            extension: extension_name,
+            host_version,
+            extension_version,
+        });
     }
-    if extension.minor > host.minor {
+    if extension.major > host.major || extension.minor > host.minor {
         return Err(ProtocolError::NewerVersion {
-            extension: response.name.clone(),
-            host_version: PROTOCOL_VERSION.to_string(),
-            extension_version: response.protocol_version.clone(),
+            extension: extension_name,
+            host_version,
+            extension_version,
         });
     }
     Ok(())

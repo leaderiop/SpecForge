@@ -3,6 +3,9 @@
 use std::path::Path;
 use std::process::Command;
 
+#[path = "common/node.rs"]
+mod node;
+
 fn goldens(dir: &Path) -> Vec<(String, String)> {
     let mut found: Vec<(String, String)> = std::fs::read_dir(dir)
         .expect("goldens")
@@ -22,8 +25,10 @@ fn goldens(dir: &Path) -> Vec<(String, String)> {
 }
 
 fn check(script: &str, goldens_dir: &str) {
-    if Command::new("node").arg("--version").output().is_err() {
-        eprintln!("node is not installed: {script} cannot run, nothing to check");
+    if !node::node_test_runs() {
+        eprintln!(
+            "node --test with the JUnit reporter does not run here: {script} cannot run, nothing to check"
+        );
         return;
     }
     let fake = tempfile::tempdir().expect("a temp dir");

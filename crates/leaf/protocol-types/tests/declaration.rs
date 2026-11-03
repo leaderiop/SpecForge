@@ -11,8 +11,9 @@ use specforge_protocol_types::{
     CompilerPassDescriptor, DECLARED_CATEGORIES, DeclaredCategory, DescribeResponse,
     EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration,
     FeatureFlagDescriptor, FieldDescriptor, HandshakeResponse, PROTOCOL_VERSION, PeerDependency,
-    ProtocolError, SettingDescriptor, SettingsItem, SurfaceDescriptor, UnknownKey,
-    ValidationRuleDescriptor, ValidationSeverity,
+    ProtocolError, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
+    SettingDescriptor, SettingsItem, SurfaceDescriptor, UnknownKey, ValidationRuleDescriptor,
+    ValidationSeverity,
 };
 
 fn field(name: &str) -> FieldDescriptor {
@@ -125,6 +126,20 @@ fn full() -> ExtensionDeclaration {
             field_type: "bool".to_string(),
             ..Default::default()
         })],
+        routes: vec![RouteDescriptor {
+            name: "report-thread".to_string(),
+            start: "report".to_string(),
+            steps: vec![RouteStepDescriptor {
+                name: "chart".to_string(),
+                via: "<chart.report".to_string(),
+                annotations: vec![RouteAnnotationDescriptor {
+                    field: Some("title".to_string()),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
     }
 }
 
@@ -719,4 +734,53 @@ fn a_misspelt_prompt_key_is_reported_unknown() {
     .unwrap();
     let keys: Vec<&str> = unknown.iter().map(|u| u.key.as_str()).collect();
     assert_eq!(keys, ["requird", "copyrigth"], "{unknown:?}");
+}
+
+#[specforge_test_macros::test(
+    type = "EntityKindDescriptor",
+    verify = "EntityKindDescriptor schema is valid"
+)]
+fn a_kind_written_by_a_collector_round_trips_with_its_schemes_and_result() {
+    let collected = EntityKindDescriptor {
+        writer: Some("collector".to_string()),
+        schemes: vec!["js".to_string()],
+        result: Some("status".to_string()),
+        ..kind("test", &["file"])
+    };
+    let wire = serde_json::to_value(&collected).unwrap();
+    assert_eq!(wire["writer"], "collector");
+    assert_eq!(wire["schemes"], json!(["js"]));
+    assert_eq!(wire["result"], "status");
+    let back: EntityKindDescriptor = serde_json::from_value(wire).unwrap();
+    assert_eq!(back, collected);
+
+    let plain = serde_json::to_value(kind("feature", &[])).unwrap();
+    assert!(
+        plain.get("schemes").is_none() && plain.get("result").is_none(),
+        "{plain}"
+    );
+}
+
+#[specforge_test_macros::test(
+    type = "EntityKindDescriptor",
+    verify = "EntityKindDescriptor schema is valid"
+)]
+fn a_kind_round_trips_when_its_entities_are_complete() {
+    let owner = EntityKindDescriptor {
+        complete_when: Some(specforge_protocol_types::CompleteWhen {
+            field: "status".to_string(),
+            values: vec!["complete".to_string()],
+        }),
+        ..kind("plan", &["status"])
+    };
+    let wire = serde_json::to_value(&owner).unwrap();
+    assert_eq!(
+        wire["complete_when"],
+        json!({"field": "status", "values": ["complete"]})
+    );
+    let back: EntityKindDescriptor = serde_json::from_value(wire).unwrap();
+    assert_eq!(back, owner);
+
+    let plain = serde_json::to_value(kind("feature", &[])).unwrap();
+    assert!(plain.get("complete_when").is_none(), "{plain}");
 }

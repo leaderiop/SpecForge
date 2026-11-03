@@ -9,7 +9,7 @@ use specforge_protocol_types::{Judgement, JudgementState};
 use specforge_registry::judged::JudgedRule;
 use specforge_registry::{Disk, EntitySnapshot};
 
-use super::inputs::{Cited, Cx, NONE};
+use super::inputs::{Cited, Cx};
 use super::{DigestMemo, Judgements};
 use crate::Environment;
 use crate::coverage::ReportRead;
@@ -287,7 +287,7 @@ pub fn evaluate(
                         )
                     } else {
                         let now = cx.inputs(node, rule, &Cited::of(verdict));
-                        if now.tests_unjudged {
+                        if !now.unjudged.is_empty() {
                             unjudged += 1;
                         }
                         judgement.files = now.files.clone();
@@ -300,8 +300,8 @@ pub fn evaluate(
                                     .iter()
                                     .find(|(n, _)| n == name)
                                     .map(|(_, d)| d.as_str());
-                                // `none` now is not judged; a recorded `none` is stale once the digest is real
-                                digest != NONE && then != Some(digest.as_str())
+                                // An input not judged now hides nothing it read; `none` (nothing linked) is compared.
+                                !now.unjudged.contains(name) && then != Some(digest.as_str())
                             })
                             .map(|(name, _)| name.clone())
                             .collect();
@@ -351,7 +351,9 @@ pub fn evaluate(
             _ => out.diagnostics.push(Diagnostic::new(
                 codes::I205,
                 format!(
-                    "test inputs of {unjudged} judged verdicts were not judged: there is no specforge-report.json, run `specforge collect`"
+                    "test inputs of {unjudged} judged verdicts were not judged: no test results are recorded (no \
+                     specforge-report.json, or no collected facts for the references they read); run `specforge \
+                     collect`"
                 ),
             )),
         }

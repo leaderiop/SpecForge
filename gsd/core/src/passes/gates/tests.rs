@@ -455,3 +455,41 @@ fn e515_names_the_subject() {
     let project = e515(&traced(None, "auto", true, &[]));
     assert_eq!(project[0].entity.as_deref(), Some("R1"));
 }
+
+/// [`traced`] with a truth of the plan that names `requirement` and proves it by a test fact of `status`.
+fn proved(requirement: &str, status: &str) -> PassInput {
+    let mut input = traced(Some("v1.0/01"), "auto", true, &[]);
+    let fact = "js:taskboard/test/tasks.test.js#adds";
+    for entity in [
+        json!({ "id": "v1.0/01/01-01/TR1", "kind": "truth", "fields": { "requirement": requirement } }),
+        json!({ "id": fact, "kind": "test", "fields": { "name": "adds", "status": status } }),
+    ] {
+        input
+            .entities
+            .push(serde_json::from_value(entity).expect("an entity"));
+    }
+    for (target, label) in [(requirement, "requirement"), (fact, "proof")] {
+        input.edges.push(PassEdge {
+            source: "v1.0/01/01-01/TR1".to_string(),
+            target: target.to_string(),
+            label: label.to_string(),
+        });
+    }
+    input
+}
+
+#[test]
+fn e515_counts_a_passing_proof_of_a_truth_that_names_the_requirement() {
+    assert!(e515(&proved("R1", "passed")).is_empty());
+    let failing = e515(&proved("R1", "failed"));
+    assert!(failing[0].message.contains("no passing test of its tasks"));
+    assert!(
+        failing[0]
+            .suggestion
+            .as_deref()
+            .is_some_and(|s| s.contains("`proof`"))
+    );
+    // A truth naming another requirement proves nothing of this one.
+    let other = e515(&proved("R2", "passed"));
+    assert!(other[0].message.contains("no passing test of its tasks"));
+}

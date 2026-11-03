@@ -1,10 +1,56 @@
-//! E082: a computed field written in a spec file (ADR 0287).
+//! E082: a computed field written in a spec file (ADR 0287); E115: a collector's fact written in one (ADR 0327).
 
 use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::FieldWriter;
 
-use crate::FieldRegistry;
 use crate::entity::{EntityRecord, Origin};
+use crate::{FieldRegistry, KindRegistry};
+
+/// Where a collect stores its facts, from the project root (ADR 0327): `<FACTS_DIR>/<key>/<collector>.json`.
+pub const FACTS_DIR: &str = ".specforge/facts";
+
+/// The collector and the key the fact store `file` (a source key, from the project root) is filed under:
+/// `.specforge/facts/<key>/<collector>.json`. `None` for any other file.
+pub fn filed(file: &str) -> Option<(&str, &str)> {
+    let (key, name) = file
+        .strip_prefix(FACTS_DIR)?
+        .strip_prefix('/')?
+        .split_once('/')?;
+    let collector = name
+        .strip_suffix(".json")
+        .filter(|name| !name.contains('/'))?;
+    Some((collector, key))
+}
+
+/// Whether `file`, a source key, is a fact store ([`filed`]).
+pub fn is_fact_store(file: &str) -> bool {
+    filed(file).is_some()
+}
+
+/// E115 for each entity of a kind a collector writes whose source is not a fact store: a block in a spec file.
+pub(super) fn collected_written(
+    entities: &[EntityRecord],
+    kinds: &KindRegistry,
+) -> Vec<Diagnostic> {
+    entities
+        .iter()
+        .filter(|record| !is_fact_store(record.span.file.as_str()))
+        .filter_map(|record| {
+            let kind = kinds.collected(&record.kind)?;
+            Some(
+                Diagnostic::new(
+                    codes::E115,
+                    format!(
+                        "{} '{}' is a fact a collector writes ({}), and is not written in a spec file",
+                        record.kind, record.id, kind.source_extension
+                    ),
+                )
+                .with_span(record.span.clone())
+                .with_suggestion("delete the block: `specforge collect` gives its facts"),
+            )
+        })
+        .collect()
+}
 
 /// E082 for each field or member a compute pass gives that the entity also writes, at the written value.
 /// `computed_by(kind, declared)` names the pass (and its extension) that computes the field, for the message. A field
@@ -60,4 +106,25 @@ pub(super) fn hand_written(
         }
     }
     diagnostics
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_fact_store_is_filed_under_the_facts_dir_at_the_root_only() {
+        assert_eq!(
+            filed(".specforge/facts/worktree/node.json"),
+            Some(("node", "worktree"))
+        );
+        for other in [
+            "spec/.specforge/facts/worktree/node.json",
+            ".specforge/facts/worktree/node.spec",
+            ".specforge/facts/worktree/deep/node.json",
+            ".specforge/facts/node.json",
+        ] {
+            assert!(!is_fact_store(other), "{other}");
+        }
+    }
 }

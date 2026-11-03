@@ -1,6 +1,6 @@
 //! The judged rules on fixtures: what they report before a verdict, under a gate and under a profile.
 
-use super::harness::{Project, judged, project, unjudged};
+use super::harness::{Project, judged, project, taskboard, unjudged};
 use serde_json::json;
 
 const PLAN_CHECK: [&str; 4] = ["W311", "W313", "W315", "W316"];
@@ -407,6 +407,27 @@ fn an_artifacts_file_change_makes_e501_stale() {
         inputs["verdict"]["changed"].to_string().contains("file"),
         "{inputs}"
     );
+}
+
+/// R-12: a report whose tests link to another entity (a task of the plan) and none to a truth adds nothing to the
+/// truth's `tests` input, so the twin's fresh verdicts stay fresh after the collect. The truths' proofs are collected
+/// first: a report beside proofs no store holds is read alone, and stales them (ADR 0331 D7).
+#[test]
+fn an_unrelated_report_leaves_the_twins_verdicts_fresh() {
+    let p = taskboard();
+    let truth = "v1.0/01/01-01/TR1";
+    assert_eq!(state(&p, truth, "E501").0, "fresh");
+    let facts = p.collect_node_test_golden();
+    assert_eq!(facts.code, 0, "{}", facts.all());
+    p.write(
+        "junit.xml",
+        "<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n<testcase name=\"a task test [gsd:v1.0/01/01-01/T1]\" classname=\"other\"/>\n</testsuite>\n</testsuites>\n",
+    );
+    let run = p.collect(&["--runner", "gsd-junit", "--no-run"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(p.exists("specforge-report.json"), "{}", run.all());
+    let inputs = p.inputs(truth, "E501");
+    assert_eq!(inputs["verdict"]["state"], "fresh", "{inputs}");
 }
 
 /// E518 reads the requirements its own milestone's phases name, not every requirement of the project.

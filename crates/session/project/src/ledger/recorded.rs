@@ -26,6 +26,10 @@ pub(crate) enum Class {
     /// A directory the checks listed (E016's suggestion): its change runs the checks again;
     /// any file directly in it reaches it.
     Listing,
+    /// What the fact stores are served by (ADR 0327 D9), recorded when a collector-written kind is loaded: the
+    /// harness ledger, and (`listing`) the store directory and each key directory in it, which any file directly in
+    /// it reaches. Its change reads every fact store again.
+    Facts { listing: bool },
 }
 
 impl Class {
@@ -34,7 +38,7 @@ impl Class {
     /// (`in_dir`); a listing also by any file directly in it.
     pub(super) fn reached_by(&self, key: &Path, canonical_path: &Path, in_dir: &Path) -> bool {
         match self {
-            Class::Listing => {
+            Class::Listing | Class::Facts { listing: true } => {
                 key.starts_with(canonical_path) || canonical_path.parent() == Some(key)
             }
             // An input that is a symlink is keyed by its own name: pointing it
@@ -53,7 +57,7 @@ impl Class {
     /// listing (the missing file it lists for is a check row of its own).
     pub(super) fn directory<'p>(&self, path: &'p Path) -> Option<&'p Path> {
         match self {
-            Class::Listing => None,
+            Class::Listing | Class::Facts { listing: true } => None,
             _ => path.parent(),
         }
     }
@@ -117,6 +121,8 @@ pub(crate) enum Recording<'a> {
     Environment {
         root: &'a Path,
         config: &'a ProjectConfig,
+        /// A collector-written kind is loaded: the fact stores are sources (ADR 0327 D5).
+        facts: bool,
     },
     /// One run of the checks: the `Check` and `Listing` rows, a set.
     Checks,
@@ -124,6 +130,8 @@ pub(crate) enum Recording<'a> {
     Source { key: &'a str, path: &'a Path },
     /// Discovery starts the record of the sources again: every `Hop` row, every source stamp.
     Sources,
+    /// The listing of the fact stores and the read of the harness ledger they are served by: every `Facts` row.
+    Facts,
 }
 
 impl Recording<'_> {
@@ -134,6 +142,7 @@ impl Recording<'_> {
             Recording::Checks => matches!(class, Class::Check | Class::Listing | Class::Ref),
             Recording::Source { key, .. } => matches!(class, Class::Hop(hop) if hop == key),
             Recording::Sources => matches!(class, Class::Hop(_)),
+            Recording::Facts => matches!(class, Class::Facts { .. }),
         }
     }
 
@@ -152,6 +161,9 @@ impl Recording<'_> {
                 (path != *file).then(|| Class::Hop((*key).to_string()))
             }
             Recording::Sources => None,
+            Recording::Facts => Some(Class::Facts {
+                listing: matches!(reading, Reading::Listing),
+            }),
         }
     }
 }

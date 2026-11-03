@@ -3,6 +3,7 @@
 **Status:** accepted (2026-10-16, architecture round 13, plan 03). Amends [ADR 0002](0002-test-runner-extensions.md)
 ("Execution"). Mirrors [ADR 0079](0079-the-smt-solver-is-one-port-that-analyze-and-doctor-take.md). Leaves ADR 0110 and
 ADR 0112 as they are. Amended by round 15, plan 07 (D7: each mode checks only the locations it reads).
+Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (D5: a collector chosen by detection whose run yields no evidence is skipped, not fatal).
 
 `collect` orders consent, a command run, a report read and a merge, but it reached the machine directly: a child
 process, the wall clock and the user's consent file through `HOME`. No ops test could run the flow past consent: every

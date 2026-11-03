@@ -485,7 +485,9 @@ fn hover_lists_the_diagnostics_not_already_shown() {
 
     let coverage = specforge_ops::read::inspect::coverage(&view, &facts);
     let text =
-        specforge_lsp::hover::entity(&facts, &coverage, &[], &Codebook::default(), &|_| None);
+        specforge_lsp::hover::entity(&facts, &coverage, None, &[], &Codebook::default(), &|_| {
+            None
+        });
     assert!(
         text.ends_with(
             "**Diagnostics** *(2)*\n\
@@ -497,17 +499,23 @@ fn hover_lists_the_diagnostics_not_already_shown() {
     );
 
     // What the cursor already shows is not listed again.
-    let text =
-        specforge_lsp::hover::entity(&facts, &coverage, &[&cycle], &Codebook::default(), &|_| {
-            None
-        });
+    let text = specforge_lsp::hover::entity(
+        &facts,
+        &coverage,
+        None,
+        &[&cycle],
+        &Codebook::default(),
+        &|_| None,
+    );
     assert!(
         text.ends_with("**Diagnostics** *(1)*\n- **X900** acme says no"),
         "{text}"
     );
     let all = [&reported[0], &reported[1]];
     let text =
-        specforge_lsp::hover::entity(&facts, &coverage, &all, &Codebook::default(), &|_| None);
+        specforge_lsp::hover::entity(&facts, &coverage, None, &all, &Codebook::default(), &|_| {
+            None
+        });
     assert!(!text.contains("**Diagnostics**"), "{text}");
 }
 

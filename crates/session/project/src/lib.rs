@@ -28,6 +28,7 @@ mod compiled;
 mod compute;
 pub mod coverage;
 mod diagnostics_delta;
+pub mod facts;
 pub mod file_reads;
 mod guards;
 pub mod harness;
@@ -39,6 +40,7 @@ pub mod passes;
 mod policy;
 pub mod providers;
 mod raises;
+pub mod select;
 mod session;
 mod settings;
 mod setup;
@@ -60,7 +62,7 @@ use specforge_common::{
 use specforge_graph::{Computed, GraphBuild, SpecFile};
 use specforge_installed::{Builtins, Installed};
 use specforge_registry::{
-    CandidateVocabulary, Disk, EntitySnapshot, RegistryBuild, build_registries,
+    CandidateVocabulary, Disk, EntitySnapshot, RegistryBuild, build_registries_with,
     rules::{CustomVerdicts, NoVerdicts},
 };
 use specforge_wasm::WasmRuntime;
@@ -285,8 +287,9 @@ impl Environment {
     /// `installed` is:
     /// - one E069 per config problem, in file order, then the load's
     ///   diagnostics;
-    /// - the registry build of the loaded declarations, suggesting from the builtins' vocabulary
-    ///   ([`builtin_vocabulary`]); in a runtime, each
+    /// - the registry build of the loaded declarations, over the builtins' vocabulary
+    ///   ([`builtin_vocabulary`]: the suggestions, and which kinds are an unloaded optional peer's); in a
+    ///   runtime, each
     ///   custom rule's `wasm_function` called once there on a probe entity
     ///   (W112 for one that does not answer a verdict);
     /// - the configured `providers` registered against the loaded
@@ -311,13 +314,14 @@ impl Environment {
             enabled,
             declarations,
         } = loaded;
-        let mut registries = build_registries(declarations).with_candidates(builtin_vocabulary());
+        let mut registries = build_registries_with(declarations, builtin_vocabulary());
         // A custom rule's wasm_function is resolved against its extension
         // now, so a name it does not export is reported once (W112).
         if let Some(runtime) = runtime.as_deref() {
             registries.probe(&WasmVerdicts::probe_only(runtime));
         }
         let providers = Providers::register(read.config.raw.as_ref(), registries.declarations());
+        registries.refuse_provider_schemes(&providers.schemes());
         let structural_only = registries.declarations().is_empty().then(|| {
             structural_only_notice(
                 read.found,
@@ -712,6 +716,11 @@ impl Environment {
         &self.sources
     }
 
+    /// Whether a collector-written kind is loaded: then the fact stores are sources (ADR 0327 D5).
+    pub fn reads_facts(&self) -> bool {
+        self.registries.kinds().any_collected()
+    }
+
     /// Read and parse the sources `keys` names (each through `read`), build
     /// their graph and resolve their imports: the one cold build every
     /// compile and session open starts from (ADR 0032).
@@ -725,7 +734,8 @@ impl Environment {
         held: &BTreeMap<String, &str>,
         read: impl FnMut(&str) -> sources::Read,
     ) -> SourceBuild {
-        let (sources, files) = SourceCache::read_all(keys, held, read);
+        let (sources, files) =
+            SourceCache::read_all(keys, held, read, self.registries.field_forms());
         let graph = self.graph_of(files);
         let imports = sources.import_diagnostics(&graph, self.sources.prefix());
         SourceBuild {
@@ -740,7 +750,7 @@ impl Environment {
 pub(crate) struct SourceBuild {
     pub sources: SourceCache,
     pub graph: GraphBuild,
-    /// E025 for the unreadable sources, then the resolver's (E025, I004,
+    /// E025 for the unreadable sources, W191/W192 for the fact stores not served, then the resolver's (E025, I004,
     /// W113, W027).
     pub imports: Vec<Diagnostic>,
 }

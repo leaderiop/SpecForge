@@ -114,7 +114,7 @@ pub fn git(history: &dyn History, cwd: &Path, status: bool) -> Option<GitFacts> 
         git_dir: place.git_dir.to_string_lossy().into_owned(),
         branch: history.branch(&place).unwrap_or_default(),
         status: if status {
-            history.status(&place).ok()
+            history.status(&place).ok().map(|status| status.porcelain)
         } else {
             None
         },

@@ -7,6 +7,7 @@ use specforge_common::{Codebook, Diagnostic, SourceSpan};
 use specforge_ops::OpError;
 use specforge_ops::read::coverage::STATUS;
 use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, obligations_table, quote};
+use specforge_ops::read::trace::RouteTrace;
 use specforge_parser::{FieldValue, ListItem, TypeMember, Written};
 use specforge_project::coverage::Status;
 use specforge_registry::FieldRegistry;
@@ -84,11 +85,13 @@ pub fn diagnostics(shown: &[&Diagnostic], codes: &Codebook) -> Option<String> {
 /// - **Methods**: its methods' signatures, one per line (ADR 0222);
 /// - **Obligations**: its `verify` statements, the review document's table (ADR 0273);
 /// - **Verdicts**: one row per judged rule that judges it, with its state (ADR 0290);
+/// - **Thread**: its `thread` along its kind's route, every match (ADR 0330);
 /// - **Diagnostics**: the diagnostics about it that are not among those
 ///   `shown` for the cursor, each code linked to its docs page.
 pub fn entity(
     facts: &EntityFacts,
     coverage: &Result<EntityCoverage, OpError>,
+    thread: Option<&RouteTrace>,
     shown: &[&Diagnostic],
     codes: &Codebook,
     written: &dyn Fn(&SourceSpan) -> Option<String>,
@@ -231,6 +234,10 @@ pub fn entity(
         &facts.judgements,
         &facts.members.verdicts,
     ));
+
+    // Section 5d: its thread along its kind's route, as `--partial` prints it
+    sections
+        .extend(thread.map(|t| format!("**Thread** · `{}`\n\n```text\n{}\n```", t.route, t.text)));
 
     // Section 6: the diagnostics about it the cursor's do not already show
     let listed: Vec<String> = facts

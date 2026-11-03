@@ -179,6 +179,8 @@ pub struct Kind {
     pub human: bool,
     /// The reference field that scopes the kind's names (K2).
     pub scoped_by: Option<&'static str>,
+    /// The enum field, and its values, while which the kind's entities are complete, else pending (ADR 0329 D4).
+    pub complete_when: Option<(&'static str, &'static [&'static str])>,
     pub fields: &'static [Field],
 }
 
@@ -191,6 +193,7 @@ impl Kind {
             append_only: false,
             human: false,
             scoped_by: None,
+            complete_when: None,
             fields,
         }
     }
@@ -208,6 +211,15 @@ impl Kind {
     }
     pub const fn scoped_by(mut self, field: &'static str) -> Self {
         self.scoped_by = Some(field);
+        self
+    }
+    /// Complete while `field` holds one of `values`; the kinds it scopes that declare none follow it.
+    pub const fn complete_when(
+        mut self,
+        field: &'static str,
+        values: &'static [&'static str],
+    ) -> Self {
+        self.complete_when = Some((field, values));
         self
     }
 }
@@ -340,6 +352,9 @@ pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
             }
             if let Some(scope) = kind.scoped_by {
                 k.scoped_by(scope);
+            }
+            if let Some((field, values)) = kind.complete_when {
+                k.complete_when(field, values);
             }
             for field in kind.fields {
                 // A required human field of a kind an agent may write could never be created (W021).

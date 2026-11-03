@@ -103,10 +103,12 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
     };
     // A writing collector's plans are applied after the report was written (ADR 0289).
     let plans = std::mem::take(&mut outcome.plans);
+    let facts = std::mem::take(&mut outcome.facts);
     let caller = crate::caller::of(options.yes, format, terminal);
     let outcome = match specforge_ops::authoring::apply::apply_collected(
         &view,
         plans,
+        facts,
         options.dry_run,
         caller,
     ) {
@@ -123,6 +125,10 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
         terminal.json(&outcome.document());
     } else {
         for r in &outcome.runners {
+            if let Some(why) = &r.skip_reason {
+                outln!(terminal, "{}: skipped: {why}", r.name);
+                continue;
+            }
             let s = &r.stats;
             let by_convention = match r.by_convention {
                 0 => String::new(),
@@ -138,6 +144,9 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
                 s.skipped,
                 r.files
             );
+            if r.facts > 0 {
+                outln!(terminal, "  facts: {} stored", r.facts);
+            }
             if let Some(plan) = &r.plan {
                 let n = plan.report.affected_files.len();
                 if plan.dry_run {
@@ -165,7 +174,10 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
                 outln!(terminal, "  hint: {hint}");
             }
         }
-        outln!(terminal, "report written: {}", outcome.report.display());
+        match &outcome.report {
+            Some(report) => outln!(terminal, "report written: {}", report.display()),
+            None => outln!(terminal, "report unchanged"),
+        }
     }
     Exit::Passed
 }

@@ -78,12 +78,23 @@ pub struct Reply {
     verify_declarations: Option<Vec<Obligation>>,
     referenced_by: Vec<String>,
     refers_to: Vec<String>,
+    /// Its references in a fact scheme that name no fact (ADR 0327 D6): why they have no edge; absent when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    unheld: Vec<UnheldJson>,
     /// Whether it counts and, when it does, how it is proven (ADR 0216), as
     /// `specforge.coverage`'s row says.
     coverage_status: specforge_project::coverage::Status,
     /// The diagnostics about the entity, in the shape `specforge.validate`
     /// reports them.
     diagnostics: DiagnosticList,
+}
+
+/// A reference in a fact scheme that names no fact: the field it is written in and the id.
+#[derive(Debug, Serialize, Shape)]
+#[shape(define = "UnheldJson")]
+pub struct UnheldJson {
+    field: String,
+    id: String,
 }
 
 pub(crate) struct Tool;
@@ -147,6 +158,14 @@ impl Reply {
             verify_declarations: declared.then(|| facts.obligations.to_vec()),
             referenced_by: refs.referenced_by().into_iter().map(String::from).collect(),
             refers_to: refs.refers_to().into_iter().map(String::from).collect(),
+            unheld: node
+                .unheld
+                .iter()
+                .map(|u| UnheldJson {
+                    field: u.field.to_string(),
+                    id: u.id.clone(),
+                })
+                .collect(),
             coverage_status: coverage.status,
             // The diagnostics about the entity: those its data names it in,
             // else those inside its block (ADR 0016); never by its message.

@@ -1,0 +1,11 @@
+{
+  "protocol_version": "1.15.0",
+  "name": "@specforge/typescript",
+  "version": "1.0.0",
+  "peer_dependencies": [],
+  "sandbox_policy": {
+    "max_execution_ms": 30000,
+    "max_memory_mb": 512
+  },
+  "description": "TypeScript and JavaScript analyzer: finds the exported symbols of sources for specforge infer"
+}

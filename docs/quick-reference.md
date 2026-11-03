@@ -29,7 +29,10 @@ specforge check --pick '.[code=E003].message'      # check, settings and export 
 specforge settings --pick '.extensions[].settings[name=<setting>].value'
 specforge query <id> --depth 1 --pick '.nodes[fields.result=issue].id'   # a dotted key; true, 2 and null match as JSON
 specforge query <id> --kinds commit --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject   # one row per item, its cells separated by 0x1f (read: IFS=$'\x1f' read -r hash subject)
-specforge trace <id>                 # traceability chain for an entity
+specforge trace <id>                 # its thread along its kind's route (human text), else its chain (json)
+specforge trace <id> --partial       # a route's thread even when incomplete, `no <step>` where it falls short
+specforge trace <id> --route <name>  # along the named route (`<extension>/<route>`); no <id>: its start kind's
+specforge trace <id> --reach         # the traceability chain, whatever route starts at its kind
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
 specforge schema                     # emit the Graph Protocol schema
 specforge model                      # render the logical data model

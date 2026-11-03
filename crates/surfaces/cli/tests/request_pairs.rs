@@ -573,6 +573,10 @@ fn pair(label: &str) -> (Outcome, Outcome) {
         "{label}: {args:?}\n{}{}",
         run.stdout, run.stderr
     );
+    // A collect writes its report only when it changes it: the tool's run starts from no report, as the CLI's did.
+    if row.tool == "specforge.collect" {
+        let _ = std::fs::remove_file(root.join("specforge-report.json"));
+    }
     let call = if row.tool.starts_with("specforge://prompts/") {
         json!({"method": "prompts/get", "params": {"name": row.tool, "arguments": (row.arguments)()}})
     } else if row.tool.starts_with("specforge://") {

@@ -3,7 +3,7 @@
 
 use specforge_protocol_types::{FileBase, FileFacts, FileRead};
 
-use crate::{CommandBuilder, CommandCall, PassBuilder};
+use crate::{CollectorBuilder, CommandBuilder, CommandCall, PassBuilder};
 
 /// A file read under construction: the files of a field, or a glob, with optional text.
 ///
@@ -67,6 +67,14 @@ impl PassBuilder {
 
 impl CommandBuilder {
     /// The command reads `read`; its input's `files` holds the facts under `name`.
+    pub fn reads(&mut self, name: &str, read: FileReadSpec) -> &mut Self {
+        self.descriptor.reads.push(read.named(name));
+        self
+    }
+}
+
+impl CollectorBuilder {
+    /// The collector reads `read`; its input's `files` holds the facts under `name`.
     pub fn reads(&mut self, name: &str, read: FileReadSpec) -> &mut Self {
         self.descriptor.reads.push(read.named(name));
         self

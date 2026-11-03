@@ -380,25 +380,27 @@ E028: Extension load or execution failure
 
 An extension failed somewhere in its lifecycle: its binary is missing,
 unreadable (no permission, not a regular file, larger than 64 MiB) or does not
-load as a component, or `specforge.lock` can't be read so nothing is known to be
-installed (a `.wasm` file entry of `specforge.json` also when the file declares
-another name than the entry writes, the name of a builtin, or an extension
-another entry already loads); its handshake or one of its describe categories
-failed or does not parse, so its declaration cannot be read (`specforge add` and
-`specforge publish` refuse such a binary); or a call the host makes on the
-loaded extension failed. The host calls thirteen exports: the handshake and
-describe, a command, an MCP tool, an MCP resource, a compiler pass, a collector,
-a custom validator, a scanner, the migration hook, an MCP prompt, the renderer
-of an agent's or skill's body and a hook. Each call fails when the export traps
-(a limit of its sandbox included: its time, its fuel or its memory, the trap
-naming which), when the extension does not route it, or when it answers output
-that is not the protocol type the operation owes (a collector's test whose
-status is not `passed`, `failed` or `skipped`, say); the message names the
-operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
-...`). What the failure costs is the operation's: a check pass's is the
-compile's error, an analyze pass's a finding of that pass, a scanner's makes
-`infer` approximate. Report the failure to the extension's author, and confirm
-the extension is installed and up to date.
+load as a component (it imports an interface that is neither WASI nor a
+specforge host port, say, which no specforge provides: the message names it), or
+`specforge.lock` can't be read so nothing is known to be installed (a `.wasm`
+file entry of `specforge.json` also when the file declares another name than the
+entry writes, the name of a builtin, or an extension another entry already
+loads); its handshake or one of its describe categories failed or does not
+parse, so its declaration cannot be read (`specforge add` and `specforge
+publish` refuse such a binary); or a call the host makes on the loaded extension
+failed. The host calls thirteen exports: the handshake and describe, a command,
+an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator,
+a scanner, the migration hook, an MCP prompt, the renderer of an agent's or
+skill's body and a hook. Each call fails when the export traps (a limit of its
+sandbox included: its time, its fuel or its memory, the trap naming which), when
+the extension does not route it, or when it answers output that is not the
+protocol type the operation owes (a collector's test whose status is not
+`passed`, `failed` or `skipped`, say); the message names the operation, the
+export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What
+the failure costs is the operation's: a check pass's is the compile's error, an
+analyze pass's a finding of that pass, a scanner's makes `infer` approximate.
+Report the failure to the extension's author, and confirm the extension is
+installed and up to date.
 
 Owner: core
 Level: error
@@ -1245,15 +1247,83 @@ Level: error
 ## E088
 
 ```
-E088: Extension speaks a newer protocol
+E088: Extension speaks a protocol this specforge does not
 
-An extension's handshake states a protocol version of the host's major but a
-newer minor (`1.15.0` under a `1.14.0` host, ADR 0326): it was built with a
-newer SDK and may declare what this specforge does not know and would drop, so
-it is not loaded; an older minor still loads. `specforge add`, `init` and
-`publish` refuse such a binary too. Update specforge to a release that speaks
-the extension's protocol (`specforge --version` names the one a binary speaks),
-or install a version of the extension built for this one.
+An extension's handshake states a newer protocol: a newer minor of the host's
+major (`1.16.0` under a `1.15.0` host) or a newer major (ADR 0326): it was built
+with a newer SDK and may declare what this specforge does not know and would
+drop, so it is not loaded; an older minor still loads. Or it states an older
+major (`0.9.0` under a `1.x` host): it was built for a protocol this specforge
+no longer speaks; install a version of the extension built for this protocol's
+major, or rebuild it with a specforge-extension-sdk of that protocol (ADR 0326
+D1b). Or its component imports a `specforge:host` interface (a host port such as
+`specforge:host/http@9.9.0`) this specforge does not provide: the runtime reads
+a component's imports before it instantiates it, and the message names the port,
+its version and this specforge's protocol (ADR 0326 D1a). `specforge add`,
+`init` and `publish` refuse such a binary too. Update specforge to a release
+that speaks the extension's protocol, or provides the port (`specforge
+--version` names the protocol a binary speaks), or install a version of the
+extension built for this one.
+
+Owner: core
+Level: error
+```
+
+## E115
+
+```
+E115: A fact written in a spec file
+
+A spec file writes an entity of a kind its extension declares `writer:
+"collector"` (ADR 0327). Such a kind's entities are facts: only `specforge
+collect` gives them, from what a collector observed, stores them in
+`.specforge/facts/<key>/<collector>.json` and records their digest in
+`specforge-harness`; the session serves the recorded stores read-only. A block
+of the kind in a `.spec` file is reported at the block, and is not a fact.
+Delete the block; to cite a fact, write its id in a reference (`proof
+["js:pkg/a.test.js#adds"]`).
+
+Owner: core
+Level: error
+```
+
+## E116
+
+```
+E116: Facts a collector answered that the host refuses
+
+A collector answered `facts` (ADR 0327) the host does not store: a fact of a
+kind no loaded extension declares `writer: "collector"`, an empty id, an id that
+names none of its kind's `schemes` (`js:` for `js:pkg/a.test.js#adds`), or an id
+the answer repeats. The message names the collector and the first reason. None
+of that collector's facts is stored, so its earlier store stays; the other
+collectors and the report merge go on (ADR 0303: an extension's error refuses no
+other fact). Fix the collector, or load the extension that declares the kind.
+
+Owner: core
+Level: error
+```
+
+## E118
+
+```
+E118: Route cannot be followed
+
+An extension declares a route (`routes`, protocol 1.15, ADR 0330) that
+`specforge trace` cannot follow: its name is not kebab case or not unique in the
+extension; it has no step; its start kind is not loaded; a step's name is not a
+word, repeats one, or is `start`; a step's `from` names no earlier step; its
+`via` is not selector steps (`<invoice.order`, `.items`), names a kind that is
+not loaded or a field the kind does not declare, or crosses a field that is not
+a reference or that is computed or written by a verdict (such a reference makes
+no edge); an annotation has not exactly one of `field` and `judgement`, gives
+`of` without a field, reads a field a kind it reaches does not declare, or names
+a judgement no judged rule of that code makes on every kind it reaches. The
+message names the extension, the route, the step or annotation, and why. The
+route is not registered, so `trace` reads the generic reach for its kind. A part
+that reaches a kind of an optional peer the project does not load is not an
+error: it is skipped, and the trace says so (I210). Fix the route's declaration
+in the extension.
 
 Owner: core
 Level: error
@@ -1869,11 +1939,45 @@ I205: Test inputs not judged
 
 A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a
 `test(..)` selector, or a verdict that cites tests), or a check, compute or
-guard pass declares `reads_tests` (protocol 1.11.0), but there is no
-`specforge-report.json`: run `specforge collect`. The rule's other inputs are
-judged as usual and the test input is left out of the comparison, so a verdict
-is not made stale by a report that is not there. Nothing is wrong with the
-project. A report that exists but cannot be used is E045.
+guard pass declares `reads_tests` (protocol 1.11.0), but no test results are
+recorded: there is no `specforge-report.json`, or every chain of a `test(..)`
+input reads references whose facts no collect has stored (ADR 0331). Run
+`specforge collect`. The rule's other inputs are judged as usual and the test
+input is left out of the comparison, so a verdict is not made stale by results
+that are not there. Nothing is wrong with the project. A report that exists but
+cannot be used is E045.
+
+Owner: core
+Level: info
+```
+
+## I209
+
+```
+I209: Facts filed under a key that is not a clean commit
+
+`specforge collect` stored a collector's facts (ADR 0327) under a key that is
+not HEAD's sha: `<sha>-dirty` when the tree holds a tracked change, a conflict
+or an untracked file, or `worktree` when the project is in no repository, HEAD
+is unborn, or git can't be asked. The key is provenance: a reader compares it
+with HEAD to call a fact fresh, and a dirty collect replaces the previous one of
+that sha. Commit, then collect again, to file the facts under the commit.
+
+Owner: core
+Level: info
+```
+
+## I210
+
+```
+I210: Trace route step skipped
+
+A route `specforge trace` follows (ADR 0330) has a step or an annotation that
+reaches a kind of an optional peer the project does not load, so the registry
+skipped it (it is not E118). The trace goes on without it and says so: the
+message names the route, the step (or `<step>.<annotation>`) and the kind.
+Nothing is wrong with the project. Install the extension that declares the kind
+to follow the whole route.
 
 Owner: core
 Level: info
@@ -2625,7 +2729,13 @@ Who writes a kind is checked as well (ADR 0289): a kind `writer` other than
 `human`, a `human` field marked `required` on a kind that is not human-only (an
 agent could then create no entity of the kind), a `guard` pass that declares
 `computes`, and a `guard` pass that reports the code of a judged rule of its
-extension (ADR 0302). The `settings` category is checked too (ADR 0288): a
+extension (ADR 0302). A kind's `result` is checked too (ADR 0329): on a kind no
+collector writes, naming a field the kind does not declare or one that is no
+`enum`, or an enum whose values are not all test statuses (`passed`, `failed`,
+`skipped`), it is dropped. So is a kind's `complete_when` (ADR 0329): naming a
+field the kind does not declare or one that is no `enum`, no value, or a value
+the enum does not take, it is dropped and the kind's entities follow their
+scope's owner state. The `settings` category is checked too (ADR 0288): a
 setting named twice or not a dotted name or a family (`*` segments), of a type
 the field forms do not have, with a default its type refuses, with `gates` or
 `gates_when_on` (ADR 0305) on a type other than `bool` or on a family (only a
@@ -3729,6 +3839,51 @@ before `--version` named it). The hooks and the MCP server that `specforge
 install` writes run `specforge` from PATH, so they run that binary, which
 refuses the project's newer extensions (E088) or would drop what they declare.
 Update the specforge on PATH, or put this one first on PATH (ADR 0326).
+
+Owner: core
+Level: warning
+```
+
+## W191
+
+```
+W191: A fact store the harness ledger does not record
+
+A file under `.specforge/facts/<key>/` is a collector's fact store (ADR 0327),
+but no `facts:` line of `specforge-harness` records exactly its collector, its
+key and its digest: it was collected on another commit or branch (the ledger is
+committed, the store is not), or it changed since. Its facts are not served, so
+the references to them are unheld. Run `specforge collect` to collect the facts
+again and record them.
+
+Owner: core
+Level: warning
+```
+
+## W192
+
+```
+W192: A fact store that cannot be read
+
+A file under `.specforge/facts/<key>/` (ADR 0327) does not read as a fact store:
+it cannot be read, is not JSON of the store's shape, or names a store version
+this specforge does not read. Its facts are not served. Run `specforge collect`
+to write it again.
+
+Owner: core
+Level: warning
+```
+
+## W195
+
+```
+W195: Ambiguous trace route
+
+Several routes the loaded extensions declare (ADR 0330) start at one kind, and
+not exactly one of them is marked `default`: none is, or several are. `specforge
+trace` follows the first in load order from that kind, which the message names
+with every route. Mark one route `default` in its extension, or pass `--route
+<name>` to trace along another.
 
 Owner: core
 Level: warning

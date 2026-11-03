@@ -171,14 +171,23 @@ fn verification_is_three_of_three_on_both_sides() {
 }
 
 /// P7 (D-r44-21): the verifier's seven verdicts on phase 01 are committed into the twin's `spec/` and its harness
-/// ledger, and they are fresh in any copy of it. `GSD_BLESS=1` records them on a copy and writes the files back.
+/// ledger, and they are fresh in any copy of it, before and after a collect of its tests. `GSD_BLESS=1` records them
+/// on a stripped copy over the collected thread (the truths' proofs passed) and writes the files back, the ledger
+/// without its `facts:` lines: the fact store is not committed.
 #[test]
 fn the_twin_holds_its_verifier_verdicts() {
     if std::env::var_os("GSD_BLESS").is_some() {
         let p = taskboard();
+        p.strip_verdicts();
+        let collect = p.collect_node_test_golden();
+        assert_eq!(collect.code, 0, "{}", collect.all());
         let recorded = p.verify_phase("v1.0/01");
+        assert_eq!(
+            recorded, 7,
+            "phase 01's three truths, two artifacts and two key links"
+        );
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard");
-        let mut files: Vec<String> = std::fs::read_dir(fixture.join("spec"))
+        let files: Vec<String> = std::fs::read_dir(fixture.join("spec"))
             .expect("the spec dir")
             .map(|e| {
                 format!(
@@ -187,10 +196,23 @@ fn the_twin_holds_its_verifier_verdicts() {
                 )
             })
             .collect();
-        files.push("specforge-harness".to_string());
         for file in files {
             std::fs::write(fixture.join(&file), p.read(&file)).expect("the fixture file");
         }
+        let ledger = p.read("specforge-harness");
+        let kept: Vec<&str> = ledger
+            .lines()
+            .filter(|l| {
+                l.split(' ')
+                    .nth(1)
+                    .is_none_or(|key| !key.starts_with("facts:"))
+            })
+            .collect();
+        std::fs::write(
+            fixture.join("specforge-harness"),
+            format!("{}\n", kept.join("\n")),
+        )
+        .expect("the fixture's ledger");
         eprintln!("recorded {recorded} verdicts into the twin");
     }
     let fresh = taskboard();
@@ -198,5 +220,13 @@ fn the_twin_holds_its_verifier_verdicts() {
         fresh.verify_phase("v1.0/01"),
         0,
         "no E501 judgement is pending in phase 01: GSD_BLESS=1 records them"
+    );
+    let collected = taskboard();
+    let collect = collected.collect_node_test_golden();
+    assert_eq!(collect.code, 0, "{}", collect.all());
+    assert_eq!(
+        collected.verify_phase("v1.0/01"),
+        0,
+        "the verdicts are fresh over the collected thread too"
     );
 }

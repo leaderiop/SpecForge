@@ -141,13 +141,13 @@ fn protocol_handshake_trap_produces_e028() {
     behavior = "load_extension_manifests",
     verify = "unloadable extension binary produces diagnostic instead of crash"
 )]
-fn protocol_version_mismatch_produces_e028() {
+fn a_handshake_protocol_version_that_is_no_semver_is_e028() {
     let dir = project(
         &["@test/badver"],
         "behavior hello \"Hello\" {\n    status planned\n}\n",
     );
 
-    // Return a handshake with wrong protocol version
+    // A protocol version that is no semver: no side is behind, the handshake cannot be read.
     let bad_handshake = HandshakeResponse {
         protocol_version: "99.0".to_string(),
         name: "@test/badver".to_string(),
@@ -173,7 +173,7 @@ fn protocol_version_mismatch_produces_e028() {
     assert_eq!(
         e028.len(),
         1,
-        "expected exactly 1 E028 for version mismatch"
+        "expected exactly 1 E028 for a protocol version that is no semver"
     );
     assert!(
         e028[0]
@@ -182,8 +182,11 @@ fn protocol_version_mismatch_produces_e028() {
         "E028 should describe error"
     );
     assert!(
-        e028[0].message.contains("version mismatch"),
-        "E028 should mention version mismatch"
+        e028[0]
+            .message
+            .contains("protocol_version '99.0' is not a semver version"),
+        "E028 should say the version is no semver version: {}",
+        e028[0].message
     );
 }
 

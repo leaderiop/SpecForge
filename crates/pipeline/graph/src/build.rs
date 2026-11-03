@@ -32,6 +32,9 @@ pub struct GraphInputs {
     /// the registry build's `scoped_by` it kept. An entity of such a kind is identified by its scope's path and
     /// its name; a name is unique within its scope.
     pub scopes: BTreeMap<String, String>,
+    /// Each scheme of a collector-written kind, and the kinds that declare it (ADR 0327 D6): a reference in a scheme
+    /// that names no fact is unheld (no edge, no diagnostic), not E003.
+    pub fact_schemes: BTreeMap<String, BTreeSet<String>>,
 }
 
 /// What one graph build is configured with: the provider schemes the
@@ -382,11 +385,7 @@ fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic>
 
     // Link references -> edges (E003, I004) and warn on reference cycles
     // (W061), which leave a declared single reference out.
-    let mut diagnostics = graph.link(
-        &config.inputs.field_forms,
-        &config.inputs.target_owners,
-        &config.inputs.scopes,
-    );
+    let mut diagnostics = graph.link(&config.inputs);
 
     // Derived reference fields: dependencies, never a reference W061 reads,
     // so a recursive type is no reference cycle (ADR 0204); an unknown type name is E004 (ADR 0282 D1).
@@ -399,7 +398,7 @@ fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic>
     // existing entity has its edge.
     #[cfg(debug_assertions)]
     {
-        graph.assert_linked(&config.inputs.field_forms, &config.inputs.scopes);
+        graph.assert_linked(&config.inputs);
         graph.assert_scoped(&config.inputs);
     }
 

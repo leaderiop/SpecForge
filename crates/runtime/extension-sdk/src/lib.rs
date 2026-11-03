@@ -31,9 +31,10 @@ pub use specforge_protocol_types::{
 };
 
 pub use specforge_protocol_types::{
-    DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
-    ExtensionDeclaration, FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    HandshakeResponse, PeerDependency, PromptDescriptor, ProtocolError, SandboxPolicy,
+    CompleteWhen, DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor,
+    EntityKindDescriptor, ExtensionDeclaration, FeatureFlagDescriptor, FieldConstraintDescriptor,
+    FieldDescriptor, HandshakeResponse, PeerDependency, PromptDescriptor, ProtocolError,
+    RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor, SandboxPolicy,
     SecretDescriptor, ServedSlash, SettingDescriptor, SettingsItem, StateView, Trigger,
     TriggerKind, ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorEntity,
     ValidatorField, ValidatorMethod, ValidatorParam, ValidatorRef, ValidatorVerdict,
@@ -71,6 +72,7 @@ pub mod host_contrib;
 mod plan;
 pub mod prompt;
 mod reads;
+mod route;
 mod settings;
 pub use builders::{
     AnalyzerBuilder, CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
@@ -85,6 +87,7 @@ pub use host_contrib::{
 pub use plan::{PlanBuilder, Verdict};
 pub use prompt::{PromptArgBuilder, PromptBuilder, PromptCall, PromptStepBuilder};
 pub use reads::FileReadSpec;
+pub use route::{Annotates, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder};
 pub use settings::{PresetBuilder, PresetEntryBuilder, SettingBuilder, Settings};
 
 /// Identity of the extension: what `__handshake` reports.
@@ -609,14 +612,14 @@ pub mod prelude {
         Vocabulary,
     };
     pub use crate::{
-        ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,
-        CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge, GraphNode,
-        McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
-        PromptStepBuilder,
+        Annotates, ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence,
+        CommandFormat, CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge,
+        GraphNode, McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
+        PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-        CollectorBuilder, PlanBuilder,
+        CollectorBuilder, Fact, PlanBuilder,
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{
@@ -662,11 +665,11 @@ mod raw_category_tests;
 
 pub use specforge_protocol_types::{
     CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-    CommandError, CommandEvidence, CommandFormat, CommandOutput, EntityEvidence, EntityTests,
-    GraphEdge, GraphNode, GraphWire, McpResourceContent, McpResourceRequest, MigrationInput,
-    PassAnswer, PassBaseline, PassBaselineEntity, PassDiagnostic, PassEdge, PassEntity, PassInput,
-    PassOutput, PassSeverity, PassSpan, PassValue, ScanRequest, ScanResponse, ScannedItem,
-    TestResult, TestResults, TestStatus,
+    CommandError, CommandEvidence, CommandFormat, CommandOutput, EntityEvidence, EntityTests, Fact,
+    FactStore, GraphEdge, GraphNode, GraphWire, McpResourceContent, McpResourceRequest,
+    MigrationInput, PassAnswer, PassBaseline, PassBaselineEntity, PassDiagnostic, PassEdge,
+    PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue, ScanRequest,
+    ScanResponse, ScannedItem, TestResult, TestResults, TestStatus, UnheldReference,
 };
 
 #[cfg(test)]

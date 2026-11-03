@@ -97,3 +97,6 @@ fact needs the bytes, so a stamp-keyed digest would not save the read, and there
 `doctor`, which lists each extension's declared reads, shows reads that are slow). Passes of one compile that declare
 equal reads share one walk. A glob lists every non-matching entry under a `**`, within the visit budget. Nothing in this round declares a read: the
 `@gsd/core` extension does.
+
+**Amendment (2026-11-02, ports plan 00 R1-b).** A collector declares `reads` too (protocol 1.15); its input carries
+`files`.

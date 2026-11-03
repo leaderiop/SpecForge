@@ -14,7 +14,7 @@ Commands:
   model         Render the logical data model (entity kinds, fields, relationships)
   outline       Render the extension architecture (dependencies, enhancements, contributions)
   query         Query the graph at multiple resolutions
-  trace         Show traceability chain for an entity, or for every entity
+  trace         Show an entity's thread along its kind's route, its traceability chain, or every entity's
   format        Format .spec files
   stats         Show project statistics
   explore       Where to start reading the graph: starting points, hubs and unconnected entities

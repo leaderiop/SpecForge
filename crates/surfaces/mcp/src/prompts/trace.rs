@@ -29,7 +29,10 @@ impl ArgumentOf<EntityField> for Prompt {
 impl ArgumentOf<TraceField> for Prompt {
     fn argument(field: TraceField) -> Option<&'static str> {
         match field {
+            TraceField::EntityId => Some("entity_id"),
             TraceField::Plan => Some("plan"),
+            // The prompt reads the reach: it takes no route.
+            TraceField::Route => None,
         }
     }
 }
@@ -68,7 +71,7 @@ fn render(view: ProjectView<'_>, args: Args) -> Result<Prompted<Payload>, Box<Mc
     // A plan's entries, or the one entity, seed the trace; the gaps are the
     // plan's, or the entity's chain's missing links.
     let (seeds, coverage_gaps, subject) =
-        match Ask::of(args.entity_id.as_deref(), args.plan.as_ref())
+        match Ask::of(args.entity_id.as_deref(), args.plan.as_ref(), None, false)
             .map_err(|refusal| Box::new(Prompt::refused(refusal)))?
         {
             Ask::Plan(plan) => {
@@ -76,20 +79,20 @@ fn render(view: ProjectView<'_>, args: Args) -> Result<Prompted<Payload>, Box<Mc
                 let gaps = outcome.gaps.iter().map(Gap::from).collect();
                 (outcome.resolved_entries, gaps, "the plan".to_string())
             }
-            Ask::Trace(Target::Entity(entity_id)) => {
+            Ask::Trace(Target::Entity(entity_id), _) => {
                 // As the trace tool traces it: its chain and missing links.
                 // ADR 0111 D6: the trace prompt's payload has no `_meta`, so it reports no notices.
                 let (document, _unreported) = trace::chain(&view, entity_id)
                     .map_err(|refusal: Refusal<EntityField>| Prompt::refused(refusal))?
                     .into_value_and_notices();
-                let gaps = document.chain.missing.iter().map(Gap::from).collect();
+                let gaps = document.trace.missing.iter().map(Gap::from).collect();
                 (
                     vec![entity_id.to_string()],
                     gaps,
                     format!("entity '{entity_id}'"),
                 )
             }
-            Ask::Trace(Target::Every) => return Err(every_is_not_offered()),
+            Ask::Trace(Target::Every, _) => return Err(every_is_not_offered()),
         };
 
     // What the seeds' chains reach, and which of it is unverified.

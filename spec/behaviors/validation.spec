@@ -382,7 +382,7 @@ behavior judge_field_history "Judge Field History" {
     be append-only (ADR 0287). The builtins declare none, so their projects see no new diagnostic.
   """
   produces []
-  verify unit "no builtin or pinned example declaration declares a writer, an immutable or append-only flag, a baseline or computes"
+  verify unit "no builtin or pinned example declaration declares a writer other than a collected kind's, an immutable or append-only flag, a baseline or computes"
   verify unit "a field declares its writer and history, and the registry refuses a contradiction with W021"
   verify unit "a kind is append-only and a pass computes fields and names the baseline it reads, or W021"
   verify unit "a kind and a field may be human-only and a pass a guard, or W021"
@@ -441,4 +441,23 @@ behavior record_harness_values "Record Harness Values" {
   verify unit "a rename records its move and re-keys its lines"
   verify unit "two writers both land their lines"
   verify unit "a rename planned on an unchanged ledger re-keys a line another writer added"
+}
+
+behavior check_collected_kinds "Check Collected Kinds" {
+  features [ci_integration]
+  category validation
+  requires {
+    collected_kind_loaded "a loaded kind declares writer collector (ADR 0327)"
+  }
+  ensures {
+    e115_in_spec_file "an entity of a collected kind whose source is not a fact store is E115, at its block"
+    id_length_exempt  "a collected kind's ids are exempt from E014: their length is their tool's"
+  }
+  contract """
+    A kind its extension declares `writer: "collector"` has its entities from `specforge collect` only: they are
+    served from `.specforge/facts/<key>/<collector>.json` when `specforge-harness` records the store's digest. A
+    block of the kind in a spec file is E115 and is not a fact.
+  """
+  produces []
+  verify unit "an entity of a kind a collector writes, written in a spec file, is E115"
 }

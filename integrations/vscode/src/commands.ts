@@ -272,7 +272,7 @@ export function registerCommands(
       try {
         const node = await entityOrPick(editor);
         if (!node) return;
-        const output = await cliOutput(["trace", node.id]);
+        const output = await cliOutput(["trace", node.id, "--format", "json"]);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
           language: "json",

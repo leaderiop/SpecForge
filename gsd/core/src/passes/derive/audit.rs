@@ -17,19 +17,14 @@ use super::ladder::window_status;
 use super::verify::Verified;
 use crate::passes::commits::target;
 use crate::passes::plans::{children, link, links, of_kind, phase_of, text};
+use crate::passes::thread::{Evidence, Thread};
 
 /// A task's recorded tests: `red` when one failed, `green` when some passed and none failed, else `pending`.
 fn row_status(input: &PassInput, task: &str) -> &'static str {
-    let Some(report) = input.test_results.as_ref() else {
-        return "pending";
-    };
-    let tests = report.of(task);
-    if tests.iter().any(|t| t.status == TestStatus::Failed) {
-        "red"
-    } else if tests.iter().any(|t| t.status == TestStatus::Passed) {
-        "green"
-    } else {
-        "pending"
+    match Thread::of(input).of_entity(task) {
+        Evidence::Failed => "red",
+        Evidence::Passed => "green",
+        Evidence::NotRun | Evidence::NoTest => "pending",
     }
 }
 

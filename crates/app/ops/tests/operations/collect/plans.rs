@@ -50,7 +50,8 @@ fn a_collector_plan_creates_commits_and_records_results() {
     )
     .unwrap();
     let plans = std::mem::take(&mut outcome.plans);
-    let outcome = outcome.with_applied(apply_collected(&view, plans, false, caller()).unwrap());
+    let outcome = outcome
+        .with_applied(apply_collected(&view, plans, Default::default(), false, caller()).unwrap());
 
     let written = std::fs::read_to_string(p.root().join("commits.spec")).unwrap();
     assert!(written.contains("commit c1 \"C\""), "{written}");
@@ -68,4 +69,30 @@ fn a_collector_plan_creates_commits_and_records_results() {
         revision(&p, "03-01.spec"),
         "{input}"
     );
+}
+
+#[specforge_test(
+    behavior = "dispatch_collector",
+    verify = "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
+)]
+fn every_collector_is_sent_the_project_root_as_cwd() {
+    use super::{Fixture, Runner};
+
+    let fixture = Fixture::new(vec![Runner::new("acme")]);
+    fixture.write("out/acme.json", "{}");
+    fixture
+        .no_run(Some("acme"), &ScriptedMachine::new())
+        .expect("the collect runs");
+    let calls = fixture.dispatched();
+    let input = &calls
+        .iter()
+        .find(|call| call.export == "collect__acme")
+        .expect("the collector was dispatched")
+        .input;
+
+    let root = fixture.root().canonicalize().unwrap();
+    assert_eq!(input["cwd"], root.display().to_string());
+    for key in ["graph", "today", "revisions"] {
+        assert!(input.get(key).is_none(), "{key}: {input}");
+    }
 }

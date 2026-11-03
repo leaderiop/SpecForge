@@ -3,18 +3,27 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use specforge_component::committed::key_of;
 use specforge_repo_root::repo_root;
 
 const EXTENSIONS: [&str; 4] = ["product", "software", "governance", "formal"];
 
+/// The items of `@specforge/<ext>`'s pinned describe answer `file`, under the blob's key (ADR 0328 D4). Every
+/// pinned declaration holds every category's file, so a missing one (a renamed key) panics instead of reading as no
+/// declaration.
+fn items(ext: &str, file: &str) -> Vec<serde_json::Value> {
+    let path = repo_root()
+        .join("crates/runtime/component/tests/declarations")
+        .join(key_of(&format!("@specforge/{ext}")))
+        .join(file);
+    let raw = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let doc: serde_json::Value = serde_json::from_str(&raw).expect("valid describe JSON");
+    doc["items"].as_array().cloned().unwrap_or_default()
+}
+
 /// Every field name each builtin kind registers (its own fields and the enhancements') from the
 /// pinned wire declarations, plus the shared fields every kind has.
 fn registered_fields() -> BTreeMap<String, BTreeSet<String>> {
-    let pinned = repo_root().join("crates/runtime/component/tests/declarations");
-    let read = |ext: &str, file: &str| -> Option<serde_json::Value> {
-        let raw = std::fs::read_to_string(pinned.join(ext).join(file)).ok()?;
-        Some(serde_json::from_str(&raw).expect("valid describe JSON"))
-    };
     let names = |fields: &serde_json::Value| -> Vec<String> {
         fields
             .as_array()
@@ -26,18 +35,14 @@ fn registered_fields() -> BTreeMap<String, BTreeSet<String>> {
     let mut kinds: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut shared = BTreeSet::new();
     for ext in EXTENSIONS {
-        for item in read(ext, "describe_entities.json").map_or(vec![], |d| {
-            d["items"].as_array().cloned().unwrap_or_default()
-        }) {
+        for item in items(ext, "describe_entities.json") {
             let kind = item["keyword"].as_str().expect("kind keyword").to_string();
             kinds
                 .entry(kind)
                 .or_default()
                 .extend(names(&item["fields"]));
         }
-        for item in read(ext, "describe_enhancements.json").map_or(vec![], |d| {
-            d["items"].as_array().cloned().unwrap_or_default()
-        }) {
+        for item in items(ext, "describe_enhancements.json") {
             let kind = item["target_kind"]
                 .as_str()
                 .expect("enhanced kind")
@@ -47,9 +52,10 @@ fn registered_fields() -> BTreeMap<String, BTreeSet<String>> {
                 .or_default()
                 .extend(names(&item["fields"]));
         }
-        if let Some(d) = read(ext, "describe_shared_fields.json") {
-            shared.extend(names(&d["items"]));
-        }
+        shared.extend(names(&serde_json::Value::Array(items(
+            ext,
+            "describe_shared_fields.json",
+        ))));
     }
     for fields in kinds.values_mut() {
         fields.extend(shared.iter().cloned());
@@ -79,18 +85,6 @@ struct Kind {
     keyword: String,
     description: String,
     fields: BTreeMap<String, Field>,
-}
-
-fn items(ext: &str, file: &str) -> Vec<serde_json::Value> {
-    let path = repo_root()
-        .join("crates/runtime/component/tests/declarations")
-        .join(ext)
-        .join(file);
-    let Ok(raw) = std::fs::read_to_string(path) else {
-        return Vec::new();
-    };
-    let doc: serde_json::Value = serde_json::from_str(&raw).expect("valid describe JSON");
-    doc["items"].as_array().cloned().unwrap_or_default()
 }
 
 fn field(value: &serde_json::Value, enhanced_by: Option<&str>) -> Field {

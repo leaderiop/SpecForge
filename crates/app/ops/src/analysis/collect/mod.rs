@@ -6,7 +6,8 @@
 //! results. The host does everything that touches the machine: it asks for
 //! consent, runs the declared command, reads the report and merges the
 //! extension's answer into `specforge-report.json`. The extension never
-//! runs anything itself.
+//! runs anything itself. A collector's `facts` (ADR 0327) are admitted and
+//! keyed here ([`facts`]); the caller stores them with the plans.
 //!
 //! The CLI and MCP are adapters: they hand the operation who can be asked
 //! (`crate::asking::Asking`) and the machine it runs on ([`CollectorMachine`], ADR 0125),
@@ -16,6 +17,7 @@ mod collector;
 mod convention;
 mod dispatch;
 mod evidence;
+mod facts;
 mod merge;
 mod process;
 
@@ -33,7 +35,7 @@ pub use process::ProcessMachine;
 
 use crate::view::ProjectView;
 use crate::{Caller, Held, OpError, OpErrorKind, Refusal};
-use crate::{CollectedPlan, EditDocument};
+use crate::{CollectedFacts, CollectedPlan, EditDocument};
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, ProjectPath, codes};
@@ -91,9 +93,35 @@ pub struct RunnerResult {
     pub stats: MergeStats,
     /// Tests linked by naming convention rather than by the report.
     pub by_convention: usize,
+    /// The facts stored for it (ADR 0327): none when it answered none, or they were refused (E116).
+    pub facts: usize,
     /// What a writing collector's plan did to the project (ADR 0289), as `specforge.edit` reports an edit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plan: Option<EditDocument>,
+    /// Why a collector chosen by detection gave no evidence (its E045 message: no report, no captured output, a
+    /// command that cannot start), so it was skipped and the others kept (ADR 0331, amending ADR 0125 D5); nothing
+    /// of it is recorded, so it reports no run and no file. A collector `--runner` names, or the one the project
+    /// enabled, fails with E045 instead.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_reason: Option<String>,
+}
+
+impl RunnerResult {
+    /// `collector`, skipped for `why`: nothing ran, read or recorded.
+    fn skipped(collector: &Collector, why: String) -> Self {
+        Self {
+            name: collector.name.clone(),
+            extension: collector.extension.clone(),
+            ran: false,
+            exit_code: None,
+            files: 0,
+            stats: MergeStats::default(),
+            by_convention: 0,
+            facts: 0,
+            plan: None,
+            skip_reason: Some(why),
+        }
+    }
 }
 
 /// The outcome of a successful collect.
@@ -103,7 +131,8 @@ pub struct Outcome {
     pub root: PathBuf,
     pub runners: Vec<RunnerResult>,
     pub diagnostics: Vec<Diagnostic>,
-    pub report: PathBuf,
+    /// The test report the collect wrote; `None` when no collector's answer changed it (a facts-only collect).
+    pub report: Option<PathBuf>,
     /// Approvals given at a prompt that could not be remembered (the
     /// consent store could not be written), each with why.
     pub unsaved_approvals: Vec<String>,
@@ -111,6 +140,8 @@ pub struct Outcome {
     /// report is per machine and the plan is the project's, so they are separate writes. `collect` applies none
     /// (a plan is an `authoring` operation); see [`Outcome::with_applied`].
     pub plans: Vec<CollectedPlan>,
+    /// The facts collectors answered and the host admitted, for the caller to store with the plans (ADR 0327).
+    pub facts: CollectedFacts,
 }
 
 impl Outcome {
@@ -122,6 +153,7 @@ impl Outcome {
             }
         }
         self.plans.clear();
+        self.facts = CollectedFacts::default();
         self
     }
 
@@ -132,7 +164,10 @@ impl Outcome {
             status: CollectStatus::Collected,
             runners: self.runners.clone(),
             diagnostics: DiagnosticList::from(self.diagnostics.clone()),
-            report: ProjectPath::of(&self.root, &self.report),
+            report: self
+                .report
+                .as_ref()
+                .map(|report| ProjectPath::of(&self.root, report)),
         }
     }
 }
@@ -143,8 +178,9 @@ pub struct CollectDocument {
     pub status: CollectStatus,
     pub runners: Vec<RunnerResult>,
     pub diagnostics: DiagnosticList,
-    /// The merged test report the collect wrote, named from the project root.
-    pub report: ProjectPath,
+    /// The merged test report the collect wrote, named from the project root; absent when it wrote none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub report: Option<ProjectPath>,
 }
 
 /// A collect that finished says so.
@@ -157,7 +193,9 @@ pub enum CollectStatus {
 /// Collect test results for the project the view was compiled from:
 /// select collectors among its declarations', run (in `runtime`) or read
 /// each one's report, map it through the extension to the view's entities
-/// and merge the answer into `<root>/specforge-report.json`. Every refusal that needs no run (a
+/// and merge the answer into `<root>/specforge-report.json`: a collector's answer is merged when it carries test
+/// results or the report holds that runner's tests, and the report is written only when a merge changed it. The
+/// facts collectors answer are admitted (E116) and keyed (I209) here, and stored by the caller with the plans. Every refusal that needs no run (a
 /// report location or capture the mode reads, a command, an approval) is decided for every selected
 /// collector before the first command runs (ADR 0125 D5, D7); the request's `caller.asking()` decides whether a
 /// collector's command may run, and its `announce` is told just before it runs. The machine runs
@@ -185,7 +223,7 @@ pub fn collect(
     let (asking, containment) = (caller.asking(), caller.containment());
     let known = &KnownEntities::of(view.entities());
     let available = collectors(view.registries().declarations());
-    let selected = select(&available, runner, root)?;
+    let (selected, chosen) = select(&available, runner, root)?;
     if let Mode::Reports(_) = mode
         && selected.len() > 1
     {
@@ -206,6 +244,9 @@ pub fn collect(
         .resolve(&root.join(REPORT_FILE))
         .map_err(OpError::from)?;
     let mut report = load_report(&report_file);
+    let loaded = serde_json::to_string(&report).expect("report serialization cannot fail");
+    let mut merged = false;
+    let mut stores = Vec::new();
     let mut runners = Vec::new();
     let mut plans: Vec<CollectedPlan> = Vec::new();
     let mut diagnostics = Vec::new();
@@ -233,7 +274,15 @@ pub fn collect(
             stdout,
             exit_code,
             ran,
-        } = source.gather(collector, root, containment, machine, &mut *announce)?;
+        } = match source.gather(collector, root, containment, machine, &mut *announce) {
+            Ok(evidence) => evidence,
+            // Detection chose it, so the project did not ask for it: no evidence skips it (ADR 0331).
+            Err(error) if chosen == Chosen::Detected && error.code == codes::E045.id() => {
+                runners.push(RunnerResult::skipped(collector, error.message));
+                continue;
+            }
+            Err(error) => return Err(error.into()),
+        };
 
         let mut collected = dispatch_over(
             view.runtime().map(|r| r.as_ref()),
@@ -247,8 +296,33 @@ pub fn collect(
         diagnostics.extend(diags);
         let by_convention_count = by_convention.iter().map(|e| e.test_results.len()).sum();
         collected.entity_results.extend(by_convention);
-        let (stats, diags) = merge(&mut report, &collector.name, &collected, known);
-        diagnostics.extend(diags);
+        // A facts-only or plan-only answer is not merged: it would create a report, or empty a runner's, for nothing.
+        let merges = !collected.entity_results.is_empty()
+            || !collected.unlinked.is_empty()
+            || report.results.values().any(|entity| {
+                entity
+                    .tests
+                    .iter()
+                    .any(|t| t.runner.as_deref() == Some(collector.name.as_str()))
+            });
+        let stats = if merges {
+            merged = true;
+            let (stats, diags) = merge(&mut report, &collector.name, &collected, known);
+            diagnostics.extend(diags);
+            stats
+        } else {
+            MergeStats::default()
+        };
+        let facts = facts::admitted(
+            view,
+            collector,
+            std::mem::take(&mut collected.facts),
+            &mut diagnostics,
+        );
+        let stored = facts.len();
+        if !facts.is_empty() {
+            stores.push((collector.name.clone(), collector.extension.clone(), facts));
+        }
         if let Some(plan) = collected.plan.take() {
             plans.push(CollectedPlan {
                 runner: collector.name.clone(),
@@ -265,11 +339,27 @@ pub fn collect(
             files: files.len(),
             stats,
             by_convention: by_convention_count,
+            facts: stored,
             plan: None,
+            skip_reason: None,
         });
     }
 
-    let report = save_report(&report_file, &report)?;
+    let changed =
+        serde_json::to_string(&report).expect("report serialization cannot fail") != loaded;
+    let report = if merged && changed {
+        Some(save_report(&report_file, &report)?)
+    } else {
+        None
+    };
+    let facts = CollectedFacts {
+        key: if stores.is_empty() {
+            String::new()
+        } else {
+            facts::key(view, &mut diagnostics)
+        },
+        stores,
+    };
     Ok(Outcome {
         root: root.to_path_buf(),
         runners,
@@ -277,6 +367,7 @@ pub fn collect(
         report,
         unsaved_approvals,
         plans,
+        facts,
     })
 }
 
@@ -287,6 +378,15 @@ pub enum CollectField {
     Runner,
 }
 
+/// How [`select`] chose the collectors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Chosen {
+    /// `--runner` named it, or it is the one the project enabled: no evidence is E045.
+    Named,
+    /// Their detection files are present: one with no evidence is skipped (ADR 0331).
+    Detected,
+}
+
 /// The collectors to use: the one `runner` names, else every collector
 /// whose detection files are present. A runner no collector answers to is
 /// invalid input about the runner (E058).
@@ -294,7 +394,7 @@ fn select<'a>(
     available: &'a [Collector],
     runner: Option<&str>,
     root: &Path,
-) -> Result<Vec<&'a Collector>, Refusal<CollectField>> {
+) -> Result<(Vec<&'a Collector>, Chosen), Refusal<CollectField>> {
     if available.is_empty() {
         return Err(fail(
             OpErrorKind::PreconditionFailed,
@@ -315,7 +415,7 @@ fn select<'a>(
         return available
             .iter()
             .find(|c| c.name == runner || c.extension == runner)
-            .map(|c| vec![c])
+            .map(|c| (vec![c], Chosen::Named))
             .ok_or_else(|| {
                 fail(
                     OpErrorKind::InvalidInput,
@@ -330,7 +430,7 @@ fn select<'a>(
     // decides between several (vitest configured inside vite.config.ts,
     // for one, has no file of its own to detect).
     if detected.is_empty() && available.len() == 1 {
-        return Ok(vec![&available[0]]);
+        return Ok((vec![&available[0]], Chosen::Named));
     }
     if detected.is_empty() {
         return Err(fail(
@@ -344,7 +444,7 @@ fn select<'a>(
         )
         .into());
     }
-    Ok(detected)
+    Ok((detected, Chosen::Detected))
 }
 
 /// The report `collect` merges new results into: `specforge-report.json`,

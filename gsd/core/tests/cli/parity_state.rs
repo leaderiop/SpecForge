@@ -330,6 +330,9 @@ fn taskboard_coverage_matches_recorded_tests() {
     let p = taskboard();
     // Before any report: no status.
     assert_eq!(statuses(&p, "v1.0/01/01-01/01-01-SUMMARY/D1"), ["-"]);
+    // The truths' proofs collected first: a report beside proofs no store holds stales their verdicts (ADR 0331 D7).
+    let facts = p.collect_node_test_golden();
+    assert_eq!(facts.code, 0, "{}", facts.all());
     let report =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
     let run = p.collect(&[
@@ -346,8 +349,8 @@ fn taskboard_coverage_matches_recorded_tests() {
             assert_eq!(given, expected, "{id}/{}", d.id);
         }
     }
-    // A report goes stale the verdicts recorded over `none` tests: the verifier looks again.
-    assert!(p.verify_phase("v1.0/01") > 0);
+    // A report that links no test to a truth stales none of its verdicts (ADR 0331 D7).
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     p.check_exact(&[]);
     let check = p.run(&["check"]);
     assert!(!check.all().contains("I205"), "{}", check.all());
@@ -357,6 +360,9 @@ fn taskboard_coverage_matches_recorded_tests() {
 fn the_twin_reports_only_unrecorded_verdicts_with_and_without_a_report() {
     let p = taskboard();
     p.check_exact(&[]);
+    // The truths' proofs collected first: a report beside proofs no store holds stales their verdicts (ADR 0331 D7).
+    let facts = p.collect_node_test_golden();
+    assert_eq!(facts.code, 0, "{}", facts.all());
     let report =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
     let run = p.collect(&[
@@ -366,8 +372,8 @@ fn the_twin_reports_only_unrecorded_verdicts_with_and_without_a_report() {
         &report.display().to_string(),
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
-    // A report goes stale the verdicts recorded over `none` tests: the verifier looks again.
-    assert!(p.verify_phase("v1.0/01") > 0);
+    // A report that links no test to a truth stales none of its verdicts (ADR 0331 D7).
+    assert_eq!(p.verify_phase("v1.0/01"), 0);
     p.check_exact(&[]);
     // With a report the harness hides I205 for every project: a stray one would be invisible, so count it raw.
     let check = p.run(&["check"]);

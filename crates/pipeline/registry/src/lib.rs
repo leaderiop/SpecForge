@@ -22,8 +22,8 @@ pub use disk::{Asked, Disk, FileStamp, MemoryDisk, PlainDisk};
 // --- Core registries ---
 pub use registries::{
     DeclaredSetting, EdgeRegistry, EdgeRegistryEntry, EdgeWriter, ExtensionSettings, FieldProblem,
-    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, SettingsRegistry,
-    UnknownFieldType,
+    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, Parent, Route,
+    RouteAnnotation, RouteRegistry, RouteStep, SettingsRegistry, Skipped, UnknownFieldType,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---
@@ -48,7 +48,7 @@ pub use entity::{
 };
 
 // --- E014: the shortest and longest entity IDs ---
-pub use checks::{ID_LENGTH, IdRefusal, refused_id};
+pub use checks::{FACTS_DIR, ID_LENGTH, IdRefusal, filed, is_fact_store, refused_id};
 
 // --- The entity snapshot: every entity of one built graph as the checks read it (ADR 0019, ADR 0115) ---
 pub use snapshot::{EntitySnapshot, Standing};
@@ -56,7 +56,7 @@ pub use snapshot::{EntitySnapshot, Standing};
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
     BuildPart, CHECK_PHASE, COMPUTE_PHASE, CandidateVocabulary, DeclaredPass, RegistryBuild,
-    build_registries, extension_codes, read_problem,
+    build_registries, build_registries_with, extension_codes, read_problem, reports,
 };
 pub use rules::paths_named;
 

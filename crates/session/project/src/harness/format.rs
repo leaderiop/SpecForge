@@ -3,7 +3,7 @@
 //! ```text
 //! ledger  = "# specforge-harness 1" LF *line
 //! line    = path SP key SP digest LF        ; sorted bytewise, unique
-//! key     = field-name / "moved:" path / namespace ":" rest
+//! key     = field-name / "moved:" path / "facts:" store-key / namespace ":" rest
 //! digest  = 64 lowercase hex = sha256(path NUL key NUL value)
 //! ```
 
@@ -23,6 +23,9 @@ pub const MOVED: &str = "moved:";
 /// The prefix of the key of a verdict's line: `<path> verdict:<rule> <digest>` (ADR 0290).
 pub const VERDICT_KEY: &str = "verdict:";
 
+/// The prefix of the key of a fact store's line: `<collector> facts:<key> <digest>` (ADR 0327).
+pub const FACTS_KEY: &str = "facts:";
+
 /// `sha256(path NUL key NUL value)`: the line that records `value` as `key` of `path`.
 pub fn digest(path: &str, key: &str, value: &[u8]) -> String {
     let mut bytes = Vec::with_capacity(path.len() + key.len() + value.len() + 2);
@@ -37,7 +40,8 @@ pub fn digest(path: &str, key: &str, value: &[u8]) -> String {
 /// One ledger line.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Line {
-    pub path: String,
+    /// The first column: the entity a value or move line records, or the collector a `facts:` line records.
+    pub subject: String,
     pub key: String,
     pub digest: String,
 }
@@ -46,10 +50,26 @@ impl Line {
     /// A move record: the entity `old` is now `new`.
     pub fn moved(new: &str, old: &str) -> Line {
         Line {
-            path: new.to_string(),
+            subject: new.to_string(),
             key: format!("{MOVED}{old}"),
             digest: digest(new, &format!("{MOVED}{old}"), b""),
         }
+    }
+
+    /// The line recording the store of `collector`'s facts filed under `key`, whose file holds `bytes`: its digest is
+    /// `digest(collector, "facts:<key>", bytes)` (ADR 0327).
+    pub fn facts(collector: &str, key: &str, bytes: &[u8]) -> Line {
+        let key = format!("{FACTS_KEY}{key}");
+        Line {
+            subject: collector.to_string(),
+            digest: digest(collector, &key, bytes),
+            key,
+        }
+    }
+
+    /// The collector and the store key this line records, when it records a fact store.
+    pub fn facts_of(&self) -> Option<(&str, &str)> {
+        Some((self.subject.as_str(), self.key.strip_prefix(FACTS_KEY)?))
     }
 
     /// The path this line records a move from, when it is a move record.
@@ -68,7 +88,7 @@ impl Line {
     }
 
     fn text(&self) -> String {
-        format!("{} {} {}\n", self.path, self.key, self.digest)
+        format!("{} {} {}\n", self.subject, self.key, self.digest)
     }
 }
 
@@ -96,6 +116,11 @@ impl Ledger {
         self.0.iter()
     }
 
+    /// Whether it holds `line`.
+    pub fn contains(&self, line: &Line) -> bool {
+        self.0.contains(line)
+    }
+
     pub fn insert(&mut self, line: Line) {
         self.0.insert(line);
     }
@@ -108,7 +133,7 @@ impl Ledger {
     pub fn records(&self, path: &str, key: &str, digest: &str) -> bool {
         self.0
             .iter()
-            .any(|l| l.path == path && l.key == key && l.digest == digest)
+            .any(|l| l.subject == path && l.key == key && l.digest == digest)
     }
 
     /// The text of the ledger: the header and the lines, sorted and unique.
@@ -161,7 +186,7 @@ impl Ledger {
                 continue;
             }
             let line = Line {
-                path: path.to_string(),
+                subject: path.to_string(),
                 key: key.to_string(),
                 digest: digest.to_string(),
             };

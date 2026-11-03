@@ -2,9 +2,11 @@
 //! answering each export, and a `ScriptedMachine` standing for the machine. Nothing here spawns a
 //! process, reads the environment or the wall clock.
 
+mod facts;
 mod modes;
 mod order;
 mod plans;
+mod reads;
 mod refusals;
 mod report_first;
 mod report_paths;
@@ -21,7 +23,7 @@ use specforge_ops::asking::Asking;
 use specforge_ops::testing::{ScriptedMachine, Viewed};
 use specforge_ops::{Caller, Containment, Refusal};
 use specforge_protocol_types::{
-    CollectEntityResult, CollectOutput, ExtensionDeclaration, TestResult, TestStatus,
+    CollectEntityResult, CollectOutput, ExtensionDeclaration, FileRead, TestResult, TestStatus,
 };
 use specforge_wasm::testing::{InProcessRuntime, RecordedCall};
 use specforge_wasm::{WasmCallResult, WasmTrapInfo};
@@ -40,6 +42,7 @@ pub struct Runner {
     run: Vec<String>,
     report: String,
     capture: Option<String>,
+    reads: Vec<FileRead>,
     answer: Answer,
 }
 
@@ -54,6 +57,7 @@ impl Runner {
             run: vec![name.to_string(), "--out={report}".to_string()],
             report: format!("out/{name}.json"),
             capture: None,
+            reads: Vec::new(),
             answer: Answer::Output(CollectOutput::default()),
         }
     }
@@ -75,6 +79,13 @@ impl Runner {
     /// Declares `capture` raw, whatever it is.
     pub fn capturing(mut self, capture: &str) -> Self {
         self.capture = Some(capture.to_string());
+        self
+    }
+
+    /// It declares `read` under `name`.
+    pub fn reading(mut self, name: &str, mut read: FileRead) -> Self {
+        read.name = name.to_string();
+        self.reads.push(read);
         self
     }
 
@@ -118,6 +129,7 @@ impl Runner {
         // The report and the capture as declared, whatever they are.
         declaration.collectors[0].report = Some(self.report.clone());
         declaration.collectors[0].capture = self.capture.clone();
+        declaration.collectors[0].reads = self.reads.clone();
         declaration
     }
 }

@@ -17,6 +17,7 @@ use super::halt::{self, Node};
 use crate::digest::scope_of;
 use crate::passes::commits::Commit;
 use crate::passes::plans::{of_kind, rows, text};
+use crate::passes::thread::{Evidence, Thread};
 use crate::time::seconds;
 
 pub fn value(entity: &str, field: &str, value: impl Into<Value>) -> PassValue {
@@ -135,30 +136,23 @@ fn duration(summary: &PassEntity) -> Option<String> {
     })
 }
 
-/// A check's status from the report: `fail` when a test named by its `ref` failed, `pass` when one passed, `unknown`
-/// when none was recorded. No test result, no status: a report with no result in it (the git collector writes one) is
-/// no more a test run than no report is.
+/// A check's status from the recorded tests: `fail` when a test named by its `ref` failed, `pass` when one passed,
+/// `unknown` when none was recorded. No test run, no status: a report with no result in it (the git collector writes
+/// one) is no more a test run than no report is.
 fn check_statuses(input: &PassInput, deliverable: &PassEntity) -> Vec<PassValue> {
-    let Some(report) = input
-        .test_results
-        .as_ref()
-        .filter(|r| !r.results.is_empty())
-    else {
+    let thread = Thread::of(input);
+    if !thread.ran() {
         return Vec::new();
-    };
-    let tests = report.of(&deliverable.id);
+    }
     rows(deliverable, "checks")
         .iter()
         .enumerate()
         .filter_map(|(i, check)| {
             let reference = check.get("ref")?;
-            let named = || tests.iter().filter(|t| &t.name == reference);
-            let status = if named().any(|t| t.status == TestStatus::Failed) {
-                "fail"
-            } else if named().any(|t| t.status == TestStatus::Passed) {
-                "pass"
-            } else {
-                "unknown"
+            let status = match thread.evidence(thread.named(&deliverable.id, reference)) {
+                Evidence::Failed => "fail",
+                Evidence::Passed => "pass",
+                Evidence::NotRun | Evidence::NoTest => "unknown",
             };
             Some(value(
                 &deliverable.id,

@@ -31,6 +31,12 @@ pub struct PlannedChange {
     /// The entities the change moves, old path → new, in the order they were made: E080 pairs an extension's finding
     /// through them.
     moved: Vec<(String, String)>,
+    /// Files outside the sources the change writes whatever they hold then, by path from the root: a collect's fact
+    /// stores (ADR 0327).
+    root_files: BTreeMap<String, Vec<u8>>,
+    /// (collector, key): the collector's stores filed under another key, which the change removes, listed under the
+    /// lock (ADR 0327 D4).
+    superseded: Vec<(String, String)>,
 }
 
 type Redo = Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>;
@@ -72,7 +78,24 @@ impl PlannedChange {
             ledger: None,
             locked: false,
             moved: Vec::new(),
+            root_files: BTreeMap::new(),
+            superseded: Vec::new(),
         }
+    }
+
+    /// This change also storing `stores` (collector, its store's bytes) under `key` (ADR 0327 D2, D4): each store is
+    /// read under the write lock and written over whatever it holds then, and each collector's stores under another
+    /// key, listed under the lock through the caller's containment, are removed.
+    pub(crate) fn with_fact_stores(mut self, key: &str, stores: Vec<(String, Vec<u8>)>) -> Self {
+        for (collector, bytes) in stores {
+            self.root_files.insert(
+                specforge_project::facts::Store::path(&collector, key),
+                bytes,
+            );
+            self.superseded.push((collector, key.to_string()));
+        }
+        self.locked = true;
+        self
     }
 
     /// This change moving `moved` entities, old path → new (ADR 0302).
@@ -150,7 +173,7 @@ impl PlannedChange {
             && gitattributes_with(&before.root_file(".gitattributes")).is_some();
         // A write that moves or sets a value keeps its ledger part though the ledger reads the same now: under the
         // lock the ledger may have changed, and the part is made again over what it holds.
-        let keeps = !change.moves.is_empty() || !change.set.is_empty();
+        let keeps = !change.moves.is_empty() || !change.set.is_empty() || !change.facts.is_empty();
         if unchanged && !attributes && !keeps {
             return self;
         }
@@ -185,6 +208,7 @@ impl PlannedChange {
     /// Nothing to write.
     pub fn is_empty(&self) -> bool {
         self.files.is_empty()
+            && self.root_files.is_empty()
             && !self
                 .ledger
                 .as_ref()
@@ -193,12 +217,16 @@ impl PlannedChange {
 
     /// The files the change writes, relative to the project root, in key order.
     pub fn affected_files(&self) -> impl Iterator<Item = &str> {
-        self.files.keys().map(String::as_str).chain(
-            self.ledger
-                .iter()
-                .filter(|l| l.after != l.planned_on)
-                .map(|_| LEDGER_FILE),
-        )
+        self.files
+            .keys()
+            .chain(self.root_files.keys())
+            .map(String::as_str)
+            .chain(
+                self.ledger
+                    .iter()
+                    .filter(|l| l.after != l.planned_on)
+                    .map(|_| LEDGER_FILE),
+            )
     }
 
     /// Each file the change writes and the text it will hold, by path relative to the project root.
@@ -305,6 +333,19 @@ impl PlannedChange {
                 for (key, (before, after)) in &self.files {
                     let before = before.as_ref().map(|b| b.as_bytes().to_vec());
                     stager.write(key, before, after.clone().into_bytes())?;
+                }
+                for (key, after) in &self.root_files {
+                    let now = stager.read_if_there(key)?;
+                    if now.as_ref() != Some(after) {
+                        stager.write(key, now, after.clone())?;
+                    }
+                }
+                for (collector, key) in &self.superseded {
+                    for store in stager.superseded_stores(collector, key) {
+                        if let Some(now) = stager.read_if_there(&store)? {
+                            stager.remove(&store, now)?;
+                        }
+                    }
                 }
                 if let Some(ledger) = &self.ledger {
                     let current = stager.held(LEDGER_FILE)?.read_if_there().ok().flatten();

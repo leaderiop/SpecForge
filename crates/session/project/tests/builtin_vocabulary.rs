@@ -110,7 +110,7 @@ fn no_builtin_field_declares_a_k3_attribute() {
 
 #[specforge_test_macros::test(
     behavior = "judge_field_history",
-    verify = "no builtin or pinned example declaration declares a writer, an immutable or append-only flag, a baseline or computes"
+    verify = "no builtin or pinned example declaration declares a writer other than a collected kind's, an immutable or append-only flag, a baseline or computes"
 )]
 fn no_builtin_declares_a_writer_or_history_flag() {
     let mut files = 0;
@@ -125,8 +125,14 @@ fn no_builtin_declares_a_writer_or_history_flag() {
             {
                 continue;
             }
-            let value: serde_json::Value =
+            let mut value: serde_json::Value =
                 serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            // A collected kind's `writer: "collector"` is ADR 0327's (`@code/core`'s facts), not a field's history.
+            for item in value["items"].as_array_mut().into_iter().flatten() {
+                if item["writer"] == "collector" {
+                    item.as_object_mut().map(|kind| kind.remove("writer"));
+                }
+            }
             let mut found = Vec::new();
             keys_and_types(&value, &mut found);
             for word in ["writer", "immutable", "append_only", "baseline", "computes"] {

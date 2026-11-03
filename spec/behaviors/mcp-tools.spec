@@ -202,6 +202,7 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
     TraceLink,
     McpTraceResult,
     McpTraceChainResult,
+    McpTraceRouteResult,
     McpTracePlanResult,
     McpToolDescriptor,
   ]
@@ -228,12 +229,20 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
     or plan MUST be provided; otherwise the tool MUST return an error.
     entityId and plan are two requests: a call with both MUST be refused as
     invalid input on plan, as specforge trace refuses an entity with --plan.
+    An entity of a kind a loaded extension declares a route from is traced
+    along the route (follow_trace_route): the tool returns the route
+    document specforge trace <entity> --format json writes, a
+    McpTraceRouteResult. route names a route to follow instead, and reach
+    asks for the chain whatever route starts at the kind; both together are
+    invalid input on route, and so is a route no loaded extension declares
+    or one that starts at another kind.
   """
   verify unit "specforge.trace tool returns traceability chain for valid entityId"
   verify unit "plan parameter triggers gap analysis"
   verify unit "trace without entity_id or plan returns error"
   verify unit "non-existent entityId returns error response"
   verify unit "a trace call with both entity_id and plan is invalid input on plan"
+  verify unit "specforge.trace follows a kind's declared route, a named route, or the reach as asked"
   verify contract "Provide MCP Trace Tool: MCP trace tool holds — graph_available, trace_result_returned, gaps_identified, tool_invoked_emitted"
 }
 

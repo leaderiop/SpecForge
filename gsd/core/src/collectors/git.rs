@@ -1,12 +1,18 @@
-//! `gsd-git`: records, in the plan's own file, every commit whose subject names a plan by GSD's convention
-//! `{type}({phase}-{plan}): {task}` (`gsd-core/references/git-integration.md:72`).
+//! `gsd-git`: records, in the plan's own file, every commit that names a task by a `Gsd-Task: <plan>/<task>` trailer
+//! (ADR 0331 D3), or a plan by GSD's subject convention `{type}({phase}-{plan}): {task}`
+//! (`gsd-core/references/git-integration.md:72`).
 //!
 //! It is a writing collector: the host runs `git log` with the user's consent and hands the captured output to
 //! `collect`, with the graph. The answer is an edit plan that creates one `commit` entity per new commit, in the file
 //! of the plan it names. It records nothing it already holds (the 12-hex name is the key), so a second run is a no-op.
-//! GSD has no commit trailer, so a commit names its task by the subject alone: the description after `: ` equals the
-//! task's title. A commit that names no plan (`feat(gsd): x`, `docs(pause): y`, a scope no plan has, or one that
-//! several plans have) is skipped, as `/gsd-undo` skips it (`scope === id`).
+//!
+//! The trailer comes first: one that names a task (`01-01/T1`, the configured `project_code` prefix stripped from the
+//! plan as from a scope) fixes the plan and the task, whatever the subject says. Otherwise the subject decides: its
+//! scope names the plan, and its description after `: ` the task whose title it equals. `linked_by` says which found
+//! the task. A trailer that is unreadable (two different values, or one that is no `<plan>/<task>`) or names no task
+//! falls back to the subject, and the plan's title notes it. A commit that names no plan either way (`feat(gsd): x`,
+//! `docs(pause): y`, a scope no plan has, or one that several plans have) is skipped, as `/gsd-undo` skips it
+//! (`scope === id`). GSD's executor writes no trailer yet (S1 adds it to `gsd-executor.md`'s commit step).
 //!
 //! Each recorded commit also names the recorded commits of its plan it descends from (`descends_from`), through every
 //! parent: the log is read with merges, so a RED made on a branch merged before the GREEN counts (#5275). A merge
@@ -33,13 +39,40 @@ use crate::time::utc;
 
 const NAME: &str = "gsd-git";
 
-/// One record separator (`%x00`), and the unit separator between the fields of the header line (`%x1f`).
+/// One record separator (`%x00`), the unit separator between the fields of the header line (`%x1f`), and the
+/// separator between the values of the trailer field (`%x1e`).
 const RECORD: char = '\0';
 const FIELD: char = '\u{1f}';
+const VALUES: char = '\u{1e}';
+
+/// The header line: the hash, the parents, the author time, the `Gsd-Task:` trailers (unfolded, so a value never
+/// starts a line of its own) and the subject, last, so a unit separator in a subject stays in it.
+const FORMAT: &str = "--format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s";
+
+/// `commit.linked_by`: what found a commit's task.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LinkedBy {
+    /// Its `Gsd-Task:` trailer, written as the trailer's own key (owner decision 04-U1).
+    Trailer,
+    /// Its subject's title.
+    Title,
+}
+
+impl LinkedBy {
+    /// The value `commit.linked_by` holds.
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            LinkedBy::Trailer => "Gsd-Task",
+            LinkedBy::Title => "title",
+        }
+    }
+}
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.collector(NAME, |k| {
+        // A branch ref: a repository with a commit. An unborn one has neither, and `git log` fails there (04-U2).
         k.input_format("git-log")
+            .detect_files(&[".git/refs/heads/*", ".git/packed-refs"])
             .run(&[
                 "git",
                 "-c",
@@ -50,7 +83,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 "--no-renames",
                 "--numstat",
                 "--summary",
-                "--format=%x00%H%x1f%P%x1f%at%x1f%s",
+                FORMAT,
             ])
             .capture_stdout()
             .writes()
@@ -65,6 +98,8 @@ pub struct Commit {
     /// `%P`: none for a root commit, two or more for a merge.
     pub parents: Vec<String>,
     pub at: String,
+    /// The `Gsd-Task:` trailer values as git printed them, joined by `%x1e`; read by [`trailer`].
+    pub trailers: String,
     pub subject: String,
     pub files: Vec<String>,
     pub created: Vec<String>,
@@ -132,7 +167,7 @@ fn is_hash(text: &str) -> bool {
     matches!(text.len(), 40 | 64) && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
-/// The commits of `git log --numstat --summary --format=%x00%H%x1f%P%x1f%at%x1f%s`, newest first as git prints them,
+/// The commits of `git log --numstat --summary` with [`FORMAT`], newest first as git prints them,
 /// and the hash (as far as it is printable) of each record that is not a valid commit: a hash or a parent that is not
 /// hex, a time that is not in `0..=253402300799` (the years 1970 to 9999). A binary file counts 0 lines.
 pub fn parse_all(log: &str) -> (Vec<Commit>, Vec<String>) {
@@ -153,11 +188,12 @@ pub fn parse(log: &str) -> Vec<Commit> {
 
 fn record(text: &str) -> Result<Commit, String> {
     let mut lines = text.lines();
-    let mut head = lines.next().unwrap_or_default().splitn(4, FIELD);
-    let (hash, parents, at, subject) = (
+    let mut head = lines.next().unwrap_or_default().splitn(5, FIELD);
+    let (hash, parents, at, trailers, subject) = (
         head.next().unwrap_or_default().trim(),
         head.next().unwrap_or_default(),
         head.next().unwrap_or_default().trim(),
+        head.next().unwrap_or_default(),
         head.next().unwrap_or_default(),
     );
     let parents: Vec<String> = parents.split_whitespace().map(String::from).collect();
@@ -172,6 +208,7 @@ fn record(text: &str) -> Result<Commit, String> {
         hash: hash.to_string(),
         parents,
         at: utc(time),
+        trailers: trailers.to_string(),
         subject: clean(subject),
         files: Vec::new(),
         created: Vec::new(),
@@ -196,6 +233,78 @@ fn record(text: &str) -> Result<Commit, String> {
         }
     }
     Ok(commit)
+}
+
+/// What a commit's `Gsd-Task:` trailers say.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Trailer<'a> {
+    /// There is none.
+    None,
+    /// One distinct `<plan>/<task>` value, as written (`01-01/T1`).
+    Named(&'a str),
+    /// Two different values, or one that is no `<plan>/<task>`: no task, as upstream counts a doubled `gate-status:`
+    /// as missing (`ship.md:335`).
+    Unreadable,
+}
+
+impl Trailer<'_> {
+    /// What the plan's title says of a trailer that names no task: its value (cleaned, cut at 60 characters), or
+    /// `unreadable`; `None` when there is no trailer.
+    fn shown(&self) -> Option<String> {
+        match self {
+            Trailer::None => None,
+            Trailer::Named(value) => Some(clean(value).chars().take(60).collect()),
+            Trailer::Unreadable => Some("unreadable".to_string()),
+        }
+    }
+}
+
+/// `id` without the configured `code` prefix and its `-` (`APP-01-01` → `01-01`); `None` when there is no code or `id`
+/// does not start with it. Only the configured code is stripped: an id that only looks coded is matched literally
+/// (#5271).
+fn uncoded<'v>(id: &'v str, code: Option<&str>) -> Option<&'v str> {
+    id.strip_prefix(code?)?.strip_prefix('-')
+}
+
+/// The trailer `values` (git's `%x1e`-separated list) say: each trimmed, empty ones dropped, repeats counted once.
+pub fn trailer(values: &str) -> Trailer<'_> {
+    let mut named: Vec<&str> = values
+        .split(VALUES)
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .collect();
+    named.sort_unstable();
+    named.dedup();
+    // Each side of the one `/`: ASCII letters, digits, `.`, `_` and `-` (no space, tab, separator or control).
+    let part = |p: &str| {
+        !p.is_empty()
+            && p.bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+    };
+    match named[..] {
+        [] => Trailer::None,
+        [one]
+            if one
+                .split_once('/')
+                .is_some_and(|(plan, task)| part(plan) && part(task)) =>
+        {
+            Trailer::Named(one)
+        }
+        _ => Trailer::Unreadable,
+    }
+}
+
+/// The task a trailer value names (`01-01/T1`), as written or with the configured `code` prefix stripped from its plan
+/// (`APP-01-01/T1`), as [`plan_by_scope`] strips it from a scope.
+fn task_named<'n>(
+    nodes: &'n [GraphNode],
+    code: Option<&str>,
+    value: &str,
+) -> Option<&'n GraphNode> {
+    find_kind(nodes, value, "task").or_else(|| {
+        let (plan, task) = value.split_once('/')?;
+        find_kind(nodes, &format!("{}/{task}", uncoded(plan, code)?), "task")
+    })
 }
 
 /// `title` compared as GSD compares a task description: trimmed, case-folded, whitespace runs collapsed.
@@ -337,21 +446,22 @@ fn ancestry<'a>(
         .collect()
 }
 
-/// The `commit` fields of `commit`, naming `plan` (and `task`, when its description is a task's title).
+/// The `commit` fields of `commit` as `linked` places it.
 fn fields(
     commit: &Commit,
-    kind: &str,
-    plan: &str,
-    task: Option<&str>,
+    linked: &Linked<'_, '_>,
     descends: &[String],
 ) -> BTreeMap<String, Value> {
     let mut fields = BTreeMap::new();
     fields.insert("hash".to_string(), json!(commit.hash));
-    if let Some(task) = task {
+    if let Some((task, by)) = linked.task {
         fields.insert("task".to_string(), json!(task));
+        fields.insert("linked_by".to_string(), json!(by.as_str()));
     }
-    fields.insert("plan".to_string(), json!(plan));
-    fields.insert("type".to_string(), json!(kind));
+    fields.insert("plan".to_string(), json!(linked.plan.id));
+    if let Some(kind) = &linked.kind {
+        fields.insert("type".to_string(), json!(kind));
+    }
     fields.insert("subject".to_string(), json!(commit.subject));
     fields.insert("at".to_string(), json!(commit.at));
     // Written even when empty: an absent list means ancestry was never collected (W403 then falls back to `at`).
@@ -368,21 +478,73 @@ fn fields(
     fields
 }
 
-/// The header of `commit` and the plan it is (or would be) recorded under: a merge is read for its parents only.
-/// `code` is the project's `project_code` (the setting, else the project entity's field).
-fn plan_of<'a, 'n>(
+/// Where a commit is recorded: its plan, its task and what found it, its type, and the trailer that was not read.
+struct Linked<'n, 'c> {
+    plan: &'n GraphNode,
+    task: Option<(&'n str, LinkedBy)>,
+    /// The subject's type, lower-cased; `revert` for a revert; `None` for a subject with no `type:` header.
+    kind: Option<String>,
+    /// The trailer, when it names no task and the subject decided; [`Trailer::None`] otherwise.
+    unread: Trailer<'c>,
+}
+
+/// The plan the subject's `scope` names, as written or with the configured `code` prefix stripped.
+fn plan_by_scope<'n>(
     nodes: &'n [GraphNode],
     code: Option<&str>,
-    commit: &'a Commit,
-) -> Option<(subject::Header<'a>, &'n GraphNode)> {
-    let header = subject::parse(&commit.subject)?;
-    let scope = header.scope?;
-    // Only the configured code is stripped: an id that only looks coded is matched literally (#5271).
-    let plan = find_kind(nodes, scope, "plan").or_else(|| {
-        let rest = scope.strip_prefix(code?)?.strip_prefix('-')?;
-        find_kind(nodes, rest, "plan")
-    })?;
-    (commit.parents.len() < 2 && plan.file.is_some()).then_some((header, plan))
+    scope: &str,
+) -> Option<&'n GraphNode> {
+    find_kind(nodes, scope, "plan").or_else(|| find_kind(nodes, uncoded(scope, code)?, "plan"))
+}
+
+/// Where `commit` is (or would be) recorded: by its trailer's task, else by its subject's scope and title. A merge is
+/// read for its parents only. `code` is the project's `project_code` (the setting, else the project entity's field).
+fn link<'n, 'c>(
+    nodes: &'n [GraphNode],
+    code: Option<&str>,
+    commit: &'c Commit,
+) -> Option<Linked<'n, 'c>> {
+    if commit.parents.len() >= 2 {
+        return None;
+    }
+    let header = subject::parse(&commit.subject);
+    // A revert undoes the work: it is recorded as one, and names no task.
+    let reverts = commit.subject.starts_with("Revert \"");
+    let kind = if reverts {
+        Some("revert".to_string())
+    } else {
+        header.as_ref().map(|h| h.kind.clone())
+    };
+    let trailer = trailer(&commit.trailers);
+    let named = match trailer {
+        Trailer::Named(value) => task_named(nodes, code, value),
+        Trailer::None | Trailer::Unreadable => None,
+    };
+    // The task's own `plan` reference, not its id's prefix.
+    if let Some(task) = named
+        && let Some(plan) = task
+            .text("plan")
+            .and_then(|plan| find_kind(nodes, plan, "plan"))
+    {
+        return plan.file.is_some().then(|| Linked {
+            plan,
+            task: (!reverts).then_some((task.id.as_str(), LinkedBy::Trailer)),
+            kind,
+            unread: Trailer::None,
+        });
+    }
+    let header = header?;
+    let plan = plan_by_scope(nodes, code, header.scope?)?;
+    plan.file.as_ref()?;
+    let task = (!reverts)
+        .then(|| task_of(nodes, &plan.id, header.description))
+        .flatten();
+    Some(Linked {
+        plan,
+        task: task.map(|task| (task, LinkedBy::Title)),
+        kind,
+        unread: trailer,
+    })
 }
 
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
@@ -394,6 +556,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         .collect();
     let mut builder = PlanBuilder::for_collect(input);
     let mut recorded = 0;
+    let mut unread = Vec::new();
     let (commits, mut skipped) = parse_all(input.stdout.as_deref().unwrap_or(""));
     // The `project_code` setting (what GSD users set and `specforge settings` shows), else the project entity's field.
     let settings = Settings::current();
@@ -409,7 +572,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         });
     let plans: HashMap<&str, &str> = commits
         .iter()
-        .filter_map(|c| Some((c.hash.as_str(), plan_of(nodes, code, c)?.1.id.as_str())))
+        .filter_map(|c| Some((c.hash.as_str(), link(nodes, code, c)?.plan.id.as_str())))
         .collect();
     let mut descends = ancestry(&commits, &plans);
     // Oldest first, so the entities land in the order the commits were made.
@@ -418,18 +581,13 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         if known.contains(&name) {
             continue;
         }
-        let Some((header, plan)) = plan_of(nodes, code, commit) else {
+        let Some(linked) = link(nodes, code, commit) else {
             continue;
         };
-        let file = plan.file.as_deref().unwrap_or_default();
-        // A revert undoes the work: it is recorded as one, and names no task.
-        let reverts = commit.subject.starts_with("Revert \"");
-        let task = if reverts {
-            None
-        } else {
-            task_of(nodes, &plan.id, header.description)
-        };
-        let kind = if reverts { "revert" } else { &header.kind };
+        if let Some(value) = linked.unread.shown() {
+            unread.push(format!("trailer of {name} names no task: {value}"));
+        }
+        let file = linked.plan.file.as_deref().unwrap_or_default();
         builder.create(
             "commit",
             &name,
@@ -437,9 +595,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             file,
             fields(
                 commit,
-                kind,
-                &plan.id,
-                task,
+                &linked,
                 &descends.remove(commit.hash.as_str()).unwrap_or_default(),
             ),
             Vec::new(),
@@ -450,7 +606,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     skipped.dedup();
     let mut output = CollectOutput::default();
     if recorded > 0 {
-        let note = if skipped.is_empty() {
+        let mut note = if skipped.is_empty() {
             String::new()
         } else {
             format!(
@@ -459,6 +615,9 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
                 skipped.join(", ")
             )
         };
+        for why in &unread {
+            note.push_str(&format!(" ({why})"));
+        }
         builder.title(&format!(
             "Record {recorded} commit{}{note}",
             if recorded == 1 { "" } else { "s" }

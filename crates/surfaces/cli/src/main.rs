@@ -65,7 +65,7 @@ use outcome::Exit;
 use terminal::{Stream, Terminal};
 
 /// What `--version` prints after `specforge `: the package version, then the commit the build was made from
-/// (when it knew it) and the extension protocol this binary speaks, `0.3.0 (9229143f5, protocol 1.14.0)`.
+/// (when it knew it) and the extension protocol this binary speaks, `0.3.0 (9229143f5, protocol 1.15.0)`.
 fn version() -> String {
     let protocol = specforge_protocol_types::PROTOCOL_VERSION;
     match env!("SPECFORGE_COMMIT") {
@@ -105,7 +105,7 @@ enum Commands {
     Outline(outline::Args),
     /// Query the graph at multiple resolutions
     Query(query::Args),
-    /// Show traceability chain for an entity, or for every entity
+    /// Show an entity's thread along its kind's route, its traceability chain, or every entity's
     Trace(trace::Args),
     /// Format .spec files
     Format(format::Args),

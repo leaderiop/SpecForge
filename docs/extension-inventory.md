@@ -8,7 +8,9 @@ the same SDK ([extension model](extension-model.md)).
 Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Five more declare no kinds:
 `@specforge/testing` and the runner extensions `@specforge/cargo-test` and `@specforge/vitest` handle test
 obligations and results ([ADR 0002](adr/0002-test-runner-extensions.md)); `@specforge/rust` and
-`@specforge/typescript` read source code for `specforge infer`.
+`@specforge/typescript` read source code for `specforge infer`. `@code/core`, the first builtin of a family
+(ADR 0328), declares the two collector-written kinds of test facts ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md)), and
+`@javascript/node-test` collects them from `node --test`.
 
 The counts and lists on this page are read from the builtins' pinned declarations
 (`crates/runtime/component/tests/declarations/`); tests hold the kind count and the edge tables to them.
@@ -26,6 +28,8 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@specforge/vitest` | 0 | 0 | -- | testing (required) |
 | `@specforge/rust` | 0 | 0 | -- | none |
 | `@specforge/typescript` | 0 | 0 | -- | none |
+| `@code/core` | 2 (collector-written) | 1 | -- | none |
+| `@javascript/node-test` | 0 | 0 | -- | code/core (required) |
 
 Extensions load after the peers they declare; extensions with no peer between them keep the order
 `specforge.json` lists them in (ADR 0041). A required peer must be loaded (E027); an optional one, when loaded,
@@ -258,16 +262,19 @@ obligations the spec does not declare (A016). `--min` gates CI on proof coverage
 
 ### Runner extensions
 
-Each test runner has its own extension that requires `@specforge/testing` and declares one collector: the files
-that select it, the command `specforge collect` runs (after you approve it, or with `--yes`), where the report
-lands, and a pure mapping from the report to entities.
+Each test runner has its own extension that declares one collector: the files that select it, the command
+`specforge collect` runs (after you approve it, or with `--yes`), where the report lands, and a pure mapping from the
+report. `@specforge/cargo-test` and `@specforge/vitest` require `@specforge/testing` and map the report to entities;
+`@javascript/node-test` requires `@code/core` and maps it to test facts.
 
 | Extension | Detected by | How a test names its entity |
 |-----------|-------------|-----------------------------|
 | `@specforge/cargo-test` | `Cargo.toml` | `#[specforge_test(behavior = "...", verify = "...")]`, or tests named `entity_id__obligation_slug` or inside `mod entity_id` ([guide](guides/rust-test-tracing.md)) |
 | `@specforge/vitest` | `vitest.config.*`, `vitest.workspace.*` | `meta: { specforge: { behavior: "...", verify: "..." } }` ([guide](guides/vitest-test-tracing.md)) |
+| `@javascript/node-test` | `package.json` | the entity cites the test: `js:<package>/<file>#<test>` in a `proof` field ([guide](guides/node-test-facts.md)) |
 
-Spec files carry no test paths: the link lives in the tests. `specforge init` enables `@specforge/testing` with
+With cargo-test and vitest, spec files carry no test paths: the link lives in the tests. With node-test it runs the
+other way: the test names nothing, and the entity cites the test's id. `specforge init` enables `@specforge/testing` with
 `@specforge/software`, and a runner extension when it finds that runner in the project.
 
 Proof today is test-centred. A general notion of evidence for non-software work (a signed record, an audit
@@ -277,6 +284,35 @@ finding) is future work.
 
 Each declares one analyzer: a scanner that finds the public items (Rust) or exported symbols (TypeScript and
 JavaScript) of source files, which `specforge infer` uses to guide an agent writing specs for existing code.
+
+## @code/core
+
+The neutral base of test facts ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md)). Its kinds are
+written by a runner pack's collector, never by hand: a spec cites a fact by its id, and `specforge collect` writes the
+store the session serves. It declares no collector; a runner pack peers it and mints the facts with the linked
+`specforge-code-junit` library (`extensions/code/junit`, an extension library, ADR 0328 D3), so every pack names a
+test the same way.
+
+| Kind | Scheme and id | Fields |
+|------|---------------|--------|
+| `test` | `js:<package>/<file>#<suite > … > name>` | `package`, `file` (project-relative), `suite`, `name`, `status` (`passed`, `failed`, `skipped`; the kind's `result`), `names` (the entities the test says it proves) |
+| `test_run` | `run:<test id>` | `test` (edge `run_of` to the `test`), `status`, `duration_ms` |
+
+Neither kind is scoped: a reference names the fact whole. Its check passes judge the references:
+
+| Code | When |
+|------|------|
+| `code/E101` | A reference in `js` or `run` names no fact, and a served store holds facts of that scheme; it suggests the nearest test of the same file |
+| `code/W102` | A reference in `js` or `run` names no fact, and no served store holds facts of that scheme (a fresh clone, or before a collect) |
+| `code/W401` | An entity that is not pending links a test whose last run failed |
+| `code/I402` | A test's `names` holds an id no entity has |
+
+An entity is pending while its owner is (its kind's `complete_when`, or its nearest scope ancestor's): its references
+are not checked and its failing tests are not reported, so a test not written yet is TDD, not an error.
+
+`@javascript/node-test` is its first runner pack: its collector `node-test`, detected by a `package.json`, runs
+`node --test` with the `spec` reporter to standard output and the `junit` reporter to `.specforge/reports/node-test.xml`,
+and names each test after the nearest `package.json` with a `name` ([guide](guides/node-test-facts.md)).
 
 ## Related
 

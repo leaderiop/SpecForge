@@ -22,6 +22,7 @@ mod project_path;
 mod project_root;
 pub mod regular;
 pub mod remedy;
+pub mod scheme;
 pub mod shape;
 mod slug;
 mod span;

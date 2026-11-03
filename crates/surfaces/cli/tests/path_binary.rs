@@ -16,9 +16,11 @@ fn on_path(name: &str, line: &str) -> PathBuf {
         .join(name);
     std::fs::create_dir_all(&dir).unwrap();
     let program = dir.join("specforge");
-    if !program.exists() {
+    let script = format!("#!/bin/sh\necho \"{line}\"\n");
+    // The target dir outlives a protocol bump: a stub that names another line is rewritten.
+    if std::fs::read_to_string(&program).ok().as_deref() != Some(script.as_str()) {
         let tmp = dir.join(format!("specforge.tmp.{}", std::process::id()));
-        std::fs::write(&tmp, format!("#!/bin/sh\necho \"{line}\"\n")).unwrap();
+        std::fs::write(&tmp, &script).unwrap();
         std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755)).unwrap();
         std::fs::rename(&tmp, &program).unwrap();
     }

@@ -62,8 +62,9 @@ Written by the git collector, not by an agent: every field is `H` (a command's o
 refuses any other writer). The collector (`gsd-git`) runs the whole `git log` with `capture_stdout` and is named
 explicitly (`specforge collect --runner gsd-git`); an incremental `{since}` is not needed at core's scale. It reads GSD's
 own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`), and matches the
-task by its title. A commit names its task by the subject alone (GSD has no trailer),
-and a commit whose description is no task's title (the metadata commit `docs(03-02): complete … plan`) names its plan
+task by its title. A `Gsd-Task: <plan>/<task>` trailer comes first (ADR 0331 D3): one that names a task fixes the plan
+and the task, whatever the subject says (`linked_by Gsd-Task`); otherwise the subject decides (`linked_by title`). A
+commit whose description is no task's title (the metadata commit `docs(03-02): complete … plan`) names its plan
 only. A commit that names no plan is not recorded. Each is recorded in its plan's file (so executors of one wave never
 write the same file), in the project scope, named by the first 12 hex digits of its hash.
 
@@ -72,7 +73,8 @@ write the same file), in the project scope, named by the first 12 hex digits of 
 | hash | str | H I | the full 40-hex hash. Not `R`: a required harness field cannot be declared, and the name already carries it |
 | task | → task | H | the inverse `task.commits` |
 | plan | → plan | H | the inverse `plan.commits` |
-| type | str | H | `feat`, `fix` … |
+| linked_by | enum{Gsd-Task, title} | H | how `task` was found: the trailer or the subject's title; written only with `task` (04-U1) |
+| type | str | H | `feat`, `fix` …; absent for a subject with no `type:` header (a commit its trailer links) |
 | subject | str | H | |
 | at | ts | H | the author time, UTC |
 | files | strs | H | repository-relative paths, as git prints them; text, not `files`, since a later commit may delete one |
@@ -81,20 +83,34 @@ write the same file), in the project scope, named by the first 12 hex digits of 
 | descends_from | →* commit | H | the recorded commits of the same plan this one reaches through its parents (`%P`, merges included), oldest first; `[]` for none, absent on a commit recorded before ancestry was collected. W403 reads it (#5275) |
 
 **Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs
-`git -c core.quotepath=off log --no-renames --numstat --summary --format=%x00%H%x1f%P%x1f%at%x1f%s` once in the
+`git -c core.quotepath=off log --no-renames --numstat --summary
+--format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s` once in the
 project root and hands the captured output to the collector, which is a *writing* one: it is also given the graph, and
 answers an edit plan (`Record N commits`) that creates the new `commit` entities in their plans' files, oldest first.
 The host applies the plan and records each field in `specforge-harness`. A commit whose 12-hex name the graph already
-holds is not recorded again, so a second run changes nothing. The collector is named, never detected, so a plain
-`specforge collect` does not run it. A repository with no commit (or a directory that is none) prints nothing, and
-`collect` says so with E045 ("produced no report"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
+holds is not recorded again, so a second run changes nothing. The collector is detected by a branch ref
+(`.git/refs/heads/*` or `.git/packed-refs`, ADR 0331 D4), or named (`--runner gsd-git`): a plain `specforge collect` in
+a repository with a commit runs it, and one with no commit yet (unborn) does not detect it. Detected and giving no
+evidence (`--no-run`, no `git` on PATH), it is skipped and the collect goes on; named, a repository with no commit (or a
+directory that is none) prints nothing, and `collect` says so with E045 ("produced no report"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
 or `Revert "…"` layer is unwrapped, then `type[(scope)][!]: description`, case-insensitively; the scope is the plan's GSD
 id (`03-02`, `03.1-01`, a quick id), resolved over the graph as a path, a rooted path or a unique short form. A scope that
 names no plan, several plans (`01-01` in two milestones: write the full path) or a non-plan is skipped, except that a
 scope that starts with the project's `project_code` (the setting, else the `project` entity's field) and a dash
 (`feat(PRJ-01-01)` with `project_code "PRJ"`) is resolved again without them (#5271): only the configured code, case-sensitively, so `AUTH-01-01` stays literal. The task is the one
 of that plan whose title equals the description, trimmed, case-folded and with whitespace runs collapsed; none, or two,
-leaves the commit naming its plan. A plan op refused `stale_revision` (the plan's file changed since the compile) writes
+leaves the commit naming its plan.
+
+**The trailer.** git prints the `Gsd-Task:` trailer values unfolded on the header line, before the subject, so a value
+never starts a line of its own and a unit separator in a subject stays in the subject. The values are trimmed, blank
+ones dropped and repeats counted once. One value of the form `<plan>/<task>` (each side ASCII letters, digits, `.`, `_`
+and `-`) is resolved as a task over the graph, as written or with the `project_code` prefix stripped from its plan.
+Two different values, or one of another form, is unreadable (as upstream's `ship.md:335` counts a doubled
+`gate-status:` as missing). An unreadable trailer, or one that names no task, falls back to the subject, and the plan's
+title notes `(trailer of <12 hex> names no task: <value or "unreadable">)`. A revert names no task, even with a trailer.
+GSD's executor writes no trailer yet: S1 adds it to `gsd-executor.md`'s commit step (`gsd/core/assets/**`).
+
+A plan op refused `stale_revision` (the plan's file changed since the compile) writes
 nothing, and the next run records the same commits. Merges are read for their parents and never recorded.
 
 Schema drift reads the subjects, and a milestone's `stats.loc` the line counts. `/gsd-undo` reads the commits of a plan or a

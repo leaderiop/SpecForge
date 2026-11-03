@@ -42,6 +42,7 @@ fn a_commit_naming_a_plan_is_written_into_its_plan_file() {
     assert_eq!(fields["hash"], hash.as_str(), "{fields}");
     assert_eq!(fields["task"], "v1.0/01/01-01/T1", "{fields}");
     assert_eq!(fields["plan"], "v1.0/01/01-01", "{fields}");
+    assert_eq!(fields["linked_by"], "title", "{fields}");
     assert_eq!(fields["type"], "feat", "{fields}");
     assert_eq!(fields["subject"], "feat(01-01): Store module", "{fields}");
     assert_eq!(fields["files"], serde_json::json!(["src/a.js"]), "{fields}");
@@ -61,7 +62,7 @@ fn a_commit_naming_a_plan_is_written_into_its_plan_file() {
     let ledger = p.read("specforge-harness");
     assert_eq!(
         ledger.lines().filter(|l| l.starts_with(name)).count(),
-        11,
+        12,
         "{ledger}"
     );
     p.passing_tests();
@@ -250,11 +251,99 @@ fn a_repository_without_commits_is_e045() {
     }
 }
 
+/// 04-D2: a plain `collect --yes` in a repository with a commit runs gsd-git, as a GSD project's own collect does.
+#[test]
+fn a_plain_collect_in_a_repository_records_the_commits() {
+    let p = repository();
+    let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let run = p.run(&["collect", "--yes", "--format", "json"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+}
+
+/// gsd-git's runner result in a `collect --format json` answer.
+fn gsd_git(run: &Run) -> serde_json::Value {
+    let answer: serde_json::Value =
+        serde_json::from_str(&run.stdout).unwrap_or_else(|e| panic!("JSON ({e}): {}", run.all()));
+    answer["runners"]
+        .as_array()
+        .and_then(|runners| runners.iter().find(|r| r["name"] == "gsd-git"))
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// 04-U2: a repository with no commit yet has no branch ref, so gsd-git is not detected (and `git log` would fail).
+#[test]
+fn a_plain_collect_in_an_unborn_repository_does_not_run_gsd_git() {
+    let p = project("execute");
+    p.init_repository();
+    let run = p.run(&["collect", "--yes", "--format", "json"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("E058"), "{}", run.all());
+    assert!(recorded(&p).is_empty());
+}
+
+/// Detected, gsd-git with no capture of an earlier run is skipped, not E045 (ADR 0331).
+#[test]
+fn a_plain_collect_without_a_run_skips_gsd_git() {
+    let p = repository();
+    p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let run = p.run(&["collect", "--no-run", "--yes", "--format", "json"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let git = gsd_git(&run);
+    assert!(git["skip_reason"].is_string(), "{}", run.all());
+    assert!(recorded(&p).is_empty());
+    // The human output says so under the runner.
+    let human = p.run(&["collect", "--no-run", "--yes"]);
+    assert_eq!(human.code, 0, "{}", human.all());
+    assert!(
+        human.stdout.contains("gsd-git: skipped: "),
+        "{}",
+        human.all()
+    );
+}
+
+/// Detected, gsd-git whose `git` cannot start is skipped, not E045.
+#[cfg(unix)]
+#[test]
+fn a_plain_collect_without_git_on_path_skips_gsd_git() {
+    let p = repository();
+    p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let empty = tempfile::tempdir().expect("an empty directory");
+    let path = empty.path().to_str().expect("a UTF-8 path");
+    let run = p.run_with(&["collect", "--yes", "--format", "json"], &[("PATH", path)]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(gsd_git(&run)["skip_reason"].is_string(), "{}", run.all());
+    assert!(recorded(&p).is_empty());
+}
+
+/// 04-D3: the executor's `Gsd-Task:` trailer names the task of a commit whose subject names no plan.
+#[test]
+fn a_trailer_names_the_task_of_a_commit_without_a_scope() {
+    let p = repository();
+    let hash = p.git_commit(
+        "chore: wire it\n\nGsd-Task: 01-01/T1\n",
+        &[("src/w.js", "w\n")],
+        T0,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+    let fields = p.fields_of(&hash[..12]);
+    assert_eq!(fields["task"], "v1.0/01/01-01/T1", "{fields}");
+    assert_eq!(fields["plan"], "v1.0/01/01-01", "{fields}");
+    assert_eq!(fields["linked_by"], "Gsd-Task", "{fields}");
+}
+
 const TRUTH: &str = "v1.0/01/01-01/TR1";
 const DELIVERABLE: &str = "v1.0/01/01-01/01-01-SUMMARY/D1";
 
-/// The report the collectors wrote, as `{entity: [(test name, status)]}`.
+/// The report the collectors wrote, as `{entity: [(test name, status)]}`; empty when none was written (a collect
+/// that records no test writes none).
 fn report(p: &Project) -> std::collections::BTreeMap<String, Vec<(String, String)>> {
+    if !p.exists("specforge-report.json") {
+        return Default::default();
+    }
     let report: serde_json::Value =
         serde_json::from_str(&p.read("specforge-report.json")).expect("a JSON report");
     report["results"]

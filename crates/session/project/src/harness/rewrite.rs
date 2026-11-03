@@ -31,18 +31,22 @@ pub struct LedgerChange {
     pub set: Vec<(String, String)>,
     /// The entities the write moves: `(old path, new path)`, each with the entities under it.
     pub moves: Vec<(String, String)>,
+    /// The fact stores a collect records (ADR 0327): each replaces every `facts:` line of its collector.
+    pub facts: Vec<Line>,
 }
 
 impl Ledger {
     /// The ledger after a write that took the project from `before` to `after`:
     ///
-    /// 1. a value `change` sets has exactly one line, with its new digest;
+    /// 1. a value `change` sets has exactly one line, with its new digest, and a fact store it records replaces every
+    ///    `facts:` line of its collector;
     /// 2. a move re-keys every line of the entity and of those under it that matched its value before, adds the
     ///    record `new moved:old`, and carries an existing record `old moved:x` to `new moved:x`;
     /// 3. a value the write respelled (a reference whose target moved) is re-recorded when it matched before, so a
     ///    value recorded before the write stays recorded after it;
     /// 4. a line whose entity or field is gone in `after` is dropped, unless the project has a source that did not
-    ///    parse; a move record is dropped only when its new entity is gone;
+    ///    parse; a move record is dropped only when its new entity is gone, and a `facts:` line when no loaded
+    ///    extension declares its collector;
     /// 5. a key with a line that matches keeps only that line;
     /// 6. the lines are sorted and unique.
     pub fn rewritten(&self, before: &View, after: &View, change: &LedgerChange) -> Ledger {
@@ -62,7 +66,7 @@ impl Ledger {
         };
         let mut lines: Vec<Line> = Vec::new();
         for line in self.lines() {
-            let path = relocate(&line.path);
+            let path = relocate(&line.subject);
             if let Some(from) = line.moved_from() {
                 // `old moved:x` is now `new moved:x`.
                 lines.push(Line::moved(&path, from));
@@ -70,12 +74,12 @@ impl Ledger {
                 lines.push(line.clone());
             } else {
                 let matched = before
-                    .value(&line.path, &line.key)
-                    .is_some_and(|v| digest(&line.path, &line.key, &v) == line.digest);
+                    .value(&line.subject, &line.key)
+                    .is_some_and(|v| digest(&line.subject, &line.key, &v) == line.digest);
                 match (matched, after.value(&path, &line.key)) {
                     (true, Some(v)) => lines.push(Line {
                         digest: digest(&path, &line.key, &v),
-                        path,
+                        subject: path,
                         key: line.key.clone(),
                     }),
                     // Not recorded before, or no longer written: the line stands as it was.
@@ -83,14 +87,18 @@ impl Ledger {
                 }
             }
         }
+        for store in &change.facts {
+            lines.retain(|l| !(l.subject == store.subject && l.facts_of().is_some()));
+            lines.push(store.clone());
+        }
         for (old, new) in &change.moves {
             lines.push(Line::moved(new, old));
         }
         for (path, field) in &change.set {
-            lines.retain(|l| !(l.path == *path && l.key == *field));
+            lines.retain(|l| !(l.subject == *path && l.key == *field));
             if let Some(value) = after.value(path, field) {
                 lines.push(Line {
-                    path: path.clone(),
+                    subject: path.clone(),
                     key: field.clone(),
                     digest: digest(path, field, &value),
                 });
@@ -101,17 +109,20 @@ impl Ledger {
             if after.keeps_gone {
                 return true;
             }
+            if let Some((collector, _)) = l.facts_of() {
+                return after.harness.has_collector(collector);
+            }
             match l.moved_from() {
-                Some(_) => after.graph.node(&l.path).is_some(),
+                Some(_) => after.graph.node(&l.subject).is_some(),
                 None if !l.is_value() => true,
-                None => after.value(&l.path, &l.key).is_some(),
+                None => after.value(&l.subject, &l.key).is_some(),
             }
         });
         // A key with a matching line keeps only that line.
         let mut by_key: BTreeMap<(String, String), Vec<Line>> = BTreeMap::new();
         for line in lines {
             by_key
-                .entry((line.path.clone(), line.key.clone()))
+                .entry((line.subject.clone(), line.key.clone()))
                 .or_default()
                 .push(line);
         }
@@ -149,7 +160,7 @@ mod tests {
         let key = ["a", "b", "moved:v1.0/09"][usize::from(key % 3)].to_string();
         Line {
             digest: digest(&path, &key, &[seed % 3]),
-            path,
+            subject: path,
             key,
         }
     }
@@ -236,10 +247,10 @@ mod tests {
 
     #[test]
     fn a_move_rekeys_the_lines_under_it_and_records_the_move() {
-        let harness = Harness(
-            BTreeMap::from([("uat".to_string(), BTreeSet::from(["result".to_string()]))]),
-            false,
-        );
+        let harness = Harness {
+            fields: BTreeMap::from([("uat".to_string(), BTreeSet::from(["result".to_string()]))]),
+            ..Default::default()
+        };
         let forms = forms();
         let (before, after) = (graph(&source("03", "pass")), graph(&source("04", "pass")));
         let view = |graph| View {
@@ -251,13 +262,13 @@ mod tests {
         let mut ledger = Ledger::default();
         let recorded = digest("v1.0/03/U1", "result", b"\"pass\"");
         ledger.insert(Line {
-            path: "v1.0/03/U1".into(),
+            subject: "v1.0/03/U1".into(),
             key: "result".into(),
             digest: recorded,
         });
         let change = LedgerChange {
-            set: Vec::new(),
             moves: vec![("v1.0/03".into(), "v1.0/04".into())],
+            ..Default::default()
         };
         let after_ledger = ledger.rewritten(&view(&before), &view(&after), &change);
         assert!(after_ledger.records(
@@ -290,7 +301,10 @@ mod tests {
     )]
     fn a_verdict_is_recorded_rekeyed_and_dropped_with_its_entity() {
         let forms = FieldForms::default();
-        let harness = Harness(BTreeMap::new(), true);
+        let harness = Harness {
+            judged: true,
+            ..Default::default()
+        };
         let view = |graph| View {
             graph,
             forms: &forms,
@@ -301,7 +315,7 @@ mod tests {
         let key = "verdict:gsd/W311";
         let change = LedgerChange {
             set: vec![("P".into(), key.into())],
-            moves: Vec::new(),
+            ..Default::default()
         };
         let recorded = Ledger::default().rewritten(&view(&empty), &view(&with), &change);
         let value = harness
@@ -311,8 +325,8 @@ mod tests {
         // A write that does not touch it keeps it; a move re-keys it with the entity.
         let renamed = verdict_graph(&PLAN.replace("plan P \"P\"", "plan Q \"P\""));
         let moved = LedgerChange {
-            set: Vec::new(),
             moves: vec![("P".into(), "Q".into())],
+            ..Default::default()
         };
         let after = recorded.rewritten(&view(&with), &view(&renamed), &moved);
         let value = harness.value(&renamed, &forms, "Q", key).unwrap();
@@ -324,5 +338,75 @@ mod tests {
         // Delete the entity: the line goes with it.
         let gone = recorded.rewritten(&view(&with), &view(&empty), &LedgerChange::default());
         assert!(gone.lines().all(|l| l.key != key), "{}", gone.canonical());
+    }
+
+    /// A view of an empty project whose loaded extensions declare the collectors `collectors`.
+    fn facts_view<'a>(
+        graph: &'a specforge_graph::Graph,
+        forms: &'a FieldForms,
+        harness: &'a Harness,
+    ) -> View<'a> {
+        View {
+            graph,
+            forms,
+            harness,
+            keeps_gone: false,
+        }
+    }
+
+    fn collecting(collectors: &[&str]) -> Harness {
+        Harness {
+            collected: true,
+            collectors: collectors.iter().map(|c| c.to_string()).collect(),
+            ..Default::default()
+        }
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "collect_harness_ledger",
+        verify = "a collect records one facts line per collector, replacing its last"
+    )]
+    fn a_facts_change_replaces_the_collectors_line() {
+        let (graph, forms, harness) = (
+            verdict_graph(""),
+            FieldForms::default(),
+            collecting(&["node", "cargo"]),
+        );
+        let view = facts_view(&graph, &forms, &harness);
+        let mut ledger = Ledger::default();
+        // A union merge left two lines of `node`; `cargo` has its own.
+        ledger.insert(Line::facts("node", "a1", b"1"));
+        ledger.insert(Line::facts("node", "b2-dirty", b"2"));
+        ledger.insert(Line::facts("cargo", "a1", b"3"));
+        let line = Line::facts("node", "c3", b"4");
+        let change = LedgerChange {
+            facts: vec![line.clone()],
+            ..Default::default()
+        };
+
+        let after = ledger.rewritten(&view, &view, &change);
+
+        let lines: Vec<&Line> = after.lines().collect();
+        assert_eq!(lines.len(), 2, "{}", after.canonical());
+        assert!(after.records("node", "facts:c3", &line.digest));
+        assert!(lines.iter().any(|l| l.facts_of() == Some(("cargo", "a1"))));
+    }
+
+    #[test]
+    fn a_rewrite_drops_a_facts_line_of_a_collector_no_extension_declares() {
+        let (graph, forms, harness) = (
+            verdict_graph(""),
+            FieldForms::default(),
+            collecting(&["node"]),
+        );
+        let view = facts_view(&graph, &forms, &harness);
+        let mut ledger = Ledger::default();
+        ledger.insert(Line::facts("node", "a1", b"1"));
+        ledger.insert(Line::facts("gone", "a1", b"2"));
+
+        let after = ledger.rewritten(&view, &view, &LedgerChange::default());
+
+        let kept: Vec<_> = after.lines().filter_map(Line::facts_of).collect();
+        assert_eq!(kept, [("node", "a1")]);
     }
 }

@@ -88,6 +88,7 @@ fn record_environment(l: &Layout, ledger: &mut Ledger, input: &Path) {
     run.finish(Recording::Environment {
         root: &l.root,
         config: &ProjectConfig::default(),
+        facts: false,
     });
 }
 

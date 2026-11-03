@@ -3,6 +3,7 @@
 //! order (ADR 0031). No test names a check.
 
 mod candidates;
+mod collected;
 mod fields;
 mod identifiers;
 mod kinds;

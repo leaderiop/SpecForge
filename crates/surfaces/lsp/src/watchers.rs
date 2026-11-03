@@ -2,7 +2,9 @@
 //! didChangeWatchedFiles`), derived from the project session's inputs: every
 //! file the project is built from (`lsp_extension_reload_consistency`) and
 //! every directory created or deleted under its root (`Watched::Directories`),
-//! which a client does not report for a file glob when a parent folder moves.
+//! which a client does not report for a file glob when a parent folder moves. When a collector-written kind is
+//! loaded, that includes the fact stores (`.specforge/facts/` and each key directory in it, as listings) and the
+//! harness ledger they are served by (ADR 0327 D9).
 //! What a reported change means is the session's to say
 //! (`ProjectSession::changes`); this only makes sure the client reports it.
 

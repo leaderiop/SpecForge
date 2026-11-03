@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.14.0" }
+{ "host_version": "1.15.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.14.0",
+  "protocol_version": "1.15.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -84,7 +84,7 @@ Peer dependencies are SemVer ranges read as Cargo reads them; one rule judges th
 
 What an extension contributes is what it declares in the describe categories; nothing on the handshake says it (ADR 0050).
 
-The host checks `protocol_version`: a major version other than its own fails the extension's load (E028), and so does a newer minor of its major (E088, see Protocol Versions); its handshake's `sandbox_policy` limits every later call into it (see Sandbox).
+The host checks `protocol_version`: a major version other than its own fails the extension's load (E088, saying which side is behind), and so does a newer minor of its major (E088, see Protocol Versions); one that is not semver fails the handshake (E028); its handshake's `sandbox_policy` limits every later call into it (see Sandbox).
 
 ### Describe
 
@@ -131,6 +131,7 @@ The host reads every string and object key of a handshake or describe answer pri
 | `feature_flags` | Feature flag descriptors, each read as a bool setting (below) | Always |
 | `codes` | The extension's diagnostic code catalog (protocol 1.7.0) | Always, from a guest of 1.7 or later |
 | `settings` | Typed settings, presets and secrets (protocol 1.8.0) | Always, from a guest of 1.8 or later |
+| `routes` | The routes `specforge trace` follows from a kind (protocol 1.15.0) | Always, from a guest of 1.15 or later |
 
 ### Category: entities
 
@@ -203,6 +204,22 @@ array of strings; `enum_list` a list of its `enum_values` (a word twice is E061)
 
 A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them); and `file_base`, `spec` (the default) or `project`, where a `file_reference` field's relative paths start. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
 A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored. A field, a block member or a kind of 1.9.0 may declare `writer: "human"` (ADR 0289): only a person writes it, and an extension's plan, the MCP tools and a non-interactive CLI are refused `human_only`; a `required` field of a kind that is not human-only is W021, since an agent could then create no entity. A set, unset or link of an existing human-only entity is refused the same way, and so is an agent's delete of an entity holding a value a person wrote (a human-only field, or a block member declared human); computed and harness values are not checked on delete (ADR 0298).
+
+**A collector-written kind (ADR 0327, 1.15.0).** A kind may declare `writer: "collector"` and `schemes`, the
+prefixes of its ids (`"schemes": ["js"]` for ids such as `js:pkg/a.test.js#name`): its entities are a collector's
+`facts`, never written in a `.spec` file (E115), and the kernel names no such kind. A kind's writer other than
+`human` or `collector`, `schemes` on a kind no collector writes, a scheme that is no lowercase name or one a
+configured provider registers are W021 and dropped; a collected kind left with no scheme is W021 too. A field that
+declares `writer: "collector"` is W021 and loses its writer: a collector writes whole entities.
+A collector-written kind may also name `result`, the `enum` field holding a fact's result, its values test statuses
+(`passed`, `failed`, `skipped`; ADR 0329 D3): what a reader of a reference to the fact takes as the fact's own result
+(`@code/core`'s `test` names `status`). On a kind no collector writes, naming a field the kind does not declare or one
+that is no `enum`, or an enum with another value, it is W021 and dropped.
+
+**When a kind's entities are complete (ADR 0329 D4, 1.15.0).** A kind may declare `complete_when`, `{"field",
+"values"}`: its entities are complete while `field` holds one of `values`, and pending otherwise, unwritten included. A
+`field` that is no `enum` field of the kind, or a value outside its `enum_values`, is W021 and the declaration is
+dropped. A pass reads it as `PassEntity.pending` (below).
 
 How a value is written in `.spec` follows the type (ADR 0147): `enum`, `identifier`, `reference` and each `reference_list`
 item bare; `string` and each `string_list` item quoted. `specforge format` writes it and `check` warns W159 on the other form. A command's
@@ -597,7 +614,8 @@ the absolute report path, also exported as `SPECFORGE_REPORT`), where the
 report lands (`report`, a file or directory inside the project; default
 `.specforge/reports/<name>.json`), whether the host also keeps the command's
 standard output (`capture: "stdout"`, for runners whose results only appear
-there), and the pure export that maps the report to entities.
+there), the project files it reads (`reads`, as a pass's: see "File reads" under
+the passes category; ports plan 00 R1-b), and the pure export that maps the report to entities.
 
 ```json
 {
@@ -617,7 +635,8 @@ there), and the pure export that maps the report to entities.
 ```
 
 The host calls the export with a `CollectInput`, `{"reports": [{"path",
-"content"}], "stdout"?}` (`stdout` only when the collector captures it), and
+"content"}], "stdout"?, "files"?}` (`stdout` only when the collector captures it; `files`, the facts of the files
+it `reads`, by read name, read after the run from the plain disk and absent when it declares none), and
 reads a `CollectOutput`, `{"entity_results": [{"entity_id", "test_results":
 [{"name", "status", "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name",
 "path", "status"}]}` (each test a `TestResult`), with `status` a `TestStatus`:
@@ -631,6 +650,23 @@ test's name split into segments, its own name last); the host links them by
 naming convention when it can (`entity_id__obligation_slug`, or a module
 named after an entity).
 
+A collector of 1.15.0 may also answer `facts` (ADR 0327), the entities it observed, each of a kind its extension
+declares `writer: "collector"`, with an id under one of the kind's `schemes`:
+
+```json
+{ "entity_results": [],
+  "facts": [{ "kind": "test", "id": "js:pkg/a.test.js#adds", "title": "adds",
+              "fields": { "file": "pkg/a.test.js", "status": "passed" } }] }
+```
+
+`facts` is absent when it observed none. `cwd`, the project root, is in every collector's input from 1.15.0 on (a
+writing collector's only before), so a collector can name a file by its path from the root. The host stores the
+facts in `.specforge/facts/<key>/<collector>.json` under HEAD's sha (`<sha>-dirty` for a dirty tree, `worktree` with
+no commit: I209) and records their digest in `specforge-harness` (`<collector> facts:<key> <digest>`, one line per
+collector); a fact of a kind no loaded extension declares a collector writes, or an id in none of its kind's
+`schemes`, is E116 and none of that collector's facts is stored. An answer with facts and no test results writes no
+`specforge-report.json`.
+
 ### Category: passes
 
 Returns compiler pass descriptors. Each pass declares ordering constraints relative to the built-in resolve phase and other passes.
@@ -639,7 +675,7 @@ Returns compiler pass descriptors. Each pass declares ordering constraints relat
 graph checks, and its diagnostics join the compile's (`specforge check`,
 watch, the LSP, MCP). Passes with any other phase, or none, run only under
 `specforge analyze`. The `__pass_<name>` export receives a `PassInput`
-(`{"entities", "edges", "test_results"?, "proved_claims"?, "previous"?, "files"?}`;
+(`{"entities", "edges", "test_results"?, "proved_claims"?, "previous"?, "files"?, "fact_stores"?}`;
 `test_results` is the recorded test report as `TestResults`, `{"runner"?,
 "results": {"<id>": {"tests": [TestResult]}}}`, sent to an analyze pass and, since 1.11.0, to a check, compute or guard
 pass that declares `reads_tests: true` (ADR 0293: with no report recorded the host reports I205 once, with one that
@@ -655,9 +691,18 @@ neither). An entity's `id`, and an edge's `source` and `target`, are entity path
 entity (ADR 0284). A pass answers host diagnostics, bare or as
 `{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
-A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface, the `graph` a command, a prompt, a hook or a writing collector receives included (as `fields`, with the judgements beside them; ADR 0299, no protocol change); a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
+`fact_stores` (1.15.0, ADR 0327) lists the fact stores the session served, one `FactStore` `{"collector", "key",
+"schemes", "facts"}` per store file, by its path: the collector and the key it is filed under, the schemes its facts'
+ids are in and how many it holds; it is absent when none was served (no collector-written kind is loaded, no store is
+recorded in `specforge-harness`, or none is on disk: a fresh clone). A pass reads it to tell a reference no fact holds
+from one no store was served for. A `PassEntity` carries `unheld` (1.15.0, ADR 0327 D6), each reference it writes in
+a fact scheme that names no fact, `{"field", "id", "span"}` (`span`, where it is written, inside its quotes, from
+ADR 0329 on): no edge and no core diagnostic, absent when there is none; a pass decides what an unheld reference
+means. A `PassEntity` carries `pending: true` (1.15.0, ADR 0329 D4) while its owner is not complete: its kind's
+`complete_when` does not hold, or, when its kind declares none, the nearest scope ancestor's whose kind declares one
+does not; it is absent otherwise, and decided on the snapshot the passes read, computed values included. A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface, the `graph` a command, a prompt, a hook or a writing collector receives included (as `fields`, with the judgements beside them; ADR 0299, no protocol change); a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
 
-**File reads (1.11.0, ADR 0293).** A pass or a command may declare `reads`, a list of `{"name", "field"?, "glob"?,
+**File reads (1.11.0, ADR 0293).** A pass, a command or a collector may declare `reads`, a list of `{"name", "field"?, "glob"?,
 "base"?, "text"?}`: the project files it wants the host to read, because a guest has no file system. Exactly one of
 `field` (`kind.field` or `kind.field.member`: the paths the entities of that kind write there, read as `file_exists`
 reads them) or `glob` (project-relative, `/`-separated; `*`, `?` and a `**` segment, at most four of them; never `..` or an absolute path).
@@ -769,6 +814,52 @@ Returns the extension's diagnostic code catalog (protocol 1.7.0, ADR 0286): one 
 ```
 
 SDK: `c.code("E901", |d| { d.title(..).explanation(..).docs(..); })`.
+
+### Category: routes
+
+Returns the routes `specforge trace` follows (protocol 1.15.0, ADR 0330). A route starts at an entity of its `start`
+kind and goes through ordered `steps`; `trace` prints the thread it finds instead of the generic reach.
+
+```json
+{
+  "category": "routes",
+  "items": [
+    {
+      "name": "requirement-thread",
+      "description": "A requirement's thread: its plans, tasks, commits, tests and truths",
+      "start": "requirement",
+      "steps": [
+        {"name": "plan", "via": "<plan.requirements", "label": "plan"},
+        {"name": "task", "via": "<task.plan"},
+        {"name": "commit", "via": "<commit.task", "annotations": [{"field": "linked_by"}]},
+        {"name": "test", "from": "start", "via": "<truth.requirement.proof",
+         "annotations": [{"field": "status", "of": "<test_run.test", "absent": "not run"}]},
+        {"name": "truth", "from": "start", "via": "<truth.requirement", "annotations": [{"judgement": "E901"}]}
+      ]
+    }
+  ]
+}
+```
+
+- `name` is kebab case, unique among the extension's routes; the host qualifies it by the extension's short name
+  (`gsd/requirement-thread`). `default: true` marks the route followed when several start at one kind.
+- A step's `name` is a word, unique in the route and never `start`. `from` is `start` or an earlier step's name;
+  absent, the previous step (the start for the first). `via` is selector steps, the judged rules' grammar without a
+  head (`<kind.field` reads the entities of `kind` whose `field` names it, `.field` the entities its `field` names;
+  several hops in one step are allowed). Each entity of `from` gives its matches, in id order.
+- `label` is the word printed before each match's name (`plan 01-01`).
+- An annotation (on the route, for the start, or on a step) has exactly one of `field` and `judgement`, and an optional
+  `absent` printed when there is nothing to print. `field` is a field (or `block.member`) of the entity, or of the
+  entities `of` (selector steps) picks from it; `judgement` is a judged rule's code, the extension's own (`E901`) or
+  qualified (`gsd/E901`), printed as its outcome and freshness (`verified, fresh`).
+
+The host checks each route once, when the extension loads, against every loaded kind, field and judged rule. A
+route that cannot be followed (a kind or field it names is not loaded or declared, a `via` crosses a field that is not
+a reference or is computed or written by a verdict, an annotation reads a field a reached kind lacks or a judgement no
+judged rule makes on it) is E118, and is not registered. A start, step or annotation that reaches a kind of an optional
+peer the project does not load is skipped without a diagnostic at load (a step skipped takes the steps that go on from it); a trace that follows the route says so, an I210 notice beside it. Several routes from one kind with not exactly one `default` is W195; the first in load order is followed.
+
+SDK: `c.route("requirement-thread", |r| { r.start("requirement").step("plan", "<plan.requirements", |s| { s.label("plan"); }); })`.
 
 ## Operate
 
@@ -946,15 +1037,17 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.12.0` | the same as `1.0.0` |
 | `1.13.0` | the same as `1.0.0` |
 | `1.14.0` | the same as `1.0.0` |
+| `1.15.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
 The protocol version is semver (`specforge_protocol_types::PROTOCOL_VERSION`). The host loads every
 guest of its major version built for its own minor or an older one, and sends its own version as
-`host_version` in every handshake request. A guest of a newer minor is refused with E088, naming the
-extension and both versions (ADR 0326): it may declare what this host would drop, so it needs a
-specforge at least as new. `specforge --version` names the protocol a binary speaks
-(`specforge 0.3.0 (9229143f5, protocol 1.14.0)`). A guest built with the SDK declares the SDK's version in
+`host_version` in every handshake request. A guest of a newer minor, or of a newer major, is refused with E088,
+naming the extension and both versions (ADR 0326): it may declare what this host would drop, so it needs a
+specforge at least as new. A guest of an older major is E088 too, with the remedy to install or rebuild it for the
+host's major (ADR 0326 D1b). `specforge --version` names the protocol a binary speaks
+(`specforge 0.3.0 (9229143f5, protocol 1.15.0)`). A guest built with the SDK declares the SDK's version in
 its handshake and its registry manifest.
 
 The minor moves when a payload changes in a way every older guest survives: a field added, removed or
@@ -978,9 +1071,11 @@ or answered.
 | `1.12.0` | A command may declare `human` (ADR 0301): the host runs it only for a person at a terminal. A setting may declare `gates_when_on` and be of type `number` (ADR 0305). A judgement a pass is sent carries `cited_tests`, the tests its verdict cites (ADR 0304). A 1.11 host ignores `human`, `gates_when_on` and `cited_tests`, and drops a `number` setting (W019). |
 | `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and refuses the `surfaces` declaration of a guest that writes a `when` list (a 1.12 `when` is one string, and a list fails the whole category: `DescribeFailed`), so such a guest needs a 1.13.0 host; a `when` of one name is still a string. |
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
+| `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). An extension may declare `routes`, the steps `specforge trace` follows from a kind (ADR 0330). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's; a guest older than 1.15 is not asked for `routes`. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
-`1.0.x` refuses a `1.1.0` guest (E088). A newer patch of the host's minor loads.
+`1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the
+host's minor loads.
 
 ### Sandbox
 
@@ -994,6 +1089,10 @@ project is refused). No other declaration grants more access (ADR 0037, ADR 0293
 the user's terminal either: the host reads a handshake, describe, pass or validator answer, and a
 call's failure text, printable where it reads them (ADR 0244); a command's output and an MCP tool's
 or resource's answer are the extension's own and are written as answered.
+
+**Imports.** A guest imports only `wasi:*` and the `specforge:host` interfaces its host provides (none at 1.x). The host
+checks this before it instantiates the component (ADR 0326 D1a): an unknown `specforge:host` port is E088, naming the
+port, its version and the host's protocol, and an interface that is neither is E028 naming it.
 
 The handshake's `sandbox_policy` declares limits, which the host enforces on every call:
 

@@ -9,6 +9,7 @@
 [ADR 0198](0198-a-typed-edit-is-judged-by-the-graph-change-it-makes.md). Leaves
 [ADR 0037](0037-the-sandbox-is-limits-the-host-enforces.md) D1 standing: a component is still granted no capability.
 Takes extension protocol 1.9.0. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (`set_verdict` is checked through the host's judged rules). Amended by [ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) (a writing collector's plan is judged against the report its collect wrote). Amended by [ADR 0298](0298-an-agent-does-not-change-or-delete-what-a-person-wrote.md) (D7: an existing human-only entity is not edited, nor a person's value deleted). Extended by [ADR 0301](0301-a-human-attested-command-runs-only-for-a-person-at-a-terminal.md) (a human-attested command runs only for a person at a terminal). Extended by [ADR 0311](0311-a-plan-ops-scalar-is-read-by-its-fields-type.md) (a scalar plan op is read by its field's type).
+Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (D4: gsd-git reads the `Gsd-Task:` trailer before the title and records `commit.linked_by`).
 
 ## Context
 

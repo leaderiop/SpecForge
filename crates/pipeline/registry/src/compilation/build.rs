@@ -25,7 +25,7 @@ use super::sides;
 use super::validate::validate_extension_testability;
 use crate::rules::{CustomVerdicts, Registries, Rules};
 use crate::{
-    CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, SettingsRegistry,
+    CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, RouteRegistry, SettingsRegistry,
     refuse_malformed_tool_schemas, register_surface_contributions,
 };
 
@@ -159,9 +159,8 @@ pub struct RegistryBuild {
     pub(crate) fields: FieldRegistry,
     /// Every field's form and the kinds that take any field, derived once.
     field_forms: FieldForms,
-    /// What every graph built in this build reads of its declarations (ADR 0032, ADR 0123):
-    /// derived by `build_registries` and again by `with_candidates`, so it always names the
-    /// owners the build's vocabulary knows.
+    /// What every graph built in this build reads of its declarations (ADR 0032, ADR 0123),
+    /// naming the owners the build's vocabulary knows.
     graph_inputs: GraphInputs,
     pub(crate) edges: EdgeRegistry,
     /// The rule set: the extensions' rules (checked and resolved against
@@ -173,6 +172,8 @@ pub struct RegistryBuild {
     codes: Codebook,
     /// What the extensions declare as settings, presets and secrets, checked (ADR 0288).
     settings: SettingsRegistry,
+    /// The routes `specforge trace` follows, checked against the registries and the judged rules (ADR 0330).
+    routes: RouteRegistry,
     /// The extensions' commands as the CLI and MCP route them; a shadowed
     /// one is E039 (ADR 0097).
     pub(crate) commands: CommandRoutes,
@@ -184,19 +185,61 @@ pub struct RegistryBuild {
     /// order, extension by extension within each.
     declaration_diagnostics: Vec<Reported>,
     /// Populate (E026, W018, W019, W021, I004, then the edge types' W021),
-    /// W017, the rule set's (W150, W147 or W112 per declared rule), then
+    /// W017, the rule set's (W150, W147 or W112 per declared rule), then the routes' E118 and W195, then
     /// E039 for a shared code namespace, then the settings' W019 and W021 — in that order.
     registry_diagnostics: Vec<Reported>,
     /// The custom rules' probes (W112), set by [`Self::probe`]; empty until then.
     probe_diagnostics: Vec<Diagnostic>,
     /// Refused MCP tools (E055) and surface conflicts (E039).
     surface_diagnostics: Vec<Reported>,
-    /// The extensions the host could enable, for the checks' suggestions only (ADR 0122), set by
-    /// [`Self::with_candidates`]; empty until then.
+    /// The extensions the host could enable (ADR 0122), as [`build_registries_with`] was handed
+    /// them: the checks' suggestions, and which kinds are an unloaded optional peer's.
     pub(crate) candidates: CandidateVocabulary,
 }
 
 impl RegistryBuild {
+    /// Drop from each collected kind (ADR 0327) a scheme a configured provider registers (`gh`, `jira`): a fact id
+    /// in it would read as that provider's `ref`. Each is W021, and a kind left with no scheme is W021 too.
+    pub fn refuse_provider_schemes(&mut self, providers: &HashSet<String>) {
+        let mut kinds: Vec<&mut crate::KindRegistryEntry> = self
+            .kinds
+            .iter_mut()
+            .filter(|entry| entry.is_collected())
+            .collect();
+        kinds.sort_by(|a, b| a.kind_name.cmp(&b.kind_name));
+        for entry in kinds {
+            let refuse = |what: String| {
+                Reported::new(
+                    BuildPart::Registries,
+                    Diagnostic::new(
+                        specforge_common::codes::W021,
+                        format!(
+                            "extension '{}': kind '{}' {what}",
+                            entry.source_extension, entry.kind_name
+                        ),
+                    ),
+                )
+            };
+            let mut refused = Vec::new();
+            entry.declared.schemes.retain(|scheme| {
+                let theirs = providers.contains(scheme);
+                if theirs {
+                    refused.push(refuse(format!(
+                        "declares the scheme '{scheme}', which a configured provider registers: its facts would \
+                         read as that provider's references"
+                    )));
+                }
+                !theirs
+            });
+            if !refused.is_empty() && entry.declared.schemes.is_empty() {
+                refused.push(refuse(crate::registries::no_scheme()));
+            }
+            self.registry_diagnostics.extend(refused);
+        }
+        // The graph reads the schemes kept.
+        self.graph_inputs = self.derived_graph_inputs();
+    }
+
     /// The kinds the declarations register, each under its keyword (first
     /// in load order wins, E026).
     pub fn kinds(&self) -> &KindRegistry {
@@ -249,6 +292,11 @@ impl RegistryBuild {
         &self.settings
     }
 
+    /// The routes `specforge trace` follows, and the one followed from each kind (ADR 0330).
+    pub fn routes(&self) -> &RouteRegistry {
+        &self.routes
+    }
+
     /// Every declared pass with its extension, in order (both phases).
     pub fn passes(&self) -> &[DeclaredPass] {
         &self.passes
@@ -299,17 +347,6 @@ impl RegistryBuild {
         graph_inputs::derive(&self.kinds, &self.fields, &self.field_forms, |kind| {
             self.candidates().kind_owner(kind).map(str::to_string)
         })
-    }
-
-    /// The build, suggesting from `candidates` (ADR 0122), its graph inputs derived again from
-    /// them (they name the owner of an absent kind). Nothing else `build_registries` derives
-    /// depends on it, and it changes no diagnostic but their suggestions. The session applies the
-    /// builtins' with the build; a build never handed one suggests `specforge search`.
-    #[must_use]
-    pub fn with_candidates(mut self, candidates: CandidateVocabulary) -> Self {
-        self.candidates = candidates;
-        self.graph_inputs = self.derived_graph_inputs();
-        self
     }
 
     /// What the checks' suggestions read: the extensions the host could enable, by kind keyword
@@ -408,7 +445,20 @@ impl RegistryBuild {
 
 /// Build every registry and derived input from the loaded declarations, given in entry order:
 /// the build puts them in load order first (ADR 0041), and everything after reads that order.
+/// It knows no candidate vocabulary: its suggestions say `specforge search`, and no kind is an
+/// unloaded optional peer's ([`build_registries_with`]).
 pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuild {
+    build_registries_with(declarations, CandidateVocabulary::default())
+}
+
+/// [`build_registries`], knowing what extensions the host could enable (ADR 0122): the checks
+/// suggest the one that declares an absent kind, the graph inputs name it, and a judged chain or a
+/// route part that reaches a kind of an unloaded optional peer is inert (ADR 0331 D7). The session
+/// hands the builtins' vocabulary.
+pub fn build_registries_with(
+    declarations: Vec<ExtensionDeclaration>,
+    candidates: CandidateVocabulary,
+) -> RegistryBuild {
     let mut declarations = peers::in_load_order(declarations);
     // The declarations themselves: E030, W021, the peers' E073 and E027, then W145.
     let mut declaration_diagnostics: Vec<Reported> =
@@ -472,16 +522,17 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         BuildPart::Surfaces,
         crate::refuse_prompts(&mut declarations, &judge),
     ));
-    let (rules, rule_diagnostics) = Rules::build(
-        &declarations,
-        Registries {
-            kinds: &kinds,
-            fields: &fields,
-            edges: &edges,
-        },
-        &codes,
-    );
+    let registries = Registries {
+        kinds: &kinds,
+        fields: &fields,
+        edges: &edges,
+    };
+    let (rules, rule_diagnostics) = Rules::build(&declarations, registries, &codes, &candidates);
     registry_diagnostics.extend(about(BuildPart::Rules, rule_diagnostics));
+    // The routes read the judged rules their judgements name: E118, W195.
+    let (routes, route_diagnostics) =
+        crate::registries::build_routes(&declarations, registries, &rules, &candidates);
+    registry_diagnostics.extend(about(BuildPart::Registries, route_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
 
@@ -495,8 +546,9 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     surface_diagnostics.extend(about(BuildPart::Collision, duplicates));
 
     let field_forms = graph_inputs::field_forms(&kinds, &fields);
-    // A build handed no vocabulary owns nothing (`CandidateVocabulary::default()`).
-    let graph_inputs = graph_inputs::derive(&kinds, &fields, &field_forms, |_| None);
+    let graph_inputs = graph_inputs::derive(&kinds, &fields, &field_forms, |kind| {
+        candidates.kind_owner(kind).map(str::to_string)
+    });
     RegistryBuild {
         declarations,
         kinds,
@@ -507,12 +559,13 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         rules,
         codes,
         settings,
+        routes,
         commands,
         passes,
         declaration_diagnostics,
         registry_diagnostics,
         probe_diagnostics: Vec::new(),
         surface_diagnostics,
-        candidates: CandidateVocabulary::default(),
+        candidates,
     }
 }

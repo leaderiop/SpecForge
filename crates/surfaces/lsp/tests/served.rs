@@ -28,6 +28,8 @@ enum Runtime {
     InProcess,
     /// The project's own, as `specforge-lsp` runs them (`RuntimeSource::project()`).
     Project,
+    /// A fixture's runtime, serving the extensions named; `open` writes the config.
+    Given(Arc<InProcessRuntime>, Vec<String>),
 }
 
 pub struct Served {
@@ -108,6 +110,17 @@ impl Served {
         self
     }
 
+    /// The project in `dir` (as written), its `specforge.json` enabling `extensions`, which a fixture's `runtime`
+    /// serves.
+    pub fn served_by(dir: TempDir, runtime: InProcessRuntime, extensions: &[&str]) -> Served {
+        let names = extensions.iter().map(|n| n.to_string()).collect();
+        Served::with(
+            dir,
+            LspState::new(),
+            Runtime::Given(Arc::new(runtime), names),
+        )
+    }
+
     /// The client declared `support` at initialize.
     pub fn client(self, support: ClientSupport) -> Served {
         self.state.blocking_write().set_client(support);
@@ -156,6 +169,10 @@ impl Served {
                     RuntimeSource::Fixed(Some(runtime as SharedRuntime))
                 }
                 Runtime::Project => RuntimeSource::project(),
+                Runtime::Given(ref runtime, _) => {
+                    self.served = Some(Arc::clone(runtime));
+                    RuntimeSource::Fixed(Some(Arc::clone(runtime) as SharedRuntime))
+                }
             };
             self.reaction = Some(Reaction::new(
                 self.editor.clone(),
@@ -176,8 +193,19 @@ impl Served {
     /// [`Self::open`] with the workspace opened at `subdir` of the project, as an editor opened
     /// on a directory inside it.
     pub fn open_in(mut self, subdir: &str, files: &[&str]) -> Served {
-        if let Runtime::InProcess = self.runtime {
-            let names: Vec<&str> = self.extensions.iter().map(|(n, _)| n.as_str()).collect();
+        let given = match &self.runtime {
+            Runtime::InProcess => Some((
+                self.in_process(),
+                self.extensions
+                    .iter()
+                    .map(|(n, _)| n.clone())
+                    .collect::<Vec<_>>(),
+            )),
+            Runtime::Given(runtime, names) => Some((Arc::clone(runtime), names.clone())),
+            Runtime::Project => None,
+        };
+        if let Some((runtime, names)) = given {
+            let names: Vec<&str> = names.iter().map(String::as_str).collect();
             let mut config =
                 serde_json::json!({"name": "t", "version": "0.1.0", "extensions": names});
             if !self.settings.is_null() {
@@ -185,7 +213,7 @@ impl Served {
             }
             std::fs::write(self.dir.path().join("specforge.json"), config.to_string()).unwrap();
             // What the in-process runtime serves, the project has installed.
-            specforge_installed::testing::install(self.dir.path(), &*self.in_process(), &names);
+            specforge_installed::testing::install(self.dir.path(), &*runtime, &names);
         }
         let root = match subdir {
             "" => self.dir.path().to_path_buf(),

@@ -17,18 +17,24 @@ use specforge_protocol_types::FieldWriter;
 use specforge_registry::RegistryBuild;
 
 pub use check::check;
-pub use format::{HEADER, LEDGER_FILE, Ledger, Line, Parsed, VERDICT_KEY, digest};
+pub use format::{FACTS_KEY, HEADER, LEDGER_FILE, Ledger, Line, Parsed, VERDICT_KEY, digest};
 pub use io::{Overlay, lock};
 pub use overlay::LedgerOverlay;
 pub use rewrite::{LedgerChange, View};
 
-/// The harness fields of the loaded extensions, by kind: the fields whose values the ledger records, and whether a
-/// loaded extension declares a judged rule, whose verdicts the ledger records too (ADR 0290).
+/// What the ledger records for the loaded extensions: the harness fields, by kind; whether an extension declares a
+/// judged rule, whose verdicts the ledger records too (ADR 0290); whether a kind is collector-written, whose fact
+/// stores it records (ADR 0327); and the collectors whose `facts:` lines it keeps.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Harness(BTreeMap<String, BTreeSet<String>>, bool);
+pub struct Harness {
+    fields: BTreeMap<String, BTreeSet<String>>,
+    judged: bool,
+    collected: bool,
+    collectors: BTreeSet<String>,
+}
 
 impl Harness {
-    /// Every field the registry build holds with `writer: harness`.
+    /// Every field the registry build holds with `writer: harness`, its judged rules, collected kinds and collectors.
     pub fn of(registries: &RegistryBuild) -> Self {
         let mut kinds: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for (kind, field, entry) in registries.fields().iter() {
@@ -39,21 +45,39 @@ impl Harness {
                     .insert(field.to_string());
             }
         }
-        Self(kinds, registries.judged_rules().next().is_some())
+        Self {
+            fields: kinds,
+            judged: registries.judged_rules().next().is_some(),
+            collected: registries.kinds().any_collected(),
+            collectors: registries
+                .declarations()
+                .iter()
+                .flat_map(|d| d.collectors.iter().map(|c| c.name.clone()))
+                .collect(),
+        }
     }
 
-    /// No extension declares a harness field or a judged rule: nothing reads the ledger.
+    /// No extension declares a harness field, a judged rule or a collector-written kind: nothing reads the ledger.
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty() && !self.1
+        self.fields.is_empty() && !self.judged && !self.collected
+    }
+
+    /// Whether a loaded extension declares the collector `name`: its `facts:` line is kept (ADR 0327 D4).
+    pub fn has_collector(&self, name: &str) -> bool {
+        self.collectors.contains(name)
     }
 
     /// The harness fields of `kind`.
     pub fn fields(&self, kind: &str) -> impl Iterator<Item = &str> {
-        self.0.get(kind).into_iter().flatten().map(String::as_str)
+        self.fields
+            .get(kind)
+            .into_iter()
+            .flatten()
+            .map(String::as_str)
     }
 
     pub fn has(&self, kind: &str, field: &str) -> bool {
-        self.0
+        self.fields
             .get(kind)
             .is_some_and(|fields| fields.contains(field))
     }

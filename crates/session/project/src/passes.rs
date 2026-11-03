@@ -98,6 +98,7 @@ pub fn pass_input(input: &PassContext) -> PassInput {
         previous: None,
         trigger: input.trigger.cloned(),
         files: Default::default(),
+        fact_stores: crate::facts::stores(input.entities),
     }
 }
 

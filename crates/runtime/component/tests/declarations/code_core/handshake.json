@@ -1,0 +1,8 @@
+{
+  "protocol_version": "1.15.0",
+  "name": "@code/core",
+  "version": "1.0.0",
+  "peer_dependencies": [],
+  "sandbox_policy": null,
+  "description": "The neutral base of test facts: the test and test_run kinds a runner pack collects, and the checks of the references a spec writes to them"
+}

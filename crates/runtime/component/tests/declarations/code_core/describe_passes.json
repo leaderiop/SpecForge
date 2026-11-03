@@ -1,0 +1,17 @@
+{
+  "category": "passes",
+  "items": [
+    {
+      "after": null,
+      "before": null,
+      "name": "refs",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "proof",
+      "phase": "check"
+    }
+  ]
+}

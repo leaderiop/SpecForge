@@ -106,9 +106,12 @@ fn the_component_runtime_keeps_the_module_contract() {
 
 #[test]
 fn a_refused_load_names_no_load_key() {
-    let reason = ComponentRuntime::new()
+    let error = ComponentRuntime::new()
         .load("@acme/the-key", b"not wasm")
         .unwrap_err();
+    let specforge_wasm::LoadError::Unloadable(reason) = error else {
+        panic!("bytes that are no component are NotAComponent: {error:?}");
+    };
 
     assert!(
         reason.starts_with("failed to compile component: "),

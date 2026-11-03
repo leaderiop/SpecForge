@@ -111,6 +111,7 @@ fn collect_answer() -> CollectOutput {
             status: TestStatus::Failed,
         }],
         plan: None,
+        facts: Vec::new(),
     }
 }
 

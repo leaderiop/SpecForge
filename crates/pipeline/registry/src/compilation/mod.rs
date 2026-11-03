@@ -21,7 +21,9 @@ mod validate;
 
 pub use build::{
     BuildPart, CHECK_PHASE, COMPUTE_PHASE, DeclaredPass, RegistryBuild, build_registries,
+    build_registries_with,
 };
 pub use candidates::CandidateVocabulary;
-pub use codes::extension_codes;
+pub(crate) use candidates::UnloadedPeers;
+pub use codes::{extension_codes, reports};
 pub use reads::read_problem;

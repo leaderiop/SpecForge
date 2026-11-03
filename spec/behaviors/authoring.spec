@@ -67,6 +67,7 @@ behavior create_entity "Create an Entity" {
   verify unit "new writes into a spec root outside the project by the file check names"
   verify unit "a create that would shadow a target or make a short scope field ambiguous respells the tokens to keep their targets"
   verify unit "a skeleton writes a block list and a typed block empty, and a list of words with a slot"
+  verify unit "a collected entity is never created, edited or deleted by an edit, whoever asks"
 }
 
 behavior edit_entity_field "Edit an Entity Field" {
@@ -245,6 +246,7 @@ behavior delete_entity "Delete an Entity" {
   verify unit "delete with unlink_references through a list holding a comment is refused naming the referrer and its file"
   verify unit "a delete keeps the file's final newline"
   verify unit "delete with unlink_references removes the comment above a use statement it removes, never the format header"
+  verify unit "a collected entity is never created, edited or deleted by an edit, whoever asks"
 }
 
 behavior validate_typed_edit "Validate a Typed Edit" {
@@ -294,6 +296,7 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "the report names what the edits change taken together"
   verify unit "a create links the names the project already writes for its ID"
   verify unit "a block an edit leaves unreadable is refused edit_unreadable; one unreadable before it, block_unreadable"
+  verify unit "a collected entity is never created, edited or deleted by an edit, whoever asks"
 }
 
 behavior collect_harness_ledger "Keep the Harness Ledger" {
@@ -309,6 +312,7 @@ behavior collect_harness_ledger "Keep the Harness Ledger" {
   verify unit "harness gc leaves a ledger alone when no loaded extension declares a harness field"
   verify unit "every host write of a project with a harness field takes the write lock, and one without creates no lock file"
   verify unit "the first ledger write adds the union attribute"
+  verify unit "a collect records one facts line per collector, replacing its last"
 }
 
 behavior apply_edit_plan "Apply an Edit Plan" {

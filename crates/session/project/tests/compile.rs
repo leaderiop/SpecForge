@@ -678,10 +678,10 @@ mod declared_in_process {
         let env = load(&["@acme/reports"], runtime);
         assert!(env.registries().declaration("@acme/reports").is_none());
         assert!(!env.registries().kinds().contains("report"));
-        let e028: Vec<_> = env.diagnostics().filter(|d| d.code == "E028").collect();
-        assert_eq!(e028.len(), 1, "{e028:?}");
-        assert!(e028[0].message.contains("@acme/reports"), "{e028:?}");
-        assert!(e028[0].message.contains("2.0.0"), "{e028:?}");
+        let e088: Vec<_> = env.diagnostics().filter(|d| d.code == "E088").collect();
+        assert_eq!(e088.len(), 1, "{e088:?}");
+        assert!(e088[0].message.contains("@acme/reports"), "{e088:?}");
+        assert!(e088[0].message.contains("2.0.0"), "{e088:?}");
     }
 
     #[specforge_test_macros::test(

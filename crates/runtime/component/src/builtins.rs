@@ -1,15 +1,15 @@
 #[cfg(feature = "testing")]
 use specforge_common::ExtensionEntry;
 #[cfg(feature = "testing")]
-use specforge_wasm::WasmRuntime;
+use specforge_wasm::{LoadError, WasmRuntime};
 
 /// One builtin extension: its package name, its crate under `extensions/`, the component
-/// `build-blobs` vendors into `extensions/<dir>/wasm/`, and the vendored bytes this host
-/// embeds.
+/// `build-blobs` vendors into `<crate_dir>/wasm/`, and the vendored bytes this host embeds.
+/// Name and crate follow one rule: `extensions/<dir>` is `@specforge/<dir>`, and
+/// `extensions/<family>/<pack>` is `@<family>/<pack>` (ADR 0328 D3).
 pub struct Builtin {
     pub name: &'static str,
-    pub dir: &'static str,
-    /// Its crate, from the repository root: `extensions/<dir>`.
+    /// Its crate, from the repository root: `extensions/<dir>` or `extensions/<family>/<pack>`.
     pub crate_dir: &'static str,
     pub artifact: &'static str,
     pub bytes: &'static [u8],
@@ -20,7 +20,6 @@ macro_rules! builtins {
         /// Every builtin this host embeds, in the order `init` and the listings use.
         pub const BUILTINS: &[Builtin] = &[$(Builtin {
             name: $name,
-            dir: $dir,
             crate_dir: concat!("extensions/", $dir),
             artifact: $artifact,
             bytes: include_bytes!(concat!("../../../../extensions/", $dir, "/wasm/", $artifact)),
@@ -38,6 +37,8 @@ builtins! {
     "@specforge/vitest" in "vitest" as "specforge_ext_vitest.wasm",
     "@specforge/rust" in "rust" as "specforge_ext_rust.wasm",
     "@specforge/typescript" in "typescript" as "specforge_ext_typescript.wasm",
+    "@code/core" in "code/core" as "specforge_ext_code_core.wasm",
+    "@javascript/node-test" in "javascript/node-test" as "specforge_ext_javascript_node_test.wasm",
 }
 
 /// (name, bytes) of every builtin, read from [`BUILTINS`]: what the extension load reads
@@ -66,7 +67,7 @@ pub const BUILTIN_VOCABULARY: &str = include_str!("../data/builtin-vocabulary.js
 ///
 /// Other entries (installed extensions, `.wasm` files) are skipped.
 #[cfg(feature = "testing")]
-pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Result<(), String> {
+pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Result<(), LoadError> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         if requested
             .iter()
@@ -81,7 +82,7 @@ pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Res
 /// Test support: puts all builtin Wasm extensions into a runtime outside the
 /// extension load (`Installed::load`).
 #[cfg(feature = "testing")]
-pub fn load_builtins(runtime: &dyn WasmRuntime) -> Result<(), String> {
+pub fn load_builtins(runtime: &dyn WasmRuntime) -> Result<(), LoadError> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         runtime.load(name, wasm_bytes)?;
     }

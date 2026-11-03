@@ -1,6 +1,6 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
-use specforge_ops::read::trace::{Target, TraceExpectations, TraceLinkStatus};
+use specforge_ops::read::trace::{Follow, Target, TraceExpectations, TraceLinkStatus, trace};
 use specforge_registry::RegistryBuild;
 
 use crate::view_support::{Assembled, Viewed, chain, chain_in, every_chain, plain};
@@ -30,6 +30,7 @@ fn node(id: &str, kind: &str) -> Node {
         obligations: Vec::new(),
         verdicts: Vec::new(),
         scope: None,
+        unheld: Vec::new(),
     }
 }
 
@@ -104,7 +105,7 @@ fn trace_shows_full_chain_depth() {
 fn trace_nonexistent_entity_returns_error() {
     let graph = build_chain();
     let project = Assembled::over(RegistryBuild::default()).graph(graph);
-    let result = specforge_ops::read::trace::trace(&project.view(), Target::Entity("nonexistent"));
+    let result = trace(&project.view(), Target::Entity("absent"), Follow::Declared);
     assert!(result.is_err());
 }
 
@@ -116,7 +117,7 @@ fn trace_nonexistent_entity_returns_error() {
 fn trace_serializes_to_json() {
     let graph = build_chain();
     let project = Assembled::over(RegistryBuild::default()).graph(graph);
-    let outcome = specforge_ops::read::trace::trace(&project.view(), Target::Entity("b")).unwrap();
+    let outcome = trace(&project.view(), Target::Entity("b"), Follow::Declared).unwrap();
     let json = serde_json::to_string_pretty(&plain(outcome)).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
@@ -158,7 +159,7 @@ fn trace_on_root_has_downstream_only() {
 )]
 fn tracing_every_entity_covers_all_root_entities() {
     let graph = build_chain();
-    let traces = every_chain(&graph, RegistryBuild::default()).traces;
+    let traces = crate::view_support::every_chain_list(&graph, RegistryBuild::default());
     // All 3 entities should have a trace
     assert_eq!(traces.len(), 3);
     let ids: Vec<&str> = traces.iter().map(|t| t.entity_id.as_str()).collect();

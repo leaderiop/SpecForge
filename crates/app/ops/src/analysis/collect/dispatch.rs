@@ -80,8 +80,9 @@ pub fn dispatch(
     dispatch_over(runtime, collector, reports, stdout, None)
 }
 
-/// [`dispatch`], and a collector that declares `writes` also receives the project root, the date, the graph and the
-/// revisions of `view`'s sources, so its plan can place entities and name what it read (ADR 0289).
+/// [`dispatch`], with `view`'s project root as `cwd` (ADR 0327); a collector that declares `writes` also receives the
+/// date, the graph and the revisions of `view`'s sources, so its plan can place entities and name what it read
+/// (ADR 0289).
 pub(super) fn dispatch_over(
     runtime: Option<&dyn specforge_wasm::runtime::WasmRuntime>,
     collector: &Collector,
@@ -94,7 +95,8 @@ pub(super) fn dispatch_over(
     let input = CollectInput {
         reports: reports.to_vec(),
         stdout: stdout.map(str::to_string),
-        cwd: writing.and_then(|v| v.project_root().ok()).map(|root| {
+        // Every collector relativises its report's paths against the root (ADR 0327).
+        cwd: view.and_then(|v| v.project_root().ok()).map(|root| {
             crate::extension::command::canonical(root)
                 .display()
                 .to_string()
@@ -108,6 +110,15 @@ pub(super) fn dispatch_over(
         revisions: writing
             .map(|view| crate::revision::of_project(view.project()))
             .unwrap_or_default(),
+        files: match view {
+            // A collect runs once: its files are read from the plain disk (ADR 0293).
+            Some(view) if !collector.reads.is_empty() => specforge_project::file_reads::read(
+                &collector.reads,
+                view.entities(),
+                &view.env().file_source(&specforge_registry::PlainDisk),
+            ),
+            _ => Default::default(),
+        },
     };
     let Some(runtime) = runtime else {
         return Err(CallError::new(

@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
+use specforge_component::committed::key_of;
 use specforge_project::Environment;
 use specforge_protocol_types::{FieldType, SurfaceDescriptor};
 use tempfile::TempDir;
@@ -275,9 +276,15 @@ fn registry_build_of_the_builtins_matches_its_snapshot() {
     let runtime = std::sync::Arc::new(runtime());
     let all: Vec<&str> = BUILTIN_EXTENSIONS.iter().map(|(name, _)| *name).collect();
     insta::assert_json_snapshot!("all_builtins", digest(&load(&runtime, &all)));
+    // Each is keyed by its whole name (`CommittedBlob::key`, ADR 0328 D4).
+    let mut keys = std::collections::BTreeSet::new();
     for name in &all {
-        let dir = name.rsplit('/').next().unwrap();
-        insta::assert_json_snapshot!(format!("alone_{dir}"), digest(&load(&runtime, &[name])));
+        let key = key_of(name);
+        assert!(keys.insert(key.clone()), "{name}: key {key} is taken");
+        insta::assert_json_snapshot!(format!("alone_{key}"), digest(&load(&runtime, &[name])));
     }
-    insta::assert_json_snapshot!("alone_greet", digest(&load(&runtime, &["@sdk/greet"])));
+    insta::assert_json_snapshot!(
+        format!("alone_{}", key_of("@sdk/greet")),
+        digest(&load(&runtime, &["@sdk/greet"]))
+    );
 }

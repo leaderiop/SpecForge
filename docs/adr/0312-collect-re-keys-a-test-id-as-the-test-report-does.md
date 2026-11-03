@@ -2,6 +2,7 @@
 
 **Status:** accepted (2026-10-31, kernel round K20b, plan 14). Extends [ADR
 0284](0284-a-name-is-unique-within-its-scope.md). No protocol change.
+Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (a truth's tests are its `[gsd:<id>]` tags and its `proof`).
 
 ## Context
 

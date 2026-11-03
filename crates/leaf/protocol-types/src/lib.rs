@@ -40,6 +40,7 @@ mod judged;
 mod plan;
 mod prompt;
 mod reads;
+mod route;
 mod settings;
 mod surface;
 pub mod tool_input;
@@ -61,6 +62,7 @@ pub use prompt::{
     PromptRole, PromptStep, ServedSlash,
 };
 pub use reads::{FileFact, FileFacts, FileMap, FileRead};
+pub use route::{ROUTE_START, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor};
 pub use settings::{
     Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
     UnreadableItem, is_segment, valid_name,
@@ -76,14 +78,17 @@ pub use vocabulary::{
 /// Errors that can occur during the extension protocol lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProtocolError {
-    /// Host and extension protocol versions are incompatible.
-    IncompatibleVersion {
+    /// The extension speaks a newer major, or a newer minor of the host's major: what it declares that the host
+    /// does not know would be dropped (ADR 0326).
+    NewerVersion {
+        /// The name its handshake declares.
+        extension: String,
         host_version: String,
         extension_version: String,
     },
-    /// The extension speaks a newer minor of the host's major: what it declares that the host does not know
-    /// would be dropped (ADR 0326).
-    NewerVersion {
+    /// The extension speaks an older major than the host's: it was built for a protocol this host no longer
+    /// speaks (ADR 0326 D1b).
+    OlderVersion {
         /// The name its handshake declares.
         extension: String,
         host_version: String,
@@ -100,14 +105,6 @@ pub enum ProtocolError {
 impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::IncompatibleVersion {
-                host_version,
-                extension_version,
-            } => write!(
-                f,
-                "protocol version mismatch: host={}, extension={}",
-                host_version, extension_version
-            ),
             Self::NewerVersion {
                 extension,
                 host_version,
@@ -116,6 +113,16 @@ impl fmt::Display for ProtocolError {
                 f,
                 "extension '{extension}' speaks protocol {extension_version}, newer than the \
                  {host_version} this specforge speaks: update specforge"
+            ),
+            Self::OlderVersion {
+                extension,
+                host_version,
+                extension_version,
+            } => write!(
+                f,
+                "extension '{extension}' speaks protocol {extension_version}, older than the \
+                 {host_version} this specforge speaks: install a version built for protocol {}.x",
+                host_version.split('.').next().unwrap_or(host_version)
             ),
             Self::HandshakeFailed(reason) => write!(f, "handshake failed: {}", reason),
             Self::DescribeFailed { category, reason } => {
@@ -321,10 +328,29 @@ pub struct EntityKindDescriptor {
     /// value.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub append_only: bool,
-    /// Who writes its entities other than their author (protocol 1.9.0, ADR 0289): only `human` (an agent-facing
-    /// write is refused).
+    /// Who writes its entities other than their author: `human` (protocol 1.9.0, ADR 0289: an agent-facing write is
+    /// refused) or `collector` (protocol 1.15.0, ADR 0327: its entities are facts a collector writes, never typed).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub writer: Option<String>,
+    /// With `writer: "collector"`: the schemes its ids are written in (`js` for `js:pkg/file#name`), protocol 1.15.0.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schemes: Vec<String>,
+    /// With `writer: "collector"`: the enum field holding a fact's result, its values `TestStatus` names (protocol
+    /// 1.15.0, ADR 0329 D3): what a reader of a reference to the fact takes as the fact's own result.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<String>,
+    /// Its entities are complete while a field holds one of some values, else pending (protocol 1.15.0, ADR 0329
+    /// D4); a pass reads it as `PassEntity::pending`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub complete_when: Option<CompleteWhen>,
+}
+
+/// When a kind's entities are complete (ADR 0329 D4): while `field`, an enum field of the kind, holds one of
+/// `values`. Unwritten, or holding another value, the entity is pending.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CompleteWhen {
+    pub field: String,
+    pub values: Vec<String>,
 }
 
 // ── Edge Type Descriptor ──
@@ -458,6 +484,9 @@ pub struct CollectorDescriptor {
     /// It answers an edit plan the host applies, and receives the graph and revisions (protocol 1.9.0).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub writes: bool,
+    /// The project files the collector reads; its input's `files` carries their facts (ADR 0293).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<FileRead>,
 }
 
 // ── Analyzer Protocol Types ──

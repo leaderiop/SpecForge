@@ -20,6 +20,7 @@
 //! [`ProjectSession::apply`].
 
 pub mod assembled;
+pub mod collected;
 pub mod gsd;
 pub mod gsd_facts;
 pub mod gsd_hosts;
@@ -27,12 +28,17 @@ pub mod gsd_prompts;
 pub mod gsd_writes;
 pub mod history;
 pub mod judged;
+pub mod routed;
 pub mod scoped;
 pub mod settings;
 pub mod specs;
 pub mod typed;
 
 pub use assembled::Assembled;
+pub use collected::{
+    CODE, COLLECTED_EXTENSIONS, Collected, NODE, NODE_REPORT, SPEC, UNIT_REPORT, collected_answer,
+    collected_wire, stored,
+};
 pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,
     gsd_member_history_runtime,
@@ -49,8 +55,14 @@ pub use gsd_writes::{
 };
 pub use history::{FakeHistory, Installed, install};
 pub use judged::{
-    GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, declare_gsd_judged, gsd_judged_builder,
-    gsd_judged_project, gsd_judged_rules, gsd_judged_runtime, gsd_judged_wire,
+    CODE_CORE, GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, code_core_builder, code_core_tests,
+    declare_gsd_judged, gsd_judged_builder, gsd_judged_project, gsd_judged_rules,
+    gsd_judged_runtime, gsd_judged_tests_project, gsd_judged_wire,
+};
+pub use routed::{
+    GSD_ROUTED_SPEC, ROUTED_TEST, declare_gsd_routed, declare_requirement_thread,
+    gsd_routed_builder, gsd_routed_facts, gsd_routed_project, gsd_routed_project_over,
+    gsd_routed_runtime, gsd_routed_serving, gsd_routed_wire,
 };
 pub use scoped::{SCOPED_EXTENSION, scoped_extension, scoped_kinds};
 pub use settings::{

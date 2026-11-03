@@ -5,6 +5,8 @@ listed once") and ADR 0013's consequence on `xtask snapshot-builtins`.
 D2 amended by [ADR 0122](0122-the-builtins-vocabulary-is-generated-beside-them.md): `revendor` also writes the builtin vocabulary.
 D1 and D2 amended by [ADR 0281](0281-a-project-examples-own-extension-is-a-committed-blob.md): an example project's own
 extension is a committed blob too.
+D2 amended by [ADR 0328](0328-a-builtin-is-embedded-and-a-non-specforge-builtin-catalogues-its-codes.md): a builtin may live in
+`extensions/<family>/<pack>`, and a blob is keyed by its full name or crate dir.
 
 The repository commits 13 wasm components: nine builtins, three fixtures built with the SDK (greet, docref, the sandbox
 probe) and one bridge component written without it. `BUILTINS` listed the nine. The greet fixture was named by hand in

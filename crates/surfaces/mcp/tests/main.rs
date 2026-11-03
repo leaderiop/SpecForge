@@ -84,4 +84,5 @@ mod tools_edit;
 mod tools_inference;
 mod tools_navigation;
 mod trace_gaps;
+mod trace_routes;
 mod writing_tool;

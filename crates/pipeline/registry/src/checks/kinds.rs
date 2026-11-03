@@ -24,16 +24,7 @@ pub(super) fn unknown(
             continue;
         }
 
-        let suggestion = Some(match candidates.kind_owner(keyword) {
-            Some(ext) => format!(
-                "install it with: {}",
-                specforge_common::remedy::command("specforge add {}", &[ext])
-            ),
-            None => format!(
-                "search for an extension that provides it with: {}",
-                specforge_common::remedy::command("specforge search {}", &[keyword])
-            ),
-        });
+        let suggestion = Some(candidates.kind_remedy(keyword));
 
         let mut diagnostic = Diagnostic::new(
             codes::E024,

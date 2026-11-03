@@ -6,7 +6,7 @@
 use specforge_common::{Diagnostic, DiagnosticData, Sym, codes};
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{Edge, FieldForms, Graph, Node};
+use crate::{Edge, Graph, GraphInputs, Node, Unheld};
 
 mod reference;
 
@@ -21,20 +21,18 @@ impl Graph {
     /// resolve (`Graph::resolve` decides each, ADR 0117): E003 (with a
     /// fuzzy-match suggestion when there is one), or I004 for a field whose
     /// target kind no loaded extension declares, naming the extension in
-    /// `owners` that does. Then W061 over the edges but the declared single
+    /// `inputs.target_owners` that does. A reference in a fact scheme that names no fact is kept on its node as
+    /// unheld, with no diagnostic (ADR 0327 D6). Then W061 over the edges but the declared single
     /// references': a single reference is never part of a reference cycle.
     ///
     /// Clears all existing edges first, then adds each once, in written order.
     /// Diagnostics come in node order (the graph's nodes are sorted), then
     /// the cycles'.
-    pub(crate) fn link(
-        &mut self,
-        forms: &FieldForms,
-        owners: &BTreeMap<String, String>,
-        scoped: &BTreeMap<String, String>,
-    ) -> Vec<Diagnostic> {
+    pub(crate) fn link(&mut self, inputs: &GraphInputs) -> Vec<Diagnostic> {
+        let (forms, scoped) = (&inputs.field_forms, &inputs.scopes);
         self.clear_edges();
         let mut diagnostics = Vec::new();
+        let mut unheld: Vec<(Sym, Unheld)> = Vec::new();
         // Every edge in written order, and whether it is a single reference's.
         let mut edges: Vec<WrittenEdge> = Vec::new();
 
@@ -50,7 +48,17 @@ impl Graph {
                     let from = held_from(node, scoped, &declared);
                     let label = Sym::new(&declared);
                     for reference in reading.references(entry) {
-                        let resolution = self.resolve(target.clone(), owners, from, reference.id);
+                        let resolution = self.resolve(target.clone(), inputs, from, reference.id);
+                        if resolution.is_unheld() {
+                            unheld.push((
+                                node.id.raw,
+                                Unheld {
+                                    field: label,
+                                    id: reference.id.to_string(),
+                                    span: reference.span.clone(),
+                                },
+                            ));
+                        }
                         if let Some(path) = resolution.path() {
                             edges.push(WrittenEdge {
                                 edge: Edge {
@@ -78,6 +86,14 @@ impl Graph {
         for written in edges {
             self.add_edge(written.edge);
         }
+        for node in self.nodes.values_mut() {
+            node.unheld.clear();
+        }
+        for (holder, reference) in unheld {
+            if let Some(node) = self.nodes.get_mut(&holder) {
+                node.unheld.push(reference);
+            }
+        }
         diagnostics.extend(cycle_warnings(&references));
         diagnostics
     }
@@ -88,11 +104,8 @@ impl Graph {
         not(debug_assertions),
         allow(dead_code, reason = "only debug assertions call it")
     )]
-    pub(crate) fn unlinked_references(
-        &self,
-        forms: &FieldForms,
-        scoped: &BTreeMap<String, String>,
-    ) -> Vec<(Sym, Sym, Sym)> {
+    pub(crate) fn unlinked_references(&self, inputs: &GraphInputs) -> Vec<(Sym, Sym, Sym)> {
+        let (forms, scoped) = (&inputs.field_forms, &inputs.scopes);
         let mut unlinked = Vec::new();
         for node in self.nodes.values() {
             let source = node.id.raw;
@@ -106,7 +119,7 @@ impl Graph {
                     let from = held_from(node, scoped, &declared);
                     for reference in reading.references(entry) {
                         let Some(target) = self
-                            .resolve(field_target.clone(), &BTreeMap::new(), from, reference.id)
+                            .resolve(field_target.clone(), inputs, from, reference.id)
                             .path()
                         else {
                             continue;
@@ -133,8 +146,8 @@ impl Graph {
         not(debug_assertions),
         allow(dead_code, reason = "only debug assertions call it")
     )]
-    pub(crate) fn assert_linked(&self, forms: &FieldForms, scoped: &BTreeMap<String, String>) {
-        let unlinked = self.unlinked_references(forms, scoped);
+    pub(crate) fn assert_linked(&self, inputs: &GraphInputs) {
+        let unlinked = self.unlinked_references(inputs);
         assert!(
             unlinked.is_empty(),
             "SpecForge bug: references to existing entities without their edge (source, target, field): {}",
@@ -232,7 +245,7 @@ invariant inv_one "Invariant One" {
         // What a linker that forgot an edge leaves behind.
         graph.clear_edges();
 
-        graph.assert_linked(&FieldForms::default(), &BTreeMap::new());
+        graph.assert_linked(&GraphInputs::default());
     }
 
     #[test]
@@ -241,7 +254,7 @@ invariant inv_one "Invariant One" {
         graph.clear_edges();
 
         let unlinked: Vec<(&str, &str, &str)> = graph
-            .unlinked_references(&FieldForms::default(), &BTreeMap::new())
+            .unlinked_references(&GraphInputs::default())
             .iter()
             .map(|(s, t, f)| (s.as_str(), t.as_str(), f.as_str()))
             .collect();
@@ -255,10 +268,10 @@ invariant inv_one "Invariant One" {
     )]
     fn a_linked_reference_passes() {
         let (graph, _) = built(REFERENCING);
-        graph.assert_linked(&FieldForms::default(), &BTreeMap::new());
+        graph.assert_linked(&GraphInputs::default());
         assert!(
             graph
-                .unlinked_references(&FieldForms::default(), &BTreeMap::new())
+                .unlinked_references(&GraphInputs::default())
                 .is_empty()
         );
     }
@@ -270,7 +283,7 @@ invariant inv_one "Invariant One" {
     fn an_empty_graph_passes() {
         let (graph, _) = built("");
         assert_eq!(graph.edge_count(), 0);
-        graph.assert_linked(&FieldForms::default(), &BTreeMap::new());
+        graph.assert_linked(&GraphInputs::default());
     }
 
     #[specforge_test(
@@ -285,9 +298,9 @@ invariant inv_one "Invariant One" {
         assert_eq!(diagnostics.iter().filter(|d| d.code == "E003").count(), 1);
         assert!(
             graph
-                .unlinked_references(&FieldForms::default(), &BTreeMap::new())
+                .unlinked_references(&GraphInputs::default())
                 .is_empty()
         );
-        graph.assert_linked(&FieldForms::default(), &BTreeMap::new());
+        graph.assert_linked(&GraphInputs::default());
     }
 }

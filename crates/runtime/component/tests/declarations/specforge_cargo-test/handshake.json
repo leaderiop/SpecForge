@@ -1,0 +1,14 @@
+{
+  "protocol_version": "1.15.0",
+  "name": "@specforge/cargo-test",
+  "version": "1.0.0",
+  "peer_dependencies": [
+    {
+      "name": "@specforge/testing",
+      "version": "^1.0",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null,
+  "description": "Collects cargo test results for tests linked to entities with #[specforge_test]"
+}

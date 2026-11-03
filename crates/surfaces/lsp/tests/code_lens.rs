@@ -1,10 +1,11 @@
-//! The server answers `textDocument/codeLens` from the compile (ADR 0249 D2).
+//! The server answers `textDocument/codeLens` from the compile (ADR 0249 D2), with a routed entity's thread (ADR 0330).
 
 use crate::recorder::lenses_refreshed;
 use crate::served::Served;
 use crate::session::Session;
 use serde_json::{Value, json};
 use specforge_lsp::ClientSupport;
+use specforge_project::testing::GSD_ROUTED_SPEC;
 use specforge_test_macros::test as spec;
 
 const TEXT: &str = r#"behavior login "Log \"in\" with {braces}" {
@@ -139,4 +140,53 @@ fn a_stale_verdict_has_a_code_lens_naming_its_inputs() {
         at_name.iter().any(|t| t.contains("verdicts missing")),
         "{at_name:?}"
     );
+}
+
+/// The titles of the lenses `served` answers for `a.spec`.
+fn lens_titles(served: &Served) -> Vec<String> {
+    specforge_lsp::answers::code_lenses(&served.state(), &served.uri("a.spec"))
+        .unwrap()
+        .into_iter()
+        .filter_map(|l| l.command.map(|c| c.title))
+        .collect()
+}
+
+#[spec(
+    behavior = "show_trace_thread",
+    verify = "a code lens on a routed entity says its thread's summary"
+)]
+fn a_routed_entity_has_a_thread_lens() {
+    let titles = lens_titles(&crate::hover_thread::routed_served(GSD_ROUTED_SPEC));
+    let threads: Vec<&String> = titles
+        .iter()
+        .filter(|t| t.starts_with("thread: "))
+        .collect();
+    assert_eq!(
+        threads,
+        [
+            "thread: plan 03-02 → T1 → 5e2a91c0d3b4 (Gsd-Task) → js:app/test/auth.test.js#keeps a session (passed) → TR1 missing"
+        ],
+        "{titles:?}"
+    );
+}
+
+#[spec(
+    behavior = "show_trace_thread",
+    verify = "an entity of a kind no route starts at has no thread lens"
+)]
+fn an_entity_without_a_route_has_no_thread_lens() {
+    let served = crate::hover_thread::routed_served(GSD_ROUTED_SPEC);
+    let lenses =
+        specforge_lsp::answers::code_lenses(&served.state(), &served.uri("a.spec")).unwrap();
+    let threaded: Vec<u32> = lenses
+        .iter()
+        .filter(|l| {
+            l.command
+                .as_ref()
+                .is_some_and(|c| c.title.starts_with("thread"))
+        })
+        .map(|l| l.range.start.line)
+        .collect();
+    // Line 2 names the requirement; the plan, task, commit, truth and test have no route.
+    assert_eq!(threaded, [2], "{lenses:?}");
 }

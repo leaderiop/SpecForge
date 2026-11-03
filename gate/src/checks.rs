@@ -107,7 +107,7 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "rustfmt",
-        proves: "the workspace, the nine guests, the four fixtures (the bridge component included), each example's extension and the @gsd workspace are rustfmt-clean",
+        proves: "the workspace, every guest and extension library, the four fixtures (the bridge component included), each example's extension and the @gsd workspace are rustfmt-clean",
         reach: Reach::Hook,
         trigger: Trigger::Paths(&["**/*.rs"]),
         compiles: false,

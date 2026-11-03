@@ -138,3 +138,30 @@ fn a_required_human_field_of_an_agent_kind_is_refused_at_declare_time() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@gsd/test", "0.0.0"));
     declare(&mut c, &[&REQUIRED_HUMAN_ON_AN_AGENT_KIND]);
 }
+
+const ORDERED: Kind = Kind::new(
+    "ordered",
+    "a kind complete once shipped",
+    &[en("status", &["open", "shipped"]).c()],
+)
+.complete_when("status", &["shipped"]);
+
+#[test]
+fn a_kind_declares_when_its_entities_are_complete() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@gsd/test", "0.0.0"));
+    declare(&mut c, &[&ORDERED, &WITH_AUTHORED_TS]);
+    let text = MockHost::new(c).describe_json("entities").expect("kinds");
+    let kinds: serde_json::Value = serde_json::from_str(&text).expect("JSON");
+    let of = |name: &str| {
+        kinds["items"]
+            .as_array()
+            .and_then(|kinds| kinds.iter().find(|k| k["name"] == name))
+            .map(|k| k["complete_when"].clone())
+            .expect("the kind")
+    };
+    assert_eq!(
+        of("ordered"),
+        serde_json::json!({"field": "status", "values": ["shipped"]})
+    );
+    assert!(of("stamped").is_null());
+}

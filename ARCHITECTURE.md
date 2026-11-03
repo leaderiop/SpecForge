@@ -6,7 +6,7 @@ How SpecForge is built. For what it is and why it exists, start with the [README
 
 The compiler is a **pure typed-graph engine**. It knows how to parse `keyword name { fields }` blocks, resolve references, detect orphans and cycles, and emit a validated graph — but it carries **no domain vocabulary**. Every entity kind, edge type, and validation rule comes from an extension. If a new domain required a compiler change, the architecture would have failed.
 
-Nine extensions ship as builtins, embedded in the binary. Enable one with `specforge add @specforge/<name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
+Eleven extensions ship as builtins, embedded in the binary. A first-party builtin is `@specforge/<name>`; a builtin of a family is `@<family>/<pack>` (`@code/core`), its crate `extensions/<family>/<pack>`, and its codes print namespaced (`code/E101`, [ADR 0328](docs/adr/0328-a-builtin-is-embedded-and-a-non-specforge-builtin-catalogues-its-codes.md)). Enable one with `specforge add <name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
 
 | Extension | Entity kinds | Purpose |
 |-----------|-------------|---------|
@@ -19,6 +19,8 @@ Nine extensions ship as builtins, embedded in the binary. Enable one with `specf
 | **`@specforge/vitest`** | — | vitest runner: `specforge collect` runs the project's own vitest (after you approve the command once per project) and records which entities tests name in their `meta.specforge`. Enabled by `init` in a vitest project; `specforge add` also enables `@specforge/testing`. |
 | **`@specforge/rust`** | — | Source analyzer used by inference: maps Rust code to spec entities. |
 | **`@specforge/typescript`** | — | Source analyzer used by inference: maps TypeScript/JavaScript code to spec entities. |
+| **`@code/core`** | test · test_run (collector-written) | The neutral base of test facts ([ADR 0329](docs/adr/0329-code-core-holds-test-facts-and-their-ids.md)): the kinds a runner pack collects into, and the checks of the references a spec writes to them (`code/E101`, `code/W102`, `code/W401`, `code/I402`). Declares no collector. |
+| **`@javascript/node-test`** | — | node --test runner: `specforge collect` runs the project's own node test runner (after you approve the command once per project) and records its tests as `test`/`test_run` facts, cited as `js:<package>/<file>#<test>`. `specforge add` also enables `@code/core`. |
 
 Anyone can author and publish their own extension ([Extension Protocol](docs/extension-protocol.md)); the open Graph Protocol is the moat, not the implementation. The full catalog is in the [extension inventory](docs/extension-inventory.md).
 

@@ -1,0 +1,11 @@
+{
+  "protocol_version": "1.15.0",
+  "name": "@specforge/rust",
+  "version": "1.0.0",
+  "peer_dependencies": [],
+  "sandbox_policy": {
+    "max_execution_ms": 30000,
+    "max_memory_mb": 512
+  },
+  "description": "Rust analyzer: finds the public items of Rust sources for specforge infer"
+}

@@ -223,8 +223,8 @@ impl Baseline {
         let held = crate::harness::Ledger::parse(&self.ledger).ledger;
         let mut moves: Vec<(&str, &str)> = ledger
             .lines()
-            .filter(|l| !held.records(&l.path, &l.key, &l.digest))
-            .filter_map(|l| l.moved_from().map(|old| (l.path.as_str(), old)))
+            .filter(|l| !held.contains(l))
+            .filter_map(|l| l.moved_from().map(|old| (l.subject.as_str(), old)))
             .filter(|(new, _)| current.node(new).is_some())
             .collect();
         if moves.is_empty() {

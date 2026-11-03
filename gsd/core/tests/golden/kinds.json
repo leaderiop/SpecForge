@@ -421,6 +421,24 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "TruthRequirement",
+        "source_kind": "truth",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "TruthProof",
+        "source_kind": "truth",
+        "target_kind": "test"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "ArtifactPlan",
         "source_kind": "artifact",
         "target_kind": "plan"
@@ -3941,6 +3959,12 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "complete"
+          ]
+        },
         "description": "A plan: the work of one phase in tasks, with its must-haves (GSD NN-MM-PLAN.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -4240,6 +4264,12 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "done"
+          ]
+        },
         "description": "A task of a plan (GSD <task>)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -4788,6 +4818,28 @@
             "name": "text",
             "required": true,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the requirement it proves; the requirement reads its truths back as `truths`",
+            "edge": "TruthRequirement",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": "truths",
+            "name": "requirement",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "the tests that prove it: `@code/core` test facts, quoted (`\"js:pkg/a.test.js#adds\"`)",
+            "edge": "TruthProof",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "proof",
+            "required": false,
+            "target_kind": "test"
           },
           {
             "default_value": null,
@@ -5950,7 +6002,7 @@
           },
           {
             "default_value": null,
-            "description": "the task its subject names, when it does",
+            "description": "the task its `Gsd-Task:` trailer or its subject's title names, when one does",
             "edge": "CommitTask",
             "field_type": "reference",
             "file_reference": false,
@@ -5962,7 +6014,7 @@
           },
           {
             "default_value": null,
-            "description": "`{type}({phase}-{plan}): {task}`: the plan its scope names",
+            "description": "the plan of the task its trailer names, else the one its scope names (`{type}({phase}-{plan}): {task}`)",
             "edge": "CommitPlan",
             "field_type": "reference",
             "file_reference": false,
@@ -5974,7 +6026,23 @@
           },
           {
             "default_value": null,
-            "description": "`feat`, `fix`, `test`, `docs` ...",
+            "description": "how `task` was found: the `Gsd-Task:` trailer or the subject's title; written only with `task`",
+            "edge": null,
+            "enum_values": [
+              "Gsd-Task",
+              "title"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "linked_by",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`feat`, `fix`, `test`, `docs` ...; absent for a subject with no `type:` header",
             "edge": null,
             "field_type": "string",
             "file_reference": false,

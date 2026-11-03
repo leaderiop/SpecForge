@@ -71,7 +71,7 @@ fn a_source_that_is_no_source_any_more_leaves_the_record() {
     let mut ledger = Ledger::opening_through(None);
     let env = Environment::read_through(&mut ledger, &root, |_| None);
     let sources = env.config().sources(root.dir());
-    assert_eq!(ledger.discover(&sources), ["sub/c.spec"]);
+    assert_eq!(ledger.discover(&sources, false), ["sub/c.spec"]);
     ledger.source(&sources, "sub/c.spec");
     assert!(ledger.stale().is_empty());
 
@@ -107,7 +107,7 @@ fn a_source_never_read_is_changed() {
     let mut ledger = Ledger::opening_through(None);
     let env = Environment::read_through(&mut ledger, &root, |_| None);
     let sources = env.config().sources(root.dir());
-    assert_eq!(ledger.discover(&sources), ["a.spec"]);
+    assert_eq!(ledger.discover(&sources, false), ["a.spec"]);
     assert_eq!(ledger.stale().sources, ["a.spec"]);
 }
 

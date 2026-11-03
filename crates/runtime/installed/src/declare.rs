@@ -1,9 +1,12 @@
 //! What a binary declares, read the way every environment reads it.
 
-use specforge_common::{Diagnostic, codes};
+use specforge_common::Diagnostic;
 use specforge_protocol_types::ProtocolError;
 use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::{Loaded, load_declaration};
+
+use crate::LoadProblem;
+use crate::refusal::{self, Subject};
 
 /// The name a candidate is loaded under while it is read.
 const CANDIDATE: &str = "__candidate";
@@ -12,24 +15,26 @@ const CANDIDATE: &str = "__candidate";
 /// extension (under a candidate name, then unloaded): its declaration and
 /// the warnings its load reports. E028 "not a loadable SpecForge extension:
 /// …" when it doesn't load or answer its declaration. Its warnings name what
-/// it declares, not the candidate name; E088 when its protocol minor is newer
-/// than the host's (ADR 0326). `add`, `publish` and `init` read a candidate
-/// through it.
+/// it declares, not the candidate name; E088 when it speaks another protocol
+/// major or a newer minor, or imports a host port this specforge lacks
+/// (ADR 0326). `add`, `publish` and `init` read a candidate through it.
 pub fn declaration_of(bytes: &[u8], runtime: &dyn WasmRuntime) -> Result<Loaded, Diagnostic> {
-    let invalid = |why: String| {
-        Diagnostic::new(
-            codes::E028,
-            format!("not a loadable SpecForge extension: {why}"),
-        )
-        .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2".to_string())
+    let refused = |problem: LoadProblem, declared: Option<String>| {
+        refusal::diagnostic(&problem, &Subject::Candidate { declared })
+            .expect("a refused load has its diagnostic")
     };
-    runtime.load(CANDIDATE, bytes).map_err(invalid)?;
+    runtime
+        .load(CANDIDATE, bytes)
+        .map_err(|error| refused(refusal::of_load(error), None))?;
     let loaded = load_declaration(runtime, CANDIDATE);
     runtime.unload(CANDIDATE);
-    loaded.map_err(|error| match error {
-        // Its message names the extension, both versions and the remedy.
-        ProtocolError::NewerVersion { .. } => Diagnostic::new(codes::E088, error.to_string()),
-        error => invalid(error.to_string()),
+    loaded.map_err(|error| {
+        let declared = match &error {
+            ProtocolError::NewerVersion { extension, .. }
+            | ProtocolError::OlderVersion { extension, .. } => Some(extension.clone()),
+            _ => None,
+        };
+        refused(refusal::of_protocol(error), declared)
     })
 }
 
@@ -98,8 +103,12 @@ mod tests {
     #[test]
     fn a_candidate_of_a_newer_protocol_minor_is_e088() {
         let bytes = b"\0asm a newer candidate";
+        let version = specforge_protocol_types::PROTOCOL_VERSION;
+        let (major, rest) = version.split_once('.').unwrap();
+        let minor: u64 = rest.split('.').next().unwrap().parse().unwrap();
+        let newer = format!("{major}.{}.0", minor + 1);
         let handshake = serde_json::json!({
-            "protocol_version": "1.15.0", "name": "@acme/candidate", "version": "2.1.0",
+            "protocol_version": newer, "name": "@acme/candidate", "version": "2.1.0",
             "peer_dependencies": [], "sandbox_policy": null,
         });
         let runtime = InProcessRuntime::new()
@@ -117,9 +126,65 @@ mod tests {
         assert_eq!(error.code, "E088");
         assert_eq!(
             error.message,
-            "extension '@acme/candidate' speaks protocol 1.15.0, newer than the 1.14.0 this specforge \
-             speaks: update specforge"
+            format!(
+                "extension '@acme/candidate' speaks protocol {newer}, newer than the {version} this \
+                 specforge speaks: update specforge"
+            )
         );
+    }
+
+    #[test]
+    fn a_candidate_importing_a_host_port_this_specforge_lacks_is_e088() {
+        let bytes = b"\0asm a newer port";
+        let port = "specforge:host/http@9.9.0".to_string();
+        let runtime = InProcessRuntime::new()
+            .refusing(bytes, specforge_wasm::LoadError::UnknownPorts(vec![port]));
+
+        let error = declaration_of(bytes, &runtime).unwrap_err();
+
+        assert_eq!(error.code, "E088");
+        assert!(
+            error.message.starts_with(
+                "not a loadable SpecForge extension: it imports the host port specforge:host/http@9.9.0"
+            ),
+            "{}",
+            error.message
+        );
+        assert!(
+            error
+                .suggestion
+                .as_deref()
+                .unwrap()
+                .starts_with("update specforge"),
+            "{error:?}"
+        );
+    }
+
+    #[test]
+    fn a_candidate_of_a_newer_protocol_major_is_e088() {
+        let bytes = b"\0asm a newer major";
+        let major: u64 = specforge_protocol_types::PROTOCOL_VERSION
+            .split('.')
+            .next()
+            .and_then(|major| major.parse().ok())
+            .unwrap();
+        let handshake = serde_json::json!({
+            "protocol_version": format!("{}.0.0", major + 1), "name": "@acme/candidate",
+            "version": "2.1.0", "peer_dependencies": [], "sandbox_policy": null,
+        });
+        let runtime = InProcessRuntime::new()
+            .binary(bytes, || {
+                ContributionsBuilder::new(ExtensionMeta::new("@acme/candidate", "2.1.0"))
+            })
+            .answer_raw(
+                CANDIDATE,
+                "__handshake",
+                specforge_wasm::WasmCallResult::Ok(serde_json::to_vec(&handshake).unwrap()),
+            );
+
+        let error = declaration_of(bytes, &runtime).unwrap_err();
+
+        assert_eq!(error.code, "E088");
     }
 
     #[test]

@@ -69,50 +69,67 @@ pub const PROJECTS: &[&str] = &[
 ];
 
 /// `.spec` directories that are no project's `spec_root` but are still written for `specforge format`: the `@gsd`
-/// fixtures the black-box tests and the parity twin read (a pattern as in [`OUTSIDE_WORKSPACE`]).
+/// fixtures the black-box tests and the parity twin read (a pattern as in [`outside_workspace_patterns`]).
 pub const FIXTURE_SPEC_DIRS: &[&str] = &[
     "gsd/core/tests/projects/*/spec",
     "gsd/security/tests/projects/*/spec",
     "gsd/parity/fixtures/*/spec",
 ];
 
-/// The crates outside the workspace, each its own manifest (was `ci.yml:54,75,92`, `gate.sh:184`): the guests, the
-/// fixtures, each example project's own extension and the `@gsd` workspace (a pattern without a `*` names one path).
-pub const OUTSIDE_WORKSPACE: &[&str] = &[
-    "extensions/*/Cargo.toml",
+/// The two depths an extension crate sits at, as `expand` patterns: `extensions/<dir>` and
+/// `extensions/<family>/<pack>` (ADR 0328 D3). Every list of extension crates (rustfmt's manifests, the guests, the
+/// blob crates) reads it.
+pub const EXTENSION_CRATES: [&str; 2] = ["extensions/*", "extensions/*/*"];
+
+/// The other crates outside the workspace, each its own manifest: the fixtures, each example project's own
+/// extension and the `@gsd` workspace (a pattern without a `*` names one path).
+const OTHER_OUTSIDE_WORKSPACE: &[&str] = &[
     "fixtures/*/Cargo.toml",
     "examples/*/extension/Cargo.toml",
     "gsd/Cargo.toml",
 ];
 
-/// `prefix/*/rest` expanded under `root`: `prefix/<entry>/rest` for each entry of `root/prefix` where that path
-/// exists, sorted. The one `*` is a whole segment; an unreadable `prefix` yields nothing. A pattern with no `*` is one
-/// path: itself when it exists.
+/// The manifests of the crates outside the workspace, as `expand` patterns (was `ci.yml:54,75,92`, `gate.sh:184`):
+/// the guests and extension libraries ([`EXTENSION_CRATES`]), then `OTHER_OUTSIDE_WORKSPACE`.
+pub fn outside_workspace_patterns() -> Vec<String> {
+    EXTENSION_CRATES
+        .iter()
+        .map(|dirs| format!("{dirs}/Cargo.toml"))
+        .chain(
+            OTHER_OUTSIDE_WORKSPACE
+                .iter()
+                .map(|pattern| pattern.to_string()),
+        )
+        .collect()
+}
+
+/// `pattern` expanded under `root`: every path that exists, sorted, where each `*` segment stands for any entry of the
+/// directory before it (`extensions/*/*/Cargo.toml` reaches two levels down). A `*` is a whole segment; an unreadable
+/// directory yields nothing. A pattern with no `*` is one path: itself when it exists.
 pub(crate) fn expand(root: &Path, pattern: &str) -> Vec<String> {
-    let (prefix, rest) = match pattern.split_once("/*/") {
-        Some((prefix, rest)) => (prefix, Some(rest)),
-        None => match pattern.strip_suffix("/*") {
-            Some(prefix) => (prefix, None),
-            None if !pattern.contains('*') && root.join(pattern).exists() => {
-                return vec![pattern.to_string()];
-            }
-            None => return Vec::new(),
-        },
-    };
-    let Ok(entries) = std::fs::read_dir(root.join(prefix)) else {
-        return Vec::new();
-    };
-    let mut found: Vec<String> = entries
-        .flatten()
-        .map(|entry| {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            match rest {
-                Some(rest) => format!("{prefix}/{name}/{rest}"),
-                None => format!("{prefix}/{name}"),
-            }
-        })
-        .filter(|path| root.join(path).exists())
-        .collect();
+    let mut found = vec![String::new()];
+    for segment in pattern.split('/') {
+        found = found
+            .into_iter()
+            .flat_map(|base| {
+                let names: Vec<String> = if segment == "*" {
+                    std::fs::read_dir(root.join(&base))
+                        .into_iter()
+                        .flatten()
+                        .flatten()
+                        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                        .collect()
+                } else {
+                    vec![segment.to_string()]
+                };
+                names.into_iter().map(move |name| match base.as_str() {
+                    "" => name,
+                    base => format!("{base}/{name}"),
+                })
+            })
+            .filter(|path| root.join(path).exists())
+            .collect();
+    }
     found.sort();
     found
 }
@@ -342,6 +359,28 @@ mod tests {
         assert_eq!(expand(root.path(), "a/*/Cargo.toml"), ["a/y/Cargo.toml"]);
         assert_eq!(expand(root.path(), "a/y/Cargo.toml"), ["a/y/Cargo.toml"]);
         assert!(expand(root.path(), "a/z/Cargo.toml").is_empty());
+    }
+
+    #[test]
+    fn a_pattern_of_two_stars_reaches_two_levels_and_only_there() {
+        let root = tempfile::tempdir().unwrap();
+        for file in [
+            "a/x/Cargo.toml",
+            "a/f/p/Cargo.toml",
+            "a/f/q/Cargo.toml",
+            "a/f/q/r/Cargo.toml",
+        ] {
+            let path = root.path().join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "").unwrap();
+        }
+        assert_eq!(
+            expand(root.path(), "a/*/*/Cargo.toml"),
+            ["a/f/p/Cargo.toml", "a/f/q/Cargo.toml"]
+        );
+        assert_eq!(expand(root.path(), "a/*/Cargo.toml"), ["a/x/Cargo.toml"]);
+        assert_eq!(expand(root.path(), "a/f/*"), ["a/f/p", "a/f/q"]);
+        assert!(expand(root.path(), "b/*/*/Cargo.toml").is_empty());
     }
 
     #[test]

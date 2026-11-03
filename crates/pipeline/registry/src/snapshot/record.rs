@@ -116,6 +116,16 @@ pub(super) fn record(
                 returns: m.returns.clone(),
             })
             .collect(),
+        unheld: node
+            .unheld
+            .iter()
+            .map(|u| specforge_protocol_types::UnheldReference {
+                field: u.field.to_string(),
+                id: u.id.clone(),
+                span: u.span.as_ref().map(super::wire::pass_span),
+            })
+            .collect(),
+        scope: node.scope.map(|scope| scope.as_str().to_string()),
     };
     (record, referenced)
 }

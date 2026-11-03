@@ -82,13 +82,13 @@ pub fn check(
             // An orphan line (its entity is gone) that records this value under its own path: a rename by hand.
             let orphan = parsed.ledger.lines().find(|l| {
                 l.key == key
-                    && graph.node(&l.path).is_none()
-                    && l.digest == digest(&l.path, &key, &value)
+                    && graph.node(&l.subject).is_none()
+                    && l.digest == digest(&l.subject, &key, &value)
             });
             if let Some(orphan) = orphan {
                 message.push_str(&format!(
                     "; {LEDGER_FILE} records it under '{}': renamed by hand?",
-                    orphan.path
+                    orphan.subject
                 ));
             }
             diagnostics.push(

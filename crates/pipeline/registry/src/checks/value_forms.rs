@@ -1,6 +1,6 @@
 //! W159: a value written in the other form than its field's declared type
 //! gives it (ADR 0147); a value a defaults block writes once, at the default, naming
-//! `defaults <kind>` (ADR 0224).
+//! `defaults <kind>` (ADR 0224). A collector's kind is never W159: its facts are not written (ADR 0327).
 
 use std::collections::HashSet;
 
@@ -24,7 +24,8 @@ pub(super) fn off_form(
     let mut diagnostics = Vec::new();
     let mut defaults_reported: HashSet<&SourceSpan> = HashSet::new();
     for record in entities {
-        if !kinds.contains(&record.kind) {
+        // A collector's facts come in its store's JSON form, which no one writes (ADR 0327): nothing to rewrite.
+        if !kinds.contains(&record.kind) || kinds.is_collected(&record.kind) {
             continue;
         }
         for field in &record.fields {

@@ -356,6 +356,9 @@ pub struct PassInput {
     /// The facts of the files the pass's `reads` name, by read name (protocol 1.11.0, ADR 0293).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub files: crate::FileMap,
+    /// The fact stores the session served, by collector and key (protocol 1.15.0, ADR 0327 D6).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fact_stores: Vec<FactStore>,
 }
 
 /// One entity in the snapshot handed to a compiler pass: its id, kind,
@@ -409,6 +412,14 @@ pub struct PassEntity {
     /// absent.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub judgements: Vec<crate::Judgement>,
+    /// Its references in a fact scheme that name no fact the session served (protocol 1.15.0, ADR 0327 D6): no edge
+    /// and no core diagnostic; whether one is wrong is the kind's extension's to judge.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unheld: Vec<UnheldReference>,
+    /// Its owner is not complete (protocol 1.15.0, ADR 0329 D4): its kind's `complete_when` does not hold, or, when
+    /// its kind declares none, the nearest scope ancestor's whose kind declares one does not. Sent only when true.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pending: bool,
 }
 
 /// One resolved reference in the snapshot (label = edge label, e.g.
@@ -615,6 +626,20 @@ pub enum TestStatus {
     Skipped,
 }
 
+impl TestStatus {
+    /// Every status.
+    pub const ALL: [TestStatus; 3] = [TestStatus::Passed, TestStatus::Failed, TestStatus::Skipped];
+
+    /// Its name on the wire: `passed`, `failed` or `skipped`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TestStatus::Passed => "passed",
+            TestStatus::Failed => "failed",
+            TestStatus::Skipped => "skipped",
+        }
+    }
+}
+
 /// One test: its name, what the run said of it, the obligation it names
 /// (`verify`, the statement's exact text) and how long it took. A collector
 /// answers it, `specforge-report.json` keeps it with the runner that
@@ -662,8 +687,9 @@ impl TestResults {
 /// files, read from the declared report location, and the command's
 /// standard output when the collector captures it.
 ///
-/// A collector that declares `writes` also receives the project root, the host's date, the graph and the
-/// revisions of the sources (protocol 1.9.0). `G` is how the graph is held, as in [`CommandInput`].
+/// Every collector receives the project root as `cwd`, canonical (protocol 1.15.0, ADR 0327). A collector that
+/// declares `writes` also receives the host's date, the graph and the revisions of the sources (protocol 1.9.0).
+/// `G` is how the graph is held, as in [`CommandInput`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CollectInput<G = GraphWire> {
     #[serde(default)]
@@ -681,6 +707,9 @@ pub struct CollectInput<G = GraphWire> {
     pub graph: Option<G>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub revisions: BTreeMap<String, String>,
+    /// The facts of the files the collector `reads`, by read name (ADR 0293).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub files: crate::FileMap,
 }
 
 impl<G> Default for CollectInput<G> {
@@ -693,6 +722,7 @@ impl<G> Default for CollectInput<G> {
             now: None,
             graph: None,
             revisions: BTreeMap::new(),
+            files: crate::FileMap::new(),
         }
     }
 }
@@ -716,6 +746,9 @@ pub struct CollectOutput {
     /// What a collector that declares `writes` asks the host to write (protocol 1.9.0).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plan: Option<EditPlan>,
+    /// The entities the collector observed (protocol 1.15.0, ADR 0327): stored by the host, served read-only.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub facts: Vec<Fact>,
 }
 
 /// A test the report doesn't link to an entity: its name, the name split
@@ -748,7 +781,9 @@ pub struct MigrationInput {
 }
 
 mod evidence;
+mod facts;
 pub use evidence::{CommandEvidence, EntityEvidence};
+pub use facts::{Fact, FactStore, UnheldReference};
 
 #[cfg(test)]
 mod tests;

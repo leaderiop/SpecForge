@@ -10,7 +10,9 @@ use specforge_graph::VerdictJson;
 use specforge_ops::authoring::fix::{self, FixQuery, Offer};
 use specforge_ops::authoring::format;
 use specforge_ops::read::navigate::{EntityQuery, MatchScope, Navigator, find_entities, outline};
+use specforge_ops::read::trace::route_traces;
 use specforge_project::RuntimeSource;
+use std::collections::BTreeMap;
 use tower_lsp::jsonrpc::{Error, ErrorCode};
 use tower_lsp::lsp_types::{
     ClientCapabilities, CodeAction, CodeActionOrCommand, CodeActionResponse, CodeLens, Command,
@@ -199,9 +201,11 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
                             .flatten()
                             .map(str::to_string)
                     };
+                    let thread = route_traces(&view, [id.as_str()]).pop();
                     hover::entity(
                         &facts,
                         &coverage,
+                        thread.as_ref(),
                         &shown,
                         state.registries().codes(),
                         &written,
@@ -551,6 +555,12 @@ pub fn code_lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
     let entries = outline(&navigator, &state.key_of(uri)).ok()?;
     let plural = |n: usize, one: &str| format!("{n} {one}{}", if n == 1 { "" } else { "s" });
     let written = navigator.tokens_by_target();
+    // One trace per routed entry, over one selection (ADR 0330).
+    let threads: BTreeMap<String, String> =
+        route_traces(&state.view(), entries.iter().map(|e| e.id.as_str()))
+            .into_iter()
+            .map(|t| (t.entity_id.clone(), t.summary()))
+            .collect();
     let mut lenses = Vec::new();
     for entry in entries {
         let Some(range) = compiled.range(&entry.name) else {
@@ -616,6 +626,9 @@ pub fn code_lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
         let none = judgements.iter().filter(|j| j.state == "missing").count();
         if let Some(title) = crate::verdicts::missing(none) {
             lenses.push(lens(title, "", None));
+        }
+        if let Some(summary) = threads.get(id) {
+            lenses.push(lens(summary.clone(), "", None));
         }
     }
     Some(lenses)

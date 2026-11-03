@@ -44,6 +44,7 @@ mod hard_links;
 mod harness;
 mod history;
 mod hook_exit;
+mod host_ports;
 mod hostile_files;
 mod init;
 mod init_enclosing;

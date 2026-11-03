@@ -14,6 +14,7 @@ mod order;
 mod peers;
 mod pin;
 mod references;
+mod routes;
 mod rules;
 mod sides;
 mod writers;

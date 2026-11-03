@@ -36,6 +36,21 @@ fn a_recorded_none_goes_stale_once_a_report_exists() {
 }
 
 #[specforge_test(
+    behavior = "judge_rule_by_fresh_verdict",
+    verify = "a report that links no test to an entity stales none of its verdicts"
+)]
+fn a_report_that_links_no_test_stales_no_verdict() {
+    let project = gsd_judged_project("");
+    record(&project, TRUTH, E501, "passed");
+    let other = json!({"tests": [{"name": "plans", "status": "passed", "duration_ms": 1}]});
+    project.write(
+        "specforge-report.json",
+        json!({"results": {"v1.0/03/03-02": other}}).to_string(),
+    );
+    assert_eq!(judgement(&compile(&project), TRUTH, E501).0, "fresh");
+}
+
+#[specforge_test(
     behavior = "digest_judged_inputs",
     verify = "a missing report hides no change to a cited entity or file"
 )]

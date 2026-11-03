@@ -85,6 +85,31 @@ impl KindBuilder {
         self.0.writer = Some(FieldWriter::Human.as_str().to_string());
         self
     }
+    /// The kind's entities are facts a collector writes (ADR 0327): never typed in a `.spec` file (E115) nor edited,
+    /// stored by `specforge collect` and served read-only. `schemes` are the prefixes of their ids (`js` for
+    /// `js:pkg/file#name`); a reference written in one that names no fact is unheld, not E003.
+    pub fn collected(&mut self, schemes: &[&str]) -> &mut Self {
+        self.0.writer = Some(FieldWriter::Collector.as_str().to_string());
+        self.0.schemes = schemes.iter().map(|scheme| scheme.to_string()).collect();
+        self
+    }
+    /// With [`Self::collected`]: the enum field holding a fact's result, its values `TestStatus` names (ADR 0329
+    /// D3), what a reader of a reference to the fact takes as its result. On a kind no collector writes, or naming a
+    /// field that is no such enum, it is W021 and dropped.
+    pub fn result(&mut self, field: &str) -> &mut Self {
+        self.0.result = Some(field.to_string());
+        self
+    }
+    /// The kind's entities are complete while its enum field `field` holds one of `values`, else pending (ADR 0329
+    /// D4): a pass reads it as `PassEntity::pending`, on them and on the entities they scope that declare none. A
+    /// `field` the kind does not declare as an enum, or a value outside it, is W021 and the declaration is dropped.
+    pub fn complete_when(&mut self, field: &str, values: &[&str]) -> &mut Self {
+        self.0.complete_when = Some(crate::CompleteWhen {
+            field: field.to_string(),
+            values: values.iter().map(|value| value.to_string()).collect(),
+        });
+        self
+    }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
         self.0.semantic_token = Some(t.to_string());
         self
@@ -695,13 +720,16 @@ impl CollectorBuilder {
                 report: None,
                 capture: None,
                 writes: false,
+                reads: Vec::new(),
             },
             collect: None,
         }
     }
     /// What the collector does: `handler` receives the report files
     /// ([`CollectInput`]) and answers the results ([`CollectOutput`]), or
-    /// why it could not read them.
+    /// why it could not read them. It may also answer the entities it observed
+    /// (`CollectOutput::facts`, [`Fact`](crate::Fact), ADR 0327) of a kind declared
+    /// [`KindBuilder::collected`].
     pub fn collect(
         &mut self,
         handler: impl Fn(&CollectInput) -> Result<CollectOutput, String> + 'static,

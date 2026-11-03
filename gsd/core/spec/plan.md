@@ -43,7 +43,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | success_criteria | strs | | `<success_criteria>` |
 | wave | int | C | `wave:`: longest `depends_on` path + base (0 if the phase has a `wave0` plan, else 1); file overlap never moves it (see gsd/W305). Exactly GSD's executed wave (phase-plan-index); GSD's authored `wave:` is only a hint. |
 | autonomous | bool | C | `autonomous:`: false exactly when the plan has a checkpoint |
-| status | enum{draft, checked, ready, executing, complete, halted, blocked} | C | checked: all four plan-check verdicts (gsd/W311, W313, W315, W316) are fresh and passing; draft: any of them is missing, stale, unrecorded or failing (with `workflow.plan_check` off the four rules are gated, a plan has no judgement and is `ready`, never `draft` or `checked`); complete / halted: from its summary (case-folded); blocked: a `depends_on` chain inside its phase reaches a halted plan, or a cycle contains it (GSD fails closed; Kahn's algorithm, `plan-dependency-graph.cts`); executing: a recorded commit names it and it has no summary. A summary and blocking win over a commit, and execution wins over the check; before that the plan-check verdicts decide between draft, checked and (check off) ready |
+| status | enum{draft, checked, ready, executing, complete, halted, blocked} | C | checked: all four plan-check verdicts (gsd/W311, W313, W315, W316) are fresh and passing; draft: any of them is missing, stale, unrecorded or failing (with `workflow.plan_check` off the four rules are gated, a plan has no judgement and is `ready`, never `draft` or `checked`); complete / halted: from its summary (case-folded); blocked: a `depends_on` chain inside its phase reaches a halted plan, or a cycle contains it (GSD fails closed; Kahn's algorithm, `plan-dependency-graph.cts`); executing: a recorded commit names it and it has no summary. A summary and blocking win over a commit, and execution wins over the check; before that the plan-check verdicts decide between draft, checked and (check off) ready. The plan is complete (`complete_when`, ADR 0329 D4) while `complete`, else pending: a red proof of its truths is TDD, not a `@code/core` finding |
 
 ## task
 
@@ -65,7 +65,7 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | done | str | R | `<done>` |
 | verify_paths | strs | C | the directory and the manifest (`package.json`, `Makefile`) each `automated` command runs in, from its `cd` or `--prefix`, project-relative; the host reads them (K11) for gsd/E320 |
 | commits | ←* commit | | read, not written: the inverse of `commit.task`, the commits whose subject names the task (`plan.commits` reads `commit.plan` the same way). The git collector records them |
-| status | enum{pending, done} | C | done when a recorded commit names it or its plan's summary is complete; pending otherwise |
+| status | enum{pending, done} | C | done when a recorded commit names it or its plan's summary is complete; pending otherwise. The task is complete (`complete_when`) while `done` |
 
 ## checkpoint
 
@@ -94,7 +94,7 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 
 | Kind | Fields |
 |---|---|
-| truth | `plan R I`, `text str R` (user-observable), `verification enum{explicit, backstop} U` (a person's to write), `criterion int` (the phase success criterion it proves). Name `TR1`. |
+| truth | `plan R I`, `text str R` (user-observable), `requirement ref requirement` (the requirement it proves; read back as `requirement.truths`), `proof refs test` (the `@code/core` test facts that prove it, quoted ids such as `"js:pkg/a.test.js#adds"`; with no `@code/core` loaded a written proof is I004), `verification enum{explicit, backstop} U` (a person's to write), `criterion int` (the phase success criterion it proves). Name `TR1`. |
 | artifact | `plan R I`, `path str R` (a path the plan creates: not existence-checked), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
 | key_link | `plan R I`, `from str R`, `to str R` (paths the plan creates: not existence-checked), `via str R`, `pattern str`. Name `KL1`. |
 | prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |

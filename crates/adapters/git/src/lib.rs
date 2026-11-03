@@ -14,6 +14,7 @@ use std::time::Duration;
 use specforge_common::process::{Ran, RunError, run_with};
 use specforge_project::history::{
     Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha, Sized, TreeEntry,
+    WorktreeStatus,
 };
 
 /// Runs `git` from `PATH`.
@@ -381,12 +382,43 @@ impl History for GitCli {
         Ok(String::from_utf8_lossy(&out).trim().to_string())
     }
 
-    fn status(&self, place: &GitPlace) -> Result<String, HistoryError> {
+    fn status(&self, place: &GitPlace) -> Result<WorktreeStatus, HistoryError> {
         let out = self.ok(
             &place.toplevel,
             &["status", "--porcelain=v2", "--branch"],
             None,
         )?;
-        Ok(String::from_utf8_lossy(&out).into_owned())
+        let porcelain = String::from_utf8_lossy(&out).into_owned();
+        Ok(WorktreeStatus {
+            dirty: dirty(&porcelain),
+            porcelain,
+        })
+    }
+}
+
+/// Whether a `git status --porcelain=v2` lists a tracked change (`1`, `2`), a conflict (`u`) or an untracked file
+/// (`?`).
+fn dirty(porcelain: &str) -> bool {
+    porcelain
+        .lines()
+        .any(|line| matches!(line.split(' ').next(), Some("1" | "2" | "u" | "?")))
+}
+
+#[cfg(test)]
+mod status_tests {
+    use super::dirty;
+
+    #[test]
+    fn a_tree_is_dirty_by_a_tracked_change_a_conflict_or_an_untracked_file() {
+        assert!(!dirty("# branch.oid abc\n# branch.head main\n"));
+        for line in [
+            "1 .M N... 100644 100644 100644 a b f",
+            "2 R. x",
+            "u UU x",
+            "? new.txt",
+        ] {
+            assert!(dirty(&format!("# branch.head main\n{line}\n")), "{line}");
+        }
+        assert!(!dirty("! ignored.txt\n"));
     }
 }

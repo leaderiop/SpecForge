@@ -5,7 +5,8 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 use specforge_protocol_types::{
-    Cite, CommandInput, CommandOutput, EditPlan, PlanObligation, PlanOp, RawGraph,
+    Cite, CollectOutput, CommandInput, CommandOutput, EditPlan, Fact, PlanObligation, PlanOp,
+    RawGraph,
 };
 
 fn wire(name: &str) -> Value {
@@ -178,4 +179,23 @@ fn a_cite_naming_more_than_one_thing_is_not_a_cite() {
             "{bad}"
         );
     }
+}
+
+#[specforge_test_macros::test(type = "Fact", verify = "Fact schema is valid")]
+fn a_collectors_facts_are_the_golden() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/wire/collect.facts.output.json");
+    let text = std::fs::read_to_string(path).unwrap();
+    let output: CollectOutput = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        output.facts,
+        [Fact::new(
+            "test",
+            "js:taskboard/test/tasks.test.js#a task is added with the next id"
+        )
+        .title("a task is added with the next id")
+        .field("file", "taskboard/test/tasks.test.js")
+        .field("status", "passed")]
+    );
+    assert_eq!(serde_json::to_string_pretty(&output).unwrap() + "\n", text);
 }

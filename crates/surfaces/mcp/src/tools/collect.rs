@@ -82,6 +82,7 @@ impl CoreTool for Tool {
         let applied = apply_collected(
             &view,
             std::mem::take(&mut outcome.plans),
+            std::mem::take(&mut outcome.facts),
             args.dry_run,
             project.caller(),
         )

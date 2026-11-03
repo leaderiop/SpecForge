@@ -1,0 +1,260 @@
+---
+source: crates/session/project/tests/registry_build_snapshot.rs
+expression: "digest(&load(&runtime, &[name]))"
+---
+{
+  "check_passes": [
+    {
+      "extension": "@code/core",
+      "name": "refs"
+    },
+    {
+      "extension": "@code/core",
+      "name": "proof"
+    }
+  ],
+  "commands": [],
+  "diagnostics": [],
+  "edges": {
+    "run_of": {
+      "description": "A run of a test",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "run_of",
+      "source_extension": "@code/core",
+      "source_kind": "test_run",
+      "sources": [
+        "test_run"
+      ],
+      "target_kind": "test",
+      "targets": [
+        "test"
+      ],
+      "writers": [
+        "@code/core test_run.test -> test"
+      ]
+    }
+  },
+  "ext_short": {
+    "@code/core": "core"
+  },
+  "extension_info": [
+    [
+      "@code/core",
+      "1.0.0"
+    ]
+  ],
+  "fields": {
+    "test.file": {
+      "derived_from": null,
+      "description": "The test file, project-relative, with / separators",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "file",
+      "field_type": "String",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "test.name": {
+      "derived_from": null,
+      "description": "The test's own name",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "name",
+      "field_type": "String",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "test.names": {
+      "derived_from": null,
+      "description": "The ids of the entities the test says it proves, in its runner's idiom (I402 when one is no entity)",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "names",
+      "field_type": "StringList",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "test.package": {
+      "derived_from": null,
+      "description": "The package the runner pack assigns the test to",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "package",
+      "field_type": "String",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "test.status": {
+      "derived_from": null,
+      "description": "What its last run said: passed, failed or skipped",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "status",
+      "field_type": "Enum([\"passed\", \"failed\", \"skipped\"])",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "test.suite": {
+      "derived_from": null,
+      "description": "The suites the test is nested in, outermost first",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "suite",
+      "field_type": "StringList",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "test_run.duration_ms": {
+      "derived_from": null,
+      "description": "How long the run took, in milliseconds",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "duration_ms",
+      "field_type": "Integer",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test_run",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "test_run.status": {
+      "derived_from": null,
+      "description": "What the run said: the test's own status",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "status",
+      "field_type": "Enum([\"passed\", \"failed\", \"skipped\"])",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test_run",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "test_run.test": {
+      "derived_from": null,
+      "description": "The test this is the run of",
+      "edge": "run_of",
+      "exempts_obligations": false,
+      "field_name": "test",
+      "field_type": "Reference",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test_run",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "test"
+    }
+  },
+  "graph_inputs": {
+    "absent_targets": {},
+    "derived_references": [],
+    "field_forms": {
+      "test.file": "string",
+      "test.name": "string",
+      "test.names": "string_list",
+      "test.package": "string",
+      "test.status": "enum (passed, failed, skipped)",
+      "test.suite": "string_list",
+      "test_run.duration_ms": "integer",
+      "test_run.status": "enum (passed, failed, skipped)",
+      "test_run.test": "reference"
+    },
+    "member_kinds": []
+  },
+  "kinds": {
+    "test": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "A test a runner ran, written by its runner pack's collector (ADR 0329): cite it by its id, js:<package>/<file>#<suite > … > name>",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "test",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@code/core",
+      "supports_verify": false,
+      "testable": false
+    },
+    "test_run": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "The run of a test (ADR 0329): run:<test id>, with the status the run gave it",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "test_run",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@code/core",
+      "supports_verify": false,
+      "testable": false
+    }
+  },
+  "manifest_surfaces": [],
+  "rules": [],
+  "shadowed": 0
+}

@@ -268,7 +268,7 @@ struct Recording {
 }
 
 impl WasmRuntime for Recording {
-    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
+    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), specforge_wasm::LoadError> {
         self.loaded
             .lock()
             .unwrap()

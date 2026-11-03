@@ -1,0 +1,24 @@
+[
+  {
+    "name": "requirement-thread",
+    "description": "A requirement's thread: its plans, tasks, commits, tests and truths",
+    "start": "requirement",
+    "steps": [
+      { "name": "plan", "via": "<plan.requirements", "label": "plan" },
+      { "name": "task", "via": "<task.plan" },
+      { "name": "commit", "via": "<commit.task", "annotations": [{ "field": "linked_by" }] },
+      {
+        "name": "test",
+        "from": "start",
+        "via": "<truth.requirement.proof",
+        "annotations": [{ "field": "status", "of": "<test_run.test", "absent": "not run" }]
+      },
+      {
+        "name": "truth",
+        "from": "start",
+        "via": "<truth.requirement",
+        "annotations": [{ "judgement": "E501" }]
+      }
+    ]
+  }
+]

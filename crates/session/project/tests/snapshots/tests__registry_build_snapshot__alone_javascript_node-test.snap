@@ -1,0 +1,35 @@
+---
+source: crates/session/project/tests/registry_build_snapshot.rs
+expression: "digest(&load(&runtime, &[name]))"
+---
+{
+  "check_passes": [],
+  "commands": [],
+  "diagnostics": [
+    {
+      "code": "E027",
+      "message": "extension '@javascript/node-test' requires peer dependency '@code/core' ^1.0 which is not installed"
+    }
+  ],
+  "edges": {},
+  "ext_short": {
+    "@javascript/node-test": "node-test"
+  },
+  "extension_info": [
+    [
+      "@javascript/node-test",
+      "1.0.0"
+    ]
+  ],
+  "fields": {},
+  "graph_inputs": {
+    "absent_targets": {},
+    "derived_references": [],
+    "field_forms": {},
+    "member_kinds": []
+  },
+  "kinds": {},
+  "manifest_surfaces": [],
+  "rules": [],
+  "shadowed": 0
+}

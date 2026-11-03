@@ -291,10 +291,11 @@ fn vscode_client_asks_only_what_the_server_answers() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
-/// The init and add pickers offer the builtins that declare kinds, each with its kinds, as
-/// `builtin-vocabulary.json` groups them (ADR 0268 D5): the client keeps the list because
+/// The init and add pickers offer the builtins that declare kinds a person writes, each with those
+/// kinds, as `builtin-vocabulary.json` groups them (ADR 0268 D5): the client keeps the list because
 /// Initialize Project runs before a project exists, and this pin fails the moment a builtin gains
-/// or loses a kind.
+/// or loses a kind. A collector-written kind (ADR 0327) is never authored, so a builtin declaring
+/// only those (`@code/core`) is not offered: the runner pack that writes them brings it as a peer.
 #[test]
 fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
     use std::collections::BTreeMap;
@@ -323,8 +324,32 @@ fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
         .expect("builtin-vocabulary.json"),
     )
     .expect("valid vocabulary JSON");
+    // The collector-written kinds, from the pinned declarations the vocabulary is generated from.
+    let mut collected: BTreeSet<String> = BTreeSet::new();
+    let pinned = repo_root().join("crates/runtime/component/tests/declarations");
+    for dir in std::fs::read_dir(pinned).expect("the pinned declarations") {
+        let entities = dir
+            .expect("a declaration dir")
+            .path()
+            .join("describe_entities.json");
+        let Ok(text) = std::fs::read_to_string(entities) else {
+            continue;
+        };
+        let entities: serde_json::Value = serde_json::from_str(&text).expect("valid entities JSON");
+        collected.extend(
+            entities["items"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|kind| kind["writer"] == "collector")
+                .filter_map(|kind| kind["name"].as_str().map(str::to_string)),
+        );
+    }
     let mut declared: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for (kind, builtin) in vocabulary["kinds"].as_object().expect("kinds") {
+        if collected.contains(kind) {
+            continue;
+        }
         declared
             .entry(builtin.as_str().expect("builtin name").to_string())
             .or_default()

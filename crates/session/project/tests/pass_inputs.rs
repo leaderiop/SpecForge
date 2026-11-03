@@ -103,3 +103,104 @@ fn pass_input_is_byte_equal_without_k11_k14() {
         }
     }
 }
+
+const OWNER: &str = "@test/owner";
+
+/// A plan whose computed `status` is `complete` once it is `done`, and the truths and notes it may scope.
+const OWNED: &str = "plan p1 \"Done\" {\n  done true\n}\n\nplan p2 \"Open\" {\n  done false\n}\n\ntruth t1 \"Of the done plan\" {\n  plan p1\n}\n\ntruth t2 \"Of the open plan\" {\n  plan p2\n}\n\ntruth t3 \"Of no plan\" {\n}\n\nnote n1 \"Of no owner kind\" {\n}\n";
+
+/// `@test/owner`: a `plan` complete on `status ∈ [complete]`, its `status` computed from `done`; a `truth` scoped by
+/// `plan`, declaring no `complete_when`; a `note` with neither; and the check pass `audit`.
+fn owner() -> InProcessRuntime {
+    InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(OWNER, "1.0.0"));
+        c.kind("plan", |k| {
+            k.complete_when("status", &["complete"])
+                .field("done", |f| {
+                    f.field_type(FieldType::Bool);
+                })
+                .field("status", |f| {
+                    f.vocabulary(&Vocabulary::new(&["draft", "complete"]))
+                        .computed();
+                });
+        });
+        c.kind("truth", |k| {
+            k.scoped_by("plan").field("plan", |f| {
+                f.field_type(FieldType::Reference).target_kind("plan");
+            });
+        });
+        c.kind("note", |_| {});
+        c.pass("progress", |p| {
+            p.compute().computes(&["plan.status"]).run(|input| {
+                let values = input
+                    .entities
+                    .iter()
+                    .filter(|e| e.kind == "plan")
+                    .map(|e| PassValue {
+                        entity: e.id.clone(),
+                        field: "status".to_string(),
+                        value: match e.fields.get("done").map(String::as_str) {
+                            Some("true") => "complete".into(),
+                            _ => "draft".into(),
+                        },
+                    })
+                    .collect();
+                PassOutput {
+                    values,
+                    ..PassOutput::default()
+                }
+            });
+        });
+        c.pass("audit", |p| {
+            p.phase("check").run(nothing);
+        });
+        c
+    })
+}
+
+/// The ids `__pass_audit` was sent `pending` for, in id order.
+fn pending_in(runtime: &InProcessRuntime) -> Vec<String> {
+    let input: PassInput = serde_json::from_str(&input_of(runtime, "__pass_audit")).unwrap();
+    input
+        .entities
+        .into_iter()
+        .filter(|e| e.pending)
+        .map(|e| e.id)
+        .collect()
+}
+
+fn owned() -> Vec<String> {
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[OWNER])
+        .installing_enabled()
+        .file("a.spec", OWNED);
+    let runtime = Arc::new(owner());
+    let compiled = project.compile_in(runtime.clone());
+    assert!(
+        compiled.diagnostics().iter().all(|d| !d.is_error()),
+        "{:?}",
+        compiled.diagnostics()
+    );
+    pending_in(&runtime)
+}
+
+#[specforge_test(
+    behavior = "cc_owner_pending",
+    verify = "a scoped entity is pending while its owner is"
+)]
+fn a_scoped_entity_is_pending_while_its_owner_is() {
+    // p2's computed status is draft: it and the truth it scopes are pending; p1 is complete, and so is its truth.
+    assert_eq!(owned(), ["p2", "p2/t2"]);
+}
+
+#[specforge_test(
+    behavior = "cc_owner_pending",
+    verify = "an entity with no stated owner is not pending"
+)]
+fn an_entity_with_no_stated_owner_is_not_pending() {
+    let pending = owned();
+    for free in ["t3", "n1"] {
+        assert!(!pending.iter().any(|id| id == free), "{free}: {pending:?}");
+    }
+}

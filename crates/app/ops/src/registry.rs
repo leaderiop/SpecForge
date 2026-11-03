@@ -429,6 +429,7 @@ pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
             "typed settings, presets and secrets",
             DeclaredCategory::Settings,
         ),
+        category("routes", "trace routes", DeclaredCategory::Routes),
     ],
     default: None,
 };

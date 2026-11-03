@@ -14,7 +14,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use specforge_wasm::runtime::{ExtensionSettings, WasmCallResult, WasmRuntime, WasmTrapInfo};
+use specforge_wasm::runtime::{
+    ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo,
+};
 use specforge_wasm::sandbox::Limits;
 use wasmtime::component::{Component, Linker, Resource};
 use wasmtime::{Cache, CacheConfig, Config, Engine, Store};
@@ -29,6 +31,9 @@ wasmtime::component::bindgen!({
 pub mod builtins;
 #[cfg(feature = "testing")]
 pub mod committed;
+#[cfg(feature = "testing")]
+pub mod fixtures;
+mod imports;
 
 /// Per-instance state: the WASI context (no capability) and the memory
 /// ceiling the limiter enforces. Builtins are pure-compute, but wasip2
@@ -404,10 +409,18 @@ impl Default for ComponentRuntime {
 impl WasmRuntime for ComponentRuntime {
     /// Compile a component from bytes and register it under `name`,
     /// atomically replacing any existing plugin (hot reload / H1).
-    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
+    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), LoadError> {
         let component = Component::from_binary(&self.engine, bytes)
-            .map_err(|e| format!("failed to compile component: {e}"))?;
+            .map_err(|e| LoadError::Unloadable(format!("failed to compile component: {e}")))?;
+        // Read before instantiating: the linker would refuse an unknown port as a missing implementation.
+        imports::admit(
+            component
+                .component_type()
+                .imports(&self.engine)
+                .map(|(name, _)| name),
+        )?;
         self.instantiate_with_fuel(name, component, self.fuel)
+            .map_err(LoadError::Unloadable)
     }
 
     fn rename(&self, from: &str, to: &str) -> bool {

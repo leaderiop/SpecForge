@@ -7,7 +7,7 @@ use specforge_extension_sdk::prelude::FieldType;
 use specforge_protocol_types::ValidationRuleDescriptor;
 use specforge_test_macros::test as spec;
 
-use super::{Built, rules_of};
+use super::{Built, rules_of, rules_with};
 use crate::support::declare;
 
 fn descriptor(judged: Value) -> ValidationRuleDescriptor {
@@ -301,4 +301,49 @@ fn a_verdict_field_is_bound_by_one_judged_rule() {
             .diagnostics()
             .any(|d| d.code == "W021" && d.message.contains("'plan.result'"))
     );
+}
+
+#[spec(
+    behavior = "declare_judged_rule",
+    verify = "a chain into an unloaded optional peer's kind is inert, and into any other unloaded kind W112"
+)]
+fn a_chain_into_an_unloaded_optional_peers_kind_is_inert() {
+    let judged = json!({
+        "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
+        "targets": [{"kind": "plan", "inputs": [
+            {"name": "tests", "selector": "test(self, self.proof)"},
+            {"name": "proved", "selector": "self.proof"},
+        ]}],
+    });
+    // `@ghosts`, which the host could enable, declares `ghost`.
+    let ghosts = crate::support::candidates(&[declare("@ghosts", |c| {
+        c.kind("ghost", |_| {});
+    })]);
+    let built = |peer: bool, target: &str| {
+        let mut declaration = declare("@test", |c| {
+            if peer {
+                c.optional_peer("@ghosts", "^1.0");
+            }
+            c.agent("checker", |a| {
+                a.description("Judges");
+            });
+            c.kind("plan", |k| {
+                k.keyword("plan");
+                k.field("proof", |f| {
+                    f.field_type(FieldType::ReferenceList).target_kind(target);
+                });
+            });
+        });
+        declaration.validation_rules = vec![descriptor(judged.clone())];
+        rules_with(vec![declaration], ghosts.clone())
+    };
+    let inert = built(true, "ghost");
+    assert!(inert.coded("W112").is_empty(), "{:?}", inert.diagnostics);
+    assert_eq!(inert.rules.iter().count(), 1);
+    // No optional peer, or a kind the peer does not declare (a typo): the rule can never work.
+    for (peer, target) in [(false, "ghost"), (true, "gost")] {
+        let refused = built(peer, target);
+        assert_eq!(refused.coded("W112").len(), 1, "{:?}", refused.diagnostics);
+        assert_eq!(refused.rules.iter().count(), 0);
+    }
 }

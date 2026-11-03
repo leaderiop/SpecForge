@@ -112,6 +112,9 @@ pub(crate) fn problems(
     for command in &declaration.surfaces.commands {
         check(format!("command '{}'", command.id), &command.reads);
     }
+    for collector in &declaration.collectors {
+        check(format!("collector '{}'", collector.name), &collector.reads);
+    }
     messages
 }
 

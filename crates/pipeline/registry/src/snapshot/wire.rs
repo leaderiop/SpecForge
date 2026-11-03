@@ -1,6 +1,7 @@
 //! Adapters from the snapshot to fixed external shapes (ADR 0019, "Wire"): the pass input, the
 //! custom validators' context and the coverage rule's entities.
 
+use specforge_common::SourceSpan;
 use specforge_graph::ValueShape;
 use specforge_protocol_types::{
     PassEdge, PassEntity, PassSpan, ValidatorContext, ValidatorEntity, ValidatorField,
@@ -15,8 +16,30 @@ impl EntitySnapshot {
     /// `PassInput::entities`: one [`pass_entity`] per entity, in id order.
     pub fn pass_entities(&self) -> Vec<PassEntity> {
         self.iter()
-            .map(|(record, standing)| pass_entity(record, standing))
+            .map(|(record, standing)| pass_entity(record, standing, self.is_pending(record)))
             .collect()
+    }
+
+    /// Whether `record`'s owner is not complete (ADR 0329 D4): its own kind's `complete_when`, else the nearest
+    /// scope ancestor's whose kind declares one, does not hold; with none in the chain, it is not pending. Read from
+    /// this snapshot's values, so on the merged snapshot a computed value decides.
+    pub fn is_pending(&self, record: &EntityRecord) -> bool {
+        let mut at = Some(record);
+        while let Some(entity) = at {
+            if let Some(when) = self.complete_when.get(&entity.kind) {
+                return !entity
+                    .fields
+                    .iter()
+                    .any(|f| f.key == when.field && when.values.contains(&f.text));
+            }
+            // A scope names an entity of another kind and the scope kinds form a DAG (ADR 0284), so this ends.
+            at = entity
+                .scope
+                .as_deref()
+                .and_then(|scope| self.get(scope))
+                .map(|(scope, _)| scope);
+        }
+        false
     }
 
     /// `PassInput::edges`, in graph order.
@@ -114,8 +137,9 @@ impl EntitySnapshot {
 /// One entity as a pass receives it:
 /// - its field texts by key;
 /// - its edge totals and span;
-/// - `testable`, and `owes_none` = it owes no obligations of its own.
-pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing) -> PassEntity {
+/// - `testable`, and `owes_none` = it owes no obligations of its own;
+/// - `pending`, whether its owner is ([`EntitySnapshot::is_pending`]).
+pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing, pending: bool) -> PassEntity {
     PassEntity {
         id: record.id.clone(),
         kind: record.kind.clone(),
@@ -127,18 +151,25 @@ pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing) -> PassEnt
         values: written_values(record),
         incoming_edge_count: record.incoming.total,
         outgoing_edge_count: record.outgoing.total,
-        span: Some(PassSpan {
-            file: record.span.file.as_str().to_string(),
-            start_line: record.span.start_line,
-            start_col: record.span.start_col,
-            end_line: record.span.end_line,
-            end_col: record.span.end_col,
-        }),
+        span: Some(pass_span(&record.span)),
         testable: standing.testable,
         owes_none: !standing.owes_obligations(),
         verify_kinds: record.obligations.iter().map(|o| o.kind.clone()).collect(),
         verify_texts: record.obligations.iter().map(|o| o.text.clone()).collect(),
         judgements: Vec::new(),
+        unheld: record.unheld.clone(),
+        pending,
+    }
+}
+
+/// `span` as the wire carries it.
+pub(super) fn pass_span(span: &SourceSpan) -> PassSpan {
+    PassSpan {
+        file: span.file.as_str().to_string(),
+        start_line: span.start_line,
+        start_col: span.start_col,
+        end_line: span.end_line,
+        end_col: span.end_col,
     }
 }
 

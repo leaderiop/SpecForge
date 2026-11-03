@@ -238,6 +238,8 @@ type McpInspectResult "Mcp Inspect Result" {
   referenced_by       string[]
   /// The entities this one references (outgoing), distinct, sorted.
   refers_to           string[]
+  /// Its references in a fact scheme that name no fact (ADR 0327): why they have no edge; absent when none.
+  unheld              UnheldJson[]    @optional
   /// Its verdict statements as the graph export writes them; absent when it has none.
   verdicts            VerdictJson[]   @optional
   /// Where each judged rule that judges it stands (ADR 0290); absent when none does.
@@ -251,6 +253,12 @@ type McpInspectResult "Mcp Inspect Result" {
   /// The diagnostics about the entity, as specforge.validate reports them.
   diagnostics         Diagnostic[]
   verify unit "McpInspectResult schema is valid"
+}
+
+type UnheldJson "A reference in a fact scheme that names no fact: its field and the id written" {
+  field string
+  id    string
+  verify unit "UnheldJson schema is valid"
 }
 
 type McpDefinitionResult "Mcp Definition Result" {
@@ -416,7 +424,7 @@ type McpExtensionInfo "Mcp Extension Info" {
   /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
   /// load); "not_configured" (installed, but not enabled).
   status           "loaded" | "not_loaded" | "not_configured"
-  /// The file reads its passes and commands declare (ADR 0293), each with what it asks for; absent while it
+  /// The file reads its passes, commands and collectors declare (ADR 0293), each with what it asks for; absent while it
   /// declares none.
   reads            McpDeclaredRead[] @optional
   verify unit "McpExtensionInfo schema is valid"
@@ -590,14 +598,14 @@ type McpDoctorExtension "Mcp Doctor Extension" {
   /// load); "not_configured" (installed, but not enabled).
   status            "loaded" | "not_loaded" | "not_configured"
   enhancement_count integer
-  /// The file reads its passes and commands declare (ADR 0293), each with what it asks for; absent while it
+  /// The file reads its passes, commands and collectors declare (ADR 0293), each with what it asks for; absent while it
   /// declares none.
   reads             McpDeclaredRead[] @optional
   verify unit "McpDoctorExtension schema is valid"
 }
 
 type McpDeclaredRead "Mcp Declared Read" {
-  /// The pass or command that declares the read: "pass:<name>" or "command:<id>".
+  /// The pass, command or collector that declares the read: "pass:<name>", "command:<id>" or "collector:<name>".
   owner string
   name  string
   /// The "kind.field" whose paths are read; absent for a glob read.
@@ -763,7 +771,9 @@ type McpEditResult "Mcp Edit Result" {
   verify unit "McpEditResult schema is valid"
 }
 
-type McpTraceResult "Mcp Trace Result" = McpTraceChainResult | McpTracePlanResult
+type McpTraceResult "Mcp Trace Result" = McpTraceChainResult
+  | McpTraceRouteResult
+  | McpTracePlanResult
 
 type McpTraceChainResult "Trace tool response when entity_id is provided" {
   schema_version string
@@ -797,6 +807,65 @@ type McpMissingLink "An expected reference field an entity writes no reference i
   required      boolean
   status        "resolved" | "missing"
   verify unit "McpMissingLink schema is valid"
+}
+
+type McpTraceRouteResult "Trace tool response when the entity's kind has a route, or a route is named" {
+  schema_version string
+  entity_id      string   @readonly
+  entity_kind    string   @readonly
+  /// The route's qualified name (gsd/requirement-thread).
+  route          string
+  /// What the start entity's annotations print.
+  annotations    McpTraceAnnotation[]
+  /// Every step the route registered, in declared order, with every match.
+  steps          McpTraceRouteStep[]
+  /// The steps and annotations the route skips for an optional peer the project does not load; absent when none.
+  skipped        string[] @optional
+  /// At least one path reaches every step: specforge trace prints the thread by default.
+  complete       boolean
+  /// The steps the thread falls short at, in declared order.
+  missing        string[]
+  /// The thread over every match, as specforge trace --partial prints it.
+  text           string
+  verify unit "Trace tool response along a route conforms to schema"
+}
+
+type McpTraceRouteStep "One step of a route trace" {
+  name    string
+  /// start, or the name of the step it goes on from.
+  from    string
+  /// The word printed before each match's name; absent when the step has none.
+  label   string @optional
+  matches McpTraceRouteMatch[]
+  verify unit "McpTraceRouteStep schema is valid"
+}
+
+type McpTraceRouteMatch "An entity a route step reached from one match of the step it goes on from" {
+  entity_id   string @readonly
+  entity_kind string @readonly
+  name        string
+  /// The entity it was reached from.
+  parent      string
+  annotations McpTraceAnnotation[]
+  verify unit "McpTraceRouteMatch schema is valid"
+}
+
+type McpTraceAnnotation "What one route annotation printed of one entity" {
+  /// What it reads: a field's values, or a judged rule's judgement.
+  source  "field" | "judgement"
+  /// The field read; a field's only.
+  name    string   @optional
+  /// The field's values, in order, each once; a field's only.
+  values  string[] @optional
+  /// The judged rule's qualified code; a judgement's only.
+  code    string   @optional
+  /// The judgement's state; a judgement's only, absent when the rule has not judged it.
+  state   string   @optional
+  /// The judgement's recorded outcome; a judgement's only, absent when none is recorded.
+  outcome string   @optional
+  /// What the thread prints for it; absent when it prints nothing.
+  text    string   @optional
+  verify unit "McpTraceAnnotation schema is valid"
 }
 
 type McpTracePlanResult "Trace tool response when plan parameter is provided" {
@@ -903,8 +972,8 @@ type McpCollectResult "Mcp Collect Result" {
   runners     McpCollectRunner[]
   /// What collecting reported (W115: a test names an unknown entity).
   diagnostics Diagnostic[]
-  /// The written specforge-report.json, named from the project root (ADR 0102).
-  report      string @readonly
+  /// The written specforge-report.json, named from the project root (ADR 0102); absent when no collector's answer changed it.
+  report      string @readonly @optional
   verify unit "McpCollectResult schema is valid"
 }
 
@@ -925,8 +994,12 @@ type McpCollectRunner "What one runner's collection found" {
   skipped       integer
   /// Tests linked by naming convention rather than by the report.
   by_convention integer
+  /// The facts stored for it (ADR 0327): none when it answered none, or they were refused (E116).
+  facts         integer
   /// What a writing collector's plan did to the project (ADR 0289), as an edit reports it; absent when it answered none.
   plan          McpCollectPlan @optional
+  /// Why a collector chosen by detection was skipped (its E045 message, ADR 0331); absent when it was not.
+  skip_reason   string         @optional
   verify unit "McpCollectRunner schema is valid"
 }
 

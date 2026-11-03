@@ -196,6 +196,8 @@ vocabulary! {
         /// Only the outcome or a value of a fresh verdict of a judged rule sets it (ADR 0290); a value written by
         /// hand is E082.
         Verdict = "verdict",
+        /// A collector gives the whole entity (ADR 0327): a kind's writer only; declared on a field it is W021.
+        Collector = "collector",
     }
     aliases {}
 }

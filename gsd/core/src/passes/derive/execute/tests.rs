@@ -314,3 +314,52 @@ fn execution_beats_the_check() {
     halted.entities.push(summary("a", "halted"));
     assert_eq!(status(&halted, &[], "a"), "halted");
 }
+
+/// A `@code/core` test fact of `test/tasks.test.js` (or `file`), named `name`.
+fn fact(name: &str, file: &str, status: &str) -> PassEntity {
+    entity(
+        &format!("js:taskboard/{file}#{name}"),
+        "test",
+        &[("name", name), ("file", file), ("status", status)],
+    )
+}
+
+fn statuses(input: &PassInput, d: &PassEntity) -> Vec<Value> {
+    check_statuses(input, d)
+        .into_iter()
+        .map(|v| v.value)
+        .collect()
+}
+
+#[test]
+fn a_deliverable_check_reads_its_status_from_a_test_fact_when_no_report_is_written() {
+    let d = deliverable(&[
+        "test/tasks.test.js#adds",
+        "test/tasks.test.js#lists",
+        "test/tasks.test.js#gone",
+    ]);
+    let mut input = PassInput {
+        entities: vec![
+            fact("adds", "test/tasks.test.js", "passed"),
+            fact("lists", "test/tasks.test.js", "failed"),
+        ],
+        ..Default::default()
+    };
+    assert_eq!(
+        statuses(&input, &d),
+        [json!("pass"), json!("fail"), json!("unknown")]
+    );
+    // A report's result still counts, and a failure in either source wins.
+    input.test_results = Some(report(&[("test/tasks.test.js#adds", TestStatus::Failed)]));
+    assert_eq!(statuses(&input, &d)[0], json!("fail"));
+}
+
+#[test]
+fn a_checks_file_must_match_the_facts_file() {
+    let d = deliverable(&["test/tasks.test.js#adds"]);
+    let input = PassInput {
+        entities: vec![fact("adds", "test/other.test.js", "passed")],
+        ..Default::default()
+    };
+    assert_eq!(statuses(&input, &d), [json!("unknown")]);
+}

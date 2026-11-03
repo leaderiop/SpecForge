@@ -366,7 +366,7 @@ mod tests {
         );
     }
 
-    // No shipped builtin set produces an extension conflict (all nine
+    // No shipped builtin set produces an extension conflict (all of them
     // together compile clean), so the conflicts come in at the registry
     // build's seam: two declarations that claim one kind and one edge type.
     #[specforge_test(

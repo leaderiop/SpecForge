@@ -6,7 +6,7 @@ use specforge_test_macros::test as spec;
 use specforge_extension_sdk::prelude::FieldType;
 
 use crate::support::written::checked;
-use crate::support::{build, candidates, coded_in, declare, formal, peer, software};
+use crate::support::{build, build_with, candidates, coded_in, declare, formal, peer, software};
 
 #[spec(
     behavior = "detect_unknown_entity_fields",
@@ -127,7 +127,7 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
 )]
 fn w020_for_a_builtin_enhancements_field_names_its_extension() {
     let text = "invariant i1 \"I\" {\n  expression \"x\"\n  bogus \"x\"\n}\n";
-    let build = build([software()]).with_candidates(candidates(&[formal()]));
+    let build = build_with([software()], candidates(&[formal()]));
     let diags = checked(&build, &[("test.spec", text)]);
     assert_eq!(diags.len(), 2, "{diags:?}");
     assert!(

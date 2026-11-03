@@ -55,7 +55,7 @@ mod writes;
 pub use caller::Caller;
 pub use change::{FILE_CHANGED, FILE_UNREADABLE, FILE_UNWRITABLE};
 pub use containment::{ContainedDisk, Containment, Held, OUTSIDE_ROOT, Outside, ReadFailure};
-pub use edit_report::{CollectedPlan, EditDocument, EditReport};
+pub use edit_report::{CollectedFacts, CollectedPlan, EditDocument, EditReport};
 pub use error::{OpError, OpErrorKind};
 pub use noticed::Noticed;
 pub use refusal::Refusal;

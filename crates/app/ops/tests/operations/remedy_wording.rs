@@ -417,10 +417,11 @@ fn no_declared_description_names_a_bare_flag() {
 #[test]
 fn the_declared_walk_reads_the_product_commands() {
     let strings = declared_strings();
+    let product = specforge_component::committed::key_of("@specforge/product");
     assert!(
         strings
             .iter()
-            .any(|(dir, text)| dir == "product" && text.starts_with("List features: ")),
+            .any(|(dir, text)| *dir == product && text.starts_with("List features: ")),
         "the product's command descriptions are not read"
     );
     assert!(strings.len() > 100, "only {} strings read", strings.len());

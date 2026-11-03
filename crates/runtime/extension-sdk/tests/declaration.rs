@@ -426,3 +426,189 @@ fn a_judged_rule_builds_the_descriptor_the_host_reads() {
         })
     );
 }
+
+#[test]
+fn the_sdk_declares_a_kind_a_collector_writes() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/code", "0.1.0"));
+    b.kind("test", |k| {
+        k.collected(&["js", "rust"]).field("file", |f| {
+            f.field_type(FieldType::String);
+        });
+    });
+    let kind = &b.declaration().entities[0];
+
+    assert_eq!(kind.writer.as_deref(), Some("collector"));
+    assert_eq!(kind.schemes, ["js", "rust"]);
+}
+
+#[test]
+fn the_sdk_declares_when_a_kinds_entities_are_complete() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "0.1.0"));
+    b.kind("plan", |k| {
+        k.complete_when("status", &["complete", "shipped"])
+            .field("status", |f| {
+                f.vocabulary(&Vocabulary::new(&["draft", "complete", "shipped"]));
+            });
+    });
+    let kind = &b.declaration().entities[0];
+
+    assert_eq!(
+        kind.complete_when,
+        Some(specforge_extension_sdk::CompleteWhen {
+            field: "status".to_string(),
+            values: vec!["complete".to_string(), "shipped".to_string()],
+        })
+    );
+}
+
+#[test]
+fn the_sdk_declares_the_field_holding_a_facts_result() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/code", "0.1.0"));
+    b.kind("test", |k| {
+        k.collected(&["js"]).result("status");
+    });
+
+    assert_eq!(
+        b.declaration().entities[0].result.as_deref(),
+        Some("status")
+    );
+}
+
+/// The requirement thread plan 04 declares, through the builders.
+fn requirement_thread(c: &mut ContributionsBuilder) {
+    c.route("requirement-thread", |r| {
+        r.start("requirement")
+            .description("A requirement's thread: its plans, tasks, commits, tests and truths")
+            .step("plan", "<plan.requirements", |s| {
+                s.label("plan");
+            })
+            .step("task", "<task.plan", |_| {})
+            .step("commit", "<commit.task", |s| {
+                s.field("linked_by");
+            })
+            .step("test", "<truth.requirement.proof", |s| {
+                s.from_start().annotate(|a| {
+                    a.field("status").of("<test_run.test").absent("not run");
+                });
+            })
+            .step("truth", "<truth.requirement", |s| {
+                s.from_start().judgement("E501");
+            });
+    });
+}
+
+#[specforge_test_macros::test(
+    behavior = "declare_trace_route",
+    verify = "an SDK route builds the descriptor the host reads"
+)]
+fn a_route_builds_the_descriptor_the_host_reads() {
+    use specforge_extension_sdk::{
+        RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
+    };
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/work", "1.0.0"));
+    requirement_thread(&mut c);
+    let declared = c.declaration();
+    let step = |name: &str, via: &str| RouteStepDescriptor {
+        name: name.to_string(),
+        via: via.to_string(),
+        ..Default::default()
+    };
+    let annotation = RouteAnnotationDescriptor::default;
+    let expected = RouteDescriptor {
+        name: "requirement-thread".to_string(),
+        description: Some(
+            "A requirement's thread: its plans, tasks, commits, tests and truths".to_string(),
+        ),
+        start: "requirement".to_string(),
+        default: false,
+        annotations: vec![],
+        steps: vec![
+            RouteStepDescriptor {
+                label: Some("plan".to_string()),
+                ..step("plan", "<plan.requirements")
+            },
+            step("task", "<task.plan"),
+            RouteStepDescriptor {
+                annotations: vec![RouteAnnotationDescriptor {
+                    field: Some("linked_by".to_string()),
+                    ..annotation()
+                }],
+                ..step("commit", "<commit.task")
+            },
+            RouteStepDescriptor {
+                from: Some("start".to_string()),
+                annotations: vec![RouteAnnotationDescriptor {
+                    field: Some("status".to_string()),
+                    of: Some("<test_run.test".to_string()),
+                    absent: Some("not run".to_string()),
+                    ..annotation()
+                }],
+                ..step("test", "<truth.requirement.proof")
+            },
+            RouteStepDescriptor {
+                from: Some("start".to_string()),
+                annotations: vec![RouteAnnotationDescriptor {
+                    judgement: Some("E501".to_string()),
+                    ..annotation()
+                }],
+                ..step("truth", "<truth.requirement")
+            },
+        ],
+    };
+    assert_eq!(declared.routes, [expected]);
+    assert!(declared.declares(DeclaredCategory::Routes));
+    // The describe answer is the routes' wire items.
+    let answer: DescribeResponse =
+        serde_json::from_str(&declared.describe_json(DeclaredCategory::Routes)).unwrap();
+    assert_eq!(
+        answer.items,
+        serde_json::to_value(&declared.routes).unwrap()
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "declare_trace_route",
+    verify = "an SDK route builds the descriptor the host reads"
+)]
+fn a_route_step_goes_on_from_the_start_or_a_named_step() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/work", "1.0.0"));
+    c.route("need-thread", |r| {
+        r.start("need")
+            .default_route()
+            .field("title")
+            .judgement("acme/E901")
+            .step("plan", "<plan.need", |_| {})
+            .step("task", "<task.plan", |_| {})
+            .step("claim", "<claim.plan", |s| {
+                s.from_step("plan");
+            })
+            .step("check", ".checks", |s| {
+                s.from_start();
+            });
+    });
+    let route = &c.declaration().routes[0];
+    assert!(route.default);
+    let annotated: Vec<(Option<&str>, Option<&str>)> = route
+        .annotations
+        .iter()
+        .map(|a| (a.field.as_deref(), a.judgement.as_deref()))
+        .collect();
+    assert_eq!(
+        annotated,
+        [(Some("title"), None), (None, Some("acme/E901"))]
+    );
+    let from: Vec<(&str, Option<&str>)> = route
+        .steps
+        .iter()
+        .map(|s| (s.name.as_str(), s.from.as_deref()))
+        .collect();
+    assert_eq!(
+        from,
+        [
+            ("plan", None),
+            ("task", None),
+            ("claim", Some("plan")),
+            ("check", Some("start")),
+        ]
+    );
+}

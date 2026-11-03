@@ -6,7 +6,7 @@ use serde_json::json;
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_installed::testing::install_module;
 use specforge_installed::{Builtins, Installed, LoadProblem};
-use specforge_protocol_types::DeclaredCategory;
+use specforge_protocol_types::{DeclaredCategory, PROTOCOL_VERSION};
 use specforge_registry::PlainDisk;
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo};
@@ -201,7 +201,7 @@ fn an_entry_of_a_newer_protocol_minor_is_refused_with_e088() {
     let dir = TempDir::new().unwrap();
     let builtins = Builtins(&[("@acme/new", &b"\0asm new"[..])]);
     let handshake = json!({
-        "protocol_version": "1.15.0", "name": "@acme/new", "version": "1.0.0",
+        "protocol_version": newer_minor(), "name": "@acme/new", "version": "1.0.0",
         "peer_dependencies": [], "sandbox_policy": null,
     });
     let runtime = InProcessRuntime::new()
@@ -220,10 +220,143 @@ fn an_entry_of_a_newer_protocol_minor_is_refused_with_e088() {
     assert_eq!(reports[0].code, "E088");
     assert_eq!(
         reports[0].message,
-        "extension '@acme/new' speaks extension protocol 1.15.0, newer than the 1.14.0 this specforge \
-         speaks, so it is not loaded"
+        format!(
+            "extension '@acme/new' speaks extension protocol {}, newer than the {PROTOCOL_VERSION} this \
+             specforge speaks, so it is not loaded",
+            newer_minor()
+        )
     );
     let suggestion = reports[0].suggestion.as_deref().unwrap();
     assert!(suggestion.starts_with("update specforge"), "{suggestion}");
     assert!(!runtime.unload("@acme/new"), "nothing is left loaded");
+}
+
+/// The minor after the host's protocol: what a guest built with the next SDK speaks.
+fn newer_minor() -> String {
+    let mut parts = PROTOCOL_VERSION.split('.');
+    let major = parts.next().unwrap();
+    let minor: u64 = parts.next().unwrap().parse().unwrap();
+    format!("{major}.{}.0", minor + 1)
+}
+
+/// An entry `@acme/major` whose handshake speaks `protocol`, loaded alone: what was reported, and the runtime.
+fn load_speaking(protocol: &str) -> (Vec<specforge_common::Diagnostic>, InProcessRuntime) {
+    let dir = TempDir::new().unwrap();
+    let builtins = Builtins(&[("@acme/major", &b"\0asm major"[..])]);
+    let handshake = json!({
+        "protocol_version": protocol, "name": "@acme/major", "version": "1.0.0",
+        "peer_dependencies": [], "sandbox_policy": null,
+    });
+    let runtime = InProcessRuntime::new()
+        .binary(b"\0asm major", extension("@acme/major"))
+        .answer_raw(
+            "@acme/major",
+            "__handshake",
+            WasmCallResult::Ok(serde_json::to_vec(&handshake).unwrap()),
+        );
+    let loaded =
+        Installed::at(dir.path()).load(&entries(&["@acme/major"]), &builtins, &runtime, &PlainDisk);
+    (reported(dir.path(), &loaded), runtime)
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake of another protocol major produces E088, saying which side is behind"
+)]
+fn an_entry_of_a_newer_protocol_major_is_refused_with_e088() {
+    use specforge_protocol_types::PROTOCOL_VERSION;
+    let major: u64 = PROTOCOL_VERSION.split('.').next().unwrap().parse().unwrap();
+
+    let (reports, runtime) = load_speaking(&format!("{}.0.0", major + 1));
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E088");
+    assert!(
+        reports[0]
+            .message
+            .contains(&format!("newer than the {PROTOCOL_VERSION}")),
+        "{:?}",
+        reports[0]
+    );
+    assert!(!runtime.unload("@acme/major"), "nothing is left loaded");
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake of another protocol major produces E088, saying which side is behind"
+)]
+fn an_entry_of_an_older_protocol_major_is_refused_with_e088() {
+    let (reports, runtime) = load_speaking("0.9.0");
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E088");
+    assert!(
+        reports[0].message.contains("older than"),
+        "{:?}",
+        reports[0]
+    );
+    let suggestion = reports[0].suggestion.as_deref().unwrap();
+    assert!(
+        suggestion.starts_with("install a version of the extension built for protocol"),
+        "{suggestion}"
+    );
+    assert!(!runtime.unload("@acme/major"), "nothing is left loaded");
+}
+
+/// An entry `@acme/importing` whose load the runtime refuses with `error`: what was reported, and the runtime.
+fn load_refused(
+    error: specforge_wasm::LoadError,
+) -> (Vec<specforge_common::Diagnostic>, InProcessRuntime) {
+    let dir = TempDir::new().unwrap();
+    let builtins = Builtins(&[("@acme/importing", &b"\0asm importing"[..])]);
+    let runtime = InProcessRuntime::new().refusing(b"\0asm importing", error);
+    let loaded = Installed::at(dir.path()).load(
+        &entries(&["@acme/importing"]),
+        &builtins,
+        &runtime,
+        &PlainDisk,
+    );
+    (reported(dir.path(), &loaded), runtime)
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_wasm_module",
+    verify = "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
+)]
+fn an_entry_importing_a_host_port_this_specforge_lacks_is_refused_with_e088() {
+    use specforge_protocol_types::PROTOCOL_VERSION;
+    let port = "specforge:host/http@9.9.0".to_string();
+
+    let (reports, runtime) = load_refused(specforge_wasm::LoadError::UnknownPorts(vec![port]));
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E088");
+    assert_eq!(
+        reports[0].message,
+        format!(
+            "extension '@acme/importing' imports the host port specforge:host/http@9.9.0, which this specforge \
+             (extension protocol {PROTOCOL_VERSION}) does not provide, so it is not loaded"
+        )
+    );
+    let suggestion = reports[0].suggestion.as_deref().unwrap();
+    assert!(suggestion.starts_with("update specforge"), "{suggestion}");
+    assert!(!runtime.unload("@acme/importing"), "nothing is left loaded");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_wasm_module",
+    verify = "a component importing an interface that is neither WASI nor a specforge host port is refused with E028 naming it"
+)]
+fn an_entry_importing_a_foreign_interface_is_e028_naming_it() {
+    let interface = "acme:x/y@1.0.0".to_string();
+
+    let (reports, _) = load_refused(specforge_wasm::LoadError::ForeignImports(vec![interface]));
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E028");
+    assert_eq!(
+        reports[0].message,
+        "extension '@acme/importing' imports acme:x/y@1.0.0, which is neither WASI nor a specforge host port, \
+         so no specforge loads it"
+    );
 }

@@ -21,6 +21,7 @@ use crate::disk::Disk;
 use crate::entity::{EdgeRecord, EntityRecord, RuleInput};
 use specforge_common::Sym;
 use specforge_graph::Found;
+use specforge_protocol_types::CompleteWhen;
 
 pub use standing::Standing;
 pub use text::{field_items, field_text};
@@ -41,6 +42,9 @@ pub struct EntitySnapshot {
     edges: Vec<EdgeRecord>,
     /// In id order.
     declared_types: Vec<String>,
+    /// Each loaded kind's `complete_when`, by kind, as the registry kept it (ADR 0329 D4): what an entity's owner
+    /// state is read from.
+    complete_when: HashMap<String, CompleteWhen>,
     spec_root: PathBuf,
     project_root: PathBuf,
 }
@@ -102,6 +106,11 @@ impl EntitySnapshot {
             })
             .map(|record| record.id.clone())
             .collect();
+        let complete_when = registries
+            .kinds()
+            .iter()
+            .filter_map(|(kind, entry)| Some((kind.clone(), entry.complete_when()?.clone())))
+            .collect();
         let edges = graph
             .edges()
             .iter()
@@ -124,6 +133,7 @@ impl EntitySnapshot {
             index,
             edges,
             declared_types,
+            complete_when,
             spec_root: spec_root.to_path_buf(),
             project_root: project_root.to_path_buf(),
         }

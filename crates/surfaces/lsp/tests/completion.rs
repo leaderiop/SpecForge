@@ -320,6 +320,7 @@ impl Fixture {
                 obligations: Vec::new(),
                 verdicts: Vec::new(),
                 scope: None,
+                unheld: Vec::new(),
             });
         }
         Fixture {

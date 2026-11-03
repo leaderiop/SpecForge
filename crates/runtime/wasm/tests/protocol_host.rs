@@ -296,28 +296,6 @@ fn compatible_protocol_versions_load() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_extension_manifest",
-    verify = "a handshake whose protocol major differs from the host's produces E028"
-)]
-fn an_incompatible_protocol_version_fails_the_load() {
-    for version in ["2.0.0", "0.9.0", "99.0"] {
-        let runtime = InProcessRuntime::new()
-            .with(declaring("@test/ext"))
-            .answer_raw("@test/ext", "__handshake", raw(&handshake_with(version)));
-        match load_declaration(&runtime, "@test/ext").unwrap_err() {
-            ProtocolError::IncompatibleVersion {
-                host_version,
-                extension_version,
-            } => {
-                assert_eq!(host_version, PROTOCOL_VERSION);
-                assert_eq!(extension_version, version);
-            }
-            other => panic!("{version}: expected IncompatibleVersion, got {:?}", other),
-        }
-    }
-}
-
 // ── Describe ──
 
 #[test]

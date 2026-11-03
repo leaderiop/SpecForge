@@ -1,0 +1,14 @@
+{
+  "protocol_version": "1.15.0",
+  "name": "@specforge/vitest",
+  "version": "1.0.0",
+  "peer_dependencies": [
+    {
+      "name": "@specforge/testing",
+      "version": "^1.0",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null,
+  "description": "Collects vitest results for tests linked to entities through their specforge metadata"
+}

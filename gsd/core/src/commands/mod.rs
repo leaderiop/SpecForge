@@ -58,6 +58,7 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("commit", "hash", "gsd-git"),
     ("commit", "task", "gsd-git"),
     ("commit", "plan", "gsd-git"),
+    ("commit", "linked_by", "gsd-git"),
     ("commit", "type", "gsd-git"),
     ("commit", "subject", "gsd-git"),
     ("commit", "at", "gsd-git"),

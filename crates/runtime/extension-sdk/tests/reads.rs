@@ -110,3 +110,21 @@ fn the_harness_feeds_a_command_its_files_and_an_explicit_now() {
     });
     assert_eq!(bare[0].1.stdout, "0  2026-10-28T00:00:00Z");
 }
+
+#[test]
+fn the_sdk_declares_a_collectors_reads() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/reads", "1.0.0"));
+    c.collector("node", |collector| {
+        collector
+            .reads("manifest", FileReadSpec::glob("package.json").text())
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+
+    let declaration = c.declaration();
+
+    let reads = &declaration.collectors[0].reads;
+    assert_eq!(reads.len(), 1);
+    assert_eq!(reads[0].name, "manifest");
+    assert_eq!(reads[0].glob.as_deref(), Some("package.json"));
+    assert!(reads[0].text);
+}

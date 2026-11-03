@@ -1380,7 +1380,7 @@ expression: listing
   },
   {
     "name": "specforge.trace",
-    "description": "Show traceability chain for an entity, or check an agent plan for gaps (entity_id or plan)",
+    "description": "Show an entity's thread along its kind's declared route (else its traceability chain), or check an agent plan for gaps (entity_id or plan)",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1420,12 +1420,83 @@ expression: listing
             "entries"
           ],
           "type": "object"
+        },
+        "reach": {
+          "default": false,
+          "description": "True: the entity's traceability chain, whatever route starts at its kind; not with route",
+          "type": "boolean"
+        },
+        "route": {
+          "description": "The route to follow from the entity (its qualified name, <extension>/<route>); absent: its kind's declared route, else its chain",
+          "type": "string"
         }
       },
       "type": "object"
     },
     "outputSchema": {
       "$defs": {
+        "Annotated": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "source": {
+                  "enum": [
+                    "field"
+                  ],
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "values": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "source",
+                "name",
+                "values"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string"
+                },
+                "source": {
+                  "enum": [
+                    "judgement"
+                  ],
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "code"
+              ],
+              "type": "object"
+            }
+          ],
+          "type": "object"
+        },
         "TraceLink": {
           "additionalProperties": false,
           "properties": {
@@ -1540,6 +1611,116 @@ expression: listing
             "upstream",
             "downstream",
             "missing"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "annotations": {
+              "items": {
+                "$ref": "#/$defs/Annotated"
+              },
+              "type": "array"
+            },
+            "complete": {
+              "type": "boolean"
+            },
+            "entity_id": {
+              "type": "string"
+            },
+            "entity_kind": {
+              "type": "string"
+            },
+            "missing": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "route": {
+              "type": "string"
+            },
+            "schema_version": {
+              "type": "string"
+            },
+            "skipped": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "steps": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "matches": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "annotations": {
+                          "items": {
+                            "$ref": "#/$defs/Annotated"
+                          },
+                          "type": "array"
+                        },
+                        "entity_id": {
+                          "type": "string"
+                        },
+                        "entity_kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "parent": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "entity_id",
+                        "entity_kind",
+                        "name",
+                        "parent",
+                        "annotations"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "from",
+                  "matches"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "schema_version",
+            "entity_id",
+            "entity_kind",
+            "route",
+            "annotations",
+            "steps",
+            "complete",
+            "missing",
+            "text"
           ],
           "type": "object"
         },
@@ -2882,6 +3063,22 @@ expression: listing
           ],
           "type": "object"
         },
+        "UnheldJson": {
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "id"
+          ],
+          "type": "object"
+        },
         "VerdictJson": {
           "additionalProperties": false,
           "properties": {
@@ -3001,6 +3198,12 @@ expression: listing
         },
         "title": {
           "type": "string"
+        },
+        "unheld": {
+          "items": {
+            "$ref": "#/$defs/UnheldJson"
+          },
+          "type": "array"
         },
         "verdicts": {
           "items": {
@@ -8611,6 +8814,10 @@ expression: listing
               "extension": {
                 "type": "string"
               },
+              "facts": {
+                "minimum": 0,
+                "type": "integer"
+              },
               "failed": {
                 "minimum": 0,
                 "type": "integer"
@@ -8666,6 +8873,9 @@ expression: listing
               "ran": {
                 "type": "boolean"
               },
+              "skip_reason": {
+                "type": "string"
+              },
               "skipped": {
                 "minimum": 0,
                 "type": "integer"
@@ -8677,6 +8887,7 @@ expression: listing
               "ran",
               "files",
               "by_convention",
+              "facts",
               "entities",
               "passed",
               "failed",
@@ -8696,8 +8907,7 @@ expression: listing
       "required": [
         "status",
         "runners",
-        "diagnostics",
-        "report"
+        "diagnostics"
       ],
       "type": "object"
     },

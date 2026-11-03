@@ -249,14 +249,13 @@ impl CompiledProject {
         if keep_unseen {
             // The ledger was rewritten by another writer since this change was planned: its lines for entities, or
             // for values, neither project holds are that writer's, and stay.
-            let held = |project: &CompiledProject, l: &crate::harness::Line| {
-                if l.is_value() {
-                    harness
-                        .value(project.graph(), forms, &l.path, &l.key)
-                        .is_some()
-                } else {
-                    project.graph().node(&l.path).is_some()
-                }
+            let held = |project: &CompiledProject, l: &crate::harness::Line| match l.facts_of() {
+                // A fact store's line is the collect's to replace, never another writer's.
+                Some((collector, _)) => harness.has_collector(collector),
+                None if l.is_value() => harness
+                    .value(project.graph(), forms, &l.subject, &l.key)
+                    .is_some(),
+                None => project.graph().node(&l.subject).is_some(),
             };
             for line in ledger.lines().filter(|l| !held(self, l) && !held(after, l)) {
                 rewritten.insert(line.clone());
@@ -500,7 +499,7 @@ impl CompiledProject {
         held: &BTreeMap<String, &str>,
         reads: &mut impl Reads,
     ) -> Self {
-        let keys = reads.discover(env.sources());
+        let keys = reads.discover(env.sources(), env.reads_facts());
         let rooted = env.project_root().is_some();
         let sources = env.sources().clone();
         Self::built(env, &keys, held, rooted, |key| reads.source(&sources, key))
@@ -549,9 +548,10 @@ impl CompiledProject {
     /// the memo starts again and the imports are resolved again (none
     /// when detached). The checks have not run.
     pub(crate) fn apply(&mut self, reads: Vec<(String, Read)>) -> Applied {
+        let forms = self.env.registries().field_forms();
         let changes: Vec<FileChange> = reads
             .into_iter()
-            .map(|(path, read)| self.sources.change(&path, read))
+            .map(|(path, read)| self.sources.change(&path, read, forms))
             .collect();
         let applied = self.graph.apply(changes);
         self.digests = Arc::new(self.digests.after(&applied.delta));

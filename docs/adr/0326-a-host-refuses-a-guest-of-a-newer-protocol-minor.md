@@ -11,6 +11,8 @@ know, and an older host reports each as W138 and ignores it (`docs/extension-pro
 A host on 1.6 loaded a guest built for 1.14 and dropped its hooks' `hosts`, its `reads`, its settings' gates: the
 guest ran, without what it declared, and the only sign was a list of warnings. Hooks and `.mcp.json` run whichever
 `specforge` is first on PATH, so a project's own guests meet an older host as soon as that binary lags behind.
+A guest can also import an interface the host does not provide (a `specforge:host` port of a newer protocol), which
+the runtime met only as a linker error at instantiation.
 
 ## Decision
 
@@ -42,3 +44,16 @@ would have to keep every older shape of it.
 A guest built with a newer SDK needs a specforge at least as new. Every builtin and the gsd guests speak the host's
 own version, built with it, so none is refused. A release that bumps the protocol minor makes its guests refuse
 the older releases, which is what the version says.
+
+## Amendment (2026-11-02, ports round, inside R1)
+
+- **D1a. Imports are read before instantiation.** The runtime lists a component's imports before it instantiates it
+  (`Component::component_type().imports`). A `specforge:host` interface the host does not provide is **E088**, naming
+  the interface, its version and the host's protocol, with the newer-minor remedy (update specforge). An interface
+  outside `wasi:*` and `specforge:host` is **E028** naming it: no specforge provides it. A foreign import is reported
+  first, and every offending name is listed. A `wasi:*` import the linker lacks stays E028 at instantiation.
+- **D1b. Every other major is E088.** A newer major is E088 like a newer minor (update specforge). An older major is
+  E088 with the remedy to install a version of the extension built for the host's major, or rebuild it with an SDK of
+  that protocol. A `protocol_version` that is not semver is a failed handshake (E028).
+- **Why no bump.** No payload changes: what is refused, and how, is host-side.
+- **Consequence.** The ports round's 2.0.0 host refuses a 1.x guest with E088 and no further change.

@@ -1,6 +1,7 @@
 // Modules — code packages that implement features
 
 use "extensions/cargo-test/features"
+use "extensions/javascript/node-test/features"
 use "extensions/testing/features"
 use "extensions/vitest/features"
 use "features/extensions"
@@ -447,6 +448,14 @@ module specforge_package_vitest "specforge-package-vitest" {
   description "Wasm package for @specforge/vitest: runs vitest for specforge collect and maps tests linked through meta.specforge"
   features    [vt_vitest_collection, test_result_collection]
   depends_on  [specforge_package_testing, specforge_wasm]
+  tags        ["extension", "traceability"]
+}
+
+module specforge_package_javascript_node_test "specforge-package-javascript-node-test" {
+  family      extension
+  description "Wasm package for @javascript/node-test: runs node --test for specforge collect and answers its tests as @code/core test facts"
+  features    [nt_node_test_collection, test_result_collection]
+  depends_on  [specforge_wasm]
   tags        ["extension", "traceability"]
 }
 

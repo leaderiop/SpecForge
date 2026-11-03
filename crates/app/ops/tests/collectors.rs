@@ -99,6 +99,51 @@ fn vitest_declares_its_collector() {
 }
 
 #[specforge_test_macros::test(
+    behavior = "nt_declare_node_test_collector",
+    verify = "node-test declares its collector, its reads and its peer"
+)]
+fn node_test_declares_its_collector() {
+    let manifest = load_via_protocol("@javascript/node-test");
+    let peers: Vec<(&str, bool)> = manifest
+        .peers()
+        .iter()
+        .map(|p| (p.name.as_str(), p.optional))
+        .collect();
+    assert_eq!(
+        peers,
+        [("@code/core", false)],
+        "code/core is a required peer"
+    );
+    let collectors = collectors(std::slice::from_ref(&manifest));
+    assert_eq!(collectors.len(), 1);
+    let c = &collectors[0];
+    assert_eq!(c.name, "node-test");
+    assert_eq!(c.export, "collect__node_test");
+    assert_eq!(c.detect, ["package.json"]);
+    assert_eq!(
+        c.run,
+        [
+            "node",
+            "--test",
+            "--test-reporter=spec",
+            "--test-reporter-destination=stdout",
+            "--test-reporter=junit",
+            "--test-reporter-destination={report}",
+        ]
+    );
+    assert_eq!(c.report, ".specforge/reports/node-test.xml");
+    assert_eq!(
+        c.reads,
+        [specforge_protocol_types::FileRead {
+            name: "packages".into(),
+            glob: Some("**/package.json".into()),
+            text: true,
+            ..Default::default()
+        }]
+    );
+}
+
+#[specforge_test_macros::test(
     behavior = "ct_declare_cargo_collector",
     verify = "cargo-test declares its collector"
 )]
@@ -205,9 +250,12 @@ fn collect_maps_results_to_the_views_entities() {
     .unwrap();
 
     // Written at the view's root, with the view's entity only.
-    assert_eq!(outcome.report, dir.path().join("specforge-report.json"));
+    assert_eq!(
+        outcome.report,
+        Some(dir.path().join("specforge-report.json"))
+    );
     let written: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(&outcome.report).unwrap()).unwrap();
+        serde_json::from_slice(&std::fs::read(outcome.report.as_ref().unwrap()).unwrap()).unwrap();
     let results: Vec<&str> = written["results"]
         .as_object()
         .unwrap()
@@ -364,4 +412,211 @@ fn vitest_runs_with_the_report_path_and_maps_linked_tests() {
     let test = &report["results"]["login"]["tests"][0];
     assert_eq!(test["verify"], "accepts valid credentials");
     assert_eq!(test["runner"], "vitest");
+}
+
+/// `@javascript/node-test` and its required peer `@code/core`, whose kinds it writes.
+const NODE_TEST: [&str; 2] = ["@code/core", "@javascript/node-test"];
+
+/// The taskboard twin's three tests.
+const TASKS: [&str; 3] = [
+    "a task is added with the next id",
+    "a task is completed by its id",
+    "completing an unknown id throws",
+];
+
+/// node's JUnit report of `tests` in `<root>/test/tasks.test.js`, each `(name, failed)`, its files absolute as node
+/// writes them.
+fn tasks_xml(root: &std::path::Path, tests: &[(&str, bool)]) -> String {
+    let file = root.join("test/tasks.test.js");
+    let cases: String = tests
+        .iter()
+        .map(|(name, failed)| {
+            let failure = if *failed {
+                r#"<failure type="testCodeFailure" message="1 !== 2"/>"#
+            } else {
+                ""
+            };
+            format!(
+                r#"<testcase name="{name}" time="0.000313" classname="test" file="{}">{failure}</testcase>"#,
+                file.display()
+            )
+        })
+        .collect();
+    format!(r#"<?xml version="1.0" encoding="utf-8"?><testsuites>{cases}</testsuites>"#)
+}
+
+/// A project enabling `extensions` (node-test and its peer, and others), its root a package named `taskboard`.
+fn node_project(extensions: &[&str]) -> specforge_project::testing::TestProject {
+    specforge_project::testing::TestProject::new()
+        .config(|c| c["name"] = "taskboard".into())
+        .enabling(extensions)
+        .file("package.json", r#"{"name":"taskboard","type":"module"}"#)
+}
+
+/// Collect `runner` (every detected collector when `None`) of `p`, running through `machine`, and store its facts as
+/// the surfaces do.
+fn collect_stored(
+    p: &specforge_project::testing::TestProject,
+    runner: Option<&str>,
+    machine: &specforge_ops::testing::ScriptedMachine,
+) -> specforge_ops::analysis::collect::Outcome {
+    use specforge_ops::analysis::collect::{Mode, Request, RunnerOutput, collect};
+    let compiled = p.compile();
+    let view = specforge_ops::view::ProjectView::of(&compiled);
+    let mut outcome = collect(
+        &view,
+        Request {
+            runner,
+            mode: Mode::Run(RunnerOutput::Discard),
+            announce: &mut |_, _| {},
+            caller: specforge_ops::testing::caller(),
+        },
+        machine,
+    )
+    .unwrap();
+    let facts = std::mem::take(&mut outcome.facts);
+    let dry_run = false;
+    specforge_ops::authoring::apply::apply_collected(
+        &view,
+        Vec::new(),
+        facts,
+        dry_run,
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
+    outcome
+}
+
+/// A machine whose one run writes `report` and exits with `exit_code`.
+fn node_run(report: String, exit_code: i32) -> specforge_ops::testing::ScriptedMachine {
+    use specforge_ops::testing::{ScriptedMachine, ScriptedRun};
+    ScriptedMachine::new()
+        .approving_every_command()
+        .answering(ScriptedRun {
+            files: vec![("".into(), report)],
+            exit_code: Some(exit_code),
+            ..ScriptedRun::default()
+        })
+}
+
+/// The `(id, status)` of every entity of `kind` the project compiles to now, its stored facts served.
+fn facts_of(p: &specforge_project::testing::TestProject, kind: &str) -> Vec<(String, String)> {
+    let compiled = p.compile();
+    let mut found: Vec<(String, String)> = compiled
+        .graph()
+        .nodes_by_kind(kind)
+        .into_iter()
+        .map(|n| match n.fields.get("status") {
+            Some(
+                specforge_parser::FieldValue::String(s)
+                | specforge_parser::FieldValue::Identifier(s),
+            ) => (n.id.raw.to_string(), s.clone()),
+            other => panic!("{:?} has no status: {other:?}", n.id),
+        })
+        .collect();
+    found.sort();
+    found
+}
+
+#[specforge_test_macros::test(
+    behavior = "nt_declare_node_test_collector",
+    verify = "collect runs node --test with the spec and JUnit reporters and reads the report it wrote"
+)]
+fn node_test_runs_with_both_reporters_and_its_report_path() {
+    let p = node_project(&NODE_TEST);
+    let machine = node_run(tasks_xml(p.root(), &TASKS.map(|t| (t, false))), 0);
+
+    let outcome = collect_stored(&p, Some("node-test"), &machine);
+
+    let argv = &machine.runs()[0].argv;
+    assert_eq!(argv[..2], ["node", "--test"], "{argv:?}");
+    let report_at = p.root().join(".specforge/reports/node-test.xml");
+    assert!(
+        argv.contains(&format!(
+            "--test-reporter-destination={}",
+            report_at.display()
+        )),
+        "the report path is expanded: {argv:?}"
+    );
+    let at = |a: &str| argv.iter().position(|b| b == a).unwrap();
+    assert!(
+        at("--test-reporter=spec") < at("--test-reporter=junit"),
+        "{argv:?}"
+    );
+    assert_eq!(
+        at("--test-reporter-destination=stdout"),
+        at("--test-reporter=spec") + 1
+    );
+    let runner = &outcome.runners[0];
+    assert!(runner.ran);
+    assert_eq!((runner.files, runner.facts), (1, 6), "{outcome:?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "nt_map_node_test_report",
+    verify = "a failing node test exits 1 and its report is still read"
+)]
+fn a_failing_node_test_run_is_read_and_its_test_failed() {
+    let p = node_project(&NODE_TEST);
+    let tests = [(TASKS[0], false), (TASKS[1], true), (TASKS[2], false)];
+    let machine = node_run(tasks_xml(p.root(), &tests), 1);
+
+    let outcome = collect_stored(&p, Some("node-test"), &machine);
+
+    let runner = &outcome.runners[0];
+    assert!(runner.ran);
+    assert_eq!(runner.exit_code, Some(1));
+    let runs = facts_of(&p, "test_run");
+    let failed: Vec<&str> = runs
+        .iter()
+        .filter(|(_, status)| status == "failed")
+        .map(|(id, _)| id.as_str())
+        .collect();
+    assert_eq!(
+        failed,
+        ["run:js:taskboard/test/tasks.test.js#a task is completed by its id"],
+        "{runs:?}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "nt_map_node_test_report",
+    verify = "node-test's tests become test and test_run facts named js:<package>/<file>#<name>"
+)]
+fn node_tests_become_facts_named_after_their_package() {
+    let p = node_project(&NODE_TEST);
+    let machine = node_run(tasks_xml(p.root(), &TASKS.map(|t| (t, false))), 0);
+
+    collect_stored(&p, Some("node-test"), &machine);
+
+    let ids = TASKS.map(|t| format!("js:taskboard/test/tasks.test.js#{t}"));
+    assert_eq!(
+        facts_of(&p, "test"),
+        ids.clone().map(|id| (id, "passed".to_string()))
+    );
+    assert_eq!(
+        facts_of(&p, "test_run"),
+        ids.map(|id| (format!("run:{id}"), "passed".to_string()))
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "nt_declare_node_test_collector",
+    verify = "a package.json selects node-test among several collectors"
+)]
+fn a_package_json_selects_node_test_among_several_collectors() {
+    let p = node_project(&[
+        "@specforge/testing",
+        "@specforge/vitest",
+        "@code/core",
+        "@javascript/node-test",
+    ]);
+    let machine = node_run(tasks_xml(p.root(), &TASKS.map(|t| (t, false))), 0);
+
+    let outcome = collect_stored(&p, None, &machine);
+
+    let ran: Vec<&str> = outcome.runners.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(ran, ["node-test"]);
+    assert_eq!(machine.runs().len(), 1);
+    assert_eq!(machine.runs()[0].argv[0], "node");
 }

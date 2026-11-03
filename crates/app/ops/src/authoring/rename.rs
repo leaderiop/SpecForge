@@ -91,6 +91,8 @@ pub fn plan(
     // which files they are refuses it, from the compile's problems (as
     // `remove` refuses from them, ADR 0015 M5), before anything is planned.
     crate::config::refuse_rewrite(nav.view().env().config_problems())?;
+    apply::flags::collected_rename(nav.view(), old_id)
+        .map_err(|error| error.with_entity(old_id).about(RenameField::OldId))?;
     validate_id(new_id, nav.view().registries().kinds())
         .map_err(|error| error.about(RenameField::NewId))?;
     let graph = nav.view().graph();

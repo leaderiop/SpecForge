@@ -360,3 +360,85 @@ fn collect_capture_is_not_written_through_a_hard_link() {
     assert_eq!(std::fs::read_to_string(&victim).unwrap(), "ORIGINAL");
     assert_eq!(fx.read("out/r.json.stdout.txt"), "t ... ok\n");
 }
+
+/// Runners `first` and `second`, both detected.
+fn detected() -> Fixture {
+    let fx = Fixture::new(vec![
+        Runner::new("first").proving("a", "t"),
+        Runner::new("second").proving("b", "t"),
+    ]);
+    fx.write("first.cfg", "");
+    fx.write("second.cfg", "");
+    fx
+}
+
+#[specforge_test(
+    behavior = "run_collector_command",
+    verify = "a detected collector with no evidence is skipped and the others are kept"
+)]
+fn a_detected_collector_with_no_evidence_is_skipped_and_the_others_are_kept() {
+    let fx = detected();
+    // `first` writes no report; `second` writes one.
+    let machine = ScriptedMachine::new()
+        .approving_every_command()
+        .answering(ScriptedRun {
+            exit_code: Some(1),
+            ..ScriptedRun::default()
+        })
+        .answering(reports());
+
+    let outcome = fx.run(Asking::Nobody, &machine).unwrap();
+
+    assert_eq!(machine.runs().len(), 2);
+    let first = &outcome.runners[0];
+    assert_eq!(first.name, "first");
+    assert!(
+        first
+            .skip_reason
+            .as_deref()
+            .is_some_and(|why| why.contains("produced no report")),
+        "{first:?}"
+    );
+    assert_eq!((first.ran, first.files), (false, 0));
+    let second = &outcome.runners[1];
+    assert_eq!(second.skip_reason, None);
+    assert_eq!(second.files, 1);
+    assert!(fx.report().unwrap()["results"]["b"].is_object());
+    // The JSON document says it.
+    let document = serde_json::to_value(outcome.document()).unwrap();
+    assert!(
+        document["runners"][0]["skip_reason"].is_string(),
+        "{document}"
+    );
+    assert!(
+        document["runners"][1].get("skip_reason").is_none(),
+        "{document}"
+    );
+}
+
+#[specforge_test(
+    behavior = "run_collector_command",
+    verify = "a named collector with no evidence is still E045"
+)]
+fn a_named_collector_with_no_evidence_is_still_e045() {
+    let fx = detected();
+    let machine = ScriptedMachine::new()
+        .approving_every_command()
+        .answering(ScriptedRun {
+            exit_code: Some(1),
+            ..ScriptedRun::default()
+        });
+    let refusal = fx
+        .collect_with(
+            Some("first"),
+            Mode::Run(RunnerOutput::Discard),
+            &specforge_ops::Containment::unbounded(),
+            Asking::Nobody,
+            &machine,
+        )
+        .unwrap_err();
+    assert_eq!(refusal.error.code, "E045");
+    // Read without a run, a detected collector with no report is skipped too.
+    let outcome = fx.no_run(None, &ScriptedMachine::new()).unwrap();
+    assert!(outcome.runners.iter().all(|r| r.skip_reason.is_some()));
+}

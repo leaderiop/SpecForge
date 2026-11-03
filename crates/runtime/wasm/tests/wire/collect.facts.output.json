@@ -1,0 +1,14 @@
+{
+  "entity_results": [],
+  "facts": [
+    {
+      "kind": "test",
+      "id": "js:taskboard/test/tasks.test.js#a task is added with the next id",
+      "title": "a task is added with the next id",
+      "fields": {
+        "file": "taskboard/test/tasks.test.js",
+        "status": "passed"
+      }
+    }
+  ]
+}

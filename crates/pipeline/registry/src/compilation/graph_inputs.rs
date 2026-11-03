@@ -3,7 +3,7 @@
 //! and nowhere else. The grammar parses values generically; the field
 //! registry says what a field's value must be and which fields are edges.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_graph::{DerivedFrom, DerivedReference, FieldForms, GraphInputs};
 
@@ -20,7 +20,22 @@ pub(super) fn derive(
         field_forms: forms.clone(),
         derived_references: derived_references(fields),
         scopes: scopes(kinds),
+        fact_schemes: fact_schemes(kinds),
     }
+}
+
+/// Each scheme a collector-written kind declares, and the kinds that declare it (ADR 0327 D6).
+fn fact_schemes(kinds: &KindRegistry) -> BTreeMap<String, BTreeSet<String>> {
+    let mut schemes: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (kind, entry) in kinds.iter().filter(|(_, entry)| entry.is_collected()) {
+        for scheme in entry.schemes() {
+            schemes
+                .entry(scheme.clone())
+                .or_default()
+                .insert(kind.clone());
+        }
+    }
+    schemes
 }
 
 /// Each scoped kind's scope field (ADR 0284): the declared `scoped_by` the registry build kept.

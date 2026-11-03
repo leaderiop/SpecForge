@@ -8,11 +8,13 @@ fn fed(paths: &[&str]) -> Vec<String> {
     fed
 }
 
-/// The blobs that record their inputs today: the nine builtins. The fixtures join at the round's re-vendor.
-const NINE: [&str; 9] = [
+/// The blobs that record their inputs today: the builtins. The fixtures join at the round's re-vendor.
+const BUILTIN_CRATES: [&str; 11] = [
     "extensions/cargo-test",
+    "extensions/code/core",
     "extensions/formal",
     "extensions/governance",
+    "extensions/javascript/node-test",
     "extensions/product",
     "extensions/rust",
     "extensions/software",
@@ -34,6 +36,14 @@ fn a_record_round_trips_byte_for_byte() {
 }
 
 #[test]
+fn a_change_to_the_junit_library_feeds_the_builtins_that_link_it() {
+    assert_eq!(
+        fed(&["extensions/code/junit/src/lib.rs"]),
+        ["extensions/javascript/node-test"]
+    );
+}
+
+#[test]
 fn a_change_to_coverage_feeds_the_blobs_that_record_it() {
     assert_eq!(
         fed(&["crates/leaf/coverage/src/lib.rs"]),
@@ -46,10 +56,16 @@ fn a_change_to_coverage_feeds_the_blobs_that_record_it() {
 }
 
 #[test]
-fn protocol_types_and_the_root_manifest_feed_all_nine() {
-    assert_eq!(fed(&["crates/leaf/protocol-types/src/lib.rs"]), NINE);
-    assert_eq!(fed(&["Cargo.toml"]), NINE);
-    assert_eq!(fed(&["crates/runtime/extension-sdk/src/lib.rs"]), NINE);
+fn protocol_types_and_the_root_manifest_feed_every_builtin() {
+    assert_eq!(
+        fed(&["crates/leaf/protocol-types/src/lib.rs"]),
+        BUILTIN_CRATES
+    );
+    assert_eq!(fed(&["Cargo.toml"]), BUILTIN_CRATES);
+    assert_eq!(
+        fed(&["crates/runtime/extension-sdk/src/lib.rs"]),
+        BUILTIN_CRATES
+    );
 }
 
 #[test]
@@ -61,7 +77,11 @@ fn a_test_only_sdk_file_feeds_no_blob() {
 #[test]
 fn blobs_lists_the_recorded_blobs() {
     let listed = blobs(repo_root()).unwrap();
-    assert!(NINE.iter().all(|nine| listed.iter().any(|l| l == nine)));
+    assert!(
+        BUILTIN_CRATES
+            .iter()
+            .all(|builtin| listed.iter().any(|l| l == builtin))
+    );
     assert!(listed.iter().all(|l| l.starts_with("extensions/")
         || l.starts_with("fixtures/")
         || l.starts_with("examples/")));

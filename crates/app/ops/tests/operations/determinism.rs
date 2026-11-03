@@ -40,6 +40,7 @@ fn build_graph() -> Graph {
             obligations: Vec::new(),
             verdicts: Vec::new(),
             scope: None,
+            unheld: Vec::new(),
         });
     }
 
@@ -90,6 +91,7 @@ fn trace_output_is_deterministic() {
             let outcome = specforge_ops::read::trace::trace(
                 &project.view(),
                 specforge_ops::read::trace::Target::Entity("alpha"),
+                specforge_ops::read::trace::Follow::Declared,
             )
             .unwrap();
             serde_json::to_string_pretty(&plain(outcome)).unwrap()
@@ -101,4 +103,30 @@ fn trace_output_is_deterministic() {
             "trace output must be identical across runs"
         );
     }
+    // A routed project's every trace, threads and reaches, compiled anew each run.
+    let routed: Vec<_> = (0..3)
+        .map(|_| {
+            use specforge_project::testing::{
+                GSD_ROUTED_SPEC, gsd_routed_project, gsd_routed_runtime,
+            };
+            let project = gsd_routed_project(GSD_ROUTED_SPEC);
+            let compiled =
+                project
+                    .compile_in(std::sync::Arc::new(gsd_routed_runtime())
+                        as specforge_project::SharedRuntime);
+            let outcome = specforge_ops::read::trace::trace(
+                &specforge_ops::view::ProjectView::of(&compiled),
+                specforge_ops::read::trace::Target::Every,
+                specforge_ops::read::trace::Follow::Declared,
+            )
+            .unwrap();
+            serde_json::to_string(&plain(outcome)).unwrap()
+        })
+        .collect();
+    assert!(
+        routed[0].contains("gsd/requirement-thread"),
+        "{}",
+        routed[0]
+    );
+    assert!(routed.iter().all(|output| output == &routed[0]));
 }

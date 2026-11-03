@@ -20,6 +20,19 @@ fn the_handshake_names_gsd_core_and_its_tracked_release() {
     );
 }
 
+/// A truth's `proof` names `@code/core`'s test facts (ADR 0331 D2), and a project works without them: the peer is
+/// optional, so `specforge add @gsd/core` does not enable it and a project without it is no W021.
+#[test]
+fn the_handshake_names_code_core_as_an_optional_peer() {
+    let host = MockHost::new(build());
+    let handshake: serde_json::Value =
+        serde_json::from_str(&host.handshake_json()).expect("the handshake is JSON");
+    assert_eq!(
+        handshake["peer_dependencies"],
+        serde_json::json!([{"name": "@code/core", "version": "^1.0", "optional": true}])
+    );
+}
+
 /// D-r44-23: the extension\'s version is the crate\'s, so a bump moves `Cargo.toml` and the lock and no test.
 #[test]
 fn the_handshake_names_the_crate_version() {
@@ -543,4 +556,27 @@ fn the_context_digest_is_computed_and_the_recorded_copies_are_harness_values() {
             "{kind}"
         );
     }
+}
+
+/// ADR 0331 D8: the one route, `gsd/requirement-thread` once qualified by the short name, as `specforge trace` follows
+/// it from a requirement.
+#[test]
+fn the_requirement_route_is_declared() {
+    assert_eq!(
+        describe("routes")["items"],
+        serde_json::json!([{
+            "name": "requirement-thread",
+            "description": "A requirement's thread: its plans, tasks, commits, proving tests and truths",
+            "start": "requirement",
+            "steps": [
+                {"name": "plan", "via": "<plan.requirements", "label": "plan"},
+                {"name": "task", "via": "<task.plan"},
+                {"name": "commit", "via": "<commit.task", "annotations": [{"field": "linked_by"}]},
+                {"name": "test", "via": "<truth.requirement.proof", "from": "start",
+                    "annotations": [{"field": "status", "absent": "not run"}]},
+                {"name": "truth", "via": "<truth.requirement", "from": "start",
+                    "annotations": [{"judgement": "E501"}]},
+            ]
+        }])
+    );
 }

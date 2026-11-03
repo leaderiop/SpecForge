@@ -5,5 +5,5 @@ mod rule;
 mod selector;
 
 pub use rule::{CITED, CITED_TESTS, JudgedRule, JudgedTargetRule, PROMPT_JUDGE};
-pub(crate) use rule::{resolve, shape};
+pub(crate) use rule::{Reader, WalkError, is_word, resolve, shape, walk};
 pub use selector::{Chain, Head, Selector, Step};

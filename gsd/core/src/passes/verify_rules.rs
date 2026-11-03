@@ -7,10 +7,11 @@
 //! a collector writes: it leaves out a test a collector reported (`source automated`), so a collector's plan can never
 //! newly trigger it. A future writer of `result` without a `source`, or an `issue` recorded without `reported`, would.
 //!
-//! `gsd/E502` needs a fresh passing `gsd/E501` judgement and a recorded report, and both of its inputs are inputs of
-//! E501 (`truth self`, `tests test(self)`): a new or changed result stales the verdict first, so a recorded test never
-//! makes E502 appear. It appears only when a verifier records `verified` over results that contradict it, and that
-//! record is refused (E080 names it): the verifier records `failed` instead. Silent without a report (I205 says so).
+//! `gsd/E502` needs a fresh passing `gsd/E501` judgement and a recorded test run, and both of its inputs are inputs of
+//! E501 (`truth self`, `tests test(self, self.proof)`): a new or changed result, tagged or of a proof's test fact,
+//! stales the verdict first, so a recorded test never makes E502 appear. It appears only when a verifier records
+//! `verified` over results that contradict it, and that record is refused (E080 names it): the verifier records
+//! `failed` instead. Silent without a test run (no report, or one with no result, and no test fact: `passes::thread`).
 //!
 //! Also ports gsd-core bin/lib modules: gate-verify-failure-directions.cjs.
 
@@ -19,6 +20,7 @@ use std::collections::BTreeMap;
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::{link, of_kind, text};
+use super::thread::{Evidence, Thread};
 
 /// More overrides than this in one verification is W504.
 const MAX_OVERRIDES: usize = 3;
@@ -89,11 +91,10 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     found
 }
 
-/// Why recorded tests contradict a verdict on an explicit truth: a test recorded for it, or one its fresh passing
-/// `gsd/E501` judgement cites by name (`cited_tests`, anywhere in the report), failed, or none passed. `None` for a
+/// Why recorded tests contradict a verdict on an explicit truth: a test recorded for it or its proof names, or one its
+/// fresh passing `gsd/E501` judgement cites by name (`cited_tests`, anywhere in the report), failed, or none passed. `None` for a
 /// backstop truth, without a report or without such a verdict. `derive` reads the same predicate (`verify.rs`).
 pub(crate) fn contradicted(input: &PassInput, t: &PassEntity) -> Option<&'static str> {
-    let report = input.test_results.as_ref()?;
     if text(t, "verification") != Some("explicit") {
         return None;
     }
@@ -101,18 +102,12 @@ pub(crate) fn contradicted(input: &PassInput, t: &PassEntity) -> Option<&'static
         .judgements
         .iter()
         .find(|j| j.rule == "gsd/E501" && j.state == "fresh" && j.passed)?;
-    let cited = report
-        .results
-        .values()
-        .flat_map(|r| &r.tests)
-        .filter(|r| verdict.cited_tests.contains(&r.name));
-    let mut tests = report.of(&t.id).iter().chain(cited).peekable();
-    if tests.clone().any(|r| r.status == TestStatus::Failed) {
-        Some("a test recorded for it failed")
-    } else if !tests.any(|r| r.status == TestStatus::Passed) {
-        Some("no passing test is recorded for it")
-    } else {
-        None
+    let thread = Thread::of(input);
+    let linked = thread.linked(&t.id).into_iter().map(|(_, status)| status);
+    match thread.evidence(linked.chain(thread.cited(&verdict.cited_tests))) {
+        Evidence::Failed => Some("a test recorded for it failed"),
+        Evidence::NoTest => Some("no passing test is recorded for it"),
+        Evidence::NotRun | Evidence::Passed => None,
     }
 }
 

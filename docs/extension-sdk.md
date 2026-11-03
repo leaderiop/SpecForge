@@ -222,6 +222,7 @@ impl Contributions for Greet {
                         entity_results,
                         unlinked: Vec::new(),
                         plan: None,
+                        facts: Vec::new(),
                     })
                 });
         });
@@ -289,6 +290,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.preset(source, \|p\| ..)` | what each value of an enum or bool setting presets and raises: `p.when(value, \|e\| e.set(..).raise(..))` | `settings` |
 | `c.secret(name, env, description)` | a secret read from an environment variable | `settings` |
 | `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL) | `codes` |
+| `c.route(name, \|r\| ..)` | a route `specforge trace` follows from a kind: `start(..)`, `step(name, via, \|s\| ..)`, annotations | `routes` |
 | `c.peer(name, range)`, `c.optional_peer(name, range)` | a peer requirement | handshake |
 | `c.providers()` | it implements configured providers | handshake |
 
@@ -303,6 +305,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 - `open_fields(bool)` -- unknown fields are accepted
 - `has_body_parser()` -- declares that the kind's body carries syntax of its own; the core grammar reads every body and reports its parse errors whatever the flag says
 - `contract_target()`, `declares_types()`, `scoped_by(field)`, `verify_kinds(&[..])`, `inference_guide(..)`
+- `collected(&["js"])` -- a kind a collector writes (ADR 0327): `writer: "collector"` and the `schemes` its ids start with (`js:pkg/a.test.js#adds`); its entities are a collector's `facts`, never written in a `.spec` file
 - LSP and DOT metadata, requested by the host only where it needs them: `semantic_token(..)`, `lsp_icon(..)`, `dot_shape(..)`, `dot_color(..)`, `dot_fillcolor(..)`
 - `field(name, |f| ..)` -- a field of the kind
 
@@ -570,7 +573,20 @@ in a report answers its `Err`), plus the tests the report doesn't link
 (`unlinked`), which the host links by naming convention when it can. With `capture_stdout()`, the command's output still
 reaches the user's terminal, and the host also keeps it (in
 `<name>.stdout.txt` inside a report directory) and passes it as
-`CollectInput::stdout`. The guest never runs anything itself.
+`CollectInput::stdout`. `k.reads(name, FileReadSpec::glob("package.json").text())` declares a project file the
+collector reads, as a command's `reads` does: its input's `files[name]` holds the facts (and, with `.text()`, the
+capped text), read by the host after the run. The guest never runs anything itself.
+
+A handler may also answer `facts` (protocol 1.15.0, ADR 0327), the entities it observed, each of a kind its
+extension declares `collected(..)`:
+
+```rust
+let mut output = CollectOutput { entity_results: vec![], ..Default::default() };
+output.facts.push(Fact::new("test", "js:pkg/a.test.js#adds").title("adds").field("file", "pkg/a.test.js"));
+```
+
+`CollectInput::cwd` holds the project root for every collector, so a handler can name a report's files from the
+root.
 
 ### Compiler passes
 
@@ -683,6 +699,34 @@ c.secret("api_key", "MY_API_KEY", "The service key");
 A dotted name or a family (`*` segments) has a type, an optional default and the codes it gates: while a bool setting is false, those codes are reported by no source. A preset maps each value of an enum or bool setting (the extension's own, or a peer's as `@ext:name`) to settings it sets and codes it raises, never lowers. `c.feature_flag(name, default, description)` is a bool setting. A secret is never written in `specforge.json` (E087); the extension is told only whether its variable is set.
 
 A handler reads them with `Settings::current()`: `bool(name)`, `string(name)`, `integer(name)`, `get(name)`, `under(prefix)` for a family's keys and `secret_set(name)` (in a command, a tool, a resource or a prompt, whose text should not depend on it; a pass or validator always reads `false`, as its result must not depend on the machine). A call without a value gets the declared default. A tool's arguments never hold them. `specforge settings` lists what a project resolves them to, `specforge settings set <extension> <name> <value>` and `unset` write one into `specforge.json` after the same check the load makes (a secret is refused, ADR 0296), and `specforge schema --config` writes the project's `specforge.json` schema with them typed.
+
+### Routes
+
+A route is the thread `specforge trace` prints from an entity of its start kind (protocol 1.15.0, ADR 0330). Each
+step selects entities from the previous step (or from the start, or a named earlier step) with selector steps, the
+judged rules' grammar without its head:
+
+```rust
+c.route("requirement-thread", |r| {
+    r.start("requirement")
+        .description("A requirement's thread: its plans, tasks, commits, tests and truths")
+        .step("plan", "<plan.requirements", |s| { s.label("plan"); })
+        .step("task", "<task.plan", |_| {})
+        .step("commit", "<commit.task", |s| { s.field("linked_by"); })
+        .step("test", "<truth.requirement.proof", |s| {
+            s.from_start().annotate(|a| { a.field("status").of("<test_run.test").absent("not run"); });
+        })
+        .step("truth", "<truth.requirement", |s| { s.from_start().judgement("E901"); });
+});
+```
+
+`<plan.requirements` selects the plans whose `requirements` names the entity, `.proof` the entities its `proof`
+names. A step's `label` prints before each match's name (`plan 01-01`). An annotation prints a field of the match
+(`field`), a field of the entities `of` selects from it (a test's run status), or its judgement by a judged rule of
+the extension (`judgement`, printed `verified, fresh`); `absent` prints when there is nothing. The route (for its start
+entity) and each step share `field`, `judgement` and `annotate` through the `Annotates` trait, in the prelude. `default_route()` marks
+the route followed when several start at one kind. The builders don't check the route: the host's registry does,
+against the loaded kinds, when the extension loads.
 
 ## Host Functions
 

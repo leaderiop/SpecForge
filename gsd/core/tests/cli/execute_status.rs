@@ -173,7 +173,7 @@ fn a_check_status_is_pass_fail_or_unknown_from_the_report() {
 }
 
 #[test]
-fn without_a_report_the_compile_says_i205_once_and_collect_silences_it() {
+fn without_a_report_the_compile_says_i205_once_and_a_collect_that_records_a_test_silences_it() {
     let p = project("execute");
     let noted = |p: &Project| {
         p.run(&["check", "--format", "json"])
@@ -182,7 +182,10 @@ fn without_a_report_the_compile_says_i205_once_and_collect_silences_it() {
             .count()
     };
     assert_eq!(noted(&p), 1);
+    // A collect that records no test writes no report: the note stays.
     junit(&p, "<testcase name=\"unrelated\" classname=\"test\"/>");
+    assert_eq!(noted(&p), 1);
+    junit(&p, "<testcase name=\"[gsd:01-01/TR1] holds\"/>");
     assert_eq!(noted(&p), 0);
 }
 

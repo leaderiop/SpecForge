@@ -325,6 +325,7 @@ fn node_from_entity(path: Sym, winner: &Winner<'_>, defaults: Option<&FileDefaul
         obligations: entity.obligations.clone(),
         verdicts: entity.verdicts.clone(),
         scope: winner.scope,
+        unheld: Vec::new(),
     }
 }
 

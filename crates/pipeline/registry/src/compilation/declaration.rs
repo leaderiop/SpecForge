@@ -208,17 +208,11 @@ pub(crate) fn consistency(
     };
     let warn = |message: String| Diagnostic::new(codes::W021, message);
 
-    // ADR 0289: a kind's `writer` is only `human`, and a `human` field a kind's agents must write is no field an
-    // agent can leave out: required on a kind not human-only, no agent could create the entity.
+    // ADR 0289: a `human` field a kind's agents must write is no field an agent can leave out: required on a kind not
+    // human-only, no agent could create the entity. The kind's own writer is read at registration (ADR 0327).
     for kind in &declaration.entities {
         let kind_keyword = keyword(kind);
         let human_kind = kind.writer.as_deref() == Some("human");
-        if let Some(writer) = kind.writer.as_deref().filter(|w| *w != "human") {
-            diagnostics.push(warn(format!(
-                "extension '{}': kind '{}' declares writer '{}'; only 'human' is a kind writer",
-                name, kind_keyword, writer
-            )));
-        }
         if !human_kind {
             for field in &kind.fields {
                 field.for_each_path(&field.name, &mut |path, f| {

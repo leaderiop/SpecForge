@@ -49,7 +49,7 @@ impl OnPath {
         Some(OnPath { program, answer })
     }
 
-    /// The protocol its version line names (`specforge 0.3.0 (9229143f5, protocol 1.14.0)`); none from a
+    /// The protocol its version line names (`specforge 0.3.0 (9229143f5, protocol 1.15.0)`); none from a
     /// binary too old to print one.
     fn protocol(&self) -> Option<&str> {
         let (_, version) = self

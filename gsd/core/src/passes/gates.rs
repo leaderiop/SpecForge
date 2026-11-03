@@ -15,6 +15,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::derive::{ladder::window_status, verify::by_phase};
 use super::plans::{link, links, of_kind, phase_of, text};
+use super::thread::{Evidence, Thread};
 use crate::digest::scope_of;
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
@@ -264,14 +265,16 @@ fn w404(input: &PassInput) -> Vec<PassDiagnostic> {
 }
 
 /// E515: each complete requirement of a phase in scope traces to a task, a commit and a passing test (gsd-plus).
-/// A task traces it when its plan names the requirement, it is not `manual`, a recorded commit names it and the
-/// report holds a passed result for the task or the requirement and no failed one. Like a window, a requirement is
-/// outside a phase's path, so the diagnostic names the gate's subject.
+/// A task traces it when its plan names the requirement, it is not `manual`, a recorded commit names it, and the
+/// results linked to the task or the requirement, with the proofs of the truths that name the requirement (ADR 0331
+/// D5), hold a passed one and no failed one. Like a window, a requirement is outside a phase's path, so the diagnostic
+/// names the gate's subject.
 fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input) else {
         return Vec::new();
     };
     let commits = crate::passes::commits::commits(input);
+    let thread = Thread::of(input);
     let mut seen = BTreeSet::new();
     let mut found = Vec::new();
     for phase in phases(input, subject) {
@@ -299,12 +302,13 @@ fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
                         .any(|c| c.task.as_deref() == Some(t.id.as_str()))
                 })
                 .collect();
+            let proofs = thread.requirement_proofs(requirement);
             let passing = |task: &PassEntity| {
-                input.test_results.as_ref().is_some_and(|report| {
-                    let results = || report.of(&task.id).iter().chain(report.of(requirement));
-                    results().any(|r| r.status == TestStatus::Passed)
-                        && !results().any(|r| r.status == TestStatus::Failed)
-                })
+                let linked = thread.linked(&task.id).into_iter();
+                let linked = linked
+                    .chain(thread.linked(requirement))
+                    .chain(proofs.iter().copied());
+                thread.evidence(linked.map(|(_, s)| s)) == Evidence::Passed
             };
             let missing = if tasks.is_empty() {
                 "no task of its plans"
@@ -322,7 +326,7 @@ fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
                 format!(
                     "complete requirement '{requirement}' does not trace to a task, a commit and a passing test: {missing}"
                 ),
-                "link a passing test to the task with [gsd:<task id>] and record the commit",
+                "link a passing test to the task with [gsd:<task id>], or name it in the `proof` of a truth that names the requirement, and record the commit",
             ));
         }
     }
