@@ -100,10 +100,11 @@ At the base, `@gsd/core` could walk the first three hops and no further:
 
   `@gsd/core`'s truth input is `test(self, self.proof)`: tags still stale a verdict, and so does the proof.
 - **D8. The requirement route.** `@gsd/core` declares the route `requirement-thread` (`gsd/requirement-thread`): from
-  a `requirement`, its plans (`PlanRequirements`, inverse), their tasks (`TaskPlan`, inverse) and the tasks' commits
-  (`CommitTask`, inverse, annotated with `linked_by`), and its truths (`TruthRequirement`, inverse, annotated with the
-  E501 judgement) and their proofs (`TruthProof`, annotated with the test's result). `specforge trace` follows it
-  (ADR 0330).
+  a `requirement`, its plans (`<plan.requirements`), their tasks (`<task.plan`) and the tasks' commits
+  (`<commit.task`, annotated with `linked_by`), then the tests its truths cite (`<truth.requirement.proof`, annotated
+  with the test's `status`, `not run` when it has none) and its truths (`<truth.requirement`, annotated with the E501
+  judgement). The tests come before the truths so the thread ends on the verdict. `specforge trace` follows it
+  (ADR 0330); without `@code/core` the `test` step is skipped (I210).
 
 ## Rejected
 

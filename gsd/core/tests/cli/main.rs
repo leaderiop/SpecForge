@@ -94,6 +94,7 @@ mod rendered_lines;
 mod roadmap;
 #[path = "../common/roster.rs"]
 mod roster;
+mod route;
 mod rules_silent;
 mod scan;
 mod settings;

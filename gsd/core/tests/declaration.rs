@@ -557,3 +557,26 @@ fn the_context_digest_is_computed_and_the_recorded_copies_are_harness_values() {
         );
     }
 }
+
+/// ADR 0331 D8: the one route, `gsd/requirement-thread` once qualified by the short name, as `specforge trace` follows
+/// it from a requirement.
+#[test]
+fn the_requirement_route_is_declared() {
+    assert_eq!(
+        describe("routes")["items"],
+        serde_json::json!([{
+            "name": "requirement-thread",
+            "description": "A requirement's thread: its plans, tasks, commits, proving tests and truths",
+            "start": "requirement",
+            "steps": [
+                {"name": "plan", "via": "<plan.requirements", "label": "plan"},
+                {"name": "task", "via": "<task.plan"},
+                {"name": "commit", "via": "<commit.task", "annotations": [{"field": "linked_by"}]},
+                {"name": "test", "via": "<truth.requirement.proof", "from": "start",
+                    "annotations": [{"field": "status", "absent": "not run"}]},
+                {"name": "truth", "via": "<truth.requirement", "from": "start",
+                    "annotations": [{"judgement": "E501"}]},
+            ]
+        }])
+    );
+}

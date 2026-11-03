@@ -12,6 +12,7 @@ pub mod judged;
 mod kinds;
 mod passes;
 pub mod prompts;
+mod route;
 mod rules;
 pub mod settings;
 mod slash;
@@ -47,6 +48,7 @@ impl Contributions for GsdCore {
         collectors::declare(c);
         settings::declare(c);
         hooks::declare(c);
+        route::declare(c);
         codes::declare(c);
     }
 }
