@@ -25,6 +25,8 @@ behavior nt_declare_node_test_collector "Declare the node-test Collector" {
     requires_code_core       "@code/core is a required peer"
   }
   verify unit "node-test declares its collector, its reads and its peer"
+  verify integration "collect runs node --test with the spec and JUnit reporters and reads the report it wrote"
+  verify integration "a package.json selects node-test among several collectors"
 }
 
 behavior nt_map_node_test_report "Map a node --test Report to Test Facts" {
@@ -56,4 +58,6 @@ behavior nt_map_node_test_report "Map a node --test Report to Test Facts" {
   verify unit "a case without a file is the collector's error"
   verify unit "a file outside the project, absolute or through .., is the collector's error"
   verify unit "a report that is not JUnit is the collector's error"
+  verify integration "a failing node test exits 1 and its report is still read"
+  verify integration "node-test's tests become test and test_run facts named js:<package>/<file>#<name>"
 }
