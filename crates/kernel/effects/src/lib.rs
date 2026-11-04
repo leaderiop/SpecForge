@@ -18,6 +18,7 @@ pub mod journal;
 pub mod mode;
 pub mod process;
 mod provenance;
+pub mod scope;
 #[cfg(feature = "testing")]
 pub mod testing;
 mod time;

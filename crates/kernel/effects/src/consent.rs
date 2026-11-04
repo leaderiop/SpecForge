@@ -7,10 +7,10 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use specforge_protocol_types::{Hosts, Operation, PortScope};
+use specforge_protocol_types::{Operation, PortScope};
 
 use crate::Provenance;
-use crate::ceiling::{DEFAULT_ROOTS, host_covers};
+use crate::scope::rules;
 
 /// What an approval is keyed by of a provenance: a builtin's name alone, a third-party blob's digest.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -67,7 +67,7 @@ impl CapabilityApproval {
                         .iter()
                         .all(|k| self.call_kinds.contains(k))))
             && self.secret_env == wanted.secret_env
-            && scope_covers(&self.granted, &wanted.granted)
+            && rules(&self.granted).covers(&wanted.granted)
     }
 
     /// What it approved, in the line a person approves ([`approval_line`]).
@@ -94,10 +94,10 @@ pub fn approval_line(scope: &PortScope, secret_env: Option<&str>) -> String {
         (Some(env), Some(header)) => {
             format!(
                 "{}, sends `${env}` as the `{header}` header",
-                scope.summary()
+                rules(scope).summary()
             )
         }
-        _ => scope.summary(),
+        _ => rules(scope).summary(),
     }
 }
 
@@ -246,38 +246,3 @@ pub trait Consent: Send + Sync {
 
 /// A consent store as a surface shares it.
 pub type SharedConsent = Arc<dyn Consent>;
-
-/// Whether a stored granted scope allows everything `current` does.
-pub fn scope_covers(stored: &PortScope, current: &PortScope) -> bool {
-    fn subset<T: PartialEq>(stored: &[T], current: &[T]) -> bool {
-        stored.is_empty() || (!current.is_empty() && current.iter().all(|c| stored.contains(c)))
-    }
-    match (stored, current) {
-        (PortScope::Http(s), PortScope::Http(c)) => {
-            let hosts = match (&s.hosts, &c.hosts) {
-                (Hosts::FromValues, _) => true,
-                (Hosts::List(_), Hosts::FromValues) => false,
-                (Hosts::List(s), Hosts::List(c)) => {
-                    c.iter().all(|c| s.iter().any(|s| host_covers(s, c)))
-                }
-            };
-            hosts
-                && subset(&s.schemes, &c.schemes)
-                && subset(&s.methods, &c.methods)
-                && s.secret_header == c.secret_header
-        }
-        (PortScope::Fs(s), PortScope::Fs(c)) => {
-            let roots = |roots: &[String]| {
-                if roots.is_empty() {
-                    DEFAULT_ROOTS.map(String::from).to_vec()
-                } else {
-                    roots.to_vec()
-                }
-            };
-            subset(&roots(&s.roots), &roots(&c.roots)) && subset(&s.ops, &c.ops)
-        }
-        (PortScope::Process(s), PortScope::Process(c)) => s == c,
-        (PortScope::Git(s), PortScope::Git(c)) => subset(&s.ops, &c.ops),
-        _ => false,
-    }
-}

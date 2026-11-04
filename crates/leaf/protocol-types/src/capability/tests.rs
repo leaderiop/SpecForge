@@ -14,7 +14,7 @@ fn a_capability_round_trips_and_an_unknown_port_is_refused() {
     let parsed: Vec<CapabilityDescriptor> = serde_json::from_value(wire.clone()).unwrap();
     assert_eq!(parsed[0].call_kinds, [Operation::Collect]);
     assert!(matches!(&parsed[1].port, PortScope::Http(h) if h.hosts == Hosts::FromValues));
-    assert_eq!(parsed[3].port.summary(), "process cargo test");
+    assert!(matches!(&parsed[3].port, PortScope::Process(p) if p.argv == ["cargo", "test"]));
     assert_eq!(serde_json::to_value(&parsed).unwrap(), wire);
     let unknown = json!([{"name": "dns", "why": "resolve", "port": "dns"}]);
     assert!(serde_json::from_value::<Vec<CapabilityDescriptor>>(unknown).is_err());

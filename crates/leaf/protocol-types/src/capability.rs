@@ -176,55 +176,7 @@ impl PortScope {
         match self {
             PortScope::Fs(fs) => fs.ops.contains(&FsAccess::Write),
             PortScope::Git(git) => git.ops.contains(&GitOp::Write),
-            _ => false,
-        }
-    }
-
-    /// One line for a person: `http GET,HEAD https://*.example.com`, `process cargo test`.
-    pub fn summary(&self) -> String {
-        fn list<T: std::fmt::Debug>(items: &[T], none: &str) -> String {
-            if items.is_empty() {
-                return none.to_string();
-            }
-            items
-                .iter()
-                .map(|item| format!("{item:?}").to_lowercase())
-                .collect::<Vec<_>>()
-                .join(",")
-        }
-        match self {
-            PortScope::Http(http) => {
-                let hosts = match &http.hosts {
-                    Hosts::List(hosts) => hosts.join(","),
-                    Hosts::FromValues => "the hosts the project's values name".to_string(),
-                };
-                let methods = if http.methods.is_empty() {
-                    "any method".to_string()
-                } else {
-                    http.methods
-                        .iter()
-                        .map(|m| m.as_str())
-                        .collect::<Vec<_>>()
-                        .join(",")
-                };
-                let schemes = if http.schemes.is_empty() {
-                    "http,https".to_string()
-                } else {
-                    http.schemes.join(",")
-                };
-                format!("http {methods} {schemes} {hosts}")
-            }
-            PortScope::Fs(fs) => format!(
-                "fs {} in {}",
-                list(&fs.ops, "no op"),
-                if fs.roots.is_empty() {
-                    "spec,project".to_string()
-                } else {
-                    fs.roots.join(",")
-                }
-            ),
-            PortScope::Process(process) => format!("process {}", process.argv.join(" ")),
-            PortScope::Git(git) => format!("git {}", list(&git.ops, "no op")),
+            PortScope::Http(_) | PortScope::Process(_) => false,
         }
     }
 }

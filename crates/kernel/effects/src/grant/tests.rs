@@ -5,6 +5,7 @@ use serde_json::json;
 use specforge_protocol_types::{
     FsRequest, HttpMethod, HttpRequest, ProcessRequest, SecretDescriptor,
 };
+use url::Url;
 
 fn declaration(capabilities: serde_json::Value) -> ExtensionDeclaration {
     let mut declaration = ExtensionDeclaration::default();
@@ -598,4 +599,31 @@ fn a_secret_rides_only_a_listed_https_host() {
         !wire.contains("ACME_TOKEN") && !wire.contains("secret"),
         "{wire}"
     );
+}
+
+#[test]
+fn each_scope_says_itself_in_one_line() {
+    let line = |scope: PortScope| crate::scope::rules(&scope).summary();
+    assert_eq!(
+        line(PortScope::Http(HttpScope {
+            hosts: Hosts::List(vec!["*.example.com".into()]),
+            ..HttpScope::default()
+        })),
+        "http any method http,https *.example.com"
+    );
+    assert_eq!(
+        line(PortScope::Fs(specforge_protocol_types::FsScope {
+            ops: vec![FsAccess::Read],
+            ..Default::default()
+        })),
+        "fs read in spec,project"
+    );
+    assert_eq!(
+        line(PortScope::Process(ProcessScope {
+            argv: vec!["cargo".into(), "test".into()],
+            ..ProcessScope::default()
+        })),
+        "process cargo test"
+    );
+    assert_eq!(line(PortScope::Git(GitScope { ops: vec![] })), "git no op");
 }

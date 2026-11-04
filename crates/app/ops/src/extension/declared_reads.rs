@@ -112,7 +112,7 @@ pub fn declared_capabilities(declaration: &ExtensionDeclaration) -> Vec<Declared
         .into_iter()
         .map(|c| DeclaredCapability {
             name: c.name.clone(),
-            scope: c.port.summary(),
+            scope: specforge_effects::scope::rules(&c.port).summary(),
             why: c.why.clone(),
         })
         .collect()

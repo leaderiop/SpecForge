@@ -11,13 +11,13 @@ use specforge_protocol_types::{
     AttachedSecret, CapabilityDescriptor, EffectRequest, ExtensionDeclaration, FsAccess, FsOp,
     GitOp, GitScope, Hosts, HttpScope, Operation, PortScope, ProcessScope, SettingsItem,
 };
-use url::Url;
 
-use crate::ceiling::{DEFAULT_ROOTS, EffectsCeiling, host_covers};
+use crate::ceiling::EffectsCeiling;
 use crate::consent::{
     Approval, CapabilityApproval, Consent, ConsentError, Keyed, RootApproval, approval_line,
 };
 use crate::gate::{Port, gate};
+use crate::scope::rules;
 use crate::{Provenance, Roots};
 
 /// What a run will exercise: each call kind and the capability it uses (O11: only these are asked for).
@@ -459,7 +459,7 @@ impl Grant {
                 (self.user
                     || g.declared.call_kinds.is_empty()
                     || g.declared.call_kinds.contains(&op))
-                    && admits(&g.declared.port, request, self.user)
+                    && rules(&g.declared.port).admits(request, self.user)
             })
             .collect();
         let Some(first) = declared.first() else {
@@ -474,7 +474,7 @@ impl Grant {
             .filter(|g| {
                 g.scope
                     .as_ref()
-                    .is_some_and(|s| admits(s, request, self.user))
+                    .is_some_and(|s| rules(s).admits(request, self.user))
             })
             .collect();
         let Some(usable) = left
@@ -520,16 +520,7 @@ impl Grant {
 
     fn allows_kind(&self, granted: &Granted, op: Operation, scope: &PortScope) -> bool {
         (granted.declared.call_kinds.is_empty() || granted.declared.call_kinds.contains(&op))
-            && gate(op, port_of_scope(scope), false)
-    }
-}
-
-fn port_of_scope(scope: &PortScope) -> Port {
-    match scope {
-        PortScope::Http(_) => Port::Http,
-        PortScope::Fs(_) => Port::Fs,
-        PortScope::Process(_) => Port::Process,
-        PortScope::Git(_) => Port::Git,
+            && gate(op, rules(scope).port(), false)
     }
 }
 
@@ -555,70 +546,6 @@ pub fn one_line(request: &EffectRequest) -> String {
         }
         EffectRequest::Process(process) => process.argv.join(" "),
     }
-}
-
-/// Whether `scope` admits `request`. Under the user's grant an fs scope with no roots reaches any root and a process
-/// scope with no argv runs any command.
-fn admits(scope: &PortScope, request: &EffectRequest, user: bool) -> bool {
-    match (scope, request) {
-        (PortScope::Http(http), EffectRequest::Http(request)) => {
-            // The parser the adapter requests with (WHATWG): what is judged is what is sent.
-            let Ok(url) = Url::parse(&request.url) else {
-                return false;
-            };
-            let host = url.host_str().unwrap_or_default();
-            let schemes_ok = if http.schemes.is_empty() {
-                matches!(url.scheme(), "http" | "https")
-            } else {
-                http.schemes
-                    .iter()
-                    .any(|s| s.eq_ignore_ascii_case(url.scheme()))
-            };
-            let method_ok = http.methods.is_empty()
-                || http
-                    .methods
-                    .iter()
-                    .any(|m| m.as_str().eq_ignore_ascii_case(&request.method));
-            let host_ok = match &http.hosts {
-                Hosts::FromValues => !host.is_empty(),
-                Hosts::List(hosts) => hosts.iter().any(|h| host_covers(h, host)),
-            };
-            schemes_ok && method_ok && host_ok
-        }
-        (PortScope::Fs(fs), EffectRequest::Fs(request)) => {
-            let root_ok = if fs.roots.is_empty() {
-                user || DEFAULT_ROOTS.contains(&request.root.as_str())
-            } else {
-                fs.roots.contains(&request.root)
-            };
-            let op = match request.op {
-                FsOp::Stat => FsAccess::Stat,
-                FsOp::Read { .. } => FsAccess::Read,
-                FsOp::Walk { .. } => FsAccess::Walk,
-            };
-            root_ok && fs.ops.contains(&op)
-        }
-        (PortScope::Process(process), EffectRequest::Process(request)) => {
-            (user && process.argv.is_empty()) || argv_matches(&process.argv, &request.argv)
-        }
-        _ => false,
-    }
-}
-
-/// Whether `argv` is `template` with each `{report}` replaced.
-pub fn argv_matches(template: &[String], argv: &[String]) -> bool {
-    template.len() == argv.len()
-        && template
-            .iter()
-            .zip(argv)
-            .all(|(t, a)| match t.split_once("{report}") {
-                None => t == a,
-                Some((before, after)) => {
-                    a.len() >= before.len() + after.len()
-                        && a.starts_with(before)
-                        && a.ends_with(after)
-                }
-            })
 }
 
 /// The secret `declared`'s `secret_header` names, attached to the hosts `granted` lists (ADR 0335 D6); none for a
