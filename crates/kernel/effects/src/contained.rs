@@ -306,19 +306,22 @@ impl<'a> Contained<'a> {
         })
     }
 
-    /// A close name to `resolved`'s in its parent, as written with that name: the parent is one `resolve` held, so no
-    /// directory outside a root is ever listed.
+    /// A close name to `resolved`'s in its parent, as written with that name, never a withheld one: the parent is one
+    /// `resolve` held, so no directory outside a root is ever listed.
     pub fn sibling(&self, resolved: &Resolved) -> Option<String> {
         let (dir, name) = match resolved.rel.rsplit_once('/') {
             Some((dir, name)) => (Some(dir), name),
             None => (None, resolved.rel.as_str()),
         };
+        let as_written = |name: &str| match dir {
+            Some(dir) => format!("{dir}/{name}"),
+            None => name.to_string(),
+        };
         let names = self.names(resolved.at.parent()?)?;
-        let close = find_close_match(name, names.iter().map(String::as_str))?;
-        Some(match dir {
-            Some(dir) => format!("{dir}/{close}"),
-            None => close.to_string(),
-        })
+        // A name withheld from a read is withheld from a suggestion: it would say the file is there.
+        let shown = names.iter().map(String::as_str);
+        let close = find_close_match(name, shown.filter(|name| !withheld(&as_written(name))))?;
+        Some(as_written(close))
     }
 
     /// Each of `parts` as the listing of its parent spells it, while one exists: the written name, else its only

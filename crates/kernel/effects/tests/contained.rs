@@ -263,3 +263,17 @@ fn a_root_alone_names_the_root() {
         Err(Refused::Climbs)
     ));
 }
+
+#[test]
+fn a_near_name_is_never_a_withheld_one() {
+    let dir = tempfile::tempdir().unwrap();
+    for name in [".env", "server.pem", "notes.md"] {
+        std::fs::write(dir.path().join(name), "x").unwrap();
+    }
+    let roots = Roots::new(dir.path(), dir.path());
+    let contained = Contained::new(&roots, &RealFs);
+    let near = |written| contained.sibling(&contained.resolve(written, Root::Project).unwrap());
+    assert_eq!(near(".envv"), None);
+    assert_eq!(near("server.pemm"), None);
+    assert_eq!(near("notes.mdd").as_deref(), Some("notes.md"));
+}
