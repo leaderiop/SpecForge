@@ -40,7 +40,7 @@ pub trait Disk {
         let _ = deadline;
         let bytes = self.read(path)?;
         Ok((
-            specforge_common::regular::sha256_hex(&bytes),
+            specforge_package::Sha256::of(&bytes).to_string(),
             bytes.len() as u64,
         ))
     }

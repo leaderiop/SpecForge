@@ -76,16 +76,8 @@ pub fn digest(path: &Path, deadline: Instant) -> io::Result<(String, u64)> {
         hasher.update(&chunk[..read]);
         length += read as u64;
     }
-    Ok((hex_of(&hasher.finalize()), length))
-}
-
-/// The SHA-256 of `bytes`, in lowercase hex: what [`digest`] gives for a file holding them.
-pub fn sha256_hex(bytes: &[u8]) -> String {
-    hex_of(&Sha256::digest(bytes))
-}
-
-fn hex_of(digest: &[u8]) -> String {
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    // Lowercase hex, as `specforge_package::Sha256` writes a digest of bytes held whole.
+    Ok((format!("{:x}", hasher.finalize()), length))
 }
 
 /// [`read`] as text: bytes that are not UTF-8 are `InvalidData`, as `std::fs::read_to_string` says.
@@ -158,7 +150,7 @@ fn too_large() -> io::Error {
 mod tests {
     use std::time::{Duration, Instant};
 
-    use super::{digest, sha256_hex};
+    use super::digest;
 
     #[test]
     fn a_digest_streams_the_file_and_stops_at_its_deadline() {
@@ -168,7 +160,7 @@ mod tests {
         let abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
         let later = Instant::now() + Duration::from_secs(60);
         assert_eq!(digest(&path, later).unwrap(), (abc.to_string(), 3));
-        assert_eq!(sha256_hex(b"abc"), abc);
+        assert_eq!(specforge_package::Sha256::of(b"abc").as_str(), abc);
 
         let past = Instant::now();
         assert_eq!(

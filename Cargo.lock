@@ -3733,7 +3733,6 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha2",
  "specforge-package",
  "specforge-protocol-types",
  "specforge-test",
