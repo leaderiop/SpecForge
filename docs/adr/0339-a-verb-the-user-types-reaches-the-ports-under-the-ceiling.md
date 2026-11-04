@@ -80,9 +80,12 @@ whole port `off`). A request outside it is refused before any effect, with the c
   a commit subject sends no escape sequence to it.
 - Paths print with `/`, relative to the current directory when under it, else absolute.
 - **`run` passes through.** Its program's stdin, stdout and stderr are the terminal's and its exit is the program's.
+  The program leads its own process group (so a deadline ends its whole tree), and on a terminal that group is made
+  the terminal's foreground, so a program that reads the terminal itself gets its input and Ctrl-C reaches it. With
+  no `--deadline` a run is held to 24 h, the most; `--help` and the captured answer's `deadline_ms` say so.
   A deadline is **124**, a program not found **127** and one that cannot start **126**, the POSIX shell's numbers, so
   blocks that tested GNU `timeout`'s 124 keep working on every OS. `--format json` captures
-  `{argv, exit, outcome, stdout, stderr, duration_ms, truncated}` instead, with a null stdin, and exits 0 once it
+  `{argv, exit, outcome, stdout, stderr, duration_ms, deadline_ms, truncated}` instead, with a null stdin, and exits 0 once it
   answers: the program's exit is the answer's `exit`. `run --which` answers
   where the runner's resolver (PATH, and PATHEXT on Windows) finds each program, and runs nothing.
 - `http` exits 0 when any HTTP answer arrived (a 404 is `ok: false`), 1 when unreachable or refused.

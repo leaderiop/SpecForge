@@ -147,6 +147,11 @@ impl<'p> Cli<'p> {
         self.assert(self.process(args, false, &[]))
     }
 
+    /// [`Self::bare`]'s command, unrun and unwrapped, for a test that sets its streams and its session itself.
+    pub fn std_command(&self, args: &[&str]) -> Command {
+        self.process(args, false, &[])
+    }
+
     /// [`Self::run`]'s command started as a long-running child (`watch`), its stdout and stderr piped, stopped
     /// on drop.
     pub fn spawn(&self, args: &[&str]) -> ChildGuard {

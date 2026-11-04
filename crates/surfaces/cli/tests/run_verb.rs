@@ -254,3 +254,75 @@ fn a_ceiling_with_process_off_refuses_every_run() {
         .exits(1);
     assert_eq!(refused.json()["code"], "E090", "{}", refused.stdout);
 }
+
+/// A pass-through run on a terminal hands its program the terminal's foreground: a program that reads the terminal
+/// itself gets its input instead of being stopped by SIGTTIN (`specforge run -- sh -c 'read x; …'`). The run is the
+/// leader of a new session whose controlling terminal is a pseudo-terminal the test writes to.
+#[cfg(unix)]
+#[test]
+fn a_pass_through_run_on_a_terminal_gives_its_program_the_input() {
+    use std::os::fd::{AsRawFd as _, FromRawFd as _, OwnedFd};
+    use std::os::unix::process::CommandExt as _;
+    let project = TestProject::new();
+    let (mut master, slave) = {
+        let (mut master, mut slave) = (0, 0);
+        // SAFETY: openpty writes two descriptors into the locals and reads no other memory.
+        #[expect(unsafe_code, reason = "openpty(3) into two local descriptors")]
+        let made = unsafe {
+            libc::openpty(
+                &mut master,
+                &mut slave,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        };
+        assert_eq!(made, 0, "openpty");
+        // SAFETY: both descriptors were just opened and nothing else owns them.
+        #[expect(unsafe_code, reason = "owning the descriptors openpty made")]
+        unsafe {
+            (
+                std::fs::File::from_raw_fd(master),
+                OwnedFd::from_raw_fd(slave),
+            )
+        }
+    };
+    let mut run = Cli::on(&project).std_command(&["run", "--", "sh", "-c", "read x; echo got:$x"]);
+    let tty = slave.as_raw_fd();
+    run.stdin(std::fs::File::from(slave.try_clone().unwrap()))
+        .stdout(std::fs::File::from(slave.try_clone().unwrap()))
+        .stderr(std::fs::File::from(slave));
+    // SAFETY: setsid and ioctl(TIOCSCTTY) are async-signal-safe and touch no memory of the parent's.
+    #[expect(
+        unsafe_code,
+        reason = "making the pseudo-terminal the child's controlling terminal"
+    )]
+    unsafe {
+        run.pre_exec(move || {
+            libc::setsid();
+            libc::ioctl(tty, libc::TIOCSCTTY as _, 0);
+            Ok(())
+        });
+    }
+    let mut child = run.spawn().unwrap();
+    master.write_all(b"hello\n").unwrap();
+    let (seen, read) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut all = Vec::new();
+        let mut chunk = [0u8; 256];
+        while let Ok(n) = master.read(&mut chunk) {
+            if n == 0 {
+                break;
+            }
+            all.extend_from_slice(&chunk[..n]);
+            if String::from_utf8_lossy(&all).contains("got:hello") {
+                let _ = seen.send(());
+                break;
+            }
+        }
+    });
+    let got = read.recv_timeout(Duration::from_secs(20)).is_ok();
+    let _ = child.kill();
+    let _ = child.wait();
+    assert!(got, "the program never read its input: stopped by SIGTTIN");
+}

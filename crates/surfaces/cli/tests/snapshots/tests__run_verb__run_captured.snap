@@ -11,6 +11,7 @@ expression: steady(live.clone())
     "--test-threads",
     "1"
   ],
+  "deadline_ms": 86400000,
   "duration_ms": "<duration_ms>",
   "exit": 0,
   "outcome": "exited",

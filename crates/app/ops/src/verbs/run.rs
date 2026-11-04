@@ -40,6 +40,8 @@ pub struct RunAnswer {
     pub stdout: String,
     pub stderr: String,
     pub duration_ms: u64,
+    /// The deadline the run was held to: `--deadline`, or the 24 h a run without one gets.
+    pub deadline_ms: u64,
     /// A stream passed what the answer keeps, or the run was stopped at its cap.
     pub truncated: bool,
 }
@@ -139,13 +141,14 @@ pub fn capture(verbs: &Verbs, run: &Run, mode: EffectsMode) -> Result<RunAnswer,
             ports
                 .process
                 .run_within(&request, verbs.cwd(), Output::Buffer, Ceiling::User);
-        let answer = answered(
+        let mut answer = answered(
             &run.argv,
             &outcome.class,
             &outcome.stdout,
             &outcome.stderr,
             started,
         );
+        answer.deadline_ms = request.deadline_ms;
         let payload = serde_json::to_vec(&answer).unwrap_or_default();
         Answer {
             outcome: Outcome {
@@ -202,6 +205,7 @@ fn answered(
         stdout: kept(stdout),
         stderr: kept(stderr),
         duration_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+        deadline_ms: 0,
         truncated: *class == ProcessClass::OutputCapped
             || stdout.len() > ANSWER_BYTES
             || stderr.len() > ANSWER_BYTES,

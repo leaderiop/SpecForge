@@ -26,7 +26,8 @@ pub(crate) struct RunArgs {
     )]
     argv: Vec<String>,
 
-    /// Stop the program and its children after this long and exit 124: `10` or `10s`, `500ms`, `2m`, `1h`
+    /// Stop the program and its children after this long and exit 124: `10` or `10s`, `500ms`, `2m`, `1h` (24h when
+    /// absent, the most)
     #[arg(long, value_name = "DURATION", value_parser = super::parse_duration)]
     deadline: Option<Duration>,
 

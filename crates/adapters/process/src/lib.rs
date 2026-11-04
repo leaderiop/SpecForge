@@ -179,11 +179,19 @@ impl Process for Runner {
         }
         command.stdin(match (&request.stdin, user) {
             (Some(_), _) => Stdio::piped(),
-            // shortcut: the program leads its own process group, so one that reads a terminal itself (not a pipe) is
-            // stopped by SIGTTIN; hand the group the terminal's foreground when an interactive program needs it.
             (None, true) => Stdio::inherit(),
             (None, false) => Stdio::null(),
         });
+        // A program in front of the person, on their terminal, leads its own group: that group takes the terminal.
+        #[cfg(unix)]
+        let in_front = request.stdin.is_none()
+            && user
+            && matches!(output, Output::Inherit)
+            && group::Foreground::wanted();
+        #[cfg(unix)]
+        if in_front {
+            group::Foreground::take_in_child(&mut command);
+        }
         let (stdout, stderr) = match &output {
             Output::Buffer => (Stdio::piped(), Stdio::piped()),
             Output::Tee {
@@ -210,6 +218,9 @@ impl Process for Runner {
             Ok(group) => group,
             Err(why) => return at(ProcessClass::CannotStart(why)),
         };
+        #[cfg(unix)]
+        let _terminal = in_front
+            .then(|| group::Foreground::hand_to(libc::pid_t::try_from(child.id()).unwrap_or(0)));
         let deadline = Duration::from_millis(request.deadline_ms).min(ceiling.limit());
         let cap = request.output_cap.min(OUTPUT_CAP);
         let mut outcome = Watch {

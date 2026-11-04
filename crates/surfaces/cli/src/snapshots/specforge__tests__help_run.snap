@@ -12,7 +12,7 @@ Arguments:
 
 Options:
       --deadline <DURATION>
-          Stop the program and its children after this long and exit 124: `10` or `10s`, `500ms`, `2m`, `1h`
+          Stop the program and its children after this long and exit 124: `10` or `10s`, `500ms`, `2m`, `1h` (24h when absent, the most)
 
       --which
           Print where the runner finds each program, and run none

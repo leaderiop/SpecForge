@@ -48,6 +48,10 @@ specforge-ops-registry = { path = "../../adapters/ops-registry" }
 specforge-process = { path = "../../adapters/process" }
 specforge-project = { workspace = true }
 
+# A pseudo-terminal for the test of a pass-through run that reads its terminal.
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 # The repositories the tests that commit build, with no git program.
 specforge-git = { path = "../../adapters/git", features = ["testing"] }
