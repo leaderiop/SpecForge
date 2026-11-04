@@ -159,7 +159,7 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
                 .iter()
                 .find(|(extension, _)| extension == grant.extension())
                 .map_or(&none, |(_, uses)| uses);
-            // Only what a run here uses is a warning (O11); the store's W186 says the rest.
+            // Only what a run here uses is a warning; the store's W186 says the rest.
             if grant.store_problem().is_none() {
                 diagnostics.extend(grant.unapproved_summary(used));
             }

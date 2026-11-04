@@ -475,7 +475,7 @@ impl RunError {
 ///
 /// A command the host refuses ([`ExtensionCommand::refusal`]) is not routed
 /// on either surface; `run` does not check it again (ADR 0011, "One
-/// operation runs a command", O5).
+/// operation runs a command").
 pub fn run(
     view: &ProjectView<'_>,
     command: &ExtensionCommand,

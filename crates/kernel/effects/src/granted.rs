@@ -1,6 +1,6 @@
 //! The ports as a grant holds them (ADR 0335 D2): each wraps a port and answers a request its [`Grant`] refuses as
-//! `denied`, without performing it, so a caller handed granted ports needs no check of its own. Plan 04 binds them
-//! per instance for a guest's imports.
+//! `denied`, without performing it, so a caller handed granted ports needs no check of its own. The wasm runtime binds
+//! them per instance for a guest's imports.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};

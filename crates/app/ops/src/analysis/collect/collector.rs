@@ -85,7 +85,7 @@ pub(super) fn detect<'a>(collectors: &'a [Collector], root: &Path) -> Vec<&'a Co
 }
 
 /// The scopes a collect run here would use, per extension: each detected collector's process capability (ADR 0335
-/// D2, O11): what `specforge grants` and doctor call in use.
+/// D2): what `specforge grants` and doctor call in use.
 pub fn uses_here(declarations: &[ExtensionDeclaration], root: &Path) -> Vec<(String, Uses)> {
     let all = collectors(declarations);
     let mut uses: Vec<(String, Uses)> = Vec::new();

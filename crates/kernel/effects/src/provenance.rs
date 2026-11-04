@@ -1,4 +1,4 @@
-//! Where a loaded extension's code came from (ADR 0335 D2, O6): the host vouches for a builtin, so a builtin's
+//! Where a loaded extension's code came from (ADR 0335 D2): the host vouches for a builtin, so a builtin's
 //! approval is keyed by its name and survives an upgrade; a third-party one's by the digest of its blob.
 
 use serde::{Deserialize, Serialize};

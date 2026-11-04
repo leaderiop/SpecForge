@@ -399,7 +399,7 @@ fn body_of(
     }
 }
 
-/// Why a request got no answer, the same on every OS (O10): any rustls or verifier rejection is `tls`.
+/// Why a request got no answer, the same on every OS: any rustls or verifier rejection is `tls`.
 fn class_of(error: &reqwest::Error) -> Unreachable {
     let mut source: Option<&(dyn StdError + 'static)> = Some(error);
     while let Some(e) = source {

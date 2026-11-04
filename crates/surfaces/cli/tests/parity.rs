@@ -1,4 +1,4 @@
-//! CLI↔MCP parity harness (architecture plan 03, step O0).
+//! CLI↔MCP parity harness.
 //!
 //! Each scenario runs one user-level operation twice on identical fixture
 //! projects: once through the `specforge` binary, once through an in-process
@@ -659,7 +659,7 @@ fn graph_resource_under_a_budget_is_the_budgeted_export() {
     );
 }
 
-// ── listings: one list per surface pair (O5) ────────────────────────────────
+// ── listings: one list per surface pair ────────────────────────────────────
 
 /// The CLI's `<command> --format json` and the MCP `tool`'s answer on the
 /// same project.
@@ -724,7 +724,7 @@ fn providers_listings_match() {
     );
 }
 
-// ── init: one scaffold (O7) ─────────────────────────────────────────────────
+// ── init: one scaffold ─────────────────────────────────────────────────────
 
 #[specforge_test_macros::test(
     behavior = "provide_mcp_init_tool",

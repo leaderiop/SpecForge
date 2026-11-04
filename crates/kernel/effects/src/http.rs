@@ -22,7 +22,7 @@ pub const MAX_REDIRECTS: u32 = 5;
 pub const BODY_CEILING: u64 = MAX_PACKAGE_BYTES;
 
 /// The body cap of an answer copied into a guest whose memory is `max_memory_mb`: a quarter of it, at most the
-/// ceiling, so a body can never fill the guest. Plan 04's guest HTTP import is its caller.
+/// ceiling, so a body can never fill the guest. A guest's `http` import is its caller.
 pub fn guest_body_cap(max_memory_mb: u64) -> u64 {
     BODY_CEILING.min(max_memory_mb.saturating_mul(1024 * 1024) / 4)
 }

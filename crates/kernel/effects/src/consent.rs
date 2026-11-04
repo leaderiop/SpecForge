@@ -1,7 +1,7 @@
 //! The machine's approvals (ADR 0335 D2.4): the `Consent` port and what it keeps. An approval is keyed by the
-//! project, the extension and its provenance (a builtin by name, a third-party extension by its blob's digest, O6)
+//! project, the extension and its provenance (a builtin by name, a third-party extension by its blob's digest)
 //! and the scope's name, and stores the granted scope whole: it covers a narrower grant, a wider one asks again. A
-//! named root outside the project is approved per project by its canonical target (O5). The adapter, the user's
+//! named root outside the project is approved per project by its canonical target. The adapter, the user's
 //! private store, is `specforge_ops::UserConsent`; the fake is `testing::MemoryConsent`.
 
 use std::sync::Arc;

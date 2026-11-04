@@ -23,7 +23,7 @@ use crate::gate::{Port, gate};
 use crate::scope::{posts_queries, rules};
 use crate::{Provenance, Roots};
 
-/// What a run will exercise: each call kind and the capability it uses (O11: only these are asked for).
+/// What a run will exercise: each call kind and the capability it uses (only these are asked for).
 pub type Uses = BTreeSet<(Operation, String)>;
 
 /// One declared capability, as granted here.

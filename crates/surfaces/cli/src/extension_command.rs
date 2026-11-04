@@ -250,7 +250,7 @@ pub(crate) fn run_in(
     let given = arg_values(command, matches);
     // The project, compiled from the environment that routed the command:
     // its sources read, its graph built and checked (ADR 0011, "One
-    // operation runs a command", O3).
+    // operation runs a command").
     let project = CompiledProject::of(env);
     let dry_run = command.writes() && matches.get_flag(DRY_RUN);
     let output_format = match format {

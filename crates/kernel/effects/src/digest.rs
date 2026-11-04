@@ -1,5 +1,5 @@
 //! The canonical form of a request or an outcome, and its digest: what a journal keys a record by and a verdict
-//! compares (ADR 0335 D3). Plan 03's effect journal is their caller.
+//! compares (ADR 0335 D3). The effect journal ([`crate::EffectJournal`]) is their caller.
 
 use serde::Serialize;
 use serde_json::{Map, Value};
