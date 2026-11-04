@@ -229,8 +229,10 @@ pub fn guests(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     for (manifest, passes) in runs {
         for &(what, before, after) in passes {
             let mut cmd = ctx.cmd("cargo");
+            // What `build-blobs` does: an incremental guest is another build than CI's.
             cmd.env("CARGO_TARGET_DIR", &target)
-                .env("SPECFORGE_REPORT", &reports);
+                .env("SPECFORGE_REPORT", &reports)
+                .env_remove("CARGO_INCREMENTAL");
             cmd.args(before)
                 .args(["--manifest-path", &manifest])
                 .args(after);
