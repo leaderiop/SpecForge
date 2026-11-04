@@ -182,6 +182,35 @@ fn contained_withholds_a_credential_name() {
 }
 
 #[test]
+fn contained_withholds_the_hosts_own_state_from_a_root_not_from_above_it() {
+    let (roots, disk) = (roots(), disk());
+    let contained = Contained::new(&roots, &disk);
+    let resolved = contained
+        .resolve(
+            ".specforge/effects/journal/ab/abc.payload",
+            RootName::Project,
+        )
+        .unwrap();
+    assert!(resolved.withheld && resolved.host_state);
+    assert!(withheld("a/.SpecForge/x") && !withheld("a/specforge/x"));
+
+    // A project that lives under such a directory is not all withheld.
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join(".specforge/p");
+    std::fs::create_dir_all(project.join(".specforge")).unwrap();
+    std::fs::write(project.join("notes.md"), "").unwrap();
+    std::fs::write(project.join(".specforge/kept"), "").unwrap();
+    let inside = Roots::new(&project, &project);
+    let contained = Contained::new(&inside, &RealFs);
+    let notes = contained.resolve("notes.md", RootName::Project).unwrap();
+    assert!(!notes.withheld && !notes.host_state);
+    let kept = contained
+        .resolve(".specforge/kept", RootName::Project)
+        .unwrap();
+    assert!(kept.withheld && kept.host_state);
+}
+
+#[test]
 fn contained_spec_root_outside_the_project_is_flagged() {
     assert!(!Roots::new("/p", "/p/spec").spec_outside());
     assert!(Roots::new("/p", "/q/spec").spec_outside());

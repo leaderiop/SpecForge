@@ -1,7 +1,8 @@
 //! The adapter behind the effect plane's `Fs` port (ADR 0335): `std::fs` behind [`Contained`] over the real file
 //! system. A path is resolved in its root first (`outside`, `missing`); a read answers at most its `max_bytes` (held
 //! to 1 MiB) of a file no larger than 64 MiB, never a withheld one; a walk visits at most 20 000 entries, skips
-//! tool and dependency directories the glob does not name, and does not descend through links.
+//! tool and dependency directories the glob does not name, never enters the host's own state, and does not descend
+//! through links.
 //!
 //! [`Contained`]: specforge_effects::Contained
 
@@ -9,6 +10,7 @@ use std::io::Read as _;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
+use specforge_effects::contained::in_host_state;
 use specforge_effects::fs::{
     FILE_CEILING, FileKind, FsStat, READ_CEILING, SKIPPED, WALK_VISITS, held,
 };
@@ -112,6 +114,9 @@ impl Walk<'_> {
             };
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().into_owned();
+            if in_host_state(&name) {
+                continue;
+            }
             if kind.is_dir() {
                 if !SKIPPED.contains(&name.as_str()) || self.names(&name) {
                     self.dir(&path);

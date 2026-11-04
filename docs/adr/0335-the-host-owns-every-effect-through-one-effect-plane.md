@@ -145,7 +145,9 @@ the workspace.
   for a secret (ADR 0288). A program a guest runs inherits no variable a declared secret names, of any extension, and
   a guest cannot set its `PATH`, `PATHEXT` or loader variables. `git` reads the project's own repository only: a guest
   names no place, its revisions and paths can be neither an option nor a climb, and a file the disk withholds is
-  withheld at a commit too.
+  withheld at a commit too. **The host's own state is withheld whole:** no `fs` request of any op reaches a path with
+  a `.specforge` component, at the project root or under a named root, and a walk never enters one, a glob naming it
+  or not. The effects journal lives there and holds other extensions' answers, and a project read needs no approval.
 - **An answer is held to a quarter of the guest's memory**, and says `truncated`, so a port's answer can't trap the
   guest. A listing that has no way to say so fails `capped`.
 - **A port's time is not the guest's.** Epoch interruption counts guest time only (ADR 0037 D3); a request is held to

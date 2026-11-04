@@ -596,6 +596,78 @@ mod lending {
         assert_eq!(http.requests().len(), 1);
     }
 
+    /// Another extension's answer, kept where the journal keeps it: a project read does not reach it.
+    #[test]
+    fn a_guest_with_a_project_read_cannot_read_the_effects_journal() {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let journal = EffectJournal::at(&root);
+        let request = specforge_effects::EffectRequest::Http(specforge_effects::HttpRequest {
+            method: "GET".to_string(),
+            url: "https://example.test/private".to_string(),
+            body_cap: 1024,
+            ..Default::default()
+        });
+        let answer = specforge_effects::Answer {
+            outcome: specforge_effects::Outcome {
+                class: specforge_effects::OutcomeClass::Ok,
+                digest: "sha256:0".to_string(),
+            },
+            payload: Some(SECRET_VALUE.as_bytes().to_vec()),
+        };
+        let (record, _) = journal
+            .keep(&request, &answer, specforge_effects::UnixMillis(1))
+            .unwrap()
+            .expect("journaled");
+        let payload = record
+            .with_extension("payload")
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        assert!(root.join(&payload).is_file(), "{payload}");
+
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+        c.capability(
+            Capability::fs("files")
+                .ops(&[FsAccess::Stat, FsAccess::Read, FsAccess::Walk])
+                .why("read the project"),
+        );
+        let roots = Roots::new(&root, &root);
+        let grant = Grant::decide(
+            &c.declaration(),
+            &Provenance::third_party(b"x"),
+            &specforge_effects::EffectsCeiling::default(),
+            &roots,
+            &MemoryConsent::approving_everything(),
+        );
+        let ports = Ports {
+            fs: Arc::new(specforge_fs::LocalFs),
+            ..testing::ports()
+        };
+        let call = PortCall::online(&ports, EffectJournal::detached(), roots, grant, Vec::new());
+        let mut session =
+            PortSession::effectful(EXT, Operation::Command, Some(call), Limits::CEILING);
+
+        let refused = session.fs_read("project", &payload, 0);
+        assert!(
+            matches!(refused, Err(specforge_protocol_types::HostError::Denied(_))),
+            "{refused:?}"
+        );
+        for (path, glob) in [
+            ("", Some(".specforge/**")),
+            ("", Some("**/*.payload")),
+            ("", None),
+        ] {
+            let listed = session.fs_walk("project", path, glob, 100).unwrap();
+            assert!(listed.entries.is_empty(), "{glob:?}: {listed:?}");
+        }
+        assert!(
+            session.fs_walk("project", ".specforge", None, 100).is_err(),
+            "a walk from inside it"
+        );
+    }
+
     /// The real runner, the real inherited environment: the value set here is what a guest must not read back.
     #[cfg(unix)]
     #[test]

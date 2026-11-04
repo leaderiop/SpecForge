@@ -108,6 +108,58 @@ fn a_walk_skips_dependency_directories_the_glob_does_not_name() {
     );
 }
 
+/// A named root inside the project's own state, and a link into it, are the same state.
+#[test]
+fn no_request_reaches_the_hosts_own_state() {
+    let (_dir, roots) = project();
+    let root = roots.project().to_path_buf();
+    let state = root.join(".specforge/effects/journal/ab");
+    std::fs::create_dir_all(&state).unwrap();
+    std::fs::write(state.join("abc.payload"), "someone's answer").unwrap();
+    let held = ".specforge/effects/journal/ab/abc.payload";
+    for op in [
+        FsOp::Stat,
+        FsOp::Read { max_bytes: 1024 },
+        FsOp::Walk {
+            glob: None,
+            max_entries: 10,
+        },
+    ] {
+        assert_eq!(run(&roots, held, op.clone()).class, OutcomeClass::Denied);
+        assert_eq!(run(&roots, ".specforge", op).class, OutcomeClass::Denied);
+    }
+    for glob in [
+        ".specforge/**",
+        "**/*.payload",
+        ".specforge/effects/journal/ab/*",
+    ] {
+        assert!(walk(&roots, Some(glob)).is_empty(), "{glob}");
+    }
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(state.join("abc.payload"), root.join("alias.txt")).unwrap();
+        let read = FsOp::Read { max_bytes: 1024 };
+        assert_eq!(run(&roots, "alias.txt", read).class, OutcomeClass::Denied);
+    }
+    let named =
+        Roots::new(&root, root.join("spec")).with_named("state", root.join(".specforge/effects"));
+    for path in ["", "journal/ab/abc.payload"] {
+        let request = FsRequest {
+            root: "state".to_string(),
+            path: path.to_string(),
+            op: FsOp::Walk {
+                glob: None,
+                max_entries: 10,
+            },
+        };
+        assert_eq!(
+            LocalFs.run(&named, &request).class,
+            OutcomeClass::Denied,
+            "{path:?}"
+        );
+    }
+}
+
 #[test]
 fn a_walk_stops_at_its_entry_budget() {
     let (_dir, roots) = project();

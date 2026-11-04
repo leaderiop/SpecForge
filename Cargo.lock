@@ -3286,6 +3286,7 @@ dependencies = [
  "specforge-emitter",
  "specforge-extension-sdk",
  "specforge-formatter",
+ "specforge-fs",
  "specforge-graph",
  "specforge-hosts",
  "specforge-installed",
