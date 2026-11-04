@@ -14,8 +14,8 @@ not tied to software. Every output below was recorded from a real run.
 - Warm the demo crate so `cargo test` doesn't compile on stage:
   `cd examples/shop && cargo test -q`.
 - To show the approval prompt, make sure the project isn't approved yet:
-  remove its entry from `~/.specforge/collector-consent.json`, or run the demo
-  with `SPECFORGE_CONSENT_FILE=/tmp/demo-consent.json`.
+  `specforge grants revoke @specforge/cargo-test` in `examples/shop`, or run the
+  demo with `SPECFORGE_CONSENT_FILE=/tmp/demo-consent.json`.
 - Delete any old `examples/shop/specforge-report.json` (it is git-ignored);
   a report written by an older version is refused with E045 until
   `specforge collect` rewrites it.

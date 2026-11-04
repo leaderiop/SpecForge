@@ -133,8 +133,9 @@ specforge analyze coverage   # reads specforge-report.json
 ```
 
 The first `specforge collect` shows the command and asks you to approve it.
-The approval is remembered per project and command, in
-`~/.specforge/collector-consent.json` (never in the repository). Failing tests
+The approval is remembered per project and extension, in
+`~/.specforge/consent.json` (never in the repository): `specforge grants` lists
+it, `specforge grants approve` gives it without a run, `revoke` takes it back. Failing tests
 don't make `collect` fail: they're recorded, and `analyze` reports them
 (A014).
 

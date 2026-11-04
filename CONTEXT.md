@@ -288,7 +288,37 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   run). Sessions are `cached`; the CLI's `--effects` chooses, `check` defaulting to `auto` when someone can answer
   (ADR 0337 D4).
 - **Machine diagnostic**: a finding this machine decided (its approvals, its network, its journal), flagged
-  `machine`; `--strict` never promotes it and the gate's warning baseline never counts it (I206, I207; ADR 0337 D7).
+  `machine`; `--strict` never promotes it and the gate's warning baseline never counts it (I206, I207, W170; ADR 0337 D7).
+- **Capability**: one effect an extension declares it may ask the host for, in its `capabilities` describe category: a
+  **scope name**, a `why`, the call kinds it is for and one port scope (`http` hosts, schemes, methods and an optional
+  secret header; `fs` roots and ops; a `process` argv template; `git` ops). A collector with a command names its
+  `process` capability. A bad one is W021 and grants nothing (`specforge_protocol_types::CapabilityDescriptor`, ADR
+  0335 D2.1).
+- **Scope name**: a capability's name, a word unique in its extension: what an approval, `specforge grants` and a
+  denial name it by.
+- **Gate (call kind)**: the host's fixed table of the ports each call kind may use: collect every port, a command
+  every port but process, an MCP tool reads and may use http, a pass reads (`specforge_effects::gate`, ADR 0335 D2.2).
+  Not a setting's **Gate**.
+- **Effects ceiling**: what `effects` in `specforge.json` leaves of every capability: it can only narrow, `"off"`
+  removes a port. Each capability it narrows is W171; what is not used as written is E109
+  (`specforge_effects::EffectsCeiling`, ADR 0335 D2.3).
+- **Named root**: a root `roots` in `specforge.json` names beside `spec` and `project`, resolved once per load to its
+  canonical target, inside or outside the project; one outside needs a root approval (ADR 0335 D2.3).
+- **Grant**: what one extension may make the host do here: what it declares, under the call kind's gate, under the
+  effects ceiling, and approved on this machine, decided once per extension and environment. It permits each request
+  (or denies it: E090 for the gate, the declaration or the ceiling) and names the approvals a run needs
+  (`specforge_effects::Grant`, ADR 0335 D2).
+- **Approval**: this machine's consent to a capability (per project, extension, **Provenance** and scope name; it
+  covers any narrower grant) or to a named root outside the project (per project and canonical target). File and git
+  reads inside the project need none; http, process and writes do. Settled before a run's first effect, asked only
+  for what the run uses (`specforge_ops::grants::settle`, ADR 0335 D2.4).
+- **Consent store**: where approvals are kept: the user's `~/.specforge/consent.json`, outside every project, behind
+  the `Consent` port (`specforge_ops::consent::UserConsent`; `testing::MemoryConsent`). Written privately and
+  atomically under a sidecar lock; one it cannot use approves nothing and is never written over (W186). `specforge
+  grants` lists, approves and revokes (ADR 0335 D2.5).
+- **Provenance**: where a loaded extension's code came from: a builtin, or a third party and its blob's digest. An
+  approval is keyed by it, so a builtin's survives an upgrade and a new third-party blob asks again
+  (`specforge_effects::Provenance`, ADR 0335 D2.6).
 - **Containment**: what a request may reach on disk: every path (the CLI, ADR 0092 D6) or the paths that land inside
   one directory (an MCP request's bound, or the call's project). Lent by the **Caller** in the operation's request and
   applied where the operation opens or writes the file (a lock plan narrows it to its project, ADR 0137) (`specforge_ops::Containment`, ADR 0104). MCP builds one per call (`Call`), bounds the call's views by it and
@@ -1270,8 +1300,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Asking**: who can be asked to consent to what an operation would otherwise refuse (a publisher key change, a
   collector's command): yes to everything (`--yes`), nobody (MCP, `--format json`, stdin that is no terminal), or an
   `Asker` (the CLI's terminal, a test's script). A surface builds it once per command, inside its **Caller**, which add,
-  update and collect read it from (`specforge_ops::asking`, ADR 0110). Collect asks it only for a command the
-  **Collector machine** has no approval for.
+  update and collect read it from (`specforge_ops::asking`, ADR 0110). Collect asks it only for the **Approvals** its
+  run uses and this machine has not given, once per scope or root, before the first command (ADR 0335 D2.4).
 - **Diagnostic policy**: lint profiles (a closed set: `inferred`, `pedantic`) and strict promotion
   (`specforge_project::DiagnosticPolicy`). It is the only thing that changes a diagnostic's severity
   after the diagnostic is built. A profile's diagnostics come from the check that applies it
@@ -1305,8 +1335,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   migration hook — over the `WasmRuntime` port. Its input and answer are protocol types
   (`specforge_protocol_types`) the SDK shares; every failure is one `CallError`, E028, naming the
   operation, the export and the extension (`specforge_wasm::calls::ExtensionCalls`, ADR 0013).
-- **Sandbox**: what the host holds an extension to. It is granted no capability (no preopened
-  directory, environment, arguments, stdin, socket or name lookup), and it is held to two limits its
+- **Sandbox**: what the host holds an extension to. It gets no WASI capability (no preopened
+  directory, environment, arguments, stdin, socket or name lookup); what it may reach is its **Grant**. It is held to two limits its
   handshake's `sandbox_policy` may declare, each at most the host's ceiling (30 000 ms per call,
   512 MB of linear memory) and the ceiling when undeclared; every call also gets the whole fuel
   budget. The loader applies them once it has read the handshake; the component runtime enforces them, and a call that
@@ -1650,9 +1680,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (tests). `specforge analyze --prove` and doctor take it as an argument; doctor's toolchain finding is
   the W098 the prove pass reports. A test chooses the solver it sees (ADR 0079).
 - **Collector machine**: the machine collect runs on (`specforge_ops::analysis::collect::CollectorMachine`, port
-  `CollectorMachine`): it runs a collector's command (and answers when it started) and keeps the user's approvals of
-  commands. Its adapters are a child process with the user-level consent store (`ProcessMachine`) and a scripted
-  machine (tests). The caller passes it; collect decides every refusal that needs no run before the machine runs
+  `CollectorMachine`): it runs a collector's command (and answers when it started). The approvals are the **Consent
+  store**'s, passed beside it. Its adapters are a child process (`ProcessMachine`) and a scripted machine (tests). The caller passes it; collect decides every refusal that needs no run before the machine runs
   anything (ADR 0125).
 - **Collect mode**: how `collect` gets each collector's evidence (`specforge_ops::analysis::collect::Mode`): run
   the declared command and read its report (`Run`), read the report it already wrote (`NoRun`, `--no-run`), or
