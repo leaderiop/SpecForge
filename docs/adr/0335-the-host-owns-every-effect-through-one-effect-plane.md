@@ -177,6 +177,12 @@ the workspace.
   old cannot say it did: outside `replay`, it is never answered from a fresh record. `cached` answers it
   `not_performed`, and `auto` performs it again when granted. `replay` answers from the record, since it performs
   nothing and the caller asked for the past. A process has no fresh record at all (ADR 0337 D3).
+- **A replay answers what the live call answered.** A lent record's payload is one line saying what the guest was
+  told (status, headers, final URL, how a program ended) and then the bytes, so a replay is the same answer. The one
+  difference is by design: a response header that carries a secret is not kept, because the journal holds none. The
+  digest is taken before the port budget clamps a request's time, so spending the budget doesn't change it.
+- **A refused guest costs the host a bounded list.** One call keeps 32 denials, each with at most 256 bytes of the
+  request, then a line saying how many more. It reports them on every exit, so a guest that traps can't hide one.
 - **The LSP never runs a port on a worker.** It makes no effectful call: a port it reached would be `denied(call-kind)`.
 
 ## D5. The load seam reads imports first
