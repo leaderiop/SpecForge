@@ -39,6 +39,7 @@ a check, a CLI verb or the host's own baseline. It has four ports, each an objec
 | `Fs` | stat, read, walk under a **named root** | `adapters/fs` (`specforge-fs`): std::fs behind `Contained` |
 | `Git` | the nine History reads (`locate`, `commit`, `merge_base`, `files`, `tree`, `sizes`, `blobs`, `branch`, `status`), moved unchanged | `GitCli` (`specforge-git`), run through the `Process` port |
 
+- **Behind a proxy.** The client judges a destination's name on this machine before sending, but the proxy resolves it: a name that does not resolve here, resolves differently there or changes between the two is the proxy's to refuse, and no client can close that.
 - **Wire types.** Requests and outcomes are serde types in `protocol-types/src/effects.rs`. The host computes a
   canonical digest over them (`specforge_effects::digest`: sorted keys, sensitive header values redacted), so no
   guest blob gains a hash.

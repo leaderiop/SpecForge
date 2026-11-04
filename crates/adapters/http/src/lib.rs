@@ -1,7 +1,8 @@
 //! The adapter behind the effect plane's `Http` port (ADR 0335): one blocking reqwest client, built on first use, on
 //! rustls with ring and the platform verifier. It follows redirects itself under the caller's policy, refuses a
-//! private address unless the request allows one, holds the whole request to one timeout and reads at most the body
-//! cap. A transport failure is an outcome class, never a panic.
+//! private address unless the request allows one (judged here, for through a proxy the proxy resolves the name),
+//! holds the whole request to one timeout and reads at most the body cap. A transport failure is an outcome class,
+//! never a panic.
 
 use std::error::Error as StdError;
 use std::io::Read as _;
@@ -22,7 +23,7 @@ use specforge_effects::{
 mod address;
 
 pub use address::public;
-use address::{Failed, PublicOnly};
+use address::{Failed, PublicOnly, destination};
 
 /// The `Http` port over the network. Its two reqwest clients (one that refuses private addresses, one that allows
 /// them) are built on first use, so a command that never reaches the network loads no trust store.
@@ -32,6 +33,8 @@ pub struct Client {
     any: OnceLock<Result<Reqwest, String>>,
     /// The TLS configuration to use in place of the platform's verifier.
     tls: Option<rustls::ClientConfig>,
+    /// The proxy every request goes through, in place of the environment's and the system's.
+    proxy: Option<String>,
 }
 
 impl Client {
@@ -47,13 +50,22 @@ impl Client {
         }
     }
 
+    /// A client that sends every request through the proxy at `url`: for a test's own proxy, whose environment no
+    /// test may change.
+    pub fn with_proxy(url: &str) -> Self {
+        Client {
+            proxy: Some(url.to_string()),
+            ..Client::default()
+        }
+    }
+
     fn client(&self, allow_private: bool) -> Result<&Reqwest, &str> {
         let cell = if allow_private {
             &self.any
         } else {
             &self.public
         };
-        cell.get_or_init(|| build(allow_private, self.tls.clone()))
+        cell.get_or_init(|| build(allow_private, self.tls.clone(), self.proxy.as_deref()))
             .as_ref()
             .map_err(String::as_str)
     }
@@ -61,7 +73,11 @@ impl Client {
 
 /// A reqwest client that follows no redirect, connects within [`CONNECT_TIMEOUT`] and, unless `allow_private`,
 /// resolves names to public addresses only.
-fn build(allow_private: bool, config: Option<rustls::ClientConfig>) -> Result<Reqwest, String> {
+fn build(
+    allow_private: bool,
+    config: Option<rustls::ClientConfig>,
+    proxy: Option<&str>,
+) -> Result<Reqwest, String> {
     let config = match config {
         Some(config) => config,
         None => tls()?,
@@ -73,6 +89,9 @@ fn build(allow_private: bool, config: Option<rustls::ClientConfig>) -> Result<Re
         .timeout(TIMEOUT_CEILING);
     if !allow_private {
         builder = builder.dns_resolver(Arc::new(PublicOnly::system()));
+    }
+    if let Some(proxy) = proxy {
+        builder = builder.proxy(reqwest::Proxy::all(proxy).map_err(|e| chain(&e))?);
     }
     builder.build().map_err(|e| chain(&e))
 }
@@ -136,6 +155,17 @@ impl Http for Client {
                     "the request's time ran out",
                 );
             }
+            if !request.allow_private
+                && let Some(url::Host::Domain(name)) = parsed.host()
+                && let Err(refused) = destination(name, left.min(CONNECT_TIMEOUT))
+            {
+                return HttpOutcome::unreachable(
+                    &url,
+                    Unreachable::RefusedAddress,
+                    refused.to_string(),
+                );
+            }
+            let left = deadline.saturating_duration_since(Instant::now());
             let Ok(verb) = Method::from_bytes(method.as_bytes()) else {
                 return HttpOutcome::unreachable(
                     &url,

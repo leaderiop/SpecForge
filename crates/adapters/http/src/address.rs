@@ -2,6 +2,8 @@
 
 use std::error::Error as StdError;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs as _};
+use std::sync::mpsc;
+use std::time::Duration;
 
 use reqwest::Url;
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
@@ -133,6 +135,36 @@ impl PublicOnly {
     }
 }
 
+/// A destination's name judged on this machine, before anything is sent: through a proxy the proxy resolves it, and
+/// the client's resolver only ever sees the proxy's own host. `Refused` when it resolves here only to addresses a
+/// request may not reach, a proxy's own host included. A name that does not resolve here within `within` is not
+/// refused: on a network whose only DNS is the proxy's that is every name, and on a direct request the resolver
+/// answers for it.
+// shortcut: a direct request looks its name up twice, for reqwest does not say whether a proxy will carry a request;
+// judge only the proxied ones when it does.
+pub(crate) fn destination(host: &str, within: Duration) -> Result<(), Failed> {
+    judged_destination(host, within, |host| {
+        (host, 0).to_socket_addrs().map(Iterator::collect)
+    })
+}
+
+fn judged_destination(
+    host: &str,
+    within: Duration,
+    lookup: fn(&str) -> std::io::Result<Vec<SocketAddr>>,
+) -> Result<(), Failed> {
+    let (sent, answer) = mpsc::channel();
+    let name = host.to_string();
+    // The system resolver blocks with no limit of its own: a slow name must not outlast the request's timeout.
+    std::thread::spawn(move || sent.send(lookup(&name)));
+    match answer.recv_timeout(within) {
+        Ok(Ok(all)) if !all.is_empty() && !all.iter().any(|a| public(a.ip())) => {
+            Err(Failed::Refused(host.to_string()))
+        }
+        _ => Ok(()),
+    }
+}
+
 /// The hosts of the proxy URLs in `values`, a bare `host:port` read as `http://` the way reqwest reads it.
 fn proxy_hosts(values: impl Iterator<Item = String>) -> Vec<String> {
     values
@@ -258,6 +290,44 @@ mod tests {
             mixed.addresses("a.example"),
             Ok(vec!["93.184.215.14:0".parse().unwrap()])
         );
+    }
+
+    #[test]
+    fn a_destination_is_refused_only_for_what_it_resolves_to_here() {
+        let within = Duration::from_secs(5);
+        let judged = |lookup| judged_destination("a.example", within, lookup);
+        assert_eq!(
+            judged(|_| Ok(vec!["10.0.0.8:0".parse().unwrap()])),
+            Err(Failed::Refused("a.example".into()))
+        );
+        assert_eq!(
+            judged(|_| Ok(vec!["93.184.215.14:0".parse().unwrap()])),
+            Ok(())
+        );
+        // As a direct request's resolver keeps the public ones.
+        assert_eq!(
+            judged(|_| Ok(vec![
+                "10.0.0.8:0".parse().unwrap(),
+                "93.184.215.14:0".parse().unwrap()
+            ])),
+            Ok(())
+        );
+        assert_eq!(
+            judged(|_| Err(std::io::Error::other("no DNS here"))),
+            Ok(())
+        );
+        assert_eq!(judged(|_| Ok(Vec::new())), Ok(()));
+    }
+
+    #[test]
+    fn a_name_that_will_not_resolve_in_time_does_not_hold_the_request() {
+        let started = std::time::Instant::now();
+        let slow = judged_destination("a.example", Duration::from_millis(50), |_| {
+            std::thread::sleep(Duration::from_secs(2));
+            Ok(vec!["10.0.0.8:0".parse().unwrap()])
+        });
+        assert_eq!(slow, Ok(()));
+        assert!(started.elapsed() < Duration::from_secs(1));
     }
 
     #[test]

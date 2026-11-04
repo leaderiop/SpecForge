@@ -285,6 +285,74 @@ fn a_redirect_the_grant_permits_is_followed() {
     assert_eq!(outcome.body, b"there");
 }
 
+/// What `seen` received: nothing, for a request that was never sent.
+fn asked(seen: &Receiver<String>) -> Vec<String> {
+    seen.try_iter().collect()
+}
+
+#[test]
+fn a_private_address_is_refused_before_a_proxy_is_asked_for_it() {
+    let (proxy, heads) = serve(|_, _| ok("from behind the proxy"));
+    let client = Client::with_proxy(&proxy);
+    for url in [
+        "http://localhost:9/admin",
+        "http://127.0.0.1:9/admin",
+        "http://[::1]:9/admin",
+        "http://10.0.0.1/admin",
+        "http://169.254.169.254/latest/meta-data/",
+    ] {
+        let outcome = client.request(&get(url), &Any);
+        assert_eq!(
+            outcome.class,
+            OutcomeClass::Unreachable(Unreachable::RefusedAddress),
+            "{url}: {outcome:?}"
+        );
+        assert_eq!(asked(&heads), Vec::<String>::new(), "{url}");
+    }
+}
+
+#[test]
+fn a_redirect_through_a_proxy_to_a_private_name_is_refused() {
+    let (proxy, heads) = serve(|_, _| moved("http://localhost:9/admin"));
+    let outcome =
+        Client::with_proxy(&proxy).request(&get("http://specforge-proxied.invalid/"), &Any);
+    assert_eq!(
+        outcome.class,
+        OutcomeClass::Unreachable(Unreachable::RefusedAddress),
+        "{outcome:?}"
+    );
+    assert_eq!(asked(&heads).len(), 1, "the first hop only");
+}
+
+/// What the client cannot close (ADR 0335): a name it cannot resolve itself goes to the proxy, which resolves it
+/// where this machine cannot look. Refusing it would break the networks whose only DNS is the proxy's.
+#[test]
+fn a_name_only_the_proxy_can_resolve_is_the_proxys_to_judge() {
+    let (proxy, heads) = serve(|_, _| ok("from behind the proxy"));
+    let outcome =
+        Client::with_proxy(&proxy).request(&get("http://specforge-proxied.invalid/"), &Any);
+    assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
+    assert!(
+        heads
+            .recv()
+            .unwrap()
+            .starts_with("get http://specforge-proxied.invalid/ ")
+    );
+}
+
+#[test]
+fn a_request_that_allows_private_addresses_still_goes_through_the_proxy() {
+    let (proxy, heads) = serve(|_, _| ok("from behind the proxy"));
+    let outcome = Client::with_proxy(&proxy).request(&private("http://localhost:9/"), &Any);
+    assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
+    assert!(
+        heads
+            .recv()
+            .unwrap()
+            .starts_with("get http://localhost:9/ ")
+    );
+}
+
 /// A redirect answered `status`, to `to`.
 fn redirect(status: u16, to: &str) -> String {
     format!(
