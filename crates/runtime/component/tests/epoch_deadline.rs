@@ -11,10 +11,14 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
-use std::sync::Arc;
+use std::sync::{Arc, Barrier};
 use std::time::{Duration, Instant};
 
+use crate::probe_support::{
+    PROBE, SlowHttp, call_ports, lent, ports_with_http, probe_runtime, reported,
+};
 use specforge_component::ComponentRuntime;
+use specforge_protocol_types::Operation;
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::Limits;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
@@ -263,4 +267,75 @@ fn same_extension_calls_still_serialize() {
             other => panic!("concurrent same-extension call failed: {other:?}"),
         }
     }
+}
+
+/// The probe through the component runtime, with its limits.
+fn probe_held_to(execution_ms: u32) -> ComponentRuntime {
+    let runtime = probe_runtime();
+    runtime.apply_limits(
+        PROBE,
+        Limits {
+            execution_ms,
+            memory_mb: 512,
+        },
+    );
+    runtime
+}
+
+#[specforge_test(
+    behavior = "bound_a_host_port_call",
+    verify = "a port call that outlasts the guest's deadline does not trap the guest"
+)]
+#[ignore = "04-D1, flipped by T8"]
+fn a_port_call_that_outlasts_the_guests_deadline_does_not_trap_it() {
+    let runtime = probe_held_to(200);
+    let http = SlowHttp {
+        started: Arc::new(Barrier::new(1)),
+        sleep: Duration::from_millis(600),
+    };
+    let lent = lent(&ports_with_http(Arc::new(http)));
+    let answer = call_ports(
+        &runtime,
+        "http",
+        "https://example.test/a",
+        Operation::Command,
+        Some(lent),
+    );
+    assert_eq!(reported(answer)["ok"], 200);
+}
+
+#[specforge_test(
+    behavior = "bound_a_host_port_call",
+    verify = "a port call does not hold its extension's lock"
+)]
+#[ignore = "04-D2, flipped by T9"]
+fn a_port_call_does_not_hold_its_extensions_lock() {
+    let runtime = Arc::new(probe_held_to(5_000));
+    let started = Arc::new(Barrier::new(2));
+    let http = SlowHttp {
+        started: Arc::clone(&started),
+        sleep: Duration::from_millis(800),
+    };
+    let lent = lent(&ports_with_http(Arc::new(http)));
+    let calling = Arc::clone(&runtime);
+    let a = std::thread::spawn(move || {
+        call_ports(
+            &calling,
+            "http",
+            "https://example.test/a",
+            Operation::Command,
+            Some(lent),
+        )
+    });
+    // A's port has started, and sleeps.
+    started.wait();
+    let before = Instant::now();
+    let handshake = runtime.call_export(PROBE, "__handshake", b"{}");
+    let waited = before.elapsed();
+    assert!(matches!(handshake, WasmCallResult::Ok(_)), "{handshake:?}");
+    assert!(
+        waited < Duration::from_millis(400),
+        "the handshake waited {waited:?} on the port call"
+    );
+    assert_eq!(reported(a.join().unwrap())["ok"], 200);
 }
