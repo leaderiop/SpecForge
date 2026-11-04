@@ -149,7 +149,7 @@ fn a_root_resolves_inside_or_outside_the_project_and_one_that_is_no_directory_is
     let text =
         json!({"roots": {"docs": "docs", "vendor": "../vendor", "gone": "../gone"}}).to_string();
     let mut resolved = ResolvedEffects::resolve(Some(&text), &[]);
-    resolved.locate(Some(&text), &project);
+    resolved.locate(Some(&text), &project, &project);
     let found: Vec<(&str, bool)> = resolved
         .roots
         .iter()

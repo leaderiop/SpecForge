@@ -15,7 +15,8 @@ use specforge_protocol_types::{PrefixProblem, Root, RootedPath};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Roots {
     project: PathBuf,
-    spec: PathBuf,
+    /// None once [`Self::without_spec`] dropped it: a path naming it is refused like an unknown root.
+    spec: Option<PathBuf>,
     named: BTreeMap<String, PathBuf>,
 }
 
@@ -24,7 +25,7 @@ impl Roots {
     pub fn new(project: impl Into<PathBuf>, spec: impl Into<PathBuf>) -> Self {
         Roots {
             project: project.into(),
-            spec: spec.into(),
+            spec: Some(spec.into()),
             named: BTreeMap::new(),
         }
     }
@@ -45,7 +46,7 @@ impl Roots {
     /// Where `root` lies; `None` for a root no one named.
     pub fn get(&self, root: &Root) -> Option<&Path> {
         match root {
-            Root::Spec => Some(&self.spec),
+            Root::Spec => self.spec.as_deref(),
             Root::Project => Some(&self.project),
             Root::Named(name) => self.named.get(name).map(PathBuf::as_path),
         }
@@ -55,14 +56,18 @@ impl Roots {
         &self.project
     }
 
-    pub fn spec(&self) -> &Path {
-        &self.spec
+    /// These roots with no spec root: what a reader with no approval gets when it lies outside the project.
+    pub fn without_spec(mut self) -> Self {
+        self.spec = None;
+        self
     }
 
-    /// The spec root does not lie under the project root (ADR 0145 D4): it is an outside root, which a grant treats
-    /// as a named root outside the project (plan 02).
+    /// The spec root lands outside the project root (ADR 0145 D4), its `..` and its links followed: a project's roots
+    /// then name it as an outside root, under the approval a named one needs.
     pub fn spec_outside(&self) -> bool {
-        !self.spec.starts_with(&self.project)
+        self.spec
+            .as_ref()
+            .is_some_and(|spec| !RealFs::landing(spec).starts_with(RealFs::landing(&self.project)))
     }
 }
 

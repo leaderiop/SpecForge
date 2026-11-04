@@ -51,3 +51,43 @@ pub(crate) fn landed(path: &Path) -> PathBuf {
         .resolve(path)
         .map_or_else(|_| path.to_path_buf(), |held| held.real)
 }
+
+#[cfg(test)]
+mod tests {
+    use specforge_effects::Consent;
+    use specforge_effects::testing::MemoryConsent;
+    use specforge_project::Environment;
+
+    use super::*;
+
+    #[test]
+    fn a_spec_root_outside_the_project_is_named_only_once_approved() {
+        let outside = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let config = serde_json::json!({"name": "p", "spec_root": outside.path()}).to_string();
+        std::fs::write(dir.path().join("specforge.json"), config).unwrap();
+        std::fs::write(outside.path().join("secret.md"), "x").unwrap();
+        let root = specforge_common::ProjectRoot::of(dir.path()).unwrap();
+        let project = CompiledProject::of(Environment::load(&root, None));
+
+        let refused = MemoryConsent::default();
+        let path = Path::new("<spec>/secret.md");
+        assert!(of_project(&project, Some(&refused)).resolve(path).is_err());
+
+        let spec = &project.environment().effects_allowed().roots[0];
+        assert_eq!(spec.name, "spec");
+        let target = spec.target.as_ref().unwrap().display().to_string();
+        let approved = MemoryConsent::default();
+        let approval = specforge_effects::RootApproval {
+            project: specforge_effects::grant::project_key(dir.path()),
+            root: "spec".to_string(),
+            target,
+            approved_at: Default::default(),
+        };
+        approved
+            .approve(specforge_effects::Approval::Root(approval))
+            .unwrap();
+        let held = of_project(&project, Some(&approved)).resolve(path);
+        assert!(held.is_ok(), "{held:?}");
+    }
+}

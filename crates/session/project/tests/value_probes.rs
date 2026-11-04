@@ -266,7 +266,7 @@ impl Scene {
         }
     }
 
-    fn env(&self) -> Environment {
+    pub(crate) fn env(&self) -> Environment {
         self.dir.environment_in(Arc::clone(&self.runtime))
     }
 

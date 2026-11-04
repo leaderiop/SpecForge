@@ -376,6 +376,7 @@ behavior complete_checked_paths "Complete a Checked Path" {
   """
   verify unit "a path value completes the root prefixes, then the entries inside the root"
   verify unit "a path prefix that leaves its root completes nothing"
+  verify unit "a spec root outside the project offers no prefix and no entry"
   verify unit "a string no path checker reads completes nothing"
 }
 

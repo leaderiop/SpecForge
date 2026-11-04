@@ -41,6 +41,8 @@ pub struct Served {
     extensions: Vec<(String, Declare)>,
     /// The `settings` object of the written `specforge.json`.
     settings: serde_json::Value,
+    /// The `spec_root` of the written `specforge.json`.
+    spec_root: Option<String>,
     /// The runtime serving the declared extensions, built when the reaction is: its recorded
     /// calls are what the project ran.
     served: Option<Arc<InProcessRuntime>>,
@@ -57,6 +59,7 @@ impl Served {
             runtime,
             extensions: Vec::new(),
             settings: serde_json::Value::Null,
+            spec_root: None,
             served: None,
             opening: Vec::new(),
         }
@@ -127,6 +130,12 @@ impl Served {
             LspState::new(),
             Runtime::Given(Arc::new(runtime), names),
         )
+    }
+
+    /// The written `specforge.json` names `spec_root`.
+    pub fn spec_root(mut self, spec_root: &std::path::Path) -> Served {
+        self.spec_root = Some(spec_root.display().to_string());
+        self
     }
 
     /// The client declared `support` at initialize.
@@ -218,6 +227,9 @@ impl Served {
                 serde_json::json!({"name": "t", "version": "0.1.0", "extensions": names});
             if !self.settings.is_null() {
                 config["settings"] = self.settings.clone();
+            }
+            if let Some(spec_root) = &self.spec_root {
+                config["spec_root"] = spec_root.clone().into();
             }
             std::fs::write(self.dir.path().join("specforge.json"), config.to_string()).unwrap();
             // What the in-process runtime serves, the project has installed.

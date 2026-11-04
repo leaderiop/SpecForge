@@ -98,6 +98,32 @@ fn a_path_value_completes_root_prefixes_then_entries_inside_the_root() {
 
 #[spec(
     behavior = "complete_checked_paths",
+    verify = "a spec root outside the project offers no prefix and no entry"
+)]
+fn a_spec_root_outside_the_project_offers_no_prefix_and_no_entry() {
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("secret.md"), "x").unwrap();
+    let completed = |value: &str| {
+        let spec = format!("service a \"A\" {{\n  doc \"{value}\"\n}}\n");
+        let served = Served::new(&[("a.spec", &spec), ("docs/guide.md", "guide")])
+            .extension(EXT, declare)
+            .spec_root(outside.path())
+            .open(&["a.spec"]);
+        let at = Position::new(1, 7 + value.len() as u32);
+        let answer =
+            answers::completion(&served.state(), &served.uri("a.spec"), at).expect("an answer");
+        let CompletionResponse::Array(items) = answer else {
+            panic!("an array");
+        };
+        items.into_iter().map(|item| item.label).collect::<Vec<_>>()
+    };
+    assert_eq!(completed(""), ["<project>/"]);
+    assert!(completed("<spec>/").is_empty());
+    assert_eq!(completed("<project>/docs/"), ["guide.md"]);
+}
+
+#[spec(
+    behavior = "complete_checked_paths",
     verify = "a path prefix that leaves its root completes nothing"
 )]
 fn a_path_prefix_that_leaves_its_root_completes_nothing() {

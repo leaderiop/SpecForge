@@ -399,9 +399,10 @@ impl Environment {
         };
         let mut environment = Self::assemble(read, installed, load);
         let text = environment.read.config.text.clone();
+        let spec = environment.spec_root().to_path_buf();
         environment
             .effects_allowed
-            .locate(text.as_deref(), root.dir());
+            .locate(text.as_deref(), root.dir(), &spec);
         Environment {
             root: Some(root.clone()),
             effects: specforge_effects::Effects::cached(

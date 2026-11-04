@@ -13,7 +13,7 @@ use specforge_protocol_types::{
     GitOp, GitScope, Hosts, HttpScope, Operation, PortScope, ProcessScope, SettingsItem,
 };
 
-use crate::ceiling::EffectsCeiling;
+use crate::ceiling::{DEFAULT_ROOTS, EffectsCeiling};
 use crate::consent::{
     Approval, ApprovedAt, CapabilityApproval, Consent, ConsentError, KeyedBy, ProjectKey,
     RootApproval, approval_line,
@@ -52,7 +52,7 @@ impl Granted {
     }
 }
 
-/// A named root that resolves outside the project.
+/// A root that resolves outside the project: a named one, or the spec root (named `spec`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutsideRoot {
     pub name: String,
@@ -85,7 +85,7 @@ pub enum Need {
         why: String,
         summary: String,
     },
-    /// A named root outside the project.
+    /// A root outside the project.
     Root(RootApproval),
 }
 
@@ -110,7 +110,7 @@ pub enum Denied {
     Ceiling,
     /// The capability needs this machine's approval and has none.
     NotApproved,
-    /// The request reaches a named root outside the project that this machine did not approve.
+    /// The request reaches a root outside the project that this machine did not approve.
     Root,
 }
 
@@ -285,7 +285,7 @@ impl Grant {
         &self.capabilities
     }
 
-    /// The named roots outside the project, and whether each is approved.
+    /// The roots outside the project, and whether each is approved.
     pub fn outside_roots(&self) -> &[OutsideRoot] {
         &self.outside
     }
@@ -355,10 +355,17 @@ impl Grant {
                 });
             }
             if let PortScope::Fs(fs) = scope {
+                let reaches = |name: &str| {
+                    if fs.roots.is_empty() {
+                        DEFAULT_ROOTS.contains(&name)
+                    } else {
+                        fs.roots.iter().any(|root| root == name)
+                    }
+                };
                 for root in self
                     .outside
                     .iter()
-                    .filter(|r| !r.approved && fs.roots.contains(&r.name))
+                    .filter(|r| !r.approved && reaches(&r.name))
                 {
                     if roots.insert(root.name.clone()) {
                         needs.push(Need::Root(RootApproval {
@@ -632,7 +639,8 @@ fn attached(
     })
 }
 
-/// The named roots of `roots` that resolve outside `project` (canonical), by name.
+/// The named roots of `roots` that resolve outside `project` (canonical), by name. A project's roots name a spec root
+/// outside it as `spec` ([`Roots::spec_outside`]).
 fn outside_roots(roots: &Roots, project: &str) -> Vec<OutsideRoot> {
     let project = Path::new(project);
     let mut outside: BTreeMap<String, String> = BTreeMap::new();

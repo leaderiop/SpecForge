@@ -89,15 +89,19 @@ pub fn environment(
     env.with_effects(effects)
 }
 
-/// The roots beside the project's a request path may name on this machine (ADR 0336 D6): the spec root, the named roots
-/// inside the project, and those outside it `consent` approved (O5). An unusable store approves nothing.
+/// The roots beside the project's a request path may name on this machine (ADR 0336 D6): the spec root and the named
+/// roots inside the project, and those outside it `consent` approved, a spec root outside it among them. An unusable
+/// store approves nothing.
 pub fn reachable_roots(
     env: &Environment,
     root: &Path,
     consent: &dyn Consent,
 ) -> Vec<(String, std::path::PathBuf)> {
     let project = specforge_effects::grant::project_key(root);
-    let mut roots = vec![("spec".to_string(), env.spec_root().to_path_buf())];
+    let mut roots = Vec::new();
+    if !env.effects_allowed().spec_outside() {
+        roots.push(("spec".to_string(), env.spec_root().to_path_buf()));
+    }
     for named in &env.effects_allowed().roots {
         let Some(target) = &named.target else {
             continue;

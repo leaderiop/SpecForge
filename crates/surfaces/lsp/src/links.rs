@@ -69,9 +69,11 @@ pub fn path_items(view: &ProjectView, value: &StringValue<'_>) -> Vec<Completion
     let prefix = value.prefix;
     let roots = view.env().read_roots();
     if prefix.is_empty() || (prefix.starts_with('<') && !prefix.contains('>')) {
+        let spec = roots.get(&Root::Spec).map(|_| "spec");
         let named = roots.named().map(|(name, _)| name);
-        return ["spec", "project"]
+        return spec
             .into_iter()
+            .chain(["project"])
             .chain(named)
             .map(|name| format!("<{name}>/"))
             .filter(|label| label.starts_with(prefix))
