@@ -14,7 +14,7 @@ use specforge_extension_sdk::host::{self, HostError};
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::Operation;
 use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::{PortCall, WasmCallResult, WasmRuntime};
+use specforge_wasm::{PortCall, PortSession, WasmCallResult, WasmRuntime};
 
 pub(crate) const EXT: &str = "@ports/x";
 const SHA: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -207,6 +207,39 @@ fn a_port_call_outside_the_grant_is_denied_and_reported() {
     assert_eq!(denials.len(), 1, "{denials:?}");
     assert_eq!(denials[0].code, "E090");
     assert!(denials[0].message.contains(EXT), "{}", denials[0].message);
+}
+
+/// A guest in a loop is told each time, and costs the host a bounded list: the first denials, each cut to a fixed
+/// length, then one line saying how many more.
+#[test]
+fn a_loop_of_huge_denied_requests_keeps_a_bounded_list() {
+    let fakes = lent();
+    let mut session = PortSession::effectful(
+        EXT,
+        Operation::Command,
+        Some(fakes.call.clone()),
+        specforge_wasm::Limits::CEILING,
+    );
+    // Multi-byte, so the cut has a boundary to respect.
+    let huge = format!("https://elsewhere.test/{}", "é".repeat(512 * 1024));
+    for _ in 0..1000 {
+        let answer = session.http(http_request(&huge));
+        assert!(matches!(answer, Err(HostError::Denied(_))), "{answer:?}");
+    }
+    let denials = fakes.call.take_denials();
+    assert_eq!(denials.len(), 33, "32 kept, then one line");
+    assert!(
+        denials.iter().all(|denial| denial.code == "E090"),
+        "{denials:?}"
+    );
+    let kept: usize = denials.iter().map(|denial| denial.message.len()).sum();
+    assert!(kept < 33 * 1024, "the requests' text is cut: {kept} bytes");
+    assert!(
+        denials[32].message.contains("968 more"),
+        "{}",
+        denials[32].message
+    );
+    assert!(fakes.call.take_denials().is_empty(), "taken once");
 }
 
 #[specforge_test_macros::test(

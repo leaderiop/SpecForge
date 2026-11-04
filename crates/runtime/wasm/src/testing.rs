@@ -706,16 +706,14 @@ pub fn assert_port_contract(
     assert_eq!(reached["ok"], 200, "inside the grant: {reached}");
 
     let port_call = lent();
-    let denials = Arc::clone(&port_call.denials);
     let refused = answer(
-        call(outside, Operation::Command, Some(port_call)),
+        call(outside, Operation::Command, Some(port_call.clone())),
         "outside the grant",
     );
     assert_eq!(refused["denied"], "scope", "outside the grant: {refused}");
-    let kept = denials.lock().expect("denials lock");
+    let kept = port_call.take_denials();
     assert_eq!(kept.len(), 1, "one E090 is kept: {kept:?}");
     assert_eq!(kept[0].code, specforge_common::codes::E090.id());
-    drop(kept);
 
     let unlent = answer(call(inside, Operation::Command, None), "nothing lent");
     assert_eq!(unlent["denied"], "scope", "nothing lent: {unlent}");

@@ -55,10 +55,7 @@ pub fn port_call(
         specforge_project::effects::lent(lending.mode(), lending.ports(), env.project_root());
     let call = PortCall::new(effects, lending.ports(), roots, grant, secrets);
     if let Some(unusable) = unusable {
-        call.denials
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .push(*unusable);
+        call.deny(*unusable);
     }
     Some(call)
 }

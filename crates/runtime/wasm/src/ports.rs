@@ -9,7 +9,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use specforge_effects::journal::{Answer, Blob, LentRecord};
 use specforge_effects::{
     Denial as Refusal, Denied, EffectJournal, EffectRequest, Effects, Grant, Granted, Outcome,
@@ -35,8 +35,29 @@ pub struct PortCall {
     pub grant: Arc<Grant>,
     /// Every variable a declared secret names, of any extension: no program a guest runs inherits one.
     pub secrets: Vec<String>,
-    /// E090, one per request the grant refused: the caller's to report.
-    pub denials: Arc<Mutex<Vec<Diagnostic>>>,
+    /// What the caller reports of this call's refused requests.
+    denials: Arc<Mutex<Denials>>,
+}
+
+/// How many denials one call keeps: a guest in a loop may not fill the host's memory with its own requests.
+const KEPT_DENIALS: usize = 32;
+/// The most of a refused request's text a denial keeps, in bytes.
+const DENIED_TEXT: usize = 256;
+
+/// What one call was refused: the first [`KEPT_DENIALS`], and how many more there were.
+#[derive(Default)]
+struct Denials {
+    kept: Vec<Diagnostic>,
+    more: usize,
+}
+
+/// `text` held to [`DENIED_TEXT`].
+fn cut_denied(mut text: String) -> String {
+    if text.len() > DENIED_TEXT {
+        text.truncate(text.floor_char_boundary(DENIED_TEXT));
+        text.push_str("...");
+    }
+    text
 }
 
 impl PortCall {
@@ -71,14 +92,34 @@ impl PortCall {
         Self::new(effects, ports, roots, grant, secrets)
     }
 
-    /// The denials kept so far, taken: what the caller reports once the call ended.
+    fn denials(&self) -> std::sync::MutexGuard<'_, Denials> {
+        self.denials
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Keeps `denial` for the caller to report, up to [`KEPT_DENIALS`] of them; past that it is only counted.
+    pub fn deny(&self, denial: Diagnostic) {
+        let mut denials = self.denials();
+        if denials.kept.len() < KEPT_DENIALS {
+            denials.kept.push(denial);
+        } else {
+            denials.more += 1;
+        }
+    }
+
+    /// The denials kept so far, taken, the last one saying how many were not kept: what the caller reports once the
+    /// call ended.
     pub fn take_denials(&self) -> Vec<Diagnostic> {
-        std::mem::take(
-            &mut *self
-                .denials
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner()),
-        )
+        let Denials { mut kept, more } = std::mem::take(&mut *self.denials());
+        if more > 0 {
+            let extension = self.grant.extension();
+            kept.push(Diagnostic::new(
+                codes::E090,
+                format!("extension '{extension}': {more} more requests were refused"),
+            ));
+        }
+        kept
     }
 }
 
@@ -204,10 +245,14 @@ impl PortSession {
             refusal.why,
             Denied::CallKind | Denied::Undeclared | Denied::Ceiling
         ) {
-            call.denials
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .push(refusal.diagnostic());
+            call.deny(
+                Refusal {
+                    request: cut_denied(refusal.request),
+                    detail: cut_denied(refusal.detail),
+                    ..refusal
+                }
+                .diagnostic(),
+            );
         }
         match refusal.why {
             Denied::CallKind => HostError::Denied(Denial::CallKind(message)),
