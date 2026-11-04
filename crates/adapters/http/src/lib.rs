@@ -12,7 +12,9 @@ use std::time::{Duration, Instant};
 use reqwest::blocking::{Client as Reqwest, Response};
 use reqwest::header::{HeaderValue, LOCATION};
 use reqwest::{Method, Url};
-use specforge_effects::http::{BODY_CEILING, CONNECT_TIMEOUT, TIMEOUT_CEILING, status_class};
+use specforge_effects::http::{
+    BODY_CEILING, CONNECT_TIMEOUT, TIMEOUT_CEILING, hop_method, status_class,
+};
 use specforge_effects::{
     Http, HttpOutcome, HttpRequest, OutcomeClass, Redirected, Redirects, Unreachable,
 };
@@ -170,7 +172,15 @@ impl Http for Client {
             let (true, Some(location)) = ((300..400).contains(&status), location) else {
                 return answer(response, request, url, deadline);
             };
-            let to = match hop(&parsed, location, hops, request.max_redirects, redirects) {
+            let next = hop_method(status, &method).to_string();
+            let to = match hop(
+                &parsed,
+                location,
+                hops,
+                request.max_redirects,
+                &next,
+                redirects,
+            ) {
                 Ok(to) => to,
                 Err((why, detail)) => {
                     return HttpOutcome {
@@ -182,10 +192,10 @@ impl Http for Client {
             if parsed.origin() != to.origin() {
                 headers.retain(|header| !header.sensitive);
             }
-            if status == 303 || (matches!(status, 301 | 302) && method == "POST") {
-                method = "GET".into();
+            if next == "GET" {
                 body = None;
             }
+            method = next;
             hops += 1;
             url = to.into();
         }
@@ -214,12 +224,13 @@ fn literal(url: &Url) -> Option<IpAddr> {
 }
 
 /// Where a redirect from `from` to `location` leads, the `hops`th of at most `max`: refused past the limit, from
-/// `https` to anything else, or when `redirects` says no.
+/// `https` to anything else, or when `redirects` says no to it sent with `method`.
 fn hop(
     from: &Url,
     location: &str,
     hops: u32,
     max: u32,
+    method: &str,
     redirects: &dyn Redirects,
 ) -> Result<Url, (Redirected, String)> {
     let to = from
@@ -231,7 +242,7 @@ fn hop(
     if from.scheme() == "https" && to.scheme() != "https" {
         return Err((Redirected::Downgrade, format!("{from} redirects to {to}")));
     }
-    if !redirects.allow(from.as_str(), to.as_str()) {
+    if !redirects.allow(from.as_str(), to.as_str(), method) {
         return Err((Redirected::Refused, format!("{from} redirects to {to}")));
     }
     Ok(to)
@@ -384,17 +395,18 @@ mod tests {
             "http://a.example/y",
             0,
             5,
+            "GET",
             &Any,
         );
         assert_eq!(to.unwrap_err().0, Redirected::Downgrade);
-        let to = hop(&from("https://a.example/x"), "/y", 0, 5, &SameScheme);
+        let to = hop(&from("https://a.example/x"), "/y", 0, 5, "GET", &SameScheme);
         assert_eq!(to.unwrap().as_str(), "https://a.example/y");
     }
 
     #[test]
     fn a_hop_past_the_limit_or_the_policy_is_refused() {
         assert_eq!(
-            hop(&from("http://a.example/"), "/b", 2, 2, &Any)
+            hop(&from("http://a.example/"), "/b", 2, 2, "GET", &Any)
                 .unwrap_err()
                 .0,
             Redirected::Limit
@@ -405,6 +417,7 @@ mod tests {
                 "https://b.example/",
                 0,
                 2,
+                "GET",
                 &SameScheme
             )
             .unwrap_err()

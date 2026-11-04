@@ -62,9 +62,8 @@ impl Http for GrantedPort<dyn Http> {
     }
 }
 
-/// A granted request's redirects: each hop is permitted by the grant as the request it would be, then by the
-/// caller's policy. shortcut: a hop is judged with the request's own method, so a 303 from a POST to a GET under a
-/// POST-only scope is refused; pass the hop's method to `Redirects` if a capability ever needs that hop.
+/// A granted request's redirects: each hop is permitted by the grant as the request it will be, its URL and the
+/// method it is sent with, then by the caller's policy.
 struct Regranted<'a> {
     grant: &'a Grant,
     op: Operation,
@@ -75,13 +74,14 @@ struct Regranted<'a> {
 }
 
 impl Redirects for Regranted<'_> {
-    fn allow(&self, from: &str, to: &str) -> bool {
+    fn allow(&self, from: &str, to: &str, method: &str) -> bool {
         let hop = EffectRequest::Http(HttpRequest {
             url: to.to_string(),
+            method: method.to_string(),
             ..self.request.clone()
         });
         match self.grant.permits(self.op, &hop) {
-            Ok(()) => self.then.allow(from, to),
+            Ok(()) => self.then.allow(from, to, method),
             Err(denial) => {
                 *self.denied.lock().unwrap_or_else(|e| e.into_inner()) =
                     Some(format!("{from} redirects to {to}: {}", denial.detail));

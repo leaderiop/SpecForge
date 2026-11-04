@@ -17,7 +17,7 @@ use specforge_effects::{
     OutcomeClass, Redirected, Unreachable,
 };
 use specforge_http::Client;
-use specforge_protocol_types::Operation;
+use specforge_protocol_types::{HttpMethod, Operation};
 
 /// A server on loopback that answers each connection with `answer(n, head)` (the `n`th request, its head) and sends
 /// back each request head. Its address is `http://127.0.0.1:<port>`.
@@ -283,6 +283,75 @@ fn a_redirect_the_grant_permits_is_followed() {
     let outcome = only_loopback_address().request(&private(&format!("{base}/")), &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
     assert_eq!(outcome.body, b"there");
+}
+
+/// A redirect answered `status`, to `to`.
+fn redirect(status: u16, to: &str) -> String {
+    format!(
+        "HTTP/1.1 {status} Moved\r\nLocation: {to}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    )
+}
+
+/// The whole request under a grant that allows only `methods`, on any host.
+fn only_methods(methods: &[HttpMethod]) -> Arc<dyn Http> {
+    let ceiling = EffectsCeiling {
+        http: Narrow::Only(HttpCeiling {
+            methods: Some(methods.to_vec()),
+            ..HttpCeiling::default()
+        }),
+        ..EffectsCeiling::default()
+    };
+    Arc::new(Grant::user(&ceiling)).http(Operation::Collect, Arc::new(Client::new()))
+}
+
+/// A `POST` with a body, of `url`, that may reach loopback.
+fn posting(url: &str) -> HttpRequest {
+    HttpRequest {
+        method: "POST".to_string(),
+        body: Some(b"secret form".to_vec()),
+        ..private(url)
+    }
+}
+
+#[test]
+fn a_hop_that_will_be_sent_as_a_get_is_judged_as_a_get() {
+    for status in [301, 302, 303] {
+        let (next, next_heads) = serve(|_, _| ok("there"));
+        let (base, _) = serve(move |_, _| redirect(status, &format!("{next}/")));
+
+        let refused =
+            only_methods(&[HttpMethod::Post]).request(&posting(&format!("{base}/")), &Any);
+        assert_eq!(refused.class, OutcomeClass::Denied, "{status}: {refused:?}");
+        assert!(
+            next_heads.try_recv().is_err(),
+            "{status}: a POST-only scope sent a GET"
+        );
+    }
+}
+
+#[test]
+fn a_hop_the_scope_allows_as_a_get_is_sent_as_a_get_with_no_body() {
+    let (next, next_heads) = serve(|_, _| ok("there"));
+    let (base, _) = serve(move |_, _| redirect(303, &format!("{next}/")));
+    let outcome = only_methods(&[HttpMethod::Post, HttpMethod::Get])
+        .request(&posting(&format!("{base}/")), &Any);
+    assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
+    let head = next_heads.recv().unwrap();
+    assert!(head.starts_with("get / "), "{head}");
+    assert!(!head.contains("content-length"), "{head}");
+}
+
+#[test]
+fn a_hop_that_keeps_its_method_is_judged_with_it() {
+    for status in [307, 308] {
+        let (next, next_heads) = serve(|_, _| ok("there"));
+        let (base, _) = serve(move |_, _| redirect(status, &format!("{next}/")));
+        let outcome =
+            only_methods(&[HttpMethod::Post]).request(&posting(&format!("{base}/")), &Any);
+        assert_eq!(outcome.class, OutcomeClass::Ok, "{status}: {outcome:?}");
+        let head = next_heads.recv().unwrap();
+        assert!(head.starts_with("post / "), "{status}: {head}");
+    }
 }
 
 /// A TLS server on loopback answering each connection as [`serve`] does, under the certificate for `localhost` and

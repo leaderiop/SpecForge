@@ -3,8 +3,9 @@ use crate::ceiling::{HttpCeiling, Narrow};
 use crate::testing::MemoryConsent;
 use serde_json::json;
 use specforge_protocol_types::{
-    FsRequest, HttpMethod, HttpRequest, ProcessRequest, SecretDescriptor,
+    FsRequest, HttpMethod, HttpRequest, OutcomeClass, ProcessRequest, SecretDescriptor,
 };
+use std::sync::Arc;
 use url::Url;
 
 fn declaration(capabilities: serde_json::Value) -> ExtensionDeclaration {
@@ -481,6 +482,73 @@ fn a_run_needs_only_the_approvals_of_what_it_uses_and_w170_lists_them() {
             .unapproved_summary(&uses(&[(Operation::Pass, "docs")]))
             .is_none()
     );
+}
+
+/// `POST` to `a.example` and `GET` to `b.example`, approved, over a fake whose `a.example` answers `status` towards
+/// `b.example`: a `POST` of `a.example` under them.
+fn post_redirected(status: u16, redirects: &dyn crate::Redirects) -> crate::HttpOutcome {
+    let grant = Arc::new(Grant::decide(
+        &declaration(json!([
+            {"name": "send", "why": "s", "port": "http", "methods": ["POST"],
+             "hosts": {"list": ["a.example"]}},
+            {"name": "read", "why": "r", "port": "http", "methods": ["GET"],
+             "hosts": {"list": ["b.example"]}},
+        ])),
+        &third_party(),
+        &EffectsCeiling::default(),
+        &roots(),
+        &MemoryConsent::approving_everything(),
+    ));
+    let fake = crate::testing::FakeHttp::new()
+        .route_with(
+            "https://a.example/",
+            status,
+            vec![("location", "https://b.example/")],
+            Vec::new(),
+        )
+        .route("https://b.example/", 200, "there");
+    let request = HttpRequest {
+        method: "POST".to_string(),
+        ..crate::http::get("https://a.example/")
+    };
+    grant
+        .http(Operation::Collect, Arc::new(fake))
+        .request(&request, redirects)
+}
+
+#[test]
+fn a_redirect_is_judged_with_the_method_it_will_be_sent_with() {
+    use crate::http::Any;
+    // Sent as a GET, which `read` permits on b.example; judged as the POST it was, it was refused.
+    for status in [301, 302, 303] {
+        let outcome = post_redirected(status, &Any);
+        assert_eq!(outcome.class, OutcomeClass::Ok, "{status}: {outcome:?}");
+        assert_eq!(outcome.body, b"there");
+    }
+    // Sent as the POST it was: nothing permits a POST of b.example.
+    for status in [307, 308] {
+        let outcome = post_redirected(status, &Any);
+        assert_eq!(outcome.class, OutcomeClass::Denied, "{status}: {outcome:?}");
+    }
+}
+
+#[test]
+fn a_hops_method_is_one_answer_for_every_status() {
+    use crate::http::hop_method;
+    for (status, method, sent) in [
+        (303, "POST", "GET"),
+        (303, "PUT", "GET"),
+        (303, "GET", "GET"),
+        (301, "POST", "GET"),
+        (302, "POST", "GET"),
+        (302, "post", "GET"),
+        (301, "PUT", "PUT"),
+        (302, "DELETE", "DELETE"),
+        (307, "POST", "POST"),
+        (308, "POST", "POST"),
+    ] {
+        assert_eq!(hop_method(status, method), sent, "{status} {method}");
+    }
 }
 
 #[test]

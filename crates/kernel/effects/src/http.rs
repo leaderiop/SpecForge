@@ -35,16 +35,27 @@ pub trait Http: Send + Sync {
 /// An HTTP port as the composition root shares it.
 pub type SharedHttp = Arc<dyn Http>;
 
-/// Which redirects a request may follow, asked of each hop.
+/// The method a redirect answered `status` to a `method` request is sent with: a `GET` after a 303, or after a 301 or
+/// 302 from a `POST`, as browsers do, and its own otherwise. A hop sent as a `GET` carries no body. Every adapter sends
+/// each hop with it and every grant judges the hop by it, so what is judged is what is sent.
+pub fn hop_method(status: u16, method: &str) -> &str {
+    if status == 303 || (matches!(status, 301 | 302) && method.eq_ignore_ascii_case("POST")) {
+        "GET"
+    } else {
+        method
+    }
+}
+
+/// Which redirects a request may follow, asked of each hop with the method it will be sent with ([`hop_method`]).
 pub trait Redirects: Send + Sync {
-    fn allow(&self, from: &str, to: &str) -> bool;
+    fn allow(&self, from: &str, to: &str, method: &str) -> bool;
 }
 
 /// Any target.
 pub struct Any;
 
 impl Redirects for Any {
-    fn allow(&self, _from: &str, _to: &str) -> bool {
+    fn allow(&self, _from: &str, _to: &str, _method: &str) -> bool {
         true
     }
 }
@@ -53,7 +64,7 @@ impl Redirects for Any {
 pub struct SameScheme;
 
 impl Redirects for SameScheme {
-    fn allow(&self, from: &str, to: &str) -> bool {
+    fn allow(&self, from: &str, to: &str, _method: &str) -> bool {
         scheme(from) == scheme(to)
     }
 }

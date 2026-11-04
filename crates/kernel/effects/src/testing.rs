@@ -14,7 +14,7 @@ use crate::fs::{FileKind, FsStat, READ_CEILING, held};
 use crate::git::{
     Blob, CommitFile, Git, GitError, GitPlace, GitStatus, Located, Sha, Sized, TreeEntry,
 };
-use crate::http::{Any, scheme, status_class};
+use crate::http::{Any, hop_method, scheme, status_class};
 use crate::{
     Ceiling, Fs, FsOutcome, Http, HttpOutcome, Lookup, Output, Ports, Process, ProcessClass,
     ProcessOutcome, Redirects, Roots,
@@ -166,6 +166,7 @@ impl Http for FakeHttp {
             .expect("no request panics")
             .push(request.clone());
         let mut url = request.url.clone();
+        let mut method = request.method.clone();
         let mut hops = 0;
         loop {
             let Some(route) = self.routes.get(&url) else {
@@ -177,11 +178,12 @@ impl Http for FakeHttp {
                 .find(|(n, _)| n == "location")
                 .map(|(_, v)| v.clone());
             if let (300..=399, Some(to)) = (route.status, location) {
+                let next = hop_method(route.status, &method).to_string();
                 let refused = if hops == request.max_redirects {
                     Some(Redirected::Limit)
                 } else if scheme(&url) == "https" && scheme(&to) == "http" {
                     Some(Redirected::Downgrade)
-                } else if !redirects.allow(&url, &to) {
+                } else if !redirects.allow(&url, &to, &next) {
                     Some(Redirected::Refused)
                 } else {
                     None
@@ -191,6 +193,7 @@ impl Http for FakeHttp {
                 }
                 hops += 1;
                 url = to;
+                method = next;
                 continue;
             }
             let cap = usize::try_from(request.body_cap).unwrap_or(usize::MAX);
