@@ -233,12 +233,93 @@ fn the_lock_is_private_and_never_goes_through_a_link() {
     assert_eq!(mode & 0o777, 0o600);
 }
 
+/// A store someone else can write approves nothing and is never written over: W186 says why.
+#[cfg(unix)]
+fn assert_refused(consent: &UserConsent, says: &str) {
+    let error = consent.list().unwrap_err();
+    assert!(error.why.contains(says), "{error}");
+    let w186 = unusable_store(&error);
+    assert_eq!(w186.code, "W186");
+    assert!(w186.message.contains(says), "{}", w186.message);
+    assert!(consent.approved(&approval("tests")).is_err());
+    assert!(consent.approve(approval("tests")).is_err());
+}
+
+#[test]
+#[cfg(unix)]
+fn a_store_others_can_write_approves_nothing() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let dir = tempfile::tempdir().unwrap();
+    let store = dir.path().join("consent.json");
+    let held = UserConsent::at(store.clone());
+    held.approve(approval("tests")).unwrap();
+    let written = std::fs::read(&store).unwrap();
+
+    for mode in [0o660, 0o620, 0o602, 0o666] {
+        std::fs::set_permissions(&store, std::fs::Permissions::from_mode(mode)).unwrap();
+        assert_refused(&held, "writable by its group or others");
+        assert_eq!(std::fs::read(&store).unwrap(), written, "{mode:o}");
+    }
+    // Read by others is no way to approve anything.
+    std::fs::set_permissions(&store, std::fs::Permissions::from_mode(0o644)).unwrap();
+    assert!(held.approved(&approval("tests")).unwrap());
+    std::fs::set_permissions(&store, std::fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(held.approved(&approval("tests")).unwrap());
+}
+
+#[test]
+#[cfg(unix)]
+fn a_store_directory_others_can_write_approves_nothing_even_with_no_store_yet() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let dir = tempfile::tempdir().unwrap();
+    let shared = dir.path().join("shared");
+    std::fs::create_dir(&shared).unwrap();
+    let store = shared.join("consent.json");
+    let consent = UserConsent::at(store.clone());
+
+    // 0o1777 is `/tmp`: its sticky bit does not stop another user creating the store first.
+    for mode in [0o770, 0o730, 0o707, 0o1777] {
+        std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(mode)).unwrap();
+        assert_refused(&consent, "writable by its group or others");
+        assert!(!store.exists(), "{mode:o}: an approval was written there");
+    }
+    std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(0o700)).unwrap();
+    consent.approve(approval("tests")).unwrap();
+    assert!(consent.approved(&approval("tests")).unwrap());
+}
+
+#[test]
+#[cfg(unix)]
+fn a_store_behind_a_link_is_judged_by_the_file_it_reaches() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let dir = tempfile::tempdir().unwrap();
+    let real = dir.path().join("dotfiles.json");
+    std::fs::write(&real, br#"{"version": 1}"#).unwrap();
+    let store = dir.path().join("consent.json");
+    std::os::unix::fs::symlink(&real, &store).unwrap();
+    let consent = UserConsent::at(store);
+
+    std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(consent.list().is_ok());
+    std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o666)).unwrap();
+    assert!(
+        consent
+            .list()
+            .unwrap_err()
+            .why
+            .contains("writable by its group or others")
+    );
+}
+
 #[test]
 fn a_newer_store_version_is_never_overwritten() {
     let dir = tempfile::tempdir().unwrap();
     let store = dir.path().join("consent.json");
     let newer = br#"{"version": 2, "capabilities": [], "roots": [], "grants": []}"#;
     std::fs::write(&store, newer).unwrap();
+    // A group-writing umask must not change which refusal this test sees.
+    #[cfg(unix)]
+    std::fs::set_permissions(&store, std::os::unix::fs::PermissionsExt::from_mode(0o600)).unwrap();
     let consent = UserConsent::at(store.clone());
     let err = consent.list().unwrap_err();
     assert!(err.why.contains("newer specforge"), "{err}");

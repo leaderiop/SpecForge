@@ -98,6 +98,36 @@ pub fn open_private_lock(path: &Path) -> Result<File> {
     options.open(path)
 }
 
+/// Why the file or directory `meta` describes is not this user's alone to write: it belongs to another user, or its
+/// group or others may write it. `None` when it is, and always elsewhere than unix, where no such mode exists
+/// (ADR 0178). For what a private file trusts: another user could have created it first and filled it.
+pub fn not_private(meta: &std::fs::Metadata) -> Option<&'static str> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        #[expect(unsafe_code, reason = "geteuid(2) takes nothing and always succeeds")]
+        let me = unsafe { libc::geteuid() };
+        judged_private(meta.uid(), meta.mode(), me)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = meta;
+        None
+    }
+}
+
+/// [`not_private`] of an `owner` and a `mode`, for the user `me`.
+#[cfg(unix)]
+fn judged_private(owner: u32, mode: u32, me: u32) -> Option<&'static str> {
+    if owner != me {
+        Some("belongs to another user")
+    } else if mode & 0o022 != 0 {
+        Some("is writable by its group or others")
+    } else {
+        None
+    }
+}
+
 /// A new file at `path`, to stream into: the name is unlinked first (a link, never its target; a
 /// missing name passes), then the file is created new, so the old inode is never opened. A name
 /// recreated between the two steps fails with `AlreadyExists` instead of escaping.
@@ -123,6 +153,37 @@ fn temporary(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn private_means_this_users_and_no_one_elses_to_write() {
+        for mode in [0o600, 0o644, 0o700, 0o755, 0o400] {
+            assert_eq!(judged_private(501, mode, 501), None, "{mode:o}");
+        }
+        for mode in [0o620, 0o602, 0o660, 0o666, 0o770, 0o707, 0o1777] {
+            assert_eq!(
+                judged_private(501, mode, 501),
+                Some("is writable by its group or others"),
+                "{mode:o}"
+            );
+        }
+        for (owner, me) in [(502, 501), (0, 501), (501, 0)] {
+            assert_eq!(
+                judged_private(owner, 0o600, me),
+                Some("belongs to another user"),
+                "{owner} as {me}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_file_this_user_just_made_privately_is_private() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x");
+        replace_private(&path, b"x").unwrap();
+        assert_eq!(not_private(&std::fs::metadata(&path).unwrap()), None);
+        assert_eq!(not_private(&std::fs::metadata(dir.path()).unwrap()), None);
+    }
 
     #[cfg(unix)]
     #[test]

@@ -1,14 +1,15 @@
 //! The user's consent store (ADR 0335 D2.5, ADR 0193): every approval this machine gives, for every project, in
 //! `~/.specforge/consent.json`. It lives outside every project, so a cloned repository cannot approve its own
-//! effects. Each change is read, changed and written under an exclusive lock on the sidecar `consent.json.lock`,
+//! effects, and on unix it and its directory are this user's alone to write, so no other user can either. Each change is read, changed and written under an exclusive lock on the sidecar `consent.json.lock`,
 //! and written privately and atomically (`replace_private`: 0600, a new parent 0700, a rename). A store that cannot
 //! be read or parsed, or that a newer specforge wrote, is never written over: nothing in it counts (W186).
 
 use std::ffi::OsString;
+use std::io::Read as _;
 use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use specforge_common::fresh::{open_private_lock, private_parent, replace_private};
+use specforge_common::fresh::{not_private, open_private_lock, private_parent, replace_private};
 use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
 use specforge_effects::{Approvals, Consent, ConsentError};
@@ -103,15 +104,47 @@ impl UserConsent {
         }
     }
 
+    /// Refused when `what`, the store or its directory, is not this user's alone to write.
+    fn private(&self, what: &str, meta: &std::fs::Metadata) -> Result<(), ConsentError> {
+        match not_private(meta) {
+            None => Ok(()),
+            Some(problem) => Err(self.error(format!(
+                "{what} {problem}, so someone else could approve effects for you; fix that or point \
+                 {CONSENT_FILE_ENV} at a file of your own"
+            ))),
+        }
+    }
+
+    /// Refused when the store's directory, if there is one yet, is not this user's alone to write.
+    fn private_directory(&self) -> Result<(), ConsentError> {
+        let Some(parent) = self.store.parent() else {
+            return Ok(());
+        };
+        match std::fs::metadata(parent) {
+            Ok(meta) => self.private(&format!("its directory {}", parent.display()), &meta),
+            // No directory holds nothing to trust; one that cannot be looked at fails where the store is opened.
+            Err(_) => Ok(()),
+        }
+    }
+
     fn read(&self) -> Result<Approvals, ConsentError> {
         if let Some(why) = &self.refused {
             return Err(self.error(why.clone()));
         }
-        let raw = match std::fs::read_to_string(&self.store) {
-            Ok(raw) => raw,
+        self.private_directory()?;
+        let mut file = match std::fs::File::open(&self.store) {
+            Ok(file) => file,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Approvals::default()),
             Err(e) => return Err(self.error(format!("it cannot be read ({e})"))),
         };
+        // Judged on the open file: what is judged is what is read, wherever a link at the name leads.
+        let meta = file
+            .metadata()
+            .map_err(|e| self.error(format!("it cannot be read ({e})")))?;
+        self.private("it", &meta)?;
+        let mut raw = String::new();
+        file.read_to_string(&mut raw)
+            .map_err(|e| self.error(format!("it cannot be read ({e})")))?;
         let value: serde_json::Value = serde_json::from_str(&raw)
             .map_err(|e| self.error(format!("it is not JSON ({e}); fix it or move it away")))?;
         match value.get("version").and_then(serde_json::Value::as_u64) {
@@ -186,6 +219,7 @@ impl Consent for UserConsent {
         }
         private_parent(&self.store)
             .map_err(|e| self.error(format!("its directory cannot be made ({e})")))?;
+        self.private_directory()?;
         let mut lock_path = self.store.as_os_str().to_owned();
         lock_path.push(".lock");
         let lock = open_private_lock(Path::new(&lock_path))

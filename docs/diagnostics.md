@@ -4040,11 +4040,13 @@ read, is not JSON or not a consent store, was written by a newer specforge (a
 higher `version`), it lies inside the project, where a repository could approve
 its own effects (a `SPECFORGE_CONSENT_FILE` there, or a home directory that is
 the project or lies in it), `SPECFORGE_CONSENT_FILE` names it by a relative
-path, or there is no home directory to hold it (the store never falls back to a
-shared directory). Nothing in it is approved, and nothing is written over it: an
-approval given now is not kept. The message names the file and why. Fix the file
-or move it away, update specforge, or point `SPECFORGE_CONSENT_FILE` at an
-absolute path outside the project.
+path, it or its directory belongs to another user or is writable by its group or
+others (on Unix, where someone else could approve effects for you; a shared
+directory such as `/tmp` is refused), or there is no home directory to hold it
+(the store never falls back to a shared directory). Nothing in it is approved,
+and nothing is written over it: an approval given now is not kept. The message
+names the file and why. Fix the file or move it away, update specforge, or point
+`SPECFORGE_CONSENT_FILE` at an absolute path outside the project.
 
 Owner: core
 Level: warning

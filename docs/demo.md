@@ -15,7 +15,8 @@ not tied to software. Every output below was recorded from a real run.
   `cd examples/shop && cargo test -q`.
 - To show the approval prompt, make sure the project isn't approved yet:
   `specforge grants revoke @specforge/cargo-test` in `examples/shop`, or run the
-  demo with `SPECFORGE_CONSENT_FILE=/tmp/demo-consent.json`.
+  demo with `SPECFORGE_CONSENT_FILE="$(mktemp -d)/consent.json"` (a store directly in `/tmp` is
+  refused: another user could write it).
 - Delete any old `examples/shop/specforge-report.json` (it is git-ignored);
   a report written by an older version is refused with E045 until
   `specforge collect` rewrites it.
