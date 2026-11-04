@@ -204,7 +204,7 @@ fn a_licence_outside_allow_is_w179() {
 fn a_doi_or_an_orcid_is_asked_of_its_resolver() {
     assert!(matches!(
         &planned("doi", "doi:10.1000/182", json!({})).probes[..],
-        [Probe::HttpGet { url, .. }] if url == "https://doi.org/api/handles/10.1000/182"
+        [Probe::HttpGet { url, .. }] if url == "https://doi.org/api/handles/10.1000%2F182"
     ));
     assert!(matches!(
         &planned("orcid", "https://orcid.org/0000-0002-1825-0097", json!({})).probes[..],

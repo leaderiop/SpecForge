@@ -305,8 +305,16 @@ fn ids_read_dois_and_orcids_in_every_spelling() {
     assert_eq!(doi("10.1002/ABC.123").as_deref(), Ok("10.1002/abc.123"));
     assert_eq!(
         doi_url("10.1000/a b#c"),
-        "https://doi.org/api/handles/10.1000/a%20b%23c"
+        "https://doi.org/api/handles/10.1000%2Fa%20b%23c"
     );
+    // A suffix's `..` stays inside the one segment: it cannot climb to another DOI.
+    let climbing = doi_url(&doi("10.9999/x/../../../api/handles/10.1000/182").unwrap());
+    assert_eq!(
+        climbing,
+        "https://doi.org/api/handles/10.9999%2Fx%2F..%2F..%2F..%2Fapi%2Fhandles%2F10.1000%2F182"
+    );
+    let parsed = url::Url::parse(&climbing).unwrap();
+    assert_eq!(parsed.path_segments().unwrap().count(), 3, "{parsed}");
     for (bad, at) in [
         ("11.1000/182", 0..7),
         ("10.abc/1", 0..6),

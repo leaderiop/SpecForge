@@ -16,13 +16,13 @@ const DOI_PREFIXES: [&str; 5] = [
     "doi:",
 ];
 
-/// What a DOI keeps unencoded in the handle API's path.
-const DOI_PATH: &AsciiSet = &NON_ALPHANUMERIC
+/// What a DOI keeps unencoded in the handle API's path: the DOI is one path segment, its `/` encoded (the handle API
+/// reads `%2F` as `/`), so no `..` in a suffix can climb out of `api/handles/` to name another DOI or endpoint.
+const DOI_SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'.')
     .remove(b'_')
-    .remove(b'~')
-    .remove(b'/');
+    .remove(b'~');
 
 /// The prefix of `text` among `prefixes`, matched without case: its length.
 fn prefixed(text: &str, prefixes: &[&str]) -> usize {
@@ -64,11 +64,12 @@ pub fn doi(text: &str) -> Result<String, Invalid> {
     Ok(name.to_ascii_lowercase())
 }
 
-/// Where the DOI handle API answers whether `doi` is registered (`responseCode` 1) or not (100).
+/// Where the DOI handle API answers whether `doi` is registered (`responseCode` 1) or not (100). The DOI is one
+/// segment of the path, which starts `10.`, so it is never a dot segment either.
 pub fn doi_url(doi: &str) -> String {
     format!(
         "https://doi.org/api/handles/{}",
-        utf8_percent_encode(doi, DOI_PATH)
+        utf8_percent_encode(doi, DOI_SEGMENT)
     )
 }
 
