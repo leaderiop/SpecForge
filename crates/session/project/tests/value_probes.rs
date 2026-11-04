@@ -146,10 +146,10 @@ fn extension_named(name: &str) -> ContributionsBuilder {
             .scope("files")
             .codes(&["E001"])
             .plan(|item: &CheckItem| {
-                PlannedItem::probes(vec![Probe::FsReadPrefix {
+                PlannedItem::probes(vec![Probe::FsRead {
                     root: Root::Project,
                     path: item.text.clone(),
-                    bytes: 3,
+                    range: ByteRange::Prefix { len: 3 },
                 }])
             })
             .judge(told);
@@ -721,6 +721,7 @@ fn a_file_probe_reads_a_held_prefix_and_a_walk_stays_under_its_root() {
                 "{:?}",
                 OutcomeData::Bytes {
                     bytes: b"hel".to_vec(),
+                    start: 0,
                     length: 5,
                     truncated: true,
                 }

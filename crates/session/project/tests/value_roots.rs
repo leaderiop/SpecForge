@@ -32,7 +32,7 @@ fn reader() -> ContributionsBuilder {
                 PlannedItem::probes(vec![Probe::FsRead {
                     root: Root::Spec,
                     path: item.text.clone(),
-                    bytes: 64,
+                    range: ByteRange::Whole { max: 64 },
                 }])
             })
             .judge(|item: &CheckItem| {

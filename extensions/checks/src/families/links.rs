@@ -195,8 +195,7 @@ fn page(parts: &UrlParts, args: Args) -> Probe {
     match &parts.fragment {
         Some(at) if !at.is_empty() => Probe::HttpGet {
             url: requested(parts),
-            range: Some([0, u64::from(PAGE) - 1]),
-            max_bytes: PAGE,
+            range: ByteRange::Prefix { len: PAGE },
         },
         _ => head(parts, args),
     }

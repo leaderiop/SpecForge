@@ -9,7 +9,7 @@ use super::{checker, choice_arg, finding_of, no_args, Args, Word, FILES};
 use crate::codes::*;
 
 /// The most of a file `encoding` and `line_range` read: past it, a line range not yet reached is not decided.
-const READ: u32 = 1024 * 1024;
+const READ: u64 = 1024 * 1024;
 
 /// The line ends `encoding` wants.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -241,7 +241,7 @@ fn read(path: &str, args: Args) -> Probe {
     Probe::FsRead {
         root: args.root(),
         path: path.to_string(),
-        bytes: READ,
+        range: ByteRange::Whole { max: READ },
     }
 }
 

@@ -15,8 +15,8 @@ use specforge_effects::{
     OutcomeClass, ResolveRequest, Roots, TlsRequest, UnixMillis,
 };
 use specforge_protocol_types::{
-    Header, HttpMethod, Operation, OutcomeData, PrefixProblem, Probe, ProbeOutcome, Root,
-    RootedPath,
+    ByteRange, Header, HttpMethod, Operation, OutcomeData, PrefixProblem, Probe, ProbeOutcome,
+    Root, RootedPath,
 };
 use specforge_registry::{CheckCall, Disk, DiskLookup};
 
@@ -28,13 +28,14 @@ use crate::Environment;
 
 /// The kind of call a probe is asked under.
 const OP: Operation = Operation::CheckValues;
-/// The most of a file `fs.read_prefix` and `fs.read` answer, and of a body `http.get` does.
+/// The most of a file `fs.read` answers for a prefix and for any other range, and of a body `http.get` does.
 const PREFIX_CAP: u32 = 64 * 1024;
 const READ_CAP: u32 = 1024 * 1024;
 const BODY_CAP: u32 = 1024 * 1024;
 /// The response headers a checker may read.
-const KEPT_HEADERS: [&str; 5] = [
+const KEPT_HEADERS: [&str; 6] = [
     "content-length",
+    "content-range",
     "content-type",
     "etag",
     "last-modified",
@@ -255,12 +256,8 @@ impl<'a> Probing<'a> {
         };
         match probe {
             Probe::FsStat { root, path } => self.fs(&mut turn, root, path, FsOp::Stat),
-            Probe::FsReadPrefix { root, path, bytes } => {
-                let max_bytes = u64::from((*bytes).min(PREFIX_CAP));
-                self.fs(&mut turn, root, path, FsOp::Read { max_bytes })
-            }
-            Probe::FsRead { root, path, bytes } => {
-                let max_bytes = u64::from((*bytes).min(READ_CAP));
+            Probe::FsRead { root, path, range } => {
+                let max_bytes = held(*range).len();
                 self.fs(&mut turn, root, path, FsOp::Read { max_bytes })
             }
             Probe::FsDigest { root, path } => self.fs(&mut turn, root, path, FsOp::Digest),
@@ -442,7 +439,12 @@ impl<'a> Probing<'a> {
                         (OutcomeClass::Denied, OutcomeData::None)
                     }
                     Some(resolved) => {
-                        local::read_disk(self.disk, &self.contained, resolved, &op, self.deadline)
+                        let range = match probe {
+                            Probe::FsRead { range, .. } => Some(held(*range)),
+                            _ => None,
+                        };
+                        let disk = self.disk;
+                        local::read_disk(disk, &self.contained, resolved, &op, range, self.deadline)
                     }
                     None => (OutcomeClass::Missing, stat_of(None, 0, None)),
                 });
@@ -634,6 +636,14 @@ impl<'a> Probing<'a> {
     }
 }
 
+/// `range` held to what a file read answers: a prefix to 64 KiB, any other range to 1 MiB.
+fn held(range: ByteRange) -> ByteRange {
+    match range {
+        ByteRange::Prefix { .. } => range.held_to(PREFIX_CAP),
+        _ => range.held_to(READ_CAP),
+    }
+}
+
 /// `diagnostic` on `value`: the host's, and the value fails or warns by it.
 fn refuse(reading: &mut Reading, value: &Value<'_>, mut diagnostic: Diagnostic) {
     value.places(&mut diagnostic, value.span.clone());
@@ -672,7 +682,6 @@ fn one_probe(probe: &Probe) -> String {
         Probe::HttpTls { host, port } => format!("tls {host}:{port}"),
         Probe::DnsResolve { host } => format!("resolve {host}"),
         Probe::FsStat { path, .. }
-        | Probe::FsReadPrefix { path, .. }
         | Probe::FsRead { path, .. }
         | Probe::FsDigest { path, .. }
         | Probe::FsWalk { path, .. } => path.clone(),
@@ -704,21 +713,18 @@ fn request_of(probe: &Probe) -> Option<(EffectRequest, String, u64)> {
         Probe::HttpHead { url, redirects } => {
             http(HttpMethod::Head, url, *redirects, Vec::new(), 0)
         }
-        Probe::HttpGet {
-            url,
-            range,
-            max_bytes,
-        } => {
+        Probe::HttpGet { url, range } => {
+            let range = range.held_to(BODY_CAP);
             let headers = range
-                .map(|[from, to]| vec![Header::plain("range", format!("bytes={from}-{to}"))])
+                .header()
+                .map(|bytes| vec![Header::plain("range", bytes)])
                 .unwrap_or_default();
-            http(
-                HttpMethod::Get,
-                url,
-                http::MAX_REDIRECTS,
-                headers,
-                u64::from((*max_bytes).min(BODY_CAP)),
-            )
+            // A server may answer a suffix or a span whole: read up to the cap, to slice it.
+            let keep = match range {
+                ByteRange::Whole { .. } | ByteRange::Prefix { .. } => range.len(),
+                ByteRange::Suffix { .. } | ByteRange::Span { .. } => u64::from(BODY_CAP),
+            };
+            http(HttpMethod::Get, url, http::MAX_REDIRECTS, headers, keep)
         }
         Probe::HttpTls { host, port } => Some((
             EffectRequest::Tls(TlsRequest {
@@ -741,7 +747,6 @@ fn request_of(probe: &Probe) -> Option<(EffectRequest, String, u64)> {
         )),
         Probe::FsStat { .. }
         | Probe::FsDigest { .. }
-        | Probe::FsReadPrefix { .. }
         | Probe::FsRead { .. }
         | Probe::FsWalk { .. }
         | Probe::GitObject { .. }

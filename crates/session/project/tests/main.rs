@@ -77,6 +77,7 @@ mod update_bracket;
 mod value_budget;
 mod value_checks;
 mod value_probes;
+mod value_ranges;
 mod value_records;
 mod value_roots;
 mod value_text;

@@ -7,7 +7,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use specforge_registry::{Disk, FileStamp};
+use specforge_protocol_types::ByteRange;
+use specforge_registry::{Disk, FileStamp, Ranged};
 
 use super::{Reading, Run, chain};
 
@@ -38,10 +39,10 @@ impl Disk for RunDisk<'_, '_> {
             .read(Reading::File, path, self.1, |path| self.1.read(path))
     }
 
-    fn read_prefix(&self, path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
+    fn read_range(&self, path: &Path, range: ByteRange) -> io::Result<Ranged> {
         self.record_link_targets(path);
         self.0.read(Reading::File, path, self.1, |path| {
-            self.1.read_prefix(path, max)
+            self.1.read_range(path, range)
         })
     }
 

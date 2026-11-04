@@ -61,8 +61,8 @@ pub use capability::{
     capability_problems, is_host_pattern, is_scope_name,
 };
 pub use checks::{
-    CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan, CheckRef,
-    CheckStatus, CheckValuesInput, CheckerDescriptor, OutcomeData, PlannedItem, Probe,
+    ByteRange, CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
+    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, OutcomeData, PlannedItem, Probe,
     ProbeOutcome, StatEntry, ValueForm,
 };
 pub use code_catalog::CodeDescriptor;

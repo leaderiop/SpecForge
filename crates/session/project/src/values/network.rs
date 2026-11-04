@@ -9,9 +9,12 @@ use std::time::Instant;
 use specforge_effects::http::Any;
 use specforge_effects::journal::{Answer, Blob};
 use specforge_effects::{
-    Asker, EffectRequest, Effects, HttpRequest, Outcome, OutcomeClass, Ports, Served, UnixMillis,
+    Asker, EffectRequest, Effects, HttpOutcome, HttpRequest, Outcome, OutcomeClass, Ports, Served,
+    UnixMillis,
 };
-use specforge_protocol_types::{Header, HttpMethod, Operation, OutcomeData, Probe, ProbeOutcome};
+use specforge_protocol_types::{
+    ByteRange, Header, HttpMethod, Operation, OutcomeData, Probe, ProbeOutcome,
+};
 
 use super::budget;
 
@@ -163,12 +166,14 @@ fn answer_of(job: &Job<'_>, ports: &Ports) -> Answer {
                 };
                 outcome = ports.http.request(&get, &Any);
             }
+            let range = match job.probe {
+                Probe::HttpGet { range, .. } => Some(*range),
+                _ => None,
+            };
             let keep = usize::try_from(job.max_bytes).unwrap_or(usize::MAX);
-            let truncated = outcome.body.len() > keep || outcome.class == OutcomeClass::Capped;
-            let mut body = outcome.body;
-            body.truncate(keep);
+            let body = served(range, &outcome, keep);
             (
-                outcome.class,
+                body.class,
                 OutcomeData::Http {
                     status: outcome.status,
                     final_url: outcome.final_url,
@@ -177,8 +182,10 @@ fn answer_of(job: &Job<'_>, ports: &Ports) -> Answer {
                         .into_iter()
                         .map(|(name, value)| Header::plain(name, value))
                         .collect(),
-                    body,
-                    truncated,
+                    body: body.bytes,
+                    truncated: body.truncated,
+                    start: body.start,
+                    total_len: body.total_len,
                 },
             )
         }
@@ -216,6 +223,100 @@ fn answer_of(job: &Job<'_>, ports: &Ports) -> Answer {
     }
 }
 
+/// What an answer holds of the bytes a GET asked for.
+#[derive(Debug, PartialEq, Eq)]
+struct Body {
+    class: OutcomeClass,
+    bytes: Vec<u8>,
+    /// Where they start in the whole, and the whole's length when the server said it.
+    start: u64,
+    total_len: Option<u64>,
+    /// The body stopped at its cap.
+    truncated: bool,
+}
+
+/// The body of `outcome` as `range` asked for it, at most `keep` bytes. A 206 says where its bytes start in
+/// `Content-Range` (one with none is `range:ignored`); a 200 to a prefix is its first bytes, and a 200 to a suffix or a
+/// span is the whole, sliced when it was read to its end and `range:ignored` when it was not; a 416 says the length.
+fn served(range: Option<ByteRange>, outcome: &HttpOutcome, keep: usize) -> Body {
+    let header = |name: &str| {
+        outcome
+            .headers
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.trim())
+    };
+    let length = header("content-length").and_then(|v| v.parse::<u64>().ok());
+    let capped = outcome.class == OutcomeClass::Capped || outcome.body.len() > keep;
+    let mut body = Body {
+        class: outcome.class,
+        bytes: outcome.body[..outcome.body.len().min(keep)].to_vec(),
+        start: 0,
+        total_len: length,
+        truncated: capped,
+    };
+    let ignored = |total_len| Body {
+        class: OutcomeClass::RangeIgnored,
+        bytes: Vec::new(),
+        start: 0,
+        total_len,
+        truncated: false,
+    };
+    let Some(range) = range.filter(|range| !matches!(range, ByteRange::Whole { .. })) else {
+        return body;
+    };
+    match (outcome.status, range) {
+        (Some(206), _) => match header("content-range").and_then(content_range) {
+            Some((Some(start), total_len)) => {
+                let len = usize::try_from(range.len()).unwrap_or(usize::MAX);
+                body.truncated = outcome.body.len() > len;
+                body.bytes.truncate(len);
+                Body {
+                    start,
+                    total_len,
+                    ..body
+                }
+            }
+            _ => ignored(None),
+        },
+        (Some(200), ByteRange::Prefix { .. }) => body,
+        (Some(200), _) if capped => ignored(length),
+        (Some(200), _) => {
+            let total = outcome.body.len() as u64;
+            let within = range.within(total);
+            let slice = within.start as usize..within.end as usize;
+            Body {
+                bytes: outcome.body[slice].to_vec(),
+                start: within.start,
+                total_len: Some(total),
+                ..body
+            }
+        }
+        (Some(416), _) => Body {
+            bytes: Vec::new(),
+            total_len: header("content-range")
+                .and_then(content_range)
+                .and_then(|(_, total)| total),
+            ..body
+        },
+        _ => body,
+    }
+}
+
+/// A `Content-Range` value's first byte and the whole's length (`bytes 0-99/1234`, `bytes 0-99/*`, `bytes */1234`).
+fn content_range(value: &str) -> Option<(Option<u64>, Option<u64>)> {
+    let (span, total) = value.strip_prefix("bytes ")?.split_once('/')?;
+    let start = match span.trim() {
+        "*" => None,
+        span => Some(span.split_once('-')?.0.trim().parse().ok()?),
+    };
+    let total = match total.trim() {
+        "*" => None,
+        total => Some(total.parse().ok()?),
+    };
+    Some((start, total))
+}
+
 /// A probe's data as a record keeps it: its JSON, on one line; a body's bytes follow it as they came, which a
 /// request's cap holds with the [`HEAD_ROOM`] (bytes in JSON take up to four times their size).
 fn encode(data: &OutcomeData) -> Vec<u8> {
@@ -226,6 +327,8 @@ fn encode(data: &OutcomeData) -> Vec<u8> {
             headers,
             body,
             truncated,
+            start,
+            total_len,
         } => {
             let head = OutcomeData::Http {
                 status: *status,
@@ -233,6 +336,8 @@ fn encode(data: &OutcomeData) -> Vec<u8> {
                 headers: headers.clone(),
                 body: Vec::new(),
                 truncated: *truncated,
+                start: *start,
+                total_len: *total_len,
             };
             let mut bytes = serde_json::to_vec(&head).expect("outcome data serialises");
             bytes.push(b'\n');
@@ -255,6 +360,8 @@ fn decode(payload: &[u8]) -> OutcomeData {
             final_url,
             headers,
             truncated,
+            start,
+            total_len,
             ..
         }) => OutcomeData::Http {
             status,
@@ -262,6 +369,8 @@ fn decode(payload: &[u8]) -> OutcomeData {
             headers,
             body: body.to_vec(),
             truncated,
+            start,
+            total_len,
         },
         Ok(other) => other,
         Err(_) => OutcomeData::None,
@@ -281,6 +390,8 @@ mod tests {
                 headers: vec![Header::plain("etag", "x")],
                 body: b"line one\nline two".to_vec(),
                 truncated: true,
+                start: 7,
+                total_len: Some(99),
             },
             OutcomeData::Resolve {
                 addresses: vec!["192.0.2.1".into()],

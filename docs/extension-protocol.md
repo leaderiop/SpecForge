@@ -998,18 +998,23 @@ judged verdict digests each checked value's outcome class. It makes one `__check
 | Probe | Keys | Port |
 |---|---|---|
 | `fs.stat` | `root`, `path` | Fs |
-| `fs.read_prefix` | `root`, `path`, `bytes` (held to 64 KiB) | Fs |
-| `fs.read` | `root`, `path`, `bytes` (held to 1 MiB) | Fs |
+| `fs.read` | `root`, `path`, `range` (a prefix held to 64 KiB, any other range to 1 MiB; a file of any size) | Fs |
 | `fs.walk` | `root`, `path`, `glob` | Fs |
 | `fs.digest` | `root`, `path`: the whole file's SHA-256 and length, read in chunks until the run's deadline (asked as a read) | Fs |
 | `http.head` | `url`, `redirects` (held to 5, each under the grant); a 405 or 501 is asked once more as a GET | Http |
-| `http.get` | `url`, `range`?, `max_bytes` (held to 1 MiB) | Http |
+| `http.get` | `url`, `range` (held to 1 MiB) | Http |
 | `http.tls` | `host`, `port` | Http |
 | `dns.resolve` | `host` | Http |
 | `git.object` | `rev` | Git |
 | `git.ref` | `name` | Git |
 | `git.file` | `rev`, `path` (from the repository's top; no `.`, `..` or leading `/`) | Git |
 | `git.tracked` | `root`, `path` | Git |
+
+A `range` is one object on both reads: `{"kind": "whole", "max"}` (from the start, no `Range` header), `{"kind": "prefix",
+"len"}`, `{"kind": "suffix", "len"}` (the last bytes) or `{"kind": "span", "offset", "len"}`. A read answers where its bytes
+`start` and the whole's length (`length` for a file, `total_len` for a body when the server said it). A 206 answer says
+where in `Content-Range`; a 200 to a prefix is its first bytes; a 200 to a suffix or a span is sliced when the whole body
+is within the cap, else its class is `range:ignored`; a 416 keeps its `status:416`.
 
 A probe's `root` is the default of a bare path and its `path` the text as written: only the host reads a `<root>/` prefix
 and decides where a path may lead. A `root` that is no root's name (`[a-z][a-z0-9_-]*`) is a malformed answer.

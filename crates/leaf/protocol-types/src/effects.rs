@@ -198,6 +198,8 @@ pub enum OutcomeClass {
     NotFound,
     /// The program was found and could not be started.
     CannotStart,
+    /// A ranged read the server answered whole, past what may be read: the bytes asked for are not there.
+    RangeIgnored,
     Unreachable(Unreachable),
     Redirect(Redirected),
 }
@@ -246,7 +248,7 @@ impl Redirected {
     ];
 }
 
-const PLAIN: [(OutcomeClass, &str); 9] = [
+const PLAIN: [(OutcomeClass, &str); 10] = [
     (OutcomeClass::Ok, "ok"),
     (OutcomeClass::Signal, "signal"),
     (OutcomeClass::Deadline, "deadline"),
@@ -256,6 +258,7 @@ const PLAIN: [(OutcomeClass, &str); 9] = [
     (OutcomeClass::Outside, "outside"),
     (OutcomeClass::NotFound, "not_found"),
     (OutcomeClass::CannotStart, "cannot_start"),
+    (OutcomeClass::RangeIgnored, "range:ignored"),
 ];
 
 impl fmt::Display for OutcomeClass {

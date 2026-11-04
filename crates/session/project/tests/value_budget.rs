@@ -30,8 +30,7 @@ fn extension(meta: ExtensionMeta) -> ContributionsBuilder {
     );
     let get = |url: String, n: usize| Probe::HttpGet {
         url: format!("{url}?{n}"),
-        range: None,
-        max_bytes: 64 * 1024,
+        range: ByteRange::Whole { max: 64 * 1024 },
     };
     for (name, times) in [("one", 1), ("eight", 8), ("many", 17)] {
         c.checker(name, move |k| {
@@ -53,7 +52,7 @@ fn extension(meta: ExtensionMeta) -> ContributionsBuilder {
                 PlannedItem::probes(vec![Probe::FsRead {
                     root: Root::Project,
                     path: item.text.clone(),
-                    bytes: 1024,
+                    range: ByteRange::Whole { max: 1024 },
                 }])
             })
             .judge(judged_by_class);

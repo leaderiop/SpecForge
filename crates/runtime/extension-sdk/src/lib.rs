@@ -31,9 +31,10 @@ pub use specforge_protocol_types::{
 };
 
 pub use specforge_protocol_types::{
-    CapabilityDescriptor, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan, CheckRef,
-    CheckStatus, CheckValuesInput, CheckerDescriptor, FsAccess, GitOp, HttpMethod, Operation,
-    OutcomeClass, OutcomeData, PlannedItem, PortScope, Probe, ProbeOutcome, StatEntry, ValueForm,
+    ByteRange, CapabilityDescriptor, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
+    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, FsAccess, GitOp, HttpMethod,
+    Operation, OutcomeClass, OutcomeData, PlannedItem, PortScope, Probe, ProbeOutcome, StatEntry,
+    ValueForm,
 };
 
 pub use specforge_protocol_types::{
@@ -640,11 +641,11 @@ pub mod prelude {
         GraphNode, McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
         PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
-    pub use crate::{Capability, FsAccess, GitOp, HttpMethod, Operation};
     pub use crate::{
-        CheckFinding, CheckItem, CheckRef, CheckerBuilder, OutcomeClass, OutcomeData, PlannedItem,
-        Probe, ProbeOutcome, StatEntry, ValueForm,
+        ByteRange, CheckFinding, CheckItem, CheckRef, CheckerBuilder, OutcomeClass, OutcomeData,
+        PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
     };
+    pub use crate::{Capability, FsAccess, GitOp, HttpMethod, Operation};
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
         CollectorBuilder, Fact, PlanBuilder,

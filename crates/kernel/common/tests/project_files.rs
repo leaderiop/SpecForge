@@ -166,22 +166,46 @@ fn no_refusal_is_invalid_input() {
     }
 }
 
+/// The bytes `from..to` of `path`, held to its length, read as a range.
+fn ranged(path: &std::path::Path, from: u64, to: u64) -> regular::Ranged {
+    regular::read_range(path, |length| from.min(length)..to.min(length)).unwrap()
+}
+
 #[test]
-fn a_prefix_is_the_files_first_bytes_and_its_whole_length() {
+fn a_range_is_the_files_bytes_it_names_and_its_whole_length() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("a");
     std::fs::write(&file, "hello").unwrap();
+    let of = |bytes: &[u8], start| regular::Ranged {
+        bytes: bytes.to_vec(),
+        start,
+        length: 5,
+    };
+    assert_eq!(ranged(&file, 0, 3), of(b"hel", 0));
+    assert_eq!(ranged(&file, 0, 9), of(b"hello", 0));
+    assert_eq!(ranged(&file, 3, 5), of(b"lo", 3));
+    assert_eq!(ranged(&file, 9, 12), of(b"", 5));
+    assert!(regular::read_range(dir.path(), |length| 0..length).is_err());
+}
+
+#[test]
+fn a_ranged_read_of_a_file_over_64_mib_is_served() {
+    let dir = tempfile::tempdir().unwrap();
+    let big = dir.path().join("big");
+    let file = std::fs::File::create(&big).unwrap();
+    file.set_len(regular::MAX_FILE_BYTES + 10).unwrap();
+    drop(file);
+    let mut tail = std::fs::OpenOptions::new().append(true).open(&big).unwrap();
+    std::io::Write::write_all(&mut tail, b"%%EOF").unwrap();
+    let length = regular::MAX_FILE_BYTES + 15;
+    let read = ranged(&big, length - 5, length);
     assert_eq!(
-        regular::read_prefix(&file, 3).unwrap(),
-        (b"hel".to_vec(), 5)
+        (read.bytes.as_slice(), read.start),
+        (&b"%%EOF"[..], length - 5)
     );
-    assert_eq!(
-        regular::read_prefix(&file, 5).unwrap(),
-        (b"hello".to_vec(), 5)
+    assert_eq!(read.length, length);
+    assert!(
+        regular::read(&big).is_err(),
+        "a whole read keeps its ceiling"
     );
-    assert_eq!(
-        regular::read_prefix(&file, 9).unwrap(),
-        (b"hello".to_vec(), 5)
-    );
-    assert!(regular::read_prefix(dir.path(), 3).is_err());
 }
