@@ -302,6 +302,9 @@ pub enum Probe {
     GitObject { rev: String },
     #[serde(rename = "git.ref")]
     GitRef { name: String },
+    /// A file at a revision, its `path` from the repository's top: never `.`, `..` or absolute.
+    #[serde(rename = "git.file")]
+    GitFile { rev: String, path: String },
     #[serde(rename = "git.tracked")]
     GitTracked { root: Root, path: String },
 }

@@ -3,8 +3,12 @@
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_effects::EffectsMode;
-use specforge_effects::testing::{FakeHttp, MemoryConsent};
+use specforge_effects::git::Sha;
+use specforge_effects::testing::{FakeGit, FakeHttp, MemoryConsent};
+use specforge_project::CompiledProject;
 use specforge_project::testing::TestProject;
+use specforge_registry::PlainDisk;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::value_probes::Scene;
@@ -366,4 +370,89 @@ fn checks_links_head_405_retries_as_get() {
     let found = scene.online().diagnostics();
     assert_eq!(scene.http.requests().len(), 1, "any other answer stands");
     assert_eq!(coded(&found, "E093").len(), 1, "{found:?}");
+}
+
+/// `scene` compiled online with `git` as its Git port.
+fn with_git(scene: &Scene, git: FakeGit) -> Vec<Diagnostic> {
+    let env = scene.env().with_git(Arc::new(git));
+    let root = scene.dir.project_root();
+    let consent = MemoryConsent::default();
+    let effects =
+        specforge_project::effects::of(EffectsMode::Online, &scene.ports(), &env, &root, &consent);
+    CompiledProject::compile_through(env.with_effects(effects), &PlainDisk).diagnostics()
+}
+
+/// A repository at the scene's root whose `HEAD` holds `files`, which knows `v1` as another commit.
+fn repo(scene: &Scene, files: &[&str]) -> FakeGit {
+    let mut git = FakeGit::repo(
+        scene.dir.root(),
+        "0000000000000000000000000000000000000001",
+        Vec::new(),
+    );
+    git.named = vec![(
+        "v1".into(),
+        Sha::new("1234567890abcdef1234567890abcdef12345678"),
+        Vec::new(),
+    )];
+    git.blobs = files
+        .iter()
+        .map(|f| (PathBuf::from(f), b"x".to_vec()))
+        .collect();
+    git
+}
+
+#[specforge_test_macros::test(
+    behavior = "ck_git_family",
+    verify = "a commit, ref or file at a revision the repository lacks is E106"
+)]
+fn checks_git_unknown_commit_is_e106() {
+    let checks = json!({ "feature.refs": ["@specforge/checks:commit"] });
+    let scene = links_scene(&["v1", "abcdef1234"], "o", checks, FakeHttp::new());
+    let found = with_git(&scene, repo(&scene, &[]));
+    let missing = coded(&found, "E106");
+    assert_eq!(missing.len(), 1, "{found:?}");
+    assert!(
+        missing[0].message.contains("abcdef1234"),
+        "{}",
+        missing[0].message
+    );
+    // `v1` is no hex object name: refused before git is asked.
+    assert_eq!(coded(&found, "E103").len(), 1, "{found:?}");
+
+    let checks = json!({ "feature.refs": ["@specforge/checks:file_at"] });
+    let scene = links_scene(
+        &["v1:src/a.rs", "v1:src/b.rs", "v2:src/a.rs"],
+        "o",
+        checks,
+        FakeHttp::new(),
+    );
+    let found = with_git(&scene, repo(&scene, &["src/a.rs"]));
+    let missing = coded(&found, "E106");
+    assert_eq!(missing.len(), 2, "{found:?}");
+    assert!(
+        missing.iter().any(|d| d.message.contains("src/b.rs")),
+        "{missing:?}"
+    );
+    assert!(
+        missing.iter().any(|d| d.message.contains("'v2'")),
+        "{missing:?}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "ck_git_family",
+    verify = "a path the commit at HEAD does not hold is W180"
+)]
+fn checks_git_ignored_path_is_w180() {
+    let checks = json!({ "feature.refs": ["@specforge/checks:tracked"] });
+    let dir = links_project(&["a.spec", "ignored.md"], "o", checks).file("ignored.md", "x");
+    let scene = over(dir, FakeHttp::new());
+    let found = with_git(&scene, repo(&scene, &["a.spec"]));
+    let untracked = coded(&found, "W180");
+    assert_eq!(untracked.len(), 1, "{found:?}");
+    assert!(
+        untracked[0].message.contains("ignored.md"),
+        "{}",
+        untracked[0].message
+    );
 }

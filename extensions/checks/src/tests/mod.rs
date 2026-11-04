@@ -9,6 +9,7 @@ use specforge_test::prelude::*;
 mod digits;
 mod files;
 mod formats;
+mod git;
 mod links;
 
 fn declaration() -> ExtensionDeclaration {

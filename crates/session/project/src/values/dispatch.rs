@@ -82,6 +82,16 @@ enum Held {
     At(Resolved),
 }
 
+/// The path a git probe asks about, if any.
+#[derive(Clone, Copy)]
+enum Within<'p> {
+    Nothing,
+    /// Written under a root: contained first, then asked at `HEAD`.
+    Under(&'p Root, &'p str),
+    /// From the repository's top, at the probe's revision.
+    FromTop(&'p str),
+}
+
 /// A probe's place in its [`Reading`].
 enum Slot {
     Done(ProbeOutcome),
@@ -278,9 +288,12 @@ impl<'a> Probing<'a> {
                 };
                 self.fs(&mut turn, root, path, op)
             }
-            Probe::GitObject { rev } => self.git(&mut turn, rev, None),
-            Probe::GitRef { name } => self.git(&mut turn, name, None),
-            Probe::GitTracked { root, path } => self.git(&mut turn, "HEAD", Some((root, path))),
+            Probe::GitObject { rev } => self.git(&mut turn, rev, Within::Nothing),
+            Probe::GitRef { name } => self.git(&mut turn, name, Within::Nothing),
+            Probe::GitFile { rev, path } => self.git(&mut turn, rev, Within::FromTop(path)),
+            Probe::GitTracked { root, path } => {
+                self.git(&mut turn, "HEAD", Within::Under(root, path))
+            }
             Probe::HttpHead { .. }
             | Probe::HttpGet { .. }
             | Probe::HttpTls { .. }
@@ -476,12 +489,7 @@ impl<'a> Probing<'a> {
 
     /// A git probe: gated on a git capability in the checker's scopes, asked of the Git port in every mode but
     /// `replay`, with no journal: its answer is local.
-    fn git(
-        &mut self,
-        turn: &mut Turn<'_, 'a>,
-        revision: &str,
-        tracked: Option<(&Root, &str)>,
-    ) -> Slot {
+    fn git(&mut self, turn: &mut Turn<'_, 'a>, revision: &str, within: Within<'_>) -> Slot {
         let Turn {
             one,
             probe,
@@ -489,13 +497,24 @@ impl<'a> Probing<'a> {
             reading,
         } = turn;
         let probe: &'a Probe = probe;
-        let tracked = match tracked.map(|(root, path)| self.contain(one, root, path, reading)) {
-            None => None,
-            Some(Held::At(resolved)) => Some(resolved),
-            Some(Held::Reported) => return Slot::Stopped,
-            Some(Held::Nothing) => {
-                return Slot::Done(self.outcome(probe, OutcomeClass::Missing, git_of(false, None)));
-            }
+        let resolved = match within {
+            Within::Under(root, path) => match self.contain(one, root, path, reading) {
+                Held::At(resolved) => Some(resolved),
+                Held::Reported => return Slot::Stopped,
+                Held::Nothing => {
+                    return Slot::Done(self.outcome(
+                        probe,
+                        OutcomeClass::Missing,
+                        git_of(false, None),
+                    ));
+                }
+            },
+            Within::Nothing | Within::FromTop(_) => None,
+        };
+        let path = match (&resolved, within) {
+            (Some(resolved), _) => Some(local::GitPath::Under(resolved)),
+            (None, Within::FromTop(path)) => Some(local::GitPath::FromTop(path)),
+            (None, _) => None,
         };
         let question = one_probe(probe);
         let Some(gate) = self.gates.get(&one.call.extension) else {
@@ -512,7 +531,7 @@ impl<'a> Probing<'a> {
             (EffectsMode::Replay, _) => None,
             (_, Some(answer)) => answer.clone(),
             (_, None) => {
-                let answer = local::ask_git(self.env, revision, tracked.as_ref());
+                let answer = local::ask_git(self.env, revision, path);
                 self.read_local(probe, &answer);
                 answer
             }
@@ -664,6 +683,7 @@ fn one_probe(probe: &Probe) -> String {
     match probe {
         Probe::GitObject { rev } => format!("object {rev}"),
         Probe::GitRef { name } => format!("ref {name}"),
+        Probe::GitFile { rev, path } => format!("file {rev}:{path}"),
         Probe::GitTracked { path, .. } => format!("tracked {path}"),
         Probe::HttpHead { url, .. } | Probe::HttpGet { url, .. } => url.clone(),
         Probe::HttpTls { host, port } => format!("tls {host}:{port}"),
@@ -741,6 +761,7 @@ fn request_of(probe: &Probe) -> Option<(EffectRequest, String, u64)> {
         | Probe::FsWalk { .. }
         | Probe::GitObject { .. }
         | Probe::GitRef { .. }
+        | Probe::GitFile { .. }
         | Probe::GitTracked { .. } => None,
     }
 }

@@ -989,6 +989,110 @@
         "links"
       ],
       "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "maximum": 64,
+          "minimum": 4,
+          "name": "min_len",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103",
+        "E106"
+      ],
+      "name": "commit",
+      "scopes": [
+        "git"
+      ],
+      "when": "families.git"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "tag",
+            "branch",
+            "any"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "kind",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103",
+        "E106"
+      ],
+      "name": "ref",
+      "scopes": [
+        "git"
+      ],
+      "when": "families.git"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E106"
+      ],
+      "name": "file_at",
+      "scopes": [
+        "git"
+      ],
+      "when": "families.git"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "W180"
+      ],
+      "name": "tracked",
+      "root_arg": "root",
+      "scopes": [
+        "git"
+      ],
+      "value": "path",
+      "when": "families.git"
     }
   ]
 }

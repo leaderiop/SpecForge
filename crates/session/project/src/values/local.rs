@@ -3,6 +3,7 @@
 
 use std::collections::VecDeque;
 use std::io;
+use std::path::{Component, Path};
 use std::time::Instant;
 
 use specforge_common::path_glob;
@@ -143,10 +144,18 @@ fn walk(
 }
 
 /// What git answers; none when it cannot be asked.
+/// The path a git question asks about.
+pub(super) enum GitPath<'p> {
+    /// Contained under a root.
+    Under(&'p Resolved),
+    /// From the repository's top, as a value wrote it.
+    FromTop(&'p str),
+}
+
 pub(super) fn ask_git(
     env: &Environment,
     revision: &str,
-    tracked: Option<&Resolved>,
+    path: Option<GitPath<'_>>,
 ) -> Option<(OutcomeClass, OutcomeData)> {
     let port = env.git()?;
     let place = match port.locate(env.root()) {
@@ -162,17 +171,28 @@ pub(super) fn ask_git(
     let Some(commit) = commit else {
         return Some((OutcomeClass::Missing, git_of(false, None)));
     };
-    let Some(resolved) = tracked else {
-        let oid = Some(commit.as_str().to_string());
-        return Some((OutcomeClass::Ok, git_of(true, oid)));
+    let from_top = match path {
+        None => {
+            let oid = Some(commit.as_str().to_string());
+            return Some((OutcomeClass::Ok, git_of(true, oid)));
+        }
+        Some(GitPath::Under(resolved)) => {
+            let at = resolved.real.as_ref().unwrap_or(&resolved.at);
+            at.strip_prefix(&place.toplevel).ok().map(Path::to_path_buf)
+        }
+        // Only plain parts: a value never names a path above the top, or the top itself.
+        Some(GitPath::FromTop(path)) => {
+            let path = Path::new(path);
+            let plain = path
+                .components()
+                .all(|part| matches!(part, Component::Normal(_)));
+            (plain && !path.as_os_str().is_empty()).then(|| path.to_path_buf())
+        }
     };
-    let at = resolved.real.as_ref().unwrap_or(&resolved.at);
-    let Ok(from_top) = at.strip_prefix(&place.toplevel) else {
+    let Some(from_top) = from_top else {
         return Some((OutcomeClass::Missing, git_of(false, None)));
     };
-    let sizes = port
-        .sizes(&place, &commit, &[from_top.to_path_buf()])
-        .ok()?;
+    let sizes = port.sizes(&place, &commit, &[from_top]).ok()?;
     let found = sizes.first().is_some_and(|(_, size)| size.is_some());
     let class = if found {
         OutcomeClass::Ok

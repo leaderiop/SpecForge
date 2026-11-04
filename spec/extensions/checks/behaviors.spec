@@ -104,3 +104,24 @@ behavior ck_links_family "Links Family" {
   verify unit "the remote's answers are machine-decided warnings, the project's own are not"
   verify unit "a HEAD answered 405 or 501 is asked once more as a GET"
 }
+
+behavior ck_git_family "Git Family" {
+  features [ck_value_checks]
+  category command
+  ensures {
+    names_parsed_first "A name the kit refuses is E103 and never reaches git"
+    missing_names_e106 "A commit, ref or file at a revision the repository lacks is E106 on its value"
+  }
+  contract """
+    Each git checker (commit, ref, file_at, tracked) MUST read only what
+    the Git port answers, under the git scope. `commit` takes an object
+    name of at least `min_len` (default 7) hex digits; `ref` a ref name,
+    looked up under refs/tags, refs/heads or both as its `kind` says;
+    `file_at` a `<revision>:<path>` whose path is from the repository's
+    top and holds no `.` or `..`. A malformed value is E103, a name the
+    repository lacks E106, and a `tracked` path the commit at HEAD does
+    not hold W180. A repository that cannot be asked decides nothing.
+  """
+  verify unit "a commit, ref or file at a revision the repository lacks is E106"
+  verify unit "a path the commit at HEAD does not hold is W180"
+}

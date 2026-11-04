@@ -1006,6 +1006,7 @@ judged verdict digests each checked value's outcome class. It makes one `__check
 | `dns.resolve` | `host` | Http |
 | `git.object` | `rev` | Git |
 | `git.ref` | `name` | Git |
+| `git.file` | `rev`, `path` (from the repository's top; no `.`, `..` or leading `/`) | Git |
 | `git.tracked` | `root`, `path` | Git |
 
 A probe's `root` is the default of a bare path and its `path` the text as written: only the host reads a `<root>/` prefix
