@@ -540,12 +540,11 @@ command tests in `extensions/product/src/tests.rs`.
 
 # Act VI — Where to go next
 
-- **Host functions (planned).** Passes, commands and validators receive what
-  they need in their call's input and return an answer; an extension cannot
-  read files, query on demand or reach the network. A typed host-import
-  surface (`query`, `read_file`, `emit_diagnostic`) is designed but not built
-  ([Extension Protocol → Host Functions](../extension-protocol.md#host-functions)).
-  So an extension cannot connect to a live business system today.
+- **Host ports.** Passes and validators receive what they need in their call's
+  input and return an answer. A command, an MCP tool or resource and a collector
+  may also reach the network, files, a program or git through a port, inside what
+  they declare and this machine approves
+  ([Extension Protocol → Host ports](../extension-protocol.md#host-ports)).
 - **Proofs.** Give your kinds bounds and claims with `proof_role`, and
   `specforge analyze --prove` checks them with z3
   ([Formal Verification Guide](formal-verification.md)). Design groundwork for

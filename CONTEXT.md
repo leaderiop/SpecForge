@@ -308,6 +308,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   effects ceiling, and approved on this machine, decided once per extension and environment. It permits each request
   (or denies it: E090 for the gate, the declaration or the ceiling) and names the approvals a run needs
   (`specforge_effects::Grant`, ADR 0335 D2).
+- **Granted import**: a `specforge:host` port an effectful call kind (a command, an MCP tool or resource, a collector)
+  calls, answered by the **Port session** under the call's **Grant**: an extension's other face for effects, beside its
+  declared inputs (ADR 0335 D4).
+- **Port session**: what one call may do through the ports, made from its kind, what its caller lent and its limits. It
+  decides each request before any effect, sets what only the host may set, holds an answer to a quarter of the guest's
+  memory and spends the call's port budget (`specforge_wasm::PortSession`, ADR 0335 D4).
 - **Approval**: this machine's consent to a capability (per project, extension, **Provenance** and scope name; it
   covers any narrower grant) or to a named root outside the project (per project and canonical target). File and git
   reads inside the project need none; http, process and writes do. Settled before a run's first effect, asked only
