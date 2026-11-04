@@ -30,92 +30,13 @@ use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym, co
 use specforge_protocol_types::{
     CollectInput, CollectOutput, CommandInput, CommandOutput, DeclaredCategory, DescribeRequest,
     DescribeResponse, HandshakeRequest, HandshakeResponse, McpResourceContent, McpResourceRequest,
-    MigrationInput, PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput,
+    MigrationInput, Operation, PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput,
     PassSeverity, PassSpan, PromptInput, PromptOutput, RawGraph, ScanRequest, ScanResponse,
     ValidatorContext, ValidatorVerdict, pass_export,
 };
 
 use crate::runtime::{WasmCallResult, WasmRuntime};
 use crate::sandbox::Sandbox;
-
-/// The operation a call performs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Operation {
-    Handshake,
-    Describe,
-    Command,
-    McpTool,
-    McpResource,
-    Pass,
-    Collect,
-    Validate,
-    Scan,
-    Migrate,
-    Prompt,
-    Render,
-    Hook,
-}
-
-impl Operation {
-    /// Whether the host writes its answer's text into its own messages, help and listings (the
-    /// declaration, a pass's diagnostics and summary, a validator's verdict, a prompt's messages), so the answer is read
-    /// printable (ADR 0244). A command's, an MCP tool's or resource's answer is the extension's own
-    /// output, and a collector's or scanner's is data matched against the project: read as answered.
-    pub const fn reads_text(self) -> bool {
-        matches!(
-            self,
-            Operation::Handshake
-                | Operation::Describe
-                | Operation::Pass
-                | Operation::Validate
-                | Operation::Prompt
-                | Operation::Render
-                | Operation::Hook
-        )
-    }
-
-    /// Every operation.
-    pub const ALL: [Operation; 13] = [
-        Operation::Handshake,
-        Operation::Describe,
-        Operation::Command,
-        Operation::McpTool,
-        Operation::McpResource,
-        Operation::Pass,
-        Operation::Collect,
-        Operation::Validate,
-        Operation::Scan,
-        Operation::Migrate,
-        Operation::Prompt,
-        Operation::Render,
-        Operation::Hook,
-    ];
-
-    /// How a message names the operation.
-    pub fn label(self) -> &'static str {
-        match self {
-            Operation::Handshake => "handshake",
-            Operation::Describe => "describe",
-            Operation::Command => "command",
-            Operation::McpTool => "MCP tool",
-            Operation::McpResource => "MCP resource",
-            Operation::Pass => "compiler pass",
-            Operation::Collect => "collector",
-            Operation::Validate => "custom validator",
-            Operation::Scan => "scanner",
-            Operation::Migrate => "migration hook",
-            Operation::Prompt => "MCP prompt",
-            Operation::Render => "renderer",
-            Operation::Hook => "hook",
-        }
-    }
-}
-
-impl fmt::Display for Operation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.label())
-    }
-}
 
 /// Why a call failed.
 #[derive(Debug, Clone, PartialEq, Eq)]

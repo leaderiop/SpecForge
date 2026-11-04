@@ -5,7 +5,8 @@ use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{MigrationInput, ScanRequest};
 use specforge_protocol_types::DeclaredCategory;
-use specforge_wasm::{CallError, ExtensionCalls, Operation};
+use specforge_protocol_types::Operation;
+use specforge_wasm::{CallError, ExtensionCalls};
 
 use crate::calls::{command_input, validator_context};
 

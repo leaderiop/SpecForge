@@ -235,7 +235,7 @@ mod tests {
         outcome.failures.push(ScanFailure {
             file: "a.rs".into(),
             error: specforge_wasm::CallError::new(
-                specforge_wasm::Operation::Scan,
+                specforge_protocol_types::Operation::Scan,
                 "@specforge/rust",
                 "scan__rust",
                 specforge_wasm::CallFailure::NotLoaded,

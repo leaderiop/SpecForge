@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_formal.wasm",
-  "artifact_sha256": "0218e09b4af038b718a02cd89e277f7248c9cdd96887524c99f4dcd6e769bbdb",
+  "artifact_sha256": "5a6e781d8d7d5dc2fef9097b996c4297ac7948b80d7ab3ca88551aa429e7a37c",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9566c33b63edf6f83a0624a96fa8d1b4e605c4b558117a14f3ea89c13793c4d3",
@@ -20,7 +20,8 @@
     "crates/leaf/protocol-types/src/field.rs": "dd88486b84a6d37652cb8d8479bce48fa60a8189a48c37118cdad9465460ea66",
     "crates/leaf/protocol-types/src/inputs.rs": "5e4cc281810836248026272e240e9961cbdbf9ccdc9129902d0f1a363ab7127e",
     "crates/leaf/protocol-types/src/judged.rs": "a8fb0a0e37b3e5c0d767b850003a6c38a1c89b6c597dfeb44f20f29ac4b67230",
-    "crates/leaf/protocol-types/src/lib.rs": "418f81715553f32415aee30a4ec416fe0015a6b5d7d992ac627bd5d5e084a2ec",
+    "crates/leaf/protocol-types/src/lib.rs": "8331679b7412afc8a72b3341a5e53ae275209f0dcd7cfeebc152d538e1f4e859",
+    "crates/leaf/protocol-types/src/operation.rs": "5b19989f69529cc0f5fb6feb96bf84d4ed5850660aaacdc473d7834385f1af93",
     "crates/leaf/protocol-types/src/plan.rs": "3816dec27974b19c9bc588dffa400ee5b4b8cdc6b64f1ecba42f9e83c1a64ea2",
     "crates/leaf/protocol-types/src/prompt.rs": "bf7b8aac6fa77da1df46b14eaa14f81c1e98bfeae4a97b2c582878765b36d20e",
     "crates/leaf/protocol-types/src/reads.rs": "bf107d09ee3defa3e7cfa4835c48a3f31ff1747ccac569a62b2099e5ba28c1e3",

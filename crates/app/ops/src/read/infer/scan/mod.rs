@@ -4,9 +4,10 @@
 
 use super::sources::{InferenceSources, SourceRead};
 use crate::read::infer::SourceItem;
+use specforge_protocol_types::Operation;
 use specforge_protocol_types::ScanRequest;
 use specforge_wasm::runtime::WasmRuntime;
-use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls};
 
 /// What a scan found, and which scans failed.
 #[derive(Debug, Clone, Default)]

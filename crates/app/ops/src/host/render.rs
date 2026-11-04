@@ -5,12 +5,13 @@
 //! adapter neutral values.
 
 use serde_json::Value;
+use specforge_protocol_types::Operation;
 use specforge_protocol_types::command_args::option_name;
 use specforge_protocol_types::{
     CommandArgType, ExtensionDeclaration, OnFailure, PromptArgDescriptor, RenderInput, RenderKind,
     ServedSlash, SlashCommandDescriptor,
 };
-use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls};
 
 use super::Host;
 use super::port::{

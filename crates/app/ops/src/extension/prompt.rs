@@ -11,12 +11,13 @@ mod judged;
 use serde::Serialize;
 use serde_json::Value;
 use specforge_package::Sha256;
+use specforge_protocol_types::Operation;
 use specforge_protocol_types::command_args::option_name;
 use specforge_protocol_types::{
     Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptStep,
     RawGraph,
 };
-use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls};
 
 pub use args::{PromptArgs, words};
 pub use judged::JudgedRuleRef;

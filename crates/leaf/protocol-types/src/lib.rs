@@ -39,6 +39,7 @@ mod effects;
 mod field;
 mod inputs;
 mod judged;
+mod operation;
 mod plan;
 mod prompt;
 mod reads;
@@ -63,6 +64,7 @@ pub use effects::{
 pub use field::FieldDescriptor;
 pub use inputs::{GitInput, Input, InputKind, Inputs};
 pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgement};
+pub use operation::Operation;
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
 pub use prompt::{
     Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptOutput,

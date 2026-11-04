@@ -24,13 +24,14 @@ use crate::OpError;
 use crate::host::Host;
 use crate::view::ProjectView;
 use serde_json::{Map, Value, json};
+use specforge_protocol_types::Operation;
 use specforge_protocol_types::command_args::{self, ArgError, normalize_arg, option_name};
 use specforge_protocol_types::{
     CommandArgDescriptor, CommandArgType, CommandDescriptor, CommandError, CommandEvidence,
     CommandInput, CommandOutput, EntityEvidence, RawGraph,
 };
 use specforge_registry::{CommandRoute, RegistryBuild};
-use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls};
 use std::path::{Path, PathBuf};
 
 /// The output a command is asked for: `human` (the CLI default) or `json`

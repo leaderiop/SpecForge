@@ -1,8 +1,9 @@
 use super::*;
 use crate::terminal::Facts;
+use specforge_protocol_types::Operation;
 use specforge_protocol_types::{CommandArgDescriptor, CommandArgType, CommandDescriptor};
 use specforge_test_macros::test as specforge_test;
-use specforge_wasm::{CallError, CallFailure, Operation};
+use specforge_wasm::{CallError, CallFailure};
 use std::collections::BTreeSet;
 
 fn arg(

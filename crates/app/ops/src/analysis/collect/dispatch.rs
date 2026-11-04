@@ -4,8 +4,9 @@ use super::collector::Collector;
 use crate::view::ProjectView;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
+use specforge_protocol_types::Operation;
 use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile, RawGraph};
-use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 

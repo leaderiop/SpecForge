@@ -3,7 +3,8 @@
 
 use specforge_protocol_types::{HookInput, HookOutput, RawGraph, RenderInput, RenderOutput};
 
-use crate::calls::{CallError, ExtensionCalls, Operation, decode, encode};
+use crate::calls::{CallError, ExtensionCalls, decode, encode};
+use specforge_protocol_types::Operation;
 
 /// The export an extension answers every render by.
 pub const RENDER_EXPORT: &str = "render__";
