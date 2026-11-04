@@ -2,9 +2,9 @@
 
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
-use specforge_effects::EffectsMode;
 use specforge_effects::git::Sha;
 use specforge_effects::testing::{FakeGit, FakeHttp, MemoryConsent};
+use specforge_effects::{EffectsMode, OutcomeClass};
 use specforge_project::CompiledProject;
 use specforge_project::testing::TestProject;
 use specforge_registry::PlainDisk;
@@ -373,13 +373,17 @@ fn checks_links_head_405_retries_as_get() {
 }
 
 /// `scene` compiled online with `git` as its Git port.
-fn with_git(scene: &Scene, git: FakeGit) -> Vec<Diagnostic> {
+fn compiled_with_git(scene: &Scene, git: FakeGit) -> CompiledProject {
     let env = scene.env().with_git(Arc::new(git));
     let root = scene.dir.project_root();
     let consent = MemoryConsent::default();
     let effects =
         specforge_project::effects::of(EffectsMode::Online, &scene.ports(), &env, &root, &consent);
-    CompiledProject::compile_through(env.with_effects(effects), &PlainDisk).diagnostics()
+    CompiledProject::compile_through(env.with_effects(effects), &PlainDisk)
+}
+
+fn with_git(scene: &Scene, git: FakeGit) -> Vec<Diagnostic> {
+    compiled_with_git(scene, git).diagnostics()
 }
 
 /// A repository at the scene's root whose `HEAD` holds `files`, which knows `v1` as another commit.
@@ -455,4 +459,34 @@ fn checks_git_ignored_path_is_w180() {
         "{}",
         untracked[0].message
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "ck_git_family",
+    verify = "a git question about a withheld path is denied, as a read of it is"
+)]
+fn checks_git_withheld_path_is_denied() {
+    let checks = json!({ "feature.refs": ["@specforge/checks:file_at"] });
+    let scene = links_scene(
+        &["v1:.env", "v1:.specforge/effects/journal.json"],
+        "o",
+        checks,
+        FakeHttp::new(),
+    );
+    let held = &[".env", ".specforge/effects/journal.json"];
+    let project = compiled_with_git(&scene, repo(&scene, held));
+    let classes: Vec<_> = project
+        .value_checks()
+        .of("f")
+        .iter()
+        .map(|row| row.outcome_class)
+        .collect();
+    assert_eq!(classes, [Some(OutcomeClass::Denied); 2]);
+
+    let checks = json!({ "feature.refs": ["@specforge/checks:tracked"] });
+    let dir = links_project(&[".env"], "o", checks).file(".env", "SECRET=1");
+    let scene = over(dir, FakeHttp::new());
+    let project = compiled_with_git(&scene, repo(&scene, &[".env"]));
+    let row = &project.value_checks().of("f")[0];
+    assert_eq!(row.outcome_class, Some(OutcomeClass::Denied), "{row:?}");
 }

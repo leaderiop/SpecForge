@@ -7,7 +7,7 @@ use std::path::{Component, Path};
 use std::time::Instant;
 
 use specforge_common::path_glob;
-use specforge_effects::contained::{Contained, Resolved};
+use specforge_effects::contained::{Contained, Resolved, withheld};
 use specforge_effects::git::Located;
 use specforge_effects::{FsOp, OutcomeClass};
 use specforge_protocol_types::{OutcomeData, StatEntry};
@@ -143,7 +143,6 @@ fn walk(
     (entries, truncated)
 }
 
-/// What git answers; none when it cannot be asked.
 /// The path a git question asks about.
 pub(super) enum GitPath<'p> {
     /// Contained under a root.
@@ -152,11 +151,21 @@ pub(super) enum GitPath<'p> {
     FromTop(&'p str),
 }
 
+/// What git answers about `revision`, and `path` at it; none when it cannot be asked. A withheld path is `Denied`
+/// unasked, as a read of it is: whether it was ever committed says it exists.
 pub(super) fn ask_git(
     env: &Environment,
     revision: &str,
     path: Option<GitPath<'_>>,
 ) -> Option<(OutcomeClass, OutcomeData)> {
+    let denied = match &path {
+        Some(GitPath::Under(resolved)) => resolved.withheld,
+        Some(GitPath::FromTop(path)) => withheld(path),
+        None => false,
+    };
+    if denied {
+        return Some((OutcomeClass::Denied, OutcomeData::None));
+    }
     let port = env.git()?;
     let place = match port.locate(env.root()) {
         Located::Repo(place) => place,

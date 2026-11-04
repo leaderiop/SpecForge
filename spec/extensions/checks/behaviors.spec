@@ -120,10 +120,12 @@ behavior ck_git_family "Git Family" {
     `file_at` a `<revision>:<path>` whose path is from the repository's
     top and holds no `.` or `..`. A malformed value is E103, a name the
     repository lacks E106, and a `tracked` path the commit at HEAD does
-    not hold W180. A repository that cannot be asked decides nothing.
+    not hold W180. A repository that cannot be asked decides nothing, and
+    a path withheld from a read is withheld from git too.
   """
   verify unit "a commit, ref or file at a revision the repository lacks is E106"
   verify unit "a path the commit at HEAD does not hold is W180"
+  verify unit "a git question about a withheld path is denied, as a read of it is"
 }
 
 behavior ck_outcome_facts "Check Outcome Facts" {
