@@ -1277,6 +1277,23 @@ Owner: core
 Level: error
 ```
 
+## E089
+
+```
+E089: Extension imports a port it does not declare
+
+An extension's component imports a `specforge:host` port (`http`, `fs`,
+`process` or `git`) and declares no capability of that port (ADR 0335 D5). A
+guest imports only the ports it calls, so it would call one that every grant
+answers `denied(scope)`: it is refused when it loads, naming the extension and
+the port, rather than failing at a call. `specforge:host/types` alone needs
+nothing. Declare a capability of the port with the SDK (`Capability::http`,
+`fs`, `process`, `git`), or stop calling it.
+
+Owner: core
+Level: error
+```
+
 ## E090
 
 ```

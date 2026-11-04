@@ -120,6 +120,14 @@ pub enum ProtocolError {
     DescribeFailed { category: String, reason: String },
     /// JSON deserialization of a protocol message failed.
     DeserializationError(String),
+    /// Its guest imports a `specforge:host` port no capability it declares backs (ADR 0335 D5): every grant of it
+    /// would answer `denied(scope)`, so it is refused here rather than at a call.
+    UnbackedImport {
+        /// The name its handshake declares.
+        extension: String,
+        /// Each such port, in import order.
+        ports: Vec<String>,
+    },
 }
 
 impl fmt::Display for ProtocolError {
@@ -149,6 +157,11 @@ impl fmt::Display for ProtocolError {
                 write!(f, "describe '{}' failed: {}", category, reason)
             }
             Self::DeserializationError(msg) => write!(f, "deserialization error: {}", msg),
+            Self::UnbackedImport { extension, ports } => write!(
+                f,
+                "extension '{extension}' imports {}, which no capability it declares backs",
+                ports.join(", ")
+            ),
         }
     }
 }

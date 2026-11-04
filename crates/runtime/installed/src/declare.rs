@@ -31,7 +31,8 @@ pub fn declaration_of(bytes: &[u8], runtime: &dyn WasmRuntime) -> Result<Loaded,
     loaded.map_err(|error| {
         let declared = match &error {
             ProtocolError::NewerVersion { extension, .. }
-            | ProtocolError::OlderVersion { extension, .. } => Some(extension.clone()),
+            | ProtocolError::OlderVersion { extension, .. }
+            | ProtocolError::UnbackedImport { extension, .. } => Some(extension.clone()),
             _ => None,
         };
         refused(refusal::of_protocol(error), declared)
@@ -59,6 +60,30 @@ mod tests {
         assert!(
             !runtime.unload(CANDIDATE),
             "the candidate is not left loaded"
+        );
+    }
+
+    #[test]
+    fn an_unbacked_import_is_e089_naming_the_extension_it_declares() {
+        let bytes = b"\0asm a candidate";
+        let runtime = InProcessRuntime::new()
+            .binary(bytes, || {
+                ContributionsBuilder::new(ExtensionMeta::new("@acme/candidate", "2.1.0"))
+            })
+            .importing(CANDIDATE, &["specforge:host/git@0.1.0"]);
+
+        let refused = declaration_of(bytes, &runtime).unwrap_err();
+
+        assert_eq!(refused.code, "E089");
+        assert!(
+            refused.message.contains("'@acme/candidate'"),
+            "{}",
+            refused.message
+        );
+        assert!(
+            refused.message.contains("specforge:host/git@0.1.0"),
+            "{}",
+            refused.message
         );
     }
 

@@ -182,6 +182,8 @@ pub enum LoadProblem {
     OlderProtocol { declared: String, host: String },
     /// E088: it imports `specforge:host` interfaces this host does not provide (ADR 0326 D1a).
     UnknownPorts { ports: Vec<String>, host: String },
+    /// E089: it imports `specforge:host` ports no capability it declares backs (ADR 0335 D5).
+    UnbackedImport { ports: Vec<String> },
     /// E028: it imports interfaces that are neither WASI nor a specforge host port (ADR 0326 D1a).
     ForeignImports { interfaces: Vec<String> },
     /// E028, file entry: the file does not exist.
@@ -337,6 +339,7 @@ impl LoadProblem {
             | LoadProblem::NewerProtocol { .. }
             | LoadProblem::OlderProtocol { .. }
             | LoadProblem::UnknownPorts { .. }
+            | LoadProblem::UnbackedImport { .. }
             | LoadProblem::ForeignImports { .. } => {
                 unreachable!("a named entry names no file, or the step's problem")
             }
@@ -394,6 +397,7 @@ impl LoadProblem {
             | LoadProblem::NewerProtocol { .. }
             | LoadProblem::OlderProtocol { .. }
             | LoadProblem::UnknownPorts { .. }
+            | LoadProblem::UnbackedImport { .. }
             | LoadProblem::ForeignImports { .. } => {
                 unreachable!("a file entry is not installed, or the step's problem")
             }

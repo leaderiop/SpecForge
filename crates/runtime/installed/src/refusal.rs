@@ -85,6 +85,7 @@ pub(crate) fn of_protocol(error: ProtocolError) -> LoadProblem {
             declared: extension_version,
             host: host_version,
         },
+        ProtocolError::UnbackedImport { ports, .. } => LoadProblem::UnbackedImport { ports },
         error => LoadProblem::NoDeclaration {
             reason: error.to_string(),
         },
@@ -160,6 +161,18 @@ pub(crate) fn diagnostic(problem: &LoadProblem, subject: &Subject) -> Option<Dia
                  binary speaks), or install a version of the extension built for protocol {host}",
                 listed(ports)
             )),
+        (LoadProblem::UnbackedImport { ports }, _) => subject
+            .says(
+                codes::E089,
+                format!(
+                    "imports the {}, which no capability it declares backs, so it is not loaded",
+                    specforge_wasm::runtime::host_ports(ports)
+                ),
+            )
+            .with_suggestion(
+                "declare a capability for the port (`Capability::http`, `fs`, `process` or `git`), or stop \
+                 calling it: a guest imports only the ports it calls",
+            ),
         (LoadProblem::ForeignImports { interfaces }, _) => subject.says(
             codes::E028,
             format!("{}, so no specforge loads it", foreign(interfaces)),

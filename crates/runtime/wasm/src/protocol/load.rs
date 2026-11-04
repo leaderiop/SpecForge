@@ -72,11 +72,38 @@ pub fn load_declaration(
             )
         },
     )?;
+    let ports = unbacked(&runtime.host_imports(extension), &declaration);
+    if !ports.is_empty() {
+        return Err(ProtocolError::UnbackedImport {
+            extension: declaration.name().to_string(),
+            ports,
+        });
+    }
     Ok(Loaded {
         declaration,
         warnings,
         protocol_version,
     })
+}
+
+/// The ports among `imports` no capability of `declaration` backs (ADR 0335 D5), in import order. `types` holds only
+/// what the four share: importing it alone asks for nothing.
+fn unbacked(imports: &[String], declaration: &ExtensionDeclaration) -> Vec<String> {
+    imports
+        .iter()
+        .filter(|name| {
+            let port = name
+                .strip_prefix("specforge:host/")
+                .and_then(|rest| rest.split_once('@'))
+                .map_or(name.as_str(), |(port, _)| port);
+            port != "types"
+                && !declaration
+                    .capabilities
+                    .iter()
+                    .any(|capability| capability.port.port() == port)
+        })
+        .cloned()
+        .collect()
 }
 
 /// Why a declaration call failed, as the load error states it.
