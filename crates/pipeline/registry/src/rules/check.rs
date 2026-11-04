@@ -4,6 +4,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use specforge_common::remedy::printable;
 use specforge_common::{CustomRuleFailure, Diagnostic, DiagnosticData, codes};
 use specforge_cycles::cycles;
 
@@ -503,7 +504,8 @@ fn missing_files(rule: &Rule, field: &str, base: &Root, input: &RuleInput<'_>) -
     let mut diagnostics = Vec::new();
     for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
         for finding in files::checked(record, field, base, &contained, input.disk) {
-            let (path, id) = (finding.path, &record.id);
+            // A value's escapes and a directory's names reach a terminal here, read printable (ADR 0244).
+            let (path, id) = (printable(&finding.path).into_owned(), &record.id);
             let core = |code, message: String, suggestion: String| {
                 let mut diagnostic = Diagnostic::new(code, message).with_suggestion(suggestion);
                 diagnostic.span = finding.span.clone().or_else(|| Some(record.span.clone()));
@@ -512,7 +514,8 @@ fn missing_files(rule: &Rule, field: &str, base: &Root, input: &RuleInput<'_>) -
             diagnostics.push(match finding.problem {
                 files::Problem::Missing { suggestion } => {
                     let violation = Violation {
-                        suggestion: suggestion.map(|close| format!("did you mean '{close}'?")),
+                        suggestion: suggestion
+                            .map(|close| format!("did you mean '{}'?", printable(&close))),
                         span: finding.span.clone(),
                         ..Violation::value(path)
                     };
@@ -528,11 +531,14 @@ fn missing_files(rule: &Rule, field: &str, base: &Root, input: &RuleInput<'_>) -
                     format!("path '{path}' in entity '{id}' names the root '<{name}>', which is not declared"),
                     "write `<spec>/…` or `<project>/…`, or drop the prefix for the field's own root".into(),
                 ),
-                files::Problem::Case(disk) => core(
-                    codes::W174,
-                    format!("path '{path}' in entity '{id}' differs in case from the file on disk, '{disk}'"),
-                    format!("write '{disk}'"),
-                ),
+                files::Problem::Case(disk) => {
+                    let disk = printable(&disk);
+                    core(
+                        codes::W174,
+                        format!("path '{path}' in entity '{id}' differs in case from the file on disk, '{disk}'"),
+                        format!("write '{disk}'"),
+                    )
+                }
                 files::Problem::Backslashes => core(
                     codes::W175,
                     format!("path '{path}' in entity '{id}' uses backslashes"),

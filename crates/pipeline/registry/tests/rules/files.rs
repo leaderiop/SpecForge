@@ -686,6 +686,43 @@ fn contained_a_link_out_is_e094() {
 
 #[spec(
     behavior = "validate_file_reference_paths",
+    verify = "a name read from the disk or a value's escape reaches E016 and W174 printable"
+)]
+fn a_hostile_name_reaches_e016_and_w174_printable() {
+    let printable = |text: &str| specforge_common::remedy::printable(text).into_owned();
+    let held = |found: &[Diagnostic]| {
+        for d in found {
+            let help = d.suggestion.as_deref().unwrap_or_default();
+            assert_eq!(printable(&d.message), d.message, "{found:?}");
+            assert_eq!(printable(help), help, "{found:?}");
+        }
+    };
+    // A name in the directory, and a typo of it.
+    let found = e016(
+        &root_with(&["gui\u{1b}]0;x\u{7}de.md"]),
+        &["features/gui]0;xde.md"],
+    );
+    let help = found[0].suggestion.as_deref().unwrap_or_default();
+    assert!(help.contains(r"\u{1b}"), "{found:?}");
+    held(&found);
+    // A value's own escape, as it read.
+    let found = e016(&root_with(&["a.md"]), &["features/a\r.md"]);
+    assert!(found[0].message.contains(r"a\r.md"), "{found:?}");
+    held(&found);
+    // A case variant of a name holding one.
+    #[cfg(unix)]
+    {
+        let found = plain(|base| {
+            std::fs::write(base.join("proj/spec/Gu\u{1b}]0;x\u{7}ide.md"), "x").unwrap();
+            vec!["gu\u{1b}]0;x\u{7}ide.md".to_string()]
+        });
+        assert_eq!(codes(&found), ["W174"], "{found:?}");
+        held(&found);
+    }
+}
+
+#[spec(
+    behavior = "validate_file_reference_paths",
     verify = "a file reference whose case differs from the disk is W174 naming the disk's spelling"
 )]
 fn contained_a_case_mismatch_is_w174() {

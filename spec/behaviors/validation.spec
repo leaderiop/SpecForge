@@ -259,6 +259,7 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "an absolute file reference is E094"
   verify unit "a file reference through a link out of its root is E094"
   verify unit "a file reference whose case differs from the disk is W174 naming the disk's spelling"
+  verify unit "a name read from the disk or a value's escape reaches E016 and W174 printable"
   verify unit "a missing file reference outside its root suggests no name from outside it"
   verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass, paths_contained, case_reported"
 }
@@ -518,5 +519,8 @@ behavior check_field_values "Check Field Values" {
   verify unit "a spec root outside the project is an outside root a probe needs approval to read"
   verify unit "what is over a run's budget is not run and counts toward I206 as budget"
   verify unit "a judge call stays inside its guest's memory limit"
+  verify unit "an escape sequence in a probe's answer reaches a finding printable"
+  verify unit "a checker's memo read from disk reaches a finding printable"
+  verify unit "a spec string's escape reads no control character but a newline, a tab or a return"
   verify unit "a redirect one extension's grant permits reaches no other extension without its own grant"
 }

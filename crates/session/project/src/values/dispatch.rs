@@ -5,6 +5,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::time::Instant;
 
+use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, SourceSpan, codes};
 use specforge_effects::contained::{Contained, Refused, Resolved};
 use specforge_effects::grant::{Denied, Uses, one_line};
@@ -283,6 +284,7 @@ impl<'a> Probing<'a> {
     ) -> Option<Result<Resolved, ()>> {
         let default = Root::parse(root).unwrap_or(Root::Project);
         let value = one.value;
+        let shown = printable(written);
         let at = |code, message: String, suggestion: String, span| {
             let mut diagnostic = Diagnostic::new(code, message).with_suggestion(suggestion);
             diagnostic.span = span;
@@ -295,7 +297,7 @@ impl<'a> Probing<'a> {
         let leaves = |why: &str| {
             at(
                 codes::E094,
-                format!("path '{written}' in entity '{id}' leaves its root: {why}"),
+                format!("path '{shown}' in entity '{id}' leaves its root: {why}"),
                 "name a file inside the root".to_string(),
                 value.span.clone(),
             )
@@ -307,7 +309,7 @@ impl<'a> Probing<'a> {
                 at(
                     codes::E095,
                     format!(
-                        "path '{written}' in entity '{id}' names the root '<{name}>', which is not declared"
+                        "path '{shown}' in entity '{id}' names the root '<{name}>', which is not declared"
                     ),
                     "write `<spec>/…` or `<project>/…`, or declare the root in `roots`".to_string(),
                     root_span(value),
@@ -327,22 +329,25 @@ impl<'a> Probing<'a> {
             }
             Ok(resolved) if resolved.backslashes => at(
                 codes::W175,
-                format!("path '{written}' in entity '{id}' uses backslashes"),
-                format!("write '{}'", written.replace('\\', "/")),
+                format!("path '{shown}' in entity '{id}' uses backslashes"),
+                format!("write '{}'", shown.replace('\\', "/")),
                 value.span.clone(),
             ),
             Ok(Resolved {
                 case: Some(disk),
                 exists: true,
                 ..
-            }) => at(
-                codes::W174,
-                format!(
-                    "path '{written}' in entity '{id}' differs in case from the file on disk, '{disk}'"
-                ),
-                format!("write '{disk}'"),
-                value.span.clone(),
-            ),
+            }) => {
+                let disk = printable(&disk);
+                at(
+                    codes::W174,
+                    format!(
+                        "path '{shown}' in entity '{id}' differs in case from the file on disk, '{disk}'"
+                    ),
+                    format!("write '{disk}'"),
+                    value.span.clone(),
+                )
+            }
             Ok(resolved) => return Some(Ok(resolved)),
         };
         reading.refused.push(refused);

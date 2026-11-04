@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
+use specforge_common::remedy::hold_printable;
 use specforge_common::slug;
 use specforge_effects::digest;
 use specforge_protocol_types::{CheckFinding, CheckItem, CheckPhase, PlannedItem, Probe};
@@ -40,7 +41,12 @@ impl Book {
     fn read(path: Option<&Path>) -> Self {
         let mut book: Book = path
             .and_then(|path| std::fs::read(path).ok())
-            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+            .and_then(|mut read| {
+                // Answers it gives again go where a guest's go: read printable (ADR 0244).
+                hold_printable(&mut read, &[]);
+                serde_json::from_value(read).ok()
+            })
             .unwrap_or_default();
         book.run += 1;
         book
