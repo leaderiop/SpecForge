@@ -13,6 +13,7 @@ ADR 0326 D2 (the 1.x line ends at 1.15.0). Folds the wire keys of
 [ADR 0316](0316-a-prompt-reads-the-slash-commands-the-project-serves.md),
 [ADR 0320](0320-a-hook-is-told-git-facts-and-the-real-path-of-what-its-tool-names.md) and
 [ADR 0323](0323-a-hook-reads-the-settings-of-another-extension-it-names.md) into `Input` variants.
+Amended by [ADR 0336](0336-a-field-declares-the-checks-its-values-pass.md) (D4: `collect` defaults as `check` does, because a collector may read the checks' outcomes).
 
 ## Context
 
