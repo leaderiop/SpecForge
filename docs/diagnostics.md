@@ -1272,6 +1272,26 @@ Owner: core
 Level: error
 ```
 
+## E090
+
+```
+E090: Effect outside the granted scope
+
+An extension asked the host for an effect its grant does not cover (ADR 0335
+D2): the call kind may not use that port at all (a pass, validator, prompt,
+renderer, scanner, migration or hook never reaches the network or runs a
+command, and only `collect` runs a process), no capability it declares covers
+the request (another host, method, scheme, root, op or command), or the
+project's effects ceiling (`effects` in `specforge.json`) narrows the capability
+that would. The host does not perform it. The message names the extension, the
+request in one line (no header or body) and the capability that came closest.
+Declare a capability that covers it, or widen `effects` if the project means to
+allow it; an effect a call kind may never make is the extension's to remove.
+
+Owner: core
+Level: error
+```
+
 ## E094
 
 ```
@@ -3913,6 +3933,26 @@ extension the project loads, or names no protocol at all (a release from before
 writes run `specforge` from PATH, so they run that binary, which refuses the
 project's newer extensions (E088) or would drop what they declare. Update the
 specforge on PATH, or put this one first on PATH (ADR 0326).
+
+Owner: core
+Level: warning
+```
+
+## W170
+
+```
+W170: Effects not approved on this machine
+
+A capability an extension uses here (an HTTP request, a command, a write) needs
+this machine's approval and has none (ADR 0335 D2.4), or a named root it reads
+lies outside the project and is not approved. Approvals are per machine and per
+project, kept in `~/.specforge/consent.json`, never in the project: a builtin's
+by its name, a third-party extension's by the digest of its blob, so a new blob
+asks again, as does a wider scope. Only the scopes the run uses are listed.
+Approve them with `specforge grants approve <extension> <scope>...` (`--root
+<name>` for a root), or pass `--yes` to allow them for one run. A `machine`
+diagnostic: `--strict` never promotes it, and the gate's warning baseline never
+counts it.
 
 Owner: core
 Level: warning

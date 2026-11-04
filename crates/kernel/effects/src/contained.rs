@@ -64,6 +64,13 @@ impl Roots {
         self
     }
 
+    /// The named roots (`specforge.json` `roots`), by name, and where each lies.
+    pub fn named(&self) -> impl Iterator<Item = (&str, &Path)> {
+        self.named
+            .iter()
+            .map(|(name, path)| (name.as_str(), path.as_path()))
+    }
+
     /// Where `root` lies; `None` for a root no one named.
     pub fn get(&self, root: &RootName) -> Option<&Path> {
         match root {

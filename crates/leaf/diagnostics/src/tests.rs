@@ -186,11 +186,13 @@ fn machine_codes_are_effect_summaries() {
         .filter(|e| e.machine)
         .map(|e| e.code)
         .collect();
-    assert_eq!(machine, ["I206", "I207"]);
+    assert_eq!(machine, ["I206", "I207", "W170"]);
     for code in [codes::I206, codes::I207] {
         assert!(code.machine(), "{code}");
         assert_eq!(code.level(), Level::Info, "{code}");
     }
+    assert!(codes::W170.machine());
+    assert_eq!(codes::W170.level(), Level::Warning);
     assert!(!codes::W112.machine());
 }
 

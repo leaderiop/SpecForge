@@ -4,10 +4,15 @@
 //! [`digest`] gives each request and outcome its canonical digest, and [`contained`] decides where a written path
 //! may lead.
 
+pub mod ceiling;
+pub mod consent;
 pub mod contained;
 mod digest;
 pub mod fs;
+pub mod gate;
 pub mod git;
+pub mod grant;
+mod granted;
 pub mod http;
 pub mod journal;
 pub mod mode;
@@ -17,10 +22,17 @@ mod provenance;
 pub mod testing;
 mod time;
 
+pub use ceiling::{EffectsCeiling, FsCeiling, GitCeiling, HttpCeiling, Narrow, Narrowed, Removed};
+pub use consent::{
+    Approval, Approvals, CapabilityApproval, Consent, ConsentError, Keyed, Revoke, RootApproval,
+    SharedConsent,
+};
 pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, RootName, Roots};
 pub use digest::{canonical, digest};
 pub use fs::{Fs, FsOutcome, SharedFs};
+pub use gate::{Port, gate};
 pub use git::{Git, SharedGit};
+pub use grant::{Denial, Denied, Grant, Granted, Need, OutsideRoot, Uses};
 pub use http::{Http, HttpOutcome, Redirects, SharedHttp};
 pub use journal::{Answer, EffectJournal, EffectRecord, RecordDigest};
 pub use mode::{Effects, EffectsMode, Served};

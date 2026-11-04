@@ -622,3 +622,126 @@ impl Git for FakeGit {
             .collect())
     }
 }
+
+/// A consent store in memory (ADR 0335 D2.4): what it was given, or everything ([`MemoryConsent::approving_everything`]),
+/// or an unusable store ([`MemoryConsent::unusable`]).
+#[derive(Default)]
+pub struct MemoryConsent {
+    held: Mutex<crate::Approvals>,
+    everything: bool,
+    unusable: Option<crate::ConsentError>,
+}
+
+impl MemoryConsent {
+    /// A store that approves every capability and root.
+    pub fn approving_everything() -> Self {
+        MemoryConsent {
+            everything: true,
+            ..Self::default()
+        }
+    }
+
+    /// A store that cannot be read: `why` names the reason.
+    pub fn unusable(why: &str) -> Self {
+        MemoryConsent {
+            unusable: Some(crate::ConsentError {
+                store: "memory".to_string(),
+                why: why.to_string(),
+            }),
+            ..Self::default()
+        }
+    }
+
+    fn usable(&self) -> Result<(), crate::ConsentError> {
+        self.unusable.clone().map_or(Ok(()), Err)
+    }
+}
+
+impl crate::Consent for MemoryConsent {
+    fn list(&self) -> Result<crate::Approvals, crate::ConsentError> {
+        self.usable()?;
+        Ok(self.held.lock().expect("consent lock").clone())
+    }
+
+    fn update(
+        &self,
+        change: &mut dyn FnMut(&mut crate::Approvals),
+    ) -> Result<(), crate::ConsentError> {
+        self.usable()?;
+        change(&mut self.held.lock().expect("consent lock"));
+        Ok(())
+    }
+
+    fn approved(&self, wanted: &crate::Approval) -> Result<bool, crate::ConsentError> {
+        self.usable()?;
+        Ok(self.everything || self.held.lock().expect("consent lock").covers(wanted))
+    }
+}
+
+/// The contract every [`Consent`](crate::Consent) adapter keeps, given an empty store: nothing is approved; an
+/// approval covers itself and a narrower scope; approving under the same key replaces it; a revoke removes it.
+pub fn consent_contract(consent: &dyn crate::Consent) {
+    use crate::{Approval, CapabilityApproval, Keyed, Revoke, RootApproval};
+    use specforge_protocol_types::{GitOp, GitScope, PortScope};
+    let git = |ops: &[GitOp]| CapabilityApproval {
+        project: "/p".to_string(),
+        extension: "@acme/x".to_string(),
+        provenance: Keyed::Builtin,
+        scope: "history".to_string(),
+        granted: PortScope::Git(GitScope { ops: ops.to_vec() }),
+        call_kinds: Vec::new(),
+        digest: String::new(),
+        specforge: String::new(),
+        approved_at: String::new(),
+    };
+    let both = Approval::Capability(git(&[GitOp::Read, GitOp::Write]));
+    let read = Approval::Capability(git(&[GitOp::Read]));
+    assert!(
+        consent
+            .list()
+            .expect("an empty store lists")
+            .capabilities
+            .is_empty()
+    );
+    assert!(!consent.approved(&read).expect("an empty store answers"));
+    consent
+        .approve(read.clone())
+        .expect("an approval is stored");
+    assert!(consent.approved(&read).expect("it answers"));
+    assert!(
+        !consent.approved(&both).expect("it answers"),
+        "a wider scope asks again"
+    );
+    consent
+        .approve(both.clone())
+        .expect("an approval is stored");
+    assert!(
+        consent.approved(&read).expect("it answers"),
+        "a wider approval covers a narrower grant"
+    );
+    assert_eq!(
+        consent.list().expect("it lists").capabilities.len(),
+        1,
+        "the same key is replaced"
+    );
+    let root = Approval::Root(RootApproval {
+        project: "/p".to_string(),
+        root: "vendor".to_string(),
+        target: "/v".to_string(),
+        approved_at: String::new(),
+    });
+    consent
+        .approve(root.clone())
+        .expect("a root approval is stored");
+    assert!(consent.approved(&root).expect("it answers"));
+    let gone = consent
+        .revoke(&Revoke::Project {
+            project: "/p".to_string(),
+        })
+        .expect("a revoke is stored");
+    assert_eq!(gone, 2);
+    assert_eq!(
+        consent.list().expect("it lists"),
+        crate::Approvals::default()
+    );
+}
