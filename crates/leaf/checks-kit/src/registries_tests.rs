@@ -235,6 +235,15 @@ fn releases_read_each_index_answer() {
 }
 
 #[test]
+fn an_answer_missing_what_an_index_serves_does_not_read() {
+    // A changed endpoint is a transport warning, never "every release is yanked" (a false E105).
+    assert!(releases(Ecosystem::Crates, b"").is_err());
+    assert!(releases(Ecosystem::Crates, b"\n  \n").is_err());
+    assert!(releases(Ecosystem::Npm, br#"{"name":"react"}"#).is_err());
+    assert!(releases(Ecosystem::Pypi, br#"{"info":{"name":"requests"}}"#).is_err());
+}
+
+#[test]
 fn licence_reads_what_each_release_record_states() {
     let crates = br#"{"version":{"num":"1.0.0","license":"MIT OR Apache-2.0"}}"#;
     assert_eq!(

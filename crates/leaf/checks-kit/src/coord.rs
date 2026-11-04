@@ -249,7 +249,9 @@ pub struct Release {
 }
 
 /// The releases `body`, an index's answer in `ecosystem`, lists; why it does not read otherwise. Every field it does not
-/// need is skipped unread, so a large packument costs its version keys.
+/// need is skipped unread, so a large packument costs its version keys. The fields it needs are required: an answer
+/// without them, or a crates index file with no line, is not one the registry serves, and reads as a transport problem
+/// (W172), never as a package whose every release is yanked.
 pub fn releases(ecosystem: Ecosystem, body: &[u8]) -> Result<Vec<Release>, String> {
     match ecosystem {
         Ecosystem::Crates => {
@@ -268,12 +270,18 @@ pub fn releases(ecosystem: Ecosystem, body: &[u8]) -> Result<Vec<Release>, Strin
                         yanked: line.yanked,
                     })
                 })
-                .collect()
+                .collect::<Result<Vec<_>, String>>()
+                .and_then(|releases| {
+                    if releases.is_empty() {
+                        Err("the index file lists no release".to_string())
+                    } else {
+                        Ok(releases)
+                    }
+                })
         }
         Ecosystem::Npm => {
             #[derive(Deserialize)]
             struct Packument {
-                #[serde(default)]
                 versions: BTreeMap<String, IgnoredAny>,
             }
             let packument: Packument = serde_json::from_slice(body).map_err(|e| e.to_string())?;
@@ -299,7 +307,6 @@ fn pypi_releases(body: &[u8]) -> Result<Vec<Release>, String> {
     }
     #[derive(Deserialize)]
     struct Project {
-        #[serde(default)]
         releases: BTreeMap<String, Vec<File>>,
     }
     let project: Project = serde_json::from_slice(body).map_err(|e| e.to_string())?;
