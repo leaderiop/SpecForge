@@ -121,11 +121,15 @@ behavior ck_git_family "Git Family" {
     top and holds no `.` or `..`. A malformed value is E103, a name the
     repository lacks E106, and a `tracked` path the commit at HEAD does
     not hold W180. A repository that cannot be asked decides nothing, and
-    a path withheld from a read is withheld from git too.
+    neither does a miss git cannot vouch for: no repository at all, a
+    shallow clone's missing history or refs, or a tag in a clone that
+    fetched none. Each leaves the check unchecked (I207). A path withheld
+    from a read is withheld from git too.
   """
   verify unit "a commit, ref or file at a revision the repository lacks is E106"
   verify unit "a path the commit at HEAD does not hold is W180"
   verify unit "a git question about a withheld path is denied, as a read of it is"
+  verify unit "no repository, a shallow clone's missing history and a tag a clone did not fetch leave the check unchecked"
 }
 
 behavior ck_outcome_facts "Check Outcome Facts" {

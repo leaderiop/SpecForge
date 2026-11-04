@@ -2,11 +2,12 @@
 
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
-use specforge_effects::git::Sha;
+use specforge_effects::git::{Located, Sha};
 use specforge_effects::testing::{FakeGit, FakeHttp, MemoryConsent};
 use specforge_effects::{EffectsMode, OutcomeClass};
 use specforge_project::CompiledProject;
 use specforge_project::testing::TestProject;
+use specforge_project::values::CheckStatus;
 use specforge_registry::PlainDisk;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -489,4 +490,69 @@ fn checks_git_withheld_path_is_denied() {
     let project = compiled_with_git(&scene, repo(&scene, &[".env"]));
     let row = &project.value_checks().of("f")[0];
     assert_eq!(row.outcome_class, Some(OutcomeClass::Denied), "{row:?}");
+}
+
+/// `git` as a shallow clone.
+fn shallow(mut git: FakeGit) -> FakeGit {
+    if let Located::Repo(place) = &mut git.located {
+        place.shallow = true;
+    }
+    git
+}
+
+#[specforge_test_macros::test(
+    behavior = "ck_git_family",
+    verify = "no repository, a shallow clone's missing history and a tag a clone did not fetch leave the check unchecked"
+)]
+fn checks_git_a_miss_git_cannot_decide_is_unchecked() {
+    // No repository: a source tarball.
+    let checks = json!({ "feature.refs": ["@specforge/checks:commit"] });
+    let scene = links_scene(&["abcdef1234"], "o", checks, FakeHttp::new());
+    let project = compiled_with_git(&scene, FakeGit::none());
+    assert!(coded(&project.diagnostics(), "E106").is_empty());
+    assert_eq!(
+        project.value_checks().of("f")[0].status,
+        CheckStatus::NotRun
+    );
+    let checks = json!({ "feature.refs": ["@specforge/checks:tracked"] });
+    let dir = links_project(&["a.md"], "o", checks).file("a.md", "x");
+    let found = with_git(&over(dir, FakeHttp::new()), FakeGit::none());
+    assert!(coded(&found, "W180").is_empty(), "{found:?}");
+
+    // A shallow clone: an older commit is not there to ask, but a commit it holds still decides its files.
+    let checks = json!({ "feature.refs": ["@specforge/checks:commit"] });
+    let scene = links_scene(&["abcdef1234"], "o", checks, FakeHttp::new());
+    let found = with_git(&scene, shallow(repo(&scene, &[])));
+    assert!(coded(&found, "E106").is_empty(), "{found:?}");
+    let checks = json!({ "feature.refs": ["@specforge/checks:file_at"] });
+    let scene = links_scene(
+        &["v2:src/a.rs", "v1:src/b.rs"],
+        "o",
+        checks,
+        FakeHttp::new(),
+    );
+    let found = coded(
+        &with_git(&scene, shallow(repo(&scene, &["src/a.rs"]))),
+        "E106",
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].message.contains("src/b.rs"),
+        "{}",
+        found[0].message
+    );
+
+    // A full clone that fetched no tag cannot say one is missing; one that holds a tag can.
+    let tag =
+        json!({ "feature.refs": [{"checker": "@specforge/checks:ref", "args": {"kind": "tag"}}] });
+    let scene = links_scene(&["v9"], "o", tag.clone(), FakeHttp::new());
+    let found = with_git(&scene, repo(&scene, &[]));
+    assert!(coded(&found, "E106").is_empty(), "{found:?}");
+    let dir = links_project(&["v9"], "o", tag).file(
+        ".git/refs/tags/v1",
+        "1234567890abcdef1234567890abcdef12345678\n",
+    );
+    let scene = over(dir, FakeHttp::new());
+    let found = with_git(&scene, repo(&scene, &[]));
+    assert_eq!(coded(&found, "E106").len(), 1, "{found:?}");
 }

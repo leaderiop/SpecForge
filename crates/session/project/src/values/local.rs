@@ -2,13 +2,14 @@
 //! file is checked again by its stamp, not by a time to live.
 
 use std::collections::VecDeque;
-use std::io;
+use std::fs::File;
+use std::io::{self, BufRead as _, BufReader};
 use std::path::{Component, Path};
 use std::time::Instant;
 
 use specforge_common::path_glob;
 use specforge_effects::contained::{Contained, Resolved, withheld};
-use specforge_effects::git::Located;
+use specforge_effects::git::{GitPlace, Located};
 use specforge_effects::{FsOp, OutcomeClass};
 use specforge_protocol_types::{OutcomeData, StatEntry};
 use specforge_registry::Disk;
@@ -167,18 +168,17 @@ pub(super) fn ask_git(
         return Some((OutcomeClass::Denied, OutcomeData::None));
     }
     let port = env.git()?;
-    let place = match port.locate(env.root()) {
-        Located::Repo(place) => place,
-        Located::NotARepository => return Some((OutcomeClass::Missing, git_of(false, None))),
-        Located::Unavailable(_) => return None,
+    // A directory that is no repository (a source tarball) cannot say what one lacks.
+    let Located::Repo(place) = port.locate(env.root()) else {
+        return None;
     };
     // A value is never an option of the program behind the port.
     if revision.starts_with('-') {
         return Some((OutcomeClass::Missing, git_of(false, None)));
     }
-    let commit = port.commit(&place, revision).ok()?;
-    let Some(commit) = commit else {
-        return Some((OutcomeClass::Missing, git_of(false, None)));
+    let Some(commit) = port.commit(&place, revision).ok()? else {
+        return decides_a_miss(&place, revision)
+            .then(|| (OutcomeClass::Missing, git_of(false, None)));
     };
     let from_top = match path {
         None => {
@@ -209,6 +209,26 @@ pub(super) fn ask_git(
         OutcomeClass::Missing
     };
     Some((class, git_of(found, None)))
+}
+
+/// Whether `revision`, which the repository does not resolve, is not there: a shallow clone lacks older history and
+/// the refs it did not fetch, and a clone that fetched no tag cannot say one is missing.
+fn decides_a_miss(place: &GitPlace, revision: &str) -> bool {
+    !place.shallow && (!revision.starts_with("refs/tags/") || holds_tags(place))
+}
+
+/// Whether the repository holds a tag, as git keeps refs on disk: loose under `refs/tags`, or in `packed-refs`. A store
+/// read otherwise (reftable) holds none as far as this knows, so a tag it lacks is not decided.
+fn holds_tags(place: &GitPlace) -> bool {
+    let loose = std::fs::read_dir(place.common_dir.join("refs/tags"))
+        .is_ok_and(|mut entries| entries.next().is_some());
+    loose
+        || File::open(place.common_dir.join("packed-refs")).is_ok_and(|packed| {
+            BufReader::new(packed)
+                .lines()
+                .map_while(Result::ok)
+                .any(|line| line.contains(" refs/tags/"))
+        })
 }
 
 pub(super) fn stat_of(entry: Option<StatEntry>, size: u64, near: Option<String>) -> OutcomeData {

@@ -24,7 +24,7 @@ catalog! {
         "A `@specforge/checks:content_type` value answered a `Content-Type` outside the check's `allow`, or none. Point the link at the right resource, or add the type to `allow`.";
     E106: Error checks,
         "A commit, ref or file at a revision is not found",
-        "A `@specforge/checks` git check (`commit`, `ref`, `file_at`) names something this repository does not have. Fix the name, or fetch what it names: a shallow clone may lack it.";
+        "A `@specforge/checks` git check (`commit`, `ref`, `file_at`) names something this repository does not have. Fix the name. A miss git cannot vouch for is not reported: with no repository, in a shallow clone, or for a tag in a clone that fetched none, the check stays unchecked (I207).";
     E112: Error checks,
         "The URL's fragment is not in the page",
         "A `@specforge/checks:url_anchor` value's `#fragment` names no `id` attribute, and no `name` of an `<a>`, in the page as served, read to its first 1 MiB with no script run. A page cut off at that cap with no match is not decided. Fix the fragment or the page.";
