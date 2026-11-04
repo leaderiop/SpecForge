@@ -334,6 +334,7 @@ behavior apply_edit_plan "Apply an Edit Plan" {
   verify unit "a writing command receives the revision of every source and its plan is applied"
   verify unit "a plan is all or nothing, the ledger included"
   verify unit "two plans on disjoint files both land with their ledger lines"
+  verify unit "a plan compiled before another landed keeps the other's ledger line"
   verify unit "a plan may not write a computed value"
   verify unit "a plan echoing a computed value its graph carries is refused"
   verify unit "a plan echoing a verdict-given value its graph carries is refused"

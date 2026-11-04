@@ -40,6 +40,7 @@ pub struct PlannedChange {
 }
 
 type Redo = Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>;
+type Moved = Arc<dyn Fn() -> bool + Send + Sync>;
 
 /// The rewrite of `specforge-harness` a change carries: what it was planned on, what it will hold, and how to make it
 /// again over what the file holds when the change is applied, under the lock.
@@ -50,6 +51,21 @@ struct LedgerWrite {
     /// `.gitattributes` lacks the ledger's merge attribute: the write adds it.
     attributes: bool,
     redo: Redo,
+    /// The planned bytes drop a line of a value neither the compiled project nor the change holds: a stale line, or
+    /// one another writer landed after the compile and before the ledger was read. Under the lock, a source that moved
+    /// since the compile says it may be the other writer's, and the change is made again over what the file holds.
+    unsure: Option<Moved>,
+}
+
+impl LedgerWrite {
+    /// The bytes to write when the file holds `now`: the planned bytes, or the change made again over `now`.
+    fn over(&self, now: &[u8]) -> Vec<u8> {
+        if now == self.planned_on && !self.unsure.as_ref().is_some_and(|moved| moved()) {
+            self.after.clone()
+        } else {
+            (self.redo)(now)
+        }
+    }
 }
 
 impl std::fmt::Debug for LedgerWrite {
@@ -177,12 +193,18 @@ impl PlannedChange {
         if unchanged && !attributes && !keeps {
             return self;
         }
+        let unsure =
+            (before.rewritten_ledger(&after, &current, &change, true) != bytes).then(|| {
+                let before = before.clone();
+                Arc::new(move || before.sources_moved(&BTreeSet::new())) as Moved
+            });
         let before = before.clone();
         self.ledger = Some(LedgerWrite {
             planned_on: current,
             after: bytes,
             attributes,
             redo: Arc::new(move |current| before.rewritten_ledger(&after, current, &change, true)),
+            unsure,
         });
         self
     }
@@ -196,13 +218,7 @@ impl PlannedChange {
     /// The bytes the change writes to `specforge-harness` when the file holds `now` when it is applied: the planned
     /// bytes, or the change made again over what is there (another writer may have landed since).
     pub(crate) fn ledger_over(&self, now: &[u8]) -> Option<Vec<u8>> {
-        self.ledger.as_ref().map(|ledger| {
-            if now == ledger.planned_on {
-                ledger.after.clone()
-            } else {
-                (ledger.redo)(now)
-            }
-        })
+        self.ledger.as_ref().map(|ledger| ledger.over(now))
     }
 
     /// Nothing to write.
@@ -350,11 +366,7 @@ impl PlannedChange {
                 if let Some(ledger) = &self.ledger {
                     let current = stager.held(LEDGER_FILE)?.read_if_there().ok().flatten();
                     let now = current.clone().unwrap_or_default();
-                    let after = if now == ledger.planned_on {
-                        ledger.after.clone()
-                    } else {
-                        (ledger.redo)(&now)
-                    };
+                    let after = ledger.over(&now);
                     if after != now {
                         stager.write(LEDGER_FILE, current, after)?;
                     }

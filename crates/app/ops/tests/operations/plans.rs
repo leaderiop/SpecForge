@@ -314,6 +314,51 @@ fn two_plans_on_disjoint_files_both_land() {
 }
 
 #[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "a plan compiled before another landed keeps the other's ledger line"
+)]
+fn a_plan_compiled_before_another_landed_keeps_the_others_ledger_line() {
+    let p = project();
+    let first = serving(&[(
+        CORE,
+        "cmd__record",
+        0,
+        json!([set(
+            "v1.0/03/U1",
+            "result",
+            json!("pass"),
+            &revision(&p, "03-01.spec")
+        )]),
+    )]);
+    let second = serving(&[(
+        CORE,
+        "cmd__record",
+        0,
+        json!([set(
+            "v1.0/03/U2",
+            "result",
+            json!("fail"),
+            &revision(&p, "03-02.spec")
+        )]),
+    )]);
+    // Both compiled first; the second plans after the first has landed, reading its ledger line.
+    let (one, two) = (compiled(&p, &first), compiled(&p, &second));
+    let landed = run_command(&p, &one, &first, "core", "record");
+    assert!(landed.refusal.is_none(), "{:?}", landed.refusal);
+    let later = run_command(&p, &two, &second, "core", "record");
+    assert!(later.refusal.is_none(), "{:?}", later.refusal);
+    let ledger = ledger(&p);
+    assert!(
+        ledger.contains(&line("v1.0/03/U1", "result", "\"pass\"")),
+        "{ledger}"
+    );
+    assert!(
+        ledger.contains(&line("v1.0/03/U2", "result", "\"fail\"")),
+        "{ledger}"
+    );
+}
+
+#[specforge_test(
     behavior = "refuse_stale_revision",
     verify = "two plans whose union adds an error refuse the later"
 )]
