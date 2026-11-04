@@ -9,10 +9,11 @@ use crate::codes::*;
 mod digits;
 pub(crate) mod files;
 mod formats;
+pub(crate) mod links;
 
 /// The scopes the families' probes run under. Formats and digits read only the text, so they have none.
 pub(crate) const FILES: &str = "files";
-const LINKS: &str = "links";
+pub(crate) const LINKS: &str = "links";
 const GIT: &str = "git";
 
 /// A family's switch and the codes only that family reports. E103 is shared, so no switch gates it.
@@ -80,6 +81,7 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
     files::contribute(c);
     formats::contribute(c);
     digits::contribute(c);
+    links::contribute(c);
 }
 
 /// A checker's arguments, as the host admitted them.

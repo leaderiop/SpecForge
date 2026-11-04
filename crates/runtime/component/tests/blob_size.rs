@@ -41,8 +41,10 @@ use specforge_component::committed::COMMITTED;
 // headroom. Its families raise this again: formats and digits bring that blob to 1,838,772 B, nearly all of it
 // the one `regex` engine with its Unicode tables, and the total to 8,719,583 B; the rule gives 8,800,000.
 // The files family brings it to 1,859,652 B and the total to 8,720,439 B, the SDK's `file_reference` gone from every
-// blob: the budget holds, with 79,561 B of headroom.
-const TOTAL_BUDGET: usize = 8_800_000;
+// blob: the budget holds, with 79,561 B of headroom. The links family (the WHATWG `url` parser, with its IDNA tables,
+// and the HTML anchor reader) brings it to 2,064,823 B and the total to 8,925,610 B; the rule gives 9,000,000, with
+// 74,390 B of headroom.
+const TOTAL_BUDGET: usize = 9_000_000;
 
 #[test]
 fn committed_builtins_stay_under_their_size_budget() {

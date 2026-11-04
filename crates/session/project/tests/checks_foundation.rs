@@ -2,7 +2,12 @@
 
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
+use specforge_effects::EffectsMode;
+use specforge_effects::testing::{FakeHttp, MemoryConsent};
 use specforge_project::testing::TestProject;
+use std::sync::Arc;
+
+use crate::value_probes::Scene;
 
 const CHECKS: &str = "@specforge/checks";
 const PRODUCT: &str = "@specforge/product";
@@ -194,4 +199,171 @@ fn checks_files_line_range_past_the_end_is_w176() {
     let found = coded(&past, "W176");
     assert_eq!(found.len(), 1, "{past:?}");
     assert!(found[0].message.contains('9'), "{}", found[0].message);
+}
+
+/// A feature whose `refs` holds `refs` and whose `owner` is `owner`, each field checked as `checks` says.
+fn links_project(refs: &[&str], owner: &str, checks: Value) -> TestProject {
+    let items: Vec<String> = refs.iter().map(|r| format!("\"{r}\"")).collect();
+    TestProject::new()
+        .config(|c| c["checks"] = json!({ "fields": checks }))
+        .enabling(&[PRODUCT, CHECKS])
+        .file(
+            "a.spec",
+            format!(
+                "feature f \"F\" {{\n  status planned\n  problem \"p\"\n  solution \"s\"\n  owner \"{owner}\"\n  refs [{}]\n}}\n",
+                items.join(", ")
+            ),
+        )
+}
+
+/// `dir` with the builtins, over `http`.
+fn over(dir: TestProject, http: FakeHttp) -> Scene {
+    Scene {
+        dir,
+        runtime: specforge_project::testing::component_runtime(),
+        http: Arc::new(http),
+    }
+}
+
+fn links_scene(refs: &[&str], owner: &str, checks: Value, http: FakeHttp) -> Scene {
+    over(links_project(refs, owner, checks), http)
+}
+
+const URL: &str = "@specforge/checks:url";
+const GONE: &str = "https://gone.example/";
+
+#[specforge_test_macros::test(
+    behavior = "ck_links_family",
+    verify = "a URL that answers 404 is E093, and W183 on a field whose check lowers it"
+)]
+fn checks_links_404_is_e093_and_a_lowered_field_is_w183() {
+    let http = || FakeHttp::new().route(GONE, 404, "");
+    let plain = links_scene(&[GONE], "o", json!({ "feature.refs": [URL] }), http());
+    let found = plain.online().diagnostics();
+    assert_eq!(coded(&found, "E093").len(), 1, "{found:?}");
+    let span = coded(&found, "E093")[0].span.clone().expect("on the value");
+    assert_eq!(span.start_line, 6, "{span:?}");
+
+    let lowered = json!({ "feature.refs": [{ "checker": URL, "args": { "status": "warn" } }] });
+    let found = links_scene(&[GONE], "o", lowered, http())
+        .online()
+        .diagnostics();
+    assert!(coded(&found, "E093").is_empty(), "{found:?}");
+    assert_eq!(coded(&found, "W183").len(), 1, "{found:?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "ck_links_family",
+    verify = "without approval only the links scope is asked for"
+)]
+fn checks_links_unapproved_asks_only_the_links_scope() {
+    let scene = links_scene(
+        &[GONE],
+        "o",
+        json!({ "feature.refs": [URL] }),
+        FakeHttp::new(),
+    );
+    let found = scene
+        .checked(EffectsMode::Auto, &MemoryConsent::default())
+        .diagnostics();
+    let asked = coded(&found, "W170");
+    assert_eq!(asked.len(), 1, "{found:?}");
+    let message = &asked[0].message;
+    assert!(message.contains("'links'"), "{message}");
+    assert!(
+        !message.contains("'files'") && !message.contains("'git'"),
+        "{message}"
+    );
+    assert!(scene.http.requests().is_empty());
+}
+
+#[specforge_test_macros::test(
+    behavior = "ck_links_family",
+    verify = "a links family switched off sends no request"
+)]
+fn checks_links_off_switch_sends_no_probe() {
+    let dir = links_project(&[GONE], "o", json!({ "feature.refs": [URL] }))
+        .config(|c| c["settings"] = json!({ CHECKS: { "families.links": false } }));
+    let scene = over(dir, FakeHttp::new());
+    let found = scene
+        .checked(EffectsMode::Auto, &MemoryConsent::default())
+        .diagnostics();
+    assert!(coded(&found, "W170").is_empty(), "{found:?}");
+    assert!(coded(&found, "E093").is_empty(), "{found:?}");
+    assert!(scene.http.requests().is_empty());
+    assert!(scene.http.asked().is_empty());
+}
+
+#[specforge_test_macros::test(
+    behavior = "ck_links_family",
+    verify = "the remote's answers are machine-decided warnings, the project's own are not"
+)]
+fn checks_links_transport_warnings_are_machine() {
+    let (down, moved, broken, closed, own) = (
+        "https://down.example/",
+        "https://moved.example/",
+        "https://broken.example/",
+        "https://closed.example/",
+        "https://own.example/",
+    );
+    let http = FakeHttp::new()
+        .redirect(moved, "http://moved.example/")
+        .route(broken, 500, "")
+        .route(closed, 403, "")
+        .route(own, 404, "")
+        .certificate(
+            "own.example",
+            443,
+            "2000-01-01T00:00:00Z",
+            "an issuer",
+            true,
+        );
+    let checks = json!({
+        "feature.refs": [URL],
+        "feature.owner": [
+            { "checker": URL, "args": { "status": "warn" } },
+            "@specforge/checks:tls"
+        ]
+    });
+    let found = links_scene(&[down, moved, broken, closed], own, checks, http)
+        .online()
+        .diagnostics();
+    for (code, machine) in [
+        ("W172", true),
+        ("W173", true),
+        ("W181", true),
+        ("W182", true),
+        ("W178", false),
+        ("W183", false),
+    ] {
+        let reported = coded(&found, code);
+        assert_eq!(reported.len(), 1, "{code}: {found:?}");
+        assert_eq!(reported[0].machine, machine, "{code}");
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "ck_links_family",
+    verify = "a HEAD answered 405 or 501 is asked once more as a GET"
+)]
+fn checks_links_head_405_retries_as_get() {
+    let refs = json!({ "feature.refs": [URL] });
+    for refused in [405, 501] {
+        let http = FakeHttp::new().route(GONE, 200, "").head(GONE, refused);
+        let scene = links_scene(&[GONE], "o", refs.clone(), http);
+        let found = scene.online().diagnostics();
+        let methods: Vec<String> = scene
+            .http
+            .requests()
+            .into_iter()
+            .map(|r| r.method)
+            .collect();
+        assert_eq!(methods, ["HEAD", "GET"], "{refused}");
+        assert!(coded(&found, "W181").is_empty(), "{found:?}");
+    }
+    let http = FakeHttp::new().route(GONE, 200, "").head(GONE, 404);
+    let scene = links_scene(&[GONE], "o", refs, http);
+    let found = scene.online().diagnostics();
+    assert_eq!(scene.http.requests().len(), 1, "any other answer stands");
+    assert_eq!(coded(&found, "E093").len(), 1, "{found:?}");
 }

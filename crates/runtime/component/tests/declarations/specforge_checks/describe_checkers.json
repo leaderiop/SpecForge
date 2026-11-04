@@ -729,6 +729,266 @@
       ],
       "name": "iban",
       "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "schemes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "error",
+            "warn"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "E093",
+        "W183",
+        "W182",
+        "W181",
+        "W172",
+        "W173"
+      ],
+      "name": "url",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "schemes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "error",
+            "warn"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "E093",
+        "W183",
+        "W182",
+        "W181",
+        "W172",
+        "W173",
+        "E112"
+      ],
+      "name": "url_anchor",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "schemes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "error",
+            "warn"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "allow",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "E093",
+        "W183",
+        "W182",
+        "W181",
+        "W172",
+        "W173",
+        "E104"
+      ],
+      "name": "content_type",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "schemes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "error",
+            "warn"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "hosts",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "E093",
+        "W183",
+        "W182",
+        "W181",
+        "W172",
+        "W173"
+      ],
+      "name": "redirect",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "days",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "W172",
+        "W178"
+      ],
+      "name": "tls",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "W172"
+      ],
+      "name": "dns",
+      "scopes": [
+        "links"
+      ],
+      "when": "families.links"
     }
   ]
 }

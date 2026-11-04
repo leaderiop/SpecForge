@@ -72,3 +72,35 @@ behavior ck_files_family "Files Family" {
   verify unit "a file whose digest differs from its pin is E096"
   verify unit "a line range past the end of the file is W176"
 }
+
+behavior ck_links_family "Links Family" {
+  features [ck_value_checks]
+  category command
+  ensures {
+    malformed_urls_unfetched "A URL the text alone refuses is E091 or E092 and is never requested"
+    definite_answers_errors  "Only a definite answer (404 or 410) is an error; every other failure is a warning"
+  }
+  contract """
+    Each links checker (url, url_anchor, content_type, tls, redirect,
+    dns) MUST read only what the host's probes answer, under the links
+    scope. A malformed or relative URL, or one that carries credentials,
+    MUST be E091, and a scheme outside `schemes` (default `https`;
+    `javascript`, `data` and `file` never) E092 on the scheme, both
+    without a request. After at most 5 redirects, 404 or 410 is E093, or
+    W183 on a field whose check says `status: "warn"`; 401 and 403 are
+    W182; 429, 5xx and any other non-success W181; a failure to reach
+    the host W172; and a redirect not followed W173. A HEAD answered 405
+    or 501 is asked once more as a GET. `url_anchor` reads at most 1 MiB
+    and reports a fragment no `id` or `name` matches as E112 on the
+    fragment; a page cut off at that cap is not decided. `content_type`
+    reports a type outside `allow`, or none, as E104; `tls` a certificate
+    ending within `days` (default 14) as W178; `redirect` a final host
+    outside `hosts` as W173; `dns` a host that does not resolve as W172
+    and a malformed host name as E103.
+  """
+  verify unit "a URL that answers 404 is E093, and W183 on a field whose check lowers it"
+  verify unit "without approval only the links scope is asked for"
+  verify unit "a links family switched off sends no request"
+  verify unit "the remote's answers are machine-decided warnings, the project's own are not"
+  verify unit "a HEAD answered 405 or 501 is asked once more as a GET"
+}

@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_checks.wasm",
-  "artifact_sha256": "5ec7dd27be54a52c8bead6d47f55711d97a649780e120ff39e087204c1a4da02",
+  "artifact_sha256": "ee5bbb471ff2e95e4a364a66d3bcdea2917a05fe654dd1b0c92355934f00b23c",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9566c33b63edf6f83a0624a96fa8d1b4e605c4b558117a14f3ea89c13793c4d3",
@@ -22,13 +22,13 @@
     "crates/leaf/checks-kit/src/tables/iban.rs": "e7172e49f16a41bea857b4d8aac08f30b4fc2fa69a8f7a12d2ce388d83e07e44",
     "crates/leaf/checks-kit/src/tables/iso3166.rs": "6e4767fd834591d64974e5db412cad7b7df038e07e4a25346c0e60a45332d314",
     "crates/leaf/checks-kit/src/tables/iso4217.rs": "1d948666e8c5b1df1d13c22e2ae2071501f184b648122f5e0dc5ca4e69d9a6a9",
-    "crates/leaf/checks-kit/src/tables/mod.rs": "2897fcaceefec96883a6a1e8552e4ca93e190f157481c5366affdd9cf38f71df",
+    "crates/leaf/checks-kit/src/tables/mod.rs": "af8aaee6fbf35380b7da6df68d2e93e44a1936f60b153a4f6da7b171ede3767d",
     "crates/leaf/protocol-types/Cargo.toml": "c49e26358223169c357b4157ada37addc7bc97ae7b10e07198748faf5b3f94aa",
     "crates/leaf/protocol-types/src/calls.rs": "1bcb6b4a582b6cb1f13cddaafd3e00531164febabcd5c8044a7b85336314804e",
     "crates/leaf/protocol-types/src/calls/evidence.rs": "f10687676e8c14a0cf4046bf35e57366087df4b698104329efd164e707a4d983",
     "crates/leaf/protocol-types/src/calls/facts.rs": "0c846b932f525c1050b3041d119b684927c16222c62930317d7b0e2352208bdc",
     "crates/leaf/protocol-types/src/capability.rs": "39337e46a38e44f97bf39d0645c8d09d90bad64d25ee516dc8584368ac2b2399",
-    "crates/leaf/protocol-types/src/checks.rs": "470f0f6340f57edaba0d6441b6688b6f87cbd3774151bec5c88e2adc74575df4",
+    "crates/leaf/protocol-types/src/checks.rs": "b573ea71165e05082fc89502a5a320de8af10566e5f1d748beff99a296474655",
     "crates/leaf/protocol-types/src/code_catalog.rs": "b5a5d364bbf8060febd7d343e2ea1472eedbd2df10ede660dffbda03ca55a737",
     "crates/leaf/protocol-types/src/command_args.rs": "ec81e38e7b000cc15b4b7c26e9fe5de602f0d98764c3af4f466e6225c41866b1",
     "crates/leaf/protocol-types/src/contrib.rs": "1f8d99527417179a57e22729e2119a2cab86ed42f14af93ebe122ed477edb633",
@@ -81,7 +81,8 @@
     "extensions/checks/src/families/digits.rs": "56cbca96440aff5b4a1255951f1ad6a80ffc27de394d316680555fb757ecc326",
     "extensions/checks/src/families/files.rs": "319a0db6b5f8487ae8d46a940c20656f242590891ce65f4d586c81da09bc08da",
     "extensions/checks/src/families/formats.rs": "b9e7f87a99ae4e62da8d92e00bb414841a04aa34ab7f0b0855bb9e562cd6899a",
-    "extensions/checks/src/families/mod.rs": "a01c586b2c51b6cb07f500d051b338909cb758fac495eb44dc47afafd2481873",
+    "extensions/checks/src/families/links.rs": "23eba96b46ac7b0871fcf47f8bb3ece4e4e7cfb4a4e1a3b8be3673648690032d",
+    "extensions/checks/src/families/mod.rs": "fe7d0f8737a6b5a92d183b2258da4082dd6d9de83aaddfb830059d6aa48a0a8d",
     "extensions/checks/src/lib.rs": "9dcf94cba615e1bda56d8e07ea453856636b6d46bfd2507d8427643d6a80c275"
   }
 }

@@ -30,7 +30,7 @@ const OP: Operation = Operation::CheckValues;
 /// The most of a file `fs.read_prefix` and `fs.read` answer, and of a body `http.get` does.
 const PREFIX_CAP: u32 = 64 * 1024;
 const READ_CAP: u32 = 1024 * 1024;
-const BODY_CAP: u32 = 64 * 1024;
+const BODY_CAP: u32 = 1024 * 1024;
 /// The response headers a checker may read.
 const KEPT_HEADERS: [&str; 5] = [
     "content-length",

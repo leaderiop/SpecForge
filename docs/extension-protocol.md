@@ -1000,8 +1000,8 @@ judged verdict digests each checked value's outcome class. It makes one `__check
 | `fs.read` | `root`, `path`, `bytes` (held to 1 MiB) | Fs |
 | `fs.walk` | `root`, `path`, `glob` | Fs |
 | `fs.digest` | `root`, `path`: the whole file's SHA-256 and length, read in chunks until the run's deadline (asked as a read) | Fs |
-| `http.head` | `url`, `redirects` (held to 5, each under the grant) | Http |
-| `http.get` | `url`, `range`?, `max_bytes` (held to 64 KiB) | Http |
+| `http.head` | `url`, `redirects` (held to 5, each under the grant); a 405 or 501 is asked once more as a GET | Http |
+| `http.get` | `url`, `range`?, `max_bytes` (held to 1 MiB) | Http |
 | `http.tls` | `host`, `port` | Http |
 | `dns.resolve` | `host` | Http |
 | `git.object` | `rev` | Git |

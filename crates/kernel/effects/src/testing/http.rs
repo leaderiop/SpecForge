@@ -14,6 +14,8 @@ use crate::{Http, HttpOutcome, Redirects};
 #[derive(Default)]
 pub struct FakeHttp {
     routes: BTreeMap<String, Route>,
+    /// What a HEAD of a URL answers in place of its route.
+    heads: BTreeMap<String, u16>,
     names: BTreeMap<String, Vec<String>>,
     certificates: BTreeMap<(String, u16), TlsOutcome>,
     requests: Mutex<Vec<HttpRequest>>,
@@ -58,6 +60,12 @@ impl FakeHttp {
                 body: body.into(),
             },
         );
+        self
+    }
+
+    /// A HEAD of `url` answers `status` with no body; any other method follows its route.
+    pub fn head(mut self, url: &str, status: u16) -> Self {
+        self.heads.insert(url.to_string(), status);
         self
     }
 
@@ -122,6 +130,16 @@ impl Http for FakeHttp {
         let mut method = request.method.clone();
         let mut hops = 0;
         loop {
+            if let (Some(status), "HEAD") = (self.heads.get(&url), method.as_str()) {
+                return HttpOutcome {
+                    class: status_class(*status),
+                    status: Some(*status),
+                    final_url: url,
+                    headers: Vec::new(),
+                    body: Vec::new(),
+                    detail: None,
+                };
+            }
             let Some(route) = self.routes.get(&url) else {
                 return HttpOutcome::unreachable(&url, Unreachable::Dns, "no route");
             };

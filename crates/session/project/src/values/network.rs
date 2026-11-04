@@ -9,7 +9,7 @@ use std::time::Instant;
 use specforge_effects::http::Any;
 use specforge_effects::journal::{Answer, Blob};
 use specforge_effects::{
-    Asker, EffectRequest, Effects, Outcome, OutcomeClass, Ports, Served, UnixMillis,
+    Asker, EffectRequest, Effects, HttpRequest, Outcome, OutcomeClass, Ports, Served, UnixMillis,
 };
 use specforge_protocol_types::{Header, Operation, OutcomeData, Probe, ProbeOutcome};
 
@@ -152,7 +152,15 @@ fn perform_one(effects: &Effects, now: UnixMillis, job: &Job<'_>) -> Performed {
 fn answer_of(job: &Job<'_>, ports: &Ports) -> Answer {
     let (class, data) = match &job.request {
         EffectRequest::Http(request) => {
-            let outcome = ports.http.request(request, &Any);
+            let mut outcome = ports.http.request(request, &Any);
+            // A server that does not serve HEAD is asked once as a GET, through the same grant.
+            if request.method == "HEAD" && matches!(outcome.status, Some(405 | 501)) {
+                let get = HttpRequest {
+                    method: "GET".to_string(),
+                    ..request.clone()
+                };
+                outcome = ports.http.request(&get, &Any);
+            }
             let keep = usize::try_from(job.max_bytes).unwrap_or(usize::MAX);
             let truncated = outcome.body.len() > keep || outcome.class == OutcomeClass::Capped;
             let mut body = outcome.body;

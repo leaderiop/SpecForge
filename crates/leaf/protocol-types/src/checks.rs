@@ -278,14 +278,14 @@ pub enum Probe {
         path: String,
         glob: String,
     },
-    /// Follows at most `redirects`, held to 5, each under the grant.
+    /// Follows at most `redirects`, held to 5, each under the grant. A 405 or 501 is asked once more as a GET.
     #[serde(rename = "http.head")]
     HttpHead {
         url: String,
         #[serde(default)]
         redirects: u32,
     },
-    /// `max_bytes` is held to 64 KiB; `range` is the inclusive bytes asked for.
+    /// `max_bytes` is held to 1 MiB; `range` is the inclusive bytes asked for.
     #[serde(rename = "http.get")]
     HttpGet {
         url: String,
