@@ -286,6 +286,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Checker**: what an extension declares to read one value (`CheckerDescriptor`, ADR 0336 D3), qualified by its
   extension: its field types, args, scopes and codes. `__check_values` calls it in two pure phases, once per extension per
   phase: `plan` answers findings or **probes**, `judge` findings from their outcomes (`CheckPhase`).
+- **Checker family**: the checkers of `@specforge/checks` that share a scope and a switch: files, formats, digits, links
+  and git (ADR 0338 D3).
+- **Family switch**: the bool setting `families.<family>`, on by default: each of its checkers runs only while it is on
+  (`when`), and it gates the codes only that family reports (ADR 0338 D3).
+- **Checks kit**: `specforge-checks-kit`, the leaf crate of bare algorithms, parsers and pinned tables that
+  `@specforge/checks` and domain packs compile; it holds no probes, roots or codes (ADR 0338 D5).
 - **Probe**: an effect a **checker** asks the host to perform on a value (`specforge_protocol_types::Probe`: `fs.*`,
   `http.*`, `dns.resolve`, `git.*`), inside the scopes it declares (E090). The host contains its path, deduplicates it,
   performs it through the effect plane and answers a `ProbeOutcome`; a guest never performs one, and never hears about a
