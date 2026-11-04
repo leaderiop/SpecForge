@@ -162,6 +162,15 @@ impl Repo {
 
     /// A commit of the index on `HEAD` (its branch, or `HEAD` itself when detached): its sha.
     pub fn commit(&self, message: &str) -> String {
+        self.commit_onto(message, None)
+    }
+
+    /// A merge commit of the index on `HEAD`, with `other` as its second parent: its sha.
+    pub fn merge(&self, message: &str, other: &str) -> String {
+        self.commit_onto(message, Some(other))
+    }
+
+    fn commit_onto(&self, message: &str, other: Option<&str>) -> String {
         let repo = self.open();
         let index = index_of(&repo);
         let mut tree = repo.edit_tree(repo.empty_tree().id).unwrap();
@@ -180,6 +189,7 @@ impl Repo {
             .ok()
             .map(|id| id.detach())
             .into_iter()
+            .chain(other.map(|sha| gix::ObjectId::from_hex(sha.as_bytes()).unwrap()))
             .collect();
         self.commit_as(&repo, "HEAD", message, tree, parents)
     }

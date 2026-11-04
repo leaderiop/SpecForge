@@ -323,6 +323,10 @@ pub trait Git: Send + Sync {
     fn commit(&self, place: &GitPlace, revision: &str) -> Result<Option<Sha>, GitError>;
     /// The nearest common ancestor of two commits.
     fn merge_base(&self, place: &GitPlace, a: &Sha, b: &Sha) -> Result<Option<Sha>, GitError>;
+    /// Every best common ancestor of two commits: a criss-cross history has more than one, and `A...B` hides them all.
+    fn merge_bases(&self, place: &GitPlace, a: &Sha, b: &Sha) -> Result<Vec<Sha>, GitError> {
+        Ok(self.merge_base(place, a, b)?.into_iter().collect())
+    }
     /// Every file under `dir` (from the repository's top) at `commit` whose path `wanted` keeps: no other blob is
     /// read, so a repository's images, lockfiles and vendored trees never are.
     fn files(

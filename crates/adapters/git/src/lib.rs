@@ -233,6 +233,18 @@ impl Git for Gix {
         }
     }
 
+    fn merge_bases(&self, place: &GitPlace, a: &Sha, b: &Sha) -> Result<Vec<Sha>, GitError> {
+        let repo = open(place)?;
+        // empty when the two share no history
+        let bases = repo
+            .merge_bases_many(id(a)?, &[id(b)?])
+            .map_err(|error| failed("find the merge bases", &error))?;
+        Ok(bases
+            .iter()
+            .map(|base| Sha::new(base.to_string()))
+            .collect())
+    }
+
     fn files(
         &self,
         place: &GitPlace,

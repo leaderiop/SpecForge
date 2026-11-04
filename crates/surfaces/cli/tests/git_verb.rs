@@ -292,6 +292,30 @@ fn log_with_three_dots_walks_what_either_side_reaches_and_not_both() {
     );
 }
 
+/// A criss-cross history (each side merged the other's first commit) has two merge bases; `A...B` hides what either
+/// reaches, as git's symmetric difference does, so neither side's first commit is listed.
+#[test]
+fn log_with_three_dots_hides_every_merge_base_of_a_criss_cross() {
+    let (project, repo, first) = committed();
+    repo.write("a.txt", "a1");
+    let a1 = repo.commit_all("a1");
+    repo.branch("side", &first).head_on("side");
+    repo.write("b.txt", "b1");
+    let b1 = repo.commit_all("b1");
+    repo.merge("mb", &a1);
+    repo.head_on("main");
+    repo.merge("ma", &b1);
+    let subjects = git(
+        &project,
+        &["log", "main...side", "--pick", ".commits[].subject"],
+    )
+    .exits(0)
+    .stdout;
+    let mut subjects: Vec<&str> = subjects.lines().collect();
+    subjects.sort_unstable();
+    assert_eq!(subjects, ["ma", "mb"]);
+}
+
 /// A project on branch `feature` off `main`: `a.txt` changed, `c.txt` added, `bin.dat` binary.
 fn feature() -> (TestProject, Repo) {
     let (project, repo, first) = committed();

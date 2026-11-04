@@ -330,12 +330,12 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
         Some(range) => {
             if let Some((a, b)) = range.split_once("...") {
                 let (a, b) = (named(or_head(a))?, named(or_head(b))?);
-                let base = verbs
+                let bases = verbs
                     .ports()
                     .git
-                    .merge_base(&place, &a, &b)
+                    .merge_bases(&place, &a, &b)
                     .map_err(failed)?;
-                (vec![a, b], base.into_iter().collect())
+                (vec![a, b], bases)
             } else if let Some((a, b)) = range.split_once("..") {
                 (vec![named(or_head(b))?], vec![named(or_head(a))?])
             } else {
