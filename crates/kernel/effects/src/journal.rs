@@ -421,7 +421,9 @@ impl EffectJournal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{EnvVar, FsOp, FsRequest, Header, HttpRequest, ProcessRequest, Unreachable};
+    use crate::{
+        AttachedSecret, EnvVar, FsOp, FsRequest, Header, HttpRequest, ProcessRequest, Unreachable,
+    };
 
     fn http(url: &str) -> EffectRequest {
         EffectRequest::Http(HttpRequest {
@@ -602,6 +604,30 @@ mod tests {
         }
         // A record file that names another digest does not decode.
         assert!(serde_json::from_str::<RecordDigest>("\"../x\"").is_err());
+    }
+
+    #[test]
+    fn a_record_names_neither_the_secret_a_grant_attached_nor_its_header() {
+        let dir = tempfile::tempdir().unwrap();
+        let request = EffectRequest::Http(HttpRequest {
+            method: "GET".into(),
+            url: "https://example.org/api".into(),
+            secret: Some(AttachedSecret {
+                header: "X-Attached-Key".into(),
+                env: "ATTACHED_ENV".into(),
+                scheme: Some("Bearer".into()),
+                hosts: vec!["example.org".into()],
+            }),
+            ..HttpRequest::default()
+        });
+        let (path, _) = EffectJournal::at(dir.path())
+            .keep(&request, &answer(OutcomeClass::Ok), at(0))
+            .unwrap()
+            .unwrap();
+        let written = std::fs::read_to_string(&path).unwrap();
+        for name in ["ATTACHED_ENV", "X-Attached-Key"] {
+            assert!(!written.contains(name), "{name} in {written}");
+        }
     }
 
     #[test]
