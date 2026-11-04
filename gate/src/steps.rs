@@ -6,6 +6,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use crate::baseline::{self, Baseline, FileSizes};
+use crate::blob_size;
 use crate::checks::{self, Selection};
 use crate::doc_links;
 use crate::judge;
@@ -366,6 +367,19 @@ pub fn file_size(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     } else {
         Err(verdict.problems.join("; "))
     }
+}
+
+pub fn blob_size(ctx: &Ctx, _: &Selection) -> Result<(), String> {
+    let (listed, out) = ctx.capture(ctx.cmd("git").args(["ls-files", "-z", "--", "*.wasm"]))?;
+    if !listed {
+        return Err("`git ls-files` failed".into());
+    }
+    let found = blob_size::measure(
+        &ctx.repo.root,
+        out.split('\0').filter(|path| !path.is_empty()),
+    );
+    ctx.log(&format!("{} blobs, cap {} B", found.len(), blob_size::CAP));
+    finish(blob_size::verdict(&found))
 }
 
 pub fn specs(ctx: &Ctx, _: &Selection) -> Result<(), String> {

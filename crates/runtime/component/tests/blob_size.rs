@@ -1,5 +1,6 @@
-//! The committed builtins are built small (`[profile.blob]`, I1): a size budget so a build
-//! that drops the profile shows up as a test failure, not as a bigger binary and pack.
+//! The committed builtins are built small (`[profile.blob]`, I1): a total budget so a build
+//! that drops the profile shows up as a test failure, not as a bigger binary and pack. The cap on one blob is the gate's
+//! `blob-size` check (ADR 0338 D8).
 #![allow(
     clippy::unwrap_used,
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
@@ -34,9 +35,9 @@ use specforge_component::committed::COMMITTED;
 // per blob (a flattened, internally tagged wire form measured 41 KB, so the wire is one flat object). The rule gives
 // 6,600,000, with 38,427 B of headroom; product is 1,046,792 B, 53,208 B under its cap. ADR 0336's value checks (a
 // describe category, `checks` on every field in an untagged form, the SDK's `checker`) measured 6,851,378 B: +289,805 B,
-// about 26 KB per blob. The rule gives 6,900,000, with 48,622 B of headroom; product is 1,070,347 B, 29,653 B under its cap.
+// about 26 KB per blob. The rule gives 6,900,000, with 48,622 B of headroom. The per-blob cap moved to the gate at 2.5 MB (ADR 0338 D8), so the
+// comments above that weigh product against its cap are history.
 const TOTAL_BUDGET: usize = 6_900_000;
-const BLOB_BUDGET: usize = 1_100_000;
 
 #[test]
 fn committed_builtins_stay_under_their_size_budget() {
@@ -46,7 +47,4 @@ fn committed_builtins_stay_under_their_size_budget() {
         .collect();
     let total: usize = sizes.iter().map(|(_, n)| n).sum();
     assert!(total <= TOTAL_BUDGET, "builtins total {total} B: {sizes:?}");
-    for (name, n) in &sizes {
-        assert!(*n <= BLOB_BUDGET, "{name} is {n} B");
-    }
 }

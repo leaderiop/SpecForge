@@ -3,6 +3,7 @@
 
 mod baseline;
 pub mod blob_inputs;
+mod blob_size;
 mod change_set;
 mod checks;
 pub mod crate_map;
