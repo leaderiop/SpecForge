@@ -22,6 +22,7 @@ formats = [
 ]
 links = ["dep:percent-encoding", "dep:url"]
 files = []
+pdf = ["dep:miniz_oxide"]
 structured = ["dep:percent-encoding", "dep:serde_json", "dep:toml", "dep:yaml-rust2"]
 git = []
 
@@ -32,6 +33,7 @@ email_address = { version = "0.2.9", default-features = false, optional = true }
 jiff = { version = "0.2.39", default-features = false, features = ["std"], optional = true }
 language-tags = { version = "0.3.2", optional = true }
 mime = { version = "0.3.17", optional = true }
+miniz_oxide = { version = "0.8.9", optional = true }
 percent-encoding = { version = "2.3.2", optional = true }
 # The parser and NFA compiler `regex` is built on, without its search engines: what the kernel's `matches` compiles.
 regex-automata = { version = "0.4.14", default-features = false, features = [

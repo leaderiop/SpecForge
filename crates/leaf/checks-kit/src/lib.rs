@@ -19,6 +19,8 @@ pub mod git;
 pub mod html;
 #[cfg(feature = "links")]
 pub mod links;
+#[cfg(feature = "pdf")]
+pub mod pdf;
 #[cfg(feature = "structured")]
 pub mod pointer;
 #[cfg(feature = "structured")]
@@ -26,6 +28,8 @@ pub mod slug;
 #[cfg(feature = "structured")]
 pub mod tree;
 
+#[cfg(all(test, feature = "pdf"))]
+mod pdf_tests;
 #[cfg(all(test, feature = "structured"))]
 mod structured_tests;
 #[cfg(all(
