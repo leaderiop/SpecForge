@@ -93,6 +93,13 @@ term declarative_validation "Declarative Validation" {
   tags       ["core", "validation"]
 }
 
+term t_value_check "Value Check" {
+  definition "A check one value of a field must pass, declared by the field's checks or attached by specforge.json. The value stays plain in its field type's form. An extension's checker reads it in two pure phases, plan and judge, and any effect it needs is a probe the host performs through the effect plane, containing every path itself. A check that could not run is not judged and fails nothing."
+  context    "ADR 0336. Runs first in a compile, because a judged verdict digests each checked value's outcome class."
+  aliases    ["checker", "probe"]
+  tags       ["core", "validation"]
+}
+
 term t_entity_enhancement "Entity Enhancement" {
   definition "A mechanism by which one extension adds fields to another extension's entity kinds without modifying the original extension. Declared in the enhancing extension's manifest via entity_enhancements. Enables cross-extension composition without coupling."
   context    "Example: @specforge/software adds a behaviors field to @specforge/product's milestone entity kind via entity_enhancements. The product extension itself declares no entity_enhancements — it is standalone."

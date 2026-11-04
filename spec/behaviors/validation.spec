@@ -476,7 +476,6 @@ behavior check_collected_kinds "Check Collected Kinds" {
 }
 
 behavior check_field_values "Check Field Values" {
-  features   [structural_validation]
   category   validation
   invariants [validation_pipeline_ordering]
   ports      [FileSystem]

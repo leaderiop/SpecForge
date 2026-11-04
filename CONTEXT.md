@@ -271,10 +271,29 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   deny-list (a withheld name). One that leaves its root is refused (E094), an unknown root is E095, a case variant
   W174, a backslash W175. E016, judged file inputs, K11 reads and a request's **Containment** all resolve through it.
 - **Root (of a path)**: the directory a written path is read against: `project`, `spec`, or a named one; a
-  `<root>/` prefix names another (`specforge_effects::Roots`, `RootName`).
+  `<root>/` prefix names another (`specforge_effects::Roots`, `specforge_protocol_types::Root`).
+- **Rooted path**: a path as a value writes it: bare, which takes its reader's default root, or `<root>/rest`, which names
+  one (`specforge_protocol_types::RootedPath`, ADR 0336 D6). One parser reads it on the host and in a guest, for value
+  checks, K11 reads, the judged `file()` selector and MCP project paths. It reads syntax only: where a path may lead is
+  **Contained**'s.
+- **Value check**: a check one value of a field must pass, named by the field's `checks` or attached by `specforge.json`
+  `checks` (`specforge_protocol_types::CheckRef`, ADR 0336). The value stays plain in its field type's form. It runs in
+  the **values phase**, first in a compile; its outcome is `passed`, `failed` or `not_run` (`CheckStatus`), and one that
+  did not run is not judged and fails nothing (I206, W170, I207). `inspect`, the hover and `export --with-checks` show
+  it (`specforge_project::values::ValueChecks`). It writes no fact unless a collector declares the `check_outcomes` input
+  and is named by `--runner` or runs under `checks.publish`. Not a validation rule, which reads the graph, and not a
+  verdict, which a judge gives.
+- **Checker**: what an extension declares to read one value (`CheckerDescriptor`, ADR 0336 D3), qualified by its
+  extension: its field types, args, scopes and codes. `__check_values` calls it in two pure phases, once per extension per
+  phase: `plan` answers findings or **probes**, `judge` findings from their outcomes (`CheckPhase`).
+- **Probe**: an effect a **checker** asks the host to perform on a value (`specforge_protocol_types::Probe`: `fs.*`,
+  `http.*`, `dns.resolve`, `git.*`), inside the scopes it declares (E090). The host contains its path, deduplicates it,
+  performs it through the effect plane and answers a `ProbeOutcome`; a guest never performs one, and never hears about a
+  path outside its root.
 - **Input (of a call)**: one thing a call declares the host serves it before the call, one variant of
   `inputs: Vec<Input>` on a pass, command, prompt, hook or collector: `files` (a `FileRead`), `tests`, `state`,
-  `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`) or `setting { extension, name }`.
+  `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`), `setting { extension, name }` or
+  `check_outcomes` (a collector's).
   One table says what each call kind is served; an input it is not served is W021 and is served empty (ADR 0337 D2).
 - **Effect record**: one performed effect as the journal keeps it (`specforge_effects::EffectRecord`, ADR 0335 D3,
   ADR 0337 D3): what may be shown of the request (never a secret) and its digest, the outcome's class and digest,
