@@ -117,7 +117,7 @@ type CollectorDescriptor "Collector Descriptor" {
   input_formats string[]
   auto_detect   CollectorAutoDetect @optional
   export        string
-  run           string[]            @optional
+  capability    string              @optional
   report        string              @optional
   capture       string              @optional
   verify unit "CollectorDescriptor schema is valid"

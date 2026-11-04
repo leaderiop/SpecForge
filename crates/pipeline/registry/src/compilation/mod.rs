@@ -8,6 +8,7 @@
 
 mod build;
 mod candidates;
+mod capabilities;
 mod codes;
 mod declaration;
 mod edge_types;

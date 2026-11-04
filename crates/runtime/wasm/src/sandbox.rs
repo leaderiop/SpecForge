@@ -52,15 +52,6 @@ const MAX_EXECUTION_MS: &str = "max_execution_ms";
 const MAX_MEMORY_MB: &str = "max_memory_mb";
 const LIMIT_KEYS: [&str; 2] = [MAX_EXECUTION_MS, MAX_MEMORY_MB];
 
-/// The permission fields a guest built before ADR 0037 declares.
-const PERMISSION_KEYS: [&str; 5] = [
-    "allowed_domains",
-    "allowed_paths",
-    "allowed_output_extensions",
-    "network_access",
-    "file_system_access",
-];
-
 /// W153 for a surface item's `sandbox` key, the override a guest built
 /// before ADR 0037 declares; `None` for any other unknown describe key
 /// (which stays W138).
@@ -173,31 +164,17 @@ fn above_ceiling(extension: &str, key: &str, declared: u64, ceiling: u32) -> Dia
 
 /// W153: a policy key the host does not read, whose value asks for something.
 fn never_granted(extension: &str, key: &str) -> Diagnostic {
-    if PERMISSION_KEYS.contains(&key) {
-        Diagnostic::new(
-            codes::W153,
-            format!(
-                "extension '{extension}': sandbox_policy.{key} asks for a capability the host \
-                 never grants; it is ignored"
-            ),
-        )
-        .with_suggestion(
-            "remove the key: a component gets no file, network, environment or stdin access \
-             (ADR 0037)",
-        )
-    } else {
-        Diagnostic::new(
-            codes::W153,
-            format!(
-                "extension '{extension}': sandbox_policy.{key} is not a limit the host reads; \
-                 it is ignored"
-            ),
-        )
-        .with_suggestion(format!(
-            "check the key's spelling: the limits are {MAX_EXECUTION_MS} and {MAX_MEMORY_MB} \
-             (ADR 0037)"
-        ))
-    }
+    Diagnostic::new(
+        codes::W153,
+        format!(
+            "extension '{extension}': sandbox_policy.{key} is not a limit the host reads; \
+             declare a capability; it is ignored"
+        ),
+    )
+    .with_suggestion(format!(
+        "the limits are {MAX_EXECUTION_MS} and {MAX_MEMORY_MB} (ADR 0037); a file, network or command \
+         effect is a declared capability (ADR 0335)"
+    ))
 }
 
 #[cfg(test)]
@@ -307,8 +284,11 @@ mod tests {
             .collect();
         assert_eq!(keys, ["allowed_paths", "max_memroy_mb", "network_access"]);
         assert!(found.iter().all(|diagnostic| diagnostic.code == "W153"));
-        // The misspelled limit is not a capability, and the message says so.
-        assert!(found[1].message.contains("not a limit the host reads"));
+        // No key is a capability: each says so and points at declaring one.
+        assert!(found.iter().all(|d| {
+            d.message
+                .contains("not a limit the host reads; declare a capability")
+        }));
     }
 
     #[specforge_test(

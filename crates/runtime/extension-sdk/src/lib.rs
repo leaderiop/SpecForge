@@ -31,6 +31,10 @@ pub use specforge_protocol_types::{
 };
 
 pub use specforge_protocol_types::{
+    CapabilityDescriptor, FsAccess, GitOp, HttpMethod, Operation, PortScope,
+};
+
+pub use specforge_protocol_types::{
     CompleteWhen, DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor,
     EntityKindDescriptor, ExtensionDeclaration, FeatureFlagDescriptor, FieldConstraintDescriptor,
     FieldDescriptor, HandshakeResponse, PeerDependency, PromptDescriptor, ProtocolError,
@@ -65,6 +69,7 @@ pub use surface::{ArgBuilder, CommandBuilder, CommandCall, McpResourceBuilder, M
 pub use vocabulary::Vocabulary;
 
 mod builders;
+mod capability;
 mod command_graph;
 mod contrib;
 mod guest;
@@ -79,6 +84,7 @@ pub use builders::{
     FieldConstraintBuilder, JudgedBuilder, JudgedTargetBuilder, KindBuilder, PassBuilder,
     RuleBuilder,
 };
+pub use capability::Capability;
 pub use command_graph::{CommandGraph, CommandInput};
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
 pub use host_contrib::{
@@ -279,6 +285,17 @@ impl ContributionsBuilder {
             collect,
         );
         self.decl.collectors.push(b.descriptor);
+        if let Some(argv) = b.run {
+            let argv: Vec<&str> = argv.iter().map(String::as_str).collect();
+            self.capability(
+                Capability::process(name)
+                    .argv(&argv)
+                    .call_kinds(&[Operation::Collect])
+                    .why(&format!(
+                        "run the command whose report the collector '{name}' reads"
+                    )),
+            );
+        }
         self
     }
 
@@ -617,6 +634,7 @@ pub mod prelude {
         GraphNode, McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
         PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
+    pub use crate::{Capability, FsAccess, GitOp, HttpMethod, Operation};
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
         CollectorBuilder, Fact, PlanBuilder,

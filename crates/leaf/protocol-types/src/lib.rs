@@ -31,6 +31,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub mod calls;
+mod capability;
 mod code_catalog;
 pub mod command_args;
 mod contrib;
@@ -51,6 +52,11 @@ mod trigger;
 mod version;
 mod vocabulary;
 pub use calls::*;
+pub use capability::{
+    CAPABILITY_KEYS, CapabilityDescriptor, CapabilityProblem, FsAccess, FsScope, GitOp, GitScope,
+    Hosts, HttpMethod, HttpScope, Owner, PortScope, ProcessScope, SecretHeader, WRITING_KINDS,
+    capability_problems, is_host_pattern, is_scope_name,
+};
 pub use code_catalog::CodeDescriptor;
 pub use contrib::*;
 pub use declaration::{
@@ -469,11 +475,11 @@ pub struct AutoDetectConfig {
 
 /// Describes a test result collector.
 ///
-/// A runner extension declares the command that runs its test runner
-/// (`run`, an argv whose elements may contain the `{report}` placeholder)
+/// A runner extension names the `process` capability whose command runs its test runner
+/// (`capability`, its argv's elements may contain the `{report}` placeholder; ADR 0335 D2)
 /// and where the runner leaves its report (`report`, a file or directory
-/// relative to the project root). The host runs the command, with the
-/// user's consent, and passes the report bytes to the pure `export`
+/// relative to the project root). The host runs the command, once this
+/// machine approves it, and passes the report bytes to the pure `export`
 /// (ADR 0002). With `capture: "stdout"` the host also keeps the command's
 /// standard output and passes it along, for runners whose results only
 /// appear there.
@@ -484,8 +490,10 @@ pub struct CollectorDescriptor {
     pub export: String,
     #[serde(default)]
     pub auto_detect: Option<AutoDetectConfig>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub run: Vec<String>,
+    /// The `process` capability (a name from the extension's `capabilities`) whose argv the host runs; none for a
+    /// collector that only reads a report (ADR 0335 D2.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

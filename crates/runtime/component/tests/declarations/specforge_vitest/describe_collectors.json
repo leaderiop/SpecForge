@@ -9,20 +9,12 @@
           "vitest.workspace.*"
         ]
       },
+      "capability": "vitest",
       "export": "collect__vitest",
       "input_formats": [
         "vitest-json"
       ],
-      "name": "vitest",
-      "run": [
-        "npx",
-        "--no",
-        "vitest",
-        "run",
-        "--reporter=default",
-        "--reporter=json",
-        "--outputFile.json={report}"
-      ]
+      "name": "vitest"
     }
   ]
 }

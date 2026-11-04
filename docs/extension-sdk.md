@@ -554,14 +554,16 @@ in `contribute` ([ADR 0002](adr/0002-test-runner-extensions.md)):
 c.collector("cargo-test", |k| {
     k.input_format("specforge-test-json")
         .detect_files(&["Cargo.toml"])            // project-root files that select it
-        .run(&["cargo", "test", "--workspace"])  // `{report}` expands to the report path
+        .run(&["cargo", "test", "--workspace"])  // declares its process capability; `{report}` is the report path
         .report("target/specforge")               // file or directory, inside the project
         .capture_stdout()                         // also pass the command's stdout
         .collect(|input: &CollectInput| Ok(collect(input))); // the handler
 });
 ```
 
-`specforge collect` runs the declared command in the project root, after
+`.run(argv)` declares the collector's `process` capability, named after it, and names it; an extension that
+declares its capabilities itself (`c.capability(Capability::process("tests").argv(..).why(..))`) names one with
+`k.capability("tests")`. `specforge collect` runs that command in the project root, after
 the user approves it once for the project, with `SPECFORGE_REPORT` set to
 the absolute report path. It then reads the report (the file, or every
 `*.json` file directly inside the directory) and calls the extension's

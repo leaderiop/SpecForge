@@ -376,6 +376,12 @@ pub(crate) fn consistency(
             .into_iter()
             .map(warn),
     );
+    // ADR 0335 D2.1: a capability that is not sound grants nothing, and is told.
+    diagnostics.extend(
+        super::capabilities::problems(declaration)
+            .into_iter()
+            .map(warn),
+    );
     // ADR 0290: a verdict field is set by exactly one judged rule of this extension, from its `values` or as its
     // `outcome_fields`.
     for entry in &verdict_fields {

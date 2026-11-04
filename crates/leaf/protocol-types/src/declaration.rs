@@ -13,14 +13,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    AgentDescriptor, AnalyzerDescriptor, Attribution, AutoDetectConfig, CodeDescriptor,
-    CollectorDescriptor, CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor,
-    DescribeResponse, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
-    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse,
-    HookDescriptor, McpResourceDescriptor, McpToolDescriptor, PeerDependency, PresetDescriptor,
-    PromptArgDescriptor, PromptDescriptor, PromptStep, ProtocolError, RouteAnnotationDescriptor,
-    RouteDescriptor, RouteStepDescriptor, SecretDescriptor, SettingDescriptor, SettingsItem,
-    SkillDescriptor, SlashCommandDescriptor, SurfaceDescriptor, ValidationRuleDescriptor,
+    AgentDescriptor, AnalyzerDescriptor, Attribution, AutoDetectConfig, CAPABILITY_KEYS,
+    CapabilityDescriptor, CodeDescriptor, CollectorDescriptor, CommandArgDescriptor,
+    CommandDescriptor, CompilerPassDescriptor, DescribeResponse, EdgeTypeDescriptor,
+    EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
+    FieldConstraintDescriptor, FieldDescriptor, FsScope, GitScope, HandshakeResponse,
+    HookDescriptor, HttpScope, McpResourceDescriptor, McpToolDescriptor, PeerDependency,
+    PresetDescriptor, ProcessScope, PromptArgDescriptor, PromptDescriptor, PromptStep,
+    ProtocolError, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
+    SecretDescriptor, SecretHeader, SettingDescriptor, SettingsItem, SkillDescriptor,
+    SlashCommandDescriptor, SurfaceDescriptor, ValidationRuleDescriptor,
 };
 
 /// Everything one extension declares: its handshake and every describe
@@ -58,10 +60,13 @@ pub struct ExtensionDeclaration {
     /// The routes `specforge trace` follows from its kinds (protocol 1.15.0, ADR 0330).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routes: Vec<RouteDescriptor>,
+    /// What it may make the host do, each on one port under a scope name (ADR 0335 D2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<CapabilityDescriptor>,
 }
 
 /// A describe category, in the order the host reads them (ADR 0012 D2). The
-/// protocol defines no other: a guest answers these thirteen and nothing else
+/// protocol defines no other: a guest answers these fourteen and nothing else
 /// (ADR 0050).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeclaredCategory {
@@ -78,12 +83,13 @@ pub enum DeclaredCategory {
     Codes,
     Settings,
     Routes,
+    Capabilities,
 }
 
 impl DeclaredCategory {
     /// Every describe category, in the host's read order: the protocol's one
     /// list of them.
-    pub const ALL: [DeclaredCategory; 13] = [
+    pub const ALL: [DeclaredCategory; 14] = [
         DeclaredCategory::Entities,
         DeclaredCategory::Edges,
         DeclaredCategory::SharedFields,
@@ -97,6 +103,7 @@ impl DeclaredCategory {
         DeclaredCategory::Codes,
         DeclaredCategory::Settings,
         DeclaredCategory::Routes,
+        DeclaredCategory::Capabilities,
     ];
 
     /// Its wire name (`shared_fields`).
@@ -115,6 +122,7 @@ impl DeclaredCategory {
             DeclaredCategory::Codes => "codes",
             DeclaredCategory::Settings => "settings",
             DeclaredCategory::Routes => "routes",
+            DeclaredCategory::Capabilities => "capabilities",
         }
     }
 
@@ -125,6 +133,7 @@ impl DeclaredCategory {
             DeclaredCategory::Codes => (1, 7),
             DeclaredCategory::Settings => (1, 8),
             DeclaredCategory::Routes => (1, 15),
+            DeclaredCategory::Capabilities => (2, 0),
             _ => (1, 0),
         }
     }
@@ -153,6 +162,7 @@ impl DeclaredCategory {
             DeclaredCategory::Codes => &CODE,
             DeclaredCategory::Settings => &SETTING,
             DeclaredCategory::Routes => &ROUTE,
+            DeclaredCategory::Capabilities => &CAPABILITY,
         }
     }
 }
@@ -253,6 +263,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Codes => !self.codes.is_empty(),
             DeclaredCategory::Settings => !self.settings.is_empty(),
             DeclaredCategory::Routes => !self.routes.is_empty(),
+            DeclaredCategory::Capabilities => !self.capabilities.is_empty(),
         }
     }
 
@@ -283,6 +294,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Codes => to_items(&self.codes),
             DeclaredCategory::Settings => to_items(&self.settings),
             DeclaredCategory::Routes => to_items(&self.routes),
+            DeclaredCategory::Capabilities => to_items(&self.capabilities),
         }
     }
 
@@ -315,6 +327,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Codes => self.codes = parse(name, items)?,
             DeclaredCategory::Settings => self.settings = parse(name, items)?,
             DeclaredCategory::Routes => self.routes = parse(name, items)?,
+            DeclaredCategory::Capabilities => self.capabilities = parse(name, items)?,
         }
         Ok(())
     }
@@ -561,6 +574,33 @@ static ROUTE: Shape = Shape {
         ("annotations", Nested::List(&ROUTE_ANNOTATION)),
     ],
 };
+/// A capability's shape depends on its `port`: this one is the keys every capability has ([`CAPABILITY_KEYS`]); the
+/// walk takes them out and picks the scope's shape by port ([`capability_shape`]), since one flat wire object holds
+/// the keys of every port.
+static CAPABILITY: Shape = Shape {
+    fields: || &CAPABILITY_KEYS,
+    nested: &[],
+};
+static SECRET_HEADER: Shape = Shape {
+    fields: struct_fields::<SecretHeader>,
+    nested: &[],
+};
+static HTTP_SCOPE: Shape = Shape {
+    fields: struct_fields::<HttpScope>,
+    nested: &[("secret_header", Nested::One(&SECRET_HEADER))],
+};
+static FS_SCOPE: Shape = Shape {
+    fields: struct_fields::<FsScope>,
+    nested: &[],
+};
+static PROCESS_SCOPE: Shape = Shape {
+    fields: struct_fields::<ProcessScope>,
+    nested: &[],
+};
+static GIT_SCOPE: Shape = Shape {
+    fields: struct_fields::<GitScope>,
+    nested: &[],
+};
 
 fn report_unknown_keys(
     category: DeclaredCategory,
@@ -571,6 +611,7 @@ fn report_unknown_keys(
         return;
     };
     for (index, item) in items.iter().enumerate() {
+        let name = item_name(item, index);
         let (shape, item) = if category == DeclaredCategory::Settings {
             // The `kind` tag picks the shape and is no key of the descriptor; an unreadable item is W021's.
             let Some(shape) = settings_shape(item.get("kind").and_then(Value::as_str)) else {
@@ -581,16 +622,30 @@ fn report_unknown_keys(
                 object.remove("kind");
             }
             (shape, Cow::Owned(untagged))
+        } else if category == DeclaredCategory::Capabilities {
+            // `port` picks the scope's shape; the common keys sit beside it (`#[serde(flatten)]`).
+            let Some(shape) = capability_shape(item.get("port").and_then(Value::as_str)) else {
+                continue;
+            };
+            let mut scope = item.clone();
+            if let Some(object) = scope.as_object_mut() {
+                object.retain(|key, _| !CAPABILITY_KEYS.contains(&key.as_str()));
+            }
+            (shape, Cow::Owned(scope))
         } else {
             (category.shape(), Cow::Borrowed(item))
         };
-        walk(
-            category.name(),
-            shape,
-            &item_name(&item, index),
-            &item,
-            unknown,
-        );
+        walk(category.name(), shape, &name, &item, unknown);
+    }
+}
+
+fn capability_shape(port: Option<&str>) -> Option<&'static Shape> {
+    match port? {
+        "http" => Some(&HTTP_SCOPE),
+        "fs" => Some(&FS_SCOPE),
+        "process" => Some(&PROCESS_SCOPE),
+        "git" => Some(&GIT_SCOPE),
+        _ => None,
     }
 }
 

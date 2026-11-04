@@ -538,7 +538,7 @@ fn collector_descriptor_with_auto_detect() {
             file_patterns: vec!["**/target/**/junit.xml".to_string()],
             env_vars: vec!["CARGO_TARGET_DIR".to_string()],
         }),
-        run: vec![],
+        capability: None,
         report: None,
         capture: None,
         writes: false,

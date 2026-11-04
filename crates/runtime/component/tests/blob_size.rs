@@ -29,8 +29,11 @@ use specforge_component::committed::COMMITTED;
 // SDK, serde_json and the linked JUnit reader of `specforge-code-junit`), brings the total to 6,155,282 B, 96 KB more
 // than the 428 KB SDK floor R1 planned for; the rule gives 6,200,000, with 44,718 B of headroom. Protocol 2.0.0's
 // one list of inputs (an internally tagged `Input`, ADR 0337) measured 6,276,792 B; the rule gives 6,300,000, with
-// 23,208 B of headroom. The product blob is 1,021,477 B, 78,523 B under its cap.
-const TOTAL_BUDGET: usize = 6_300_000;
+// 23,208 B of headroom. The product blob is 1,021,477 B, 78,523 B under its cap. ADR 0335's `capabilities` (a describe
+// category, the collector's named capability and the SDK's `.run` sugar) measured 6,561,573 B: +284,781 B, about 25 KB
+// per blob (a flattened, internally tagged wire form measured 41 KB, so the wire is one flat object). The rule gives
+// 6,600,000, with 38,427 B of headroom; product is 1,046,792 B, 53,208 B under its cap.
+const TOTAL_BUDGET: usize = 6_600_000;
 const BLOB_BUDGET: usize = 1_100_000;
 
 #[test]

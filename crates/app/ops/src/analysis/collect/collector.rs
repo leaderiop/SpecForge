@@ -4,7 +4,7 @@
 use crate::machine::CommandApproval;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
-use specforge_protocol_types::{ExtensionDeclaration, Input};
+use specforge_protocol_types::{ExtensionDeclaration, Input, PortScope};
 use std::path::Path;
 
 /// A collector contributed by an enabled extension.
@@ -34,7 +34,8 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
     declarations
         .iter()
         .flat_map(|d| {
-            d.collectors.iter().map(|c| Collector {
+            let sound = d.sound_capabilities();
+            d.collectors.iter().map(move |c| Collector {
                 extension: d.name().to_string(),
                 name: c.name.clone(),
                 export: c.export.clone(),
@@ -43,7 +44,15 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
                     .as_ref()
                     .map(|d| d.file_patterns.clone())
                     .unwrap_or_default(),
-                run: c.run.clone(),
+                run: c
+                    .capability
+                    .as_ref()
+                    .and_then(|name| sound.iter().find(|s| &s.name == name))
+                    .and_then(|s| match &s.port {
+                        PortScope::Process(process) => Some(process.argv.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_default(),
                 report: c
                     .report
                     .clone()

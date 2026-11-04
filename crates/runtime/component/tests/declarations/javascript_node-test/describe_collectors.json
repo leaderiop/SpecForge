@@ -8,6 +8,7 @@
           "package.json"
         ]
       },
+      "capability": "node-test",
       "export": "collect__node_test",
       "input_formats": [
         "junit-xml"
@@ -21,15 +22,7 @@
         }
       ],
       "name": "node-test",
-      "report": ".specforge/reports/node-test.xml",
-      "run": [
-        "node",
-        "--test",
-        "--test-reporter=spec",
-        "--test-reporter-destination=stdout",
-        "--test-reporter=junit",
-        "--test-reporter-destination={report}"
-      ]
+      "report": ".specforge/reports/node-test.xml"
     }
   ]
 }

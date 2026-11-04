@@ -132,6 +132,7 @@ The host reads every string and object key of a handshake or describe answer pri
 | `codes` | The extension's diagnostic code catalog (protocol 1.7.0) | Always, from a guest of 1.7 or later |
 | `settings` | Typed settings, presets and secrets (protocol 1.8.0) | Always, from a guest of 1.8 or later |
 | `routes` | The routes `specforge trace` follows from a kind (protocol 1.15.0) | Always, from a guest of 1.15 or later |
+| `capabilities` | What the extension may make the host do, each on one port under a scope name (ADR 0335 D2, protocol 2.0.0) | Always, from a guest of 2.0 or later |
 
 ### Inputs (2.0.0, ADR 0337)
 
@@ -638,9 +639,10 @@ a command, commands first; a prompt whose name is taken is E039 and runs on no s
 
 Returns the test-result collectors a runner extension contributes
 ([ADR 0002](adr/0002-test-runner-extensions.md)): the project-root files that
-select it (`auto_detect.file_patterns`, last segment may use `*`), the command
-`specforge collect` runs with the user's consent (`run`; `{report}` expands to
-the absolute report path, also exported as `SPECFORGE_REPORT`), where the
+select it (`auto_detect.file_patterns`, last segment may use `*`), the `process`
+capability whose command `specforge collect` runs once this machine approves it (`capability`, a name from the
+extension's `capabilities`; `{report}` in its `argv` expands to the absolute report path, also exported as
+`SPECFORGE_REPORT`; none for a collector that only reads a report), where the
 report lands (`report`, a file or directory inside the project; default
 `.specforge/reports/<name>.json`), whether the host also keeps the command's
 standard output (`capture: "stdout"`, for runners whose results only appear
@@ -656,7 +658,7 @@ R1-b), and the pure export that maps the report to entities.
       "input_formats": ["specforge-test-json"],
       "export": "collect__cargo_test",
       "auto_detect": { "file_patterns": ["Cargo.toml"], "env_vars": [] },
-      "run": ["cargo", "test", "--workspace", "--no-fail-fast"],
+      "capability": "cargo-test",
       "report": "target/specforge",
       "capture": "stdout"
     }
@@ -892,6 +894,44 @@ peer the project does not load is skipped without a diagnostic at load (a step s
 
 SDK: `c.route("requirement-thread", |r| { r.start("requirement").step("plan", "<plan.requirements", |s| { s.label("plan"); }); })`.
 
+### Category: capabilities
+
+Returns what the extension may make the host do (ADR 0335 D2): each capability names a scope, says `why`, the call
+kinds it is for (`call_kinds`, the operations' wire names such as `collect`, `command` or `pass`; empty: every kind
+the host's gate allows for its port) and what it reaches on one `port`:
+
+```json
+{
+  "category": "capabilities",
+  "items": [
+    { "name": "cargo-test", "why": "run the command whose report the collector 'cargo-test' reads",
+      "call_kinds": ["collect"], "port": "process", "argv": ["cargo", "test", "--workspace", "--no-fail-fast"] },
+    { "name": "links", "why": "check that the links the specs write answer", "port": "http",
+      "schemes": ["https"], "methods": ["HEAD", "GET"], "hosts": { "list": ["*.example.com"] } },
+    { "name": "vendor-docs", "why": "read the vendored docs", "port": "fs", "roots": ["vendor"], "ops": ["stat", "read"] },
+    { "name": "history", "why": "read the history of the specs", "port": "git", "ops": ["read"] }
+  ]
+}
+```
+
+- `http`: `schemes` (`http`, `https`; empty: both), `methods` (empty: any), `hosts` (`{"list": [...]}` of
+  `example.com` or `*.example.com`, or `"from_values"`: the hosts the project's values name) and an optional
+  `secret_header`.
+- `fs`: `roots` (`spec`, `project` or a root `specforge.json` names; empty: `spec` and `project`) and `ops` (`stat`,
+  `read`, `walk`, `write`).
+- `process`: `argv` (the program, then its arguments) and an optional `deadline_ms`, held to the host's ceiling.
+- `git`: `ops` (`read`, `write`).
+
+`name` is a scope name (`[a-z][a-z0-9-]*`), unique in the extension; approvals and `specforge grants` name it. A
+capability that is not sound is W021 and grants nothing: a name that is no scope name or is repeated, no `why`, an
+empty `argv`, an http capability with no host, a host that is no host or `*.`-prefixed host, a scheme other than
+`http` or `https`, a `write` whose `call_kinds` are empty or name a kind other than `collect` and `command`; so is a
+collector whose `capability` names no `process` capability the extension declares. An unknown `port` fails the
+category (E028).
+
+SDK: `c.capability(Capability::http("links").hosts(&["*.example.com"]).why("check links"))`; a collector's
+`k.run(&["cargo", "test"])` declares the process capability named after the collector and names it.
+
 ## Operate
 
 Once the declaration is loaded, the host calls an extension's exports on
@@ -1106,7 +1146,7 @@ or answered.
 | `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and refuses the `surfaces` declaration of a guest that writes a `when` list (a 1.12 `when` is one string, and a list fails the whole category: `DescribeFailed`), so such a guest needs a 1.13.0 host; a `when` of one name is still a string. |
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
 | `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). An extension may declare `routes`, the steps `specforge trace` follows from a kind (ADR 0330). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's; a guest older than 1.15 is not asked for `routes`. |
-| `2.0.0` | ADR 0337 (the ports round). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A `codes` entry may declare `machine` (`CodeDescriptor.machine`, see [codes](#category-codes)): its finding is this machine's, never promoted by `--strict` nor counted by the gate's warning baseline. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. |
+| `2.0.0` | ADR 0337 (the ports round). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A `codes` entry may declare `machine` (`CodeDescriptor.machine`, see [codes](#category-codes)): its finding is this machine's, never promoted by `--strict` nor counted by the gate's warning baseline. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. An extension declares `capabilities` (a describe category, see [capabilities](#category-capabilities)): what it may make the host do, each on one port under a scope name (ADR 0335 D2), and a collector names the process `capability` it runs instead of carrying `run`. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
 `1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the
@@ -1145,7 +1185,7 @@ A declared limit above its ceiling is held to it. A call that traps on a limit f
 naming the limit, and the extension's next call gets a fresh instance under the same limits. A
 `sandbox_policy` key other than the two limits that asks for something (`network_access: true`, a
 non-empty `allowed_paths`, which older SDKs wrote), a surface's `sandbox` override, and a limit
-above its ceiling are W153 at load.
+above its ceiling are W153 at load: an effect is a declared capability (see the capabilities category).
 
 ## Reloading extensions
 

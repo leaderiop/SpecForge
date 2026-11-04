@@ -412,3 +412,98 @@ fn complete_when_names_an_enum_value_of_its_kind() {
         ]
     );
 }
+
+fn capability_problems_of(declare: impl FnOnce(&mut ContributionsBuilder)) -> Vec<String> {
+    let mut c = declaration("@acme/caps", "1.0.0");
+    declare(&mut c);
+    let build = build_registries(vec![c.declaration()]);
+    let found: Vec<String> = diagnostics(&build)
+        .into_iter()
+        .filter(|d| d.code == "W021")
+        .map(|d| d.message.clone())
+        .collect();
+    found
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_registries_from_declarations",
+    verify = "a capability that is not sound is W021 and grants nothing"
+)]
+fn capabilities_that_are_not_sound_are_w021_each() {
+    let found = capability_problems_of(|c| {
+        c.capability(Capability::git("Bad Name").why("read"));
+        c.capability(Capability::git("twice").why("read"));
+        c.capability(Capability::git("twice").why("read"));
+        c.capability(Capability::git("silent"));
+        c.capability(Capability::process("nothing").why("run"));
+        c.capability(
+            Capability::http("hosts")
+                .hosts(&["not a host", "*.ok.example"])
+                .why("fetch"),
+        );
+        c.capability(Capability::http("none").why("fetch"));
+        c.capability(
+            Capability::fs("writes")
+                .ops(&[FsAccess::Write])
+                .call_kinds(&[Operation::Pass])
+                .why("write"),
+        );
+        c.capability(
+            Capability::git("writes-any")
+                .git_ops(&[GitOp::Write])
+                .why("commit"),
+        );
+        c.capability(
+            Capability::http("ftp")
+                .hosts(&["a.example"])
+                .schemes(&["ftp"])
+                .why("fetch"),
+        );
+        c.capability(
+            Capability::http("keyed")
+                .from_values()
+                .secret_header("Cookie", "missing", None)
+                .why("fetch"),
+        );
+    });
+    let expect = [
+        "capability 'Bad Name' grants nothing: its name 'Bad Name' is not a scope name",
+        "capability 'twice' grants nothing: its name 'twice' is declared twice",
+        "capability 'silent' grants nothing: it says no `why`",
+        "capability 'nothing' grants nothing: its `argv` is empty",
+        "capability 'hosts' grants nothing: its host 'not a host' is not a host",
+        "capability 'none' grants nothing: it lists no host",
+        "capability 'writes' grants nothing: it writes, so its `call_kinds` must name only `collect` or `command`",
+        "capability 'writes-any' grants nothing: it writes",
+        "capability 'ftp' grants nothing: its scheme 'ftp' is neither `http` nor `https`",
+        "capability 'keyed' grants nothing: its `secret_header` names the secret 'missing', which it does not declare",
+        "capability 'keyed' grants nothing: its `secret_header` goes only to hosts it lists",
+        "capability 'keyed' grants nothing: its `secret_header` needs `schemes` to be only `https`",
+        "capability 'keyed' grants nothing: its `secret_header` header 'Cookie' is not a header",
+    ];
+    for expected in expect {
+        assert!(
+            found.iter().any(|m| m.contains(expected)),
+            "{expected}\nin {found:#?}"
+        );
+    }
+    assert_eq!(found.len(), expect.len(), "{found:#?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_registries_from_declarations",
+    verify = "a collector whose capability names no process capability it declares is W021"
+)]
+fn capabilities_a_collector_names_must_be_a_process_one() {
+    let found = capability_problems_of(|c| {
+        c.capability(Capability::git("history").why("read"));
+        c.collector("runner", |k| {
+            k.capability("history")
+                .collect(|_| Ok(CollectOutput::default()));
+        });
+    });
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(found[0].contains(
+        "collector 'runner' cannot run: its capability 'history' is no `process` capability"
+    ));
+}

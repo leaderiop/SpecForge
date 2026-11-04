@@ -142,6 +142,12 @@ fn full() -> ExtensionDeclaration {
             }],
             ..Default::default()
         }],
+        capabilities: serde_json::from_value(json!([
+            {"name": "tests", "why": "run the tests", "call_kinds": ["collect"], "port": "process", "argv": ["t"]},
+            {"name": "api", "why": "ask the api", "port": "http", "schemes": ["https"], "hosts": {"list": ["a.example"]},
+             "secret_header": {"header": "Authorization", "secret": "token", "scheme": "Bearer"}},
+        ]))
+        .unwrap(),
     }
 }
 
