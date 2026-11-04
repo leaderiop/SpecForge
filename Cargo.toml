@@ -3,6 +3,7 @@ resolver = "3"
 exclude = ["extensions", "fixtures", "gsd"]
 members = [
     # leaf
+    "crates/leaf/checks-kit",
     "crates/leaf/coverage",
     "crates/leaf/cycles",
     "crates/leaf/diagnostics",

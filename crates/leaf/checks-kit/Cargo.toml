@@ -1,0 +1,18 @@
+[package]
+name = "specforge-checks-kit"
+description = "The bare algorithms, parsers and pinned tables of generic value checks, for @specforge/checks and the domain packs that build on it"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+digits = []
+formats = []
+links = []
+files = []
+git = []
+
+[lints]
+workspace = true

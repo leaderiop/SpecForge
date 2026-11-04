@@ -17,6 +17,12 @@ use "features/wasm"
 use "ports/inbound"
 use "ports/outbound"
 
+module specforge_checks_kit "specforge-checks-kit" {
+  family      core
+  description "The bare algorithms, parsers and pinned tables of generic value checks: @specforge/checks and the domain packs that build on it compile them, one feature per family"
+  tags        ["leaf"]
+}
+
 module specforge_coverage "specforge-coverage" {
   family      core
   description "The coverage rule of @specforge/testing: which obligations a project's recorded tests prove, per entity and in summary; linked by the extension's Wasm pass and the host surfaces"

@@ -78,9 +78,9 @@ The user's checklist; no agent runs it.
    macros' path dependencies (the build refuses a mismatch). Update the docs lines
    `crates/runtime/extension-sdk/tests/docs.rs` names. Then run `cargo run -p xtask --bin revendor` (the
    version is a blob input).
-2. From the commit you will tag, publish the three guest crates (a crates.io login is needed; cargo publishes
+2. From the commit you will tag, publish the four guest crates (a crates.io login is needed; cargo publishes
    them in dependency order):
-   `cargo publish -p specforge-protocol-types -p specforge-extension-sdk-macros -p specforge-extension-sdk`
+   `cargo publish -p specforge-protocol-types -p specforge-extension-sdk-macros -p specforge-extension-sdk -p specforge-checks-kit`
 3. `git tag v<version> && git push origin v<version>`. `release.yml` checks the tag against the version, builds
    the binaries, builds a fresh scaffold against crates.io (no Release without it), then creates the GitHub
    Release and the Homebrew formula.

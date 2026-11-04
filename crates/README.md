@@ -114,6 +114,7 @@ Crates with no SpecForge dependency but the guest wire: the wire itself, the dia
 
 | Crate | Package | Owns |
 |---|---|---|
+| [`checks-kit`](leaf/checks-kit/) | `specforge-checks-kit` | The bare algorithms, parsers and pinned tables of generic value checks, for @specforge/checks and the domain packs that build on it |
 | [`coverage`](leaf/coverage/) | `specforge-coverage` | The coverage rule of @specforge/testing: which obligations a project's recorded tests prove, per entity and in summary; linked by the extension's Wasm pass and the host surfaces |
 | [`cycles`](leaf/cycles/) | `specforge-cycles` | Which nodes of a directed graph lie on a cycle, and one closed walk through each: the host's W061, W113 and cycle rules and the formal and product guests read it |
 | [`diagnostics`](leaf/diagnostics/) | `specforge-diagnostics` | The catalog of SpecForge diagnostic codes: titles, owners, levels and explanations |

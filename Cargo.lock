@@ -2900,6 +2900,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-checks-kit"
+version = "0.3.0"
+
+[[package]]
 name = "specforge-cli"
 version = "0.3.0"
 dependencies = [
