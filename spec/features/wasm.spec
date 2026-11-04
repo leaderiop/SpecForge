@@ -29,31 +29,24 @@ feature wasm_extension_runtime "Wasm Extension Runtime" {
 feature wasm_host_function_api "Wasm Host Function API" {
   status   accepted
   problem  """
-    Extensions need controlled access to compiler internals (graph queries,
-    diagnostic emission, entity registration) and external resources (file
-    I/O, HTTP) without escaping the sandbox. Each host function needs
-    specific permission scoping.
+    A command, a collector or an MCP surface sometimes needs an effect it
+    cannot name before it runs (a paginated API, a log since a recorded
+    commit), and declared inputs cannot express it. It must get one without
+    escaping the sandbox, and without any export that stays pure gaining
+    the same reach.
   """
   solution """
-    Seven host functions (specforge.query_graph, specforge.emit_diagnostic,
-    specforge.add_graph_node, specforge.add_graph_edge, specforge.read_file,
-    specforge.emit_file, specforge.http_get) with the per-call-site
-    permissions they check (planned; the sandbox itself grants none,
-    ADR 0037). The
-    emit_file host function is restricted to non-code outputs only (reports,
-    dashboards, traceability matrices, graph visualizations) — extensions
-    MUST NOT use it to generate source code, configuration files, or
-    executable artifacts. SpecForge provides context, agents produce code.
-    Sandbox policy is computed by merging defaults, manifest, and project
-    overrides. Host functions are synchronous leaf operations and
-    intentionally produce no events — traceability comes from the calling
-    behavior's events.
-    Status: planned (milestone wasm_host_functions). The component
-    runtime's bridge world imports none of these functions today; the
-    Extism runtime registered three (emit_diagnostic, query_graph,
-    read_file) until the component cutover removed it. The sandbox that
-    exists (execution deadline, fuel, a WASI context that grants nothing)
-    belongs to wasm_extension_runtime.
+    Two faces (ADR 0335 D4): declared inputs and probes for the pure call
+    kinds, and four granted ports for the effectful ones: the WIT package
+    specforge:host/{http,fs,process,git}@0.1.0, written once in the SDK and
+    linked on every instance. What one call may do is its port session: its
+    kind, its extension's grant (declared, gated, under the ceiling and
+    approved) and the journal of the call's effects mode. A pure kind is
+    answered denied(call-kind), a request outside the grant denied(scope)
+    and E090; nothing prompts mid-call. A guest cannot write a file or
+    change the graph through a port: it answers an edit plan (ADR 0289). A
+    port's time is not the guest's, an effectful call holds no lock of its
+    extension, and a secret stays on the host.
   """
 }
 
@@ -194,9 +187,9 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
     module (call_extension_exports, ADR 0013): handshake and describe, a
     command, an MCP tool or resource, a compiler pass, a collector, a
     custom validator, a scanner and the migration hook, each with the
-    protocol's input and answer types and every failure E028. Per-call-site
-    permissions for host functions belong to the planned
-    wasm_host_function_api feature: no export can call the host yet. This
+    protocol's input and answer types and every failure E028. What an
+    effectful call may do through the host ports belongs to the
+    wasm_host_function_api feature. This
     feature owns the compile-time categories (entities, edges,
     shared_fields, enhancements, validation_rules, passes, feature_flags). Test result collection (collectors) is owned by the
     test_result_collection feature. Surface contributions (CLI commands,

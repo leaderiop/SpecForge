@@ -333,10 +333,8 @@ constraint extension_system_integrity "Extension System Integrity" {
     initialize_wasm_extension,
     enforce_wasm_sandbox,
     registry_build_peer_dependencies,
-    provide_host_function_query_graph,
-    provide_host_function_emit_diagnostic,
-    provide_host_function_add_graph_node,
-    provide_host_function_add_graph_edge,
+    link_host_ports,
+    bound_a_host_port_call,
     reuse_session_runtime,
     registry_build_load_order,
     load_extension_manifest,
@@ -404,15 +402,13 @@ constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
     context MUST preopen no directory and pass no environment, arguments
     or stdin, and MUST refuse TCP, UDP and name lookup. No declaration
     (sandbox_policy, a surface's sandbox override) grants a capability
-    (ADR 0037); host functions that would grant scoped access are planned
-    (wasm_host_function_api) and none exists.
+    (ADR 0037); effects only through the four granted ports (ADR 0335 D4).
   """
   constrains  [
     enforce_wasm_sandbox,
-    provide_host_function_emit_file,
-    provide_host_function_http_get,
+    grant_a_host_port_call,
     configure_sandbox_policy,
-    enforce_per_call_site_permissions,
+    link_host_ports,
   ]
   protects    [wasm_sandbox_integrity]
   verify integration "an extension that tries every capability a component can reach is granted none"

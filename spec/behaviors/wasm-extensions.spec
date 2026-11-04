@@ -291,51 +291,6 @@ behavior compute_field_values "Compute Field Values" {
   verify unit "MCP inspect shows a computed value"
 }
 
-behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
-  features   [wasm_host_function_api]
-  invariants [wasm_sandbox_integrity]
-  category   command
-  types      [ExtensionDeclaration, SandboxPolicy]
-  ports      [WasmRuntime]
-  requires {
-    sandbox_policy_ready    "sandbox policy has been computed for the extension"
-    contribution_type_known "the contribution type of the current export call site is known"
-  }
-  ensures {
-    contribution_permission_denied_emitted "contribution_permission_denied event is emitted when unauthorized host function is called"
-    per_call_site_enforced                 "permissions are enforced per export call site, not per extension"
-    unauthorized_calls_rejected            "calls to unauthorized host functions are rejected"
-  }
-  contract   """
-    Host function permissions MUST be enforced per export call site, not
-    per extension. An extension's validator export MUST only access query_graph
-    and emit_diagnostic. An extension's renderer export MUST additionally
-    access emit_file. An extension's provider export MUST additionally access
-    http_get. An extension's entity contribution exports MUST only access
-    query_graph, add_graph_node, and add_graph_edge. Collector contributions
-    MUST only access query_graph and emit_file. An extension's parser
-    contribution exports MUST only access emit_diagnostic, add_graph_node,
-    add_graph_edge, and read_file. Parsers do NOT get query_graph because
-    they run during graph construction, not after (per ADR
-    extension_file_parsers). Calls to unauthorized host functions MUST be
-    rejected.
-
-    Surface contributions (cmd__, mcp__ exports) are granted no
-    capability at all (invariant surface_sandbox_ceiling,
-    behaviors/surface-contributions.spec). This behavior covers
-    compile-time contribution call sites only.
-  """
-  produces   [contribution_permission_denied]
-  verify unit "validator export limited to query_graph and emit_diagnostic"
-  verify unit "renderer export additionally allows emit_file"
-  verify unit "provider export additionally allows http_get"
-  verify unit "entity contribution export limited to query_graph, add_graph_node, and add_graph_edge"
-  verify unit "collector contribution export limited to query_graph and emit_file"
-  verify unit "parser contribution export limited to emit_diagnostic, add_graph_node, add_graph_edge, and read_file"
-  verify unit "unauthorized host function call is rejected"
-  verify contract "Enforce Per-Call-Site Permissions: per-call-site permission enforcement holds — sandbox_policy_ready, contribution_type_known, contribution_permission_denied_emitted, per_call_site_enforced, unauthorized_calls_rejected"
-}
-
 // -- Collector Contribution Behaviors -----
 
 // Cross-ref: the collect flow (ADR 0002) spans these behaviors:
