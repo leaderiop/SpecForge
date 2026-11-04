@@ -99,6 +99,23 @@ fn a_single_enabled_runner_needs_no_detection() {
 }
 
 #[test]
+#[ignore = "plan 05 T14"]
+fn a_collector_reading_check_outcomes_is_not_run_by_a_plain_collect() {
+    let fx = Fixture::new(vec![
+        Runner::new("outcomes")
+            .detecting_nothing()
+            .inputs_raw(serde_json::json!([{"input": "check_outcomes"}])),
+    ]);
+    assert_eq!(fx.declared_collectors(), ["outcomes"]);
+    let machine = Machine::new().approving_everything().answering(reports());
+
+    let _ = fx.run(Asking::Nobody, &machine);
+
+    assert!(machine.runs().is_empty(), "{:?}", machine.runs());
+    assert!(fx.dispatched().is_empty(), "{:?}", fx.dispatched());
+}
+
+#[test]
 fn yes_runs_the_command_and_remembers_nothing() {
     let fx = acme();
     let machine = Machine::new().answering(reports());

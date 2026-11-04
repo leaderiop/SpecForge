@@ -541,3 +541,17 @@ fn a_kind_field_of_type_number_is_w021() {
     assert!(!build.fields().contains("task", "ratio"));
     assert!(build.fields().contains("task", "estimate"));
 }
+
+#[test]
+#[ignore = "plan 05 T7"]
+fn a_file_check_on_an_integer_field_is_w189() {
+    let build = build([declare("@test/ext", |c| {
+        c.kind("Thing", |k| {
+            k.keyword("thing");
+            k.field("count", |f| {
+                f.field_type(FieldType::Integer).file_reference();
+            });
+        });
+    })]);
+    assert!(codes(&build).contains(&"W189"), "{:?}", diagnostics(&build));
+}

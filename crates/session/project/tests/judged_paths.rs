@@ -213,3 +213,26 @@ fn a_file_input_spelled_in_another_case_is_absent() {
     assert_eq!(inputs.files.len(), 1, "{:?}", inputs.files);
     assert_eq!(inputs.files[0].digest, "absent", "{:?}", inputs.files);
 }
+
+#[cfg(unix)]
+#[test]
+#[ignore = "plan 05 T4"]
+fn a_judged_file_input_through_a_link_out_of_the_project_is_not_read() {
+    let p = project();
+    let outside = tempfile::TempDir::new().unwrap();
+    std::fs::write(outside.path().join("outside.md"), "secret\n").unwrap();
+    std::fs::create_dir_all(p.root().join("docs")).unwrap();
+    std::os::unix::fs::symlink(
+        outside.path().join("outside.md"),
+        p.root().join("docs/x.md"),
+    )
+    .unwrap();
+    p.write("a.spec", SPEC.replace("src/a.ts", "docs/x.md"));
+    let inputs = inputs(&compile(&p));
+    let out = inputs
+        .files
+        .iter()
+        .find(|f| f.path == "docs/x.md")
+        .unwrap_or_else(|| panic!("{:?}", inputs.files));
+    assert_eq!(out.digest, "outside_project");
+}
