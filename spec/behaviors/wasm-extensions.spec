@@ -433,8 +433,8 @@ behavior approve_capability "Approve Capability" {
     terminal is asked once per scope or root, showing the extension and
     the command or what the scope allows (y or yes, in any case, approves;
     any other answer refuses), and a yes is remembered in
-    `~/.specforge/consent.json` (`$SPECFORGE_CONSENT_FILE` overrides,
-    refused inside the project). An approval is keyed by project,
+    `~/.specforge/consent.json` (`$SPECFORGE_CONSENT_FILE` overrides; a
+    store inside the project is refused, whichever names it). An approval is keyed by project,
     extension, provenance (a builtin by its name, a third-party extension
     by its blob's digest) and scope, and stores the granted scope whole:
     it covers a narrower grant, while a wider scope, a changed command or

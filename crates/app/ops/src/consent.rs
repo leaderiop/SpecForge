@@ -35,12 +35,14 @@ pub struct UserConsent {
 
 impl UserConsent {
     /// The user's store for the project at `project`: `$SPECFORGE_CONSENT_FILE`, else [`UserConsent::of_home`]. A
-    /// store named inside the project, or by a relative path, is refused: a repository could approve its own effects.
+    /// store inside the project (the home is the project, or lies in it), or one named by a relative
+    /// path, is refused: a repository could approve its own effects.
     pub fn user(project: &Path) -> Self {
-        match std::env::var_os(CONSENT_FILE_ENV) {
-            Some(path) => Self::at(PathBuf::from(path)).within(project),
+        let store = match std::env::var_os(CONSENT_FILE_ENV) {
+            Some(path) => Self::at(PathBuf::from(path)),
             None => Self::of_home(),
-        }
+        };
+        store.within(project)
     }
 
     /// `$HOME/.specforge/consent.json` (`USERPROFILE`). With no home there is no store: nothing is approved and W186
@@ -69,8 +71,12 @@ impl UserConsent {
         }
     }
 
-    /// This store, refused when it is named by a relative path or resolves under the canonical `project`.
+    /// This store, refused when it is named by a relative path or resolves under the canonical `project`. A store
+    /// already refused keeps its reason.
     pub fn within(mut self, project: &Path) -> Self {
+        if self.refused.is_some() {
+            return self;
+        }
         if self.store.is_relative() {
             self.refused = Some(format!(
                 "a relative path could lie inside any project; point {CONSENT_FILE_ENV} at an absolute path"

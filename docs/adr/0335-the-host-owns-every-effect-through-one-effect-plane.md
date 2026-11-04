@@ -104,7 +104,8 @@ allows, what the project's effects ceiling leaves, and what this machine approve
   outside every project, so a cloned repository cannot approve its own effects), behind the `Consent` port
   (`specforge_ops::consent::UserConsent`; `testing::MemoryConsent`). Every change is read, changed and written under a
   sidecar lock, privately and atomically (ADR 0193). A store that cannot be read or parsed, that a newer specforge
-  wrote, or that `SPECFORGE_CONSENT_FILE` places inside the project is never written over and approves nothing: W186.
+  wrote, or that lies inside the project (`SPECFORGE_CONSENT_FILE` there, or a home that is the project or lies in it)
+  is never written over and approves nothing: W186.
   People read and change it with `specforge grants` (`list`, `--store`, `approve`, `revoke`); doctor lists each
   capability's grant and the named roots.
 - **D2.6 Provenance.** The load hands the runtime each extension's provenance (builtin, or a third party and its

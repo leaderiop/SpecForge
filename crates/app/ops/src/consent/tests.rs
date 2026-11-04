@@ -174,6 +174,43 @@ fn with_no_home_there_is_no_store_and_nothing_is_approved() {
 }
 
 #[test]
+fn the_default_store_is_refused_when_the_home_is_the_project_or_lies_in_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("project");
+    let inner = project.join("nested");
+    std::fs::create_dir_all(inner.join(".specforge")).unwrap();
+    let committed = project.join(".specforge/consent.json");
+    std::fs::create_dir_all(committed.parent().unwrap()).unwrap();
+    std::fs::write(&committed, br#"{"version": 1}"#).unwrap();
+
+    for home in [&project, &inner] {
+        let consent = UserConsent::under(Some(home.as_os_str().to_owned())).within(&project);
+        let error = consent.list().unwrap_err();
+        assert!(error.why.contains("inside the project"), "{error}");
+        assert!(unusable_store(&error).code == "W186");
+        assert!(consent.approve(approval("tests")).is_err());
+    }
+    assert_eq!(std::fs::read(&committed).unwrap(), br#"{"version": 1}"#);
+
+    // The ordinary case: the project lies under the home, the store beside it.
+    let home = dir.path().to_path_buf();
+    let consent = UserConsent::under(Some(home.into_os_string())).within(&project);
+    assert!(consent.list().is_ok());
+    consent.approve(approval("tests")).unwrap();
+    assert!(consent.approved(&approval("tests")).unwrap());
+}
+
+#[test]
+fn no_home_keeps_its_reason_when_the_project_is_judged() {
+    let dir = tempfile::tempdir().unwrap();
+    let error = UserConsent::under(None)
+        .within(dir.path())
+        .list()
+        .unwrap_err();
+    assert!(error.why.contains("no home directory"), "{error}");
+}
+
+#[test]
 #[cfg(unix)]
 fn the_lock_is_private_and_never_goes_through_a_link() {
     use std::os::unix::fs::PermissionsExt as _;

@@ -119,6 +119,39 @@ fn grants_lists_a_collectors_command_as_in_use_and_not_approved() {
     assert_eq!(row["in_use"], true);
 }
 
+/// A store committed at `.specforge/consent.json` of a project whose `HOME` is the project itself (`WORKDIR=$HOME`, a
+/// Heroku-style dyno) approves nothing: the collector does not run, and W186 says why.
+#[cfg(unix)]
+#[test]
+fn a_store_committed_in_a_project_that_is_the_home_approves_nothing() {
+    let fx = Fixture::new();
+    fx.cmd(&["grants", "approve", EXTENSION]).assert().success();
+    let committed = fx.project.root().join(".specforge");
+    std::fs::create_dir_all(&committed).unwrap();
+    std::fs::copy(
+        fx.project.home().join(".specforge/consent.json"),
+        committed.join("consent.json"),
+    )
+    .unwrap();
+
+    let path = format!(
+        "{}:{}",
+        fx.tools.path().join("bin").display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let mut collect = Cli::on(&fx.project)
+        .env("PATH", path)
+        .at_home(fx.project.root())
+        .command(&["collect"]);
+    collect
+        .write_stdin("")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("error[E059]"))
+        .stderr(predicate::str::contains("inside the project"));
+    assert!(!fx.ran(), "the repository approved its own command");
+}
+
 #[cfg(unix)]
 #[test]
 fn an_approved_collector_runs_without_a_terminal_until_revoked() {
