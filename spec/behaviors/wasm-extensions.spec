@@ -439,6 +439,8 @@ behavior approve_collector_command "Approve Collector Command" {
   """
   produces   []
   verify unit "consent is keyed by project, extension and command"
+  verify unit "the consent store is replaced privately and atomically, never through a link"
+  verify unit "an approval is never written over a consent store that cannot be read"
   verify integration "unapproved command without a terminal fails with E059 and runs nothing"
   verify integration "--yes runs the declared command"
   verify unit "a terminal that can answer is asked; with nobody to ask, or under --format json, only an approved command runs"

@@ -276,3 +276,56 @@ fn a_cmd_shim_on_path_runs() {
     .unwrap();
     assert_eq!(ran.exit_code, Some(3));
 }
+
+#[cfg(unix)]
+#[ignore = "02 T2"]
+#[specforge_test(
+    behavior = "approve_collector_command",
+    verify = "the consent store is replaced privately and atomically, never through a link"
+)]
+fn the_consent_store_is_replaced_privately_never_through_a_link() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let victim = dir.path().join("victim.json");
+    std::fs::write(&victim, "{}").unwrap();
+    std::fs::set_permissions(&victim, std::fs::Permissions::from_mode(0o644)).unwrap();
+    let store = dir.path().join("consent.json");
+    std::os::unix::fs::symlink(&victim, &store).unwrap();
+    let approval = collector("r.json").approval(dir.path());
+    real_machine(store.clone()).approve(&approval).unwrap();
+    assert_eq!(
+        std::fs::read(&victim).unwrap(),
+        b"{}",
+        "the link's target is untouched"
+    );
+    let meta = std::fs::symlink_metadata(&store).unwrap();
+    assert!(meta.file_type().is_file(), "the store is a regular file");
+    assert_eq!(meta.permissions().mode() & 0o777, 0o600);
+
+    let nested = dir
+        .path()
+        .join("home")
+        .join(".specforge")
+        .join("consent.json");
+    real_machine(nested.clone()).approve(&approval).unwrap();
+    let parent = std::fs::metadata(nested.parent().unwrap()).unwrap();
+    assert_eq!(parent.permissions().mode() & 0o777, 0o700);
+}
+
+#[ignore = "02 T2"]
+#[specforge_test(
+    behavior = "approve_collector_command",
+    verify = "an approval is never written over a consent store that cannot be read"
+)]
+fn the_consent_store_is_never_overwritten_when_it_cannot_be_read() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = dir.path().join("consent.json");
+    let broken = br#"{"approved": [{"project": "/elsewhere", "extension": "@a/b", "collector": "c", "run": ["x"]},]}"#;
+    std::fs::write(&store, broken).unwrap();
+    let machine = real_machine(store.clone());
+    let approval = collector("r.json").approval(dir.path());
+    let err = machine.approve(&approval).unwrap_err();
+    assert!(err.contains("consent.json"), "{err}");
+    assert_eq!(std::fs::read(&store).unwrap(), broken.to_vec());
+    assert!(!machine.approved(&approval));
+}
