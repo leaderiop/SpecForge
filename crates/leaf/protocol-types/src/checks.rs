@@ -87,14 +87,6 @@ impl CheckRef {
             },
         }
     }
-
-    /// The `file` check of `@specforge/checks`, whose bare paths start at `root`.
-    pub fn file(root: &Root) -> Self {
-        CheckRef::with(
-            "@specforge/checks:file",
-            serde_json::json!({ "root": root.as_str() }),
-        )
-    }
 }
 
 /// What a checker's values are, for the editor only: it changes no check.

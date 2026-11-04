@@ -197,7 +197,10 @@ impl FieldBuilder {
 
     /// The value names a file that exists, a bare path starting at `root`.
     pub fn file(&mut self, root: Root) -> &mut Self {
-        self.checked(CheckRef::file(&root))
+        self.checked(CheckRef::with(
+            "@specforge/checks:file",
+            serde_json::json!({ "root": root.as_str() }),
+        ))
     }
 
     fn checked(&mut self, check: CheckRef) -> &mut Self {
