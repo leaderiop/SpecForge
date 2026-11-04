@@ -1,6 +1,7 @@
 //! The values phase (ADR 0336): every value whose field has checks, planned by its checkers, its findings placed on
 //! the value. It reads the authored snapshot, so a computed or collected value is never checked.
 
+mod budget;
 mod cache;
 mod collect;
 mod dispatch;
@@ -17,14 +18,15 @@ use specforge_protocol_types::{
     CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckValuesInput, PlannedItem,
 };
 use specforge_registry::{CheckCall, Disk, EntitySnapshot, ResolvedCheck};
-use specforge_wasm::ExtensionCalls;
+use specforge_wasm::{ExtensionCalls, Limits};
 
 use crate::Environment;
 use crate::compiled::{CheckedValue, CheckedValues, ValueOutcome};
+pub use budget::ValueBudget;
 pub(crate) use cache::CheckCache;
 use collect::Value;
 
-/// The most values one run checks; the rest are not judged and count toward I206 as `budget`.
+/// The most values one run checks; the rest are not judged and count toward I206 as [`budget::OVER`].
 const VALUE_CAP: usize = 10_000;
 
 /// One checker's reading of one value.
@@ -129,6 +131,7 @@ struct Planned<'a> {
 /// How the phase asks a checker: through the cache, then the extension.
 struct Asking<'a> {
     env: &'a Environment,
+    effects: &'a Effects,
     calls: ExtensionCalls<'a>,
     cache: &'a CheckCache,
     dir: Option<std::path::PathBuf>,
@@ -145,16 +148,7 @@ impl Asking<'_> {
     ) -> Result<Vec<PlannedItem>, specforge_wasm::CallError> {
         let shelf = cache::Shelf::of(self.env, self.cache, self.dir.as_deref(), extension);
         let (mut known, unknown) = shelf.split(phase, items);
-        if !unknown.is_empty() {
-            let (keys, items): (BTreeMap<u32, String>, Vec<CheckItem>) = {
-                let mut keys = BTreeMap::new();
-                let mut items = Vec::with_capacity(unknown.len());
-                for (key, item) in unknown {
-                    keys.insert(item.id, key);
-                    items.push(item);
-                }
-                (keys, items)
-            };
+        for (keys, items) in self.batches(extension, unknown) {
             let input = CheckValuesInput { phase, items };
             let answer = self.calls.check_values(extension, &input)?;
             for item in answer.items {
@@ -166,6 +160,50 @@ impl Asking<'_> {
         }
         shelf.save();
         Ok(known)
+    }
+}
+
+impl Asking<'_> {
+    /// `items` in calls `extension`'s guest can hold ([`call_cap`]), each item with its key. An item no call can hold
+    /// is not asked: it is not judged, and counts toward I206.
+    fn batches(
+        &self,
+        extension: &str,
+        items: Vec<(String, CheckItem)>,
+    ) -> Vec<(BTreeMap<u32, String>, Vec<CheckItem>)> {
+        let cap = self.call_cap(extension);
+        let mut batches: Vec<(BTreeMap<u32, String>, Vec<CheckItem>)> = Vec::new();
+        let mut held = 0;
+        for (key, item) in items {
+            let size = serde_json::to_vec(&item).map_or(usize::MAX, |bytes| bytes.len());
+            if size > cap {
+                self.effects.count_not_run(budget::OVER, 1);
+                continue;
+            }
+            if batches.is_empty() || held + size > cap {
+                batches.push(Default::default());
+                held = 0;
+            }
+            held += size;
+            let (keys, items) = batches.last_mut().expect("just pushed");
+            keys.insert(item.id, key);
+            items.push(item);
+        }
+        batches
+    }
+
+    /// The most input one call of `extension` carries: a quarter of the memory its sandbox allows, since the guest
+    /// holds the JSON, what it decodes it into and its answer at once.
+    fn call_cap(&self, extension: &str) -> usize {
+        let ceiling = Limits::CEILING.memory_mb;
+        let declared = self
+            .env
+            .registries()
+            .declarations()
+            .iter()
+            .find(|declaration| declaration.name() == extension)
+            .and_then(|declaration| declaration.handshake.sandbox_policy.as_ref()?.max_memory_mb);
+        ((declared.unwrap_or(ceiling).min(ceiling) as usize) << 20) / 4
     }
 }
 
@@ -208,7 +246,7 @@ pub(crate) fn run(
     let mut values = collect::values(entities, checks, text_of);
     if values.len() > VALUE_CAP {
         let over = values.split_off(VALUE_CAP);
-        effects.count_not_run("budget", over.len());
+        effects.count_not_run(budget::OVER, over.len());
         for value in &over {
             for check in value.checks {
                 for call in check.calls() {
@@ -220,6 +258,7 @@ pub(crate) fn run(
     let planned = planned(&values);
     let asking = Asking {
         env,
+        effects,
         calls: ExtensionCalls::new(runtime.as_ref()),
         cache,
         dir: cache::dir_of(effects.journal()),

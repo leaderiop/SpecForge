@@ -6,6 +6,7 @@ use crate::publish::Publication;
 use specforge_effects::SharedGit;
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
+use specforge_project::values::ValueBudget;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::{FieldRegistry, KindRegistry, RegistryBuild};
 use std::collections::{BTreeSet, HashSet};
@@ -348,8 +349,9 @@ impl LspState {
 
 /// A detached session, given `git` when there is one.
 fn detached(git: Option<&SharedGit>) -> ProjectSession {
+    let session = ProjectSession::detached().with_value_budget(ValueBudget::EDITOR);
     match git {
-        Some(git) => ProjectSession::detached().with_git(Arc::clone(git)),
-        None => ProjectSession::detached(),
+        Some(git) => session.with_git(Arc::clone(git)),
+        None => session,
     }
 }

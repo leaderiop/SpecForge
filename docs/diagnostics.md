@@ -2039,12 +2039,13 @@ I206: Value checks not run
 
 Some value checks were not run on this machine (ADR 0337): the run was offline,
 in `cached` mode with no fresh record in the effects journal
-(`.specforge/effects/`), or the effect was not approved here. One summary per
-compile counts them by scope (`links 2, registries 3`). The values are left
-unchecked, not failed, and nothing is wrong with the project. Run `specforge
-check` at a terminal (it runs `--effects auto`), or `--effects online`, to
-perform them. A `machine` diagnostic: `--strict` never promotes it, and the
-gate's warning baseline never counts it.
+(`.specforge/effects/`), the effect was not approved here, or the run's budget
+was spent (scope `budget`: too many probes on one value, too long, or too many
+bytes). One summary per compile counts them by scope (`links 2, registries 3`).
+The values are left unchecked, not failed, and nothing is wrong with the
+project. Run `specforge check` at a terminal (it runs `--effects auto`), or
+`--effects online`, to perform them. A `machine` diagnostic: `--strict` never
+promotes it, and the gate's warning baseline never counts it.
 
 Owner: core
 Level: info
@@ -3976,15 +3977,15 @@ Level: warning
 W170: Effects not approved on this machine
 
 A capability an extension uses here (an HTTP request, a command, a write) needs
-this machine's approval and has none (ADR 0335 D2.4), or a named root it reads
-lies outside the project and is not approved. Approvals are per machine and per
-project, kept in `~/.specforge/consent.json`, never in the project: a builtin's
-by its name, a third-party extension's by the digest of its blob, so a new blob
-asks again, as does a wider scope. Only the scopes the run uses are listed.
-Approve them with `specforge grants approve <extension> <scope>...` (`--root
-<name>` for a root), or pass `--yes` to allow them for one run. A `machine`
-diagnostic: `--strict` never promotes it, and the gate's warning baseline never
-counts it.
+this machine's approval and has none (ADR 0335 D2.4), or a root it reads (a
+named one, or the spec root) lies outside the project and is not approved.
+Approvals are per machine and per project, kept in `~/.specforge/consent.json`,
+never in the project: a builtin's by its name, a third-party extension's by the
+digest of its blob, so a new blob asks again, as does a wider scope. Only the
+scopes the run uses are listed. Approve them with `specforge grants approve
+<extension> <scope>...` (`--root <name>` for a root), or pass `--yes` to allow
+them for one run. A `machine` diagnostic: `--strict` never promotes it, and the
+gate's warning baseline never counts it.
 
 Owner: core
 Level: warning

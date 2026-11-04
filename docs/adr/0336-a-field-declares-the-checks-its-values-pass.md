@@ -164,6 +164,7 @@ The guest parses the bytes it is served. The kernel never learns what an image, 
 - **The host reports containment, before any probe runs**. A guest never receives an outcome for a path outside its root, whatever a third-party checker does.
 - **A finding's severity is its code's catalogue level**. There is no `severity` argument in the SDK or on the wire.
 - **One call per extension per phase, not one per checker**. The probes of all checkers are deduplicated together.
+- **One run has a budget**: 16 probes per value, 120 s and 64 MiB of bodies, reads and listings, with 50,000 file and git probes; an editor's check gets 2 s, 8 MiB and 2,000. What is over it is not judged and counts toward I206 as `budget`, so a later run, answered from the journal, gets further. One `__check_values` call carries at most a quarter of its guest's memory limit: more is split into several calls, and an item alone over that is not asked.
 - **Selection is keyed on the declared input**, so the kernel stays domain-free, and test runners without detection files keep the single-runner fallback.
 
 ## Consequences

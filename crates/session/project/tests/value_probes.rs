@@ -247,6 +247,16 @@ impl Scene {
         enabled: &[&str],
         runtime: InProcessRuntime,
     ) -> Self {
+        Self::over(http, spec, enabled, Arc::new(runtime))
+    }
+
+    /// [`Self::with`], the caller keeping `runtime` to read what it was asked.
+    pub(crate) fn over(
+        http: FakeHttp,
+        spec: &str,
+        enabled: &[&str],
+        runtime: Arc<InProcessRuntime>,
+    ) -> Self {
         let dir = TestProject::new()
             .config(|c| c["name"] = "p".into())
             .enabling(enabled)
@@ -254,12 +264,12 @@ impl Scene {
             .file("a.spec", spec);
         Scene {
             dir,
-            runtime: Arc::new(runtime),
+            runtime,
             http: Arc::new(http),
         }
     }
 
-    fn ports(&self) -> Ports {
+    pub(crate) fn ports(&self) -> Ports {
         Ports {
             http: Arc::clone(&self.http) as Arc<dyn Http>,
             ..ports()
@@ -272,7 +282,17 @@ impl Scene {
 
     /// The project checked in `mode`, approvals read from `consent`.
     pub(crate) fn checked(&self, mode: EffectsMode, consent: &dyn Consent) -> CompiledProject {
-        let env = self.env();
+        self.checked_within(mode, consent, specforge_project::values::ValueBudget::RUN)
+    }
+
+    /// [`Self::checked`], its values phase held to `budget`.
+    pub(crate) fn checked_within(
+        &self,
+        mode: EffectsMode,
+        consent: &dyn Consent,
+        budget: specforge_project::values::ValueBudget,
+    ) -> CompiledProject {
+        let env = self.env().with_value_budget(budget);
         let root = self.dir.project_root();
         let effects = effects::of(mode, &self.ports(), &env, &root, consent);
         CompiledProject::compile_through(env.with_effects(effects), &PlainDisk)

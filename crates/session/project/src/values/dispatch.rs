@@ -3,6 +3,7 @@
 //! its value not judged, so nothing goes red offline.
 
 use std::collections::{BTreeMap, HashMap};
+use std::time::Instant;
 
 use specforge_common::{Diagnostic, SourceSpan, codes};
 use specforge_effects::contained::{Contained, Refused, Resolved};
@@ -17,9 +18,10 @@ use specforge_protocol_types::{
 };
 use specforge_registry::{CheckCall, Disk, DiskLookup};
 
+use super::budget::{self, ValueBudget};
 use super::collect::Value;
 use super::local::{self, WALK_CAP, git_of, stat_of};
-use super::network::{HEAD_ROOM, Job, perform_all};
+use super::network::{HEAD_ROOM, Job, Performed, Spending, perform_all};
 use crate::Environment;
 
 /// The kind of call a probe is asked under.
@@ -82,10 +84,15 @@ pub(super) fn dispatch(
         .effects_allowed()
         .with_named(Roots::new(env.root(), env.spec_root()));
     let lookup = DiskLookup(disk);
+    let budget = env.value_budget();
+    let deadline = Instant::now() + budget.time;
     let mut probing = Probing {
         env,
         effects,
         disk,
+        budget,
+        deadline,
+        spent: 0,
         contained: Contained::new(&roots, &lookup),
         now: UnixMillis::now_or_end(),
         gates: gates(env, &roots, asked),
@@ -98,15 +105,26 @@ pub(super) fn dispatch(
     let mut slots: Vec<Vec<Slot>> = Vec::with_capacity(asked.len());
     for one in asked {
         let mut reading = Reading::default();
-        slots.push(
-            one.probes
-                .iter()
-                .map(|probe| probing.prepare(one, probe, &mut reading))
-                .collect(),
-        );
+        if one.probes.len() > budget.probes_per_value {
+            effects.count_not_run(budget::OVER, 1);
+            reading.not_run = true;
+            slots.push(Vec::new());
+        } else {
+            slots.push(
+                one.probes
+                    .iter()
+                    .map(|probe| probing.prepare(one, probe, &mut reading))
+                    .collect(),
+            );
+        }
         readings.push(reading);
     }
-    let answers = perform_all(effects, probing.now, &probing.jobs);
+    let spending = Spending {
+        deadline,
+        bytes: budget.bytes,
+        spent: probing.spent,
+    };
+    let answers = perform_all(effects, probing.now, &probing.jobs, spending);
     let mut counted = vec![false; probing.jobs.len()];
     for ((one, reading), slots) in asked.iter().zip(&mut readings).zip(slots) {
         for slot in slots {
@@ -164,6 +182,10 @@ struct Probing<'a> {
     env: &'a Environment,
     effects: &'a Effects,
     disk: &'a dyn Disk,
+    budget: ValueBudget,
+    deadline: Instant,
+    /// What the local probes read so far (the budget's `bytes`).
+    spent: u64,
     contained: Contained<'a>,
     now: UnixMillis,
     gates: BTreeMap<String, Grant>,
@@ -177,6 +199,28 @@ struct Probing<'a> {
 }
 
 impl<'a> Probing<'a> {
+    /// Whether the budget still reads `probe` from the disk or git; one already read is free. When not, `one` is not
+    /// judged and counts toward I206.
+    fn local_budget(&self, one_reading: &mut Reading, probe: &Probe) -> bool {
+        let spare = self.local.contains_key(probe)
+            || (self.local.len() < self.budget.local_probes
+                && self.spent < self.budget.bytes
+                && Instant::now() < self.deadline);
+        if !spare {
+            self.effects.count_not_run(budget::OVER, 1);
+            one_reading.not_run = true;
+        }
+        spare
+    }
+
+    /// Remember what `probe` read, and what it cost.
+    fn read_local(&mut self, probe: &Probe, answer: &Option<(OutcomeClass, OutcomeData)>) {
+        if let Some((_, data)) = answer {
+            self.spent += budget::cost(data);
+        }
+        self.local.insert(probe.clone(), answer.clone());
+    }
+
     fn prepare(&mut self, one: &Asked<'a>, probe: &'a Probe, reading: &mut Reading) -> Slot {
         let scopes = self
             .env
@@ -380,6 +424,9 @@ impl<'a> Probing<'a> {
             reading.not_run = true;
             return Slot::Stopped;
         }
+        if !self.local_budget(reading, probe) {
+            return Slot::Stopped;
+        }
         let answer = match self.local.get(probe) {
             Some(answer) => answer.clone(),
             None => {
@@ -388,7 +435,7 @@ impl<'a> Probing<'a> {
                     Ok(resolved) => local::read_disk(self.disk, &self.contained, resolved, &op),
                     Err(()) => (OutcomeClass::Missing, stat_of(None, 0, None)),
                 });
-                self.local.insert(probe.clone(), answer.clone());
+                self.read_local(probe, &answer);
                 answer
             }
         };
@@ -437,12 +484,15 @@ impl<'a> Probing<'a> {
             refuse(reading, one.value, denial.diagnostic());
             return Slot::Stopped;
         }
+        if self.effects.mode() != EffectsMode::Replay && !self.local_budget(reading, probe) {
+            return Slot::Stopped;
+        }
         let answer = match (self.effects.mode(), self.local.get(probe)) {
             (EffectsMode::Replay, _) => None,
             (_, Some(answer)) => answer.clone(),
             (_, None) => {
                 let answer = local::ask_git(self.env, probe, tracked.as_ref());
-                self.local.insert(probe.clone(), answer.clone());
+                self.read_local(probe, &answer);
                 answer
             }
         };
@@ -516,17 +566,23 @@ impl<'a> Probing<'a> {
     }
 
     /// `answer`, what a job's request came to, as `one`'s. A job not performed was counted by its first asker's scope;
-    /// each other value it would have answered counts too.
+    /// each other value it would have answered counts too. One over the budget counts for every value it would have
+    /// answered.
     fn answered(
         &self,
         one: &Asked<'_>,
         reading: &mut Reading,
-        answer: &Option<ProbeOutcome>,
+        answer: &Performed,
         job: &Job<'_>,
         first: bool,
     ) -> Option<ProbeOutcome> {
         match answer {
-            None => {
+            Performed::OverBudget => {
+                self.effects.count_not_run(budget::OVER, 1);
+                reading.not_run = true;
+                None
+            }
+            Performed::Declined => {
                 if !first {
                     self.effects.count_not_run(&one.call.checker, 1);
                 }
@@ -534,7 +590,7 @@ impl<'a> Probing<'a> {
                 None
             }
             // The grant stopped it on the way: a redirect out of its scope.
-            Some(outcome) if outcome.class == OutcomeClass::Denied => {
+            Performed::Answer(outcome) if outcome.class == OutcomeClass::Denied => {
                 refuse(
                     reading,
                     one.value,
@@ -549,7 +605,7 @@ impl<'a> Probing<'a> {
                 );
                 None
             }
-            Some(outcome) => Some(outcome.clone()),
+            Performed::Answer(outcome) => Some(outcome.clone()),
         }
     }
 }

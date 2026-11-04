@@ -142,7 +142,7 @@ pub fn not_run(log: &Log) -> Option<Diagnostic> {
             codes::I206,
             format!(
                 "{total} value check{plural} not run on this machine ({}): offline, cached mode with no fresh \
-                 result, or not approved",
+                 result, not approved, or over the run's budget",
                 scopes.join(", ")
             ),
         )

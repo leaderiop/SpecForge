@@ -206,3 +206,12 @@ fn a_url_value_links_to_its_url() {
     let spec = "service a \"A\" {\n  site \"https://a.example/x\"\n}\n\nservice b \"B\" {\n  site \"ftp://a.example/x\"\n}\n";
     assert_eq!(linked(spec, &[]), ["https://a.example/x"]);
 }
+
+#[test]
+fn an_editor_holds_its_checks_to_the_editors_budget() {
+    let served = served("x");
+    assert_eq!(
+        served.state().environment().value_budget(),
+        specforge_project::values::ValueBudget::EDITOR
+    );
+}

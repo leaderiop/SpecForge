@@ -81,7 +81,7 @@ fn a_record_fetched_with_a_secret_answers_no_other_extension() {
     assert_eq!(scene.http.requests().len(), 1);
     assert!(carried_a_secret(&scene), "the probe path attaches it");
 
-    scene.dir.write("a.spec", &b_spec());
+    scene.dir.write("a.spec", b_spec());
     for mode in [EffectsMode::Cached, EffectsMode::Auto] {
         let project = scene.checked(mode, &MemoryConsent::default());
         assert_eq!(status_of(&project, "b"), CheckStatus::NotRun, "{mode:?}");
@@ -103,7 +103,7 @@ fn a_record_fetched_with_a_secret_answers_no_other_extension() {
     assert_eq!(scene.http.requests().len(), 1, "no mode here performed");
 
     // Its own record still answers it, in each; `auto` under its approval.
-    scene.dir.write("a.spec", &a_spec());
+    scene.dir.write("a.spec", a_spec());
     let consent = MemoryConsent::default();
     consent.approve(scene.approval(EXT, "api")).unwrap();
     for mode in [EffectsMode::Cached, EffectsMode::Auto, EffectsMode::Replay] {
@@ -125,7 +125,7 @@ fn one_extensions_401_does_not_answer_another() {
         Some(OutcomeClass::Status(401))
     );
 
-    scene.dir.write("a.spec", &a_spec());
+    scene.dir.write("a.spec", a_spec());
     let cached = scene.checked(EffectsMode::Cached, &MemoryConsent::default());
     assert_eq!(status_of(&cached, "a"), CheckStatus::NotRun);
     assert_eq!(cached.value_checks().of("a")[0].outcome_class, None);
@@ -199,7 +199,7 @@ fn a_redirect_one_grant_permits_reaches_no_other_extension() {
     let scene = Scene::with(http, &a_spec(), &[EXT, OTHER], runtime);
     assert_eq!(status_of(&scene.online(), "a"), CheckStatus::Passed);
 
-    scene.dir.write("a.spec", &b_spec());
+    scene.dir.write("a.spec", b_spec());
     let cached = scene.checked(EffectsMode::Cached, &MemoryConsent::default());
     assert_eq!(status_of(&cached, "b"), CheckStatus::NotRun);
 

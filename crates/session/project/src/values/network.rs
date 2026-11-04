@@ -2,7 +2,9 @@
 //! the run's effects under its extension's grant. Their answers are journaled as a guest reads them.
 
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex};
+use std::time::Instant;
 
 use specforge_effects::http::Any;
 use specforge_effects::journal::{Answer, Blob};
@@ -10,6 +12,8 @@ use specforge_effects::{
     Asker, EffectRequest, Effects, Outcome, OutcomeClass, Ports, Served, UnixMillis,
 };
 use specforge_protocol_types::{Header, Operation, OutcomeData, Probe, ProbeOutcome};
+
+use super::budget;
 
 /// Calls on the network at once, overall and to one host.
 const WORKERS: usize = 32;
@@ -30,12 +34,31 @@ pub(super) struct Job<'a> {
     pub max_bytes: u64,
 }
 
-/// The jobs, on [`WORKERS`] threads, at most [`PER_HOST`] to one host at once; none for one not performed.
+/// What became of a [`Job`].
+#[derive(Debug, Clone)]
+pub(super) enum Performed {
+    Answer(ProbeOutcome),
+    /// Asked, and this run's effects did not perform it: they counted it under its scope.
+    Declined,
+    /// Not asked: the run's budget was spent.
+    OverBudget,
+}
+
+/// What the network may still spend.
+pub(super) struct Spending {
+    pub deadline: Instant,
+    /// The most an answer's body may add up to; what the run read before is already spent.
+    pub bytes: u64,
+    pub spent: u64,
+}
+
+/// The jobs, on [`WORKERS`] threads, at most [`PER_HOST`] to one host at once. None starts once `spending` is used up.
 pub(super) fn perform_all(
     effects: &Effects,
     now: UnixMillis,
     jobs: &[Job<'_>],
-) -> Vec<Option<ProbeOutcome>> {
+    spending: Spending,
+) -> Vec<Performed> {
     struct Queue<'a> {
         pending: VecDeque<usize>,
         busy: HashMap<&'a str, usize>,
@@ -45,7 +68,8 @@ pub(super) fn perform_all(
         busy: HashMap::new(),
     });
     let freed = Condvar::new();
-    let results = Mutex::new(vec![None; jobs.len()]);
+    let results = Mutex::new(vec![Performed::OverBudget; jobs.len()]);
+    let spent = AtomicU64::new(spending.spent);
     std::thread::scope(|scope| {
         for _ in 0..WORKERS.min(jobs.len()) {
             scope.spawn(|| {
@@ -74,8 +98,16 @@ pub(super) fn perform_all(
                         }
                     };
                     drop(held);
-                    let outcome = perform_one(effects, now, &jobs[index]);
-                    results.lock().unwrap_or_else(|e| e.into_inner())[index] = outcome;
+                    let spare = spent.load(Ordering::Relaxed) < spending.bytes
+                        && Instant::now() < spending.deadline;
+                    if spare {
+                        let outcome = perform_one(effects, now, &jobs[index]);
+                        // Before its slot frees: the most it overruns by is what is on the wire to its host now.
+                        if let Performed::Answer(outcome) = &outcome {
+                            spent.fetch_add(budget::cost(&outcome.data), Ordering::Relaxed);
+                        }
+                        results.lock().unwrap_or_else(|e| e.into_inner())[index] = outcome;
+                    }
                     *lock_of(&queue)
                         .busy
                         .entry(jobs[index].host.as_str())
@@ -92,7 +124,7 @@ fn lock_of<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-fn perform_one(effects: &Effects, now: UnixMillis, job: &Job<'_>) -> Option<ProbeOutcome> {
+fn perform_one(effects: &Effects, now: UnixMillis, job: &Job<'_>) -> Performed {
     let asker = Asker {
         extension: job.extension,
         op: Operation::CheckValues,
@@ -105,14 +137,14 @@ fn perform_one(effects: &Effects, now: UnixMillis, job: &Job<'_>) -> Option<Prob
             answer,
             from_journal,
             observed_at,
-        } => Some(ProbeOutcome {
+        } => Performed::Answer(ProbeOutcome {
             probe: job.probe.clone(),
             class: answer.outcome.class,
             data: answer.payload.as_deref().map_or(OutcomeData::None, decode),
             observed_at: observed_at.0,
             from_cache: from_journal,
         }),
-        Served::NotPerformed(_) | Served::Miss | Served::Local => None,
+        Served::NotPerformed(_) | Served::Miss | Served::Local => Performed::Declined,
     }
 }
 

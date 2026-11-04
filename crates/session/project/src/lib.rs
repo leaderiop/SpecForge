@@ -168,6 +168,8 @@ pub struct Environment {
     settings_diagnostics: Vec<Diagnostic>,
     /// The `effects` ceiling and `roots` specforge.json sets (ADR 0335 D2.3), with their E109 and W171.
     effects_allowed: ResolvedEffects,
+    /// What one run of the values phase may spend.
+    value_budget: values::ValueBudget,
     /// One E069 per config problem. The extension load's diagnostics are on
     /// [`Self::enabled`] ([`Installed::load_diagnostics`] orders them).
     config_diagnostics: Vec<Diagnostic>,
@@ -210,6 +212,7 @@ impl Environment {
             settings: ResolvedSettings::default(),
             settings_diagnostics: Vec::new(),
             effects_allowed: ResolvedEffects::default(),
+            value_budget: Default::default(),
             config_diagnostics: Vec::new(),
             structural_only: None,
             runtime: None,
@@ -360,6 +363,7 @@ impl Environment {
             settings,
             settings_diagnostics,
             effects_allowed,
+            value_budget: Default::default(),
             config_diagnostics,
             structural_only,
             runtime,
@@ -399,10 +403,9 @@ impl Environment {
         };
         let mut environment = Self::assemble(read, installed, load);
         let text = environment.read.config.text.clone();
-        let spec = environment.spec_root().to_path_buf();
         environment
             .effects_allowed
-            .locate(text.as_deref(), root.dir(), &spec);
+            .locate(text.as_deref(), root.dir(), environment.sources.dir());
         Environment {
             root: Some(root.clone()),
             effects: specforge_effects::Effects::cached(
