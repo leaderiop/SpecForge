@@ -399,7 +399,8 @@ impl<'a> Pdf<'a> {
         }
     }
 
-    /// Object `number`, the `index`th of object stream `stream`.
+    /// Object `number` of object stream `stream`, found by its number in the stream's header (the index a
+    /// cross-reference gives is not read).
     fn in_stream(&mut self, stream: u32, number: u32) -> Result<Obj, Stop> {
         let Entry::At(offset) = self.entry(stream)? else {
             return bad(format!("object stream {stream} is not at an offset"));
