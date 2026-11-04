@@ -406,18 +406,16 @@ fn served(range: Option<ByteRange>, outcome: &HttpOutcome, keep: usize) -> Body 
     }
 }
 
-/// A `Content-Range` value's first byte and the whole's length (`bytes 0-99/1234`, `bytes 0-99/*`, `bytes */1234`).
+/// A `Content-Range` value's first byte and the whole's length (`bytes 0-99/1234`, `bytes 0-99/*`, `bytes */1234`), as
+/// the `headers` crate reads it.
 fn content_range(value: &str) -> Option<(Option<u64>, Option<u64>)> {
-    let (span, total) = value.strip_prefix("bytes ")?.split_once('/')?;
-    let start = match span.trim() {
-        "*" => None,
-        span => Some(span.split_once('-')?.0.trim().parse().ok()?),
-    };
-    let total = match total.trim() {
-        "*" => None,
-        total => Some(total.parse().ok()?),
-    };
-    Some((start, total))
+    use headers::Header as _;
+    let value = headers::HeaderValue::from_str(value).ok()?;
+    let range = headers::ContentRange::decode(&mut std::iter::once(&value)).ok()?;
+    Some((
+        range.bytes_range().map(|(start, _)| start),
+        range.bytes_len(),
+    ))
 }
 
 /// A probe's data as a record keeps it: its JSON, on one line; a body's bytes follow it as they came, which a
@@ -508,6 +506,19 @@ mod tests {
             assert_eq!(decode(&encode(&data)), data);
         }
         assert_eq!(decode(b"not json"), OutcomeData::None);
+    }
+
+    #[test]
+    fn a_content_range_is_read_by_the_headers_crate() {
+        assert_eq!(
+            content_range("bytes 0-99/1234"),
+            Some((Some(0), Some(1234)))
+        );
+        assert_eq!(content_range("bytes 5-9/*"), Some((Some(5), None)));
+        assert_eq!(content_range("bytes */1234"), Some((None, Some(1234))));
+        for bad in ["bytes 9-5/10", "items 0-1/2", "bytes x-1/2", ""] {
+            assert_eq!(content_range(bad), None, "{bad}");
+        }
     }
 
     #[test]
