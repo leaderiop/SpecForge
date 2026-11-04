@@ -361,6 +361,10 @@ fn served(range: Option<ByteRange>, outcome: &HttpOutcome, keep: usize) -> Body 
         total_len,
         truncated: false,
     };
+    // A read to the end that the cap did not stop knows the whole's length, said or not (a chunked answer says none).
+    if !capped && outcome.status == Some(200) && matches!(range, Some(ByteRange::Whole { .. })) {
+        body.total_len = Some(outcome.body.len() as u64);
+    }
     let Some(range) = range.filter(|range| !matches!(range, ByteRange::Whole { .. })) else {
         return body;
     };
@@ -504,5 +508,23 @@ mod tests {
             assert_eq!(decode(&encode(&data)), data);
         }
         assert_eq!(decode(b"not json"), OutcomeData::None);
+    }
+
+    #[test]
+    fn a_whole_read_without_a_length_header_knows_its_length() {
+        let chunked = HttpOutcome {
+            class: OutcomeClass::Ok,
+            status: Some(200),
+            final_url: String::new(),
+            headers: Vec::new(),
+            body: b"<svg/>".to_vec(),
+            detail: None,
+        };
+        let whole = Some(ByteRange::Whole { max: 1024 });
+        assert_eq!(served(whole, &chunked, 1024).total_len, Some(6));
+        // One the cap stopped does not: there is more than it read.
+        let cut = served(whole, &chunked, 3);
+        assert!(cut.truncated);
+        assert_eq!(cut.total_len, None);
     }
 }
