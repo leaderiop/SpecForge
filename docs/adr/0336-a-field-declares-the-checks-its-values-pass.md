@@ -14,6 +14,11 @@ the prefix), [ADR 0293](0293-a-pass-or-command-declares-the-project-files-it-rea
 note to [ADR 0026](0026-typed-diagnostic-codes.md) D3. ADR 0338 and the decision for the structured, media and registry checkers each add an "Amends 0336"
 line for the probe kinds they add (D9), and the latter amends D4 (extra rounds).
 
+**Amended by [ADR 0338](0338-one-foundation-extension-holds-the-generic-value-checkers.md)** (D10–D12): `fs.read` and
+`http.get` name a byte range (whole, prefix, suffix or span) in place of a probe kind per end; a fixed-host capability
+whose only call kind is `check_values` may POST a bounded JSON query; and D4's judge may answer with more probes, at
+most three rounds a value, reading every round's outcomes in order.
+
 **Since the `file` checker (ADR 0338)** `file_reference`, `file_base` and `file_exists` are deleted, in the commit that adds the `file`
 checker, so that E016 has exactly one emitter at every commit: a declared `file_exists` rule is W112 naming
 `@specforge/checks:file`, and E016 is a `checks` code. No registry rule reads the file system any more (`RuleInput`
