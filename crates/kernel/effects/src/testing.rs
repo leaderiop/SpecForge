@@ -6,19 +6,21 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use specforge_protocol_types::{
-    FsOp, FsRequest, HttpRequest, OutcomeClass, ProcessRequest, Redirected, Unreachable,
-};
+use specforge_protocol_types::{FsOp, FsRequest, OutcomeClass, ProcessRequest};
 
 use crate::fs::{FileKind, FsStat, READ_CEILING, held};
 use crate::git::{
     Blob, CommitFile, Git, GitError, GitPlace, GitStatus, Located, Sha, Sized, TreeEntry,
 };
-use crate::http::{Any, scheme, status_class};
+use crate::http::Any;
 use crate::{
-    Ceiling, Fs, FsOutcome, Http, HttpOutcome, Lookup, Output, Ports, Process, ProcessClass,
-    ProcessOutcome, Redirects, Roots,
+    Ceiling, Fs, FsOutcome, Http, Lookup, Output, Ports, Process, ProcessClass, ProcessOutcome,
+    Roots,
 };
+
+mod http;
+
+pub use http::FakeHttp;
 
 /// Ports of fakes that answer nothing: every program is not found, every URL unreachable, every file missing, no
 /// directory a repository.
@@ -97,127 +99,6 @@ impl Process for FakeProcess {
             Output::Inherit => {}
         }
         outcome
-    }
-}
-
-/// An HTTP port that answers from a route table, follows redirects as every adapter must, and records every request.
-#[derive(Default)]
-pub struct FakeHttp {
-    routes: BTreeMap<String, Route>,
-    requests: Mutex<Vec<HttpRequest>>,
-}
-
-#[derive(Clone)]
-struct Route {
-    status: u16,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
-}
-
-impl FakeHttp {
-    /// Every URL is unreachable (`unreachable:dns`).
-    pub fn new() -> Self {
-        FakeHttp::default()
-    }
-
-    /// `url` answers `status` with `body`.
-    pub fn route(self, url: &str, status: u16, body: impl Into<Vec<u8>>) -> Self {
-        self.route_with(url, status, Vec::new(), body)
-    }
-
-    /// `url` answers `status` with `headers` and `body`.
-    pub fn route_with(
-        mut self,
-        url: &str,
-        status: u16,
-        headers: Vec<(&str, &str)>,
-        body: impl Into<Vec<u8>>,
-    ) -> Self {
-        let headers = headers
-            .into_iter()
-            .map(|(n, v)| (n.to_ascii_lowercase(), v.to_string()))
-            .collect();
-        self.routes.insert(
-            url.to_string(),
-            Route {
-                status,
-                headers,
-                body: body.into(),
-            },
-        );
-        self
-    }
-
-    /// `from` redirects (302) to `to`.
-    pub fn redirect(self, from: &str, to: &str) -> Self {
-        self.route_with(from, 302, vec![("location", to)], Vec::new())
-    }
-
-    /// The requests made so far, in order (one per request, not per hop).
-    pub fn requests(&self) -> Vec<HttpRequest> {
-        self.requests.lock().expect("no request panics").clone()
-    }
-}
-
-impl Http for FakeHttp {
-    fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
-        self.requests
-            .lock()
-            .expect("no request panics")
-            .push(request.clone());
-        let mut url = request.url.clone();
-        let mut hops = 0;
-        loop {
-            let Some(route) = self.routes.get(&url) else {
-                return HttpOutcome::unreachable(&url, Unreachable::Dns, "no route");
-            };
-            let location = route
-                .headers
-                .iter()
-                .find(|(n, _)| n == "location")
-                .map(|(_, v)| v.clone());
-            if let (300..=399, Some(to)) = (route.status, location) {
-                let refused = if hops == request.max_redirects {
-                    Some(Redirected::Limit)
-                } else if scheme(&url) == "https" && scheme(&to) == "http" {
-                    Some(Redirected::Downgrade)
-                } else if !redirects.allow(&url, &to) {
-                    Some(Redirected::Refused)
-                } else {
-                    None
-                };
-                if let Some(why) = refused {
-                    return HttpOutcome::failed(&url, OutcomeClass::Redirect(why), to);
-                }
-                hops += 1;
-                url = to;
-                continue;
-            }
-            let cap = usize::try_from(request.body_cap).unwrap_or(usize::MAX);
-            let capped = route.body.len() > cap;
-            return HttpOutcome {
-                class: if capped {
-                    OutcomeClass::Capped
-                } else {
-                    status_class(route.status)
-                },
-                status: Some(route.status),
-                final_url: url,
-                headers: route
-                    .headers
-                    .iter()
-                    .filter(|(n, _)| {
-                        request
-                            .keep_headers
-                            .iter()
-                            .any(|k| k.eq_ignore_ascii_case(n))
-                    })
-                    .cloned()
-                    .collect(),
-                body: route.body[..route.body.len().min(cap)].to_vec(),
-                detail: None,
-            };
-        }
     }
 }
 

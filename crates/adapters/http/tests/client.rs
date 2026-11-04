@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use specforge_effects::http::{Any, get};
 use specforge_effects::{
     AttachedSecret, EffectsCeiling, Grant, Header, Http, HttpCeiling, HttpRequest, Narrow,
-    OutcomeClass, Redirected, Unreachable,
+    OutcomeClass, Redirected, ResolveRequest, TlsRequest, Unreachable,
 };
 use specforge_http::Client;
 use specforge_protocol_types::Operation;
@@ -370,4 +370,66 @@ fn a_secret_goes_to_the_hosts_it_lists_and_is_dropped_on_a_redirect_elsewhere() 
         !head.contains("x-token"),
         "the hop elsewhere does not: {head}"
     );
+}
+
+#[test]
+fn resolving_a_dot_invalid_host_is_unreachable_dns() {
+    let outcome = Client::new().resolve(&ResolveRequest {
+        host: "no-such-host.invalid".to_string(),
+        allow_private: false,
+        timeout_ms: 10_000,
+    });
+    assert_eq!(outcome.class, OutcomeClass::Unreachable(Unreachable::Dns));
+    assert!(outcome.addresses.is_empty());
+}
+
+#[test]
+fn a_host_that_resolves_only_to_loopback_is_refused_address() {
+    let asked = |allow_private| {
+        Client::new().resolve(&ResolveRequest {
+            host: "127.0.0.1".to_string(),
+            allow_private,
+            timeout_ms: 10_000,
+        })
+    };
+    let refused = asked(false);
+    assert_eq!(
+        refused.class,
+        OutcomeClass::Unreachable(Unreachable::RefusedAddress)
+    );
+    assert!(refused.addresses.is_empty(), "no private address gets out");
+    assert_eq!(asked(true).addresses, ["127.0.0.1"]);
+}
+
+#[test]
+fn a_handshake_reads_its_certificate_whether_or_not_the_chain_verifies() {
+    let (port, _) = serve_tls(|_| ok("hi"));
+    let request = TlsRequest {
+        host: "localhost".to_string(),
+        tcp_port: port,
+        allow_private: true,
+        timeout_ms: 10_000,
+    };
+    let trusted = trusting().tls(&request);
+    assert_eq!(trusted.class, OutcomeClass::Ok, "{trusted:?}");
+    assert!(trusted.chain_valid);
+    assert_eq!(trusted.issuer.as_deref(), Some("localhost"));
+    assert!(trusted.not_after.is_some());
+
+    let rejected = Client::new().tls(&request);
+    assert_eq!(rejected.class, OutcomeClass::Unreachable(Unreachable::Tls));
+    assert!(!rejected.chain_valid);
+    assert_eq!(rejected.not_after, trusted.not_after, "the facts it read");
+    assert_eq!(rejected.issuer, trusted.issuer);
+
+    let refused = Client::new().tls(&TlsRequest {
+        allow_private: false,
+        ..request
+    });
+    assert_eq!(
+        refused.class,
+        OutcomeClass::Unreachable(Unreachable::RefusedAddress),
+        "a handshake reaches no address the request does not allow"
+    );
+    assert_eq!(refused.not_after, None);
 }

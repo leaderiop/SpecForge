@@ -72,6 +72,11 @@ pub struct FileStamp {
 }
 
 impl FileStamp {
+    /// The file's length in bytes.
+    pub fn size(&self) -> u64 {
+        self.len
+    }
+
     /// The stamp of `bytes`, whatever file held them: their length and hash.
     pub fn of(bytes: &[u8]) -> Self {
         Self {

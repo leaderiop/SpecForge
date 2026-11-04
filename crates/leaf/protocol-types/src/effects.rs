@@ -349,4 +349,28 @@ pub enum EffectRequest {
     Process(ProcessRequest),
     Http(HttpRequest),
     Fs(FsRequest),
+    Resolve(ResolveRequest),
+    Tls(TlsRequest),
+}
+
+/// A name's addresses, asked of the Http port: there is no Dns port and no `dns` capability.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolveRequest {
+    pub host: String,
+    /// A loopback, private or link-local address may be answered.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub allow_private: bool,
+    pub timeout_ms: u64,
+}
+
+/// A TLS handshake with a host, asked of the Http port: what its leaf certificate says, and whether its chain verifies.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TlsRequest {
+    pub host: String,
+    /// `tcp_port`: an [`EffectRequest`]'s tag is its `port`.
+    pub tcp_port: u16,
+    /// A host at a loopback, private or link-local address may be reached.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub allow_private: bool,
+    pub timeout_ms: u64,
 }

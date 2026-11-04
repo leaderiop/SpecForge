@@ -6,12 +6,13 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use specforge_protocol_types::{
-    EffectRequest, FsRequest, HttpRequest, Operation, OutcomeClass, ProcessRequest,
+    EffectRequest, FsRequest, HttpRequest, Operation, OutcomeClass, ProcessRequest, ResolveRequest,
+    TlsRequest,
 };
 
 use crate::fs::{Fs, FsOutcome};
 use crate::grant::{Denial, Grant};
-use crate::http::{Http, HttpOutcome, Redirects};
+use crate::http::{Http, HttpOutcome, Redirects, ResolveOutcome, TlsOutcome};
 use crate::process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome};
 use crate::{Roots, SharedFs, SharedHttp, SharedProcess};
 
@@ -58,6 +59,20 @@ impl Http for GrantedPort<dyn Http> {
                 ..outcome
             },
             None => outcome,
+        }
+    }
+
+    fn resolve(&self, request: &ResolveRequest) -> ResolveOutcome {
+        match self.check(EffectRequest::Resolve(request.clone())) {
+            Ok(()) => self.port.resolve(request),
+            Err(_) => ResolveOutcome::of(OutcomeClass::Denied),
+        }
+    }
+
+    fn tls(&self, request: &TlsRequest) -> TlsOutcome {
+        match self.check(EffectRequest::Tls(request.clone())) {
+            Ok(()) => self.port.tls(request),
+            Err(_) => TlsOutcome::of(OutcomeClass::Denied),
         }
     }
 }

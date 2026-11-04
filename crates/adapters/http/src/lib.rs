@@ -14,10 +14,12 @@ use reqwest::header::{HeaderValue, LOCATION};
 use reqwest::{Method, Url};
 use specforge_effects::http::{BODY_CEILING, CONNECT_TIMEOUT, TIMEOUT_CEILING, status_class};
 use specforge_effects::{
-    Http, HttpOutcome, HttpRequest, OutcomeClass, Redirected, Redirects, Unreachable,
+    Http, HttpOutcome, HttpRequest, OutcomeClass, Redirected, Redirects, ResolveOutcome,
+    ResolveRequest, TlsOutcome, TlsRequest, Unreachable,
 };
 
 mod address;
+mod handshake;
 
 pub use address::public;
 use address::{Failed, PublicOnly};
@@ -188,6 +190,18 @@ impl Http for Client {
             }
             hops += 1;
             url = to.into();
+        }
+    }
+
+    fn resolve(&self, request: &ResolveRequest) -> ResolveOutcome {
+        handshake::resolve(request)
+    }
+
+    fn tls(&self, request: &TlsRequest) -> TlsOutcome {
+        let config = self.tls.clone().map_or_else(tls, Ok);
+        match config {
+            Ok(config) => handshake::tls(config, request),
+            Err(_) => TlsOutcome::of(OutcomeClass::Unreachable(Unreachable::Tls)),
         }
     }
 }

@@ -127,6 +127,13 @@ pub enum RecordedRequest {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         stdin: Option<Blob>,
     },
+    Resolve {
+        host: String,
+    },
+    Tls {
+        host: String,
+        tcp_port: u16,
+    },
 }
 
 impl RecordedRequest {
@@ -151,6 +158,13 @@ impl RecordedRequest {
                 env: process.env.iter().map(|var| var.name.clone()).collect(),
                 stdin: process.stdin.as_deref().map(Blob::of),
             },
+            EffectRequest::Resolve(resolve) => RecordedRequest::Resolve {
+                host: resolve.host.clone(),
+            },
+            EffectRequest::Tls(tls) => RecordedRequest::Tls {
+                host: tls.host.clone(),
+                tcp_port: tls.tcp_port,
+            },
             EffectRequest::Fs(_) => return None,
         })
     }
@@ -162,6 +176,8 @@ impl fmt::Display for RecordedRequest {
         match self {
             RecordedRequest::Http { method, url, .. } => write!(f, "{method} {url}"),
             RecordedRequest::Process { argv, .. } => f.write_str(&argv.join(" ")),
+            RecordedRequest::Resolve { host } => write!(f, "resolve {host}"),
+            RecordedRequest::Tls { host, tcp_port } => write!(f, "tls {host}:{tcp_port}"),
         }
     }
 }
@@ -265,12 +281,17 @@ pub enum Retention {
 pub fn retention(request: &EffectRequest, class: OutcomeClass) -> Retention {
     match (request, class) {
         (_, OutcomeClass::Denied) | (EffectRequest::Fs(_), _) => Retention::Never,
-        (EffectRequest::Http(_), OutcomeClass::Ok) => Retention::For(HTTP_SUCCESS_TTL),
         (
-            EffectRequest::Http(_),
+            EffectRequest::Http(_) | EffectRequest::Resolve(_) | EffectRequest::Tls(_),
+            OutcomeClass::Ok,
+        ) => Retention::For(HTTP_SUCCESS_TTL),
+        (
+            EffectRequest::Http(_) | EffectRequest::Resolve(_) | EffectRequest::Tls(_),
             OutcomeClass::Status(400..=599) | OutcomeClass::Unreachable(_),
         ) => Retention::For(HTTP_FAILURE_TTL),
-        (EffectRequest::Http(_), _) => Retention::Never,
+        (EffectRequest::Http(_) | EffectRequest::Resolve(_) | EffectRequest::Tls(_), _) => {
+            Retention::Never
+        }
         (EffectRequest::Process(_), _) => Retention::Audit,
     }
 }
@@ -290,6 +311,7 @@ pub fn record_of(
     let cap = match request {
         EffectRequest::Http(http) => http.body_cap,
         EffectRequest::Process(process) => process.output_cap,
+        EffectRequest::Resolve(_) | EffectRequest::Tls(_) => PAYLOAD_CAP,
         EffectRequest::Fs(_) => 0,
     }
     .min(PAYLOAD_CAP);

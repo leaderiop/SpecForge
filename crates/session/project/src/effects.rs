@@ -6,17 +6,18 @@ use std::path::Path;
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectRoot, codes};
-use specforge_effects::mode::{Approved, Log};
+use specforge_effects::mode::Log;
 use specforge_effects::{
-    Approval, Consent, EffectJournal, Effects, EffectsMode, Grant, Ports, Provenance, RootApproval,
-    Roots,
+    Approval, Consent, EffectJournal, Effects, EffectsMode, Grant, NoConsent, Ports, Provenance,
+    RootApproval, Roots,
 };
-use specforge_protocol_types::Operation;
 
 use crate::{Environment, SharedRuntime};
 
 /// The effects of a run of `env`, the project at `root`, in `mode`, through `ports`, over its effects journal (a
-/// loose root's is the user's). `auto` performs what a grant of `env` permits under `consent`; only `auto` reads it.
+/// loose root's is the user's). A live mode judges each request by the grant of the extension asking: under `consent`
+/// in `auto`, the only mode that reads it; `online` is the person's approval for the run, so what the extension
+/// declares and the ceiling still decide.
 pub fn of(
     mode: EffectsMode,
     ports: &Ports,
@@ -24,24 +25,15 @@ pub fn of(
     root: &ProjectRoot,
     consent: &dyn Consent,
 ) -> Effects {
-    let approved: Approved = if mode == EffectsMode::Auto {
-        approved_by(grants(env, root.dir(), consent))
-    } else {
-        Arc::new(|_| false)
+    let grants = match mode {
+        EffectsMode::Auto => grants(env, root.dir(), consent),
+        EffectsMode::Online => grants(env, root.dir(), &NoConsent)
+            .into_iter()
+            .map(Grant::approved_all)
+            .collect(),
+        EffectsMode::Cached | EffectsMode::Replay => Vec::new(),
     };
-    Effects::of(mode, ports.clone(), approved, EffectJournal::for_root(root))
-}
-
-/// Whether one of `grants` permits a request. shortcut: a request names no call kind, so any kind answers; plan 05's
-/// value checks name `Operation::CheckValues` here.
-fn approved_by(grants: Vec<Grant>) -> Approved {
-    Arc::new(move |request| {
-        grants.iter().any(|grant| {
-            Operation::ALL
-                .iter()
-                .any(|op| grant.permits(*op, request).is_ok())
-        })
-    })
+    Effects::of(mode, ports.clone(), grants, EffectJournal::for_root(root))
 }
 
 /// Where `extension`'s code came from: as the runtime loaded it, else as the load recorded it. Only an environment

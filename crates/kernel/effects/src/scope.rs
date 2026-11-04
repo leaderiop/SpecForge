@@ -123,8 +123,20 @@ impl ScopeRules for HttpScope {
     }
 
     fn admits(&self, request: &EffectRequest, _user: bool) -> bool {
-        let EffectRequest::Http(request) = request else {
-            return false;
+        // A name's addresses and a handshake are asked of a host the scope lists; a handshake is `https`'s.
+        let reached = |host: &str| match &self.hosts {
+            Hosts::FromValues => !host.is_empty(),
+            Hosts::List(hosts) => hosts.iter().any(|h| host_covers(h, host)),
+        };
+        let request = match request {
+            EffectRequest::Http(request) => request,
+            EffectRequest::Resolve(asked) => return reached(&asked.host),
+            EffectRequest::Tls(asked) => {
+                let https = self.schemes.is_empty()
+                    || self.schemes.iter().any(|s| s.eq_ignore_ascii_case("https"));
+                return https && reached(&asked.host);
+            }
+            EffectRequest::Process(_) | EffectRequest::Fs(_) => return false,
         };
         // The parser the adapter requests with (WHATWG): what is judged is what is sent.
         let Ok(url) = Url::parse(&request.url) else {
@@ -143,11 +155,7 @@ impl ScopeRules for HttpScope {
                 .methods
                 .iter()
                 .any(|m| m.as_str().eq_ignore_ascii_case(&request.method));
-        let host_ok = match &self.hosts {
-            Hosts::FromValues => !host.is_empty(),
-            Hosts::List(hosts) => hosts.iter().any(|h| host_covers(h, host)),
-        };
-        schemes_ok && method_ok && host_ok
+        schemes_ok && method_ok && reached(host)
     }
 }
 

@@ -28,7 +28,7 @@ mod time;
 
 pub use ceiling::{EffectsCeiling, FsCeiling, GitCeiling, HttpCeiling, Narrow, Narrowed, Removed};
 pub use consent::{
-    Approval, Approvals, ApprovedAt, CapabilityApproval, Consent, ConsentError, KeyedBy,
+    Approval, Approvals, ApprovedAt, CapabilityApproval, Consent, ConsentError, KeyedBy, NoConsent,
     ProjectKey, Revoke, RootApproval, SharedConsent,
 };
 pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, Roots};
@@ -37,14 +37,14 @@ pub use fs::{Fs, FsOutcome, SharedFs};
 pub use gate::{Port, gate};
 pub use git::{Git, SharedGit};
 pub use grant::{Denial, Denied, Grant, Granted, Need, OutsideRoot, Uses};
-pub use http::{Http, HttpOutcome, Redirects, SharedHttp};
+pub use http::{Http, HttpOutcome, Redirects, ResolveOutcome, SharedHttp, TlsOutcome};
 pub use journal::{Answer, EffectJournal, EffectRecord, RecordDigest};
-pub use mode::{Effects, EffectsMode, Served};
+pub use mode::{Asker, Effects, EffectsMode, Served};
 pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, SharedProcess, Shown};
 pub use provenance::Provenance;
 pub use specforge_protocol_types::{
     AttachedSecret, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
-    OutcomeClass, ProcessRequest, Redirected, Root, Unreachable,
+    OutcomeClass, ProcessRequest, Redirected, ResolveRequest, Root, TlsRequest, Unreachable,
 };
 pub use time::{ClockError, UnixMillis};
 

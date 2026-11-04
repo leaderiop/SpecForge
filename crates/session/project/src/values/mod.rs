@@ -2,16 +2,19 @@
 //! the value. It reads the authored snapshot, so a computed or collected value is never checked.
 
 mod collect;
+mod dispatch;
+mod local;
+mod network;
 mod place;
 
 use std::collections::{BTreeMap, HashSet};
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, Severity};
 use specforge_effects::{Effects, OutcomeClass};
 use specforge_protocol_types::{
     CheckFinding, CheckItem, CheckPhase, CheckValuesInput, ExtensionDeclaration, PlannedItem,
 };
-use specforge_registry::{CheckCall, EntitySnapshot, ResolvedCheck};
+use specforge_registry::{CheckCall, Disk, EntitySnapshot, ResolvedCheck};
 use specforge_wasm::ExtensionCalls;
 
 use crate::Environment;
@@ -110,11 +113,33 @@ struct Planned<'a> {
     id: u32,
 }
 
-/// Run the phase over `entities` in `env`. `text_of` gives a source's text, to place a finding inside a value.
+/// What one call of a checker came to.
+#[derive(Debug, Default)]
+struct Settled {
+    findings: Vec<CheckFinding>,
+    /// What the host itself reports on the value in its place (E090, E094, E095, W174, W175).
+    host: Vec<Diagnostic>,
+    /// The checker has the last word: its plan needed no probe or already failed the value, or it judged the answers.
+    judged: bool,
+    class: Option<OutcomeClass>,
+    observed_at: Option<u64>,
+    from_cache: bool,
+}
+
+impl Settled {
+    fn fails(&self) -> bool {
+        self.findings.iter().any(|f| place::is_error(&f.code))
+            || self.host.iter().any(|d| d.severity == Severity::Error)
+    }
+}
+
+/// Run the phase over `entities` in `env`: plan, perform the probes through `effects` and `disk`, judge what was
+/// performed, place the findings. `text_of` gives a source's text, to place a finding inside a value.
 pub(crate) fn run(
     env: &Environment,
     entities: &EntitySnapshot,
     effects: &Effects,
+    disk: &dyn Disk,
     text_of: &dyn Fn(&str) -> Option<std::sync::Arc<str>>,
 ) -> Phase {
     let registries = env.registries();
@@ -144,6 +169,17 @@ pub(crate) fn run(
         &calls,
         &mut phase.diagnostics,
     );
+    let settled = performed_and_judged(
+        env,
+        effects,
+        disk,
+        registries.declarations(),
+        &values,
+        &planned,
+        &answers,
+        &calls,
+        &mut phase.diagnostics,
+    );
     let mut misused = HashSet::new();
     let mut by_value: Vec<Vec<&Planned>> = Vec::new();
     by_value.resize_with(values.len(), Vec::new);
@@ -161,7 +197,7 @@ pub(crate) fn run(
                 value,
                 check,
                 &branches,
-                &answers,
+                &settled,
                 registries,
                 &mut misused,
                 &mut phase,
@@ -169,6 +205,161 @@ pub(crate) fn run(
         }
     }
     phase
+}
+
+/// Which calls are dropped: those of a value's checks after one whose every branch failed in its plan (an invalid URL
+/// is never fetched).
+fn dropped(
+    planned: &[Planned<'_>],
+    answers: &BTreeMap<(String, u32), PlannedItem>,
+) -> HashSet<(String, u32)> {
+    let key = |one: &Planned<'_>| (one.call.extension.clone(), one.id);
+    let failed = |one: &Planned<'_>| {
+        answers
+            .get(&key(one))
+            .is_some_and(|plan| plan.findings.iter().any(|f| place::is_error(&f.code)))
+    };
+    let mut dropped = HashSet::new();
+    for (index, one) in planned.iter().enumerate() {
+        let mut same_check = planned
+            .iter()
+            .filter(|other| other.value == one.value && other.check == one.check);
+        if !same_check.all(failed) {
+            continue;
+        }
+        for later in planned[index..]
+            .iter()
+            .filter(|later| later.value == one.value && later.check > one.check)
+        {
+            dropped.insert(key(later));
+        }
+    }
+    dropped
+}
+
+/// Each answered call settled: its probes performed, and the judge call of those all answered. A failing judge (E028,
+/// once) leaves its extension's values not judged.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the phase's one step between plan and place"
+)]
+fn performed_and_judged(
+    env: &Environment,
+    effects: &Effects,
+    disk: &dyn Disk,
+    declarations: &[ExtensionDeclaration],
+    values: &[Value<'_>],
+    planned: &[Planned<'_>],
+    answers: &BTreeMap<(String, u32), PlannedItem>,
+    calls: &ExtensionCalls<'_>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> BTreeMap<(String, u32), Settled> {
+    let dropped = dropped(planned, answers);
+    let mut settled = BTreeMap::new();
+    let mut waiting = Vec::new();
+    let mut asked = Vec::new();
+    for one in planned {
+        let key = (one.call.extension.clone(), one.id);
+        let Some(plan) = answers.get(&key) else {
+            continue;
+        };
+        if dropped.contains(&key) {
+            settled.insert(key, Settled::default());
+            continue;
+        }
+        let fails = plan.findings.iter().any(|f| place::is_error(&f.code));
+        if plan.probes.is_empty() || fails {
+            settled.insert(
+                key,
+                Settled {
+                    findings: plan.findings.clone(),
+                    judged: true,
+                    class: Some(OutcomeClass::Ok),
+                    ..Settled::default()
+                },
+            );
+            continue;
+        }
+        waiting.push(one);
+        asked.push(dispatch::Asked {
+            value: &values[one.value],
+            call: one.call,
+            probes: &plan.probes,
+        });
+    }
+    let (readings, approvals) = dispatch::dispatch(env, effects, disk, &asked);
+    diagnostics.extend(approvals);
+    let mut judge: BTreeMap<&str, Vec<CheckItem>> = BTreeMap::new();
+    for (one, reading) in waiting.iter().zip(readings) {
+        let key = (one.call.extension.clone(), one.id);
+        let plan = &answers[&key];
+        if !reading.answered() {
+            settled.insert(
+                key,
+                Settled {
+                    findings: plan.findings.clone(),
+                    host: reading.refused,
+                    class: reading.refused_class,
+                    ..Settled::default()
+                },
+            );
+            continue;
+        }
+        let class = reading
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.class)
+            .find(|class| *class != OutcomeClass::Ok)
+            .unwrap_or(OutcomeClass::Ok);
+        settled.insert(
+            key,
+            Settled {
+                findings: plan.findings.clone(),
+                class: Some(class),
+                observed_at: reading.outcomes.iter().map(|o| o.observed_at).min(),
+                from_cache: reading.outcomes.iter().any(|o| o.from_cache),
+                ..Settled::default()
+            },
+        );
+        let mut item = item_of(one, &values[one.value]);
+        item.outcomes = reading.outcomes;
+        judge.entry(&one.call.extension).or_default().push(item);
+    }
+    for declaration in declarations {
+        let extension = declaration.name();
+        let Some(items) = judge.remove(extension) else {
+            continue;
+        };
+        let input = CheckValuesInput {
+            phase: CheckPhase::Judge,
+            items,
+        };
+        match calls.check_values(extension, &input) {
+            Ok(answer) => {
+                for item in answer.items {
+                    if let Some(settled) = settled.get_mut(&(extension.to_string(), item.id)) {
+                        settled.findings.extend(item.findings);
+                        settled.judged = true;
+                    }
+                }
+            }
+            Err(error) => diagnostics.push(error.diagnostic()),
+        }
+    }
+    settled
+}
+
+fn item_of(one: &Planned<'_>, value: &Value<'_>) -> CheckItem {
+    CheckItem {
+        id: one.id,
+        checker: one.call.checker.clone(),
+        entity: value.entity.to_string(),
+        field: value.field.to_string(),
+        item: value.item as u32,
+        text: value.text.to_string(),
+        args: one.call.args.clone(),
+        outcomes: Vec::new(),
+    }
 }
 
 /// One [`Planned`] per call of each check of each value, ids counted per extension.
@@ -207,19 +398,7 @@ fn plans(
         let items: Vec<CheckItem> = planned
             .iter()
             .filter(|one| one.call.extension == extension)
-            .map(|one| {
-                let value = &values[one.value];
-                CheckItem {
-                    id: one.id,
-                    checker: one.call.checker.clone(),
-                    entity: value.entity.to_string(),
-                    field: value.field.to_string(),
-                    item: value.item as u32,
-                    text: value.text.to_string(),
-                    args: one.call.args.clone(),
-                    outcomes: Vec::new(),
-                }
-            })
+            .map(|one| item_of(one, &values[one.value]))
             .collect();
         if items.is_empty() {
             continue;
@@ -246,21 +425,18 @@ fn settle(
     value: &Value<'_>,
     check: &ResolvedCheck,
     branches: &[&Planned<'_>],
-    answers: &BTreeMap<(String, u32), PlannedItem>,
+    answers: &BTreeMap<(String, u32), Settled>,
     registries: &specforge_registry::RegistryBuild,
     misused: &mut HashSet<(String, String)>,
     phase: &mut Phase,
 ) {
     let answer = |one: &&Planned<'_>| answers.get(&(one.call.extension.clone(), one.id));
-    let has_error = |findings: &[CheckFinding]| {
-        findings
-            .iter()
-            .any(|finding| place::is_error(&finding.code))
-    };
     let passing = branches
         .iter()
-        .find(|one| answer(one).is_some_and(|planned| !has_error(&planned.findings)));
-    let some_not_run = branches.iter().any(|one| answer(one).is_none());
+        .find(|one| answer(one).is_some_and(|settled| settled.judged && !settled.fails()));
+    let some_not_run = branches
+        .iter()
+        .any(|one| answer(one).is_none_or(|settled| !settled.judged && !settled.fails()));
     let any_of = matches!(check, ResolvedCheck::AnyOf(_));
     let one_of = any_of.then(|| {
         let names: Vec<&str> = branches
@@ -270,31 +446,27 @@ fn settle(
         format!("one of: {}", names.join(", "))
     });
     for one in branches {
-        let Some(planned) = answer(one) else {
+        let Some(settled) = answer(one) else {
             phase.checks.add_not_run(value, one.call);
             continue;
         };
         // What an `any_of` reports: the passing branch's findings, or every branch's when none passes.
-        let reported = match passing {
-            Some(pass) if any_of => pass.id == one.id,
-            _ => passing.is_some() || !some_not_run,
-        };
-        let status = if !any_of {
-            if has_error(&planned.findings) {
-                CheckStatus::Failed
-            } else {
-                CheckStatus::Passed
-            }
-        } else if passing.is_some() {
-            CheckStatus::Passed
-        } else if some_not_run {
-            CheckStatus::NotRun
-        } else {
-            CheckStatus::Failed
+        let reported = !any_of
+            || match passing {
+                Some(pass) => pass.id == one.id && pass.call.extension == one.call.extension,
+                None => !some_not_run,
+            };
+        let status = match (any_of, passing.is_some(), some_not_run) {
+            (false, _, _) if settled.fails() => CheckStatus::Failed,
+            (false, _, _) if settled.judged => CheckStatus::Passed,
+            (false, _, _) => CheckStatus::NotRun,
+            (true, true, _) => CheckStatus::Passed,
+            (true, false, true) => CheckStatus::NotRun,
+            (true, false, false) => CheckStatus::Failed,
         };
         let mut kept = Vec::new();
         if reported {
-            for finding in &planned.findings {
+            for finding in &settled.findings {
                 phase.diagnostics.extend(place::misuse(
                     registries,
                     one.call,
@@ -306,13 +478,18 @@ fn settle(
                 phase.diagnostics.push(placed);
                 kept.push(finding.code.clone());
             }
+            for host in &settled.host {
+                phase.diagnostics.push(host.clone());
+                kept.push(host.code.to_string());
+            }
         }
         phase.checks.add(
             value,
             one.call,
             status,
-            (status != CheckStatus::NotRun).then_some(OutcomeClass::Ok),
+            settled.class.filter(|_| status != CheckStatus::NotRun),
             kept,
+            (settled.observed_at, settled.from_cache),
         );
     }
 }
@@ -325,6 +502,7 @@ impl ValueChecks {
         status: CheckStatus,
         outcome_class: Option<OutcomeClass>,
         codes: Vec<String>,
+        (observed_at, from_cache): (Option<u64>, bool),
     ) {
         self.0
             .entry(value.entity.to_string())
@@ -336,13 +514,20 @@ impl ValueChecks {
                 value: value.text.to_string(),
                 status,
                 outcome_class,
-                observed_at: None,
-                from_cache: false,
+                observed_at,
+                from_cache,
                 codes,
             });
     }
 
     fn add_not_run(&mut self, value: &Value<'_>, call: &CheckCall) {
-        self.add(value, call, CheckStatus::NotRun, None, Vec::new());
+        self.add(
+            value,
+            call,
+            CheckStatus::NotRun,
+            None,
+            Vec::new(),
+            (None, false),
+        );
     }
 }

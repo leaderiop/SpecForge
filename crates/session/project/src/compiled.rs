@@ -610,7 +610,7 @@ impl CompiledProject {
                 &overlaid
             };
             // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
-            let values = crate::values::run(&env, &authored, this.effects(), &|file| {
+            let values = crate::values::run(&env, &authored, this.effects(), disk, &|file| {
                 this.sources.text(file).cloned()
             });
             // No checker at all leaves the values a test gave (`with_checked_values`).

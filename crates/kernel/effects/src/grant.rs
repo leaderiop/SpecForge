@@ -430,6 +430,56 @@ impl Grant {
         )
     }
 
+    /// This grant with every capability counted as approved, its outside roots too: `online`, where the person's flag
+    /// is the approval for this run. What it declares, its call kind and the ceiling still decide.
+    pub fn approved_all(mut self) -> Self {
+        self.capabilities
+            .iter_mut()
+            .for_each(|granted| granted.approved = true);
+        self.outside
+            .iter_mut()
+            .for_each(|root| root.approved = true);
+        self
+    }
+
+    /// This grant holding only the capabilities `scopes` names: what a checker declared it uses (ADR 0336).
+    pub fn only(&self, scopes: &[String]) -> Grant {
+        let mut only = self.clone();
+        only.capabilities
+            .retain(|granted| scopes.contains(&granted.declared.name));
+        only
+    }
+
+    /// Whether a call of kind `op` may ask git `question`: git is read-only and no [`EffectRequest`], so its scope is
+    /// judged by the port alone. `Err` names why not.
+    pub fn reads_git(&self, op: Operation, question: &str) -> Result<(), Denial> {
+        let deny = |why, scope: Option<&str>, detail: &str| Denial {
+            extension: self.extension.clone(),
+            request: format!("git {question}"),
+            scope: scope.map(str::to_string),
+            why,
+            detail: detail.to_string(),
+        };
+        if !gate(op, Port::Git, false) {
+            let detail = format!("a {op} may not use the git port");
+            return Err(deny(Denied::CallKind, None, &detail));
+        }
+        let reads = |scope: &PortScope| matches!(scope, PortScope::Git(git) if git.ops.contains(&GitOp::Read));
+        let declared = self.capabilities.iter().find(|granted| {
+            (granted.declared.call_kinds.is_empty() || granted.declared.call_kinds.contains(&op))
+                && reads(&granted.declared.port)
+        });
+        let Some(declared) = declared else {
+            let detail = "no capability it declares covers it";
+            return Err(deny(Denied::Undeclared, None, detail));
+        };
+        if declared.scope.as_ref().is_some_and(reads) {
+            return Ok(());
+        }
+        let detail = "the project's effects ceiling (`effects` in specforge.json) narrows it out";
+        Err(deny(Denied::Ceiling, Some(&declared.declared.name), detail))
+    }
+
     /// Whether a call of kind `op` may make `request`: `Err` names why not.
     pub fn permits(&self, op: Operation, request: &EffectRequest) -> Result<(), Denial> {
         self.permitted(op, request).map(|_| ())
@@ -530,7 +580,9 @@ impl Grant {
 
 fn port_of(request: &EffectRequest) -> (Port, bool) {
     match request {
-        EffectRequest::Http(_) => (Port::Http, false),
+        EffectRequest::Http(_) | EffectRequest::Resolve(_) | EffectRequest::Tls(_) => {
+            (Port::Http, false)
+        }
         EffectRequest::Fs(_) => (Port::Fs, false),
         EffectRequest::Process(_) => (Port::Process, false),
     }
@@ -549,6 +601,8 @@ pub fn one_line(request: &EffectRequest) -> String {
             format!("{op} {}/{}", fs.root, fs.path)
         }
         EffectRequest::Process(process) => process.argv.join(" "),
+        EffectRequest::Resolve(resolve) => format!("resolve {}", resolve.host),
+        EffectRequest::Tls(tls) => format!("tls {}:{}", tls.host, tls.tcp_port),
     }
 }
 

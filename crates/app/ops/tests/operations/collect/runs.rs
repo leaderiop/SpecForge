@@ -530,7 +530,20 @@ fn auto_performs_what_a_grant_approves_and_nothing_else() {
             &root,
             &machine.consent,
         );
-        effects.serve("links", request, UnixMillis(1), |_| {
+        let extension = "@acme/acme";
+        let scopes: Vec<String> = effects
+            .grant(extension)
+            .expect("it declares a capability")
+            .capabilities()
+            .iter()
+            .map(|granted| granted.declared.name.clone())
+            .collect();
+        let asker = specforge_effects::Asker {
+            extension,
+            op: specforge_protocol_types::Operation::Collect,
+            scopes: &scopes,
+        };
+        effects.serve_for(&asker, "links", request, UnixMillis(1), |_| {
             specforge_effects::Answer {
                 outcome: specforge_effects::Outcome {
                     class: specforge_effects::OutcomeClass::Ok,
