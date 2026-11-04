@@ -53,7 +53,7 @@ impl EffectsMode {
     }
 }
 
-/// Whether this machine approved an effect (plan 02's grants answer it; until then the caller says).
+/// Whether this machine approved an effect (`specforge_project::effects` answers it from the grants).
 pub type Approved = Arc<dyn Fn(&EffectRequest) -> bool + Send + Sync>;
 
 /// A run's effects: its mode, the ports a live mode performs through, the journal, and what the run consulted.

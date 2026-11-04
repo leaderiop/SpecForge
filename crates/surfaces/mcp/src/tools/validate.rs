@@ -73,13 +73,23 @@ impl CoreTool for Tool {
             .transpose()
             .map_err(Self::refused)?;
         // The served project performs no effect; another mode runs its checks again for this call.
+        let user;
+        let consent: &dyn specforge_effects::Consent = match project.consent {
+            Some(consent) => consent,
+            None => {
+                user = specforge_ops::consent::UserConsent::user(project.root.dir());
+                &user
+            }
+        };
         let effects = mode
             .filter(|mode| *mode != specforge_effects::EffectsMode::Cached)
             .map(|mode| {
                 std::sync::Arc::new(specforge_project::effects::of(
                     mode,
                     project.ports,
+                    project.view().env(),
                     project.root,
+                    consent,
                 ))
             });
         let options = CheckOptions {

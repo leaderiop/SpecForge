@@ -6,8 +6,8 @@ use specforge_common::DiagnosticList;
 use specforge_common::shape::Shape;
 use specforge_effects::grant::project_key;
 use specforge_effects::{
-    Approval, Approvals, ApprovedAt, Consent, ConsentError, Grant, Granted, KeyedBy, Provenance,
-    Revoke, RootApproval, Roots, Uses,
+    Approval, Approvals, ApprovedAt, Consent, ConsentError, Grant, Granted, KeyedBy, Revoke,
+    RootApproval, Uses,
 };
 
 use crate::analysis::collect::uses_here;
@@ -130,45 +130,13 @@ pub enum Change<'a> {
     Project,
 }
 
-/// Where `extension`'s code came from: as the runtime loaded it, else as the load recorded it. One loaded with
-/// neither (an environment assembled in memory) is keyed as a third party by its name, so no builtin approval
-/// meets it.
-pub fn provenance_of(view: &ProjectView, extension: &str) -> Provenance {
-    view.runtime()
-        .and_then(|runtime| runtime.provenance(extension))
-        .or_else(|| {
-            view.env()
-                .enabled()
-                .iter()
-                .find(|e| e.name == extension)
-                .and_then(|e| e.provenance.clone())
-        })
-        .unwrap_or_else(|| Provenance::third_party(extension.as_bytes()))
-}
-
 /// Every loaded extension's grant in `view`'s project that declares a capability, in declaration order.
 pub fn grants_of(view: &ProjectView, consent: &dyn Consent) -> Result<Vec<Grant>, OpError> {
-    let root = view.project_root()?;
-    let env = view.env();
-    let roots = env
-        .effects_allowed()
-        .with_named(Roots::new(root, env.spec_root()));
-    Ok(view
-        .registries()
-        .declarations()
-        .iter()
-        .filter(|declaration| !declaration.sound_capabilities().is_empty())
-        .map(|declaration| {
-            let provenance = provenance_of(view, declaration.name());
-            Grant::decide(
-                declaration,
-                &provenance,
-                &env.effects_allowed().ceiling,
-                &roots,
-                consent,
-            )
-        })
-        .collect())
+    Ok(specforge_project::effects::grants(
+        view.env(),
+        view.project_root()?,
+        consent,
+    ))
 }
 
 /// `specforge grants`: each loaded extension's capabilities and their grant here, then the named roots; W186 when

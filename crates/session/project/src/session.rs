@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectConfig, ProjectRoot};
-use specforge_effects::{EffectsMode, Ports, SharedGit, UnixMillis};
+use specforge_effects::{EffectsMode, Ports, SharedConsent, SharedGit, UnixMillis};
 use specforge_graph::{Applied, GraphDelta, NodeChange};
 
 use crate::buffers::{Buffer, Held};
@@ -165,7 +165,7 @@ pub struct ProjectSession {
 #[derive(Clone, Default)]
 struct Outside {
     git: Option<SharedGit>,
-    effects: Option<(EffectsMode, Ports)>,
+    effects: Option<(EffectsMode, Ports, SharedConsent)>,
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -240,10 +240,10 @@ impl ProjectSession {
         self
     }
 
-    /// The same session, every environment it loads from now on running its effects in `mode` through `ports`
-    /// (`watch`'s `--effects`, built by [`crate::effects::of`]).
-    pub fn with_effects(mut self, mode: EffectsMode, ports: Ports) -> Self {
-        self.outside.effects = Some((mode, ports));
+    /// The same session, every environment it loads from now on running its effects in `mode` through `ports`, under
+    /// `consent` (`watch`'s `--effects`, built by [`crate::effects::of`]).
+    pub fn with_effects(mut self, mode: EffectsMode, ports: Ports, consent: SharedConsent) -> Self {
+        self.outside.effects = Some((mode, ports, consent));
         self
     }
 
@@ -296,8 +296,9 @@ impl ProjectSession {
         if let Some(git) = &outside.git {
             env = env.with_git(Arc::clone(git));
         }
-        if let Some((mode, ports)) = &outside.effects {
-            env = env.with_effects(crate::effects::of(*mode, ports, root));
+        if let Some((mode, ports, consent)) = &outside.effects {
+            let effects = crate::effects::of(*mode, ports, &env, root, consent.as_ref());
+            env = env.with_effects(effects);
         }
         OpeningProject {
             env: Arc::new(env),

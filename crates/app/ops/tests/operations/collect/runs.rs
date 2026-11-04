@@ -486,3 +486,51 @@ fn an_unusable_store_is_w186_even_when_the_run_needs_no_approval() {
     let outcome = fx.run(Asking::Yes, &machine).unwrap();
     assert!(!w186(&outcome), "{:?}", outcome.diagnostics);
 }
+
+/// `check`'s default: `auto` performs what a grant of the project permits, and nothing else.
+#[test]
+fn auto_performs_what_a_grant_approves_and_nothing_else() {
+    use specforge_effects::mode::Why;
+    use specforge_effects::{EffectRequest, EffectsMode, ProcessRequest, Served, UnixMillis};
+    use specforge_ops::testing::Viewed;
+
+    let fx = acme();
+    let request = |argv: &[String]| {
+        EffectRequest::Process(ProcessRequest {
+            argv: argv.to_vec(),
+            ..ProcessRequest::default()
+        })
+    };
+    let report = fx.report_of("acme");
+    let declared = request(&["acme".to_string(), format!("--out={}", report.display())]);
+    let served = |machine: &Machine, request: &EffectRequest| {
+        let view = fx.project.view();
+        let root = specforge_common::ProjectRoot::of(fx.root()).unwrap();
+        let effects = specforge_project::effects::of(
+            EffectsMode::Auto,
+            &specforge_effects::testing::ports(),
+            view.env(),
+            &root,
+            &machine.consent,
+        );
+        effects.serve("links", request, UnixMillis(1), |_| {
+            specforge_effects::Answer {
+                outcome: specforge_effects::Outcome {
+                    class: specforge_effects::OutcomeClass::Ok,
+                    digest: String::new(),
+                },
+                payload: None,
+            }
+        })
+    };
+    let not_approved = Served::NotPerformed(Why::NotApproved);
+
+    assert_eq!(served(&Machine::new(), &declared), not_approved);
+    let approved = Machine::new().approving(fx.approval("acme"));
+    assert!(
+        matches!(served(&approved, &declared), Served::Outcome { .. }),
+        "the approved command runs"
+    );
+    let other = request(&["rm".to_string(), "-rf".to_string()]);
+    assert_eq!(served(&approved, &other), not_approved);
+}

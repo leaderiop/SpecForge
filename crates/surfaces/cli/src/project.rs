@@ -137,15 +137,16 @@ pub(crate) fn compile_at(root: &ProjectRoot, ports: &Ports) -> CompiledProject {
 }
 
 /// The project at `root` compiled in `runtime` from the plain file system, asking `ports.git` of version control,
-/// its effects in `mode` over the project's journal. Until grants (ports plan 02), `auto` approves no effect.
+/// its effects in `mode` over the project's journal: `auto` performs what the user's consent store approved.
 pub(crate) fn compiled(
     root: &ProjectRoot,
     runtime: Option<SharedRuntime>,
     ports: &Ports,
     mode: EffectsMode,
 ) -> CompiledProject {
+    let consent = specforge_ops::consent::UserConsent::user(root.dir());
     CompiledProject::of(specforge_project::effects::environment(
-        root, runtime, ports, mode,
+        root, runtime, ports, mode, &consent,
     ))
 }
 

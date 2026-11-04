@@ -70,7 +70,11 @@ fn watch_project(
     };
     let mut session = ProjectSession::detached()
         .with_git(std::sync::Arc::clone(&ports.git))
-        .with_effects(mode, ports.clone());
+        .with_effects(
+            mode,
+            ports.clone(),
+            std::sync::Arc::new(specforge_ops::consent::UserConsent::user(root.dir())),
+        );
     session.reopen(&root, RuntimeSource::project(), |_| {});
     if verify_incremental {
         session.set_verify_incremental(true);
