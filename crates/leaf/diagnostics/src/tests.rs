@@ -174,7 +174,7 @@ fn code_constants_are_their_catalog_entries() {
     );
 }
 
-/// The `machine` codes are the effects summaries, I206 and I207 (each later plan adds its own): the constant and the
+/// The `machine` codes are the effects summaries and the links family's transport answers: the constant and the
 /// entry agree, and every other core code is the project's.
 #[specforge_test(
     invariant = "diagnostic_code_uniqueness",
@@ -186,7 +186,10 @@ fn machine_codes_are_effect_summaries() {
         .filter(|e| e.machine)
         .map(|e| e.code)
         .collect();
-    assert_eq!(machine, ["I206", "I207", "W170"]);
+    assert_eq!(
+        machine,
+        ["I206", "I207", "W170", "W172", "W173", "W181", "W182"]
+    );
     for code in [codes::I206, codes::I207] {
         assert!(code.machine(), "{code}");
         assert_eq!(code.level(), Level::Info, "{code}");
@@ -436,8 +439,13 @@ fn explain_catalog_matches_emitted_codes() {
             }
         }
     }
+    for code in AWAITED {
+        if emitted.contains(code) {
+            problems.push(format!("{code} is reported now; drop it from AWAITED"));
+        }
+    }
     for code in catalog.keys() {
-        if !emitted.contains(code) {
+        if !emitted.contains(code) && !AWAITED.contains(code) {
             problems.push(format!(
                 "{code} is in CATALOG but nothing reports it any more; remove the entry"
             ));
@@ -451,4 +459,27 @@ fn explain_catalog_matches_emitted_codes() {
         problems.len(),
         problems.join("\n  ")
     );
+}
+
+/// Codes catalogued ahead of the checkers that report them; the list empties as those land.
+const AWAITED: [&str; 16] = [
+    "E091", "E092", "E093", "E096", "E103", "E104", "E106", "E112", "W172", "W173", "W176", "W178",
+    "W180", "W181", "W182", "W183",
+];
+
+#[test]
+fn checks_transport_codes_are_machine() {
+    let machine = |id: &str| {
+        CATALOG
+            .iter()
+            .find(|entry| entry.code == id)
+            .unwrap_or_else(|| panic!("{id} is not catalogued"))
+            .machine
+    };
+    for id in ["W172", "W173", "W181", "W182"] {
+        assert!(machine(id), "{id}");
+    }
+    for id in ["W178", "W183"] {
+        assert!(!machine(id), "{id}");
+    }
 }

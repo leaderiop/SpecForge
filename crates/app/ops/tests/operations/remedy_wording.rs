@@ -66,7 +66,10 @@ const SUBCOMMANDS: [&str; 39] = [
 ];
 const PROGRAMS: [&str; 3] = ["specforge ", "cargo ", "z3 "];
 /// Relative to `crates/`.
-const EXEMPT: &str = "leaf/diagnostics/src/catalog.rs";
+const EXEMPT: [&str; 2] = [
+    "leaf/diagnostics/src/catalog.rs",
+    "leaf/diagnostics/src/catalog_checks.rs",
+];
 
 /// Whether the flag that follows `clause` belongs to a whole command: the last program in the clause is followed by
 /// nothing but the command's own words, so no closing backtick and no connecting word (`or pass --x`, `and --y`)
@@ -242,7 +245,7 @@ fn source_files() -> Vec<PathBuf> {
     files.retain(|path| {
         let relative = path.strip_prefix(&crates).unwrap();
         let name = relative.file_name().unwrap().to_string_lossy();
-        relative != Path::new(EXEMPT)
+        !EXEMPT.iter().any(|exempt| relative == Path::new(exempt))
             && name != "tests.rs"
             && !name.ends_with("_tests.rs")
             && !relative

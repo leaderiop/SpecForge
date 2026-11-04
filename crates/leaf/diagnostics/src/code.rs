@@ -31,7 +31,7 @@ use crate::Level;
 ///         "A rule that can never fire.";
 /// }
 /// assert_eq!(codes::W112.level(), specforge_diagnostics::Level::Warning);
-/// assert_eq!(CATALOG[0].code, codes::W112.id());
+/// assert_eq!(TABLE[0].code, codes::W112.id());
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Code {

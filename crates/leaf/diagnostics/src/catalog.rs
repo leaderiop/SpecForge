@@ -17,7 +17,7 @@
 //! constant for every core code ([`codes`](crate::codes)). An `E`/`W`/`I`/`A`
 //! prefix that contradicts the entry's level does not compile.
 //!
-//! The macro is in `catalog_macro.rs`. To add a code: add its entry here, name it at the emit site through
+//! The macro is in `catalog_macro.rs`. To add a code: add its entry here (`catalog_checks.rs` for `@specforge/checks`), name it at the emit site through
 //! `codes::X`, then regenerate the docs with
 //! `SPECFORGE_BLESS=1 cargo test -p specforge-diagnostics explain_docs_sync`.
 

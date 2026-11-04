@@ -1,11 +1,11 @@
-//! `catalog!`, the macro that turns the catalog table (`catalog.rs`) into `CATALOG` and `codes`.
+//! `catalog!`, the macro that turns a catalog table (`catalog.rs`, `catalog_checks.rs`) into its entries and `codes`.
 
 /// Generates `pub mod codes` (a constant for every core code) and
-/// `pub const CATALOG: &[CodeEntry]` from a table of entries
+/// `pub const TABLE: &[CodeEntry]` from a table of entries
 /// `IDENT [= "ID"]: Level owner [machine], "title", "explanation";`. `owner` is `core`
 /// or an extension's short name (`product` for `@specforge/product`); `machine` marks a code this machine
 /// decides (its approvals, its network or its journal, ADR 0337 D7), never the project. The
-/// one table is in `catalog.rs`; the macro is exported only so that its
+/// tables are in `catalog.rs` and `catalog_checks.rs`; the macro is exported only so that its
 /// compile-time checks can be shown in a doctest (see [`Code`](crate::Code)).
 #[doc(hidden)]
 #[macro_export]
@@ -60,8 +60,8 @@ macro_rules! catalog {
             $( $crate::catalog!(@const $ident [$($id)?] $level $owner [$($machine)?] $title); )*
         }
 
-        /// Every catalogued code, sorted by code.
-        pub const CATALOG: &[$crate::CodeEntry] = &[
+        /// This table's entries, sorted by code.
+        pub const TABLE: &[$crate::CodeEntry] = &[
             $( $crate::CodeEntry {
                 code: $crate::catalog!(@id $ident [$($id)?]),
                 title: $title,
