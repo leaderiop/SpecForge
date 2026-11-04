@@ -9,44 +9,11 @@
 use specforge_component::builtins::BUILTINS;
 use specforge_component::committed::COMMITTED;
 
-// The blob profile built the nine at 3.3 MB; the 1.8.0 SDK (field forms, computed values, typed settings) adds ~70 KB to
-// each (3.96 MB, product 0.86 MB); protocol 1.10.0 (host contributions, state, hooks) brings them to 4.71 MB, product
-// 0.96 MB. Protocol 1.12.0 (human commands, `gates_when_on`, `cited_tests`, numbers) measured 4,799,354 B (K20a added
-// 8,929 B). Protocol 1.13.0 (state and host accessors, the prompt tail, the served slash commands, `when` lists)
-// measured 4,850,633 B: +51,279 B, about 5.7 KB per blob, not the 1 KB of a small minor. The untagged `when_names`
-// decode in five descriptor types is the likely cost; it was not measured apart. The product blob is 981,363 B, 18,637 B
-// under its cap, and the headroom under the total is 49,367 B. Protocol 1.14.0 (hooks: git facts, hosts, settings, the
-// `Unknown` event, `git_when`) measured 4,874,602 B (+23,969 B, about 2.7 KB per blob). The product blob is 984,024 B,
-// 15,976 B under its cap, which is the binding limit now. The rule (the measured total rounded up to the next 100,000)
-// gives 4,900,000, with 25,398 B of headroom: the next minor will need to raise it. A build without the profile is
-// about 7 MB, well over it, so this still catches a profile regression. Protocol 1.15.0 (facts, `complete_when`,
-// `result`) and the tenth builtin, `@code/core` (522,544 B with its ref and proof passes), measured 5,499,123 B; the
-// nine grew 101,977 B together. R1 sets 5,900,000 (ADR 0328), which leaves 400,877 B of headroom: less than plan 03's
-// `@javascript/node-test`, whose SDK floor alone is about 428 KB, so plan 03 must raise it or shrink a blob. The
-// product blob is 998,381 B, 1,619 B under its cap: the next minor that grows every blob must raise the cap or shrink
-// product. ADR 0330's `routes` (route, step and annotation descriptors, in every blob) measured 5,630,853 B: +131,730 B,
-// about 13 KB per blob; the total keeps 269,147 B of headroom. The product blob is 1,011,905 B, so its cap takes the
-// rule's next step, 1,100,000, with 88,095 B of headroom. The eleventh builtin, `@javascript/node-test` (524,429 B: the
-// SDK, serde_json and the linked JUnit reader of `specforge-code-junit`), brings the total to 6,155,282 B, 96 KB more
-// than the 428 KB SDK floor R1 planned for; the rule gives 6,200,000, with 44,718 B of headroom. Protocol 2.0.0's
-// one list of inputs (an internally tagged `Input`, ADR 0337) measured 6,276,792 B; the rule gives 6,300,000, with
-// 23,208 B of headroom. The product blob is 1,021,477 B, 78,523 B under its cap. ADR 0335's `capabilities` (a describe
-// category, the collector's named capability and the SDK's `.run` sugar) measured 6,561,573 B: +284,781 B, about 25 KB
-// per blob (a flattened, internally tagged wire form measured 41 KB, so the wire is one flat object). The rule gives
-// 6,600,000, with 38,427 B of headroom; product is 1,046,792 B, 53,208 B under its cap. ADR 0336's value checks (a
-// describe category, `checks` on every field in an untagged form, the SDK's `checker`) measured 6,851,378 B: +289,805 B,
-// about 26 KB per blob. The rule gives 6,900,000, with 48,622 B of headroom. The per-blob cap moved to the gate at 2.5 MB (ADR 0338 D8), so the
-// comments above that weigh product against its cap are history. A checker's `when` and the twelfth builtin, the skeleton
-// of `@specforge/checks` (478,009 B with no checker yet), measured 7,358,820 B; the rule gives 7,400,000, with 41,180 B of
-// headroom. Its families raise this again: formats and digits bring that blob to 1,838,772 B, nearly all of it
-// the one `regex` engine with its Unicode tables, and the total to 8,719,583 B; the rule gives 8,800,000.
-// The files family brings it to 1,859,652 B and the total to 8,720,439 B, the SDK's `file_reference` gone from every
-// blob: the budget holds, with 79,561 B of headroom. The links family (the WHATWG `url` parser, with its IDNA tables,
-// and the HTML anchor reader) brings it to 2,064,823 B and the total to 8,925,610 B; the rule gives 9,000,000, with
-// 74,390 B of headroom. The git family brings it to 2,079,490 B, and the `checks` collector with its `check_outcome`
-// kind (the SDK's collector and fact machinery, linked for the first time) to 2,149,827 B and the total to
-// 9,010,614 B; the rule gives 9,100,000, with 89,386 B of headroom.
-const TOTAL_BUDGET: usize = 9_100_000;
+// The twelve builtins total 8,680,561 B, the sum of the `.wasm` files `revendor` commits (built with
+// `--profile blob`); `@specforge/checks` is the largest, 1,818,514 B. The budget is that total rounded up to the next
+// 100,000 B, here 8,700,000 (19,439 B of headroom): a change that grows the blobs past it re-measures and takes the
+// rule's next step in the same commit. A build without the profile is far larger, so this catches a profile regression.
+const TOTAL_BUDGET: usize = 8_700_000;
 
 #[test]
 fn committed_builtins_stay_under_their_size_budget() {

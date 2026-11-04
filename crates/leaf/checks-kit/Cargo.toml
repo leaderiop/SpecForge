@@ -15,7 +15,7 @@ formats = [
     "dep:jiff",
     "dep:language-tags",
     "dep:mime",
-    "dep:regex",
+    "dep:regex-automata",
     "dep:semver",
     "dep:spdx",
     "dep:uuid",
@@ -32,11 +32,20 @@ jiff = { version = "0.2.39", default-features = false, features = ["std"], optio
 language-tags = { version = "0.3.2", optional = true }
 mime = { version = "0.3.17", optional = true }
 percent-encoding = { version = "2.3.2", optional = true }
-regex = { workspace = true, optional = true }
+# The parser and NFA compiler `regex` is built on, without its search engines: what the kernel's `matches` compiles.
+regex-automata = { version = "0.4.14", default-features = false, features = [
+    "std",
+    "syntax",
+    "nfa-thompson",
+    "unicode",
+], optional = true }
 semver = { workspace = true, optional = true }
 spdx = { version = "0.13.6", optional = true }
 url = { version = "2.5.8", optional = true }
 uuid = { version = "1.23.1", default-features = false, features = ["std"], optional = true }
+
+[dev-dependencies]
+regex = { workspace = true }
 
 [lints]
 workspace = true

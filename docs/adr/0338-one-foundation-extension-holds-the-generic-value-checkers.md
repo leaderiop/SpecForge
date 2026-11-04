@@ -84,8 +84,11 @@ family and no default features. It exports bare algorithms, parsers and pinned t
 
 ## D6. Engines
 
-One engine, the workspace's full `regex`, the engine of the kernel's `matches`. The `regex` checker accepts exactly what
-`matches` accepts, so "a regex" means one thing in the kernel and in the guest.
+One meaning of "a regex": what the kernel's `matches` compiles with `regex::Regex::new`. The `regex` checker runs the
+steps of `Regex::new` that can refuse a pattern, on the crates `regex` is built on: `regex-syntax`'s parser and
+`regex-automata`'s forward and reverse Thompson NFA compilers under the same 10 MiB limit. It links no search engine
+(the meta strategy, the DFAs, Aho-Corasick), about 390 KB of code, and a test compares its every refusal with
+`Regex::new`'s.
 
 ## D7. Static tables
 
@@ -102,9 +105,10 @@ jurisdictional, about 1 MB, and go to packs.
 Every committed blob is at most 2,500,000 B, held by the gate's `blob-size` check. It replaces the component test's
 per-blob budget. The test's `TOTAL_BUDGET` stays: it alone catches a build without `[profile.blob]`.
 
-Measured: `@specforge/checks` with its five families and its collector is 2,149,827 B, 350,173 B under the cap; nearly
-all of it is the one `regex` engine with its Unicode tables (formats) and the `url` parser with its IDNA tables (links).
-The twelve builtins total 9,010,614 B, and `TOTAL_BUDGET` is 9,100,000.
+Measured: `@specforge/checks` with its five families and its collector is 1,818,514 B, 681,486 B under the cap. Its
+largest parts are the `regex-syntax` parser with its Unicode tables and the Thompson NFA compiler (formats, D6), the
+`url` parser with its IDNA tables (links) and `jiff`. The twelve builtins total 8,680,561 B, and `TOTAL_BUDGET` is
+8,700,000.
 
 ## D9. Outcomes as facts
 

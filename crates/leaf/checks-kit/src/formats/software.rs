@@ -81,14 +81,47 @@ pub fn cron(text: &str, seconds: bool) -> Result<(), Invalid> {
         .map_err(|error| Invalid::new(error.to_string()))
 }
 
+/// The heap limit `regex::Regex::new` gives its NFA compiler.
+const NFA_SIZE_LIMIT: usize = 10 * (1 << 20);
+
 /// A pattern the `regex` crate compiles: exactly what the kernel's `matches` accepts.
+///
+/// `Regex::new` parses the pattern and compiles a forward and a reverse Thompson NFA under a 10 MiB limit before it
+/// builds its search engines, and only those steps can refuse a pattern. This runs the same steps on the same crates,
+/// without linking the engines.
+///
+/// shortcut: a pattern of plain literals so long its NFA passes 10 MiB (megabytes of text) is refused here while
+/// `Regex::new` may take it through its literal search; share one validator with the kernel if that ever matters.
 pub fn regex(text: &str) -> Result<(), Invalid> {
-    ::regex::Regex::new(text).map(|_| ()).map_err(|error| {
+    use regex_automata::nfa::thompson::{Compiler, Config, WhichCaptures};
+    use regex_automata::util::syntax;
+
+    let hir = syntax::parse_with(text, &syntax::Config::new()).map_err(|error| {
         let message = error.to_string();
-        // The crate's message repeats the pattern and draws a caret over it; its last line is the reason.
+        // The parser's message repeats the pattern and draws a caret over it; its last line is the reason.
         let reason = message.lines().last().unwrap_or(&message);
         Invalid::new(reason.strip_prefix("error: ").unwrap_or(reason))
-    })
+    })?;
+    let forward = Config::new()
+        .utf8(true)
+        .nfa_size_limit(Some(NFA_SIZE_LIMIT))
+        .shrink(false);
+    let reverse = forward
+        .clone()
+        .which_captures(WhichCaptures::None)
+        .reverse(true);
+    for config in [forward, reverse] {
+        Compiler::new()
+            .configure(config)
+            .build_from_hir(&hir)
+            .map_err(|error| {
+                Invalid::new(match error.size_limit() {
+                    Some(limit) => format!("Compiled regex exceeds size limit of {limit} bytes."),
+                    None => error.to_string(),
+                })
+            })?;
+    }
+    Ok(())
 }
 
 /// An RFC 9562 UUID in its hyphenated text form, of `version` when one is named.

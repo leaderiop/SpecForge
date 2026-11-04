@@ -105,6 +105,43 @@ fn regex_accepts_what_the_kernels_matches_accepts() {
 }
 
 #[test]
+fn regex_agrees_with_the_regex_crate_on_every_refusal() {
+    let nested = format!("{}a{}", "(".repeat(300), ")".repeat(300));
+    let patterns = [
+        "",
+        "a|b",
+        r"(?i)\w+\b",
+        r"\p{Greek}+",
+        r"\p{Nope}",
+        "(",
+        ")",
+        "[z-a]",
+        "a{2,1}",
+        r"\1",
+        "(?=a)",
+        "(?<n>a)(?<n>b)",
+        r"(?-u:\xFF)",
+        r"(?-u)\w{1000}{100}",
+        r"\w{1000}{1000}",
+        r"\w{100}{100}",
+        "a{4294967295}",
+        r"[\p{L}--\p{Lu}]",
+        r"\bé\B",
+        "x*?+",
+        &nested,
+    ];
+    for pattern in patterns {
+        let ours = regex(pattern).map_err(|invalid| invalid.reason);
+        let theirs = ::regex::Regex::new(pattern).map(|_| ()).map_err(|error| {
+            let message = error.to_string();
+            let reason = message.lines().last().unwrap_or(&message).to_owned();
+            reason.strip_prefix("error: ").unwrap_or(&reason).to_owned()
+        });
+        assert_eq!(ours, theirs, "{pattern}");
+    }
+}
+
+#[test]
 fn uuid_reads_the_hyphenated_form_and_its_version() {
     let v4 = "67e55044-10b1-426f-9247-bb680e5fe0c8";
     assert!(uuid(v4, None).is_ok());

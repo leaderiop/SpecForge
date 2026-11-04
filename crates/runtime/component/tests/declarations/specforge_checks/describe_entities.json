@@ -84,11 +84,21 @@
         },
         {
           "default_value": null,
-          "description": "When its oldest answer was observed (RFC 3339, UTC)",
+          "description": "When its oldest journaled answer was observed (RFC 3339, UTC): the journal record's; absent when it read only the disk or git",
           "edge": null,
           "field_type": "string",
           "inverse_of": null,
           "name": "observed_at",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The digest of what its probes answered, free of when (sha256:<hex>)",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "digest",
           "required": false,
           "target_kind": null
         }
