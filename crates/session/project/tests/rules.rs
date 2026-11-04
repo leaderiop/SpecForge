@@ -80,7 +80,7 @@ fn x007(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
 }
 
 /// The three nodes of the plan's reproduction: `alpha` and `beta` depend
-/// on each other, `gamma` names a file only the spec root holds.
+/// on each other, `gamma` writes a `doc`.
 const NODES: &str = r#"node alpha "Alpha" {
   deps [beta]
 }
@@ -90,12 +90,11 @@ node beta "Beta" {
 }
 
 node gamma "Gamma" {
-  doc "pin-only-under-spec-root.md"
+  doc "gamma.md"
 }
 "#;
 
-/// A project (`spec_root: "spec"`) whose `spec/nodes.spec` is `source`,
-/// with `spec/pin-only-under-spec-root.md` present.
+/// A project (`spec_root: "spec"`) whose `spec/nodes.spec` is `source`.
 fn project(source: &str) -> TestProject {
     TestProject::new()
         .config(|c| {
@@ -104,10 +103,7 @@ fn project(source: &str) -> TestProject {
         })
         .enabling(&[EXT])
         .installing_enabled()
-        .files(&[
-            ("spec/nodes.spec", source),
-            ("spec/pin-only-under-spec-root.md", "# pin\n"),
-        ])
+        .files(&[("spec/nodes.spec", source)])
 }
 
 /// The compile of the project with the extension declaring `rules`.
