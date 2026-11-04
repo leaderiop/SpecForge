@@ -248,3 +248,26 @@ fn a_doi_or_an_orcid_is_asked_of_its_resolver() {
     );
     assert!(judged("orcid", "0000-0002-1825-0097", json!({}), ok("{}")).is_empty());
 }
+
+#[test]
+fn an_answer_with_no_body_to_read_is_unchecked_never_a_pass() {
+    let bodiless = |class| ProbeOutcome {
+        data: OutcomeData::None,
+        ..http(class, 200, "")
+    };
+    for class in [OutcomeClass::Ok, OutcomeClass::RangeIgnored] {
+        assert_eq!(
+            codes(&judged(
+                "orcid",
+                "0000-0002-1825-0097",
+                json!({}),
+                bodiless(class)
+            )),
+            ["W172"]
+        );
+        assert_eq!(
+            codes(&judged("doi", "10.1000/182", json!({}), bodiless(class))),
+            ["W172"]
+        );
+    }
+}

@@ -312,18 +312,20 @@ fn a_payload_is_kept_beside_its_record_and_checked_when_read() {
         journal.lookup(&record.request_digest, at(1)),
         Lookup::Missing
     );
-    // A payload over the request's cap is not kept; the record is.
+    // A payload over the request's cap is not kept; the record is, and names it, so it answers nothing again: a
+    // record that carried nothing would read as an answer that said nothing.
     let big = Answer {
         payload: Some(vec![b'x'; 2048]),
         ..answer(OutcomeClass::Ok)
     };
     let (path, record) = journal.keep(&request, &big, at(0)).unwrap().unwrap();
-    assert_eq!(record.payload, None);
-    let Lookup::Fresh(kept) = journal.lookup(&record.request_digest, at(1)) else {
-        panic!("fresh");
-    };
-    assert_eq!(kept.payload, None);
+    assert_eq!(record.payload, Some(Blob::of(&vec![b'x'; 2048])));
     assert!(path.is_file());
+    assert!(!path.with_extension("payload").exists());
+    assert_eq!(
+        journal.lookup(&record.request_digest, at(1)),
+        Lookup::Missing
+    );
 }
 
 #[test]

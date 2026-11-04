@@ -40,13 +40,13 @@ fn get(url: String) -> Probe {
 }
 
 /// The body of a registry's 2xx answer; else what the value is told: E105 for a 404 or a 410 (`gone`, the message),
-/// W181 for 429 or a 5xx, W182 for 401 or 403, W172 for no answer, an answer cut at the cap, or one not served.
+/// W181 for 429 or a 5xx, W182 for 401 or 403, W172 for no answer, an answer cut at the cap, or one with no body.
 fn answered<'o>(
     text: &str,
     outcome: &'o ProbeOutcome,
     gone: &dyn Fn() -> String,
-) -> Result<&'o [u8], Option<CheckFinding>> {
-    let told = |code: &str, message: String| Err(Some(on(code, text, message)));
+) -> Result<&'o [u8], CheckFinding> {
+    let told = |code: &str, message: String| Err(on(code, text, message));
     match (&outcome.class, &outcome.data) {
         (
             OutcomeClass::Ok,
@@ -78,7 +78,11 @@ fn answered<'o>(
             W172,
             format!("'{text}': the registry did not answer in time"),
         ),
-        _ => Err(None),
+        // No body to read (a record that kept none, a redirect, a range served whole): unchecked, never a pass.
+        (class, _) => told(
+            W172,
+            format!("'{text}': the registry's answer has no body to read ({class:?}), so it is not checked"),
+        ),
     }
 }
 
@@ -110,8 +114,7 @@ fn resolved(
             coord.name
         )
     };
-    let body =
-        answered(text, outcome, &gone).map_err(|told| told.into_iter().collect::<Vec<_>>())?;
+    let body = answered(text, outcome, &gone).map_err(|told| vec![told])?;
     let releases =
         coord::releases(coord.ecosystem, body).map_err(|why| vec![unread(text, &why)])?;
     if let Some(release) = newest(coord.ecosystem, &coord.requirement, &releases) {
@@ -204,7 +207,7 @@ fn advisory_judge(
     let gone = || format!("'{text}': OSV answered that its query is gone");
     let body = match answered(text, outcome, &gone) {
         Ok(body) => body,
-        Err(told) => return told.into_iter().collect(),
+        Err(told) => return vec![told],
     };
     let advisories = match osv::advisories(body) {
         Ok(advisories) => advisories,
@@ -252,7 +255,7 @@ fn licence_judge(
     };
     let body = match answered(text, outcome, &gone) {
         Ok(body) => body,
-        Err(told) => return told.into_iter().collect(),
+        Err(told) => return vec![told],
     };
     let stated = match coord::licence(coord.ecosystem, body) {
         Ok(stated) => stated,
@@ -292,7 +295,7 @@ fn doi_judge(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding
     let gone = || format!("'{text}': the DOI '{doi}' is not registered");
     let body = match answered(text, &outcomes[0], &gone) {
         Ok(body) => body,
-        Err(told) => return told.into_iter().collect(),
+        Err(told) => return vec![told],
     };
     // The handle API's `responseCode`: 1 for a registered DOI, 100 for one that is not.
     match serde_json::from_slice::<Value>(body).map(|answer| answer["responseCode"].as_i64()) {
@@ -310,7 +313,6 @@ fn orcid_judge(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFindi
     let gone = || format!("'{text}': ORCID has no record of '{id}'");
     answered(text, &outcomes[0], &gone)
         .err()
-        .flatten()
         .into_iter()
         .collect()
 }

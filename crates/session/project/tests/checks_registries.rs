@@ -247,3 +247,32 @@ fn the_registries_scope_asks_only_for_its_seven_hosts() {
     );
     assert!(scene.http.requests().is_empty());
 }
+
+#[specforge_test_macros::test(
+    behavior = "checks_registries",
+    verify = "an answer whose body the journal did not keep is a miss, never a pass"
+)]
+fn an_answer_whose_body_the_journal_did_not_keep_is_a_miss() {
+    // Over the journal's 4 MiB payload cap, within the registries capability's 16 MiB.
+    let mut index = String::from(SERDE_LINES);
+    let line = "{\"name\":\"serde\",\"vers\":\"0.0.1\",\"yanked\":false}\n";
+    while index.len() < 5 << 20 {
+        index.push_str(line);
+    }
+    let http = FakeHttp::new().route(SERDE_INDEX, 200, index);
+    let scene = scene(&["crates:serde@=1.0.1"], "package", json!({}), http);
+    let live = scene.online().diagnostics();
+    assert_eq!(coded(&live, "E105").len(), 1, "{live:?}");
+    let cached = scene.checked(EffectsMode::Cached, &MemoryConsent::default());
+    assert!(coded(&cached.diagnostics(), "E105").is_empty());
+    let statuses: Vec<_> = cached
+        .value_checks()
+        .iter()
+        .flat_map(|(_, rows)| rows.iter().map(|row| row.status))
+        .collect();
+    assert_eq!(
+        statuses,
+        [specforge_project::values::CheckStatus::NotRun],
+        "unchecked, not passed"
+    );
+}

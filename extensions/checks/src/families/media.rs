@@ -96,14 +96,13 @@ impl Served<'_> {
     }
 }
 
-/// What a read served, or what the value is told instead; nothing when the host reported it itself (a path that
-/// leaves its root, a probe not approved).
+/// What a read served, or what the value is told instead.
 fn served<'o>(
     text: &str,
     args: Args,
     outcome: &'o ProbeOutcome,
-) -> Result<Served<'o>, Option<CheckFinding>> {
-    let told = |code: &str, message: String| Err(Some(on(code, text, message)));
+) -> Result<Served<'o>, CheckFinding> {
+    let told = |code: &str, message: String| Err(on(code, text, message));
     match (&outcome.class, &outcome.data) {
         (
             OutcomeClass::Ok | OutcomeClass::Capped,
@@ -134,7 +133,7 @@ fn served<'o>(
             length: *total_len,
             truncated: *truncated,
         }),
-        (OutcomeClass::Missing, _) => Err(Some(missing(text, args, outcome, [0, text.len()]))),
+        (OutcomeClass::Missing, _) => Err(missing(text, args, outcome, [0, text.len()])),
         (OutcomeClass::Denied, OutcomeData::Http { .. }) => told(
             W173,
             format!("'{text}' leads where the media-remote grant does not reach"),
@@ -160,7 +159,11 @@ fn served<'o>(
             format!("'{text}' answered {code}: it needs credentials"),
         ),
         (OutcomeClass::Status(code), _) => told(W181, format!("'{text}' answered {code}")),
-        _ => Err(None),
+        // No bytes to read (a record that kept none, a redirect): unchecked, never a pass.
+        (class, _) => told(
+            W172,
+            format!("'{text}' answered with nothing to read ({class:?}): it is not checked"),
+        ),
     }
 }
 
@@ -211,7 +214,7 @@ fn first<'o>(
     args: Args,
     outcomes: &'o [ProbeOutcome],
 ) -> Result<Served<'o>, Vec<CheckFinding>> {
-    served(text, args, &outcomes[0]).map_err(|told| told.into_iter().collect())
+    served(text, args, &outcomes[0]).map_err(|told| vec![told])
 }
 
 fn image_judge(text: &str, args: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
@@ -330,7 +333,7 @@ fn pdf_judge(text: &str, args: Args, outcomes: &[ProbeOutcome], carry: Option<&V
                     bytes: served.bytes,
                 });
             }
-            Err(told) => return Judged::Findings(told.into_iter().collect()),
+            Err(told) => return Judged::Findings(vec![told]),
         }
     }
     let mut found: Vec<CheckFinding> = over_bytes(text, args, length).into_iter().collect();

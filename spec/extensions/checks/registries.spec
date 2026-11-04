@@ -46,4 +46,5 @@ behavior checks_registries "Registries Family" {
   verify integration "a licence outside allow is W179"
   verify integration "an unknown DOI is E105 and a malformed one is E103"
   verify integration "the registries scope asks only for its seven hosts"
+  verify integration "an answer whose body the journal did not keep is a miss, never a pass"
 }
