@@ -1,6 +1,7 @@
 //! An SVG file read as XML with `quick-xml`: whether it is well formed, whether its root element is `svg`, and the first
-//! active content it carries: a `script` element, an event attribute (`on…`), a `javascript:` URL in an `href` or in
-//! what an animation sets, or an entity this reader does not expand where one could hide either.
+//! active content it carries: a `script` element, an event attribute (`on…`), a document inline in `srcdoc`, a
+//! `javascript:` URL in an `href`, `src`, `data`, `action` or `formaction` or in what an animation sets, or an entity
+//! this reader does not expand where one could hide either.
 //!
 //! The file is untrusted: no entity is expanded and nesting is held to [`MAX_DEPTH`].
 
@@ -98,7 +99,15 @@ fn active_attribute(element: &str, attribute: &Attribute<'_>) -> Option<String> 
     if lower.len() > 2 && lower.starts_with("on") {
         return Some(format!("an event attribute '{name}' on <{element}>"));
     }
-    let url = lower == "href";
+    // A document written inline in an attribute (an <iframe> in a <foreignObject>) runs whatever it holds.
+    if lower == "srcdoc" {
+        return Some(format!("a document inline in '{name}' on <{element}>"));
+    }
+    // The attributes that name what an element loads or where a form goes, read as `href` is.
+    let url = matches!(
+        lower.as_str(),
+        "href" | "src" | "data" | "action" | "formaction"
+    );
     let animated = matches!(lower.as_str(), "to" | "from" | "values");
     if url && runs_script(&value) {
         return Some(format!("a javascript: URL in '{name}' on <{element}>"));

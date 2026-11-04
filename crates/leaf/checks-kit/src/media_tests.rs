@@ -157,9 +157,19 @@ fn svg_active_content_is_found_at_its_line() {
         "<svg><animate values=\"https://a;javascript:alert(1)\"/></svg>",
         "<!DOCTYPE svg [<!ENTITY x \"&lt;script&gt;\">]><svg>&x;</svg>",
         "<!DOCTYPE svg [<!ENTITY j \"javascript:\">]><svg><a href=\"&j;alert(1)\"/></svg>",
+        "<svg><foreignObject><iframe srcdoc=\"&lt;script&gt;alert(1)&lt;/script&gt;\"/></foreignObject></svg>",
+        "<svg><foreignObject><iframe src=\"javascript:alert(1)\"/></foreignObject></svg>",
+        "<svg><foreignObject><object data=\"javascript:alert(1)\"/></foreignObject></svg>",
+        "<svg><foreignObject><form action=\"javascript:alert(1)\"/></foreignObject></svg>",
+        "<svg><foreignObject><button formaction=\"javascript:alert(1)\"/></foreignObject></svg>",
     ] {
         assert!(active(svg).is_some(), "{svg}");
     }
+    // A `src` that loads a picture runs nothing.
+    assert_eq!(
+        active("<svg><foreignObject><img src=\"a.png\"/></foreignObject></svg>"),
+        None
+    );
     // The first one found is reported.
     let first =
         active("<svg><a href=\"#x\"/>\n<script/><rect onclick=\"f()\"/></svg>").expect("found");
