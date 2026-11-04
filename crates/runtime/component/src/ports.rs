@@ -56,7 +56,10 @@ impl http::Host for HostState {
             keep_headers: req.keep_headers,
             ..HttpRequest::default()
         };
-        let response = self.ports.http(request).map_err(error)?;
+        let response = self
+            .ports
+            .timed(|session| session.http(request))
+            .map_err(error)?;
         Ok(http::Response {
             status: response.status,
             headers: response
@@ -73,7 +76,10 @@ impl http::Host for HostState {
 
 impl fs::Host for HostState {
     fn stat(&mut self, root: String, path: String) -> Result<Option<fs::Entry>, HostError> {
-        let entry = self.ports.fs_stat(&root, &path).map_err(error)?;
+        let entry = self
+            .ports
+            .timed(|session| session.fs_stat(&root, &path))
+            .map_err(error)?;
         Ok(entry.map(|entry| fs::Entry {
             kind: match entry.kind {
                 FsEntryKind::File => fs::EntryKind::File,
@@ -91,7 +97,10 @@ impl fs::Host for HostState {
         path: String,
         max_bytes: u64,
     ) -> Result<fs::Content, HostError> {
-        let content = self.ports.fs_read(&root, &path, max_bytes).map_err(error)?;
+        let content = self
+            .ports
+            .timed(|session| session.fs_read(&root, &path, max_bytes))
+            .map_err(error)?;
         Ok(fs::Content {
             bytes: content.bytes,
             truncated: content.truncated,
@@ -107,7 +116,7 @@ impl fs::Host for HostState {
     ) -> Result<fs::Listing, HostError> {
         let listing = self
             .ports
-            .fs_walk(&root, &path, glob.as_deref(), max_entries)
+            .timed(|session| session.fs_walk(&root, &path, glob.as_deref(), max_entries))
             .map_err(error)?;
         Ok(fs::Listing {
             entries: listing.entries,
@@ -133,7 +142,10 @@ impl process::Host for HostState {
             output_cap: req.output_cap,
             text: req.text,
         };
-        let output = self.ports.process_run(request).map_err(error)?;
+        let output = self
+            .ports
+            .timed(|session| session.process_run(request))
+            .map_err(error)?;
         Ok(process::RunOutput {
             exit_code: output.exit_code,
             stdout: output.stdout,
@@ -190,7 +202,10 @@ fn status(status: GitStatus) -> git::StatusAnswer {
 
 impl git::Host for HostState {
     fn locate(&mut self) -> Result<Option<git::Repo>, HostError> {
-        let repo = self.ports.git_locate().map_err(error)?;
+        let repo = self
+            .ports
+            .timed(|session| session.git_locate())
+            .map_err(error)?;
         Ok(repo.map(|repo| git::Repo {
             toplevel: repo.toplevel,
             shallow: repo.shallow,
@@ -198,15 +213,22 @@ impl git::Host for HostState {
     }
 
     fn commit(&mut self, revision: String) -> Result<Option<String>, HostError> {
-        self.ports.git_commit(&revision).map_err(error)
+        self.ports
+            .timed(|session| session.git_commit(&revision))
+            .map_err(error)
     }
 
     fn merge_base(&mut self, a: String, b: String) -> Result<Option<String>, HostError> {
-        self.ports.git_merge_base(&a, &b).map_err(error)
+        self.ports
+            .timed(|session| session.git_merge_base(&a, &b))
+            .map_err(error)
     }
 
     fn tree(&mut self, commit: String, dir: String) -> Result<Vec<git::TreeEntry>, HostError> {
-        let entries = self.ports.git_tree(&commit, &dir).map_err(error)?;
+        let entries = self
+            .ports
+            .timed(|session| session.git_tree(&commit, &dir))
+            .map_err(error)?;
         Ok(entries
             .into_iter()
             .map(|entry| git::TreeEntry {
@@ -221,7 +243,10 @@ impl git::Host for HostState {
         commit: String,
         paths: Vec<String>,
     ) -> Result<Vec<git::FileSize>, HostError> {
-        let sized = self.ports.git_sizes(&commit, &paths).map_err(error)?;
+        let sized = self
+            .ports
+            .timed(|session| session.git_sizes(&commit, &paths))
+            .map_err(error)?;
         Ok(sized
             .into_iter()
             .map(|sized| git::FileSize {
@@ -232,7 +257,10 @@ impl git::Host for HostState {
     }
 
     fn blobs(&mut self, commit: String, paths: Vec<String>) -> Result<git::BlobsAnswer, HostError> {
-        let answer = self.ports.git_blobs(&commit, &paths).map_err(error)?;
+        let answer = self
+            .ports
+            .timed(|session| session.git_blobs(&commit, &paths))
+            .map_err(error)?;
         Ok(git::BlobsAnswer {
             blobs: answer
                 .blobs
@@ -247,10 +275,15 @@ impl git::Host for HostState {
     }
 
     fn branch(&mut self) -> Result<String, HostError> {
-        self.ports.git_branch().map_err(error)
+        self.ports
+            .timed(|session| session.git_branch())
+            .map_err(error)
     }
 
     fn status(&mut self) -> Result<git::StatusAnswer, HostError> {
-        self.ports.git_status().map(status).map_err(error)
+        self.ports
+            .timed(|session| session.git_status())
+            .map(status)
+            .map_err(error)
     }
 }

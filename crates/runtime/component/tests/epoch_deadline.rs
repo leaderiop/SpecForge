@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 use crate::probe_support::{
     PROBE, SlowHttp, call_ports, lent, ports_with_http, probe_runtime, reported,
 };
+use serde_json::json;
 use specforge_component::ComponentRuntime;
 use specforge_protocol_types::Operation;
 use specforge_test_macros::test as specforge_test;
@@ -286,7 +287,6 @@ fn probe_held_to(execution_ms: u32) -> ComponentRuntime {
     behavior = "bound_a_host_port_call",
     verify = "a port call that outlasts the guest's deadline does not trap the guest"
 )]
-#[ignore = "04-D1, flipped by T8"]
 fn a_port_call_that_outlasts_the_guests_deadline_does_not_trap_it() {
     let runtime = probe_held_to(200);
     let http = SlowHttp {
@@ -338,4 +338,76 @@ fn a_port_call_does_not_hold_its_extensions_lock() {
         "the handshake waited {waited:?} on the port call"
     );
     assert_eq!(reported(a.join().unwrap())["ok"], 200);
+}
+
+#[specforge_test(
+    behavior = "bound_a_host_port_call",
+    verify = "a guest that spins after a port call still traps at its own deadline"
+)]
+fn a_guest_that_spins_after_a_port_call_still_traps() {
+    let runtime = probe_held_to(200);
+    let http = SlowHttp {
+        started: Arc::new(Barrier::new(1)),
+        sleep: Duration::from_millis(600),
+    };
+    let lent = lent(&ports_with_http(Arc::new(http)));
+    let input =
+        json!({"port": "http", "target": "https://example.test/a", "spin": true}).to_string();
+    let before = Instant::now();
+    let answer = runtime.call_with_ports(
+        PROBE,
+        "cmd__ports",
+        input.as_bytes(),
+        Operation::Command,
+        Some(lent),
+    );
+    assert_eq!(trap_kind(&answer), "deadline_exceeded");
+    assert!(
+        before.elapsed() >= Duration::from_millis(800),
+        "the guest's 200 ms came after the port's 600 ms: {:?}",
+        before.elapsed()
+    );
+}
+
+/// Under a work budget no clock runs: the suites that hold every call to one are not touched by a slow port, and a
+/// guest that spins after it is stopped by its work, not by a deadline.
+#[test]
+fn under_a_work_budget_a_port_call_spends_nothing_and_a_spin_runs_out_of_work() {
+    let blob = std::fs::read(specforge_component::committed::PROBE.path()).unwrap();
+    let runtime = ComponentRuntime::new().with_work_budget(specforge_component::DEFAULT_FUEL_LIMIT);
+    runtime
+        .load(PROBE, &blob, specforge_wasm::Provenance::third_party(&blob))
+        .unwrap();
+    runtime.apply_limits(
+        PROBE,
+        Limits {
+            execution_ms: 10,
+            memory_mb: 512,
+        },
+    );
+    let slow = || {
+        lent(&ports_with_http(Arc::new(SlowHttp {
+            started: Arc::new(Barrier::new(1)),
+            sleep: Duration::from_millis(100),
+        })))
+    };
+    let answer = call_ports(
+        &runtime,
+        "http",
+        "https://example.test/a",
+        Operation::Command,
+        Some(slow()),
+    );
+    assert_eq!(reported(answer)["ok"], 200);
+
+    let input =
+        json!({"port": "http", "target": "https://example.test/a", "spin": true}).to_string();
+    let answer = runtime.call_with_ports(
+        PROBE,
+        "cmd__ports",
+        input.as_bytes(),
+        Operation::Command,
+        Some(slow()),
+    );
+    assert_eq!(trap_kind(&answer), "fuel_exhausted");
 }

@@ -7,6 +7,7 @@
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use specforge_common::Diagnostic;
 use specforge_effects::contained::withheld;
@@ -25,7 +26,7 @@ use specforge_protocol_types::{
     PortScope, ProcessOutput, ProcessRequest, ProcessScope,
 };
 
-use crate::sandbox::{ANSWER_SHARE_OF_MEMORY, Limits};
+use crate::sandbox::{ANSWER_SHARE_OF_MEMORY, Limits, PORT_BUDGET_MS};
 
 /// What an effectful call is lent: the effects its http and process requests are served through (the mode, the ports
 /// a live mode holds, the journal), the local ports every mode performs, and its extension's grant.
@@ -81,6 +82,8 @@ pub struct PortSession {
     /// Any byte payload of an answer is held to this.
     answer_cap: u64,
     memory_mb: u32,
+    /// What its requests took so far: not the guest's time, and held to the port budget.
+    in_ports: Duration,
 }
 
 /// Variables a program's lookup or loader reads: a guest's request cannot set them, so the program a person approved
@@ -151,6 +154,7 @@ impl PortSession {
             lent: None,
             answer_cap: 0,
             memory_mb: 0,
+            in_ports: Duration::ZERO,
         }
     }
 
@@ -168,7 +172,36 @@ impl PortSession {
             lent,
             answer_cap: u64::from(limits.memory_mb) * 1024 * 1024 / ANSWER_SHARE_OF_MEMORY,
             memory_mb: limits.memory_mb,
+            in_ports: Duration::ZERO,
         }
+    }
+
+    /// How long this call has spent in its ports: what the guest's deadline does not count (ADR 0037 D3).
+    pub fn time_in_ports(&self) -> Duration {
+        self.in_ports
+    }
+
+    /// One port request, its time counted as the port's. A call that spent [`PORT_BUDGET_MS`] in its ports is
+    /// answered `failed(deadline)`, as a guest cannot trap for time it does not count.
+    pub fn timed<T>(
+        &mut self,
+        request: impl FnOnce(&mut Self) -> Result<T, HostError>,
+    ) -> Result<T, HostError> {
+        if self.budget_left() == 0 {
+            return Err(HostError::Failed(Failure {
+                class: "deadline".to_string(),
+                message: format!("the call spent its {PORT_BUDGET_MS} ms budget in host ports"),
+            }));
+        }
+        let started = Instant::now();
+        let answer = request(self);
+        self.in_ports += started.elapsed();
+        answer
+    }
+
+    /// What is left of the call's budget for its ports, in milliseconds.
+    fn budget_left(&self) -> u64 {
+        PORT_BUDGET_MS.saturating_sub(millis(self.in_ports))
     }
 
     /// What the call was lent, when its kind may use a port at all.
@@ -226,7 +259,10 @@ impl PortSession {
             allow_private: false,
             secret: None,
             body_cap: asked_cap(request.body_cap, guest_body_cap(u64::from(self.memory_mb))),
-            timeout_ms: asked_cap(request.timeout_ms, millis(http::TIMEOUT_CEILING)),
+            timeout_ms: asked_cap(
+                request.timeout_ms,
+                millis(http::TIMEOUT_CEILING).min(self.budget_left()),
+            ),
             max_redirects: request.max_redirects.min(http::MAX_REDIRECTS),
             ..request
         };
@@ -419,7 +455,7 @@ impl PortSession {
             _ => millis(DEADLINE_CEILING),
         };
         let request = ProcessRequest {
-            deadline_ms: asked_cap(request.deadline_ms, most),
+            deadline_ms: asked_cap(request.deadline_ms, most.min(self.budget_left())),
             ..request
         };
         let asked = EffectRequest::Process(request.clone());
@@ -671,4 +707,39 @@ fn not_in_journal(request: &EffectRequest) -> HostError {
             specforge_effects::grant::one_line(request)
         ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_spent_port_budget_fails_the_request_before_it_runs() {
+        let mut session = PortSession::pure();
+        session.in_ports = Duration::from_millis(PORT_BUDGET_MS);
+        let mut ran = false;
+        let answer: Result<(), HostError> = session.timed(|_| {
+            ran = true;
+            Ok(())
+        });
+        assert!(
+            matches!(&answer, Err(HostError::Failed(failure)) if failure.class == "deadline"),
+            "{answer:?}"
+        );
+        assert!(!ran);
+    }
+
+    #[test]
+    fn a_requests_time_is_the_ports_and_shortens_the_next_deadline() {
+        let mut session = PortSession::pure();
+        let answer: Result<(), HostError> = session.timed(|_| {
+            std::thread::sleep(Duration::from_millis(5));
+            Ok(())
+        });
+        assert!(answer.is_ok());
+        assert!(session.time_in_ports() >= Duration::from_millis(5));
+
+        session.in_ports = Duration::from_millis(PORT_BUDGET_MS - 100);
+        assert_eq!(session.budget_left(), 100);
+    }
 }

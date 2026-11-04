@@ -1,12 +1,42 @@
 //! The way into an instance: what one call of an export is held to, and what it answers.
 
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use specforge_wasm::PortSession;
 use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};
 use specforge_wasm::sandbox::Limits;
 
+use wasmtime::UpdateDeadline;
+
 use crate::{ComponentRuntime, PluginInstance, ms_to_ticks};
+
+/// The time a guest may run, read at each epoch deadline: what has passed, less what its ports took (ADR 0037 D3).
+pub(crate) struct GuestClock {
+    budget: Duration,
+    started: Instant,
+}
+
+impl GuestClock {
+    pub(crate) fn of(deadline_ms: u32) -> Self {
+        GuestClock {
+            budget: Duration::from_millis(u64::from(deadline_ms)),
+            started: Instant::now(),
+        }
+    }
+
+    /// At an epoch deadline: trap a guest that spent its budget, or check again when what is left of it has passed.
+    pub(crate) fn at_deadline(&self, in_ports: Duration) -> UpdateDeadline {
+        let guest = self.started.elapsed().saturating_sub(in_ports);
+        match self.budget.checked_sub(guest) {
+            Some(left) if !left.is_zero() => {
+                let left_ms = u64::try_from(left.as_millis()).unwrap_or(u64::MAX);
+                UpdateDeadline::Continue(ms_to_ticks(left_ms).max(1))
+            }
+            _ => UpdateDeadline::Interrupt,
+        }
+    }
+}
 
 impl ComponentRuntime {
     /// One call into `name`'s shared instance, its port session made from the extension's limits. The session lasts
@@ -75,6 +105,7 @@ impl ComponentRuntime {
             });
         }
         store.set_epoch_deadline(ms_to_ticks(u64::from(deadline_ms)));
+        store.data_mut().clock = GuestClock::of(deadline_ms);
         store.data_mut().ports = session(*limits);
         let called = bindings.call_call(&mut *store, name, export, input);
         store.data_mut().ports = PortSession::pure();

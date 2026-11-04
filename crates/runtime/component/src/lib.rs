@@ -30,6 +30,7 @@ wasmtime::component::bindgen!({
 
 pub mod builtins;
 mod calls;
+use calls::GuestClock;
 #[cfg(feature = "testing")]
 pub mod committed;
 #[cfg(feature = "testing")]
@@ -46,6 +47,8 @@ struct HostState {
     memory: MemoryCeiling,
     /// What this call may do through a `specforge:host` port: pure between calls.
     ports: PortSession,
+    /// The call's time, against the extension's limit.
+    clock: GuestClock,
 }
 
 /// Refuses any growth that takes the instance's memories and tables, all
@@ -135,7 +138,8 @@ fn no_capabilities() -> WasiCtx {
 
 /// A guest waiting on a timer would block the host thread out of the
 /// epoch deadline's reach (it fires only while guest code runs), holding
-/// the extension's lock for as long as it asks. So the two calls that make
+/// the extension's lock for as long as it asks, and only the time a port
+/// takes is not the guest's. So the two calls that make
 /// a timer trap instead: a guest has nothing else to wait on, as it holds no
 /// stream or socket that can block.
 fn refuse_timers(linker: &mut Linker<HostState>) -> wasmtime::Result<()> {
@@ -166,9 +170,9 @@ impl WasiView for HostState {
 struct PluginInstance {
     store: Store<HostState>,
     bindings: Bridge,
-    /// What each call into this plugin is held to. The wall-clock budget
-    /// is enforced with wasmtime epoch interruption; `set_epoch_deadline`
-    /// is refreshed from it before every `call`.
+    /// What each call into this plugin is held to. The budget is the guest's own time, enforced with wasmtime epoch
+    /// interruption (`set_epoch_deadline` is refreshed from it before every `call`): a deadline that passes while a
+    /// port ran is moved by what the port took ([`GuestClock`]).
     limits: Limits,
     /// What the instance was made from, to make a fresh one after a trap:
     /// a component instance that trapped cannot be entered again.
@@ -452,9 +456,14 @@ impl ComponentRuntime {
                 wasi: no_capabilities(),
                 memory: MemoryCeiling::of(limits),
                 ports: PortSession::pure(),
+                clock: GuestClock::of(self.budget(fuel, limits, u32::MAX).1),
             },
         );
         store.limiter(|state| &mut state.memory);
+        store.epoch_deadline_callback(|store| {
+            let state = store.data();
+            Ok(state.clock.at_deadline(state.ports.time_in_ports()))
+        });
         let (fuel, deadline_ms) = self.budget(fuel, limits, u32::MAX);
         store
             .set_fuel(fuel)

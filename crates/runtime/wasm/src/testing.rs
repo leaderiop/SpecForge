@@ -447,13 +447,19 @@ struct ServedPorts(RefCell<PortSession>);
 
 impl InProcessHost for ServedPorts {
     fn http_send(&self, request: &HttpRequest) -> Result<HttpResponse, HostError> {
-        self.0.borrow_mut().http(request.clone())
+        self.0
+            .borrow_mut()
+            .timed(|session| session.http(request.clone()))
     }
     fn fs_stat(&self, root: &str, path: &str) -> Result<Option<FsEntry>, HostError> {
-        self.0.borrow_mut().fs_stat(root, path)
+        self.0
+            .borrow_mut()
+            .timed(|session| session.fs_stat(root, path))
     }
     fn fs_read(&self, root: &str, path: &str, max_bytes: u64) -> Result<FsContent, HostError> {
-        self.0.borrow_mut().fs_read(root, path, max_bytes)
+        self.0
+            .borrow_mut()
+            .timed(|session| session.fs_read(root, path, max_bytes))
     }
     fn fs_walk(
         &self,
@@ -462,34 +468,48 @@ impl InProcessHost for ServedPorts {
         glob: Option<&str>,
         max_entries: u32,
     ) -> Result<FsListing, HostError> {
-        self.0.borrow_mut().fs_walk(root, path, glob, max_entries)
+        self.0
+            .borrow_mut()
+            .timed(|session| session.fs_walk(root, path, glob, max_entries))
     }
     fn process_run(&self, request: &ProcessRequest) -> Result<ProcessOutput, HostError> {
-        self.0.borrow_mut().process_run(request.clone())
+        self.0
+            .borrow_mut()
+            .timed(|session| session.process_run(request.clone()))
     }
     fn git_locate(&self) -> Result<Option<GitRepo>, HostError> {
-        self.0.borrow_mut().git_locate()
+        self.0.borrow_mut().timed(|session| session.git_locate())
     }
     fn git_commit(&self, revision: &str) -> Result<Option<String>, HostError> {
-        self.0.borrow_mut().git_commit(revision)
+        self.0
+            .borrow_mut()
+            .timed(|session| session.git_commit(revision))
     }
     fn git_merge_base(&self, a: &str, b: &str) -> Result<Option<String>, HostError> {
-        self.0.borrow_mut().git_merge_base(a, b)
+        self.0
+            .borrow_mut()
+            .timed(|session| session.git_merge_base(a, b))
     }
     fn git_tree(&self, commit: &str, dir: &str) -> Result<Vec<GitTreeEntry>, HostError> {
-        self.0.borrow_mut().git_tree(commit, dir)
+        self.0
+            .borrow_mut()
+            .timed(|session| session.git_tree(commit, dir))
     }
     fn git_sizes(&self, commit: &str, paths: &[String]) -> Result<Vec<GitSized>, HostError> {
-        self.0.borrow_mut().git_sizes(commit, paths)
+        self.0
+            .borrow_mut()
+            .timed(|session| session.git_sizes(commit, paths))
     }
     fn git_blobs(&self, commit: &str, paths: &[String]) -> Result<GitBlobs, HostError> {
-        self.0.borrow_mut().git_blobs(commit, paths)
+        self.0
+            .borrow_mut()
+            .timed(|session| session.git_blobs(commit, paths))
     }
     fn git_branch(&self) -> Result<String, HostError> {
-        self.0.borrow_mut().git_branch()
+        self.0.borrow_mut().timed(|session| session.git_branch())
     }
     fn git_status(&self) -> Result<GitStatus, HostError> {
-        self.0.borrow_mut().git_status()
+        self.0.borrow_mut().timed(|session| session.git_status())
     }
 }
 
