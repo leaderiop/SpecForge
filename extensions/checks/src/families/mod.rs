@@ -208,6 +208,65 @@ fn choice_arg<W: Word>(name: &'static str) -> impl FnOnce(&mut CheckerBuilder) {
     }
 }
 
+/// The most of a file a whole read takes: past it a file is not checked (W176), and a line range not yet reached is not
+/// decided.
+const READ: u64 = 1024 * 1024;
+
+/// `bytes` as people say it: `1 MiB`.
+fn mib(bytes: u64) -> String {
+    format!("{} MiB", bytes >> 20)
+}
+
+/// What a value of `text` is told, over the whole value.
+fn on(code: &str, text: &str, message: String) -> CheckFinding {
+    CheckFinding::new(code, message).at(0, text.len())
+}
+
+/// A read of `path` under the value's root, whole up to [`READ`].
+fn read_whole(path: &str, args: Args) -> Probe {
+    Probe::FsRead {
+        root: args.root(),
+        path: path.to_string(),
+        range: ByteRange::Whole { max: READ },
+    }
+}
+
+/// What an answer to a request of `text` that says nothing of the value reports: W172 when nothing answered, W173 for
+/// a redirect not followed or a host the `grant` does not reach, W182 for 401 or 403, W181 for another status outside
+/// 2xx but 404 and 410. `None` for any other answer, which its family reads.
+fn transport(text: &str, outcome: &ProbeOutcome, grant: &str) -> Option<(&'static str, String)> {
+    let remote = matches!(
+        outcome.probe,
+        Probe::HttpHead { .. }
+            | Probe::HttpGet { .. }
+            | Probe::HttpPostQuery { .. }
+            | Probe::HttpTls { .. }
+            | Probe::DnsResolve { .. }
+    );
+    Some(match &outcome.class {
+        OutcomeClass::Unreachable(why) => {
+            (W172, format!("'{text}' could not be reached ({why:?})"))
+        }
+        OutcomeClass::Deadline => (W172, format!("'{text}' did not answer in time")),
+        OutcomeClass::Redirect(why) => (
+            W173,
+            format!("'{text}' redirects where it is not followed ({why:?})"),
+        ),
+        OutcomeClass::Denied if remote => (
+            W173,
+            format!("'{text}' leads where the {grant} grant does not reach"),
+        ),
+        OutcomeClass::Status(code @ (401 | 403)) => (
+            W182,
+            format!("'{text}' answered {code}: it needs credentials"),
+        ),
+        OutcomeClass::Status(code) if !matches!(code, 404 | 410) => {
+            (W181, format!("'{text}' answered {code}"))
+        }
+        _ => return None,
+    })
+}
+
 /// The field types a checker of text reads.
 const TEXT: &[&str] = &["string", "string_list"];
 

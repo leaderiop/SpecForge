@@ -12,7 +12,10 @@ use specforge_checks_kit::Invalid;
 use specforge_extension_sdk::prelude::*;
 
 use super::files::missing;
-use super::{checker, finding_of, path_shape, rounds_checker, scope_of, Args, FILES, MEDIA};
+use super::{
+    checker, finding_of, mib, on, path_shape, rounds_checker, scope_of, transport, Args, FILES,
+    MEDIA,
+};
 use crate::codes::*;
 
 /// The most of an image or a media file read: its header is in it.
@@ -21,8 +24,6 @@ const HEAD: u32 = 64 * 1024;
 const SVG_READ: u64 = 1024 * 1024;
 /// The formats `image` allows when its `formats` argument names none: what a web page shows.
 const WEB_IMAGES: [&str; 6] = ["png", "jpeg", "webp", "gif", "svg", "avif"];
-/// The rounds of probes a value runs: a PDF's head and tail, then what its cross-reference names, twice.
-const ROUNDS: u64 = 3;
 /// The codes a read reports, whatever the checker reads it for.
 const READ: [&str; 9] = [E016, E099, E103, W172, W173, W176, W177, W181, W182];
 
@@ -60,11 +61,6 @@ fn source(text: &str) -> Result<Source, CheckFinding> {
     let mut url = parts.url;
     url.set_fragment(None);
     Ok(Source::Remote(url.to_string()))
-}
-
-/// A finding of `code` on the whole value.
-fn on(code: &str, text: &str, message: String) -> CheckFinding {
-    CheckFinding::new(code, message).at(0, text.len())
 }
 
 fn read(text: &str, source: &Source, args: Args, range: ByteRange) -> Probe {
@@ -134,36 +130,24 @@ fn served<'o>(
             truncated: *truncated,
         }),
         (OutcomeClass::Missing, _) => Err(missing(text, args, outcome, [0, text.len()])),
-        (OutcomeClass::Denied, OutcomeData::Http { .. }) => told(
-            W173,
-            format!("'{text}' leads where the media-remote grant does not reach"),
-        ),
-        (OutcomeClass::Denied, _) => told(W176, format!("'{text}' is no regular file that can be read")),
-        (OutcomeClass::Unreachable(why), _) => {
-            told(W172, format!("'{text}' could not be reached ({why:?})"))
-        }
-        (OutcomeClass::Deadline, _) => told(W172, format!("'{text}' did not answer in time")),
         (OutcomeClass::RangeIgnored, _) => told(
             W172,
-            format!("'{text}' answered a request for part of it with all of it, past the 1 MiB read: it is not checked"),
-        ),
-        (OutcomeClass::Redirect(why), _) => told(
-            W173,
-            format!("'{text}' redirects where it is not followed ({why:?})"),
+            format!("'{text}' answered a request for part of it with all of it, past what is read: it is not checked"),
         ),
         (OutcomeClass::Status(code @ (404 | 410)), _) => {
             told(E099, format!("'{text}' answered {code}: there is nothing to read"))
         }
-        (OutcomeClass::Status(code @ (401 | 403)), _) => told(
-            W182,
-            format!("'{text}' answered {code}: it needs credentials"),
-        ),
-        (OutcomeClass::Status(code), _) => told(W181, format!("'{text}' answered {code}")),
-        // No bytes to read (a record that kept none, a redirect): unchecked, never a pass.
-        (class, _) => told(
-            W172,
-            format!("'{text}' answered with nothing to read ({class:?}): it is not checked"),
-        ),
+        (class, _) => match transport(text, outcome, "media-remote") {
+            Some((code, message)) => told(code, message),
+            None if *class == OutcomeClass::Denied => {
+                told(W176, format!("'{text}' is no regular file that can be read"))
+            }
+            // No bytes to read (a record that kept none, a redirect): unchecked, never a pass.
+            None => told(
+                W172,
+                format!("'{text}' answered with nothing to read ({class:?}): it is not checked"),
+            ),
+        },
     }
 }
 
@@ -235,9 +219,8 @@ fn image_judge(text: &str, args: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFi
         return vec![on(E099, text, message)];
     }
     let mut found: Vec<CheckFinding> = over_bytes(text, args, served.length).into_iter().collect();
-    match (image.size, args.count("max_pixels")) {
-        (Some((width, height)), Some(max)) if width.saturating_mul(height) > max => {
-            let pixels = width.saturating_mul(height);
+    match (image.size.zip(image.pixels()), args.count("max_pixels")) {
+        (Some(((width, height), pixels)), Some(max)) if pixels > max => {
             let message =
                 format!("'{text}' is {width}x{height}, {pixels} pixels, over max_pixels {max}");
             found.push(on(W177, text, message));
@@ -263,8 +246,10 @@ fn svg_judge(text: &str, args: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFind
         let size = served
             .length
             .map_or_else(String::new, |length| format!(" is {length} bytes,"));
-        let message =
-            format!("'{text}'{size} over the 1 MiB an svg check reads: it is not checked");
+        let message = format!(
+            "'{text}'{size} over the {} an svg check reads: it is not checked",
+            mib(SVG_READ)
+        );
         return vec![on(W176, text, message)];
     }
     let mut found: Vec<CheckFinding> = match svg::scan(served.bytes) {
@@ -376,7 +361,8 @@ fn pdf_judge(text: &str, args: Args, outcomes: &[ProbeOutcome], carry: Option<&V
         }
         // The file reads as a PDF so far; its count is read only when it is asked for.
         Err(Failure::Need { .. }) if max_pages.is_none() => None,
-        Err(Failure::Need { spans, .. }) if round < ROUNDS => {
+        // A PDF's head and tail, then what its cross-reference names, in the rounds a value runs.
+        Err(Failure::Need { spans, .. }) if round < u64::from(MAX_PROBE_ROUNDS) => {
             let probes = spans
                 .iter()
                 .map(|span| {
@@ -394,9 +380,9 @@ fn pdf_judge(text: &str, args: Args, outcomes: &[ProbeOutcome], carry: Option<&V
             hint: Some(pages), ..
         }) => Some(pages),
         Err(Failure::Need { hint: None, .. }) => {
-            found.push(unread(
-                "its page tree is past what three rounds of reads reached",
-            ));
+            found.push(unread(&format!(
+                "its page tree is past what {MAX_PROBE_ROUNDS} rounds of reads reached"
+            )));
             None
         }
     };

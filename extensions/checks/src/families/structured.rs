@@ -8,11 +8,12 @@ use specforge_checks_kit::tree::{self, Format};
 use specforge_extension_sdk::prelude::*;
 
 use super::files::missing;
-use super::{checker, choice_arg, finding_of, no_args, path_shape, Args, Word, STRUCTURED};
+use super::{
+    checker, choice_arg, finding_of, mib, no_args, on, path_shape, read_whole, Args, Word, READ,
+    STRUCTURED,
+};
 use crate::codes::*;
 
-/// The most of a file the family reads: past it, a file is not checked (W176).
-const READ: u64 = 1024 * 1024;
 /// The most anchors an E098 lists.
 const LISTED: usize = 8;
 
@@ -37,14 +38,6 @@ fn split(text: &str) -> (&str, Option<(usize, &str)>) {
     }
 }
 
-fn read(path: &str, args: Args) -> Probe {
-    Probe::FsRead {
-        root: args.root(),
-        path: path.to_string(),
-        range: ByteRange::Whole { max: READ },
-    }
-}
-
 /// The whole file, when the host read it whole; else what the value is told instead (E016, or W176 for a file over
 /// what is read or that is no regular file), or nothing when the host reported it itself.
 fn whole<'o>(
@@ -52,12 +45,15 @@ fn whole<'o>(
     args: Args,
     outcome: &'o ProbeOutcome,
 ) -> Result<&'o [u8], Vec<CheckFinding>> {
-    let told = |code: &str, why: String| Err(vec![CheckFinding::new(code, why).at(0, path.len())]);
+    let told = |code: &str, why: String| Err(vec![on(code, path, why)]);
     match (&outcome.class, &outcome.data) {
         (OutcomeClass::Missing, _) => Err(vec![missing(path, args, outcome, [0, path.len()])]),
         (OutcomeClass::Ok, OutcomeData::Bytes { truncated: true, length, .. }) => told(
             W176,
-            format!("'{path}' is {length} bytes, over the 1 MiB a structured check reads: it is not checked"),
+            format!(
+                "'{path}' is {length} bytes, over the {} a structured check reads: it is not checked",
+                mib(READ)
+            ),
         ),
         (OutcomeClass::Ok, OutcomeData::Bytes { bytes, .. }) => Ok(bytes),
         (OutcomeClass::Denied, _) => told(W176, format!("'{path}' is no regular file that can be read")),
@@ -76,7 +72,7 @@ fn unparsed(path: &str, format: Format, error: &tree::ParseError) -> CheckFindin
 
 /// A checker that `path` parses as `format`.
 fn parses(c: &mut ContributionsBuilder, name: &str, format: Format) {
-    let plan = |text: &str, args: Args| Ok(vec![read(text, args)]);
+    let plan = |text: &str, args: Args| Ok(vec![read_whole(text, args)]);
     let judge = move |text: &str, args: Args, outcomes: &[ProbeOutcome]| match whole(
         text,
         args,
@@ -109,20 +105,16 @@ fn format_of(path: &str, args: Args) -> Option<Format> {
 fn pointer_plan(text: &str, args: Args) -> Result<Vec<Probe>, CheckFinding> {
     let (path, fragment) = split(text);
     if let Some((at, fragment)) = fragment {
-        pointer::tokens(fragment).map_err(|invalid| {
-            let at = Some(invalid.at.map_or(at + 1..text.len(), |range| {
-                range.start + at + 1..range.end + at + 1
-            }));
-            finding_of(E103, specforge_checks_kit::Invalid { at, ..invalid })
-        })?;
+        pointer::tokens(fragment)
+            .map_err(|invalid| finding_of(E103, invalid.shifted(at + 1, at + 1..text.len())))?;
     }
     if format_of(path, args).is_none() {
         let why = format!(
             "the format of '{path}' is not known from its extension: name it with `format`"
         );
-        return Err(CheckFinding::new(E097, why).at(0, path.len()));
+        return Err(on(E097, path, why));
     }
-    Ok(vec![read(path, args)])
+    Ok(vec![read_whole(path, args)])
 }
 
 fn pointer_judge(text: &str, args: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
@@ -212,7 +204,7 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         "markdown_anchor",
         &[E016, E098, W176],
         path_shape(no_args),
-        |text, args| Ok(vec![read(split(text).0, args)]),
+        |text, args| Ok(vec![read_whole(split(text).0, args)]),
         anchor_judge,
     );
 }

@@ -138,8 +138,7 @@ fn a_tree_deeper_than_the_cap_does_not_parse() {
 }
 
 #[test]
-fn a_format_is_named_or_read_from_the_extension() {
-    assert_eq!(Format::named("yaml"), Some(Format::Yaml));
+fn a_format_is_read_from_the_extension() {
     assert_eq!(Format::of_path("a/b.YML"), Some(Format::Yaml));
     assert_eq!(Format::of_path("Cargo.toml"), Some(Format::Toml));
     assert_eq!(Format::of_path("README"), None);

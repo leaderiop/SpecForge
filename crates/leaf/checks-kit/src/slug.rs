@@ -7,15 +7,8 @@ use std::collections::{BTreeSet, HashMap};
 
 /// Every anchor `markdown` defines: heading slugs in order, duplicates numbered (`-1`, `-2`), then HTML anchors.
 pub fn anchors(markdown: &str) -> BTreeSet<String> {
-    let mut found = BTreeSet::new();
-    let mut seen: HashMap<String, usize> = HashMap::new();
-    for heading in headings(markdown) {
-        let anchor = match explicit_id(&heading) {
-            Some(id) => id.to_string(),
-            None => numbered(slug(&heading), &mut seen),
-        };
-        found.insert(anchor);
-    }
+    let mut found: BTreeSet<String> = BTreeSet::new();
+    found.extend(heading_anchors(markdown));
     found.extend(crate::html::anchors(markdown.as_bytes()));
     found
 }
@@ -187,7 +180,7 @@ pub fn headings(markdown: &str) -> Vec<String> {
         }
         // An underline outside the container its paragraph is in breaks the container instead.
         let same_container = contained == (line.len() != raw.len());
-        if let (Some(text), Some(_), true) = (&paragraph, setext(rest), same_container) {
+        if let (Some(text), true, true) = (&paragraph, setext(rest), same_container) {
             found.push(text.clone());
             paragraph = None;
             continue;
@@ -302,16 +295,12 @@ fn atx(text: &str) -> Option<&str> {
     Some(content)
 }
 
-/// A setext underline: `=` or `-` characters only, trailing spaces allowed; its level.
-fn setext(text: &str) -> Option<u8> {
+/// A setext underline: `=` or `-` characters only, trailing spaces allowed. An anchor does not depend on its level.
+fn setext(text: &str) -> bool {
     let line = text.trim_end();
-    let first = *line.as_bytes().first()?;
-    let level = match first {
-        b'=' => 1,
-        b'-' => 2,
-        _ => return None,
-    };
-    line.bytes().all(|b| b == first).then_some(level)
+    line.as_bytes()
+        .first()
+        .is_some_and(|first| matches!(first, b'=' | b'-') && line.bytes().all(|b| b == *first))
 }
 
 /// Three or more `*`, `-` or `_`, with spaces between them and nothing else.

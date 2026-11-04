@@ -4,7 +4,7 @@ use serde_json::json;
 use specforge_extension_sdk::testing::MockHost;
 use specforge_protocol_types::{
     ByteRange, CheckFinding, OutcomeClass, OutcomeData, PlannedItem, Probe, ProbeOutcome,
-    Unreachable,
+    Redirected, Unreachable,
 };
 use specforge_test::prelude::*;
 
@@ -110,6 +110,10 @@ fn a_requirement_only_yanked_releases_meet_is_e105() {
             "W172",
         ),
         (ok("not json"), "W172"),
+        (
+            http(OutcomeClass::Redirect(Redirected::Refused), 302, ""),
+            "W173",
+        ),
     ] {
         assert_eq!(
             codes(&judged("package", "crates:serde@1", json!({}), outcome)),

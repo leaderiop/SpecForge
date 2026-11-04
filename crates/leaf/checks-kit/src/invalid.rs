@@ -30,4 +30,13 @@ impl Invalid {
         let length = text[at..].chars().next().map_or(1, char::len_utf8);
         Invalid::at(reason, at..at + length)
     }
+
+    /// The same refusal of a text that starts at `offset` of a longer one: its range moved there, or `whole` when it is
+    /// about the whole text.
+    pub fn shifted(self, offset: usize, whole: Range<usize>) -> Self {
+        Invalid {
+            at: Some(self.at.map_or(whole, |r| r.start + offset..r.end + offset)),
+            ..self
+        }
+    }
 }

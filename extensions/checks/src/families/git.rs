@@ -4,7 +4,7 @@
 use specforge_checks_kit::git::{FileAt, ObjectName, RefName};
 use specforge_extension_sdk::prelude::*;
 
-use super::{checker, choice_arg, finding_of, no_args, Args, Word, GIT};
+use super::{checker, choice_arg, finding_of, no_args, path_shape, Args, Word, GIT};
 use crate::codes::*;
 
 /// What a `ref` value may name.
@@ -163,11 +163,13 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         at_revision,
         file_at,
     );
-    let rooted = |k: &mut CheckerBuilder| {
-        k.arg("root", |f| {
-            f.field_type(FieldType::String);
-        });
-        k.value(ValueForm::Path).root_arg("root");
-    };
-    checker(c, &GIT, "tracked", &[W180], rooted, tracking, tracked);
+    checker(
+        c,
+        &GIT,
+        "tracked",
+        &[W180],
+        path_shape(no_args),
+        tracking,
+        tracked,
+    );
 }

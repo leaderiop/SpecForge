@@ -63,6 +63,16 @@ pub(super) fn is_delimiter(byte: u8) -> bool {
 }
 
 impl<'a> Lexer<'a> {
+    /// A lexer at the start of `bytes`: `end` when they reach the file's end, `need` what to ask for when they run out.
+    pub(super) fn new(bytes: &'a [u8], end: bool, need: Span) -> Self {
+        Lexer {
+            bytes,
+            at: 0,
+            end,
+            need,
+        }
+    }
+
     pub(super) fn short<T>(&self) -> Result<T, Stop> {
         if self.end {
             bad("it ends inside an object")

@@ -47,7 +47,7 @@ checker names that grammar. So `regex` (the `regex` crate's syntax) and `semver_
     for no scope;
   - it `gates` the codes only its family reports, so `specforge settings` shows what a switch silences.
 - A code more than one family reports is shared, so no switch gates it, and `when` alone switches it: E103, E016,
-  W176 (files, structured, media), W173 (links, media) and W172, W181, W182 (links, media, registries).
+  W176 (files, structured, media), W172, W173, W181, W182 (links, media, registries).
 
 ## D4. Codes
 
@@ -67,7 +67,7 @@ checker takes a `severity` argument.
 | W182 | links, media, registries | 401 or 403: the page needs credentials, and whether it exists is not decided |
 | W181 | links, media, registries | 429, 5xx or another non-success |
 | W172 | links, media, registries | DNS, connect, TLS handshake or timeout failure, or a name that does not resolve |
-| W173 | links, media | a redirect that leaves the grant, an https to http downgrade, more than 5 hops, or a final host outside `hosts` |
+| W173 | links, media, registries | a redirect that leaves the grant, an https to http downgrade, more than 5 hops, or a final host outside `hosts` |
 | E104 | links | a `Content-Type` outside `allow`, or none |
 | E112 | links | the URL's fragment names no `id` or `name` in the page; on the fragment |
 | W178 | links | the certificate's `not_after` is within `days` |

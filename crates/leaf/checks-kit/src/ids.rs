@@ -73,6 +73,18 @@ pub fn doi_url(doi: &str) -> String {
     )
 }
 
+/// Whether the handle API's answer says the DOI is registered: `responseCode` 1 is, 100 is not, and another code is
+/// taken as registered. An answer with no code does not read.
+pub fn doi_registered(body: &[u8]) -> Result<bool, String> {
+    #[derive(serde::Deserialize)]
+    struct Handle {
+        #[serde(rename = "responseCode")]
+        response_code: i64,
+    }
+    let handle: Handle = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+    Ok(handle.response_code != 100)
+}
+
 /// The ORCID iD `text` writes, bare or after `https://orcid.org/`: four groups of four, the last ending in a digit or
 /// `X`, whose MOD 11-2 check holds.
 pub fn orcid(text: &str) -> Result<String, Invalid> {
@@ -94,10 +106,7 @@ pub fn orcid(text: &str) -> Result<String, Invalid> {
             at,
         ));
     }
-    mod11_2(id).map_err(|invalid| Invalid {
-        at: Some(invalid.at.map_or(at, |r| r.start + start..r.end + start)),
-        ..invalid
-    })?;
+    mod11_2(id).map_err(|invalid| invalid.shifted(start, at))?;
     Ok(id.to_string())
 }
 

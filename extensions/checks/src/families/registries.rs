@@ -9,7 +9,7 @@ use specforge_checks_kit::osv;
 use specforge_checks_kit::ranges::{newest, newest_unyanked};
 use specforge_extension_sdk::prelude::*;
 
-use super::{checker, finding_of, no_args, rounds_checker, Args, REGISTRIES};
+use super::{checker, finding_of, no_args, on, rounds_checker, transport, Args, REGISTRIES};
 use crate::codes::*;
 
 /// The hosts the family reads: each identifier's own public resolver.
@@ -25,13 +25,9 @@ pub(super) const HOSTS: [&str; 7] = [
 /// The most of an answer read: an index of every release of a large package fits.
 pub(super) const ANSWER: u64 = 16 * 1024 * 1024;
 /// The codes a registry's answer reports.
-const ANSWERS: [&str; 5] = [E103, E105, W172, W181, W182];
+const ANSWERS: [&str; 6] = [E103, E105, W172, W173, W181, W182];
 
 /// A finding of `code` on the whole value.
-fn on(code: &str, text: &str, message: String) -> CheckFinding {
-    CheckFinding::new(code, message).at(0, text.len())
-}
-
 fn get(url: String) -> Probe {
     Probe::HttpGet {
         url,
@@ -40,7 +36,7 @@ fn get(url: String) -> Probe {
 }
 
 /// The body of a registry's 2xx answer; else what the value is told: E105 for a 404 or a 410 (`gone`, the message),
-/// W181 for 429 or a 5xx, W182 for 401 or 403, W172 for no answer or one with no body. An answer cut at the cap leaves
+/// W181, W182, W172 or W173 as [`transport`] says, W172 for one with no body. An answer cut at the cap leaves
 /// the value unchecked: a large package's index is no fault of the project, nor of this machine's network.
 fn answered<'o>(
     text: &str,
@@ -59,26 +55,14 @@ fn answered<'o>(
         ) => Ok(body),
         (OutcomeClass::Ok | OutcomeClass::Capped, OutcomeData::Http { .. }) => Err(Judged::Unchecked),
         (OutcomeClass::Status(404 | 410), _) => told(E105, gone()),
-        (OutcomeClass::Status(code @ (401 | 403)), _) => told(
-            W182,
-            format!("'{text}': the registry answered {code}: it needs credentials"),
-        ),
-        (OutcomeClass::Status(code), _) => {
-            told(W181, format!("'{text}': the registry answered {code}"))
-        }
-        (OutcomeClass::Unreachable(why), _) => told(
-            W172,
-            format!("'{text}': the registry could not be reached ({why:?})"),
-        ),
-        (OutcomeClass::Deadline, _) => told(
-            W172,
-            format!("'{text}': the registry did not answer in time"),
-        ),
-        // No body to read (a record that kept none, a redirect, a range served whole): unchecked, never a pass.
-        (class, _) => told(
-            W172,
-            format!("'{text}': the registry's answer has no body to read ({class:?}), so it is not checked"),
-        ),
+        (class, _) => match transport(text, outcome, "registries") {
+            Some((code, message)) => told(code, message),
+            // No body to read (a record that kept none, a range served whole): unchecked, never a pass.
+            None => told(
+                W172,
+                format!("'{text}': the registry's answer has no body to read ({class:?}), so it is not checked"),
+            ),
+        },
     }
 }
 
@@ -290,14 +274,11 @@ fn doi_judge(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Judged {
         Ok(body) => body,
         Err(told) => return told,
     };
-    // The handle API's `responseCode`: 1 for a registered DOI, 100 for one that is not.
-    let findings =
-        match serde_json::from_slice::<Value>(body).map(|answer| answer["responseCode"].as_i64()) {
-            Ok(Some(100)) => vec![on(E105, text, gone())],
-            Ok(Some(_)) => Vec::new(),
-            Ok(None) => vec![unread(text, "no responseCode")],
-            Err(why) => vec![unread(text, &why.to_string())],
-        };
+    let findings = match ids::doi_registered(body) {
+        Ok(true) => Vec::new(),
+        Ok(false) => vec![on(E105, text, gone())],
+        Err(why) => vec![unread(text, &why)],
+    };
     findings.into()
 }
 

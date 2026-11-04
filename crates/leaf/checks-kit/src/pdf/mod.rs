@@ -143,12 +143,7 @@ impl<'a> File<'a> {
             return bad("its cross-reference points past its end");
         }
         match self.from(offset) {
-            Some((bytes, end)) => Ok(Lexer {
-                bytes,
-                at: 0,
-                end,
-                need: self.span(offset, want),
-            }),
+            Some((bytes, end)) => Ok(Lexer::new(bytes, end, self.span(offset, want))),
             None => Err(Stop::Short(self.span(offset, want))),
         }
     }
@@ -229,12 +224,7 @@ impl<'a> Pdf<'a> {
     /// The page count the linearization dictionary states, when the head was served and holds one.
     fn hint(&self) -> Option<u64> {
         let (bytes, end) = self.file.from(0)?;
-        let mut lexer = Lexer {
-            bytes,
-            at: 0,
-            end,
-            need: self.file.span(0, HEAD),
-        };
+        let mut lexer = Lexer::new(bytes, end, self.file.span(0, HEAD));
         let number = u32::try_from(lexer.peek_int()?).ok()?;
         let (Obj::Dict(dict), _) = lexer.object(number).ok()? else {
             return None;
@@ -297,12 +287,7 @@ impl<'a> Pdf<'a> {
         let Some(at) = rfind(tail, b"startxref") else {
             return bad("it has no startxref at its end");
         };
-        let mut lexer = Lexer {
-            bytes: &tail[at + 9..],
-            at: 0,
-            end: true,
-            need: self.file.span(from, TAIL),
-        };
+        let mut lexer = Lexer::new(&tail[at + 9..], true, self.file.span(from, TAIL));
         let offset = lexer.int()?;
         u64::try_from(offset).map_or_else(|_| bad("its startxref is negative"), Ok)
     }
@@ -414,12 +399,11 @@ impl<'a> Pdf<'a> {
             return bad(format!("object stream {stream} states no /N or /First"));
         };
         let first = usize::try_from(first).map_err(|_| Stop::Bad("a negative /First".into()))?;
-        let mut header = Lexer {
-            bytes: data.get(..first).unwrap_or(&data),
-            at: 0,
-            end: true,
-            need: self.file.span(offset, SECTION_SPAN),
-        };
+        let mut header = Lexer::new(
+            data.get(..first).unwrap_or(&data),
+            true,
+            self.file.span(offset, SECTION_SPAN),
+        );
         let mut at = None;
         let count = count.clamp(0, MAX_ENTRIES as i64);
         self.budget.scan(count as u64)?;
@@ -433,12 +417,11 @@ impl<'a> Pdf<'a> {
         let Some(at) = at.and_then(|at| first.checked_add(at)) else {
             return bad(format!("object {number} is not in object stream {stream}"));
         };
-        let mut lexer = Lexer {
-            bytes: data.get(at..).unwrap_or_default(),
-            at: 0,
-            end: true,
-            need: self.file.span(offset, SECTION_SPAN),
-        };
+        let mut lexer = Lexer::new(
+            data.get(at..).unwrap_or_default(),
+            true,
+            self.file.span(offset, SECTION_SPAN),
+        );
         lexer.value(0)
     }
 }

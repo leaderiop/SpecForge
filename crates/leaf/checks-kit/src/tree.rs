@@ -30,16 +30,6 @@ pub enum Format {
 }
 
 impl Format {
-    /// `json`, `yaml`, `toml`.
-    pub fn named(name: &str) -> Option<Format> {
-        match name {
-            "json" => Some(Format::Json),
-            "yaml" => Some(Format::Yaml),
-            "toml" => Some(Format::Toml),
-            _ => None,
-        }
-    }
-
     /// The format of `path`, by its extension.
     pub fn of_path(path: &str) -> Option<Format> {
         let extension = path.rsplit_once('.')?.1.to_ascii_lowercase();
@@ -87,7 +77,7 @@ impl ParseError {
 
     /// The error at byte `offset` of `text`.
     fn at_offset(message: impl Into<String>, text: &str, offset: usize) -> Self {
-        let (line, column) = line_col(text, offset);
+        let (line, column) = line_col(text.as_bytes(), offset);
         ParseError::at(message, line, column)
     }
 }
@@ -101,16 +91,22 @@ impl std::fmt::Display for ParseError {
     }
 }
 
-/// The 1-based line and column (in characters) of byte `offset` of `text`.
-fn line_col(text: &str, offset: usize) -> (usize, usize) {
-    let mut offset = offset.min(text.len());
-    while !text.is_char_boundary(offset) {
+/// The 1-based line and column (in characters) of byte `offset` of `bytes`, moved back to the start of its character.
+pub(crate) fn line_col(bytes: &[u8], offset: usize) -> (usize, usize) {
+    let mut offset = offset.min(bytes.len());
+    while offset > 0 && bytes.get(offset).is_some_and(|b| b & 0xC0 == 0x80) {
         offset -= 1;
     }
-    let before = &text[..offset];
-    let line = before.matches('\n').count() + 1;
-    let start = before.rfind('\n').map_or(0, |at| at + 1);
-    (line, before[start..].chars().count() + 1)
+    let before = &bytes[..offset];
+    let line = before.iter().filter(|b| **b == b'\n').count() + 1;
+    let start = before
+        .iter()
+        .rposition(|b| *b == b'\n')
+        .map_or(0, |at| at + 1);
+    (
+        line,
+        String::from_utf8_lossy(&before[start..]).chars().count() + 1,
+    )
 }
 
 /// `bytes` read as `format`.
@@ -119,7 +115,7 @@ pub fn parse(format: Format, bytes: &[u8]) -> Result<Value, ParseError> {
         Ok(text) => text,
         Err(error) => {
             let valid = std::str::from_utf8(&bytes[..error.valid_up_to()]).unwrap_or_default();
-            let (line, column) = line_col(valid, valid.len());
+            let (line, column) = line_col(valid.as_bytes(), valid.len());
             return Err(ParseError::at("is not UTF-8", line, column));
         }
     };
@@ -196,11 +192,30 @@ fn yaml(text: &str) -> Result<Value, ParseError> {
     Ok(builder.done.unwrap_or(Value::Null))
 }
 
-/// A collection being built: a sequence, or a mapping with the key read but not yet its value; with its anchor and
-/// what it holds so far, in bytes.
-enum Open {
-    Sequence(Vec<Value>, usize, usize),
-    Mapping(Map<String, Value>, Option<String>, usize, usize),
+/// A collection being built, with its anchor (0 for none) and what it holds so far, in bytes.
+struct Open {
+    node: Node,
+    anchor: usize,
+    held: usize,
+}
+
+/// A sequence, or a mapping with the key read but not yet its value.
+enum Node {
+    Sequence(Vec<Value>),
+    Mapping {
+        members: Map<String, Value>,
+        key: Option<String>,
+    },
+}
+
+impl Open {
+    fn new(node: Node, anchor: usize) -> Self {
+        Open {
+            node,
+            anchor,
+            held: NODE_COST,
+        }
+    }
 }
 
 /// Builds a tree from the parser's events, each alias expanded by copy and counted in bytes.
@@ -242,18 +257,18 @@ impl Builder {
             None => {
                 self.done.get_or_insert(value);
             }
-            Some(Open::Sequence(items, _, held)) => {
-                *held += size;
-                items.push(value);
-            }
-            Some(Open::Mapping(_, key @ None, _, held)) => {
-                *held += size;
-                *key = Some(key_of(value));
-            }
-            Some(Open::Mapping(members, key @ Some(_), _, held)) => {
-                *held += size;
-                let key = key.take().expect("a key is held");
-                members.insert(key, value);
+            Some(open) => {
+                open.held += size;
+                match &mut open.node {
+                    Node::Sequence(items) => items.push(value),
+                    Node::Mapping {
+                        key: key @ None, ..
+                    } => *key = Some(key_of(value)),
+                    Node::Mapping { members, key } => {
+                        let key = key.take().expect("a key is held");
+                        members.insert(key, value);
+                    }
+                }
             }
         }
     }
@@ -319,22 +334,24 @@ impl MarkedEventReceiver for Builder {
                 None => self.fail(at_mark("names an anchor not defined before it", mark)),
             },
             Event::SequenceStart(anchor, _) => {
-                self.open(Open::Sequence(Vec::new(), anchor, NODE_COST), mark)
+                self.open(Open::new(Node::Sequence(Vec::new()), anchor), mark)
             }
             Event::MappingStart(anchor, _) => {
-                self.open(Open::Mapping(Map::new(), None, anchor, NODE_COST), mark)
+                let node = Node::Mapping {
+                    members: Map::new(),
+                    key: None,
+                };
+                self.open(Open::new(node, anchor), mark)
             }
             Event::SequenceEnd | Event::MappingEnd => {
-                let (value, anchor, size) = match self.open.pop() {
-                    Some(Open::Sequence(items, anchor, size)) => {
-                        (Value::Array(items), anchor, size)
-                    }
-                    Some(Open::Mapping(members, _, anchor, size)) => {
-                        (Value::Object(members), anchor, size)
-                    }
-                    None => return,
+                let Some(open) = self.open.pop() else {
+                    return;
                 };
-                self.add(value, size, anchor);
+                let value = match open.node {
+                    Node::Sequence(items) => Value::Array(items),
+                    Node::Mapping { members, .. } => Value::Object(members),
+                };
+                self.add(value, open.held, open.anchor);
             }
             _ => {}
         }

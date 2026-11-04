@@ -33,8 +33,8 @@ pub use specforge_protocol_types::{
 pub use specforge_protocol_types::{
     ByteRange, CapabilityDescriptor, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
     CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, FsAccess, GitOp, HttpMethod,
-    Operation, OutcomeClass, OutcomeData, PlannedItem, PortScope, Probe, ProbeOutcome, StatEntry,
-    ValueForm,
+    MAX_PROBE_ROUNDS, Operation, OutcomeClass, OutcomeData, PlannedItem, PortScope, Probe,
+    ProbeOutcome, StatEntry, ValueForm,
 };
 
 pub use specforge_protocol_types::{
@@ -642,8 +642,8 @@ pub mod prelude {
         PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
     pub use crate::{
-        ByteRange, CheckFinding, CheckItem, CheckRef, CheckerBuilder, Judged, OutcomeClass,
-        OutcomeData, PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
+        ByteRange, CheckFinding, CheckItem, CheckRef, CheckerBuilder, Judged, MAX_PROBE_ROUNDS,
+        OutcomeClass, OutcomeData, PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
     };
     pub use crate::{Capability, FsAccess, GitOp, HttpMethod, Operation};
     pub use crate::{

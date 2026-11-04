@@ -29,8 +29,9 @@ behavior checks_registries "Registries Family" {
     with the licences `allow` names, or when none is stated. `doi` is
     E105 for a DOI doi.org does not register and `orcid` for an iD ORCID
     has no record of. A malformed coordinate, DOI or ORCID iD is E103 and
-    is not asked. An outage (5xx, 429) is W181, 401 or 403 W182, and no
-    answer or one that does not read W172: the machine's, never E105. An
+    is not asked. An outage (5xx, 429) is W181, 401 or 403 W182, a
+    redirect not followed W173, and no answer or one that does not read
+    W172: the machine's, never E105. An
     answer cut at the read leaves the value unchecked (I206), never a
     pass: a large package's index says nothing of the project. Every answer is read into typed structures
     that skip what they do not read. The `families.registries` switch

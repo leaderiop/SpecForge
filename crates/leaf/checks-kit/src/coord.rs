@@ -21,6 +21,9 @@ pub enum Ecosystem {
 }
 
 impl Ecosystem {
+    /// Every ecosystem.
+    const ALL: [Ecosystem; 3] = [Ecosystem::Crates, Ecosystem::Npm, Ecosystem::Pypi];
+
     /// Its prefix in a value.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -28,6 +31,13 @@ impl Ecosystem {
             Ecosystem::Npm => "npm",
             Ecosystem::Pypi => "pypi",
         }
+    }
+
+    /// The ecosystem whose prefix is `prefix`.
+    fn of_prefix(prefix: &str) -> Option<Ecosystem> {
+        Ecosystem::ALL
+            .into_iter()
+            .find(|ecosystem| ecosystem.as_str() == prefix)
     }
 
     /// Its name in OSV's schema.
@@ -101,16 +111,11 @@ pub fn parse(text: &str) -> Result<Coord, Invalid> {
         ));
     };
     let start = prefix.len() + 1;
-    let ecosystem = match prefix {
-        "crates" => Ecosystem::Crates,
-        "npm" => Ecosystem::Npm,
-        "pypi" => Ecosystem::Pypi,
-        _ => {
-            return Err(Invalid::at(
-                format!("'{prefix}' is no ecosystem a package is read from: crates, npm or pypi"),
-                0..prefix.len(),
-            ));
-        }
+    let Some(ecosystem) = Ecosystem::of_prefix(prefix) else {
+        return Err(Invalid::at(
+            format!("'{prefix}' is no ecosystem a package is read from: crates, npm or pypi"),
+            0..prefix.len(),
+        ));
     };
     let (name, written) = match ecosystem {
         Ecosystem::Crates => {

@@ -46,21 +46,9 @@ pub struct Active {
 
 /// The place of byte `offset` of `bytes`.
 fn at(bytes: &[u8], offset: u64) -> At {
-    let offset = usize::try_from(offset)
-        .unwrap_or(usize::MAX)
-        .min(bytes.len());
-    let before = &bytes[..offset];
-    let line_start = before
-        .iter()
-        .rposition(|b| *b == b'\n')
-        .map_or(0, |i| i + 1);
-    At {
-        line: before.iter().filter(|b| **b == b'\n').count() + 1,
-        column: String::from_utf8_lossy(&before[line_start..])
-            .chars()
-            .count()
-            + 1,
-    }
+    let (line, column) =
+        crate::tree::line_col(bytes, usize::try_from(offset).unwrap_or(usize::MAX));
+    At { line, column }
 }
 
 /// A name's local part (after any prefix), as text.
@@ -80,12 +68,16 @@ fn runs_script(value: &str) -> bool {
     kept.eq_ignore_ascii_case("javascript:")
 }
 
+/// Whether `name` is one of XML's five entities or a character reference: what a reader expands without a DTD.
+fn known_entity(name: &str) -> bool {
+    matches!(name, "lt" | "gt" | "amp" | "apos" | "quot") || name.starts_with('#')
+}
+
 /// Whether `raw` refers to an entity other than XML's five and character references.
 fn unknown_entity(raw: &str) -> Option<String> {
     raw.split('&').skip(1).find_map(|rest| {
         let name = rest.split(';').next().unwrap_or(rest);
-        let known = matches!(name, "lt" | "gt" | "amp" | "apos" | "quot") || name.starts_with('#');
-        (!known).then(|| format!("&{name};"))
+        (!known_entity(name)).then(|| format!("&{name};"))
     })
 }
 
@@ -199,9 +191,7 @@ pub fn scan(bytes: &[u8]) -> Result<Option<Active>, Refusal> {
             }
             Event::GeneralRef(reference) => {
                 let name = String::from(&*reference);
-                let known = matches!(name.as_str(), "lt" | "gt" | "amp" | "apos" | "quot")
-                    || name.starts_with('#');
-                if !known && first.is_none() {
+                if !known_entity(&name) && first.is_none() {
                     first = Some(Active {
                         what: format!("the entity '&{name};', which is not expanded to be read"),
                         at: at(bytes, start),
