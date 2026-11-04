@@ -103,6 +103,7 @@ pub fn execute_with(
         ));
         return Err(RunError::Gate(Box::new(refused)));
     }
+    let caller = caller.previewing(dry_run);
     let mut output = called(view, command, given, format, host, caller)?;
     let Some(plan) = &output.plan else {
         let state_refused = if dry_run {

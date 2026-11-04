@@ -98,7 +98,10 @@ impl CoreTool for Tool {
             // Every file the collect reads or writes lands inside the call's project, and the
             // server never prompts: a command runs only if the user already approved it for this
             // project with `specforge collect` in a terminal.
-            caller: project.caller().lending(project.ports, consent, mode),
+            caller: project
+                .caller()
+                .lending(project.ports, consent, mode)
+                .previewing(args.dry_run),
         };
         let view = project.view();
         let mut outcome = collect::collect(&view, request, project.machine, consent)

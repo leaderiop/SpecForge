@@ -3,13 +3,22 @@
 
 use std::sync::Arc;
 
+use serde_json::Map;
 use specforge_effects::testing::{self, FakeHttp, MemoryConsent};
 use specforge_effects::{
-    Answer, EffectJournal, EffectRequest, Effects, EffectsCeiling, Grant, HttpRequest, Outcome,
-    OutcomeClass, Ports, Provenance, Roots, UnixMillis,
+    Answer, EffectJournal, EffectRequest, Effects, EffectsCeiling, EffectsMode, Grant, HttpRequest,
+    Outcome, OutcomeClass, Ports, Provenance, Roots, UnixMillis,
 };
+use specforge_extension_sdk::host;
 use specforge_extension_sdk::prelude::*;
+use specforge_ops::asking::Asking;
+use specforge_ops::authoring::apply::{Surface, execute};
+use specforge_ops::extension::command::{CommandFormat, ExtensionCommands};
+use specforge_ops::view::ProjectView;
+use specforge_ops::{Caller, Containment};
+use specforge_project::testing::TestProject;
 use specforge_protocol_types::{HostError, Operation};
+use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{Limits, PortCall, PortSession};
 use tempfile::TempDir;
 
@@ -254,6 +263,70 @@ fn cached_holds_no_port_and_the_guest_hears_it_was_not_performed() {
     let answer = project.cached("@t/a").http(request("GET"));
     assert_eq!(failed_class(answer), "not_performed");
     assert!(project.http.requests().is_empty(), "nothing went out");
+}
+
+/// A dry run promises nothing happens: a POST its command asks for reaches no port, whatever mode the run asked for.
+#[test]
+fn a_dry_runs_post_reaches_nothing() {
+    const EXT: &str = "@t/poster";
+    fn poster() -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+        c.capability(
+            Capability::http("api")
+                .hosts(&["example.test"])
+                .schemes(&["https"])
+                .why("call the API"),
+        );
+        c.command("post", |cmd| {
+            cmd.title("Post").handler(|_| {
+                let answered = host::http::send(&request("POST"));
+                CommandOutput::ok(format!("{:?}\n", answered.map(|r| r.status)))
+            });
+        });
+        c
+    }
+    let runtime = InProcessRuntime::new()
+        .with(poster)
+        .importing(EXT, &["specforge:host/http@0.1.0"]);
+    let project = TestProject::new().serving(runtime).enabling(&[EXT]);
+    let compiled = project.compile();
+    let view = ProjectView::of(&compiled);
+    let commands = ExtensionCommands::build(view.registries());
+    let post = commands.all().iter().find(|c| c.id() == "post").unwrap();
+
+    let http = Arc::new(FakeHttp::new().route(URL, 200, "posted"));
+    let ports = Ports {
+        http: http.clone(),
+        ..testing::ports()
+    };
+    let consent = MemoryConsent::approving_everything();
+    let containment = Containment::unbounded();
+    let run = |dry_run: bool, mode: EffectsMode| {
+        let caller = Caller::new(&containment, Asking::Nobody).lending(&ports, &consent, mode);
+        execute(
+            &view,
+            post,
+            &Map::new(),
+            CommandFormat::Json,
+            None,
+            dry_run,
+            caller,
+            Surface::Cli { interactive: false },
+        )
+        .unwrap()
+        .output
+        .stdout
+    };
+
+    for mode in [EffectsMode::Online, EffectsMode::Auto] {
+        let answered = run(true, mode);
+        assert!(answered.contains("not_performed"), "{mode:?}: {answered}");
+    }
+    assert!(http.requests().is_empty(), "nothing went out");
+
+    // The same command, not a dry run, does reach the port.
+    assert_eq!(run(false, EffectsMode::Online), "Ok(200)\n");
+    assert_eq!(http.requests().len(), 1);
 }
 
 /// A POST asked for something to happen: yesterday's answer cannot say it did.

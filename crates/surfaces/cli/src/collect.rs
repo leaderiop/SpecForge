@@ -95,11 +95,13 @@ fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Po
         runner: options.runner.as_deref(),
         mode,
         announce: &mut announce,
-        caller: crate::caller::of(options.yes, format, terminal).lending(
-            ports,
-            &consent,
-            crate::effects::lent(options.effects.effects),
-        ),
+        caller: crate::caller::of(options.yes, format, terminal)
+            .lending(
+                ports,
+                &consent,
+                crate::effects::lent(options.effects.effects),
+            )
+            .previewing(options.dry_run),
     };
     // The view is rooted where the project compiled: the report lands where
     // every view over the project reads it.

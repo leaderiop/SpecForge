@@ -51,6 +51,19 @@ impl std::fmt::Debug for Lending<'_> {
 }
 
 impl<'a> Caller<'a> {
+    /// This caller for a `--dry-run` when `dry_run`: nothing it lends performs an effect, so `online` and `auto` lend
+    /// `cached`, and `replay` stays (ADR 0337 D4).
+    #[must_use]
+    pub fn previewing(mut self, dry_run: bool) -> Self {
+        if dry_run
+            && let Some(lending) = &mut self.lending
+            && lending.mode != EffectsMode::Replay
+        {
+            lending.mode = EffectsMode::Cached;
+        }
+        self
+    }
+
     /// A caller that reaches `containment` and puts its questions to `asking`.
     #[must_use]
     pub const fn new(containment: &'a Containment, asking: Asking<'a>) -> Self {
