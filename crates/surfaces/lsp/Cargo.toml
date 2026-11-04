@@ -32,6 +32,8 @@ tokio = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+# The repositories the tests that commit build, with no git program.
+specforge-git = { path = "../../adapters/git", features = ["testing"] }
 specforge-repo-root = { path = "../../leaf/repo-root" }
 specforge-project = { path = "../../session/project", features = ["testing"] }
 # The fake ports (`specforge_effects::testing`): a test gives a surface fakes, or a fake git.

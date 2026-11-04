@@ -9,7 +9,7 @@ async fn main() {
     // The composition root (ADR 0335): the effect plane's adapters, built once.
     let process = Arc::new(specforge_process::Runner);
     let ports = specforge_effects::Ports {
-        git: Arc::new(specforge_git::GitCli::new(process.clone())),
+        git: Arc::new(specforge_git::Gix),
         process,
         http: Arc::new(specforge_http::Client::new()),
         fs: Arc::new(specforge_fs::LocalFs),

@@ -1,7 +1,5 @@
 //! The language server and a commit (ADR 0287).
 
-use std::path::Path;
-use std::process::Command;
 use std::sync::Arc;
 
 use specforge_extension_sdk::prelude::*;
@@ -21,16 +19,6 @@ fn declare(c: &mut ContributionsBuilder) {
     });
 }
 
-fn git(root: &Path, args: &[&str]) {
-    let status = Command::new("git")
-        .args(["-c", "user.email=t@t", "-c", "user.name=t"])
-        .args(args)
-        .current_dir(root)
-        .status()
-        .unwrap();
-    assert!(status.success(), "git {args:?}");
-}
-
 #[specforge_test(
     behavior = "watch_baseline_refs",
     verify = "the LSP republishes after a commit"
@@ -38,13 +26,10 @@ fn git(root: &Path, args: &[&str]) {
 fn the_lsp_republishes_after_a_commit() {
     let served = Served::new(&[("main.spec", "thing a \"A\" {\n  origin one\n}\n")])
         .extension("@t/immutable", declare)
-        .git(Arc::new(specforge_git::GitCli::new(Arc::new(
-            specforge_process::Runner,
-        ))));
+        .git(Arc::new(specforge_git::Gix));
     let root = served.root().canonicalize().unwrap();
-    git(&root, &["init", "-q", "-b", "main"]);
-    git(&root, &["add", "-A"]);
-    git(&root, &["commit", "-q", "-m", "c"]);
+    let repo = specforge_git::testing::Repo::init(&root);
+    repo.commit_all("c");
     let mut served = served.open(&["main.spec"]);
     let main = served.uri("main.spec");
 
@@ -54,7 +39,8 @@ fn the_lsp_republishes_after_a_commit() {
     let codes = last_codes(&served.sent(), &main).expect("main.spec is published");
     assert!(codes.contains(&"E084".to_string()), "{codes:?}");
 
-    git(&root, &["commit", "-q", "-am", "two"]);
+    repo.stage(&["main.spec"]);
+    repo.commit("two");
     let head = Url::from_file_path(root.join(".git/refs/heads/main")).unwrap();
     served.apply(Change::Watched(vec![FileEvent::new(
         head,

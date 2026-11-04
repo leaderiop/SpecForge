@@ -49,6 +49,8 @@ specforge-process = { path = "../../adapters/process" }
 specforge-project = { workspace = true }
 
 [dev-dependencies]
+# The repositories the tests that commit build, with no git program.
+specforge-git = { path = "../../adapters/git", features = ["testing"] }
 specforge-repo-root = { path = "../../leaf/repo-root" }
 # The test project and the MCP driver over it (`tests/support`).
 specforge-project = { workspace = true, features = ["testing"] }

@@ -1,12 +1,11 @@
 //! The baseline reads a committed source file through the real git adapter, not the working copy (ADR 0300, behavior
 //! `read_git_baseline`).
 
-use std::process::Command;
 use std::sync::Arc;
 
 use serde_json::{Value, json};
 use specforge_effects::git::{Git, Located};
-use specforge_git::GitCli;
+use specforge_git::Gix;
 use specforge_project::baseline::Baseline;
 use specforge_project::testing::{LIB_RS, gsd_facts_project, gsd_facts_serving, pass_input};
 use specforge_test_macros::test as specforge_test;
@@ -20,9 +19,6 @@ fn facts<'a>(input: &'a Value, read: &str) -> &'a [Value] {
     verify = "the baseline reads a source file through git, and a link at the commit is unreadable"
 )]
 fn the_baseline_reads_a_source_file_through_git() {
-    if Command::new("git").arg("--version").output().is_err() {
-        return;
-    }
     let project = gsd_facts_project();
     let root = project.root();
     #[cfg(unix)]
@@ -36,7 +32,7 @@ fn the_baseline_reads_a_source_file_through_git() {
         ]}]),
     ));
     let env = project.environment_in(runtime.clone());
-    let git = GitCli::new(std::sync::Arc::new(specforge_process::Runner));
+    let git = Gix;
     let Located::Repo(place) = git.locate(root) else {
         panic!("a repository")
     };

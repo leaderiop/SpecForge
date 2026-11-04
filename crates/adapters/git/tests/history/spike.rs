@@ -10,7 +10,7 @@
 use gix::bstr::ByteSlice as _;
 use gix::refs::transaction::PreviousValue;
 
-use super::repo::Repo;
+use specforge_git::testing::Repo;
 
 /// A repository with two commits on `main`: `a.txt` changed, `b.txt` added; `b.txt` binary in the second.
 fn two_commits(dir: &std::path::Path) -> Repo {

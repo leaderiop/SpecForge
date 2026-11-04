@@ -54,12 +54,9 @@ impl Args {
             .take(STDIN_LIMIT + 1)
             .read_to_end(&mut stdin);
         let cwd = std::env::current_dir().unwrap_or_default();
-        // A hook's git facts degrade quietly after 1.5 s, as upstream's probes do (ADR 0320).
-        let git: specforge_effects::SharedGit =
-            std::sync::Arc::new(specforge_git::GitCli::with_timeout(
-                std::sync::Arc::clone(&ports.process),
-                std::time::Duration::from_millis(1_500),
-            ));
+        // shortcut: gix reads the facts in process with no deadline, where the git program was given 1.5 s; a hook in
+        // a very large worktree waits for its status. Upgrade to a timed read if a hook's budget is ever passed.
+        let git = std::sync::Arc::clone(&ports.git);
         let load = |dir: &Path| crate::project::load_dir(dir).with_git(git);
         self.run_with(&stdin, &cwd, load, terminal)
     }

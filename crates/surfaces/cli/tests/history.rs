@@ -1,7 +1,6 @@
 //! A project that declares no history reports the same inside and outside a git repository (ADR 0287).
 
 use std::path::Path;
-use std::process::Command;
 
 use crate::support::{Cli, TestProject};
 
@@ -11,28 +10,9 @@ fn fixture() -> TestProject {
     )
 }
 
+/// A repository at `root` with one commit of everything under it, built with no git program.
 pub(crate) fn git_repo(root: &Path) {
-    for args in [
-        &["init", "-q", "-b", "main"][..],
-        &["add", "-A"],
-        &[
-            "-c",
-            "user.email=t@t",
-            "-c",
-            "user.name=t",
-            "commit",
-            "-q",
-            "-m",
-            "c",
-        ],
-    ] {
-        let status = Command::new("git")
-            .args(args)
-            .current_dir(root)
-            .status()
-            .unwrap();
-        assert!(status.success(), "git {args:?}");
-    }
+    specforge_git::testing::Repo::init(root).commit_all("c");
 }
 
 #[specforge_test_macros::test(
@@ -65,7 +45,6 @@ fn check_cache_is_gone() {
     behavior = "read_git_baseline",
     verify = "check since reads history with no git program on PATH"
 )]
-#[ignore = "08 T12"]
 fn check_since_reads_history_with_no_git_on_path() {
     let repo = fixture();
     git_repo(repo.root());

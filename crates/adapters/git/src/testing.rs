@@ -1,4 +1,4 @@
-//! A repository a test builds with gix, so no test needs the git program: files written into its working tree, an
+//! `specforge_git::testing` (feature `testing`): a repository a test builds with gix, so no test needs the git program: files written into its working tree, an
 //! index staged from them, commits made by a fixed author at a clock that ticks once per commit, and refs, config and
 //! a linked worktree written as git keeps them.
 
@@ -22,6 +22,10 @@ use gix::objs::tree::EntryKind;
 /// A repository with a working tree, on branch `main` until a test moves `HEAD`.
 pub struct Repo {
     dir: PathBuf,
+    /// This worktree's own git directory: its `HEAD` and index.
+    git_dir: PathBuf,
+    /// Where the refs and config live: the git directory, or the main one for a linked worktree.
+    common_dir: PathBuf,
     clock: Cell<i64>,
 }
 
@@ -38,11 +42,37 @@ impl Repo {
         .unwrap();
         let repo = Repo {
             dir: dir.to_path_buf(),
+            git_dir: dir.join(".git"),
+            common_dir: dir.join(".git"),
             clock: Cell::new(1_700_000_000),
         };
         repo.head_on("main");
         repo.config("[user]\n\tname = Test\n\temail = test@example.com");
         repo
+    }
+
+    /// [`Self::init`], with the git directory at `git_dir`, outside the working tree (`--separate-git-dir`).
+    pub fn init_separate(dir: &Path, git_dir: &Path) -> Repo {
+        let repo = Repo::init(dir);
+        std::fs::create_dir_all(git_dir.parent().unwrap()).unwrap();
+        std::fs::rename(dir.join(".git"), git_dir).unwrap();
+        std::fs::write(dir.join(".git"), format!("gitdir: {}\n", git_dir.display())).unwrap();
+        Repo {
+            git_dir: git_dir.to_path_buf(),
+            common_dir: git_dir.to_path_buf(),
+            ..repo
+        }
+    }
+
+    /// The repository whose working tree is `dir`, made elsewhere (by [`Self::init`] or a surface).
+    pub fn at(dir: &Path) -> Repo {
+        let repo = gix::open_opts(dir, gix::open::Options::isolated()).unwrap();
+        Repo {
+            dir: dir.to_path_buf(),
+            git_dir: repo.git_dir().to_path_buf(),
+            common_dir: repo.common_dir().to_path_buf(),
+            clock: Cell::new(1_700_100_000),
+        }
     }
 
     /// The working tree's top directory.
@@ -52,7 +82,7 @@ impl Repo {
 
     /// The git directory.
     pub fn git_dir(&self) -> PathBuf {
-        self.dir.join(".git")
+        self.git_dir.clone()
     }
 
     /// The repository, opened apart from this machine's and this process's configuration.
@@ -189,7 +219,7 @@ impl Repo {
 
     /// The ref `name` (`refs/heads/x`, `refs/remotes/origin/x`, `refs/tags/x`) names `sha`.
     pub fn set_ref(&self, name: &str, sha: &str) -> &Self {
-        let at = self.git_dir().join(name);
+        let at = self.common_dir.join(name);
         std::fs::create_dir_all(at.parent().unwrap()).unwrap();
         std::fs::write(at, format!("{sha}\n")).unwrap();
         self
@@ -218,7 +248,7 @@ impl Repo {
 
     /// `text` appended to the repository's own config (`[section]` lines and their keys).
     pub fn config(&self, text: &str) -> &Self {
-        let at = self.git_dir().join("config");
+        let at = self.common_dir.join("config");
         let mut config = std::fs::read_to_string(&at).unwrap();
         config.push_str(text);
         config.push('\n');
@@ -245,7 +275,7 @@ impl Repo {
     /// files checked out from `sha`'s tree and its index matching them.
     pub fn linked_worktree(&self, path: &Path, branch: &str, sha: &str) -> Repo {
         let id = path.file_name().unwrap().to_str().unwrap();
-        let private = self.git_dir().join("worktrees").join(id);
+        let private = self.common_dir.join("worktrees").join(id);
         std::fs::create_dir_all(&private).unwrap();
         std::fs::create_dir_all(path).unwrap();
         self.branch(branch, sha);
@@ -263,6 +293,8 @@ impl Repo {
         .unwrap();
         let linked = Repo {
             dir: path.to_path_buf(),
+            git_dir: private.clone(),
+            common_dir: self.common_dir.clone(),
             clock: Cell::new(self.clock.get()),
         };
         let repo = linked.open();

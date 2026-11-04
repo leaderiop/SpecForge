@@ -1,230 +1,175 @@
-//! The adapter behind the effect plane's [`Git`] port: the git command line (ADR 0287, ADR 0335). Read-only, and
-//! hardened: no stdin, no prompt, no optional lock, no fsmonitor, a fixed locale, the repository the directory is in
-//! and not the one the caller's environment names, and a deadline on every call.
+//! The adapter behind the effect plane's [`Git`] port: gix, in process (ADR 0287, ADR 0335, ADR 0339 D5). The git
+//! program is never run, so history reads need nothing installed. A repository is opened per call, apart from the
+//! variables that would point the host at another repository or another object store (`GIT_DIR`, `GIT_WORK_TREE`,
+//! `GIT_OBJECT_DIRECTORY`, `GIT_CONFIG_*`); a repository another user owns is opened with reduced trust, so its config
+//! runs nothing.
 //!
-//! Lazy fetch (ADR 0300 D5): a tree listing never looks a blob up, so it fetches nothing on any git. Sizes and bytes
-//! are asked only for the files a pass reads; from git 2.44 `GIT_NO_LAZY_FETCH=1` makes git answer "missing" for a
-//! blob a partial clone lacks. An older git does not know the variable and fetches those files, and only those.
+//! No lazy fetch (ADR 0300 D5, amended by ADR 0339): gix never asks a partial clone's promisor remote, so a blob the
+//! clone lacks reads as missing on every machine. A tree listing reads no blob at all.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
+use gix::bstr::ByteSlice as _;
+use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Git, GitBranch, GitChange, GitEntry, GitEntryKind, GitError, GitPlace,
     GitStatus, Located, Sha, Sized, TreeEntry,
 };
-use specforge_effects::process::request;
-use specforge_effects::{EnvVar, Output, ProcessClass, SharedProcess};
 
-/// Runs `git` from `PATH` through the effect plane's Process port (ADR 0335).
-pub struct GitCli {
-    process: SharedProcess,
-    program: PathBuf,
-    timeout: Duration,
+#[cfg(feature = "testing")]
+pub mod testing;
+
+/// The `Git` port read through gix.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Gix;
+
+/// How a repository of `trust` is opened: as gix opens one of that trust, minus every environment variable that names
+/// another repository, object store or configuration.
+fn options(trust: gix::sec::Trust) -> gix::open::Options {
+    let mut permissions = gix::open::Permissions::default_for_level(trust);
+    permissions.env.git_prefix = gix::sec::Permission::Deny;
+    permissions.env.objects = gix::sec::Permission::Deny;
+    permissions.config.env = false;
+    gix::open::Options::default_for_level(trust).permissions(permissions)
 }
 
-impl GitCli {
-    /// `git` from `PATH`, run by `process`, every call given up after 10 s.
-    pub fn new(process: SharedProcess) -> Self {
-        GitCli {
-            process,
-            program: PathBuf::from("git"),
-            timeout: Duration::from_secs(10),
-        }
-    }
-
-    /// Every call given up after `timeout`, for a caller with a tighter budget than the default 10 s (a hook's).
-    pub fn with_timeout(process: SharedProcess, timeout: Duration) -> Self {
-        GitCli {
-            timeout,
-            ..GitCli::new(process)
-        }
+/// The trust map discovery opens a found repository with.
+fn trust_map() -> gix::sec::trust::Mapping<gix::open::Options> {
+    gix::sec::trust::Mapping {
+        full: options(gix::sec::Trust::Full),
+        reduced: options(gix::sec::Trust::Reduced),
     }
 }
 
-/// A call that ran to its exit.
-struct Ran {
-    code: i32,
-    stdout: Vec<u8>,
-    stderr: Vec<u8>,
+/// The repository at `place`.
+fn open(place: &GitPlace) -> Result<gix::Repository, GitError> {
+    let trust =
+        gix::sec::Trust::from_path_ownership(&place.git_dir).unwrap_or(gix::sec::Trust::Reduced);
+    gix::open_opts(&place.toplevel, options(trust)).map_err(|e| failed("open the repository", &e))
 }
 
-/// How one call failed.
-enum Failed {
-    NotInstalled,
-    /// The directory it was asked about does not exist: no repository is there.
-    NoDirectory,
-    Other(String),
+/// A gix failure as the port's error.
+fn failed(what: &str, error: &dyn std::fmt::Display) -> GitError {
+    GitError(format!("git cannot {what}: {error}"))
 }
 
-impl std::fmt::Display for Failed {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Failed::NotInstalled => f.write_str("git is not installed"),
-            Failed::NoDirectory => f.write_str("git's directory does not exist"),
-            Failed::Other(why) => f.write_str(why),
-        }
-    }
+/// The object `sha` names.
+fn id(sha: &Sha) -> Result<gix::ObjectId, GitError> {
+    gix::ObjectId::from_hex(sha.as_str().as_bytes()).map_err(|e| failed("read a commit id", &e))
 }
 
-impl GitCli {
-    /// The program run in place of `git` (a test's way to fake a missing or broken git).
-    pub fn with_program(process: SharedProcess, program: impl AsRef<Path>) -> Self {
-        GitCli {
-            program: program.as_ref().to_path_buf(),
-            ..Self::new(process)
-        }
-    }
-
-    /// One call in `dir` (git's `-C`: the program runs there): its exit code and output, or how it failed.
-    fn call(&self, dir: &Path, args: &[&str], input: Option<Vec<u8>>) -> Result<Ran, Failed> {
-        // A request carries words: a program path that is not one is refused, never mangled into another path.
-        let Some(program) = self.program.to_str() else {
-            return Err(Failed::Other(format!(
-                "git's program path is not UTF-8: {}",
-                self.program.display()
-            )));
-        };
-        let argv = [program, "-c", "core.fsmonitor=false", "--literal-pathspecs"]
-            .into_iter()
-            .chain(args.iter().copied());
-        let mut asked = request(argv, self.timeout);
-        asked.stdin = input;
-        asked.env = vec![
-            EnvVar::set("LC_ALL", "C"),
-            EnvVar::set("GIT_TERMINAL_PROMPT", "0"),
-            EnvVar::set("GIT_NO_LAZY_FETCH", "1"),
-            EnvVar::set("GIT_OPTIONAL_LOCKS", "0"),
-            EnvVar::removed("GIT_DIR"),
-            EnvVar::removed("GIT_WORK_TREE"),
-            EnvVar::removed("GIT_INDEX_FILE"),
-        ];
-        let ran = self.process.run(&asked, dir, Output::Buffer);
-        match ran.class {
-            ProcessClass::Exited(code) => Ok(Ran {
-                code,
-                stdout: ran.stdout,
-                stderr: ran.stderr,
-            }),
-            ProcessClass::NotFound => Err(Failed::NotInstalled),
-            ProcessClass::NoDirectory => Err(Failed::NoDirectory),
-            ProcessClass::DeadlineExceeded => Err(Failed::Other(format!(
-                "git did not answer within {} seconds",
-                self.timeout.as_secs()
-            ))),
-            other => Err(Failed::Other(format!("git {other}"))),
-        }
-    }
-
-    /// A call that must succeed.
-    fn ok(&self, dir: &Path, args: &[&str], input: Option<Vec<u8>>) -> Result<Vec<u8>, GitError> {
-        match self.call(dir, args, input) {
-            Ok(ran) if ran.code == 0 => Ok(ran.stdout),
-            Ok(ran) => Err(GitError(format!(
-                "git {} failed: {}",
-                args.first().copied().unwrap_or(""),
-                String::from_utf8_lossy(&ran.stderr).trim()
-            ))),
-            Err(failed) => Err(GitError(failed.to_string())),
-        }
-    }
-
-    /// A call whose exit 1 with no output is "no such thing".
-    fn maybe(&self, dir: &Path, args: &[&str]) -> Result<Option<Sha>, GitError> {
-        match self.call(dir, args, None) {
-            Ok(ran) if ran.code == 0 => {
-                Ok(Some(Sha::new(String::from_utf8_lossy(&ran.stdout).trim())))
-            }
-            Ok(ran) if ran.code == 1 && ran.stdout.is_empty() => Ok(None),
-            Ok(ran) => Err(GitError(
-                String::from_utf8_lossy(&ran.stderr).trim().to_string(),
-            )),
-            Err(failed) => Err(GitError(failed.to_string())),
-        }
-    }
-
-    /// `git ls-tree -r -z --full-tree` of `commit` under `dir` (from the top). Never `-l`: that looks up every blob's
-    /// size, and in a partial clone git older than 2.44 fetches each missing blob to answer.
-    fn ls_tree(&self, place: &GitPlace, commit: &Sha, dir: &Path) -> Result<Vec<u8>, GitError> {
-        let mut args = vec!["ls-tree", "-r", "-z", "--full-tree", commit.as_str()];
-        let pathspec = if dir.as_os_str().is_empty() {
-            None
-        } else {
-            // a pathspec that is not UTF-8 would be mangled into another one and list nothing: refuse it instead
-            let dir = dir.to_str().ok_or_else(|| {
-                GitError("the project's directory is not valid UTF-8, so git cannot list it".into())
-            })?;
-            Some(format!("{dir}/"))
-        };
-        if let Some(pathspec) = &pathspec {
-            args.extend(["--", pathspec]);
-        }
-        self.ok(&place.toplevel, &args, None)
-    }
+/// `path` as a slash-separated tree path; `None` when it is not UTF-8 (a tree path the host could not name back).
+fn tree_path(path: &Path) -> Option<String> {
+    path.to_str().map(|p| p.replace('\\', "/"))
 }
 
-impl Git for GitCli {
+/// The tree of `commit`, and its subtree at `dir` (`None` when the commit holds no directory there).
+fn tree_under<'r>(
+    repo: &'r gix::Repository,
+    commit: &Sha,
+    dir: &Path,
+) -> Result<Option<gix::Tree<'r>>, GitError> {
+    let tree = repo
+        .find_commit(id(commit)?)
+        .map_err(|e| failed(&format!("read {}", commit.short()), &e))?
+        .tree()
+        .map_err(|e| failed(&format!("read the tree of {}", commit.short()), &e))?;
+    if dir.as_os_str().is_empty() {
+        return Ok(Some(tree));
+    }
+    let dir = tree_path(dir).ok_or_else(|| {
+        GitError("the project's directory is not valid UTF-8, so git cannot list it".into())
+    })?;
+    let Some(entry) = tree
+        .lookup_entry_by_path(&dir)
+        .map_err(|e| failed("read a tree", &e))?
+    else {
+        return Ok(None);
+    };
+    if !entry.mode().is_tree() {
+        return Ok(None);
+    }
+    entry
+        .object()
+        .map_err(|e| failed("read a tree", &e))
+        .map(|o| Some(o.into_tree()))
+}
+
+/// One entry of a commit's tree: its path from the top, its mode and its object.
+type Listed = (PathBuf, gix::objs::tree::EntryMode, gix::ObjectId);
+
+/// Every entry under `dir` of `commit` but its directories.
+fn listing(repo: &gix::Repository, commit: &Sha, dir: &Path) -> Result<Vec<Listed>, GitError> {
+    let Some(tree) = tree_under(repo, commit, dir)? else {
+        return Ok(Vec::new());
+    };
+    let mut recorder = gix::traverse::tree::Recorder::default();
+    tree.traverse()
+        .breadthfirst(&mut recorder)
+        .map_err(|e| failed("list a tree", &e))?;
+    Ok(recorder
+        .records
+        .into_iter()
+        .filter(|entry| !entry.mode.is_tree())
+        .map(|entry| {
+            let rel = PathBuf::from(entry.filepath.to_str_lossy().into_owned());
+            (dir.join(rel), entry.mode, entry.oid)
+        })
+        .collect())
+}
+
+/// The object at `path` (from the top) in a commit's `tree`, when it holds a blob there (a file or a link).
+fn blob_at(tree: &gix::Tree<'_>, path: &Path) -> Option<gix::ObjectId> {
+    let entry = tree.lookup_entry_by_path(tree_path(path)?).ok()??;
+    entry.mode().is_blob_or_symlink().then(|| entry.object_id())
+}
+
+impl Git for Gix {
     fn locate(&self, dir: &Path) -> Located {
-        let ran = match self.call(
-            dir,
-            &[
-                "rev-parse",
-                "--git-dir",
-                "--git-common-dir",
-                "--show-toplevel",
-                "--is-shallow-repository",
-            ],
-            None,
-        ) {
-            Ok(ran) => ran,
-            Err(Failed::NoDirectory) => return Located::NotARepository,
-            Err(failed) => return Located::Unavailable(failed.to_string()),
-        };
-        let stderr = String::from_utf8_lossy(&ran.stderr);
-        if ran.code != 0 {
-            return if stderr.contains("not a git repository") {
-                Located::NotARepository
-            } else if stderr.contains("dubious ownership") {
-                Located::Unavailable(format!(
-                    "git refuses the directory (dubious ownership): {}",
-                    stderr.lines().next().unwrap_or("").trim()
-                ))
-            } else {
-                Located::Unavailable(stderr.trim().to_string())
-            };
+        if !dir.is_dir() {
+            return Located::NotARepository;
         }
-        let text = String::from_utf8_lossy(&ran.stdout);
-        let lines: Vec<&str> = text.lines().collect();
-        let [git_dir, common_dir, toplevel, shallow] = lines[..] else {
-            return Located::Unavailable("git rev-parse answered an unexpected shape".into());
+        use gix::discover::upwards::Error as Upwards;
+        let repo =
+            match gix::ThreadSafeRepository::discover_opts(dir, Default::default(), trust_map()) {
+                Ok(repo) => repo.to_thread_local(),
+                Err(gix::discover::Error::Discover(
+                    Upwards::NoGitRepository { .. }
+                    | Upwards::NoGitRepositoryWithinCeiling { .. }
+                    | Upwards::NoGitRepositoryWithinFs { .. },
+                )) => return Located::NotARepository,
+                Err(error) => return Located::Unavailable(error.to_string()),
+            };
+        let Some(top) = repo.workdir() else {
+            return Located::Unavailable("a bare repository has no working tree".into());
         };
-        let absolute = |p: &str| {
-            let p = PathBuf::from(p);
-            if p.is_absolute() { p } else { dir.join(p) }
-        };
+        let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| dir.join(p));
         Located::Repo(GitPlace {
-            toplevel: Path::new(toplevel)
-                .canonicalize()
-                .unwrap_or_else(|_| PathBuf::from(toplevel)),
-            git_dir: absolute(git_dir),
-            common_dir: absolute(common_dir),
-            shallow: shallow == "true",
+            toplevel: real(top),
+            git_dir: real(repo.git_dir()),
+            common_dir: real(repo.common_dir()),
+            shallow: repo.is_shallow(),
         })
     }
 
     fn commit(&self, place: &GitPlace, revision: &str) -> Result<Option<Sha>, GitError> {
-        let spelled = format!("{revision}^{{commit}}");
-        self.maybe(
-            &place.toplevel,
-            &["rev-parse", "--verify", "-q", "--end-of-options", &spelled],
-        )
+        let repo = open(place)?;
+        // a revision that names nothing, or no commit (an unborn HEAD, a blob), is no commit
+        Ok(repo
+            .rev_parse_single(revision)
+            .ok()
+            .and_then(|id| id.object().ok()?.peel_to_commit().ok())
+            .map(|commit| Sha::new(commit.id.to_string())))
     }
 
     fn merge_base(&self, place: &GitPlace, a: &Sha, b: &Sha) -> Result<Option<Sha>, GitError> {
-        self.maybe(
-            &place.toplevel,
-            &["merge-base", "--end-of-options", a.as_str(), b.as_str()],
-        )
+        let repo = open(place)?;
+        match repo.merge_base(id(a)?, id(b)?) {
+            Ok(base) => Ok(Some(Sha::new(base.to_string()))),
+            Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(None),
+            Err(error) => Err(failed("find a merge base", &error)),
+        }
     }
 
     fn files(
@@ -234,73 +179,26 @@ impl Git for GitCli {
         dir: &Path,
         wanted: &dyn Fn(&Path) -> bool,
     ) -> Result<Vec<CommitFile>, GitError> {
-        let listing = self.ls_tree(place, commit, dir)?;
-        // `<mode> SP <type> SP <object> TAB <path> NUL`; a symlink or a submodule is no file.
-        let mut blobs: Vec<(PathBuf, String)> = Vec::new();
-        for entry in listing.split(|b| *b == 0).filter(|e| !e.is_empty()) {
-            let text = String::from_utf8_lossy(entry);
-            let Some((meta, path)) = text.split_once('\t') else {
-                continue;
-            };
-            let mut parts = meta.split(' ');
-            let (mode, kind, object) = (parts.next(), parts.next(), parts.next());
-            // only what the caller wants, so a repository's images, lockfiles and vendored trees are never read
-            if kind == Some("blob")
-                && mode != Some("120000")
-                && wanted(Path::new(path))
-                && let Some(object) = object
-            {
-                blobs.push((PathBuf::from(path), object.to_string()));
+        let repo = open(place)?;
+        let mut files = Vec::new();
+        // only what the caller wants, so a repository's images, lockfiles and vendored trees are never read
+        for (path, mode, object) in listing(&repo, commit, dir)? {
+            if mode.is_blob() && wanted(&path) {
+                let mut blob = repo
+                    .find_blob(object)
+                    .map_err(|e| failed(&format!("give {object}"), &e))?;
+                files.push((path, blob.take_data()));
             }
-        }
-        if blobs.is_empty() {
-            return Ok(Vec::new());
-        }
-        let request: String = blobs.iter().map(|(_, o)| format!("{o}\n")).collect();
-        let answer = self.ok(
-            &place.toplevel,
-            &["cat-file", "--batch"],
-            Some(request.into_bytes()),
-        )?;
-        let mut at = 0;
-        let mut files = Vec::with_capacity(blobs.len());
-        for (path, object) in blobs {
-            let end = answer[at..]
-                .iter()
-                .position(|b| *b == b'\n')
-                .map(|i| at + i)
-                .ok_or_else(|| GitError("git cat-file answered a short reply".into()))?;
-            let header = String::from_utf8_lossy(&answer[at..end]).into_owned();
-            let size = match header.split(' ').collect::<Vec<_>>()[..] {
-                [sha, "blob", size] if sha == object => size.parse::<usize>().ok(),
-                _ => None,
-            }
-            .ok_or_else(|| GitError(format!("git cat-file cannot give {object}: {header}")))?;
-            let body = answer
-                .get(end + 1..end + 1 + size)
-                .ok_or_else(|| GitError("git cat-file answered a short reply".into()))?;
-            files.push((path, body.to_vec()));
-            at = end + 1 + size + 1;
         }
         Ok(files)
     }
 
     fn tree(&self, place: &GitPlace, commit: &Sha, dir: &Path) -> Result<Vec<TreeEntry>, GitError> {
-        let listing = self.ls_tree(place, commit, dir)?;
-        // `<mode> SP <type> SP <object> TAB <path> NUL`
-        let mut entries = Vec::new();
-        for entry in listing.split(|b| *b == 0).filter(|e| !e.is_empty()) {
-            let text = String::from_utf8_lossy(entry);
-            let Some((meta, path)) = text.split_once('\t') else {
-                continue;
-            };
-            let parts: Vec<&str> = meta.split_whitespace().collect();
-            let [mode, kind, _] = parts[..] else {
-                continue;
-            };
-            entries.push((PathBuf::from(path), kind == "blob" && mode != "120000"));
-        }
-        Ok(entries)
+        let repo = open(place)?;
+        Ok(listing(&repo, commit, dir)?
+            .into_iter()
+            .map(|(path, mode, _)| (path, mode.is_blob()))
+            .collect())
     }
 
     fn sizes(
@@ -309,38 +207,20 @@ impl Git for GitCli {
         commit: &Sha,
         paths: &[PathBuf],
     ) -> Result<Vec<Sized>, GitError> {
-        // `--batch-check` prints `<object> blob <size>` or `<name> missing`; one line per name asked
-        let askable = |path: &&PathBuf| !path.to_string_lossy().contains('\n');
-        let request: String = paths
-            .iter()
-            .filter(askable)
-            .map(|p| format!("{}:{}\n", commit.as_str(), p.to_string_lossy()))
-            .collect();
-        if request.is_empty() {
+        let repo = open(place)?;
+        let Some(tree) = tree_under(&repo, commit, Path::new(""))? else {
             return Ok(paths.iter().map(|p| (p.clone(), None)).collect());
-        }
-        let answer = self.ok(
-            &place.toplevel,
-            &["cat-file", "--batch-check"],
-            Some(request.into_bytes()),
-        )?;
-        let text = String::from_utf8_lossy(&answer);
-        let mut lines = text.lines();
-        let short = || GitError("git cat-file answered a short reply".into());
-        let mut found = Vec::with_capacity(paths.len());
-        for path in paths {
-            if !askable(&path) {
-                found.push((path.clone(), None));
-                continue;
-            }
-            let line = lines.next().ok_or_else(short)?;
-            let size = match line.rsplit(' ').collect::<Vec<_>>()[..] {
-                [size, "blob", _] => size.parse::<u64>().ok(),
-                _ => None,
-            };
-            found.push((path.clone(), size));
-        }
-        Ok(found)
+        };
+        // a blob the clone lacks has no header: missing, never fetched
+        Ok(paths
+            .iter()
+            .map(|path| {
+                let size = blob_at(&tree, path)
+                    .and_then(|object| repo.find_header(object).ok())
+                    .map(|header| header.size());
+                (path.clone(), size)
+            })
+            .collect())
     }
 
     fn blobs(
@@ -349,203 +229,216 @@ impl Git for GitCli {
         commit: &Sha,
         paths: &[PathBuf],
     ) -> Result<Vec<Blob>, GitError> {
-        // a path with a newline cannot be asked of `--batch`; it reads as missing
-        let askable = |path: &&PathBuf| !path.to_string_lossy().contains('\n');
-        let request: String = paths
-            .iter()
-            .filter(askable)
-            .map(|p| format!("{}:{}\n", commit.as_str(), p.to_string_lossy()))
-            .collect();
-        if request.is_empty() {
+        let repo = open(place)?;
+        let Some(tree) = tree_under(&repo, commit, Path::new(""))? else {
             return Ok(paths.iter().map(|p| (p.clone(), None)).collect());
-        }
-        let answer = self.ok(
-            &place.toplevel,
-            &["cat-file", "--batch"],
-            Some(request.into_bytes()),
-        )?;
-        let short = || GitError("git cat-file answered a short reply".into());
-        let mut at = 0;
-        let mut found = Vec::with_capacity(paths.len());
-        for path in paths {
-            if !askable(&path) {
-                found.push((path.clone(), None));
-                continue;
-            }
-            let end = answer[at..]
-                .iter()
-                .position(|b| *b == b'\n')
-                .map(|i| at + i)
-                .ok_or_else(short)?;
-            let header = String::from_utf8_lossy(&answer[at..end]).into_owned();
-            at = end + 1;
-            match header.split(' ').collect::<Vec<_>>()[..] {
-                [_, "blob", size] => {
-                    let size = size.parse::<usize>().map_err(|_| short())?;
-                    let body = answer.get(at..at + size).ok_or_else(short)?;
-                    found.push((path.clone(), Some(body.to_vec())));
-                    at += size + 1;
-                }
-                // missing, or a tree or commit: no file
-                _ => found.push((path.clone(), None)),
-            }
-        }
-        Ok(found)
+        };
+        Ok(paths
+            .iter()
+            .map(|path| {
+                let bytes = blob_at(&tree, path)
+                    .and_then(|object| repo.find_blob(object).ok())
+                    .map(|mut blob| blob.take_data());
+                (path.clone(), bytes)
+            })
+            .collect())
     }
-    // shortcut: these calls use the adapter's 10 s deadline, past a hook's budget of `timeout_ms + 5 s`; a host that
-    // kills the hook first fails open, as upstream does when its probe times out. Upgrade for a hard bound (ADR 0320).
+
     fn branch(&self, place: &GitPlace) -> Result<String, GitError> {
-        let out = self.ok(&place.toplevel, &["branch", "--show-current"], None)?;
-        Ok(String::from_utf8_lossy(&out).trim().to_string())
+        let repo = open(place)?;
+        Ok(local_branch(&repo)?.unwrap_or_default())
     }
 
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
-        let out = self.ok(
-            &place.toplevel,
-            &["status", "--porcelain=v2", "--branch", "-z"],
-            None,
-        )?;
-        Ok(parse_status(&out))
-    }
-}
-
-/// `git status --porcelain=v2 --branch -z` as a [`GitStatus`]: NUL-terminated records with unquoted paths, a rename's
-/// original path the record after it. A record of a kind this parser does not know is skipped.
-fn parse_status(out: &[u8]) -> GitStatus {
-    let text = String::from_utf8_lossy(out);
-    let mut records = text.split('\0').filter(|r| !r.is_empty());
-    let mut status = GitStatus::default();
-    while let Some(record) = records.next() {
-        if let Some(header) = record.strip_prefix("# ") {
-            branch_header(&mut status.branch, header);
-            continue;
+        let repo = open(place)?;
+        let branch = branch_of(&repo)?;
+        let items = repo
+            .status(gix::progress::Discard)
+            .map_err(|e| failed("read the status", &e))?
+            .untracked_files(gix::status::UntrackedFiles::Collapsed)
+            .index_worktree_rewrites(None)
+            .into_iter(None)
+            .map_err(|e| failed("read the status", &e))?;
+        let mut tracked: BTreeMap<String, GitEntry> = BTreeMap::new();
+        let mut untracked = Vec::new();
+        for item in items {
+            let item = item.map_err(|e| failed("read the status", &e))?;
+            note(&mut tracked, &mut untracked, item);
         }
-        // How many fields come before the path: `1 XY sub mH mI mW hH hI`, `2 XY sub mH mI mW hH hI Xscore`,
-        // `u XY sub m1 m2 m3 mW h1 h2 h3`, `?`, `!`.
-        let (kind, before) = match record.split(' ').next() {
-            Some("1") => (GitEntryKind::Changed, 8),
-            Some("2") => (GitEntryKind::Renamed, 9),
-            Some("u") => (GitEntryKind::Unmerged, 10),
-            Some("?") => (GitEntryKind::Untracked, 1),
-            Some("!") => (GitEntryKind::Ignored, 1),
-            _ => continue,
-        };
-        let parts: Vec<&str> = record.splitn(before + 1, ' ').collect();
-        let Some(path) = parts.get(before) else {
-            continue;
-        };
-        let mut xy = parts
-            .get(1)
-            .filter(|_| before > 1)
-            .into_iter()
-            .flat_map(|xy| xy.chars());
-        let (index, worktree) = (xy.next(), xy.next());
-        let orig_path = if kind == GitEntryKind::Renamed {
-            records.next().map(str::to_string)
-        } else {
-            None
-        };
-        status.entries.push(GitEntry {
-            kind,
-            path: path.to_string(),
-            orig_path,
-            index: index.and_then(GitChange::of),
-            worktree: worktree.and_then(GitChange::of),
-        });
+        Ok(status_of(branch, tracked, untracked))
     }
-    status
 }
 
-/// One `# branch.<key> <value>` header into `branch`.
-fn branch_header(branch: &mut GitBranch, header: &str) {
-    let (key, value) = header.split_once(' ').unwrap_or((header, ""));
-    match key {
-        "branch.oid" if value != "(initial)" => branch.oid = Some(value.to_string()),
-        "branch.head" if value != "(detached)" => branch.head = Some(value.to_string()),
-        "branch.upstream" => branch.upstream = Some(value.to_string()),
-        "branch.ab" => {
-            for count in value.split(' ') {
-                if let Some(ahead) = count.strip_prefix('+') {
-                    branch.ahead = ahead.parse().unwrap_or(0);
-                } else if let Some(behind) = count.strip_prefix('-') {
-                    branch.behind = behind.parse().unwrap_or(0);
+/// The status `tracked` and `untracked` make, in git's order: the tracked entries by path, then the untracked paths.
+fn status_of(
+    branch: GitBranch,
+    tracked: BTreeMap<String, GitEntry>,
+    mut untracked: Vec<String>,
+) -> GitStatus {
+    let mut entries: Vec<GitEntry> = tracked
+        .into_values()
+        .map(|mut entry| {
+            // a conflict is one line whatever else the index says of its path
+            if entry.kind == GitEntryKind::Unmerged {
+                entry.index = Some(GitChange::Unmerged);
+                entry.worktree = Some(GitChange::Unmerged);
+                entry.orig_path = None;
+            }
+            entry
+        })
+        .collect();
+    untracked.sort();
+    entries.extend(untracked.into_iter().map(|path| GitEntry {
+        kind: GitEntryKind::Untracked,
+        path,
+        orig_path: None,
+        index: None,
+        worktree: None,
+    }));
+    GitStatus { branch, entries }
+}
+
+/// The branch `HEAD` is on, born or not; `None` when it is detached.
+fn local_branch(repo: &gix::Repository) -> Result<Option<String>, GitError> {
+    let name = repo.head_name().map_err(|e| failed("read HEAD", &e))?;
+    Ok(name
+        .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+        .map(|name| name.shorten().to_string()))
+}
+
+/// `status`'s branch headers: `HEAD`'s commit and branch, its upstream, and how far each is ahead of the other.
+fn branch_of(repo: &gix::Repository) -> Result<GitBranch, GitError> {
+    let oid = repo.head_id().ok().map(|id| id.detach());
+    let mut branch = GitBranch {
+        oid: oid.map(|id| id.to_string()),
+        head: local_branch(repo)?,
+        ..GitBranch::default()
+    };
+    let Some(name) = repo.head_name().map_err(|e| failed("read HEAD", &e))? else {
+        return Ok(branch);
+    };
+    let Some(Ok(tracking)) =
+        repo.branch_remote_tracking_ref_name(name.as_ref(), gix::remote::Direction::Fetch)
+    else {
+        return Ok(branch);
+    };
+    branch.upstream = Some(tracking.shorten().to_string());
+    let upstream = repo
+        .try_find_reference(tracking.as_ref())
+        .ok()
+        .flatten()
+        .and_then(|mut r| r.peel_to_id().ok())
+        .map(|id| id.detach());
+    if let (Some(head), Some(upstream)) = (oid, upstream) {
+        branch.ahead = count_hiding(repo, head, upstream)?;
+        branch.behind = count_hiding(repo, upstream, head)?;
+    }
+    Ok(branch)
+}
+
+/// How many commits `tip` reaches that `hidden` does not.
+fn count_hiding(
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    hidden: gix::ObjectId,
+) -> Result<u32, GitError> {
+    let walk = repo
+        .rev_walk([tip])
+        .with_hidden([hidden])
+        .all()
+        .map_err(|e| failed("walk the history", &e))?;
+    let mut count = 0u32;
+    for info in walk {
+        info.map_err(|e| failed("walk the history", &e))?;
+        count = count.saturating_add(1);
+    }
+    Ok(count)
+}
+
+/// The tracked entry of `path`, a plain change until an item says more.
+fn entry_at<'a>(
+    tracked: &'a mut BTreeMap<String, GitEntry>,
+    path: &gix::bstr::BStr,
+) -> &'a mut GitEntry {
+    tracked.entry(path.to_string()).or_insert_with(|| GitEntry {
+        kind: GitEntryKind::Changed,
+        path: path.to_string(),
+        orig_path: None,
+        index: None,
+        worktree: None,
+    })
+}
+
+/// One status item onto the tracked entries (by path) or the untracked paths.
+fn note(
+    tracked: &mut BTreeMap<String, GitEntry>,
+    untracked: &mut Vec<String>,
+    item: gix::status::Item,
+) {
+    use gix::diff::index::Change as Staged;
+    use gix::status::index_worktree::Item as Worktree;
+    use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
+    match item {
+        gix::status::Item::TreeIndex(change) => match change {
+            Staged::Addition { location, .. } => {
+                entry_at(tracked, location.as_ref()).index = Some(GitChange::Added)
+            }
+            Staged::Deletion { location, .. } => {
+                entry_at(tracked, location.as_ref()).index = Some(GitChange::Deleted)
+            }
+            Staged::Modification {
+                location,
+                previous_entry_mode,
+                entry_mode,
+                ..
+            } => {
+                let kind =
+                    |mode: gix::index::entry::Mode| mode.to_tree_entry_mode().map(|m| m.kind());
+                entry_at(tracked, location.as_ref()).index =
+                    Some(if kind(previous_entry_mode) != kind(entry_mode) {
+                        GitChange::TypeChanged
+                    } else {
+                        GitChange::Modified
+                    });
+            }
+            Staged::Rewrite {
+                source_location,
+                location,
+                ..
+            } => {
+                let entry = entry_at(tracked, location.as_ref());
+                entry.kind = GitEntryKind::Renamed;
+                entry.orig_path = Some(source_location.to_string());
+                entry.index = Some(GitChange::Renamed);
+            }
+        },
+        gix::status::Item::IndexWorktree(Worktree::Modification {
+            rela_path, status, ..
+        }) => {
+            let change = match status {
+                EntryStatus::Conflict { .. } => {
+                    entry_at(tracked, rela_path.as_ref()).kind = GitEntryKind::Unmerged;
+                    return;
                 }
+                EntryStatus::Change(Change::Removed) => GitChange::Deleted,
+                EntryStatus::Change(Change::Type { .. }) => GitChange::TypeChanged,
+                EntryStatus::Change(
+                    Change::Modification { .. } | Change::SubmoduleModification(_),
+                ) => GitChange::Modified,
+                EntryStatus::IntentToAdd => GitChange::Added,
+                EntryStatus::NeedsUpdate(_) => return,
+            };
+            entry_at(tracked, rela_path.as_ref()).worktree = Some(change);
+        }
+        gix::status::Item::IndexWorktree(Worktree::DirectoryContents { entry, .. }) => {
+            if entry.status == gix::dir::entry::Status::Untracked {
+                let mut path = entry.rela_path.to_string();
+                if entry.disk_kind == Some(gix::dir::entry::Kind::Directory) {
+                    path.push('/');
+                }
+                untracked.push(path);
             }
         }
-        _ => {}
-    }
-}
-
-#[cfg(test)]
-mod status_tests {
-    use super::*;
-
-    #[test]
-    fn porcelain_v2_parses_into_a_git_status() {
-        let out = [
-            "# branch.oid 1234abcd",
-            "# branch.head main",
-            "# branch.upstream origin/main",
-            "# branch.ab +2 -1",
-            "1 .M N... 100644 100644 100644 aaa bbb src/a file.rs",
-            "1 A. N... 000000 100644 100644 000 ccc new.rs",
-            "2 R. N... 100644 100644 100644 ddd ddd R100 to.rs",
-            "from.rs",
-            "u UU N... 100644 100644 100644 100644 e1 e2 e3 both.rs",
-            "? untracked é.txt",
-            "! target",
-            "x an unknown kind",
-            "",
-        ]
-        .join("\0");
-        let status = parse_status(out.as_bytes());
-        assert_eq!(
-            status.branch,
-            GitBranch {
-                oid: Some("1234abcd".into()),
-                head: Some("main".into()),
-                upstream: Some("origin/main".into()),
-                ahead: 2,
-                behind: 1,
-            }
-        );
-        let entry = |kind, path: &str, orig: Option<&str>, index, worktree| GitEntry {
-            kind,
-            path: path.into(),
-            orig_path: orig.map(Into::into),
-            index,
-            worktree,
-        };
-        use GitChange::{Added, Modified};
-        use GitEntryKind::{Changed, Ignored, Untracked};
-        assert_eq!(
-            status.entries,
-            [
-                entry(Changed, "src/a file.rs", None, None, Some(Modified)),
-                entry(Changed, "new.rs", None, Some(Added), None),
-                entry(
-                    GitEntryKind::Renamed,
-                    "to.rs",
-                    Some("from.rs"),
-                    Some(GitChange::Renamed),
-                    None
-                ),
-                entry(
-                    GitEntryKind::Unmerged,
-                    "both.rs",
-                    None,
-                    Some(GitChange::Unmerged),
-                    Some(GitChange::Unmerged),
-                ),
-                entry(Untracked, "untracked é.txt", None, None, None),
-                entry(Ignored, "target", None, None, None),
-            ]
-        );
-        assert!(status.dirty());
-
-        // `(initial)` and `(detached)` name no commit and no branch; only an ignored file is not dirty.
-        let bare = parse_status(b"# branch.oid (initial)\0# branch.head (detached)\0! target\0");
-        assert_eq!(bare.branch, GitBranch::default());
-        assert!(!bare.dirty());
+        gix::status::Item::IndexWorktree(Worktree::Rewrite { .. }) => {}
     }
 }

@@ -1,7 +1,7 @@
 //! The `Git` port (ADR 0287, ADR 0335): what the host asks of version control. A project that declares a history
 //! flag (an immutable or append-only field, an append-only kind, a pass reading the baseline) is judged against the
 //! project as it was at a commit; the port answers where the repository is, which commit a revision names, the files
-//! under a directory at a commit, and a worktree's branch and status. Its adapter is `specforge-git`'s `GitCli`;
+//! under a directory at a commit, and a worktree's branch and status. Its adapter is `specforge-git`'s `Gix`;
 //! tests use [`crate::testing::FakeGit`].
 
 use std::path::{Path, PathBuf};
