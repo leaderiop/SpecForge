@@ -1,5 +1,6 @@
-//! The inputs an extension declares (ADR 0293, ADR 0337 D2), as `specforge extensions` and `specforge doctor` list
-//! them: a declared input is a capability a user should be able to see, so each is named with what it asks for.
+//! The inputs an extension declares (ADR 0293, ADR 0337 D2) and the capabilities it declares (ADR 0335 D2.1), as
+//! `specforge extensions` and `specforge doctor` list them: what an extension may reach is something a user should
+//! be able to see, so each is named with what it asks for.
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
@@ -82,6 +83,37 @@ pub fn declared_inputs(declaration: &ExtensionDeclaration) -> Vec<DeclaredRead> 
                 .iter()
                 .map(move |input| row(&owner, input))
                 .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+/// One capability an extension declares (`McpDeclaredCapability`): the effects it may ask the host for. Whether it
+/// is granted here is `specforge grants`'s (and doctor's) to say.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
+pub struct DeclaredCapability {
+    /// Its scope name.
+    pub name: String,
+    /// Its port and scope in one line (`process cargo test`, `http GET api.example.com`).
+    pub scope: String,
+    pub why: String,
+}
+
+impl DeclaredCapability {
+    /// The line both surfaces print: `name: scope`.
+    pub fn line(&self) -> String {
+        format!("{}: {}", self.name, self.scope)
+    }
+}
+
+/// Every sound capability `declaration` declares (one with a W021 grants nothing), in declaration order.
+pub fn declared_capabilities(declaration: &ExtensionDeclaration) -> Vec<DeclaredCapability> {
+    declaration
+        .sound_capabilities()
+        .into_iter()
+        .map(|c| DeclaredCapability {
+            name: c.name.clone(),
+            scope: c.port.summary(),
+            why: c.why.clone(),
         })
         .collect()
 }

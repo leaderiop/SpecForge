@@ -52,9 +52,17 @@ impl Args {
             hosts.iter().map(AsRef::as_ref).collect();
         let caller = crate::caller::of(false, self.output.format, terminal);
         let process = std::sync::Arc::clone(&ports.process);
-        let report = diagnose(&view, &Z3::new(process.clone(), Z3::DEFAULT_TIMEOUT)).with_hosts(
-            specforge_ops::host::diagnose::findings(&view, &renderers, caller),
-        );
+        let consent = view
+            .root()
+            .map(specforge_ops::consent::UserConsent::user)
+            .unwrap_or_else(|| {
+                specforge_ops::consent::UserConsent::at(specforge_ops::consent::default_store())
+            });
+        let report = diagnose(&view, &Z3::new(process.clone(), Z3::DEFAULT_TIMEOUT))
+            .with_hosts(specforge_ops::host::diagnose::findings(
+                &view, &renderers, caller,
+            ))
+            .with_grants(&view, &consent);
         let credentials = User::current().credential_health();
         let found = OnPath::find(std::env::var_os("PATH").as_deref(), &*process);
         let path_binary = on_path::finding(found.as_ref(), &view);
@@ -136,6 +144,16 @@ fn render_human(
         );
         for read in &ext.inputs {
             line!("      reads {}", read.line());
+        }
+        for capability in &ext.capabilities {
+            line!("      may {}", crate::grants::capability_line(capability));
+        }
+    }
+    if !report.roots.is_empty() {
+        line!();
+        line!("Named roots:");
+        for root in &report.roots {
+            line!("  {}", crate::grants::root_line(root));
         }
     }
 
@@ -243,6 +261,7 @@ fn render_human(
         ("Rules", Part::Rule),
         ("Surfaces", Part::Surface),
         ("Toolchain", Part::Toolchain),
+        ("Grants", Part::Grants),
         ("Hosts", Part::Host),
     ] {
         let mut findings = report.about(part).peekable();

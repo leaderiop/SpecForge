@@ -78,7 +78,7 @@ pub struct RootRow {
 pub struct GrantsListing {
     pub extensions: Vec<ExtensionGrants>,
     pub roots: Vec<RootRow>,
-    /// W186 when the store cannot be used.
+    /// W186 when the store cannot be used; W170 per extension a run here needs approvals of.
     pub diagnostics: DiagnosticList,
 }
 
@@ -171,7 +171,8 @@ pub fn grants_of(view: &ProjectView, consent: &dyn Consent) -> Result<Vec<Grant>
         .collect())
 }
 
-/// `specforge grants`: each loaded extension's capabilities and their grant here, then the named roots.
+/// `specforge grants`: each loaded extension's capabilities and their grant here, then the named roots; W186 when
+/// the store cannot be used, and W170 per extension whose capabilities a run here uses unapproved.
 pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, OpError> {
     let root = view.project_root()?;
     let mut diagnostics = Vec::new();
@@ -188,6 +189,10 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
                 .iter()
                 .find(|(extension, _)| extension == grant.extension())
                 .map_or(&none, |(_, uses)| uses);
+            // Only what a run here uses is a warning (O11); the store's W186 says the rest.
+            if grant.store_problem().is_none() {
+                diagnostics.extend(grant.unapproved_summary(used));
+            }
             ExtensionGrants {
                 extension: grant.extension().to_string(),
                 provenance: grant.provenance().map_or_else(String::new, keyed),

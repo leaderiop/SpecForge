@@ -33,7 +33,9 @@ pub use candidate::{
     Installable, LocalComponent, LocalFile, WASM_TARGET, builtin_declaration, not_a_builtins_name,
     target_dir,
 };
-pub use declared_reads::{DeclaredRead, declared_inputs};
+pub use declared_reads::{
+    DeclaredCapability, DeclaredRead, declared_capabilities, declared_inputs,
+};
 pub use inventory::{Inventory, ProjectExtension, Selection, Status, inventory};
 pub use list::{
     ExtensionInfo, ExtensionsDocument, LockedExtension, ProviderRow, ProviderStatus,

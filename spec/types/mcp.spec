@@ -409,13 +409,13 @@ type McpLockEntry "Mcp Lock Entry" {
 }
 
 type McpExtensionInfo "Mcp Extension Info" {
-  name             string            @readonly
+  name             string                  @readonly
   /// The loaded version; else an installed extension's locked one; else the
   /// version a legacy name@version entry writes; absent otherwise.
-  version          string            @optional
+  version          string                  @optional
   /// "builtin", the lock entry's source ("registry", "local:<path>"), or
   /// "file:<path>" for a .wasm file entry of specforge.json.
-  source           string            @readonly
+  source           string                  @readonly
   /// The entity kinds the extension contributes.
   entity_kinds     string[]
   /// The project's entities of those kinds.
@@ -426,8 +426,19 @@ type McpExtensionInfo "Mcp Extension Info" {
   status           "loaded" | "not_loaded" | "not_configured"
   /// The inputs its passes, commands, prompts, hooks and collectors declare (ADR 0293, ADR 0337), each with what it
   /// asks for; absent while it declares none.
-  inputs           McpDeclaredRead[] @optional
+  inputs           McpDeclaredRead[]       @optional
+  /// The capabilities it declares (ADR 0335 D2.1), each with its scope; absent while it declares none.
+  capabilities     McpDeclaredCapability[] @optional
   verify unit "McpExtensionInfo schema is valid"
+}
+
+type McpDeclaredCapability "Mcp Declared Capability" {
+  /// Its scope name.
+  name  string
+  /// Its port and scope in one line ("process cargo test", "http GET api.example.com").
+  scope string
+  why   string
+  verify unit "McpDeclaredCapability schema is valid"
 }
 
 type McpProvidersResult "Mcp Providers Result" {
@@ -572,8 +583,8 @@ type McpProviderInfo "Mcp Provider Info" {
 
 type McpDoctorFinding "Mcp Doctor Finding" {
   /// What the finding is about: config, lock, binary, load, structural_only, providers,
-  /// declaration, peer, registry, rule, surface, conflict, shadowing, toolchain or host.
-  about       "config" | "lock" | "binary" | "load" | "structural_only" | "providers" | "declaration" | "peer" | "registry" | "rule" | "surface" | "conflict" | "shadowing" | "toolchain" | "host"
+  /// declaration, peer, registry, rule, surface, conflict, shadowing, toolchain, grants or host.
+  about       "config" | "lock" | "binary" | "load" | "structural_only" | "providers" | "declaration" | "peer" | "registry" | "rule" | "surface" | "conflict" | "shadowing" | "toolchain" | "grants" | "host"
   check       string
   /// The diagnostic's severity; the disk checks' own are error or warn.
   status      "error" | "warn" | "info"
@@ -589,9 +600,9 @@ type McpDoctorFinding "Mcp Doctor Finding" {
 }
 
 type McpDoctorExtension "Mcp Doctor Extension" {
-  name              string            @readonly
+  name              string             @readonly
   /// The version the extensions listing gives it; absent when it has none.
-  version           string            @optional
+  version           string             @optional
   /// Where it comes from: builtin, the lock entry's source, file:<path>, or unknown.
   source            string
   /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
@@ -600,8 +611,42 @@ type McpDoctorExtension "Mcp Doctor Extension" {
   enhancement_count integer
   /// The inputs its passes, commands, prompts, hooks and collectors declare (ADR 0293, ADR 0337), each with what it
   /// asks for; absent while it declares none.
-  inputs            McpDeclaredRead[] @optional
+  inputs            McpDeclaredRead[]  @optional
+  /// Each capability it declares and its grant here, as specforge grants lists them (ADR 0335 D2); absent while
+  /// it declares none.
+  capabilities      McpCapabilityRow[] @optional
   verify unit "McpDoctorExtension schema is valid"
+}
+
+type McpCapabilityRow "Mcp Capability Row" {
+  /// Its scope name.
+  name        string
+  /// "http", "fs", "git" or "process".
+  port        string
+  /// What the project's effects ceiling leaves of it, in one line; the declared scope when it leaves nothing.
+  scope       string
+  why         string
+  /// The call kinds it is declared for; none: every kind the gate lets use its port.
+  call_kinds  string[]
+  /// What the effects ceiling removed (W171).
+  narrowed    string[]
+  /// A run here uses it: a detected collector's command.
+  in_use      boolean
+  state       "none-needed" | "approved" | "not-approved" | "narrowed-out"
+  /// When this machine approved it (RFC 3339).
+  approved_at string @optional
+  verify unit "McpCapabilityRow schema is valid"
+}
+
+type McpGrantRoot "Mcp Grant Root" {
+  name     string
+  /// Its canonical target.
+  target   string
+  /// Under the project root: it needs no approval.
+  inside   boolean
+  /// An outside root this machine approved.
+  approved boolean
+  verify unit "McpGrantRoot schema is valid"
 }
 
 type McpDeclaredRead "Mcp Declared Read" {
@@ -638,6 +683,8 @@ type McpDoctorReport "Mcp Doctor Report" {
   /// Entity enhancements keyed by the entity kind they target.
   enhancements    object
   findings        McpDoctorFinding[]
+  /// The named roots of specforge.json, inside or outside the project; absent while it names none.
+  roots           McpGrantRoot[] @optional
   verify unit "McpDoctorReport schema is valid"
 }
 

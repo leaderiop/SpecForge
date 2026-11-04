@@ -28,6 +28,9 @@ pub struct ExtensionInfo {
     /// it asks for; absent while it declares none.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<super::DeclaredRead>,
+    /// The capabilities it declares (ADR 0335 D2.1), each with its scope; absent while it declares none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<super::DeclaredCapability>,
 }
 
 /// One entry of the project's `specforge.lock`.
@@ -82,6 +85,10 @@ pub fn list(view: &ProjectView) -> ExtensionsDocument {
                 inputs: extension
                     .declaration
                     .map(super::declared_inputs)
+                    .unwrap_or_default(),
+                capabilities: extension
+                    .declaration
+                    .map(super::declared_capabilities)
                     .unwrap_or_default(),
             }
         })

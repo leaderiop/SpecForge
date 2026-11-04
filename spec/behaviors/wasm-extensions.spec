@@ -763,7 +763,12 @@ behavior run_doctor_check "Run Doctor Check" {
     remediation that names a command MUST name one the user can run as
     written. A finding whose diagnostic offers no
     suggestion of its own MUST quote the catalogue's explanation of its
-    code. specforge doctor --format json MUST produce machine-readable
+    code. Doctor MUST list each extension's capabilities with their grant
+    here, as specforge grants lists them, and the named roots of
+    specforge.json; a consent store it cannot use is a W186 grants finding,
+    and an extension whose capabilities a run here uses unapproved is one
+    W170 grants finding, never one for a capability nothing here uses (ADR
+    0335 D2). specforge doctor --format json MUST produce machine-readable
     JSON output for CI integration.
   """
   produces   [doctor_check_completed]
@@ -794,6 +799,8 @@ behavior run_doctor_check "Run Doctor Check" {
   verify integration "doctor reports a lock entry whose hash is not ASCII as an unreadable lock, without crashing"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
   verify unit "a stored token expiry that is not an RFC 3339 timestamp makes the credential store unreadable, and doctor writes no control character"
+  verify unit "doctor lists each capability with its grant here, and W170 only for the scopes a run here uses"
+  verify unit "a consent store doctor cannot use is a W186 grants finding"
 }
 
 // -- Extension Source Resolution -----

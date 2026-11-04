@@ -6272,6 +6272,29 @@ expression: listing
           "items": {
             "additionalProperties": false,
             "properties": {
+              "capabilities": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string"
+                    },
+                    "why": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "scope",
+                    "why"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "entity_count": {
                 "minimum": 0,
                 "type": "integer"
@@ -7790,6 +7813,64 @@ expression: listing
           "items": {
             "additionalProperties": false,
             "properties": {
+              "capabilities": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "approved_at": {
+                      "type": "string"
+                    },
+                    "call_kinds": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "in_use": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "narrowed": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "port": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "enum": [
+                        "none-needed",
+                        "approved",
+                        "not-approved",
+                        "narrowed-out"
+                      ],
+                      "type": "string"
+                    },
+                    "why": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "port",
+                    "scope",
+                    "why",
+                    "call_kinds",
+                    "narrowed",
+                    "in_use",
+                    "state"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "enhancement_count": {
                 "minimum": 0,
                 "type": "integer"
@@ -8429,6 +8510,42 @@ expression: listing
                 "properties": {
                   "about": {
                     "enum": [
+                      "grants"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "error",
+                      "warn",
+                      "info"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
                       "host"
                     ],
                     "type": "string"
@@ -8474,6 +8591,33 @@ expression: listing
         },
         "ok": {
           "type": "boolean"
+        },
+        "roots": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "approved": {
+                "type": "boolean"
+              },
+              "inside": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "target",
+              "inside",
+              "approved"
+            ],
+            "type": "object"
+          },
+          "type": "array"
         },
         "z3_available": {
           "type": "boolean"

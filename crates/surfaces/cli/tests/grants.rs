@@ -98,8 +98,11 @@ fn grants_lists_a_collectors_command_as_in_use_and_not_approved() {
         .stdout(predicate::str::contains(
             "cargo-test  process cargo test --workspace --no-fail-fast: not approved, in use",
         ))
-        .stdout(predicate::str::contains(format!(
-            "Approve what a run here uses with `specforge grants approve {EXTENSION}`"
+        .stderr(predicate::str::contains(format!(
+            "warning[W170]: extension '{EXTENSION}': effects not approved on this machine"
+        )))
+        .stderr(predicate::str::contains(format!(
+            "specforge grants approve {EXTENSION} cargo-test"
         )));
     let listing = fx.json(&["grants", "list", "--format", "json"]);
     let extension = listing["extensions"]
@@ -216,4 +219,31 @@ fn unknown_extensions_scopes_and_roots_are_refused() {
         .clone();
     let refused: serde_json::Value = serde_json::from_slice(&refused).unwrap();
     assert_eq!(refused["code"], "invalid_input");
+}
+
+#[test]
+fn doctor_and_extensions_list_a_collectors_capability() {
+    let fx = Fixture::new();
+    fx.cmd(&["doctor"])
+        .assert()
+        .stdout(predicate::str::contains(
+            "      may cargo-test  process cargo test --workspace --no-fail-fast: not approved, in use",
+        ))
+        .stdout(predicate::str::contains("Grants:"))
+        .stdout(predicate::str::contains("[W170]"));
+    fx.cmd(&["extensions"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "      may cargo-test: process cargo test --workspace --no-fail-fast",
+        ));
+    let doctor = fx.json(&["doctor", "--format", "json"]);
+    let row = doctor["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == EXTENSION)
+        .expect("cargo-test is listed")["capabilities"][0]
+        .clone();
+    assert_eq!(row["state"], "not-approved");
 }

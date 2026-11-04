@@ -79,6 +79,9 @@ fn print_human(terminal: &Terminal, entries: &[extension::ExtensionInfo]) {
         for read in &entry.inputs {
             outln!(terminal, "      reads {}", read.line());
         }
+        for capability in &entry.capabilities {
+            outln!(terminal, "      may {}", capability.line());
+        }
     }
     outln!(terminal);
     let loaded = entries
@@ -104,6 +107,7 @@ mod tests {
             entity_count: 0,
             validation_rules: 0,
             inputs: reads,
+            capabilities: Vec::new(),
         };
         let read = extension::DeclaredRead {
             owner: "pass:scan".into(),

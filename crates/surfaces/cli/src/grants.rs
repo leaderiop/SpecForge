@@ -4,7 +4,9 @@
 
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::terminal::{Terminal, errln, outln};
-use specforge_ops::analysis::grants::{self, Change, GrantState, GrantsListing, StoreListing};
+use specforge_ops::analysis::grants::{
+    self, CapabilityRow, Change, GrantState, GrantsListing, RootRow, StoreListing,
+};
 use specforge_ops::consent::UserConsent;
 use specforge_ops::view::ProjectView;
 
@@ -198,6 +200,30 @@ fn change(
     Exit::Passed
 }
 
+/// One capability's line: its scope name, what the ceiling leaves of it, its state here and whether a run here uses
+/// it (`specforge grants`, `specforge doctor`).
+pub(crate) fn capability_line(row: &CapabilityRow) -> String {
+    let state = match (row.state, &row.approved_at) {
+        (GrantState::NoneNeeded, _) => "needs no approval".to_string(),
+        (GrantState::Approved, Some(at)) if !at.is_empty() => format!("approved {at}"),
+        (GrantState::Approved, _) => "approved".to_string(),
+        (GrantState::NotApproved, _) => "not approved".to_string(),
+        (GrantState::NarrowedOut, _) => "narrowed out by specforge.json".to_string(),
+    };
+    let used = if row.in_use { ", in use" } else { "" };
+    format!("{}  {}: {state}{used}", row.name, row.scope)
+}
+
+/// One named root's line.
+pub(crate) fn root_line(root: &RootRow) -> String {
+    let state = match (root.inside, root.approved) {
+        (true, _) => "inside the project",
+        (false, true) => "outside the project, approved",
+        (false, false) => "outside the project, not approved",
+    };
+    format!("{} {}: {state}", root.name, root.target)
+}
+
 fn print_listing(terminal: &Terminal, store: &str, listing: &GrantsListing) {
     for diagnostic in &listing.diagnostics.0 {
         errln!(
@@ -206,11 +232,13 @@ fn print_listing(terminal: &Terminal, store: &str, listing: &GrantsListing) {
             diagnostic.code,
             diagnostic.message
         );
+        if let Some(suggestion) = &diagnostic.suggestion {
+            errln!(terminal, "  {suggestion}");
+        }
     }
     if listing.extensions.is_empty() {
         outln!(terminal, "No loaded extension declares a capability.");
     }
-    let mut unapproved = Vec::new();
     for extension in &listing.extensions {
         outln!(
             terminal,
@@ -219,46 +247,20 @@ fn print_listing(terminal: &Terminal, store: &str, listing: &GrantsListing) {
             extension.provenance
         );
         for row in &extension.capabilities {
-            let state = match (row.state, &row.approved_at) {
-                (GrantState::NoneNeeded, _) => "needs no approval".to_string(),
-                (GrantState::Approved, Some(at)) if !at.is_empty() => format!("approved {at}"),
-                (GrantState::Approved, _) => "approved".to_string(),
-                (GrantState::NotApproved, _) => "not approved".to_string(),
-                (GrantState::NarrowedOut, _) => "narrowed out by specforge.json".to_string(),
-            };
-            let used = if row.in_use { ", in use" } else { "" };
-            outln!(terminal, "  {}  {}: {state}{used}", row.name, row.scope);
+            outln!(terminal, "  {}", capability_line(row));
             outln!(terminal, "      {}", row.why);
             if !row.narrowed.is_empty() {
                 outln!(terminal, "      narrowed: {}", row.narrowed.join("; "));
-            }
-            if row.in_use
-                && row.state == GrantState::NotApproved
-                && !unapproved.contains(&extension.extension)
-            {
-                unapproved.push(extension.extension.clone());
             }
         }
     }
     if !listing.roots.is_empty() {
         outln!(terminal, "Roots");
         for root in &listing.roots {
-            let state = match (root.inside, root.approved) {
-                (true, _) => "inside the project",
-                (false, true) => "outside the project, approved",
-                (false, false) => "outside the project, not approved",
-            };
-            outln!(terminal, "  {} {}: {state}", root.name, root.target);
+            outln!(terminal, "  {}", root_line(root));
         }
     }
     outln!(terminal, "Approvals are kept in {store}");
-    for extension in unapproved {
-        outln!(
-            terminal,
-            "Approve what a run here uses with `{}`",
-            specforge_common::remedy::command("specforge grants approve {}", &[&extension])
-        );
-    }
 }
 
 fn print_store(terminal: &Terminal, store: &str, listing: &StoreListing) {
