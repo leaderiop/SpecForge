@@ -14,7 +14,7 @@ use gix::bstr::ByteSlice as _;
 use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Git, GitBranch, GitChange, GitEntry, GitEntryKind, GitError, GitPlace,
-    GitStatus, Located, Sha, Sized, TreeEntry,
+    GitStatus, Located, ObjectKind, Sha, Sized, TreeEntry,
 };
 
 #[cfg(feature = "testing")]
@@ -247,6 +247,44 @@ impl Git for Gix {
     fn branch(&self, place: &GitPlace) -> Result<String, GitError> {
         let repo = open(place)?;
         Ok(local_branch(&repo)?.unwrap_or_default())
+    }
+
+    fn head(&self, place: &GitPlace) -> Result<GitBranch, GitError> {
+        branch_of(&open(place)?)
+    }
+
+    fn resolve(
+        &self,
+        place: &GitPlace,
+        revision: &str,
+    ) -> Result<Option<(Sha, ObjectKind)>, GitError> {
+        let repo = open(place)?;
+        let Ok(id) = repo.rev_parse_single(revision) else {
+            return Ok(None);
+        };
+        let kind = match id
+            .header()
+            .map_err(|e| failed(&format!("read {id}"), &e))?
+            .kind()
+        {
+            gix::objs::Kind::Commit => ObjectKind::Commit,
+            gix::objs::Kind::Tree => ObjectKind::Tree,
+            gix::objs::Kind::Blob => ObjectKind::Blob,
+            gix::objs::Kind::Tag => ObjectKind::Tag,
+        };
+        Ok(Some((Sha::new(id.to_string()), kind)))
+    }
+
+    fn config(&self, place: &GitPlace, key: &str) -> Result<Vec<String>, GitError> {
+        let repo = open(place)?;
+        let config = repo.config_snapshot();
+        Ok(config
+            .plumbing()
+            .strings(key)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|value| value.to_str_lossy().into_owned())
+            .collect())
     }
 
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {

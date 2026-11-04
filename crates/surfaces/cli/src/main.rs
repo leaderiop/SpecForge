@@ -216,6 +216,12 @@ enum Commands {
         #[command(subcommand)]
         action: verbs::http::Action,
     },
+    /// Read the repository the project is in, with no git program: its place, HEAD, revisions, status and
+    /// configuration, as JSON (ADR 0339)
+    Git {
+        #[command(subcommand)]
+        action: verbs::git::Action,
+    },
     /// Run a program: its output and exit pass through (124 at --deadline, 127 not found, 126 cannot start), or
     /// --format json captures them (ADR 0339)
     Run(verbs::run::RunArgs),
@@ -345,6 +351,7 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::InferStatus(args) => args.run(terminal, ports),
         Commands::Files { action } => action.run(terminal, ports),
         Commands::Http { action } => action.run(terminal, ports),
+        Commands::Git { action } => action.run(terminal, ports),
         Commands::External(_) => unreachable!("main runs an extension command itself"),
         Commands::Run(_) => unreachable!("main runs a program itself"),
         Commands::Extension { action } => action.run(terminal, ports),

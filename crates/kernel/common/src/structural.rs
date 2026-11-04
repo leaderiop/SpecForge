@@ -79,6 +79,7 @@ pub const CORE_COMMANDS: &[&str] = &[
     "files",
     "run",
     "http",
+    "git",
 ];
 
 /// `name` is one of [`CORE_COMMANDS`].

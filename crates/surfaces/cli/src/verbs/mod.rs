@@ -3,6 +3,7 @@
 //! reaches, or a short listing under `--format human`; a refusal is the JSON error document (ADR 0029).
 
 pub(crate) mod files;
+pub(crate) mod git;
 pub(crate) mod http;
 pub(crate) mod run;
 

@@ -87,8 +87,19 @@ pub type Sized = (PathBuf, Option<u64>);
 /// cannot fetch one (ADR 0300 D5); [`Git::sizes`] asks for the few files a pass reads.
 pub type TreeEntry = (PathBuf, bool);
 
-/// What the host asks of version control. Every method is read-only, and none runs unless a project declares
-/// history or a hook declares the `git` input (ADR 0320, ADR 0337 D2).
+/// The kind of a git object.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObjectKind {
+    Commit,
+    Tree,
+    Blob,
+    Tag,
+}
+
+/// What the host asks of version control. Every method is read-only. None runs for a check unless a project declares
+/// history or a hook declares the `git` input (ADR 0320, ADR 0337 D2); `specforge git` asks the rest for the user
+/// (ADR 0339).
 pub trait Git: Send + Sync {
     /// The repository `dir` is in.
     fn locate(&self, dir: &Path) -> Located;
@@ -130,6 +141,24 @@ pub trait Git: Send + Sync {
     }
     /// The worktree's typed status in `place` (porcelain v2 parsed once, ADR 0320, ADR 0337).
     fn status(&self, _place: &GitPlace) -> Result<GitStatus, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
+    /// `HEAD`'s commit and branch, its upstream, and how far each is ahead of the other: [`Self::status`]'s branch,
+    /// with no worktree read.
+    fn head(&self, place: &GitPlace) -> Result<GitBranch, GitError> {
+        self.status(place).map(|status| status.branch)
+    }
+    /// The object `revision` names and its kind (`commit`, `tree`, `blob` or `tag`); `None` when it names none.
+    fn resolve(
+        &self,
+        _place: &GitPlace,
+        _revision: &str,
+    ) -> Result<Option<(Sha, ObjectKind)>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
+    /// Every value `key` (`section.name` or `section.sub.name`) has in the repository's configuration, the last the
+    /// one git applies: empty when it has none.
+    fn config(&self, _place: &GitPlace, _key: &str) -> Result<Vec<String>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
 }

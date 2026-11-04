@@ -76,6 +76,11 @@ specforge files digest <file>... --text "$PWD"     # {digests:[{path,sha256,byte
 specforge run --deadline 10s -- cargo test         # output and exit pass through; 124 deadline, 127 not found, 126 cannot start
 specforge run --format json -- git status         # {argv,exit,outcome,stdout,stderr,duration_ms,truncated}
 specforge run --which node npx                     # where the runner finds each program
+specforge git repo --pick .top                     # the repository, read in process: no git program runs
+specforge git head --pick .branch                  # {sha,branch,detached,unborn,upstream,ahead,behind}
+specforge git rev HEAD~1 main:a.txt                # {revs:[{rev,sha,kind,exists}]}
+specforge git status --pick '.untracked[]'         # the typed status, plus clean and untracked
+specforge git config user.name --pick .value       # {key,value,values}
 
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions

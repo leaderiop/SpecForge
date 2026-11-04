@@ -42,6 +42,7 @@ mod files_verb;
 mod format;
 mod format_corpus;
 mod format_paths;
+mod git_verb;
 mod grants;
 mod hard_links;
 mod harness;
