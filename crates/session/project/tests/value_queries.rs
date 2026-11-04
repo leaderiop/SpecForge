@@ -90,12 +90,14 @@ fn a_post_query_to_a_listed_host_is_performed_and_journaled_by_body() {
     let live = told_in(&scene, EffectsMode::Online);
     assert_eq!(live, ["ok 2097152", "ok 2097152"]);
     let asked = scene.http.requests();
-    let bodies: Vec<String> = asked
+    let mut bodies: Vec<String> = asked
         .iter()
         .map(|request| {
             String::from_utf8_lossy(request.body.as_deref().unwrap_or_default()).into_owned()
         })
         .collect();
+    // The two values' probes run at once, in either order.
+    bodies.sort();
     assert_eq!(bodies, [r#"{"package":"serde"}"#, r#"{"package":"tokio"}"#]);
     assert!(asked.iter().all(|request| {
         request.method == "POST"
