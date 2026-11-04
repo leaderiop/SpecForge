@@ -123,6 +123,24 @@ pub fn open_private_lock(path: &Path) -> Result<File> {
     options.open(path)
 }
 
+/// Make the existing directory `path` readable by its owner alone (`0700`, unix) through a handle that refuses a link
+/// at the name (`O_NOFOLLOW`), so a link swapped in is never followed to chmod what it points at. Elsewhere than unix
+/// no mode exists, and nothing changes.
+pub fn owner_only_dir(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+        let dir = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_DIRECTORY)
+            .open(path)?;
+        dir.set_permissions(std::fs::Permissions::from_mode(0o700))?;
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
+}
+
 /// Why the file or directory `meta` describes is not this user's alone to write: it belongs to another user, or its
 /// group or others may write it. `None` when it is, and always elsewhere than unix, where no such mode exists
 /// (ADR 0178). For what a private file trusts: another user could have created it first and filled it.

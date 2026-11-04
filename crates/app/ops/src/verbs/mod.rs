@@ -108,7 +108,7 @@ impl Verbs {
                     .to_string(),
             ));
         };
-        let made = std::fs::create_dir_all(&temp).and_then(|()| owner_only(&temp));
+        let made = make_temp(&temp);
         let at = made.ok().and_then(|()| held_temp(&temp)).ok_or_else(|| {
             refused(format!(
                 "the temp root {} cannot be made, or leads out of its directory",
@@ -294,16 +294,25 @@ fn held_temp(temp: &Path) -> Option<PathBuf> {
     (real.is_dir() && real == expected).then_some(real)
 }
 
-/// `dir` readable by its owner alone (`0700`).
-fn owner_only(dir: &Path) -> std::io::Result<()> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
+/// `temp` (`<base>/.specforge/tmp`) made, owner only, with no link on the way: `.specforge` and `tmp` are each looked
+/// at before anything is made or its mode set, a link or another kind refused, and the mode is set through a handle
+/// that refuses a link. A committed `.specforge/tmp -> ~/public_html` is never made or chmod-ed.
+fn make_temp(temp: &Path) -> std::io::Result<()> {
+    for dir in [temp.parent(), Some(temp)].into_iter().flatten() {
+        match std::fs::symlink_metadata(dir) {
+            Ok(meta) if meta.is_dir() => {}
+            Ok(_) => {
+                return Err(std::io::Error::other(format!(
+                    "{} is a link or not a directory",
+                    dir.display()
+                )));
+            }
+            // `mkdir` never follows a link at the name: one made since the look above fails it.
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => std::fs::create_dir(dir)?,
+            Err(error) => return Err(error),
+        }
     }
-    #[cfg(not(unix))]
-    let _ = dir;
-    Ok(())
+    specforge_common::fresh::owner_only_dir(temp)
 }
 
 /// A typed path, located.

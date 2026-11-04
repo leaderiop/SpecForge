@@ -268,6 +268,25 @@ fn temp_answers_a_new_private_path_under_the_temp_root() {
         .exits(1);
 }
 
+/// A committed `.specforge/tmp` link out of the project is refused before anything is made or chmod-ed there: the
+/// directory it points at keeps its mode.
+#[cfg(unix)]
+#[test]
+fn temp_never_makes_or_chmods_through_a_link() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let project = project();
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(outside.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::os::unix::fs::symlink(outside.path(), project.root().join(".specforge/tmp")).unwrap();
+    Cli::on(&project).run(&["files", "temp"]).exits(1);
+    let mode = std::fs::metadata(outside.path())
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o777, 0o755);
+    assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0);
+}
+
 #[test]
 fn mkdir_copy_and_move_answer_what_they_changed() {
     let project = project();
