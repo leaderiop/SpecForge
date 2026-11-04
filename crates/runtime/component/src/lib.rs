@@ -568,9 +568,25 @@ impl WasmRuntime for ComponentRuntime {
         kind: Operation,
         lent: Option<PortCall>,
     ) -> WasmCallResult {
-        self.call_in_session(name, export, input, u32::MAX, |limits| {
-            PortSession::effectful(name, kind, lent, limits)
-        })
+        let session = |limits| PortSession::effectful(name, kind, lent, limits);
+        let plugin = match self.plugin(name, export) {
+            Ok(plugin) => plugin,
+            Err(trap) => return trap,
+        };
+        // What an own instance is made from, copied under the lock and only then let go: a port can take minutes, and
+        // every other call of this extension waits on that lock.
+        let own = match plugin.lock() {
+            Ok(instance) if !instance.host_imports.is_empty() => {
+                Some((instance.component.clone(), instance.limits, instance.fuel))
+            }
+            _ => None,
+        };
+        match own {
+            Some((component, limits, fuel)) => {
+                self.call_on_own_instance(name, export, input, &component, limits, fuel, session)
+            }
+            None => self.call_in_session(name, export, input, u32::MAX, session),
+        }
     }
 
     fn host_imports(&self, extension_name: &str) -> Vec<String> {

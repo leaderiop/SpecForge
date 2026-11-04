@@ -308,7 +308,6 @@ fn a_port_call_that_outlasts_the_guests_deadline_does_not_trap_it() {
     behavior = "bound_a_host_port_call",
     verify = "a port call does not hold its extension's lock"
 )]
-#[ignore = "04-D2, flipped by T9"]
 fn a_port_call_does_not_hold_its_extensions_lock() {
     let runtime = Arc::new(probe_held_to(5_000));
     let started = Arc::new(Barrier::new(2));

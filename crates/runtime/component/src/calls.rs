@@ -1,6 +1,6 @@
 //! The way into an instance: what one call of an export is held to, and what it answers.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use specforge_wasm::PortSession;
@@ -8,6 +8,7 @@ use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};
 use specforge_wasm::sandbox::Limits;
 
 use wasmtime::UpdateDeadline;
+use wasmtime::component::Component;
 
 use crate::{ComponentRuntime, PluginInstance, ms_to_ticks};
 
@@ -39,6 +40,88 @@ impl GuestClock {
 }
 
 impl ComponentRuntime {
+    /// `name`'s plugin, or the trap of a call of `export` that finds none.
+    #[allow(
+        clippy::result_large_err,
+        reason = "the error is the call's answer, returned at once"
+    )]
+    pub(crate) fn plugin(
+        &self,
+        name: &str,
+        export: &str,
+    ) -> Result<Arc<Mutex<PluginInstance>>, WasmCallResult> {
+        // Release the map lock immediately: holding it across the guest call would serialize every extension behind
+        // one mutex (the C7-10 finding). Only the target plugin's own lock is held for the duration of the call.
+        let plugins = self.plugins.lock().map_err(|e| {
+            WasmCallResult::Trap(WasmTrapInfo {
+                kind: "lock_poisoned".to_string(),
+                message: e.to_string(),
+                export_name: export.to_string(),
+            })
+        })?;
+        plugins.get(name).map(Arc::clone).ok_or_else(|| {
+            WasmCallResult::Trap(WasmTrapInfo {
+                kind: "extension_not_found".to_string(),
+                message: format!("Extension '{name}' not loaded"),
+                export_name: export.to_string(),
+            })
+        })
+    }
+
+    /// One effectful call of a guest that imports a port, on an instance of its own, outside the extension's lock: a
+    /// trap takes only this instance with it, and nothing of the guest outlives the call (ADR 0335 D4).
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "what the shared path reads off the plugin under its lock"
+    )]
+    pub(crate) fn call_on_own_instance(
+        &self,
+        name: &str,
+        export: &str,
+        input: &[u8],
+        component: &Component,
+        limits: Limits,
+        fuel: u64,
+        session: impl FnOnce(Limits) -> PortSession,
+    ) -> WasmCallResult {
+        let failed = |message: String| {
+            WasmCallResult::Trap(WasmTrapInfo {
+                kind: "call_failed".to_string(),
+                message,
+                export_name: export.to_string(),
+            })
+        };
+        let (mut store, bindings) = match self.fresh_instance(component, fuel, limits) {
+            Ok(instance) => instance,
+            Err(why) => return failed(format!("failed to start {name}: {why}")),
+        };
+        // What starting the instance spent is not the call's.
+        let (call_fuel, deadline_ms) = self.budget(fuel, limits, u32::MAX);
+        if let Err(e) = store.set_fuel(call_fuel) {
+            return failed(format!("failed to set fuel for {name}: {e}"));
+        }
+        store.set_epoch_deadline(ms_to_ticks(u64::from(deadline_ms)));
+        store.data_mut().clock = GuestClock::of(deadline_ms);
+        store.data_mut().ports = session(limits);
+        match bindings.call_call(&mut store, name, export, input) {
+            Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
+            Ok(Err(message)) => WasmCallResult::Trap(WasmTrapInfo {
+                kind: "guest_error".to_string(),
+                message,
+                export_name: export.to_string(),
+            }),
+            Err(e) => {
+                let refused = store.data_mut().memory.refused.take();
+                let (kind, message) = stopped(&e, refused, limits, fuel, call_fuel, u32::MAX);
+                WasmCallResult::Trap(WasmTrapInfo {
+                    kind: kind.to_string(),
+                    message,
+                    export_name: export.to_string(),
+                })
+            }
+        }
+    }
+
     /// One call into `name`'s shared instance, its port session made from the extension's limits. The session lasts
     /// the call: a later pure call is denied whatever this one was lent.
     pub(crate) fn call_in_session(
@@ -49,31 +132,9 @@ impl ComponentRuntime {
         max_ms: u32,
         session: impl FnOnce(Limits) -> PortSession,
     ) -> WasmCallResult {
-        // Look up the plugin and release the map lock immediately: holding
-        // it across the guest call would serialize every extension behind
-        // one mutex (the C7-10 finding). Only the target plugin's own lock
-        // is held for the duration of the call.
-        let plugin = {
-            let plugins = match self.plugins.lock() {
-                Ok(p) => p,
-                Err(e) => {
-                    return WasmCallResult::Trap(WasmTrapInfo {
-                        kind: "lock_poisoned".to_string(),
-                        message: e.to_string(),
-                        export_name: export.to_string(),
-                    });
-                }
-            };
-            match plugins.get(name) {
-                Some(plugin) => Arc::clone(plugin),
-                None => {
-                    return WasmCallResult::Trap(WasmTrapInfo {
-                        kind: "extension_not_found".to_string(),
-                        message: format!("Extension '{name}' not loaded"),
-                        export_name: export.to_string(),
-                    });
-                }
-            }
+        let plugin = match self.plugin(name, export) {
+            Ok(plugin) => plugin,
+            Err(trap) => return trap,
         };
         let mut instance = match plugin.lock() {
             Ok(instance) => instance,
@@ -121,29 +182,8 @@ impl ComponentRuntime {
                 // replaced: a limit of the sandbox is named, any other
                 // fault keeps wasmtime's message.
                 let memory_refused = store.data_mut().memory.refused.take();
-                let kind = trap_kind(&e, memory_refused);
-                let message = match kind {
-                    "memory_limit_exceeded" => format!(
-                        "grew past its {} MB memory limit (sandbox_policy.max_memory_mb)",
-                        limits.memory_mb
-                    ),
-                    "fuel_exhausted" if call_fuel < *fuel => format!(
-                        "spent the work of its {} ms execution limit ({call_fuel} instructions \
-                         under a work budget; sandbox_policy.max_execution_ms)",
-                        limits.execution_ms
-                    ),
-                    "fuel_exhausted" => {
-                        format!("spent its fuel budget ({fuel} instructions) in one call")
-                    }
-                    "deadline_exceeded" if max_ms < limits.execution_ms => {
-                        format!("ran past the call's {max_ms} ms budget")
-                    }
-                    "deadline_exceeded" => format!(
-                        "ran past its {} ms execution limit (sandbox_policy.max_execution_ms)",
-                        limits.execution_ms
-                    ),
-                    _ => e.to_string(),
-                };
+                let (kind, message) =
+                    stopped(&e, memory_refused, *limits, *fuel, call_fuel, max_ms);
                 // An instance that trapped cannot be entered again: the
                 // extension's next call gets a fresh one under the same
                 // limits, as a guest that panics in one call must not take
@@ -178,6 +218,42 @@ impl ComponentRuntime {
             }
         }
     }
+}
+
+/// What stopped a call, named, and said as the limit it ran into: `fuel` of the plugin, `call_fuel` of this call,
+/// `max_ms` its caller's time budget.
+fn stopped(
+    error: &wasmtime::Error,
+    memory_refused: Option<usize>,
+    limits: Limits,
+    fuel: u64,
+    call_fuel: u64,
+    max_ms: u32,
+) -> (&'static str, String) {
+    let kind = trap_kind(error, memory_refused);
+    let message = match kind {
+        "memory_limit_exceeded" => format!(
+            "grew past its {} MB memory limit (sandbox_policy.max_memory_mb)",
+            limits.memory_mb
+        ),
+        "fuel_exhausted" if call_fuel < fuel => format!(
+            "spent the work of its {} ms execution limit ({call_fuel} instructions \
+             under a work budget; sandbox_policy.max_execution_ms)",
+            limits.execution_ms
+        ),
+        "fuel_exhausted" => {
+            format!("spent its fuel budget ({fuel} instructions) in one call")
+        }
+        "deadline_exceeded" if max_ms < limits.execution_ms => {
+            format!("ran past the call's {max_ms} ms budget")
+        }
+        "deadline_exceeded" => format!(
+            "ran past its {} ms execution limit (sandbox_policy.max_execution_ms)",
+            limits.execution_ms
+        ),
+        _ => error.to_string(),
+    };
+    (kind, message)
 }
 
 /// What stopped a call: a limit the sandbox holds it to, or another fault.
