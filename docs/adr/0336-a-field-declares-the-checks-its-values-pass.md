@@ -79,7 +79,7 @@ carries the records and the edges only).
    - it contains every path itself (D6) and reports a refusal on the value, so the guest never learns about a path outside its root;
    - it deduplicates by request digest;
    - it performs the rest concurrently (32 workers, at most 8 per host) under ADR 0335's grant and ADR 0337's journal and mode.
-   A probe not performed (offline, `cached` miss, not approved, over budget) leaves its value **not judged**: it counts toward one I206 per checker and toward W170 for the scopes it needed.
+   A probe not performed (offline, `cached` miss, not approved, over budget) leaves its value **not judged**: it counts toward one I206 per checker and toward W170 for the scopes it needed. A judge that cannot judge what came back (an answer cut at its read) leaves the value out of its reply (`Judged::Unchecked`): not judged either, counted toward I206 as `budget`.
 3. **judge(values, outcomes) → findings.** A second `__check_values` call carries the values whose probes all ran. Each finding carries a code, a message and an optional byte sub-span inside the quotes (the scheme, the `#…` part, the root). The host places it on the value's span.
    - The structured, media and registry checkers amend this decision: a judge may answer `More { probes, carry }` to ask for another round, at most **3 rounds** per value.
 

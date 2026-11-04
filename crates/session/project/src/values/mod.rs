@@ -176,11 +176,17 @@ impl Asking<'_> {
         for (keys, items) in self.batches(extension, unknown) {
             let input = CheckValuesInput { phase, items };
             let answer = self.calls.check_values(extension, &input)?;
+            let mut unanswered = keys.len();
             for item in answer.items {
                 if let Some(key) = keys.get(&item.id) {
+                    unanswered = unanswered.saturating_sub(1);
                     shelf.keep(key.clone(), &item);
                     known.push(item);
                 }
+            }
+            // A value left out of the reply (its judge could not judge the answers) is unchecked, never a pass.
+            if unanswered > 0 {
+                self.effects.count_not_run(budget::OVER, unanswered);
             }
         }
         shelf.save();

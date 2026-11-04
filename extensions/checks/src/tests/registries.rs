@@ -55,6 +55,7 @@ fn round(
 ) -> PlannedItem {
     MockHost::new(crate::specforge_extension_build())
         .judge_round(checker, text, args, outcomes, carry)
+        .expect("the round is judged")
 }
 
 #[specforge_test(
@@ -247,6 +248,33 @@ fn a_doi_or_an_orcid_is_asked_of_its_resolver() {
         ["E105"]
     );
     assert!(judged("orcid", "0000-0002-1825-0097", json!({}), ok("{}")).is_empty());
+}
+
+#[specforge_test(
+    behavior = "checks_registries",
+    verify = "an answer cut at the read leaves the value unchecked, never W172 nor a pass"
+)]
+fn an_answer_cut_at_the_read_leaves_the_value_unchecked() {
+    let cut = |class| {
+        let mut outcome = http(class, 200, "{\"versions\":");
+        if let OutcomeData::Http { truncated, .. } = &mut outcome.data {
+            *truncated = true;
+        }
+        outcome
+    };
+    let host = MockHost::new(crate::specforge_extension_build());
+    for class in [OutcomeClass::Ok, OutcomeClass::Capped] {
+        assert!(host.unchecked("package", "npm:react@^18", json!({}), vec![cut(class)]));
+        assert!(host.unchecked("doi", "10.1000/182", json!({}), vec![cut(class)]));
+    }
+    let second = host.judge_round(
+        "license_of",
+        "pypi:boto3>=1",
+        json!({"allow": ["MIT"]}),
+        vec![cut(OutcomeClass::Capped)],
+        Some(json!("1.0.0")),
+    );
+    assert_eq!(second, None);
 }
 
 #[test]

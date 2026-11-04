@@ -2260,11 +2260,12 @@ Some value checks were not run on this machine (ADR 0337): the run was offline,
 in `cached` mode with no fresh record in the effects journal
 (`.specforge/effects/`), the effect was not approved here, or the run's budget
 was spent (scope `budget`: too many probes on one value, too long, or too many
-bytes). One summary per compile counts them by scope (`links 2, registries 3`).
-The values are left unchecked, not failed, and nothing is wrong with the
-project. Run `specforge check` at a terminal (it runs `--effects auto`), or
-`--effects online`, to perform them. A `machine` diagnostic: `--strict` never
-promotes it, and the gate's warning baseline never counts it.
+bytes, a registry's index past the 16 MiB its check reads among them). One
+summary per compile counts them by scope (`links 2, registries 3`). The values
+are left unchecked, not failed, and nothing is wrong with the project. Run
+`specforge check` at a terminal (it runs `--effects auto`), or `--effects
+online`, to perform them. A `machine` diagnostic: `--strict` never promotes it,
+and the gate's warning baseline never counts it.
 
 Owner: core
 Level: info
@@ -4234,10 +4235,11 @@ W172: The URL or name did not answer
 The DNS lookup, the connection, the TLS handshake or the wait for an answer
 failed, a `@specforge/checks:dns` name does not resolve, or a server answered a
 media check's request for part of a file with all of it, past the 1 MiB that is
-read, or a registry's answer was over the 16 MiB read or did not read as its
-format. It says nothing about the project, only what this machine's network saw,
-so retry later or check the network. A `machine` diagnostic: `--strict` never
-promotes it, and the gate's warning baseline never counts it.
+read, or a registry's answer did not read as its format (one over the 16 MiB
+read leaves its value unchecked, I206). It says nothing about the project, only
+what this machine's network saw, so retry later or check the network. A
+`machine` diagnostic: `--strict` never promotes it, and the gate's warning
+baseline never counts it.
 
 Owner: @specforge/checks
 Level: warning

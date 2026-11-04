@@ -16,12 +16,19 @@ use crate::{ContributionsBuilder, FieldBuilder};
 type Plan = Box<dyn Fn(&CheckItem) -> PlannedItem>;
 type Judge = Box<dyn Fn(&CheckItem) -> Judged>;
 
-/// What a judge says of one value: its findings, or the probes it needs performed in another round (at most
-/// [`specforge_protocol_types::MAX_PROBE_ROUNDS`] in all), with what it carries to it in `item.carry`.
+/// What a judge says of one value: its findings, the probes it needs performed in another round (at most
+/// [`specforge_protocol_types::MAX_PROBE_ROUNDS`] in all) with what it carries to it in `item.carry`, or that the
+/// answers do not let it judge.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Judged {
     Findings(Vec<CheckFinding>),
-    More { probes: Vec<Probe>, carry: Value },
+    More {
+        probes: Vec<Probe>,
+        carry: Value,
+    },
+    /// The answers hold nothing the checker can judge (an answer past what it reads): the value is left out of the
+    /// reply, so the host leaves it unchecked and counts it toward I206, never a pass.
+    Unchecked,
 }
 
 impl Judged {
@@ -99,14 +106,15 @@ impl ContributionsBuilder {
     }
 }
 
-/// Each item's answer, by its checker and the call's phase. A checker the extension does not have fails the call.
+/// Each item's answer, by its checker and the call's phase; a value its judge left unchecked has none. A checker the
+/// extension does not have fails the call.
 pub(crate) fn answer(
     checkers: &BTreeMap<String, Handlers>,
     input: &CheckValuesInput,
 ) -> Result<CheckPlan, String> {
-    let items = input.items.iter().map(|item| {
+    let items = input.items.iter().filter_map(|item| {
         let Some(handlers) = checkers.get(&item.checker) else {
-            return Err(format!("no checker named '{}'", item.checker));
+            return Some(Err(format!("no checker named '{}'", item.checker)));
         };
         let planned = match input.phase {
             CheckPhase::Plan => (handlers.plan)(item),
@@ -114,12 +122,13 @@ pub(crate) fn answer(
                 None => PlannedItem::default(),
                 Some(Judged::Findings(findings)) => PlannedItem::findings(findings),
                 Some(Judged::More { probes, carry }) => PlannedItem::more(probes, carry),
+                Some(Judged::Unchecked) => return None,
             },
         };
-        Ok(PlannedItem {
+        Some(Ok(PlannedItem {
             id: item.id,
             ..planned
-        })
+        }))
     });
     Ok(CheckPlan {
         items: items.collect::<Result<_, String>>()?,

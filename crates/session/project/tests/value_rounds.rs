@@ -103,9 +103,18 @@ fn extension() -> ContributionsBuilder {
                 Some(_) => vec![CheckFinding::new("E001", "judged")].into(),
             });
     });
+    c.checker("unread", |k| {
+        k.applies_to(&["string"])
+            .scope("files")
+            .codes(&["E001"])
+            .plan(|item: &CheckItem| {
+                PlannedItem::probes(vec![read(&item.text, ByteRange::Prefix { len: 4 })])
+            })
+            .judge(|_: &CheckItem| Judged::Unchecked);
+    });
     c.kind("service", |k| {
         k.keyword("service");
-        for field in ["pointed", "forever", "wide"] {
+        for field in ["pointed", "forever", "wide", "unread"] {
             k.field(field, |f| {
                 f.field_type(FieldType::String).check(field);
             });
@@ -225,5 +234,22 @@ fn the_per_value_probe_cap_holds_over_every_round() {
         statuses,
         [specforge_project::values::CheckStatus::NotRun],
         "the second round's ten are past the cap with the first's"
+    );
+}
+
+#[test]
+fn a_value_its_judge_leaves_unchecked_is_not_run_and_counted() {
+    let (scene, _) = scene("service a \"A\" {\n  unread \"a.bin\"\n}\n");
+    scene.dir.write("a.bin", "abcdef");
+    let project = scene.checked(EffectsMode::Cached, &MemoryConsent::default());
+    let found = project.diagnostics();
+    let rows = project.value_checks().of("a");
+    assert_eq!(rows[0].status, CheckStatus::NotRun, "{rows:?}");
+    let summary = coded(&found, "I206");
+    assert_eq!(summary.len(), 1, "{found:?}");
+    assert!(
+        summary[0].message.contains("budget 1"),
+        "{}",
+        summary[0].message
     );
 }

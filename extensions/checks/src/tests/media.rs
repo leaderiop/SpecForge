@@ -232,13 +232,9 @@ fn round(
     args: serde_json::Value,
     carry: Option<serde_json::Value>,
 ) -> PlannedItem {
-    MockHost::new(crate::specforge_extension_build()).judge_round(
-        "pdf",
-        "a.pdf",
-        args,
-        file_outcomes,
-        carry,
-    )
+    MockHost::new(crate::specforge_extension_build())
+        .judge_round("pdf", "a.pdf", args, file_outcomes, carry)
+        .expect("the round is judged")
 }
 
 #[specforge_test(

@@ -30,8 +30,9 @@ behavior checks_registries "Registries Family" {
     E105 for a DOI doi.org does not register and `orcid` for an iD ORCID
     has no record of. A malformed coordinate, DOI or ORCID iD is E103 and
     is not asked. An outage (5xx, 429) is W181, 401 or 403 W182, and no
-    answer, an answer over the read or one that does not read W172: the
-    machine's, never E105. Every answer is read into typed structures
+    answer or one that does not read W172: the machine's, never E105. An
+    answer cut at the read leaves the value unchecked (I206), never a
+    pass: a large package's index says nothing of the project. Every answer is read into typed structures
     that skip what they do not read. The `families.registries` switch
     gates E105 and W179.
   """
@@ -40,6 +41,7 @@ behavior checks_registries "Registries Family" {
   verify unit "an advisory check queries OSV for the release the requirement resolves to, and reports each advisory as W179"
   verify unit "a licence the release record states outside allow, or none, is W179"
   verify unit "a doi or an orcid is asked of its resolver, a malformed one is E103 and an unknown one E105"
+  verify unit "an answer cut at the read leaves the value unchecked, never W172 nor a pass"
   verify integration "a requirement only yanked versions meet is E105 naming the newest"
   verify integration "a registry 503 is W181, never E105"
   verify integration "an OSV hit is W179 with its aliases, and a withdrawn one is not"

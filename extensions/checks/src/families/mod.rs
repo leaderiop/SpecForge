@@ -228,17 +228,17 @@ fn path_shape(args: impl FnOnce(&mut CheckerBuilder)) -> impl FnOnce(&mut Checke
 /// A checker of `family` over text, its other arguments and forms set by `shape`. `plan` reads a value's text: the
 /// probes it needs, or the finding that stops them. `judge` reads what they answered. An empty value is the kernel's
 /// `required` to judge, and a value whose probes were not answered is not judged.
-fn checker(
+fn checker<J: Into<Judged>>(
     c: &mut ContributionsBuilder,
     family: &Family,
     name: &str,
     codes: &[&str],
     shape: impl FnOnce(&mut CheckerBuilder),
     plan: impl Fn(&str, Args) -> Result<Vec<Probe>, CheckFinding> + 'static,
-    judge: impl Fn(&str, Args, &[ProbeOutcome]) -> Vec<CheckFinding> + 'static,
+    judge: impl Fn(&str, Args, &[ProbeOutcome]) -> J + 'static,
 ) {
     let judge = move |text: &str, args: Args, outcomes: &[ProbeOutcome], _: Option<&Value>| {
-        Judged::Findings(judge(text, args, outcomes))
+        judge(text, args, outcomes).into()
     };
     rounds_checker(c, family, name, codes, shape, plan, judge);
 }

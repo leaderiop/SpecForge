@@ -40,13 +40,14 @@ fn get(url: String) -> Probe {
 }
 
 /// The body of a registry's 2xx answer; else what the value is told: E105 for a 404 or a 410 (`gone`, the message),
-/// W181 for 429 or a 5xx, W182 for 401 or 403, W172 for no answer, an answer cut at the cap, or one with no body.
+/// W181 for 429 or a 5xx, W182 for 401 or 403, W172 for no answer or one with no body. An answer cut at the cap leaves
+/// the value unchecked: a large package's index is no fault of the project, nor of this machine's network.
 fn answered<'o>(
     text: &str,
     outcome: &'o ProbeOutcome,
     gone: &dyn Fn() -> String,
-) -> Result<&'o [u8], CheckFinding> {
-    let told = |code: &str, message: String| Err(on(code, text, message));
+) -> Result<&'o [u8], Judged> {
+    let told = |code: &str, message: String| Err(Judged::Findings(vec![on(code, text, message)]));
     match (&outcome.class, &outcome.data) {
         (
             OutcomeClass::Ok,
@@ -56,12 +57,7 @@ fn answered<'o>(
                 ..
             },
         ) => Ok(body),
-        (OutcomeClass::Ok | OutcomeClass::Capped, OutcomeData::Http { .. }) => told(
-            W172,
-            format!(
-                "'{text}': the registry's answer is over the 16 MiB read, so it is not checked"
-            ),
-        ),
+        (OutcomeClass::Ok | OutcomeClass::Capped, OutcomeData::Http { .. }) => Err(Judged::Unchecked),
         (OutcomeClass::Status(404 | 410), _) => told(E105, gone()),
         (OutcomeClass::Status(code @ (401 | 403)), _) => told(
             W182,
@@ -102,11 +98,7 @@ fn package_of(text: &str) -> Result<Coord, CheckFinding> {
 
 /// What the index answered of `coord`: the newest release its requirement admits; else what the value is told: E105
 /// when there is no such package or no release meets it, naming the newest that is not yanked.
-fn resolved(
-    text: &str,
-    coord: &Coord,
-    outcome: &ProbeOutcome,
-) -> Result<Release, Vec<CheckFinding>> {
+fn resolved(text: &str, coord: &Coord, outcome: &ProbeOutcome) -> Result<Release, Judged> {
     let gone = || {
         format!(
             "'{text}': {} has no package '{}'",
@@ -114,9 +106,9 @@ fn resolved(
             coord.name
         )
     };
-    let body = answered(text, outcome, &gone).map_err(|told| vec![told])?;
-    let releases =
-        coord::releases(coord.ecosystem, body).map_err(|why| vec![unread(text, &why)])?;
+    let body = answered(text, outcome, &gone)?;
+    let releases = coord::releases(coord.ecosystem, body)
+        .map_err(|why| Judged::Findings(vec![unread(text, &why)]))?;
     if let Some(release) = newest(coord.ecosystem, &coord.requirement, &releases) {
         return Ok(release.clone());
     }
@@ -132,23 +124,23 @@ fn resolved(
             coord.name
         ),
     );
-    Err(vec![match &coord.requirement_at {
+    Err(Judged::Findings(vec![match &coord.requirement_at {
         Some(at) => finding.at(at.start, at.end),
         None => finding,
-    }])
+    }]))
 }
 
 fn package_plan(text: &str, _: Args) -> Result<Vec<Probe>, CheckFinding> {
     Ok(vec![get(package_of(text)?.index_url())])
 }
 
-fn package_judge(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
+fn package_judge(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Judged {
     let Ok(coord) = package_of(text) else {
-        return Vec::new();
+        return Judged::Findings(Vec::new());
     };
     resolved(text, &coord, &outcomes[0])
         .err()
-        .unwrap_or_default()
+        .unwrap_or(Judged::Findings(Vec::new()))
 }
 
 /// A checker that resolves the package in its first round, then asks `second` of the release it resolved to, and
@@ -158,7 +150,7 @@ fn release_checker(
     name: &str,
     shape: impl FnOnce(&mut CheckerBuilder),
     second: fn(&Coord, &str) -> Probe,
-    judge: fn(&str, Args, &Coord, &str, &ProbeOutcome) -> Vec<CheckFinding>,
+    judge: fn(&str, Args, &Coord, &str, &ProbeOutcome) -> Judged,
 ) {
     let mut codes = ANSWERS.to_vec();
     codes.push(W179);
@@ -179,12 +171,10 @@ fn release_checker(
                         let probe = second(&coord, &release.version);
                         Judged::more(vec![probe], json!(release.version))
                     }
-                    Err(told) => Judged::Findings(told),
+                    Err(told) => told,
                 },
                 // A later round is sent only its own answer: the release rides in the carry.
-                ([answer], Some(version)) => {
-                    Judged::Findings(judge(text, args, &coord, version, answer))
-                }
+                ([answer], Some(version)) => judge(text, args, &coord, version, answer),
                 _ => Judged::Findings(Vec::new()),
             }
         },
@@ -204,15 +194,15 @@ fn advisory_judge(
     coord: &Coord,
     version: &str,
     outcome: &ProbeOutcome,
-) -> Vec<CheckFinding> {
+) -> Judged {
     let gone = || format!("'{text}': OSV answered that its query is gone");
     let body = match answered(text, outcome, &gone) {
         Ok(body) => body,
-        Err(told) => return vec![told],
+        Err(told) => return told,
     };
     let advisories = match osv::advisories(body) {
         Ok(advisories) => advisories,
-        Err(why) => return vec![unread(text, &why)],
+        Err(why) => return vec![unread(text, &why)].into(),
     };
     advisories
         .into_iter()
@@ -234,7 +224,8 @@ fn advisory_judge(
                 ),
             )
         })
-        .collect()
+        .collect::<Vec<_>>()
+        .into()
 }
 
 fn release_record(coord: &Coord, version: &str) -> Probe {
@@ -247,7 +238,7 @@ fn licence_judge(
     coord: &Coord,
     version: &str,
     outcome: &ProbeOutcome,
-) -> Vec<CheckFinding> {
+) -> Judged {
     let gone = || {
         format!(
             "'{text}': the registry has no record of {} {version}",
@@ -256,11 +247,11 @@ fn licence_judge(
     };
     let body = match answered(text, outcome, &gone) {
         Ok(body) => body,
-        Err(told) => return vec![told],
+        Err(told) => return told,
     };
     let stated = match coord::licence(coord.ecosystem, body) {
         Ok(stated) => stated,
-        Err(why) => return vec![unread(text, &why)],
+        Err(why) => return vec![unread(text, &why)].into(),
     };
     let unstated = || {
         vec![on(
@@ -270,7 +261,7 @@ fn licence_judge(
         )]
     };
     let allow = args.words("allow");
-    match stated
+    let findings = match stated
         .as_deref()
         .map(|stated| coord::licence_admitted(stated, &allow))
     {
@@ -286,36 +277,38 @@ fn licence_judge(
             ),
         )
         .with_help(format!("allow: {}", allow.join(", ")))],
-    }
+    };
+    findings.into()
 }
 
-fn doi_judge(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
+fn doi_judge(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Judged {
     let Ok(doi) = ids::doi(text) else {
-        return Vec::new();
+        return Judged::Findings(Vec::new());
     };
     let gone = || format!("'{text}': the DOI '{doi}' is not registered");
     let body = match answered(text, &outcomes[0], &gone) {
         Ok(body) => body,
-        Err(told) => return vec![told],
+        Err(told) => return told,
     };
     // The handle API's `responseCode`: 1 for a registered DOI, 100 for one that is not.
-    match serde_json::from_slice::<Value>(body).map(|answer| answer["responseCode"].as_i64()) {
-        Ok(Some(100)) => vec![on(E105, text, gone())],
-        Ok(Some(_)) => Vec::new(),
-        Ok(None) => vec![unread(text, "no responseCode")],
-        Err(why) => vec![unread(text, &why.to_string())],
-    }
+    let findings =
+        match serde_json::from_slice::<Value>(body).map(|answer| answer["responseCode"].as_i64()) {
+            Ok(Some(100)) => vec![on(E105, text, gone())],
+            Ok(Some(_)) => Vec::new(),
+            Ok(None) => vec![unread(text, "no responseCode")],
+            Err(why) => vec![unread(text, &why.to_string())],
+        };
+    findings.into()
 }
 
-fn orcid_judge(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
+fn orcid_judge(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Judged {
     let Ok(id) = ids::orcid(text) else {
-        return Vec::new();
+        return Judged::Findings(Vec::new());
     };
     let gone = || format!("'{text}': ORCID has no record of '{id}'");
     answered(text, &outcomes[0], &gone)
         .err()
-        .into_iter()
-        .collect()
+        .unwrap_or(Judged::Findings(Vec::new()))
 }
 
 pub(super) fn contribute(c: &mut ContributionsBuilder) {

@@ -185,6 +185,19 @@ scope names exactly seven hosts (`index.crates.io`, `crates.io`, `registry.npmjs
 `doi.org`, `pub.orcid.org`), GET and POST, https only. A definite no from the resolver is E105; an outage, a rate
 limit or a demand for credentials is the machine's (W181, W182, W172), never E105.
 
+An index read whole can be large: a popular npm packument or PyPI project document passes the journal's 4 MiB record,
+and a few pass the 16 MiB read. Neither a smaller document nor a declared `Accept` header serves every checker:
+
+- npm's abbreviated document (`Accept: application/vnd.npm.install-v1+json`) lists the releases but states no licence,
+  and PyPI's simple JSON API lists files and yanked marks but no classifier, so `license_of` would still ask the full
+  per-release record;
+- a header a capability declares is one more thing the grant must hold to its fixed hosts and the journal must digest,
+  for a size the cap already bounds.
+
+So the read stays whole and capped. An answer cut at the cap leaves its value unchecked (the judge answers
+`Judged::Unchecked`, and the value counts toward I206 as `budget`), never W172: a large index says nothing of the
+project, nor of the machine's network. An answer over 4 MiB is performed but not kept, so a `cached` run misses it.
+
 ## D16. The cap ladder, and JSON Schema left out
 
 When a re-vendored blob crosses D8's cap, the cuts come in this order, re-measured after each: one regex engine (taken
