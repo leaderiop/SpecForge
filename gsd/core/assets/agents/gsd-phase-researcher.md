@@ -667,7 +667,7 @@ Plans that assume a tool is available without checking lead to silent failures a
 
 ```bash
 # CLI tools — check if command exists and get version
-command -v $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
+specforge run --which $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
 
 # Runtimes — check version meets minimum
 node --version 2>/dev/null

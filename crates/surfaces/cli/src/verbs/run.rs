@@ -37,7 +37,8 @@ pub(crate) struct RunArgs {
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
-    /// Output format: human (the default) passes the program's stdin, stdout and stderr through; json captures them
+    /// Output format: human (the default) passes the program's stdin, stdout and stderr through; json (and --pick)
+    /// captures them
     #[arg(long, default_value = "human")]
     format: OutputFormat,
 
@@ -73,15 +74,13 @@ fn parse_deadline(text: &str) -> Result<Duration, String> {
 impl RunArgs {
     /// The exit code: the program's own, or the verb's.
     pub(crate) fn run(self, terminal: &Terminal, ports: &Ports) -> i32 {
-        let json = self.format == OutputFormat::Json;
-        if self.pick.is_some() && !json {
-            errln!(
-                terminal,
-                "error: --pick reads the JSON answer: add --format json"
-            );
-            return Exit::Unjudged.code();
-        }
-        let format = self.format;
+        // --pick reads the JSON answer, so it asks for one: a pass-through run has none to pick from.
+        let json = self.format == OutputFormat::Json || self.pick.is_some();
+        let format = if json {
+            OutputFormat::Json
+        } else {
+            OutputFormat::Human
+        };
         let mode = self.effects.unwrap_or(EffectsMode::Online);
         if !json && !self.which && !mode.is_live() {
             errln!(

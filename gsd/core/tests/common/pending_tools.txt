@@ -46,7 +46,7 @@ agents/gsd-integration-checker.md	wc	grep -v "import" | grep -v "$source_phase" 
 agents/gsd-integration-checker.md	wc	--include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
 agents/gsd-integration-checker.md	wc	--include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
 agents/gsd-phase-researcher.md	cat	if [ -e "${_CTX[0]}" ]; then cat "${_CTX[@]}"; fi
-agents/gsd-phase-researcher.md	head	command -v $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
+agents/gsd-phase-researcher.md	head	specforge run --which $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
 agents/gsd-phase-researcher.md	head	docker info 2>/dev/null | head -3
 agents/gsd-plan-checker.md	grep	grep "depends_on:" "$plan"
 agents/gsd-plan-checker.md	grep	pnpm ls … | grep -E '^package'
@@ -921,8 +921,7 @@ prompt:workspace	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 
 prompt:workspace	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
 prompt:workspace	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 
-# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 80 rows.
-agents/gsd-verifier.md	timeout	timeout 30 bash "$probe"
+# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 71 rows.
 gsd-core/references/checkpoints.md	lsof	lsof -ti:3000 | xargs kill
 gsd-core/references/checkpoints.md	sleep	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
 gsd-core/references/execute-phase-quota-recovery.md	sleep	sleep "$RETRY_AFTER"
@@ -936,15 +935,10 @@ gsd-core/references/worktree-path-safety.md	timeout	timeout --signal TERM
 gsd-core/workflows/execute-phase.md	date	DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 gsd-core/workflows/execute-phase.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase.md	timeout	timeout "${CROSS_AI_TIMEOUT}"
-gsd-core/workflows/execute-phase/detail/elaboration.md	timeout	echo "$TASK_PROMPT" | timeout "${CROSS_AI_TIMEOUT}" ${CROSS_AI_CMD} > "$CANDIDATE_SUMMARY" 2>"$ERROR_LOG"
 gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	date	AGENT_ID="agent-p{plan_number}-$(date -u +%s)"
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/post-merge-gate.md	timeout	timeout 300 bash -c "$BUILD_CMD" 2>&1
-gsd-core/workflows/execute-phase/steps/post-merge-gate.md	timeout	timeout "$TEST_GATE_TIMEOUT" bash -c "$TEST_CMD" 2>&1
 gsd-core/workflows/execute-phase/steps/regression-gate-run.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/regression-gate-run.md	timeout	timeout "$TEST_GATE_TIMEOUT" bash -c "$REG_TEST_CMD" 2>&1
 gsd-core/workflows/execute-phase/steps/regression-gate.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase/steps/regression-gate.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase/steps/regression-gate.md	rm	rm -f "$_GSD_HANDOFF/regression-files"  # a list left by an earlier run must never reach this gate (#4915)
@@ -977,11 +971,9 @@ gsd-core/workflows/review.md	date	_DIAG_STAMP="$(date -u +%Y%m%dT%H%M%SZ 2>/dev/
 gsd-core/workflows/review.md	mkdir	if mkdir -p "$_DIAG_RUN_DIR"; then
 gsd-core/workflows/review.md	mkdir	mkdir -p
 gsd-core/workflows/ship.md	sleep	sleep 3
-gsd-core/workflows/ship.md	timeout	REVIEW_OUTPUT=$(echo "${REVIEW_PROMPT}" | timeout 120 ${REVIEW_CMD} 2>"${REVIEW_STDERR_FILE}")
 prompt:execute_phase	date	DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 prompt:execute_phase	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 prompt:execute_phase	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-prompt:execute_phase	timeout	timeout "${CROSS_AI_TIMEOUT}"
 prompt:execute_plan	date	PLAN_START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 prompt:execute_plan	date	PLAN_START_EPOCH=$(date +%s)
 prompt:execute_plan	date	PLAN_END_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -998,7 +990,6 @@ prompt:review	date	_DIAG_STAMP="$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || true)"
 prompt:review	mkdir	if mkdir -p "$_DIAG_RUN_DIR"; then
 prompt:review	mkdir	mkdir -p
 prompt:ship	sleep	sleep 3
-prompt:ship	timeout	REVIEW_OUTPUT=$(echo "${REVIEW_PROMPT}" | timeout 120 ${REVIEW_CMD} 2>"${REVIEW_STDERR_FILE}")
 prompt:workspace	date	TIMESTAMP=$(date +%Y%m%d%H%M%S)
 prompt:workspace	mkdir	mkdir -p "$TARGET_PATH"
 prompt:workspace	rm	rm -rf "$WORKSPACE_PATH"
@@ -1646,18 +1637,18 @@ agents/gsd-planner.md	curl	curl -X POST /api/auth/login
 agents/gsd-verifier.md	curl	curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | head -c 2000   # read the answer: it passes when it is non-empty data (an array, an object or a string with content)
 gsd-core/workflows/pr-branch.md	gh	gh pr create \
 gsd-core/workflows/review.md	curl	for lane in "ollama http://localhost:11434 {{setting:review.ollama_host|}}" "lm_studio http://localhost:1234 {{setting:review.lm_studio_host|}}" "llama_cpp http://localhost:8080 {{setting:review.llama_cpp_host|}}"; do read -r name def host <<<"$lane"; { [ -z "$host" ] || [ "$host" = null ]; } && host=$def; curl -s --max-time 2 "$host/v1/models" >/dev/null 2>&1 && echo "$name:available" || echo "$name:missing"; done
-gsd-core/workflows/ship.md	gh	which gh && gh auth status 2>&1
+gsd-core/workflows/ship.md	gh	specforge run --which gh && gh auth status 2>&1
 gsd-core/workflows/ship.md	gh	gh pr create \
 gsd-core/workflows/ship.md	gh	gh pr edit ${PR_NUMBER} --add-reviewer "${REVIEWER}"
 gsd-core/workflows/ship.md	gh	PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup --jq '"\(.headRefOid) \(.mergeStateStatus) \((.statusCheckRollup // []) | length)"' 2>/dev/null || echo '- UNKNOWN 0')   # gh's own --jq filter: "<head> <status> <checks>"
 prompt:pr_branch	gh	gh pr create \
 prompt:review	curl	for lane in "ollama http://localhost:11434 http://localhost:11434" "lm_studio http://localhost:1234 http://localhost:1234" "llama_cpp http://localhost:8080 http://localhost:8080"; do read -r name def host <<<"$lane"; { [ -z "$host" ] || [ "$host" = null ]; } && host=$def; curl -s --max-time 2 "$host/v1/models" >/dev/null 2>&1 && echo "$name:available" || echo "$name:missing"; done
-prompt:ship	gh	which gh && gh auth status 2>&1
+prompt:ship	gh	specforge run --which gh && gh auth status 2>&1
 prompt:ship	gh	gh pr create \
 prompt:ship	gh	gh pr edit ${PR_NUMBER} --add-reviewer "${REVIEWER}"
 prompt:ship	gh	PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup --jq '"\(.headRefOid) \(.mergeStateStatus) \((.statusCheckRollup // []) | length)"' 2>/dev/null || echo '- UNKNOWN 0')   # gh's own --jq filter: "<head> <status> <checks>"
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 80 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 78 rows.
 agents/gsd-executor.md	npx	npx --yes
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
@@ -1676,7 +1667,6 @@ agents/gsd-phase-researcher.md	redis-cli	redis-cli ping 2>/dev/null
 agents/gsd-phase-researcher.md	ruby	ruby --version 2>/dev/null
 agents/gsd-planner.md	npm	npm --prefix <dir> run <script>
 agents/gsd-planner.md	npx	npx --yes ctx7@latest
-agents/gsd-verifier.md	bash	timeout 30 bash "$probe"
 agents/gsd-verifier.md	bash	bash "$probe"
 agents/gsd-verifier.md	bash	bash "$probe"
 agents/gsd-verifier.md	cargo	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
@@ -1723,7 +1713,6 @@ gsd-core/references/worktree-path-safety.md	python3	python3 -c
 gsd-core/workflows/execute-phase/steps/code-review-disposition.md	node	FIX_REPORT_FILE="${FIX_REPORT_FILE}" node -e "
 gsd-core/workflows/execute-phase/steps/code-review-disposition.md	node	node -e
 gsd-core/workflows/execute-phase/steps/code-review-disposition.md	node	node -e
-gsd-core/workflows/execute-phase/steps/post-merge-gate.md	bash	timeout 300 bash -c "$BUILD_CMD" 2>&1
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	python3	XCODE_SCHEME=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('project',{}).get('schemes',[None])[0] or '')" 2>/dev/null || true)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	python3	XCODE_SCHEME=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('project',{}).get('schemes',[None])[0] or '')" 2>/dev/null || true)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcodebuild	XCODE_SCHEME=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('project',{}).get('schemes',[None])[0] or '')" 2>/dev/null || true)
@@ -1743,42 +1732,17 @@ prompt:spec_phase	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
 gsd-core/workflows/ultraplan-phase.md	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 
-# H routing: no probes: an optional integration is a setting or an extension SpecForge knows is loaded (R1). 35 rows.
-agents/gsd-executor.md	command	if command -v ctx7 &>/dev/null; then
-agents/gsd-executor.md	command	if command -v ctx7 &>/dev/null; then
+# H routing: no probes: an optional integration is a setting or an extension SpecForge knows is loaded (R1). 10 rows.
 agents/gsd-executor.md	ctx7	ctx7 library <name> "<query>"
 agents/gsd-executor.md	ctx7	ctx7 docs <libraryId> "<query>"
-agents/gsd-phase-researcher.md	command	command -v $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
-agents/gsd-planner.md	command	command -v ctx7
-gsd-core/references/planner-load-graph-context.md	command	if command -v graphify >/dev/null 2>&1; then
 gsd-core/references/planner-load-graph-context.md	graphify	graphify status   # not part of @gsd/core; when it is not on PATH, skip graph context
 gsd-core/references/planner-load-graph-context.md	graphify	graphify query "<phase-goal-keyword>" --graph "<graph>" --budget 2000
 gsd-core/references/planner-load-graph-context.md	graphify	graphify affected "<phase-goal-keyword>" --graph "<graph>" --depth 2
 gsd-core/references/planner-load-graph-context.md	graphify	graphify query "<phase-goal-keyword>" --budget 2000
-gsd-core/references/research-documentation-lookup.md	command	if command -v ctx7 &>/dev/null; then
-gsd-core/references/research-documentation-lookup.md	command	if command -v ctx7 &>/dev/null; then
 gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 library <name> "<query>"
 gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 docs <libraryId> "<query>"
 gsd-core/references/worktree-path-safety.md	command	command -v bash
 gsd-core/references/worktree-path-safety.md	command	command -v bash
-gsd-core/workflows/review.md	command	command -v claude >/dev/null 2>&1 && echo "claude:available" || echo "claude:missing"
-gsd-core/workflows/review.md	command	command -v codex >/dev/null 2>&1 && echo "codex:available" || echo "codex:missing"
-gsd-core/workflows/review.md	command	command -v coderabbit >/dev/null 2>&1 && echo "coderabbit:available" || echo "coderabbit:missing"
-gsd-core/workflows/review.md	command	command -v opencode >/dev/null 2>&1 && echo "opencode:available" || echo "opencode:missing"
-gsd-core/workflows/review.md	command	command -v qwen >/dev/null 2>&1 && echo "qwen:available" || echo "qwen:missing"
-gsd-core/workflows/review.md	command	command -v cursor-agent >/dev/null 2>&1 && echo "cursor:available" || echo "cursor:missing"
-gsd-core/workflows/review.md	command	command -v agy >/dev/null 2>&1 && echo "antigravity:available" || echo "antigravity:missing"
-gsd-core/workflows/review.md	command	command -v kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo "kimi-code:missing"
-gsd-core/workflows/ship.md	which	which gh && gh auth status 2>&1
-prompt:review	command	command -v claude >/dev/null 2>&1 && echo "claude:available" || echo "claude:missing"
-prompt:review	command	command -v codex >/dev/null 2>&1 && echo "codex:available" || echo "codex:missing"
-prompt:review	command	command -v coderabbit >/dev/null 2>&1 && echo "coderabbit:available" || echo "coderabbit:missing"
-prompt:review	command	command -v opencode >/dev/null 2>&1 && echo "opencode:available" || echo "opencode:missing"
-prompt:review	command	command -v qwen >/dev/null 2>&1 && echo "qwen:available" || echo "qwen:missing"
-prompt:review	command	command -v cursor-agent >/dev/null 2>&1 && echo "cursor:available" || echo "cursor:missing"
-prompt:review	command	command -v agy >/dev/null 2>&1 && echo "antigravity:available" || echo "antigravity:missing"
-prompt:review	command	command -v kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo "kimi-code:missing"
-prompt:ship	which	which gh && gh auth status 2>&1
 
 # I files: specforge files: walk, glob, match (R4). 18 rows.
 commands/gsd/quick.md	stat	stat -f "%SB" -t "%Y-%m-%d"

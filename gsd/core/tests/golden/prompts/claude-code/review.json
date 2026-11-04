@@ -36,14 +36,14 @@
     "```bash",
     "# the commands below are specforge commands: there is no launcher to define",
     "# Check each CLI",
-    "command -v claude >/dev/null 2>&1 && echo \"claude:available\" || echo \"claude:missing\"",
-    "command -v codex >/dev/null 2>&1 && echo \"codex:available\" || echo \"codex:missing\"",
-    "command -v coderabbit >/dev/null 2>&1 && echo \"coderabbit:available\" || echo \"coderabbit:missing\"",
-    "command -v opencode >/dev/null 2>&1 && echo \"opencode:available\" || echo \"opencode:missing\"",
-    "command -v qwen >/dev/null 2>&1 && echo \"qwen:available\" || echo \"qwen:missing\"",
-    "command -v cursor-agent >/dev/null 2>&1 && echo \"cursor:available\" || echo \"cursor:missing\"",
-    "command -v agy >/dev/null 2>&1 && echo \"antigravity:available\" || echo \"antigravity:missing\"",
-    "command -v kimi >/dev/null 2>&1 && echo \"kimi-code:available\" || echo \"kimi-code:missing\"",
+    "specforge run --which claude >/dev/null 2>&1 && echo \"claude:available\" || echo \"claude:missing\"",
+    "specforge run --which codex >/dev/null 2>&1 && echo \"codex:available\" || echo \"codex:missing\"",
+    "specforge run --which coderabbit >/dev/null 2>&1 && echo \"coderabbit:available\" || echo \"coderabbit:missing\"",
+    "specforge run --which opencode >/dev/null 2>&1 && echo \"opencode:available\" || echo \"opencode:missing\"",
+    "specforge run --which qwen >/dev/null 2>&1 && echo \"qwen:available\" || echo \"qwen:missing\"",
+    "specforge run --which cursor-agent >/dev/null 2>&1 && echo \"cursor:available\" || echo \"cursor:missing\"",
+    "specforge run --which agy >/dev/null 2>&1 && echo \"antigravity:available\" || echo \"antigravity:missing\"",
+    "specforge run --which kimi >/dev/null 2>&1 && echo \"kimi-code:available\" || echo \"kimi-code:missing\"",
     "",
     "# Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);",
     "# hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)",
@@ -61,7 +61,7 @@
     "**Structured reviewer lanes.** The `ollama`, `lm_studio`, `llama_cpp`, `opencode` and",
     "`antigravity` lanes answer in JSON. Write each lane's raw answer to its output file and read"
   ],
-  "bytes": 60309,
+  "bytes": 60397,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b16a25028c11d5877f67fe8d26ae7219dfc0ac2aae0483571ae1117143e57a43",
+    "digest": "sha256:a66e320505b12a6d7c4c6549ea0501151dea3d9b95e6d0f59853746153f302f3",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "b16a25028c11d5877f67fe8d26ae7219dfc0ac2aae0483571ae1117143e57a43"
+  "sha256": "a66e320505b12a6d7c4c6549ea0501151dea3d9b95e6d0f59853746153f302f3"
 }

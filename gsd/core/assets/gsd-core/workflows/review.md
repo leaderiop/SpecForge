@@ -19,14 +19,14 @@ Check which AI CLIs are available on the system:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 # Check each CLI
-command -v claude >/dev/null 2>&1 && echo "claude:available" || echo "claude:missing"
-command -v codex >/dev/null 2>&1 && echo "codex:available" || echo "codex:missing"
-command -v coderabbit >/dev/null 2>&1 && echo "coderabbit:available" || echo "coderabbit:missing"
-command -v opencode >/dev/null 2>&1 && echo "opencode:available" || echo "opencode:missing"
-command -v qwen >/dev/null 2>&1 && echo "qwen:available" || echo "qwen:missing"
-command -v cursor-agent >/dev/null 2>&1 && echo "cursor:available" || echo "cursor:missing"
-command -v agy >/dev/null 2>&1 && echo "antigravity:available" || echo "antigravity:missing"
-command -v kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo "kimi-code:missing"
+specforge run --which claude >/dev/null 2>&1 && echo "claude:available" || echo "claude:missing"
+specforge run --which codex >/dev/null 2>&1 && echo "codex:available" || echo "codex:missing"
+specforge run --which coderabbit >/dev/null 2>&1 && echo "coderabbit:available" || echo "coderabbit:missing"
+specforge run --which opencode >/dev/null 2>&1 && echo "opencode:available" || echo "opencode:missing"
+specforge run --which qwen >/dev/null 2>&1 && echo "qwen:available" || echo "qwen:missing"
+specforge run --which cursor-agent >/dev/null 2>&1 && echo "cursor:available" || echo "cursor:missing"
+specforge run --which agy >/dev/null 2>&1 && echo "antigravity:available" || echo "antigravity:missing"
+specforge run --which kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo "kimi-code:missing"
 
 # Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);
 # hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)

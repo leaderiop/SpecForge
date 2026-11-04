@@ -68,7 +68,7 @@ fi
 # Run build with 5-minute timeout
 BUILD_EXIT=0
 if [ -n "$BUILD_CMD" ]; then
-  timeout 300 bash -c "$BUILD_CMD" 2>&1
+  specforge run --deadline 300s -- bash -c "$BUILD_CMD" 2>&1
   BUILD_EXIT=$?
   if [ "${BUILD_EXIT}" -eq 0 ]; then
     echo "✓ Post-merge build gate passed"
@@ -146,7 +146,7 @@ fi
 TEST_CMD="$TEST_CMD"   # normalize-test-command is not part of @gsd/core: the command runs as configured
 TEST_GATE_TIMEOUT="{{setting:workflow.test_gate_timeout|600}}"   # workflow.test_gate_timeout (the settings)
 TEST_EXIT=0
-timeout "$TEST_GATE_TIMEOUT" bash -c "$TEST_CMD" 2>&1
+specforge run --deadline "$TEST_GATE_TIMEOUT" -- bash -c "$TEST_CMD" 2>&1
 TEST_EXIT=$?
 if [ "${TEST_EXIT}" -eq 0 ]; then
   echo "✓ Post-merge test gate passed — no cross-plan conflicts"

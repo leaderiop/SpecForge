@@ -101,7 +101,7 @@ Verify the work is ready to ship:
 
 5. **`gh` CLI available?**
    ```bash
-   which gh && gh auth status 2>&1
+   specforge run --which gh && gh auth status 2>&1
    ```
    If `gh` not found or not authenticated: provide setup instructions and exit.
 
@@ -415,7 +415,7 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
    # ship runs — same or different phase, same or different project — never
    # clobber or read each other's stderr. Portable via ${TMPDIR:-/tmp}.
    REVIEW_STDERR_FILE=$(specforge files temp --prefix gsd-review-stderr- --pick .path)
-   REVIEW_OUTPUT=$(echo "${REVIEW_PROMPT}" | timeout 120 ${REVIEW_CMD} 2>"${REVIEW_STDERR_FILE}")
+   REVIEW_OUTPUT=$(echo "${REVIEW_PROMPT}" | specforge run --deadline 120 -- ${REVIEW_CMD} 2>"${REVIEW_STDERR_FILE}")
    REVIEW_EXIT=$?
    ```
 

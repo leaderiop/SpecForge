@@ -24,7 +24,7 @@ When you need library or framework documentation, check in this order:
 
    Step 1 — Resolve library ID:
    ```bash
-   if command -v ctx7 &>/dev/null; then
+   if specforge run --which ctx7 >/dev/null 2>&1; then
      ctx7 library <name> "<query>"
    else
      echo "ctx7 not found — install with: npm install -g ctx7 (verify at npmjs.com/package/ctx7 first)"
@@ -33,7 +33,7 @@ When you need library or framework documentation, check in this order:
 
    Step 2 — Fetch documentation:
    ```bash
-   if command -v ctx7 &>/dev/null; then
+   if specforge run --which ctx7 >/dev/null 2>&1; then
      ctx7 docs <libraryId> "<query>"
    else
      echo "ctx7 not found — install with: npm install -g ctx7 (verify at npmjs.com/package/ctx7 first)"

@@ -490,7 +490,7 @@ grep -R -n -E 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' "$PHASE_DI
 
 ```bash
 for probe in "${PROBES[@]}"; do
-  timeout 30 bash "$probe"
+  specforge run --deadline 30 -- bash "$probe"
 done
 ```
 

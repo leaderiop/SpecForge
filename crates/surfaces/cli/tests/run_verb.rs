@@ -236,9 +236,11 @@ fn replay_refuses_a_run_never_captured_and_a_pass_through_takes_no_journal_mode(
             .bare(&args(&["run", "--effects", mode], &argv))
             .exits(2);
     }
-    Cli::on(&project)
+    // --pick reads the captured answer.
+    let picked = run(&project, "exit:5")
         .bare(&args(&["run", "--pick", ".exit"], &argv))
-        .exits(2);
+        .exits(0);
+    assert_eq!(picked.stdout, "5\n");
 }
 
 #[test]
