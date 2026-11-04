@@ -27,6 +27,7 @@ mod gsd_names;
 mod history;
 mod hostile_files;
 mod hover;
+mod hover_checks;
 mod hover_declared;
 mod hover_members;
 mod hover_obligations;

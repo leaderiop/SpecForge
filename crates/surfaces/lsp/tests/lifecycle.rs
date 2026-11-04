@@ -97,7 +97,7 @@ fn initialize_answers_a_static_result() {
                 "semanticTokensProvider": {
                     "full": true,
                     "legend": {
-                        "tokenModifiers": ["declaration", "reference"],
+                        "tokenModifiers": ["declaration", "reference", "checked"],
                         "tokenTypes": specforge_lsp::TOKEN_TYPES,
                     },
                 },

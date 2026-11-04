@@ -304,6 +304,9 @@ behavior hover_information "Hover Information" {
     description) answers when the cursor is on a field's name in an
     entity's own body, nowhere else.
   """
+  verify unit "hover on a checked value shows one line per checker"
+  verify unit "a check not run says why on the value's hover"
+  verify unit "a field's hover names its checks"
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
   verify unit "hover shows an integer field's value beside the word it was written as when they differ"
@@ -863,6 +866,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
     as variable), with the reference modifier; an enum field's value is an
     enumMember and a boolean field's value a keyword.
   """
+  verify unit "a checked value has the checked modifier"
   verify unit "entity ID declaration uses its kind's semantic_token from the KindRegistry"
   verify unit "a titled union is a form and its variants are values"
   verify unit "structural keywords are classified as keyword"

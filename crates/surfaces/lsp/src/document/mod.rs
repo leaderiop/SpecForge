@@ -8,9 +8,11 @@ mod line_index;
 mod syntax;
 mod tokens;
 
-pub use cursor::{CompletionSite, Cursor, EntityAt, Place, Target, Word, WordEdit};
+pub use cursor::{CompletionSite, Cursor, EntityAt, Place, StringValue, Target, Word, WordEdit};
 pub use line_index::LineIndex;
-pub use tokens::{MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES};
+pub use tokens::{
+    MOD_CHECKED, MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES,
+};
 
 use specforge_ops::view::ProjectView;
 use std::sync::{Arc, OnceLock};

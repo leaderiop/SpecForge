@@ -180,7 +180,7 @@ pub fn items(
 }
 
 /// The path of the entity block around the cursor: the one of its kind and name whose block holds the cursor's line.
-fn holder(cursor: &Cursor<'_>, view: &ProjectView, place: Place<'_>) -> Option<Sym> {
+pub(crate) fn holder(cursor: &Cursor<'_>, view: &ProjectView, place: Place<'_>) -> Option<Sym> {
     let at = cursor.entity()?;
     let name = at.id?;
     let line = cursor.position().line as usize + 1;

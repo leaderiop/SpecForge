@@ -213,9 +213,19 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
                 })
         }
         Some(Target::Field { kind, field }) => {
-            hover::hover_field_info(&field, &kind, state.field_registry())
+            let checks = hover::checks_line(state.registries().checks().on(&kind, &field));
+            hover::hover_field_info(&field, &kind, state.field_registry()).map(
+                |info| match checks {
+                    Some(checks) => format!("{info}  \n{checks}"),
+                    None => info,
+                },
+            )
         }
         Some(Target::Import { .. }) | None => None,
+    };
+    let about = match (crate::checked_value::hover(state, uri, position), about) {
+        (Some(checked), Some(about)) => Some(format!("{checked}{}{about}", hover::SECTION)),
+        (checked, about) => checked.or(about),
     };
     let value = match (
         hover::diagnostics(&shown, state.registries().codes()),
