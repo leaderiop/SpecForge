@@ -10,6 +10,7 @@ mod doc_links;
 mod gsd;
 pub mod judge;
 pub mod layers;
+pub mod objects;
 mod repo;
 mod root_layout;
 mod run;
