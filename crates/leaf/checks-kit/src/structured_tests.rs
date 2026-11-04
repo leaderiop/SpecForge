@@ -71,7 +71,7 @@ fn a_yaml_tree_expands_anchors_and_writes_non_string_keys_as_json() {
 }
 
 #[test]
-fn a_billion_laughs_stops_at_the_node_cap() {
+fn a_billion_laughs_stops_at_the_byte_cap() {
     let mut yaml = String::from("a: &a [x, x, x, x, x, x, x, x, x, x]\n");
     for (level, name) in ["b", "c", "d", "e", "f", "g", "h"].iter().enumerate() {
         let previous = ["a", "b", "c", "d", "e", "f", "g"][level];
@@ -80,9 +80,24 @@ fn a_billion_laughs_stops_at_the_node_cap() {
     }
     let error = parse(Format::Yaml, yaml.as_bytes()).unwrap_err();
     assert!(
-        error.message.contains("nodes once its aliases are read"),
+        error.message.contains("bytes once its aliases are read"),
         "{error}"
     );
+}
+
+#[test]
+fn an_alias_of_a_long_string_counts_its_bytes() {
+    // 600 KB copied 64 times is 38 MB of strings in 66 nodes.
+    let long = "x".repeat(600 * 1024);
+    let row = vec!["*s"; 64].join(", ");
+    let yaml = format!("s: &s \"{long}\"\nt: [{row}]\n");
+    let error = parse(Format::Yaml, yaml.as_bytes()).unwrap_err();
+    assert!(
+        error.message.contains("bytes once its aliases are read"),
+        "{error}"
+    );
+    let few = format!("s: &s \"{long}\"\nt: [*s, *s]\n");
+    assert!(parse(Format::Yaml, few.as_bytes()).is_ok());
 }
 
 #[test]

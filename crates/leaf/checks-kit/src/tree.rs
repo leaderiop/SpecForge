@@ -2,8 +2,9 @@
 //! them all, and a YAML file means what its JSON twin does. The text must be UTF-8 (a byte order mark is dropped). TOML
 //! datetimes become their RFC 3339 strings, and a YAML key that is no string is written as its JSON.
 //!
-//! Bounded, since a file is untrusted: nesting stops at [`MAX_DEPTH`], and YAML aliases at [`MAX_NODES`] nodes, so a
-//! billion laughs costs a few kilobytes.
+//! Bounded, since a file is untrusted: nesting stops at [`MAX_DEPTH`], and a YAML document at [`MAX_BYTES`] once its
+//! aliases are read, each node costing [`NODE_COST`] and a scalar its length too, so neither a billion laughs nor an
+//! alias of a long string copied many times costs more than that.
 
 use std::collections::HashMap;
 
@@ -14,8 +15,11 @@ use yaml_rust2::scanner::{Marker, TScalarStyle};
 
 /// The deepest a document nests.
 pub const MAX_DEPTH: usize = 128;
-/// The most nodes a YAML document holds once its aliases are read: a 1 MiB file holds fewer.
-pub const MAX_NODES: usize = 1 << 20;
+/// The most a YAML document holds once its aliases are read, in bytes: its scalars' lengths and [`NODE_COST`] per node. A
+/// 1 MiB file without aliases holds less.
+pub const MAX_BYTES: usize = 32 << 20;
+/// What one node costs toward [`MAX_BYTES`], about what the tree keeps of it beside its text.
+pub const NODE_COST: usize = 32;
 
 /// A format the tree reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -193,19 +197,19 @@ fn yaml(text: &str) -> Result<Value, ParseError> {
 }
 
 /// A collection being built: a sequence, or a mapping with the key read but not yet its value; with its anchor and
-/// how many nodes it holds so far.
+/// what it holds so far, in bytes.
 enum Open {
     Sequence(Vec<Value>, usize, usize),
     Mapping(Map<String, Value>, Option<String>, usize, usize),
 }
 
-/// Builds a tree from the parser's events, each alias expanded by copy and counted.
+/// Builds a tree from the parser's events, each alias expanded by copy and counted in bytes.
 #[derive(Default)]
 struct Builder {
     open: Vec<Open>,
-    /// Each anchor's node and how many nodes it holds.
+    /// Each anchor's node and what it holds, in bytes.
     anchors: HashMap<usize, (Value, usize)>,
-    nodes: usize,
+    bytes: usize,
     done: Option<Value>,
     error: Option<ParseError>,
 }
@@ -219,17 +223,17 @@ impl Builder {
         self.error.get_or_insert(error);
     }
 
-    /// Count `fresh` more nodes: false, and the tree fails, past [`MAX_NODES`].
+    /// Count `fresh` more bytes: false, and the tree fails, past [`MAX_BYTES`].
     fn count(&mut self, fresh: usize, mark: Marker) -> bool {
-        self.nodes = self.nodes.saturating_add(fresh);
-        if self.nodes > MAX_NODES {
-            let why = format!("holds more than {MAX_NODES} nodes once its aliases are read");
+        self.bytes = self.bytes.saturating_add(fresh);
+        if self.bytes > MAX_BYTES {
+            let why = format!("holds more than {MAX_BYTES} bytes once its aliases are read");
             self.fail(at_mark(why, mark));
         }
         self.error.is_none()
     }
 
-    /// Add `value`, which holds `size` nodes (anchored as `anchor` when not 0), to what is open.
+    /// Add `value`, which holds `size` bytes (anchored as `anchor` when not 0), to what is open.
     fn add(&mut self, value: Value, size: usize, anchor: usize) {
         if anchor != 0 {
             self.anchors.insert(anchor, (value.clone(), size));
@@ -261,7 +265,7 @@ impl Builder {
                 mark,
             ));
         }
-        if self.count(1, mark) {
+        if self.count(NODE_COST, mark) {
             self.open.push(collection);
         }
     }
@@ -300,8 +304,9 @@ impl MarkedEventReceiver for Builder {
         }
         match event {
             Event::Scalar(text, style, anchor, _) => {
-                if self.count(1, mark) {
-                    self.add(scalar(text, style), 1, anchor);
+                let size = NODE_COST.saturating_add(text.len());
+                if self.count(size, mark) {
+                    self.add(scalar(text, style), size, anchor);
                 }
             }
             Event::Alias(anchor) => match self.anchors.get(&anchor).map(|(_, size)| *size) {
@@ -314,10 +319,10 @@ impl MarkedEventReceiver for Builder {
                 None => self.fail(at_mark("names an anchor not defined before it", mark)),
             },
             Event::SequenceStart(anchor, _) => {
-                self.open(Open::Sequence(Vec::new(), anchor, 1), mark)
+                self.open(Open::Sequence(Vec::new(), anchor, NODE_COST), mark)
             }
             Event::MappingStart(anchor, _) => {
-                self.open(Open::Mapping(Map::new(), None, anchor, 1), mark)
+                self.open(Open::Mapping(Map::new(), None, anchor, NODE_COST), mark)
             }
             Event::SequenceEnd | Event::MappingEnd => {
                 let (value, anchor, size) = match self.open.pop() {
