@@ -138,13 +138,13 @@ fn inputs_round_trip_as_one_tagged_list() {
             "plans",
             FileRead {
                 field: Some("plan.files_modified".into()),
-                base: Some("spec".into()),
+                root: Some("spec".into()),
                 ..Default::default()
             },
         )],
         ..Default::default()
     };
-    assert_eq!(round_trip(&command)["inputs"][0]["base"], "spec");
+    assert_eq!(round_trip(&command)["inputs"][0]["root"], "spec");
     let collector = CollectorDescriptor {
         name: "node".into(),
         export: "collect__node".into(),
@@ -208,7 +208,7 @@ fn an_unknown_key_in_an_input_is_w138() {
                 DeclaredCategory::Passes => json!([
                     {"name": "audit", "inputs": [{"input": "files", "name": "files", "glob": "src/**", "txet": true},
                                                 {"input": "git", "status": true, "when": "x", "extension": "y",
-                                                 "field": "a.b", "base": "spec", "text": true}]},
+                                                 "field": "a.b", "root": "spec", "text": true}]},
                 ]),
                 DeclaredCategory::Surfaces => json!([{"commands": [
                     {"id": "go", "title": "Go", "description": "Go", "export": "cmd__go",

@@ -8,7 +8,7 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use serde_json::{Value, json};
-use specforge_effects::RootName;
+use specforge_effects::Root;
 use specforge_effects::contained::Contained;
 use specforge_graph::{Graph, Node, wire};
 use specforge_package::Sha256;
@@ -225,9 +225,9 @@ impl<'a> Cx<'a> {
         let root = self.env.root();
         let lookup = DiskLookup(self.disk);
         let base = if file.project {
-            RootName::Project
+            Root::Project
         } else {
-            RootName::Spec
+            Root::Spec
         };
         // A file outside its root is not read: an absolute path, a `..` that climbs out, a link out (ADR 0335).
         let contained = Contained::project(root, self.env.spec_root(), &lookup);

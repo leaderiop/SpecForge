@@ -70,7 +70,7 @@ pub struct FieldDescriptor {
     /// An `integer` field's greatest value, inclusive (E061 above it).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub maximum: Option<i64>,
-    /// Where a `file_reference` field's relative paths start: a [`FileBase`](crate::FileBase) name, `spec` (the
+    /// Where a `file_reference` field's relative paths start: a [`Root`](crate::Root) name, `spec` (the
     /// spec root, the default) or `project` (the directory holding `specforge.json`). Kept a string, as
     /// `derived_from`, so an unknown base costs this field its base (W021).
     #[serde(default, skip_serializing_if = "Option::is_none")]

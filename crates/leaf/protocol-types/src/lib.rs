@@ -44,6 +44,7 @@ mod operation;
 mod plan;
 mod prompt;
 mod reads;
+mod rooted;
 mod route;
 mod settings;
 mod surface;
@@ -77,6 +78,7 @@ pub use prompt::{
     PromptRole, PromptStep, ServedSlash,
 };
 pub use reads::{FileFact, FileFacts, FileMap, FileRead};
+pub use rooted::{PrefixProblem, Root, RootedPath};
 pub use route::{ROUTE_START, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor};
 pub use settings::{
     Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
@@ -86,8 +88,7 @@ pub use surface::*;
 pub use trigger::{Trigger, TriggerKind};
 pub use version::PROTOCOL_VERSION;
 pub use vocabulary::{
-    CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, GUARD_PHASE, JudgementState,
-    ProofRole,
+    CheckKind, ConstraintKind, FieldType, FieldWriter, GUARD_PHASE, JudgementState, ProofRole,
 };
 
 /// Errors that can occur during the extension protocol lifecycle.

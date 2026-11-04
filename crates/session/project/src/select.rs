@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 use serde_json::Value;
 use specforge_graph::{FieldForms, Graph, Node, wire};
-use specforge_protocol_types::{FieldType, FileBase};
+use specforge_protocol_types::{FieldType, Root};
 use specforge_registry::judged::{Chain, Head, Step};
 use specforge_registry::{FieldRegistry, RegistryBuild};
 
@@ -153,7 +153,7 @@ impl<'a> Selection<'a> {
                 {
                     named.extend(self.values_at(node, &rest).into_iter().map(|path| FileRef {
                         path,
-                        project: !declared.file_reference || form.base() == FileBase::Project,
+                        project: !declared.file_reference || *form.base() == Root::Project,
                     }));
                     taken = words.len() - at;
                     continue;

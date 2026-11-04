@@ -9,7 +9,7 @@ fn each() -> Vec<Input> {
             name: "sources".into(),
             field: None,
             glob: Some("src/**".into()),
-            base: Some("project".into()),
+            root: Some("project".into()),
             text: true,
         }),
         Input::Tests,

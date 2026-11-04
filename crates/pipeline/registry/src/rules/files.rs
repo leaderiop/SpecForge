@@ -3,11 +3,10 @@
 //! sibling of a missing one (ADR 0118). Every `file_exists` rule, E016 among them, reads paths this way.
 
 use specforge_common::SourceSpan;
-use specforge_effects::RootName;
 use specforge_effects::contained::{Contained, Refused};
 use specforge_graph::ValueShape;
 
-use specforge_protocol_types::FileBase;
+use specforge_protocol_types::Root;
 
 use crate::disk::Disk;
 use crate::entity::{EntityRecord, FieldRecord};
@@ -35,21 +34,17 @@ pub(super) struct Finding<'r> {
     pub span: Option<SourceSpan>,
 }
 
-/// The problems of the paths `record` names in `field`, in order, each resolved by `contained` in `base`'s root (the
+/// The problems of the paths `record` names in `field`, in order, each resolved by `contained` in `default` (the
 /// spec root, or the project root where the field declares that base, ADR 0285) unless its `<root>/` prefix names
 /// another. A path is contained in the root it names: `..` above it, an absolute path and a link out are E094. `field`
 /// is a declared path: a member (`paths.file`) is read in each item of its block.
 pub(super) fn checked<'r>(
     record: &'r EntityRecord,
     field: &str,
-    base: FileBase,
+    default: &Root,
     contained: &Contained<'_>,
     disk: &dyn Disk,
 ) -> Vec<Finding<'r>> {
-    let default = match base {
-        FileBase::Spec => RootName::Spec,
-        FileBase::Project => RootName::Project,
-    };
     let mut findings = Vec::new();
     for (path, span) in named(record, field) {
         let mut found = |problem| {

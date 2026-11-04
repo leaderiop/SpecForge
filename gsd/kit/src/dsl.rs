@@ -268,7 +268,7 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         Ty::Files => {
             f.field_type(FieldType::StringList)
                 .file_reference()
-                .file_base(FileBase::Project);
+                .file_base(Root::Project);
         }
         Ty::Ref(target) => {
             f.field_type(FieldType::Reference)

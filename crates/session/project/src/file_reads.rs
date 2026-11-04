@@ -13,7 +13,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use specforge_effects::RootName;
+use specforge_effects::Root;
 use specforge_effects::contained::{Contained, Resolved};
 use specforge_effects::fs::SKIPPED;
 
@@ -119,10 +119,11 @@ fn field_facts(
 ) -> FileFacts {
     let source = ctx.source;
     let (kind, declared) = field.split_once('.').unwrap_or((field, ""));
-    let base = match read.base.as_deref() {
-        Some("spec") => RootName::Spec,
-        _ => RootName::Project,
-    };
+    let base = read
+        .root
+        .as_deref()
+        .and_then(Root::parse)
+        .unwrap_or(Root::Project);
     // One fact per (entity, path): the same path named twice by one entity is one file.
     let mut named: BTreeMap<(String, String), Option<Resolved>> = BTreeMap::new();
     for record in entities.records().iter().filter(|r| r.kind == kind) {
@@ -165,7 +166,7 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
     let mut found = Found::default();
     let first = source.project_root.join(&start);
     // A literal prefix that is itself a link out of the project is not entered.
-    if start.is_empty() || ctx.contained.resolve(&start, RootName::Project).is_ok() {
+    if start.is_empty() || ctx.contained.resolve(&start, Root::Project).is_ok() {
         let real = source.disk.canonical(&first);
         walk(ctx, &start, real.as_deref(), &plan, &mut found);
     }
@@ -179,7 +180,7 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
     let facts = files
         .into_iter()
         .map(|path| {
-            let at = ctx.contained.resolve(&path, RootName::Project).ok();
+            let at = ctx.contained.resolve(&path, Root::Project).ok();
             fact(ctx, path, None, at.as_ref(), read.text, budget)
         })
         .collect();

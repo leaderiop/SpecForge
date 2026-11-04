@@ -124,7 +124,7 @@ impl InputKind {
     /// [`FileRead`]'s fields).
     const fn wire(self) -> (&'static str, &'static [&'static str]) {
         match self {
-            InputKind::Files => ("files", &["name", "field", "glob", "base", "text"]),
+            InputKind::Files => ("files", &["name", "field", "glob", "root", "text"]),
             InputKind::Tests => ("tests", &[]),
             InputKind::State => ("state", &[]),
             InputKind::Graph => ("graph", &[]),

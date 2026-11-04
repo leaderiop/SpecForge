@@ -31,7 +31,7 @@ pub use consent::{
     Approval, Approvals, ApprovedAt, CapabilityApproval, Consent, ConsentError, KeyedBy,
     ProjectKey, Revoke, RootApproval, SharedConsent,
 };
-pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, RootName, Roots};
+pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, Roots};
 pub use digest::{canonical, digest};
 pub use fs::{Fs, FsOutcome, SharedFs};
 pub use gate::{Port, gate};
@@ -44,7 +44,7 @@ pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, Shared
 pub use provenance::Provenance;
 pub use specforge_protocol_types::{
     AttachedSecret, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
-    OutcomeClass, ProcessRequest, Redirected, Unreachable,
+    OutcomeClass, ProcessRequest, Redirected, Root, Unreachable,
 };
 pub use time::{ClockError, UnixMillis};
 

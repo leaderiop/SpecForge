@@ -1,7 +1,7 @@
 use crate::{
     CheckKind, CollectInput, CollectOutput, ConstraintKind, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    FieldType, FieldWriter, FileBase, PassAnswer, PassInput, ScanRequest, ScanResponse,
+    FieldType, FieldWriter, PassAnswer, PassInput, Root, ScanRequest, ScanResponse,
     ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary,
     operations,
 };
@@ -260,7 +260,7 @@ impl FieldBuilder {
         self
     }
     /// Where a [`Self::file_reference`] field's relative paths start (ADR 0285): the spec root by default.
-    pub fn file_base(&mut self, base: FileBase) -> &mut Self {
+    pub fn file_base(&mut self, base: Root) -> &mut Self {
         self.0.file_base = Some(base.as_str().to_string());
         self
     }

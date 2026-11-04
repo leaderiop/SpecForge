@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_effects::RootName;
+use specforge_effects::Root;
 use specforge_effects::contained::{Contained, RealFs};
 use specforge_graph::Found;
 use specforge_project::judged::Cited;
@@ -117,7 +117,7 @@ pub(crate) fn cited_of(view: &ProjectView<'_>, cites: &[Cite]) -> Result<Cited, 
                 // RealFs is only Contained's Lookup here (it looks paths up, reads no file): not an Fs effect.
                 let held = view.root().is_some_and(|root| {
                     Contained::project(root, view.env().spec_root(), &RealFs)
-                        .resolve(file, RootName::Project)
+                        .resolve(file, Root::Project)
                         .is_ok_and(|resolved| resolved.exists && resolved.case.is_none())
                 });
                 if !held {

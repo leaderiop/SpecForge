@@ -19,7 +19,7 @@ fn the_sdk_declares_files_and_tests_inputs() {
             ))
             .input(Input::files(
                 "sources",
-                FileReadSpec::glob("src/**/*.rs").base(FileBase::Spec),
+                FileReadSpec::glob("src/**/*.rs").root(Root::Spec),
             ))
             .input(Input::Tests)
             .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
@@ -46,7 +46,7 @@ fn the_sdk_declares_files_and_tests_inputs() {
     assert_eq!(reads[0].field.as_deref(), Some("plan.files_modified"));
     assert!(reads[0].text);
     assert_eq!(reads[1].glob.as_deref(), Some("src/**/*.rs"));
-    assert_eq!(reads[1].base.as_deref(), Some("spec"));
+    assert_eq!(reads[1].root.as_deref(), Some("spec"));
     let command = Inputs(&declaration.surfaces.commands[0].inputs);
     assert_eq!(command.files()[0].name, "plans");
 }

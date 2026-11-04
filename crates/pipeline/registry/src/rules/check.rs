@@ -15,7 +15,7 @@ use crate::entity::{Direction, EntityRecord, FieldRecord, RuleInput};
 use specforge_common::SourceSpan;
 use specforge_effects::contained::Contained;
 use specforge_graph::field_form::declared_path;
-use specforge_protocol_types::FileBase;
+use specforge_protocol_types::Root;
 
 /// One variant per check kind; each carries what it reads, resolved.
 #[derive(Debug, Clone)]
@@ -48,7 +48,7 @@ pub(crate) enum Check {
     /// Every path `field` (a declared path) names exists under `base`.
     FileExists {
         field: String,
-        base: FileBase,
+        base: Root,
     },
     VerifyKindAllowlist {
         allowed: Vec<String>,
@@ -127,7 +127,7 @@ pub(super) fn run(
         return cycle_rule(rule, edge_type, input);
     }
     if let Check::FileExists { field, base } = &rule.check {
-        return missing_files(rule, field, *base, input);
+        return missing_files(rule, field, base, input);
     }
     let mut diagnostics = Vec::new();
     let mut failures = Vec::new();
@@ -496,12 +496,7 @@ pub(super) fn probe(rule: &Rule, verdicts: &dyn CustomVerdicts) -> Option<Diagno
 /// A `file_exists` rule over `input`, by entity id then path order ([`files::checked`], ADR 0118, ADR 0335): a path
 /// that does not exist is the rule's own code, with a contained close sibling as the help (`{value}` is the path); one
 /// that leaves its root is E094, one under an unknown root E095, a case variant W174 and a backslash W175.
-fn missing_files(
-    rule: &Rule,
-    field: &str,
-    base: FileBase,
-    input: &RuleInput<'_>,
-) -> Vec<Diagnostic> {
+fn missing_files(rule: &Rule, field: &str, base: &Root, input: &RuleInput<'_>) -> Vec<Diagnostic> {
     // One `Contained` per rule: a directory is listed once however many paths it holds.
     let lookup = DiskLookup(input.disk);
     let contained = Contained::project(input.project_root, input.spec_root, &lookup);

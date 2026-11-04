@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use specforge_common::{Diagnostic, Severity, codes};
 use specforge_diagnostics::{Codebook, Level, qualify};
 use specforge_protocol_types::{
-    CheckKind, ConstraintKind, ExtensionDeclaration, FileBase, ValidationRuleDescriptor,
+    CheckKind, ConstraintKind, ExtensionDeclaration, Root, ValidationRuleDescriptor,
     ValidationSeverity,
 };
 
@@ -324,7 +324,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
         },
         CheckKind::FileExists => Check::FileExists {
             field: requires_field()?,
-            base: FileBase::Spec,
+            base: Root::Spec,
         },
         CheckKind::FieldValueConstraint => {
             let Some(c) = r.constraint.as_ref() else {
@@ -662,9 +662,9 @@ fn file_reference_rules(registries: Registries<'_>) -> Vec<Rule> {
 }
 
 /// The base the field or member `path` of `kind` declares; the spec root when it declares none.
-fn base_of(registries: Registries<'_>, kind: &str, path: &str) -> FileBase {
+fn base_of(registries: Registries<'_>, kind: &str, path: &str) -> Root {
     registries
         .fields
         .get_path(kind, path)
-        .map_or(FileBase::Spec, |(_, form)| form.base())
+        .map_or(Root::Spec, |(_, form)| form.base().clone())
 }

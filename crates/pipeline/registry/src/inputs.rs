@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use specforge_protocol_types::{ExtensionDeclaration, FileRead, Input, InputKind};
+use specforge_protocol_types::{ExtensionDeclaration, FileRead, Input, InputKind, Root};
 
 use crate::compilation::populate::keyword;
 
@@ -35,7 +35,7 @@ pub fn served(kind: CallKind, input: &Input) -> bool {
 
 /// Why `read` cannot be served as declared, or `None` when its shape is sound: a name that is no word, neither or both
 /// of `field` and `glob`, a field that is not `kind.field`, a glob that is absolute, climbs with `..`, has an empty
-/// segment or more than [`MAX_DOUBLE_STAR`] `**` segments, `base` on a glob, or a `base` other than `spec` or `project`. A name repeated in an owner's reads is
+/// segment or more than [`MAX_DOUBLE_STAR`] `**` segments, `root` on a glob, or a `root` that is no root's name. A name repeated in an owner's reads is
 /// [`problems`]'.
 pub fn read_problem(read: &FileRead) -> Option<String> {
     if !is_word(&read.name) {
@@ -51,17 +51,17 @@ pub fn read_problem(read: &FileRead) -> Option<String> {
             if field.split('.').count() < 2 || field.split('.').any(str::is_empty) {
                 return Some(format!("its field '{field}' is not `kind.field`"));
             }
-            match read.base.as_deref() {
-                None | Some("spec" | "project") => None,
-                Some(other) => Some(format!(
-                    "its base '{other}' is neither `spec` nor `project`"
-                )),
+            match read.root.as_deref() {
+                Some(other) if Root::parse(other).is_none() => {
+                    Some(format!("its root '{other}' is no root's name"))
+                }
+                _ => None,
             }
         }
         (None, Some(glob)) => {
-            if read.base.is_some() {
+            if read.root.is_some() {
                 return Some(
-                    "a glob is always from the project root: it takes no `base`".to_string(),
+                    "a glob is always from the project root: it takes no `root`".to_string(),
                 );
             }
             glob_problem(glob)

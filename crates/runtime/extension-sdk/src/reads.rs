@@ -1,6 +1,6 @@
 //! Declaring a call's inputs (protocol 2.0.0, ADR 0337 D2) and reading the files it is given back (`files`, ADR 0293).
 
-use specforge_protocol_types::{FileBase, FileFacts, FileRead, Input};
+use specforge_protocol_types::{FileFacts, FileRead, Input, Root};
 
 use crate::{
     CollectorBuilder, CommandBuilder, CommandCall, HookBuilder, PassBuilder, PromptBuilder,
@@ -33,9 +33,9 @@ impl FileReadSpec {
         })
     }
 
-    /// Where a field's relative paths start (the default is the project root). A field read only.
-    pub fn base(mut self, base: FileBase) -> Self {
-        self.0.base = Some(base.as_str().to_string());
+    /// The root a field's bare paths start at (the default is the project root). A field read only.
+    pub fn root(mut self, root: Root) -> Self {
+        self.0.root = Some(root.as_str().to_string());
         self
     }
 
