@@ -13,7 +13,7 @@ Options:
           [default: .]
 
       --effects <EFFECTS>
-          Whether the run performs, reuses or replays an http or process effect (ADR 0337): `check` runs `auto` when someone can answer outside CI, every other run `cached`
+          Whether the run performs, reuses or replays an http or process effect (ADR 0337): `check` runs `auto` when someone can answer outside CI, `collect` lends its collectors `online`, every other run `cached`
 
           Possible values:
           - online: Performed when granted; the answer is journaled

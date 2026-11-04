@@ -8654,6 +8654,16 @@ expression: listing
           "description": "Plan a writing collector's edits and write none of them (the report is still recorded)",
           "type": "boolean"
         },
+        "effects": {
+          "description": "Whether an http or process effect the collector asks for is performed, reused or replayed (ADR 0337): cached (the default) performs none and answers from the effects journal; replay answers only from it; online and auto perform what the collector's approved capabilities allow",
+          "enum": [
+            "online",
+            "auto",
+            "cached",
+            "replay"
+          ],
+          "type": "string"
+        },
         "path": {
           "description": "Project root path (the served project if omitted)",
           "type": "string"
