@@ -275,7 +275,7 @@ fn main() {
 fn ports() -> Ports {
     let process: specforge_effects::SharedProcess = Arc::new(specforge_process::Runner);
     Ports {
-        git: Arc::new(specforge_git::Gix),
+        git: Arc::new(specforge_git::Gix::default()),
         process,
         http: Arc::new(specforge_http::Client::new()),
         fs: Arc::new(specforge_fs::LocalFs),

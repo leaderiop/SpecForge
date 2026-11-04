@@ -30,13 +30,15 @@ fn staging_a_directory_keeps_its_ignore_rules_and_a_removal_keeps_the_file() {
         remove: vec!["keep.txt".into()],
         all: false,
     };
-    Gix.stage(&place, &staging).unwrap();
+    Gix::default().stage(&place, &staging).unwrap();
     assert_eq!(indexed(&repo), [".gitignore", "spec/a.spec"]);
     assert!(
         repo.dir().join("keep.txt").is_file(),
         "the file stays on disk"
     );
-    let committed = Gix.commit_index(&place, "second\n", false).unwrap();
+    let committed = Gix::default()
+        .commit_index(&place, "second\n", false)
+        .unwrap();
     assert_eq!(committed.branch.as_deref(), Some("main"));
     assert_eq!(committed.files, ["keep.txt", "spec/a.spec"]);
     assert_eq!(repo.sha("main"), committed.sha.as_str());
@@ -56,12 +58,16 @@ fn staging_all_takes_tracked_changes_and_deletions_and_no_untracked_file() {
         all: true,
         ..Staging::default()
     };
-    Gix.stage(&place, &staging).unwrap();
+    Gix::default().stage(&place, &staging).unwrap();
     assert_eq!(indexed(&repo), ["a.txt"]);
-    let committed = Gix.commit_index(&place, "tracked\n", false).unwrap();
+    let committed = Gix::default()
+        .commit_index(&place, "tracked\n", false)
+        .unwrap();
     assert_eq!(committed.files, ["a.txt", "b.txt"]);
     assert!(
-        Gix.commit_index(&place, "again\n", false).is_err(),
+        Gix::default()
+            .commit_index(&place, "again\n", false)
+            .is_err(),
         "nothing staged"
     );
 }

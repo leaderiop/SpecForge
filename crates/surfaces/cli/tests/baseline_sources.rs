@@ -32,7 +32,7 @@ fn the_baseline_reads_a_source_file_through_git() {
         ]}]),
     ));
     let env = project.environment_in(runtime.clone());
-    let git = Gix;
+    let git = Gix::default();
     let Located::Repo(place) = git.locate(root) else {
         panic!("a repository")
     };

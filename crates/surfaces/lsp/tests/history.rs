@@ -26,7 +26,7 @@ fn declare(c: &mut ContributionsBuilder) {
 fn the_lsp_republishes_after_a_commit() {
     let served = Served::new(&[("main.spec", "thing a \"A\" {\n  origin one\n}\n")])
         .extension("@t/immutable", declare)
-        .git(Arc::new(specforge_git::Gix));
+        .git(Arc::new(specforge_git::Gix::default()));
     let root = served.root().canonicalize().unwrap();
     let repo = specforge_git::testing::Repo::init(&root);
     repo.commit_all("c");

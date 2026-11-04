@@ -28,7 +28,7 @@ fn baseline(path: &Path) -> bool {
 
 /// Where `repo` is, as the port locates it.
 fn place(repo: &Repo) -> GitPlace {
-    let Located::Repo(place) = Gix.locate(repo.dir()) else {
+    let Located::Repo(place) = Gix::default().locate(repo.dir()) else {
         panic!("a repository");
     };
     place
@@ -37,7 +37,7 @@ fn place(repo: &Repo) -> GitPlace {
 #[specforge_test(port = "Git", verify = "Git contract is satisfied")]
 fn gix_keeps_the_git_contract() {
     let dir = tempfile::tempdir().unwrap();
-    specforge_effects::testing::git_contract(&Gix, dir.path());
+    specforge_effects::testing::git_contract(&Gix::default(), dir.path());
 }
 
 #[specforge_test(
@@ -51,11 +51,15 @@ fn history_reads_the_commits_files() {
         .write("spec/deep/b é.spec", "two\n")
         .write("other.txt", "x");
     let place = place(&repo);
-    assert_eq!(Gix.commit(&place, "HEAD").unwrap(), None, "unborn HEAD");
+    assert_eq!(
+        Gix::default().commit(&place, "HEAD").unwrap(),
+        None,
+        "unborn HEAD"
+    );
     repo.commit_all("c1");
     repo.write("spec/a.spec", "changed\n");
-    let head: Sha = Gix.commit(&place, "HEAD").unwrap().unwrap();
-    let mut files = Gix
+    let head: Sha = Gix::default().commit(&place, "HEAD").unwrap().unwrap();
+    let mut files = Gix::default()
         .files(&place, &head, Path::new("spec"), &baseline)
         .unwrap();
     files.sort();
@@ -66,24 +70,33 @@ fn history_reads_the_commits_files() {
             ("spec/deep/b é.spec".into(), b"two\n".to_vec()),
         ]
     );
-    assert_eq!(Gix.merge_base(&place, &head, &head).unwrap(), Some(head));
-    assert_eq!(Gix.commit(&place, "no-such-ref").unwrap(), None);
+    assert_eq!(
+        Gix::default().merge_base(&place, &head, &head).unwrap(),
+        Some(head)
+    );
+    assert_eq!(Gix::default().commit(&place, "no-such-ref").unwrap(), None);
     let outside = tempfile::tempdir().unwrap();
-    assert_eq!(Gix.locate(outside.path()), Located::NotARepository);
+    assert_eq!(
+        Gix::default().locate(outside.path()),
+        Located::NotARepository
+    );
     // A directory that does not exist holds no repository.
     assert_eq!(
-        Gix.locate(&repo.dir().join("gone")),
+        Gix::default().locate(&repo.dir().join("gone")),
         Located::NotARepository
     );
     // A bare repository has no working tree to judge.
     let bare = tempfile::tempdir().unwrap();
     gix::init_bare(bare.path()).unwrap();
-    assert!(matches!(Gix.locate(bare.path()), Located::Unavailable(_)));
+    assert!(matches!(
+        Gix::default().locate(bare.path()),
+        Located::Unavailable(_)
+    ));
     // Inside the git directory there is no working tree either, as git says ("must be run in a work tree"): a hook
     // reads a `.git/` path as a repository's internals, not as its worktree.
     for inside in [repo.dir().join(".git"), repo.dir().join(".git/refs")] {
         assert!(
-            matches!(Gix.locate(&inside), Located::Unavailable(_)),
+            matches!(Gix::default().locate(&inside), Located::Unavailable(_)),
             "{}",
             inside.display()
         );
@@ -103,8 +116,10 @@ fn history_reads_only_the_specs_and_the_ledger() {
         .write("node_modules/x/index.js", "x");
     repo.commit_all("c1");
     let place = place(&repo);
-    let head = Gix.commit(&place, "HEAD").unwrap().unwrap();
-    let mut files = Gix.files(&place, &head, Path::new(""), &baseline).unwrap();
+    let head = Gix::default().commit(&place, "HEAD").unwrap().unwrap();
+    let mut files = Gix::default()
+        .files(&place, &head, Path::new(""), &baseline)
+        .unwrap();
     files.sort();
     let names: Vec<_> = files.iter().map(|(p, _)| p.to_string_lossy()).collect();
     assert_eq!(names, ["a.spec", "specforge-harness"]);
@@ -121,14 +136,14 @@ fn history_reads_named_files_at_a_commit() {
     repo.commit_all("c1");
     repo.write("src/a.ts", "changed\n");
     let place = place(&repo);
-    let head: Sha = Gix.commit(&place, "HEAD").unwrap().unwrap();
+    let head: Sha = Gix::default().commit(&place, "HEAD").unwrap().unwrap();
     let asked: Vec<PathBuf> = ["src/a.ts", "gone.txt", "src"]
         .iter()
         .map(Into::into)
         .collect();
     // The commit's bytes, not the working tree's; a missing path and a directory are no file.
     assert_eq!(
-        Gix.blobs(&place, &head, &asked).unwrap(),
+        Gix::default().blobs(&place, &head, &asked).unwrap(),
         vec![
             ("src/a.ts".into(), Some(b"one\n".to_vec())),
             ("gone.txt".into(), None),
@@ -150,17 +165,24 @@ fn history_lists_a_commits_tree() {
     std::os::unix::fs::symlink("a.ts", repo.dir().join("src/l.ts")).unwrap();
     repo.commit_all("c1");
     let place = place(&repo);
-    let head: Sha = Gix.commit(&place, "HEAD").unwrap().unwrap();
-    let mut all = Gix.tree(&place, &head, Path::new("")).unwrap();
+    let head: Sha = Gix::default().commit(&place, "HEAD").unwrap().unwrap();
+    let mut all = Gix::default().tree(&place, &head, Path::new("")).unwrap();
     all.sort();
     let mut expected = vec![("spec/a.spec".into(), true), ("src/a.ts".into(), true)];
     #[cfg(unix)]
     expected.push(("src/l.ts".into(), false));
     assert_eq!(all, expected);
-    let mut under = Gix.tree(&place, &head, Path::new("src")).unwrap();
+    let mut under = Gix::default()
+        .tree(&place, &head, Path::new("src"))
+        .unwrap();
     under.sort();
     assert_eq!(under, expected[1..]);
-    assert_eq!(Gix.tree(&place, &head, Path::new("nowhere")).unwrap(), []);
+    assert_eq!(
+        Gix::default()
+            .tree(&place, &head, Path::new("nowhere"))
+            .unwrap(),
+        []
+    );
 }
 
 #[specforge_test(
@@ -173,12 +195,12 @@ fn history_gives_the_sizes_of_the_named_files() {
     repo.write("src/a.ts", "four\n").write("src/b c.ts", "xy");
     repo.commit_all("c1");
     let place = place(&repo);
-    let head: Sha = Gix.commit(&place, "HEAD").unwrap().unwrap();
+    let head: Sha = Gix::default().commit(&place, "HEAD").unwrap().unwrap();
     let asked: Vec<PathBuf> = ["src/a.ts", "gone.txt", "src", "src/b c.ts", "src/x\ny"]
         .iter()
         .map(Into::into)
         .collect();
-    let sizes: Vec<Option<u64>> = Gix
+    let sizes: Vec<Option<u64>> = Gix::default()
         .sizes(&place, &head, &asked)
         .unwrap()
         .into_iter()
@@ -210,24 +232,25 @@ fn a_blob_a_partial_clone_lacks_reads_missing_and_is_never_fetched() {
         .join(&lost[2..]);
     std::fs::remove_file(object).unwrap();
     let place = place(&repo);
-    let head: Sha = Gix.commit(&place, "HEAD").unwrap().unwrap();
+    let head: Sha = Gix::default().commit(&place, "HEAD").unwrap().unwrap();
     // a listing reads no blob, and names both files
-    let mut tree = Gix.tree(&place, &head, Path::new("")).unwrap();
+    let mut tree = Gix::default().tree(&place, &head, Path::new("")).unwrap();
     tree.sort();
     assert_eq!(tree, [("src/a.ts".into(), true), ("src/b.ts".into(), true)]);
     let asked: Vec<PathBuf> = vec!["src/a.ts".into(), "src/b.ts".into()];
     assert_eq!(
-        Gix.sizes(&place, &head, &asked).unwrap(),
+        Gix::default().sizes(&place, &head, &asked).unwrap(),
         [("src/a.ts".into(), None), ("src/b.ts".into(), Some(6))]
     );
     assert_eq!(
-        Gix.blobs(&place, &head, &asked).unwrap(),
+        Gix::default().blobs(&place, &head, &asked).unwrap(),
         [
             ("src/a.ts".into(), None),
             ("src/b.ts".into(), Some(b"three\n".to_vec()))
         ]
     );
-    Gix.files(&place, &head, Path::new("src"), &|_| true)
+    Gix::default()
+        .files(&place, &head, Path::new("src"), &|_| true)
         .expect_err("a wanted file the clone lacks cannot be given");
     assert!(!promisor.exists(), "nothing was fetched");
 }
@@ -244,14 +267,16 @@ fn a_directory_that_is_not_utf8_is_refused() {
     repo.write("a.spec", "one\n");
     repo.commit_all("c1");
     let place = place(&repo);
-    let head: Sha = Gix.commit(&place, "HEAD").unwrap().unwrap();
+    let head: Sha = Gix::default().commit(&place, "HEAD").unwrap().unwrap();
     // a mangled path would list nothing, and every file would read as absent
     let odd = Path::new(std::ffi::OsStr::from_bytes(b"caf\xe9"));
-    let why = Gix
+    let why = Gix::default()
         .files(&place, &head, odd, &baseline)
         .expect_err("refused");
     assert!(why.0.contains("UTF-8"), "{why}");
-    Gix.tree(&place, &head, odd).expect_err("refused");
+    Gix::default()
+        .tree(&place, &head, odd)
+        .expect_err("refused");
 }
 
 #[specforge_test(
@@ -265,8 +290,8 @@ fn history_answers_the_branch_and_status() {
     let first = repo.commit_all("c1");
     repo.write("n.txt", "x");
     let place = place(&repo);
-    assert_eq!(Gix.branch(&place).unwrap(), "main");
-    let status = Gix.status(&place).unwrap();
+    assert_eq!(Gix::default().branch(&place).unwrap(), "main");
+    let status = Gix::default().status(&place).unwrap();
     assert!(status.dirty(), "an untracked file");
     assert_eq!(status.branch.head.as_deref(), Some("main"));
     assert_eq!(status.branch.oid.as_deref(), Some(first.as_str()));
@@ -278,8 +303,8 @@ fn history_answers_the_branch_and_status() {
         "{status:?}"
     );
     repo.detach(&first);
-    assert_eq!(Gix.branch(&place).unwrap(), "");
-    assert_eq!(Gix.status(&place).unwrap().branch.head, None);
+    assert_eq!(Gix::default().branch(&place).unwrap(), "");
+    assert_eq!(Gix::default().status(&place).unwrap().branch.head, None);
 }
 
 /// gsd-core 1.19.0 (#5048, #5699): a read-only status must not take the `.git/index.lock` a concurrent `git commit`
@@ -296,7 +321,7 @@ fn status_takes_no_index_lock() {
     repo.write("a.txt", "changed");
     let lock = repo.git_dir().join("index.lock");
     std::fs::write(&lock, "held by a concurrent commit").unwrap();
-    let status = Gix.status(&place(&repo)).unwrap();
+    let status = Gix::default().status(&place(&repo)).unwrap();
     assert!(status.dirty());
     assert_eq!(
         std::fs::read_to_string(&lock).unwrap(),
@@ -316,18 +341,30 @@ fn a_tree_is_dirty_by_a_tracked_change_a_conflict_or_an_untracked_file() {
     let place = place(&repo);
     // an ignored file is not dirty (ADR 0327 D3)
     repo.write("target/out.bin", "built");
-    assert!(!Gix.status(&place).unwrap().dirty(), "ignored only");
+    assert!(
+        !Gix::default().status(&place).unwrap().dirty(),
+        "ignored only"
+    );
     repo.write("a.txt", "changed");
-    assert!(Gix.status(&place).unwrap().dirty(), "an unstaged change");
+    assert!(
+        Gix::default().status(&place).unwrap().dirty(),
+        "an unstaged change"
+    );
     repo.stage(&["a.txt"]);
-    assert!(Gix.status(&place).unwrap().dirty(), "a staged change");
+    assert!(
+        Gix::default().status(&place).unwrap().dirty(),
+        "a staged change"
+    );
     repo.commit("c2");
-    assert!(!Gix.status(&place).unwrap().dirty(), "committed");
+    assert!(!Gix::default().status(&place).unwrap().dirty(), "committed");
     repo.write("n.txt", "n");
-    assert!(Gix.status(&place).unwrap().dirty(), "an untracked file");
+    assert!(
+        Gix::default().status(&place).unwrap().dirty(),
+        "an untracked file"
+    );
     repo.delete("n.txt");
     repo.conflict("a.txt", "base\n", "ours\n", "theirs\n");
-    assert!(Gix.status(&place).unwrap().dirty(), "a conflict");
+    assert!(Gix::default().status(&place).unwrap().dirty(), "a conflict");
 }
 
 #[specforge_test(
@@ -362,7 +399,7 @@ fn gix_fills_a_git_status_for_every_entry_kind() {
     repo.delete("gone.txt");
     repo.conflict("both.txt", "b\n", "ours\n", "theirs\n");
     repo.write("new/inner.txt", "n").write("z.txt", "z");
-    let status = Gix.status(&place(&repo)).unwrap();
+    let status = Gix::default().status(&place(&repo)).unwrap();
     assert_eq!(
         status.branch,
         GitBranch {
@@ -406,4 +443,72 @@ fn gix_fills_a_git_status_for_every_entry_kind() {
             entry(Untracked, "z.txt", None, None, None),
         ]
     );
+}
+
+/// A repository's filter and diff drivers are programs its config names; reading it runs none of them. A clean
+/// filter (`filter.x.clean`), a long-running one (`filter.x.process`) and a textconv each write a marker when run:
+/// no marker after `status` or a diff of the worktree.
+#[cfg(unix)]
+#[test]
+fn no_filter_or_diff_driver_runs_on_a_read() {
+    use specforge_effects::git::{DiffQuery, DiffSide};
+    let dir = tempfile::tempdir().unwrap();
+    let markers = tempfile::tempdir().unwrap();
+    let marker = |name: &str| markers.path().join(name);
+    let repo = Repo::init(dir.path());
+    repo.write(
+        ".gitattributes",
+        "*.txt filter=evil diff=evil\n*.bin filter=lfsish\n",
+    )
+    .write("a.txt", "a")
+    .write("b.bin", "b");
+    let base = repo.commit_all("c1");
+    repo.config(&format!(
+        "[filter \"evil\"]\n\tclean = touch {clean}; cat\n\tsmudge = touch {smudge}; cat\n\
+         [filter \"lfsish\"]\n\tprocess = touch {process}\n\trequired = true\n\
+         [diff \"evil\"]\n\ttextconv = touch {textconv}; cat\n",
+        clean = marker("clean").display(),
+        smudge = marker("smudge").display(),
+        process = marker("process").display(),
+        textconv = marker("textconv").display(),
+    ));
+    // The same length, so only the content tells the change: git hashes it, through the clean filter.
+    repo.write("a.txt", "z").write("b.bin", "y");
+    let place = place(&repo);
+    let status = Gix::default().status(&place);
+    let diff = Gix::default().diff(
+        &place,
+        &DiffQuery {
+            base: Sha::new(base),
+            head: DiffSide::Worktree,
+            paths: Vec::new(),
+            patch: true,
+        },
+    );
+    let ran: Vec<_> = ["clean", "smudge", "process", "textconv"]
+        .into_iter()
+        .filter(|name| marker(name).exists())
+        .collect();
+    assert!(ran.is_empty(), "drivers ran: {ran:?}");
+    assert!(status.unwrap().dirty());
+    let diff = diff.unwrap();
+    assert!(diff.iter().any(|file| file.path == "a.txt"), "{diff:?}");
+}
+
+/// A status held to a deadline it cannot meet is an error, never a partial (clean-looking) status.
+#[test]
+fn a_status_past_its_deadline_is_an_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    for n in 0..20 {
+        repo.write(&format!("d/{n}.txt"), format!("{n}"));
+    }
+    repo.commit_all("c1");
+    for n in 0..20 {
+        repo.write(&format!("d/{n}.txt"), format!("{}", n + 1));
+    }
+    let place = place(&repo);
+    let timed = Gix::within(std::time::Duration::ZERO).status(&place);
+    assert!(timed.is_err(), "{timed:?}");
+    assert!(Gix::default().status(&place).unwrap().dirty());
 }

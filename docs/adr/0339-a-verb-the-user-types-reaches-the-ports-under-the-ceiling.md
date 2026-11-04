@@ -92,6 +92,13 @@ git installed. `GitCli` is deleted, with no shim.
   the host at another repository.
 - No lazy fetch. A blob a partial clone lacks reads `unreadable` on every machine, so ADR 0300 D5's `GIT_NO_LAZY_FETCH`
   and its git 2.44 clause no longer apply.
+- No program a repository's config names runs on a read. The adapter drops every filter driver (`filter.<x>.clean`,
+  `smudge`, `process`) and diff driver (`diff.<x>.textconv`, `command`) from the config it opens, so neither a
+  committed or cloned config nor a global LFS install runs through `sh` on `status`, a worktree diff or a hook's facts.
+  gix has no fsmonitor, and no network here, so `core.fsmonitor`, `core.sshCommand` and credential helpers run nothing.
+  The cost: a file whose clean filter changes its bytes (an LFS file, a custom filter) reads as modified once its stat
+  changes, where git, running the filter, sees it clean.
+- A hook's status is given up after 1.5 s (ADR 0320): its facts carry no status rather than keep the host waiting.
 - `status` keeps R1's meaning (ADR 0327 D3): dirty is a tracked change, a conflict or an untracked file, never an
   ignored one. The adapter fills the typed `GitStatus` and renders no porcelain text.
 - The verbs' extra answers (log, diff, refs, worktrees, remotes, config) live beside the port, not in the protocol: no

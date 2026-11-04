@@ -31,7 +31,20 @@ use history::{commit_of, file_diff, index_tree, touches, tree_of, wanted_paths};
 
 /// The `Git` port read through gix.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct Gix;
+pub struct Gix {
+    /// How long a status may take before it is given up (`None`: as long as it takes).
+    deadline: Option<std::time::Duration>,
+}
+
+impl Gix {
+    /// The port whose status is given up after `deadline`, for a hook that must not keep its host waiting (ADR
+    /// 0320): an error, never a partial status.
+    pub fn within(deadline: std::time::Duration) -> Gix {
+        Gix {
+            deadline: Some(deadline),
+        }
+    }
+}
 
 /// How a repository of `trust` is opened: as gix opens one of that trust, minus every environment variable that names
 /// another repository, object store or configuration.
@@ -55,7 +68,37 @@ fn trust_map() -> gix::sec::trust::Mapping<gix::open::Options> {
 fn open(place: &GitPlace) -> Result<gix::Repository, GitError> {
     let trust =
         gix::sec::Trust::from_path_ownership(&place.git_dir).unwrap_or(gix::sec::Trust::Reduced);
-    gix::open_opts(&place.toplevel, options(trust)).map_err(|e| failed("open the repository", &e))
+    let mut repo = gix::open_opts(&place.toplevel, options(trust))
+        .map_err(|e| failed("open the repository", &e))?;
+    without_drivers(&mut repo)?;
+    Ok(repo)
+}
+
+/// `repo` with no filter or diff driver: each names a program (`filter.<x>.clean`, `smudge`, `process`,
+/// `diff.<x>.textconv`, `command`) that gix would run through `sh` with no deadline when it hashes a worktree file, and
+/// a committed or cloned config, or a global LFS install, would run it on every status. Only the in-memory config
+/// changes. gix has no fsmonitor and no network here, so `core.fsmonitor`, `core.sshCommand` and credential helpers
+/// run nothing either; hooks are run only by `commit`, which a person asks for.
+// shortcut: a worktree file whose clean filter changes its bytes (LFS, a custom filter) reads as modified once its
+// stat changes, where git, running the filter, sees it clean. Upgrade if a person needs LFS worktrees clean.
+fn without_drivers(repo: &mut gix::Repository) -> Result<(), GitError> {
+    let mut config = repo.config_snapshot_mut();
+    for name in ["filter", "diff"] {
+        let drivers: Vec<_> = config
+            .sections_and_ids_by_name(name)
+            .into_iter()
+            .flatten()
+            .filter(|(section, _)| section.header().subsection_name().is_some())
+            .map(|(_, id)| id)
+            .collect();
+        for id in drivers {
+            config.remove_section_by_id(id);
+        }
+    }
+    config
+        .commit()
+        .map(drop)
+        .map_err(|e| failed("read the config", &e))
 }
 
 /// A gix failure as the port's error.
@@ -494,9 +537,24 @@ impl Git for Gix {
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
         let repo = open(place)?;
         let branch = branch_of(&repo)?;
+        let started = std::time::Instant::now();
+        let interrupt = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        // The timer ends when the status does (its sender dropped), or raises `interrupt` at the deadline.
+        let (done, timer) = std::sync::mpsc::channel::<()>();
+        if let Some(deadline) = self.deadline {
+            let raise = std::sync::Arc::clone(&interrupt);
+            std::thread::spawn(move || {
+                if let Err(std::sync::mpsc::RecvTimeoutError::Timeout) =
+                    timer.recv_timeout(deadline)
+                {
+                    raise.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+            });
+        }
         let items = repo
             .status(gix::progress::Discard)
             .map_err(|e| failed("read the status", &e))?
+            .should_interrupt_owned(std::sync::Arc::clone(&interrupt))
             .untracked_files(gix::status::UntrackedFiles::Collapsed)
             .index_worktree_rewrites(None)
             .into_iter(None)
@@ -506,6 +564,14 @@ impl Git for Gix {
         for item in items {
             let item = item.map_err(|e| failed("read the status", &e))?;
             note(&mut tracked, &mut untracked, item);
+        }
+        drop(done);
+        let late = self.deadline.is_some_and(|d| started.elapsed() >= d);
+        if late || interrupt.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err(GitError(format!(
+                "git gave up the status after {:?}",
+                self.deadline.unwrap_or_default()
+            )));
         }
         Ok(status_of(branch, tracked, untracked))
     }

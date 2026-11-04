@@ -161,7 +161,7 @@ fn a_hook_is_told_the_real_path_and_toplevel_of_an_outside_path() {
     specforge_git::testing::Repo::init(&root).commit("init");
     specforge_git::testing::Repo::init(&other_root);
     std::os::unix::fs::symlink(other_root.join("src"), root.join("mainsrc")).unwrap();
-    let project = project.with_git(std::sync::Arc::new(specforge_git::Gix));
+    let project = project.with_git(std::sync::Arc::new(specforge_git::Gix::default()));
     let canonical_root = std::fs::canonicalize(&root).unwrap();
     let write = |file: &std::path::Path| {
         json!({"hook_event_name": "PreToolUse", "tool_name": "Write", "session_id": "s1", "cwd": root,

@@ -364,7 +364,7 @@ fn committed_session(origin: &str) -> (TestProject, specforge_project::ProjectSe
 
 /// The git port a surface installs.
 fn git_cli() -> SharedGit {
-    Arc::new(specforge_git::Gix)
+    Arc::new(specforge_git::Gix::default())
 }
 
 #[specforge_test(
