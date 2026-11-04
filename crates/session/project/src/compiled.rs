@@ -697,6 +697,11 @@ impl CompiledProject {
     /// memo is made over the graph on first use.
     pub(crate) fn skip_checks(&mut self) {
         self.check_diagnostics = Vec::new();
+        self.value_checks = Arc::default();
+        // No checker at all leaves the values a test gave (`with_checked_values`).
+        if !self.env.registries().checks().is_empty() {
+            self.checked_values = Arc::default();
+        }
         self.computed = Arc::default();
         self.judgements = Arc::default();
         self.recorded = OnceLock::new();

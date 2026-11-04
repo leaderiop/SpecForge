@@ -520,3 +520,21 @@ fn a_verdict_over_a_checked_value_digests_its_outcome_class() {
         ValueOutcome::Class(specforge_effects::OutcomeClass::Ok)
     );
 }
+
+#[test]
+fn an_update_that_skips_the_checks_keeps_no_rows() {
+    use specforge_project::{Buffer, CheckMode};
+
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[EXT])
+        .installing_enabled()
+        .file("a.spec", "service a \"A\" {\n  home \"fine\"\n}\n");
+    let mut session = project.session_in(Arc::new(InProcessRuntime::new().with(extension)));
+    assert!(!session.project().value_checks().of("a").is_empty());
+
+    let file = project.root().join("a.spec");
+    let broken = Buffer::new(file, "service a \"A\" {\n  home \"\n");
+    session.hold_with(&[broken], CheckMode::SyntaxOnlyIfParseErrors);
+    assert!(session.project().value_checks().of("a").is_empty());
+}
