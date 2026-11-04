@@ -9,10 +9,33 @@ repository.workspace = true
 [features]
 default = []
 digits = []
-formats = []
-links = []
+formats = [
+    "dep:croner",
+    "dep:email_address",
+    "dep:jiff",
+    "dep:language-tags",
+    "dep:mime",
+    "dep:regex",
+    "dep:semver",
+    "dep:spdx",
+    "dep:uuid",
+]
+links = ["dep:url"]
 files = []
 git = []
+
+[dependencies]
+croner = { version = "4.0.2", optional = true }
+email_address = { version = "0.2.9", default-features = false, optional = true }
+# No bundled tz database: `iana_tz` reads the pinned names, and jiff only reads calendars and durations.
+jiff = { version = "0.2.39", default-features = false, features = ["std"], optional = true }
+language-tags = { version = "0.3.2", optional = true }
+mime = { version = "0.3.17", optional = true }
+regex = { workspace = true, optional = true }
+semver = { workspace = true, optional = true }
+spdx = { version = "0.13.6", optional = true }
+url = { version = "2.5.8", optional = true }
+uuid = { version = "1.23.1", default-features = false, features = ["std"], optional = true }
 
 [lints]
 workspace = true

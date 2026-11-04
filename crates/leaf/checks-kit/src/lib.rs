@@ -9,6 +9,8 @@ pub mod tables;
 
 #[cfg(feature = "digits")]
 pub mod digits;
+#[cfg(feature = "formats")]
+pub mod formats;
 
 pub use invalid::Invalid;
 pub use tables::TableSource;
