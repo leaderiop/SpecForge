@@ -20,18 +20,55 @@ fn safe() -> git2::build::CheckoutBuilder<'static> {
     checkout
 }
 
-/// Move `HEAD`'s branch, or a detached `HEAD` itself, from `from` to `to` (gix: a ref move).
-fn move_head(place: &GitPlace, from: Option<&Sha>, to: &Sha, log: &str) -> Result<(), GitError> {
+/// Move `HEAD`'s branch, or a detached `HEAD` itself, from `from` to `to` (gix: a ref move), once `between` ran:
+/// the ref is locked and checked to still hold `from` first, so no other git moves it meanwhile, and a failure of
+/// `between` leaves it as it was.
+fn move_head(
+    place: &GitPlace,
+    from: Option<&Sha>,
+    to: &Sha,
+    log: &str,
+    between: impl FnOnce() -> Result<(), GitError>,
+) -> Result<(), GitError> {
+    use gix::refs::transaction::{Change, LogChange, RefEdit, RefLog};
     let repo = gix_owned(place)?;
     let name = repo
         .head_name()
         .map_err(|e| failed("read HEAD", &e))?
         .map_or_else(|| "HEAD".to_string(), |name| name.to_string());
-    let previous = match from {
+    let expected = match from {
         Some(from) => PreviousValue::MustExistAndMatch(gix::refs::Target::Object(id(from)?)),
         None => PreviousValue::MustNotExist,
     };
-    repo.reference(name.as_str(), id(to)?, previous, log)
+    let edit = RefEdit {
+        change: Change::Update {
+            log: LogChange {
+                mode: RefLog::AndReference,
+                force_create_reflog: false,
+                message: log.into(),
+            },
+            expected,
+            new: gix::refs::Target::Object(id(to)?),
+        },
+        name: name
+            .as_str()
+            .try_into()
+            .map_err(|e| failed("name HEAD's ref", &e))?,
+        deref: false,
+    };
+    let fail = gix::lock::acquire::Fail::Immediately;
+    let locked = repo
+        .refs
+        .transaction()
+        .prepare([edit], fail, fail)
+        .map_err(|e| failed("lock HEAD's ref", &e))?;
+    between()?;
+    let committer = repo
+        .committer()
+        .transpose()
+        .map_err(|e| failed("read the committer", &e))?;
+    locked
+        .commit(committer)
         .map_err(|e| failed("move HEAD", &e))?;
     Ok(())
 }
@@ -92,9 +129,10 @@ pub(crate) fn merge(
         let target = repo
             .find_object(oid(theirs)?, None)
             .map_err(|e| failed("read the commit to merge", &e))?;
-        repo.checkout_tree(&target, Some(&mut safe()))
-            .map_err(|e| failed("check out the merged files", &e))?;
-        move_head(place, head.as_ref(), theirs, "merge: Fast-forward")?;
+        move_head(place, head.as_ref(), theirs, "merge: Fast-forward", || {
+            repo.checkout_tree(&target, Some(&mut safe()))
+                .map_err(|e| failed("check out the merged files", &e))
+        })?;
         return Ok(Merged {
             sha: Some(theirs.clone()),
             fast_forward: true,
@@ -145,7 +183,7 @@ pub(crate) fn reset(place: &GitPlace, to: &Sha, mode: ResetMode) -> Result<(), G
             ));
         }
         let head = head_of(&libgit2(place)?);
-        return move_head(place, head.as_ref(), to, "reset: moving");
+        return move_head(place, head.as_ref(), to, "reset: moving", || Ok(()));
     }
     let repo = libgit2(place)?;
     let target = repo

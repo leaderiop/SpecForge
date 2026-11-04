@@ -176,3 +176,41 @@ fn a_branch_another_worktree_has_checked_out_is_not_deleted() {
     assert!(refused.is_err(), "{refused:?}");
     assert_eq!(repo.sha("side"), first);
 }
+
+/// A fast-forward is all or nothing: when the branch cannot move (here another git holds its lock, as one moving it
+/// would), no file and no index entry changes, so the checkout never runs ahead of the ref.
+#[test]
+fn a_fast_forward_whose_branch_cannot_move_changes_no_file() {
+    use specforge_effects::git::Sha;
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a");
+    let first = repo.commit_all("first");
+    repo.branch("side", &first).head_on("side");
+    repo.write("a.txt", "b");
+    let side = repo.commit_all("second");
+    repo.head_on("main");
+    repo.write("a.txt", "a");
+    repo.stage_all();
+    let lock = repo.git_dir().join("refs/heads/main.lock");
+    std::fs::write(&lock, "").unwrap();
+    let merged = Gix::default().merge(&place(&repo), &Sha::new(side), None, "m\n");
+    assert!(merged.is_err(), "{merged:?}");
+    assert_eq!(repo.sha("HEAD"), first);
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+        "a"
+    );
+    assert_eq!(
+        indexed_blob(&repo, "a.txt"),
+        repo.sha(&format!("{first}:a.txt"))
+    );
+}
+
+/// The blob the index holds for `path`.
+fn indexed_blob(repo: &Repo, path: &str) -> String {
+    let git = repo.open();
+    let index = git.index_or_empty().unwrap();
+    let entry = index.entry_by_path(path.into()).unwrap();
+    entry.id.to_string()
+}
