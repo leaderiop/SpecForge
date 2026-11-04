@@ -1,0 +1,133 @@
+//! The `Git` port's writes (ADR 0339 D5, the S2 spike). A commit's object and its ref move are gix's; what meets the
+//! index or the working tree is libgit2's (`git2`, built from source), because gix 0.84.0 has no worktree-to-index
+//! pipeline (ignore rules under a directory, filters) and no checkout over an existing tree. Neither runs a program:
+//! a hook is the caller's to run, through the Process port.
+
+use std::path::Path;
+
+use specforge_effects::git::{
+    Committed, DiffQuery, DiffSide, Git as _, GitError, GitPlace, Sha, Staging,
+};
+
+use crate::{Gix, failed, open};
+
+/// A write only in a repository this user owns: one another user owns is read with reduced trust, and git refuses to
+/// change it.
+fn owned(place: &GitPlace) -> Result<(), GitError> {
+    match gix::sec::Trust::from_path_ownership(&place.git_dir) {
+        Ok(gix::sec::Trust::Full) => Ok(()),
+        _ => Err(GitError(format!(
+            "{} belongs to another user: git changes only a repository its user owns",
+            place.git_dir.display()
+        ))),
+    }
+}
+
+/// The repository at `place` through libgit2, once [`owned`].
+pub(crate) fn libgit2(place: &GitPlace) -> Result<git2::Repository, GitError> {
+    owned(place)?;
+    git2::Repository::open(&place.toplevel).map_err(|e| failed("open the repository", &e))
+}
+
+/// The repository at `place` through gix, once [`owned`].
+pub(crate) fn gix_owned(place: &GitPlace) -> Result<gix::Repository, GitError> {
+    owned(place)?;
+    open(place)
+}
+
+pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError> {
+    let repo = libgit2(place)?;
+    let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
+    let staged = |e: git2::Error| failed("stage the files", &e);
+    if !staging.add.is_empty() {
+        index
+            .add_all(&staging.add, git2::IndexAddOption::DEFAULT, None)
+            .map_err(staged)?;
+        // a deleted file leaves the index, as `git add <path>` does
+        index.update_all(&staging.add, None).map_err(staged)?;
+    }
+    if !staging.remove.is_empty() {
+        index.remove_all(&staging.remove, None).map_err(staged)?;
+    }
+    if staging.all {
+        index.update_all(["*"], None).map_err(staged)?;
+    }
+    index.write().map_err(|e| failed("write the index", &e))
+}
+
+pub(crate) fn commit(
+    gix_port: &Gix,
+    place: &GitPlace,
+    message: &str,
+    allow_empty: bool,
+) -> Result<Committed, GitError> {
+    let tree = {
+        let repo = libgit2(place)?;
+        let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
+        if index.has_conflicts() {
+            return Err(GitError(
+                "the index holds a conflict: resolve it and stage the files first".into(),
+            ));
+        }
+        let tree = index
+            .write_tree()
+            .map_err(|e| failed("write the index's tree", &e))?;
+        gix::ObjectId::from_hex(tree.to_string().as_bytes())
+            .map_err(|e| failed("read the index's tree", &e))?
+    };
+    let repo = gix_owned(place)?;
+    let parent = repo.head_id().ok().map(gix::Id::detach);
+    let parent_tree = match parent {
+        Some(parent) => repo
+            .find_commit(parent)
+            .map_err(|e| failed("read HEAD", &e))?
+            .tree_id()
+            .map_err(|e| failed("read HEAD's tree", &e))?
+            .detach(),
+        None => repo.empty_tree().id,
+    };
+    if !allow_empty && parent_tree == tree {
+        return Err(GitError(
+            "nothing to commit: the index matches HEAD (stage a change, or allow an empty commit)"
+                .into(),
+        ));
+    }
+    let branch = repo
+        .head_name()
+        .map_err(|e| failed("read HEAD", &e))?
+        .map(|name| name.shorten().to_string());
+    let sha = repo
+        .commit("HEAD", message, tree, parent)
+        .map_err(|e| failed("record the commit", &e))?
+        .detach();
+    let sha = Sha::new(sha.to_string());
+    let files = match &parent {
+        Some(parent) => gix_port
+            .diff(
+                place,
+                &DiffQuery {
+                    base: Sha::new(parent.to_string()),
+                    head: DiffSide::Commit(sha.clone()),
+                    paths: Vec::new(),
+                    patch: false,
+                },
+            )?
+            .into_iter()
+            .map(|file| file.path)
+            .collect(),
+        None => gix_port
+            .tree(place, &sha, Path::new(""))?
+            .into_iter()
+            .map(|(path, _)| path.to_string_lossy().replace('\\', "/"))
+            .collect(),
+    };
+    Ok(Committed {
+        sha,
+        branch,
+        parents: parent
+            .map(|p| Sha::new(p.to_string()))
+            .into_iter()
+            .collect(),
+        files,
+    })
+}

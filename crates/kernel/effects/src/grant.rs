@@ -493,6 +493,20 @@ impl Grant {
         .map(|_| ())
     }
 
+    /// Whether a call of kind `op` may change the repository (`git commit`, a branch, a merge): the git scope's `write`
+    /// op, judged by the port alone as [`Self::permits_git`] is.
+    pub fn permits_git_write(&self, op: Operation, question: &str) -> Result<(), Denial> {
+        let writes = |scope: &PortScope| matches!(scope, PortScope::Git(git) if git.ops.contains(&GitOp::Write));
+        self.decided(
+            op,
+            (Port::Git, true),
+            format!("git {question}"),
+            None,
+            &writes,
+        )
+        .map(|_| ())
+    }
+
     /// Whether a call of kind `op` may write `path` in `root`: a write is no [`EffectRequest`], so the fs scope is judged
     /// by its roots and its `write` op.
     pub fn permits_write(&self, op: Operation, root: &str, path: &str) -> Result<(), Denial> {

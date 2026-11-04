@@ -35,6 +35,38 @@ pub(crate) enum Action {
     Worktrees(Plain),
     /// The remotes, with each URL's host and `owner/repo` path
     Remotes(Plain),
+    /// Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
+    Commit(CommitArgs),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct CommitArgs {
+    /// The message; given more than once, each is a paragraph of its own (as `git commit -m` takes them)
+    #[arg(short, long = "message", value_name = "MESSAGE", required = true)]
+    message: Vec<String>,
+
+    /// Stage the files at or under this path first, as the worktree has them (a deleted one leaves the index)
+    #[arg(long, value_name = "PATH")]
+    add: Vec<std::path::PathBuf>,
+
+    /// Take the files at or under this path out of the index first, leaving them on disk (`git rm --cached`)
+    #[arg(long, value_name = "PATH")]
+    remove: Vec<std::path::PathBuf>,
+
+    /// Stage every tracked file first as the worktree has it; untracked files stay out
+    #[arg(short, long)]
+    all: bool,
+
+    /// Commit even when the index matches HEAD
+    #[arg(long)]
+    allow_empty: bool,
+
+    /// Run none of the repository's hooks (pre-commit, commit-msg, post-commit)
+    #[arg(long)]
+    no_verify: bool,
+
+    #[command(flatten)]
+    verb: VerbArgs,
 }
 
 #[derive(clap::Args)]
@@ -304,6 +336,32 @@ impl Action {
                     outln!(t, "{} {}", shown(&remote.name), shown(&remote.url));
                 }
             }),
+            Action::Commit(args) => {
+                let request = git::CommitRequest {
+                    message: args.message.join("\n\n"),
+                    add: args.add,
+                    remove: args.remove,
+                    all: args.all,
+                    allow_empty: args.allow_empty,
+                    no_verify: args.no_verify,
+                };
+                answer(
+                    &args.verb,
+                    terminal,
+                    ports,
+                    |v| git::commit(v, &request),
+                    |t, a| {
+                        let on = a.branch.as_deref().unwrap_or("detached HEAD");
+                        outln!(
+                            t,
+                            "[{} {}] {} files",
+                            shown(on),
+                            &a.sha[..a.sha.len().min(7)],
+                            a.files.len()
+                        );
+                    },
+                )
+            }
         }
     }
 }

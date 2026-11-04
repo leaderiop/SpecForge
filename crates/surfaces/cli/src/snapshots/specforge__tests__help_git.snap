@@ -19,6 +19,7 @@ Commands:
   branches    The local branches with their upstream and how far each is ahead and behind, or the remote-tracking ones
   worktrees   The main worktree and the linked ones, with the branch each is on
   remotes     The remotes, with each URL's host and `owner/repo` path
+  commit      Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
   help        Print this message or the help of the given subcommand(s)
 
 Options:

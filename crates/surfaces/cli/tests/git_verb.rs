@@ -6,6 +6,8 @@ use specforge_git::testing::Repo;
 
 use crate::support::{Cli, TestProject};
 
+mod writes;
+
 /// A project in a repository with one commit, `HEAD` on `main`.
 fn committed() -> (TestProject, Repo, String) {
     let project = TestProject::new();

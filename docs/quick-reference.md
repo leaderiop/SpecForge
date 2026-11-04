@@ -88,6 +88,7 @@ specforge git show HEAD:spec/a.spec --pick .text   # {sha,bytes,binary,text}
 specforge git branches [--remote]                  # {branches:[{name,sha,current,upstream,ahead,behind}]}
 specforge git worktrees                            # {worktrees:[{path,branch,sha,main,locked,current}]}
 specforge git remotes --pick '.remotes[0].path'    # {remotes:[{name,url,push_url,host,path}]}: owner/repo
+specforge git commit --add spec -m 'feat: x'       # {sha,branch,parents,files}: hooks run; --all, --remove, --no-verify
 
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions

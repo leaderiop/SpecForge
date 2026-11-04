@@ -223,9 +223,31 @@ pub struct GitRemote {
     pub path: String,
 }
 
-/// What the host asks of version control. Every method is read-only. None runs for a check unless a project declares
-/// history or a hook declares the `git` input (ADR 0320, ADR 0337 D2); `specforge git` asks the rest for the user
-/// (ADR 0339).
+/// What a commit stages before it records the index: paths from the repository's top.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Staging {
+    /// The files at or under each path as the worktree has them, ignore rules kept; a deleted file leaves the index.
+    pub add: Vec<String>,
+    /// Out of the index at or under each path, the files left on disk (`git rm --cached`).
+    pub remove: Vec<String>,
+    /// Every tracked file as the worktree has it, a deleted one removed; untracked files stay out (`git commit -a`).
+    pub all: bool,
+}
+
+/// A commit the port recorded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Committed {
+    pub sha: Sha,
+    /// The branch it moved; none when `HEAD` was detached.
+    pub branch: Option<String>,
+    pub parents: Vec<Sha>,
+    /// The paths it changed against its first parent, or every path of a root commit, from the top.
+    pub files: Vec<String>,
+}
+
+/// What the host asks of version control. Reads first: none runs for a check unless a project declares history or a
+/// hook declares the `git` input (ADR 0320, ADR 0337 D2). `specforge git` asks the rest for the user, writes included
+/// (ADR 0339); a write is the user's own act and nothing else asks for one.
 pub trait Git: Send + Sync {
     /// The repository `dir` is in.
     fn locate(&self, dir: &Path) -> Located;
@@ -310,6 +332,21 @@ pub trait Git: Send + Sync {
     /// The remotes, by name.
     fn remotes(&self, _place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
+    }
+    /// Write `staging` into the index.
+    fn stage(&self, _place: &GitPlace, _staging: &Staging) -> Result<(), GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Record the index as a commit on `HEAD` with `message` (kept byte for byte), by the identity the repository's
+    /// configuration names, and move `HEAD`'s branch to it. `Err` when the index matches `HEAD` and `allow_empty` is
+    /// false, or holds a conflict.
+    fn commit_index(
+        &self,
+        _place: &GitPlace,
+        _message: &str,
+        _allow_empty: bool,
+    ) -> Result<Committed, GitError> {
+        Err(GitError("this git port cannot write".into()))
     }
 }
 

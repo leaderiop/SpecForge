@@ -13,15 +13,16 @@ use std::path::{Path, PathBuf};
 use gix::bstr::ByteSlice as _;
 use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
-    Blob, CommitFile, DiffQuery, DiffSide, Git, GitBranch, GitBranchRef, GitChange, GitCommit,
-    GitEntry, GitEntryKind, GitError, GitFileDiff, GitPlace, GitRemote, GitStatus, GitWorktree,
-    Located, LogQuery, ObjectKind, Sha, Sized, TreeEntry,
+    Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBranch, GitBranchRef, GitChange,
+    GitCommit, GitEntry, GitEntryKind, GitError, GitFileDiff, GitPlace, GitRemote, GitStatus,
+    GitWorktree, Located, LogQuery, ObjectKind, Sha, Sized, Staging, TreeEntry,
 };
 
 mod history;
 mod refs;
 #[cfg(feature = "testing")]
 pub mod testing;
+mod write;
 
 use history::{commit_of, file_diff, index_tree, touches, tree_of, wanted_paths};
 
@@ -385,6 +386,19 @@ impl Git for Gix {
 
     fn remotes(&self, place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
         Ok(refs::remotes(&open(place)?))
+    }
+
+    fn stage(&self, place: &GitPlace, staging: &Staging) -> Result<(), GitError> {
+        write::stage(place, staging)
+    }
+
+    fn commit_index(
+        &self,
+        place: &GitPlace,
+        message: &str,
+        allow_empty: bool,
+    ) -> Result<Committed, GitError> {
+        write::commit(self, place, message, allow_empty)
     }
 
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {

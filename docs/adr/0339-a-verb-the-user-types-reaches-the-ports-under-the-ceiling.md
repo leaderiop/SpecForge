@@ -121,8 +121,8 @@ marked git2 goes to vendored libgit2.
 | worktree list | gix | `worktrees`, a linked worktree opened |
 | remotes | gix | `remote_names`, `find_remote`, its URL's host and path |
 | config | gix | `config_snapshot` |
-| index add and remove | gix | the index file's entries, written |
-| commit with identity | gix | `commit` (identity from config), its branch's loose ref |
+| index add and remove | git2 | the index file's entries, written; no worktree-to-index pipeline (ignore rules under a directory, filters), so `git add <dir>` is libgit2's |
+| commit with identity | gix | `commit` (identity from config), its branch's loose ref; the index's tree is written by libgit2 |
 | signing detected | gix | `commit.gpgsign` read; gix signs nothing, so the verb refuses |
 | hooks invoked | host | gix runs none: the host runs them through the Process port |
 | branch create and delete | gix | `reference`, `delete` |

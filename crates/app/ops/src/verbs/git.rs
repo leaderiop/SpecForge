@@ -10,6 +10,10 @@ use specforge_effects::git::{
 use super::{USER, Verbs, slashed};
 use crate::{OpError, OpErrorKind};
 
+mod commit;
+
+pub use commit::{CommitAnswer, CommitRequest, cleaned, commit};
+
 /// `git repo`'s answer: where the repository is.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RepoAnswer {
@@ -172,6 +176,14 @@ impl Verbs {
         self.grant
             .permits_git(USER, question)
             .map_err(|denial| super::outside_ceiling(&denial.request, &denial))
+    }
+
+    /// [`Self::place`] for a write: the ceiling lets git be changed (`git` `write`) as well as asked.
+    fn place_to_write(&self, question: &str) -> Result<GitPlace, OpError> {
+        self.grant
+            .permits_git_write(USER, question)
+            .map_err(|denial| super::outside_ceiling(&denial.request, &denial))?;
+        self.place(question)
     }
 
     /// The repository the project is in, once the ceiling lets git be asked `question`.

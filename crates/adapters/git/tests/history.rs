@@ -17,6 +17,8 @@ use specforge_test::prelude::*;
 
 #[path = "history/spike.rs"]
 mod spike;
+#[path = "history/writes.rs"]
+mod writes;
 
 /// What a baseline asks the files of: the specs and the harness ledger.
 fn baseline(path: &Path) -> bool {
