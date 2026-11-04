@@ -1,5 +1,6 @@
-//! Who a command can ask (ADR 0110): the terminal answers a publisher key change (`add`, `update`) and a
-//! collector's command (`collect`) when someone can answer.
+//! Who a command can ask (ADR 0110): the terminal answers a publisher key change (`add`, `update`), a
+//! collector's command (`collect`), and an extension's capability or a root outside the project (ADR 0335 D2.4)
+//! when someone can answer.
 
 use crate::outcome::OutputFormat;
 use crate::terminal::{Facts, Terminal};
@@ -22,6 +23,7 @@ impl Asker for Terminal {
         match question {
             Question::KeyChange { .. } => self.ask(&key_change(question)),
             Question::RunCommand { .. } => self.ask(&run_command(question)),
+            Question::Capability { .. } | Question::Root { .. } => self.ask(&approval(question)),
         }
     }
 }
@@ -62,6 +64,29 @@ fn run_command(question: &Question<'_>) -> String {
         root.display(),
         argv.join(" ")
     )
+}
+
+/// A capability or outside-root question as the terminal shows it (ADR 0335 D2.4).
+fn approval(question: &Question<'_>) -> String {
+    match question {
+        Question::Capability {
+            extension,
+            scope,
+            summary,
+            why,
+            project,
+        } => format!(
+            "{extension} asks for '{scope}': {summary}\n  why: {why}\nAllow it for {project}? [y/N] "
+        ),
+        Question::Root {
+            name,
+            target,
+            project,
+        } => format!(
+            "root '{name}' lies outside the project, at {target}\nAllow extensions to read it for {project}? [y/N] "
+        ),
+        _ => String::new(),
+    }
 }
 
 #[cfg(test)]

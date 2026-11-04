@@ -1,5 +1,6 @@
 //! Who can be asked to consent to what an operation would otherwise refuse (ADR 0110): a publisher key
-//! change (add, update) or a collector's command (collect). The surface decides once per command and
+//! change (add, update), a collector's command (collect), an extension's capability or a root outside the
+//! project (ADR 0335 D2.4). The surface decides once per command and
 //! hands the value to the operation; the operation, or the adapter it calls, puts each question to it.
 
 use std::path::Path;
@@ -35,6 +36,28 @@ pub enum Question<'q> {
         argv: &'q [String],
         /// The project root it runs in.
         root: &'q Path,
+    },
+    /// An extension's capability needs this machine's approval (ADR 0335 D2.4).
+    Capability {
+        /// The extension that declares it.
+        extension: &'q str,
+        /// Its scope name.
+        scope: &'q str,
+        /// What it allows, in one line (`process cargo test`, `http GET crates.io`).
+        summary: &'q str,
+        /// Why the extension says it needs it.
+        why: &'q str,
+        /// The project it is approved for.
+        project: &'q str,
+    },
+    /// A named root resolves outside the project and needs this machine's approval.
+    Root {
+        /// Its name in `specforge.json` `roots`.
+        name: &'q str,
+        /// Its canonical target.
+        target: &'q str,
+        /// The project it is approved for.
+        project: &'q str,
     },
 }
 
@@ -120,6 +143,20 @@ pub mod testing {
             /// The command line.
             argv: Vec<String>,
         },
+        /// An extension's capability.
+        Capability {
+            /// The extension that declares it.
+            extension: String,
+            /// Its scope name.
+            scope: String,
+        },
+        /// A root outside the project.
+        Root {
+            /// Its name.
+            name: String,
+            /// Its canonical target.
+            target: String,
+        },
     }
 
     impl Scripted {
@@ -158,6 +195,16 @@ pub mod testing {
                 } => Asked::RunCommand {
                     extension: extension.to_string(),
                     argv: argv.to_vec(),
+                },
+                Question::Capability {
+                    extension, scope, ..
+                } => Asked::Capability {
+                    extension: extension.to_string(),
+                    scope: scope.to_string(),
+                },
+                Question::Root { name, target, .. } => Asked::Root {
+                    name: name.to_string(),
+                    target: target.to_string(),
                 },
             });
             self.answer

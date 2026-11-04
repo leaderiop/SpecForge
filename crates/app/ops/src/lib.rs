@@ -35,6 +35,7 @@ mod containment;
 mod edit_report;
 mod error;
 pub mod extension;
+pub mod grants;
 pub mod host;
 mod machine;
 mod noticed;

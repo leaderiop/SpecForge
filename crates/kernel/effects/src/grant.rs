@@ -264,6 +264,22 @@ impl Grant {
         &self.outside
     }
 
+    /// Count what `need` asks for approved in this grant: a yes, stored or for this run only.
+    pub fn allow(&mut self, need: &Need) {
+        match need {
+            Need::Capability { approval, .. } => self
+                .capabilities
+                .iter_mut()
+                .filter(|g| g.declared.name == approval.scope)
+                .for_each(|g| g.approved = true),
+            Need::Root(root) => self
+                .outside
+                .iter_mut()
+                .filter(|r| r.name == root.root && r.target == root.target)
+                .for_each(|r| r.approved = true),
+        }
+    }
+
     /// Why the consent store could not be read, when it could not (W186).
     pub fn store_problem(&self) -> Option<&ConsentError> {
         self.store.as_ref()
