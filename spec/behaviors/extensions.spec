@@ -169,6 +169,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify integration "the environment says what part of the setup each of its diagnostics is about, and reports an entry's load diagnostics together"
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
   verify unit "a builtin loads as a builtin, and an installed or file entry with the digest of its bytes"
+  verify integration "the effects ceiling in specforge.json narrows a declared capability with W171 at its key, and a named root resolves once at load"
 }
 
 behavior load_extension_settings "Load Extension Settings" {

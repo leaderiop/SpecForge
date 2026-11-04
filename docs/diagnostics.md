@@ -1324,6 +1324,27 @@ Owner: core
 Level: error
 ```
 
+## E109
+
+```
+E109: Effects or roots not used as written
+
+A member of `effects` or `roots` in `specforge.json` is not used as written (ADR
+0335 D2.3): a port that is not `http`, `fs`, `git` or `process`, a port that is
+neither `"off"` nor an object (`process` is `"off"` or absent: a command runs as
+declared or not at all), a member the port does not take (`http`: `hosts`,
+`schemes`, `methods`; `fs`: `roots`, `ops`; `git`: `ops`), a list item that is
+no host pattern, scheme, HTTP method or op, a root named `spec` or `project`
+(built in) or not a word, or a root whose path is empty or is no directory once
+resolved from the project root. The member or item is ignored and the rest is
+kept; the diagnostic points at its key. Either key that is not an object is
+E069. `effects` only narrows what extensions declare: an absent port is not
+narrowed, `"off"` removes it, an object keeps only what it lists.
+
+Owner: core
+Level: error
+```
+
 ## E115
 
 ```
@@ -3953,6 +3974,23 @@ Approve them with `specforge grants approve <extension> <scope>...` (`--root
 <name>` for a root), or pass `--yes` to allow them for one run. A `machine`
 diagnostic: `--strict` never promotes it, and the gate's warning baseline never
 counts it.
+
+Owner: core
+Level: warning
+```
+
+## W171
+
+```
+W171: Capability narrowed by the project's effects ceiling
+
+`effects` in `specforge.json` narrows a capability an extension declares (ADR
+0335 D2.3): a host, scheme, method, root or op it lists is not allowed, or the
+port is `"off"`. One per extension and capability, naming what was removed, and
+"it grants nothing" when nothing is left; the diagnostic points at the ceiling
+key that narrowed it. What the ceiling removes is refused when the extension
+asks for it (E090). Widen `effects` if the project means to allow it, or leave
+it: the warning says what the extension cannot do here.
 
 Owner: core
 Level: warning

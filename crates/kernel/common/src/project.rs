@@ -138,7 +138,7 @@ pub enum ConfigProblem {
     NotAnObject { path: PathBuf },
     /// A key the config defines has the wrong JSON type (`name`,
     /// `version`, `spec_root`: a string; `extensions`, `exclude`: an
-    /// array; `settings`: an object). That key's default is used; every other key is kept.
+    /// array; `settings`, `effects`, `roots`: an object). That key's default is used; every other key is kept.
     WrongType {
         path: PathBuf,
         key: &'static str,
@@ -351,12 +351,18 @@ pub fn parse_project_config(path: &Path, content: &str) -> ConfigRead {
             "spec_root" => config.spec_root = string_key(&path, "spec_root", item, &mut problems),
             "extensions" => config.extensions = list_key(&path, "extensions", item, &mut problems),
             "exclude" => config.exclude = exclude_key(&path, item, &mut problems),
-            // Read where the settings resolve (ADR 0288); here only its type.
-            "settings" if !item.is_object() => problems.push(ConfigProblem::WrongType {
-                path: path.clone(),
-                key: "settings",
-                expected: "an object",
-            }),
+            // Read where they resolve (ADR 0288, ADR 0335 D2.3); here only their type.
+            key @ ("settings" | "effects" | "roots") if !item.is_object() => {
+                problems.push(ConfigProblem::WrongType {
+                    path: path.clone(),
+                    key: match key {
+                        "settings" => "settings",
+                        "effects" => "effects",
+                        _ => "roots",
+                    },
+                    expected: "an object",
+                })
+            }
             _ => {}
         }
     }

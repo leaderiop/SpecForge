@@ -241,6 +241,9 @@ catalog! {
     E095: Error core,
         "Unknown path root",
         "A file-reference path starts with a `<name>/` prefix that names no root (ADR 0335). The roots are `<spec>` and `<project>`; a path without a prefix is read in the field's own root (the spec root, or the project root where the field declares `file_base` `project`). Write a known prefix, or drop it.";
+    E109: Error core,
+        "Effects or roots not used as written",
+        "A member of `effects` or `roots` in `specforge.json` is not used as written (ADR 0335 D2.3): a port that is not `http`, `fs`, `git` or `process`, a port that is neither `\"off\"` nor an object (`process` is `\"off\"` or absent: a command runs as declared or not at all), a member the port does not take (`http`: `hosts`, `schemes`, `methods`; `fs`: `roots`, `ops`; `git`: `ops`), a list item that is no host pattern, scheme, HTTP method or op, a root named `spec` or `project` (built in) or not a word, or a root whose path is empty or is no directory once resolved from the project root. The member or item is ignored and the rest is kept; the diagnostic points at its key. Either key that is not an object is E069. `effects` only narrows what extensions declare: an absent port is not narrowed, `\"off\"` removes it, an object keeps only what it lists.";
     E115: Error core,
         "A fact written in a spec file",
         "A spec file writes an entity of a kind its extension declares `writer: \"collector\"` (ADR 0327). Such a kind's entities are facts: only `specforge collect` gives them, from what a collector observed, stores them in `.specforge/facts/<key>/<collector>.json` and records their digest in `specforge-harness`; the session serves the recorded stores read-only. A block of the kind in a `.spec` file is reported at the block, and is not a fact. Delete the block; to cite a fact, write its id in a reference (`proof [\"js:pkg/a.test.js#adds\"]`).";
@@ -766,6 +769,9 @@ catalog! {
     W170: Warning core machine,
         "Effects not approved on this machine",
         "A capability an extension uses here (an HTTP request, a command, a write) needs this machine's approval and has none (ADR 0335 D2.4), or a named root it reads lies outside the project and is not approved. Approvals are per machine and per project, kept in `~/.specforge/consent.json`, never in the project: a builtin's by its name, a third-party extension's by the digest of its blob, so a new blob asks again, as does a wider scope. Only the scopes the run uses are listed. Approve them with `specforge grants approve <extension> <scope>...` (`--root <name>` for a root), or pass `--yes` to allow them for one run. A `machine` diagnostic: `--strict` never promotes it, and the gate's warning baseline never counts it.";
+    W171: Warning core,
+        "Capability narrowed by the project's effects ceiling",
+        "`effects` in `specforge.json` narrows a capability an extension declares (ADR 0335 D2.3): a host, scheme, method, root or op it lists is not allowed, or the port is `\"off\"`. One per extension and capability, naming what was removed, and \"it grants nothing\" when nothing is left; the diagnostic points at the ceiling key that narrowed it. What the ceiling removes is refused when the extension asks for it (E090). Widen `effects` if the project means to allow it, or leave it: the warning says what the extension cannot do here.";
     W174: Warning core,
         "Path case differs from the disk",
         "A file-reference path names a file that exists only under another case (`README.md` for `Readme.md`) (ADR 0335). Each name is compared with its directory's listing on every OS, so a spec that passes on a case-insensitive macOS or Windows disk does not fail on Linux. The message names the spelling on disk; write it.";

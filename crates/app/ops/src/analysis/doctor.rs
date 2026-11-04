@@ -522,7 +522,7 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
 /// so a new part is a compile error here.
 fn about(part: SetupPart, diagnostic: &Diagnostic) -> About {
     match part {
-        SetupPart::Config | SetupPart::Settings => About::Config,
+        SetupPart::Config | SetupPart::Settings | SetupPart::Effects => About::Config,
         SetupPart::Lock => About::Lock,
         SetupPart::Entry(_) => About::Load,
         SetupPart::StructuralOnly => About::StructuralOnly,

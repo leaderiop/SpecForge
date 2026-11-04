@@ -42,6 +42,7 @@ pub mod passes;
 mod policy;
 pub mod providers;
 mod raises;
+mod resolved_effects;
 pub mod select;
 mod session;
 mod settings;
@@ -79,6 +80,7 @@ use ledger::{Reads, Unrecorded};
 pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile};
 pub use providers::Providers;
 pub use raises::Raises;
+pub use resolved_effects::{NamedRoot, ResolvedEffects};
 pub use session::{CheckMode, ProjectSession, RuntimeSource, Update, UpdateKind};
 pub use settings::{ExtensionValues, ResolvedSettings, Setting, SettingOrigin, admit, is_secret};
 pub use setup::{SetupDiagnostic, SetupPart};
@@ -163,6 +165,8 @@ pub struct Environment {
     /// E087 and W166 found.
     settings: ResolvedSettings,
     settings_diagnostics: Vec<Diagnostic>,
+    /// The `effects` ceiling and `roots` specforge.json sets (ADR 0335 D2.3), with their E109 and W171.
+    effects_allowed: ResolvedEffects,
     /// One E069 per config problem. The extension load's diagnostics are on
     /// [`Self::enabled`] ([`Installed::load_diagnostics`] orders them).
     config_diagnostics: Vec<Diagnostic>,
@@ -204,6 +208,7 @@ impl Environment {
             providers: Providers::default(),
             settings: ResolvedSettings::default(),
             settings_diagnostics: Vec::new(),
+            effects_allowed: ResolvedEffects::default(),
             config_diagnostics: Vec::new(),
             structural_only: None,
             runtime: None,
@@ -341,6 +346,8 @@ impl Environment {
                 );
             }
         }
+        let effects_allowed =
+            ResolvedEffects::resolve(read.config.text.as_deref(), registries.declarations());
         Environment {
             read,
             installed,
@@ -350,6 +357,7 @@ impl Environment {
             providers,
             settings,
             settings_diagnostics,
+            effects_allowed,
             config_diagnostics,
             structural_only,
             runtime,
@@ -387,12 +395,17 @@ impl Environment {
             },
             None => ExtensionLoad::NoRuntime,
         };
+        let mut environment = Self::assemble(read, installed, load);
+        let text = environment.read.config.text.clone();
+        environment
+            .effects_allowed
+            .locate(text.as_deref(), root.dir());
         Environment {
             root: Some(root.clone()),
             effects: specforge_effects::Effects::cached(
                 specforge_effects::EffectJournal::for_root(root),
             ),
-            ..Self::assemble(read, installed, load)
+            ..environment
         }
     }
 
@@ -457,23 +470,6 @@ impl Environment {
                         .iter()
                         .any(|p| p.phase.as_deref() == Some(specforge_protocol_types::GUARD_PHASE))
             })
-    }
-
-    /// The configured providers, registered once against the loaded
-    /// declarations (ADR 0004 D3-c).
-    pub fn providers(&self) -> &Providers {
-        &self.providers
-    }
-
-    /// The settings `specforge.json` sets, resolved: each extension's effective values, the codes they gate and
-    /// the severities they raise (ADR 0288).
-    pub fn settings(&self) -> &ResolvedSettings {
-        &self.settings
-    }
-
-    /// The E086, E087 and W166 the settings produced, in file order.
-    pub fn settings_diagnostics(&self) -> &[Diagnostic] {
-        &self.settings_diagnostics
     }
 
     /// The runtime the extensions were loaded in, where every extension
@@ -656,7 +652,7 @@ impl Environment {
     /// loaded; the lock's E033 once, before the first entry it left
     /// unloaded), provider registration (W118; E057 is a collision), I002,
     /// then the registry build's, in its order
-    /// ([`specforge_registry::RegistryBuild::reported`]), then the settings' (E086, E087, W166).
+    /// ([`specforge_registry::RegistryBuild::reported`]), then the settings' (E086, E087, W166), then the effects' (E109, W171).
     pub fn setup_diagnostics(&self) -> Vec<SetupDiagnostic<'_>> {
         let of = |part, diagnostic| SetupDiagnostic { part, diagnostic };
         let mut all: Vec<SetupDiagnostic<'_>> = self
@@ -693,6 +689,12 @@ impl Environment {
             self.settings_diagnostics
                 .iter()
                 .map(|d| of(SetupPart::Settings, d)),
+        );
+        all.extend(
+            self.effects_allowed
+                .diagnostics
+                .iter()
+                .map(|d| of(SetupPart::Effects, d)),
         );
         all
     }
