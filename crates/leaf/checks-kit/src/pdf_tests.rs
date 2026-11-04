@@ -367,3 +367,28 @@ fn no_truncation_of_any_fixture_panics() {
         }
     }
 }
+
+#[test]
+fn a_chain_of_inflating_sections_stops_at_the_files_budget() {
+    let mut pdf = Builder::new();
+    pdf.object(1, "<< /Type /Catalog /Pages 2 0 R >>")
+        .object(2, "<< /Type /Pages /Count 3 /Kids [] >>");
+    let mut previous = pdf.table(&[1, 2], "/Root 1 0 R");
+    // Each section lists a million free objects the page count never asks for: 8 MiB inflated from a few KiB.
+    let rows = (8 << 20) / 7 - 1;
+    let packed = compress_to_vec_zlib(&vec![0u8; rows * 7], 9);
+    for number in 100..120 {
+        let at = pdf.at();
+        let dict = format!(
+            "/Type /XRef /Size 2000000 /W [1 4 2] /Index [1000 {rows}] /Filter /FlateDecode \
+             /Prev {previous} /Root 1 0 R"
+        );
+        pdf.stream(number, &dict, &packed);
+        previous = at;
+    }
+    let bytes = pdf.finish(previous);
+    match whole(&bytes) {
+        Ok(Opened::Undetermined(why)) => assert!(why.contains("inflate"), "{why}"),
+        other => panic!("{other:?}"),
+    }
+}

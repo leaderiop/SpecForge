@@ -1,22 +1,24 @@
 //! Cross-reference sections, tables and streams, and the stream filters they need.
 
-use std::collections::BTreeMap;
-
-use miniz_oxide::inflate::decompress_to_vec_zlib_with_limit;
+use miniz_oxide::inflate::{TINFLStatus, decompress_to_vec_zlib_with_limit};
 
 use super::lexer::{Dict, Lexer, Obj};
-use super::{Entry, MAX_ENTRIES, MAX_INFLATED, Stop, bad};
+use super::{Budget, Entry, MAX_ENTRIES, Stop, bad};
 
-/// A classic cross-reference table after its `xref` keyword, and its trailer.
-pub(super) fn table(lexer: &mut Lexer<'_>) -> Result<(BTreeMap<u32, Entry>, Dict), Stop> {
-    let mut entries = BTreeMap::new();
+/// A classic cross-reference table after its `xref` keyword: what it lists first for object `want`, and its trailer.
+pub(super) fn table(
+    lexer: &mut Lexer<'_>,
+    want: Option<u32>,
+    budget: &mut Budget,
+) -> Result<(Option<Entry>, Dict), Stop> {
+    let mut found = None;
     let mut held = 0u64;
     loop {
         if lexer.keyword(b"trailer")? {
             let Obj::Dict(trailer) = lexer.value(0)? else {
                 return bad("its trailer is not a dictionary");
             };
-            return Ok((entries, trailer));
+            return Ok((found, trailer));
         }
         let first = lexer.int()?;
         let count = lexer.int()?;
@@ -29,6 +31,7 @@ pub(super) fn table(lexer: &mut Lexer<'_>) -> Result<(BTreeMap<u32, Entry>, Dict
                 "its cross-reference holds more than {MAX_ENTRIES} entries"
             ));
         }
+        budget.scan(count)?;
         for n in 0..count {
             let offset = lexer.int()?;
             let _generation = lexer.int()?;
@@ -41,13 +44,20 @@ pub(super) fn table(lexer: &mut Lexer<'_>) -> Result<(BTreeMap<u32, Entry>, Dict
                 (b"f", _) => Entry::Free,
                 _ => return bad("a cross-reference entry is neither n nor f"),
             };
-            entries.entry(number).or_insert(entry);
+            if want == Some(number) {
+                found.get_or_insert(entry);
+            }
         }
     }
 }
 
-/// The entries of a cross-reference stream.
-pub(super) fn xref_stream(dict: &Dict, data: &[u8]) -> Result<BTreeMap<u32, Entry>, Stop> {
+/// What a cross-reference stream lists first for object `want`.
+pub(super) fn xref_stream(
+    dict: &Dict,
+    data: &[u8],
+    want: Option<u32>,
+    budget: &mut Budget,
+) -> Result<Option<Entry>, Stop> {
     let widths: Vec<usize> = match dict.get(b"W") {
         Some(Obj::Array(items)) if items.len() == 3 => items
             .iter()
@@ -69,13 +79,13 @@ pub(super) fn xref_stream(dict: &Dict, data: &[u8]) -> Result<BTreeMap<u32, Entr
             .collect::<Result<_, _>>()?,
         _ => vec![0, size],
     };
-    let data = decoded(dict, data)?;
+    let data = decoded(dict, data, budget)?;
     let row: usize = widths.iter().sum();
     if row == 0 {
         return bad("its cross-reference stream's rows are empty");
     }
     let mut rows = data.chunks_exact(row);
-    let mut entries = BTreeMap::new();
+    let mut found = None;
     let mut held = 0u64;
     for pair in index.chunks(2) {
         let [first, count] = pair else {
@@ -90,6 +100,7 @@ pub(super) fn xref_stream(dict: &Dict, data: &[u8]) -> Result<BTreeMap<u32, Entr
                 "its cross-reference holds more than {MAX_ENTRIES} entries"
             ));
         }
+        budget.scan(count)?;
         for n in 0..count {
             let Some(bytes) = rows.next() else {
                 return bad("its cross-reference stream holds fewer rows than its /Index");
@@ -114,14 +125,17 @@ pub(super) fn xref_stream(dict: &Dict, data: &[u8]) -> Result<BTreeMap<u32, Entr
             };
             let number = u32::try_from(u64::from(first) + n)
                 .map_err(|_| Stop::Bad("an object number is too large".into()))?;
-            entries.entry(number).or_insert(entry);
+            if want == Some(number) {
+                found.get_or_insert(entry);
+            }
         }
     }
-    Ok(entries)
+    Ok(found)
 }
 
-/// A stream's data with its filter and predictor undone: none or `FlateDecode`, PNG predictors.
-pub(super) fn decoded(dict: &Dict, data: &[u8]) -> Result<Vec<u8>, Stop> {
+/// A stream's data with its filter and predictor undone: none or `FlateDecode`, PNG predictors. What it inflates to is
+/// charged to `budget`.
+pub(super) fn decoded(dict: &Dict, data: &[u8], budget: &mut Budget) -> Result<Vec<u8>, Stop> {
     let filter = match dict.get(b"Filter") {
         None => None,
         Some(Obj::Name(name)) => Some(name.clone()),
@@ -134,8 +148,17 @@ pub(super) fn decoded(dict: &Dict, data: &[u8]) -> Result<Vec<u8>, Stop> {
     };
     let inflated = match filter.as_deref() {
         None => data.to_vec(),
-        Some(b"FlateDecode") => decompress_to_vec_zlib_with_limit(data, MAX_INFLATED)
-            .map_err(|_| Stop::Bad("a stream does not inflate, or inflates past 8 MiB".into()))?,
+        Some(b"FlateDecode") => {
+            decompress_to_vec_zlib_with_limit(data, budget.room()).map_err(|error| {
+                let past_room = error.status == TINFLStatus::HasMoreOutput;
+                past_room
+                    .then(|| budget.exhausted())
+                    .flatten()
+                    .unwrap_or_else(|| {
+                        Stop::Bad("a stream does not inflate, or inflates past 8 MiB".into())
+                    })
+            })?
+        }
         Some(other) => {
             return bad(format!(
                 "a stream's filter /{} is not read",
@@ -151,6 +174,7 @@ pub(super) fn decoded(dict: &Dict, data: &[u8]) -> Result<Vec<u8>, Stop> {
         },
         _ => Dict::default(),
     };
+    budget.inflate(inflated.len());
     match parms.int(b"Predictor").unwrap_or(1) {
         1 => Ok(inflated),
         10..=15 => {

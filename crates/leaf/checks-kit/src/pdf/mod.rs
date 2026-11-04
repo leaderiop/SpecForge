@@ -4,9 +4,11 @@
 //! [`Failure::Need`] naming the spans to read next; the `/Linearized` dictionary's `/N` rides along as a hint for when
 //! they cannot be read.
 //!
-//! A file is untrusted: every count, length, nesting and inflated size is capped, and no input panics.
+//! A file is untrusted: every count, length, nesting and inflated size is capped, and no input panics. A section's
+//! entries are not kept: a lookup reads the sections again for the one object it wants, and every section read and
+//! stream inflated is charged to one [`Budget`] for the whole file, past which the count is undetermined.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 mod lexer;
 mod xref;
@@ -28,6 +30,10 @@ const MAX_SECTIONS: usize = 32;
 const MAX_ENTRIES: u64 = 1 << 22;
 /// The most bytes a stream inflates to.
 const MAX_INFLATED: usize = 8 << 20;
+/// The most entries every section read adds up to, each read counted, before the count is undetermined.
+const MAX_SCANNED: u64 = 1 << 23;
+/// The most bytes every stream inflated adds up to, each inflation counted, before the count is undetermined.
+const MAX_TOTAL_INFLATED: usize = 32 << 20;
 /// The deepest arrays and dictionaries nest.
 const MAX_DEPTH: usize = 32;
 
@@ -71,6 +77,10 @@ pub fn open(reads: &[Read<'_>], len: u64) -> Result<Opened, Failure> {
         seen: BTreeSet::new(),
         encrypted: false,
         root: None,
+        budget: Budget {
+            scanned: 0,
+            inflated: 0,
+        },
     };
     let hint = pdf.hint();
     match pdf.count() {
@@ -155,20 +165,64 @@ enum Entry {
     },
 }
 
-/// One cross-reference section: its entries, and the older sections it names.
-struct Section {
-    entries: BTreeMap<u32, Entry>,
+/// What reading the whole file spent: entries scanned and bytes inflated, over every section and stream read.
+struct Budget {
+    scanned: u64,
+    inflated: usize,
+}
+
+impl Budget {
+    /// Count `entries` more scanned: past [`MAX_SCANNED`] the count is undetermined.
+    fn scan(&mut self, entries: u64) -> Result<(), Stop> {
+        self.scanned = self.scanned.saturating_add(entries);
+        if self.scanned > MAX_SCANNED {
+            return Err(Stop::Undetermined(format!(
+                "its cross-references hold more than {MAX_SCANNED} entries to read"
+            )));
+        }
+        Ok(())
+    }
+
+    /// The most the next stream may inflate to: [`MAX_INFLATED`], or what is left of [`MAX_TOTAL_INFLATED`].
+    fn room(&self) -> usize {
+        MAX_INFLATED.min(MAX_TOTAL_INFLATED - self.inflated)
+    }
+
+    /// Count `bytes` more inflated.
+    fn inflate(&mut self, bytes: usize) {
+        self.inflated = (self.inflated + bytes).min(MAX_TOTAL_INFLATED);
+    }
+
+    /// Why a stream that did not inflate within [`Self::room`] stops the reading: the whole file's budget, when it
+    /// left less than one stream's cap.
+    fn exhausted(&self) -> Option<Stop> {
+        (self.room() < MAX_INFLATED).then(|| {
+            Stop::Undetermined(format!(
+                "its streams inflate past {} MiB in all",
+                MAX_TOTAL_INFLATED >> 20
+            ))
+        })
+    }
+}
+
+/// What reading the next pending section came to.
+enum Next {
+    /// No section is left.
+    Done,
+    /// It was read, and listed this entry for the object asked, if it did.
+    Read(Option<Entry>),
 }
 
 struct Pdf<'a> {
     file: File<'a>,
-    /// The sections read, newest first.
-    sections: Vec<Section>,
+    /// The offsets of the sections read, newest first.
+    sections: Vec<u64>,
     /// The offsets of sections named and not read yet, the next to read first.
     pending: Vec<u64>,
     seen: BTreeSet<u64>,
     encrypted: bool,
     root: Option<u32>,
+    budget: Budget,
 }
 
 impl<'a> Pdf<'a> {
@@ -197,7 +251,7 @@ impl<'a> Pdf<'a> {
             if let Some(root) = self.root {
                 break root;
             }
-            if !self.next_section()? {
+            if let Next::Done = self.next_section(None)? {
                 return bad("its trailer names no /Root");
             }
         };
@@ -253,33 +307,17 @@ impl<'a> Pdf<'a> {
         u64::try_from(offset).map_or_else(|_| bad("its startxref is negative"), Ok)
     }
 
-    /// Read the next pending section; false when none is left.
-    fn next_section(&mut self) -> Result<bool, Stop> {
+    /// Read the next pending section, looking for object `want`.
+    fn next_section(&mut self, want: Option<u32>) -> Result<Next, Stop> {
         let Some(offset) = self.pending.first().copied() else {
-            return Ok(false);
+            return Ok(Next::Done);
         };
         if self.sections.len() >= MAX_SECTIONS {
             return bad(format!(
                 "it has more than {MAX_SECTIONS} cross-reference sections"
             ));
         }
-        let mut lexer = self.file.at(offset, SECTION_SPAN)?;
-        lexer.white();
-        let (entries, trailer) = if lexer.keyword(b"xref")? {
-            table(&mut lexer)?
-        } else {
-            let number = lexer.peek_int().and_then(|n| u32::try_from(n).ok());
-            let Some(number) = number else {
-                return bad("its startxref points at no cross-reference");
-            };
-            let (Obj::Dict(dict), Some(data)) = lexer.object(number)? else {
-                return bad("its startxref points at no cross-reference");
-            };
-            if !dict.is(b"Type", b"XRef") {
-                return bad("its startxref points at no cross-reference");
-            }
-            (xref_stream(&dict, data)?, dict)
-        };
+        let (found, trailer) = self.section(offset, want)?;
         self.pending.remove(0);
         self.seen.insert(offset);
         if self.root.is_none() {
@@ -297,22 +335,46 @@ impl<'a> Pdf<'a> {
             }
         }
         self.pending.splice(0..0, next);
-        self.sections.push(Section { entries });
-        Ok(true)
+        self.sections.push(offset);
+        Ok(Next::Read(found))
     }
 
-    /// Where object `number` is: the newest section that lists it, reading older ones as they are needed.
+    /// The section at `offset`: what it lists for object `want`, and its trailer.
+    fn section(&mut self, offset: u64, want: Option<u32>) -> Result<(Option<Entry>, Dict), Stop> {
+        let mut lexer = self.file.at(offset, SECTION_SPAN)?;
+        lexer.white();
+        if lexer.keyword(b"xref")? {
+            return table(&mut lexer, want, &mut self.budget);
+        }
+        let number = lexer.peek_int().and_then(|n| u32::try_from(n).ok());
+        let Some(number) = number else {
+            return bad("its startxref points at no cross-reference");
+        };
+        let (Obj::Dict(dict), Some(data)) = lexer.object(number)? else {
+            return bad("its startxref points at no cross-reference");
+        };
+        if !dict.is(b"Type", b"XRef") {
+            return bad("its startxref points at no cross-reference");
+        }
+        let found = xref_stream(&dict, data, want, &mut self.budget)?;
+        Ok((found, dict))
+    }
+
+    /// Where object `number` is: the newest section that lists it, reading older ones as they are needed. The sections
+    /// already read are read again for it, since none keeps its entries.
     fn entry(&mut self, number: u32) -> Result<Entry, Stop> {
-        let mut checked = 0;
-        loop {
-            for section in &self.sections[checked..] {
-                if let Some(entry) = section.entries.get(&number) {
-                    return Ok(*entry);
-                }
+        for offset in self.sections.clone() {
+            if let (Some(entry), _) = self.section(offset, Some(number))? {
+                return Ok(entry);
             }
-            checked = self.sections.len();
-            if !self.next_section()? {
-                return bad(format!("object {number} is not in its cross-reference"));
+        }
+        loop {
+            match self.next_section(Some(number))? {
+                Next::Read(Some(entry)) => return Ok(entry),
+                Next::Read(None) => {}
+                Next::Done => {
+                    return bad(format!("object {number} is not in its cross-reference"));
+                }
             }
         }
     }
@@ -346,7 +408,7 @@ impl<'a> Pdf<'a> {
         else {
             return bad(format!("object {stream} is no object stream"));
         };
-        let data = decoded(&dict, data)?;
+        let data = decoded(&dict, data, &mut self.budget)?;
         let (Some(count), Some(first)) = (dict.int(b"N"), dict.int(b"First")) else {
             return bad(format!("object stream {stream} states no /N or /First"));
         };
@@ -358,7 +420,9 @@ impl<'a> Pdf<'a> {
             need: self.file.span(offset, SECTION_SPAN),
         };
         let mut at = None;
-        for _ in 0..count.clamp(0, MAX_ENTRIES as i64) {
+        let count = count.clamp(0, MAX_ENTRIES as i64);
+        self.budget.scan(count as u64)?;
+        for _ in 0..count {
             let (found, offset) = (header.int()?, header.int()?);
             if found == i64::from(number) {
                 at = usize::try_from(offset).ok();
