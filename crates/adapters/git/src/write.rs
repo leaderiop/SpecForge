@@ -23,16 +23,79 @@ fn owned(place: &GitPlace) -> Result<(), GitError> {
     }
 }
 
-/// The repository at `place` through libgit2, once [`owned`].
-pub(crate) fn libgit2(place: &GitPlace) -> Result<git2::Repository, GitError> {
+/// The operation in progress in this worktree that no write of the port continues or may end: a rebase, an `am`, a
+/// bisect, or a sequencer (a cherry-pick or revert of several commits), as git's own state files say. A write in the
+/// middle of one (a commit at a rebase's `edit` stop) would end it and lose its todo list.
+fn foreign_operation(place: &GitPlace) -> Option<&'static str> {
+    let at = |name: &str| place.git_dir.join(name).exists();
+    if at("rebase-apply") {
+        Some(if at("rebase-apply/applying") {
+            "an am"
+        } else {
+            "a rebase"
+        })
+    } else if at("rebase-merge") {
+        Some("a rebase")
+    } else if at("BISECT_LOG") {
+        Some("a bisect")
+    } else if at("sequencer") {
+        Some("a cherry-pick or revert of several commits")
+    } else {
+        None
+    }
+}
+
+/// A write only where [`owned`] and with no [`foreign_operation`] in progress.
+fn writable(place: &GitPlace) -> Result<(), GitError> {
+    owned(place)?;
+    match foreign_operation(place) {
+        Some(operation) => Err(GitError(format!(
+            "{operation} is in progress: finish or abort it with git first"
+        ))),
+        None => Ok(()),
+    }
+}
+
+/// The repository at `place` through libgit2, once [`owned`], to read.
+pub(crate) fn libgit2_read(place: &GitPlace) -> Result<git2::Repository, GitError> {
     owned(place)?;
     git2::Repository::open(&place.toplevel).map_err(|e| failed("open the repository", &e))
 }
 
-/// The repository at `place` through gix, once [`owned`].
+/// The repository at `place` through libgit2, once [`writable`].
+pub(crate) fn libgit2(place: &GitPlace) -> Result<git2::Repository, GitError> {
+    writable(place)?;
+    libgit2_read(place)
+}
+
+/// The repository at `place` through gix, once [`writable`].
 pub(crate) fn gix_owned(place: &GitPlace) -> Result<gix::Repository, GitError> {
-    owned(place)?;
+    writable(place)?;
     open(place)
+}
+
+/// The files of a merge, cherry-pick or revert a commit concludes, which git removes once it is recorded. Never
+/// libgit2's `cleanup_state`, which also deletes a rebase's, a bisect's and a sequencer's.
+const CONCLUDED: [&str; 6] = [
+    "MERGE_HEAD",
+    "MERGE_MSG",
+    "MERGE_MODE",
+    "CHERRY_PICK_HEAD",
+    "REVERT_HEAD",
+    "AUTO_MERGE",
+];
+
+/// End the merge, cherry-pick or revert in progress in this worktree: its own files go, nothing else.
+pub(crate) fn conclude(place: &GitPlace) -> Result<(), GitError> {
+    for name in CONCLUDED {
+        match std::fs::remove_file(place.git_dir.join(name)) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                return Err(failed("end the operation the commit concludes", &e));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 /// Where git hands a commit message to a hook: `COMMIT_EDITMSG` in this worktree's git directory.
@@ -96,7 +159,12 @@ pub(crate) fn commit(
     } else {
         None
     };
-    let merging = state != git2::RepositoryState::Clean;
+    let merging = matches!(
+        state,
+        git2::RepositoryState::Merge
+            | git2::RepositoryState::CherryPick
+            | git2::RepositoryState::Revert
+    );
     let committed = record(
         gix_port,
         place,
@@ -106,8 +174,7 @@ pub(crate) fn commit(
         None,
     )?;
     if merging {
-        repo.cleanup_state()
-            .map_err(|e| failed("end the operation the commit concludes", &e))?;
+        conclude(place)?;
     }
     Ok(committed)
 }

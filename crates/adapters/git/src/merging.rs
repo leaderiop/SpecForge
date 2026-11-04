@@ -6,7 +6,7 @@
 use gix::refs::transaction::PreviousValue;
 use specforge_effects::git::{GitConflict, GitError, GitPlace, GitStash, Merged, ResetMode, Sha};
 
-use crate::write::{Author, gix_owned, head_of, libgit2, record};
+use crate::write::{Author, conclude, gix_owned, head_of, libgit2, libgit2_read, record};
 use crate::{Gix, failed, id};
 
 fn oid(sha: &Sha) -> Result<git2::Oid, GitError> {
@@ -128,8 +128,7 @@ pub(crate) fn merge(
         true,
         None,
     )?;
-    repo.cleanup_state()
-        .map_err(|e| failed("end the merge", &e))?;
+    conclude(place)?;
     Ok(Merged {
         sha: Some(committed.sha),
         fast_forward: false,
@@ -139,6 +138,12 @@ pub(crate) fn merge(
 
 pub(crate) fn reset(place: &GitPlace, to: &Sha, mode: ResetMode) -> Result<(), GitError> {
     if mode == ResetMode::Soft {
+        // as git: "Cannot do a soft reset in the middle of a merge"
+        if place.git_dir.join("MERGE_HEAD").exists() {
+            return Err(GitError(
+                "a merge is in progress: a soft reset would keep its index, so conclude or abort it first".into(),
+            ));
+        }
         let head = head_of(&libgit2(place)?);
         return move_head(place, head.as_ref(), to, "reset: moving");
     }
@@ -218,7 +223,7 @@ pub(crate) fn stash_pop(place: &GitPlace, index: usize) -> Result<(), GitError> 
 }
 
 pub(crate) fn stashes(place: &GitPlace) -> Result<Vec<GitStash>, GitError> {
-    let mut repo = libgit2(place)?;
+    let mut repo = libgit2_read(place)?;
     let mut out = Vec::new();
     repo.stash_foreach(|index, message, oid| {
         out.push(GitStash {
@@ -295,8 +300,7 @@ pub(crate) fn pick(
         false,
         author.as_ref(),
     )?;
-    repo.cleanup_state()
-        .map_err(|e| failed("end the cherry-pick", &e))?;
+    conclude(place)?;
     Ok(Merged {
         sha: Some(committed.sha),
         fast_forward: false,
