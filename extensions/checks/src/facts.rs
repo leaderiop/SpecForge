@@ -1,6 +1,7 @@
 //! The `checks` collector: each checked value's outcome, published as a `check_outcome` fact (ADR 0327). It reads
 //! only the rows the host serves it, so it runs when named (`collect --runner checks`) or under `checks.publish`.
 
+use jiff::Timestamp;
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{CheckOutcome, CheckStatus};
 
@@ -102,28 +103,11 @@ pub(crate) fn fact(row: &CheckOutcome) -> Fact {
     fact
 }
 
-/// Unix milliseconds as `YYYY-MM-DDTHH:MM:SSZ`.
+/// Unix milliseconds as `YYYY-MM-DDTHH:MM:SSZ`, to the second; a time past what RFC 3339 writes as itself.
 pub(crate) fn rfc3339(millis: u64) -> String {
-    let seconds = millis / 1000;
-    let (days, of_day) = ((seconds / 86_400) as i64, seconds % 86_400);
-    // The civil date of a day count from 1970-01-01 (H. Hinnant's `civil_from_days`).
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let of_era = z - era * 146_097;
-    let year_of_era = (of_era - of_era / 1_460 + of_era / 36_524 - of_era / 146_096) / 365;
-    let of_year = of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let shifted = (5 * of_year + 2) / 153;
-    let day = of_year - (153 * shifted + 2) / 5 + 1;
-    let month = if shifted < 10 {
-        shifted + 3
-    } else {
-        shifted - 9
-    };
-    let year = year_of_era + era * 400 + i64::from(month <= 2);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
-        of_day / 3_600,
-        of_day % 3_600 / 60,
-        of_day % 60
-    )
+    let seconds = i64::try_from(millis / 1000).unwrap_or(i64::MAX);
+    match Timestamp::from_second(seconds) {
+        Ok(at) => at.to_string(),
+        Err(_) => millis.to_string(),
+    }
 }

@@ -712,6 +712,8 @@ dependencies = [
 name = "specforge-ext-checks"
 version = "1.0.0"
 dependencies = [
+ "jiff",
+ "mime",
  "serde_json",
  "specforge-checks-kit",
  "specforge-extension-sdk",

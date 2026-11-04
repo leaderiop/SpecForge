@@ -1,6 +1,8 @@
 //! The links family: what the URLs a value names answer. A URL the text alone refuses is never fetched; the rest are
 //! read from the host's answers to one probe each.
 
+use jiff::Timestamp;
+use mime::Mime;
 use specforge_checks_kit::formats::hostname;
 use specforge_checks_kit::html::anchors;
 use specforge_checks_kit::links::{fragment_id, host_matches, UrlParts};
@@ -247,7 +249,13 @@ fn typed(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> Vec<C
             format!("'{text}' answers no Content-Type"),
         )];
     };
-    let media = given.split(';').next().unwrap_or_default().trim();
+    let Ok(media) = given.parse::<Mime>() else {
+        return vec![CheckFinding::new(
+            E104,
+            format!("'{text}' answers a Content-Type that is no media type"),
+        )];
+    };
+    let media = media.essence_str();
     let allow = list(args, "allow");
     if allow.is_empty() || allow.iter().any(|a| a.eq_ignore_ascii_case(media)) {
         return Vec::new();
@@ -332,21 +340,12 @@ fn certified(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> V
     found
 }
 
-/// Whole days from `now_ms` (Unix milliseconds) to `end` (`YYYY-MM-DDTHH:MM:SSZ`), rounded down; None for another form.
+/// Whole days from `now_ms` (Unix milliseconds) to `end` (RFC 3339, any offset or fraction), rounded down; None for
+/// another form.
 pub(crate) fn days_left(end: &str, now_ms: u64) -> Option<i64> {
-    let number = |range: std::ops::Range<usize>| end.get(range)?.parse::<i64>().ok();
-    let (year, month, day) = (number(0..4)?, number(5..7)?, number(8..10)?);
-    let (hour, minute, second) = (number(11..13)?, number(14..16)?, number(17..19)?);
-    // Days from 1970-01-01 to a civil date (H. Hinnant's `days_from_civil`).
-    let y = if month <= 2 { year - 1 } else { year };
-    let era = y.div_euclid(400);
-    let of_era = y - era * 400;
-    let of_year = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
-    let of_cycle = of_era * 365 + of_era / 4 - of_era / 100 + of_year;
-    let days = era * 146_097 + of_cycle - 719_468;
-    let seconds = days * 86_400 + hour * 3_600 + minute * 60 + second;
-    let now = i64::try_from(now_ms / 1000).ok()?;
-    Some((seconds - now).div_euclid(86_400))
+    let end = end.parse::<Timestamp>().ok()?;
+    let now = i64::try_from(now_ms).ok()?;
+    Some((end.as_millisecond() - now).div_euclid(86_400_000))
 }
 
 /// `dns`: a host name, which the text alone may refuse (E103), resolved through the host's Http port.

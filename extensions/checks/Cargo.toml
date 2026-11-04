@@ -10,6 +10,9 @@ crate-type = ["cdylib"]
 specforge-extension-sdk = { path = "../../crates/runtime/extension-sdk" }
 specforge-checks-kit = { path = "../../crates/leaf/checks-kit", features = ["digits", "files", "formats", "git", "links"] }
 serde_json = "1.0"
+# The kit's own: one copy of each in the blob.
+jiff = { version = "0.2.39", default-features = false, features = ["std"] }
+mime = "0.3.17"
 
 [dev-dependencies]
 specforge-extension-sdk = { path = "../../crates/runtime/extension-sdk", features = ["testing"] }

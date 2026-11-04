@@ -263,7 +263,11 @@ fn links_content_type_outside_allow_or_missing_is_e104() {
         Some("E104")
     );
     assert_eq!(
-        code_of("content_type", allow, status(200)).as_deref(),
+        code_of("content_type", allow.clone(), status(200)).as_deref(),
+        Some("E104")
+    );
+    assert_eq!(
+        code_of("content_type", allow, typed("pdf")).as_deref(),
         Some("E104")
     );
 }
@@ -375,6 +379,8 @@ fn links_days_left_counts_whole_days_to_the_end() {
     assert_eq!(days_left("2026-01-15T12:00:00Z", now), Some(14));
     assert_eq!(days_left("2025-12-31T23:59:59Z", now), Some(-1));
     assert_eq!(days_left("2024-02-29T00:00:00Z", 0), Some(19_782));
+    assert_eq!(days_left("2026-01-15T14:00:00+02:00", now), Some(14));
+    assert_eq!(days_left("2026-01-02T00:00:00.5Z", now), Some(1));
     assert_eq!(days_left("not a date", now), None);
 }
 
