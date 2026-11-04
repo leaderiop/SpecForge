@@ -85,6 +85,9 @@ specforge git log main..HEAD --pick .count         # {count,commits:[{sha,parent
 specforge git diff --base main --pick '.files[].path'  # -- <path>… filters; --staged, --worktree, --patch
 specforge git merge-base main HEAD --pick .sha     # {sha}
 specforge git show HEAD:spec/a.spec --pick .text   # {sha,bytes,binary,text}
+specforge git branches [--remote]                  # {branches:[{name,sha,current,upstream,ahead,behind}]}
+specforge git worktrees                            # {worktrees:[{path,branch,sha,main,locked,current}]}
+specforge git remotes --pick '.remotes[0].path'    # {remotes:[{name,url,push_url,host,path}]}: owner/repo
 
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions

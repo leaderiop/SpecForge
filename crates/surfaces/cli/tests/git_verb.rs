@@ -402,3 +402,66 @@ fn diff_names_a_rename_and_its_old_path() {
         json!([{"path": "moved.txt", "old_path": "a.txt", "status": "renamed", "added": 0, "removed": 0, "binary": false}])
     );
 }
+
+#[test]
+fn branches_name_their_upstream_and_how_far_each_is_ahead_and_behind() {
+    let (project, repo, first) = committed();
+    repo.write("b.txt", "b");
+    let second = repo.commit_all("second");
+    repo.remote("origin", "https://example.com/acme/widgets.git")
+        .upstream("main", &first);
+    repo.branch("side", &first);
+    assert_eq!(
+        git(&project, &["branches"]).exits(0).json(),
+        json!({"branches": [
+            {"name": "main", "sha": second, "current": true, "upstream": "origin/main", "ahead": 1, "behind": 0},
+            {"name": "side", "sha": first, "current": false, "upstream": null, "ahead": 0, "behind": 0},
+        ]})
+    );
+    assert_eq!(
+        git(
+            &project,
+            &["branches", "--remote", "--pick", ".branches[].name"]
+        )
+        .exits(0)
+        .stdout,
+        "origin/main\n"
+    );
+}
+
+#[test]
+fn worktrees_list_the_main_one_then_the_linked_ones() {
+    let (project, repo, sha) = committed();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let linked = repo.linked_worktree(&elsewhere.path().join("wt"), "feature", &sha);
+    let slashed = |p: &std::path::Path| {
+        p.canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/")
+    };
+    assert_eq!(
+        git(&project, &["worktrees"]).exits(0).json(),
+        json!({"worktrees": [
+            {"path": slashed(project.root()), "branch": "main", "sha": sha, "main": true, "locked": false, "current": true},
+            {"path": slashed(linked.dir()), "branch": "feature", "sha": sha, "main": false, "locked": false, "current": false},
+        ]})
+    );
+}
+
+#[test]
+fn remotes_split_each_url_into_its_host_and_path() {
+    let (project, repo, _) = committed();
+    repo.remote("origin", "https://github.com/acme/widgets.git")
+        .config("[remote \"origin\"]\n\tpushurl = git@github.com:acme/widgets.git")
+        .remote("scp", "git@gitlab.com:group/sub/tool.git")
+        .remote("local", "/srv/git/mirror.git");
+    assert_eq!(
+        git(&project, &["remotes"]).exits(0).json(),
+        json!({"remotes": [
+            {"name": "local", "url": "/srv/git/mirror.git", "push_url": "/srv/git/mirror.git", "host": null, "path": "/srv/git/mirror.git"},
+            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "git@github.com:acme/widgets.git", "host": "github.com", "path": "acme/widgets"},
+            {"name": "scp", "url": "git@gitlab.com:group/sub/tool.git", "push_url": "git@gitlab.com:group/sub/tool.git", "host": "gitlab.com", "path": "group/sub/tool"},
+        ]})
+    );
+}

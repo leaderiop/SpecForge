@@ -3,8 +3,8 @@
 
 use serde::Serialize;
 use specforge_effects::git::{
-    DiffQuery, DiffSide, GitCommit, GitError, GitFileDiff, GitPlace, GitStatus, Located, LogQuery,
-    ObjectKind, Sha,
+    DiffQuery, DiffSide, GitBranchRef, GitCommit, GitError, GitFileDiff, GitPlace, GitRemote,
+    GitStatus, Located, LogQuery, ObjectKind, Sha,
 };
 
 use super::{USER, Verbs, slashed};
@@ -131,6 +131,37 @@ pub struct ShowAnswer {
     /// A NUL in the first 8000 bytes, as git decides.
     pub binary: bool,
     pub text: Option<String>,
+}
+
+/// `git branches`' answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BranchesAnswer {
+    pub branches: Vec<GitBranchRef>,
+}
+
+/// `git worktrees`' answer: the main worktree first.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WorktreesAnswer {
+    pub worktrees: Vec<Worktree>,
+}
+
+/// One worktree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Worktree {
+    /// Its top directory, absolute.
+    pub path: String,
+    pub branch: Option<String>,
+    pub sha: Option<String>,
+    pub main: bool,
+    pub locked: bool,
+    /// The worktree the project is in.
+    pub current: bool,
+}
+
+/// `git remotes`' answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RemotesAnswer {
+    pub remotes: Vec<GitRemote>,
 }
 
 impl Verbs {
@@ -379,4 +410,34 @@ pub fn show(verbs: &Verbs, revision: &str) -> Result<ShowAnswer, OpError> {
             String::from_utf8(bytes).ok()
         },
     })
+}
+
+pub fn branches(verbs: &Verbs, remote: bool) -> Result<BranchesAnswer, OpError> {
+    let place = verbs.place("branches")?;
+    let branches = verbs.ports().git.branches(&place, remote).map_err(failed)?;
+    Ok(BranchesAnswer { branches })
+}
+
+pub fn worktrees(verbs: &Verbs) -> Result<WorktreesAnswer, OpError> {
+    let place = verbs.place("worktrees")?;
+    let worktrees = verbs.ports().git.worktrees(&place).map_err(failed)?;
+    Ok(WorktreesAnswer {
+        worktrees: worktrees
+            .into_iter()
+            .map(|w| Worktree {
+                current: w.path == place.toplevel,
+                path: slashed(&w.path),
+                branch: w.branch,
+                sha: w.sha.map(|sha| sha.as_str().to_string()),
+                main: w.main,
+                locked: w.locked,
+            })
+            .collect(),
+    })
+}
+
+pub fn remotes(verbs: &Verbs) -> Result<RemotesAnswer, OpError> {
+    let place = verbs.place("remotes")?;
+    let remotes = verbs.ports().git.remotes(&place).map_err(failed)?;
+    Ok(RemotesAnswer { remotes })
 }

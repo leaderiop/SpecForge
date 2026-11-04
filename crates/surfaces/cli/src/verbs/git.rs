@@ -29,6 +29,22 @@ pub(crate) enum Action {
     MergeBase(MergeBaseArgs),
     /// A file at a revision (`HEAD:path`): its blob, size and text
     Show(ShowArgs),
+    /// The local branches with their upstream and how far each is ahead and behind, or the remote-tracking ones
+    Branches(BranchesArgs),
+    /// The main worktree and the linked ones, with the branch each is on
+    Worktrees(Plain),
+    /// The remotes, with each URL's host and `owner/repo` path
+    Remotes(Plain),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct BranchesArgs {
+    /// The remote-tracking branches instead (`origin/main`)
+    #[arg(long)]
+    remote: bool,
+
+    #[command(flatten)]
+    verb: VerbArgs,
 }
 
 #[derive(clap::Args)]
@@ -260,6 +276,34 @@ impl Action {
                     },
                 )
             }
+            Action::Branches(args) => {
+                let remote = args.remote;
+                answer(
+                    &args.verb,
+                    terminal,
+                    ports,
+                    |v| git::branches(v, remote),
+                    |t, a| {
+                        for branch in &a.branches {
+                            let mark = if branch.current { "*" } else { " " };
+                            outln!(t, "{mark} {}", shown(&branch.name));
+                        }
+                    },
+                )
+            }
+            Action::Worktrees(args) => {
+                answer(&args.verb, terminal, ports, git::worktrees, |t, a| {
+                    for worktree in &a.worktrees {
+                        let branch = worktree.branch.as_deref().unwrap_or("(detached)");
+                        outln!(t, "{} {}", shown(&worktree.path), shown(branch));
+                    }
+                })
+            }
+            Action::Remotes(args) => answer(&args.verb, terminal, ports, git::remotes, |t, a| {
+                for remote in &a.remotes {
+                    outln!(t, "{} {}", shown(&remote.name), shown(&remote.url));
+                }
+            }),
         }
     }
 }

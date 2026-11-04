@@ -184,6 +184,45 @@ pub struct GitFileDiff {
     pub patch: Option<String>,
 }
 
+/// A branch as `git branch -vv` lists it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GitBranchRef {
+    /// `main`, or `origin/main` for a remote-tracking branch.
+    pub name: String,
+    pub sha: Option<Sha>,
+    /// `HEAD` is on it in the worktree asked.
+    pub current: bool,
+    /// The remote-tracking branch it follows, `origin/main`.
+    pub upstream: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
+}
+
+/// A worktree of the repository: the main one or a linked one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitWorktree {
+    pub path: PathBuf,
+    /// The branch its `HEAD` is on; none when detached.
+    pub branch: Option<String>,
+    pub sha: Option<Sha>,
+    /// The main worktree, not one `git worktree add` made.
+    pub main: bool,
+    pub locked: bool,
+}
+
+/// A remote and where its URL points.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GitRemote {
+    pub name: String,
+    pub url: String,
+    /// Where a push goes: its push URL, else its URL.
+    pub push_url: String,
+    /// The URL's host (`github.com`); none for a local path.
+    pub host: Option<String>,
+    /// The URL's path: `owner/repo` with `.git` stripped for a host, the path itself for a local one.
+    pub path: String,
+}
+
 /// What the host asks of version control. Every method is read-only. None runs for a check unless a project declares
 /// history or a hook declares the `git` input (ADR 0320, ADR 0337 D2); `specforge git` asks the rest for the user
 /// (ADR 0339).
@@ -258,6 +297,18 @@ pub trait Git: Send + Sync {
     }
     /// The blob `revision` names (`HEAD:path`, `:path` for the index) and its bytes; `None` when it names no blob.
     fn blob(&self, _place: &GitPlace, _revision: &str) -> Result<Option<(Sha, Vec<u8>)>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
+    /// The local branches, or the remote-tracking ones, by name.
+    fn branches(&self, _place: &GitPlace, _remote: bool) -> Result<Vec<GitBranchRef>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
+    /// The main worktree, then the linked ones by path.
+    fn worktrees(&self, _place: &GitPlace) -> Result<Vec<GitWorktree>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
+    /// The remotes, by name.
+    fn remotes(&self, _place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
 }

@@ -13,12 +13,13 @@ use std::path::{Path, PathBuf};
 use gix::bstr::ByteSlice as _;
 use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
-    Blob, CommitFile, DiffQuery, DiffSide, Git, GitBranch, GitChange, GitCommit, GitEntry,
-    GitEntryKind, GitError, GitFileDiff, GitPlace, GitStatus, Located, LogQuery, ObjectKind, Sha,
-    Sized, TreeEntry,
+    Blob, CommitFile, DiffQuery, DiffSide, Git, GitBranch, GitBranchRef, GitChange, GitCommit,
+    GitEntry, GitEntryKind, GitError, GitFileDiff, GitPlace, GitRemote, GitStatus, GitWorktree,
+    Located, LogQuery, ObjectKind, Sha, Sized, TreeEntry,
 };
 
 mod history;
+mod refs;
 #[cfg(feature = "testing")]
 pub mod testing;
 
@@ -365,6 +366,18 @@ impl Git for Gix {
         Ok(Some((Sha::new(id.to_string()), object.detach().data)))
     }
 
+    fn branches(&self, place: &GitPlace, remote: bool) -> Result<Vec<GitBranchRef>, GitError> {
+        refs::branches(&open(place)?, remote)
+    }
+
+    fn worktrees(&self, place: &GitPlace) -> Result<Vec<GitWorktree>, GitError> {
+        refs::worktrees(&open(place)?)
+    }
+
+    fn remotes(&self, place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
+        Ok(refs::remotes(&open(place)?))
+    }
+
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
         let repo = open(place)?;
         let branch = branch_of(&repo)?;
@@ -430,26 +443,37 @@ fn branch_of(repo: &gix::Repository) -> Result<GitBranch, GitError> {
         head: local_branch(repo)?,
         ..GitBranch::default()
     };
-    let Some(name) = repo.head_name().map_err(|e| failed("read HEAD", &e))? else {
-        return Ok(branch);
-    };
+    if let Some(name) = repo.head_name().map_err(|e| failed("read HEAD", &e))? {
+        (branch.upstream, branch.ahead, branch.behind) = upstream_of(repo, name.as_ref(), oid)?;
+    }
+    Ok(branch)
+}
+
+/// The upstream of the local branch `name` at `tip`, and how many commits each is ahead of the other.
+fn upstream_of(
+    repo: &gix::Repository,
+    name: &gix::refs::FullNameRef,
+    tip: Option<gix::ObjectId>,
+) -> Result<(Option<String>, u32, u32), GitError> {
     let Some(Ok(tracking)) =
-        repo.branch_remote_tracking_ref_name(name.as_ref(), gix::remote::Direction::Fetch)
+        repo.branch_remote_tracking_ref_name(name, gix::remote::Direction::Fetch)
     else {
-        return Ok(branch);
+        return Ok((None, 0, 0));
     };
-    branch.upstream = Some(tracking.shorten().to_string());
     let upstream = repo
         .try_find_reference(tracking.as_ref())
         .ok()
         .flatten()
         .and_then(|mut r| r.peel_to_id().ok())
         .map(|id| id.detach());
-    if let (Some(head), Some(upstream)) = (oid, upstream) {
-        branch.ahead = count_hiding(repo, head, upstream)?;
-        branch.behind = count_hiding(repo, upstream, head)?;
-    }
-    Ok(branch)
+    let (ahead, behind) = match (tip, upstream) {
+        (Some(tip), Some(upstream)) => (
+            count_hiding(repo, tip, upstream)?,
+            count_hiding(repo, upstream, tip)?,
+        ),
+        _ => (0, 0),
+    };
+    Ok((Some(tracking.shorten().to_string()), ahead, behind))
 }
 
 /// How many commits `tip` reaches that `hidden` does not.
