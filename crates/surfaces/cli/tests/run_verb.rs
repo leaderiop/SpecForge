@@ -23,6 +23,8 @@ fn child_program() {
             std::io::stdin().read_to_string(&mut input).unwrap();
             writeln!(out, "child:got {input}").unwrap();
         }
+        // Past the 4 MiB a capture once stopped at, below its 64 MiB cap.
+        "flood" => out.write_all(&vec![b'x'; 5 * 1024 * 1024]).unwrap(),
         "talk" => {
             writeln!(out, "child:out").unwrap();
             eprintln!("child:err");
@@ -325,4 +327,19 @@ fn a_pass_through_run_on_a_terminal_gives_its_program_the_input() {
     let _ = child.kill();
     let _ = child.wait();
     assert!(got, "the program never read its input: stopped by SIGTTIN");
+}
+
+/// A capture holds the spec's 64 MiB: a program that writes 5 MiB runs to its end, and the answer, which keeps 1 MiB
+/// of each stream, says `truncated`.
+#[test]
+fn a_capture_lets_a_program_write_past_four_mib() {
+    let project = TestProject::new();
+    let argv = child();
+    let answer = run(&project, "flood")
+        .bare(&args(&["run", "--format", "json"], &argv))
+        .exits(0)
+        .json();
+    assert_eq!(answer["outcome"], "exited", "{}", answer["stderr"]);
+    assert_eq!(answer["exit"], 0);
+    assert_eq!(answer["truncated"], true);
 }

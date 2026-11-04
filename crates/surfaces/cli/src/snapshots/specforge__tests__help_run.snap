@@ -23,7 +23,7 @@ Options:
           [default: .]
 
       --format <FORMAT>
-          Output format: human (the default) passes the program's stdin, stdout and stderr through; json (and --pick) captures them
+          Output format: human (the default) passes the program's stdin, stdout and stderr through; json captures them, with a null stdin and at most 64 MiB of each stream. --pick implies json, so it captures too
           
           [default: human]
           [possible values: human, json]

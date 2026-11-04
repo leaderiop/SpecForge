@@ -15,8 +15,9 @@ use specforge_effects::{
 use super::Verbs;
 use crate::{OpError, OpErrorKind};
 
-/// The most bytes a run captured under `--format json` may write to each of stdout and stderr: past it, it is stopped.
-pub const CAPTURE_CAP: u64 = 4 * 1024 * 1024;
+/// The most bytes a run captured under `--format json` may write to each of stdout and stderr (the runner's 64 MiB):
+/// past it, it is stopped, and its answer says `output_capped` and `truncated`.
+pub const CAPTURE_CAP: u64 = specforge_effects::process::OUTPUT_CAP;
 /// The most bytes of each stream a captured answer keeps, so its record holds it whole.
 pub const ANSWER_BYTES: usize = 1024 * 1024;
 

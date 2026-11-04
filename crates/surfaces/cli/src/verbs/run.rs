@@ -38,8 +38,8 @@ pub(crate) struct RunArgs {
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
-    /// Output format: human (the default) passes the program's stdin, stdout and stderr through; json (and --pick)
-    /// captures them
+    /// Output format: human (the default) passes the program's stdin, stdout and stderr through; json captures them,
+    /// with a null stdin and at most 64 MiB of each stream. --pick implies json, so it captures too
     #[arg(long, default_value = "human")]
     format: OutputFormat,
 
