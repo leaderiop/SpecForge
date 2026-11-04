@@ -24,6 +24,16 @@ links = ["dep:percent-encoding", "dep:url"]
 files = []
 media = ["dep:imagesize", "dep:quick-xml"]
 pdf = ["dep:miniz_oxide"]
+registries = [
+    "digits",
+    "dep:nodejs-semver",
+    "dep:pep440_rs",
+    "dep:percent-encoding",
+    "dep:semver",
+    "dep:serde",
+    "dep:serde_json",
+    "dep:spdx",
+]
 structured = ["dep:percent-encoding", "dep:serde_json", "dep:toml", "dep:yaml-rust2"]
 git = []
 
@@ -46,6 +56,10 @@ jiff = { version = "0.2.39", default-features = false, features = ["std"], optio
 language-tags = { version = "0.3.2", optional = true }
 mime = { version = "0.3.17", optional = true }
 miniz_oxide = { version = "0.8.9", optional = true }
+# npm's range grammar and its prerelease rule, as node-semver reads them.
+nodejs-semver = { version = "7.0.0", optional = true }
+# PEP 440 versions and specifiers, as pip and uv read them.
+pep440_rs = { version = "0.7.3", optional = true }
 # Without `encoding`: an SVG is read as UTF-8 bytes; names and attributes are compared as bytes.
 quick-xml = { version = "0.39.4", optional = true }
 percent-encoding = { version = "2.3.2", optional = true }
@@ -57,6 +71,7 @@ regex-automata = { version = "0.4.14", default-features = false, features = [
     "unicode",
 ], optional = true }
 semver = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 spdx = { version = "0.13.6", optional = true }
 url = { version = "2.5.8", optional = true }
@@ -67,6 +82,18 @@ yaml-rust2 = { version = "0.13.0", default-features = false, optional = true }
 
 [dev-dependencies]
 regex = { workspace = true }
+# Every family's tests run in the workspace's test build, which enables no feature of its own.
+specforge-checks-kit = { path = ".", features = [
+    "digits",
+    "files",
+    "formats",
+    "git",
+    "links",
+    "media",
+    "pdf",
+    "registries",
+    "structured",
+] }
 
 [lints]
 workspace = true
