@@ -393,3 +393,34 @@ fn a_ceiling_without_write_refuses_every_change() {
     assert!(!project.root().join("out").exists());
     assert!(!project.root().join(".specforge/tmp").exists());
 }
+
+/// A shell reads what `--pick` prints: a refusal leaves stdout empty and says why on stderr.
+#[test]
+fn a_refusal_under_pick_writes_nothing_to_stdout() {
+    let project = project();
+    let run = Cli::on(&project)
+        .run(&["files", "list", "nosuch", "--pick", ".entries[0].path"])
+        .exits(1);
+    assert_eq!(run.stdout, "");
+    assert!(run.stderr.contains("file_not_found"), "{}", run.stderr);
+}
+
+#[test]
+fn remove_force_skips_a_missing_path() {
+    let project = project();
+    Cli::on(&project)
+        .run(&["files", "remove", "nosuch.txt"])
+        .exits(1);
+    let run = Cli::on(&project)
+        .run(&[
+            "files",
+            "remove",
+            "--force",
+            "nosuch.txt",
+            "build/out.txt",
+            "--pick",
+            ".changed[]",
+        ])
+        .exits(0);
+    assert_eq!(run.stdout, "build/out.txt\n");
+}

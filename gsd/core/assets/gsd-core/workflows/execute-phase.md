@@ -113,7 +113,7 @@ Reset the wave-failure tally (#4915). Fenced `bash` blocks are separate shells, 
 
 ```bash
 # gsd-handoff:begin wave-failure-reset
-_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(pwd | cksum | cut -d' ' -f1)"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 : > "$_GSD_HANDOFF/wave-failures"
 # gsd-handoff:end wave-failure-reset
 ```
@@ -270,7 +270,7 @@ Pure doc-only / config-only / test-only tasks return `is_behavior_adding=false` 
 Look for a `.continue-here.md` in the current phase directory:
 
 ```bash
-ls ${phase_dir}/.continue-here.md 2>/dev/null || true
+specforge files stat ${phase_dir}/.continue-here.md --format human 2>/dev/null || true
 ```
 
 If `.continue-here.md` exists, parse its "Critical Anti-Patterns" table for rows with `severity` = `blocking`.
@@ -649,13 +649,13 @@ increases monotonically across waves. `{status}` is `complete` (success),
    DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
    EXPECTED_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     if [ "${USE_WORKTREES:-true}" != "false" ] && [ "${USE_WORKTREES_FOR_PLAN:-true}" != "false" ] && [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then
-     M=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-wave-XXXXXX") && mv "$M" "$M.tsv" && WAVE_WORKTREE_MANIFEST="$M.tsv" || exit 1  # XXXXXX must be path-final on BSD/macOS (#1520)
+     WAVE_WORKTREE_MANIFEST=$(specforge files temp --prefix gsd-worktree-wave- --suffix .tsv --pick .path) || exit 1  # one private file, its suffix kept (#1520)
      # Persist the dispatch-time orchestrator worktree root so wave-cleanup can pin back to the
      # orchestrator's OWN worktree — NOT `git worktree list`'s first entry (always the main
      # checkout), which pins a non-primary (per-phase lane) orchestrator off its branch (#630).
      # Dispatch runs from the orchestrator's lane, so show-toplevel here is the correct root.
      ORCH_ROOT=$(git rev-parse --show-toplevel)
-     printf 'orchestrator_root\t%s\n' "$ORCH_ROOT" > "$WAVE_WORKTREE_MANIFEST.tmp" && mv "$WAVE_WORKTREE_MANIFEST.tmp" "$WAVE_WORKTREE_MANIFEST"   # one tab-separated record per line: orchestrator_root<TAB>root, then worktree<TAB>path<TAB>branch per worktree
+     printf 'orchestrator_root\t%s\n' "$ORCH_ROOT" > "$WAVE_WORKTREE_MANIFEST.tmp" && specforge files move "$WAVE_WORKTREE_MANIFEST.tmp" "$WAVE_WORKTREE_MANIFEST" >/dev/null   # one tab-separated record per line: orchestrator_root<TAB>root, then worktree<TAB>path<TAB>branch per worktree
      export WAVE_WORKTREE_MANIFEST
    fi
    ```
@@ -897,7 +897,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before cleanup-tail (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
    # Cleanup-tail: remove residual agent worktrees after a cross-wave-dependency deviation.
    # Uses only the current wave manifest to avoid touching unrelated active agents (#3384).
-   WT_PATHS_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-paths-XXXXXX")
+   WT_PATHS_FILE=$(specforge files temp --prefix gsd-worktree-paths- --pick .path)
    { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else ( SEEN=0; ROOTS=0; while IFS= read -r l || [ -n "$l" ]; do tag=${l%%$'\t'*}; a=${l#"$tag"}; a=${a#$'\t'}; a=${a%%$'\t'*}; case "$tag" in '') continue ;; orchestrator_root) ROOTS=$((ROOTS + 1)); [ "$ROOTS" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest holds more than one orchestrator_root line" >&2; exit 1; } ;; worktree) [ -z "$a" ] || printf '%s\n' "$a" ;; *) echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: unknown record '$tag'" >&2; exit 1 ;; esac; SEEN=1; done < "$WAVE_WORKTREE_MANIFEST"; [ "$SEEN" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest is empty" >&2; exit 1; } ); fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
    while IFS= read -r WT; do
      [ -z "$WT" ] && continue
@@ -906,7 +906,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
      echo "Cleaning up residual worktree: $WT (branch: $WT_BRANCH)"
      git worktree unlock "$WT" 2>/dev/null || true
      if ! git worktree remove "$WT" --force; then
-       WT_NAME=$(basename "$WT")
+       WT_NAME=${WT##*/}
        if [ -f ".git/worktrees/${WT_NAME}/locked" ]; then
          echo "⚠ Worktree $WT is locked — unlock failed; manual cleanup required:"
          echo "    git worktree unlock \"$WT\" && git worktree remove \"$WT\" --force && git branch -D \"$WT_BRANCH\""
@@ -1001,7 +1001,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    ```bash
    # gsd-handoff:begin wave-failure-read
-   _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(pwd | cksum | cut -d' ' -f1)"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+   _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
    WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
    echo "WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT}"
    # gsd-handoff:end wave-failure-read
@@ -1352,9 +1352,9 @@ Copy failure must NOT block phase completion.
 
 ```bash
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
-PENDING_DIR=$(mktemp -d)   # no todo folder: todos are not entities of @gsd/core, so nothing is closed
-COMPLETED_DIR=$(mktemp -d)
-mkdir -p "$COMPLETED_DIR"
+PENDING_DIR=$(specforge files temp --dir --pick .path)   # no todo folder: todos are not entities of @gsd/core, so nothing is closed
+COMPLETED_DIR=$(specforge files temp --dir --pick .path)
+specforge files mkdir "$COMPLETED_DIR" >/dev/null
 PHASE_NUM="${PHASE_NUMBER}"
 #2576
 normalize_phase_num() {
@@ -1367,8 +1367,8 @@ for TODO_FILE in "$PENDING_DIR"/*.md; do
   RP=$(awk '/^---/{c++;next} c==1 && /^resolves_phase:/{print $2;exit} c==2{exit}' "$TODO_FILE" 2>/dev/null || true)
   RP_NORM=$(normalize_phase_num "$RP")
   [ -n "$RP_NORM" ] && [ "$RP_NORM" = "$PHASE_NUM_NORM" ] || continue
-  mv "$TODO_FILE" "$COMPLETED_DIR/"
-  CLOSED+=("$(basename "$TODO_FILE")")
+  specforge files move "$TODO_FILE" "$COMPLETED_DIR" >/dev/null
+  CLOSED+=("${TODO_FILE##*/}")
 done
 if [ ${#CLOSED[@]} -gt 0 ]; then
   ADDED=(); REMOVED=()

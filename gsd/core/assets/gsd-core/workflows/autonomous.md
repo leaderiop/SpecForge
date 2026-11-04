@@ -547,7 +547,7 @@ On **"Stop autonomous mode"**: Go to handle_blocker with "User stopped — gaps 
 Resolve the active post-verification hooks and the UI-SPEC gate:
 
 ```bash
-UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
+UI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
 HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --after-fingerprint "$MILESTONE/${PHASE_NUM}" --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
@@ -739,7 +739,7 @@ GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/
 
 # a field of the answer is read with --pick, never jq
 ARCHIVE_DIR=$(specforge gsd progress-report --pick .archive_dir)
-ls "${ARCHIVE_DIR}/v${milestone_version}-ROADMAP.md" 2>/dev/null || true
+specforge files stat "${ARCHIVE_DIR}/v${milestone_version}-ROADMAP.md" --format human 2>/dev/null || true
 ```
 
 If the archive file does not exist, go to handle_blocker: "Complete milestone did not produce expected archive files."

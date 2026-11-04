@@ -151,11 +151,11 @@ Before generating the test plan, discover the project's existing test structure:
 
 ```bash
 # Find existing test directories
-find . -type d -name "*test*" -o -name "*spec*" -o -name "*__tests__*" 2>/dev/null | head -20
+specforge files list --glob '*test*' --glob '*spec*' --glob '*__tests__*' --max 20 --pick '.entries[].path' 2>/dev/null
 # Find existing test files for convention matching
-find . -type f \( -name "*.test.*" -o -name "*.spec.*" -o -name "*Tests.fs" -o -name "*Test.fs" \) 2>/dev/null | head -20
+specforge files list --kind file --glob '*.test.*' --glob '*.spec.*' --glob '*Tests.fs' --glob '*Test.fs' --max 20 --pick '.entries[].path' 2>/dev/null
 # Check for test runners
-ls package.json *.sln 2>/dev/null || true
+specforge files list --depth 1 --kind file --glob package.json --glob '*.sln' --format human 2>/dev/null || true
 ```
 
 Identify:

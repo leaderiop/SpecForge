@@ -171,7 +171,7 @@ Max passes: ${BOUNCE_PASSES}
 
 1. **Backup:** Copy `*-PLAN.md` to `*-PLAN.pre-bounce.md`
 ```bash
-cp "${PLAN_FILE}" "${PLAN_FILE%.md}.pre-bounce.md"
+specforge files copy "${PLAN_FILE}" "${PLAN_FILE%.md}.pre-bounce.md" >/dev/null
 ```
 
 2. **Invoke bounce script:**

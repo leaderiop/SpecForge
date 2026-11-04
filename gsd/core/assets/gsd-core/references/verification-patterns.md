@@ -235,7 +235,7 @@ model Order {
 **Wiring check:**
 ```bash
 # Migrations exist and are applied
-ls prisma/migrations/ 2>/dev/null | wc -l  # Should be > 0
+specforge files list prisma/migrations --depth 1 --no-ignore --pick .count 2>/dev/null  # Should be > 0
 npx prisma migrate status 2>/dev/null | grep -v "pending"
 
 # Client is generated

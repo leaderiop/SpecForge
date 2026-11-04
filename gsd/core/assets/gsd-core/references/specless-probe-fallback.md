@@ -88,7 +88,7 @@ fi
 # THE ONE DIVERGENCE (D-02): source requirements from THIS phase. Populate the heredoc from
 # {phase_req_ids}, pulling each requirement's text from REQUIREMENTS.md: {"id","text","shapes"?}.
 # mktemp suffix trick is BSD/GNU portable (#1520).
-REQS_JSON=$(mktemp "${TMPDIR:-/tmp}/edge-probe-reqs-XXXXXX") && mv "$REQS_JSON" "${REQS_JSON}.json" && REQS_JSON="${REQS_JSON}.json" || exit 1
+REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
 cat > "$REQS_JSON" <<'JSON'
 [
   { "id": "R1", "text": "<replace: requirement text from REQUIREMENTS.md for each {phase_req_ids} id>" }
@@ -103,11 +103,11 @@ fi
 # Invoke + CAPTURE, exit-checked (engine FAILS CLOSED exit 2 on bad shape; a bare COVERAGE=$(node …)
 # would swallow it and fall through to prose re-derivation = fail-OPEN).
 if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-  rm -f "$REQS_JSON"
+  specforge files remove --force "$REQS_JSON" >/dev/null
   echo "ERROR: edge-probe engine failed (invalid shapes or bad input) — fix the requirement(s); never proceed with empty coverage." >&2
   exit 1
 fi
-rm -f "$REQS_JSON"
+specforge files remove --force "$REQS_JSON" >/dev/null
 # Exit-0-but-garbage guard: report must parse as JSON with { items[], coverage{} }.
 if [ -z "$COVERAGE" ]; then
   echo "ERROR: edge-probe produced an unparseable/malformed coverage report — refusing to proceed." >&2

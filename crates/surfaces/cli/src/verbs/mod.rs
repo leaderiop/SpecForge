@@ -70,8 +70,18 @@ impl VerbArgs {
                 }
                 Exit::Passed
             }
-            Err(error) => Refusal::of(format).report(terminal, &error),
+            Err(error) => refusal(format, self.pick.is_some()).report(terminal, &error),
         }
+    }
+}
+
+/// How a verb reports a refusal: the JSON error document on stdout, or with `--pick` `error[CODE]` on stderr, so a
+/// shell that reads the picked values reads nothing (ADR 0339 D4).
+pub(crate) fn refusal(format: OutputFormat, pick: bool) -> Refusal<'static> {
+    if pick {
+        Refusal::fixed()
+    } else {
+        Refusal::of(format)
     }
 }
 

@@ -43,7 +43,7 @@
     "",
     "```bash",
     "# the commands below are specforge commands: there is no launcher to define",
-    "PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE=\"$HOME/gsd-workspaces\"; IS_GIT_REPO=$(git rev-parse --is-inside-work-tree 2>/dev/null || echo false); CWD_REPO_NAME=$(basename \"$PROJECT_ROOT\"); WORKTREE_AVAILABLE=$(git worktree list >/dev/null 2>&1 && echo true || echo false)",
+    "PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE=\"$HOME/gsd-workspaces\"; IS_GIT_REPO=$(git rev-parse --is-inside-work-tree 2>/dev/null || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(git worktree list >/dev/null 2>&1 && echo true || echo false)",
     "CHILD_REPOS=$(for d in */; do [ -d \"${d}.git\" ] && echo \"${d%/}\"; done); CHILD_REPO_COUNT=$(echo \"$CHILD_REPOS\" | grep -c . || true)",
     "```",
     "",
@@ -61,7 +61,7 @@
     "- `--branch` → `BRANCH_NAME` (defaults to `workspace/$WORKSPACE_NAME`)",
     "- `--auto` → skip interactive questions"
   ],
-  "bytes": 30912,
+  "bytes": 30930,
   "end": [
     "- Box panels drawn with double-line box characters (U+2554, U+2557, U+255A, U+255D, U+2551, U+2560, U+2563) — the borders wrap independently of their contents. They are named here by code point rather than shown, because the guard below rejects the characters themselves anywhere in shipped content.",
     "- A `---` directly under a line of text with no blank line between — that is a setext heading underline, not a break, and it swallows the line above",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:cab2d069be2e214cf3aece3ce5078b6697ced4d8a86922be0de188da6263cc8d",
+    "digest": "sha256:378ca20f631f25b9bd0fec213fdc2f1ea8eb55156a3f636896d04e2c59f7e9d2",
     "prompt": "@gsd/core@VERSION:workspace"
   },
-  "sha256": "cab2d069be2e214cf3aece3ce5078b6697ced4d8a86922be0de188da6263cc8d"
+  "sha256": "378ca20f631f25b9bd0fec213fdc2f1ea8eb55156a3f636896d04e2c59f7e9d2"
 }

@@ -20,8 +20,8 @@
     "sha256": "20ebd09025a0a947b23bf1eadcdbadb554941a95cc5631fbdce55efd862c3a82"
   },
   ".claude/agents/gsd-integration-checker.md": {
-    "bytes": 17349,
-    "sha256": "460c048f36dd27d63086526b3c0a967ac800010a68887a8a0c8bd1c3c6d5ec28"
+    "bytes": 17595,
+    "sha256": "f4f2e765653cb04f6c54e9a3b30c9b601cfc47e6596d6ccad227f832a917b65d"
   },
   ".claude/agents/gsd-nyquist-auditor.md": {
     "bytes": 7861,
@@ -36,8 +36,8 @@
     "sha256": "48535588e236ec91063ff1e74b5a0326dd13aedb5450f54717e9daabf37046eb"
   },
   ".claude/agents/gsd-plan-checker.md": {
-    "bytes": 49668,
-    "sha256": "7d20dbec12f94599613941ab911c37059ebe87acd6e893a74de074102ae37dd3"
+    "bytes": 49701,
+    "sha256": "b35f606fbec522074819c5ef1db7bd5125710f6021005c737fb2b033f0e4fabf"
   },
   ".claude/agents/gsd-planner.md": {
     "bytes": 49740,
@@ -56,8 +56,8 @@
     "sha256": "25f98bd1fceb2ac7dc2729833034457c426155496caf763544b3ffd4296abbaa"
   },
   ".claude/agents/gsd-verifier.md": {
-    "bytes": 50694,
-    "sha256": "79fa47b1f6cb1878292cc9f9f31b95cca6d84af4ac1debd1848733847d85b3dc"
+    "bytes": 50845,
+    "sha256": "2774b2f30124f893f4f54ea5dddfa9336b265597af6dee52d88862771a7d69ed"
   },
   ".claude/settings.json": {
     "bytes": 3736,

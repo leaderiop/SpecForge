@@ -176,7 +176,7 @@ If `section_manifest` is `null` or `"automated-ui-verification"` is in its `incl
 Use `phase_dir` from init (or run init if not already done).
 
 ```bash
-ls "$phase_dir"/*-SUMMARY.md 2>/dev/null || true
+specforge files list "$phase_dir" --depth 1 --kind file --no-ignore --glob '*-SUMMARY.md' --format human 2>/dev/null || true
 ```
 
 Read each SUMMARY.md to extract testable deliverables.
@@ -308,7 +308,7 @@ This catches bugs that only manifest on fresh start — race conditions in start
 **Create UAT file with all tests:**
 
 ```bash
-mkdir -p "$PHASE_DIR"
+specforge files mkdir "$PHASE_DIR" >/dev/null
 ```
 
 Build test list from extracted deliverables.

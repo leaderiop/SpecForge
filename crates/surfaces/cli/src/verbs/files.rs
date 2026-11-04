@@ -82,6 +82,10 @@ pub(crate) struct RemoveArgs {
     #[arg(long, short = 'r')]
     recursive: bool,
 
+    /// A path that does not exist is no error, as `rm -f`
+    #[arg(long, short = 'f')]
+    force: bool,
+
     #[command(flatten)]
     verb: VerbArgs,
 }
@@ -196,7 +200,7 @@ impl Action {
                 files::move_to(verbs, &args.from, &args.to)
             }),
             Action::Remove(args) => changes(&args.verb, terminal, ports, |verbs| {
-                files::remove(verbs, &args.paths, args.recursive)
+                files::remove(verbs, &args.paths, args.recursive, args.force)
             }),
             Action::Digest(args) => args.run(terminal, ports),
         }

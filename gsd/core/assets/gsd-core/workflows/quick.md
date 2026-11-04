@@ -423,9 +423,9 @@ Capture current HEAD before spawning (used for worktree branch check):
 ```bash
 EXPECTED_BASE=$(git rev-parse HEAD)
 if [ "$ISOLATION" = "harness-worktree" ]; then   # keyed on ISOLATION like every other dispatch-coupled branch (#2652)
-  # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
-  # suffixless temp then append the extension — portable across BSD + GNU (#1520).
-  QUICK_WORKTREE_MANIFEST=$(mktemp "${TMPDIR:-/tmp}/gsd-quick-worktree-XXXXXX") && mv "$QUICK_WORKTREE_MANIFEST" "${QUICK_WORKTREE_MANIFEST}.tsv" && QUICK_WORKTREE_MANIFEST="${QUICK_WORKTREE_MANIFEST}.tsv" || exit 1
+  # One private file, its .tsv suffix kept: `specforge files temp` randomizes the name before
+  # the suffix on every platform (#1520).
+  QUICK_WORKTREE_MANIFEST=$(specforge files temp --prefix gsd-quick-worktree- --suffix .tsv --pick .path) || exit 1
   : > "$QUICK_WORKTREE_MANIFEST"   # one tab-separated record per line, as the wave's manifest: worktree<TAB>path<TAB>branch<TAB>agent_id<TAB>expected_base<TAB>allowed_bases (comma-separated)
   export QUICK_WORKTREE_MANIFEST
 fi

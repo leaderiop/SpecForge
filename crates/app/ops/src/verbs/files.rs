@@ -442,7 +442,13 @@ pub fn move_to(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, Op
 
 /// Each of `paths` removed: a file, an empty directory, or with `recursive` a directory and what it holds. A root, or
 /// a directory that holds one, is never removed.
-pub fn remove(verbs: &Verbs, paths: &[PathBuf], recursive: bool) -> Result<ChangeAnswer, OpError> {
+/// With `force`, a path that does not exist is skipped.
+pub fn remove(
+    verbs: &Verbs,
+    paths: &[PathBuf],
+    recursive: bool,
+    force: bool,
+) -> Result<ChangeAnswer, OpError> {
     // Every path is held before any is removed: a refused one changes nothing.
     let places: Vec<Place> = paths
         .iter()
@@ -452,13 +458,14 @@ pub fn remove(verbs: &Verbs, paths: &[PathBuf], recursive: bool) -> Result<Chang
         changed: Vec::new(),
     };
     for at in places {
-        answer.changed.extend(changed(
-            verbs,
-            verbs
-                .ports()
-                .fs
-                .change(verbs.roots(), &FsChange::Remove { at, recursive }),
-        )?);
+        let outcome = verbs
+            .ports()
+            .fs
+            .change(verbs.roots(), &FsChange::Remove { at, recursive });
+        if force && outcome.class == OutcomeClass::Missing {
+            continue;
+        }
+        answer.changed.extend(changed(verbs, outcome)?);
     }
     Ok(answer)
 }

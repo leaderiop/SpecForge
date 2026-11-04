@@ -703,7 +703,7 @@ issue:
 
 **Process when a plan's numeric/factual claim conflicts with RESEARCH.md:**
 
-1. **Attempt live measurement first** with a targeted read-only command (e.g., `find . -name '*.test.*' | wc -l`). Run it. Use the result as ground truth:
+1. **Attempt live measurement first** with a targeted read-only command (e.g., `specforge files list --kind file --glob '*.test.*' --pick .count`). Run it. Use the result as ground truth:
    - Measurement confirms plan → WARNING: RESEARCH.md is stale; recommend updating it.
    - Measurement contradicts plan → BLOCKER: plan value is wrong; prescribe the measured value.
 

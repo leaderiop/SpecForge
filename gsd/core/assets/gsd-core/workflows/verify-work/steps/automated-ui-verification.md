@@ -8,7 +8,7 @@ section is only reached when that fact is `true` (see the `state:ui-phase-active
 gate above), so re-deriving it here would be redundant.
 
 ```bash
-UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
+UI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
 ```
 
 **If Playwright-MCP tools are available in this session (`mcp__playwright__*` tools

@@ -434,7 +434,7 @@ curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | head -c 2000   # read
 node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
 
 # Build produces output files
-ls $BUILD_OUTPUT_DIR/*.{js,css} 2>/dev/null | wc -l
+specforge files list $BUILD_OUTPUT_DIR --depth 1 --kind file --no-ignore --glob '*.js' --glob '*.css' --pick .count 2>/dev/null || echo 0
 
 # Module exports expected functions
 node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
@@ -476,7 +476,7 @@ SUMMARY.md probe pass claims are not evidence. If a phase declares or implies pr
 
 ```bash
 # Conventional project probes
-find scripts -path '*/tests/probe-*.sh' -type f 2>/dev/null | sort
+specforge files list scripts --kind file --glob 'tests/probe-*.sh' --glob '*/tests/probe-*.sh' --pick '.entries[].path' 2>/dev/null
 
 # Phase-declared probes
 grep -R -n -E 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' "$PHASE_DIR"/*-PLAN.md "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null

@@ -19,15 +19,15 @@ Determine what kind of work is being paused and set the handoff destination acco
 ```bash
 # Check for active phase
 phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
-phase=${phase:+$(basename "$(dirname "$phase")")}
+phase=${phase%/*}; phase=${phase##*/}
 
 # Check for active spike
 spike=""   # spikes are not part of @gsd/core: there is none to detect
-spike=${spike:+$(basename "$(dirname "$spike")")}
+spike=${spike%/*}; spike=${spike##*/}
 
 # Check for active sketch
 sketch=""   # sketches are not part of @gsd/core: there is none to detect
-sketch=${sketch:+$(basename "$(dirname "$sketch")")}
+sketch=${sketch%/*}; sketch=${sketch##*/}
 
 # Check for active deliberation
 deliberation=""   # deliberations are not part of @gsd/core: there is none to detect

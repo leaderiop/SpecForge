@@ -79,7 +79,10 @@ fn ingest_docs_renders_for_three_hosts() {
                 .1;
             assert_eq!(step["agent"], agent, "{host}: {step}");
         }
-        assert!(text_of(&rendered).contains("mktemp -d"), "{host}");
+        assert!(
+            text_of(&rendered).contains("specforge files temp --dir"),
+            "{host}"
+        );
     }
 }
 

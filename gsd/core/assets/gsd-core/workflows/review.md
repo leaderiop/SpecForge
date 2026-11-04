@@ -159,7 +159,7 @@ if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 
 # #2358: ONE run-scoped temp dir (portable via ${TMPDIR:-/tmp}) so overlapping
 # runs never collide or read each other's stale files.
-RUN_DIR=$(mktemp -d "${TMPDIR:-/tmp}/gsd-review-XXXXXX")
+RUN_DIR=$(specforge files temp --dir --prefix gsd-review- --pick .path)
 echo "RUN_DIR=$RUN_DIR"
 ```
 
@@ -167,7 +167,7 @@ Read from the query: the phase's `name` and goal, and its plans, contexts and re
 
 Capture `RUN_DIR` above (created ONCE) and thread it into every `{run_dir}`
 placeholder and `$RUN_DIR`/`${RUN_DIR}` reference within a bash block. Do NOT
-re-run `mktemp -d` later — every block must resolve to this same directory, or
+re-run `specforge files temp --dir` later — every block must resolve to this same directory, or
 `build_prompt`'s writes and `invoke_reviewers`' reads split.
 
 Then read:
@@ -256,8 +256,8 @@ RUN_DIR="{run_dir}"   # from gather_context
 
 # Write individual section files for per-reviewer budget trimming
 # These are always written so reviewers with a budget can invoke prompt-budget
-cp "$INSTRUCTIONS_BLOCK_FILE" "${RUN_DIR}/gsd-review-instructions.md"
-cp "$ROADMAP_SECTION_FILE" "${RUN_DIR}/gsd-review-roadmap.md"
+specforge files copy "$INSTRUCTIONS_BLOCK_FILE" "${RUN_DIR}/gsd-review-instructions.md" >/dev/null
+specforge files copy "$ROADMAP_SECTION_FILE" "${RUN_DIR}/gsd-review-roadmap.md" >/dev/null
 
 # Plan files: copy each PLAN.md to a predictable path named after its source
 # plan id (#3959: a bare padded index discards provenance — the budget tool's
@@ -867,7 +867,7 @@ any excluded stem (`prompt`, `instructions`, `plan-`, `project`, `roadmap`, `con
 
 Preservation and cleanup MUST run in the same fenced block below (a shell variable cannot
 survive across separate fences — each is its own process). `mkdir -p` and every `cp` are
-exit-status checked; `rm -rf "$RUN_DIR"` runs ONLY if nothing was preserved (nothing to
+exit-status checked; `specforge files remove --recursive "$RUN_DIR" >/dev/null` runs ONLY if nothing was preserved (nothing to
 preserve is not a failure) or everything that needed preserving was copied successfully. If
 preservation fails partway, `$RUN_DIR` is left intact and a message names it as the location of
 the un-preserved evidence — a leftover temp directory is far cheaper than destroyed evidence:
@@ -887,7 +887,7 @@ DIAG_DIR="${TMPDIR:-/tmp}/gsd-review-diagnostics"
 # and the per-lane trimmed prompts (`gsd-review-prompt-<slug>.md`).
 _DIAG_MD=()
 for f in "$RUN_DIR"/gsd-review-*.md; do
-  case "$(basename "$f")" in
+  case "${f##*/}" in
     gsd-review-prompt*|gsd-review-instructions*|gsd-review-plan-*|gsd-review-project*|gsd-review-roadmap*|gsd-review-context*|gsd-review-research*|gsd-review-requirements*) ;;
     *) _DIAG_MD+=("$f") ;;
   esac
@@ -913,7 +913,7 @@ if [ ${#_DIAG_MD[@]} -gt 0 ] || [ ${#_DIAG_ERR[@]} -gt 0 ]; then
   # `prepare_trimmed_prompt_for_reviewer` and the lane invocation resolver depend
   # on those exact basenames).
   _DIAG_STAMP="$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || true)"
-  _DIAG_RUN_DIR="$DIAG_DIR/${_DIAG_STAMP:+${_DIAG_STAMP}-}$(basename "$RUN_DIR")"
+  _DIAG_RUN_DIR="$DIAG_DIR/${_DIAG_STAMP:+${_DIAG_STAMP}-}${RUN_DIR##*/}"
   # `mkdir -p` still creates $DIAG_DIR itself, so a plain FILE sitting at
   # $DIAG_DIR still fails here and still skips the `rm -rf` (#3885).
   if mkdir -p "$_DIAG_RUN_DIR"; then
@@ -929,7 +929,7 @@ if [ ${#_DIAG_MD[@]} -gt 0 ] || [ ${#_DIAG_ERR[@]} -gt 0 ]; then
 fi
 
 if [ "$_PRESERVE_OK" = "true" ]; then
-  rm -rf "$RUN_DIR"
+  specforge files remove --recursive "$RUN_DIR" >/dev/null
 else
   echo "WARNING: evidence preservation to ${_DIAG_RUN_DIR:-$DIAG_DIR} failed — leaving the un-preserved run directory intact at: $RUN_DIR" >&2
 fi

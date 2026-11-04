@@ -11,7 +11,7 @@ use specforge_ops::verbs::Verbs;
 use specforge_ops::verbs::run::{self as ran, Run};
 
 use super::shown;
-use crate::outcome::{Exit, OutputFormat, Refusal};
+use crate::outcome::{Exit, OutputFormat};
 use crate::pick::{self, Pick};
 use crate::terminal::{Terminal, errln, outln};
 
@@ -81,6 +81,7 @@ impl RunArgs {
             );
             return Exit::Unjudged.code();
         }
+        let format = self.format;
         let mode = self.effects.unwrap_or(EffectsMode::Online);
         if !json && !self.which && !mode.is_live() {
             errln!(
@@ -93,7 +94,11 @@ impl RunArgs {
         }
         let verbs = match self.open(ports) {
             Ok(verbs) => verbs,
-            Err(error) => return Refusal::of(self.format).report(terminal, &error).code(),
+            Err(error) => {
+                return super::refusal(format, self.pick.is_some())
+                    .report(terminal, &error)
+                    .code();
+            }
         };
         let run = Run {
             argv: self.argv.clone(),
@@ -101,7 +106,7 @@ impl RunArgs {
         };
         if self.which {
             let answer = ran::which(&verbs, &self.argv);
-            return match self.format {
+            return match format {
                 // The answer says what was found: printed, it is the run's success.
                 OutputFormat::Json => {
                     pick::print_json(terminal, self.pick.as_ref(), &answer);
@@ -125,7 +130,9 @@ impl RunArgs {
                     pick::print_json(terminal, self.pick.as_ref(), &answer);
                     Exit::Passed.code()
                 }
-                Err(error) => Refusal::of(self.format).report(terminal, &error).code(),
+                Err(error) => super::refusal(format, self.pick.is_some())
+                    .report(terminal, &error)
+                    .code(),
             };
         }
         // What the program printed is on the terminal: flush ours first, so the two never interleave out of order.
@@ -138,7 +145,9 @@ impl RunArgs {
                 }
                 code
             }
-            Err(error) => Refusal::of(self.format).report(terminal, &error).code(),
+            Err(error) => super::refusal(format, self.pick.is_some())
+                .report(terminal, &error)
+                .code(),
         }
     }
 

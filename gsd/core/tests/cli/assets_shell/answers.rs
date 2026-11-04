@@ -256,9 +256,9 @@ fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
     }
     let text = asset("gsd-core/workflows/quick.md");
     let out = sh.run(&format!(
-        "TMPDIR={}\n{}\n{}\nprintf '%s|%s' \"${{QUICK_WORKTREE_MANIFEST##*.}}\" \"$(cat \"$QUICK_WORKTREE_MANIFEST\")\"",
+        "export HOME={}\n{}\n{}\nprintf '%s|%s' \"${{QUICK_WORKTREE_MANIFEST##*.}}\" \"$(cat \"$QUICK_WORKTREE_MANIFEST\")\"",
         q(&dir.path().display().to_string()),
-        line(&text, "QUICK_WORKTREE_MANIFEST=$(mktemp"),
+        line(&text, "QUICK_WORKTREE_MANIFEST=$(specforge files temp"),
         text.lines()
             .map(str::trim_start)
             .find(|l| l.contains("> \"$QUICK_WORKTREE_MANIFEST\""))

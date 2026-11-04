@@ -396,7 +396,9 @@ fn the_post_fix_text_leftovers_stay_fixed() {
         workflow("progress.md").contains("NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_PHASE_SECTION=$(specforge query \"$MILESTONE/$NEXT_PHASE\"")
     );
     // the ingest staging directory holds the documents' text and is removed at the end
-    assert!(workflow("ingest-docs.md").contains("rm -rf \"$INTEL_DIR\""));
+    assert!(
+        workflow("ingest-docs.md").contains("specforge files remove --recursive \"$INTEL_DIR\"")
+    );
     // `[path]` is where the documents are scanned
     assert!(!text("onboard").contains("The project is read from the directory"));
     // the integrations confirmation shows what is written: booleans, and no key at all

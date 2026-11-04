@@ -20,8 +20,8 @@
     "sha256": "0631bc8f0f3be2d03a05240d94866b1c9a0dc955055f0f0fbc34bfb97bcc8c6c"
   },
   ".codex/agents/gsd-integration-checker.toml": {
-    "bytes": 17316,
-    "sha256": "a47c6c5cf18ebb2b73f2f3dbd8b6b40bae525f794ba47c680a438db29a334a5d"
+    "bytes": 17562,
+    "sha256": "1a5e79b7e897f263f9305b3e7337a5b067d315517032d7cf63591b260e9756c7"
   },
   ".codex/agents/gsd-nyquist-auditor.toml": {
     "bytes": 7802,
@@ -36,8 +36,8 @@
     "sha256": "12944f255bd260ec426dbd6812a570392ae2e4e1d427b8c9567c53cc441c1c45"
   },
   ".codex/agents/gsd-plan-checker.toml": {
-    "bytes": 49634,
-    "sha256": "31eca93c8808af21a107db573f19197a77e07bc053fb6bf7b8d828e24c28a9e6"
+    "bytes": 49667,
+    "sha256": "a6b75dc59aaf418356886c9d4c4394db86ee3ebea9b3580aef3f566d47568a08"
   },
   ".codex/agents/gsd-planner.toml": {
     "bytes": 49622,
@@ -56,8 +56,8 @@
     "sha256": "c8b3c81f3376b6e91e41db9f7c90f71473344bf51b4395e649d4d030c9185aac"
   },
   ".codex/agents/gsd-verifier.toml": {
-    "bytes": 50653,
-    "sha256": "e8b17d70376661c1e02fcf97e737a7fae0a7bafe3350fefb0395f861755b8493"
+    "bytes": 50804,
+    "sha256": "40dad14671392536f3e84f8a69f4b46adfd3d62af0699872b33c95090d0142af"
   },
   ".codex/config.toml": {
     "bytes": 124,

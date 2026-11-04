@@ -120,8 +120,8 @@ The CLI checks `commit_docs` config and gitignore status internally — no manua
 
 **When `search_gitignored: false` (default):**
 - Standard rg behavior (respects .gitignore)
-- Direct path searches work: `rg "pattern" spec/` finds files
-- Broad searches skip gitignored: `rg "pattern"` skips `spec/`
+- Direct path searches work: `specforge files search "pattern" spec/` finds files
+- Broad searches skip gitignored: `specforge files search "pattern"` skips `spec/`
 
 **When `search_gitignored: true`:**
 - Add `--no-ignore` to broad rg searches that should include `spec/`

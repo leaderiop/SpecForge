@@ -20,11 +20,11 @@ only accepts `--file` (path-confined, same as `/gsd:quick-batch`'s own
 security posture): write it to a scratch file under a temp area before
 calling the verb.
 ```bash
-TASK_FILE="$(mktemp)"
-mkdir -p "$(dirname "$TASK_FILE")"
+TASK_FILE="$(specforge files temp --pick .path)"
+specforge files mkdir "${TASK_FILE%/*}" >/dev/null
 printf '%s\n' "$INLINE_TASK_LIST" > "$TASK_FILE"
 QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
-rm -f "$TASK_FILE"
+specforge files remove --force "$TASK_FILE" >/dev/null
 ```
 
 ```bash

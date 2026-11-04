@@ -92,7 +92,7 @@ subsequent command executions:
 
 ```bash
 ROOT=$(git rev-parse --show-toplevel)
-DIRTY_FILE=$(mktemp)
+DIRTY_FILE=$(specforge files temp --pick .path)
 
 printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
   # One name per line, so a name may hold the safe characters only: an embedded

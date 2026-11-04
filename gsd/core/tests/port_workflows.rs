@@ -520,6 +520,9 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/undo.md", 450, 451),
     ("gsd-core/workflows/undo.md", 465, 466),
     ("gsd-core/workflows/undo.md", 87, 90),
+    // The manifest's temp file comes from `specforge files temp`, which keeps its suffix: upstream's comment explains
+    // a mktemp that is gone.
+    ("gsd-core/workflows/quick.md", 424, 425),
 ];
 
 fn root() -> PathBuf {

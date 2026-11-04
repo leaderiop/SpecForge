@@ -369,7 +369,7 @@ Create the PR using the generated body. Write the body to a temp file first so l
 ```bash
 # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
 # suffixless temp then append the extension — portable across BSD + GNU (#1520).
-PR_BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-pr-body-XXXXXX") && mv "$PR_BODY_FILE" "${PR_BODY_FILE}.md" && PR_BODY_FILE="${PR_BODY_FILE}.md" || exit 1
+PR_BODY_FILE=$(specforge files temp --prefix gsd-pr-body- --suffix .md --pick .path) || exit 1
 trap 'rm -f "${PR_BODY_FILE:-}"' EXIT
 printf '%s\n' "${PR_BODY}" > "${PR_BODY_FILE}"
 
@@ -414,7 +414,7 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
    # #2358: a per-run temp file (not a shared, unqualified path) so concurrent
    # ship runs — same or different phase, same or different project — never
    # clobber or read each other's stderr. Portable via ${TMPDIR:-/tmp}.
-   REVIEW_STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-review-stderr-XXXXXX")
+   REVIEW_STDERR_FILE=$(specforge files temp --prefix gsd-review-stderr- --pick .path)
    REVIEW_OUTPUT=$(echo "${REVIEW_PROMPT}" | timeout 120 ${REVIEW_CMD} 2>"${REVIEW_STDERR_FILE}")
    REVIEW_EXIT=$?
    ```
@@ -427,7 +427,7 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
      echo "WARNING: External review command failed (exit ${REVIEW_EXIT}). stderr: ${REVIEW_STDERR}"
      echo "Continuing with manual review flow..."
    fi
-   rm -f "${REVIEW_STDERR_FILE}"
+   specforge files remove --force "${REVIEW_STDERR_FILE}" >/dev/null
    ```
    On failure, warn with stderr output and fall through to the manual review flow below.
 
@@ -542,7 +542,7 @@ Read the `activeHooks` of every line of `SHIP_POST_HOOKS_JSON`, one per capabili
 **Branch 1 — no active `ship:post` step hooks (`activeHooks` has no entry with `kind == "step"`):** Skip silently to the report.
 
 **Generic step hook dispatch contract:** For each active entry where `kind == "step"`:
-- Honor `consumes`: if it lists `UAT.md`, resolve `ls "${PHASE_DIR}"/*-UAT.md 2>/dev/null | head -1` and pass it to the dispatch; if a consumed artifact is absent, skip that hook.
+- Honor `consumes`: if it lists `UAT.md`, resolve `specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UAT.md' --pick '.entries[0].path' 2>/dev/null` and pass it to the dispatch; if a consumed artifact is absent, skip that hook.
 - If `ref.agent` is set, first show the spawn banner, then dispatch the agent named by `ref.agent` (use the exact `ref.agent` value as the subagent type — e.g. `gsd-mempalace-curator` — never `general-purpose`):
 
   ```
