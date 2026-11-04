@@ -493,6 +493,30 @@ impl Grant {
         .map(|_| ())
     }
 
+    /// Whether a call of kind `op` may write `path` in `root`: a write is no [`EffectRequest`], so the fs scope is judged
+    /// by its roots and its `write` op.
+    pub fn permits_write(&self, op: Operation, root: &str, path: &str) -> Result<(), Denial> {
+        let writes = |scope: &PortScope| {
+            let PortScope::Fs(fs) = scope else {
+                return false;
+            };
+            let reaches = if fs.roots.is_empty() {
+                self.user || DEFAULT_ROOTS.contains(&root)
+            } else {
+                fs.roots.iter().any(|named| named == root)
+            };
+            reaches && fs.ops.contains(&FsAccess::Write)
+        };
+        self.decided(
+            op,
+            (Port::Fs, true),
+            format!("write {root}/{path}"),
+            Some(root),
+            &writes,
+        )
+        .map(|_| ())
+    }
+
     /// The capability `admits` keeps for a call of kind `op` on `port`, or why there is none.
     fn decided(
         &self,

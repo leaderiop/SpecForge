@@ -224,3 +224,172 @@ fn a_link_out_of_the_roots_or_into_the_hosts_state_is_refused() {
         .exits(0);
     assert!(!listed.stdout.contains("secret"), "{}", listed.stdout);
 }
+
+#[test]
+fn temp_answers_a_new_private_path_under_the_temp_root() {
+    let project = project();
+    let first = Cli::on(&project)
+        .run(&["files", "temp", "--suffix", ".json", "--pick", ".path"])
+        .exits(0);
+    let second = Cli::on(&project)
+        .run(&["files", "temp", "--suffix", ".json", "--pick", ".path"])
+        .exits(0);
+    let (first, second) = (first.stdout.trim(), second.stdout.trim());
+    assert_ne!(first, second);
+    let temp = std::fs::canonicalize(project.root().join(".specforge/tmp")).unwrap();
+    for made in [first, second] {
+        let made = std::path::Path::new(made);
+        assert!(made.starts_with(&temp), "{}", made.display());
+        assert!(made.to_string_lossy().ends_with(".json"));
+        assert!(made.is_file());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let mode = std::fs::metadata(made).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+    }
+    // What it made is reachable through the temp root, and removable there.
+    let name = std::path::Path::new(first)
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let typed = format!(".specforge/tmp/{name}");
+    let stat = Cli::on(&project)
+        .run(&["files", "stat", &typed, "--pick", ".entries[0].root"])
+        .exits(0);
+    assert_eq!(stat.stdout, "temp\n");
+    Cli::on(&project).run(&["files", "remove", first]).exits(0);
+    assert!(!std::path::Path::new(first).exists());
+    // A name part takes no separator.
+    Cli::on(&project)
+        .run(&["files", "temp", "--prefix", "../x"])
+        .exits(1);
+}
+
+#[test]
+fn mkdir_copy_and_move_answer_what_they_changed() {
+    let project = project();
+    let made = Cli::on(&project)
+        .run(&["files", "mkdir", "out/deep/er", "--pick", ".changed[]"])
+        .exits(0);
+    assert_eq!(made.stdout, "out/deep/er\n");
+    let copied = Cli::on(&project)
+        .run(&["files", "copy", "src", "out", "--pick", ".changed[]"])
+        .exits(0);
+    assert_eq!(copied.stdout, "out/src\n");
+    assert!(project.root().join("out/src/lib/util.rs").is_file());
+    let moved = Cli::on(&project)
+        .run(&[
+            "files",
+            "move",
+            "out/src/main.rs",
+            "out/deep",
+            "--pick",
+            ".changed[]",
+        ])
+        .exits(0);
+    assert_eq!(moved.stdout, "out/src/main.rs\nout/deep/main.rs\n");
+    assert!(project.root().join("out/deep/main.rs").is_file());
+    assert!(!project.root().join("out/src/main.rs").exists());
+    // Into itself is refused.
+    Cli::on(&project)
+        .run(&["files", "copy", "out", "out/deep"])
+        .exits(1);
+}
+
+#[test]
+fn remove_refuses_a_root_a_path_outside_and_the_hosts_state_and_changes_nothing() {
+    let project = project();
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("keep.txt"), "x").unwrap();
+    let typed = outside.path().join("keep.txt").display().to_string();
+    // The refused path is named last: nothing before it is removed.
+    let run = Cli::on(&project)
+        .run(&["files", "remove", "src/main.rs", &typed])
+        .exits(1);
+    assert_eq!(run.json()["code"], "outside_root", "{}", run.stdout);
+    assert!(outside.path().join("keep.txt").exists());
+    assert!(project.root().join("src/main.rs").exists());
+    for root in [".", "spec"] {
+        let run = Cli::on(&project)
+            .run(&["files", "remove", "--recursive", root])
+            .exits(1);
+        assert_eq!(
+            run.json()["code"],
+            "permission_denied",
+            "{root}: {}",
+            run.stdout
+        );
+    }
+    assert!(project.root().join("spec/a.spec").exists());
+    let state = Cli::on(&project)
+        .run(&["files", "remove", ".specforge/effects/journal/x.json"])
+        .exits(1);
+    assert_eq!(
+        state.json()["code"],
+        "permission_denied",
+        "{}",
+        state.stdout
+    );
+    assert!(
+        project
+            .root()
+            .join(".specforge/effects/journal/x.json")
+            .exists()
+    );
+    // A directory needs --recursive.
+    Cli::on(&project)
+        .run(&["files", "remove", "src/lib"])
+        .exits(1);
+    Cli::on(&project)
+        .run(&["files", "remove", "-r", "src/lib"])
+        .exits(0);
+    assert!(!project.root().join("src/lib").exists());
+}
+
+/// A link is removed or moved itself, never what it points at.
+#[cfg(unix)]
+#[test]
+fn removing_a_link_leaves_its_target() {
+    let project = project();
+    std::os::unix::fs::symlink(
+        project.root().join("src/main.rs"),
+        project.root().join("src/link.rs"),
+    )
+    .unwrap();
+    Cli::on(&project)
+        .run(&["files", "remove", "src/link.rs"])
+        .exits(0);
+    assert!(project.root().join("src/main.rs").is_file());
+    assert!(std::fs::symlink_metadata(project.root().join("src/link.rs")).is_err());
+}
+
+#[test]
+fn digest_is_the_sha256_of_a_file_and_of_text() {
+    let project = project();
+    let run = Cli::on(&project)
+        .run(&["files", "digest", "build/out.txt", "--text", "hello\n"])
+        .exits(0);
+    insta::assert_json_snapshot!("files_digest", run.json());
+    let digests = &run.json()["digests"];
+    assert_eq!(digests[0]["sha256"], digests[1]["sha256"]);
+    Cli::on(&project).run(&["files", "digest", "src"]).exits(1);
+    Cli::on(&project)
+        .run(&["files", "digest", ".specforge/effects/journal/x.json"])
+        .exits(1);
+}
+
+#[test]
+fn a_ceiling_without_write_refuses_every_change() {
+    let project = project().config(|config| {
+        config["effects"] = serde_json::json!({"fs": {"ops": ["stat", "read", "walk"]}});
+    });
+    let run = Cli::on(&project).run(&["files", "mkdir", "out"]).exits(1);
+    assert_eq!(run.json()["code"], "E090", "{}", run.stdout);
+    let run = Cli::on(&project).run(&["files", "temp"]).exits(1);
+    assert_eq!(run.json()["code"], "E090", "{}", run.stdout);
+    assert!(!project.root().join("out").exists());
+    assert!(!project.root().join(".specforge/tmp").exists());
+}

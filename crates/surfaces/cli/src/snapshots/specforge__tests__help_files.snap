@@ -10,6 +10,12 @@ Commands:
   stat    Each path's kind, size and modification time, or that it does not exist
   list    The files and directories under a directory, honouring .gitignore
   search  The lines under the paths that match a regular expression
+  temp    A new empty file, or directory, with a name no other has, in the project's temp root (only you may read it)
+  mkdir   Make each directory, with its missing parents
+  copy    Copy a file, or a directory and what it holds, onto a path or into a directory
+  move    Move a file or directory onto a path or into a directory
+  remove  Remove each file, or empty directory (with --recursive, a directory and what it holds)
+  digest  The SHA-256 of each file, and of --text
   help    Print this message or the help of the given subcommand(s)
 
 Options:

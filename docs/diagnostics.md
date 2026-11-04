@@ -1453,12 +1453,13 @@ A member of `effects` or `roots` in `specforge.json` is not used as written (ADR
 neither `"off"` nor an object (`process` is `"off"` or absent: a command runs as
 declared or not at all), a member the port does not take (`http`: `hosts`,
 `schemes`, `methods`; `fs`: `roots`, `ops`; `git`: `ops`), a list item that is
-no host pattern, scheme, HTTP method or op, a root named `spec` or `project`
-(built in) or not a word, or a root whose path is empty or is no directory once
-resolved from the project root. The member or item is ignored and the rest is
-kept; the diagnostic points at its key. Either key that is not an object is
-E069. `effects` only narrows what extensions declare: an absent port is not
-narrowed, `"off"` removes it, an object keeps only what it lists.
+no host pattern, scheme, HTTP method or op, a root named `spec`, `project` or
+`temp` (built in; `temp` is the verbs' scratch root, ADR 0339) or not a word, or
+a root whose path is empty or is no directory once resolved from the project
+root. The member or item is ignored and the rest is kept; the diagnostic points
+at its key. Either key that is not an object is E069. `effects` only narrows
+what extensions declare: an absent port is not narrowed, `"off"` removes it, an
+object keeps only what it lists.
 
 Owner: core
 Level: error

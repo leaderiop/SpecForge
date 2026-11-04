@@ -3343,6 +3343,7 @@ version = "0.3.0"
 dependencies = [
  "globset",
  "ignore",
+ "sha2",
  "specforge-common",
  "specforge-effects",
  "specforge-test",

@@ -38,7 +38,9 @@ whole port `off`). A request outside it is refused before any effect, with the c
   A named root, or a spec root, that resolves outside the project is reachable only once this machine approved it
   (`specforge grants approve --root <name>`); until then it is refused like a path in no root.
 - **The host's own state.** `.specforge/` stays withheld from every root. `temp` is its own root,
-  `<project>/.specforge/tmp/`, made on first use, so `files temp` and `files remove` work there and nowhere else in it.
+  `<project>/.specforge/tmp/` (a loose root's under the home directory, as its journal is), made owner-only on first
+  use, so `files temp` and `files remove` work there and nowhere else in it. No guest's roots hold `temp`, and no
+  project may name a root `temp` (E109).
 - **Addresses.** The private-address rule binds what a repository names, not the URL the user types: a typed
   `http://localhost:11434/…` is the user's target, so only the ceiling applies. Each redirect is asked of the grant
   again, and a redirect from `https` to `http` is never followed.

@@ -397,6 +397,17 @@ pub struct EffectJournal {
     dir: Option<PathBuf>,
 }
 
+/// The directory whose `.specforge` holds `root`'s host state (its journal, the verbs' `temp` root): `root` when it
+/// holds `specforge.json`, the user's home (`HOME`, `USERPROFILE` on Windows) for a loose root, none with no home.
+pub fn state_base(root: &ProjectRoot) -> Option<PathBuf> {
+    if root.is_configured() {
+        return Some(root.dir().to_path_buf());
+    }
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+}
+
 impl EffectJournal {
     /// The journal under `base` (a project root, or the user's home for a loose root).
     pub fn at(base: &Path) -> Self {
@@ -417,10 +428,7 @@ impl EffectJournal {
 
     /// [`Self::of`] under the user's home (`HOME`, `USERPROFILE` on Windows).
     pub fn for_root(root: &ProjectRoot) -> Self {
-        let home = std::env::var_os("HOME")
-            .or_else(|| std::env::var_os("USERPROFILE"))
-            .map(PathBuf::from);
-        Self::of(root, home.as_deref())
+        state_base(root).map_or_else(Self::detached, |base| Self::at(&base))
     }
 
     /// A journal of no project: every lookup is a miss and nothing is written.

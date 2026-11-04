@@ -13,6 +13,7 @@ specforge-effects = { path = "../../kernel/effects" }
 # in the root's workspace table, which every builtin blob compiles from.
 globset = "0.4"
 ignore = "0.4"
+sha2 = { workspace = true }
 
 [dev-dependencies]
 specforge-test = { workspace = true }

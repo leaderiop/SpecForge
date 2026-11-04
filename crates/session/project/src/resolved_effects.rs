@@ -41,8 +41,8 @@ pub struct ResolvedEffects {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// The roots every project has: never named in `roots`.
-const RESERVED: [&str; 2] = ["spec", "project"];
+/// The roots every project has, and the verbs' `temp` (ADR 0339): never named in `roots`.
+const RESERVED: [&str; 3] = ["spec", "project", "temp"];
 
 /// The config text, indexed once, and the E109s found.
 struct Reader<'a> {

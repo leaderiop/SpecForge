@@ -1,13 +1,15 @@
-//! `specforge files` (ADR 0339): stat, list and search paths in the project's roots, through the `Fs` port. Every
-//! answer names a path as [`Verbs::shown`] prints it.
+//! `specforge files` (ADR 0339): stat, list, search, change and digest paths in the project's roots, through the `Fs`
+//! port. Every answer names a path as [`Verbs::shown`] prints it, but `temp`'s, which is absolute.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
+use sha2::Digest as _;
+use specforge_effects::contained::TEMP;
 use specforge_effects::fs::{FileKind, READ_CEILING};
-use specforge_effects::{FsOp, ListRequest, OutcomeClass, Root};
+use specforge_effects::{FsChange, FsChanged, FsOp, ListRequest, OutcomeClass, Place, Root};
 
-use super::{Verbs, refused};
+use super::{Access, Located, Verbs, refused};
 use crate::{OpError, OpErrorKind};
 
 /// The most entries `list` answers unless asked for another bound.
@@ -160,7 +162,7 @@ fn checked_globs(globs: &[String]) -> Result<(), OpError> {
             OpError::new(
                 OpErrorKind::InvalidInput,
                 OpErrorKind::InvalidInput.as_str(),
-                format!("--glob {glob:?} does not parse: {error}"),
+                format!("the glob {glob:?} does not parse: {error}"),
             )
         })?;
     }
@@ -315,4 +317,231 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
     }
     answer.count = answer.matches.len();
     Ok(answer)
+}
+
+/// `files temp`'s answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TempAnswer {
+    /// Absolute, as a shell gives it to the next command.
+    pub path: String,
+}
+
+/// What `files temp` asks.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Temp {
+    /// A directory, not a file.
+    pub dir: bool,
+    pub prefix: String,
+    pub suffix: String,
+}
+
+/// `files mkdir`, `copy`, `move` and `remove`'s answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ChangeAnswer {
+    /// Each path made, written or removed.
+    pub changed: Vec<String>,
+}
+
+/// One digest `files digest` answered.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Digested {
+    /// The file; none for `--text`.
+    pub path: Option<String>,
+    /// Lowercase hex.
+    pub sha256: String,
+    pub bytes: u64,
+}
+
+/// `files digest`'s answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DigestAnswer {
+    pub digests: Vec<Digested>,
+}
+
+/// A new empty file (`0600`), or directory (`0700`), with a name no other has, in the `temp` root, made on first use.
+pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
+    for (what, part) in [("prefix", &temp.prefix), ("suffix", &temp.suffix)] {
+        if part.contains(['/', '\\']) || part.contains("..") || part.chars().any(char::is_control) {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                OpErrorKind::InvalidInput.as_str(),
+                format!("the name's {what} {part:?} takes no separator and no `..`"),
+            ));
+        }
+    }
+    let mut random = [0u8; 8];
+    getrandom::fill(&mut random).map_err(|error| {
+        OpError::new(
+            OpErrorKind::Internal,
+            OpErrorKind::Internal.as_str(),
+            format!("no random name: {error}"),
+        )
+    })?;
+    let hex: String = random.iter().map(|b| format!("{b:02x}")).collect();
+    let name = format!("{}{hex}{}", temp.prefix, temp.suffix);
+    let at = Place {
+        root: TEMP.to_string(),
+        path: name.clone(),
+    };
+    verbs.permit_write(&Root::Named(TEMP.to_string()), &name)?;
+    // Made once permitted: a refused `temp` makes nothing.
+    let verbs = verbs.with_temp()?;
+    changed(
+        &verbs,
+        verbs
+            .ports()
+            .fs
+            .change(verbs.roots(), &FsChange::Create { at, dir: temp.dir }),
+    )?;
+    let root = verbs.temp_root().unwrap_or(Path::new(""));
+    Ok(TempAnswer {
+        path: root.join(name).to_string_lossy().into_owned(),
+    })
+}
+
+/// Each of `paths` made, with its missing parents.
+pub fn mkdir(verbs: &Verbs, paths: &[PathBuf]) -> Result<ChangeAnswer, OpError> {
+    let mut answer = ChangeAnswer {
+        changed: Vec::new(),
+    };
+    for typed in paths {
+        let at = written(verbs, typed)?;
+        answer.changed.extend(changed(
+            verbs,
+            verbs
+                .ports()
+                .fs
+                .change(verbs.roots(), &FsChange::Mkdir { at }),
+        )?);
+    }
+    Ok(answer)
+}
+
+/// `from` copied onto `to`, or into it when it is a directory; a directory with what it holds.
+pub fn copy(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, OpError> {
+    let (source, _) = verbs.located(from, Access::Fs(FsOp::Read { max_bytes: 0 }))?;
+    let change = FsChange::Copy {
+        from: place(&source),
+        to: written(verbs, to)?,
+    };
+    Ok(ChangeAnswer {
+        changed: changed(verbs, verbs.ports().fs.change(verbs.roots(), &change))?,
+    })
+}
+
+/// `from` moved onto `to`, or into it when it is a directory: renamed in one device, copied then removed across two.
+pub fn move_to(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, OpError> {
+    let change = FsChange::Move {
+        from: written(verbs, from)?,
+        to: written(verbs, to)?,
+    };
+    Ok(ChangeAnswer {
+        changed: changed(verbs, verbs.ports().fs.change(verbs.roots(), &change))?,
+    })
+}
+
+/// Each of `paths` removed: a file, an empty directory, or with `recursive` a directory and what it holds. A root, or
+/// a directory that holds one, is never removed.
+pub fn remove(verbs: &Verbs, paths: &[PathBuf], recursive: bool) -> Result<ChangeAnswer, OpError> {
+    // Every path is held before any is removed: a refused one changes nothing.
+    let places: Vec<Place> = paths
+        .iter()
+        .map(|typed| written(verbs, typed))
+        .collect::<Result<_, _>>()?;
+    let mut answer = ChangeAnswer {
+        changed: Vec::new(),
+    };
+    for at in places {
+        answer.changed.extend(changed(
+            verbs,
+            verbs
+                .ports()
+                .fs
+                .change(verbs.roots(), &FsChange::Remove { at, recursive }),
+        )?);
+    }
+    Ok(answer)
+}
+
+/// The SHA-256 of each file of `paths`, then of `text` when there is one.
+pub fn digest(
+    verbs: &Verbs,
+    paths: &[PathBuf],
+    text: Option<&str>,
+) -> Result<DigestAnswer, OpError> {
+    let mut digests = Vec::new();
+    for typed in paths {
+        let (located, request) = verbs.held(typed, FsOp::Stat)?;
+        let shown = verbs.shown(&located.at);
+        let stat = verbs.ports().fs.run(verbs.roots(), &request);
+        if stat.stat.is_some_and(|stat| stat.kind != FileKind::File) {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                OpErrorKind::InvalidInput.as_str(),
+                format!("{shown} is not a file"),
+            ));
+        }
+        let (located, _) = verbs.located(typed, Access::Fs(FsOp::Read { max_bytes: 0 }))?;
+        let digest = verbs.ports().fs.digest(verbs.roots(), &place(&located));
+        if digest.class != OutcomeClass::Ok {
+            return Err(refused(digest.class, &shown));
+        }
+        digests.push(Digested {
+            path: Some(shown),
+            sha256: digest.sha256,
+            bytes: digest.bytes,
+        });
+    }
+    if let Some(text) = text {
+        digests.push(Digested {
+            path: None,
+            sha256: sha2::Sha256::digest(text.as_bytes())
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect(),
+            bytes: text.len() as u64,
+        });
+    }
+    Ok(DigestAnswer { digests })
+}
+
+/// `typed`, held for a write.
+fn written(verbs: &Verbs, typed: &Path) -> Result<Place, OpError> {
+    verbs
+        .located(typed, Access::Write)
+        .map(|(located, _)| place(&located))
+}
+
+fn place(located: &Located) -> Place {
+    Place {
+        root: located.root.as_str().to_string(),
+        path: located.rel.clone(),
+    }
+}
+
+/// What a change made, as an answer prints it, or its refusal.
+fn changed(verbs: &Verbs, outcome: FsChanged) -> Result<Vec<String>, OpError> {
+    let detail = outcome.detail.unwrap_or_default();
+    match outcome.class {
+        OutcomeClass::Ok => Ok(outcome
+            .changed
+            .iter()
+            .map(|place| verbs.shown_named(&place.root, &place.path))
+            .collect()),
+        OutcomeClass::Outside => Err(OpError::new(
+            OpErrorKind::PermissionDenied,
+            crate::OUTSIDE_ROOT,
+            detail,
+        )),
+        OutcomeClass::Missing => Err(OpError::new(
+            OpErrorKind::FileNotFound,
+            OpErrorKind::FileNotFound.as_str(),
+            detail,
+        )),
+        _ => Err(OpError::new(
+            OpErrorKind::PermissionDenied,
+            OpErrorKind::PermissionDenied.as_str(),
+            detail,
+        )),
+    }
 }

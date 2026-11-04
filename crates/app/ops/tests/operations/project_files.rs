@@ -24,6 +24,12 @@ const NEEDLES: &[&str] = &[
 /// `(file under src/, needle, how many lines, why it is not a project file held by a containment)`.
 const ALLOWED: &[(&str, &str, usize, &str)] = &[
     (
+        "verbs/mod.rs",
+        "fs::create_dir_all(",
+        1,
+        "the verbs' temp root under .specforge, which the host owns (ADR 0339)",
+    ),
+    (
         "consent.rs",
         "File::open(",
         1,

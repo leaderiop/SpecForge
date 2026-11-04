@@ -39,6 +39,79 @@ pub trait Fs: Send + Sync {
     fn list(&self, _roots: &Roots, _request: &ListRequest) -> FsListing {
         FsListing::of(OutcomeClass::Denied)
     }
+
+    /// A person's change (`specforge files mkdir`, `copy`, `move`, `remove`, `temp`): host-only like [`Fs::list`].
+    fn change(&self, _roots: &Roots, _change: &FsChange) -> FsChanged {
+        FsChanged::of(OutcomeClass::Denied, "this port changes no file")
+    }
+
+    /// The SHA-256 of a whole file, streamed (`specforge files digest`): host-only like [`Fs::list`].
+    fn digest(&self, _roots: &Roots, _at: &Place) -> FsDigest {
+        FsDigest::of(OutcomeClass::Denied)
+    }
+}
+
+/// A path in a root, as a person's change names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Place {
+    pub root: String,
+    /// Relative to the root, `/` separated.
+    pub path: String,
+}
+
+/// A change a person asks of the file system. Host-only: no wire request carries one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FsChange {
+    /// The directory and its missing parents.
+    Mkdir { at: Place },
+    /// A new empty file, or directory, refused when the name exists.
+    Create { at: Place, dir: bool },
+    /// A file, or a directory and what it holds (no link), onto `to`, or into it when it is a directory.
+    Copy { from: Place, to: Place },
+    /// As [`FsChange::Copy`], then `from` is gone.
+    Move { from: Place, to: Place },
+    /// A file, or an empty directory, or with `recursive` a directory and what it holds; never a root itself.
+    Remove { at: Place, recursive: bool },
+}
+
+/// What a change did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FsChanged {
+    pub class: OutcomeClass,
+    /// The paths it made, wrote or removed, root-relative.
+    pub changed: Vec<Place>,
+    /// Why it was refused, for a person.
+    pub detail: Option<String>,
+}
+
+impl FsChanged {
+    /// A refusal of `class`, `detail` saying why.
+    pub fn of(class: OutcomeClass, detail: impl Into<String>) -> Self {
+        FsChanged {
+            class,
+            changed: Vec::new(),
+            detail: Some(detail.into()),
+        }
+    }
+}
+
+/// A file's digest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FsDigest {
+    pub class: OutcomeClass,
+    /// Lowercase hex.
+    pub sha256: String,
+    pub bytes: u64,
+}
+
+impl FsDigest {
+    pub fn of(class: OutcomeClass) -> Self {
+        FsDigest {
+            class,
+            sha256: String::new(),
+            bytes: 0,
+        }
+    }
 }
 
 /// The most entries a person's listing visits.
@@ -154,9 +227,10 @@ pub fn held(
     let root = roots.get(&name).ok_or(OutcomeClass::Outside)?.to_path_buf();
     if matches!(request.path.as_str(), "" | "." | "./") {
         // A named root can itself be a directory of the project's own state.
-        if lookup
-            .canonical(&root)
-            .is_some_and(|real| landed_in_host_state(roots, lookup, &real))
+        if !roots.is_temp(&name)
+            && lookup
+                .canonical(&root)
+                .is_some_and(|real| landed_in_host_state(roots, lookup, &real))
         {
             return Err(OutcomeClass::Denied);
         }

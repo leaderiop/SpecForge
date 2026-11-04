@@ -185,3 +185,72 @@ fn a_walk_does_not_descend_through_a_directory_link() {
     std::os::unix::fs::symlink(root.join("real"), root.join("linked")).unwrap();
     assert_eq!(walk(&roots, Some("**/*.md")), ["real/x.md"]);
 }
+
+fn at(root: &str, path: &str) -> specforge_effects::Place {
+    specforge_effects::Place {
+        root: root.into(),
+        path: path.into(),
+    }
+}
+
+/// Roots with no `temp` (every guest's) refuse it like an unknown root; the verbs' own roots reach it, in the host's
+/// state, while the project's state stays withheld.
+#[test]
+fn only_roots_with_temp_reach_the_temp_root() {
+    use specforge_effects::FsChange;
+    let (dir, roots) = project();
+    let root = dir.path().canonicalize().unwrap();
+    let temp = root.join(".specforge/tmp");
+    std::fs::create_dir_all(&temp).unwrap();
+    let create = FsChange::Create {
+        at: at("temp", "x.json"),
+        dir: false,
+    };
+    assert_eq!(LocalFs.change(&roots, &create).class, OutcomeClass::Outside);
+    let with = roots.clone().with_temp(&temp);
+    assert_eq!(LocalFs.change(&with, &create).class, OutcomeClass::Ok);
+    assert!(temp.join("x.json").is_file());
+    let state = FsChange::Create {
+        at: at("project", ".specforge/y"),
+        dir: false,
+    };
+    assert_eq!(LocalFs.change(&with, &state).class, OutcomeClass::Denied);
+}
+
+#[test]
+fn a_change_never_names_a_root_or_a_withheld_file() {
+    use specforge_effects::FsChange;
+    let (_dir, roots) = project();
+    for path in ["", ".", "spec"] {
+        let remove = FsChange::Remove {
+            at: at("project", path),
+            recursive: true,
+        };
+        assert_eq!(
+            LocalFs.change(&roots, &remove).class,
+            OutcomeClass::Denied,
+            "{path:?}"
+        );
+    }
+    let leak = FsChange::Copy {
+        from: at("project", ".env"),
+        to: at("project", "env.txt"),
+    };
+    assert_eq!(LocalFs.change(&roots, &leak).class, OutcomeClass::Denied);
+    let digest = LocalFs.digest(&roots, &at("project", ".env"));
+    assert_eq!(digest.class, OutcomeClass::Denied);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_change_through_a_link_out_of_the_root_is_outside() {
+    use specforge_effects::FsChange;
+    let (dir, roots) = project();
+    let outside = tempfile::tempdir().unwrap();
+    std::os::unix::fs::symlink(outside.path(), dir.path().join("out")).unwrap();
+    let mkdir = FsChange::Mkdir {
+        at: at("project", "out/new"),
+    };
+    assert_eq!(LocalFs.change(&roots, &mkdir).class, OutcomeClass::Outside);
+    assert!(!outside.path().join("new").exists());
+}

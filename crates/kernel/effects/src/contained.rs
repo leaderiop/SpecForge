@@ -11,6 +11,9 @@ use std::path::{Component, Path, PathBuf};
 use specforge_common::find_close_match;
 use specforge_protocol_types::{PrefixProblem, Root, RootedPath};
 
+/// The name of the verbs' scratch root (ADR 0339).
+pub const TEMP: &str = "temp";
+
 /// A project's roots: the project root, the spec root and the roots its configuration names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Roots {
@@ -18,6 +21,9 @@ pub struct Roots {
     /// None once [`Self::without_spec`] dropped it: a path naming it is refused like an unknown root.
     spec: Option<PathBuf>,
     named: BTreeMap<String, PathBuf>,
+    /// The verbs' scratch root `temp` (ADR 0339), set by [`Self::with_temp`]: it lies in the host's own state, and only
+    /// what a person types reaches it.
+    temp: Option<PathBuf>,
 }
 
 impl Roots {
@@ -27,6 +33,7 @@ impl Roots {
             project: project.into(),
             spec: Some(spec.into()),
             named: BTreeMap::new(),
+            temp: None,
         }
     }
 
@@ -34,6 +41,18 @@ impl Roots {
     pub fn with_named(mut self, name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
         self.named.insert(name.into(), path.into());
         self
+    }
+
+    /// These roots and the verbs' scratch root `temp` at `path` (ADR 0339): a project names no root `temp` (E109), so
+    /// no guest's roots ever hold it.
+    pub fn with_temp(mut self, path: impl Into<PathBuf>) -> Self {
+        self.temp = Some(path.into());
+        self
+    }
+
+    /// Whether `root` is the verbs' scratch root, which lies in the host's own state by design.
+    pub fn is_temp(&self, root: &Root) -> bool {
+        self.temp.is_some() && matches!(root, Root::Named(name) if name == TEMP)
     }
 
     /// The named roots (`specforge.json` `roots`), by name, and where each lies.
@@ -48,6 +67,7 @@ impl Roots {
         match root {
             Root::Spec => self.spec.as_deref(),
             Root::Project => Some(&self.project),
+            Root::Named(name) if name == TEMP => self.temp.as_deref(),
             Root::Named(name) => self.named.get(name).map(PathBuf::as_path),
         }
     }
@@ -298,7 +318,8 @@ impl<'a> Contained<'a> {
                 real_root
                     .as_deref()
                     .is_some_and(|root| under_host_state(real, root))
-                    || landed_in_host_state(&self.roots, self.lookup, real)
+                    || (!self.roots.is_temp(&root)
+                        && landed_in_host_state(&self.roots, self.lookup, real))
             });
         let withheld = host_state
             || credential(&rel)

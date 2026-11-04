@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use specforge_effects::Ports;
 use specforge_effects::fs::FileKind;
-use specforge_ops::verbs::files::{self, LIST_MAX, List, SEARCH_MAX, Search};
+use specforge_ops::verbs::files::{self, ChangeAnswer, LIST_MAX, List, SEARCH_MAX, Search, Temp};
 
 use super::{VerbArgs, shown};
 use crate::outcome::Exit;
@@ -18,6 +18,86 @@ pub(crate) enum Action {
     List(ListArgs),
     /// The lines under the paths that match a regular expression
     Search(SearchArgs),
+    /// A new empty file, or directory, with a name no other has, in the project's temp root (only you may read it)
+    Temp(TempArgs),
+    /// Make each directory, with its missing parents
+    Mkdir(PathsArgs),
+    /// Copy a file, or a directory and what it holds, onto a path or into a directory
+    Copy(PairArgs),
+    /// Move a file or directory onto a path or into a directory
+    Move(PairArgs),
+    /// Remove each file, or empty directory (with --recursive, a directory and what it holds)
+    Remove(RemoveArgs),
+    /// The SHA-256 of each file, and of --text
+    Digest(DigestArgs),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct TempArgs {
+    /// Make a directory, not a file
+    #[arg(long)]
+    dir: bool,
+
+    /// The name's start
+    #[arg(long, default_value = "")]
+    prefix: String,
+
+    /// The name's end, such as `.json`
+    #[arg(long, default_value = "")]
+    suffix: String,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct PathsArgs {
+    /// The paths, from the current directory
+    #[arg(required = true)]
+    paths: Vec<PathBuf>,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct PairArgs {
+    /// What to copy or move, from the current directory
+    from: PathBuf,
+
+    /// Where to, from the current directory: into it when it is a directory
+    to: PathBuf,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct RemoveArgs {
+    /// The paths, from the current directory
+    #[arg(required = true)]
+    paths: Vec<PathBuf>,
+
+    /// Remove a directory and what it holds
+    #[arg(long, short = 'r')]
+    recursive: bool,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct DigestArgs {
+    /// The files, from the current directory
+    #[arg(required_unless_present = "text")]
+    paths: Vec<PathBuf>,
+
+    /// Digest this text too (its UTF-8 bytes)
+    #[arg(long, value_name = "TEXT")]
+    text: Option<String>,
+
+    #[command(flatten)]
+    verb: VerbArgs,
 }
 
 #[derive(clap::Args)]
@@ -102,7 +182,85 @@ impl Action {
             Action::Stat(args) => args.run(terminal, ports),
             Action::List(args) => args.run(terminal, ports),
             Action::Search(args) => args.run(terminal, ports),
+            Action::Temp(args) => args.run(terminal, ports),
+            Action::Mkdir(args) => {
+                let paths = args.paths;
+                changes(&args.verb, terminal, ports, |verbs| {
+                    files::mkdir(verbs, &paths)
+                })
+            }
+            Action::Copy(args) => changes(&args.verb, terminal, ports, |verbs| {
+                files::copy(verbs, &args.from, &args.to)
+            }),
+            Action::Move(args) => changes(&args.verb, terminal, ports, |verbs| {
+                files::move_to(verbs, &args.from, &args.to)
+            }),
+            Action::Remove(args) => changes(&args.verb, terminal, ports, |verbs| {
+                files::remove(verbs, &args.paths, args.recursive)
+            }),
+            Action::Digest(args) => args.run(terminal, ports),
         }
+    }
+}
+
+/// A change's answer: each path it made, wrote or removed.
+fn changes(
+    verb: &VerbArgs,
+    terminal: &Terminal,
+    ports: &Ports,
+    change: impl FnOnce(&specforge_ops::verbs::Verbs) -> Result<ChangeAnswer, specforge_ops::OpError>,
+) -> Exit {
+    let format = match verb.format(terminal) {
+        Ok(format) => format,
+        Err(exit) => return exit,
+    };
+    let answer = verb.open(ports).and_then(|verbs| change(&verbs));
+    verb.print(terminal, format, answer, |terminal, answer| {
+        for path in &answer.changed {
+            outln!(terminal, "{}", shown(path));
+        }
+    })
+}
+
+impl TempArgs {
+    fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
+        let format = match self.verb.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit,
+        };
+        let temp = Temp {
+            dir: self.dir,
+            prefix: self.prefix,
+            suffix: self.suffix,
+        };
+        let answer = self
+            .verb
+            .open(ports)
+            .and_then(|verbs| files::temp(verbs, &temp));
+        self.verb
+            .print(terminal, format, answer, |terminal, answer| {
+                outln!(terminal, "{}", shown(&answer.path));
+            })
+    }
+}
+
+impl DigestArgs {
+    fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
+        let format = match self.verb.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit,
+        };
+        let answer = self
+            .verb
+            .open(ports)
+            .and_then(|verbs| files::digest(&verbs, &self.paths, self.text.as_deref()));
+        self.verb
+            .print(terminal, format, answer, |terminal, answer| {
+                for digest in &answer.digests {
+                    let path = digest.path.as_deref().unwrap_or("--text");
+                    outln!(terminal, "{}  {}", digest.sha256, shown(path));
+                }
+            })
     }
 }
 

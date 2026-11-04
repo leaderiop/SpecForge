@@ -70,6 +70,9 @@ specforge prompt <ext>.<prompt> [arguments] [--host claude-code|codex|cursor] [-
 specforge files stat <path>...                      # kind, size, modified_ms, or exists:false
 specforge files list src --glob '*.tsx' --pick '.entries[0].path'   # honours .gitignore (--no-ignore, --hidden, --kind, --depth)
 specforge files search 'TODO|FIXME' src -i          # {matches:[{path,line,column,text}]}
+specforge files temp --suffix .json --pick .path   # a new 0600 file under .specforge/tmp (--dir for a directory)
+specforge files mkdir|copy|move|remove ...         # {changed:[...]}; never a root, the host's state or a credential file
+specforge files digest <file>... --text "$PWD"     # {digests:[{path,sha256,bytes}]}
 
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions

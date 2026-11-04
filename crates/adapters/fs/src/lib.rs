@@ -6,6 +6,8 @@
 //!
 //! [`Contained`]: specforge_effects::Contained
 
+mod change;
+
 use std::io::Read as _;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
@@ -15,7 +17,8 @@ use specforge_effects::fs::{
     FILE_CEILING, FileKind, FsStat, LIST_VISITS, READ_CEILING, SKIPPED, WALK_VISITS, held,
 };
 use specforge_effects::{
-    Fs, FsListing, FsOp, FsOutcome, FsRequest, ListRequest, Listed, OutcomeClass, RealFs, Roots,
+    Fs, FsChange, FsChanged, FsDigest, FsListing, FsOp, FsOutcome, FsRequest, ListRequest, Listed,
+    OutcomeClass, Place, RealFs, Roots,
 };
 
 /// The `Fs` port over the local file system.
@@ -75,6 +78,14 @@ impl Fs for LocalFs {
 
     fn list(&self, roots: &Roots, request: &ListRequest) -> FsListing {
         Self::listing(roots, request)
+    }
+
+    fn change(&self, roots: &Roots, change: &FsChange) -> FsChanged {
+        change::change(roots, change)
+    }
+
+    fn digest(&self, roots: &Roots, at: &Place) -> FsDigest {
+        change::digest(roots, at)
     }
 }
 

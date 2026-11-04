@@ -57,7 +57,7 @@ fn each_member_or_item_not_used_as_written_is_e109_at_its_key_and_the_rest_is_ke
             "git": {"ops": ["push"]},
             "process": {"argv": ["make"]},
         },
-        "roots": {"spec": "docs", "Vendor": "../v", "empty": " ", "vendor": "../vendor"},
+        "roots": {"spec": "docs", "temp": "tmp", "Vendor": "../v", "empty": " ", "vendor": "../vendor"},
     }));
     let found = messages(&resolved);
     for part in [
@@ -70,6 +70,7 @@ fn each_member_or_item_not_used_as_written_is_e109_at_its_key_and_the_rest_is_ke
         "`effects.git.ops` in specforge.json is not used: 'push' is no git op",
         "`effects.process` in specforge.json is not used: a command runs as declared or not at all",
         "`roots.spec` in specforge.json is not used: 'spec' is built in",
+        "`roots.temp` in specforge.json is not used: 'temp' is built in",
         "`roots.Vendor` in specforge.json is not used: 'Vendor' is not a word",
         "`roots.empty` in specforge.json is not used: a root is a non-empty path",
     ] {
@@ -78,7 +79,7 @@ fn each_member_or_item_not_used_as_written_is_e109_at_its_key_and_the_rest_is_ke
             "{part}\n{found:#?}"
         );
     }
-    assert_eq!(found.len(), 11, "{found:#?}");
+    assert_eq!(found.len(), 12, "{found:#?}");
     assert!(
         resolved
             .diagnostics
