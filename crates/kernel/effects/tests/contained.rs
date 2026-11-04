@@ -244,3 +244,22 @@ mod real {
         assert!(!looped.exists, "{looped:?}");
     }
 }
+
+#[test]
+fn a_root_alone_names_the_root() {
+    let dir = tempfile::tempdir().unwrap();
+    let roots = Roots::new(dir.path(), dir.path());
+    let lookup = RealFs;
+    let contained = Contained::new(&roots, &lookup);
+    for written in ["<project>", "<project>/", "<project>/.", "<project>/sub/.."] {
+        let resolved = contained.resolve(written, Root::Spec).unwrap();
+        assert_eq!(resolved.root, Root::Project, "{written}");
+        assert_eq!(resolved.rel, "", "{written}");
+        assert_eq!(resolved.at, dir.path(), "{written}");
+        assert!(resolved.exists, "{written}");
+    }
+    assert!(matches!(
+        contained.resolve("<project>/..", Root::Spec),
+        Err(Refused::Climbs)
+    ));
+}

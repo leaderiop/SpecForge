@@ -181,7 +181,7 @@ pub enum Refused {
     Climbs,
     /// A link that lands outside the root (E094).
     LinksOut { landed: PathBuf },
-    /// Nothing is named.
+    /// A bare path that names nothing (`""`, `.`, `a/..`); a written `<root>` names the root.
     Empty,
 }
 
@@ -267,7 +267,8 @@ impl<'a> Contained<'a> {
                 name => parts.push(name),
             }
         }
-        if parts.is_empty() {
+        // A bare path that comes to nothing names nothing; `<root>` names the root.
+        if parts.is_empty() && rooted.written_root.is_none() {
             return Err(Refused::Empty);
         }
         let rel = parts.join("/");

@@ -101,7 +101,7 @@ naming the `file` checker and the migration of the fields that use them land tog
 
 - **The written form** is a bare path, which uses the reader's default root, or `"<root>/path"` naming a root. A field declares no default root: `file_base` is gone, and the `file` checker's `root` argument (default `spec`) is the checker's.
 - **One parser.** `RootedPath::parse` in `protocol-types` reads the prefix. The host and the guest kit compile the same parser. Every path reader uses it: value-check probes, K11 field `reads`, the judged `file()` selector and MCP project paths.
-- **The roots** are `spec`, `project`, and named roots in `specforge.json` `roots: {name: path}`. A named root is the only way to name a file outside the project, and a root that resolves outside the project needs a per-machine root approval keyed by its canonical target (ADR 0335 D2). MCP refuses it unless it is approved. A `spec_root` outside the project (ADR 0145 D4) is treated the same way.
+- **The roots** are `spec`, `project`, and named roots in `specforge.json` `roots: {name: path}`. `<root>` alone names the root itself, so a walk can start there. A named root is the only way to name a file outside the project, and a root that resolves outside the project needs a per-machine root approval keyed by its canonical target (ADR 0335 D2). MCP refuses it unless it is approved. A `spec_root` outside the project (ADR 0145 D4) is treated the same way.
 - **Resolution** goes through the kernel's `Contained`. A path is contained in the root it names:
   - lexical (`..`, absolute, drive or UNC) and real (each link hop) escapes → E094;
   - an unknown root → E095, on the root;

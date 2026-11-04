@@ -90,7 +90,10 @@ fn walk(
             } else {
                 format!("{under}/{name}")
             };
-            let written = format!("{}/{relative}", resolved.rel);
+            let written = match resolved.rel.as_str() {
+                "" => format!("<{}>/{relative}", resolved.root),
+                rel => format!("<{}>/{rel}/{relative}", resolved.root),
+            };
             let Ok(entry) = contained.resolve(&written, resolved.root.clone()) else {
                 continue;
             };

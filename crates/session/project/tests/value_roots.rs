@@ -169,3 +169,72 @@ fn a_reader_with_no_approval_has_no_outside_spec_root() {
     assert!(inside.env().read_roots().get(&Root::Spec).is_some());
     assert!(inside.env().effects_allowed().roots.is_empty());
 }
+
+/// A checker that lists under its value, and one that stats it.
+fn lister() -> ContributionsBuilder {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+    described(&mut c);
+    c.capability(
+        Capability::fs("files")
+            .ops(&[FsAccess::Stat, FsAccess::Walk])
+            .why("to read"),
+    );
+    let told = |item: &CheckItem| {
+        item.outcomes
+            .iter()
+            .map(|outcome| CheckFinding::new("E001", format!("{:?}", outcome.data)))
+            .collect()
+    };
+    c.checker("list", |k| {
+        k.applies_to(&["string"])
+            .scope("files")
+            .codes(&["E001"])
+            .plan(|item: &CheckItem| {
+                PlannedItem::probes(vec![Probe::FsWalk {
+                    root: Root::Spec,
+                    path: item.text.clone(),
+                    glob: "**/*.md".to_string(),
+                }])
+            })
+            .judge(told);
+    });
+    c.checker("stat", |k| {
+        k.applies_to(&["string"])
+            .scope("files")
+            .codes(&["E001"])
+            .plan(|item: &CheckItem| {
+                PlannedItem::probes(vec![Probe::FsStat {
+                    root: Root::Spec,
+                    path: item.text.clone(),
+                }])
+            })
+            .judge(told);
+    });
+    c.kind("service", |k| {
+        k.keyword("service");
+        for field in ["list", "stat"] {
+            k.field(field, |f| {
+                f.field_type(FieldType::String).check(field);
+            });
+        }
+    });
+    c
+}
+
+#[test]
+fn a_root_alone_is_the_root_to_a_probe() {
+    let scene = Scene::with(
+        FakeHttp::new(),
+        "service one \"A\" {\n  list \"<project>\"\n  stat \"<project>\"\n}\n",
+        &[EXT],
+        InProcessRuntime::new().with(lister),
+    );
+    std::fs::create_dir_all(scene.dir.root().join("docs")).unwrap();
+    std::fs::write(scene.dir.root().join("docs/a.md"), "a").unwrap();
+    let project = scene.checked(EffectsMode::Auto, &MemoryConsent::default());
+    let found = project.diagnostics();
+    let told = coded(&found, "pin.probes/E001");
+    let saying = |text: &str| told.iter().any(|d| d.message.contains(text));
+    assert!(saying("docs/a.md"), "the walk lists under it: {told:?}");
+    assert!(saying("Dir"), "the stat finds a directory: {told:?}");
+}
