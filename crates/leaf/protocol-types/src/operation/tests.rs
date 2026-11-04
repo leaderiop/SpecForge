@@ -27,7 +27,8 @@ fn operation_wire_names_are_snake_case() {
             "migrate",
             "prompt",
             "render",
-            "hook"
+            "hook",
+            "check_values"
         ]
     );
     for op in Operation::ALL {

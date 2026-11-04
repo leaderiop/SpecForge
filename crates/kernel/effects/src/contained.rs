@@ -6,45 +6,17 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::ffi::OsString;
-use std::fmt;
 use std::path::{Component, Path, PathBuf};
 
 use specforge_common::find_close_match;
-
-/// A root a path is written against: `spec`, `project`, or one a project names.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RootName {
-    Spec,
-    Project,
-    Named(String),
-}
-
-impl RootName {
-    /// The root `name` names: `spec`, `project`, else a named root.
-    pub fn of(name: &str) -> RootName {
-        match name {
-            "spec" => RootName::Spec,
-            "project" => RootName::Project,
-            other => RootName::Named(other.to_string()),
-        }
-    }
-}
-
-impl fmt::Display for RootName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RootName::Spec => f.write_str("spec"),
-            RootName::Project => f.write_str("project"),
-            RootName::Named(name) => f.write_str(name),
-        }
-    }
-}
+use specforge_protocol_types::{PrefixProblem, Root, RootedPath};
 
 /// A project's roots: the project root, the spec root and the roots its configuration names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Roots {
     project: PathBuf,
-    spec: PathBuf,
+    /// None once [`Self::without_spec`] dropped it: a path naming it is refused like an unknown root.
+    spec: Option<PathBuf>,
     named: BTreeMap<String, PathBuf>,
 }
 
@@ -53,12 +25,12 @@ impl Roots {
     pub fn new(project: impl Into<PathBuf>, spec: impl Into<PathBuf>) -> Self {
         Roots {
             project: project.into(),
-            spec: spec.into(),
+            spec: Some(spec.into()),
             named: BTreeMap::new(),
         }
     }
 
-    /// These roots and `name` at `path`: plan 05's named roots (`specforge.json` `roots`) are built with it.
+    /// These roots and `name` at `path`: the named roots of `specforge.json` `roots` are built with it.
     pub fn with_named(mut self, name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
         self.named.insert(name.into(), path.into());
         self
@@ -72,11 +44,11 @@ impl Roots {
     }
 
     /// Where `root` lies; `None` for a root no one named.
-    pub fn get(&self, root: &RootName) -> Option<&Path> {
+    pub fn get(&self, root: &Root) -> Option<&Path> {
         match root {
-            RootName::Spec => Some(&self.spec),
-            RootName::Project => Some(&self.project),
-            RootName::Named(name) => self.named.get(name).map(PathBuf::as_path),
+            Root::Spec => self.spec.as_deref(),
+            Root::Project => Some(&self.project),
+            Root::Named(name) => self.named.get(name).map(PathBuf::as_path),
         }
     }
 
@@ -84,14 +56,18 @@ impl Roots {
         &self.project
     }
 
-    pub fn spec(&self) -> &Path {
-        &self.spec
+    /// These roots with no spec root: what a reader with no approval gets when it lies outside the project.
+    pub fn without_spec(mut self) -> Self {
+        self.spec = None;
+        self
     }
 
-    /// The spec root does not lie under the project root (ADR 0145 D4): it is an outside root, which a grant treats
-    /// as a named root outside the project (plan 02).
+    /// The spec root lands outside the project root (ADR 0145 D4), its `..` and its links followed: a project's roots
+    /// then name it as an outside root, under the approval a named one needs.
     pub fn spec_outside(&self) -> bool {
-        !self.spec.starts_with(&self.project)
+        self.spec
+            .as_ref()
+            .is_some_and(|spec| !RealFs::landing(spec).starts_with(RealFs::landing(&self.project)))
     }
 }
 
@@ -205,14 +181,14 @@ pub enum Refused {
     Climbs,
     /// A link that lands outside the root (E094).
     LinksOut { landed: PathBuf },
-    /// Nothing is named.
+    /// A bare path that names nothing (`""`, `.`, `a/..`); a written `<root>` names the root.
     Empty,
 }
 
 /// A written path its root holds.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Resolved {
-    pub root: RootName,
+    pub root: Root,
     /// Relative to the root, `/` joined, lexically normal.
     pub rel: String,
     /// The root joined with `rel`.
@@ -258,14 +234,25 @@ impl<'a> Contained<'a> {
         }
     }
 
-    /// `written`, in the root its `<name>/` prefix names, else in `default`.
-    pub fn resolve(&self, written: &str, default: RootName) -> Result<Resolved, Refused> {
-        let backslashes = written.contains('\\');
+    /// `written`, in the root its `<name>/` prefix names, else in `default`: a `\\` is read as `/` and told (W175), and
+    /// a prefix [`RootedPath::parse`] refuses names no root (E095).
+    pub fn resolve(&self, written: &str, default: Root) -> Result<Resolved, Refused> {
         let text = written.replace('\\', "/");
-        let (root, rest) = match prefixed(&text) {
-            Some((name, rest)) => (RootName::of(name), rest),
-            None => (default, text.as_str()),
-        };
+        let rooted = RootedPath::parse(&text, default).map_err(|problem| match problem {
+            PrefixProblem::BadRootName { at } => Refused::UnknownRoot(text[at].to_string()),
+            PrefixProblem::UnclosedRoot | PrefixProblem::Backslash { .. } => {
+                Refused::UnknownRoot(text.clone())
+            }
+        })?;
+        let mut resolved = self.resolve_rooted(&rooted)?;
+        resolved.backslashes = written.contains('\\');
+        Ok(resolved)
+    }
+
+    /// `rooted`, in the root it names.
+    pub fn resolve_rooted(&self, rooted: &RootedPath) -> Result<Resolved, Refused> {
+        let root = rooted.root.clone();
+        let rest = rooted.path.as_str();
         let Some(base) = self.roots.get(&root) else {
             return Err(Refused::UnknownRoot(root.to_string()));
         };
@@ -282,7 +269,8 @@ impl<'a> Contained<'a> {
                 name => parts.push(name),
             }
         }
-        if parts.is_empty() {
+        // A bare path that comes to nothing names nothing; `<root>` names the root.
+        if parts.is_empty() && rooted.written_root.is_none() {
             return Err(Refused::Empty);
         }
         let rel = parts.join("/");
@@ -324,25 +312,28 @@ impl<'a> Contained<'a> {
             real,
             exists,
             case,
-            backslashes,
+            backslashes: false,
             withheld,
             host_state,
         })
     }
 
-    /// A close name to `resolved`'s in its parent, as written with that name: the parent is one `resolve` held, so no
-    /// directory outside a root is ever listed.
+    /// A close name to `resolved`'s in its parent, as written with that name, never a withheld one: the parent is one
+    /// `resolve` held, so no directory outside a root is ever listed.
     pub fn sibling(&self, resolved: &Resolved) -> Option<String> {
         let (dir, name) = match resolved.rel.rsplit_once('/') {
             Some((dir, name)) => (Some(dir), name),
             None => (None, resolved.rel.as_str()),
         };
+        let as_written = |name: &str| match dir {
+            Some(dir) => format!("{dir}/{name}"),
+            None => name.to_string(),
+        };
         let names = self.names(resolved.at.parent()?)?;
-        let close = find_close_match(name, names.iter().map(String::as_str))?;
-        Some(match dir {
-            Some(dir) => format!("{dir}/{close}"),
-            None => close.to_string(),
-        })
+        // A name withheld from a read is withheld from a suggestion: it would say the file is there.
+        let shown = names.iter().map(String::as_str);
+        let close = find_close_match(name, shown.filter(|name| !withheld(&as_written(name))))?;
+        Some(as_written(close))
     }
 
     /// Each of `parts` as the listing of its parent spells it, while one exists: the written name, else its only
@@ -378,19 +369,6 @@ impl<'a> Contained<'a> {
             .borrow_mut()
             .insert(dir.to_path_buf(), names.clone());
         names
-    }
-}
-
-/// `<name>/rest` (or `<name>` alone): the root's name and the rest.
-fn prefixed(text: &str) -> Option<(&str, &str)> {
-    let inner = text.strip_prefix('<')?;
-    let (name, rest) = inner.split_once('>')?;
-    if name.is_empty() || name.contains(['/', '<']) {
-        return None;
-    }
-    match rest {
-        "" => Some((name, "")),
-        _ => rest.strip_prefix('/').map(|rest| (name, rest)),
     }
 }
 

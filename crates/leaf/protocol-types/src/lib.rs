@@ -32,6 +32,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub mod calls;
 mod capability;
+mod checks;
 mod code_catalog;
 pub mod command_args;
 mod contrib;
@@ -45,6 +46,7 @@ mod plan;
 mod ports;
 mod prompt;
 mod reads;
+mod rooted;
 mod route;
 mod settings;
 mod surface;
@@ -58,6 +60,11 @@ pub use capability::{
     Hosts, HttpMethod, HttpScope, Owner, PortScope, ProcessScope, SecretHeader, WRITING_KINDS,
     capability_problems, is_host_pattern, is_scope_name,
 };
+pub use checks::{
+    CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan, CheckRef,
+    CheckStatus, CheckValuesInput, CheckerDescriptor, OutcomeData, PlannedItem, Probe,
+    ProbeOutcome, StatEntry, ValueForm,
+};
 pub use code_catalog::CodeDescriptor;
 pub use contrib::*;
 pub use declaration::{
@@ -66,7 +73,8 @@ pub use declaration::{
 };
 pub use effects::{
     AttachedSecret, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
-    OutcomeClass, ProcessRequest, REDACTED, Redirected, UnknownClass, Unreachable,
+    OutcomeClass, ProcessRequest, REDACTED, Redirected, ResolveRequest, TlsRequest, UnknownClass,
+    Unreachable,
 };
 pub use field::FieldDescriptor;
 pub use inputs::{GitInput, Input, InputKind, Inputs};
@@ -82,6 +90,7 @@ pub use prompt::{
     PromptRole, PromptStep, ServedSlash,
 };
 pub use reads::{FileFact, FileFacts, FileMap, FileRead};
+pub use rooted::{PrefixProblem, Root, RootedPath};
 pub use route::{ROUTE_START, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor};
 pub use settings::{
     Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
@@ -91,8 +100,7 @@ pub use surface::*;
 pub use trigger::{Trigger, TriggerKind};
 pub use version::PROTOCOL_VERSION;
 pub use vocabulary::{
-    CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, GUARD_PHASE, JudgementState,
-    ProofRole,
+    CheckKind, ConstraintKind, FieldType, FieldWriter, GUARD_PHASE, JudgementState, ProofRole,
 };
 
 /// Errors that can occur during the extension protocol lifecycle.

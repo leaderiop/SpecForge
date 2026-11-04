@@ -7,12 +7,14 @@ pub mod answers;
 pub mod backend;
 mod capabilities;
 pub mod changes;
+mod checked_value;
 pub mod completion;
 pub mod config_document;
 mod document;
 pub mod editor;
 pub mod files;
 pub mod hover;
+pub mod links;
 mod navigation;
 pub mod pending;
 pub mod publish;
@@ -27,8 +29,9 @@ pub mod watchers;
 pub use answers::ClientSupport;
 pub use capabilities::initialize_result;
 pub use document::{
-    CompletionSite, Cursor, Document, EntityAt, LineIndex, MOD_DECLARATION, MOD_REFERENCE, Place,
-    SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES, Target, Word, WordEdit,
+    CompletionSite, Cursor, Document, EntityAt, LineIndex, MOD_CHECKED, MOD_DECLARATION,
+    MOD_REFERENCE, Place, SemanticToken, StringValue, TOKEN_MODIFIERS, TOKEN_TYPES, Target, Word,
+    WordEdit,
 };
 pub use hover::hover_field_info;
 pub use state::LspState;

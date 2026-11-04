@@ -154,7 +154,8 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
     In MCP server mode, the system MUST register a specforge.export tool that
     accepts format (graph|context|brief|dot|markdown, default graph; json is graph), scope? (optional entityId
     to restrict to subgraph), max_tokens? (optional integer token budget),
-    with_schema? and no_schema? (optional booleans), depth? (with scope,
+    with_schema? and no_schema? (optional booleans), with_checks? (optional boolean: each entity in a
+    graph or context export gets its checked values' outcomes as checks), depth? (with scope,
     hops from the scoped entity), kinds? (entity kinds to keep; a kind the
     project does not know is reported as I020) and
     schema_version? (as specforge export --schema-version). The tool MUST return the
@@ -187,6 +188,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   verify integration "the embedded schema carries the version specforge export computes against the schema cache, which the tool leaves as it is"
   verify integration "specforge export and specforge.export both refuse with_schema with no_schema"
   verify unit "with_schema and no_schema together are invalid input on with_schema"
+  verify unit "specforge.export advertises with_checks, as specforge export takes --with-checks"
 }
 
 behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
@@ -510,6 +512,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "source_extension names the extension that declares the entity's kind"
   verify unit "inspect writes each obligation as its kind, absent for a bare verify, and its text"
   verify unit "an obligation inspect writes, given to remove_verify, removes that verify line"
+  verify unit "specforge.inspect lists each checked value's outcome, as its output schema says"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 

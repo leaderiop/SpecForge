@@ -188,11 +188,12 @@ pub struct Call<'s> {
 impl<'s> Call<'s> {
     /// A call on `target`, resolved by [`resolve`].
     pub(crate) fn new(state: &'s mut McpState, target: CallTarget) -> Self {
-        let other = match &target {
-            CallTarget::Other(session) => session.project().root(),
-            _ => None,
+        let containment = match &target {
+            CallTarget::Other(session) if session.project().root().is_some() => {
+                containment::of_project(session.project(), state.consent.as_deref())
+            }
+            _ => containment::bound(state),
         };
-        let containment = other.map_or_else(|| containment::bound(state), Containment::within);
         Call {
             state,
             target,

@@ -63,7 +63,11 @@ pub struct CompiledProject {
     judgements: Arc<crate::judged::Judgements>,
     /// The outcome class of each value the checks checked, which a judged verdict digests (ADR 0337 §6).
     checked_values: Arc<CheckedValues>,
+    /// Every checked value's rows at the last check (ADR 0336): what the surfaces read.
+    value_checks: Arc<crate::values::ValueChecks>,
     digests: Arc<crate::judged::DigestMemo>,
+    /// What checkers answered, kept across this project's later states (ADR 0336).
+    check_cache: Arc<crate::values::CheckCache>,
     /// The graph's entity snapshot, the recorded test report and the coverage: seeded with the snapshot the checks
     /// read; made over the graph on first use after an update that skipped them.
     recorded: OnceLock<RecordedCoverage>,
@@ -86,6 +90,16 @@ pub struct CompiledProject {
     ledger_overlay: Vec<Arc<crate::harness::LedgerOverlay>>,
     /// One call's own effects ([`Self::effects_rerun`]); none: the environment's.
     effects: Option<Arc<specforge_effects::Effects>>,
+}
+
+/// What one run of the checks gave, held until the run's read of the project ends.
+struct CheckRun {
+    diagnostics: Vec<Diagnostic>,
+    entities: Arc<EntitySnapshot>,
+    computed: Computed,
+    judgements: crate::judged::Judgements,
+    value_checks: crate::values::ValueChecks,
+    checked_values: Arc<CheckedValues>,
 }
 
 impl CompiledProject {
@@ -424,7 +438,9 @@ impl CompiledProject {
             computed: Arc::default(),
             judgements: Arc::default(),
             checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk: false,
@@ -451,7 +467,9 @@ impl CompiledProject {
             computed: Arc::default(),
             judgements: Arc::default(),
             checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -483,7 +501,9 @@ impl CompiledProject {
             computed: Arc::default(),
             judgements: Arc::default(),
             checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
@@ -534,7 +554,9 @@ impl CompiledProject {
             computed: Arc::default(),
             judgements: Arc::default(),
             checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -603,32 +625,59 @@ impl CompiledProject {
                     crate::harness::overlay::through(disk, this, &this.ledger_overlay, &mut ledger);
                 &overlaid
             };
+            // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
+            let values = crate::values::run(
+                &env,
+                &authored,
+                this.effects(),
+                disk,
+                &this.check_cache,
+                &|file| this.sources.text(file).cloned(),
+            );
+            // No checker at all leaves the values a test gave (`with_checked_values`).
+            let checked_values = if env.registries().checks().is_empty() {
+                Arc::clone(&this.checked_values)
+            } else {
+                Arc::new(values.checks.outcome_classes())
+            };
             let checked = env.checked(
                 Some(graph),
                 &authored,
                 disk,
                 &read.read,
                 &this.digests,
-                &this.checked_values,
+                &checked_values,
             );
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
-            let mut diagnostics = checked.diagnostics;
+            let mut diagnostics = values.diagnostics;
+            diagnostics.extend(checked.diagnostics);
+            // What this machine did not perform of them: an effect's, once for the run.
+            diagnostics.extend(crate::effects::not_run(&this.effects().log()));
             // A write that was interrupted (ADR 0289): the next writer rolls it back, a check only says so.
             // Read through the checks' disk, so a journal that appears or goes is an input; a detached project has none.
             if let Some(root) = this.root() {
                 diagnostics.extend(crate::journal::pending(root, disk));
             }
-            outcome = Some((diagnostics, entities, checked.computed, checked.judgements));
+            outcome = Some(CheckRun {
+                diagnostics,
+                entities,
+                computed: checked.computed,
+                judgements: checked.judgements,
+                value_checks: values.checks,
+                checked_values,
+            });
             this.consulted()
         });
         self.checks_skipped = false;
         self.baseline = baseline;
-        if let Some((diagnostics, entities, computed, judgements)) = outcome {
-            self.check_diagnostics = diagnostics;
-            self.computed = Arc::new(computed);
-            self.judgements = Arc::new(judgements);
-            self.recorded = OnceLock::from(RecordedCoverage::of(entities));
+        if let Some(run) = outcome {
+            self.value_checks = Arc::new(run.value_checks);
+            self.checked_values = run.checked_values;
+            self.check_diagnostics = run.diagnostics;
+            self.computed = Arc::new(run.computed);
+            self.judgements = Arc::new(run.judgements);
+            self.recorded = OnceLock::from(RecordedCoverage::of(run.entities));
             self.reported = OnceLock::new();
         }
     }
@@ -656,6 +705,11 @@ impl CompiledProject {
     /// memo is made over the graph on first use.
     pub(crate) fn skip_checks(&mut self) {
         self.check_diagnostics = Vec::new();
+        self.value_checks = Arc::default();
+        // No checker at all leaves the values a test gave (`with_checked_values`).
+        if !self.env.registries().checks().is_empty() {
+            self.checked_values = Arc::default();
+        }
         self.computed = Arc::default();
         self.judgements = Arc::default();
         self.recorded = OnceLock::new();

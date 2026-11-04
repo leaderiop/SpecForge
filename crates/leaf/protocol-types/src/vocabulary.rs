@@ -151,18 +151,6 @@ impl FieldType {
 }
 
 vocabulary! {
-    /// Where a `file_reference` field's relative paths start (ADR 0285). On the wire
-    /// `FieldDescriptor::file_base` stays a string, so an unknown base costs the field its base (W021).
-    FileBase {
-        /// The spec root (`spec_root` of `specforge.json`): what a field reads without a base.
-        Spec = "spec",
-        /// The directory holding `specforge.json`.
-        Project = "project",
-    }
-    aliases {}
-}
-
-vocabulary! {
     /// What the prove pass reads a field as (ADR 0009). On the wire
     /// `FieldDescriptor::proof_role` stays a string, so an unknown role
     /// costs the field its role (W021), not the describe payload.
@@ -279,13 +267,7 @@ vocabulary! {
         /// required, and `target_kind`, `field`, `edge_type`, `constraint` and `wasm_function` are not read.
         Judged = "judged",
     }
-    aliases {
-        // Emitted by SDK releases before the vocabulary was shared.
-        "missing_field" => MissingRequiredField,
-        "field_constraint" => FieldValueConstraint,
-        "cycle" => CycleDetection,
-        "conditional_required" => ConditionalFieldRequired,
-    }
+    aliases {}
 }
 
 vocabulary! {

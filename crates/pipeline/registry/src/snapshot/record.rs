@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use specforge_graph::{Direction, Graph, Node, Obligation, Reading, ValueShape};
 use specforge_parser::{FieldEntry, FieldMap, FieldValue};
 
-use super::text::{field_items, field_text};
+use super::text::{field_item_spans, field_items, field_text};
 use crate::compilation::RegistryBuild;
 use crate::entity::{
     EdgeCounts, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord, Origin, ParamRecord,
@@ -206,6 +206,7 @@ fn field_record(
         items: field_items(&entry.value),
         shape: ValueShape::of(&entry.value),
         value_span: entry.value_span.clone(),
+        item_spans: field_item_spans(&entry.value),
         rewrites,
         origin: Origin::Authored,
     };

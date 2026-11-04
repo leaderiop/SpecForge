@@ -272,20 +272,20 @@ fn an_unknown_runner_is_invalid_input_about_it() {
     let dir = tempfile::tempdir().unwrap();
     let available = vec![collector("r.json")];
 
-    let refusal = select(&available, Some("nope"), dir.path()).unwrap_err();
+    let refusal = select(&available, Some("nope"), dir.path(), false).unwrap_err();
     assert_eq!(refusal.error.kind, OpErrorKind::InvalidInput);
     assert_eq!(refusal.error.code, "E058");
     assert_eq!(refusal.subject, Some(CollectField::Runner));
     // The collector's own name and its extension's both answer.
-    assert!(select(&available, Some("acme"), dir.path()).is_ok());
-    assert!(select(&available, Some("@acme/runner"), dir.path()).is_ok());
+    assert!(select(&available, Some("acme"), dir.path(), false).is_ok());
+    assert!(select(&available, Some("@acme/runner"), dir.path(), false).is_ok());
 
     // No collector at all, or none detected: a refusal of the project.
-    let refusal = select(&[], Some("nope"), dir.path()).unwrap_err();
+    let refusal = select(&[], Some("nope"), dir.path(), false).unwrap_err();
     assert_eq!(refusal.error.kind, OpErrorKind::PreconditionFailed);
     assert_eq!(refusal.subject, None);
     let several = [collector("a.json"), collector("b.json")];
-    let refusal = select(&several, None, dir.path());
+    let refusal = select(&several, None, dir.path(), false);
     assert_eq!(refusal.unwrap_err().subject, None);
 }
 

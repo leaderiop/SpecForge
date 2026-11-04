@@ -8,8 +8,8 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use serde_json::{Value, json};
-use specforge_effects::RootName;
-use specforge_effects::contained::Contained;
+use specforge_effects::Root;
+use specforge_effects::contained::{Contained, Refused};
 use specforge_graph::{Graph, Node, wire};
 use specforge_package::Sha256;
 use specforge_protocol_types::JudgedFile;
@@ -224,18 +224,22 @@ impl<'a> Cx<'a> {
     fn file(&self, file: &FileRef) -> JudgedFile {
         let root = self.env.root();
         let lookup = DiskLookup(self.disk);
-        let base = if file.project {
-            RootName::Project
-        } else {
-            RootName::Spec
-        };
-        // A file outside its root is not read: an absolute path, a `..` that climbs out, a link out (ADR 0335).
-        let contained = Contained::project(root, self.env.spec_root(), &lookup);
-        let Ok(resolved) = contained.resolve(&file.path, base) else {
-            return JudgedFile {
-                path: file.path.clone(),
-                digest: "unreadable".to_string(),
-            };
+        // A file outside its root is not read: an absolute path, a `..` that climbs out, a link out, a root that is
+        // not known or lies outside the project (ADR 0335, ADR 0336 D6).
+        let roots = self.env.read_roots();
+        let contained = Contained::new(&roots, &lookup);
+        let resolved = match contained.resolve(&file.path, file.root.clone()) {
+            Ok(resolved) => resolved,
+            Err(refused) => {
+                return JudgedFile {
+                    path: file.path.clone(),
+                    digest: match refused {
+                        Refused::Empty => "unreadable",
+                        _ => "outside_project",
+                    }
+                    .to_string(),
+                };
+            }
         };
         let variant = resolved.case.is_some();
         let abs = resolved.at;
@@ -442,8 +446,8 @@ impl<'a> Cx<'a> {
                     let files = paths
                         .iter()
                         .map(|path| FileRef {
+                            root: Root::Project,
                             path: path.clone(),
-                            project: true,
                         })
                         .collect();
                     let value = self.files(&shown, &files, &mut out.files);
@@ -490,8 +494,8 @@ impl<'a> Cx<'a> {
                 .files
                 .iter()
                 .map(|path| FileRef {
+                    root: Root::Project,
                     path: path.clone(),
-                    project: true,
                 })
                 .collect();
             let cited_from = out.files.len();

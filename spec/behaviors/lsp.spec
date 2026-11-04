@@ -53,6 +53,7 @@ behavior lsp_initialize "LSP Initialize" {
     spells the workspace; a workspace in no project opens as a loose
     root, and a workspace path that does not exist opens no project.
   """
+  verify unit "initialize offers document links"
   verify unit "initialize response includes semantic token legend"
   verify unit "initialize response advertises incremental sync"
   verify unit "initialize response includes completion trigger characters"
@@ -304,6 +305,9 @@ behavior hover_information "Hover Information" {
     description) answers when the cursor is on a field's name in an
     entity's own body, nowhere else.
   """
+  verify unit "hover on a checked value shows one line per checker"
+  verify unit "a check not run says why on the value's hover"
+  verify unit "a field's hover names its checks"
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
   verify unit "hover shows an integer field's value beside the word it was written as when they differ"
@@ -352,6 +356,52 @@ behavior hover_diagnostic "Hover a Diagnostic" {
 // Completion behaviors (autocomplete_entity_ids, complete_field_names, complete_keywords)
 // also cover verify declaration editing — verify kind names are suggested via the
 // same completion pipeline.
+behavior complete_checked_paths "Complete a Checked Path" {
+  features   [hover_and_autocomplete]
+  category   query
+  invariants [zero_domain_knowledge_core, lsp_response_latency]
+  types      [CompletionItem]
+  ports      [LspProtocol]
+  requires {
+    graph_available "the registries know which checker reads the field"
+  }
+  ensures {
+    only_inside_roots "nothing outside a root, and nothing withheld, is offered"
+  }
+  contract   """
+    Inside a string value whose checker declares value: path, completion MUST offer the <root>/ prefixes while none
+    is written, then the entries of the written directory; a bare path starts at the check's root_arg argument, else
+    that argument's declared default, else the project. It MUST key on the checker's declared value, never on its
+    name. A prefix that leaves its root offers nothing, and no other string completes.
+  """
+  verify unit "a path value completes the root prefixes, then the entries inside the root"
+  verify unit "a path prefix that leaves its root completes nothing"
+  verify unit "a spec root outside the project offers no prefix and no entry"
+  verify unit "a string no path checker reads completes nothing"
+}
+
+behavior link_checked_values "Link a Checked Value" {
+  features   [hover_and_autocomplete]
+  category   query
+  invariants [zero_domain_knowledge_core, lsp_response_latency]
+  ports      [LspProtocol]
+  requires {
+    graph_available "the registries know which checker reads the field"
+  }
+  ensures {
+    only_inside_roots "a link leads only to a file its root holds"
+  }
+  contract   """
+    A value: path value MUST link to its file when Contained holds it inside its root and it exists; a path that
+    leaves its root, is missing, is withheld or names an unknown root MUST have no link. A value: url value MUST
+    link to its URL when it parses as http or https. The link's range is what the quotes hold.
+  """
+  verify unit "a path value links to its file inside its root"
+  verify unit "a path outside its root, missing, withheld or under an unknown root has no link"
+  verify unit "a link that leaves its root is neither listed nor linked"
+  verify unit "a URL value links to its URL when it is http or https"
+}
+
 behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
   features   [hover_and_autocomplete]
   category   query
@@ -863,6 +913,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
     as variable), with the reference modifier; an enum field's value is an
     enumMember and a boolean field's value a keyword.
   """
+  verify unit "a checked value has the checked modifier"
   verify unit "entity ID declaration uses its kind's semantic_token from the KindRegistry"
   verify unit "a titled union is a form and its variants are values"
   verify unit "structural keywords are classified as keyword"

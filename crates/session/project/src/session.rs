@@ -166,6 +166,8 @@ pub struct ProjectSession {
 struct Outside {
     git: Option<SharedGit>,
     effects: Option<(EffectsMode, Ports, SharedConsent)>,
+    /// What its values phase may spend; none: a run's.
+    value_budget: Option<crate::values::ValueBudget>,
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -247,6 +249,12 @@ impl ProjectSession {
         self
     }
 
+    /// The same session, every environment it loads from now on holding its values phase to `budget`.
+    pub fn with_value_budget(mut self, budget: crate::values::ValueBudget) -> Self {
+        self.outside.value_budget = Some(budget);
+        self
+    }
+
     /// Open the project at `root`, running its extensions in the project's
     /// own runtime ([`RuntimeSource::project`]).
     pub fn open(root: &ProjectRoot) -> Self {
@@ -299,6 +307,9 @@ impl ProjectSession {
         if let Some((mode, ports, consent)) = &outside.effects {
             let effects = crate::effects::of(*mode, ports, &env, root, consent.as_ref());
             env = env.with_effects(effects);
+        }
+        if let Some(budget) = outside.value_budget {
+            env = env.with_value_budget(budget);
         }
         OpeningProject {
             env: Arc::new(env),

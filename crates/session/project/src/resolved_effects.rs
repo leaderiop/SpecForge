@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 use serde_json::{Map, Value};
 use specforge_common::json_span::{self, JsonIndex};
 use specforge_common::{Diagnostic, SourceSpan, codes};
-use specforge_effects::{EffectsCeiling, FsCeiling, GitCeiling, HttpCeiling, Narrow, Roots};
+use specforge_effects::{
+    EffectsCeiling, FsCeiling, GitCeiling, HttpCeiling, Narrow, RealFs, Roots,
+};
 use specforge_protocol_types::{
     ExtensionDeclaration, FsAccess, GitOp, HttpMethod, is_host_pattern, is_scope_name,
 };
@@ -266,8 +268,9 @@ impl ResolvedEffects {
     }
 
     /// The roots resolved against the project at `project`: each to its canonical target, inside or outside the
-    /// project. A root that is no directory is E109 and dropped.
-    pub fn locate(&mut self, config_text: Option<&str>, project: &Path) {
+    /// project. A root that is no directory is E109 and dropped. A spec root (`spec`) outside the project becomes one
+    /// more outside root (ADR 0336 D6), so whoever reads these roots holds it to the same approval.
+    pub fn locate(&mut self, config_text: Option<&str>, project: &Path, spec: &Path) {
         let canonical = project
             .canonicalize()
             .unwrap_or_else(|_| project.to_path_buf());
@@ -299,6 +302,34 @@ impl ResolvedEffects {
             }
             self.diagnostics.push(diagnostic);
         }
+        if Roots::new(project, spec).spec_outside() {
+            self.roots.push(NamedRoot {
+                name: "spec".to_string(),
+                written: spec.display().to_string(),
+                target: Some(RealFs::landing(spec)),
+                inside: false,
+            });
+        }
+    }
+
+    /// Whether the spec root lies outside the project.
+    pub fn spec_outside(&self) -> bool {
+        self.roots.iter().any(|root| root.name == "spec")
+    }
+
+    /// `roots` with every named root that resolved inside the project: what a reader asks no machine's approval for
+    /// (ADR 0336 D6). A root outside the project is not among them, the spec root included, so a path naming it is
+    /// refused like an unknown root.
+    pub fn with_inside(&self, mut roots: Roots) -> Roots {
+        if self.spec_outside() {
+            roots = roots.without_spec();
+        }
+        for root in self.roots.iter().filter(|root| root.inside) {
+            if let Some(target) = &root.target {
+                roots = roots.with_named(root.name.clone(), target.clone());
+            }
+        }
+        roots
     }
 
     /// `roots` with every named root that resolved.
@@ -335,6 +366,13 @@ impl Environment {
     /// root) and their E109 and W171 (ADR 0335 D2.3).
     pub fn effects_allowed(&self) -> &ResolvedEffects {
         &self.effects_allowed
+    }
+
+    /// The roots a path in a value may name with no approval (ADR 0336 D6): the project's, and the spec root and the
+    /// named roots that lie inside it.
+    pub fn read_roots(&self) -> Roots {
+        self.effects_allowed
+            .with_inside(Roots::new(self.root(), self.spec_root()))
     }
 }
 

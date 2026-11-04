@@ -88,7 +88,7 @@ The host checks `protocol_version`: a major version other than its own fails the
 
 ### Describe
 
-After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `analyzers`, `passes`, `feature_flags`, `codes`, `settings` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes`, and one older than 1.8 is not asked for `settings` (the host compares `(major, minor)` as numbers); each loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
+After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `analyzers`, `passes`, `feature_flags`, `codes`, `settings`, `routes`, `capabilities`, `checkers` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes`, and one older than 1.8 is not asked for `settings` (the host compares `(major, minor)` as numbers); each loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
 
 A category whose answer fails or doesn't parse as its descriptors fails the extension's load (E028), naming the category. An item key a descriptor doesn't define is ignored and reported (W138), naming the extension, the category, the item and the key.
 
@@ -133,6 +133,7 @@ The host reads every string and object key of a handshake or describe answer pri
 | `settings` | Typed settings, presets and secrets (protocol 1.8.0) | Always, from a guest of 1.8 or later |
 | `routes` | The routes `specforge trace` follows from a kind (protocol 1.15.0) | Always, from a guest of 1.15 or later |
 | `capabilities` | What the extension may make the host do, each on one port under a scope name (ADR 0335 D2, protocol 2.0.0) | Always, from a guest of 2.0 or later |
+| `checkers` | The value checkers it declares, which a field's `checks` name (ADR 0336, protocol 2.0.0) | Always, from a guest of 2.0 or later |
 
 ### Inputs (2.0.0, ADR 0337)
 
@@ -149,8 +150,9 @@ nothing else:
 | `slash_commands` | | prompt | `slash_commands` |
 | `git` | `status`?, `when`? | hook | `git`; with `"status": true` its typed `status`, `{"branch": {"oid"?, "head"?, "upstream"?, "ahead", "behind"}, "entries": [{"kind", "path", "orig_path"?, "index"?, "worktree"?}]}`; `when` names a bool setting the facts are collected under |
 | `setting` | `extension`, `name` | hook | `other_settings["<extension>:<name>"]` |
+| `check_outcomes` | | collector | `check_outcomes`, each checked value's outcome (see [Category: collectors](#category-collectors)) |
 
-An input the call's kind is not served, a second `tests`, `state`, `graph`, `slash_commands` or `git` input, or a
+An input the call's kind is not served, a second `tests`, `state`, `graph`, `slash_commands`, `git` or `check_outcomes` input, or a
 `setting` that names the call's own extension (read it with `Settings::current`) or no extension and setting, is W021
 and served empty; the call is kept. A key no input defines is W138. Protocol 1.x spelled these as `reads`,
 `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and
@@ -234,6 +236,13 @@ its `enum_values`; `identifier` one word (letters, digits and `_`, starting with
 array of strings; `enum_list` a list of its `enum_values` (a word twice is E061), written as an array of strings; `block` a block, written as an object of its entries, and, when the field declares `members`, an object of those members; `block_list` a list of blocks, `[ { phase 02 provides "x" } { .. } ]` (commas optional, `specforge format` writes none), written as an array of objects. Anything else is E061.
 
 A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them); and `file_base`, `spec` (the default) or `project`, where a `file_reference` field's relative paths start. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
+
+A field of 2.0.0 may also declare `checks` (ADR 0336), the checks its values pass, run in order (see
+[Category: checkers](#category-checkers)): `{"checker": "<name>", "args": {..}}`, or `{"any_of": [..]}`, one level deep,
+which passes when one branch yields no error. A bare name is the extension's own checker; another extension's is written
+`@acme/x:<name>`, and that extension must be a declared peer (W019). A check of an optional peer that is not loaded is
+inert: the schema and the hover say so. The value stays plain in its field type's form: nothing about a check is written
+in a `.spec` file. A `.spec` path may name its root, `"<root>/rest"` (`spec`, `project` or a root `specforge.json` names).
 A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored. A field, a block member or a kind of 1.9.0 may declare `writer: "human"` (ADR 0289): only a person writes it, and an extension's plan, the MCP tools and a non-interactive CLI are refused `human_only`; a `required` field of a kind that is not human-only is W021, since an agent could then create no entity. A set, unset or link of an existing human-only entity is refused the same way, and so is an agent's delete of an entity holding a value a person wrote (a human-only field, or a block member declared human); computed and harness values are not checked on delete (ADR 0298).
 
 **A collector-written kind (ADR 0327, 1.15.0).** A kind may declare `writer: "collector"` and `schemes`, the
@@ -699,6 +708,14 @@ collector); a fact of a kind no loaded extension declares a collector writes, or
 `schemes`, is E116 and none of that collector's facts is stored. An answer with facts and no test results writes no
 `specforge-report.json`.
 
+A collector that declares the `check_outcomes` input (ADR 0336) reads the checks' outcomes: `check_outcomes` holds one
+`{"entity", "field", "item", "value", "checker", "status", "outcome"?, "observed_at"?, "from_cache", "codes"?}` per
+checker per checked value, `status` being `passed`, `failed` or `not_run`. It is no test runner: it is out of detection
+and of the single-runner fallback, and it runs when `specforge collect --runner` names it or, on a plain `collect`, when
+`checks.publish` is true in `specforge.json`, and never with `--reports`. The rows are its evidence, so it needs no
+command and no report and is never E045 for want of one; its `facts` go the way above. Since a passing check writes
+nothing by itself, this is the only way an outcome becomes a fact.
+
 ### Category: passes
 
 Returns compiler pass descriptors. Each pass declares ordering constraints relative to the built-in resolve phase and other passes.
@@ -932,6 +949,79 @@ category (E028).
 SDK: `c.capability(Capability::http("links").hosts(&["*.example.com"]).why("check links"))`; a collector's
 `k.run(&["cargo", "test"])` declares the process capability named after the collector and names it.
 
+### Category: checkers
+
+Returns the value checkers the extension declares (ADR 0336). A checker reads one value of a field that names it, and
+may ask the host to look at the world for it; it never looks itself:
+
+```json
+{
+  "category": "checkers",
+  "items": [
+    { "name": "url", "applies_to": ["string", "string_list"], "scopes": ["links"], "codes": ["E901", "W901"],
+      "value": "url", "description": "The URL answers" }
+  ]
+}
+```
+
+- `name` is `snake_case`, unique in the extension and qualified by it, so two extensions may each have a `url`.
+- `applies_to` lists the field types it reads (`string`, `string_list`, `identifier`, `date`, `integer`).
+- `args` are field descriptors, in the forms settings declare theirs. None may be named `severity`: a gentler reading is
+  an enum argument that selects another code, and both are in `codes` (ADR 0026 D3).
+- `scopes` are the capabilities its probes use, by scope name; none: a pure checker.
+- `codes` lists every code a finding of it may carry, each catalogued. A finding with another is W150, and is kept.
+- `value` (`text`, `url`, `path`) and `root_arg` (the argument that names a bare path's default root) are for the editor,
+  which offers paths and document links on the declaration, never on a checker's name. They change no check.
+
+A checker or a check the host cannot run is W189 and is dropped (`specforge explain W189` lists every case: an argument
+named `severity`, a scope with no capability, a code the catalogue lacks, args the checker refuses, a field its values are
+not authored in). A check naming an unknown checker is W019. `specforge.json` may attach checks to a declared field, after the field's own: `"checks": {"fields":
+{"<kind>.<field>": ["<checker>", {"checker": "..", "args": {..}}]}, "publish": false}`, where a short name resolves when
+exactly one loaded extension declares it.
+
+**The values phase** runs first in a compile, before judged rules, compute passes, registry checks and passes, because a
+judged verdict digests each checked value's outcome class. It makes one `__check_values` call per extension per phase:
+
+1. **Plan.** `{"phase": "plan", "items": [CheckItem]}`, where a `CheckItem` is `{"id", "checker", "entity", "field",
+   "item", "text", "args"}`. For each it answers `{"items": [{"id", "findings", "probes"}]}`: findings from the text
+   alone, or the probes it needs.
+2. **Probes.** The host drops the probes of later checks on a value a plan already found an error on, refuses a probe
+   outside the checker's `scopes` (E090), contains every path itself and reports a refusal on the value (E094, E095,
+   W174, W175), so a guest never gets an answer about a path outside its root. It deduplicates the rest and performs them
+   through the effect plane, under the capability's grant and the compile's effects mode.
+3. **Judge.** `{"phase": "judge", "items": [..]}` carries the values whose probes all ran, each with `outcomes`:
+   `[{"probe", "class", "data", "observed_at", "from_cache"}]`. It answers findings. A finding is `{"code", "message",
+   "help"?, "at"?}`, and `at` is a byte range inside the text; the host places it on the value's span.
+
+| Probe | Keys | Port |
+|---|---|---|
+| `fs.stat` | `root`, `path` | Fs |
+| `fs.read_prefix` | `root`, `path`, `bytes` (held to 64 KiB) | Fs |
+| `fs.read` | `root`, `path`, `bytes` (held to 1 MiB) | Fs |
+| `fs.walk` | `root`, `path`, `glob` | Fs |
+| `http.head` | `url`, `redirects` (held to 5, each under the grant) | Http |
+| `http.get` | `url`, `range`?, `max_bytes` (held to 64 KiB) | Http |
+| `http.tls` | `host`, `port` | Http |
+| `dns.resolve` | `host` | Http |
+| `git.object` | `rev` | Git |
+| `git.ref` | `name` | Git |
+| `git.tracked` | `root`, `path` | Git |
+
+A probe's `root` is the default of a bare path and its `path` the text as written: only the host reads a `<root>/` prefix
+and decides where a path may lead. A `root` that is no root's name (`[a-z][a-z0-9_-]*`) is a malformed answer.
+
+A probe not performed (offline, a `cached` miss, not approved, over budget) leaves its value **not judged**: it counts
+toward one I206 per checker and W170 for the scopes it needed, and a judged verdict over the entity digests `unknown`
+(I207). None of the three fails `--strict`. A trapped or malformed answer is E028, once per extension per run, and its
+values are not judged. A checker's plan and judgement are memoised in memory and in `.specforge/effects/checks/`, by its
+extension's origin version, the checker, its args and the text; a run with fresh records calls neither the guest nor the
+network.
+
+Each checked value's outcome is shown by `inspect`, the LSP hover, and an export asked with `--with-checks`; the schema
+shows `SchemaField.checks` and `specforge extensions` each extension's checkers.
+
+SDK: `c.checker("url", |k| { .. })`, `f.check("url")`.
+
 ## Operate
 
 Once the declaration is loaded, the host calls an extension's exports on
@@ -954,6 +1044,7 @@ Every call but the handshake and describe also carries the extension's own `sett
 | MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
 | Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |
 | Collector | the collector's `export` (`collect__<name>`) | `CollectInput` (a writing collector: `{"reports", "stdout"?, "cwd", "today", "now"?, "graph", "revisions"}`; `graph` carries computed values and judgements, ADR 0299) | `CollectOutput` (`{"entity_results", "unlinked"?, "plan"?}`) |
+| Value checks | `__check_values` | `CheckValuesInput` `{"phase", "items"}` (see [Category: checkers](#category-checkers)) | `CheckPlan` `{"items"}` |
 | Custom validator | the rule's `wasm_function` (`validate__<code>`) | `ValidatorContext` `{"entity", "referenced", "declared_types", "primitives"}` | `ValidatorVerdict` `{"verdict": "pass"}` or `{"verdict": "fail", "field"?, "value"?}` |
 | Scanner | the analyzer's `scan_export` (`scan__<language>`) | `ScanRequest` `{"file_path", "content"}` | `ScanResponse` `{"items": [{"name", "item_kind", "line", "visibility"?, "signature"?}], "language"?}` |
 | Migration hook | the handshake's `migration_hook` | `MigrationInput` `{"from", "to", "files"}` | not read |
@@ -1136,7 +1227,7 @@ or answered.
 | `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and refuses the `surfaces` declaration of a guest that writes a `when` list (a 1.12 `when` is one string, and a list fails the whole category: `DescribeFailed`), so such a guest needs a 1.13.0 host; a `when` of one name is still a string. |
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
 | `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). An extension may declare `routes`, the steps `specforge trace` follows from a kind (ADR 0330). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's; a guest older than 1.15 is not asked for `routes`. |
-| `2.0.0` | ADR 0337 (the ports round). A command, MCP tool or resource and a collector may call the four `specforge:host@0.1.0` ports (see [Host ports](#host-ports)). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A `codes` entry may declare `machine` (`CodeDescriptor.machine`, see [codes](#category-codes)): its finding is this machine's, never promoted by `--strict` nor counted by the gate's warning baseline. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. An extension declares `capabilities` (a describe category, see [capabilities](#category-capabilities)): what it may make the host do, each on one port under a scope name (ADR 0335 D2), and a collector names the process `capability` it runs instead of carrying `run`. |
+| `2.0.0` | ADR 0337 (the ports round). A command, MCP tool or resource and a collector may call the four `specforge:host@0.1.0` ports (see [Host ports](#host-ports)). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A `codes` entry may declare `machine` (`CodeDescriptor.machine`, see [codes](#category-codes)): its finding is this machine's, never promoted by `--strict` nor counted by the gate's warning baseline. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. An extension declares `capabilities` (a describe category, see [capabilities](#category-capabilities)): what it may make the host do, each on one port under a scope name (ADR 0335 D2), and a collector names the process `capability` it runs instead of carrying `run`. An extension declares `checkers` (a describe category, see [checkers](#category-checkers)), a field its `checks`, and the host calls `__check_values` in a values phase that runs first (ADR 0336); `CollectInput` gains `check_outcomes`, for a collector declaring that input. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
 `1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the
@@ -1235,6 +1326,7 @@ All extension exports follow a strict naming convention that the host uses to di
 | `hook__` | A host hook's answer (ADR 0292) | `hook__write_guard` |
 | `mcp__` | MCP tool or resource execution | `mcp__model` |
 | `__pass_` | Compiler pass | `__pass_coverage` |
+| `__check_values` | Value checks, both phases, one export per extension | `__check_values` |
 | `collect__` | Collector execution | `collect__cargo_test` |
 | `validate__` | Custom validation logic (a rule's `wasm_function`) | `validate__port_methods` |
 | `scan__` | Source scanner (an analyzer's `scan_export`) | `scan__rust` |

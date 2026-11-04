@@ -4,7 +4,7 @@
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
 use specforge_effects::Uses;
-use specforge_protocol_types::{ExtensionDeclaration, Input, Operation, PortScope};
+use specforge_protocol_types::{ExtensionDeclaration, Input, Inputs, Operation, PortScope};
 use std::path::Path;
 
 /// A collector contributed by an enabled extension.
@@ -26,6 +26,14 @@ pub struct Collector {
     pub inputs: Vec<Input>,
     /// The process capability its command is (ADR 0335 D2.1): the scope a run is granted and approved under.
     pub capability: Option<String>,
+}
+
+impl Collector {
+    /// Whether its evidence is the checks' outcomes (ADR 0336): it is no test runner, so it is never detected nor the
+    /// project's one runner, and it runs when named or under `checks.publish`.
+    pub(super) fn reads_outcomes(&self) -> bool {
+        Inputs(&self.inputs).check_outcomes()
+    }
 }
 
 /// The only `capture` value: the command's standard output.
@@ -72,7 +80,7 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
 pub(super) fn detect<'a>(collectors: &'a [Collector], root: &Path) -> Vec<&'a Collector> {
     collectors
         .iter()
-        .filter(|c| c.detect.iter().any(|p| pattern_matches(root, p)))
+        .filter(|c| !c.reads_outcomes() && c.detect.iter().any(|p| pattern_matches(root, p)))
         .collect()
 }
 

@@ -218,7 +218,7 @@ fn a_cited_file_outside_the_project_is_not_read() {
             .iter()
             .find(|f| f.path == file)
             .expect("the cited file");
-        assert_eq!(read.digest, "unreadable", "{file}");
+        assert_eq!(read.digest, "outside_project", "{file}");
     }
 }
 

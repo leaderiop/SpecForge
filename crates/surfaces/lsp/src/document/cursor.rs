@@ -91,6 +91,18 @@ pub struct WordEdit {
     pub replace: Range,
 }
 
+/// A one-line string a field or a member holds, written as a value or a list item, the cursor inside it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StringValue<'d> {
+    pub kind: &'d str,
+    /// The declared member path (`requires.phase`).
+    pub field: String,
+    /// What the quotes hold, as written.
+    pub text: &'d str,
+    /// Its text before the cursor.
+    pub prefix: &'d str,
+}
+
 /// What a cursor names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Target {
@@ -323,6 +335,53 @@ impl<'d> Cursor<'d> {
             })
             .map(|i| self.syntax.text(self.text, i as u32))
             .collect()
+    }
+
+    /// The string value the cursor is inside: `None` in code, a comment, a title, a text block or a define block.
+    pub fn string_value(&self) -> Option<StringValue<'d>> {
+        if self.place() != Place::String {
+            return None;
+        }
+        let at = self.last_started()?;
+        if !matches!(self.syntax.roles[at], Role::Value | Role::Item) {
+            return None;
+        }
+        let (kind, field) = self
+            .syntax
+            .member_path(self.text, self.syntax.key_of[at]?)?;
+        let lexeme = self.syntax.lexemes[at];
+        let written = &self.text[lexeme.start..lexeme.end];
+        if written.starts_with("\"\"\"") {
+            return None;
+        }
+        let start = lexeme.start + 1;
+        let closed = matches!(lexeme.kind, LexemeKind::Str { closed: true });
+        let end = lexeme.end - usize::from(closed);
+        Some(StringValue {
+            kind,
+            field,
+            text: self.text.get(start..end)?,
+            prefix: self.text.get(start..self.offset)?,
+        })
+    }
+
+    /// The ranges an edit inside a string value covers: the part of its path around the cursor, between two `/`.
+    pub fn path_part_edit(&self) -> Option<WordEdit> {
+        let value = self.string_value()?;
+        let before = value.prefix.rsplit('/').next().unwrap_or_default().len();
+        let rest = &value.text[value.prefix.len()..];
+        let after = rest.find('/').unwrap_or(rest.len());
+        let start = self.index.position(self.offset - before);
+        Some(WordEdit {
+            insert: Range {
+                start,
+                end: self.position,
+            },
+            replace: Range {
+                start,
+                end: self.index.position(self.offset + after),
+            },
+        })
     }
 
     /// Whether the cursor is in code, a string or a comment.

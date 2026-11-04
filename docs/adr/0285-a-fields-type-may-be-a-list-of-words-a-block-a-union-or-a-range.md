@@ -9,6 +9,7 @@ and [ADR 0242](0242-a-project-file-has-one-spelling-from-the-project-root.md) D8
 [ADR 0279](0279-a-builtin-closes-a-fields-words-only-when-they-fit-any-domain.md) D1 to `enum_list` and keeps
 [ADR 0282](0282-an-unknown-type-name-is-the-hosts-e004-and-a-project-has-one-spec-block.md) D1 to top-level type
 expressions. Builds on [ADR 0283](0283-a-name-may-hold-a-dash-and-a-dot-where-a-name-is-expected.md) (a bare word is read by its field's declared type, members included) and [ADR 0284](0284-a-name-is-unique-within-its-scope.md) (a member reference resolves from its entity outward).
+Amended by [ADR 0336](0336-a-field-declares-the-checks-its-values-pass.md): `file_base` is replaced by checks and the `<root>/` prefix, and goes with `file_reference` in plan 06.
 
 ## Context
 

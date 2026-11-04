@@ -6,7 +6,7 @@
 
 use std::ffi::OsString;
 use std::fs::{File, OpenOptions};
-use std::io::{ErrorKind, Result, Write as _};
+use std::io::{ErrorKind, Read as _, Result, Write as _};
 use std::path::{Path, PathBuf};
 
 /// Replace `path` atomically: write `<path>.tmp` (the file name with `.tmp` appended, beside `path`),
@@ -67,6 +67,31 @@ pub fn replace_private(path: &Path, contents: &[u8]) -> Result<()> {
         let _ = std::fs::remove_file(&temp);
     }
     written
+}
+
+/// What [`replace_private`] wrote at `path`: its bytes, when it is a file of this user that no one else may touch. A
+/// link, a file of another mode (a git checkout writes 0644) or of another owner is `PermissionDenied`, so a project
+/// cannot commit one in the store's place. Elsewhere than unix no mode is set, so this cannot tell, and reads it.
+pub fn read_private(path: &Path) -> Result<Vec<u8>> {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut options, libc::O_NOFOLLOW);
+    let mut file = options.open(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        let meta = file.metadata()?;
+        #[expect(unsafe_code, reason = "geteuid(2) takes nothing and cannot fail")]
+        // SAFETY: no argument, no memory, and the call always succeeds.
+        let me = unsafe { libc::geteuid() };
+        if !meta.is_file() || meta.mode() & 0o077 != 0 || meta.uid() != me {
+            return Err(ErrorKind::PermissionDenied.into());
+        }
+    }
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    Ok(bytes)
 }
 
 /// Create the missing parent directories of `path`, 0700 (unix).

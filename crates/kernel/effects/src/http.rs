@@ -5,7 +5,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use specforge_package::MAX_PACKAGE_BYTES;
-use specforge_protocol_types::{AttachedSecret, HttpRequest, OutcomeClass, Unreachable};
+use specforge_protocol_types::{
+    AttachedSecret, HttpRequest, OutcomeClass, ResolveRequest, TlsRequest, Unreachable,
+};
 use url::Url;
 
 /// Connecting gives up after this.
@@ -30,6 +32,12 @@ pub fn guest_body_cap(max_memory_mb: u64) -> u64 {
 /// bytes (`capped` past it); and answers a transport failure as `unreachable:*`, never a panic.
 pub trait Http: Send + Sync {
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome;
+    /// A name's addresses. No answer is `unreachable:dns`; a name left with no address the request allows is
+    /// `unreachable:refused_address`, and no address it does not allow is ever answered.
+    fn resolve(&self, request: &ResolveRequest) -> ResolveOutcome;
+    /// A TLS handshake under the port's verifier, and what the leaf certificate says. A rejection is `unreachable:tls`
+    /// with `chain_valid: false` and the facts it read.
+    fn tls(&self, request: &TlsRequest) -> TlsOutcome;
 }
 
 /// An HTTP port as the composition root shares it.
@@ -112,11 +120,54 @@ pub fn secret_header(
     })
 }
 
+/// The host of `url` as a request would reach it (WHATWG); none when it names none.
+pub fn host_of(url: &str) -> Option<String> {
+    Url::parse(url).ok()?.host_str().map(str::to_string)
+}
+
 /// The scheme of `url`, lowercased; empty when it has none.
 pub fn scheme(url: &str) -> String {
     url.split_once("://")
         .map(|(scheme, _)| scheme.to_ascii_lowercase())
         .unwrap_or_default()
+}
+
+/// What a name resolved to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolveOutcome {
+    pub class: OutcomeClass,
+    pub addresses: Vec<String>,
+}
+
+impl ResolveOutcome {
+    pub fn of(class: OutcomeClass) -> Self {
+        ResolveOutcome {
+            class,
+            addresses: Vec::new(),
+        }
+    }
+}
+
+/// What a handshake read of a host's certificate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TlsOutcome {
+    pub class: OutcomeClass,
+    /// When the leaf certificate expires, in UTC (`2030-01-31T23:59:59Z`).
+    pub not_after: Option<String>,
+    /// The leaf's issuer: its common name, when it names one.
+    pub issuer: Option<String>,
+    pub chain_valid: bool,
+}
+
+impl TlsOutcome {
+    pub fn of(class: OutcomeClass) -> Self {
+        TlsOutcome {
+            class,
+            not_after: None,
+            issuer: None,
+            chain_valid: false,
+        }
+    }
 }
 
 /// What a request answered.

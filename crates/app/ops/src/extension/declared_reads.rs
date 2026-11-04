@@ -118,6 +118,46 @@ pub fn declared_capabilities(declaration: &ExtensionDeclaration) -> Vec<Declared
         .collect()
 }
 
+/// One checker an extension declares (`McpDeclaredChecker`, ADR 0336).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
+pub struct DeclaredChecker {
+    pub name: String,
+    /// The field types it reads.
+    pub applies_to: Vec<String>,
+    /// The capabilities its probes ask under; absent for a pure checker.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub scopes: Vec<String>,
+    /// The codes its findings may carry; absent when it declares none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub codes: Vec<String>,
+}
+
+impl DeclaredChecker {
+    /// The line both surfaces print: `name (types)`, with its scopes when it has some.
+    pub fn line(&self) -> String {
+        let reads = format!("{} ({})", self.name, self.applies_to.join(", "));
+        match self.scopes.as_slice() {
+            [] => reads,
+            scopes => format!("{reads} through {}", scopes.join(", ")),
+        }
+    }
+}
+
+/// Every checker `declaration` declares, in declaration order. The registry keeps only sound ones; this lists what the
+/// extension says.
+pub fn declared_checkers(declaration: &ExtensionDeclaration) -> Vec<DeclaredChecker> {
+    declaration
+        .checkers
+        .iter()
+        .map(|c| DeclaredChecker {
+            name: c.name.clone(),
+            applies_to: c.applies_to.clone(),
+            scopes: c.scopes.clone(),
+            codes: c.codes.clone(),
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -6,6 +6,7 @@
 mod facts;
 mod modes;
 mod order;
+mod outcomes;
 mod plans;
 mod reads;
 mod refusals;
@@ -140,6 +141,18 @@ impl Runner {
         self
     }
 
+    /// It declares no detection file.
+    pub fn detecting_nothing(mut self) -> Self {
+        self.detect.clear();
+        self
+    }
+
+    /// It declares `inputs` as raw JSON; a tag this protocol does not know costs it the inputs.
+    pub fn inputs_raw(mut self, inputs: serde_json::Value) -> Self {
+        self.reads = serde_json::from_value(inputs).unwrap_or_default();
+        self
+    }
+
     pub fn capturing_stdout(self) -> Self {
         self.capturing("stdout")
     }
@@ -265,6 +278,11 @@ impl Fixture {
 
     pub fn root(&self) -> &Path {
         self.dir.path()
+    }
+
+    /// The collectors the project's extensions declare, by name.
+    pub fn declared_collectors(&self) -> Vec<&str> {
+        self.collectors.iter().map(|c| c.name.as_str()).collect()
     }
 
     /// Write `contents` at `path` under the root.

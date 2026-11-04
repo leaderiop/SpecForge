@@ -72,6 +72,25 @@ type JudgementJson "Where one judged rule that judges an entity stands: fresh, s
   verify unit "JudgementJson schema is valid"
 }
 
+type ValueCheckJson "One checker's reading of one value, as every output writes it (ADR 0336)" {
+  /// The written path of the field or member (links[1].href).
+  field       string
+  item        integer
+  value       string
+  /// <extension>:<checker>.
+  checker     string
+  status      "passed" | "failed" | "not_run"
+  /// The class of what its probes answered; absent when it did not run.
+  outcome     string   @optional
+  /// When its oldest probe answer was observed (Unix milliseconds); absent for a checker with no probes.
+  observed_at integer  @optional
+  /// Whether an answer came from the effect journal rather than this run.
+  from_cache  boolean
+  /// The codes it found; absent when none.
+  codes       string[] @optional
+  verify unit "ValueCheckJson schema is valid"
+}
+
 type Obligation "One verify statement as every output writes it and specforge.edit reads it" {
   /// Absent for a bare verify "…".
   kind string @optional
@@ -154,14 +173,24 @@ type SchemaEntityKind "Schema Entity Kind" {
 }
 
 type SchemaField "Schema Field" {
-  name             string    @readonly
-  field_type       FieldType @readonly
+  name             string        @readonly
+  field_type       FieldType     @readonly
   required         boolean
-  target_kind      string    @optional
-  enum_values      string[]  @optional
-  default_value    string    @optional
-  source_extension string    @readonly // the extension that declared the field
+  target_kind      string        @optional
+  enum_values      string[]      @optional
+  default_value    string        @optional
+  source_extension string        @readonly // the extension that declared the field
+  /// The checks its values pass (ADR 0336), each resolved; absent when none.
+  checks           SchemaCheck[] @optional
   verify unit "SchemaField schema is valid"
+}
+
+type SchemaCheck "A check as the schema lists it: one checker with its args, or a value that passes when one branch does" {
+  /// <extension>:<checker>; absent for an any_of.
+  checker string        @optional
+  args    JsonValue     @optional
+  any_of  SchemaCheck[] @optional
+  verify unit "SchemaCheck schema is valid"
 }
 
 type SchemaEdgeType "Schema Edge Type" {

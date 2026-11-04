@@ -51,6 +51,19 @@ impl RecordDigest {
             .expect("a request digest is sha256 and hex")
     }
 
+    /// The digest of `request` as `extension` asked it: its record is that extension's alone. It may have been fetched
+    /// with that extension's secret, or followed a redirect that extension's grant permits, so no other extension is
+    /// answered from it, whatever the mode.
+    pub fn asked_by(extension: &str, request: &EffectRequest) -> Self {
+        #[derive(Serialize)]
+        struct Asked<'a> {
+            extension: &'a str,
+            request: &'a EffectRequest,
+        }
+        Self::parse(&crate::digest(&Asked { extension, request }))
+            .expect("a request digest is sha256 and hex")
+    }
+
     /// `text` when it is `sha256:` and 64 lowercase hex characters.
     pub fn parse(text: &str) -> Option<Self> {
         let hex = text.strip_prefix("sha256:")?;
@@ -148,6 +161,13 @@ pub enum RecordedRequest {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         stdin: Option<Blob>,
     },
+    Resolve {
+        host: String,
+    },
+    Tls {
+        host: String,
+        tcp_port: u16,
+    },
 }
 
 impl RecordedRequest {
@@ -172,6 +192,13 @@ impl RecordedRequest {
                 env: process.env.iter().map(|var| var.name.clone()).collect(),
                 stdin: process.stdin.as_deref().map(Blob::of),
             },
+            EffectRequest::Resolve(resolve) => RecordedRequest::Resolve {
+                host: resolve.host.clone(),
+            },
+            EffectRequest::Tls(tls) => RecordedRequest::Tls {
+                host: tls.host.clone(),
+                tcp_port: tls.tcp_port,
+            },
             EffectRequest::Fs(_) => return None,
         })
     }
@@ -183,6 +210,8 @@ impl fmt::Display for RecordedRequest {
         match self {
             RecordedRequest::Http { method, url, .. } => write!(f, "{method} {url}"),
             RecordedRequest::Process { argv, .. } => f.write_str(&argv.join(" ")),
+            RecordedRequest::Resolve { host } => write!(f, "resolve {host}"),
+            RecordedRequest::Tls { host, tcp_port } => write!(f, "tls {host}:{tcp_port}"),
         }
     }
 }
@@ -263,7 +292,8 @@ pub enum Lookup {
     Fresh(Kept),
     /// A record past it, or one never served fresh again (`ttl` none).
     Expired(Kept),
-    /// No record, one that does not read, or one whose payload is missing or not the one it names.
+    /// No record, one that does not read, one this user did not write (not private to it, or dated in the future),
+    /// or one whose payload is missing or not the one it names.
     Missing,
 }
 
@@ -286,12 +316,17 @@ pub enum Retention {
 pub fn retention(request: &EffectRequest, class: OutcomeClass) -> Retention {
     match (request, class) {
         (_, OutcomeClass::Denied) | (EffectRequest::Fs(_), _) => Retention::Never,
-        (EffectRequest::Http(_), OutcomeClass::Ok) => Retention::For(HTTP_SUCCESS_TTL),
         (
-            EffectRequest::Http(_),
+            EffectRequest::Http(_) | EffectRequest::Resolve(_) | EffectRequest::Tls(_),
+            OutcomeClass::Ok,
+        ) => Retention::For(HTTP_SUCCESS_TTL),
+        (
+            EffectRequest::Http(_) | EffectRequest::Resolve(_) | EffectRequest::Tls(_),
             OutcomeClass::Status(400..=599) | OutcomeClass::Unreachable(_),
         ) => Retention::For(HTTP_FAILURE_TTL),
-        (EffectRequest::Http(_), _) => Retention::Never,
+        (EffectRequest::Http(_) | EffectRequest::Resolve(_) | EffectRequest::Tls(_), _) => {
+            Retention::Never
+        }
         (EffectRequest::Process(_), _) => Retention::Audit,
     }
 }
@@ -306,6 +341,7 @@ pub fn record_of(
     let cap = match request {
         EffectRequest::Http(http) => http.body_cap,
         EffectRequest::Process(process) => process.output_cap,
+        EffectRequest::Resolve(_) | EffectRequest::Tls(_) => PAYLOAD_CAP,
         EffectRequest::Fs(_) => 0,
     }
     .min(PAYLOAD_CAP);
@@ -417,6 +453,21 @@ impl EffectJournal {
         self.write(record_of(request, answer, observed_at), answer)
     }
 
+    /// [`Self::keep`], the record found by `digest`.
+    pub fn keep_as(
+        &self,
+        digest: &RecordDigest,
+        request: &EffectRequest,
+        answer: &Answer,
+        observed_at: UnixMillis,
+    ) -> std::io::Result<Option<(PathBuf, EffectRecord)>> {
+        let record = record_of(request, answer, observed_at).map(|record| EffectRecord {
+            request_digest: digest.clone(),
+            ..record
+        });
+        self.write(record, answer)
+    }
+
     /// [`Self::keep`] for a lent call: found by `digest`, its payload (what the guest was answered) within
     /// [`PAYLOAD_CAP`].
     pub fn keep_lent(
@@ -454,19 +505,22 @@ impl EffectJournal {
         let Some(path) = self.path(digest) else {
             return Lookup::Missing;
         };
-        let read = std::fs::read(&path)
+        // A record is only ever written private and in the past: one that is neither was not written here.
+        let read = specforge_common::fresh::read_private(&path)
             .ok()
             .and_then(|bytes| serde_json::from_slice::<EffectRecord>(&bytes).ok())
-            .filter(|record| record.request_digest == *digest);
+            .filter(|record| record.request_digest == *digest && record.observed_at <= now);
         let Some(record) = read else {
             return Lookup::Missing;
         };
         let payload = match &record.payload {
             None => None,
-            Some(blob) => match std::fs::read(path.with_extension("payload")) {
-                Ok(bytes) if Blob::of(&bytes) == *blob => Some(bytes),
-                _ => return Lookup::Missing,
-            },
+            Some(blob) => {
+                match specforge_common::fresh::read_private(&path.with_extension("payload")) {
+                    Ok(bytes) if Blob::of(&bytes) == *blob => Some(bytes),
+                    _ => return Lookup::Missing,
+                }
+            }
         };
         let kept = Kept { record, payload };
         if fresh(&kept.record, now) {

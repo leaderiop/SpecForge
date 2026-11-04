@@ -243,3 +243,44 @@ fn core_edits_name_their_revision() {
     let reply = call_tool(&mut server, "specforge.edit", edit(&stale));
     assert!(tool_text(&reply).contains("stale_revision"), "{reply}");
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "specforge.inspect lists each checked value's outcome, as its output schema says"
+)]
+fn mcp_inspect_shows_value_checks() {
+    const EXT: &str = "@pin/surface";
+    fn extension() -> specforge_extension_sdk::ContributionsBuilder {
+        use specforge_extension_sdk::prelude::*;
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+        c.checker("plain", |k| {
+            k.applies_to(&["string"])
+                .plan(|_: &CheckItem| PlannedItem::findings(Vec::new()));
+        });
+        c.kind("service", |k| {
+            k.keyword("service");
+            k.field("home", |f| {
+                f.field_type(FieldType::String).check("plain");
+            });
+        });
+        c
+    }
+    let runtime =
+        std::sync::Arc::new(specforge_wasm::testing::InProcessRuntime::new().with(extension));
+    let mut server = TestProject::new()
+        .enabling(&[EXT])
+        .file("a.spec", "service a \"A\" {\n  home \"fine\"\n}\n")
+        .serve_in(runtime);
+    let inspected = tool(&mut server, "specforge.inspect", json!({"entity_id": "a"}));
+    let schema = specforge_mcp::tools::core_tool("specforge.inspect")
+        .unwrap()
+        .output_schema()
+        .expect("the tool declares an output schema");
+    let violations = specforge_common::shape::violations(schema, &inspected);
+    assert!(violations.is_empty(), "{violations:#?}\n{inspected}");
+    let row = &inspected["checks"][0];
+    assert_eq!(row["field"], "home", "{inspected}");
+    assert_eq!(row["checker"], format!("{EXT}:plain"), "{inspected}");
+    assert_eq!(row["status"], "passed", "{inspected}");
+    assert_eq!(row["outcome"], "ok", "{inspected}");
+}

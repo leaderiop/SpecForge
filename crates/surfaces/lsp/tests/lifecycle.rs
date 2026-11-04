@@ -89,6 +89,7 @@ fn initialize_answers_a_static_result() {
                 "completionProvider": {"triggerCharacters": [" ", "["]},
                 "definitionProvider": true,
                 "documentFormattingProvider": true,
+                "documentLinkProvider": {"resolveProvider": false},
                 "documentRangeFormattingProvider": true,
                 "documentSymbolProvider": true,
                 "hoverProvider": true,
@@ -97,7 +98,7 @@ fn initialize_answers_a_static_result() {
                 "semanticTokensProvider": {
                     "full": true,
                     "legend": {
-                        "tokenModifiers": ["declaration", "reference"],
+                        "tokenModifiers": ["declaration", "reference", "checked"],
                         "tokenTypes": specforge_lsp::TOKEN_TYPES,
                     },
                 },
@@ -780,4 +781,13 @@ fn no_fact_watcher_without_a_collected_kind() {
             .any(|glob| glob.contains(".specforge/facts") || glob.ends_with("specforge-harness")),
         "{globs:?}"
     );
+}
+
+#[spec(
+    behavior = "lsp_initialize",
+    verify = "initialize offers document links"
+)]
+fn initialize_offers_document_links() {
+    let capabilities = initialize_result().capabilities;
+    assert!(capabilities.document_link_provider.is_some());
 }

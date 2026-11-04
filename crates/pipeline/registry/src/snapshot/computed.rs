@@ -105,6 +105,7 @@ fn of_json(key: &str, declared: &str, value: &Value, date: bool) -> FieldRecord 
         items,
         shape,
         value_span: None,
+        item_spans: Vec::new(),
         rewrites: Vec::new(),
         origin: Origin::Computed,
     }

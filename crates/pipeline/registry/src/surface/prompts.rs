@@ -25,7 +25,7 @@ fn reserved(name: &str) -> bool {
     PROMPT_HOST_NAMES.contains(&name)
 }
 
-pub(super) fn snake_case(id: &str) -> bool {
+pub(crate) fn snake_case(id: &str) -> bool {
     let mut chars = id.chars();
     chars.next().is_some_and(|c| c.is_ascii_lowercase())
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')

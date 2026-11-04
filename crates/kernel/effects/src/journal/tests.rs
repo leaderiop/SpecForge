@@ -356,3 +356,59 @@ fn a_loose_roots_journal_is_the_users() {
     assert!(home.path().join(JOURNAL_DIR).is_dir());
     assert!(!project.path().join(".specforge").exists());
 }
+
+#[test]
+fn a_record_dated_in_the_future_is_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let journal = EffectJournal::at(dir.path());
+    let request = http("https://example.org/");
+    let (_, record) = journal
+        .keep(&request, &answer(OutcomeClass::Ok), at(5_000))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        journal.lookup(&record.request_digest, at(4_999)),
+        Lookup::Missing
+    );
+    assert!(matches!(
+        journal.lookup(&record.request_digest, at(5_000)),
+        Lookup::Fresh(_)
+    ));
+}
+
+/// Windows sets no mode, so it cannot tell a committed record this way.
+#[cfg(unix)]
+#[test]
+fn a_record_or_payload_not_private_to_this_user_is_missing() {
+    use std::os::unix::fs::{PermissionsExt as _, symlink};
+
+    let dir = tempfile::tempdir().unwrap();
+    let journal = EffectJournal::at(dir.path());
+    let request = http("https://example.org/");
+    let ok = Answer {
+        payload: Some(b"body".to_vec()),
+        ..answer(OutcomeClass::Ok)
+    };
+    let (path, record) = journal.keep(&request, &ok, at(0)).unwrap().unwrap();
+    let digest = record.request_digest;
+    let chmod = |path: &Path, mode| {
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).unwrap();
+    };
+    assert!(matches!(journal.lookup(&digest, at(1)), Lookup::Fresh(_)));
+
+    // What a git checkout writes.
+    chmod(&path, 0o644);
+    assert_eq!(journal.lookup(&digest, at(1)), Lookup::Missing);
+    chmod(&path, 0o600);
+    let payload = path.with_extension("payload");
+    chmod(&payload, 0o644);
+    assert_eq!(journal.lookup(&digest, at(1)), Lookup::Missing);
+    chmod(&payload, 0o600);
+    assert!(matches!(journal.lookup(&digest, at(1)), Lookup::Fresh(_)));
+
+    // A link a checkout can also write, to a private file that reads.
+    let moved = path.with_extension("moved");
+    std::fs::rename(&path, &moved).unwrap();
+    symlink(&moved, &path).unwrap();
+    assert_eq!(journal.lookup(&digest, at(1)), Lookup::Missing);
+}

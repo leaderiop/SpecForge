@@ -16,8 +16,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use specforge_emitter::{
-    GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo, SchemaField,
-    SchemaVersion,
+    GraphProtocolSchema, SchemaCheck, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo,
+    SchemaField, SchemaVersion,
 };
 
 /// One change between the recorded schema and the generated one. Its
@@ -103,6 +103,9 @@ pub enum Scalar {
     Maximum,
     /// Where a file field's relative paths start.
     FileBase,
+    /// The checks its values pass (ADR 0336): one more, or other args, is major; one fewer minor. Its values are the
+    /// checks as JSON.
+    Checks,
 }
 
 /// The set-valued attributes.
@@ -158,6 +161,7 @@ impl AttributeChange {
                 | Scalar::Edge
                 | Scalar::TargetKind
                 | Scalar::FileBase => Bump::Major,
+                Scalar::Checks => checks_bump(before, after),
                 Scalar::Minimum => bound_bump(before, after, |after, before| after < before),
                 Scalar::Maximum => bound_bump(before, after, |after, before| after > before),
                 Scalar::SourceExtension
@@ -184,6 +188,25 @@ fn bound_bump(
         (Some(_), None) => Bump::Minor,
         (Some(before), Some(after)) if loosened(after, before) => Bump::Minor,
         _ => Bump::Major,
+    }
+}
+
+/// Checks changed: only dropped is minor, only moved a patch, and any added or changed one is major: a document valid
+/// before may now fail it.
+fn checks_bump(before: &Option<String>, after: &Option<String>) -> Bump {
+    let read = |value: &Option<String>| -> Vec<SchemaCheck> {
+        value
+            .as_deref()
+            .and_then(|json| serde_json::from_str(json).ok())
+            .unwrap_or_default()
+    };
+    let (before, after) = (read(before), read(after));
+    if after.iter().any(|check| !before.contains(check)) {
+        Bump::Major
+    } else if before.iter().any(|check| !after.contains(check)) {
+        Bump::Minor
+    } else {
+        Bump::Patch
     }
 }
 
@@ -219,6 +242,7 @@ impl Scalar {
             Scalar::Minimum => "minimum",
             Scalar::Maximum => "maximum",
             Scalar::FileBase => "file base",
+            Scalar::Checks => "checks",
         }
     }
 
@@ -590,6 +614,7 @@ fn diff_field(
         minimum: old_minimum,
         maximum: old_maximum,
         file_base: old_file_base,
+        checks: old_checks,
         // Who writes a field and its history are the declaration's (ADR 0287), not the document's shape.
         writer: _,
         immutable: _,
@@ -610,6 +635,7 @@ fn diff_field(
         minimum: new_minimum,
         maximum: new_maximum,
         file_base: new_file_base,
+        checks: new_checks,
         writer: _,
         immutable: _,
         append_only: _,
@@ -665,6 +691,14 @@ fn diff_field(
         Scalar::FileBase,
         old_file_base.clone(),
         new_file_base.clone(),
+    ));
+    let checks = |checks: &Vec<SchemaCheck>| {
+        (!checks.is_empty()).then(|| serde_json::to_string(checks).expect("JSON values"))
+    };
+    attributes.extend(scalar(
+        Scalar::Checks,
+        checks(old_checks),
+        checks(new_checks),
     ));
     attributes.extend(scalar(
         Scalar::Description,

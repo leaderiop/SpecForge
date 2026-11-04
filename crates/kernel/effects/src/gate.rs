@@ -30,10 +30,10 @@ pub fn gate(op: Operation, port: Port, write: bool) -> bool {
         (Port::Fs, false) => !matches!(op, Handshake | Describe),
         (Port::Git, false) => matches!(
             op,
-            Pass | Validate | Hook | Collect | Command | McpTool | McpResource
+            Pass | Validate | Hook | Collect | Command | McpTool | McpResource | CheckValues
         ),
         (Port::Fs | Port::Git, true) => matches!(op, Collect | Command),
-        (Port::Http, _) => matches!(op, Collect | Command | McpTool | McpResource),
+        (Port::Http, _) => matches!(op, Collect | Command | McpTool | McpResource | CheckValues),
         (Port::Process, _) => op == Collect,
     }
 }

@@ -98,6 +98,25 @@ fn a_single_enabled_runner_needs_no_detection() {
     assert_eq!(machine.runs().len(), 1);
 }
 
+#[specforge_test(
+    behavior = "auto_detect_collector",
+    verify = "a collector reading check outcomes is not run by a plain collect"
+)]
+fn a_collector_reading_check_outcomes_is_not_run_by_a_plain_collect() {
+    let fx = Fixture::new(vec![
+        Runner::new("outcomes")
+            .detecting_nothing()
+            .inputs_raw(serde_json::json!([{"input": "check_outcomes"}])),
+    ]);
+    assert_eq!(fx.declared_collectors(), ["outcomes"]);
+    let machine = Machine::new().approving_everything().answering(reports());
+
+    let _ = fx.run(Asking::Nobody, &machine);
+
+    assert!(machine.runs().is_empty(), "{:?}", machine.runs());
+    assert!(fx.dispatched().is_empty(), "{:?}", fx.dispatched());
+}
+
 #[test]
 fn yes_runs_the_command_and_remembers_nothing() {
     let fx = acme();
@@ -513,7 +532,20 @@ fn auto_performs_what_a_grant_approves_and_nothing_else() {
             &root,
             &machine.consent,
         );
-        effects.serve("links", request, UnixMillis(1), |_| {
+        let extension = "@acme/acme";
+        let scopes: Vec<String> = effects
+            .grant(extension)
+            .expect("it declares a capability")
+            .capabilities()
+            .iter()
+            .map(|granted| granted.declared.name.clone())
+            .collect();
+        let asker = specforge_effects::Asker {
+            extension,
+            op: specforge_protocol_types::Operation::Collect,
+            scopes: &scopes,
+        };
+        effects.serve_for(&asker, "links", request, UnixMillis(1), |_| {
             specforge_effects::Answer {
                 outcome: specforge_effects::Outcome {
                     class: specforge_effects::OutcomeClass::Ok,
@@ -533,4 +565,38 @@ fn auto_performs_what_a_grant_approves_and_nothing_else() {
     );
     let other = request(&["rm".to_string(), "-rf".to_string()]);
     assert_eq!(served(&approved, &other), not_approved);
+}
+
+#[specforge_test(
+    behavior = "auto_detect_collector",
+    verify = "checks.publish adds a collector reading check outcomes to a plain collect, and never to a reports run"
+)]
+fn publish_never_joins_a_reports_run() {
+    let fx = Fixture::configured(
+        vec![
+            Runner::new("unit").detecting_nothing(),
+            Runner::new("outcomes")
+                .detecting_nothing()
+                .inputs_raw(serde_json::json!([{"input": "check_outcomes"}])),
+        ],
+        r#"{"name": "demo", "checks": {"publish": true}}"#,
+    );
+    fx.write("mine.json", "{}");
+
+    let files = [fx.root().join("mine.json")];
+    fx.collect_with(
+        None,
+        Mode::Reports(&files),
+        &specforge_ops::Containment::unbounded(),
+        Asking::Nobody,
+        &Machine::new(),
+    )
+    .unwrap();
+
+    let called: Vec<String> = fx
+        .dispatched()
+        .into_iter()
+        .map(|call| call.export)
+        .collect();
+    assert_eq!(called, ["collect__unit"]);
 }

@@ -129,6 +129,7 @@ mod trace_routes;
 mod trace_support;
 mod typed_blocks;
 mod use_bindings;
+mod value_checks;
 mod verdicts;
 mod verify_statements;
 mod view_support;

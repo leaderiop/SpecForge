@@ -26,12 +26,14 @@ pub use wit_bindgen as __wit_bindgen;
 /// the decision to the rule's `wasm_function` (see
 /// [`RuleBuilder::wasm_function`]).
 pub use specforge_protocol_types::{
-    CheckKind, Cite, ConstraintKind, EditPlan, FieldType, FieldWriter, FileBase, Input,
-    PlanObligation, PlanOp,
+    CheckKind, Cite, ConstraintKind, EditPlan, FieldType, FieldWriter, Input, PlanObligation,
+    PlanOp, Root, RootedPath,
 };
 
 pub use specforge_protocol_types::{
-    CapabilityDescriptor, FsAccess, GitOp, HttpMethod, Operation, PortScope,
+    CapabilityDescriptor, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan, CheckRef,
+    CheckStatus, CheckValuesInput, CheckerDescriptor, FsAccess, GitOp, HttpMethod, Operation,
+    OutcomeClass, OutcomeData, PlannedItem, PortScope, Probe, ProbeOutcome, StatEntry, ValueForm,
 };
 
 pub use specforge_protocol_types::{
@@ -70,6 +72,7 @@ pub use vocabulary::Vocabulary;
 
 mod builders;
 mod capability;
+mod checker;
 mod command_graph;
 mod contrib;
 mod guest;
@@ -86,6 +89,7 @@ pub use builders::{
     RuleBuilder,
 };
 pub use capability::Capability;
+pub use checker::CheckerBuilder;
 pub use command_graph::{CommandGraph, CommandInput};
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
 pub use host_contrib::{
@@ -164,6 +168,7 @@ pub struct ContributionsBuilder {
     slash_commands: Vec<specforge_protocol_types::SlashCommandDescriptor>,
     hooks: Vec<specforge_protocol_types::HookDescriptor>,
     operations: operations::Operations,
+    checkers: checker::Checkers,
     raw: RawCategories,
 }
 
@@ -623,9 +628,9 @@ pub mod prelude {
     pub use crate::{
         AnalyzerBuilder, CheckKind, CodeBuilder, ConstraintKind, Contributions,
         ContributionsBuilder, EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder,
-        FieldConstraintBuilder, FieldType, FileBase, FileReadSpec, Input, KindBuilder,
-        MigrationInput, PassAnswer, PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic,
-        PassEdge, PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue,
+        FieldConstraintBuilder, FieldType, FileReadSpec, Input, KindBuilder, MigrationInput,
+        PassAnswer, PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic, PassEdge,
+        PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue, Root, RootedPath,
         RuleBuilder, ScanRequest, ScanResponse, ScannedItem, Settings, TestResult, TestResults,
         TestStatus, Vocabulary,
     };
@@ -636,6 +641,10 @@ pub mod prelude {
         PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
     pub use crate::{Capability, FsAccess, GitOp, HttpMethod, Operation};
+    pub use crate::{
+        CheckFinding, CheckItem, CheckRef, CheckerBuilder, OutcomeClass, OutcomeData, PlannedItem,
+        Probe, ProbeOutcome, StatEntry, ValueForm,
+    };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
         CollectorBuilder, Fact, PlanBuilder,

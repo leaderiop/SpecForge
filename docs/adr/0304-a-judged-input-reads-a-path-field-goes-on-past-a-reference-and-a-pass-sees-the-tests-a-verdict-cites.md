@@ -3,6 +3,7 @@
 **Status:** accepted (2026-10-31, kernel round K20a, plan 13). Extends
 [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) and
 [ADR 0293](0293-a-pass-or-command-declares-the-project-files-it-reads.md). Takes extension protocol 1.12.0.
+Amended by [ADR 0336](0336-a-field-declares-the-checks-its-values-pass.md): a judged `file()` path may name its root with `<root>/`.
 
 ## Context
 

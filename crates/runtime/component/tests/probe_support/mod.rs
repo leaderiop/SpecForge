@@ -16,6 +16,7 @@ use specforge_effects::{
     EffectJournal, EffectsCeiling, Grant, Http, HttpOutcome, HttpRequest, OutcomeClass, Ports,
     Provenance, Redirects, Roots,
 };
+use specforge_effects::{ResolveOutcome, ResolveRequest, TlsOutcome, TlsRequest};
 use specforge_protocol_types::{CommandInput, Operation, RawGraph};
 use specforge_wasm::PortCall;
 use specforge_wasm::protocol::load_declaration;
@@ -177,6 +178,14 @@ impl Http for SlowHttp {
             body: Vec::new(),
             detail: None,
         }
+    }
+
+    fn resolve(&self, request: &ResolveRequest) -> ResolveOutcome {
+        testing::FakeHttp::new().resolve(request)
+    }
+
+    fn tls(&self, request: &TlsRequest) -> TlsOutcome {
+        testing::FakeHttp::new().tls(request)
     }
 }
 

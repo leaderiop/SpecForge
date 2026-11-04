@@ -13,6 +13,7 @@ ADR 0326 D2 (the 1.x line ends at 1.15.0). Folds the wire keys of
 [ADR 0316](0316-a-prompt-reads-the-slash-commands-the-project-serves.md),
 [ADR 0320](0320-a-hook-is-told-git-facts-and-the-real-path-of-what-its-tool-names.md) and
 [ADR 0323](0323-a-hook-reads-the-settings-of-another-extension-it-names.md) into `Input` variants.
+Amended by [ADR 0336](0336-a-field-declares-the-checks-its-values-pass.md) (D4: `collect` defaults as `check` does, because a collector may read the checks' outcomes).
 
 ## Context
 
@@ -85,11 +86,12 @@ pub enum Input {
 ## D3. The effects journal
 
 - **A journal record holds no secret, and its files are private** (ADR 0288): files `0600`, directories `0700`.
-- One record per request digest (ADR 0335 D3), in `<root>/.specforge/effects/journal/<aa>/<hex>.json` (gitignored,
+- One record per request digest (ADR 0335 D3; a value check's digest also names the asking extension, ADR 0336), in `<root>/.specforge/effects/journal/<aa>/<hex>.json` (gitignored,
   per machine); a loose root's records go to the user's `~/.specforge/effects/journal/`. A record's path is built
   only from a `RecordDigest`, `sha256:` and 64 lowercase hex characters. Writes are atomic; the last record of a
   request wins. An unreadable or undecodable record is a miss, overwritten by the next record: the journal is a
-  cache, so it costs no code.
+  cache, so it costs no code. So is one not private to this user (a git checkout writes 0644, so a project cannot
+  commit a pass; Windows sets no mode and cannot tell) or dated in the future (ADR 0336).
 - A record shows what identifies the request: the method, URL and argv, the header and env names, a non-sensitive
   header's value, and a body or stdin as its sha256 and length. A sensitive header's value is never written: the
   request digest's canonical form writes it `<redacted>` (ADR 0335 D3), and replay matches by digest.
@@ -116,10 +118,13 @@ pub enum Input {
   the type proves the LSP's worker never reaches the network.
 - `Environment` holds an `Effects`, `cached` by default, so the hook, watch, the LSP and MCP sessions stay off the
   network with no change. Only the CLI opts in: `--effects <online|auto|cached|replay>` on `check` and `watch`, the
-  commands that run the checks to report them. `check` defaults to `auto` when someone can answer (human output, a
-  terminal at stdin) and `CI` is unset, else `cached`; `watch` and every other command run `cached`. `--effects`
-  always wins. MCP `validate` takes `effects` (default `cached`) and re-runs the effect phases for that call over the
-  served compile, as `since` re-judges, so I017 is kept. The CLI and MCP build the effects of a run in one place.
+  commands that run the checks to report them, and on `collect`. `check` defaults to `auto` when someone can answer
+  (human output, a terminal at stdin) and `CI` is unset, else `cached`, and so does the values phase of a `collect`
+  whose selected collector reads the checks' outcomes; a `collect` with no such reader runs no phase. `watch` and every
+  other command run `cached`. `--effects` always wins. MCP `collect` runs no values phase of its own: a collector there is
+  served the rows of the session's compile, which ran `cached`, so a value no fresh record answers says `not_run`, and
+  `specforge check` or `collect --effects online` at a terminal is what fills those records. MCP `validate` takes
+  `effects` (default `cached`) and re-runs the effect phases for that call over the served compile, as `since` re-judges, so I017 is kept. The CLI and MCP build the effects of a run in one place.
 - **What a run lends an extension runs in a mode too** (`specforge_project::effects::lent`, ADR 0335 D4). A CLI
   extension command and `collect` default to `online`, a person having asked for that run, and `--effects` wins (a
   command that declares its own `effects` arg keeps it, and runs `online`). An MCP extension tool of an extension with

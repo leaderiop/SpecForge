@@ -165,3 +165,23 @@ fn no_refusal_is_invalid_input() {
         assert_ne!(kind, std::io::ErrorKind::InvalidInput, "{path:?}");
     }
 }
+
+#[test]
+fn a_prefix_is_the_files_first_bytes_and_its_whole_length() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("a");
+    std::fs::write(&file, "hello").unwrap();
+    assert_eq!(
+        regular::read_prefix(&file, 3).unwrap(),
+        (b"hel".to_vec(), 5)
+    );
+    assert_eq!(
+        regular::read_prefix(&file, 5).unwrap(),
+        (b"hello".to_vec(), 5)
+    );
+    assert_eq!(
+        regular::read_prefix(&file, 9).unwrap(),
+        (b"hello".to_vec(), 5)
+    );
+    assert!(regular::read_prefix(dir.path(), 3).is_err());
+}

@@ -93,6 +93,9 @@ pub(super) fn dispatch_over(
     lent: Option<PortCall>,
 ) -> Result<CollectOutput, CallError> {
     let writing = view.filter(|_| collector.writes);
+    let serve = view.map(|view| {
+        crate::extension::inputs::Serve::new(view, &collector.extension, &collector.inputs)
+    });
     let at = crate::extension::command::instant();
     let input = CollectInput {
         reports: reports.to_vec(),
@@ -112,11 +115,13 @@ pub(super) fn dispatch_over(
         revisions: writing
             .map(|view| crate::revision::of_project(view.project()))
             .unwrap_or_default(),
-        files: view
-            .map(|view| {
-                crate::extension::inputs::Serve::new(view, &collector.extension, &collector.inputs)
-                    .files()
-            })
+        files: serve
+            .as_ref()
+            .map(|serve| serve.files())
+            .unwrap_or_default(),
+        check_outcomes: serve
+            .as_ref()
+            .map(|serve| serve.check_outcomes())
             .unwrap_or_default(),
     };
     let Some(runtime) = runtime else {

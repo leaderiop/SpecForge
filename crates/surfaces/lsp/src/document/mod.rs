@@ -8,9 +8,11 @@ mod line_index;
 mod syntax;
 mod tokens;
 
-pub use cursor::{CompletionSite, Cursor, EntityAt, Place, Target, Word, WordEdit};
+pub use cursor::{CompletionSite, Cursor, EntityAt, Place, StringValue, Target, Word, WordEdit};
 pub use line_index::LineIndex;
-pub use tokens::{MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES};
+pub use tokens::{
+    MOD_CHECKED, MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES,
+};
 
 use specforge_ops::view::ProjectView;
 use std::sync::{Arc, OnceLock};
@@ -97,6 +99,24 @@ impl Document {
             offset,
             position,
         })
+    }
+
+    /// Every one-line string value the document holds, with the range its quotes hold.
+    pub fn string_values(&self) -> Vec<(StringValue<'_>, Range)> {
+        self.syntax()
+            .lexemes
+            .iter()
+            .filter(|lexeme| matches!(lexeme.kind, specforge_parser::lex::LexemeKind::Str { .. }))
+            .filter_map(|lexeme| {
+                let start = lexeme.start + 1;
+                let value = self.at(self.index.position(start))?.string_value()?;
+                let range = Range {
+                    start: self.index.position(start),
+                    end: self.index.position(start + value.text.len()),
+                };
+                Some((value, range))
+            })
+            .collect()
     }
 
     /// The semantic tokens, in document order, one per line of a lexeme

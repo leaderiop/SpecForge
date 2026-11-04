@@ -33,6 +33,9 @@ pub enum Input {
     },
     /// Another extension's setting, in `other_settings` under `<extension>:<name>` (ADR 0323).
     Setting { extension: String, name: String },
+    /// Each checked value's outcome, as `check_outcomes` (ADR 0336): a collector only, and one that declares it runs
+    /// only when named or under `checks.publish`.
+    CheckOutcomes,
 }
 
 impl Input {
@@ -88,6 +91,7 @@ impl Input {
             Input::SlashCommands => InputKind::SlashCommands,
             Input::Git { .. } => InputKind::Git,
             Input::Setting { .. } => InputKind::Setting,
+            Input::CheckOutcomes => InputKind::CheckOutcomes,
         }
     }
 
@@ -107,10 +111,11 @@ pub enum InputKind {
     SlashCommands,
     Git,
     Setting,
+    CheckOutcomes,
 }
 
 impl InputKind {
-    pub const ALL: [InputKind; 7] = [
+    pub const ALL: [InputKind; 8] = [
         InputKind::Files,
         InputKind::Tests,
         InputKind::State,
@@ -118,19 +123,21 @@ impl InputKind {
         InputKind::SlashCommands,
         InputKind::Git,
         InputKind::Setting,
+        InputKind::CheckOutcomes,
     ];
 
     /// The one table: the kind's tag on the wire and the keys it writes beside the tag (a test holds `files`' to
     /// [`FileRead`]'s fields).
     const fn wire(self) -> (&'static str, &'static [&'static str]) {
         match self {
-            InputKind::Files => ("files", &["name", "field", "glob", "base", "text"]),
+            InputKind::Files => ("files", &["name", "field", "glob", "root", "text"]),
             InputKind::Tests => ("tests", &[]),
             InputKind::State => ("state", &[]),
             InputKind::Graph => ("graph", &[]),
             InputKind::SlashCommands => ("slash_commands", &[]),
             InputKind::Git => ("git", &["status", "when"]),
             InputKind::Setting => ("setting", &["extension", "name"]),
+            InputKind::CheckOutcomes => ("check_outcomes", &[]),
         }
     }
 
@@ -179,6 +186,10 @@ impl<'a> Inputs<'a> {
 
     pub fn slash_commands(self) -> bool {
         self.0.contains(&Input::SlashCommands)
+    }
+
+    pub fn check_outcomes(self) -> bool {
+        self.0.contains(&Input::CheckOutcomes)
     }
 
     /// The `git` input, when the call declares one (the first).

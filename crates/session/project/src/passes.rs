@@ -212,7 +212,7 @@ pub fn run_extension_passes<'p>(
         let own;
         let tests = context.reported.filter(|_| declared.inputs().tests());
         let reads = declared.inputs().files();
-        let input: &Encoded<PassInput> = match (context.files, reads.as_slice()) {
+        let input: &Encoded<PassInput> = match (context.files.as_ref(), reads.as_slice()) {
             (files, reads) if tests.is_some() || (files.is_some() && !reads.is_empty()) => {
                 own = ExtensionCalls::encode(&PassInput {
                     previous: context
@@ -221,7 +221,7 @@ pub fn run_extension_passes<'p>(
                         .map(|b| b.pass_view(declared.baseline())),
                     files: files
                         .filter(|_| !reads.is_empty())
-                        .map(|source| memo.read(reads, context.entities, &source))
+                        .map(|source| memo.read(reads, context.entities, source))
                         .unwrap_or_default(),
                     test_results: tests.cloned().or_else(|| payload.test_results.clone()),
                     ..payload.clone()

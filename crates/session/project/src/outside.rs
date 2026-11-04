@@ -31,6 +31,17 @@ impl Environment {
         self
     }
 
+    /// This environment, its values phase held to `budget`.
+    pub fn with_value_budget(mut self, budget: crate::values::ValueBudget) -> Self {
+        self.value_budget = budget;
+        self
+    }
+
+    /// What one run of its values phase may spend.
+    pub fn value_budget(&self) -> crate::values::ValueBudget {
+        self.value_budget
+    }
+
     /// Its effects: the mode, the ports a live mode performs through, the journal and what the run consulted.
     pub fn effects(&self) -> &Effects {
         &self.effects

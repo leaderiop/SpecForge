@@ -14,9 +14,9 @@ use serde_json::Value;
 
 use crate::{
     AgentDescriptor, AnalyzerDescriptor, Attribution, AutoDetectConfig, CAPABILITY_KEYS,
-    CapabilityDescriptor, CodeDescriptor, CollectorDescriptor, CommandArgDescriptor,
-    CommandDescriptor, CompilerPassDescriptor, DescribeResponse, EdgeTypeDescriptor,
-    EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
+    CapabilityDescriptor, CheckerDescriptor, CodeDescriptor, CollectorDescriptor,
+    CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor, DescribeResponse,
+    EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
     FieldConstraintDescriptor, FieldDescriptor, FsScope, GitScope, HandshakeResponse,
     HookDescriptor, HttpScope, McpResourceDescriptor, McpToolDescriptor, PeerDependency,
     PresetDescriptor, ProcessScope, PromptArgDescriptor, PromptDescriptor, PromptStep,
@@ -63,10 +63,13 @@ pub struct ExtensionDeclaration {
     /// What it may make the host do, each on one port under a scope name (ADR 0335 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<CapabilityDescriptor>,
+    /// The value checkers it serves at [`CHECK_VALUES_EXPORT`](crate::CHECK_VALUES_EXPORT) (ADR 0336).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checkers: Vec<CheckerDescriptor>,
 }
 
 /// A describe category, in the order the host reads them (ADR 0012 D2). The
-/// protocol defines no other: a guest answers these fourteen and nothing else
+/// protocol defines no other: a guest answers these fifteen and nothing else
 /// (ADR 0050).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeclaredCategory {
@@ -84,12 +87,13 @@ pub enum DeclaredCategory {
     Settings,
     Routes,
     Capabilities,
+    Checkers,
 }
 
 impl DeclaredCategory {
     /// Every describe category, in the host's read order: the protocol's one
     /// list of them.
-    pub const ALL: [DeclaredCategory; 14] = [
+    pub const ALL: [DeclaredCategory; 15] = [
         DeclaredCategory::Entities,
         DeclaredCategory::Edges,
         DeclaredCategory::SharedFields,
@@ -104,6 +108,7 @@ impl DeclaredCategory {
         DeclaredCategory::Settings,
         DeclaredCategory::Routes,
         DeclaredCategory::Capabilities,
+        DeclaredCategory::Checkers,
     ];
 
     /// Its wire name (`shared_fields`).
@@ -123,6 +128,7 @@ impl DeclaredCategory {
             DeclaredCategory::Settings => "settings",
             DeclaredCategory::Routes => "routes",
             DeclaredCategory::Capabilities => "capabilities",
+            DeclaredCategory::Checkers => "checkers",
         }
     }
 
@@ -133,7 +139,7 @@ impl DeclaredCategory {
             DeclaredCategory::Codes => (1, 7),
             DeclaredCategory::Settings => (1, 8),
             DeclaredCategory::Routes => (1, 15),
-            DeclaredCategory::Capabilities => (2, 0),
+            DeclaredCategory::Capabilities | DeclaredCategory::Checkers => (2, 0),
             _ => (1, 0),
         }
     }
@@ -163,6 +169,7 @@ impl DeclaredCategory {
             DeclaredCategory::Settings => &SETTING,
             DeclaredCategory::Routes => &ROUTE,
             DeclaredCategory::Capabilities => &CAPABILITY,
+            DeclaredCategory::Checkers => &CHECKER,
         }
     }
 }
@@ -264,6 +271,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Settings => !self.settings.is_empty(),
             DeclaredCategory::Routes => !self.routes.is_empty(),
             DeclaredCategory::Capabilities => !self.capabilities.is_empty(),
+            DeclaredCategory::Checkers => !self.checkers.is_empty(),
         }
     }
 
@@ -295,6 +303,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Settings => to_items(&self.settings),
             DeclaredCategory::Routes => to_items(&self.routes),
             DeclaredCategory::Capabilities => to_items(&self.capabilities),
+            DeclaredCategory::Checkers => to_items(&self.checkers),
         }
     }
 
@@ -328,6 +337,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Settings => self.settings = parse(name, items)?,
             DeclaredCategory::Routes => self.routes = parse(name, items)?,
             DeclaredCategory::Capabilities => self.capabilities = parse(name, items)?,
+            DeclaredCategory::Checkers => self.checkers = parse(name, items)?,
         }
         Ok(())
     }
@@ -580,6 +590,10 @@ static ROUTE: Shape = Shape {
 static CAPABILITY: Shape = Shape {
     fields: || &CAPABILITY_KEYS,
     nested: &[],
+};
+static CHECKER: Shape = Shape {
+    fields: struct_fields::<CheckerDescriptor>,
+    nested: &[("args", Nested::List(&FIELD))],
 };
 static SECRET_HEADER: Shape = Shape {
     fields: struct_fields::<SecretHeader>,

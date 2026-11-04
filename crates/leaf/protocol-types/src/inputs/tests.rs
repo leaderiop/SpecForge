@@ -9,7 +9,7 @@ fn each() -> Vec<Input> {
             name: "sources".into(),
             field: None,
             glob: Some("src/**".into()),
-            base: Some("project".into()),
+            root: Some("project".into()),
             text: true,
         }),
         Input::Tests,
@@ -18,6 +18,7 @@ fn each() -> Vec<Input> {
         Input::SlashCommands,
         Input::git().status().when("x.y"),
         Input::setting("@a/b", "x.y"),
+        Input::CheckOutcomes,
     ]
 }
 

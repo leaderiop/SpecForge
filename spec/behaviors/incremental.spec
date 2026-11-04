@@ -173,6 +173,7 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a session wakes at the earliest expiry of the effect records its checks consulted"
   verify unit "an expired effect record beside the fact stores' rows re-runs the checks and reads no fact store"
   verify unit "the LSP applies an expired effect record the checks consulted before it answers a request"
+  verify unit "a file a checked field names re-runs the checks"
 }
 
 behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {

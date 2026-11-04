@@ -1,0 +1,14 @@
+{
+  "phase": "plan",
+  "items": [
+    {
+      "id": 0,
+      "checker": "url",
+      "entity": "health",
+      "field": "docs",
+      "item": 1,
+      "text": "https://example.com/a",
+      "args": { "status": "warn" }
+    }
+  ]
+}

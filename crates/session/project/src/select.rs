@@ -9,16 +9,15 @@ use std::rc::Rc;
 
 use serde_json::Value;
 use specforge_graph::{FieldForms, Graph, Node, wire};
-use specforge_protocol_types::{FieldType, FileBase};
+use specforge_protocol_types::{FieldType, Root};
 use specforge_registry::judged::{Chain, Head, Step};
 use specforge_registry::{FieldRegistry, RegistryBuild};
 
-/// A file a chain names, and the base its field reads it from.
+/// A file a chain names as written, and the root a bare path starts at: a `<root>/` prefix in `path` overrides it.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct FileRef {
+    pub root: Root,
     pub path: String,
-    /// Read from the project root (else the spec root).
-    pub project: bool,
 }
 
 /// For a `(kind, field path)`: each target the field of a `kind` entity names, with the entities that name it.
@@ -148,12 +147,15 @@ impl<'a> Selection<'a> {
                 // A file field, or (ADR 0304) a string or string list field holding a path from the project root.
                 if files
                     && let Some((declared, form)) = self.fields.get_path(kind, &rest)
-                    && (declared.file_reference
-                        || matches!(form.field_type(), FieldType::String | FieldType::StringList))
+                    && matches!(form.field_type(), FieldType::String | FieldType::StringList)
                 {
+                    let root = match declared.file_reference {
+                        true => form.base().clone(),
+                        false => Root::Project,
+                    };
                     named.extend(self.values_at(node, &rest).into_iter().map(|path| FileRef {
+                        root: root.clone(),
                         path,
-                        project: !declared.file_reference || form.base() == FileBase::Project,
                     }));
                     taken = words.len() - at;
                     continue;

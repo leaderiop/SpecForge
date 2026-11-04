@@ -21,9 +21,10 @@ pub use disk::{Asked, Disk, DiskLookup, FileStamp, MemoryDisk, PlainDisk};
 
 // --- Core registries ---
 pub use registries::{
-    DeclaredSetting, EdgeRegistry, EdgeRegistryEntry, EdgeWriter, ExtensionSettings, FieldProblem,
-    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, Parent, Route,
-    RouteAnnotation, RouteRegistry, RouteStep, SettingsRegistry, Skipped, UnknownFieldType,
+    CheckCall, CheckRegistry, DeclaredSetting, EdgeRegistry, EdgeRegistryEntry, EdgeWriter,
+    ExtensionSettings, FieldProblem, FieldRegistry, FieldRegistryEntry, KindRegistry,
+    KindRegistryEntry, Parent, QualifiedChecker, ResolvedCheck, Route, RouteAnnotation,
+    RouteRegistry, RouteStep, SettingsRegistry, Skipped, UnknownFieldType,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---

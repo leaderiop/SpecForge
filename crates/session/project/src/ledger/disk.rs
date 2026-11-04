@@ -37,6 +37,13 @@ impl Disk for RunDisk<'_, '_> {
             .read(Reading::File, path, self.1, |path| self.1.read(path))
     }
 
+    fn read_prefix(&self, path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
+        self.record_link_targets(path);
+        self.0.read(Reading::File, path, self.1, |path| {
+            self.1.read_prefix(path, max)
+        })
+    }
+
     fn stamp(&self, path: &Path) -> io::Result<FileStamp> {
         self.record_link_targets(path);
         self.0

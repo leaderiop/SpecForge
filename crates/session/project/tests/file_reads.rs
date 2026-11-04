@@ -257,6 +257,23 @@ fn the_text_budget_of_a_read_is_one_mib() {
 }
 
 #[test]
+fn a_field_read_honours_a_root_prefix_in_the_value() {
+    let project = gsd_facts_project()
+        .config(|c| c["spec_root"] = "specs".into())
+        .file(
+            "specs/a.spec",
+            plan_naming(&["<spec>/notes.md", "<nowhere>/a.md"]),
+        )
+        .file("specs/notes.md", "note");
+    let (_, _, input) = probed(project, modified());
+    assert_eq!(fact(&input, "modified", "specs/notes.md")["exists"], true);
+    assert_eq!(
+        fact(&input, "modified", "<nowhere>/a.md")["error"],
+        "outside_project"
+    );
+}
+
+#[test]
 fn a_field_read_names_the_entity_and_dedupes_paths() {
     let spec = format!(
         "{}\nplan pl2 \"Two\" {{\n  phase p1\n  files_modified [\"src/lib.rs\"]\n}}\n",
@@ -545,6 +562,7 @@ fn passes_with_equal_reads_share_one_walk() {
         disk: &disk,
         project_root: std::path::Path::new("/p"),
         spec_root: std::path::Path::new("/p"),
+        roots: specforge_effects::Roots::new("/p", "/p"),
     };
     let read = |name: &str| FileRead {
         name: name.into(),

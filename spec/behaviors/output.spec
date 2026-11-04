@@ -544,6 +544,7 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
     status for its row. An entity the graph lacks is E003, entity_not_found, naming the
     closest entity.
   """
+  verify unit "an entity lists each checked value's outcome"
   verify unit "an entity's coverage is its coverage row's verdict, obligation by obligation"
   verify unit "an entity's coverage status is its coverage row's: whether it counts, then how it is proven"
   verify unit "the diagnostics about an entity are its own, not those of an entity whose id contains it"
@@ -1351,6 +1352,8 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
+  verify unit "with_checks adds each value's outcomes to a graph or context export, and a plain export is unchanged"
+  verify integration "--with-checks on a project with no checked value is the plain export"
   verify contract "Export Agent Graph Format: agent graph export holds — validation_complete_fired, full_fidelity_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
 }
 

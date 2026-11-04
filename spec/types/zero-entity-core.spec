@@ -165,6 +165,8 @@ type FieldDescriptor "Field Descriptor" {
   edge                string                 @optional
   target_kind         string                 @optional
   file_reference      boolean                @optional
+  // The checks its values pass (ADR 0336): a checker with args, or any_of one level deep
+  checks              string[]               @optional
   default_value       string                 @optional
   // The values an enum field accepts
   enum_values         string[]               @optional
@@ -266,6 +268,8 @@ type FieldRegistryEntry "Field Registry Entry" {
   edge                string                 @optional
   target_kind         string                 @optional
   file_reference      boolean                @optional
+  // Its resolved checks: declared ones, then what specforge.json attaches
+  checks              string[]               @optional
   required            boolean                @optional
   normative           boolean                @optional
   exempts_obligations boolean                @optional

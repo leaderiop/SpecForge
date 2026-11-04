@@ -264,3 +264,24 @@ pub trait Consent: Send + Sync {
 
 /// A consent store as a surface shares it.
 pub type SharedConsent = Arc<dyn Consent>;
+
+/// A store that holds nothing and keeps nothing: for what a grant's declarations and ceiling decide, whatever this
+/// machine approved.
+pub struct NoConsent;
+
+impl Consent for NoConsent {
+    fn store(&self) -> String {
+        "no store".to_string()
+    }
+
+    fn list(&self) -> Result<Approvals, ConsentError> {
+        Ok(Approvals::default())
+    }
+
+    fn update(&self, _change: &mut dyn FnMut(&mut Approvals)) -> Result<(), ConsentError> {
+        Err(ConsentError {
+            store: self.store(),
+            why: "it keeps nothing".to_string(),
+        })
+    }
+}

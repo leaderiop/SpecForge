@@ -1,0 +1,23 @@
+{
+  "items": [
+    {
+      "id": 0,
+      "findings": [
+        { "code": "W183", "message": "not https", "help": "write https", "at": [0, 5] }
+      ],
+      "probes": [
+        { "probe": "http.head", "url": "https://example.com/a", "redirects": 5 },
+        { "probe": "http.get", "url": "https://example.com/a", "range": [0, 99], "max_bytes": 100 },
+        { "probe": "http.tls", "host": "example.com", "port": 443 },
+        { "probe": "dns.resolve", "host": "example.com" },
+        { "probe": "fs.stat", "root": "spec", "path": "<project>/a.md" },
+        { "probe": "fs.read_prefix", "root": "spec", "path": "a.md", "bytes": 16 },
+        { "probe": "fs.read", "root": "spec", "path": "a.md", "bytes": 16 },
+        { "probe": "fs.walk", "root": "project", "path": "docs", "glob": "*.md" },
+        { "probe": "git.object", "rev": "HEAD" },
+        { "probe": "git.ref", "name": "main" },
+        { "probe": "git.tracked", "root": "project", "path": "a.md" }
+      ]
+    }
+  ]
+}

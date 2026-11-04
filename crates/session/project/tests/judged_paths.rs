@@ -173,34 +173,6 @@ fn a_referrer_path_continues_forward() {
     assert_ne!(digest(&first, "requirements"), digest(&own, "requirements"));
 }
 
-#[cfg(unix)]
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a file input that links out of the project digests as unreadable"
-)]
-fn a_file_input_through_a_link_out_is_unreadable() {
-    let p = project();
-    let outside = tempfile::TempDir::new().unwrap();
-    std::fs::write(
-        outside.path().join("secret.ts"),
-        "export const secret = 1;\n",
-    )
-    .unwrap();
-    std::os::unix::fs::symlink(
-        outside.path().join("secret.ts"),
-        p.root().join("src/out.ts"),
-    )
-    .unwrap();
-    p.write("a.spec", SPEC.replace("src/a.ts", "src/out.ts"));
-    let inputs = inputs(&compile(&p));
-    let out = inputs
-        .files
-        .iter()
-        .find(|f| f.path == "src/out.ts")
-        .unwrap_or_else(|| panic!("{:?}", inputs.files));
-    assert_eq!(out.digest, "unreadable", "{:?}", inputs.files);
-}
-
 #[specforge_test(
     behavior = "digest_judged_inputs",
     verify = "a file input that only a case variant on disk matches digests as absent on every OS"
@@ -212,4 +184,54 @@ fn a_file_input_spelled_in_another_case_is_absent() {
     let inputs = inputs(&compile(&p));
     assert_eq!(inputs.files.len(), 1, "{:?}", inputs.files);
     assert_eq!(inputs.files[0].digest, "absent", "{:?}", inputs.files);
+}
+
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "digest_judged_inputs",
+    verify = "a judged file input through a link out of the project digests as outside_project and is not read"
+)]
+fn a_judged_file_input_through_a_link_out_of_the_project_is_not_read() {
+    let p = project();
+    let outside = tempfile::TempDir::new().unwrap();
+    std::fs::write(outside.path().join("outside.md"), "secret\n").unwrap();
+    std::fs::create_dir_all(p.root().join("docs")).unwrap();
+    std::os::unix::fs::symlink(
+        outside.path().join("outside.md"),
+        p.root().join("docs/x.md"),
+    )
+    .unwrap();
+    p.write("a.spec", SPEC.replace("src/a.ts", "docs/x.md"));
+    let inputs = inputs(&compile(&p));
+    let out = inputs
+        .files
+        .iter()
+        .find(|f| f.path == "docs/x.md")
+        .unwrap_or_else(|| panic!("{:?}", inputs.files));
+    assert_eq!(out.digest, "outside_project");
+}
+
+#[specforge_test(
+    behavior = "digest_judged_inputs",
+    verify = "a judged file input reads a spec-prefixed path from the spec root"
+)]
+fn a_judged_file_input_reads_a_spec_prefixed_path_from_the_spec_root() {
+    let p = TestProject::new()
+        .config(|c| {
+            c["name"] = "p".into();
+            c["spec_root"] = "specs".into();
+        })
+        .enabling(&[EXT])
+        .installing_enabled()
+        .file("specs/a.spec", SPEC.replace("src/a.ts", "<spec>/notes.md"))
+        .file("specs/notes.md", "in the spec root\n")
+        .file("notes.md", "in the project root\n");
+    let first = inputs(&compile(&p));
+    assert_eq!(first.files[0].path, "specs/notes.md", "{:?}", first.files);
+    p.write("notes.md", "the project root changed\n");
+    let other = inputs(&compile(&p));
+    assert_eq!(digest(&first, "code"), digest(&other, "code"));
+    p.write("specs/notes.md", "the spec root changed\n");
+    let own = inputs(&compile(&p));
+    assert_ne!(digest(&first, "code"), digest(&own, "code"));
 }

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use specforge_protocol_types::{FsRequest, OutcomeClass};
 
 use crate::contained::landed_in_host_state;
-use crate::{Contained, Lookup, Resolved, RootName, Roots};
+use crate::{Contained, Lookup, Resolved, Root, Roots};
 
 /// The most bytes one read answers.
 pub const READ_CEILING: u64 = 1024 * 1024;
@@ -91,7 +91,7 @@ pub fn held(
     lookup: &dyn Lookup,
     request: &FsRequest,
 ) -> Result<Resolved, OutcomeClass> {
-    let name = RootName::of(&request.root);
+    let name = Root::parse(&request.root).ok_or(OutcomeClass::Outside)?;
     let root = roots.get(&name).ok_or(OutcomeClass::Outside)?.to_path_buf();
     if matches!(request.path.as_str(), "" | "." | "./") {
         // A named root can itself be a directory of the project's own state.

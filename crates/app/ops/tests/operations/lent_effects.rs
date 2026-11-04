@@ -89,10 +89,9 @@ impl Project {
     }
 
     fn auto(&self, extension: &str) -> PortSession {
-        let approved = Arc::new(|_: &EffectRequest| true);
         self.session(
             extension,
-            Effects::auto(self.ports.clone(), approved, self.journal()),
+            Effects::auto(self.ports.clone(), Vec::new(), self.journal()),
         )
     }
 

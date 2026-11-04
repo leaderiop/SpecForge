@@ -300,6 +300,16 @@ impl LanguageServer for Backend {
         .await
     }
 
+    async fn document_link(&self, params: DocumentLinkParams) -> Result<Option<Vec<DocumentLink>>> {
+        self.answering("textDocument/documentLink", |state| {
+            Ok(crate::links::document_links(
+                state,
+                &params.text_document.uri,
+            ))
+        })
+        .await
+    }
+
     async fn semantic_tokens_full(
         &self,
         params: SemanticTokensParams,

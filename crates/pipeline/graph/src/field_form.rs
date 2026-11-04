@@ -13,7 +13,7 @@ use specforge_common::SourceSpan;
 use specforge_common::find_close_match;
 use specforge_common::shape::{Definitions, Shape};
 use specforge_parser::{FieldEntry, FieldValue, ListItem, Written};
-use specforge_protocol_types::{FieldType, FieldWriter, FileBase};
+use specforge_protocol_types::{FieldType, FieldWriter, Root};
 
 use crate::Graph;
 
@@ -102,7 +102,7 @@ pub struct FieldForm {
     /// An integer's least and greatest value, inclusive.
     bounds: (Option<i64>, Option<i64>),
     /// Where a file field's relative paths start.
-    base: FileBase,
+    base: Root,
     /// A member's `required`: present in each written item. The top level keeps E006's host rule.
     required: bool,
     /// Who writes it besides its author (ADR 0287).
@@ -142,7 +142,7 @@ impl FieldForm {
             targets: Vec::new(),
             members: None,
             bounds: (None, None),
-            base: FileBase::Spec,
+            base: Root::Spec,
             required: false,
             writer: None,
             history: (false, false),
@@ -173,7 +173,7 @@ impl FieldForm {
     }
 
     /// The same form, whose file paths start at `base`.
-    pub fn based(mut self, base: FileBase) -> Self {
+    pub fn based(mut self, base: Root) -> Self {
         self.base = base;
         self
     }
@@ -237,8 +237,8 @@ impl FieldForm {
     }
 
     /// Where a file field's relative paths start.
-    pub fn base(&self) -> FileBase {
-        self.base
+    pub fn base(&self) -> &Root {
+        &self.base
     }
 
     /// Whether a member is required in each written item.

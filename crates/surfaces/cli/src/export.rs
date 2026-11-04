@@ -46,6 +46,11 @@ pub(crate) struct Args {
     #[arg(long, conflicts_with = "no_schema")]
     with_schema: bool,
 
+    /// Give each entity in a `graph` or `context` export its checked values' outcomes as `checks`. Plain values
+    /// otherwise.
+    #[arg(long)]
+    with_checks: bool,
+
     /// Fail unless a reader of this schema version reads the export: the same major version, not newer than the project's schema
     #[arg(long)]
     schema_version: Option<String>,
@@ -80,6 +85,7 @@ impl Args {
             schema: export::Schema::of_flags(self.with_schema, self.no_schema)?,
             schema_version: self.schema_version.as_deref(),
             coverage: None,
+            with_checks: self.with_checks,
         })
     }
 

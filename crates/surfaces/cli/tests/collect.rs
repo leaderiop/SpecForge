@@ -269,3 +269,18 @@ mod tests {
         "{text}"
     );
 }
+
+#[test]
+fn collect_takes_an_effects_mode() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd(&["collect", "--yes", "--effects", "cached"])
+        .assert()
+        .success();
+    assert!(fixture.ran());
+    fixture
+        .cmd(&["collect", "--effects", "sometimes"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("sometimes"));
+}

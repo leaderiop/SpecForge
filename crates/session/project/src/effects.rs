@@ -6,16 +6,18 @@ use std::path::Path;
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectRoot, codes};
-use specforge_effects::mode::{Approved, Log};
+use specforge_effects::mode::Log;
 use specforge_effects::{
-    Consent, EffectJournal, Effects, EffectsMode, Grant, Ports, Provenance, Roots,
+    Approval, Consent, EffectJournal, Effects, EffectsMode, Grant, NoConsent, Ports, Provenance,
+    RootApproval, Roots,
 };
-use specforge_protocol_types::Operation;
 
 use crate::{Environment, SharedRuntime};
 
 /// The effects of a run of `env`, the project at `root`, in `mode`, through `ports`, over its effects journal (a
-/// loose root's is the user's). `auto` performs what a grant of `env` permits under `consent`; only `auto` reads it.
+/// loose root's is the user's). A live mode judges each request by the grant of the extension asking: under `consent`
+/// in `auto`, the only mode that reads it; `online` is the person's approval for the run, so what the extension
+/// declares and the ceiling still decide.
 pub fn of(
     mode: EffectsMode,
     ports: &Ports,
@@ -23,31 +25,22 @@ pub fn of(
     root: &ProjectRoot,
     consent: &dyn Consent,
 ) -> Effects {
-    let approved: Approved = if mode == EffectsMode::Auto {
-        approved_by(grants(env, root.dir(), consent))
-    } else {
-        Arc::new(|_| false)
+    let grants = match mode {
+        EffectsMode::Auto => grants(env, root.dir(), consent),
+        EffectsMode::Online => grants(env, root.dir(), &NoConsent)
+            .into_iter()
+            .map(Grant::approved_all)
+            .collect(),
+        EffectsMode::Cached | EffectsMode::Replay => Vec::new(),
     };
-    Effects::of(mode, ports.clone(), approved, EffectJournal::for_root(root))
+    Effects::of(mode, ports.clone(), grants, EffectJournal::for_root(root))
 }
 
 /// The effects of a call lent `ports` in `mode`, over the journal of `root` (none: detached). A guest's request reaches
-/// them only once its grant permitted it, so what `auto` performs is already decided.
+/// them only once its grant permitted it ([`Effects::serve_lent`]), so they hold no grants of their own.
 pub fn lent(mode: EffectsMode, ports: &Ports, root: Option<&ProjectRoot>) -> Effects {
     let journal = root.map_or_else(EffectJournal::detached, EffectJournal::for_root);
-    Effects::of(mode, ports.clone(), Arc::new(|_| true), journal)
-}
-
-/// Whether one of `grants` permits a request. shortcut: a request names no call kind, so any kind answers; plan 05's
-/// value checks name `Operation::CheckValues` here.
-fn approved_by(grants: Vec<Grant>) -> Approved {
-    Arc::new(move |request| {
-        grants.iter().any(|grant| {
-            Operation::ALL
-                .iter()
-                .any(|op| grant.permits(*op, request).is_ok())
-        })
-    })
+    Effects::of(mode, ports.clone(), Vec::new(), journal)
 }
 
 /// Where `extension`'s code came from: as the runtime loaded it, else as the load recorded it. Only an environment
@@ -103,6 +96,40 @@ pub fn environment(
     env.with_effects(effects)
 }
 
+/// The roots beside the project's a request path may name on this machine (ADR 0336 D6): the spec root and the named
+/// roots inside the project, and those outside it `consent` approved, a spec root outside it among them. An unusable
+/// store approves nothing.
+pub fn reachable_roots(
+    env: &Environment,
+    root: &Path,
+    consent: &dyn Consent,
+) -> Vec<(String, std::path::PathBuf)> {
+    let project = specforge_effects::grant::project_key(root);
+    let mut roots = Vec::new();
+    if !env.effects_allowed().spec_outside() {
+        roots.push(("spec".to_string(), env.spec_root().to_path_buf()));
+    }
+    for named in &env.effects_allowed().roots {
+        let Some(target) = &named.target else {
+            continue;
+        };
+        let approved = || {
+            consent
+                .approved(&Approval::Root(RootApproval {
+                    project: project.clone(),
+                    root: named.name.clone(),
+                    target: target.display().to_string(),
+                    approved_at: Default::default(),
+                }))
+                .unwrap_or(false)
+        };
+        if named.inside || approved() {
+            roots.push((named.name.clone(), target.clone()));
+        }
+    }
+    roots
+}
+
 /// I206, once per compile: how many effects `log` counts as not performed, by scope (`links 2, registries 3`);
 /// none when every one was. A `machine` diagnostic: `--strict` never promotes it.
 pub fn not_run(log: &Log) -> Option<Diagnostic> {
@@ -122,7 +149,7 @@ pub fn not_run(log: &Log) -> Option<Diagnostic> {
             codes::I206,
             format!(
                 "{total} value check{plural} not run on this machine ({}): offline, cached mode with no fresh \
-                 result, or not approved",
+                 result, not approved, or over the run's budget",
                 scopes.join(", ")
             ),
         )

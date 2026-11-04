@@ -5,7 +5,9 @@
 use std::collections::BTreeMap;
 
 use serde_json::Value;
-use specforge_protocol_types::{FileMap, Input, Inputs, RawGraph, ServedSlash, StateView};
+use specforge_protocol_types::{
+    CheckOutcome, FileMap, Input, Inputs, RawGraph, ServedSlash, StateView,
+};
 
 use crate::view::ProjectView;
 
@@ -57,6 +59,15 @@ impl<'v, 'p> Serve<'v, 'p> {
     pub(crate) fn slash_commands(&self) -> Vec<ServedSlash> {
         if self.inputs.slash_commands() {
             crate::host::render::served_slashes(self.view)
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Each checked value's outcome, for the `check_outcomes` input: the rows of the run the view compiled (ADR 0336).
+    pub(crate) fn check_outcomes(&self) -> Vec<CheckOutcome> {
+        if self.inputs.check_outcomes() {
+            self.view.project().value_checks().outcomes()
         } else {
             Vec::new()
         }

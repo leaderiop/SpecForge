@@ -12,6 +12,8 @@ reqwest = { workspace = true }
 rustls = { workspace = true }
 rustls-platform-verifier = { workspace = true }
 url = "2.5"
+# The facts a TLS probe reads of a certificate an untrusted server sent.
+x509-cert = { version = "0.2", default-features = false }
 # The resolver's blocking lookup runs on the client's runtime as `spawn_blocking`.
 tokio = { workspace = true }
 

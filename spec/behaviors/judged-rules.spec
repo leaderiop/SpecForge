@@ -92,7 +92,8 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a proof the store does not hold leaves the input unjudged, and one the store lost stales it"
   verify unit "a cited entity is digested by the resolution that accepted it"
   verify unit "a cited file outside the project is not read"
-  verify unit "a file input that links out of the project digests as unreadable"
+  verify unit "a judged file input through a link out of the project digests as outside_project and is not read"
+  verify unit "a judged file input reads a spec-prefixed path from the spec root"
   verify unit "a file input that only a case variant on disk matches digests as absent on every OS"
   verify unit "a spec source that declares nothing digests as its bytes"
   verify unit "a reference digests as the graph links it"
@@ -103,6 +104,7 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a checked value whose outcome class changes stales the verdict that read it"
   verify unit "a value rechecked later with the same outcome class stales nothing"
   verify unit "a checked value's outcome is digested by its fixed tag, never by how it is shown"
+  verify unit "a verdict over a checked value digests its outcome class"
 }
 
 behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {

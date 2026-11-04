@@ -311,7 +311,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 
 ### Fields
 
-`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `file_reference()` (string values are file paths) and `file_base(FileBase::Project)` (relative paths start at the project root, not the spec root), `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is) and `enum_list(&V)` (a list of a vocabulary's values, each once). Who writes the field is declared too (ADR 0287): `computed()` (a compute pass gives the value; one written by hand is E082), `harness()` (a command's plan sets it and the host records it in `specforge-harness`; E083 without a line), `immutable()` (a value that differs from its git baseline is E084) and `append_only()` (a list that rewrites its baseline's items is E085; a kind's `append_only()` makes removing an entity E085). A pass declares `compute()` and `computes(&["kind.field"])` to answer `PassOutput.values` (`PassValue { entity, field, value }`), and `baseline(&["kind"])` for the kinds it reads as `previous`. `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
+`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `file_reference()` (string values are file paths) and `file_base(FileBase::Project)` (relative paths start at the project root, not the spec root), `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is), `enum_list(&V)` (a list of a vocabulary's values, each once), and the checks its values pass (ADR 0336, see [Value checkers](#value-checkers)): `check(checker)`, `check_with(checker, args)`, `any_of([CheckRef::named(..), ..])` and `file(Root::Spec)`, the `file` check of `@specforge/checks` with that root. Who writes the field is declared too (ADR 0287): `computed()` (a compute pass gives the value; one written by hand is E082), `harness()` (a command's plan sets it and the host records it in `specforge-harness`; E083 without a line), `immutable()` (a value that differs from its git baseline is E084) and `append_only()` (a list that rewrites its baseline's items is E085; a kind's `append_only()` makes removing an entity E085). A pass declares `compute()` and `computes(&["kind.field"])` to answer `PassOutput.values` (`PassValue { entity, field, value }`), and `baseline(&["kind"])` for the kinds it reads as `previous`. `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
 
 | `FieldType` | Holds |
 |---|---|
@@ -588,8 +588,47 @@ let mut output = CollectOutput { entity_results: vec![], ..Default::default() };
 output.facts.push(Fact::new("test", "js:pkg/a.test.js#adds").title("adds").field("file", "pkg/a.test.js"));
 ```
 
+`k.input(Input::CheckOutcomes)` makes it a reader of the checks' outcomes (ADR 0336), its evidence
+`CollectInput::check_outcomes`: it needs no command and no report, is never detected, and runs when `--runner` names it or
+under `checks.publish`.
+
 `CollectInput::cwd` holds the project root for every collector, so a handler can name a report's files from the
 root.
+
+### Value checkers
+
+A checker reads one value of a field that names it, and may ask the host to look at the world for it (ADR 0336). Its two
+phases are pure: `plan` answers from the text, findings or probes, and `judge` from what the probes answered. Neither
+performs an effect, and the host contains every path before a guest hears about it.
+
+```rust
+c.code("E901", |d| { d.title("A dead page").explanation("The page does not answer."); });
+c.capability(Capability::http("links").hosts(&["*.example.com"]).why("check that the docs answer"));
+c.checker("page", |k| {
+    k.applies_to(&["string"])
+        .scope("links")                     // the capability its probes use; none: a pure checker
+        .codes(&["E901"])                   // every code a finding may carry, each catalogued
+        .value(ValueForm::Url)              // for the editor only: document links
+        .plan(|item: &CheckItem| {
+            PlannedItem::probes(vec![Probe::HttpHead { url: item.text.clone(), redirects: 0 }])
+        })
+        .judge(|item: &CheckItem| {
+            let dead = item.outcomes.iter().any(|o| o.class != OutcomeClass::Ok);
+            dead.then(|| CheckFinding::new("E901", format!("{} does not answer", item.text)))
+                .into_iter()
+                .collect()
+        });
+});
+c.kind("service", |k| {
+    k.keyword("service");
+    k.field("docs", |f| { f.field_type(FieldType::String).check("page"); });
+});
+```
+
+`arg(name, |a| ..)` declares an argument, as a setting declares its form; none may be named `severity`, since a gentler
+reading is another code the checker lists. `root_arg(name)` says which argument names a bare path's default root.
+`check` names the extension's own checker by its name and another extension's as `@acme/x:name`, a declared peer. See
+[Category: checkers](extension-protocol.md#category-checkers) for the phases, the probes and the codes the host reports.
 
 ### Compiler passes
 

@@ -259,6 +259,7 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "an absolute file reference is E094"
   verify unit "a file reference through a link out of its root is E094"
   verify unit "a file reference whose case differs from the disk is W174 naming the disk's spelling"
+  verify unit "a name read from the disk or a value's escape reaches E016 and W174 printable"
   verify unit "a missing file reference outside its root suggests no name from outside it"
   verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass, paths_contained, case_reported"
 }
@@ -473,4 +474,54 @@ behavior check_collected_kinds "Check Collected Kinds" {
   """
   produces []
   verify unit "an entity of a kind a collector writes, written in a spec file, is E115"
+}
+
+behavior check_field_values "Check Field Values" {
+  category   validation
+  invariants [validation_pipeline_ordering]
+  ports      [FileSystem]
+  consumes   [graph_built]
+  contract   """
+    Every value of a field that declares checks is given to its checkers. A checker
+    plans from the text alone, or names the effects it needs (probes) and judges what
+    they answered; its findings land on the value, under its extension's namespace.
+    What this machine did not perform is not judged, and nothing goes red for it.
+  """
+  verify unit "a pure checker's finding is on the list item it read"
+  verify unit "a finding's byte range points inside the quotes of the value"
+  verify unit "a code the checker did not declare is W150 and the finding is kept"
+  verify unit "a failing checker is E028 once per run and its values are not judged"
+  verify unit "any_of passes when one branch yields no error-level finding"
+  verify unit "a check on a block member reads each written item"
+  verify unit "a probe outside its checker's scopes is E090 and not performed"
+  verify unit "two values naming one URL make one request"
+  verify unit "a later check's probes are dropped after an earlier error"
+  verify unit "a value whose probe was not performed is not judged and counts toward I206"
+  verify unit "only the scopes these values use are asked for with W170"
+  verify unit "a dns probe runs through the Http port under its checker's scope"
+  verify unit "a file value that leaves its root is E094 on the value"
+  verify unit "a missing file suggests no name from outside its root"
+  verify unit "one extension's approval approves no other extension's request"
+  verify unit "a capability approved for another kind of call does not approve a check request"
+  verify unit "a redirect to a host outside the grant is refused on the checker's path"
+  verify unit "an answer read from the journal is the answer a live request gave"
+  verify unit "a git probe this machine cannot answer is not judged"
+  verify unit "a git probe asks the Git port and needs no journal"
+  verify unit "a file probe reads a held prefix, and a walk stays under its root"
+  verify unit "a checker asked again in a later run is not called"
+  verify unit "changed args miss the checker cache"
+  verify unit "changed settings miss the checker cache"
+  verify unit "a new blob digest misses the checker cache"
+  verify unit "a cold run reads the checker cache from disk"
+  verify unit "a detached project writes no checker cache"
+  verify unit "a record fetched with one extension's secret answers no other extension in any mode"
+  verify unit "a 401 one extension was answered does not answer another"
+  verify unit "a committed effect record or checker memo forges no pass"
+  verify unit "a spec root outside the project is an outside root a probe needs approval to read"
+  verify unit "what is over a run's budget is not run and counts toward I206 as budget"
+  verify unit "a judge call stays inside its guest's memory limit"
+  verify unit "an escape sequence in a probe's answer reaches a finding printable"
+  verify unit "a checker's memo read from disk reaches a finding printable"
+  verify unit "a spec string's escape reads no control character but a newline, a tab or a return"
+  verify unit "a redirect one extension's grant permits reaches no other extension without its own grant"
 }

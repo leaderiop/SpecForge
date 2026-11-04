@@ -25,6 +25,14 @@ pub trait Disk {
     /// most 64 MiB is read (ADR 0264): anything else is an error naming what
     /// it is.
     fn read(&self, path: &Path) -> io::Result<Vec<u8>>;
+    /// The first `max` bytes of the file [`Self::read`] would read, and how long it is. The default reads it all; the
+    /// plain file system reads only those. A session records it as it records a read.
+    fn read_prefix(&self, path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
+        let mut bytes = self.read(path)?;
+        let length = bytes.len() as u64;
+        bytes.truncate(usize::try_from(max).unwrap_or(usize::MAX));
+        Ok((bytes, length))
+    }
     /// [`Self::read`] of a file the git baseline is named by (`HEAD`, a ref, `packed-refs`): a session records it
     /// as an input of its own kind, watched through its directory's own entries (ADR 0287).
     fn read_ref(&self, path: &Path) -> io::Result<Vec<u8>> {
@@ -72,6 +80,11 @@ pub struct FileStamp {
 }
 
 impl FileStamp {
+    /// The file's length in bytes.
+    pub fn size(&self) -> u64 {
+        self.len
+    }
+
     /// The stamp of `bytes`, whatever file held them: their length and hash.
     pub fn of(bytes: &[u8]) -> Self {
         Self {
@@ -105,6 +118,10 @@ impl Disk for PlainDisk {
 
     fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
         specforge_common::regular::read(path)
+    }
+
+    fn read_prefix(&self, path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
+        specforge_common::regular::read_prefix(path, max)
     }
 
     fn is_dir(&self, path: &Path) -> bool {

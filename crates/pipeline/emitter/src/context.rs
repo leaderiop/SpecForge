@@ -37,10 +37,13 @@ pub(crate) struct ContextNode {
     /// The written paths of the fields and members in `fields` a compute pass gave (ADR 0287); omitted when none.
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     computed: BTreeSet<String>,
+    /// Each checked value's outcome (ADR 0336), when the export was asked for them; omitted when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    checks: Vec<crate::json::ValueCheckJson>,
 }
 
 /// Keys a context node has of its own, which no headline field may take.
-const NODE_KEYS: [&str; 9] = [
+const NODE_KEYS: [&str; 10] = [
     "id",
     "kind",
     "title",
@@ -50,6 +53,7 @@ const NODE_KEYS: [&str; 9] = [
     "methods",
     "coverage_status",
     "computed",
+    "checks",
 ];
 
 /// The fields of `node` its extension declares `headline`, as their field text
@@ -108,6 +112,7 @@ pub(crate) fn context_node(
     registry: &FieldRegistry,
     coverage_status: Option<Status>,
     computed: Option<&Computed>,
+    checks: Option<&BTreeMap<String, Vec<crate::json::ValueCheckJson>>>,
 ) -> ContextNode {
     let headline = headline_fields(n, registry);
     let Members {
@@ -133,5 +138,9 @@ pub(crate) fn context_node(
         fields,
         coverage_status,
         computed,
+        checks: checks
+            .and_then(|all| all.get(n.id.raw.as_str()))
+            .cloned()
+            .unwrap_or_default(),
     }
 }

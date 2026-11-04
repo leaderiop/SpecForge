@@ -676,3 +676,38 @@ fn enum_and_bool_values_are_classified() {
         "other identifier values stay unclassified"
     );
 }
+
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "a checked value has the checked modifier"
+)]
+fn a_checked_value_has_the_checked_modifier() {
+    let build = registries("@test/ext", |c| {
+        c.checker("plain", |k| {
+            k.applies_to(&["string"])
+                .plan(|_: &specforge_extension_sdk::prelude::CheckItem| {
+                    specforge_extension_sdk::prelude::PlannedItem::findings(Vec::new())
+                });
+        });
+        c.kind("svc", |k| {
+            k.keyword("svc");
+            k.field("home", |f| {
+                f.field_type(FieldType::String).check("plain");
+            });
+            k.field("note", |f| {
+                f.field_type(FieldType::String);
+            });
+        });
+    });
+    let tokens = tokens_of("svc a \"A\" {\n  home \"x\"\n  note \"y\"\n}\n", build);
+    let modifiers = |text: &str| {
+        tokens
+            .iter()
+            .find(|token| token.text == text)
+            .unwrap_or_else(|| panic!("no token {text}: {tokens:?}"))
+            .modifiers
+    };
+    assert_eq!(modifiers("\"x\""), specforge_lsp::MOD_CHECKED);
+    assert_eq!(modifiers("\"y\""), 0);
+    assert_eq!(modifiers("\"A\""), 0);
+}

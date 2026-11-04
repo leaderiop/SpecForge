@@ -322,3 +322,15 @@ fn read_only_command_tools_keep_their_annotations_and_schema() {
         );
     }
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_export_tool",
+    verify = "specforge.export advertises with_checks, as specforge export takes --with-checks"
+)]
+fn the_export_tool_advertises_with_checks() {
+    let tool = specforge_mcp::tools::core_tool("specforge.export").unwrap();
+    assert_eq!(
+        tool.input_schema()["properties"]["with_checks"]["type"],
+        "boolean"
+    );
+}

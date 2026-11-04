@@ -341,11 +341,35 @@ expression: listing
           ],
           "type": "object"
         },
+        "SchemaCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "any_of": {
+              "items": {
+                "$ref": "#/$defs/SchemaCheck"
+              },
+              "type": "array"
+            },
+            "args": {
+              "type": "object"
+            },
+            "checker": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "SchemaField": {
           "additionalProperties": false,
           "properties": {
             "append_only": {
               "type": "boolean"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/$defs/SchemaCheck"
+              },
+              "type": "array"
             },
             "default_value": {
               "type": "string"
@@ -473,6 +497,52 @@ expression: listing
           ],
           "type": "object"
         },
+        "ValueCheckJson": {
+          "additionalProperties": false,
+          "properties": {
+            "checker": {
+              "type": "string"
+            },
+            "codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "field": {
+              "type": "string"
+            },
+            "from_cache": {
+              "type": "boolean"
+            },
+            "item": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observed_at": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "outcome": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "item",
+            "value",
+            "checker",
+            "status",
+            "from_cache"
+          ],
+          "type": "object"
+        },
         "VerdictJson": {
           "additionalProperties": false,
           "properties": {
@@ -526,6 +596,12 @@ expression: listing
                       "type": "array"
                     },
                     "type": "object"
+                  },
+                  "checks": {
+                    "items": {
+                      "$ref": "#/$defs/ValueCheckJson"
+                    },
+                    "type": "array"
                   },
                   "computed": {
                     "items": {
@@ -651,6 +727,12 @@ expression: listing
                       "type": "array"
                     },
                     "type": "object"
+                  },
+                  "checks": {
+                    "items": {
+                      "$ref": "#/$defs/ValueCheckJson"
+                    },
+                    "type": "array"
                   },
                   "computed": {
                     "items": {
@@ -1373,6 +1455,11 @@ expression: listing
           "description": "Scope to entity subgraph",
           "type": "string"
         },
+        "with_checks": {
+          "default": false,
+          "description": "Give each entity in a graph or context export its checked values' outcomes as `checks` (ADR 0336); without it, plain values",
+          "type": "boolean"
+        },
         "with_schema": {
           "default": false,
           "description": "Embed the Graph Protocol schema in a context, brief or budgeted graph export (a full graph export embeds it already); under max_tokens it counts toward the budget",
@@ -2029,11 +2116,35 @@ expression: listing
     },
     "outputSchema": {
       "$defs": {
+        "SchemaCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "any_of": {
+              "items": {
+                "$ref": "#/$defs/SchemaCheck"
+              },
+              "type": "array"
+            },
+            "args": {
+              "type": "object"
+            },
+            "checker": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "SchemaField": {
           "additionalProperties": false,
           "properties": {
             "append_only": {
               "type": "boolean"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/$defs/SchemaCheck"
+              },
+              "type": "array"
             },
             "default_value": {
               "type": "string"
@@ -3089,6 +3200,52 @@ expression: listing
           ],
           "type": "object"
         },
+        "ValueCheckJson": {
+          "additionalProperties": false,
+          "properties": {
+            "checker": {
+              "type": "string"
+            },
+            "codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "field": {
+              "type": "string"
+            },
+            "from_cache": {
+              "type": "boolean"
+            },
+            "item": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observed_at": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "outcome": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "item",
+            "value",
+            "checker",
+            "status",
+            "from_cache"
+          ],
+          "type": "object"
+        },
         "VerdictJson": {
           "additionalProperties": false,
           "properties": {
@@ -3123,6 +3280,12 @@ expression: listing
             "type": "array"
           },
           "type": "object"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/ValueCheckJson"
+          },
+          "type": "array"
         },
         "computed": {
           "items": {
@@ -6290,6 +6453,40 @@ expression: listing
                     "name",
                     "scope",
                     "why"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "checkers": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "applies_to": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "codes": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "scopes": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "applies_to"
                   ],
                   "type": "object"
                 },

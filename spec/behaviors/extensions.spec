@@ -619,6 +619,7 @@ behavior list_installed_extensions "List Installed Extensions" {
     entries and the kinds the graph uses).
     Output order MUST be deterministic (alphabetical by extension name).
   """
+  verify unit "the extensions listing names each checker"
   verify unit "list shows all installed extensions"
   verify unit "list includes entity counts and entity types"
   verify unit "output order is deterministic"

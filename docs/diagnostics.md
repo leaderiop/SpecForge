@@ -390,19 +390,19 @@ entry writes, the name of a builtin, or an extension another entry already
 loads); its handshake or one of its describe categories failed or does not
 parse, so its declaration cannot be read (`specforge add` and `specforge
 publish` refuse such a binary); or a call the host makes on the loaded extension
-failed. The host calls thirteen exports: the handshake and describe, a command,
+failed. The host calls fourteen exports: the handshake and describe, a command,
 an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator,
 a scanner, the migration hook, an MCP prompt, the renderer of an agent's or
-skill's body and a hook. Each call fails when the export traps (a limit of its
-sandbox included: its time, its fuel or its memory, the trap naming which), when
-the extension does not route it, or when it answers output that is not the
-protocol type the operation owes (a collector's test whose status is not
-`passed`, `failed` or `skipped`, say); the message names the operation, the
-export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What
-the failure costs is the operation's: a check pass's is the compile's error, an
-analyze pass's a finding of that pass, a scanner's makes `infer` approximate.
-Report the failure to the extension's author, and confirm the extension is
-installed and up to date.
+skill's body, a hook and a value checker. Each call fails when the export traps
+(a limit of its sandbox included: its time, its fuel or its memory, the trap
+naming which), when the extension does not route it, or when it answers output
+that is not the protocol type the operation owes (a collector's test whose
+status is not `passed`, `failed` or `skipped`, say); the message names the
+operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
+...`). What the failure costs is the operation's: a check pass's is the
+compile's error, an analyze pass's a finding of that pass, a scanner's makes
+`infer` approximate. Report the failure to the extension's author, and confirm
+the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -2056,12 +2056,13 @@ I206: Value checks not run
 
 Some value checks were not run on this machine (ADR 0337): the run was offline,
 in `cached` mode with no fresh record in the effects journal
-(`.specforge/effects/`), or the effect was not approved here. One summary per
-compile counts them by scope (`links 2, registries 3`). The values are left
-unchecked, not failed, and nothing is wrong with the project. Run `specforge
-check` at a terminal (it runs `--effects auto`), or `--effects online`, to
-perform them. A `machine` diagnostic: `--strict` never promotes it, and the
-gate's warning baseline never counts it.
+(`.specforge/effects/`), the effect was not approved here, or the run's budget
+was spent (scope `budget`: too many probes on one value, too long, or too many
+bytes). One summary per compile counts them by scope (`links 2, registries 3`).
+The values are left unchecked, not failed, and nothing is wrong with the
+project. Run `specforge check` at a terminal (it runs `--effects auto`), or
+`--effects online`, to perform them. A `machine` diagnostic: `--strict` never
+promotes it, and the gate's warning baseline never counts it.
 
 Owner: core
 Level: info
@@ -2796,14 +2797,20 @@ Level: warning
 ## W019
 
 ```
-W019: Unknown field type
+W019: Unknown field type or checker
 
 An extension manifest declares a field whose `field_type` value the compiler
 doesn't recognize (it must be one of `string`, `integer`, `bool`, `date`,
 `enum`, `enum_list`, `identifier`, `string_list`, `reference`, `reference_list`,
 `block` or `block_list`); a member of a block or block list is a field and is
-read the same way, and one with an unknown type is dropped. Correct the field's
-`field_type` in the manifest.
+read the same way, and one with an unknown type is dropped. Or a field names a
+value checker that leads nowhere: no loaded extension is the one it names, the
+extension declares no checker of that name, a name without an extension is not
+the declaring extension's own checker, another extension's checker is used
+without declaring it a peer, or an `any_of` branch names nothing. The check is
+dropped. A checker of an optional peer the project does not load is no mistake:
+its check is inert. Correct the field's `field_type` or the check's name,
+declare the peer, or enable the extension.
 
 Owner: core
 Level: warning
@@ -2911,9 +2918,9 @@ served, a collector's included, or a second one of a kind served once (`tests`,
 `state`, `graph`, `slash_commands`, `git`), a `setting` input naming the call's
 own extension or no extension and setting, and a `files` input whose name is no
 word or is repeated, that names neither or both of `field` and `glob`, a `field`
-that is not `kind.field` or that no loaded extension declares, a `base` on a
-glob or other than `spec` or `project`, and a glob that is empty, absolute,
-climbs with `..`, or has more than four `**` segments.
+that is not `kind.field` or that no loaded extension declares, a `root` on a
+glob or that is no root's name, and a glob that is empty, absolute, climbs with
+`..`, or has more than four `**` segments.
 
 Owner: core
 Level: warning
@@ -3987,15 +3994,15 @@ Level: warning
 W170: Effects not approved on this machine
 
 A capability an extension uses here (an HTTP request, a command, a write) needs
-this machine's approval and has none (ADR 0335 D2.4), or a named root it reads
-lies outside the project and is not approved. Approvals are per machine and per
-project, kept in `~/.specforge/consent.json`, never in the project: a builtin's
-by its name, a third-party extension's by the digest of its blob, so a new blob
-asks again, as does a wider scope. Only the scopes the run uses are listed.
-Approve them with `specforge grants approve <extension> <scope>...` (`--root
-<name>` for a root), or pass `--yes` to allow them for one run. A `machine`
-diagnostic: `--strict` never promotes it, and the gate's warning baseline never
-counts it.
+this machine's approval and has none (ADR 0335 D2.4), or a root it reads (a
+named one, or the spec root) lies outside the project and is not approved.
+Approvals are per machine and per project, kept in `~/.specforge/consent.json`,
+never in the project: a builtin's by its name, a third-party extension's by the
+digest of its blob, so a new blob asks again, as does a wider scope. Only the
+scopes the run uses are listed. Approve them with `specforge grants approve
+<extension> <scope>...` (`--root <name>` for a root), or pass `--yes` to allow
+them for one run. A `machine` diagnostic: `--strict` never promotes it, and the
+gate's warning baseline never counts it.
 
 Owner: core
 Level: warning
@@ -4064,6 +4071,30 @@ directory such as `/tmp` is refused), or there is no home directory to hold it
 and nothing is written over it: an approval given now is not kept. The message
 names the file and why. Fix the file or move it away, update specforge, or point
 `SPECFORGE_CONSENT_FILE` at an absolute path outside the project.
+
+Owner: core
+Level: warning
+```
+
+## W189
+
+```
+W189: Check or checker the registry refuses
+
+An extension declares a value checker or a field's check the host cannot run,
+and it is dropped while the rest of the declaration is kept. A checker: a name
+that is not snake_case or is declared twice, an `applies_to` naming a type that
+holds no value a checker reads (it reads `string`, `string_list`, `identifier`,
+`date` and `integer`), an argument named `severity` (severity is a code: give an
+enum argument whose values select one code each, and list both codes) or of a
+form a setting cannot have, a scope the extension declares no capability for, a
+code its catalogue lacks, a `value` other than `text`, `url` or `path`, a
+`root_arg` that is none of its arguments or sits on a checker whose values are
+not paths. A check: a field type its checker does not read, a `computed` or
+`verdict` field or a field of a kind a collector writes (their values are not
+authored), arguments the checker's schema refuses, or an `any_of` with fewer
+than two branches or nested. Also a `file_reference` on a field that is not
+text. Correct the declaration in the extension's source and rebuild it.
 
 Owner: core
 Level: warning
