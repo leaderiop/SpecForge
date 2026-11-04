@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use specforge_effects::testing::{self, MemoryConsent};
 use specforge_effects::{
-    Approval, Consent, EffectJournal, EffectsCeiling, EnvVar, Grant, Ports, ProcessRequest,
-    Provenance, Roots,
+    Approval, Consent, EffectJournal, Effects, EffectsCeiling, EnvVar, Grant, Ports,
+    ProcessRequest, Provenance, Roots,
 };
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::{ExtensionDeclaration, HostError, Operation};
@@ -99,6 +99,52 @@ fn a_guests_program_starts_from_nothing_but_what_it_needs_and_declares() {
     ] {
         assert!(!seen.contains(name), "{name} reached the program: {seen}");
     }
+}
+
+/// A replayed run is the live one: its exit code and both streams.
+#[test]
+fn a_replay_of_a_run_answers_what_the_live_run_did() {
+    const SCRIPT: &str = "echo out; echo err >&2; exit 3";
+    let dir = tempfile::tempdir().unwrap();
+    let ports = Ports {
+        process: Arc::new(specforge_process::Runner),
+        ..testing::ports()
+    };
+    let session = |effects: Effects| {
+        let roots = Roots::new(dir.path(), dir.path());
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+        c.capability(
+            Capability::process("sh")
+                .argv(&["sh", "-c", SCRIPT])
+                .why("run a script"),
+        );
+        let grant = Grant::decide(
+            &c.declaration(),
+            &Provenance::third_party(b"x"),
+            &EffectsCeiling::default(),
+            &roots,
+            &MemoryConsent::approving_everything(),
+        );
+        let call = PortCall::new(effects, &ports, roots, grant, Vec::new());
+        PortSession::effectful(EXT, Operation::Collect, Some(call), Limits::CEILING)
+    };
+    let script = || ProcessRequest {
+        argv: ["sh", "-c", SCRIPT].map(String::from).to_vec(),
+        ..ProcessRequest::default()
+    };
+    let journal = || EffectJournal::at(dir.path());
+
+    let live = session(Effects::online(ports.clone(), journal()))
+        .process_run(script())
+        .unwrap();
+    assert_eq!(live.exit_code, Some(3));
+    assert_eq!(live.stdout, b"out\n");
+    assert_eq!(live.stderr, b"err\n");
+
+    let replayed = session(Effects::replay(journal()))
+        .process_run(script())
+        .unwrap();
+    assert_eq!(replayed, live);
 }
 
 #[test]

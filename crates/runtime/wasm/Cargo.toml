@@ -35,6 +35,7 @@ specforge-wasm = { path = ".", features = ["testing"] }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 specforge-extension-sdk = { path = "../extension-sdk" }
+tempfile = { workspace = true }
 specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 
 [lints]

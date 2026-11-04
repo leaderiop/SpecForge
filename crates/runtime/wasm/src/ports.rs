@@ -23,6 +23,7 @@ mod fs;
 mod git;
 mod http;
 mod process;
+mod record;
 
 /// What an effectful call is lent: the effects its http and process requests are served through (the mode, the ports
 /// a live mode holds, the journal), the local ports every mode performs, and its extension's grant.
@@ -281,14 +282,14 @@ fn lent_record<'c>(call: &'c PortCall, granted: &'c Granted) -> LentRecord<'c> {
     }
 }
 
-/// `body` as the journal keeps it: its class, its digest and the bytes.
-fn answered(class: OutcomeClass, body: &[u8]) -> Answer {
+/// An answer of `body` as the journal keeps it: its class, the body's digest and `payload` ([`record`]).
+fn answered(class: OutcomeClass, body: &[u8], payload: Vec<u8>) -> Answer {
     Answer {
         outcome: Outcome {
             class,
             digest: Blob::of(body).sha256,
         },
-        payload: Some(body.to_vec()),
+        payload: Some(payload),
     }
 }
 
@@ -318,6 +319,13 @@ fn not_in_journal(request: &EffectRequest) -> HostError {
 
 #[cfg(test)]
 mod tests {
+    use specforge_effects::process::ProcessClass;
+    use specforge_effects::testing::{self, FakeHttp, FakeProcess, MemoryConsent};
+    use specforge_effects::{EffectsCeiling, HttpRequest, Provenance};
+    use specforge_extension_sdk::prelude::{Capability, ContributionsBuilder, ExtensionMeta};
+    use specforge_protocol_types::ProcessRequest;
+    use std::path::Path;
+
     use super::*;
 
     #[test]
@@ -334,6 +342,83 @@ mod tests {
             "{answer:?}"
         );
         assert!(!ran);
+    }
+
+    /// A session of `journal`'s, with most of its port budget spent when `spent`.
+    fn session(effects: Effects, ports: &Ports, root: &Path, spent: bool) -> PortSession {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/a", "1.0.0"));
+        c.capability(Capability::http("api").hosts(&["example.test"]).why("api"));
+        c.capability(Capability::process("run").argv(&["cargo"]).why("run"));
+        let roots = Roots::new(root, root);
+        let grant = Grant::decide(
+            &c.declaration(),
+            &Provenance::third_party(b"x"),
+            &EffectsCeiling::default(),
+            &roots,
+            &MemoryConsent::approving_everything(),
+        );
+        let call = PortCall::new(effects, ports, roots, grant, Vec::new());
+        let mut session =
+            PortSession::effectful("@t/a", Operation::Collect, Some(call), Limits::CEILING);
+        if spent {
+            session.in_ports = Duration::from_millis(PORT_BUDGET_MS - 100);
+        }
+        session
+    }
+
+    /// A clamp to what the budget left shortens what runs: the same request finds its record however much was spent.
+    #[test]
+    fn spending_the_budget_first_does_not_change_a_requests_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let ports = Ports {
+            http: Arc::new(FakeHttp::new().route("https://example.test/a", 200, "answer")),
+            process: Arc::new(FakeProcess::new().answering(
+                "cargo",
+                ProcessClass::Exited(0),
+                "built",
+            )),
+            ..testing::ports()
+        };
+        let journal = || EffectJournal::at(dir.path());
+        let http = || HttpRequest {
+            method: "GET".to_string(),
+            url: "https://example.test/a".to_string(),
+            ..HttpRequest::default()
+        };
+        let process = || ProcessRequest {
+            argv: vec!["cargo".to_string()],
+            ..ProcessRequest::default()
+        };
+        let online = || Effects::online(ports.clone(), journal());
+        let mut live = session(online(), &ports, dir.path(), false);
+        let live_http = live.http(http()).unwrap();
+        let live_process = live.process_run(process()).unwrap();
+
+        let replay = Effects::replay(journal());
+        let mut spent = session(replay, &ports, dir.path(), true);
+        assert_eq!(spent.http(http()).unwrap(), live_http);
+        assert_eq!(spent.process_run(process()).unwrap(), live_process);
+    }
+
+    /// What runs is held to the budget all the same.
+    #[test]
+    fn what_runs_is_held_to_what_the_budget_left() {
+        let dir = tempfile::tempdir().unwrap();
+        let fake = Arc::new(FakeHttp::new().route("https://example.test/a", 200, "answer"));
+        let ports = Ports {
+            http: fake.clone(),
+            ..testing::ports()
+        };
+        let online = Effects::online(ports.clone(), EffectJournal::at(dir.path()));
+        let mut spent = session(online, &ports, dir.path(), true);
+        spent
+            .http(HttpRequest {
+                method: "GET".to_string(),
+                url: "https://example.test/a".to_string(),
+                ..HttpRequest::default()
+            })
+            .unwrap();
+        assert!(fake.requests()[0].timeout_ms <= 100);
     }
 
     #[test]

@@ -120,6 +120,96 @@ fn another_extension_never_reads_a_lent_record_in_cached() {
     );
 }
 
+/// A replayed answer is the live one: its status, kept headers, final URL and body, on a redirect that ended in a 404.
+#[test]
+fn a_replay_answers_what_the_live_call_did() {
+    let target = "https://example.test/moved";
+    let http = Arc::new(FakeHttp::new().redirect(URL, target).route_with(
+        target,
+        404,
+        vec![("etag", "abc")],
+        "not here",
+    ));
+    let mut project = Project::new();
+    project.ports.http = http;
+    let asked = || HttpRequest {
+        keep_headers: vec!["etag".to_string()],
+        max_redirects: 2,
+        ..request("GET")
+    };
+
+    let live = project.online("@t/a").http(asked()).unwrap();
+    assert_eq!(live.status, 404);
+    assert_eq!(live.final_url, target);
+    assert_eq!(live.headers, [("etag".to_string(), "abc".to_string())]);
+
+    assert_eq!(project.replay("@t/a").http(asked()).unwrap(), live);
+    assert_eq!(project.cached("@t/a").http(asked()).unwrap(), live);
+}
+
+/// A response header that can carry a credential reaches the guest live, and is never written to the journal.
+#[test]
+fn the_journal_keeps_no_sensitive_response_header() {
+    let http = Arc::new(FakeHttp::new().route_with(
+        URL,
+        200,
+        vec![("etag", "abc"), ("set-cookie", "session=SECRET-VALUE")],
+        "answer",
+    ));
+    let mut project = Project::new();
+    project.ports.http = http;
+    let asked = || HttpRequest {
+        keep_headers: vec!["etag".to_string(), "set-cookie".to_string()],
+        ..request("GET")
+    };
+
+    let live = project.online("@t/a").http(asked()).unwrap();
+    assert_eq!(live.headers.len(), 2, "{live:?}");
+
+    let replayed = project.replay("@t/a").http(asked()).unwrap();
+    assert_eq!(
+        replayed.headers,
+        [("etag".to_string(), "abc".to_string())],
+        "{replayed:?}"
+    );
+    for entry in walkdir(project.dir.path()) {
+        let kept = String::from_utf8_lossy(&std::fs::read(&entry).unwrap()).into_owned();
+        assert!(
+            !kept.contains("SECRET-VALUE"),
+            "{}: {kept}",
+            entry.display()
+        );
+    }
+}
+
+/// A payload that is no answer the host wrote answers nothing, never an empty success.
+#[test]
+fn a_record_without_its_answer_is_no_answer() {
+    let project = Project::new();
+    project.online("@t/a").http(request("GET")).unwrap();
+    for entry in walkdir(project.dir.path()) {
+        if entry.extension().is_some_and(|e| e == "payload") {
+            std::fs::write(&entry, b"").unwrap();
+        }
+    }
+    let answer = project.replay("@t/a").http(request("GET"));
+    assert_eq!(failed_class(answer), "not_in_journal");
+}
+
+/// Every file under `dir`.
+fn walkdir(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            files.extend(walkdir(&path));
+        } else {
+            files.push(path);
+        }
+    }
+    files
+}
+
 #[test]
 fn replay_serves_an_extension_its_own_record_only() {
     let project = Project::new();

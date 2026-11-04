@@ -6,6 +6,7 @@ use specforge_effects::http::{self, guest_body_cap};
 use specforge_effects::{EffectRequest, OutcomeClass, Served};
 use specforge_protocol_types::{HostError, HttpRequest, HttpResponse};
 
+use super::record::{HttpHead, opened, sealed};
 use super::{
     PortSession, answered, asked_cap, failed, held, lent_record, millis, not_in_journal,
     not_performed, now, out_of_scope,
@@ -20,20 +21,23 @@ impl PortSession {
             allow_private: false,
             secret: None,
             body_cap: asked_cap(request.body_cap, guest_body_cap(u64::from(self.memory_mb))),
-            timeout_ms: asked_cap(
-                request.timeout_ms,
-                millis(http::TIMEOUT_CEILING).min(self.budget_left()),
-            ),
+            timeout_ms: asked_cap(request.timeout_ms, millis(http::TIMEOUT_CEILING)),
             max_redirects: request.max_redirects.min(http::MAX_REDIRECTS),
             ..request
         };
         let asked = EffectRequest::Http(request.clone());
         let lent = lent_record(call, Self::granted(kind, call, &asked)?);
+        // Only what runs is held to what the budget left: a record is found by what was asked.
+        let run = HttpRequest {
+            timeout_ms: request.timeout_ms.min(self.budget_left()),
+            ..request.clone()
+        };
         let mut live = None;
         let served = call.effects.serve_lent(lent, &asked, now(), |ports| {
             let granted = call.grant.http(kind, Arc::clone(&ports.http));
-            let outcome = granted.request(&request, &http::Any);
-            let answer = answered(outcome.class, &outcome.body);
+            let outcome = granted.request(&run, &http::Any);
+            let payload = sealed(&HttpHead::of(&outcome), &[&outcome.body]);
+            let answer = answered(outcome.class, &outcome.body, payload);
             live = Some(outcome);
             answer
         });
@@ -46,14 +50,20 @@ impl PortSession {
                 outcome.final_url,
                 outcome.detail,
             ),
-            (Served::Outcome { answer, .. }, None) => (
-                answer.outcome.class,
-                status_of(answer.outcome.class),
-                Vec::new(),
-                answer.payload.unwrap_or_default(),
-                request.url.clone(),
-                None,
-            ),
+            (Served::Outcome { answer, .. }, None) => {
+                let Some((head, body)) = answer.payload.as_deref().and_then(opened::<HttpHead>)
+                else {
+                    return Err(not_in_journal(&asked));
+                };
+                (
+                    answer.outcome.class,
+                    head.status,
+                    head.headers,
+                    body.to_vec(),
+                    head.final_url,
+                    head.detail,
+                )
+            }
             (Served::Miss, _) => return Err(not_in_journal(&asked)),
             (_, _) => return Err(not_performed(&asked)),
         };
@@ -72,14 +82,5 @@ impl PortSession {
             }
             _ => Err(failed(class, detail)),
         }
-    }
-}
-
-/// The status a journaled class stands for.
-fn status_of(class: OutcomeClass) -> Option<u16> {
-    match class {
-        OutcomeClass::Ok => Some(200),
-        OutcomeClass::Status(status) => Some(status),
-        _ => None,
     }
 }

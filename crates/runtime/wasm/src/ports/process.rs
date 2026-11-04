@@ -5,9 +5,10 @@ use std::sync::Arc;
 use specforge_effects::process::{
     DEADLINE_CEILING, OUTPUT_CAP, Output, ProcessClass, same_variable,
 };
-use specforge_effects::{Denial as Refusal, Denied, EffectRequest, OutcomeClass, Served};
+use specforge_effects::{Denial as Refusal, Denied, EffectRequest, Served};
 use specforge_protocol_types::{EnvVar, HostError, PortScope, ProcessOutput, ProcessRequest};
 
+use super::record::{ProcessHead, opened, sealed};
 use super::{
     PortSession, answered, asked_cap, failed, held, lent_record, millis, not_in_journal,
     not_performed, now, out_of_scope,
@@ -37,9 +38,6 @@ impl PortSession {
             };
             return Err(Self::refused(call, refusal));
         }
-        let mut env = request.env;
-        // Removed after what the guest asked: a program cannot echo a secret into its answer.
-        env.extend(call.secrets.iter().map(EnvVar::removed));
         // What the capability declares is the most it runs for, under the port's ceiling.
         let most = scope
             .deadline_ms
@@ -47,19 +45,32 @@ impl PortSession {
                 u64::from(declared).min(millis(DEADLINE_CEILING))
             });
         let request = ProcessRequest {
-            env,
             output_cap: asked_cap(request.output_cap, self.answer_cap.min(OUTPUT_CAP)),
-            deadline_ms: asked_cap(request.deadline_ms, most.min(self.budget_left())),
+            deadline_ms: asked_cap(request.deadline_ms, most),
             inherit: Some(scope.env.clone()),
             ..request
         };
         let asked = EffectRequest::Process(request.clone());
         let lent = lent_record(call, granted);
+        // What runs differs from what was asked, by which its record is found: it is held to what the budget left, and
+        // a secret's variable is removed after the guest's own, so a program cannot echo it into its answer.
+        let mut env = request.env.clone();
+        env.extend(call.secrets.iter().map(EnvVar::removed));
+        let run = ProcessRequest {
+            env,
+            deadline_ms: request.deadline_ms.min(self.budget_left()),
+            ..request.clone()
+        };
         let mut live = None;
         let served = call.effects.serve_lent(lent, &asked, now(), |ports| {
             let granted = call.grant.process(kind, Arc::clone(&ports.process));
-            let outcome = granted.run(&request, call.roots.project(), Output::Buffer);
-            let answer = answered(outcome.class.outcome(), &outcome.stdout);
+            let outcome = granted.run(&run, call.roots.project(), Output::Buffer);
+            let head = ProcessHead {
+                class: outcome.class.clone(),
+                stderr: outcome.stderr.len() as u64,
+            };
+            let payload = sealed(&head, &[&outcome.stdout, &outcome.stderr]);
+            let answer = answered(outcome.class.outcome(), &outcome.stdout, payload);
             live = Some(outcome);
             answer
         });
@@ -68,13 +79,18 @@ impl PortSession {
                 (outcome.class, outcome.stdout, outcome.stderr)
             }
             (Served::Outcome { answer, .. }, None) => {
-                let class = match answer.outcome.class {
-                    OutcomeClass::Ok => ProcessClass::Exited(0),
-                    OutcomeClass::Exit(code) => ProcessClass::Exited(code),
-                    OutcomeClass::Capped => ProcessClass::OutputCapped,
-                    other => ProcessClass::CannotStart(other.to_string()),
-                };
-                (class, answer.payload.unwrap_or_default(), Vec::new())
+                let replayed = answer.payload.as_deref().and_then(|payload| {
+                    let (head, bytes) = opened::<ProcessHead>(payload)?;
+                    let stdout = bytes
+                        .len()
+                        .checked_sub(usize::try_from(head.stderr).ok()?)?;
+                    let (stdout, stderr) = bytes.split_at(stdout);
+                    Some((head.class, stdout.to_vec(), stderr.to_vec()))
+                });
+                match replayed {
+                    Some(replayed) => replayed,
+                    None => return Err(not_in_journal(&asked)),
+                }
             }
             (Served::Miss, _) => return Err(not_in_journal(&asked)),
             (_, _) => return Err(not_performed(&asked)),

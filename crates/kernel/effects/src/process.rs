@@ -77,7 +77,8 @@ pub enum Shown {
 }
 
 /// How a run ended.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ProcessClass {
     Exited(i32),
     /// Ended by a signal it did not ask for.
