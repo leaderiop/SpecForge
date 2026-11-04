@@ -513,4 +513,7 @@ behavior check_field_values "Check Field Values" {
   verify unit "a new blob digest misses the checker cache"
   verify unit "a cold run reads the checker cache from disk"
   verify unit "a detached project writes no checker cache"
+  verify unit "a record fetched with one extension's secret answers no other extension in any mode"
+  verify unit "a 401 one extension was answered does not answer another"
+  verify unit "a redirect one extension's grant permits reaches no other extension without its own grant"
 }

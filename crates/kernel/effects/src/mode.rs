@@ -237,7 +237,8 @@ impl Effects {
     /// Answer `request` for `asker`, judged by the asker's own grant within its scopes: another extension's approval
     /// approves nothing here, and neither does one for another kind of call. `perform` gets the ports under that grant,
     /// so each redirect is granted again and a secret goes only where the grant attaches it. In a live mode a
-    /// request the grant refuses is not performed and no record answers it.
+    /// request the grant refuses is not performed and no record answers it. In every mode the record is the asker's
+    /// alone ([`RecordDigest::asked_by`]), so a mode that holds no grant still serves no one another's answer.
     pub fn serve_for(
         &self,
         asker: &Asker<'_>,
@@ -246,8 +247,9 @@ impl Effects {
         now: UnixMillis,
         perform: impl FnOnce(&Ports) -> Answer,
     ) -> Served {
+        let digest = RecordDigest::asked_by(asker.extension, request);
         if !self.mode.is_live() || RecordedRequest::of(request).is_none() {
-            return self.answer(scope, request, now, false, perform);
+            return self.answer(scope, request, digest, now, false, perform);
         }
         let grant = self
             .grants
@@ -258,7 +260,7 @@ impl Effects {
             self.count_not_run(scope, 1);
             return Served::NotPerformed(Why::NotApproved);
         };
-        self.answer(scope, request, now, true, |ports| {
+        self.answer(scope, request, digest, now, true, |ports| {
             perform(&Ports {
                 process: grant.process(asker.op, Arc::clone(&ports.process)),
                 http: grant.http(asker.op, Arc::clone(&ports.http)),
@@ -278,13 +280,21 @@ impl Effects {
         now: UnixMillis,
         perform: impl FnOnce(&Ports) -> Answer,
     ) -> Served {
-        self.answer(scope, request, now, false, perform)
+        self.answer(
+            scope,
+            request,
+            RecordDigest::of(request),
+            now,
+            false,
+            perform,
+        )
     }
 
     fn answer(
         &self,
         scope: &str,
         request: &EffectRequest,
+        digest: RecordDigest,
         now: UnixMillis,
         judged: bool,
         perform: impl FnOnce(&Ports) -> Answer,
@@ -292,7 +302,6 @@ impl Effects {
         let Some(shown) = RecordedRequest::of(request) else {
             return Served::Local;
         };
-        let digest = RecordDigest::of(request);
         let found = self.journal.lookup(&digest, now);
         let mut log = self.log_lock();
         if let Some(path) = self.journal.path(&digest) {
@@ -335,7 +344,7 @@ impl Effects {
         drop(log);
         let answer = perform(ports);
         // A journal that cannot be written costs the cache, not the answer.
-        if let Ok(Some((path, record))) = self.journal.keep(request, &answer, now) {
+        if let Ok(Some((path, record))) = self.journal.keep_as(&digest, request, &answer, now) {
             self.log_lock()
                 .consulted
                 .insert(path, journal::expires(&record));
@@ -503,7 +512,7 @@ mod tests {
         );
         assert_eq!(performed.get(), 1);
         assert!(matches!(
-            journal.lookup(&RecordDigest::of(&asked), at(2)),
+            journal.lookup(&RecordDigest::asked_by("the user", &asked), at(2)),
             Lookup::Fresh(_)
         ));
         // Its fresh record answers the next run without the port.
@@ -533,7 +542,7 @@ mod tests {
             }
         ));
         assert_eq!(
-            journal.lookup(&RecordDigest::of(&request), at(2)),
+            journal.lookup(&RecordDigest::asked_by("the user", &request), at(2)),
             Lookup::Missing
         );
         // Granted since: the next run performs it at once.
@@ -546,6 +555,51 @@ mod tests {
             }
         );
         assert_eq!(performed.get(), 2);
+    }
+
+    #[test]
+    fn a_record_answers_only_the_extension_that_asked() {
+        let dir = tempfile::tempdir().unwrap();
+        let journal = EffectJournal::at(dir.path());
+        let request = http("https://example.org/");
+        let scopes = ["http".to_string()];
+        let asker = |extension| Asker {
+            extension,
+            op: Operation::Collect,
+            scopes: &scopes,
+        };
+        let live = Effects::auto(
+            ports(),
+            vec![Grant::user(&Default::default())],
+            journal.clone(),
+        );
+        let performed = Cell::new(0);
+        let ask = |effects: &Effects, extension| {
+            effects.serve_for(&asker(extension), "links", &request, at(1), |_| {
+                performed.set(performed.get() + 1);
+                answer(OutcomeClass::Ok)
+            })
+        };
+        assert!(matches!(ask(&live, "the user"), Served::Outcome { .. }));
+        assert_eq!(performed.get(), 1);
+        for effects in [
+            Effects::cached(journal.clone()),
+            Effects::replay(journal.clone()),
+        ] {
+            assert!(matches!(
+                ask(&effects, "the user"),
+                Served::Outcome {
+                    from_journal: true,
+                    ..
+                }
+            ));
+            assert!(
+                !matches!(ask(&effects, "@other/ext"), Served::Outcome { .. }),
+                "{:?}",
+                effects.mode()
+            );
+        }
+        assert_eq!(performed.get(), 1, "neither mode performs");
     }
 
     #[test]

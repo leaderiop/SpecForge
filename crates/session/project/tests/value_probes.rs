@@ -18,12 +18,12 @@ use specforge_protocol_types::Operation;
 use specforge_registry::PlainDisk;
 use specforge_wasm::testing::InProcessRuntime;
 
-const EXT: &str = "@pin/probes";
-const OTHER: &str = "@pin/other";
-const A_URL: &str = "https://a.example/page";
+pub(crate) const EXT: &str = "@pin/probes";
+pub(crate) const OTHER: &str = "@pin/other";
+pub(crate) const A_URL: &str = "https://a.example/page";
 
 /// Judged: anything but `ok` is an error naming the class.
-fn judged_by_class(item: &CheckItem) -> Vec<CheckFinding> {
+pub(crate) fn judged_by_class(item: &CheckItem) -> Vec<CheckFinding> {
     item.outcomes
         .iter()
         .filter(|outcome| outcome.class != OutcomeClass::Ok)
@@ -31,7 +31,7 @@ fn judged_by_class(item: &CheckItem) -> Vec<CheckFinding> {
         .collect()
 }
 
-fn head(item: &CheckItem) -> PlannedItem {
+pub(crate) fn head(item: &CheckItem) -> PlannedItem {
     PlannedItem::probes(vec![Probe::HttpHead {
         url: item.text.clone(),
         redirects: 5,
@@ -69,7 +69,7 @@ fn told(item: &CheckItem) -> Vec<CheckFinding> {
         .collect()
 }
 
-fn described(c: &mut ContributionsBuilder) {
+pub(crate) fn described(c: &mut ContributionsBuilder) {
     c.code("E001", |d| {
         d.title("A bad value").explanation("A bad value.");
     });
@@ -81,7 +81,7 @@ fn extension_named(name: &str) -> ContributionsBuilder {
     described(&mut c);
     c.capability(Capability::http("links").from_values().why("to ask"));
     c.capability(
-        Capability::http("only_a")
+        Capability::http("only-a")
             .hosts(&["a.example"])
             .why("to ask a"),
     );
@@ -100,7 +100,7 @@ fn extension_named(name: &str) -> ContributionsBuilder {
     });
     c.checker("near_a", |k| {
         k.applies_to(&["string"])
-            .scope("only_a")
+            .scope("only-a")
             .codes(&["E001"])
             .plan(head)
             .judge(judged_by_class);
@@ -230,18 +230,23 @@ fn other() -> ContributionsBuilder {
 }
 
 /// One project, its extensions in-process, over a fake network.
-struct Scene {
-    dir: TestProject,
-    runtime: SharedRuntime,
-    http: Arc<FakeHttp>,
+pub(crate) struct Scene {
+    pub(crate) dir: TestProject,
+    pub(crate) runtime: SharedRuntime,
+    pub(crate) http: Arc<FakeHttp>,
 }
 
 impl Scene {
-    fn new(http: FakeHttp, spec: &str) -> Self {
+    pub(crate) fn new(http: FakeHttp, spec: &str) -> Self {
         Self::with(http, spec, &[EXT], InProcessRuntime::new().with(extension))
     }
 
-    fn with(http: FakeHttp, spec: &str, enabled: &[&str], runtime: InProcessRuntime) -> Self {
+    pub(crate) fn with(
+        http: FakeHttp,
+        spec: &str,
+        enabled: &[&str],
+        runtime: InProcessRuntime,
+    ) -> Self {
         let dir = TestProject::new()
             .config(|c| c["name"] = "p".into())
             .enabling(enabled)
@@ -266,19 +271,19 @@ impl Scene {
     }
 
     /// The project checked in `mode`, approvals read from `consent`.
-    fn checked(&self, mode: EffectsMode, consent: &dyn Consent) -> CompiledProject {
+    pub(crate) fn checked(&self, mode: EffectsMode, consent: &dyn Consent) -> CompiledProject {
         let env = self.env();
         let root = self.dir.project_root();
         let effects = effects::of(mode, &self.ports(), &env, &root, consent);
         CompiledProject::compile_through(env.with_effects(effects), &PlainDisk)
     }
 
-    fn online(&self) -> CompiledProject {
+    pub(crate) fn online(&self) -> CompiledProject {
         self.checked(EffectsMode::Online, &MemoryConsent::default())
     }
 
     /// The approval of `extension`'s capability `scope`, as this project keys it.
-    fn approval(&self, extension: &str, scope: &str) -> Approval {
+    pub(crate) fn approval(&self, extension: &str, scope: &str) -> Approval {
         let env = self.env();
         let grants = effects::grants(&env, self.dir.root(), &MemoryConsent::default());
         let grant = grants
@@ -294,7 +299,7 @@ impl Scene {
     }
 }
 
-fn coded<'a>(project: &'a [Diagnostic], code: &str) -> Vec<&'a Diagnostic> {
+pub(crate) fn coded<'a>(project: &'a [Diagnostic], code: &str) -> Vec<&'a Diagnostic> {
     project.iter().filter(|d| d.code == code).collect()
 }
 
@@ -445,7 +450,7 @@ fn without_approval_only_the_used_scopes_are_asked_w170() {
     let asked = coded(&found, "W170");
     assert_eq!(asked.len(), 1, "{found:?}");
     assert!(asked[0].message.contains("'links'"), "{}", asked[0].message);
-    assert!(!asked[0].message.contains("only_a"), "{}", asked[0].message);
+    assert!(!asked[0].message.contains("only-a"), "{}", asked[0].message);
     assert_eq!(coded(&found, "I206").len(), 1, "{found:?}");
     assert!(scene.http.requests().is_empty());
 }

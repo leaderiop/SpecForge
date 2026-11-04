@@ -86,7 +86,7 @@ pub enum Input {
 ## D3. The effects journal
 
 - **A journal record holds no secret, and its files are private** (ADR 0288): files `0600`, directories `0700`.
-- One record per request digest (ADR 0335 D3), in `<root>/.specforge/effects/journal/<aa>/<hex>.json` (gitignored,
+- One record per request digest (ADR 0335 D3; a value check's digest also names the asking extension, ADR 0336), in `<root>/.specforge/effects/journal/<aa>/<hex>.json` (gitignored,
   per machine); a loose root's records go to the user's `~/.specforge/effects/journal/`. A record's path is built
   only from a `RecordDigest`, `sha256:` and 64 lowercase hex characters. Writes are atomic; the last record of a
   request wins. An unreadable or undecodable record is a miss, overwritten by the next record: the journal is a
