@@ -36,6 +36,17 @@ pub enum CheckStatus {
     NotRun,
 }
 
+impl CheckStatus {
+    /// Its name in every output.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CheckStatus::Passed => "passed",
+            CheckStatus::Failed => "failed",
+            CheckStatus::NotRun => "not_run",
+        }
+    }
+}
+
 /// One checker's reading of one value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValueRow {

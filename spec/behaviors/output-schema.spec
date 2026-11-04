@@ -75,6 +75,7 @@ behavior generate_schema_from_registries "Generate Schema From Registries" {
   verify unit "schema includes all registered entity kinds"
   verify unit "schema includes all registered edge types"
   verify unit "schema fields match FieldRegistry entries"
+  verify unit "a checked field lists its resolved checks, and a member its own"
   verify unit "a field's declared default value reaches the schema"
   verify unit "a field's type is named in the schema as its extension declares it"
   verify unit "schema generated once per compilation and cached"
@@ -384,6 +385,7 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
     type, not its spelling: a cache an older host wrote with an accepted
     older name (`boolean`) reads as the same type, so it is no change.
   """
+  verify unit "an added check or changed args is major, and a removed check minor"
   verify unit "removed entity kind detected as breaking"
   verify unit "added optional field detected as non-breaking"
   verify unit "new required field detected as breaking"

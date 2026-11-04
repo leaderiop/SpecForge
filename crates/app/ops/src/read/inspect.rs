@@ -4,10 +4,13 @@
 //! none of them reads the graph or the registries for it, and those that
 //! show coverage ask [`coverage`] for it.
 
+use std::collections::BTreeMap;
+
 use specforge_common::Diagnostic;
 use specforge_emitter::context::Headline;
 use specforge_graph::{Members, Node, Obligation};
 use specforge_project::coverage::{Status, Verdict};
+use specforge_project::values::ValueRow;
 use specforge_protocol_types::Judgement;
 use specforge_registry::{KindRegistryEntry, Standing};
 
@@ -17,7 +20,7 @@ use crate::{OpError, Refusal};
 
 /// How the hover and the review document quote a statement (ADR 0152 D6) and list obligations
 /// (ADR 0273).
-pub use specforge_emitter::json::JudgementJson;
+pub use specforge_emitter::json::{JudgementJson, ValueCheckJson};
 pub use specforge_emitter::markdown::{obligations_table, quote};
 
 /// Everything a surface shows about one entity, borrowed from the view.
@@ -55,6 +58,8 @@ pub struct EntityFacts<'v> {
     /// Where each judged rule that judges it stands (ADR 0290), in the order of the rules' codes; a gated rule is
     /// absent.
     pub judgements: Vec<Judgement>,
+    /// One row per checker per checked value it holds (ADR 0336), in collection order; empty when none.
+    pub checks: Vec<ValueCheckJson>,
 }
 
 /// An entity's coverage: its verdict, and whether a recorded report was
@@ -120,5 +125,36 @@ pub fn inspect<'v>(
             .of(node.id.raw.as_str())
             .cloned()
             .collect(),
+        checks: view
+            .project()
+            .value_checks()
+            .of(node.id.raw.as_str())
+            .iter()
+            .map(value_check)
+            .collect(),
     })
+}
+
+/// One row as every output writes it.
+fn value_check(row: &ValueRow) -> ValueCheckJson {
+    ValueCheckJson {
+        field: row.field.clone(),
+        item: row.item,
+        value: row.value.clone(),
+        checker: row.checker.clone(),
+        status: row.status.as_str().to_string(),
+        outcome: row.outcome_class.as_ref().map(ToString::to_string),
+        observed_at: row.observed_at,
+        from_cache: row.from_cache,
+        codes: row.codes.clone(),
+    }
+}
+
+/// Every entity's checked values, by id: what `--with-checks` adds to an export.
+pub fn value_checks(view: &ProjectView) -> BTreeMap<String, Vec<ValueCheckJson>> {
+    view.project()
+        .value_checks()
+        .iter()
+        .map(|(id, rows)| (id.to_string(), rows.iter().map(value_check).collect()))
+        .collect()
 }

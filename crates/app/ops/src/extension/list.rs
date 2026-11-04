@@ -31,6 +31,9 @@ pub struct ExtensionInfo {
     /// The capabilities it declares (ADR 0335 D2.1), each with its scope; absent while it declares none.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<super::DeclaredCapability>,
+    /// The checkers it declares (ADR 0336); absent while it declares none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub checkers: Vec<super::DeclaredChecker>,
 }
 
 /// One entry of the project's `specforge.lock`.
@@ -89,6 +92,10 @@ pub fn list(view: &ProjectView) -> ExtensionsDocument {
                 capabilities: extension
                     .declaration
                     .map(super::declared_capabilities)
+                    .unwrap_or_default(),
+                checkers: extension
+                    .declaration
+                    .map(super::declared_checkers)
                     .unwrap_or_default(),
             }
         })

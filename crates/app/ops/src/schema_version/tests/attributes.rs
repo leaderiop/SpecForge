@@ -623,3 +623,36 @@ fn a_schema_change_to_members_is_classified() {
     );
     assert_eq!(bump(&fewer_kinds), Some(Bump::Major));
 }
+
+#[specforge_test(
+    behavior = "detect_breaking_schema_changes",
+    verify = "an added check or changed args is major, and a removed check minor"
+)]
+fn an_added_check_is_major_and_a_removed_one_minor() {
+    let check = |level: i64| specforge_emitter::SchemaCheck {
+        checker: Some("@acme/checks:url".to_string()),
+        args: serde_json::json!({"level": level})
+            .as_object()
+            .unwrap()
+            .clone(),
+        any_of: Vec::new(),
+    };
+    let version = |before: Vec<_>, after: Vec<_>| {
+        let mut recorded = rich_schema();
+        field(&mut recorded, "contract").checks = before;
+        let mut generated = rich_schema();
+        field(&mut generated, "contract").checks = after;
+        let dir = tempfile::tempdir().unwrap();
+        let cache = SchemaCache::in_dir(dir.path());
+        cache.seed(&recorded);
+        cache.version(generated, &PlainDisk).version().clone()
+    };
+    let major = SchemaVersion::new(2, 0, 0);
+    assert_eq!(version(vec![], vec![check(1)]), major);
+    assert_eq!(version(vec![check(1)], vec![check(2)]), major);
+    assert_eq!(
+        version(vec![check(1)], vec![]),
+        SchemaVersion::new(1, 3, 0),
+        "a document valid before stays valid"
+    );
+}

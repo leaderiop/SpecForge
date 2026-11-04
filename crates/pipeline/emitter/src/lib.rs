@@ -27,6 +27,6 @@ pub use emit::{EmitFormat, EmitOptions, document_schema, emit};
 pub use error::EmitterError;
 pub use publish::publish;
 pub use schema::{
-    GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo, SchemaField,
-    SchemaVersion, content_hash, generate_schema,
+    GraphProtocolSchema, SchemaCheck, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo,
+    SchemaField, SchemaVersion, content_hash, generate_schema,
 };

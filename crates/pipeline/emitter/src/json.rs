@@ -102,6 +102,34 @@ pub(crate) struct JsonNode {
     /// Where each judged rule that judges it stands (ADR 0290); omitted when none does (a gated rule is absent).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     judgements: Vec<JudgementJson>,
+    /// Each checked value's outcome (ADR 0336), when the export was asked for them; omitted when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    checks: Vec<ValueCheckJson>,
+}
+
+/// One checker's reading of one value, as every output writes it (ADR 0336).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
+#[shape(define = "ValueCheckJson")]
+pub struct ValueCheckJson {
+    /// The written path of the field or member (`links[1].href`).
+    pub field: String,
+    pub item: usize,
+    pub value: String,
+    /// `<extension>:<checker>`.
+    pub checker: String,
+    /// `passed`, `failed` or `not_run`.
+    pub status: String,
+    /// The class of what its probes answered; absent when it did not run.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<String>,
+    /// When its oldest probe answer was observed (Unix milliseconds); absent for a checker with no probes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observed_at: Option<u64>,
+    /// Whether an answer came from the effect journal rather than this run.
+    pub from_cache: bool,
+    /// The codes it found; absent when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub codes: Vec<String>,
 }
 
 /// One judged rule's state on the entity: `Judgement` without the files it read.
@@ -141,6 +169,7 @@ pub(crate) fn graph_node(
     coverage_status: Option<Status>,
     computed: Option<&Computed>,
     judgements: Option<&BTreeMap<String, Vec<Judgement>>>,
+    checks: Option<&BTreeMap<String, Vec<ValueCheckJson>>>,
 ) -> JsonNode {
     let Members {
         fields,
@@ -166,6 +195,10 @@ pub(crate) fn graph_node(
         judgements: judgements
             .and_then(|all| all.get(n.id.raw.as_str()))
             .map_or_else(Vec::new, |own| own.iter().map(JudgementJson::of).collect()),
+        checks: checks
+            .and_then(|all| all.get(n.id.raw.as_str()))
+            .cloned()
+            .unwrap_or_default(),
     }
 }
 

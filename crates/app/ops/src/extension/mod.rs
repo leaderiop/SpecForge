@@ -34,7 +34,8 @@ pub use candidate::{
     target_dir,
 };
 pub use declared_reads::{
-    DeclaredCapability, DeclaredRead, declared_capabilities, declared_inputs,
+    DeclaredCapability, DeclaredChecker, DeclaredRead, declared_capabilities, declared_checkers,
+    declared_inputs,
 };
 pub use inventory::{Inventory, ProjectExtension, Selection, Status, inventory};
 pub use list::{

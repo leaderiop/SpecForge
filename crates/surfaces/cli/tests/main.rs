@@ -29,6 +29,7 @@ mod expected_publisher;
 mod explain;
 mod explain_declared;
 mod export;
+mod export_checks;
 mod export_markdown;
 mod export_version;
 mod extension_authoring;
