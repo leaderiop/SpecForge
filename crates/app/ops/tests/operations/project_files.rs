@@ -15,6 +15,7 @@ const NEEDLES: &[&str] = &[
     "fs::remove_file(",
     "fs::remove_dir_all(",
     "fs::create_dir_all(",
+    "fs::create_dir(",
     "fs::copy(",
     "File::create(",
     "File::open(",
@@ -25,7 +26,7 @@ const NEEDLES: &[&str] = &[
 const ALLOWED: &[(&str, &str, usize, &str)] = &[
     (
         "verbs/mod.rs",
-        "fs::create_dir_all(",
+        "fs::create_dir(",
         1,
         "the verbs' temp root under .specforge, which the host owns (ADR 0339)",
     ),
