@@ -299,3 +299,10 @@ pub(crate) fn record(
         files,
     })
 }
+
+/// A checkout that changes no file the worktree changed: a path it would overwrite refuses it.
+pub(crate) fn safe() -> git2::build::CheckoutBuilder<'static> {
+    let mut checkout = git2::build::CheckoutBuilder::new();
+    checkout.safe();
+    checkout
+}

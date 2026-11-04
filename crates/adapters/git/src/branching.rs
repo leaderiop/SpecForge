@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use gix::refs::transaction::PreviousValue;
 use specforge_effects::git::{GitError, GitPlace, Sha};
 
-use crate::write::{gix_owned, libgit2};
+use crate::write::{gix_owned, libgit2, safe};
 use crate::{failed, id};
 
 /// `refs/heads/<name>`, refused when it is no valid branch name.
@@ -106,13 +106,6 @@ pub(crate) fn tag(
             .detach(),
     };
     Ok(Sha::new(tagged.to_string()))
-}
-
-/// A checkout that changes no file the worktree changed: a path the switch would overwrite refuses it.
-fn safe() -> git2::build::CheckoutBuilder<'static> {
-    let mut checkout = git2::build::CheckoutBuilder::new();
-    checkout.safe();
-    checkout
 }
 
 pub(crate) fn switch(place: &GitPlace, branch: &str) -> Result<(), GitError> {

@@ -6,18 +6,11 @@
 use gix::refs::transaction::PreviousValue;
 use specforge_effects::git::{GitConflict, GitError, GitPlace, GitStash, Merged, ResetMode, Sha};
 
-use crate::write::{Author, conclude, gix_owned, head_of, libgit2, libgit2_read, record};
+use crate::write::{Author, conclude, gix_owned, head_of, libgit2, libgit2_read, record, safe};
 use crate::{Gix, failed, id};
 
 fn oid(sha: &Sha) -> Result<git2::Oid, GitError> {
     git2::Oid::from_str(sha.as_str()).map_err(|e| failed("read a commit id", &e))
-}
-
-/// A checkout that changes no file the worktree changed.
-fn safe() -> git2::build::CheckoutBuilder<'static> {
-    let mut checkout = git2::build::CheckoutBuilder::new();
-    checkout.safe();
-    checkout
 }
 
 /// Move `HEAD`'s branch, or a detached `HEAD` itself, from `from` to `to` (gix: a ref move), once `between` ran:
