@@ -321,7 +321,7 @@ fn pypi_releases(body: &[u8]) -> Result<Vec<Release>, String> {
 }
 
 /// The licence a release record states: crates.io's `version.license`, npm's `license` (a string, or an old object's
-/// `type`), PyPI's `license_expression`, else its `license` when it is one SPDX id, else its classifiers' licence.
+/// `type`), PyPI's `license_expression`, else its classifiers' licence, else its `license` when it is one SPDX id.
 pub fn licence(ecosystem: Ecosystem, body: &[u8]) -> Result<Option<String>, String> {
     #[derive(Deserialize)]
     #[serde(untagged)]
@@ -371,12 +371,14 @@ pub fn licence(ecosystem: Ecosystem, body: &[u8]) -> Result<Option<String>, Stri
         },
         Ecosystem::Pypi => {
             let info = serde_json::from_slice::<Pypi>(body).map_err(read)?.info;
+            // The classifiers before the free-text `license`: a classifier names one licence by a fixed list, while
+            // `license` often holds a whole licence's text or a name no SPDX id spells.
             info.license_expression
+                .or_else(|| info.classifiers.iter().find_map(|c| classifier_licence(c)))
                 .or_else(|| {
                     info.license
                         .filter(|l| spdx::license_id(l.trim()).is_some())
                 })
-                .or_else(|| info.classifiers.iter().find_map(|c| classifier_licence(c)))
         }
     };
     Ok(stated

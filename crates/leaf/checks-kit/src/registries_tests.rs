@@ -269,6 +269,17 @@ fn licence_reads_what_each_release_record_states() {
             .as_deref(),
         Some("MIT")
     );
+    // The classifier comes before a plain id in `license`, as the plan orders them.
+    let both = br#"{"info":{"license":"BSD-3-Clause","classifiers":["License :: OSI Approved :: MIT License"]}}"#;
+    assert_eq!(
+        licence(Ecosystem::Pypi, both).expect("read").as_deref(),
+        Some("MIT")
+    );
+    let plain = br#"{"info":{"license":"BSD-3-Clause","classifiers":[]}}"#;
+    assert_eq!(
+        licence(Ecosystem::Pypi, plain).expect("read").as_deref(),
+        Some("BSD-3-Clause")
+    );
     let unstated = br#"{"info":{"license":"","classifiers":[]}}"#;
     assert_eq!(licence(Ecosystem::Pypi, unstated).expect("read"), None);
 }
