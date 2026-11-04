@@ -129,9 +129,10 @@ marked git2 goes to vendored libgit2.
 | tag (annotated) | gix | `tag` |
 | switch | git2 | gix moves `HEAD` but checks out only into an empty directory |
 | worktree add and remove | git2 | gix lists and opens worktrees, and creates none |
-| merge, fast-forward | gix | a ref move after `merge_base` |
+| merge, fast-forward | gix | a ref move after `merge_base`; the files are libgit2's safe checkout |
 | merge, three-way and conflicts | git2 | gix's `merge_commits` gives the tree and the conflicts, and writes no index or file |
-| reset `--soft`, `--mixed` | gix | a ref move, the index from the commit's tree |
+| reset `--soft` | gix | a ref move |
+| reset `--mixed` | git2 | gix writes the index from the tree with no stat data, so every file reads changed until hashed; libgit2 keeps it |
 | reset `--hard`, restore | git2 | no checkout over an existing worktree |
 | stash | git2 | gix reads and writes no `refs/stash` |
 | cherry-pick, revert | git2 | gix's `merge_trees` gives the tree, and writes no index or file |

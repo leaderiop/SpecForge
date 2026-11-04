@@ -456,3 +456,206 @@ fn prune_drops_the_record_of_a_worktree_whose_directory_is_gone() {
         "main\n"
     );
 }
+
+/// [`committed`], then a branch `side` from it with its own commit changing `file` to `side_text`, and `HEAD` back on
+/// `main`.
+fn side(file: &str, side_text: &str) -> (TestProject, Repo, String, String) {
+    let (project, repo, first) = committed();
+    repo.branch("side", &first).head_on("side");
+    repo.write(file, side_text);
+    let side = repo.commit_all("on side");
+    repo.head_on("main");
+    // back to main's files
+    if file == "a.txt" {
+        repo.write("a.txt", "one\n");
+    } else {
+        repo.delete(file);
+    }
+    repo.stage_all();
+    (project, repo, first, side)
+}
+
+#[test]
+fn a_merge_fast_forwards_when_history_allows() {
+    let (project, repo, _first, side) = side("s.txt", "side\n");
+    let merged = git(&project, &["merge", "side"]).exits(0).json();
+    assert_eq!(
+        merged,
+        json!({"sha": side, "fast_forward": true, "conflicts": []})
+    );
+    assert_eq!(repo.sha("main"), side);
+    assert!(
+        project.root().join("s.txt").is_file(),
+        "its files are checked out"
+    );
+}
+
+#[test]
+fn a_three_way_merge_records_a_commit_with_both_parents() {
+    let (project, repo, first, side) = side("s.txt", "side\n");
+    repo.write("m.txt", "main\n");
+    let main = repo.commit_all("on main");
+    let refused = git(&project, &["merge", "side", "--ff-only"]).exits(1);
+    assert_eq!(refused.json()["code"], "git_refused", "{}", refused.stdout);
+    let merged = git(&project, &["merge", "side"]).exits(0).json();
+    assert_eq!(merged["fast_forward"], false);
+    let log = git(&project, &["log", "--max", "1", "--pick", ".commits[0]"])
+        .exits(0)
+        .json();
+    assert_eq!(log["parents"], json!([main, side]));
+    assert_eq!(log["subject"], "Merge side");
+    assert!(project.root().join("s.txt").is_file());
+    let _ = first;
+    assert_eq!(
+        git(&project, &["status", "--pick", ".clean"])
+            .exits(0)
+            .stdout,
+        "true\n"
+    );
+}
+
+#[test]
+fn a_conflicting_merge_answers_its_conflicts_and_leaves_them_to_resolve() {
+    let (project, repo, first, _side) = side("a.txt", "one\nside\n");
+    repo.write("a.txt", "one\nmain\n");
+    let main = repo.commit_all("on main");
+    let merged = git(&project, &["merge", "side"]).exits(1).json();
+    assert_eq!(
+        merged,
+        json!({"sha": null, "fast_forward": false, "conflicts": [{"path": "a.txt", "kind": "both_modified"}]})
+    );
+    assert_eq!(repo.sha("HEAD"), main, "nothing recorded");
+    let text = std::fs::read_to_string(project.root().join("a.txt")).unwrap();
+    assert!(
+        text.contains("<<<<<<<") && text.contains(">>>>>>>"),
+        "{text}"
+    );
+    let _ = first;
+    // a commit refuses while the conflict stands
+    git(&project, &["commit", "-m", "x"]).exits(1);
+}
+
+#[test]
+fn a_merge_over_a_changed_tracked_file_refuses() {
+    let (project, repo, _first, _side) = side("s.txt", "side\n");
+    repo.write("a.txt", "unsaved\n");
+    let refused = git(&project, &["merge", "side"]).exits(1);
+    assert_eq!(refused.json()["code"], "dirty_tree", "{}", refused.stdout);
+    assert_eq!(
+        std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
+        "unsaved\n"
+    );
+}
+
+#[test]
+fn reset_soft_mixed_and_hard_move_head_the_index_and_the_files() {
+    let (project, repo, first) = committed();
+    repo.write("a.txt", "two\n");
+    repo.commit_all("second");
+    git(&project, &["reset", "--soft", "HEAD~1"]).exits(0);
+    assert_eq!(repo.sha("HEAD"), first);
+    let staged = git(&project, &["diff", "--staged", "--pick", ".files[].path"]).exits(0);
+    assert_eq!(staged.stdout, "a.txt\n", "soft keeps the index");
+    git(&project, &["reset"]).exits(0);
+    let staged = git(&project, &["diff", "--staged", "--pick", ".count"]).exits(0);
+    assert_eq!(staged.stdout, "0\n", "mixed resets the index");
+    assert_eq!(
+        std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
+        "two\n"
+    );
+    let refused = git(&project, &["reset", "--hard"]).exits(1);
+    assert_eq!(refused.json()["code"], "dirty_tree", "{}", refused.stdout);
+    assert_eq!(
+        std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
+        "two\n"
+    );
+    git(&project, &["reset", "--hard", "--yes"]).exits(0);
+    assert_eq!(
+        std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
+        "one\n"
+    );
+}
+
+#[test]
+fn restore_puts_a_file_back_and_staged_its_index_entry() {
+    let (project, repo, _) = committed();
+    repo.write("a.txt", "changed\n");
+    repo.stage(&["a.txt"]);
+    git(&project, &["restore", "--staged", "a.txt"]).exits(0);
+    assert_eq!(
+        git(&project, &["diff", "--staged", "--pick", ".count"])
+            .exits(0)
+            .stdout,
+        "0\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
+        "changed\n"
+    );
+    let answer = git(&project, &["restore", "a.txt"]).exits(0).json();
+    assert_eq!(answer, json!({"restored": ["a.txt"]}));
+    assert_eq!(
+        std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
+        "one\n"
+    );
+}
+
+#[test]
+fn stash_push_cleans_the_tree_and_pop_brings_the_change_back() {
+    let (project, repo, _) = committed();
+    repo.write("a.txt", "work in progress\n");
+    git(&project, &["stash", "push", "-m", "wip"]).exits(0);
+    assert_eq!(
+        git(&project, &["status", "--pick", ".clean"])
+            .exits(0)
+            .stdout,
+        "true\n"
+    );
+    let list = git(&project, &["stash", "list", "--pick", ".stashes[].message"]).exits(0);
+    assert!(list.stdout.contains("wip"), "{}", list.stdout);
+    let popped = git(&project, &["stash", "pop"]).exits(0).json();
+    assert_eq!(popped, json!({"stashes": []}));
+    assert_eq!(
+        std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
+        "work in progress\n"
+    );
+}
+
+#[test]
+fn cherry_pick_keeps_the_author_and_revert_undoes_a_commit() {
+    let (project, repo, _first, side) = side("s.txt", "side\n");
+    repo.write("m.txt", "main\n");
+    repo.commit_all("on main");
+    repo.config("[user]\n\tname = Ada\n\temail = ada@example.com");
+    let picked = git(&project, &["cherry-pick", "side"]).exits(0).json();
+    let log = git(&project, &["log", "--max", "1", "--pick", ".commits[0]"])
+        .exits(0)
+        .json();
+    assert_eq!(log["sha"], picked["sha"]);
+    assert_eq!(log["subject"], "on side");
+    assert_eq!(log["author"]["name"], "Test", "the picked commit's author");
+    assert_eq!(log["committer"]["name"], "Ada");
+    assert!(project.root().join("s.txt").is_file());
+    let _ = side;
+    git(&project, &["revert", "HEAD"]).exits(0);
+    let log = git(
+        &project,
+        &["log", "--max", "1", "--pick", ".commits[0].subject"],
+    )
+    .exits(0);
+    assert_eq!(log.stdout, "Revert \"on side\"\n");
+    assert!(!project.root().join("s.txt").exists());
+}
+
+#[test]
+fn a_conflicting_cherry_pick_answers_its_conflicts() {
+    let (project, repo, _first, _side) = side("a.txt", "one\nside\n");
+    repo.write("a.txt", "one\nmain\n");
+    let main = repo.commit_all("on main");
+    let picked = git(&project, &["cherry-pick", "side"]).exits(1).json();
+    assert_eq!(
+        picked["conflicts"],
+        json!([{"path": "a.txt", "kind": "both_modified"}])
+    );
+    assert_eq!(repo.sha("HEAD"), main);
+}

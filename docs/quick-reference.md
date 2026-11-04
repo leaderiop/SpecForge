@@ -93,6 +93,11 @@ specforge git branch create|delete NAME            # {name,sha}: --at REV; delet
 specforge git switch [--create] NAME               # the head answer; a changed file is never overwritten
 specforge git tag NAME [-m MSG] [--at REV]         # {name,sha}: annotated with -m
 specforge git worktree add|remove|prune DIR        # add --branch B [--create]; remove --force with changes
+specforge git merge B [--ff-only|--no-ff]          # {sha,fast_forward,conflicts:[{path,kind}]}: conflicts exit 1
+specforge git reset [--soft|--hard --yes] REV      # {sha,mode}; --hard over changes needs --yes
+specforge git restore [--staged] [--source REV] P  # {restored}
+specforge git stash push|pop|list                  # push -m M -u; pop [N]; {stashes:[{index,message,sha}]}
+specforge git cherry-pick|revert REV               # as merge: the new sha, or the conflicts (exit 1)
 
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions

@@ -9,7 +9,7 @@ use specforge_effects::git::{
     Committed, DiffQuery, DiffSide, Git as _, GitError, GitPlace, Sha, Staging,
 };
 
-use crate::{Gix, failed, open};
+use crate::{Gix, failed, id, open};
 
 /// A write only in a repository this user owns: one another user owns is read with reduced trust, and git refuses to
 /// change it.
@@ -61,6 +61,27 @@ pub(crate) fn commit(
     message: &str,
     allow_empty: bool,
 ) -> Result<Committed, GitError> {
+    record(gix_port, place, message, None, allow_empty, None)
+}
+
+/// Who made a commit another one records again (a cherry-pick keeps its author), its time as git writes it
+/// (`<seconds> <+hhmm>`).
+pub(crate) struct Author {
+    pub name: String,
+    pub email: String,
+    pub time: String,
+}
+
+/// Record the index as a commit on `HEAD`: its parents `HEAD`'s commit unless `parents` names them (a merge), its
+/// author the configured identity unless `author` names one.
+pub(crate) fn record(
+    gix_port: &Gix,
+    place: &GitPlace,
+    message: &str,
+    parents: Option<Vec<Sha>>,
+    allow_empty: bool,
+    author: Option<&Author>,
+) -> Result<Committed, GitError> {
     let tree = {
         let repo = libgit2(place)?;
         let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
@@ -76,7 +97,16 @@ pub(crate) fn commit(
             .map_err(|e| failed("read the index's tree", &e))?
     };
     let repo = gix_owned(place)?;
-    let parent = repo.head_id().ok().map(gix::Id::detach);
+    let parents: Vec<gix::ObjectId> = match parents {
+        Some(named) => named.iter().map(id).collect::<Result<_, _>>()?,
+        None => repo
+            .head_id()
+            .ok()
+            .map(gix::Id::detach)
+            .into_iter()
+            .collect(),
+    };
+    let parent = parents.first().copied();
     let parent_tree = match parent {
         Some(parent) => repo
             .find_commit(parent)
@@ -96,8 +126,26 @@ pub(crate) fn commit(
         .head_name()
         .map_err(|e| failed("read HEAD", &e))?
         .map(|name| name.shorten().to_string());
-    let sha = repo
-        .commit("HEAD", message, tree, parent)
+    let recorded = match author {
+        None => repo.commit("HEAD", message, tree, parents.clone()),
+        Some(author) => {
+            let committer = repo
+                .committer()
+                .ok_or_else(|| {
+                    GitError(
+                        "no identity is configured to commit as (user.name, user.email)".into(),
+                    )
+                })?
+                .map_err(|e| failed("read the committer", &e))?;
+            let author = gix::actor::SignatureRef {
+                name: author.name.as_str().into(),
+                email: author.email.as_str().into(),
+                time: &author.time,
+            };
+            repo.commit_as(committer, author, "HEAD", message, tree, parents.clone())
+        }
+    };
+    let sha = recorded
         .map_err(|e| failed("record the commit", &e))?
         .detach();
     let sha = Sha::new(sha.to_string());
@@ -124,10 +172,7 @@ pub(crate) fn commit(
     Ok(Committed {
         sha,
         branch,
-        parents: parent
-            .map(|p| Sha::new(p.to_string()))
-            .into_iter()
-            .collect(),
+        parents: parents.iter().map(|p| Sha::new(p.to_string())).collect(),
         files,
     })
 }

@@ -7,24 +7,30 @@ Read the repository the project is in, with no git program: its place, HEAD, rev
 Usage: specforge git <COMMAND>
 
 Commands:
-  repo        Where the repository is: its top directory, git directory and common directory
-  head        HEAD's commit and branch, whether it is detached or unborn, and its upstream
-  rev         What each revision names: its sha and kind, or that it names nothing
-  status      The working tree's status: each changed, conflicted and untracked path, and whether it is clean
-  config      Every value a configuration key has, and the one git applies
-  log         The commits of a range, newest first, with their parents, people, message and trailers, and how many
-  diff        The files that differ between a commit and another, the index or the worktree, with their line counts
-  merge-base  The nearest commit two revisions share
-  show        A file at a revision (`HEAD:path`): its blob, size and text
-  branches    The local branches with their upstream and how far each is ahead and behind, or the remote-tracking ones
-  worktrees   The main worktree and the linked ones, with the branch each is on
-  remotes     The remotes, with each URL's host and `owner/repo` path
-  commit      Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
-  branch      Create or delete a branch
-  switch      Move HEAD to a branch, its files checked out; a file the worktree changed is never overwritten
-  tag         Create a tag: annotated with -m, else a plain ref
-  worktree    Add, remove or prune linked worktrees
-  help        Print this message or the help of the given subcommand(s)
+  repo         Where the repository is: its top directory, git directory and common directory
+  head         HEAD's commit and branch, whether it is detached or unborn, and its upstream
+  rev          What each revision names: its sha and kind, or that it names nothing
+  status       The working tree's status: each changed, conflicted and untracked path, and whether it is clean
+  config       Every value a configuration key has, and the one git applies
+  log          The commits of a range, newest first, with their parents, people, message and trailers, and how many
+  diff         The files that differ between a commit and another, the index or the worktree, with their line counts
+  merge-base   The nearest commit two revisions share
+  show         A file at a revision (`HEAD:path`): its blob, size and text
+  branches     The local branches with their upstream and how far each is ahead and behind, or the remote-tracking ones
+  worktrees    The main worktree and the linked ones, with the branch each is on
+  remotes      The remotes, with each URL's host and `owner/repo` path
+  commit       Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
+  branch       Create or delete a branch
+  switch       Move HEAD to a branch, its files checked out; a file the worktree changed is never overwritten
+  tag          Create a tag: annotated with -m, else a plain ref
+  worktree     Add, remove or prune linked worktrees
+  merge        Merge a revision into HEAD: a fast-forward when history allows, else a merge commit; conflicts exit 1
+  reset        Move HEAD to a revision, and the index (--mixed, the default) and the files (--hard) with it
+  restore      Put files back as the index has them (or --source), discarding their changes; --staged: their index entries
+  stash        Set the worktree's changes aside, bring them back, or list them
+  cherry-pick  Apply a commit onto HEAD and record it with its author and message; conflicts exit 1
+  revert       Record a commit that undoes another; conflicts exit 1
+  help         Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help

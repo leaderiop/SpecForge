@@ -47,6 +47,125 @@ pub(crate) enum Action {
     /// Add, remove or prune linked worktrees
     #[command(subcommand)]
     Worktree(WorktreeAction),
+    /// Merge a revision into HEAD: a fast-forward when history allows, else a merge commit; conflicts exit 1
+    Merge(MergeArgs),
+    /// Move HEAD to a revision, and the index (--mixed, the default) and the files (--hard) with it
+    Reset(ResetArgs),
+    /// Put files back as the index has them (or --source), discarding their changes; --staged: their index entries
+    Restore(RestoreArgs),
+    /// Set the worktree's changes aside, bring them back, or list them
+    #[command(subcommand)]
+    Stash(StashAction),
+    /// Apply a commit onto HEAD and record it with its author and message; conflicts exit 1
+    CherryPick(PickArgs),
+    /// Record a commit that undoes another; conflicts exit 1
+    Revert(PickArgs),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct MergeArgs {
+    /// The branch or commit merged in
+    revision: String,
+
+    /// Refuse unless HEAD can fast-forward
+    #[arg(long, conflicts_with = "no_ff")]
+    ff_only: bool,
+
+    /// Record a merge commit even when HEAD could fast-forward
+    #[arg(long)]
+    no_ff: bool,
+
+    /// The merge commit's message
+    #[arg(short, long, value_name = "MESSAGE")]
+    message: Option<String>,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct ResetArgs {
+    /// Where HEAD goes; HEAD when absent
+    revision: Option<String>,
+
+    /// Move HEAD alone
+    #[arg(long, conflicts_with_all = ["mixed", "hard"])]
+    soft: bool,
+
+    /// Move HEAD and the index (the default)
+    #[arg(long, conflicts_with = "hard")]
+    mixed: bool,
+
+    /// Move HEAD, the index and the files: changes are lost
+    #[arg(long)]
+    hard: bool,
+
+    /// Discard the tree's changes with --hard
+    #[arg(long)]
+    yes: bool,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct RestoreArgs {
+    /// The files, from the current directory
+    #[arg(required = true)]
+    paths: Vec<std::path::PathBuf>,
+
+    /// Take them from this commit instead
+    #[arg(long, value_name = "REV")]
+    source: Option<String>,
+
+    /// Restore their index entries (from HEAD, or --source), not the files
+    #[arg(long)]
+    staged: bool,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Subcommand)]
+pub(crate) enum StashAction {
+    /// Stash the changes of the index and the worktree, and clean the tree
+    Push(StashPushArgs),
+    /// Apply a stash (the newest when absent) and drop it
+    Pop(StashPopArgs),
+    /// The stashes, newest first
+    List(Plain),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct StashPushArgs {
+    #[arg(short, long, value_name = "MESSAGE")]
+    message: Option<String>,
+
+    /// Stash the untracked files too
+    #[arg(short = 'u', long)]
+    include_untracked: bool,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct StashPopArgs {
+    /// The stash's index (`0` the newest)
+    #[arg(default_value_t = 0)]
+    index: usize,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct PickArgs {
+    /// The commit
+    revision: String,
+
+    #[command(flatten)]
+    verb: VerbArgs,
 }
 
 #[derive(clap::Subcommand)]
@@ -551,7 +670,107 @@ impl Action {
                     }
                 })
             }
+            Action::Merge(args) => {
+                let mode = if args.ff_only {
+                    git::FastForward::Only
+                } else if args.no_ff {
+                    git::FastForward::Never
+                } else {
+                    git::FastForward::Allowed
+                };
+                merged(&args.verb, terminal, ports, |v| {
+                    git::merge(v, &args.revision, mode, args.message.as_deref())
+                })
+            }
+            Action::Reset(args) => {
+                let mode = if args.soft {
+                    git::ResetMode::Soft
+                } else if args.hard {
+                    git::ResetMode::Hard
+                } else {
+                    git::ResetMode::Mixed
+                };
+                let revision = args.revision.unwrap_or_else(|| "HEAD".to_string());
+                answer(
+                    &args.verb,
+                    terminal,
+                    ports,
+                    |v| git::reset(v, &revision, mode, args.yes),
+                    |t, a| outln!(t, "HEAD is now at {}", &a.sha[..a.sha.len().min(7)]),
+                )
+            }
+            Action::Restore(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::restore(v, &args.paths, args.source.as_deref(), args.staged),
+                |t, a| {
+                    for path in &a.restored {
+                        outln!(t, "{}", shown(path));
+                    }
+                },
+            ),
+            Action::Stash(StashAction::Push(args)) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::stash_push(v, args.message.as_deref(), args.include_untracked),
+                |t, a| outln!(t, "stashed {}", &a.sha[..a.sha.len().min(7)]),
+            ),
+            Action::Stash(StashAction::Pop(args)) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::stash_pop(v, args.index),
+                |t, a| outln!(t, "{} stashes left", a.stashes.len()),
+            ),
+            Action::Stash(StashAction::List(args)) => {
+                answer(&args.verb, terminal, ports, git::stash_list, |t, a| {
+                    for stash in &a.stashes {
+                        outln!(t, "stash@{{{}}}: {}", stash.index, shown(&stash.message));
+                    }
+                })
+            }
+            Action::CherryPick(args) => merged(&args.verb, terminal, ports, |v| {
+                git::pick(v, &args.revision, false)
+            }),
+            Action::Revert(args) => merged(&args.verb, terminal, ports, |v| {
+                git::pick(v, &args.revision, true)
+            }),
         }
+    }
+}
+
+/// A merge's, a cherry-pick's or a revert's answer: printed, and exit 1 when it stopped on conflicts.
+fn merged(
+    verb: &VerbArgs,
+    terminal: &Terminal,
+    ports: &Ports,
+    ask: impl FnOnce(&Verbs) -> Result<git::MergeAnswer, OpError>,
+) -> Exit {
+    let mut conflicted = false;
+    let exit = answer(
+        verb,
+        terminal,
+        ports,
+        |v| {
+            let merged = ask(v)?;
+            conflicted = !merged.conflicts.is_empty();
+            Ok(merged)
+        },
+        |t, a| match &a.sha {
+            Some(sha) => outln!(t, "HEAD is now at {}", &sha[..sha.len().min(7)]),
+            None => {
+                for conflict in &a.conflicts {
+                    outln!(t, "conflict ({}): {}", conflict.kind, shown(&conflict.path));
+                }
+            }
+        },
+    );
+    if conflicted && exit == Exit::Passed {
+        Exit::Failed
+    } else {
+        exit
     }
 }
 

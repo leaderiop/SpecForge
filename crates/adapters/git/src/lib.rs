@@ -14,12 +14,14 @@ use gix::bstr::ByteSlice as _;
 use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBranch, GitBranchRef, GitChange,
-    GitCommit, GitEntry, GitEntryKind, GitError, GitFileDiff, GitPlace, GitRemote, GitStatus,
-    GitWorktree, Located, LogQuery, ObjectKind, Sha, Sized, Staging, TreeEntry,
+    GitCommit, GitEntry, GitEntryKind, GitError, GitFileDiff, GitPlace, GitRemote, GitStash,
+    GitStatus, GitWorktree, Located, LogQuery, Merged, ObjectKind, ResetMode, Sha, Sized, Staging,
+    TreeEntry,
 };
 
 mod branching;
 mod history;
+mod merging;
 mod refs;
 #[cfg(feature = "testing")]
 pub mod testing;
@@ -434,6 +436,51 @@ impl Git for Gix {
 
     fn worktree_prune(&self, place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
         branching::worktree_prune(place)
+    }
+
+    fn merge(
+        &self,
+        place: &GitPlace,
+        theirs: &Sha,
+        fast_forward: Option<bool>,
+        message: &str,
+    ) -> Result<Merged, GitError> {
+        merging::merge(self, place, theirs, fast_forward, message)
+    }
+
+    fn reset(&self, place: &GitPlace, to: &Sha, mode: ResetMode) -> Result<(), GitError> {
+        merging::reset(place, to, mode)
+    }
+
+    fn restore(
+        &self,
+        place: &GitPlace,
+        paths: &[String],
+        source: Option<&Sha>,
+        staged: bool,
+    ) -> Result<(), GitError> {
+        merging::restore(place, paths, source, staged)
+    }
+
+    fn stash_push(
+        &self,
+        place: &GitPlace,
+        message: Option<&str>,
+        untracked: bool,
+    ) -> Result<Sha, GitError> {
+        merging::stash_push(place, message, untracked)
+    }
+
+    fn stash_pop(&self, place: &GitPlace, index: usize) -> Result<(), GitError> {
+        merging::stash_pop(place, index)
+    }
+
+    fn stashes(&self, place: &GitPlace) -> Result<Vec<GitStash>, GitError> {
+        merging::stashes(place)
+    }
+
+    fn pick(&self, place: &GitPlace, commit: &Sha, revert: bool) -> Result<Merged, GitError> {
+        merging::pick(self, place, commit, revert)
     }
 
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {

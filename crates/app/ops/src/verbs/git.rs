@@ -12,12 +12,18 @@ use crate::{OpError, OpErrorKind};
 
 mod branching;
 mod commit;
+mod merging;
 
 pub use branching::{
     PrunedAnswer, RefAnswer, branch_create, branch_delete, switch, tag, worktree_add,
     worktree_prune, worktree_remove,
 };
 pub use commit::{CommitAnswer, CommitRequest, cleaned, commit};
+pub use merging::{
+    FastForward, MergeAnswer, ResetAnswer, RestoreAnswer, StashAnswer, StashesAnswer, merge, pick,
+    reset, restore, stash_list, stash_pop, stash_push,
+};
+pub use specforge_effects::git::ResetMode;
 
 /// `git repo`'s answer: where the repository is.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

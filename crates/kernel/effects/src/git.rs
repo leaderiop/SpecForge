@@ -245,6 +245,41 @@ pub struct Committed {
     pub files: Vec<String>,
 }
 
+/// A path a merge, a cherry-pick, a revert or a stash left in conflict, and how (`both_modified`, `both_added`,
+/// `deleted_by_us`, `deleted_by_them`), as `git status` names it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GitConflict {
+    pub path: String,
+    pub kind: String,
+}
+
+/// What a merge, a cherry-pick or a revert did: the commit `HEAD` is on after it, or none when it stopped on
+/// conflicts, which are left in the index and the files for the user to resolve.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Merged {
+    pub sha: Option<Sha>,
+    /// `HEAD` moved to the other commit and nothing was recorded.
+    pub fast_forward: bool,
+    pub conflicts: Vec<GitConflict>,
+}
+
+/// How far a reset goes: the ref (`soft`), the index too (`mixed`), the files too (`hard`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResetMode {
+    Soft,
+    Mixed,
+    Hard,
+}
+
+/// One stash entry, newest first.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GitStash {
+    pub index: usize,
+    pub message: String,
+    pub sha: Sha,
+}
+
 /// What the host asks of version control. Reads first: none runs for a check unless a project declares history or a
 /// hook declares the `git` input (ADR 0320, ADR 0337 D2). `specforge git` asks the rest for the user, writes included
 /// (ADR 0339); a write is the user's own act and nothing else asks for one.
@@ -371,6 +406,53 @@ pub trait Git: Send + Sync {
     }
     /// Drop the records of the linked worktrees whose directories are gone: where each was.
     fn worktree_prune(&self, _place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Merge `theirs` into `HEAD`: a fast-forward when `fast_forward` is not `Some(false)` and history allows,
+    /// refused when it is `Some(true)` and history does not; else a merge commit with `message`, or the conflicts.
+    fn merge(
+        &self,
+        _place: &GitPlace,
+        _theirs: &Sha,
+        _fast_forward: Option<bool>,
+        _message: &str,
+    ) -> Result<Merged, GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Move `HEAD` to `to`, and the index (`mixed`) and the files (`hard`) with it.
+    fn reset(&self, _place: &GitPlace, _to: &Sha, _mode: ResetMode) -> Result<(), GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// The files at `paths` as the index has them, or as `source` does; with `staged`, the index's entries as `HEAD`
+    /// (or `source`) has them, the files untouched.
+    fn restore(
+        &self,
+        _place: &GitPlace,
+        _paths: &[String],
+        _source: Option<&Sha>,
+        _staged: bool,
+    ) -> Result<(), GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Stash the worktree's and the index's changes (and the untracked files with `untracked`): the stash's commit.
+    fn stash_push(
+        &self,
+        _place: &GitPlace,
+        _message: Option<&str>,
+        _untracked: bool,
+    ) -> Result<Sha, GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Apply the stash at `index` and drop it; refused when it would overwrite a changed file.
+    fn stash_pop(&self, _place: &GitPlace, _index: usize) -> Result<(), GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// The stashes, newest first.
+    fn stashes(&self, _place: &GitPlace) -> Result<Vec<GitStash>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
+    /// Apply `commit` onto `HEAD` and record it (`revert`: its inverse), or the conflicts.
+    fn pick(&self, _place: &GitPlace, _commit: &Sha, _revert: bool) -> Result<Merged, GitError> {
         Err(GitError("this git port cannot write".into()))
     }
     /// Record the index as a commit on `HEAD` with `message` (kept byte for byte), by the identity the repository's

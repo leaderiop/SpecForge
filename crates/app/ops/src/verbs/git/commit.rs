@@ -144,7 +144,7 @@ pub fn cleaned(message: &str) -> Option<String> {
 
 /// Each typed path (read from the current directory) as a path from the repository's top: one outside the working
 /// tree is refused.
-fn in_repository(
+pub(super) fn in_repository(
     verbs: &Verbs,
     place: &GitPlace,
     typed: &[PathBuf],
