@@ -700,6 +700,7 @@ dependencies = [
  "jiff",
  "language-tags",
  "mime",
+ "percent-encoding",
  "regex",
  "semver",
  "spdx 0.13.6",

@@ -91,8 +91,8 @@ behavior ck_links_family "Links Family" {
     W182; 429, 5xx and any other non-success W181; a failure to reach
     the host W172; and a redirect not followed W173. A HEAD answered 405
     or 501 is asked once more as a GET. `url_anchor` reads at most 1 MiB
-    and reports a fragment no `id` or `name` matches as E112 on the
-    fragment; a page cut off at that cap is not decided. `content_type`
+    and reports a fragment no `id` or `name` matches, as HTML matches it
+    (percent-decoded; `top` is any page's top), as E112 on the fragment; a page cut off at that cap is not decided. `content_type`
     reports a type outside `allow`, or none, as E104; `tls` a certificate
     the host does not trust (self-signed, for another host, from an
     unknown issuer) as W172, and one ending within `days` (default 14) or

@@ -213,6 +213,24 @@ fn links_fragment_missing_is_e112_on_the_fragment() {
 }
 
 #[test]
+fn links_fragment_is_matched_decoded_as_html_does() {
+    let page = |body: &str| answer(OutcomeClass::Ok, http(200, &[], body, false));
+    let text = "https://a.example/page#caf%C3%A9";
+    assert!(judged("url_anchor", text, json!({}), page("<h2 id=\"café\">")).is_empty());
+    assert_eq!(
+        codes(&judged(
+            "url_anchor",
+            text,
+            json!({}),
+            page("<h2 id=\"cafe\">")
+        )),
+        ["E112"]
+    );
+    let top = "https://a.example/page#TOP";
+    assert!(judged("url_anchor", top, json!({}), page("<p>")).is_empty());
+}
+
+#[test]
 fn links_fragment_beyond_the_cap_is_undecided() {
     let text = "https://a.example/page#usage";
     let cut = answer(OutcomeClass::Capped, http(200, &[], "<p id=\"a\">", true));

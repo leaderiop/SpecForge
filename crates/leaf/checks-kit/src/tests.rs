@@ -3,7 +3,7 @@
 use crate::files::{DigestPin, LineEnds, LineRange, Text, glob};
 use crate::git::{FileAt, ObjectName, RefName};
 use crate::html::anchors;
-use crate::links::{UrlParts, host_matches};
+use crate::links::{UrlParts, fragment_id, host_matches};
 
 #[test]
 fn url_parts_point_at_the_scheme_and_fragment() {
@@ -14,6 +14,14 @@ fn url_parts_point_at_the_scheme_and_fragment() {
     assert_eq!(parts.credentials, None);
     assert_eq!(parts.url.host_str(), Some("a.example"));
     assert_eq!(UrlParts::parse("https://a.example").unwrap().fragment, None);
+}
+
+#[test]
+fn a_fragment_id_is_percent_decoded_as_utf8() {
+    assert_eq!(fragment_id("caf%C3%A9"), "café");
+    assert_eq!(fragment_id("a%20b"), "a b");
+    assert_eq!(fragment_id("plain"), "plain");
+    assert_eq!(fragment_id("bad%FF"), "bad\u{FFFD}");
 }
 
 #[test]

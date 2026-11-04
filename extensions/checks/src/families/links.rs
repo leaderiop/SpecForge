@@ -3,7 +3,7 @@
 
 use specforge_checks_kit::formats::hostname;
 use specforge_checks_kit::html::anchors;
-use specforge_checks_kit::links::{host_matches, UrlParts};
+use specforge_checks_kit::links::{fragment_id, host_matches, UrlParts};
 use specforge_extension_sdk::prelude::*;
 
 use super::{finding_of, word, Args, LINKS, TEXT};
@@ -218,7 +218,11 @@ fn anchored(text: &str, parts: &UrlParts, _: &Args, outcome: &ProbeOutcome) -> V
     let fragment = &text[at.clone()];
     // A page cut off at the cap, or a range of it as long as the cap, may hold the anchor past it.
     let cut = *truncated || body.len() >= PAGE as usize;
-    if fragment.is_empty() || cut || anchors(body).contains(fragment) {
+    // HTML matches the fragment decoded, and `top` is the top of any page.
+    let id = fragment_id(fragment);
+    let anchors = anchors(body);
+    let found = anchors.contains(fragment) || anchors.contains(id.as_ref());
+    if fragment.is_empty() || cut || found || id.eq_ignore_ascii_case("top") {
         return Vec::new();
     }
     let page = &text[..at.start - 1];

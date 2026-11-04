@@ -1,6 +1,9 @@
 //! A URL read by the WHATWG parser the host requests it with, with the bytes of the text a finding points at.
 
+use std::borrow::Cow;
 use std::ops::Range;
+
+use percent_encoding::percent_decode_str;
 
 use url::Url;
 
@@ -49,6 +52,12 @@ impl UrlParts {
             fragment,
         })
     }
+}
+
+/// The id `fragment` points at, as HTML finds it: percent-decoded, then read as UTF-8, a byte that is not becoming
+/// U+FFFD.
+pub fn fragment_id(fragment: &str) -> Cow<'_, str> {
+    percent_decode_str(fragment).decode_utf8_lossy()
 }
 
 /// Whether `host` is `pattern`, or under it when `pattern` is `*.<domain>`. Both are compared as a parsed URL prints them.
