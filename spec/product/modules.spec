@@ -1,6 +1,7 @@
 // Modules — code packages that implement features
 
 use "extensions/cargo-test/features"
+use "extensions/checks/features"
 use "extensions/javascript/node-test/features"
 use "extensions/testing/features"
 use "extensions/vitest/features"
@@ -506,6 +507,14 @@ module specforge_package_vitest "specforge-package-vitest" {
   features    [vt_vitest_collection, test_result_collection]
   depends_on  [specforge_package_testing, specforge_wasm]
   tags        ["extension", "traceability"]
+}
+
+module specforge_package_checks "specforge-package-checks" {
+  family      extension
+  description "Wasm package for @specforge/checks: the generic value checkers in five families, built on specforge-checks-kit"
+  features    [ck_value_checks]
+  depends_on  [specforge_checks_kit]
+  tags        ["extension", "validation"]
 }
 
 module specforge_package_javascript_node_test "specforge-package-javascript-node-test" {

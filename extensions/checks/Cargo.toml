@@ -1,0 +1,17 @@
+[package]
+name = "specforge-ext-checks"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+specforge-extension-sdk = { path = "../../crates/runtime/extension-sdk" }
+specforge-checks-kit = { path = "../../crates/leaf/checks-kit", features = ["digits", "files", "formats", "git", "links"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+specforge-protocol-types = { path = "../../crates/leaf/protocol-types" }
+# Spec links: #[specforge_test(behavior = "…", verify = "…")] (ADR 0002).
+specforge-test = { path = "../../integrations/rust/specforge-test" }

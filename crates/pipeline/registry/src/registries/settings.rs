@@ -293,9 +293,8 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
             codes.clear();
         }
         let (extension, book) = (found.extension, found.book);
-        let (catalogued, missing): (Vec<String>, Vec<String>) = codes
-            .drain(..)
-            .partition(|code| book.catalogued(extension, code));
+        let (catalogued, missing): (Vec<String>, Vec<String>) =
+            codes.drain(..).partition(|code| book.owns(extension, code));
         for code in missing {
             found.w021(format!(
                 "setting '{name}' {key} '{code}', which the extension's codes do not catalog"
@@ -457,7 +456,7 @@ fn check_presets(
             let extension = found.extension;
             let book = found.book;
             entry.severities.retain(|code, severity| {
-                if !book.catalogued(extension, code) {
+                if !book.owns(extension, code) {
                     found.w021(format!(
                         "preset '{source}' raises '{code}', which the extension's codes do not catalog"
                     ));

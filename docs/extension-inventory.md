@@ -5,12 +5,13 @@ declares. They are a **starter set**: examples of what extensions do, aimed at s
 them is part of the core, a project loads only the ones it lists in `specforge.json`, and your own extensions use
 the same SDK ([extension model](extension-model.md)).
 
-Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Five more declare no kinds:
+Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Six more declare no kinds:
 `@specforge/testing` and the runner extensions `@specforge/cargo-test` and `@specforge/vitest` handle test
 obligations and results ([ADR 0002](adr/0002-test-runner-extensions.md)); `@specforge/rust` and
 `@specforge/typescript` read source code for `specforge infer`. `@code/core`, the first builtin of a family
 (ADR 0328), declares the two collector-written kinds of test facts ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md)), and
-`@javascript/node-test` collects them from `node --test`.
+`@javascript/node-test` collects them from `node --test`. `@specforge/checks` declares the generic value
+checkers, which any field's `checks` can name ([ADR 0338](adr/0338-one-foundation-extension-holds-the-generic-value-checkers.md)).
 
 The counts and lists on this page are read from the builtins' pinned declarations
 (`crates/runtime/component/tests/declarations/`); tests hold the kind count and the edge tables to them.
@@ -30,6 +31,7 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@specforge/typescript` | 0 | 0 | -- | none |
 | `@code/core` | 2 (collector-written) | 1 | -- | none |
 | `@javascript/node-test` | 0 | 0 | -- | code/core (required) |
+| `@specforge/checks` | 0 | 0 | -- | none |
 
 Extensions load after the peers they declare; extensions with no peer between them keep the order
 `specforge.json` lists them in (ADR 0041). A required peer must be loaded (E027); an optional one, when loaded,

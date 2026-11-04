@@ -191,6 +191,15 @@ impl Codebook {
                 .is_some_and(|owned| owned.codes.contains_key(&local.to_uppercase()))
     }
 
+    /// Whether `code` is `extension`'s own, for a setting that gates or raises it: a first-party extension's in the
+    /// static catalog, another's in its catalog.
+    pub fn owns(&self, extension: &str, code: &str) -> bool {
+        if extension.starts_with(FIRST_PARTY) {
+            return lookup(code).is_some_and(|entry| entry.owner == extension);
+        }
+        self.catalogued(extension, code)
+    }
+
     /// The qualified forms (`gsd/W304`) of a bare `local` code that loaded
     /// extensions catalog, namespace by namespace: what a bare code asked
     /// for most likely meant.
@@ -448,5 +457,14 @@ mod tests {
         );
         // A first-party extension reads the static catalog, and only its own entries.
         assert!(!book.machine("@specforge/checks", "I206"), "I206 is core's");
+    }
+
+    #[test]
+    fn a_first_party_extension_owns_only_the_static_catalogs_codes_it_is_owner_of() {
+        let book = Codebook::default();
+        assert!(book.owns("@specforge/checks", "W176"));
+        assert!(!book.owns("@specforge/checks", "E001"));
+        assert!(!book.owns("@specforge/product", "W176"));
+        assert!(!book.owns("@specforge/checks", "W999"));
     }
 }

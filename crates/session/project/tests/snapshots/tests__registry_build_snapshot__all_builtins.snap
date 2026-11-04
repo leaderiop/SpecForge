@@ -1299,6 +1299,7 @@ expression: "digest(&load(&runtime, &all))"
     "@code/core": "core",
     "@javascript/node-test": "node-test",
     "@specforge/cargo-test": "cargo-test",
+    "@specforge/checks": "checks",
     "@specforge/formal": "formal",
     "@specforge/governance": "governance",
     "@specforge/product": "product",
@@ -1351,6 +1352,10 @@ expression: "digest(&load(&runtime, &all))"
     ],
     [
       "@javascript/node-test",
+      "1.0.0"
+    ],
+    [
+      "@specforge/checks",
       "1.0.0"
     ]
   ],

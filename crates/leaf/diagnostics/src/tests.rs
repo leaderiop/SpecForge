@@ -462,10 +462,7 @@ fn explain_catalog_matches_emitted_codes() {
 }
 
 /// Codes catalogued ahead of the checkers that report them; the list empties as those land.
-const AWAITED: [&str; 16] = [
-    "E091", "E092", "E093", "E096", "E103", "E104", "E106", "E112", "W172", "W173", "W176", "W178",
-    "W180", "W181", "W182", "W183",
-];
+const AWAITED: [&str; 1] = ["E103"];
 
 #[test]
 fn checks_transport_codes_are_machine() {

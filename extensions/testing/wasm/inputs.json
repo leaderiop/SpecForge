@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_testing.wasm",
-  "artifact_sha256": "948aae841c2ebaae7f2691cb8dfe6f3276ed03d5db171ae47affaf99bcc4319a",
+  "artifact_sha256": "30dfe3f0b462890040863860bf6495dcda9f3ef3675eceb3a7c7ca0751912270",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9566c33b63edf6f83a0624a96fa8d1b4e605c4b558117a14f3ea89c13793c4d3",
@@ -11,7 +11,7 @@
     "crates/leaf/protocol-types/src/calls/evidence.rs": "f10687676e8c14a0cf4046bf35e57366087df4b698104329efd164e707a4d983",
     "crates/leaf/protocol-types/src/calls/facts.rs": "0c846b932f525c1050b3041d119b684927c16222c62930317d7b0e2352208bdc",
     "crates/leaf/protocol-types/src/capability.rs": "39337e46a38e44f97bf39d0645c8d09d90bad64d25ee516dc8584368ac2b2399",
-    "crates/leaf/protocol-types/src/checks.rs": "da517308c402725d39f973fe9343db6cb6b14d8349ab66a21dd8d15d3ec77ca3",
+    "crates/leaf/protocol-types/src/checks.rs": "36fcdf723ebc6d8bf7ea91316e0c8a019f048c8de0d09ec1201cf149d8b81d49",
     "crates/leaf/protocol-types/src/code_catalog.rs": "b5a5d364bbf8060febd7d343e2ea1472eedbd2df10ede660dffbda03ca55a737",
     "crates/leaf/protocol-types/src/command_args.rs": "ec81e38e7b000cc15b4b7c26e9fe5de602f0d98764c3af4f466e6225c41866b1",
     "crates/leaf/protocol-types/src/contrib.rs": "1f8d99527417179a57e22729e2119a2cab86ed42f14af93ebe122ed477edb633",
@@ -39,7 +39,7 @@
     "crates/runtime/extension-sdk/Cargo.toml": "41c03d21f457d3e7394d86a625742a525700ac1ddcb92b49487e0fc5dcaa2797",
     "crates/runtime/extension-sdk/src/builders.rs": "37cd35460bb6502327381f81d6db11f8f484589ffbc09a56c0503cb08bcddd22",
     "crates/runtime/extension-sdk/src/capability.rs": "61840b8f4306d89c5b93507d3380a626c7d2aa8166dfe0bac269bf3ceee6866c",
-    "crates/runtime/extension-sdk/src/checker.rs": "87c25ac5063ed825773dca789bbfeccdcab4ea88c07accb2dea6dd209bdfe23f",
+    "crates/runtime/extension-sdk/src/checker.rs": "703b821311516ac1d21a6cd63ce5668152031e579e24c09e5676a1cefb13ebab",
     "crates/runtime/extension-sdk/src/command_graph.rs": "e88d26d3134c7591aa1afeee1f432ecdf0437a191c23b5d2eb50a50a0b7e5562",
     "crates/runtime/extension-sdk/src/contrib.rs": "68d63b1213a97250f15f6483640adff7aa887c10bb862db47d8bbfc476f10a68",
     "crates/runtime/extension-sdk/src/guest.rs": "d1805a20fb3cb635e1765026c31cfa7e9d14716573bcb39f8519f91d7a0d3466",

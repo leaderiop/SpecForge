@@ -1,0 +1,37 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "name": "files",
+      "ops": [
+        "stat",
+        "read",
+        "walk"
+      ],
+      "port": "fs",
+      "why": "check the files and directories the values name"
+    },
+    {
+      "hosts": "from_values",
+      "methods": [
+        "HEAD",
+        "GET"
+      ],
+      "name": "links",
+      "port": "http",
+      "schemes": [
+        "https",
+        "http"
+      ],
+      "why": "check that the URLs the values name answer"
+    },
+    {
+      "name": "git",
+      "ops": [
+        "read"
+      ],
+      "port": "git",
+      "why": "check the commits, refs and tracked paths the values name"
+    }
+  ]
+}

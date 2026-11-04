@@ -1,0 +1,18 @@
+//! The codes the checkers report, catalogued bare in the host (`catalog_checks.rs`): a builtin of `@specforge` declares
+//! none. Their level is the catalog's, so a finding names only its code.
+
+pub const E091: &str = "E091";
+pub const E092: &str = "E092";
+pub const E093: &str = "E093";
+pub const E096: &str = "E096";
+pub const E104: &str = "E104";
+pub const E106: &str = "E106";
+pub const E112: &str = "E112";
+pub const W172: &str = "W172";
+pub const W173: &str = "W173";
+pub const W176: &str = "W176";
+pub const W178: &str = "W178";
+pub const W180: &str = "W180";
+pub const W181: &str = "W181";
+pub const W182: &str = "W182";
+pub const W183: &str = "W183";

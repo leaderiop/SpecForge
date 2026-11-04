@@ -1,0 +1,61 @@
+{
+  "category": "settings",
+  "items": [
+    {
+      "default": true,
+      "description": "Check the files and directories the values name",
+      "field_type": "bool",
+      "gates": [
+        "E096",
+        "W176"
+      ],
+      "kind": "setting",
+      "name": "families.files"
+    },
+    {
+      "default": true,
+      "description": "Check that values are well formed: dates, versions, licences, addresses and the like",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "families.formats"
+    },
+    {
+      "default": true,
+      "description": "Check the check digits of the identifiers values carry",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "families.digits"
+    },
+    {
+      "default": true,
+      "description": "Check that the URLs values name answer",
+      "field_type": "bool",
+      "gates": [
+        "E091",
+        "E092",
+        "E093",
+        "E104",
+        "E112",
+        "W172",
+        "W173",
+        "W178",
+        "W181",
+        "W182",
+        "W183"
+      ],
+      "kind": "setting",
+      "name": "families.links"
+    },
+    {
+      "default": true,
+      "description": "Check the commits, refs and tracked paths values name",
+      "field_type": "bool",
+      "gates": [
+        "E106",
+        "W180"
+      ],
+      "kind": "setting",
+      "name": "families.git"
+    }
+  ]
+}

@@ -317,6 +317,7 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     specforge_package_cargo_test,
     specforge_package_vitest,
     specforge_package_javascript_node_test,
+    specforge_package_checks,
     specforge_test_lib,
     specforge_test_macros_lib,
     specforge_registry_server,

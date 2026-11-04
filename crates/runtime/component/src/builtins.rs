@@ -39,6 +39,7 @@ builtins! {
     "@specforge/typescript" in "typescript" as "specforge_ext_typescript.wasm",
     "@code/core" in "code/core" as "specforge_ext_code_core.wasm",
     "@javascript/node-test" in "javascript/node-test" as "specforge_ext_javascript_node_test.wasm",
+    "@specforge/checks" in "checks" as "specforge_ext_checks.wasm",
 }
 
 /// (name, bytes) of every builtin, read from [`BUILTINS`]: what the extension load reads
