@@ -87,7 +87,9 @@ pub fn settle(
         match consent.approve(stamped(need.approval())) {
             Ok(()) => settled.stored.push(need),
             Err(error) => {
-                settled.unsaved.push(error.to_string());
+                settled
+                    .unsaved
+                    .push(specforge_common::remedy::printable(&error.to_string()).into_owned());
                 settled.for_this_run.push(need);
             }
         }

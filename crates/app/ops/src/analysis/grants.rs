@@ -1,8 +1,10 @@
 //! `specforge grants` (ADR 0335 D2): what each loaded extension may make the host do here, this machine's approvals
-//! of it, and `approve` and `revoke`. Typing `approve` is the consent: nothing is asked.
+//! of it, and `approve` and `revoke`. Typing `approve` is the consent: nothing is asked. Every row holds its text
+//! printable (ADR 0244), so `specforge grants`, doctor and the MCP answer show one harmless form of it.
 
 use serde::Serialize;
 use specforge_common::DiagnosticList;
+use specforge_common::remedy::printable;
 use specforge_common::shape::Shape;
 use specforge_effects::grant::project_key;
 use specforge_effects::{
@@ -162,7 +164,7 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
                 diagnostics.extend(grant.unapproved_summary(used));
             }
             ExtensionGrants {
-                extension: grant.extension().to_string(),
+                extension: shown(grant.extension()),
                 provenance: grant
                     .provenance()
                     .map_or_else(String::new, |p| keyed(&KeyedBy::of(p))),
@@ -190,8 +192,8 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
                     approved_at: ApprovedAt::default(),
                 }));
             Some(RootRow {
-                name: named.name.clone(),
-                target,
+                name: shown(&named.name),
+                target: shown(&target),
                 inside: named.inside,
                 approved,
             })
@@ -216,28 +218,33 @@ fn row(grant: &Grant, granted: &Granted, uses: &Uses, held: &Approvals) -> Capab
         .then(|| grant.key(granted))
         .flatten()
         .and_then(|key| held.capabilities.iter().find(|a| a.covers(&key)))
-        .map(|a| a.approved_at.0.clone());
+        .map(|a| shown(&a.approved_at.0));
     CapabilityRow {
-        name: declared.name.clone(),
+        name: shown(&declared.name),
         port: declared.port.port().to_string(),
-        scope: granted.summary(),
-        why: declared.why.clone(),
+        scope: shown(&granted.summary()),
+        why: shown(&declared.why),
         call_kinds: declared
             .call_kinds
             .iter()
             .map(ToString::to_string)
             .collect(),
-        narrowed: granted.removed.iter().map(|r| r.what.clone()).collect(),
+        narrowed: granted.removed.iter().map(|r| shown(&r.what)).collect(),
         in_use: uses.iter().any(|(_, name)| *name == declared.name),
         state,
         approved_at,
     }
 }
 
+/// `text` as a listing holds it.
+fn shown(text: &str) -> String {
+    printable(text).into_owned()
+}
+
 fn keyed(keyed: &KeyedBy) -> String {
     match keyed {
         KeyedBy::Builtin => "builtin".to_string(),
-        KeyedBy::Digest(digest) => format!("sha256:{digest}"),
+        KeyedBy::Digest(digest) => shown(&format!("sha256:{digest}")),
     }
 }
 
@@ -249,22 +256,22 @@ pub fn list_store(consent: &dyn Consent) -> Result<StoreListing, OpError> {
             .capabilities
             .into_iter()
             .map(|a| StoredCapability {
-                granted: a.summary(),
+                granted: shown(&a.summary()),
                 provenance: keyed(&a.provenance),
-                project: a.project.0,
-                extension: a.extension,
-                scope: a.scope,
-                approved_at: a.approved_at.0,
+                project: shown(&a.project.0),
+                extension: shown(&a.extension),
+                scope: shown(&a.scope),
+                approved_at: shown(&a.approved_at.0),
             })
             .collect(),
         roots: held
             .roots
             .into_iter()
             .map(|a| StoredRoot {
-                project: a.project.0,
-                root: a.root,
-                target: a.target,
-                approved_at: a.approved_at.0,
+                project: shown(&a.project.0),
+                root: shown(&a.root),
+                target: shown(&a.target),
+                approved_at: shown(&a.approved_at.0),
             })
             .collect(),
     })
@@ -312,7 +319,7 @@ pub fn approve(
                     ));
                 };
                 approvals.push(Approval::Capability(key));
-                changed.push(format!("{extension} {name}"));
+                changed.push(shown(&format!("{extension} {name}")));
             }
         }
         Change::Root(name) => {
@@ -336,7 +343,7 @@ pub fn approve(
                     target: target.display().to_string(),
                     approved_at: ApprovedAt::default(),
                 }));
-                changed.push(format!("root {name}"));
+                changed.push(shown(&format!("root {name}")));
             }
         }
         Change::Project => {
@@ -438,12 +445,12 @@ fn revoked(held: &Approvals, revoke: &Revoke) -> Vec<String> {
         .capabilities
         .iter()
         .filter(|a| !kept.capabilities.contains(a))
-        .map(|a| format!("{} {}", a.extension, a.scope));
+        .map(|a| shown(&format!("{} {}", a.extension, a.scope)));
     let roots = held
         .roots
         .iter()
         .filter(|a| !kept.roots.contains(a))
-        .map(|a| format!("root {}", a.root));
+        .map(|a| shown(&format!("root {}", a.root)));
     capabilities.chain(roots).collect()
 }
 
@@ -505,4 +512,107 @@ fn store_refused(error: &ConsentError) -> OpError {
         diagnostic.message,
     )
     .with_suggestion("fix or move the store it names; nothing was changed")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_effects::testing::MemoryConsent;
+    use specforge_effects::{
+        CapabilityApproval, EffectsCeiling, ProjectKey, Provenance, Roots, Uses,
+    };
+    use specforge_protocol_types::{ExtensionDeclaration, PortScope, ProcessScope};
+
+    const HOSTILE: &str = "\u{1b}[1A\u{1b}[2K\u{202e}";
+
+    fn assert_printable(text: &str) {
+        assert!(
+            !text.contains(['\u{1b}', '\u{202e}']),
+            "a control character in {text:?}"
+        );
+    }
+
+    #[test]
+    fn a_capability_row_holds_the_extensions_text_printable() {
+        let mut declaration = ExtensionDeclaration::default();
+        declaration.handshake.name = "@acme/x".to_string();
+        declaration.capabilities = serde_json::from_value(serde_json::json!([
+            {"name": "tests", "why": format!("why{HOSTILE}"), "port": "process",
+             "argv": ["cargo", format!("test{HOSTILE}")]},
+        ]))
+        .unwrap();
+        let grant = Grant::decide(
+            &declaration,
+            &Provenance::third_party(b"blob"),
+            &EffectsCeiling::default(),
+            &Roots::new("/p", "/p/spec"),
+            &MemoryConsent::default(),
+        );
+        let row = row(
+            &grant,
+            &grant.capabilities()[0],
+            &Uses::new(),
+            &Approvals::default(),
+        );
+        assert_printable(&row.why);
+        assert_printable(&row.scope);
+        assert!(row.why.contains("\\u{1b}[1A"), "{row:?}");
+        assert!(row.scope.contains("\\u{1b}[1A"), "{row:?}");
+    }
+
+    #[test]
+    fn the_stores_listing_holds_what_it_reads_printable() {
+        let consent = MemoryConsent::default();
+        consent
+            .approve(Approval::Capability(CapabilityApproval {
+                project: ProjectKey(format!("/p{HOSTILE}")),
+                extension: format!("@acme/x{HOSTILE}"),
+                provenance: KeyedBy::Digest(format!("ab{HOSTILE}")),
+                scope: format!("tests{HOSTILE}"),
+                granted: PortScope::Process(ProcessScope {
+                    argv: vec![format!("cargo{HOSTILE}")],
+                    deadline_ms: None,
+                }),
+                call_kinds: Vec::new(),
+                secret_env: None,
+                digest: None,
+                specforge: String::new(),
+                approved_at: ApprovedAt(format!("now{HOSTILE}")),
+            }))
+            .unwrap();
+        consent
+            .approve(Approval::Root(RootApproval {
+                project: ProjectKey(format!("/p{HOSTILE}")),
+                root: format!("vault{HOSTILE}"),
+                target: format!("/v{HOSTILE}"),
+                approved_at: ApprovedAt(format!("now{HOSTILE}")),
+            }))
+            .unwrap();
+        let listing = list_store(&consent).unwrap();
+        let a = &listing.capabilities[0];
+        for text in [
+            &a.project,
+            &a.extension,
+            &a.provenance,
+            &a.scope,
+            &a.granted,
+            &a.approved_at,
+        ] {
+            assert_printable(text);
+        }
+        let r = &listing.roots[0];
+        for text in [&r.project, &r.root, &r.target, &r.approved_at] {
+            assert_printable(text);
+        }
+    }
+
+    #[test]
+    fn w186_shows_a_store_and_a_reason_printable() {
+        let w186 = unusable_store(&ConsentError {
+            store: format!("/h{HOSTILE}/consent.json"),
+            why: format!("it is not a consent store (unknown variant `{HOSTILE}`)"),
+        });
+        assert_printable(&w186.message);
+        assert!(w186.message.contains("\\u{1b}[1A"), "{}", w186.message);
+    }
 }

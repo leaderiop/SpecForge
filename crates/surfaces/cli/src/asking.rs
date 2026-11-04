@@ -4,6 +4,7 @@
 
 use crate::outcome::OutputFormat;
 use crate::terminal::{Facts, Terminal};
+use specforge_common::remedy::printable;
 use specforge_ops::asking::{Asker, Asking, ExpectedFrom, Question};
 
 /// Who a command can ask: `--yes` answers everything; a human-format command whose stdin is a terminal asks
@@ -38,6 +39,7 @@ fn key_change(question: &Question<'_>) -> String {
     else {
         return String::new();
     };
+    let [package, expected, offered] = [package, expected, offered].map(|text| printable(text));
     match from {
         ExpectedFrom::UserPin => format!(
             "KEY CHANGE for '{package}': pinned '{expected}' but new package is signed '{offered}'\ntrust the new key and re-pin? [y/N] "
@@ -49,7 +51,8 @@ fn key_change(question: &Question<'_>) -> String {
 }
 
 /// A capability or outside-root question as the terminal shows it (ADR 0335 D2.4). A collector's command keeps
-/// the bytes it had before capabilities: the extension, the project and the command.
+/// the bytes it had before capabilities: the extension, the project and the command. Every field is an extension's
+/// or a project's text, shown printable (ADR 0244): none can erase the line a person is approving.
 fn approval(question: &Question<'_>) -> String {
     match question {
         Question::Capability {
@@ -58,8 +61,10 @@ fn approval(question: &Question<'_>) -> String {
             command: Some(argv),
             ..
         } => format!(
-            "{extension} wants to run this command in {project}:\n  {}\nAllow it for this project? [y/N] ",
-            argv.join(" ")
+            "{} wants to run this command in {}:\n  {}\nAllow it for this project? [y/N] ",
+            printable(extension),
+            printable(project),
+            printable(&argv.join(" "))
         ),
         Question::Capability {
             extension,
@@ -68,16 +73,23 @@ fn approval(question: &Question<'_>) -> String {
             why,
             project,
             command: None,
-        } => format!(
-            "{extension} asks for '{scope}': {summary}\n  why: {why}\nAllow it for {project}? [y/N] "
-        ),
+        } => {
+            let [extension, scope, summary, why, project] =
+                [extension, scope, summary, why, project].map(|text| printable(text));
+            format!(
+                "{extension} asks for '{scope}': {summary}\n  why: {why}\nAllow it for {project}? [y/N] "
+            )
+        }
         Question::Root {
             name,
             target,
             project,
-        } => format!(
-            "root '{name}' lies outside the project, at {target}\nAllow extensions to read it for {project}? [y/N] "
-        ),
+        } => {
+            let [name, target, project] = [name, target, project].map(|text| printable(text));
+            format!(
+                "root '{name}' lies outside the project, at {target}\nAllow extensions to read it for {project}? [y/N] "
+            )
+        }
         _ => String::new(),
     }
 }
@@ -160,6 +172,65 @@ mod tests {
         for format in [OutputFormat::Human, OutputFormat::Json] {
             assert_eq!(who(true, format, Facts::PIPED), "Yes");
         }
+    }
+
+    /// The escape sequences a hostile field carries; `\u{9b}` is the one-byte CSI, `\u{202e}` reorders what is shown.
+    const ERASES: &str = "\u{1b}[1A\u{1b}[2K\u{9b}2J\u{202e}";
+
+    fn shown(question: &Question<'_>) -> String {
+        let (terminal, capture) = Terminal::captured("n\n", INTERACTIVE);
+        assert!(!(&terminal as &dyn Asker).answer(question));
+        capture.stderr()
+    }
+
+    #[test]
+    fn no_field_of_a_question_reaches_the_terminal_as_a_control_sequence() {
+        let argv = vec![format!("cargo{ERASES}"), format!("test{ERASES}")];
+        let capability = |command| Question::Capability {
+            extension: ERASES,
+            scope: ERASES,
+            summary: ERASES,
+            why: ERASES,
+            project: ERASES,
+            command,
+        };
+        for question in [
+            capability(None),
+            capability(Some(&argv)),
+            Question::Root {
+                name: ERASES,
+                target: ERASES,
+                project: ERASES,
+            },
+            Question::KeyChange {
+                package: ERASES,
+                expected: ERASES,
+                offered: ERASES,
+                from: ExpectedFrom::UserPin,
+            },
+        ] {
+            let text = shown(&question);
+            for raw in ['\u{1b}', '\u{9b}', '\u{202e}'] {
+                assert!(!text.contains(raw), "{raw:?} in {text:?}");
+            }
+            assert!(text.contains("\\u{1b}[1A"), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn the_line_a_hostile_why_tried_to_erase_is_still_there() {
+        let text = shown(&Question::Capability {
+            extension: "@x/a",
+            scope: "token",
+            summary: "http GET a.example, sending $SECRET",
+            why: "\u{1b}[1A\u{1b}[2K",
+            project: "/p",
+            command: None,
+        });
+        assert_eq!(
+            text,
+            "@x/a asks for 'token': http GET a.example, sending $SECRET\n  why: \\u{1b}[1A\\u{1b}[2K\nAllow it for /p? [y/N] "
+        );
     }
 
     #[test]

@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
 use specforge_package::Sha256;
 use specforge_protocol_types::{
@@ -417,16 +418,20 @@ impl Grant {
         Some(
             Diagnostic::new(
                 codes::W170,
-                format!(
+                printable(&format!(
                     "extension '{}': effects not approved on this machine: {}",
                     self.extension,
                     what.join(", ")
-                ),
+                ))
+                .into_owned(),
             )
-            .with_suggestion(format!(
-                "approve with `{}`, or allow them for one run when asked",
-                commands.join("` and `")
-            )),
+            .with_suggestion(
+                printable(&format!(
+                    "approve with `{}`, or allow them for one run when asked",
+                    commands.join("` and `")
+                ))
+                .into_owned(),
+            ),
         )
     }
 

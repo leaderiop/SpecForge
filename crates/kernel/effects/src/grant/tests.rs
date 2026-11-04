@@ -484,6 +484,25 @@ fn a_run_needs_only_the_approvals_of_what_it_uses_and_w170_lists_them() {
 }
 
 #[test]
+fn w170_shows_what_it_names_printable() {
+    let grant = Grant::decide(
+        &declaration(json!([
+            {"name": "tests", "why": "t", "call_kinds": ["collect"], "port": "process",
+             "argv": ["cargo", "test\u{1b}[2K\u{202e}"]},
+        ])),
+        &third_party(),
+        &EffectsCeiling::default(),
+        &roots(),
+        &MemoryConsent::default(),
+    );
+    let w170 = grant
+        .unapproved_summary(&uses(&[(Operation::Collect, "tests")]))
+        .unwrap();
+    assert!(!w170.message.contains(['\u{1b}', '\u{202e}']), "{w170:?}");
+    assert!(w170.message.contains("\\u{1b}[2K"), "{w170:?}");
+}
+
+#[test]
 fn e090_names_the_extension_the_request_and_the_scope() {
     let grant = Grant::decide(
         &caps(),

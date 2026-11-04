@@ -152,6 +152,38 @@ fn a_store_committed_in_a_project_that_is_the_home_approves_nothing() {
     assert!(!fx.ran(), "the repository approved its own command");
 }
 
+/// A root's target is the project's text and no extension's: a directory name carries an escape sequence to every
+/// place that shows the approval it needs, and none of them passes it to the terminal or to an agent raw.
+#[cfg(unix)]
+#[test]
+fn a_root_outside_the_project_is_shown_printable_wherever_it_is_listed() {
+    let outside = TempDir::new().unwrap();
+    let hostile = outside.path().join("v\u{1b}[2K\u{202e}");
+    std::fs::create_dir(&hostile).unwrap();
+    let fx = Fixture::with_roots(&format!(
+        r#","roots":{{"vault":{}}}"#,
+        serde_json::to_string(hostile.to_str().unwrap()).unwrap()
+    ));
+    let listed = |args: &[&str]| {
+        let out = fx.cmd(args).output().unwrap();
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(text.contains("vault"), "{args:?}: {text}");
+        for raw in ['\u{1b}', '\u{202e}'] {
+            assert!(!text.contains(raw), "{args:?}: {raw:?} in {text:?}");
+        }
+        text
+    };
+    assert!(listed(&["grants"]).contains("\\u{1b}[2K"));
+    assert!(listed(&["doctor"]).contains("\\u{1b}[2K"));
+    // JSON would escape the ESC by itself, and never the bidirectional control.
+    listed(&["grants", "--format", "json"]);
+    listed(&["doctor", "--format", "json"]);
+}
+
 #[cfg(unix)]
 #[test]
 fn an_approved_collector_runs_without_a_terminal_until_revoked() {

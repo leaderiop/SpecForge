@@ -9,6 +9,7 @@ use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specforge_common::fresh::{open_private_lock, private_parent, replace_private};
+use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
 use specforge_effects::{Approvals, Consent, ConsentError};
 
@@ -162,10 +163,11 @@ fn resolved(path: &Path) -> PathBuf {
 pub fn unusable_store(error: &ConsentError) -> Diagnostic {
     Diagnostic::new(
         codes::W186,
-        format!(
+        printable(&format!(
             "consent store {} is not usable: {}; nothing in it is approved here",
             error.store, error.why
-        ),
+        ))
+        .into_owned(),
     )
 }
 

@@ -12,6 +12,7 @@ use crate::settle::{Unsettled, settle};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 use specforge_common::codes;
+use specforge_common::remedy::printable;
 use specforge_effects::{Consent, Denied, EffectRequest, Grant, Need, ProcessRequest, Uses};
 use specforge_protocol_types::Operation;
 
@@ -121,7 +122,13 @@ fn e059(argv: &[String], extension: &str, kept: &str, store: Option<&str>) -> Op
     if let Some(store) = store {
         message.push_str(&format!(" ({store})"));
     }
-    fail(OpErrorKind::PermissionDenied, codes::E059, message).with_suggestion(format!(
+    let kept = printable(kept);
+    fail(
+        OpErrorKind::PermissionDenied,
+        codes::E059,
+        printable(&message).into_owned(),
+    )
+    .with_suggestion(format!(
         "approve it with `{}` (kept in {kept}), once with `specforge collect` in a terminal, \
          or run `specforge collect --yes`; reading the report the runner already wrote needs no approval",
         specforge_common::remedy::command("specforge grants approve {}", &[extension])
