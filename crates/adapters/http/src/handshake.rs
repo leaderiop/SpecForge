@@ -13,8 +13,14 @@ use specforge_effects::http::{CONNECT_TIMEOUT, TIMEOUT_CEILING};
 use specforge_effects::{
     OutcomeClass, ResolveOutcome, ResolveRequest, TlsOutcome, TlsRequest, Unreachable,
 };
+use x509_cert::Certificate;
+use x509_cert::der::Decode as _;
+use x509_cert::der::asn1::ObjectIdentifier;
 
 use crate::address::public;
+
+/// X.520's `commonName`.
+const COMMON_NAME: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.4.3");
 
 /// `host`'s addresses, at most after `time`: the system resolver takes no timeout, so it runs beside the wait and is
 /// left behind when the time runs out.
@@ -243,91 +249,21 @@ fn reading_config(seen: &Arc<Reading>) -> Result<ClientConfig, rustls::Error> {
     )
 }
 
-/// One DER element: its tag, content and what follows it.
-fn element(der: &[u8]) -> Option<(u8, &[u8], &[u8])> {
-    let (&tag, rest) = der.split_first()?;
-    let (&first, rest) = rest.split_first()?;
-    let (length, rest) = if first < 0x80 {
-        (usize::from(first), rest)
-    } else {
-        let count = usize::from(first & 0x7f);
-        if count == 0 || count > 4 || rest.len() < count {
-            return None;
-        }
-        let (bytes, rest) = rest.split_at(count);
-        let length = bytes
-            .iter()
-            .fold(0usize, |length, byte| (length << 8) | usize::from(*byte));
-        (length, rest)
-    };
-    (length <= rest.len()).then(|| {
-        let (content, after) = rest.split_at(length);
-        (tag, content, after)
-    })
-}
-
-/// When a certificate expires and who issued it. shortcut: reads these two fields of the TBS by hand, since the
-/// workspace holds no X.509 parser; take one if a checker comes to need more of a certificate.
+/// When a certificate expires and who issued it, from its DER; nothing when it does not parse.
 fn facts(certificate: &[u8]) -> (Option<String>, Option<String>) {
-    fn read(certificate: &[u8]) -> Option<(Option<String>, Option<String>)> {
-        let (_, whole, _) = element(certificate)?;
-        let (_, tbs, _) = element(whole)?;
-        let (tag, _, after) = element(tbs)?;
-        // An optional `[0]` version, then the serial; then the signature algorithm.
-        let rest = if tag == 0xa0 {
-            element(after)?.2
-        } else {
-            after
-        };
-        let (_, _, rest) = element(rest)?;
-        let (_, issuer, rest) = element(rest)?;
-        let (_, validity, _) = element(rest)?;
-        let (_, _, after_start) = element(validity)?;
-        let (tag, time, _) = element(after_start)?;
-        Some((rfc3339(tag, time), common_name(issuer)))
-    }
-    read(certificate).unwrap_or((None, None))
-}
-
-/// A UTCTime (tag 0x17, `YYMMDDHHMMSSZ`) or GeneralizedTime (0x18, `YYYYMMDDHHMMSSZ`) as `2030-01-31T23:59:59Z`.
-fn rfc3339(tag: u8, time: &[u8]) -> Option<String> {
-    let text = std::str::from_utf8(time).ok()?;
-    let (century, rest) = match tag {
-        0x17 => {
-            let year: u32 = text.get(..2)?.parse().ok()?;
-            (if year >= 50 { "19" } else { "20" }, text)
-        }
-        0x18 => (text.get(..2)?, text.get(2..)?),
-        _ => return None,
+    let Ok(certificate) = Certificate::from_der(certificate) else {
+        return (None, None);
     };
-    if rest.len() != 13 || !rest.ends_with('Z') || !rest[..12].bytes().all(|b| b.is_ascii_digit()) {
-        return None;
-    }
-    Some(format!(
-        "{century}{}-{}-{}T{}:{}:{}Z",
-        &rest[..2],
-        &rest[2..4],
-        &rest[4..6],
-        &rest[6..8],
-        &rest[8..10],
-        &rest[10..12]
-    ))
-}
-
-/// The common name in an X.501 name.
-fn common_name(mut name: &[u8]) -> Option<String> {
-    const COMMON_NAME: [u8; 3] = [0x55, 0x04, 0x03];
-    while !name.is_empty() {
-        let (_, set, rest) = element(name)?;
-        let (_, pair, _) = element(set)?;
-        let (_, oid, value) = element(pair)?;
-        if oid == COMMON_NAME {
-            let (_, text, _) = element(value)?;
-            return Some(String::from_utf8_lossy(text).into_owned());
-        }
-        name = rest;
-    }
-    None
+    let tbs = &certificate.tbs_certificate;
+    let not_after = tbs.validity.not_after.to_date_time().to_string();
+    let issuer = tbs
+        .issuer
+        .0
+        .iter()
+        .flat_map(|names| names.0.iter())
+        .find(|name| name.oid == COMMON_NAME)
+        .map(|name| String::from_utf8_lossy(name.value.value()).into_owned());
+    (Some(not_after), issuer)
 }
 
 #[cfg(test)]
@@ -347,21 +283,28 @@ mod tests {
         assert_eq!(facts(&[]), (None, None));
     }
 
+    /// Any bytes at all answer nothing or facts, and never panic: a server chose them.
     #[test]
-    fn both_time_forms_read_and_a_bad_one_does_not() {
-        assert_eq!(
-            rfc3339(0x17, b"300131235959Z").as_deref(),
-            Some("2030-01-31T23:59:59Z")
-        );
-        assert_eq!(
-            rfc3339(0x17, b"991231235959Z").as_deref(),
-            Some("1999-12-31T23:59:59Z")
-        );
-        assert_eq!(
-            rfc3339(0x18, b"21261010144758Z").as_deref(),
-            Some("2126-10-10T14:47:58Z")
-        );
-        assert_eq!(rfc3339(0x18, b"2126"), None);
-        assert_eq!(rfc3339(0x02, b"300131235959Z"), None);
+    fn a_hostile_certificate_is_only_read() {
+        let good = include_bytes!("../tests/self-signed.cert.der");
+        let mut seed = 0x9e37_79b9_7f4a_7c15_u64;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed as usize
+        };
+        for _ in 0..2000 {
+            let mut bytes = good.to_vec();
+            for _ in 0..1 + next() % 8 {
+                let at = next() % bytes.len();
+                bytes[at] = next() as u8;
+            }
+            bytes.truncate(1 + next() % bytes.len());
+            let _ = facts(&bytes);
+        }
+        // Lengths that claim more than there is, nested deep.
+        assert_eq!(facts(&[0x30, 0x84, 0xff, 0xff, 0xff, 0xff]), (None, None));
+        assert_eq!(facts(&[0x30; 4096]), (None, None));
     }
 }
