@@ -1495,6 +1495,110 @@
       ],
       "value": "path",
       "when": "families.media"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W181",
+        "W182"
+      ],
+      "name": "package",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W181",
+        "W182",
+        "W179"
+      ],
+      "name": "advisory",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "allow",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W181",
+        "W182",
+        "W179"
+      ],
+      "name": "license_of",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W181",
+        "W182"
+      ],
+      "name": "doi",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W181",
+        "W182"
+      ],
+      "name": "orcid",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
     }
   ]
 }

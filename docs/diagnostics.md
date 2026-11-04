@@ -1460,12 +1460,13 @@ Level: error
 ```
 E103: The value is not well formed
 
-A format, a check digit, the name a files, git or pointer check reads, or the
-URL or `formats` of a media check is malformed by the standard its checker names
-(`@specforge/checks`, ADR 0338): the message names the standard, or the digit it
-expected, and the finding points at the part that is wrong when it can. Correct
-the value. No family switch gates it, since several families report it; turning
-a family's switch off stops its checkers.
+A format, a check digit, the name a files, git or pointer check reads, the URL
+or `formats` of a media check, or a registries check's package, DOI or ORCID iD
+is malformed by the standard its checker names (`@specforge/checks`, ADR 0338):
+the message names the standard, or the digit it expected, and the finding points
+at the part that is wrong when it can. Correct the value. No family switch gates
+it, since several families report it; turning a family's switch off stops its
+checkers.
 
 Owner: @specforge/checks
 Level: error
@@ -1479,6 +1480,25 @@ E104: The URL's content type is not allowed
 A `@specforge/checks:content_type` value answered a `Content-Type` outside the
 check's `allow`, or none. Point the link at the right resource, or add the type
 to `allow`.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E105
+
+```
+E105: The package, release, DOI or ORCID iD is not registered
+
+A `@specforge/checks` registries check asked the identifier's own resolver and
+got a definite no: `package`, `advisory` or `license_of` found no such package
+on crates.io, npm or PyPI (a 404), or no release its requirement admits once
+yanked releases are left out (the message names the newest release that is not
+yanked, and the finding sits on the requirement); `doi` found a DOI doi.org does
+not register (`responseCode` 100, or a 404); `orcid` found an iD ORCID has no
+record of (404 or 410). Fix the value. A registry that is down, limits the rate
+or wants credentials is W181 or W182, and one that did not answer W172, never
+E105.
 
 Owner: @specforge/checks
 Level: error
@@ -4214,7 +4234,8 @@ W172: The URL or name did not answer
 The DNS lookup, the connection, the TLS handshake or the wait for an answer
 failed, a `@specforge/checks:dns` name does not resolve, or a server answered a
 media check's request for part of a file with all of it, past the 1 MiB that is
-read. It says nothing about the project, only what this machine's network saw,
+read, or a registry's answer was over the 16 MiB read or did not read as its
+format. It says nothing about the project, only what this machine's network saw,
 so retry later or check the network. A `machine` diagnostic: `--strict` never
 promotes it, and the gate's warning baseline never counts it.
 
@@ -4303,6 +4324,22 @@ W178: The URL's certificate expires soon
 
 A `@specforge/checks:tls` value's certificate has a `not_after` within the
 check's `days` (14 by default). Renew it, or lower `days`.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W179
+
+```
+W179: The package release has an advisory, or a licence that is not allowed
+
+A `@specforge/checks:advisory` value's package resolves to a release OSV lists
+an advisory for (withdrawn ones are not reported): the message names its id, its
+aliases and the first version a range of it names as fixed. Or a `license_of`
+value's release states a licence its `allow` does not admit (an SPDX expression
+holds when the licences `allow` names satisfy it), or states none as SPDX.
+Upgrade or replace the package, or widen `allow` if the licence is accepted.
 
 Owner: @specforge/checks
 Level: warning

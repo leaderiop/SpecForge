@@ -27,10 +27,13 @@ catalog! {
         "A `@specforge/checks` media check read the file a value names, under its root or from an https URL, and it is not what the check reads: `image` found no image signature (or a whole file whose size does not read) or a format outside its `formats` (by default png, jpeg, webp, gif, svg, avif); `svg` found XML that is not well formed, or whose root is not `<svg>`; `pdf` found no `%PDF-` header, no `startxref` or a cross-reference that does not read; `media` found no container it knows (mp4, mov, m4a, webm, mkv, avi, wav, mp3, ogg, flac, aac) or one outside its `formats`. A URL that answers 404 or 410, or names another scheme than https, is E099 too. Fix the file or the value, or allow its format. A network that did not answer is W172, not E099.";
     E103: Error checks,
         "The value is not well formed",
-        "A format, a check digit, the name a files, git or pointer check reads, or the URL or `formats` of a media check is malformed by the standard its checker names (`@specforge/checks`, ADR 0338): the message names the standard, or the digit it expected, and the finding points at the part that is wrong when it can. Correct the value. No family switch gates it, since several families report it; turning a family's switch off stops its checkers.";
+        "A format, a check digit, the name a files, git or pointer check reads, the URL or `formats` of a media check, or a registries check's package, DOI or ORCID iD is malformed by the standard its checker names (`@specforge/checks`, ADR 0338): the message names the standard, or the digit it expected, and the finding points at the part that is wrong when it can. Correct the value. No family switch gates it, since several families report it; turning a family's switch off stops its checkers.";
     E104: Error checks,
         "The URL's content type is not allowed",
         "A `@specforge/checks:content_type` value answered a `Content-Type` outside the check's `allow`, or none. Point the link at the right resource, or add the type to `allow`.";
+    E105: Error checks,
+        "The package, release, DOI or ORCID iD is not registered",
+        "A `@specforge/checks` registries check asked the identifier's own resolver and got a definite no: `package`, `advisory` or `license_of` found no such package on crates.io, npm or PyPI (a 404), or no release its requirement admits once yanked releases are left out (the message names the newest release that is not yanked, and the finding sits on the requirement); `doi` found a DOI doi.org does not register (`responseCode` 100, or a 404); `orcid` found an iD ORCID has no record of (404 or 410). Fix the value. A registry that is down, limits the rate or wants credentials is W181 or W182, and one that did not answer W172, never E105.";
     E106: Error checks,
         "A commit, ref or file at a revision is not found",
         "A `@specforge/checks` git check (`commit`, `ref`, `file_at`) names something this repository does not have. Fix the name. A miss git cannot vouch for is not reported: with no repository, in a shallow clone, or for a tag in a clone that fetched none, the check stays unchecked (I207).";
@@ -42,7 +45,7 @@ catalog! {
         "A `@specforge/checks:svg` value's file holds a `<script>` element, an event attribute (`onload`, `onclick` and every other `on…`), a `javascript:` URL in an `href` or in what an animation sets, or an entity the check does not expand where one could hide either. The message names the first one and its line and column. An SVG shown through an `<img>` runs no script, but one opened, inlined or embedded does: remove it.";
     W172: Warning checks machine,
         "The URL or name did not answer",
-        "The DNS lookup, the connection, the TLS handshake or the wait for an answer failed, a `@specforge/checks:dns` name does not resolve, or a server answered a media check's request for part of a file with all of it, past the 1 MiB that is read. It says nothing about the project, only what this machine's network saw, so retry later or check the network. A `machine` diagnostic: `--strict` never promotes it, and the gate's warning baseline never counts it.";
+        "The DNS lookup, the connection, the TLS handshake or the wait for an answer failed, a `@specforge/checks:dns` name does not resolve, or a server answered a media check's request for part of a file with all of it, past the 1 MiB that is read, or a registry's answer was over the 16 MiB read or did not read as its format. It says nothing about the project, only what this machine's network saw, so retry later or check the network. A `machine` diagnostic: `--strict` never promotes it, and the gate's warning baseline never counts it.";
     W173: Warning checks machine,
         "The URL redirected where it was not followed",
         "A redirect left the hosts this run is granted, downgraded https to http or went past 5 hops, or a `@specforge/checks:redirect` value ended on a host outside `hosts`. Point the link at the final URL, or widen `hosts` if the destination is intended. A `machine` diagnostic: `--strict` never promotes it, and the gate's warning baseline never counts it.";
@@ -55,6 +58,9 @@ catalog! {
     W178: Warning checks,
         "The URL's certificate expires soon",
         "A `@specforge/checks:tls` value's certificate has a `not_after` within the check's `days` (14 by default). Renew it, or lower `days`.";
+    W179: Warning checks,
+        "The package release has an advisory, or a licence that is not allowed",
+        "A `@specforge/checks:advisory` value's package resolves to a release OSV lists an advisory for (withdrawn ones are not reported): the message names its id, its aliases and the first version a range of it names as fixed. Or a `license_of` value's release states a licence its `allow` does not admit (an SPDX expression holds when the licences `allow` names satisfy it), or states none as SPDX. Upgrade or replace the package, or widen `allow` if the licence is accepted.";
     W180: Warning checks,
         "A path is not tracked by git",
         "A `@specforge/checks:tracked` value names a path that is not in the commit at HEAD: it is ignored, untracked or only staged. Commit it, or stop naming it.";

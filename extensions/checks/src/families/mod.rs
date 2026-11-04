@@ -12,6 +12,7 @@ mod formats;
 mod git;
 pub(crate) mod links;
 mod media;
+mod registries;
 mod structured;
 
 /// A family: the setting that switches it, the scope its probes run under (none when it reads only the text), the codes
@@ -69,7 +70,23 @@ pub(crate) const GIT: Family = Family {
     describe: "Check the commits, refs and tracked paths values name",
 };
 
-const FAMILIES: [&Family; 7] = [&FILES, &FORMATS, &DIGITS, &LINKS, &GIT, &STRUCTURED, &MEDIA];
+pub(crate) const REGISTRIES: Family = Family {
+    switch: "families.registries",
+    scope: Some("registries"),
+    gates: &[E105, W179],
+    describe: "Check that packages, DOIs and ORCID iDs exist, and the advisories and licences of the packages",
+};
+
+const FAMILIES: [&Family; 8] = [
+    &FILES,
+    &FORMATS,
+    &DIGITS,
+    &LINKS,
+    &GIT,
+    &STRUCTURED,
+    &MEDIA,
+    &REGISTRIES,
+];
 
 /// A family's scope, which it declares.
 fn scope_of(family: &Family) -> &'static str {
@@ -100,6 +117,15 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
             .methods(&[HttpMethod::Get])
             .why("read the head or the tail of the remote images, SVGs, PDFs and media files the values name"),
     );
+    c.capability(
+        Capability::http(scope_of(&REGISTRIES))
+            .call_kinds(&[Operation::CheckValues])
+            .hosts(&registries::HOSTS)
+            .schemes(&["https"])
+            .methods(&[HttpMethod::Get, HttpMethod::Post])
+            .max_bytes(registries::ANSWER)
+            .why("check that packages, DOIs and ORCID iDs exist, and read the advisories and licences of the packages"),
+    );
     for family in FAMILIES {
         c.setting(family.switch, |s| {
             s.bool()
@@ -115,6 +141,7 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
     git::contribute(c);
     structured::contribute(c);
     media::contribute(c);
+    registries::contribute(c);
 }
 
 /// A checker's arguments as the host admitted them, read by type: one that is missing, or of another type, is absent.

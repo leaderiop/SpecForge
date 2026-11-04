@@ -377,6 +377,18 @@ pub fn licence(ecosystem: Ecosystem, body: &[u8]) -> Result<Option<String>, Stri
         .filter(|s| !s.is_empty()))
 }
 
+/// Whether the SPDX expression `stated` holds with only the licences `allow` names (`MIT OR Apache-2.0` holds with
+/// `MIT` alone); `None` when `stated` is no SPDX expression.
+pub fn licence_admitted(stated: &str, allow: &[&str]) -> Option<bool> {
+    let expression = spdx::Expression::parse(stated).ok()?;
+    Some(
+        expression.evaluate(|requirement| match &requirement.license {
+            spdx::LicenseItem::Spdx { id, .. } => allow.contains(&id.name),
+            spdx::LicenseItem::Other { .. } => false,
+        }),
+    )
+}
+
 /// The SPDX id of a `License :: OSI Approved :: …` classifier that names one plainly.
 fn classifier_licence(classifier: &str) -> Option<String> {
     let name = classifier.strip_prefix("License :: OSI Approved :: ")?;

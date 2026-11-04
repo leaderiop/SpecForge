@@ -13,6 +13,7 @@ mod check_passes;
 mod check_reads;
 mod checks_foundation;
 mod checks_media;
+mod checks_registries;
 mod checks_structured;
 mod compile;
 mod computed;

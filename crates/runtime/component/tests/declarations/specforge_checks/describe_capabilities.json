@@ -44,6 +44,33 @@
         "https"
       ],
       "why": "read the head or the tail of the remote images, SVGs, PDFs and media files the values name"
+    },
+    {
+      "call_kinds": [
+        "check_values"
+      ],
+      "hosts": {
+        "list": [
+          "index.crates.io",
+          "crates.io",
+          "registry.npmjs.org",
+          "pypi.org",
+          "api.osv.dev",
+          "doi.org",
+          "pub.orcid.org"
+        ]
+      },
+      "max_bytes": 16777216,
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "name": "registries",
+      "port": "http",
+      "schemes": [
+        "https"
+      ],
+      "why": "check that packages, DOIs and ORCID iDs exist, and read the advisories and licences of the packages"
     }
   ]
 }

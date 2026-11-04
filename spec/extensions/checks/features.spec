@@ -12,6 +12,6 @@ feature ck_value_checks "Generic Value Checks" {
   solution """
     @specforge/checks holds the checkers a cross-industry standard decides,
     in families a setting switches: files, formats, digits, links, git,
-    structured and media. A domain pack adds its own on the same kit (ADR 0338).
+    structured, media and registries. A domain pack adds its own on the same kit (ADR 0338).
   """
 }

@@ -12,7 +12,7 @@ mod families;
 #[specforge_extension_sdk::extension(
     name = "@specforge/checks",
     version = "1.0.0",
-    description = "The generic value checkers: files, formats, check digits, links, git, structured files and media"
+    description = "The generic value checkers: files, formats, check digits, links, git, structured files, media and registries"
 )]
 struct Checks;
 

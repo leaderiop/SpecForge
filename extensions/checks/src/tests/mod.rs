@@ -13,6 +13,7 @@ mod formats;
 mod git;
 mod links;
 mod media;
+mod registries;
 mod structured;
 
 fn declaration() -> ExtensionDeclaration {
@@ -32,9 +33,9 @@ fn switches() -> Vec<SettingDescriptor> {
 
 #[specforge_test(
     behavior = "ck_family_switches",
-    verify = "the extension declares the scopes files, links, git and media-remote, and one switch per family on by default"
+    verify = "the extension declares the scopes files, links, git, media-remote and registries, and one switch per family on by default"
 )]
-fn declares_four_scopes_and_a_switch_per_family() {
+fn declares_five_scopes_and_a_switch_per_family() {
     let declaration = declaration();
     let scopes: Vec<_> = declaration
         .capabilities
@@ -45,7 +46,8 @@ fn declares_four_scopes_and_a_switch_per_family() {
     assert!(matches!(scopes[1], ("links", PortScope::Http(_))));
     assert!(matches!(scopes[2], ("git", PortScope::Git(_))));
     assert!(matches!(scopes[3], ("media-remote", PortScope::Http(_))));
-    assert_eq!(scopes.len(), 4);
+    assert!(matches!(scopes[4], ("registries", PortScope::Http(_))));
+    assert_eq!(scopes.len(), 5);
 
     let switches = switches();
     let names: Vec<&str> = switches.iter().map(|s| s.name.as_str()).collect();
@@ -58,7 +60,8 @@ fn declares_four_scopes_and_a_switch_per_family() {
             "families.links",
             "families.git",
             "families.structured",
-            "families.media"
+            "families.media",
+            "families.registries"
         ]
     );
     for switch in &switches {
@@ -96,6 +99,7 @@ fn each_switch_gates_only_its_familys_codes() {
     assert_eq!(of("families.git"), ["E106", "W180"]);
     assert!(of("families.formats").is_empty() && of("families.digits").is_empty());
     assert_eq!(of("families.media"), ["E099", "E113", "W177"]);
+    assert_eq!(of("families.registries"), ["E105", "W179"]);
     assert_eq!(
         of("families.links"),
         ["E091", "E092", "E093", "E104", "E112", "W178", "W183"]

@@ -4,5 +4,5 @@
   "version": "1.0.0",
   "peer_dependencies": [],
   "sandbox_policy": null,
-  "description": "The generic value checkers: files, formats, check digits, links, git, structured files and media"
+  "description": "The generic value checkers: files, formats, check digits, links, git, structured files, media and registries"
 }

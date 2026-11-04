@@ -74,6 +74,17 @@
       ],
       "kind": "setting",
       "name": "families.media"
+    },
+    {
+      "default": true,
+      "description": "Check that packages, DOIs and ORCID iDs exist, and the advisories and licences of the packages",
+      "field_type": "bool",
+      "gates": [
+        "E105",
+        "W179"
+      ],
+      "kind": "setting",
+      "name": "families.registries"
     }
   ]
 }

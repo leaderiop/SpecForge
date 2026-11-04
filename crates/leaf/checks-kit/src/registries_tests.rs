@@ -1,6 +1,6 @@
 //! Package coordinates, version ranges, OSV answers and research identifiers against published vectors.
 
-use crate::coord::{self, Ecosystem, Release, licence, releases};
+use crate::coord::{self, Ecosystem, Release, licence, licence_admitted, releases};
 use crate::ids::{doi, doi_url, orcid, orcid_url};
 use crate::osv::{Advisory, advisories, query};
 use crate::ranges::{Requirement, newest, newest_unyanked};
@@ -321,4 +321,18 @@ fn ids_read_dois_and_orcids_in_every_spelling() {
     );
     assert!(orcid("0000-0002-1825-0098").is_err(), "a wrong check digit");
     assert!(orcid("0000000218250097").is_err(), "no hyphens");
+}
+
+#[test]
+fn licence_admitted_holds_an_expression_to_the_allowed_ids() {
+    assert_eq!(licence_admitted("MIT OR Apache-2.0", &["MIT"]), Some(true));
+    assert_eq!(
+        licence_admitted("MIT AND Apache-2.0", &["MIT"]),
+        Some(false)
+    );
+    assert_eq!(
+        licence_admitted("GPL-3.0-only", &["MIT", "Apache-2.0"]),
+        Some(false)
+    );
+    assert_eq!(licence_admitted("see LICENSE", &["MIT"]), None);
 }
