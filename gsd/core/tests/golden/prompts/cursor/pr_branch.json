@@ -44,8 +44,8 @@
     "",
     "```bash",
     "# the commands below are specforge commands: there is no launcher to define",
-    "CURRENT_BRANCH=$(git branch --show-current)",
-    "TARGET=$(echo \"--target \"main\"\" | sed -nE 's/.*--target[[:space:]]+\"?([A-Za-z0-9._\\/-]+).*/\\1/p'); TARGET=${TARGET:-$(printf '%s' \"\" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q \"$b\" >/dev/null && echo \"$b\" && break; done)}",
+    "CURRENT_BRANCH=$(specforge git head --pick .branch)",
+    "TARGET=$(echo \"--target \"main\"\" | sed -nE 's/.*--target[[:space:]]+\"?([A-Za-z0-9._\\/-]+).*/\\1/p'); TARGET=${TARGET:-$(printf '%s' \"\" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ \"$(specforge git rev \"$b\" --pick '.revs[0].exists')\" = true ] && echo \"$b\" && break; done)}",
     "```",
     "",
     "Check preconditions:",
@@ -54,14 +54,14 @@
     "- Working tree must be clean",
     "",
     "```bash",
-    "AHEAD=$(git rev-list --count \"$TARGET\"..\"$CURRENT_BRANCH\" 2>/dev/null)",
+    "AHEAD=$(specforge git log \"$TARGET\"..\"$CURRENT_BRANCH\" --pick .count 2>/dev/null)",
     "if [ \"$AHEAD\" = \"0\" ]; then",
     "  echo \"No commits ahead of $TARGET — nothing to filter.\"",
     "  exit 0",
     "fi",
     ""
   ],
-  "bytes": 35228,
+  "bytes": 35623,
   "end": [
     "",
     "Or use /gsd-ship to create the PR automatically.",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:02b5aba324fe7232c8e8ae7f33e9e1eb2481dbe6abba95e42cfc086a256ecf97",
+    "digest": "sha256:7b25219fa6d3f210efc82e50d9ddc770784c3df2e57d1fc3409ac636b69971e4",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "02b5aba324fe7232c8e8ae7f33e9e1eb2481dbe6abba95e42cfc086a256ecf97"
+  "sha256": "7b25219fa6d3f210efc82e50d9ddc770784c3df2e57d1fc3409ac636b69971e4"
 }

@@ -398,7 +398,7 @@ cycles stay sequential either way — only the lanes *within* one pass overlap.
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 RUN_DIR="{run_dir}"
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+REPO_ROOT="$(specforge git repo --pick .top 2>/dev/null || pwd)"
 # SELECTED_REVIEWERS is the comma-separated result of reviewer selection (ADR-0011 precedence:
 # explicit flags > --all > review.default_reviewers > all detected). Unchanged by this phase.
 

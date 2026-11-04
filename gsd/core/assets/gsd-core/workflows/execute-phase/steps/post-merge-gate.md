@@ -77,7 +77,7 @@ if [ -n "$BUILD_CMD" ]; then
   else
     echo "✗ Post-merge build gate failed (exit code ${BUILD_EXIT})"
     # gsd-handoff:begin wave-failure-record
-    _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+    _GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
     printf '.\n' >> "$_GSD_HANDOFF/wave-failures"  # one line per failed gate; a variable would not survive the next block (#4915)
     # gsd-handoff:end wave-failure-record
   fi
@@ -155,7 +155,7 @@ elif [ "${TEST_EXIT}" -eq 124 ]; then
 else
   echo "✗ Post-merge test gate failed (exit code ${TEST_EXIT})"
   # gsd-handoff:begin wave-failure-record
-  _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+  _GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
   printf '.\n' >> "$_GSD_HANDOFF/wave-failures"  # one line per failed gate; a variable would not survive the next block (#4915)
   # gsd-handoff:end wave-failure-record
 fi

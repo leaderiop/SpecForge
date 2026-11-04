@@ -10,7 +10,7 @@ the design's behavior table).
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-CURRENT_BASE=$(git rev-parse HEAD)
+CURRENT_BASE=$(specforge git head --pick .sha)
 QB_RESUME_JSON='{}'   # quick-batch resume: the batch router is not part of @gsd/core; resume from your notes of the batch and the quick plans that exist
 QB_RESUME_RC=$?
 if [[ "$QB_RESUME_JSON" == @file:* ]]; then QB_RESUME_JSON=$(cat "${QB_RESUME_JSON#@file:}"); fi

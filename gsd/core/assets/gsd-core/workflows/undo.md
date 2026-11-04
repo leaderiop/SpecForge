@@ -201,10 +201,10 @@ PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_
 # Only a commit in HEAD's own history may anchor. A SHA from another repository has no resolvable
 # parent here, which the root-commit arm below would read as "root commit" and select all of HEAD;
 # one from another worktree's branch that HEAD does not contain bounds nothing on this branch.
-if [ -n "$PHASE_START" ] && ! git merge-base --is-ancestor "$PHASE_START" HEAD 2>/dev/null; then PHASE_START=""; fi
+if [ -n "$PHASE_START" ] && [ "$(specforge git log HEAD.."$PHASE_START" --pick .count 2>/dev/null)" != 0 ]; then PHASE_START=""; fi
 UNDO_RANGE=""
 if [ -n "$PHASE_START" ]; then
-  if git rev-parse "${PHASE_START}^" >/dev/null 2>&1; then
+  if [ "$(specforge git rev "${PHASE_START}^" --pick '.revs[0].exists' 2>/dev/null)" = true ]; then
     UNDO_RANGE="${PHASE_START}^..HEAD"
   else
     # PHASE_START is the root commit — it has no parent to exclude. `${PHASE_START}..HEAD`
@@ -241,7 +241,7 @@ the old grep's `0*` tolerance for a digit-first id — never for a letter-first 
 (`PROJ-42`), where zero-padding would strip the meaningful prefix instead of matching it.
 
 ```bash
-COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 ```
 
 Use matching commits as COMMITS.
@@ -297,10 +297,10 @@ PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 
 PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
 # As in MODE=phase: an anchor outside HEAD's own history never reaches the root-commit arm.
-if [ -n "$PHASE_START" ] && ! git merge-base --is-ancestor "$PHASE_START" HEAD 2>/dev/null; then PHASE_START=""; fi
+if [ -n "$PHASE_START" ] && [ "$(specforge git log HEAD.."$PHASE_START" --pick .count 2>/dev/null)" != 0 ]; then PHASE_START=""; fi
 UNDO_RANGE=""
 if [ -n "$PHASE_START" ]; then
-  if git rev-parse "${PHASE_START}^" >/dev/null 2>&1; then
+  if [ "$(specforge git rev "${PHASE_START}^" --pick '.revs[0].exists' 2>/dev/null)" = true ]; then
     UNDO_RANGE="${PHASE_START}^..HEAD"
   else
     # PHASE_START is the root commit — it has no parent to exclude. `${PHASE_START}..HEAD`
@@ -325,7 +325,7 @@ widening, not a preserved behavior; it makes an unpadded `--plan` argument match
 canonically-padded commit scope instead of silently matching nothing.
 
 ```bash
-COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 ```
 
 Use matching commits as COMMITS.

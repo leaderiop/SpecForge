@@ -4,14 +4,14 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 912 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 890 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
-agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(git rev-parse --git-dir)/gsd-plan-head-before-{phase}-{plan}")
+agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
 agents/gsd-integration-checker.md	grep	local imports=$(grep -r "import.*$export_name" "$search_path" \
@@ -295,7 +295,6 @@ gsd-core/workflows/complete-milestone.md	awk	BACKLOG_SECTION=$(awk '/^## Backlog
 gsd-core/workflows/complete-milestone.md	cat	if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	head	git log --oneline --grep="feat(" | head -20
-gsd-core/workflows/complete-milestone.md	head	git log --format="%ai" LAST_COMMIT | head -1
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -315,14 +314,9 @@ gsd-core/workflows/complete-milestone/detail/elaboration.md	cat	if [[ "$AUDIT_JS
 gsd-core/workflows/complete-milestone/detail/elaboration.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/complete-milestone/detail/elaboration.md	cat	if [[ "$INIT_CM" == @file:* ]]; then INIT_CM=$(cat "${INIT_CM#@file:}"); fi
 gsd-core/workflows/complete-milestone/detail/elaboration.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1) # Read-loaded file: write the command's original argument string in place of $GSD_ARGS
-gsd-core/workflows/complete-milestone/detail/elaboration.md	head	MILESTONE_BRANCH=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ' | head -1)
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1) # Read-loaded file: write the command's original argument string in place of $GSD_ARGS
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$PHASE_BRANCH_TEMPLATE" | sed 's/{.*//')
-gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	PHASE_BRANCHES=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ')
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed 's/{.*//')
-gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	MILESTONE_BRANCH=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ' | head -1)
-gsd-core/workflows/complete-milestone/detail/elaboration.md	tr	PHASE_BRANCHES=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ')
-gsd-core/workflows/complete-milestone/detail/elaboration.md	tr	MILESTONE_BRANCH=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ' | head -1)
 gsd-core/workflows/diagnose-issues.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/diagnose-issues.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/discuss-phase-assumptions.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
@@ -340,17 +334,14 @@ gsd-core/workflows/discuss-phase.md	sort	specforge query "$MILESTONE" --depth 2 
 gsd-core/workflows/discuss-phase/modes/advisor.md	cat	PROFILE_CONTENT=$(cat "$HOME/.claude/gsd-core/USER-PROFILE.md" 2>/dev/null || true)
 gsd-core/workflows/discuss-phase/modes/power.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/execute-phase.md	awk	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-gsd-core/workflows/execute-phase.md	awk	[ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
-gsd-core/workflows/execute-phase.md	awk	[ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
 gsd-core/workflows/execute-phase.md	awk	RP=$(awk '/^---/{c++;next} c==1 && /^resolves_phase:/{print $2;exit} c==2{exit}' "$TODO_FILE" 2>/dev/null || true)
 gsd-core/workflows/execute-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 gsd-core/workflows/execute-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/execute-phase.md	head	git log --oneline --no-decorate "$_WT_BASE..HEAD" 2>/dev/null | head -20 | sed 's/^/    /' >&2 || true
 gsd-core/workflows/execute-phase.md	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 gsd-core/workflows/execute-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/execute-phase.md	sed	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
-gsd-core/workflows/execute-phase.md	sed	git log --oneline --no-decorate "$_WT_BASE..HEAD" 2>/dev/null | head -20 | sed 's/^/    /' >&2 || true
+gsd-core/workflows/execute-phase.md	sed	specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
 gsd-core/workflows/execute-phase.md	sed	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 gsd-core/workflows/execute-phase.md	sed	printf '%s' "${1//\"/}" | sed 's/^0*\([0-9]\)/\1/'
 gsd-core/workflows/execute-phase.md	tr	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
@@ -417,14 +408,12 @@ gsd-core/workflows/manager.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --
 gsd-core/workflows/manager.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/manager.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/milestone-summary.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/milestone-summary.md	head	git tag -l "v${VERSION}" | head -1
 gsd-core/workflows/milestone-summary.md	head	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 gsd-core/workflows/milestone-summary.md	head	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 gsd-core/workflows/milestone-summary.md	sed	VERSION=$(echo "$GSD_ARGS" | sed -nE 's/.*--milestone[[:space:]]+v?([A-Za-z0-9._-]+).*/\1/p'); VERSION=${VERSION:-${MILESTONE#v}}   # --milestone, else the milestone the run is about
 gsd-core/workflows/milestone-summary.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/milestone-summary.md	sort	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 gsd-core/workflows/milestone-summary.md	tr	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
-gsd-core/workflows/milestone-summary.md	wc	git log v${VERSION} --oneline | wc -l
 gsd-core/workflows/milestone-summary.md	wc	git log --oneline --since="<started_at_date>" | wc -l
 gsd-core/workflows/new-milestone.md	cat	if [[ "$INIT_EARLY" == @file:* ]]; then INIT_EARLY=$(cat "${INIT_EARLY#@file:}"); fi
 gsd-core/workflows/new-milestone.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
@@ -498,9 +487,8 @@ gsd-core/workflows/plan-review-convergence.md	tr	DEFAULT_REVIEWERS=$(printf '%s'
 gsd-core/workflows/plan-review-convergence.md	tr	DEFAULT_REVIEWERS=$(printf '%s' "$DEFAULT_REVIEWERS_JSON" | tr -d '[]"' | tr ',' '\n' | grep .)   # one slug per line: the setting renders as a JSON list of slugs
 gsd-core/workflows/pr-branch.md	awk	| awk '/HEAD branch/ {print $NF}')
 gsd-core/workflows/pr-branch.md	cat	DIRTY_REPOS=$(cat "$DIRTY_FILE")
-gsd-core/workflows/pr-branch.md	cut	PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
-gsd-core/workflows/pr-branch.md	grep	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
-gsd-core/workflows/pr-branch.md	grep	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
+gsd-core/workflows/pr-branch.md	grep	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+gsd-core/workflows/pr-branch.md	grep	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 gsd-core/workflows/pr-branch.md	grep	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 gsd-core/workflows/pr-branch.md	grep	if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
 gsd-core/workflows/pr-branch.md	grep	NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" || true)
@@ -509,13 +497,12 @@ gsd-core/workflows/pr-branch.md	grep	PLANNING_COUNT=$(echo "$FILES" | grep -Ec "
 gsd-core/workflows/pr-branch.md	grep	FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 gsd-core/workflows/pr-branch.md	grep	PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 gsd-core/workflows/pr-branch.md	grep	TOTAL_FILES=$(echo "$DIFF_PATHS" | grep -c . || true)
-gsd-core/workflows/pr-branch.md	grep	PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
-gsd-core/workflows/pr-branch.md	grep	PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
+gsd-core/workflows/pr-branch.md	grep	PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[status=renamed].old_path"; do specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick ".files$p"; done | grep -Ec "$FORBIDDEN_RE" || true)
 gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 gsd-core/workflows/pr-branch.md	grep	"$(printf '%s\n' "$P" | grep -E "$SPEC_RE|^specforge-harness$")") ;;   # the path itself when it is a spec file or the ledger
-gsd-core/workflows/pr-branch.md	sed	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
-gsd-core/workflows/pr-branch.md	sed	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
+gsd-core/workflows/pr-branch.md	sed	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+gsd-core/workflows/pr-branch.md	sed	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 gsd-core/workflows/pr-branch.md	sed	else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
 gsd-core/workflows/pr-branch.md	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 gsd-core/workflows/pr-branch.md	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
@@ -596,9 +583,8 @@ gsd-core/workflows/settings.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat 
 gsd-core/workflows/ship.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/ship.md	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
 gsd-core/workflows/ship.md	grep	WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
-gsd-core/workflows/ship.md	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
+gsd-core/workflows/ship.md	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
 gsd-core/workflows/ship.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/ship.md	head	git remote -v | head -2
 gsd-core/workflows/ship.md	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
 gsd-core/workflows/ship.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 gsd-core/workflows/ship.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -677,17 +663,14 @@ prompt:config	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}")
 prompt:config	cat	cat "$GSD_CONFIG_PATH"
 prompt:config	cat	cat "$GSD_CONFIG_PATH" | python3 -c "import sys,json; c=json.load(sys.stdin); mp=c.get('model_policy',{}); print(json.dumps(mp,indent=2))" 2>/dev/null || echo "{}"
 prompt:execute_phase	awk	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-prompt:execute_phase	awk	[ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
-prompt:execute_phase	awk	[ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
 prompt:execute_phase	awk	RP=$(awk '/^---/{c++;next} c==1 && /^resolves_phase:/{print $2;exit} c==2{exit}' "$TODO_FILE" 2>/dev/null || true)
 prompt:execute_phase	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:execute_phase	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 prompt:execute_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:execute_phase	head	git log --oneline --no-decorate "$_WT_BASE..HEAD" 2>/dev/null | head -20 | sed 's/^/    /' >&2 || true
 prompt:execute_phase	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 prompt:execute_phase	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:execute_phase	sed	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
-prompt:execute_phase	sed	git log --oneline --no-decorate "$_WT_BASE..HEAD" 2>/dev/null | head -20 | sed 's/^/    /' >&2 || true
+prompt:execute_phase	sed	specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
 prompt:execute_phase	sed	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 prompt:execute_phase	sed	printf '%s' "${1//\"/}" | sed 's/^0*\([0-9]\)/\1/'
 prompt:execute_phase	tr	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
@@ -716,14 +699,12 @@ prompt:manager	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9
 prompt:manager	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:manager	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:milestone_summary	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:milestone_summary	head	git tag -l "v${VERSION}" | head -1
 prompt:milestone_summary	head	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 prompt:milestone_summary	head	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:milestone_summary	sed	VERSION=$(echo "$GSD_ARGS" | sed -nE 's/.*--milestone[[:space:]]+v?([A-Za-z0-9._-]+).*/\1/p'); VERSION=${VERSION:-${MILESTONE#v}}   # --milestone, else the milestone the run is about
 prompt:milestone_summary	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:milestone_summary	sort	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:milestone_summary	tr	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
-prompt:milestone_summary	wc	git log v${VERSION} --oneline | wc -l
 prompt:milestone_summary	wc	git log --oneline --since="<started_at_date>" | wc -l
 prompt:new_milestone	cat	if [[ "$INIT_EARLY" == @file:* ]]; then INIT_EARLY=$(cat "${INIT_EARLY#@file:}"); fi
 prompt:new_milestone	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
@@ -787,9 +768,8 @@ prompt:plan_review_convergence	tr	DEFAULT_REVIEWERS=$(printf '%s' "$DEFAULT_REVI
 prompt:plan_review_convergence	wc	wc -l
 prompt:pr_branch	awk	| awk '/HEAD branch/ {print $NF}')
 prompt:pr_branch	cat	DIRTY_REPOS=$(cat "$DIRTY_FILE")
-prompt:pr_branch	cut	PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
-prompt:pr_branch	grep	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
-prompt:pr_branch	grep	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
+prompt:pr_branch	grep	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+prompt:pr_branch	grep	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 prompt:pr_branch	grep	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 prompt:pr_branch	grep	if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
 prompt:pr_branch	grep	NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" || true)
@@ -798,13 +778,12 @@ prompt:pr_branch	grep	PLANNING_COUNT=$(echo "$FILES" | grep -Ec "$FORBIDDEN_RE" 
 prompt:pr_branch	grep	FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 prompt:pr_branch	grep	PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 prompt:pr_branch	grep	TOTAL_FILES=$(echo "$DIFF_PATHS" | grep -c . || true)
-prompt:pr_branch	grep	PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
-prompt:pr_branch	grep	PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
+prompt:pr_branch	grep	PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[status=renamed].old_path"; do specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick ".files$p"; done | grep -Ec "$FORBIDDEN_RE" || true)
 prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 prompt:pr_branch	grep	"$(printf '%s\n' "$P" | grep -E "$SPEC_RE|^specforge-harness$")") ;;   # the path itself when it is a spec file or the ledger
-prompt:pr_branch	sed	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
-prompt:pr_branch	sed	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
+prompt:pr_branch	sed	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+prompt:pr_branch	sed	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 prompt:pr_branch	sed	else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
 prompt:pr_branch	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 prompt:pr_branch	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
@@ -873,9 +852,8 @@ prompt:settings	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}
 prompt:ship	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:ship	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
 prompt:ship	grep	WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
-prompt:ship	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
+prompt:ship	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
 prompt:ship	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:ship	head	git remote -v | head -2
 prompt:ship	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
 prompt:ship	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 prompt:ship	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -930,14 +908,14 @@ gsd-core/references/worktree-path-safety.md	env	env -u FOO --debug -u BAR -C ../
 gsd-core/references/worktree-path-safety.md	env	env -S 'cmd args'
 gsd-core/references/worktree-path-safety.md	timeout	timeout --signal TERM
 gsd-core/workflows/execute-phase.md	date	DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-gsd-core/workflows/execute-phase.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+gsd-core/workflows/execute-phase.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+gsd-core/workflows/execute-phase.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	date	AGENT_ID="agent-p{plan_number}-$(date -u +%s)"
-gsd-core/workflows/execute-phase/steps/post-merge-gate.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/post-merge-gate.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/regression-gate-run.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/regression-gate.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/regression-gate.md	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+gsd-core/workflows/execute-phase/steps/post-merge-gate.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+gsd-core/workflows/execute-phase/steps/post-merge-gate.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+gsd-core/workflows/execute-phase/steps/regression-gate-run.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+gsd-core/workflows/execute-phase/steps/regression-gate.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+gsd-core/workflows/execute-phase/steps/regression-gate.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase/steps/regression-gate.md	rm	rm -f "$_GSD_HANDOFF/regression-files"  # a list left by an earlier run must never reach this gate (#4915)
 gsd-core/workflows/execute-plan.md	date	PLAN_START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 gsd-core/workflows/execute-plan.md	date	PLAN_START_EPOCH=$(date +%s)
@@ -969,8 +947,8 @@ gsd-core/workflows/review.md	mkdir	if mkdir -p "$_DIAG_RUN_DIR"; then
 gsd-core/workflows/review.md	mkdir	mkdir -p
 gsd-core/workflows/ship.md	sleep	sleep 3
 prompt:execute_phase	date	DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-prompt:execute_phase	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-prompt:execute_phase	mkdir	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+prompt:execute_phase	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+prompt:execute_phase	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 prompt:execute_plan	date	PLAN_START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 prompt:execute_plan	date	PLAN_START_EPOCH=$(date +%s)
 prompt:execute_plan	date	PLAN_END_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -1055,33 +1033,16 @@ prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; t
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 
-# D git: git, embedded (R2). 571 rows.
+# D git: git, embedded (R2). 386 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update security threat verification" && specforge collect --runner gsd-git --yes; : \
 ../security/assets/gsd-core/workflows/secure-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update security threat verification" && specforge collect --runner gsd-git --yes; : \
-agents/gsd-executor.md	git	GSD_WORKTREE_PATH=$(git rev-parse --show-toplevel)
-agents/gsd-executor.md	git	GSD_WORKTREE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-agents/gsd-executor.md	git	GSD_WORKTREE_EXPECTED_BASE=$(git rev-parse HEAD)
-agents/gsd-executor.md	git	WT_GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
-agents/gsd-executor.md	git	[ ! -f "$SENTINEL" ] && git rev-parse --show-toplevel > "$SENTINEL" 2>/dev/null
-agents/gsd-executor.md	git	ACTUAL_TL=$(git rev-parse --show-toplevel 2>/dev/null)
-agents/gsd-executor.md	git	WT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-agents/gsd-executor.md	git	HEAD_REF=$(git symbolic-ref --quiet HEAD || echo "DETACHED")
-agents/gsd-executor.md	git	ACTUAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 agents/gsd-executor.md	git	git add src/api/auth.ts
 agents/gsd-executor.md	git	git add src/types/user.ts
 agents/gsd-executor.md	git	git -C "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
-agents/gsd-executor.md	git	_GSD_LEDGER="$(git rev-parse --git-dir)/gsd-plan-head-before-{phase}-{plan}"
-agents/gsd-executor.md	git	[ -f "$_GSD_LEDGER" ] || git rev-parse HEAD > "$_GSD_LEDGER"
 agents/gsd-executor.md	git	git commit -m "{type}({phase}-{plan}): {concise task description}
-agents/gsd-executor.md	git	DELETIONS=$(git show --first-parent --diff-filter=D --name-only --pretty=format: HEAD 2>/dev/null || true)
 agents/gsd-executor.md	git	git checkout -- path/to/specific/file
-agents/gsd-executor.md	git	PLAN_HEAD_BEFORE=$(cat "$(git rev-parse --git-dir)/gsd-plan-head-before-{phase}-{plan}")
-agents/gsd-executor.md	git	COMMITS_ACTUAL=$(git rev-list --count ${PLAN_HEAD_BEFORE}..HEAD)
-agents/gsd-executor.md	git	PLAN_HEAD_AFTER=$(git rev-parse HEAD)
-agents/gsd-executor.md	git	git merge-base --is-ancestor "{hash}" HEAD 2>/dev/null && echo "FOUND: {hash}" || echo "MISSING: {hash}"
 agents/gsd-executor.md	git	git add <the files this plan changed, and its .spec files>
 agents/gsd-executor.md	git	git commit -m "docs({phase}-{plan}): complete [plan-name] plan"
-agents/gsd-executor.md	rev-list	rev-list ..HEAD
 agents/gsd-phase-researcher.md	git	git add -- "<the phase spec files>" && git commit -m "docs($PHASE): research phase domain"
 agents/gsd-phase-researcher.md	git	git add -- "<the phase spec files>" && git commit -m "docs($PHASE): research phase domain"
 agents/gsd-planner.md	git	git add spec && git commit -m "docs($PHASE): create phase plan" && specforge collect --runner gsd-git --yes
@@ -1090,7 +1051,6 @@ agents/gsd-research-synthesizer.compact.md	git	git add spec && git commit -m "do
 agents/gsd-research-synthesizer.compact.md	git	git add spec && git commit -m "docs: complete project research" && specforge collect --runner gsd-git --yes
 agents/gsd-research-synthesizer.md	git	git add spec && git commit -m "docs: complete project research" && specforge collect --runner gsd-git --yes
 agents/gsd-research-synthesizer.md	git	git add spec && git commit -m "docs: complete project research" && specforge collect --runner gsd-git --yes
-agents/gsd-verifier.md	git	COMMITS_VALID=$(for h in $COMMIT_HASHES; do git cat-file -e "$h^{commit}" 2>/dev/null && echo "$h ok" || echo "$h missing"; done)
 commands/gsd/review-backlog.md	git	git add spec && git commit -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
 commands/gsd/review-backlog.md	git	git add spec && git commit -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
 gsd-core/references/autonomous-smart-discuss.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): smart discuss context" && specforge collect --runner gsd-git --yes
@@ -1120,26 +1080,15 @@ gsd-core/references/planning-config.md	git	git checkout -b "$BRANCH_NAME" 2>/dev
 gsd-core/references/planning-config.md	git	git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
 gsd-core/references/planning-config.md	git	git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
 gsd-core/references/planning-config.md	git	git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
-gsd-core/references/specless-probe-fallback.md	git	_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-gsd-core/references/specless-probe-fallback.md	git	_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 gsd-core/references/tdd.md	git	git log --oneline -E --grep="^test\((0*${PHASE_N})-(0*${PLAN_N})\):" | head -1
 gsd-core/references/tdd.md	git	git log --oneline -E --grep="^feat\((0*${PHASE_N})-(0*${PLAN_N})\):" | head -1
 gsd-core/references/tdd.md	git	git log --oneline -E --grep="^refactor\((0*${PHASE_N})-(0*${PLAN_N})\):" | head -1
 gsd-core/references/verifier-evidence-gate.md	git	git log --since="$PREV_VERIFIED_TS" --oneline -- "$file"
-gsd-core/references/worktree-branch-check.md	git	HEAD_REF=$(git symbolic-ref --quiet HEAD || echo "DETACHED")
-gsd-core/references/worktree-branch-check.md	git	ACTUAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-gsd-core/references/worktree-branch-check.md	git	ACTUAL_BASE=$(git rev-parse HEAD)
 gsd-core/references/worktree-path-safety.md	git	ACTUAL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 gsd-core/references/worktree-path-safety.md	git	PIN_DIAG="git rev-parse --show-toplevel from the cwd failed: $(git rev-parse --show-toplevel 2>&1 1>/dev/null)"
 gsd-core/references/worktree-path-safety.md	git	PINNED_TL=$(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>/dev/null)
 gsd-core/references/worktree-path-safety.md	git	PIN_DIAG="git -C <pinned root> rev-parse --show-toplevel failed: $(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>&1 1>/dev/null)"
 gsd-core/references/worktree-path-safety.md	git	SUPER_TL=$(git rev-parse --show-superproject-working-tree 2>/dev/null)
-gsd-core/references/worktree-path-safety.md	git	WT_GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
-gsd-core/references/worktree-path-safety.md	git	[ ! -f "$SENTINEL" ] && git rev-parse --show-toplevel > "$SENTINEL" 2>/dev/null
-gsd-core/references/worktree-path-safety.md	git	ACTUAL_TL=$(git rev-parse --show-toplevel 2>/dev/null)
-gsd-core/references/worktree-path-safety.md	git	WT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-gsd-core/references/worktree-path-safety.md	git	WT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-gsd-core/references/worktree-path-safety.md	git	MAIN_ROOT=$(cd "$(git rev-parse --git-common-dir)/.." 2>/dev/null && pwd -P)
 gsd-core/references/worktree-path-safety.md	git	git -C
 gsd-core/workflows/add-tests.md	git	git add {test files}
 gsd-core/workflows/add-tests.md	git	git commit -m "test(phase-${phase_number}): add unit and E2E tests from add-tests command" -- {test files}
@@ -1148,16 +1097,11 @@ gsd-core/workflows/autonomous.md	git	git add spec && git commit -m "docs(${PADDE
 gsd-core/workflows/complete-milestone.md	git	git log --oneline --grep="feat(" | head -20
 gsd-core/workflows/complete-milestone.md	git	git diff --stat FIRST_COMMIT..LAST_COMMIT | tail -1
 gsd-core/workflows/complete-milestone.md	git	git log --format="%ai" FIRST_COMMIT | tail -1
-gsd-core/workflows/complete-milestone.md	git	git log --format="%ai" LAST_COMMIT | head -1
 gsd-core/workflows/complete-milestone.md	git	git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/complete-milestone.md	git	git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/complete-milestone.md	git	git add spec && git commit -m "docs: update retrospective for v${VERSION}" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/complete-milestone.md	git	git add spec && git commit -m "docs: update retrospective for v${VERSION}" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/complete-milestone.md	git	BASE_BRANCH=$(git config --get init.defaultBranch 2>/dev/null || echo main)
 gsd-core/workflows/complete-milestone.md	git	git commit -m "chore: complete v[X.Y] milestone"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	PHASE_BRANCHES=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ')
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	MILESTONE_BRANCH=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ' | head -1)
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	CURRENT_BRANCH=$(git branch --show-current)
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git checkout ${BASE_BRANCH}
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --squash "$branch"
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git reset HEAD spec/ 2>/dev/null || true
@@ -1166,7 +1110,6 @@ gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --squa
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git reset HEAD spec/ 2>/dev/null || true
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git commit -m "feat: $MILESTONE_BRANCH for v[X.Y]"
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git checkout "$CURRENT_BRANCH"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	CURRENT_BRANCH=$(git branch --show-current)
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git checkout ${BASE_BRANCH}
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --no-ff --no-commit "$branch"
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git reset HEAD spec/ 2>/dev/null || true
@@ -1179,87 +1122,53 @@ gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git branch -d "$
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git branch -d "$branch" 2>/dev/null || git branch -D "$branch"
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git branch -d "$MILESTONE_BRANCH" 2>/dev/null || git branch -D "$MILESTONE_BRANCH"
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git branch -d "$MILESTONE_BRANCH" 2>/dev/null || git branch -D "$MILESTONE_BRANCH"
-gsd-core/workflows/complete-milestone/steps/git-tag.md	git	if git rev-parse "v[X.Y]" >/dev/null 2>&1; then echo "Tag v[X.Y] already exists, skipping"; exit 0; fi
 gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git tag -a v[X.Y] -m "v[X.Y] [Name]
 gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git push origin v[X.Y]
-gsd-core/workflows/diagnose-issues.md	git	EXPECTED_BASE=$(git rev-parse HEAD)
 gsd-core/workflows/diagnose-issues.md	git	git add spec && git commit -m "docs({phase_num}): add root causes from diagnosis" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/diagnose-issues.md	git	git add spec && git commit -m "docs({phase_num}): add root causes from diagnosis" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/discuss-phase-assumptions.md	git	git add spec && git commit -m "docs(${padded_phase}): capture phase context (assumptions mode)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/discuss-phase-assumptions.md	git	git add spec && git commit -m "docs(${padded_phase}): capture phase context (assumptions mode)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/discuss-phase.md	git	git add spec && git commit -m "docs(${padded_phase}): capture phase context" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/discuss-phase.md	git	git add spec && git commit -m "docs(${padded_phase}): capture phase context" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase.md	git	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase.md	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-gsd-core/workflows/execute-phase.md	git	DEFAULT_BRANCH=$(git config --get init.defaultBranch 2>/dev/null \
 gsd-core/workflows/execute-phase.md	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
-gsd-core/workflows/execute-phase.md	git	if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
 gsd-core/workflows/execute-phase.md	git	git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
 gsd-core/workflows/execute-phase.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
-gsd-core/workflows/execute-phase.md	git	git show-ref --verify --quiet "refs/remotes/origin/$DEFAULT_BRANCH" \
-gsd-core/workflows/execute-phase.md	git	if [ -n "$(git status --porcelain)" ]; then
 gsd-core/workflows/execute-phase.md	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
 gsd-core/workflows/execute-phase.md	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
-gsd-core/workflows/execute-phase.md	git	AHEAD=$(git rev-list --count "origin/$DEFAULT_BRANCH..$DEFAULT_BRANCH" 2>/dev/null || echo 0)
 gsd-core/workflows/execute-phase.md	git	git checkout -b "$BRANCH_NAME" "origin/$DEFAULT_BRANCH" --no-track \
-gsd-core/workflows/execute-phase.md	git	ORCHESTRATOR_WT=$(git rev-parse --show-toplevel 2>/dev/null) || {
-gsd-core/workflows/execute-phase.md	git	ORCH_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-gsd-core/workflows/execute-phase.md	git	for _ref in "$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)" \
-gsd-core/workflows/execute-phase.md	git	if git rev-parse --verify --quiet "$_ref" >/dev/null 2>&1; then _WT_BASE="$_ref"; break; fi
-gsd-core/workflows/execute-phase.md	git	[ -n "$_WT_BASE" ] && _WT_AHEAD=$(git rev-list --count "$_WT_BASE..HEAD" 2>/dev/null || true)
-gsd-core/workflows/execute-phase.md	git	_WT_DIRTY_ALL=$(git status --porcelain 2>/dev/null || true)
-gsd-core/workflows/execute-phase.md	git	git log --oneline --no-decorate "$_WT_BASE..HEAD" 2>/dev/null | head -20 | sed 's/^/    /' >&2 || true
-gsd-core/workflows/execute-phase.md	git	EXPECTED_BASE=$(git rev-parse HEAD)
-gsd-core/workflows/execute-phase.md	git	EXPECTED_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-gsd-core/workflows/execute-phase.md	git	ORCH_ROOT=$(git rev-parse --show-toplevel)
 gsd-core/workflows/execute-phase.md	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
 gsd-core/workflows/execute-phase.md	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
 gsd-core/workflows/execute-phase.md	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
 gsd-core/workflows/execute-phase.md	git	git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
 gsd-core/workflows/execute-phase.md	git	[ "$STASHED" = "true" ] && (git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
-gsd-core/workflows/execute-phase.md	git	[ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
-gsd-core/workflows/execute-phase.md	git	ORCH_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-gsd-core/workflows/execute-phase.md	git	[ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
-gsd-core/workflows/execute-phase.md	git	WT_BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null)
 gsd-core/workflows/execute-phase.md	git	git worktree unlock "$WT" 2>/dev/null || true
 gsd-core/workflows/execute-phase.md	git	if ! git worktree remove "$WT" --force; then
 gsd-core/workflows/execute-phase.md	git	git branch -D "$WT_BRANCH" 2>/dev/null || true
 gsd-core/workflows/execute-phase.md	git	git worktree prune
-gsd-core/workflows/execute-phase.md	git	if ! git diff --quiet spec/ 2>/dev/null; then
 gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase.md	git	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase/detail/elaboration.md	git	if ! git diff --quiet HEAD 2>/dev/null; then
 gsd-core/workflows/execute-phase/steps/code-review-disposition.md	git	git add spec && git commit -m "docs(${PADDED}): record code review disposition" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase/steps/code-review-disposition.md	git	git add spec && git commit -m "docs(${PADDED}): record code review disposition" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase/steps/completion-reconciliation.md	git	COMMITS_SINCE_DISPATCH=$(git log "${EXPECTED_BRANCH}" --since="${DISPATCH_TS}" --oneline | head -1)
 gsd-core/workflows/execute-phase/steps/gap-closure-artifacts.md	git	git add spec && git commit -m "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase/steps/gap-closure-artifacts.md	git	git add spec && git commit -m "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase/steps/post-merge-gate.md	git	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/post-merge-gate.md	git	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/protected-branch.md	git	CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
-gsd-core/workflows/execute-phase/steps/regression-gate-run.md	git	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/regression-gate.md	git	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/regression-gate.md	git	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-plan.md	git	SCOPE_FILES=$(git diff --name-only HEAD~1 2>/dev/null) && SCOPE_RC=0 || SCOPE_RC=$?
 gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/fast.md	git	git add -A -- ':!spec'
 gsd-core/workflows/fast.md	git	git add -A
 gsd-core/workflows/fast.md	git	git commit -m "fix: {concise description of what changed}"
 gsd-core/workflows/ingest-docs.md	git	git init
-gsd-core/workflows/milestone-summary.md	git	git tag -l "v${VERSION}" | head -1
-gsd-core/workflows/milestone-summary.md	git	git log v${VERSION} --oneline | wc -l
 gsd-core/workflows/milestone-summary.md	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 gsd-core/workflows/milestone-summary.md	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 gsd-core/workflows/milestone-summary.md	git	git log --oneline --since="<started_at_date>" | wc -l
@@ -1281,16 +1190,12 @@ gsd-core/workflows/new-project.md	git	git add spec && git commit -m "docs: creat
 gsd-core/workflows/new-project.md	git	git add spec && git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/new-project/steps/auto-mode-config.md	git	git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/new-project/steps/auto-mode-config.md	git	git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-workspace.md	git	PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(git rev-parse --is-inside-work-tree 2>/dev/null || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(git worktree list >/dev/null 2>&1 && echo true || echo false)
-gsd-core/workflows/new-workspace.md	git	PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(git rev-parse --is-inside-work-tree 2>/dev/null || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(git worktree list >/dev/null 2>&1 && echo true || echo false)
-gsd-core/workflows/new-workspace.md	git	PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(git rev-parse --is-inside-work-tree 2>/dev/null || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(git worktree list >/dev/null 2>&1 && echo true || echo false)
 gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
 gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
 gsd-core/workflows/new-workspace.md	git	git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
 gsd-core/workflows/new-workspace.md	git	git checkout -b "$BRANCH_NAME" 2>&1
 gsd-core/workflows/next.md	git	git add spec && git commit -m "docs: defer incomplete Phase {src} items to backlog" \
 gsd-core/workflows/next.md	git	git add spec && git commit -m "docs: defer incomplete Phase {src} items to backlog" \
-gsd-core/workflows/onboard.md	git	ONBOARDING_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 gsd-core/workflows/pause-work.md	git	UNCOMMITTED=$(git status --porcelain)
 gsd-core/workflows/pause-work.md	git	specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/pause-work.md	git	specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
@@ -1302,108 +1207,67 @@ gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	git	git add spec &&
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): plan ${plan_id} (chunked)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	git	git add spec && git commit -m "docs(${padded_phase}): generate context from PRD" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	git	git add spec && git commit -m "docs(${padded_phase}): generate context from PRD" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/pr-branch.md	git	CURRENT_BRANCH=$(git branch --show-current)
-gsd-core/workflows/pr-branch.md	git	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
-gsd-core/workflows/pr-branch.md	git	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
-gsd-core/workflows/pr-branch.md	git	AHEAD=$(git rev-list --count "$TARGET".."$CURRENT_BRANCH" 2>/dev/null)
-gsd-core/workflows/pr-branch.md	git	DIRTY=$(git status --porcelain --untracked-files=no)
-gsd-core/workflows/pr-branch.md	git	ROOT=$(git rev-parse --show-toplevel)
+gsd-core/workflows/pr-branch.md	git	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 gsd-core/workflows/pr-branch.md	git	if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
 gsd-core/workflows/pr-branch.md	git	if git -C "$SUB_REPO_DIR" ls-remote --exit-code --heads origin "$TARGET" \
 gsd-core/workflows/pr-branch.md	git	SUB_TARGET=$(git -C "$SUB_REPO_DIR" remote show origin 2>/dev/null \
 gsd-core/workflows/pr-branch.md	git	git log --oneline "$TARGET".."$CURRENT_BRANCH" --no-merges
-gsd-core/workflows/pr-branch.md	git	FILES=$(git diff-tree --no-commit-id --name-only -r $HASH)
 gsd-core/workflows/pr-branch.md	git	git checkout -b "$PR_BRANCH" "$TARGET"
 gsd-core/workflows/pr-branch.md	git	git cherry-pick --no-commit "$HASH" || true
 gsd-core/workflows/pr-branch.md	git	git rm -r -f -q --ignore-unmatch -- "$P" 2>/dev/null || true
 gsd-core/workflows/pr-branch.md	git	git checkout HEAD -- "$P" 2>/dev/null || true
-gsd-core/workflows/pr-branch.md	git	UNMERGED_PATHS=$(git diff --name-only --diff-filter=U)
-gsd-core/workflows/pr-branch.md	git	if git cat-file -e "$HASH:$P" 2>/dev/null; then
 gsd-core/workflows/pr-branch.md	git	git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
 gsd-core/workflows/pr-branch.md	git	git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
 gsd-core/workflows/pr-branch.md	git	git rm -f -q -- "$P" 2>/dev/null || true
-gsd-core/workflows/pr-branch.md	git	if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
-gsd-core/workflows/pr-branch.md	git	git diff --name-only --diff-filter=U >&2
 gsd-core/workflows/pr-branch.md	git	git cherry-pick --quit 2>/dev/null || true
 gsd-core/workflows/pr-branch.md	git	git reset -q --hard HEAD
 gsd-core/workflows/pr-branch.md	git	if git checkout -q "$CURRENT_BRANCH"; then
 gsd-core/workflows/pr-branch.md	git	git branch -q -D "$PR_BRANCH" 2>/dev/null || true
-gsd-core/workflows/pr-branch.md	git	if git diff --cached --quiet; then
 gsd-core/workflows/pr-branch.md	git	git cherry-pick --quit 2>/dev/null || true
 gsd-core/workflows/pr-branch.md	git	git commit -q -C "$HASH"
 gsd-core/workflows/pr-branch.md	git	git checkout "$CURRENT_BRANCH"
-gsd-core/workflows/pr-branch.md	git	DIFF_PATHS=$(git diff --name-only "$TARGET".."$PR_BRANCH")
-gsd-core/workflows/pr-branch.md	git	PR_COMMITS=$(git rev-list --count "$TARGET".."$PR_BRANCH")
-gsd-core/workflows/pr-branch.md	git	PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
 gsd-core/workflows/progress/steps/forensic-audit.md	git	git status --porcelain 2>/dev/null | grep -v "^??" | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/quick-batch.md	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 gsd-core/workflows/quick-batch/steps/completion.md	git	git add "${BATCH_ARTIFACT_FILES[@]}" 2>/dev/null
 gsd-core/workflows/quick-batch/steps/completion.md	git	git commit -m "docs(quick-batch-${BATCH_ID}): ${ITEM_COUNT} item(s)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/quick-batch/steps/resume-mode.md	git	CURRENT_BASE=$(git rev-parse HEAD)
 gsd-core/workflows/quick.md	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 gsd-core/workflows/quick.md	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
-gsd-core/workflows/quick.md	git	if git show-ref --verify --quiet "refs/heads/$branch_name"; then
 gsd-core/workflows/quick.md	git	git switch "$branch_name" \
 gsd-core/workflows/quick.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
-gsd-core/workflows/quick.md	git	if ! git show-ref --verify --quiet "refs/remotes/origin/$DEFAULT_BRANCH"; then
-gsd-core/workflows/quick.md	git	if [ -n "$(git status --porcelain)" ]; then
 gsd-core/workflows/quick.md	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null \
 gsd-core/workflows/quick.md	git	&& git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null \
 gsd-core/workflows/quick.md	git	git checkout -b "$branch_name" "origin/$DEFAULT_BRANCH" --no-track \
-gsd-core/workflows/quick.md	git	_QTOP=$(git rev-parse --show-toplevel 2>/dev/null)
-gsd-core/workflows/quick.md	git	_QTOP_DIR=$(git -C "$QUICK_DIR" rev-parse --show-toplevel 2>/dev/null)
 gsd-core/workflows/quick.md	git	QUICK_DIR_REL=$(git -C "$QUICK_DIR" rev-parse --show-prefix 2>/dev/null)
-gsd-core/workflows/quick.md	git	EXPECTED_BASE=$(git rev-parse HEAD)
 gsd-core/workflows/quick.md	git	git add ${file_list_filtered} 2>/dev/null
 gsd-core/workflows/quick.md	git	git add ${file_list} 2>/dev/null
 gsd-core/workflows/quick.md	git	git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/quick.md	git	git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/quick.md	git	commit_hash=$(git rev-parse --short HEAD)
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git add "${QUICK_PREDISPATCH_PATHS[@]}"
-gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	if git diff --cached --quiet -- "${QUICK_PREDISPATCH_PATHS[@]}"; then
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git commit --no-verify -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git commit -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
-gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	QUICK_PLAN_COMMIT=$(git rev-parse HEAD)
-gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	QUICK_PLAN_COMMIT=$(git rev-parse HEAD)
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	_GSD_PLAN_AT=$(git log -1 --format=%H --pickaxe-regex -S "^plan ${quick_id} " -- spec 2>/dev/null || true)
-gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	[ -z "$_GSD_PLAN_AT" ] || QUICK_PLAN_PARENT=$(git rev-parse --verify --quiet "${_GSD_PLAN_AT}^" 2>/dev/null || true)
 gsd-core/workflows/remove-workspace.md	git	[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required" >&2; exit 1; }; case "$WORKSPACE_NAME" in */*|*..*) echo "Invalid workspace name: $WORKSPACE_NAME" >&2; exit 1;; esac; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(for r in "$WORKSPACE_PATH"/*/; do [ -n "$(git -C "$r" status --porcelain 2>/dev/null)" ] && { r=${r%/}; printf '%s\n' "${r##*/}"; }; done)
 gsd-core/workflows/remove-workspace.md	git	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 gsd-core/workflows/remove-workspace.md	git	if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1; then
-gsd-core/workflows/review.md	git	REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 gsd-core/workflows/session-report.md	git	git log --oneline --since="24 hours ago" --no-merges 2>/dev/null || echo "No recent commits"
 gsd-core/workflows/session-report.md	git	git diff --stat HEAD~10 HEAD 2>/dev/null | tail -1 || echo "No diff available"
-gsd-core/workflows/ship.md	git	BASE_BRANCH=$(git config --get init.defaultBranch 2>/dev/null || echo main)
-gsd-core/workflows/ship.md	git	git status --short
-gsd-core/workflows/ship.md	git	CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
-gsd-core/workflows/ship.md	git	git remote -v | head -2
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1
 gsd-core/workflows/ship.md	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
-gsd-core/workflows/ship.md	git	RANGE_BASE=$(git merge-base "${BASE_BRANCH}" HEAD)
 gsd-core/workflows/ship.md	git	git log "${RANGE_BASE}..HEAD" --no-merges --reverse \
 gsd-core/workflows/ship.md	git	DIFF=$(git diff ${BASE_BRANCH}...HEAD)
 gsd-core/workflows/ship.md	git	DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEAD)
 gsd-core/workflows/ship.md	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/ship.md	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/ship.md	git	SHIP_NOTE_SHA=$(git rev-parse HEAD)
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
-gsd-core/workflows/ship.md	git	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
 gsd-core/workflows/ship.md	git	git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
-gsd-core/workflows/spec-phase.md	git	_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 gsd-core/workflows/spec-phase.md	git	git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/spec-phase.md	git	git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/undo.md	git	git log --oneline --no-merges -${COUNT}
 gsd-core/workflows/undo.md	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
-gsd-core/workflows/undo.md	git	if [ -n "$PHASE_START" ] && ! git merge-base --is-ancestor "$PHASE_START" HEAD 2>/dev/null; then PHASE_START=""; fi
-gsd-core/workflows/undo.md	git	if git rev-parse "${PHASE_START}^" >/dev/null 2>&1; then
-gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
-gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 gsd-core/workflows/undo.md	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
-gsd-core/workflows/undo.md	git	if [ -n "$PHASE_START" ] && ! git merge-base --is-ancestor "$PHASE_START" HEAD 2>/dev/null; then PHASE_START=""; fi
-gsd-core/workflows/undo.md	git	if git rev-parse "${PHASE_START}^" >/dev/null 2>&1; then
-gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
-gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 gsd-core/workflows/undo.md	git	git revert --no-commit ${HASH}
 gsd-core/workflows/undo.md	git	git revert --abort 2>/dev/null
 gsd-core/workflows/undo.md	git	git reset HEAD 2>/dev/null
@@ -1415,9 +1279,6 @@ gsd-core/workflows/validate-phase.md	git	git add {test_files}
 gsd-core/workflows/validate-phase.md	git	git commit -m "test(phase-${PHASE}): add Nyquist validation tests"
 gsd-core/workflows/validate-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
 gsd-core/workflows/validate-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
-gsd-core/workflows/verify-work.md	git	ACTUAL=$(git rev-list --count "${BASE}"..HEAD)
-gsd-core/workflows/verify-work.md	git	if git merge-base --is-ancestor "$AFTER" HEAD 2>/dev/null \
-gsd-core/workflows/verify-work.md	git	&& [ "$(git rev-list --count "${BASE}..${AFTER}")" = "$CLAIMED" ]; then
 gsd-core/workflows/verify-work.md	git	git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/verify-work.md	git	git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/verify-work.md	git	git add spec && git commit -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
@@ -1426,46 +1287,24 @@ prompt:add_tests	git	git add {test files}
 prompt:add_tests	git	git commit -m "test(phase-${phase_number}): add unit and E2E tests from add-tests command" -- {test files}
 prompt:autonomous	git	git add spec && git commit -m "docs(${PADDED_PHASE}): auto-generated context (discuss skipped)" && specforge collect --runner gsd-git --yes
 prompt:autonomous	git	git add spec && git commit -m "docs(${PADDED_PHASE}): auto-generated context (discuss skipped)" && specforge collect --runner gsd-git --yes
-prompt:execute_phase	git	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 prompt:execute_phase	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-prompt:execute_phase	git	DEFAULT_BRANCH=$(git config --get init.defaultBranch 2>/dev/null \
 prompt:execute_phase	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
-prompt:execute_phase	git	if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
 prompt:execute_phase	git	git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
 prompt:execute_phase	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
-prompt:execute_phase	git	git show-ref --verify --quiet "refs/remotes/origin/$DEFAULT_BRANCH" \
-prompt:execute_phase	git	if [ -n "$(git status --porcelain)" ]; then
 prompt:execute_phase	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
 prompt:execute_phase	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
-prompt:execute_phase	git	AHEAD=$(git rev-list --count "origin/$DEFAULT_BRANCH..$DEFAULT_BRANCH" 2>/dev/null || echo 0)
 prompt:execute_phase	git	git checkout -b "$BRANCH_NAME" "origin/$DEFAULT_BRANCH" --no-track \
-prompt:execute_phase	git	ORCHESTRATOR_WT=$(git rev-parse --show-toplevel 2>/dev/null) || {
-prompt:execute_phase	git	ORCH_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-prompt:execute_phase	git	for _ref in "$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)" \
-prompt:execute_phase	git	if git rev-parse --verify --quiet "$_ref" >/dev/null 2>&1; then _WT_BASE="$_ref"; break; fi
-prompt:execute_phase	git	[ -n "$_WT_BASE" ] && _WT_AHEAD=$(git rev-list --count "$_WT_BASE..HEAD" 2>/dev/null || true)
-prompt:execute_phase	git	_WT_DIRTY_ALL=$(git status --porcelain 2>/dev/null || true)
-prompt:execute_phase	git	git log --oneline --no-decorate "$_WT_BASE..HEAD" 2>/dev/null | head -20 | sed 's/^/    /' >&2 || true
-prompt:execute_phase	git	EXPECTED_BASE=$(git rev-parse HEAD)
-prompt:execute_phase	git	EXPECTED_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-prompt:execute_phase	git	ORCH_ROOT=$(git rev-parse --show-toplevel)
 prompt:execute_phase	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
 prompt:execute_phase	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
 prompt:execute_phase	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
 prompt:execute_phase	git	git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
 prompt:execute_phase	git	[ "$STASHED" = "true" ] && (git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
-prompt:execute_phase	git	[ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
-prompt:execute_phase	git	ORCH_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-prompt:execute_phase	git	[ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
-prompt:execute_phase	git	WT_BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null)
 prompt:execute_phase	git	git worktree unlock "$WT" 2>/dev/null || true
 prompt:execute_phase	git	if ! git worktree remove "$WT" --force; then
 prompt:execute_phase	git	git branch -D "$WT_BRANCH" 2>/dev/null || true
 prompt:execute_phase	git	git worktree prune
-prompt:execute_phase	git	if ! git diff --quiet spec/ 2>/dev/null; then
 prompt:execute_phase	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
 prompt:execute_phase	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
-prompt:execute_phase	git	_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 prompt:execute_phase	git	git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
 prompt:execute_phase	git	git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
 prompt:execute_phase	git	git add spec && git commit -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
@@ -1476,15 +1315,12 @@ prompt:execute_plan	git	git add spec && git commit -m "docs({phase}-{plan}): com
 prompt:execute_plan	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
 prompt:execute_plan	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
 prompt:execute_plan	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-prompt:execute_plan	git	SCOPE_FILES=$(git diff --name-only HEAD~1 2>/dev/null) && SCOPE_RC=0 || SCOPE_RC=$?
 prompt:execute_plan	git	git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
 prompt:execute_plan	git	git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
 prompt:fast	git	git add -A -- ':!spec'
 prompt:fast	git	git add -A
 prompt:fast	git	git commit -m "fix: {concise description of what changed}"
 prompt:ingest_docs	git	git init
-prompt:milestone_summary	git	git tag -l "v${VERSION}" | head -1
-prompt:milestone_summary	git	git log v${VERSION} --oneline | wc -l
 prompt:milestone_summary	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 prompt:milestone_summary	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 prompt:milestone_summary	git	git log --oneline --since="<started_at_date>" | wc -l
@@ -1504,101 +1340,64 @@ prompt:new_project	git	git add spec && git commit -m "docs: define v1 requiremen
 prompt:new_project	git	git add spec && git commit -m "docs: define v1 requirements" && specforge collect --runner gsd-git --yes
 prompt:new_project	git	git add spec && git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
 prompt:new_project	git	git add spec && git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
-prompt:onboard	git	ONBOARDING_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 prompt:pause_work	git	UNCOMMITTED=$(git status --porcelain)
 prompt:pause_work	git	specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
 prompt:pause_work	git	specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
 prompt:plan_phase	git	git add spec && git commit -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
 prompt:plan_phase	git	git add spec && git commit -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
-prompt:pr_branch	git	CURRENT_BRANCH=$(git branch --show-current)
-prompt:pr_branch	git	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
-prompt:pr_branch	git	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
-prompt:pr_branch	git	AHEAD=$(git rev-list --count "$TARGET".."$CURRENT_BRANCH" 2>/dev/null)
-prompt:pr_branch	git	DIRTY=$(git status --porcelain --untracked-files=no)
-prompt:pr_branch	git	ROOT=$(git rev-parse --show-toplevel)
 prompt:pr_branch	git	if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
 prompt:pr_branch	git	if git -C "$SUB_REPO_DIR" ls-remote --exit-code --heads origin "$TARGET" \
 prompt:pr_branch	git	SUB_TARGET=$(git -C "$SUB_REPO_DIR" remote show origin 2>/dev/null \
 prompt:pr_branch	git	git log --oneline "$TARGET".."$CURRENT_BRANCH" --no-merges
-prompt:pr_branch	git	FILES=$(git diff-tree --no-commit-id --name-only -r $HASH)
 prompt:pr_branch	git	git checkout -b "$PR_BRANCH" "$TARGET"
 prompt:pr_branch	git	git cherry-pick --no-commit "$HASH" || true
 prompt:pr_branch	git	git rm -r -f -q --ignore-unmatch -- "$P" 2>/dev/null || true
 prompt:pr_branch	git	git checkout HEAD -- "$P" 2>/dev/null || true
-prompt:pr_branch	git	UNMERGED_PATHS=$(git diff --name-only --diff-filter=U)
-prompt:pr_branch	git	if git cat-file -e "$HASH:$P" 2>/dev/null; then
 prompt:pr_branch	git	git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
 prompt:pr_branch	git	git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
 prompt:pr_branch	git	git rm -f -q -- "$P" 2>/dev/null || true
-prompt:pr_branch	git	if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
-prompt:pr_branch	git	git diff --name-only --diff-filter=U >&2
+prompt:pr_branch	git	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 prompt:pr_branch	git	git cherry-pick --quit 2>/dev/null || true
 prompt:pr_branch	git	git reset -q --hard HEAD
 prompt:pr_branch	git	if git checkout -q "$CURRENT_BRANCH"; then
 prompt:pr_branch	git	git branch -q -D "$PR_BRANCH" 2>/dev/null || true
-prompt:pr_branch	git	if git diff --cached --quiet; then
 prompt:pr_branch	git	git cherry-pick --quit 2>/dev/null || true
 prompt:pr_branch	git	git commit -q -C "$HASH"
 prompt:pr_branch	git	git checkout "$CURRENT_BRANCH"
-prompt:pr_branch	git	DIFF_PATHS=$(git diff --name-only "$TARGET".."$PR_BRANCH")
-prompt:pr_branch	git	PR_COMMITS=$(git rev-list --count "$TARGET".."$PR_BRANCH")
-prompt:pr_branch	git	PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
 prompt:progress	git	git add spec && git commit -m "docs: defer incomplete Phase {src} items to backlog" \
 prompt:progress	git	git add spec && git commit -m "docs: defer incomplete Phase {src} items to backlog" \
 prompt:quick	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 prompt:quick	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
-prompt:quick	git	if git show-ref --verify --quiet "refs/heads/$branch_name"; then
 prompt:quick	git	git switch "$branch_name" \
 prompt:quick	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
-prompt:quick	git	if ! git show-ref --verify --quiet "refs/remotes/origin/$DEFAULT_BRANCH"; then
-prompt:quick	git	if [ -n "$(git status --porcelain)" ]; then
 prompt:quick	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null \
 prompt:quick	git	&& git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null \
 prompt:quick	git	git checkout -b "$branch_name" "origin/$DEFAULT_BRANCH" --no-track \
-prompt:quick	git	_QTOP=$(git rev-parse --show-toplevel 2>/dev/null)
-prompt:quick	git	_QTOP_DIR=$(git -C "$QUICK_DIR" rev-parse --show-toplevel 2>/dev/null)
 prompt:quick	git	QUICK_DIR_REL=$(git -C "$QUICK_DIR" rev-parse --show-prefix 2>/dev/null)
-prompt:quick	git	EXPECTED_BASE=$(git rev-parse HEAD)
 prompt:quick	git	git add ${file_list_filtered} 2>/dev/null
 prompt:quick	git	git add ${file_list} 2>/dev/null
 prompt:quick	git	git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
 prompt:quick	git	git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
-prompt:quick	git	commit_hash=$(git rev-parse --short HEAD)
 prompt:quick_batch	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-prompt:review	git	REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 prompt:review_backlog	git	git add spec && git commit -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
 prompt:review_backlog	git	git add spec && git commit -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
-prompt:ship	git	BASE_BRANCH=$(git config --get init.defaultBranch 2>/dev/null || echo main)
-prompt:ship	git	git status --short
-prompt:ship	git	CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
-prompt:ship	git	git remote -v | head -2
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1
 prompt:ship	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
-prompt:ship	git	RANGE_BASE=$(git merge-base "${BASE_BRANCH}" HEAD)
 prompt:ship	git	git log "${RANGE_BASE}..HEAD" --no-merges --reverse \
 prompt:ship	git	DIFF=$(git diff ${BASE_BRANCH}...HEAD)
 prompt:ship	git	DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEAD)
 prompt:ship	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
 prompt:ship	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
-prompt:ship	git	SHIP_NOTE_SHA=$(git rev-parse HEAD)
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
-prompt:ship	git	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
 prompt:ship	git	git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
-prompt:spec_phase	git	_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 prompt:spec_phase	git	git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
 prompt:spec_phase	git	git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
 prompt:undo	git	git log --oneline --no-merges -${COUNT}
 prompt:undo	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
-prompt:undo	git	if [ -n "$PHASE_START" ] && ! git merge-base --is-ancestor "$PHASE_START" HEAD 2>/dev/null; then PHASE_START=""; fi
-prompt:undo	git	if git rev-parse "${PHASE_START}^" >/dev/null 2>&1; then
-prompt:undo	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
-prompt:undo	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+prompt:undo	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+prompt:undo	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 prompt:undo	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
-prompt:undo	git	if [ -n "$PHASE_START" ] && ! git merge-base --is-ancestor "$PHASE_START" HEAD 2>/dev/null; then PHASE_START=""; fi
-prompt:undo	git	if git rev-parse "${PHASE_START}^" >/dev/null 2>&1; then
-prompt:undo	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
-prompt:undo	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do git merge-base --is-ancestor "$c" HEAD 2>/dev/null && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 prompt:undo	git	git revert --no-commit ${HASH}
 prompt:undo	git	git revert --abort 2>/dev/null
 prompt:undo	git	git reset HEAD 2>/dev/null
@@ -1610,16 +1409,10 @@ prompt:validate_phase	git	git add {test_files}
 prompt:validate_phase	git	git commit -m "test(phase-${PHASE}): add Nyquist validation tests"
 prompt:validate_phase	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
 prompt:validate_phase	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
-prompt:verify_work	git	ACTUAL=$(git rev-list --count "${BASE}"..HEAD)
-prompt:verify_work	git	if git merge-base --is-ancestor "$AFTER" HEAD 2>/dev/null \
-prompt:verify_work	git	&& [ "$(git rev-list --count "${BASE}..${AFTER}")" = "$CLAIMED" ]; then
 prompt:verify_work	git	git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
 prompt:verify_work	git	git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
 prompt:verify_work	git	git add spec && git commit -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
 prompt:verify_work	git	git add spec && git commit -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
-prompt:workspace	git	PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(git rev-parse --is-inside-work-tree 2>/dev/null || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(git worktree list >/dev/null 2>&1 && echo true || echo false)
-prompt:workspace	git	PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(git rev-parse --is-inside-work-tree 2>/dev/null || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(git worktree list >/dev/null 2>&1 && echo true || echo false)
-prompt:workspace	git	PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(git rev-parse --is-inside-work-tree 2>/dev/null || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(git worktree list >/dev/null 2>&1 && echo true || echo false)
 prompt:workspace	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
 prompt:workspace	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
 prompt:workspace	git	git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1

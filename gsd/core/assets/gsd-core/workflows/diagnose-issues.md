@@ -104,7 +104,7 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 AGENT_SKILLS_DEBUGGER=""   # the host install carries the skills of gsd-debugger
-EXPECTED_BASE=$(git rev-parse HEAD)
+EXPECTED_BASE=$(specforge git head --pick .sha)
 ```
 
 **Pre-dispatch worktree base-check (#2649, mirrors execute-phase #683/#1369 and quick #1941).**

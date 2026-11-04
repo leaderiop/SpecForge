@@ -14,7 +14,7 @@ cannot carry it, because each fenced `bash` block runs as its own shell.
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 # gsd-handoff:begin regression-files-read
-_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 REGRESSION_FILES=""
 if [ -s "$_GSD_HANDOFF/regression-files" ]; then
   while IFS= read -r _f; do

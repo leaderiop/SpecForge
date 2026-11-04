@@ -381,7 +381,7 @@ SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --format j
 COMMIT_HASHES=$(grep -oE "[a-f0-9]{7,40}" "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null | head -10)
 if [ -n "$COMMIT_HASHES" ]; then
   # Every hash must be a commit; "missing" is a finding. Not a git repo: report that you could not look.
-  COMMITS_VALID=$(for h in $COMMIT_HASHES; do git cat-file -e "$h^{commit}" 2>/dev/null && echo "$h ok" || echo "$h missing"; done)
+  COMMITS_VALID=$(for h in $COMMIT_HASHES; do [ "$(specforge git rev "$h^{commit}" --pick '.revs[0].exists' 2>/dev/null)" = true ] && echo "$h ok" || echo "$h missing"; done)
 fi
 
 # Fallback: grep for files

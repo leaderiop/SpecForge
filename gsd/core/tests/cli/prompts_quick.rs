@@ -393,11 +393,22 @@ mod worktree {
         true
     }
 
-    /// `script` under bash in `dir`, with git's identity pinned and none of the developer's configuration.
+    /// `script` under bash in `dir`, with git's identity pinned and none of the developer's configuration. The built
+    /// `specforge` is first on PATH: the block reads git through `specforge git` (plan 08 T17).
     fn bash(dir: &Path, script: &str, env: &[(&str, &str)]) -> Output {
+        let bin =
+            std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
         Command::new("bash")
             .args(["-c", script])
             .current_dir(dir)
+            .env(
+                "PATH",
+                format!(
+                    "{}:{}",
+                    bin.parent().expect("a directory").display(),
+                    std::env::var("PATH").unwrap_or_default()
+                ),
+            )
             .env("GIT_CONFIG_GLOBAL", "/dev/null")
             .env("GIT_CONFIG_NOSYSTEM", "1")
             .env_remove("GIT_DIR")

@@ -188,7 +188,7 @@ instrument — the executor's own narration is never the last word. For each `*-
 ```bash
 BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
-ACTUAL=$(git rev-list --count "${BASE}"..HEAD)
+ACTUAL=$(specforge git log "${BASE}"..HEAD --pick .count)
 AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 ```
 - A `commits: absent` or `plan_head_before: absent` SUMMARY (pre-#3968 legacy) is reported as
@@ -197,8 +197,8 @@ AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{prin
   HEAD at its measurement moment — after the last task commit, before the SUMMARY commit) is
   reconciled against the plan's OWN window:
 ```bash
-if git merge-base --is-ancestor "$AFTER" HEAD 2>/dev/null \
-   && [ "$(git rev-list --count "${BASE}..${AFTER}")" = "$CLAIMED" ]; then
+if [ "$(specforge git log HEAD.."$AFTER" --pick .count 2>/dev/null)" = 0 ] \
+   && [ "$(specforge git log "${BASE}..${AFTER}" --pick .count)" = "$CLAIMED" ]; then
   : # consistent
 fi
 ```

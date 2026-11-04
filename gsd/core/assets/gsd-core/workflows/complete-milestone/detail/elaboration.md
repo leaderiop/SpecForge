@@ -168,14 +168,14 @@ Extract `branching_strategy`, `phase_branch_template`, `milestone_branch_templat
 
 ```bash
 BRANCH_PREFIX=$(echo "$PHASE_BRANCH_TEMPLATE" | sed 's/{.*//')
-PHASE_BRANCHES=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ')
+PHASE_BRANCHES=$(for b in $(specforge git branches --pick '.branches[].name' 2>/dev/null); do case $b in ("${BRANCH_PREFIX}"*) echo "$b";; esac; done)
 ```
 
 **For "milestone" strategy:**
 
 ```bash
 BRANCH_PREFIX=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed 's/{.*//')
-MILESTONE_BRANCH=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ' | head -1)
+MILESTONE_BRANCH=$(for b in $(specforge git branches --pick '.branches[].name' 2>/dev/null); do case $b in ("${BRANCH_PREFIX}"*) echo "$b"; break;; esac; done)
 ```
 
 **If no branches found:** Skip to git_tag.
@@ -199,7 +199,7 @@ AskUserQuestion with options: Squash merge (Recommended), Merge with history, De
 **Squash merge:**
 
 ```bash
-CURRENT_BRANCH=$(git branch --show-current)
+CURRENT_BRANCH=$(specforge git head --pick .branch)
 git checkout ${BASE_BRANCH}
 
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
@@ -231,7 +231,7 @@ git checkout "$CURRENT_BRANCH"
 **Merge with history:**
 
 ```bash
-CURRENT_BRANCH=$(git branch --show-current)
+CURRENT_BRANCH=$(specforge git head --pick .branch)
 git checkout ${BASE_BRANCH}
 
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then

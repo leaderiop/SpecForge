@@ -108,9 +108,9 @@ GSD_WORKTREE_PATH=""
 GSD_WORKTREE_BRANCH=""
 GSD_WORKTREE_EXPECTED_BASE=""
 if [ -f .git ]; then
-  GSD_WORKTREE_PATH=$(git rev-parse --show-toplevel)
-  GSD_WORKTREE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-  GSD_WORKTREE_EXPECTED_BASE=$(git rev-parse HEAD)
+  GSD_WORKTREE_PATH=$(specforge git repo --pick .top)
+  GSD_WORKTREE_BRANCH=$(specforge git head --pick .branch)
+  GSD_WORKTREE_EXPECTED_BASE=$(specforge git head --pick .sha)
 fi
 ```
 </worktree_metadata_capture>
@@ -433,13 +433,13 @@ A prior Bash call may have `cd`'d out of the worktree into the main repo. When t
 `[ -f .git ]` is false (main repo's `.git` is a directory), silently skipping all worktree guards.
 Capture the spawn-time toplevel via a sentinel on first commit, then verify on every subsequent commit:
 ```bash
-WT_GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+WT_GIT_DIR=$(specforge git repo --pick .git_dir 2>/dev/null)
 case "$WT_GIT_DIR" in
   *.git/worktrees/*)
       SENTINEL="$WT_GIT_DIR/gsd-spawn-toplevel"
-      [ ! -f "$SENTINEL" ] && git rev-parse --show-toplevel > "$SENTINEL" 2>/dev/null
+      [ ! -f "$SENTINEL" ] && specforge git repo --pick .top > "$SENTINEL" 2>/dev/null
       EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
-      ACTUAL_TL=$(git rev-parse --show-toplevel 2>/dev/null)
+      ACTUAL_TL=$(specforge git repo --pick .top 2>/dev/null)
       if [ -n "$EXPECTED_TL" ] && [ "$ACTUAL_TL" != "$EXPECTED_TL" ]; then
         echo "FATAL: cwd drifted from spawn-time worktree root (#3097)" >&2
         echo "  Spawn-time: $EXPECTED_TL" >&2
@@ -457,7 +457,7 @@ current worktree. Absolute paths constructed from prior `pwd` output (orchestrat
 resolve to the **main repo**, not the worktree — silently writing files to the wrong location.
 ```bash
 # Obtain the canonical worktree root
-WT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+WT_ROOT=$(specforge git repo --pick .top 2>/dev/null)
 [ -z "$WT_ROOT" ] && { echo "FATAL: could not determine worktree root" >&2; exit 1; }
 # Verify absolute path containment with boundary safety (not glob prefix which allows siblings)
 if [[ "$ABS_PATH" != "$WT_ROOT" && "$ABS_PATH" != "$WT_ROOT/"* ]]; then
@@ -472,8 +472,8 @@ Prefer **relative paths** for Edit/Write in a worktree; an unavoidable absolute 
 **0. Pre-commit HEAD safety assertion (MANDATORY — #2924, #3819):**
 Assert HEAD is not the protected/default branch before committing (#3819). If drifted onto it, HALT — never self-recover via `git update-ref refs/heads/<protected>`:
 ```bash
-HEAD_REF=$(git symbolic-ref --quiet HEAD || echo "DETACHED")
-ACTUAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+HEAD_REF=$(b=$(specforge git head --pick .branch) && [ -n "$b" ] && echo "refs/heads/$b" || echo "DETACHED")
+ACTUAL_BRANCH=$(specforge git head --pick .branch)
 if [ "$HEAD_REF" = "DETACHED" ]; then
   echo "FATAL: refusing to commit — HEAD is detached." >&2
   exit 1
@@ -537,11 +537,11 @@ git -C "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description
 ```
 **0c. Plan commit ledger (#3968, single-repo — before the first commit):**
 Each Bash call is a FRESH shell, so the ledger persists on disk like the #3097 sentinel above
-(a variable would be unset at SUMMARY time and `rev-list ..HEAD` would measure zero).
+(a variable would be unset at SUMMARY time and `specforge git log ..HEAD` would count zero).
 Per-plan filename, so sequential plans cannot contaminate each other:
 ```bash
-_GSD_LEDGER="$(git rev-parse --git-dir)/gsd-plan-head-before-{phase}-{plan}"
-[ -f "$_GSD_LEDGER" ] || git rev-parse HEAD > "$_GSD_LEDGER"
+_GSD_LEDGER="$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}"
+[ -f "$_GSD_LEDGER" ] || specforge git head --pick .sha > "$_GSD_LEDGER"
 ```
 The SUMMARY's `commits:` is MEASURED from this ledger, the base recorded as
 `plan_head_before:` for `/gsd:verify-work`'s same-instrument check. Multi-repo keeps commit-to-subrepo
@@ -564,7 +564,7 @@ git commit -m "{type}({phase}-{plan}): {concise task description}
 
 **6. Post-commit deletion check:** After recording the hash, verify the commit did not accidentally delete tracked files:
 ```bash
-DELETIONS=$(git show --first-parent --diff-filter=D --name-only --pretty=format: HEAD 2>/dev/null || true)
+DELETIONS=$(specforge git diff --base HEAD~1 --pick '.files[status=deleted].path' 2>/dev/null || true)
 if [ -n "$DELETIONS" ]; then
   echo "WARNING: Commit includes file deletions: $DELETIONS"
 fi
@@ -665,9 +665,9 @@ These pair with the plan's `estimate` to calibrate future estimates (ADR-2629). 
 **`commits:` is measured, never narrated (#3968).** At SUMMARY write, read the persisted
 ledger (protocol 0c — a fresh shell per Bash call; the base comes from disk):
 ```bash
-PLAN_HEAD_BEFORE=$(cat "$(git rev-parse --git-dir)/gsd-plan-head-before-{phase}-{plan}")
-COMMITS_ACTUAL=$(git rev-list --count ${PLAN_HEAD_BEFORE}..HEAD)
-PLAN_HEAD_AFTER=$(git rev-parse HEAD)
+PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
+COMMITS_ACTUAL=$(specforge git log ${PLAN_HEAD_BEFORE}..HEAD --pick .count)
+PLAN_HEAD_AFTER=$(specforge git head --pick .sha)
 ```
 Write ALL THREE into the frontmatter — `commits: ${COMMITS_ACTUAL}`,
 `plan_head_before: ${PLAN_HEAD_BEFORE}`, `plan_head_after: ${PLAN_HEAD_AFTER}` — including
@@ -746,7 +746,7 @@ After writing SUMMARY.md, verify claims before proceeding.
 
 **2. Check commits exist:**
 ```bash
-git merge-base --is-ancestor "{hash}" HEAD 2>/dev/null && echo "FOUND: {hash}" || echo "MISSING: {hash}"
+[ "$(specforge git log HEAD.."{hash}" --pick .count 2>/dev/null)" = 0 ] && echo "FOUND: {hash}" || echo "MISSING: {hash}"
 ```
 
 **3. Append result to SUMMARY.md:** `## Self-Check: PASSED` or `## Self-Check: FAILED` with missing items listed.

@@ -50,7 +50,7 @@ Extract: `branching_strategy`, `branch_name`.
 
 Detect base branch for PRs and merges:
 ```bash
-BASE_BRANCH=$(git config --get init.defaultBranch 2>/dev/null || echo main)
+BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
 ```
 </step>
 
@@ -76,13 +76,13 @@ Verify the work is ready to ship:
 
 2. **Clean working tree?**
    ```bash
-   git status --short
+   specforge git status --format human
    ```
    If uncommitted changes exist: ask user to commit or stash first.
 
 3. **On correct branch?**
    ```bash
-   CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
+   CURRENT_BRANCH=$(specforge git head --pick .branch 2>/dev/null || true)
    IS_PROTECTED=$(case "$CURRENT_BRANCH" in (main|master|develop|release/*) echo true;; (*) echo false;; esac) || IS_PROTECTED=""
    if [ "$IS_PROTECTED" = true ]; then
      echo "⚠ Current branch '$CURRENT_BRANCH' is a protected branch; shipping should happen from a feature branch." >&2
@@ -95,7 +95,7 @@ Verify the work is ready to ship:
 
 4. **Remote configured?**
    ```bash
-   git remote -v | head -2
+   specforge git remotes --format human
    ```
    Detect `origin` remote. If no remote: error — can't create PR.
 
@@ -319,7 +319,7 @@ Reconstruct the per-commit TDD gate trail before squash-merge discards it. Walk 
 
 ```bash
 # Anchor on the merge-base so a stale local ${BASE_BRANCH} ref cannot over-count.
-RANGE_BASE=$(git merge-base "${BASE_BRANCH}" HEAD)
+RANGE_BASE=$(specforge git merge-base "${BASE_BRANCH}" HEAD --pick .sha)
 git log "${RANGE_BASE}..HEAD" --no-merges --reverse \
   --format='%H%x1f%s%x1f%(trailers:key=gate-status,valueonly,separator=%x2c)%x1e'
 ```
@@ -492,7 +492,7 @@ would otherwise trigger (GitHub honors `[ci skip]` / `[skip ci]`):
 
 ```bash
 git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
-SHIP_NOTE_SHA=$(git rev-parse HEAD)
+SHIP_NOTE_SHA=$(specforge git head --pick .sha)
 git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
 
 # Preserve the skip-token optimization for repositories without a required-check
@@ -517,7 +517,7 @@ for i in {1..5}; do
   sleep 3
 done
 
-if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
+if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
   echo "⚠ PR is BLOCKED with zero checks. The [ci skip] trailer wedged the PR due to required checks."
   echo "Pushing an empty commit to trigger the required pipelines..."
   # a commit with no files is made with git directly (an intentionally empty commit).

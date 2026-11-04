@@ -89,7 +89,7 @@ CROSS_AI_TIMEOUT="{{setting:workflow.cross_ai_timeout|300}}"   # workflow.cross_
 
 2. **Check for dirty working tree before execution:**
    ```bash
-   if ! git diff --quiet HEAD 2>/dev/null; then
+   if [ "$(specforge git diff --pick .count 2>/dev/null)" != 0 ]; then
      echo "WARNING: dirty working tree detected — the external AI command may produce uncommitted changes that conflict with existing modifications"
    fi
    ```

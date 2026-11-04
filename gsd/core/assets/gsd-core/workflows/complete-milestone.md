@@ -191,7 +191,7 @@ git log --oneline --grep="feat(" | head -20
 git diff --stat FIRST_COMMIT..LAST_COMMIT | tail -1
 find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
 git log --format="%ai" FIRST_COMMIT | tail -1
-git log --format="%ai" LAST_COMMIT | head -1
+specforge git log LAST_COMMIT --max 1 --pick '.commits[0].author.time'
 ```
 
 Present:
@@ -525,7 +525,7 @@ See: the `project` entity (updated [today])
 
 Check the project's `branching_strategy` (from `init.execute-phase`/`init.complete-milestone`). `"none"` skips straight to `git_tag`. For `"phase"` or `"milestone"`, list the matching branches (by the configured prefix template); no branches found also skips to `git_tag`. Resolve the base branch through the single shared resolver, never a bare `main`/`master` fallback (Issue #1146):
 ```bash
-BASE_BRANCH=$(git config --get init.defaultBranch 2>/dev/null || echo main)
+BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
 ```
 
 If branches exist, present them and ask (AskUserQuestion): **Squash merge** (recommended) / **Merge with history** / **Delete without merging** / **Keep branches**. All three merge/delete options iterate every matching branch (phase strategy) or the one milestone branch, checking out `BASE_BRANCH` first and returning to the original branch after; both merge options strip the spec from staging first when `commit_docs` is false. "Keep branches" just reports them as preserved for manual handling.

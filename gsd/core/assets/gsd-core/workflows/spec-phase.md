@@ -225,7 +225,7 @@ classifier.
 # Resolve the compiled edge-probe.cjs against the GSD install dir via RUNTIME_DIR (#448)
 # — NOT the consuming project's git root — falling back to git toplevel / $HOME/.claude.
 # Mirrors the ui-safety-gate.cjs resolution idiom at autonomous.md:290 / plan-phase.md:631.
-_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+_GSD_RT="${RUNTIME_DIR:-$(specforge git repo --pick .top 2>/dev/null || pwd)}"
 EDGE_PROBE_JS=$(for _c in \
   "$_GSD_RT/gsd-core/bin/lib/edge-probe.cjs" \
   "$_GSD_RT/bin/lib/edge-probe.cjs" \
