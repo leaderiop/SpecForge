@@ -37,6 +37,14 @@ impl ValueBudget {
         bytes: 8 * 1024 * 1024,
         local_probes: 2_000,
     };
+
+    /// A compile nobody reads the rows of: the phase does not run, and no value owes anything.
+    pub const NO_PHASE: ValueBudget = ValueBudget {
+        probes_per_value: 0,
+        time: Duration::ZERO,
+        bytes: 0,
+        local_probes: 0,
+    };
 }
 
 impl Default for ValueBudget {

@@ -118,9 +118,12 @@ pub enum Input {
   the type proves the LSP's worker never reaches the network.
 - `Environment` holds an `Effects`, `cached` by default, so the hook, watch, the LSP and MCP sessions stay off the
   network with no change. Only the CLI opts in: `--effects <online|auto|cached|replay>` on `check` and `watch`, the
-  commands that run the checks to report them. `check` defaults to `auto` when someone can answer (human output, a
-  terminal at stdin) and `CI` is unset, else `cached`; `watch` and every other command run `cached`. `--effects`
-  always wins. MCP `validate` takes `effects` (default `cached`) and re-runs the effect phases for that call over the
+  commands that run the checks to report them, and on `collect`. `check` defaults to `auto` when someone can answer
+  (human output, a terminal at stdin) and `CI` is unset, else `cached`, and so does the values phase of a `collect`
+  whose selected collector reads the checks' outcomes; a `collect` with no such reader runs no phase. `watch` and every
+  other command run `cached`. `--effects` always wins. MCP `collect` takes no mode: a collector there is served the
+  rows of the session's compile, which ran `cached`, so a value no fresh record answers says `not_run`, and
+  `specforge check` or `collect --effects online` at a terminal is what fills those records. MCP `validate` takes `effects` (default `cached`) and re-runs the effect phases for that call over the
   served compile, as `since` re-judges, so I017 is kept. The CLI and MCP build the effects of a run in one place.
 - A replay miss refuses the run (`not_in_journal`, exit 2), listing each missed request. It is no diagnostic: a test
   or a forensic replay fails loudly, and a user never reads it as a project finding.

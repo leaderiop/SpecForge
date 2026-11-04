@@ -405,6 +405,7 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   verify unit "a collector reading check outcomes is not run by a plain collect"
   verify unit "a check outcomes input on anything but a collector is W021 and served empty"
   verify unit "checks.publish adds a collector reading check outcomes to a plain collect, and never to a reports run"
+  verify unit "a collect owes the values phase only when a selected collector reads check outcomes"
   verify unit "file pattern match selects collector"
   verify unit "wildcards match within the last path segment"
   verify unit "no match emits E058 with available collectors"

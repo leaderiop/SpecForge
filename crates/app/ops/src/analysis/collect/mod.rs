@@ -41,6 +41,7 @@ use crate::{CollectedFacts, CollectedPlan, EditDocument};
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, ProjectPath, codes};
+use specforge_project::Environment;
 use specforge_project::coverage::TestReport;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -226,8 +227,7 @@ pub fn collect(
     let (asking, containment) = (caller.asking(), caller.containment());
     let known = &KnownEntities::of(view.entities());
     let available = collectors(view.registries().declarations());
-    let publish = view.env().config().checks.publish && !matches!(mode, Mode::Reports(_));
-    let (selected, chosen) = select(&available, runner, root, publish)?;
+    let (selected, chosen) = select(&available, runner, root, publishes(view.env(), &mode))?;
     if let Mode::Reports(_) = mode
         && selected.len() > 1
     {
@@ -459,6 +459,24 @@ fn select<'a>(
     }
     detected.extend(published);
     Ok((detected, Chosen::Detected))
+}
+
+/// Whether a plain `collect` adds the collectors that read the checks' outcomes: never to a reports run.
+fn publishes(env: &Environment, mode: &Mode<'_>) -> bool {
+    env.config().checks.publish && !matches!(mode, Mode::Reports(_))
+}
+
+/// Whether this `collect` selects a collector that reads the checks' outcomes: only then does the compile it reads owe
+/// the values phase (ADR 0336 D8). A selection that fails reads none, and `collect` reports it.
+pub fn reads_outcomes(
+    env: &Environment,
+    root: &Path,
+    runner: Option<&str>,
+    mode: &Mode<'_>,
+) -> bool {
+    let available = collectors(env.registries().declarations());
+    select(&available, runner, root, publishes(env, mode))
+        .is_ok_and(|(selected, _)| selected.iter().any(|c| c.reads_outcomes()))
 }
 
 /// The report `collect` merges new results into: `specforge-report.json`,

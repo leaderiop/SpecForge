@@ -55,6 +55,15 @@ fn declare() -> ContributionsBuilder {
     c
 }
 
+/// `declare`, and a runner reading nothing.
+fn declare_with_a_runner() -> ContributionsBuilder {
+    let mut c = declare();
+    c.collector("runner", |k| {
+        k.collect(|_: &CollectInput| Ok(CollectOutput::default()));
+    });
+    c
+}
+
 fn project(publish: bool) -> TestProject {
     TestProject::new()
         .config(move |c| {
@@ -112,6 +121,28 @@ fn checks_publish_runs_it_on_a_plain_collect() {
         let _ = collected(&compiled, None, Mode::NoRun, &ScriptedMachine::new());
         assert_eq!(calls(&runtime).len(), expected, "publish {publish}");
     }
+}
+
+#[specforge_test(
+    behavior = "auto_detect_collector",
+    verify = "a collect owes the values phase only when a selected collector reads check outcomes"
+)]
+fn a_collect_owes_the_values_phase_only_for_a_reader() {
+    let reads = |publish, runner, mode: &Mode<'_>| {
+        let project = project(publish);
+        let runtime = Arc::new(InProcessRuntime::new().with(declare_with_a_runner));
+        let compiled = compiled(&project, &runtime);
+        collect::reads_outcomes(compiled.environment(), project.root(), runner, mode)
+    };
+    assert!(reads(true, None, &Mode::NoRun));
+    assert!(reads(false, Some("outcomes"), &Mode::NoRun));
+    assert!(!reads(false, None, &Mode::NoRun));
+    assert!(!reads(true, Some("runner"), &Mode::NoRun));
+    assert!(
+        !reads(true, None, &Mode::Reports(&[])),
+        "never a reports run"
+    );
+    assert!(!reads(false, Some("unknown"), &Mode::NoRun), "it refuses");
 }
 
 #[specforge_test(

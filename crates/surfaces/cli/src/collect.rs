@@ -50,6 +50,9 @@ pub(crate) struct Args {
     yes: bool,
 
     #[command(flatten)]
+    effects: crate::effects::EffectsOption,
+
+    #[command(flatten)]
     output: OutputArg,
 }
 
@@ -67,20 +70,6 @@ fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Po
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
 
-    let project = crate::project::compiled(
-        &root,
-        Some(Arc::new(
-            specforge_component::ComponentRuntime::with_user_cache(),
-        )),
-        ports,
-        crate::effects::mode(
-            None,
-            crate::effects::Command::Collect,
-            crate::asking::can_answer(format, terminal.facts()),
-            terminal.facts().ci,
-        ),
-    );
-
     let mode = if !options.reports.is_empty() {
         Mode::Reports(&options.reports)
     } else if options.no_run {
@@ -91,6 +80,28 @@ fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Po
     } else {
         Mode::Run(RunnerOutput::Inherit)
     };
+    let env = specforge_project::effects::environment(
+        &root,
+        Some(Arc::new(
+            specforge_component::ComponentRuntime::with_user_cache(),
+        )),
+        ports,
+        crate::effects::mode(
+            options.effects.effects,
+            crate::effects::Command::Collect,
+            crate::asking::can_answer(format, terminal.facts()),
+            terminal.facts().ci,
+        ),
+        &specforge_ops::consent::UserConsent::user(root.dir()),
+    );
+    // The checks' rows have no other reader here, so with none selected no value is probed.
+    let env = if collect::reads_outcomes(&env, root.dir(), options.runner.as_deref(), &mode) {
+        env
+    } else {
+        env.with_value_budget(specforge_project::values::ValueBudget::NO_PHASE)
+    };
+    let project = specforge_project::CompiledProject::of(env);
+
     let notes = Notes::new(terminal, format);
     let mut announce = |collector: &Collector, argv: &[String]| {
         notes.person(format_args!(

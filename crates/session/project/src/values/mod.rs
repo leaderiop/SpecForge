@@ -240,7 +240,8 @@ pub(crate) fn run(
     let registries = env.registries();
     let checks = registries.checks();
     let mut phase = Phase::default();
-    let Some(runtime) = env.runtime().filter(|_| !checks.is_empty()) else {
+    let wanted = env.value_budget() != ValueBudget::NO_PHASE && !checks.is_empty();
+    let Some(runtime) = env.runtime().filter(|_| wanted) else {
         return phase;
     };
     let mut values = collect::values(entities, checks, text_of);

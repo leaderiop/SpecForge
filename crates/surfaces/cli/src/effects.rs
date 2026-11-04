@@ -1,15 +1,16 @@
-//! Which effects mode a command's compile runs in (ADR 0337 D4): `--effects` when given; else `check` and `collect`
-//! (whose collectors may read the checks' outcomes, ADR 0336) run `auto` when someone can answer (human output, a
+//! Which effects mode a command's compile runs in (ADR 0337 D4): `--effects` when given; else `check`, and `collect`
+//! when a selected collector reads the checks' outcomes (ADR 0336), run `auto` when someone can answer (human output, a
 //! terminal at stdin) and it is not CI, and every other command, and every unattended run, runs `cached`, performing
 //! no effect.
 
 use specforge_effects::EffectsMode;
 
-/// `--effects <mode>`: on `check` and `watch`, the commands that run the checks to report them.
+/// `--effects <mode>`: on `check` and `watch`, the commands that run the checks to report them, and on `collect`, whose
+/// collector may read their outcomes.
 #[derive(clap::Args, Debug, Clone, Copy, Default)]
 pub(crate) struct EffectsOption {
-    /// Whether the run performs, reuses or replays an http or process effect (ADR 0337): `check` runs `auto` when
-    /// someone can answer outside CI, every other run `cached`.
+    /// Whether the run performs, reuses or replays an http or process effect (ADR 0337): `check` and a `collect` whose
+    /// collector reads the checks' outcomes run `auto` when someone can answer outside CI, every other run `cached`.
     #[arg(long, value_enum)]
     pub(crate) effects: Option<EffectsMode>,
 }
