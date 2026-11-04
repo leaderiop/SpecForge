@@ -82,3 +82,28 @@ fn checks_a_family_switched_off_reports_nothing() {
     let diagnostics = project.diagnostics();
     assert!(coded(&diagnostics, "E103").is_empty(), "{diagnostics:?}");
 }
+
+#[specforge_test_macros::test(
+    behavior = "ck_files_family",
+    verify = "a missing file in a list reports E016 on that item's span, not the entity's"
+)]
+#[ignore = "06 T11"]
+fn checks_files_e016_sits_on_the_values_span() {
+    let refs = r#"  refs ["here.md", "missing.md"]"#;
+    let project = TestProject::new()
+        .config(|c| c["checks"] = json!({ "fields": { "feature.refs": ["@specforge/checks:file"] } }))
+        .enabling(&[PRODUCT, CHECKS])
+        .file("here.md", "here")
+        .file(
+            "a.spec",
+            format!("feature f \"F\" {{\n  status planned\n  problem \"p\"\n  solution \"s\"\n{refs}\n}}\n"),
+        )
+        .compile();
+    let diagnostics = project.diagnostics();
+    let found = coded(&diagnostics, "E016");
+    assert_eq!(found.len(), 1, "{diagnostics:?}");
+    let span = found[0].span.as_ref().expect("on the item");
+    let quote = refs.find("\"missing.md\"").unwrap() + 1;
+    assert_eq!(span.start_line, 5, "{span:?}");
+    assert!([quote, quote + 1].contains(&span.start_col), "{span:?}");
+}

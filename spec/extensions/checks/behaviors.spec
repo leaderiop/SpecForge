@@ -36,3 +36,14 @@ behavior ck_digits_family "Digits Family" {
   """
   verify unit "a digit checker needs no scope and asks no approval"
 }
+
+behavior ck_files_family "Files Family" {
+  features [ck_value_checks]
+  category command
+  contract """
+    Each files checker MUST read only what the host's probes answer, under
+    the root its value names, and MUST report a missing file as E016 on the
+    value's own span, with a sibling only the host found inside the root.
+  """
+  verify unit "a missing file in a list reports E016 on that item's span, not the entity's"
+}
