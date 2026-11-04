@@ -79,16 +79,19 @@ fn attempt(
     dry_run: bool,
 ) -> (Mutation<CommandReply>, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    let run = match execute(
-        &project.view(),
-        command,
-        given,
-        CommandFormat::Json,
-        host,
-        dry_run,
-        project.caller(),
-        Surface::Mcp,
-    ) {
+    let run = project.lending(|caller| {
+        execute(
+            &project.view(),
+            command,
+            given,
+            CommandFormat::Json,
+            host,
+            dry_run,
+            caller,
+            Surface::Mcp,
+        )
+    });
+    let run = match run {
         Ok(run) => run,
         Err(RunError::Args(refused)) => return (Err(refused_args(&refused).into()), None),
         Err(RunError::Call(error)) => return (Err(failed_call(&error.diagnostic()).into()), None),

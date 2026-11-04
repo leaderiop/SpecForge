@@ -149,6 +149,7 @@ fn a_command_sees_secret_presence_not_its_value() {
         &serde_json::Map::new(),
         CommandFormat::Json,
         None,
+        specforge_ops::testing::caller(),
     )
     .unwrap();
     let call = runtime

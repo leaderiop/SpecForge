@@ -25,6 +25,8 @@ use specforge_wasm::{
 
 use crate::op_table::{export_of, perform};
 
+pub(crate) mod ports;
+
 const EXT: &str = "@calls/x";
 
 thread_local! {

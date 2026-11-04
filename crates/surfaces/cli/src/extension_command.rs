@@ -100,7 +100,7 @@ pub fn run(
         )),
     )
     .with_git(std::sync::Arc::clone(&ports.git));
-    run_in(env, &root, &ext, rest, builtins, terminal)
+    run_in(env, &root, &ext, rest, builtins, terminal, ports)
 }
 
 /// [`run`] over the environment that routes the command: `rest` is the command line after the extension's name.
@@ -112,6 +112,7 @@ pub(crate) fn run_in(
     mut rest: Vec<String>,
     builtins: &[String],
     terminal: &Terminal,
+    ports: &specforge_effects::Ports,
 ) -> i32 {
     let routed = ExtensionCommands::build(env.registries());
     let commands: Vec<&ExtensionCommand> = routed.of(ext).collect();
@@ -252,6 +253,7 @@ pub(crate) fn run_in(
         CommandFormat::Json => crate::outcome::OutputFormat::Json,
         CommandFormat::Human => crate::outcome::OutputFormat::Human,
     };
+    let consent = specforge_ops::consent::UserConsent::user(root.dir());
     let outcome = specforge_ops::authoring::apply::execute(
         &ProjectView::of(&project),
         command,
@@ -265,7 +267,7 @@ pub(crate) fn run_in(
             .filter(|_| !command.args().iter().any(|a| a.name == HOST))
             .and_then(|h| Host::from_flag(h)),
         dry_run,
-        crate::caller::of(false, output_format, terminal),
+        crate::caller::of(false, output_format, terminal).lending(ports, &consent),
         specforge_ops::authoring::apply::Surface::Cli {
             interactive: terminal.facts().interactive,
         },

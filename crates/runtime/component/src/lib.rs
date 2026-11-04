@@ -670,6 +670,23 @@ impl WasmRuntime for ComponentRuntime {
         }
     }
 
+    /// shortcut: no port is linked yet, so a guest importing one was refused at load and `lent` has nothing to serve.
+    fn call_with_ports(
+        &self,
+        name: &str,
+        export: &str,
+        input: &[u8],
+        _kind: specforge_protocol_types::Operation,
+        _lent: Option<specforge_wasm::PortCall>,
+    ) -> WasmCallResult {
+        self.call_export_within(name, export, input, u32::MAX)
+    }
+
+    /// No port is linked yet: every guest this runtime loaded imports none.
+    fn host_imports(&self, _extension_name: &str) -> Vec<String> {
+        Vec::new()
+    }
+
     fn apply_limits(&self, extension_name: &str, limits: Limits) {
         let Ok(plugins) = self.plugins.lock() else {
             return;

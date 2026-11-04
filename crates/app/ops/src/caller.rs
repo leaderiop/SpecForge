@@ -2,6 +2,8 @@
 //! A surface builds one per command or call and hands it, unchanged, to every request it fills; an operation
 //! reads its parts where it opens a file (ADR 0104) or puts a question (ADR 0110).
 
+use specforge_effects::{Consent, Ports};
+
 use crate::Containment;
 use crate::asking::Asking;
 
@@ -11,6 +13,34 @@ use crate::asking::Asking;
 pub struct Caller<'a> {
     containment: &'a Containment,
     asking: Asking<'a>,
+    lending: Option<Lending<'a>>,
+}
+
+/// What a caller lends an effectful extension call (ADR 0335 D4): its ports, and this machine's approvals of them.
+#[derive(Clone, Copy)]
+pub struct Lending<'a> {
+    ports: &'a Ports,
+    consent: &'a dyn Consent,
+}
+
+impl<'a> Lending<'a> {
+    /// The ports a granted request runs through.
+    #[must_use]
+    pub const fn ports(&self) -> &'a Ports {
+        self.ports
+    }
+
+    /// The approvals a grant is decided under.
+    #[must_use]
+    pub const fn consent(&self) -> &'a dyn Consent {
+        self.consent
+    }
+}
+
+impl std::fmt::Debug for Lending<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Lending")
+    }
 }
 
 impl<'a> Caller<'a> {
@@ -20,7 +50,24 @@ impl<'a> Caller<'a> {
         Caller {
             containment,
             asking,
+            lending: None,
         }
+    }
+
+    /// This caller, lending `ports` under `consent` to an effectful extension call. None lent: a port it calls is
+    /// answered `denied(scope)`.
+    #[must_use]
+    pub const fn lending(self, ports: &'a Ports, consent: &'a dyn Consent) -> Self {
+        Caller {
+            lending: Some(Lending { ports, consent }),
+            ..self
+        }
+    }
+
+    /// What it lends an effectful extension call, if anything.
+    #[must_use]
+    pub const fn lent(&self) -> Option<Lending<'a>> {
+        self.lending
     }
 
     /// What the call may reach: resolve every project file through it (ADR 0104 D2).

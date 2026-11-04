@@ -5,6 +5,7 @@
 
 pub mod calls;
 mod host_calls;
+pub mod ports;
 pub mod protocol;
 pub mod runtime;
 pub mod sandbox;
@@ -12,6 +13,7 @@ pub mod sandbox;
 pub mod testing;
 
 pub use calls::{CallError, CallFailure, Encoded, ExtensionCalls, Handshake, pass_diagnostics};
+pub use ports::{PortCall, PortSession};
 pub use runtime::{ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo};
 pub use sandbox::{Limits, Sandbox};
 pub use specforge_effects::Provenance;

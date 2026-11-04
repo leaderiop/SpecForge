@@ -22,6 +22,7 @@
 use std::fmt;
 use std::marker::PhantomData;
 
+use crate::ports::PortCall;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -142,14 +143,27 @@ pub struct Handshake {
 
 /// The operations on loaded extensions, over a runtime; see the module
 /// docs.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct ExtensionCalls<'r> {
     runtime: &'r dyn WasmRuntime,
+    /// What an effectful call's port requests are served through.
+    lent: Option<PortCall>,
 }
 
 impl<'r> ExtensionCalls<'r> {
     pub fn new(runtime: &'r dyn WasmRuntime) -> Self {
-        ExtensionCalls { runtime }
+        ExtensionCalls {
+            runtime,
+            lent: None,
+        }
+    }
+
+    /// These calls, with `lent` behind the ports of each effectful one (ADR 0335 D4). No other call sees it.
+    pub fn with_ports(self, lent: PortCall) -> Self {
+        ExtensionCalls {
+            lent: Some(lent),
+            ..self
+        }
     }
 
     /// `value` encoded once, for [`Self::run_pass`]. Never fails: a value
@@ -455,10 +469,14 @@ impl<'r> ExtensionCalls<'r> {
             }
             None => bytes,
         };
-        match self
-            .runtime
-            .call_export_within(extension, export, bytes, max_ms)
-        {
+        let answer = if operation.is_effectful() {
+            self.runtime
+                .call_with_ports(extension, export, bytes, operation, self.lent.clone())
+        } else {
+            self.runtime
+                .call_export_within(extension, export, bytes, max_ms)
+        };
+        match answer {
             WasmCallResult::Ok(answer) => Ok(answer),
             WasmCallResult::Trap(trap) => {
                 let failure = if trap.kind == "extension_not_found" {

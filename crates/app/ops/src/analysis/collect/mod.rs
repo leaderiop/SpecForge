@@ -285,14 +285,24 @@ pub fn collect(
             Err(error) => return Err(error.into()),
         };
 
+        let lent = crate::extension::lend::port_call(
+            view,
+            caller,
+            &collector.extension,
+            specforge_protocol_types::Operation::Collect,
+        );
         let mut collected = dispatch_over(
             view.runtime().map(|r| r.as_ref()),
             collector,
             &files,
             stdout.as_deref(),
             Some(view),
+            lent.clone(),
         )
         .map_err(|error| OpError::of(OpErrorKind::Internal, error.diagnostic()))?;
+        if let Some(lent) = lent {
+            diagnostics.extend(lent.take_denials());
+        }
         let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
         diagnostics.extend(diags);
         let by_convention_count = by_convention.iter().map(|e| e.test_results.len()).sum();

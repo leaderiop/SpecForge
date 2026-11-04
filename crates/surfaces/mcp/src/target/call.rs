@@ -105,6 +105,20 @@ impl<'a> ProjectRef<'a> {
         lent(self.view.containment())
     }
 
+    /// `run` under [`Self::caller`], which lends the server's ports to an effectful extension call under stored
+    /// approvals only (ADR 0335 D4).
+    pub fn lending<R>(&self, run: impl FnOnce(Caller<'_>) -> R) -> R {
+        let user;
+        let consent: &dyn specforge_effects::Consent = match self.consent {
+            Some(consent) => consent,
+            None => {
+                user = specforge_ops::consent::UserConsent::user(self.root.dir());
+                &user
+            }
+        };
+        run(self.caller().lending(self.ports, consent))
+    }
+
     /// Whether it is the served project (not one a `path` named): the server
     /// serves what a call installs into it from the next call on.
     pub fn is_served(&self) -> bool {

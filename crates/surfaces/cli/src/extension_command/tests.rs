@@ -573,7 +573,15 @@ fn quiet_answering(result: specforge_wasm::WasmCallResult, args: &[&str]) -> (i3
     let mut rest = vec!["quiet".to_string()];
     rest.extend(args.iter().map(ToString::to_string));
     rest.extend(["--path".to_string(), project.root().display().to_string()]);
-    let code = run_in(env, &project.project_root(), "core", rest, &[], &terminal);
+    let code = run_in(
+        env,
+        &project.project_root(),
+        "core",
+        rest,
+        &[],
+        &terminal,
+        &specforge_effects::testing::ports(),
+    );
     (code, capture.stdout(), capture.stderr())
 }
 

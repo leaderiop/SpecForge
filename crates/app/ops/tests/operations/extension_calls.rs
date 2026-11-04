@@ -294,6 +294,7 @@ mod evidence {
             &Map::new(),
             CommandFormat::Json,
             None,
+            specforge_ops::testing::caller(),
         )
         .expect("the export answers");
         let input = runtime
@@ -445,7 +446,15 @@ mod the_views_runtime {
             .iter()
             .find(|c| c.id() == "hello")
             .expect("the extension declares `hello`");
-        run(&view, hello, &Map::new(), CommandFormat::Json, None).expect("the export answers");
+        run(
+            &view,
+            hello,
+            &Map::new(),
+            CommandFormat::Json,
+            None,
+            specforge_ops::testing::caller(),
+        )
+        .expect("the export answers");
 
         let exports: Vec<String> = rt.calls().into_iter().map(|c| c.export).collect();
         assert!(exports.contains(&"__pass_scan".to_string()), "{exports:?}");
@@ -463,9 +472,15 @@ mod the_views_runtime {
 
         let bare = compile_at(dir.path(), None);
         let view = ProjectView::of(&bare);
-        let RunError::Call(error) =
-            run(&view, hello, &Map::new(), CommandFormat::Json, None).unwrap_err()
-        else {
+        let RunError::Call(error) = run(
+            &view,
+            hello,
+            &Map::new(),
+            CommandFormat::Json,
+            None,
+            specforge_ops::testing::caller(),
+        )
+        .unwrap_err() else {
             panic!("a command over an environment with no runtime is a failed call");
         };
         assert_eq!(error.failure, CallFailure::NotLoaded);
@@ -476,5 +491,158 @@ mod the_views_runtime {
             !outcome.passes.iter().any(|p| p.name.starts_with("@t/x:")),
             "no extension pass runs without a runtime"
         );
+    }
+}
+
+/// A command is lent the ports its caller holds (ADR 0335 D4), and what it runs never sees a secret (ADR 0288).
+mod lending {
+    use std::sync::Arc;
+
+    use serde_json::Map;
+    use specforge_effects::testing::{self, FakeHttp, MemoryConsent};
+    use specforge_effects::{EffectJournal, Grant, Ports, ProcessRequest, Provenance, Roots};
+    use specforge_extension_sdk::host;
+    use specforge_extension_sdk::prelude::*;
+    use specforge_ops::asking::Asking;
+    use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, run};
+    use specforge_ops::view::ProjectView;
+    use specforge_ops::{Caller, Containment};
+    use specforge_project::SharedRuntime;
+    use specforge_project::testing::compile_at;
+    use specforge_protocol_types::Operation;
+    use specforge_wasm::testing::InProcessRuntime;
+    use specforge_wasm::{Limits, PortCall, PortSession};
+    use tempfile::TempDir;
+
+    const EXT: &str = "@t/lent";
+    const SECRET_VALUE: &str = "s3cret-value-never-seen";
+
+    fn declaration() -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+        c.secret("api-token", "ACME_API_VALUE", "the API's token");
+        c.capability(
+            Capability::http("api")
+                .hosts(&["example.test"])
+                .schemes(&["https"])
+                .why("call the API"),
+        );
+        c.capability(
+            Capability::process("env")
+                .argv(&["env"])
+                .why("read the env"),
+        );
+        c.command("ping", |cmd| {
+            cmd.title("Ping").handler(|_| {
+                let answered = host::http::send(&specforge_effects::HttpRequest {
+                    method: "GET".to_string(),
+                    url: "https://example.test/a".to_string(),
+                    ..Default::default()
+                });
+                CommandOutput::ok(format!("{:?}\n", answered.map(|r| r.status)))
+            });
+        });
+        c
+    }
+
+    fn runtime() -> InProcessRuntime {
+        InProcessRuntime::new()
+            .with(declaration)
+            .importing(EXT, &["specforge:host/http@0.1.0"])
+    }
+
+    fn project() -> TempDir {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            format!(r#"{{"name":"p","version":"0.1.0","extensions":["{EXT}"]}}"#),
+        )
+        .unwrap();
+        specforge_installed::testing::install(dir.path(), &runtime(), &[EXT]);
+        std::fs::write(dir.path().join("main.spec"), "").unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_command_run_lends_the_views_ports() {
+        let dir = project();
+        let shared: SharedRuntime = Arc::new(runtime());
+        let compiled = compile_at(dir.path(), Some(shared));
+        let view = ProjectView::of(&compiled);
+        let commands = ExtensionCommands::build(view.registries());
+        let ping = commands.all().iter().find(|c| c.id() == "ping").unwrap();
+
+        let http = Arc::new(FakeHttp::new().route("https://example.test/a", 200, "answer"));
+        let ports = Ports {
+            http: http.clone(),
+            ..testing::ports()
+        };
+        let consent = MemoryConsent::approving_everything();
+        let containment = Containment::unbounded();
+        let caller = Caller::new(&containment, Asking::Nobody).lending(&ports, &consent);
+
+        let output = run(&view, ping, &Map::new(), CommandFormat::Json, None, caller).unwrap();
+
+        assert_eq!(output.stdout, "Ok(200)\n");
+        assert_eq!(http.requests().len(), 1, "the lent port saw the request");
+
+        // A caller that lends nothing: the same guest is refused, and nothing is reached.
+        let plain = Caller::new(&containment, Asking::Nobody);
+        let output = run(&view, ping, &Map::new(), CommandFormat::Json, None, plain).unwrap();
+        assert!(
+            output.stdout.starts_with("Err(Denied(Scope"),
+            "{}",
+            output.stdout
+        );
+        assert_eq!(http.requests().len(), 1);
+    }
+
+    /// The real runner, the real inherited environment: the value set here is what a guest must not read back.
+    #[cfg(unix)]
+    #[test]
+    #[allow(
+        unsafe_code,
+        reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
+    )]
+    fn a_real_program_a_guest_runs_does_not_inherit_a_declared_secret() {
+        // SAFETY: nextest runs each test in its own process, and no thread has started yet.
+        unsafe { std::env::set_var("ACME_API_VALUE", SECRET_VALUE) };
+        let dir = TempDir::new().unwrap();
+        let roots = Roots::new(dir.path(), dir.path());
+        let grant = Grant::decide(
+            &declaration().declaration(),
+            &Provenance::third_party(b"x"),
+            &specforge_effects::EffectsCeiling::default(),
+            &roots,
+            &MemoryConsent::approving_everything(),
+        );
+        let ports = Ports {
+            process: Arc::new(specforge_process::Runner),
+            ..testing::ports()
+        };
+        let call = PortCall::online(
+            &ports,
+            EffectJournal::detached(),
+            roots,
+            grant,
+            vec!["ACME_API_VALUE".to_string()],
+        );
+        let mut session =
+            PortSession::effectful(EXT, Operation::Collect, Some(call), Limits::CEILING);
+
+        let output = session
+            .process_run(ProcessRequest {
+                argv: vec!["env".to_string()],
+                ..ProcessRequest::default()
+            })
+            .expect("the capability grants `env`");
+
+        let seen = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(output.exit_code, Some(0), "{seen}");
+        assert!(seen.contains("PATH="), "env ran and printed: {seen}");
+        assert!(
+            !seen.contains(SECRET_VALUE),
+            "the secret reached a guest: {seen}"
+        );
+        assert!(!seen.contains("ACME_API_VALUE"), "{seen}");
     }
 }

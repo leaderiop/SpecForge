@@ -8,10 +8,11 @@
 
 use serde_json::{Value, json};
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommand, RunError};
+use specforge_ops::extension::lend;
 use specforge_ops::host::Host;
 use specforge_protocol_types::command_args::ArgError;
-use specforge_protocol_types::{CommandError, CommandOutput};
-use specforge_wasm::runtime::WasmRuntime;
+use specforge_protocol_types::{CommandError, CommandOutput, Operation};
+use specforge_wasm::PortCall;
 
 use crate::events::McpEvent;
 use crate::reply::Source;
@@ -35,13 +36,9 @@ pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value
                 return refused;
             }
             match call.project() {
-                Ok(project) => mcp_tool_adapter(
-                    project.runtime.as_ref(),
-                    entry,
-                    export,
-                    output_schema.as_ref(),
-                    arguments,
-                ),
+                Ok(project) => {
+                    mcp_tool_adapter(&project, entry, export, output_schema.as_ref(), arguments)
+                }
                 Err(refused) => (refused.into(), None),
             }
         }
@@ -65,7 +62,7 @@ pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value
 pub(crate) fn read_resource(call: &mut Call<'_>, entry: &ResourceEntry, uri: &str) -> ReadOutcome {
     // The project the resource reads, in the runtime it was compiled in.
     let (outcome, dispatched) = match call.project() {
-        Ok(project) => resource_adapter(project.runtime.as_ref(), entry, uri),
+        Ok(project) => resource_adapter(&project, entry, uri),
         Err(refused) => (Err(Box::new(refused)), None),
     };
     if let Some(event) = dispatched {
@@ -97,14 +94,22 @@ fn check_input(schema: &Value, arguments: &Value) -> Result<(), ToolOutcome> {
 /// output checked against the output schema it declares. The tool's
 /// outcome, and its dispatch event when its export returned.
 fn mcp_tool_adapter(
-    runtime: &dyn WasmRuntime,
+    project: &ProjectRef<'_>,
     entry: &ToolEntry,
     export: &str,
     output_schema: Option<&Value>,
     arguments: &Value,
 ) -> (ToolOutcome, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    let result = match specforge_wasm::ExtensionCalls::new(runtime).call_mcp_tool(
+    let lent = project.lending(|caller| {
+        lend::port_call(
+            &project.view(),
+            caller,
+            &entry.extension,
+            Operation::McpTool,
+        )
+    });
+    let result = match lent_calls(project, lent.clone()).call_mcp_tool(
         &entry.extension,
         export,
         arguments,
@@ -131,7 +136,23 @@ fn mcp_tool_adapter(
         duration_ms: elapsed_ms(started),
         success: result.succeeded(),
     };
+    let result = match lent {
+        Some(lent) => result.with_diagnostics(lent.take_denials()),
+        None => result,
+    };
     (result, Some(event))
+}
+
+/// The extension calls of `project`'s runtime, with `lent` behind each effectful one.
+fn lent_calls<'r>(
+    project: &'r ProjectRef<'_>,
+    lent: Option<PortCall>,
+) -> specforge_wasm::ExtensionCalls<'r> {
+    let calls = specforge_wasm::ExtensionCalls::new(project.runtime.as_ref());
+    match lent {
+        Some(lent) => calls.with_ports(lent),
+        None => calls,
+    }
 }
 
 /// A command's run as a tool result, and its dispatch event when its export
@@ -149,13 +170,17 @@ fn command_adapter(
 ) -> (ToolOutcome, Option<McpEvent>) {
     let given = arguments.as_object().cloned().unwrap_or_default();
     let started = std::time::Instant::now();
-    match specforge_ops::extension::command::run(
-        &project.view(),
-        command,
-        &given,
-        CommandFormat::Json,
-        host,
-    ) {
+    let run = project.lending(|caller| {
+        specforge_ops::extension::command::run(
+            &project.view(),
+            command,
+            &given,
+            CommandFormat::Json,
+            host,
+            caller,
+        )
+    });
+    match run {
         Ok(output) => {
             let event = McpEvent::SurfaceCommandDispatched {
                 extension_name: command.extension().to_string(),
@@ -210,16 +235,22 @@ fn refused_args(error: &ArgError) -> McpError {
 /// internal error (-32603) whose `data` is the `McpError` carrying the E028
 /// diagnostic (D6, `mcp_structured_error_responses`).
 fn resource_adapter(
-    runtime: &dyn WasmRuntime,
+    project: &ProjectRef<'_>,
     entry: &ResourceEntry,
     uri: &str,
 ) -> (ReadOutcome, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    match specforge_wasm::ExtensionCalls::new(runtime).read_mcp_resource(
-        &entry.extension,
-        &entry.export,
-        uri,
-    ) {
+    // shortcut: a read has no place for a diagnostic, so a resource's E090 reaches only its guest, as `denied(scope)`;
+    // when a read outcome carries diagnostics, report them here as a tool does.
+    let lent = project.lending(|caller| {
+        lend::port_call(
+            &project.view(),
+            caller,
+            &entry.extension,
+            Operation::McpResource,
+        )
+    });
+    match lent_calls(project, lent).read_mcp_resource(&entry.extension, &entry.export, uri) {
         // A read whose export answered its content is a dispatched
         // resource; a failed call is the read's error, and no dispatch is
         // recorded.

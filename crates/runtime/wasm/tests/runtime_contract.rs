@@ -291,3 +291,18 @@ fn the_runtime_keeps_the_provenance_it_loaded_with() {
     );
     assert_eq!(runtime.provenance("@acme/never"), None);
 }
+
+#[specforge_test_macros::test(
+    behavior = "grant_a_host_port_call",
+    verify = "the in-process runtime answers a port call as the component runtime does"
+)]
+fn the_in_process_runtime_keeps_the_port_contract() {
+    specforge_wasm::testing::assert_port_contract(
+        &crate::calls::ports::runtime(),
+        crate::calls::ports::EXT,
+        "cmd__ports",
+        &|| crate::calls::ports::lent().call,
+        "https://example.test/a",
+        "https://elsewhere.test/a",
+    );
+}

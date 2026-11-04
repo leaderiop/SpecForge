@@ -13,6 +13,7 @@ mod fixtures;
 pub mod gate;
 pub(crate) mod inputs;
 mod inventory;
+pub mod lend;
 mod list;
 mod lock_plan;
 mod names;

@@ -61,6 +61,14 @@ impl CoreTool for Tool {
         // Tests map to the entities on disk now: the target brought the served
         // project up to date, or compiled the project `path` names for this
         // call, in the runtime its environment was loaded in.
+        let user;
+        let consent: &dyn specforge_effects::Consent = match project.consent {
+            Some(consent) => consent,
+            None => {
+                user = specforge_ops::consent::UserConsent::user(project.root.dir());
+                &user
+            }
+        };
         let request = Request {
             runner,
             mode: if run {
@@ -73,17 +81,9 @@ impl CoreTool for Tool {
             // Every file the collect reads or writes lands inside the call's project, and the
             // server never prompts: a command runs only if the user already approved it for this
             // project with `specforge collect` in a terminal.
-            caller: project.caller(),
+            caller: project.caller().lending(project.ports, consent),
         };
         let view = project.view();
-        let user;
-        let consent: &dyn specforge_effects::Consent = match project.consent {
-            Some(consent) => consent,
-            None => {
-                user = specforge_ops::consent::UserConsent::user(project.root.dir());
-                &user
-            }
-        };
         let mut outcome = collect::collect(&view, request, project.machine, consent)
             .map_err(|refusal| Box::new(Self::refused(refusal)))?;
         // A writing collector's plans are applied after the report was written (ADR 0289).

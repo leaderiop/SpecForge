@@ -12,14 +12,22 @@
 //! Beside another runtime ([`InProcessRuntime::beside`]), what it cannot serve (a builtin's real component) loads
 //! there, so one project mixes extensions served in process with components.
 
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+use specforge_extension_sdk::host::in_process::{InProcessHost, serve};
 use specforge_extension_sdk::{
     ContributionsBuilder, ExportHandler, ExtensionMeta, PeerDependency, Served as GuestServed,
     no_other_exports,
 };
+use specforge_protocol_types::{
+    FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitSized, GitStatus, GitTreeEntry, HostError,
+    HttpRequest, HttpResponse, Operation, ProcessOutput, ProcessRequest,
+};
 
+use crate::ports::{PortCall, PortSession};
 use crate::runtime::{ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo};
 use crate::sandbox::Limits;
 use specforge_effects::Provenance;
@@ -84,6 +92,8 @@ pub struct InProcessRuntime {
     beside: Option<Beside>,
     /// Each loaded name's provenance, as [`WasmRuntime::load`] was given it.
     provenances: Mutex<BTreeMap<String, Provenance>>,
+    /// The `specforge:host` interfaces a served extension imports ([`InProcessRuntime::importing`]).
+    imports: BTreeMap<String, Vec<String>>,
 }
 
 /// The runtime beside an in-process one, and the names loaded in it, whose calls, limits, settings, renames and
@@ -162,6 +172,15 @@ impl InProcessRuntime {
     /// (an unknown host port, a foreign import), as [`Self::binary`] is for a declaration.
     pub fn refusing(mut self, bytes: &[u8], error: LoadError) -> Self {
         self.refusals.push((bytes.to_vec(), error));
+        self
+    }
+
+    /// `name`'s guest imports `interfaces` of `specforge:host`: what the component runtime reads off a component.
+    pub fn importing(mut self, name: &str, interfaces: &[&str]) -> Self {
+        self.imports.insert(
+            name.to_string(),
+            interfaces.iter().map(|i| i.to_string()).collect(),
+        );
         self
     }
 
@@ -401,6 +420,97 @@ impl WasmRuntime for InProcessRuntime {
     }
 
     fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
+        self.answer(extension, export, input, None)
+    }
+
+    fn call_with_ports(
+        &self,
+        extension: &str,
+        export: &str,
+        input: &[u8],
+        kind: Operation,
+        lent: Option<PortCall>,
+    ) -> WasmCallResult {
+        self.answer(extension, export, input, Some((kind, lent)))
+    }
+
+    fn host_imports(&self, extension: &str) -> Vec<String> {
+        match self.delegate(extension) {
+            Some(beside) => beside.host_imports(extension),
+            None => self.imports.get(extension).cloned().unwrap_or_default(),
+        }
+    }
+}
+
+/// A call's [`PortSession`] as the guest's seam on the thread reads it.
+struct ServedPorts(RefCell<PortSession>);
+
+impl InProcessHost for ServedPorts {
+    fn http_send(&self, request: &HttpRequest) -> Result<HttpResponse, HostError> {
+        self.0.borrow_mut().http(request.clone())
+    }
+    fn fs_stat(&self, root: &str, path: &str) -> Result<Option<FsEntry>, HostError> {
+        self.0.borrow_mut().fs_stat(root, path)
+    }
+    fn fs_read(&self, root: &str, path: &str, max_bytes: u64) -> Result<FsContent, HostError> {
+        self.0.borrow_mut().fs_read(root, path, max_bytes)
+    }
+    fn fs_walk(
+        &self,
+        root: &str,
+        path: &str,
+        glob: Option<&str>,
+        max_entries: u32,
+    ) -> Result<FsListing, HostError> {
+        self.0.borrow_mut().fs_walk(root, path, glob, max_entries)
+    }
+    fn process_run(&self, request: &ProcessRequest) -> Result<ProcessOutput, HostError> {
+        self.0.borrow_mut().process_run(request.clone())
+    }
+    fn git_locate(&self) -> Result<Option<GitRepo>, HostError> {
+        self.0.borrow_mut().git_locate()
+    }
+    fn git_commit(&self, revision: &str) -> Result<Option<String>, HostError> {
+        self.0.borrow_mut().git_commit(revision)
+    }
+    fn git_merge_base(&self, a: &str, b: &str) -> Result<Option<String>, HostError> {
+        self.0.borrow_mut().git_merge_base(a, b)
+    }
+    fn git_tree(&self, commit: &str, dir: &str) -> Result<Vec<GitTreeEntry>, HostError> {
+        self.0.borrow_mut().git_tree(commit, dir)
+    }
+    fn git_sizes(&self, commit: &str, paths: &[String]) -> Result<Vec<GitSized>, HostError> {
+        self.0.borrow_mut().git_sizes(commit, paths)
+    }
+    fn git_blobs(&self, commit: &str, paths: &[String]) -> Result<GitBlobs, HostError> {
+        self.0.borrow_mut().git_blobs(commit, paths)
+    }
+    fn git_branch(&self) -> Result<String, HostError> {
+        self.0.borrow_mut().git_branch()
+    }
+    fn git_status(&self) -> Result<GitStatus, HostError> {
+        self.0.borrow_mut().git_status()
+    }
+}
+
+impl InProcessRuntime {
+    /// The limits the host last applied to `extension`: what a session holds a port's answer to.
+    fn limits_of(&self, extension: &str) -> Limits {
+        self.limits()
+            .into_iter()
+            .rev()
+            .find(|(name, _)| name == extension)
+            .map_or(Limits::CEILING, |(_, limits)| limits)
+    }
+
+    /// One call, recorded and routed; `ports` is its kind and what it was lent, for a call that may use a port.
+    fn answer(
+        &self,
+        extension: &str,
+        export: &str,
+        input: &[u8],
+        ports: Option<(Operation, Option<PortCall>)>,
+    ) -> WasmCallResult {
         let input_json: serde_json::Value = serde_json::from_slice(input)
             .unwrap_or_else(|_| String::from_utf8_lossy(input).into_owned().into());
         self.calls.lock().expect("calls lock").push(RecordedCall {
@@ -428,7 +538,10 @@ impl WasmRuntime for InProcessRuntime {
             return result;
         }
         if let Some(beside) = self.delegate(extension) {
-            return beside.call_export(extension, export, input);
+            return match ports {
+                Some((kind, lent)) => beside.call_with_ports(extension, export, input, kind, lent),
+                None => beside.call_export(extension, export, input),
+            };
         }
         let served = self
             .extensions
@@ -444,8 +557,15 @@ impl WasmRuntime for InProcessRuntime {
             );
         };
         // A guest panic is a trap, as `unreachable` is in a component.
+        let session = ports.map(|(kind, lent)| {
+            PortSession::effectful(extension, kind, lent, self.limits_of(extension))
+        });
         let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            GuestServed::new(build()).call(handler, export, input)
+            let guest = || GuestServed::new(build()).call(handler, export, input);
+            match session {
+                Some(session) => serve(Rc::new(ServedPorts(RefCell::new(session))), guest),
+                None => guest(),
+            }
         }));
         match answer {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
@@ -530,6 +650,64 @@ pub fn assert_runtime_contract(runtime: &dyn WasmRuntime, extension: &str, panic
         }
         WasmCallResult::Trap(trap) => panic!("the extension stopped answering: {trap:?}"),
     }
+}
+
+/// The contract every adapter keeps for a port call, asserted over `runtime`, which must serve `extension`, a guest
+/// whose `export` calls the HTTP port on its input's `target` and answers `{"ok": status}`, `{"denied": kind}` or
+/// `{"failed": class}` (the sandbox probe's `ports` command, and its in-process twin). `lent` lends a grant that
+/// permits `inside` and not `outside`:
+///
+/// - a command inside its grant reaches the port;
+/// - outside it, it is answered `denied(scope)` and one E090 is kept for the caller;
+/// - with nothing lent, it is answered `denied(scope)`;
+/// - a call kind no port is for, and a plain call, are answered `denied(call-kind)`.
+pub fn assert_port_contract(
+    runtime: &dyn WasmRuntime,
+    extension: &str,
+    export: &str,
+    lent: &dyn Fn() -> PortCall,
+    inside: &str,
+    outside: &str,
+) {
+    let input = |url: &str| serde_json::json!({"port": "http", "target": url}).to_string();
+    let answer = |result: WasmCallResult, what: &str| match result {
+        WasmCallResult::Ok(bytes) => serde_json::from_slice::<serde_json::Value>(&bytes)
+            .unwrap_or_else(|e| panic!("{what}: {e}")),
+        WasmCallResult::Trap(trap) => panic!("{what}: {trap:?}"),
+    };
+
+    let call = |url: &str, kind, lent| {
+        runtime.call_with_ports(extension, export, input(url).as_bytes(), kind, lent)
+    };
+    let reached = answer(
+        call(inside, Operation::Command, Some(lent())),
+        "inside the grant",
+    );
+    assert_eq!(reached["ok"], 200, "inside the grant: {reached}");
+
+    let port_call = lent();
+    let denials = Arc::clone(&port_call.denials);
+    let refused = answer(
+        call(outside, Operation::Command, Some(port_call)),
+        "outside the grant",
+    );
+    assert_eq!(refused["denied"], "scope", "outside the grant: {refused}");
+    let kept = denials.lock().expect("denials lock");
+    assert_eq!(kept.len(), 1, "one E090 is kept: {kept:?}");
+    assert_eq!(kept[0].code, "E090");
+    drop(kept);
+
+    let unlent = answer(call(inside, Operation::Command, None), "nothing lent");
+    assert_eq!(unlent["denied"], "scope", "nothing lent: {unlent}");
+
+    let pure = answer(call(inside, Operation::Pass, Some(lent())), "a pure kind");
+    assert_eq!(pure["denied"], "call_kind", "a pure kind: {pure}");
+
+    let plain = answer(
+        runtime.call_export(extension, export, input(inside).as_bytes()),
+        "a plain call",
+    );
+    assert_eq!(plain["denied"], "call_kind", "a plain call: {plain}");
 }
 
 /// The contract every adapter of the [`WasmRuntime`] port keeps for the
