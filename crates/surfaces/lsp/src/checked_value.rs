@@ -14,9 +14,7 @@ pub(crate) fn hover(state: &LspState, uri: &Url, position: Position) -> Option<S
     let file = crate::uri::file_path(uri);
     let place = file.as_deref().map_or(Place::Detached, Place::File);
     let id = crate::completion::holder(&cursor, &view, place)?;
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |since| since.as_millis() as u64);
+    let now = specforge_effects::UnixMillis::now_or_end().0;
     crate::hover::checked_value(
         view.project().value_checks().of(id.as_str()),
         &value.field,

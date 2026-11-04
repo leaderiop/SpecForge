@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use specforge_common::SourceSpan;
+use specforge_common::{Diagnostic, DiagnosticData, SourceSpan};
 use specforge_registry::entity::FieldRecord;
 use specforge_registry::{CheckRegistry, EntitySnapshot, ResolvedCheck};
 
@@ -20,6 +20,16 @@ pub(super) struct Value<'a> {
     /// byte range inside the text maps to a span.
     pub inner: Option<(usize, usize)>,
     pub checks: &'a [ResolvedCheck],
+}
+
+impl Value<'_> {
+    /// `diagnostic`, placed at `span` on this value's entity.
+    pub(super) fn places(&self, diagnostic: &mut Diagnostic, span: Option<SourceSpan>) {
+        diagnostic.span = span;
+        diagnostic.data = Some(Box::new(DiagnosticData::Subject {
+            entity: self.entity.to_string(),
+        }));
+    }
 }
 
 /// Every value of `entities` that has a check, in source order.

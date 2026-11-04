@@ -222,8 +222,7 @@ struct Settled {
 
 impl Settled {
     fn fails(&self) -> bool {
-        self.findings.iter().any(|f| place::is_error(&f.code))
-            || self.host.iter().any(|d| d.severity == Severity::Error)
+        place::any_error(&self.findings) || self.host.iter().any(|d| d.severity == Severity::Error)
     }
 }
 
@@ -311,7 +310,7 @@ fn dropped(
     let failed = |one: &Planned<'_>| {
         answers
             .get(&key(one))
-            .is_some_and(|plan| plan.findings.iter().any(|f| place::is_error(&f.code)))
+            .is_some_and(|plan| place::any_error(&plan.findings))
     };
     let mut dropped = HashSet::new();
     for (index, one) in planned.iter().enumerate() {
@@ -355,7 +354,7 @@ fn performed_and_judged(
             settled.insert(key, Settled::default());
             continue;
         }
-        let fails = plan.findings.iter().any(|f| place::is_error(&f.code));
+        let fails = place::any_error(&plan.findings);
         if plan.probes.is_empty() || fails {
             settled.insert(
                 key,

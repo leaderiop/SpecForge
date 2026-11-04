@@ -61,7 +61,7 @@ pub struct Described<'a> {
 }
 
 /// The level a local code's letter states.
-fn letter_level(local: &str) -> Option<Level> {
+pub fn letter_level(local: &str) -> Option<Level> {
     match local.as_bytes().first()? {
         b'E' => Some(Level::Error),
         b'W' => Some(Level::Warning),

@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde_json::{Map, Value};
 use specforge_common::{ChecksConfig, Diagnostic, SourceSpan, codes};
-use specforge_diagnostics::{Codebook, Level};
+use specforge_diagnostics::{Codebook, letter_level};
 use specforge_graph::FieldForm;
 use specforge_protocol_types::{
     CheckRef, CheckerDescriptor, ExtensionDeclaration, FieldDescriptor, FieldType, FieldWriter,
@@ -15,6 +15,7 @@ use specforge_protocol_types::{
 
 use super::{FieldRegistry, FieldRegistryEntry, KindRegistry};
 use crate::compilation::{CandidateVocabulary, UnloadedPeers};
+use crate::surface::prompts::snake_case;
 
 /// The field types a checker may read.
 const VALUE_TYPES: [FieldType; 5] = [
@@ -476,7 +477,7 @@ fn checker_problem(
     checker: &CheckerDescriptor,
     book: &Codebook,
 ) -> Option<String> {
-    if !is_snake_case(&checker.name) {
+    if !snake_case(&checker.name) {
         return Some("is not named in snake_case".to_string());
     }
     if let Some(ty) = checker
@@ -507,7 +508,7 @@ fn checker_problem(
     }
     let extension = declaration.name();
     if let Some(code) = checker.codes.iter().find(|code| {
-        !level_of(code).is_some_and(|level| book.check(extension, code, level).is_ok())
+        !letter_level(code).is_some_and(|level| book.check(extension, code, level).is_ok())
     }) {
         return Some(format!(
             "lists the code '{code}', which its catalogue lacks"
@@ -580,20 +581,4 @@ fn admit_args(
         Some((name, _)) => Err(format!("no '{name}', which it requires")),
         None => Ok(()),
     }
-}
-
-/// The level a code's letter states.
-fn level_of(code: &str) -> Option<Level> {
-    match code.chars().next()? {
-        'E' => Some(Level::Error),
-        'W' => Some(Level::Warning),
-        'I' => Some(Level::Info),
-        _ => None,
-    }
-}
-
-fn is_snake_case(name: &str) -> bool {
-    let mut chars = name.chars();
-    chars.next().is_some_and(|c| c.is_ascii_lowercase())
-        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
 }

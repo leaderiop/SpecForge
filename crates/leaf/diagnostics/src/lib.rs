@@ -23,7 +23,7 @@ pub use catalog::{CATALOG, codes};
 #[doc(hidden)]
 pub use code::prefix_states;
 pub use code::{Code, GradedCode};
-pub use codebook::{Codebook, Described, ExtensionCode, SharedNamespace};
+pub use codebook::{Codebook, Described, ExtensionCode, SharedNamespace, letter_level};
 pub use extension::CodeMisuse;
 pub use namespace::{CodeRef, code_namespace, is_local_code, qualify};
 

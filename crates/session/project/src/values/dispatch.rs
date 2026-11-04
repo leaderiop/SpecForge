@@ -286,10 +286,7 @@ impl<'a> Probing<'a> {
         let shown = printable(written);
         let at = |code, message: String, suggestion: String, span| {
             let mut diagnostic = Diagnostic::new(code, message).with_suggestion(suggestion);
-            diagnostic.span = span;
-            diagnostic.data = Some(Box::new(specforge_common::DiagnosticData::Subject {
-                entity: value.entity.to_string(),
-            }));
+            value.places(&mut diagnostic, span);
             diagnostic
         };
         let id = value.entity;
@@ -620,10 +617,7 @@ impl<'a> Probing<'a> {
 
 /// `diagnostic` on `value`: the host's, and the value fails or warns by it.
 fn refuse(reading: &mut Reading, value: &Value<'_>, mut diagnostic: Diagnostic) {
-    diagnostic.span = value.span.clone();
-    diagnostic.data = Some(Box::new(specforge_common::DiagnosticData::Subject {
-        entity: value.entity.to_string(),
-    }));
+    value.places(&mut diagnostic, value.span.clone());
     reading.refused_class = Some(OutcomeClass::Denied);
     reading.refused.push(diagnostic);
 }

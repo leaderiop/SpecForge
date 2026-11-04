@@ -4,7 +4,7 @@
 
 mod contributions;
 mod prompt_routes;
-mod prompts;
+pub(crate) mod prompts;
 mod routes;
 
 use specforge_common::{Diagnostic, codes};
