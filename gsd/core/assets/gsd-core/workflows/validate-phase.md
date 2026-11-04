@@ -155,10 +155,10 @@ Handle return:
 ## 7. Commit
 
 ```bash
-git add {test_files}
-git commit -m "test(phase-${PHASE}): add Nyquist validation tests"
+specforge git commit --add {each test file, one --add each} \
+  -m "test(phase-${PHASE}): add Nyquist validation tests"
 
-git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
+specforge git commit --add spec -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
   --files "${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md"
 ```
 

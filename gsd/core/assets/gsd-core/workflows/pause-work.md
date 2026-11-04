@@ -230,7 +230,7 @@ timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 <step name="commit">
 ```bash
-specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
+specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && specforge git commit --add spec -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
 ```
 </step>
 

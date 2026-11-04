@@ -310,8 +310,8 @@ specforge gsd progress-report
 If there are passing tests to commit:
 
 ```bash
-git add {test files}
-git commit -m "test(phase-${phase_number}): add unit and E2E tests from add-tests command" -- {test files}
+specforge git commit --add {each test file, one --add each} \
+  -m "test(phase-${phase_number}): add unit and E2E tests from add-tests command"
 ```
 
 Present next steps:

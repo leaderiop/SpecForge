@@ -6,7 +6,7 @@ Create git tag:
 ```bash
 # Pre-check: skip if tag already exists (prevents silent failure on retry)
 if [ "$(specforge git rev "v[X.Y]" --pick '.revs[0].exists' 2>/dev/null)" = true ]; then echo "Tag v[X.Y] already exists, skipping"; exit 0; fi
-git tag -a v[X.Y] -m "v[X.Y] [Name]
+specforge git tag v[X.Y] -m "v[X.Y] [Name]
 
 Delivered: [One sentence]
 

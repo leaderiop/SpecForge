@@ -469,7 +469,7 @@ specforge files remove --force "${phase_dir}/${padded_phase}-DISCUSS-CHECKPOINT.
 
 Commit phase context and discussion log:
 ```bash
-git add spec && git commit -m "docs(${padded_phase}): capture phase context" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${padded_phase}): capture phase context" && specforge collect --runner gsd-git --yes
 ```
 
 Confirm: "Committed: docs(${padded_phase}): capture phase context"

@@ -512,7 +512,7 @@ Write to: `{phase_dir}/{padded_phase}-SPEC.md`
 ## Step 7: Commit
 
 ```bash
-git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
 ```
 
 If `commit_docs` is false the CLI returns `skipped`; SPEC.md is written, not committed.

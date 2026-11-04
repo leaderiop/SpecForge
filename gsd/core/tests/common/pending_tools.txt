@@ -1033,53 +1033,11 @@ prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; t
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 
-# D git: git, embedded (R2). 386 rows.
-../security/assets/gsd-core/workflows/secure-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update security threat verification" && specforge collect --runner gsd-git --yes; : \
-../security/assets/gsd-core/workflows/secure-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update security threat verification" && specforge collect --runner gsd-git --yes; : \
+# D git: git, embedded (R2). 142 rows.
 agents/gsd-executor.md	git	git add src/api/auth.ts
 agents/gsd-executor.md	git	git add src/types/user.ts
 agents/gsd-executor.md	git	git -C "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
-agents/gsd-executor.md	git	git commit -m "{type}({phase}-{plan}): {concise task description}
-agents/gsd-executor.md	git	git checkout -- path/to/specific/file
-agents/gsd-executor.md	git	git add <the files this plan changed, and its .spec files>
-agents/gsd-executor.md	git	git commit -m "docs({phase}-{plan}): complete [plan-name] plan"
-agents/gsd-phase-researcher.md	git	git add -- "<the phase spec files>" && git commit -m "docs($PHASE): research phase domain"
-agents/gsd-phase-researcher.md	git	git add -- "<the phase spec files>" && git commit -m "docs($PHASE): research phase domain"
-agents/gsd-planner.md	git	git add spec && git commit -m "docs($PHASE): create phase plan" && specforge collect --runner gsd-git --yes
-agents/gsd-planner.md	git	git add spec && git commit -m "docs($PHASE): create phase plan" && specforge collect --runner gsd-git --yes
-agents/gsd-research-synthesizer.compact.md	git	git add spec && git commit -m "docs: complete project research" && specforge collect --runner gsd-git --yes
-agents/gsd-research-synthesizer.compact.md	git	git add spec && git commit -m "docs: complete project research" && specforge collect --runner gsd-git --yes
-agents/gsd-research-synthesizer.md	git	git add spec && git commit -m "docs: complete project research" && specforge collect --runner gsd-git --yes
-agents/gsd-research-synthesizer.md	git	git add spec && git commit -m "docs: complete project research" && specforge collect --runner gsd-git --yes
-commands/gsd/review-backlog.md	git	git add spec && git commit -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
-commands/gsd/review-backlog.md	git	git add spec && git commit -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
-gsd-core/references/autonomous-smart-discuss.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): smart discuss context" && specforge collect --runner gsd-git --yes
-gsd-core/references/autonomous-smart-discuss.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): smart discuss context" && specforge collect --runner gsd-git --yes
-gsd-core/references/execute-phase-requirement-revert.md	git	git add spec && git commit -m "docs(phase-{X}): revert premature Complete requirements after gaps found" && specforge collect --runner gsd-git --yes
-gsd-core/references/execute-phase-requirement-revert.md	git	git add spec && git commit -m "docs(phase-{X}): revert premature Complete requirements after gaps found" && specforge collect --runner gsd-git --yes
-gsd-core/references/git-integration.md	git	git add spec && git commit -m "docs: initialize [project-name] ([N] phases)" && specforge collect --runner gsd-git --yes
-gsd-core/references/git-integration.md	git	git add spec && git commit -m "docs: initialize [project-name] ([N] phases)" && specforge collect --runner gsd-git --yes
-gsd-core/references/git-integration.md	git	git add src/api/auth.ts src/types/user.ts
-gsd-core/references/git-integration.md	git	git commit -m "feat(08-02): create user registration endpoint
-gsd-core/references/git-integration.md	git	git add src/__tests__/jwt.test.ts
-gsd-core/references/git-integration.md	git	git commit -m "test(07-02): add failing test for JWT generation
-gsd-core/references/git-integration.md	git	git add src/utils/jwt.ts
-gsd-core/references/git-integration.md	git	git commit -m "feat(07-02): implement JWT generation
-gsd-core/references/git-integration.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-gsd-core/references/git-integration.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-gsd-core/references/git-integration.md	git	git add spec && git commit -m "docs(pause): [phase-name] paused at task [X]/[Y]" && specforge collect --runner gsd-git --yes
-gsd-core/references/git-integration.md	git	git add spec && git commit -m "docs(pause): [phase-name] paused at task [X]/[Y]" && specforge collect --runner gsd-git --yes
 gsd-core/references/git-integration.md	git	git -C <sub-repo> commit
-gsd-core/references/planner-revision.md	git	git add spec && git commit -m "fix($PHASE): revise plans based on checker feedback" && specforge collect --runner gsd-git --yes
-gsd-core/references/planner-revision.md	git	git add spec && git commit -m "fix($PHASE): revise plans based on checker feedback" && specforge collect --runner gsd-git --yes
-gsd-core/references/planning-config.md	git	git add spec && git commit -m "docs: update state" && specforge collect --runner gsd-git --yes
-gsd-core/references/planning-config.md	git	git add spec && git commit -m "docs: update state" && specforge collect --runner gsd-git --yes
-gsd-core/references/planning-config.md	git	git add spec && git commit -m "docs: update state" && specforge collect --runner gsd-git --yes
-gsd-core/references/planning-config.md	git	git add spec && git commit -m "docs: update state" && specforge collect --runner gsd-git --yes
-gsd-core/references/planning-config.md	git	git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
-gsd-core/references/planning-config.md	git	git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
-gsd-core/references/planning-config.md	git	git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
-gsd-core/references/planning-config.md	git	git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
 gsd-core/references/tdd.md	git	git log --oneline -E --grep="^test\((0*${PHASE_N})-(0*${PLAN_N})\):" | head -1
 gsd-core/references/tdd.md	git	git log --oneline -E --grep="^feat\((0*${PHASE_N})-(0*${PLAN_N})\):" | head -1
 gsd-core/references/tdd.md	git	git log --oneline -E --grep="^refactor\((0*${PHASE_N})-(0*${PLAN_N})\):" | head -1
@@ -1090,129 +1048,38 @@ gsd-core/references/worktree-path-safety.md	git	PINNED_TL=$(git -C "$PINNED_ROOT
 gsd-core/references/worktree-path-safety.md	git	PIN_DIAG="git -C <pinned root> rev-parse --show-toplevel failed: $(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>&1 1>/dev/null)"
 gsd-core/references/worktree-path-safety.md	git	SUPER_TL=$(git rev-parse --show-superproject-working-tree 2>/dev/null)
 gsd-core/references/worktree-path-safety.md	git	git -C
-gsd-core/workflows/add-tests.md	git	git add {test files}
-gsd-core/workflows/add-tests.md	git	git commit -m "test(phase-${phase_number}): add unit and E2E tests from add-tests command" -- {test files}
-gsd-core/workflows/autonomous.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): auto-generated context (discuss skipped)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/autonomous.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): auto-generated context (discuss skipped)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/complete-milestone.md	git	git log --oneline --grep="feat(" | head -20
 gsd-core/workflows/complete-milestone.md	git	git diff --stat FIRST_COMMIT..LAST_COMMIT | tail -1
 gsd-core/workflows/complete-milestone.md	git	git log --format="%ai" FIRST_COMMIT | tail -1
-gsd-core/workflows/complete-milestone.md	git	git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/complete-milestone.md	git	git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/complete-milestone.md	git	git add spec && git commit -m "docs: update retrospective for v${VERSION}" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/complete-milestone.md	git	git add spec && git commit -m "docs: update retrospective for v${VERSION}" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/complete-milestone.md	git	git commit -m "chore: complete v[X.Y] milestone"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git checkout ${BASE_BRANCH}
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --squash "$branch"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git reset HEAD spec/ 2>/dev/null || true
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git commit -m "feat: $branch for v[X.Y]"
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --squash "$MILESTONE_BRANCH"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git reset HEAD spec/ 2>/dev/null || true
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git commit -m "feat: $MILESTONE_BRANCH for v[X.Y]"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git checkout "$CURRENT_BRANCH"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git checkout ${BASE_BRANCH}
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --no-ff --no-commit "$branch"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git reset HEAD spec/ 2>/dev/null || true
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git commit -m "Merge branch '$branch' for v[X.Y]"
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --no-ff --no-commit "$MILESTONE_BRANCH"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git reset HEAD spec/ 2>/dev/null || true
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git commit -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git checkout "$CURRENT_BRANCH"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git branch -d "$branch" 2>/dev/null || git branch -D "$branch"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git branch -d "$branch" 2>/dev/null || git branch -D "$branch"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git branch -d "$MILESTONE_BRANCH" 2>/dev/null || git branch -D "$MILESTONE_BRANCH"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git branch -d "$MILESTONE_BRANCH" 2>/dev/null || git branch -D "$MILESTONE_BRANCH"
-gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git tag -a v[X.Y] -m "v[X.Y] [Name]
 gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git push origin v[X.Y]
-gsd-core/workflows/diagnose-issues.md	git	git add spec && git commit -m "docs({phase_num}): add root causes from diagnosis" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/diagnose-issues.md	git	git add spec && git commit -m "docs({phase_num}): add root causes from diagnosis" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/discuss-phase-assumptions.md	git	git add spec && git commit -m "docs(${padded_phase}): capture phase context (assumptions mode)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/discuss-phase-assumptions.md	git	git add spec && git commit -m "docs(${padded_phase}): capture phase context (assumptions mode)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/discuss-phase.md	git	git add spec && git commit -m "docs(${padded_phase}): capture phase context" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/discuss-phase.md	git	git add spec && git commit -m "docs(${padded_phase}): capture phase context" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase.md	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 gsd-core/workflows/execute-phase.md	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
-gsd-core/workflows/execute-phase.md	git	git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
 gsd-core/workflows/execute-phase.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
-gsd-core/workflows/execute-phase.md	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
-gsd-core/workflows/execute-phase.md	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
-gsd-core/workflows/execute-phase.md	git	git checkout -b "$BRANCH_NAME" "origin/$DEFAULT_BRANCH" --no-track \
-gsd-core/workflows/execute-phase.md	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
-gsd-core/workflows/execute-phase.md	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
-gsd-core/workflows/execute-phase.md	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
 gsd-core/workflows/execute-phase.md	git	git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
-gsd-core/workflows/execute-phase.md	git	[ "$STASHED" = "true" ] && (git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
 gsd-core/workflows/execute-phase.md	git	git worktree unlock "$WT" 2>/dev/null || true
-gsd-core/workflows/execute-phase.md	git	if ! git worktree remove "$WT" --force; then
-gsd-core/workflows/execute-phase.md	git	git branch -D "$WT_BRANCH" 2>/dev/null || true
-gsd-core/workflows/execute-phase.md	git	git worktree prune
-gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	git	git add spec && git commit -m "docs(${PADDED}): record code review disposition" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	git	git add spec && git commit -m "docs(${PADDED}): record code review disposition" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/execute-phase/steps/completion-reconciliation.md	git	COMMITS_SINCE_DISPATCH=$(git log "${EXPECTED_BRANCH}" --since="${DISPATCH_TS}" --oneline | head -1)
-gsd-core/workflows/execute-phase/steps/gap-closure-artifacts.md	git	git add spec && git commit -m "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-phase/steps/gap-closure-artifacts.md	git	git add spec && git commit -m "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/execute-plan.md	git	git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/fast.md	git	git add -A -- ':!spec'
-gsd-core/workflows/fast.md	git	git add -A
-gsd-core/workflows/fast.md	git	git commit -m "fix: {concise description of what changed}"
 gsd-core/workflows/ingest-docs.md	git	git init
 gsd-core/workflows/milestone-summary.md	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 gsd-core/workflows/milestone-summary.md	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 gsd-core/workflows/milestone-summary.md	git	git log --oneline --since="<started_at_date>" | wc -l
 gsd-core/workflows/new-milestone.md	git	git add "$ARCHIVE_DIR/" "$PHASES_DIR/" 2>/dev/null || true
-gsd-core/workflows/new-milestone.md	git	git add spec && git commit -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-milestone.md	git	git add spec && git commit -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-milestone.md	git	git add spec && git commit -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-milestone.md	git	git add spec && git commit -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-milestone.md	git	git add spec && git commit -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-milestone.md	git	git add spec && git commit -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-milestone.md	git	git commit -m "docs: tag [count] pending todos with resolves_phase after milestone v[X.Y] roadmap"
-gsd-core/workflows/new-project.md	git	git add spec && git commit -m "docs: initialize project" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-project.md	git	git add spec && git commit -m "docs: initialize project" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-project.md	git	git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-project.md	git	git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-project.md	git	git add spec && git commit -m "docs: define v1 requirements" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-project.md	git	git add spec && git commit -m "docs: define v1 requirements" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-project.md	git	git add spec && git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-project.md	git	git add spec && git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-project/steps/auto-mode-config.md	git	git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/new-project/steps/auto-mode-config.md	git	git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
 gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
 gsd-core/workflows/new-workspace.md	git	git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
 gsd-core/workflows/new-workspace.md	git	git checkout -b "$BRANCH_NAME" 2>&1
-gsd-core/workflows/next.md	git	git add spec && git commit -m "docs: defer incomplete Phase {src} items to backlog" \
-gsd-core/workflows/next.md	git	git add spec && git commit -m "docs: defer incomplete Phase {src} items to backlog" \
 gsd-core/workflows/pause-work.md	git	UNCOMMITTED=$(git status --porcelain)
-gsd-core/workflows/pause-work.md	git	specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/pause-work.md	git	specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/plan-phase.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/plan-phase.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/plan-phase/detail/elaboration.md	git	git add spec && git commit -m "refactor(${padded_phase}): bounce plans through external refinement" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/plan-phase/detail/elaboration.md	git	git add spec && git commit -m "refactor(${padded_phase}): bounce plans through external refinement" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): plan ${plan_id} (chunked)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	git	git add spec && git commit -m "docs(${PADDED_PHASE}): plan ${plan_id} (chunked)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/plan-phase/steps/prd-express-path.md	git	git add spec && git commit -m "docs(${padded_phase}): generate context from PRD" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/plan-phase/steps/prd-express-path.md	git	git add spec && git commit -m "docs(${padded_phase}): generate context from PRD" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/pr-branch.md	git	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 gsd-core/workflows/pr-branch.md	git	if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
 gsd-core/workflows/pr-branch.md	git	if git -C "$SUB_REPO_DIR" ls-remote --exit-code --heads origin "$TARGET" \
 gsd-core/workflows/pr-branch.md	git	SUB_TARGET=$(git -C "$SUB_REPO_DIR" remote show origin 2>/dev/null \
 gsd-core/workflows/pr-branch.md	git	git log --oneline "$TARGET".."$CURRENT_BRANCH" --no-merges
-gsd-core/workflows/pr-branch.md	git	git checkout -b "$PR_BRANCH" "$TARGET"
 gsd-core/workflows/pr-branch.md	git	git cherry-pick --no-commit "$HASH" || true
 gsd-core/workflows/pr-branch.md	git	git rm -r -f -q --ignore-unmatch -- "$P" 2>/dev/null || true
 gsd-core/workflows/pr-branch.md	git	git checkout HEAD -- "$P" 2>/dev/null || true
@@ -1220,28 +1087,14 @@ gsd-core/workflows/pr-branch.md	git	git checkout --theirs -- "$P" && git add -- 
 gsd-core/workflows/pr-branch.md	git	git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
 gsd-core/workflows/pr-branch.md	git	git rm -f -q -- "$P" 2>/dev/null || true
 gsd-core/workflows/pr-branch.md	git	git cherry-pick --quit 2>/dev/null || true
-gsd-core/workflows/pr-branch.md	git	git reset -q --hard HEAD
-gsd-core/workflows/pr-branch.md	git	if git checkout -q "$CURRENT_BRANCH"; then
-gsd-core/workflows/pr-branch.md	git	git branch -q -D "$PR_BRANCH" 2>/dev/null || true
 gsd-core/workflows/pr-branch.md	git	git cherry-pick --quit 2>/dev/null || true
 gsd-core/workflows/pr-branch.md	git	git commit -q -C "$HASH"
-gsd-core/workflows/pr-branch.md	git	git checkout "$CURRENT_BRANCH"
 gsd-core/workflows/progress/steps/forensic-audit.md	git	git status --porcelain 2>/dev/null | grep -v "^??" | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/quick-batch.md	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-gsd-core/workflows/quick-batch/steps/completion.md	git	git add "${BATCH_ARTIFACT_FILES[@]}" 2>/dev/null
-gsd-core/workflows/quick-batch/steps/completion.md	git	git commit -m "docs(quick-batch-${BATCH_ID}): ${ITEM_COUNT} item(s)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/quick.md	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 gsd-core/workflows/quick.md	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
-gsd-core/workflows/quick.md	git	git switch "$branch_name" \
 gsd-core/workflows/quick.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
-gsd-core/workflows/quick.md	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null \
-gsd-core/workflows/quick.md	git	&& git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null \
-gsd-core/workflows/quick.md	git	git checkout -b "$branch_name" "origin/$DEFAULT_BRANCH" --no-track \
 gsd-core/workflows/quick.md	git	QUICK_DIR_REL=$(git -C "$QUICK_DIR" rev-parse --show-prefix 2>/dev/null)
-gsd-core/workflows/quick.md	git	git add ${file_list_filtered} 2>/dev/null
-gsd-core/workflows/quick.md	git	git add ${file_list} 2>/dev/null
-gsd-core/workflows/quick.md	git	git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/quick.md	git	git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git add "${QUICK_PREDISPATCH_PATHS[@]}"
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git commit --no-verify -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git commit -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
@@ -1256,13 +1109,8 @@ gsd-core/workflows/ship.md	git	git push --set-upstream origin ${CURRENT_BRANCH} 
 gsd-core/workflows/ship.md	git	git log "${RANGE_BASE}..HEAD" --no-merges --reverse \
 gsd-core/workflows/ship.md	git	DIFF=$(git diff ${BASE_BRANCH}...HEAD)
 gsd-core/workflows/ship.md	git	DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEAD)
-gsd-core/workflows/ship.md	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/ship.md	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
-gsd-core/workflows/ship.md	git	git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
-gsd-core/workflows/spec-phase.md	git	git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/spec-phase.md	git	git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/undo.md	git	git log --oneline --no-merges -${COUNT}
 gsd-core/workflows/undo.md	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
 gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
@@ -1270,86 +1118,25 @@ gsd-core/workflows/undo.md	git	PHASE_START=$(git rev-list --reverse --no-walk=so
 gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 gsd-core/workflows/undo.md	git	git revert --no-commit ${HASH}
 gsd-core/workflows/undo.md	git	git revert --abort 2>/dev/null
-gsd-core/workflows/undo.md	git	git reset HEAD 2>/dev/null
-gsd-core/workflows/undo.md	git	git restore . 2>/dev/null
 gsd-core/workflows/undo.md	git	git commit -m "revert(${TARGET_PHASE}): undo phase ${TARGET_PHASE} — ${REVERT_REASON}"
 gsd-core/workflows/undo.md	git	git commit -m "revert(${TARGET_PLAN}): undo plan ${TARGET_PLAN} — ${REVERT_REASON}"
 gsd-core/workflows/undo.md	git	git commit -m "revert: undo ${N} selected commits — ${REVERT_REASON}"
-gsd-core/workflows/validate-phase.md	git	git add {test_files}
-gsd-core/workflows/validate-phase.md	git	git commit -m "test(phase-${PHASE}): add Nyquist validation tests"
-gsd-core/workflows/validate-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
-gsd-core/workflows/validate-phase.md	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
-gsd-core/workflows/verify-work.md	git	git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/verify-work.md	git	git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/verify-work.md	git	git add spec && git commit -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
-gsd-core/workflows/verify-work.md	git	git add spec && git commit -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
-prompt:add_tests	git	git add {test files}
-prompt:add_tests	git	git commit -m "test(phase-${phase_number}): add unit and E2E tests from add-tests command" -- {test files}
-prompt:autonomous	git	git add spec && git commit -m "docs(${PADDED_PHASE}): auto-generated context (discuss skipped)" && specforge collect --runner gsd-git --yes
-prompt:autonomous	git	git add spec && git commit -m "docs(${PADDED_PHASE}): auto-generated context (discuss skipped)" && specforge collect --runner gsd-git --yes
 prompt:execute_phase	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 prompt:execute_phase	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
-prompt:execute_phase	git	git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
 prompt:execute_phase	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
-prompt:execute_phase	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
-prompt:execute_phase	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
-prompt:execute_phase	git	git checkout -b "$BRANCH_NAME" "origin/$DEFAULT_BRANCH" --no-track \
-prompt:execute_phase	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
-prompt:execute_phase	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
-prompt:execute_phase	git	if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
 prompt:execute_phase	git	git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
-prompt:execute_phase	git	[ "$STASHED" = "true" ] && (git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
 prompt:execute_phase	git	git worktree unlock "$WT" 2>/dev/null || true
-prompt:execute_phase	git	if ! git worktree remove "$WT" --force; then
-prompt:execute_phase	git	git branch -D "$WT_BRANCH" 2>/dev/null || true
-prompt:execute_phase	git	git worktree prune
-prompt:execute_phase	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
-prompt:execute_phase	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
-prompt:execute_phase	git	git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
-prompt:execute_phase	git	git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
-prompt:execute_phase	git	git add spec && git commit -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
-prompt:execute_phase	git	git add spec && git commit -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
-prompt:execute_phase	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
-prompt:execute_phase	git	git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
-prompt:execute_plan	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-prompt:execute_plan	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-prompt:execute_plan	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-prompt:execute_plan	git	git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
-prompt:execute_plan	git	git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
-prompt:execute_plan	git	git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
 prompt:fast	git	git add -A -- ':!spec'
-prompt:fast	git	git add -A
-prompt:fast	git	git commit -m "fix: {concise description of what changed}"
 prompt:ingest_docs	git	git init
 prompt:milestone_summary	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 prompt:milestone_summary	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 prompt:milestone_summary	git	git log --oneline --since="<started_at_date>" | wc -l
 prompt:new_milestone	git	git add "$ARCHIVE_DIR/" "$PHASES_DIR/" 2>/dev/null || true
-prompt:new_milestone	git	git add spec && git commit -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
-prompt:new_milestone	git	git add spec && git commit -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
-prompt:new_milestone	git	git add spec && git commit -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
-prompt:new_milestone	git	git add spec && git commit -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
-prompt:new_milestone	git	git add spec && git commit -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
-prompt:new_milestone	git	git add spec && git commit -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
-prompt:new_milestone	git	git commit -m "docs: tag [count] pending todos with resolves_phase after milestone v[X.Y] roadmap"
-prompt:new_project	git	git add spec && git commit -m "docs: initialize project" && specforge collect --runner gsd-git --yes
-prompt:new_project	git	git add spec && git commit -m "docs: initialize project" && specforge collect --runner gsd-git --yes
-prompt:new_project	git	git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
-prompt:new_project	git	git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
-prompt:new_project	git	git add spec && git commit -m "docs: define v1 requirements" && specforge collect --runner gsd-git --yes
-prompt:new_project	git	git add spec && git commit -m "docs: define v1 requirements" && specforge collect --runner gsd-git --yes
-prompt:new_project	git	git add spec && git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
-prompt:new_project	git	git add spec && git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
 prompt:pause_work	git	UNCOMMITTED=$(git status --porcelain)
-prompt:pause_work	git	specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
-prompt:pause_work	git	specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
-prompt:plan_phase	git	git add spec && git commit -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
-prompt:plan_phase	git	git add spec && git commit -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
 prompt:pr_branch	git	if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
 prompt:pr_branch	git	if git -C "$SUB_REPO_DIR" ls-remote --exit-code --heads origin "$TARGET" \
 prompt:pr_branch	git	SUB_TARGET=$(git -C "$SUB_REPO_DIR" remote show origin 2>/dev/null \
 prompt:pr_branch	git	git log --oneline "$TARGET".."$CURRENT_BRANCH" --no-merges
-prompt:pr_branch	git	git checkout -b "$PR_BRANCH" "$TARGET"
 prompt:pr_branch	git	git cherry-pick --no-commit "$HASH" || true
 prompt:pr_branch	git	git rm -r -f -q --ignore-unmatch -- "$P" 2>/dev/null || true
 prompt:pr_branch	git	git checkout HEAD -- "$P" 2>/dev/null || true
@@ -1358,41 +1145,20 @@ prompt:pr_branch	git	git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan
 prompt:pr_branch	git	git rm -f -q -- "$P" 2>/dev/null || true
 prompt:pr_branch	git	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 prompt:pr_branch	git	git cherry-pick --quit 2>/dev/null || true
-prompt:pr_branch	git	git reset -q --hard HEAD
-prompt:pr_branch	git	if git checkout -q "$CURRENT_BRANCH"; then
-prompt:pr_branch	git	git branch -q -D "$PR_BRANCH" 2>/dev/null || true
 prompt:pr_branch	git	git cherry-pick --quit 2>/dev/null || true
 prompt:pr_branch	git	git commit -q -C "$HASH"
-prompt:pr_branch	git	git checkout "$CURRENT_BRANCH"
-prompt:progress	git	git add spec && git commit -m "docs: defer incomplete Phase {src} items to backlog" \
-prompt:progress	git	git add spec && git commit -m "docs: defer incomplete Phase {src} items to backlog" \
 prompt:quick	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 prompt:quick	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
-prompt:quick	git	git switch "$branch_name" \
 prompt:quick	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
-prompt:quick	git	git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null \
-prompt:quick	git	&& git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null \
-prompt:quick	git	git checkout -b "$branch_name" "origin/$DEFAULT_BRANCH" --no-track \
 prompt:quick	git	QUICK_DIR_REL=$(git -C "$QUICK_DIR" rev-parse --show-prefix 2>/dev/null)
-prompt:quick	git	git add ${file_list_filtered} 2>/dev/null
-prompt:quick	git	git add ${file_list} 2>/dev/null
-prompt:quick	git	git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
-prompt:quick	git	git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
 prompt:quick_batch	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-prompt:review_backlog	git	git add spec && git commit -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
-prompt:review_backlog	git	git add spec && git commit -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1
 prompt:ship	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
 prompt:ship	git	git log "${RANGE_BASE}..HEAD" --no-merges --reverse \
 prompt:ship	git	DIFF=$(git diff ${BASE_BRANCH}...HEAD)
 prompt:ship	git	DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEAD)
-prompt:ship	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
-prompt:ship	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
-prompt:ship	git	git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
-prompt:spec_phase	git	git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
-prompt:spec_phase	git	git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
 prompt:undo	git	git log --oneline --no-merges -${COUNT}
 prompt:undo	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
 prompt:undo	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
@@ -1400,19 +1166,9 @@ prompt:undo	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit 
 prompt:undo	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
 prompt:undo	git	git revert --no-commit ${HASH}
 prompt:undo	git	git revert --abort 2>/dev/null
-prompt:undo	git	git reset HEAD 2>/dev/null
-prompt:undo	git	git restore . 2>/dev/null
 prompt:undo	git	git commit -m "revert(${TARGET_PHASE}): undo phase ${TARGET_PHASE} — ${REVERT_REASON}"
 prompt:undo	git	git commit -m "revert(${TARGET_PLAN}): undo plan ${TARGET_PLAN} — ${REVERT_REASON}"
 prompt:undo	git	git commit -m "revert: undo ${N} selected commits — ${REVERT_REASON}"
-prompt:validate_phase	git	git add {test_files}
-prompt:validate_phase	git	git commit -m "test(phase-${PHASE}): add Nyquist validation tests"
-prompt:validate_phase	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
-prompt:validate_phase	git	git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
-prompt:verify_work	git	git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
-prompt:verify_work	git	git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
-prompt:verify_work	git	git add spec && git commit -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
-prompt:verify_work	git	git add spec && git commit -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
 prompt:workspace	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
 prompt:workspace	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
 prompt:workspace	git	git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1

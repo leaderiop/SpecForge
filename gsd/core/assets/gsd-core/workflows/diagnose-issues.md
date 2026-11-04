@@ -283,7 +283,7 @@ Update status in frontmatter to "diagnosed".
 
 Commit the updated UAT.md:
 ```bash
-git add spec && git commit -m "docs({phase_num}): add root causes from diagnosis" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs({phase_num}): add root causes from diagnosis" && specforge collect --runner gsd-git --yes
 ```
 </step>
 

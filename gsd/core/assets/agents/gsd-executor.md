@@ -551,7 +551,7 @@ Returns JSON with per-repo commit hashes: `{ committed: true, repos: { "backend"
 
 **Otherwise (standard single-repo):**
 ```bash
-git commit -m "{type}({phase}-{plan}): {concise task description}
+specforge git commit -m "{type}({phase}-{plan}): {concise task description}
 
 - {key change 1}
 - {key change 2}
@@ -623,7 +623,7 @@ back, those deletions appear on the main branch, destroying prior-wave work (#20
 
 If you need to discard changes to a specific file you modified during this task, use:
 ```bash
-git checkout -- path/to/specific/file
+specforge git restore path/to/specific/file
 ```
 Never use blanket reset or clean operations that affect the entire working tree.
 
@@ -812,8 +812,8 @@ with `specforge new decision`.
 <final_commit>
 This commit must re-run the Step 0 assertion above (#3819).
 ```bash
-git add <the files this plan changed, and its .spec files>
-git commit -m "docs({phase}-{plan}): complete [plan-name] plan"
+specforge git commit --add <each file this plan changed and its .spec files, one --add each> \
+  -m "docs({phase}-{plan}): complete [plan-name] plan"
 specforge collect --runner gsd-git --yes   # records the commit in the plan's file
 ```
 

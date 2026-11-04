@@ -171,7 +171,7 @@ Do NOT emit next-phase routing. Stop here.
 ## 7. Commit
 
 ```bash
-git add spec && git commit -m "docs(phase-${PHASE}): add/update security threat verification" && specforge collect --runner gsd-git --yes; : \
+specforge git commit --add spec -m "docs(phase-${PHASE}): add/update security threat verification" && specforge collect --runner gsd-git --yes; : \
   --files "spec"
 ```
 

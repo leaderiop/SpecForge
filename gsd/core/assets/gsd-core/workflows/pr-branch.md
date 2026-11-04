@@ -357,7 +357,7 @@ Mixed planning commits: {N} ({included — structural + transient/other, plannin
 PR_BRANCH="${CURRENT_BRANCH}-pr"
 
 # Create PR branch from target
-git checkout -b "$PR_BRANCH" "$TARGET"
+specforge git switch "$PR_BRANCH" --create --at "$TARGET"
 ```
 
 Cherry-pick the included commits, in order, filtering `$FILTER_PATHS` out of each one.
@@ -466,9 +466,9 @@ UNMERGED_PATHS_EOF
     # clean-tree precondition guarantees the user had nothing uncommitted, so a hard
     # reset here cannot destroy anything of theirs.
     git cherry-pick --quit 2>/dev/null || true
-    git reset -q --hard HEAD
-    if git checkout -q "$CURRENT_BRANCH"; then
-      git branch -q -D "$PR_BRANCH" 2>/dev/null || true
+    specforge git reset HEAD --hard --yes --pick .sha >/dev/null
+    if specforge git switch "$CURRENT_BRANCH" --pick .branch >/dev/null; then
+      specforge git branch delete "$PR_BRANCH" --force >/dev/null 2>&1 || true
       echo "Restored $CURRENT_BRANCH and removed the partial $PR_BRANCH." >&2
     else
       # Never claim a restore that did not happen — say exactly where they are.
@@ -492,7 +492,7 @@ done
 
 Return to original branch:
 ```bash
-git checkout "$CURRENT_BRANCH"
+specforge git switch "$CURRENT_BRANCH"
 ```
 </step>
 

@@ -309,7 +309,7 @@ DEFAULT_BRANCH=$(v=$(specforge git config init.defaultBranch --pick .value 2>/de
   || echo main)
 
 if [ "$(specforge git rev "refs/heads/$BRANCH_NAME" --pick '.revs[0].exists')" = true ]; then
-  git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
+  specforge git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
 else
   if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
     [ "$(specforge git rev "refs/remotes/origin/$DEFAULT_BRANCH" --pick '.revs[0].exists')" = true ] \
@@ -319,12 +319,12 @@ else
   if [ "$(specforge git status --pick .clean)" = false ]; then
     echo "WARNING: Uncommitted changes will be carried onto '$BRANCH_NAME' (branched off origin/$DEFAULT_BRANCH, not previous HEAD)."
   else
-    git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
+    specforge git switch "$DEFAULT_BRANCH" >/dev/null 2>&1 && specforge git merge "origin/$DEFAULT_BRANCH" --ff-only >/dev/null 2>&1 || true
   fi
   # Pinned base (#2916); --no-track (#2498). #2639: warn if local ahead of origin.
   AHEAD=$(specforge git log "origin/$DEFAULT_BRANCH..$DEFAULT_BRANCH" --pick .count 2>/dev/null || echo 0)
   [ "$AHEAD" != "0" ] && [ -n "$AHEAD" ] && echo "WARNING: $DEFAULT_BRANCH is $AHEAD ahead of origin — '$BRANCH_NAME' won't include those commits (#2639)." >&2
-  git checkout -b "$BRANCH_NAME" "origin/$DEFAULT_BRANCH" --no-track \
+  specforge git switch "$BRANCH_NAME" --create --at "origin/$DEFAULT_BRANCH" \
     || { echo "ERROR: Could not create '$BRANCH_NAME' from origin/$DEFAULT_BRANCH (#2916)." >&2; exit 1; }
 fi
 ```
@@ -837,9 +837,9 @@ increases monotonically across waves. `{status}` is `complete` (success),
    if [ "$SKIP_HOOKS" = "true" ]; then
      # Stash uncommitted changes under a named ref so we always pop (bare `git stash` strands them on hook/script failure). #3542: `refs/stash` is shared across worktrees, so this helper runs ONLY in the orchestrator's main checkout after all wave worktrees have been merged + removed; executors are forbidden from running any `git stash` subcommand (see `<destructive_git_prohibition>` in `agents/gsd-executor.md`).
      STASHED=false
-     if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
+     if [ "$(specforge git diff --pick .count 2>/dev/null)" != 0 ] && specforge git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
      git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
-     [ "$STASHED" = "true" ] && (git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
+     [ "$STASHED" = "true" ] && (specforge git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
    fi
    ```
    If hooks fail: report the failure and ask "Fix hook issues now?" or "Continue to next wave?"
@@ -905,7 +905,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
      [ -z "$WT_BRANCH" ] || [ "$WT_BRANCH" = "HEAD" ] && continue
      echo "Cleaning up residual worktree: $WT (branch: $WT_BRANCH)"
      git worktree unlock "$WT" 2>/dev/null || true
-     if ! git worktree remove "$WT" --force; then
+     if ! specforge git worktree remove "$WT" --force; then
        WT_NAME=${WT##*/}
        if [ -f ".git/worktrees/${WT_NAME}/locked" ]; then
          echo "⚠ Worktree $WT is locked — unlock failed; manual cleanup required:"
@@ -914,10 +914,10 @@ increases monotonically across waves. `{status}` is `complete` (success),
          echo "⚠ Residual worktree at $WT — remove failed; manual cleanup required"
        fi
      else
-       git branch -D "$WT_BRANCH" 2>/dev/null || true
+       specforge git branch delete "$WT_BRANCH" --force --pick .name 2>/dev/null || true
      fi
    done < "$WT_PATHS_FILE"
-   git worktree prune
+   specforge git worktree prune
    ```
 
    **When to skip step 5.5:**
@@ -964,7 +964,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
      # Only commit tracking files if they actually changed
      if [ "$(specforge git diff --pick .count -- spec/ 2>/dev/null)" != 0 ]; then
-       git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
+       specforge git commit --add spec -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
      fi
    elif [ "${TEST_EXIT}" -eq 124 ]; then
      echo "⚠ Skipping tracking update — test suite timed out. Plans remain in-progress. Run tests manually to confirm."
@@ -1226,7 +1226,7 @@ blocked: 0
 
 Commit the file:
 ```bash
-git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
 ```
 
 **Step B: Present to user**:
@@ -1316,7 +1316,7 @@ These items are tracked and will appear in `/gsd:progress` and `/gsd:audit-uat`.
 ```
 
 ```bash
-git add spec && git commit -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
 ```
 </step>
 
@@ -1373,7 +1373,7 @@ done
 if [ ${#CLOSED[@]} -gt 0 ]; then
   ADDED=(); REMOVED=()
   for f in "${CLOSED[@]}"; do ADDED+=("$COMPLETED_DIR/$f"); REMOVED+=("$PENDING_DIR/$f"); done
-  git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
+  specforge git commit --add spec -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
   echo "◆ Closed ${#CLOSED[@]} todo(s) for Phase ${PHASE_NUMBER}:"; printf '  ✓ %s\n' "${CLOSED[@]}"
 fi
 ```

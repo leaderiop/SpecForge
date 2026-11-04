@@ -196,7 +196,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
    leaves every already-verified entry committed, exactly as a mid-loop interrupt did before this
    change.
 ```bash
-git add spec && git commit -m "docs(${PADDED_PHASE}): plan ${plan_id} (chunked)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${PADDED_PHASE}): plan ${plan_id} (chunked)" && specforge collect --runner gsd-git --yes
 ```
 
 8. **Recovery:** any entry that did not reach `marker_received` (missing file in step 6, or

@@ -548,8 +548,8 @@ If any revert fails (merge conflict or error):
    git revert --abort 2>/dev/null
    # If prior --no-commit reverts already staged cleanly before this failure,
    # revert --abort may be a no-op. Clean up staged and working tree changes:
-   git reset HEAD 2>/dev/null
-   git restore . 2>/dev/null
+   specforge git reset HEAD --pick .sha 2>/dev/null
+   specforge git restore . --pick .restored 2>/dev/null
    ```
 3. Display:
    ```

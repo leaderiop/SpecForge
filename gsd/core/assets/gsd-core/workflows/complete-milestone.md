@@ -414,7 +414,7 @@ PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
 # #5195: PROJECT.md is shared across workstreams. Stage it only in flat mode (no --ws, no active workstream) — the same test the review step is gated on, so the two cannot disagree.
 _gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --pick .active) || return 1; [ -z "$GSD_WS" ] && [ -z "$j" ]; }
 _gsd_flat_mode || PROJECT_PATH=""
-git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 ```
 
 This creates a durable checkpoint in git history. If anything fails after this point, the working tree can be reconstructed from git.
@@ -494,7 +494,7 @@ If the "## Cross-Milestone Trends" section exists, update the tables with new da
 
 **Commit:**
 ```bash
-git add spec && git commit -m "docs: update retrospective for v${VERSION}" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: update retrospective for v${VERSION}" && specforge collect --runner gsd-git --yes
 ```
 
 </step>
@@ -549,7 +549,7 @@ Exact bash for each of the four options (squash, history-preserving merge, delet
 Commit what is left (archive files and ROADMAP.md were already committed in the safety commit in `reorganize_roadmap_and_delete_originals`).
 
 ```bash
-git commit -m "chore: complete v[X.Y] milestone"
+specforge git commit -m "chore: complete v[X.Y] milestone"
 ```
 
 Confirm: "Committed: chore: complete v[X.Y] milestone"

@@ -1449,7 +1449,7 @@ This operation is idempotent: if wave headers or cross-cutting constraints alrea
 If `commit_docs` is true (from the init JSON parsed in step 1), commit the generated plan artifacts (including any ROADMAP.md annotations from step 13c):
 
 ```bash
-git add spec && git commit -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
 ```
 
 This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.

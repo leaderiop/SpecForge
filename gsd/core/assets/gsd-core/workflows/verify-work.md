@@ -540,7 +540,7 @@ Exact resume-announcement wording: `gsd-core/workflows/verify-work/detail/elabor
 Run the completion verb — it independently computes the final status (`complete`/`partial`) from the same rows, clears `## Current Test`, and writes + commits ONLY when something material changed (a session whose UAT was already complete and covered must leave the report fresh, #4981):
 
 ```bash
-git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
 ```
 
 `changed: false` → announce that the session was already complete and nothing was written or committed. `changed: true` → the UAT file (frontmatter `status`, `updated`, `## Current Test`) was written and committed in one step.
@@ -576,7 +576,7 @@ Choice [K]:
 
 3. Commit the deferral record:
 ```bash
-git add spec && git commit -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
 ```
 
 **If the user chooses [K]:** continue to the summary unchanged — the deferred items remain in the UAT file's `## Deferred Follow-Ups` section.

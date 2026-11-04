@@ -89,7 +89,7 @@ still apply.
 
 ```bash
 # Commit with automatic commit_docs + gitignore checks:
-git add spec && git commit -m "docs: update state" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: update state" && specforge collect --runner gsd-git --yes
 
 # Load config via state load (returns JSON):
 INIT=$(specforge gsd progress-report --format json)
@@ -109,7 +109,7 @@ if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 **Commit via CLI (handles checks automatically):**
 
 ```bash
-git add spec && git commit -m "docs: update state" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: update state" && specforge collect --runner gsd-git --yes
 ```
 
 The CLI checks `commit_docs` config and gitignore status internally — no manual conditionals needed.
@@ -216,14 +216,14 @@ if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
   BRANCH_NAME=$(echo "$PHASE_BRANCH_TEMPLATE" | sed "s/{phase}/$PADDED_PHASE/g" | sed "s/{slug}/$PHASE_SLUG/g")
-  git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
+  specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi
 
 # For milestone strategy
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
   MILESTONE_SLUG=$(echo "$MILESTONE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
   BRANCH_NAME=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed "s/{milestone}/$MILESTONE_VERSION/g" | sed "s/{slug}/$MILESTONE_SLUG/g")
-  git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
+  specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi
 ```
 

@@ -543,9 +543,9 @@ IS_WORKTREE=$([ -f .git ] && echo "true" || echo "false")
 
 # In parallel mode: exclude STATE.md and ROADMAP.md (orchestrator commits these)
 if [ "$IS_WORKTREE" = "true" ]; then
-  git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
+  specforge git commit --add spec -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
 else
-  git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
+  specforge git commit --add spec -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
 fi
 ```
 </step>
@@ -567,7 +567,7 @@ if [ "$SCOPE_RC" -ne 0 ]; then echo "Warning: evaluation scope unavailable (exit
 Update only structural changes: new src/ dir → STRUCTURE.md | deps → STACK.md | file pattern → CONVENTIONS.md | API client → INTEGRATIONS.md | config → STACK.md | renamed → update paths. Skip code-only/bugfix/content changes.
 
 ```bash
-git add spec && git commit -m "" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "" && specforge collect --runner gsd-git --yes
 ```
 </step>
 

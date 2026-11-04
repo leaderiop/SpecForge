@@ -886,7 +886,7 @@ Plans:
 
 <step name="git_commit">
 ```bash
-git add spec && git commit -m "docs($PHASE): create phase plan" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs($PHASE): create phase plan" && specforge collect --runner gsd-git --yes
 # STATE and the roadmap are computed: nothing else to stage
 ```
 </step>

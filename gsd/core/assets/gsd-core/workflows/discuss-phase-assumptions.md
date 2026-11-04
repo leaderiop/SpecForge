@@ -603,7 +603,7 @@ Write file.
 Commit phase context and discussion log:
 
 ```bash
-git add spec && git commit -m "docs(${padded_phase}): capture phase context (assumptions mode)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${padded_phase}): capture phase context (assumptions mode)" && specforge collect --runner gsd-git --yes
 ```
 
 Confirm: "Committed: docs(${padded_phase}): capture phase context (assumptions mode)"

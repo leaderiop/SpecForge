@@ -795,7 +795,7 @@ Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
 ## Step 7: Commit Research (optional)
 
 ```bash
-git add -- "<the phase spec files>" && git commit -m "docs($PHASE): research phase domain"
+specforge git commit --add "<the phase spec files>" -m "docs($PHASE): research phase domain"
 ```
 
 ## Step 8: Return Structured Result

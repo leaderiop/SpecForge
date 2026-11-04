@@ -61,7 +61,7 @@
     "",
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"secure-phase\"`."
   ],
-  "bytes": 27651,
+  "bytes": 27656,
   "end": [
     "## Threat Register",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5a82d5e5e62c161638e1f21091722eb386ba75fefa5256651cbf23a968224ec7",
+    "digest": "sha256:aa52bfc41a3279b91c9933ea60a617f6872ca64ea17cd192340f6808c85db09f",
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "5a82d5e5e62c161638e1f21091722eb386ba75fefa5256651cbf23a968224ec7"
+  "sha256": "aa52bfc41a3279b91c9933ea60a617f6872ca64ea17cd192340f6808c85db09f"
 }

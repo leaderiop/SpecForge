@@ -268,7 +268,7 @@ Write the file.
 **Commit:**
 
 ```bash
-git add spec && git commit -m "docs(${PADDED_PHASE}): smart discuss context" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${PADDED_PHASE}): smart discuss context" && specforge collect --runner gsd-git --yes
 ```
 
 Display confirmation:

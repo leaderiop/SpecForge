@@ -4,6 +4,6 @@
 ```bash
 if [ -n "${PHASE_REQ_IDS}" ]; then
   : # requirements are computed: a requirement is complete when a summary lists it, so there is nothing to revert
-  git add spec && git commit -m "docs(phase-{X}): revert premature Complete requirements after gaps found" && specforge collect --runner gsd-git --yes
+  specforge git commit --add spec -m "docs(phase-{X}): revert premature Complete requirements after gaps found" && specforge collect --runner gsd-git --yes
 fi
 ```

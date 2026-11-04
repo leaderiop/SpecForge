@@ -206,7 +206,7 @@ DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
   || echo main)
 
 if [ "$(specforge git rev "refs/heads/$branch_name" --pick '.revs[0].exists')" = true ]; then
-  git switch "$branch_name" \
+  specforge git switch "$branch_name" \
     || { echo "ERROR: Could not switch to existing quick-task branch '$branch_name'." >&2; exit 1; }
 else
   # Fetch the default branch so origin/$DEFAULT_BRANCH is current. If the fetch
@@ -227,8 +227,8 @@ else
     # Best-effort: fast-forward the local default branch so subsequent local
     # work sees the latest tip. Failure here is non-fatal because we always
     # create the new branch directly from origin/$DEFAULT_BRANCH below.
-    git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null \
-      && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null \
+    specforge git switch "$DEFAULT_BRANCH" >/dev/null 2>&1 \
+      && specforge git merge "origin/$DEFAULT_BRANCH" --ff-only >/dev/null 2>&1 \
       || true
   fi
 
@@ -241,7 +241,7 @@ else
   # remote-tracking ref wires branch.<name>.merge to refs/heads/$DEFAULT_BRANCH
   # (origin/master), so a GUI sync pushes quick-task commits straight onto
   # origin/$DEFAULT_BRANCH, bypassing PR review (#2498).
-  git checkout -b "$branch_name" "origin/$DEFAULT_BRANCH" --no-track \
+  specforge git switch "$branch_name" --create --at "origin/$DEFAULT_BRANCH" \
     || { echo "ERROR: Could not create '$branch_name' from origin/$DEFAULT_BRANCH (#2916)." >&2; exit 1; }
 fi
 ```
@@ -724,11 +724,11 @@ Build file list:
 COMMIT_DOCS="true"   # commit_docs: every spec change is committed with the work
 if [ "$COMMIT_DOCS" = "false" ]; then
   file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
-  git add ${file_list_filtered} 2>/dev/null
+  ADDS=(); for f in ${file_list_filtered}; do ADDS+=(--add "$f"); done
 else
-  git add ${file_list} 2>/dev/null
+  ADDS=(); for f in ${file_list}; do ADDS+=(--add "$f"); done
 fi
-git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
+specforge git commit "${ADDS[@]}" --add spec -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
 ```
 
 Get final commit hash:

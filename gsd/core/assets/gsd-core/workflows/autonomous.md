@@ -296,7 +296,7 @@ Read `gsd-core/workflows/autonomous/templates/minimal-context.md` and write it a
 Commit the minimal context:
 
 ```bash
-git add spec && git commit -m "docs(${PADDED_PHASE}): auto-generated context (discuss skipped)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${PADDED_PHASE}): auto-generated context (discuss skipped)" && specforge collect --runner gsd-git --yes
 ```
 
 Proceed to 3b.

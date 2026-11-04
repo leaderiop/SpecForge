@@ -201,7 +201,7 @@ Choice [S]:
 ```
 2. Commit the deferral record:
 ```bash
-git add spec && git commit -m "docs: defer incomplete Phase {src} items to backlog" \
+specforge git commit --add spec -m "docs: defer incomplete Phase {src} items to backlog" \
   && specforge collect --runner gsd-git --yes
 ```
 3. Continue routing to `determine_next_action` immediately — no second prompt.

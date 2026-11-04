@@ -491,7 +491,7 @@ merge (#2138). The `[ci skip]` trailer suppresses the redundant pipeline the pus
 would otherwise trigger (GitHub honors `[ci skip]` / `[skip ci]`):
 
 ```bash
-git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
 SHIP_NOTE_SHA=$(specforge git head --pick .sha)
 git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
 
@@ -521,7 +521,7 @@ if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do
   echo "⚠ PR is BLOCKED with zero checks. The [ci skip] trailer wedged the PR due to required checks."
   echo "Pushing an empty commit to trigger the required pipelines..."
   # a commit with no files is made with git directly (an intentionally empty commit).
-  git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
+  specforge git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
   git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
 elif [ "$STATUS" = "unknown" ]; then
   echo "⚠ track_shipping: PR mergeStateStatus is UNKNOWN after polling; PR may require manual check re-trigger."

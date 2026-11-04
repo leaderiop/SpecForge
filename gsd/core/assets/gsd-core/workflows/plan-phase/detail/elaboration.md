@@ -199,7 +199,7 @@ After the script returns, check that the bounced file still has valid YAML front
 
 6. **Commit surviving bounced plans:** If at least one plan survived both the frontmatter validation and the checker re-run, commit the changes:
 ```bash
-git add spec && git commit -m "refactor(${padded_phase}): bounce plans through external refinement" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "refactor(${padded_phase}): bounce plans through external refinement" && specforge collect --runner gsd-git --yes
 ```
 
 Display summary:
