@@ -140,7 +140,7 @@ fn linked(repo: &git2::Repository, path: &Path) -> Result<git2::Worktree, GitErr
         .worktrees()
         .map_err(|e| failed("list the worktrees", &e))?;
     let wanted = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    for name in names.iter().flatten() {
+    for name in names.iter().flatten().flatten() {
         let Ok(worktree) = repo.find_worktree(name) else {
             continue;
         };
@@ -172,7 +172,7 @@ pub(crate) fn worktree_prune(place: &GitPlace) -> Result<Vec<PathBuf>, GitError>
         .worktrees()
         .map_err(|e| failed("list the worktrees", &e))?;
     let mut pruned = Vec::new();
-    for name in names.iter().flatten() {
+    for name in names.iter().flatten().flatten() {
         let Ok(worktree) = repo.find_worktree(name) else {
             continue;
         };

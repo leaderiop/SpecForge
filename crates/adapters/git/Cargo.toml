@@ -16,7 +16,7 @@ specforge-effects = { path = "../../kernel/effects" }
 gix = { version = "=0.84.0", default-features = false, features = ["status", "blob-diff", "revision", "index", "dirwalk", "excludes", "tree-editor", "sha1"] }
 # The writes gix 0.84.0 lacks (ADR 0339's S2 spike): libgit2 built from source, so nothing is installed, and no
 # network feature, so no OpenSSL.
-git2 = { version = "=0.20.2", default-features = false, features = ["vendored-libgit2"] }
+git2 = { version = "=0.21.0", default-features = false, features = ["vendored-libgit2"] }
 
 [dev-dependencies]
 # The spike measures gix's merges too.
