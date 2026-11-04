@@ -15,11 +15,19 @@ pub mod files;
 pub mod formats;
 #[cfg(feature = "git")]
 pub mod git;
-#[cfg(feature = "links")]
+#[cfg(any(feature = "links", feature = "structured"))]
 pub mod html;
 #[cfg(feature = "links")]
 pub mod links;
+#[cfg(feature = "structured")]
+pub mod pointer;
+#[cfg(feature = "structured")]
+pub mod slug;
+#[cfg(feature = "structured")]
+pub mod tree;
 
+#[cfg(all(test, feature = "structured"))]
+mod structured_tests;
 #[cfg(all(
     test,
     feature = "digits",

@@ -22,6 +22,7 @@ formats = [
 ]
 links = ["dep:percent-encoding", "dep:url"]
 files = []
+structured = ["dep:percent-encoding", "dep:serde_json", "dep:toml", "dep:yaml-rust2"]
 git = []
 
 [dependencies]
@@ -40,9 +41,13 @@ regex-automata = { version = "0.4.14", default-features = false, features = [
     "unicode",
 ], optional = true }
 semver = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 spdx = { version = "0.13.6", optional = true }
 url = { version = "2.5.8", optional = true }
+toml = { workspace = true, optional = true }
 uuid = { version = "1.23.1", default-features = false, features = ["std"], optional = true }
+# The event parser alone: the tree is built here, so aliases are counted before they are copied.
+yaml-rust2 = { version = "0.13.0", default-features = false, optional = true }
 
 [dev-dependencies]
 regex = { workspace = true }
