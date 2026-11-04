@@ -117,6 +117,11 @@ fn iban_table_source_is_pinned() {
     );
     assert_eq!(SOURCE.retrieved, "2026-11-04");
     assert_eq!(LENGTHS.len(), 105);
+    assert_eq!(
+        crate::tables::fingerprint(LENGTHS.iter().map(|r| format!("{r:?}"))),
+        5390832029336228839,
+        "the table changed: update its SOURCE and this pin"
+    );
     assert!(
         LENGTHS.windows(2).all(|pair| pair[0].0 < pair[1].0),
         "sorted"

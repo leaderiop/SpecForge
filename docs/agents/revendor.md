@@ -49,3 +49,19 @@ intended is a bug. The vocabulary changes only when a builtin's kinds or enhance
 Run it once per round or change set, after the last input changed, then `cargo gate full`. Within a series of commits,
 the `builtins` check is the one check an intermediate commit may fail: re-vendor at the last commit that changes an input,
 and earlier only when a commit's own tests need new blobs (a wire change that stale blobs refuse). The tip passes every check.
+
+## Static tables
+
+The tables of `specforge-checks-kit` (`crates/leaf/checks-kit/src/tables/`) are ours, each with a pinned `SOURCE` (ADR 0338 D7).
+**Before every release**, refresh each from its source, update its `SOURCE` and its pins
+(`every_table_names_its_pinned_source`, `every_table_pins_its_rows`, `iban_table_source_is_pinned`) in the same commit, then
+re-vendor. A row's edit without them fails those tests, so a silent edit shows.
+
+| Table | Source | Bound |
+|---|---|---|
+| `iso3166` | ISO 3166-1, through the mirror its `SOURCE` names | about 250 rows |
+| `iso4217` | ISO 4217 list one (SIX) | about 180 rows |
+| `iana_tz` | the tzdb release's `tzdata.zi`: `Z` lines are canonical, `L` lines are links | about 600 names |
+| `e164` | ITU-T E.164, through libphonenumber's map | at most 4 KiB |
+| `iban` | the ISO 13616 registry, through the mirror its `SOURCE` names | about 100 rows |
+| SPDX licences | the `spdx` crate: `cargo update -p spdx` | its version is pinned by a test |
