@@ -169,6 +169,29 @@ pub fn secret(
     })
 }
 
+/// Refused when `secret`'s variable is unset or empty as `read` finds it: a request that would leave without its
+/// credential is never sent, and the refusal names the variable (never a value).
+pub fn secret_is_set(
+    secret: &AttachedSecret,
+    read: impl Fn(&str) -> Option<String>,
+) -> Result<(), OpError> {
+    if read(&secret.env).is_some_and(|value| !value.is_empty()) {
+        return Ok(());
+    }
+    Err(OpError::new(
+        OpErrorKind::PreconditionFailed,
+        "secret_unset",
+        format!(
+            "the secret's variable {} is unset or empty, so the request would leave without it",
+            printable(&secret.env)
+        ),
+    )
+    .with_suggestion(format!(
+        "set {} to the credential, then run it again",
+        printable(&secret.env)
+    )))
+}
+
 /// `ask` sent through the `Http` port in `mode`, judged by the user grant first and on every redirect.
 pub fn request(verbs: &Verbs, ask: &Ask, mode: EffectsMode) -> Result<HttpAnswer, OpError> {
     let request = built(verbs, ask)?;

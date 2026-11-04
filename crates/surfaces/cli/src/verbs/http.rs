@@ -100,6 +100,12 @@ impl AskArgs {
         let mode = self.effects.unwrap_or(EffectsMode::Online);
         let answer = self.verb.open(ports).and_then(|verbs| {
             let ask = self.ask(method, &verbs)?;
+            // A replay sends nothing, so it needs no credential.
+            if let Some(secret) = &ask.secret
+                && mode != EffectsMode::Replay
+            {
+                sent::secret_is_set(secret, |name| std::env::var(name).ok())?;
+            }
             sent::request(&verbs, &ask, mode)
         });
         self.verb

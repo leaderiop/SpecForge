@@ -248,3 +248,18 @@ fn a_body_past_the_cap_is_cut_and_read_as_no_json() {
     assert_eq!(answer.body, r#"{"a":"#);
     assert_eq!(answer.json, None);
 }
+
+#[test]
+fn an_unset_secret_is_refused_by_its_variables_name() {
+    let attached = secret(&[acme()], "@acme/tools:token", "https://api.acme.dev/").unwrap();
+    for value in [None, Some(String::new())] {
+        let refused = secret_is_set(&attached, |_| value.clone()).unwrap_err();
+        assert_eq!(refused.code, "secret_unset");
+        assert!(
+            refused.message.contains("ACME_TOKEN"),
+            "{}",
+            refused.message
+        );
+    }
+    assert!(secret_is_set(&attached, |_| Some("t".into())).is_ok());
+}
