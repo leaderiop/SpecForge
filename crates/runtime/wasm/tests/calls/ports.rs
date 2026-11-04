@@ -256,6 +256,71 @@ fn a_capability_nobody_approved_is_reported_once() {
     assert!(reported.iter().all(|d| d.code == "W170"), "{reported:?}");
 }
 
+/// A root outside the project that nobody approved is reported once in W170's words, naming the root, though the
+/// capability is approved; each read of it is still answered `denied(scope)` and reaches no port.
+#[test]
+fn a_root_outside_the_project_nobody_approved_is_reported_once() {
+    use specforge_effects::Consent as _;
+    let fs = Arc::new(FakeFs::new().with_file("/elsewhere/spec/a.md", "a"));
+    let ports = Ports {
+        http: Arc::new(FakeHttp::new()),
+        process: Arc::new(FakeProcess::new()),
+        fs: fs.clone(),
+        git: Arc::new(FakeGit::none()),
+    };
+    // A spec root outside the project, named `spec` as a project's roots name it.
+    let roots = Roots::new("/project", "/elsewhere/spec").with_named("spec", "/elsewhere/spec");
+    let decide = |consent: &MemoryConsent| {
+        Grant::decide(
+            &extension().declaration(),
+            &Provenance::third_party(b"x"),
+            &EffectsCeiling::default(),
+            &roots,
+            consent,
+        )
+    };
+    // Every capability approved, the outside root not.
+    let consent = MemoryConsent::default();
+    let unapproved = decide(&consent);
+    for granted in unapproved.capabilities() {
+        let key = unapproved.key(granted).unwrap();
+        consent
+            .approve(specforge_effects::Approval::Capability(key))
+            .unwrap();
+    }
+    let grant = decide(&consent);
+    assert_eq!(
+        grant.outside_roots().len(),
+        1,
+        "the named root lies outside"
+    );
+    let call = PortCall::online(
+        &ports,
+        EffectJournal::detached(),
+        roots.clone(),
+        grant,
+        Vec::new(),
+    );
+    let mut session = PortSession::effectful(
+        EXT,
+        Operation::Collect,
+        Some(call.clone()),
+        specforge_wasm::Limits::CEILING,
+    );
+    for _ in 0..3 {
+        let answer = session.fs_read("spec", "a.md", 16);
+        assert!(matches!(answer, Err(HostError::Denied(_))), "{answer:?}");
+    }
+    let reported = call.take_denials();
+    assert_eq!(reported.len(), 1, "once for the root: {reported:?}");
+    assert_eq!(reported[0].code, "W170", "{reported:?}");
+    assert!(
+        reported[0].message.contains("root 'spec'"),
+        "{}",
+        reported[0].message
+    );
+}
+
 /// A guest that was refused cannot hide it by trapping or by answering an error.
 #[test]
 fn a_call_that_fails_still_reports_what_it_was_refused() {
