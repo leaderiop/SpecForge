@@ -58,7 +58,7 @@ impl MockHost {
 
     /// What `checker` plans for a value of `text`, as `__check_values` answers it.
     pub fn plan(&self, checker: &str, text: &str, args: serde_json::Value) -> PlannedItem {
-        self.check_values(CheckPhase::Plan, checker, text, args, Vec::new())
+        self.check_values(CheckPhase::Plan, checker, text, args, Vec::new(), None)
     }
 
     /// What `checker` judges of a value of `text` once its probes answered `outcomes`.
@@ -69,8 +69,21 @@ impl MockHost {
         args: serde_json::Value,
         outcomes: Vec<ProbeOutcome>,
     ) -> Vec<CheckFinding> {
-        self.check_values(CheckPhase::Judge, checker, text, args, outcomes)
+        self.check_values(CheckPhase::Judge, checker, text, args, outcomes, None)
             .findings
+    }
+
+    /// What `checker` answers in a judge round, handed every round's `outcomes` so far and the `carry` its last round
+    /// asked for: findings, or the probes of another round with the carry to hand back.
+    pub fn judge_round(
+        &self,
+        checker: &str,
+        text: &str,
+        args: serde_json::Value,
+        outcomes: Vec<ProbeOutcome>,
+        carry: Option<serde_json::Value>,
+    ) -> PlannedItem {
+        self.check_values(CheckPhase::Judge, checker, text, args, outcomes, carry)
     }
 
     fn check_values(
@@ -80,6 +93,7 @@ impl MockHost {
         text: &str,
         args: serde_json::Value,
         outcomes: Vec<ProbeOutcome>,
+        carry: Option<serde_json::Value>,
     ) -> PlannedItem {
         let serde_json::Value::Object(args) = args else {
             panic!("a checker's args are an object");
@@ -95,7 +109,7 @@ impl MockHost {
                 text: text.to_string(),
                 args,
                 outcomes,
-                carry: None,
+                carry,
             }],
         };
         let mut answer = crate::checker::answer(&self.0.checkers.borrow(), &input)

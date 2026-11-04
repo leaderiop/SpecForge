@@ -25,9 +25,15 @@ pub mod pdf;
 pub mod pointer;
 #[cfg(feature = "structured")]
 pub mod slug;
+#[cfg(feature = "media")]
+pub mod sniff;
+#[cfg(feature = "media")]
+pub mod svg;
 #[cfg(feature = "structured")]
 pub mod tree;
 
+#[cfg(all(test, feature = "media"))]
+mod media_tests;
 #[cfg(all(test, feature = "pdf"))]
 mod pdf_tests;
 #[cfg(all(test, feature = "structured"))]

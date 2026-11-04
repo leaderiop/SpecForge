@@ -11,10 +11,12 @@ pub(crate) mod files;
 mod formats;
 mod git;
 pub(crate) mod links;
+mod media;
 mod structured;
 
 /// A family: the setting that switches it, the scope its probes run under (none when it reads only the text), the codes
-/// only it reports, and what the setting says. E103, E016 and W176 are shared, so no switch gates them.
+/// only it reports, and what the setting says. E103, E016 and W176 are shared, as are the network's W172, W173, W181
+/// and W182, so no switch gates them.
 pub(crate) struct Family {
     pub(crate) switch: &'static str,
     pub(crate) scope: Option<&'static str>,
@@ -50,10 +52,15 @@ pub(crate) const DIGITS: Family = Family {
 pub(crate) const LINKS: Family = Family {
     switch: "families.links",
     scope: Some("links"),
-    gates: &[
-        E091, E092, E093, E104, E112, W172, W173, W178, W181, W182, W183,
-    ],
+    gates: &[E091, E092, E093, E104, E112, W178, W183],
     describe: "Check that the URLs values name answer",
+};
+pub(crate) const MEDIA: Family = Family {
+    switch: "families.media",
+    scope: Some("media-remote"),
+    gates: &[E099, E113, W177],
+    describe:
+        "Check that images, SVGs, PDFs and media files are what they say, within their limits",
 };
 pub(crate) const GIT: Family = Family {
     switch: "families.git",
@@ -62,7 +69,7 @@ pub(crate) const GIT: Family = Family {
     describe: "Check the commits, refs and tracked paths values name",
 };
 
-const FAMILIES: [&Family; 6] = [&FILES, &FORMATS, &DIGITS, &LINKS, &GIT, &STRUCTURED];
+const FAMILIES: [&Family; 7] = [&FILES, &FORMATS, &DIGITS, &LINKS, &GIT, &STRUCTURED, &MEDIA];
 
 /// A family's scope, which it declares.
 fn scope_of(family: &Family) -> &'static str {
@@ -86,6 +93,13 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
         Capability::git(scope_of(&GIT))
             .why("check the commits, refs and tracked paths the values name"),
     );
+    c.capability(
+        Capability::http(scope_of(&MEDIA))
+            .from_values()
+            .schemes(&["https"])
+            .methods(&[HttpMethod::Get])
+            .why("read the head or the tail of the remote images, SVGs, PDFs and media files the values name"),
+    );
     for family in FAMILIES {
         c.setting(family.switch, |s| {
             s.bool()
@@ -100,6 +114,7 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
     links::contribute(c);
     git::contribute(c);
     structured::contribute(c);
+    media::contribute(c);
 }
 
 /// A checker's arguments as the host admitted them, read by type: one that is missing, or of another type, is absent.
@@ -172,6 +187,17 @@ const TEXT: &[&str] = &["string", "string_list"];
 /// A checker that takes no argument.
 fn no_args(_: &mut CheckerBuilder) {}
 
+/// A path value under its `root` argument, with `args`.
+fn path_shape(args: impl FnOnce(&mut CheckerBuilder)) -> impl FnOnce(&mut CheckerBuilder) {
+    move |k| {
+        k.arg("root", |f| {
+            f.field_type(FieldType::String);
+        });
+        args(k);
+        k.value(ValueForm::Path).root_arg("root");
+    }
+}
+
 /// A checker of `family` over text, its other arguments and forms set by `shape`. `plan` reads a value's text: the
 /// probes it needs, or the finding that stops them. `judge` reads what they answered. An empty value is the kernel's
 /// `required` to judge, and a value whose probes were not answered is not judged.
@@ -183,6 +209,23 @@ fn checker(
     shape: impl FnOnce(&mut CheckerBuilder),
     plan: impl Fn(&str, Args) -> Result<Vec<Probe>, CheckFinding> + 'static,
     judge: impl Fn(&str, Args, &[ProbeOutcome]) -> Vec<CheckFinding> + 'static,
+) {
+    let judge = move |text: &str, args: Args, outcomes: &[ProbeOutcome], _: Option<&Value>| {
+        Judged::Findings(judge(text, args, outcomes))
+    };
+    rounds_checker(c, family, name, codes, shape, plan, judge);
+}
+
+/// [`checker`], whose `judge` may answer more probes for another round instead of findings, handed back the `carry` it
+/// asked for with every round's outcomes so far.
+fn rounds_checker(
+    c: &mut ContributionsBuilder,
+    family: &Family,
+    name: &str,
+    codes: &[&str],
+    shape: impl FnOnce(&mut CheckerBuilder),
+    plan: impl Fn(&str, Args) -> Result<Vec<Probe>, CheckFinding> + 'static,
+    judge: impl Fn(&str, Args, &[ProbeOutcome], Option<&Value>) -> Judged + 'static,
 ) {
     c.checker(name, |k| {
         k.applies_to(TEXT);
@@ -198,9 +241,9 @@ fn checker(
                 Ok(probes) => PlannedItem::probes(probes),
                 Err(found) => PlannedItem::findings(vec![found]),
             })
-            .judge(move |item| match item.outcomes.as_slice() {
-                [] => Vec::new(),
-                outcomes => judge(&item.text, Args(&item.args), outcomes),
+            .judge_rounds(move |item| match item.outcomes.as_slice() {
+                [] => Judged::Findings(Vec::new()),
+                outcomes => judge(&item.text, Args(&item.args), outcomes, item.carry.as_ref()),
             });
     });
 }

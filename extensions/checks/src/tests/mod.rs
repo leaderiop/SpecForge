@@ -12,6 +12,7 @@ mod files;
 mod formats;
 mod git;
 mod links;
+mod media;
 mod structured;
 
 fn declaration() -> ExtensionDeclaration {
@@ -31,9 +32,9 @@ fn switches() -> Vec<SettingDescriptor> {
 
 #[specforge_test(
     behavior = "ck_family_switches",
-    verify = "the extension declares the scopes files, links and git, and one switch per family on by default"
+    verify = "the extension declares the scopes files, links, git and media-remote, and one switch per family on by default"
 )]
-fn declares_three_scopes_and_a_switch_per_family() {
+fn declares_four_scopes_and_a_switch_per_family() {
     let declaration = declaration();
     let scopes: Vec<_> = declaration
         .capabilities
@@ -43,7 +44,8 @@ fn declares_three_scopes_and_a_switch_per_family() {
     assert!(matches!(scopes[0], ("files", PortScope::Fs(_))));
     assert!(matches!(scopes[1], ("links", PortScope::Http(_))));
     assert!(matches!(scopes[2], ("git", PortScope::Git(_))));
-    assert_eq!(scopes.len(), 3);
+    assert!(matches!(scopes[3], ("media-remote", PortScope::Http(_))));
+    assert_eq!(scopes.len(), 4);
 
     let switches = switches();
     let names: Vec<&str> = switches.iter().map(|s| s.name.as_str()).collect();
@@ -55,7 +57,8 @@ fn declares_three_scopes_and_a_switch_per_family() {
             "families.digits",
             "families.links",
             "families.git",
-            "families.structured"
+            "families.structured",
+            "families.media"
         ]
     );
     for switch in &switches {
@@ -71,7 +74,7 @@ fn declares_three_scopes_and_a_switch_per_family() {
 
 #[specforge_test(
     behavior = "ck_family_switches",
-    verify = "each switch gates only codes its family alone reports, and E103, E016 and W176 under no switch"
+    verify = "each switch gates only codes its family alone reports, and the shared E103, E016, W176 and network warnings under no switch"
 )]
 fn each_switch_gates_only_its_familys_codes() {
     let switches = switches();
@@ -81,7 +84,7 @@ fn each_switch_gates_only_its_familys_codes() {
         .collect();
     let distinct: std::collections::BTreeSet<&str> = gated.iter().copied().collect();
     assert_eq!(distinct.len(), gated.len(), "a code gated twice: {gated:?}");
-    for shared in ["E103", "E016", "W176"] {
+    for shared in ["E103", "E016", "W176", "W172", "W173", "W181", "W182"] {
         assert!(!distinct.contains(shared), "{shared} is shared");
     }
     let of = |name: &str| {
@@ -92,7 +95,11 @@ fn each_switch_gates_only_its_familys_codes() {
     assert_eq!(of("families.structured"), ["E097", "E098"]);
     assert_eq!(of("families.git"), ["E106", "W180"]);
     assert!(of("families.formats").is_empty() && of("families.digits").is_empty());
-    assert_eq!(of("families.links").len(), 11);
+    assert_eq!(of("families.media"), ["E099", "E113", "W177"]);
+    assert_eq!(
+        of("families.links"),
+        ["E091", "E092", "E093", "E104", "E112", "W178", "W183"]
+    );
 }
 
 /// What `checker` plans for `text` under `args`.

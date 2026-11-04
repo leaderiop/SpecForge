@@ -22,6 +22,7 @@ formats = [
 ]
 links = ["dep:percent-encoding", "dep:url"]
 files = []
+media = ["dep:imagesize", "dep:quick-xml"]
 pdf = ["dep:miniz_oxide"]
 structured = ["dep:percent-encoding", "dep:serde_json", "dep:toml", "dep:yaml-rust2"]
 git = []
@@ -29,11 +30,24 @@ git = []
 [dependencies]
 croner = { version = "4.0.2", optional = true }
 email_address = { version = "0.2.9", default-features = false, optional = true }
+# The headers of the image formats a web page shows, and no others.
+imagesize = { version = "0.15.0", default-features = false, features = [
+    "bmp",
+    "gif",
+    "heif",
+    "ico",
+    "jpeg",
+    "png",
+    "tiff",
+    "webp",
+], optional = true }
 # No bundled tz database: `iana_tz` reads the pinned names, and jiff only reads calendars and durations.
 jiff = { version = "0.2.39", default-features = false, features = ["std"], optional = true }
 language-tags = { version = "0.3.2", optional = true }
 mime = { version = "0.3.17", optional = true }
 miniz_oxide = { version = "0.8.9", optional = true }
+# Without `encoding`: an SVG is read as UTF-8 bytes; names and attributes are compared as bytes.
+quick-xml = { version = "0.39.4", optional = true }
 percent-encoding = { version = "2.3.2", optional = true }
 # The parser and NFA compiler `regex` is built on, without its search engines: what the kernel's `matches` compiles.
 regex-automata = { version = "0.4.14", default-features = false, features = [

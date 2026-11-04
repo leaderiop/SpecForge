@@ -1260,6 +1260,241 @@
       ],
       "value": "path",
       "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "formats",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_bytes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_pixels",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E099",
+        "E103",
+        "W172",
+        "W173",
+        "W176",
+        "W177",
+        "W181",
+        "W182"
+      ],
+      "name": "image",
+      "root_arg": "root",
+      "scopes": [
+        "files",
+        "media-remote"
+      ],
+      "value": "path",
+      "when": "families.media"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "formats",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_bytes",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E099",
+        "E103",
+        "W172",
+        "W173",
+        "W176",
+        "W177",
+        "W181",
+        "W182"
+      ],
+      "name": "media",
+      "root_arg": "root",
+      "scopes": [
+        "files",
+        "media-remote"
+      ],
+      "value": "path",
+      "when": "families.media"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_bytes",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E099",
+        "E103",
+        "W172",
+        "W173",
+        "W176",
+        "W177",
+        "W181",
+        "W182",
+        "E113"
+      ],
+      "name": "svg",
+      "root_arg": "root",
+      "scopes": [
+        "files",
+        "media-remote"
+      ],
+      "value": "path",
+      "when": "families.media"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_bytes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_pages",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E099",
+        "E103",
+        "W172",
+        "W173",
+        "W176",
+        "W177",
+        "W181",
+        "W182"
+      ],
+      "name": "pdf",
+      "root_arg": "root",
+      "scopes": [
+        "files",
+        "media-remote"
+      ],
+      "value": "path",
+      "when": "families.media"
     }
   ]
 }

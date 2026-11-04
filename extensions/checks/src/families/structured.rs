@@ -8,7 +8,7 @@ use specforge_checks_kit::tree::{self, Format};
 use specforge_extension_sdk::prelude::*;
 
 use super::files::missing;
-use super::{checker, choice_arg, finding_of, no_args, Args, Word, STRUCTURED};
+use super::{checker, choice_arg, finding_of, no_args, path_shape, Args, Word, STRUCTURED};
 use crate::codes::*;
 
 /// The most of a file the family reads: past it, a file is not checked (W176).
@@ -191,17 +191,6 @@ fn anchor_judge(text: &str, args: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckF
         .at(at, text.len())
         .with_help(help);
     vec![finding]
-}
-
-/// A path value under its `root` argument, with `args`.
-fn path_shape(args: impl FnOnce(&mut CheckerBuilder)) -> impl FnOnce(&mut CheckerBuilder) {
-    move |k| {
-        k.arg("root", |f| {
-            f.field_type(FieldType::String);
-        });
-        args(k);
-        k.value(ValueForm::Path).root_arg("root");
-    }
 }
 
 pub(super) fn contribute(c: &mut ContributionsBuilder) {

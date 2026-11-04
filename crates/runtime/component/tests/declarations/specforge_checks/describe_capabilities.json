@@ -32,6 +32,18 @@
       ],
       "port": "git",
       "why": "check the commits, refs and tracked paths the values name"
+    },
+    {
+      "hosts": "from_values",
+      "methods": [
+        "GET"
+      ],
+      "name": "media-remote",
+      "port": "http",
+      "schemes": [
+        "https"
+      ],
+      "why": "read the head or the tail of the remote images, SVGs, PDFs and media files the values name"
     }
   ]
 }

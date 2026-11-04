@@ -267,16 +267,16 @@ Level: error
 ```
 E016: Referenced file does not exist
 
-A `@specforge/checks` files or structured check (`file`, `dir`, `glob`, `size`,
-`digest`, `encoding`, `line_range`, `json`, `yaml`, `toml`, `pointer`,
-`markdown_anchor`) names a path that is not there under the root it reads: the
-project root, or the root its `root` argument or the value's `<name>/` prefix
-names. `file` also reports a directory and `dir` a file, and `glob` matching
-fewer than its `min` entries. It sits on the value. A path that leaves its root
-is E094 and one that exists under another case is W174, both reported by the
-host before anything is read. Fix the path, or create the missing file; a
-similarly named file in the path's own directory inside its root is suggested
-when one is found.
+A `@specforge/checks` files, structured or media check (`file`, `dir`, `glob`,
+`size`, `digest`, `encoding`, `line_range`, `json`, `yaml`, `toml`, `pointer`,
+`markdown_anchor`, `image`, `svg`, `pdf`, `media`) names a path that is not
+there under the root it reads: the project root, or the root its `root` argument
+or the value's `<name>/` prefix names. `file` also reports a directory and `dir`
+a file, and `glob` matching fewer than its `min` entries. It sits on the value.
+A path that leaves its root is E094 and one that exists under another case is
+W174, both reported by the host before anything is read. Fix the path, or create
+the missing file; a similarly named file in the path's own directory inside its
+root is suggested when one is found.
 
 Owner: @specforge/checks
 Level: error
@@ -1435,17 +1435,37 @@ Owner: @specforge/checks
 Level: error
 ```
 
+## E099
+
+```
+E099: The image, SVG, PDF or media file is not one, or not of an allowed format
+
+A `@specforge/checks` media check read the file a value names, under its root or
+from an https URL, and it is not what the check reads: `image` found no image
+signature (or a whole file whose size does not read) or a format outside its
+`formats` (by default png, jpeg, webp, gif, svg, avif); `svg` found XML that is
+not well formed, or whose root is not `<svg>`; `pdf` found no `%PDF-` header, no
+`startxref` or a cross-reference that does not read; `media` found no container
+it knows (mp4, mov, m4a, webm, mkv, avi, wav, mp3, ogg, flac, aac) or one
+outside its `formats`. A URL that answers 404 or 410, or names another scheme
+than https, is E099 too. Fix the file or the value, or allow its format. A
+network that did not answer is W172, not E099.
+
+Owner: @specforge/checks
+Level: error
+```
+
 ## E103
 
 ```
 E103: The value is not well formed
 
-A format, a check digit, or the name a files, git or pointer check reads is
-malformed by the standard its checker names (`@specforge/checks`, ADR 0338): the
-message names the standard, or the digit it expected, and the finding points at
-the part that is wrong when it can. Correct the value. No family switch gates
-it, since several families report it; turning a family's switch off stops its
-checkers.
+A format, a check digit, the name a files, git or pointer check reads, or the
+URL or `formats` of a media check is malformed by the standard its checker names
+(`@specforge/checks`, ADR 0338): the message names the standard, or the digit it
+expected, and the finding points at the part that is wrong when it can. Correct
+the value. No family switch gates it, since several families report it; turning
+a family's switch off stops its checkers.
 
 Owner: @specforge/checks
 Level: error
@@ -1508,6 +1528,22 @@ A `@specforge/checks:url_anchor` value's `#fragment` names no `id` attribute,
 and no `name` of an `<a>`, in the page as served, read to its first 1 MiB with
 no script run. A page cut off at that cap with no match is not decided. Fix the
 fragment or the page.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E113
+
+```
+E113: The SVG carries active content
+
+A `@specforge/checks:svg` value's file holds a `<script>` element, an event
+attribute (`onload`, `onclick` and every other `on…`), a `javascript:` URL in
+an `href` or in what an animation sets, or an entity the check does not expand
+where one could hide either. The message names the first one and its line and
+column. An SVG shown through an `<img>` runs no script, but one opened, inlined
+or embedded does: remove it.
 
 Owner: @specforge/checks
 Level: error
@@ -4176,10 +4212,11 @@ Level: warning
 W172: The URL or name did not answer
 
 The DNS lookup, the connection, the TLS handshake or the wait for an answer
-failed, or a `@specforge/checks:dns` name does not resolve. It says nothing
-about the project, only what this machine's network saw, so retry later or check
-the network. A `machine` diagnostic: `--strict` never promotes it, and the
-gate's warning baseline never counts it.
+failed, a `@specforge/checks:dns` name does not resolve, or a server answered a
+media check's request for part of a file with all of it, past the 1 MiB that is
+read. It says nothing about the project, only what this machine's network saw,
+so retry later or check the network. A `machine` diagnostic: `--strict` never
+promotes it, and the gate's warning baseline never counts it.
 
 Owner: @specforge/checks
 Level: warning
@@ -4235,8 +4272,25 @@ W176: A file is not what its check asks
 
 A `@specforge/checks` files check found a file over its `size`, in another
 `encoding`, a `line_range` past the file's end, or more matches of a `glob` than
-its `max`; or a structured check found a file over the 1 MiB it reads, or one
-that is no regular file. Fix the file, or the check's arguments.
+its `max`; a structured or `svg` check found a file over the 1 MiB it reads, or
+one that is no regular file; or a `pdf` check asked for `max_pages` could not
+read the page count (its page tree in an encrypted object stream, or past what
+three rounds of reads reach), so the limit is not checked. Fix the file, or the
+check's arguments.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W177
+
+```
+W177: The image, SVG, PDF or media file is over its limit
+
+A `@specforge/checks` media check's file is longer than its `max_bytes`, an
+image has more pixels than its `max_pixels`, or a PDF has more pages than its
+`max_pages`. No limit is set unless the check names it. Shrink the file, or
+raise the limit.
 
 Owner: @specforge/checks
 Level: warning

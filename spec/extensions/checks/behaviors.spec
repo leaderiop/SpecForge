@@ -9,8 +9,8 @@ behavior ck_family_switches "Family Switches" {
     called, send no probe and add no scope to what the run asks approval
     for, and the setting MUST gate the codes only that family reports.
   """
-  verify unit "the extension declares the scopes files, links and git, and one switch per family on by default"
-  verify unit "each switch gates only codes its family alone reports, and E103, E016 and W176 under no switch"
+  verify unit "the extension declares the scopes files, links, git and media-remote, and one switch per family on by default"
+  verify unit "each switch gates only codes its family alone reports, and the shared E103, E016, W176 and network warnings under no switch"
   verify unit "every code a checks switch gates is catalogued with owner @specforge/checks"
   verify unit "a family whose switch is off reports nothing"
 }

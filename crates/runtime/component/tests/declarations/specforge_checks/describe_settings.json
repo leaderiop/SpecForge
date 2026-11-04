@@ -35,11 +35,7 @@
         "E093",
         "E104",
         "E112",
-        "W172",
-        "W173",
         "W178",
-        "W181",
-        "W182",
         "W183"
       ],
       "kind": "setting",
@@ -66,6 +62,18 @@
       ],
       "kind": "setting",
       "name": "families.structured"
+    },
+    {
+      "default": true,
+      "description": "Check that images, SVGs, PDFs and media files are what they say, within their limits",
+      "field_type": "bool",
+      "gates": [
+        "E099",
+        "E113",
+        "W177"
+      ],
+      "kind": "setting",
+      "name": "families.media"
     }
   ]
 }
