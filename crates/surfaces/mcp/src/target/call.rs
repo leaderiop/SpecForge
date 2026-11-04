@@ -105,6 +105,32 @@ impl<'a> ProjectRef<'a> {
         lent(self.view.containment())
     }
 
+    /// The host's approvals, or the user's consent store for this project, held in `user`.
+    pub fn consent_or_users<'c>(
+        &self,
+        user: &'c mut Option<specforge_ops::consent::UserConsent>,
+    ) -> &'c dyn specforge_effects::Consent
+    where
+        'a: 'c,
+    {
+        match self.consent {
+            Some(consent) => consent,
+            None => user.insert(specforge_ops::consent::UserConsent::user(self.root.dir())),
+        }
+    }
+
+    /// `run` under [`Self::caller`], which lends the server's ports to an effectful extension call in `mode`, under
+    /// stored approvals only (ADR 0335 D4).
+    pub fn lend<R>(
+        &self,
+        mode: specforge_effects::EffectsMode,
+        run: impl FnOnce(Caller<'_>) -> R,
+    ) -> R {
+        let mut user = None;
+        let consent = self.consent_or_users(&mut user);
+        run(self.caller().lending(self.ports, consent, mode))
+    }
+
     /// Whether it is the served project (not one a `path` named): the server
     /// serves what a call installs into it from the next call on.
     pub fn is_served(&self) -> bool {

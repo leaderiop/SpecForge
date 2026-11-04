@@ -50,6 +50,10 @@ const DRY_RUN: &str = "dry-run";
 /// of the JSON answer (ADR 0325). It asks for `json`.
 const PICK: &str = "pick";
 
+/// The host's option on every extension command that declares no arg of the name: the effects mode of what the command
+/// is lent (ADR 0337 D4).
+const EFFECTS: &str = "effects";
+
 /// Run the extension command `argv` names (`argv[0]` is the extension).
 /// `builtins` are the CLI's own commands, suggested for a name no extension
 /// has.
@@ -100,7 +104,7 @@ pub fn run(
         )),
     )
     .with_git(std::sync::Arc::clone(&ports.git));
-    run_in(env, &root, &ext, rest, builtins, terminal)
+    run_in(env, &root, &ext, rest, builtins, terminal, ports)
 }
 
 /// [`run`] over the environment that routes the command: `rest` is the command line after the extension's name.
@@ -112,6 +116,7 @@ pub(crate) fn run_in(
     mut rest: Vec<String>,
     builtins: &[String],
     terminal: &Terminal,
+    ports: &specforge_effects::Ports,
 ) -> i32 {
     let routed = ExtensionCommands::build(env.registries());
     let commands: Vec<&ExtensionCommand> = routed.of(ext).collect();
@@ -252,6 +257,7 @@ pub(crate) fn run_in(
         CommandFormat::Json => crate::outcome::OutputFormat::Json,
         CommandFormat::Human => crate::outcome::OutputFormat::Human,
     };
+    let consent = specforge_ops::consent::UserConsent::user(root.dir());
     let outcome = specforge_ops::authoring::apply::execute(
         &ProjectView::of(&project),
         command,
@@ -265,7 +271,11 @@ pub(crate) fn run_in(
             .filter(|_| !command.args().iter().any(|a| a.name == HOST))
             .and_then(|h| Host::from_flag(h)),
         dry_run,
-        crate::caller::of(false, output_format, terminal),
+        crate::caller::of(false, output_format, terminal).lending(
+            ports,
+            &consent,
+            lent_mode(command, matches),
+        ),
         specforge_ops::authoring::apply::Surface::Cli {
             interactive: terminal.facts().interactive,
         },
@@ -274,6 +284,18 @@ pub(crate) fn run_in(
         Ok(run) => plan::ended(run, format, pick, root.dir(), terminal),
         Err(error) => ended(Err(error), format, terminal),
     }
+}
+
+/// The effects mode of what `command`, as `matches` parsed it, is lent. An arg it declares of the name is its own.
+fn lent_mode(command: &ExtensionCommand, matches: &ArgMatches) -> specforge_effects::EffectsMode {
+    crate::effects::lent(
+        matches
+            .try_get_one::<specforge_effects::EffectsMode>(EFFECTS)
+            .ok()
+            .flatten()
+            .filter(|_| !command.args().iter().any(|a| a.name == EFFECTS))
+            .copied(),
+    )
 }
 
 /// What a command's run writes, and the exit code: the output's stdout and
@@ -318,6 +340,13 @@ fn written(error: &RunError, format: CommandFormat) -> String {
                     "suggestion": refusal.suggestion, "data": refusal.data,
                 })
                 .to_string(),
+                // What the guest was refused on its way to failing.
+                RunError::Call(call) if !call.denials.is_empty() => {
+                    let mut line = serde_json::to_value(error.to_command_error())
+                        .expect("command error serialization cannot fail");
+                    line["data"] = serde_json::json!({ "denials": call.denials });
+                    line.to_string()
+                }
                 _ => serde_json::to_string(&error.to_command_error())
                     .expect("command error serialization cannot fail"),
             };
@@ -326,7 +355,10 @@ fn written(error: &RunError, format: CommandFormat) -> String {
         }
         CommandFormat::Human => match error {
             RunError::Args(error) => format!("error: {error}\n"),
-            RunError::Call(error) => call_text(&error.diagnostic()),
+            RunError::Call(error) => {
+                specforge_ops::extension::lend::written(&error.denials)
+                    + &call_text(&error.diagnostic())
+            }
             RunError::NoProject(error) => format!("error[{}]: {}\n", error.code, error.message),
             RunError::State(error) => format!("error[{}]: {}\n", error.code, error.message),
             RunError::Gate(error) => failed_gate(error),
@@ -581,6 +613,15 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .value_name("HOST")
                     .value_parser(PossibleValuesParser::new(Host::ALL.map(Host::as_str)))
                     .help("The host calling the command: claude-code, codex or cursor"),
+            );
+        }
+        if !command.args().iter().any(|a| a.name == EFFECTS) {
+            sub = sub.arg(
+                Arg::new(EFFECTS)
+                    .long(EFFECTS)
+                    .value_name("MODE")
+                    .value_parser(clap::value_parser!(specforge_effects::EffectsMode))
+                    .help("Whether an http or process effect the command asks for is performed, reused or replayed: online unless given"),
             );
         }
         if kernel_picks(command) {

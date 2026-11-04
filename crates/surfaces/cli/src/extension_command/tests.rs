@@ -74,6 +74,33 @@ fn parse(argv: &[&str]) -> Result<Map<String, Value>, clap::Error> {
     parse_with_format(argv).map(|(args, _)| args)
 }
 
+#[test]
+fn a_command_lends_online_unless_effects_says_otherwise_or_is_its_own_arg() {
+    use specforge_effects::EffectsMode;
+    let lent = |c: &CommandDescriptor, argv: &[&str]| {
+        let command = ExtensionCommand::new("@acme/x", "x", c);
+        let matches = command_line("x", &[&command])
+            .try_get_matches_from(std::iter::once("specforge x").chain(argv.iter().copied()))
+            .unwrap();
+        lent_mode(&command, matches.subcommand().unwrap().1)
+    };
+    let name = "milestone-completion";
+    let plain = contribution();
+    assert_eq!(lent(&plain, &[name, "m"]), EffectsMode::Online);
+    assert_eq!(
+        lent(&plain, &[name, "m", "--effects", "replay"]),
+        EffectsMode::Replay
+    );
+
+    let mut own = contribution();
+    own.args
+        .push(arg("effects", CommandArgType::String, false, None));
+    assert_eq!(
+        lent(&own, &[name, "m", "--effects", "x"]),
+        EffectsMode::Online
+    );
+}
+
 /// `c`, a command of `@acme/x` (short name `x`).
 fn declared(c: CommandDescriptor) -> ExtensionCommand {
     ExtensionCommand::new("@acme/x", "x", &c)
@@ -400,6 +427,37 @@ fn a_usage_error_names_an_arg_as_it_is_declared() {
     behavior = "dispatch_surface_command",
     verify = "under --format json a command whose export trapped prints one JSON error object"
 )]
+fn a_trapped_command_reports_what_it_was_refused_in_either_format() {
+    let mut trap = CallError::new(
+        Operation::Command,
+        "@acme/x",
+        "cmd__x",
+        CallFailure::Trapped {
+            kind: "call_failed".into(),
+            message: "unreachable: the command panicked".into(),
+        },
+    );
+    trap.denials = vec![specforge_common::Diagnostic::new(
+        specforge_common::codes::E090,
+        "extension '@acme/x': outside",
+    )];
+    let trap = RunError::Call(trap);
+
+    let human = written(&trap, CommandFormat::Human);
+    assert!(human.contains("E090"), "{human}");
+    assert!(human.contains("error[E028]"), "{human}");
+
+    let json = written(&trap, CommandFormat::Json);
+    assert_eq!(json.lines().count(), 1, "{json}");
+    let error: Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(error["code"], "E028", "{json}");
+    assert_eq!(error["data"]["denials"][0]["code"], "E090", "{json}");
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "under --format json a command whose export trapped prints one JSON error object"
+)]
 fn a_trapped_command_reports_in_the_format_asked_for() {
     let trap = CallError::new(
         Operation::Command,
@@ -573,7 +631,15 @@ fn quiet_answering(result: specforge_wasm::WasmCallResult, args: &[&str]) -> (i3
     let mut rest = vec!["quiet".to_string()];
     rest.extend(args.iter().map(ToString::to_string));
     rest.extend(["--path".to_string(), project.root().display().to_string()]);
-    let code = run_in(env, &project.project_root(), "core", rest, &[], &terminal);
+    let code = run_in(
+        env,
+        &project.project_root(),
+        "core",
+        rest,
+        &[],
+        &terminal,
+        &specforge_effects::testing::ports(),
+    );
     (code, capture.stdout(), capture.stderr())
 }
 

@@ -22,6 +22,7 @@
 use std::fmt;
 use std::marker::PhantomData;
 
+use crate::ports::PortCall;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -65,6 +66,8 @@ pub struct CallError {
     pub extension: String,
     pub export: String,
     pub failure: CallFailure,
+    /// What the call was refused before it failed (ADR 0335 D4): failing is no way for a guest to hide an E090.
+    pub denials: Vec<Diagnostic>,
 }
 
 impl CallError {
@@ -79,6 +82,7 @@ impl CallError {
             extension: extension.to_string(),
             export: export.to_string(),
             failure,
+            denials: Vec::new(),
         }
     }
 
@@ -142,14 +146,24 @@ pub struct Handshake {
 
 /// The operations on loaded extensions, over a runtime; see the module
 /// docs.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct ExtensionCalls<'r> {
     runtime: &'r dyn WasmRuntime,
+    /// What an effectful call's port requests are served through.
+    lent: Option<PortCall>,
 }
 
 impl<'r> ExtensionCalls<'r> {
     pub fn new(runtime: &'r dyn WasmRuntime) -> Self {
-        ExtensionCalls { runtime }
+        ExtensionCalls {
+            runtime,
+            lent: None,
+        }
+    }
+
+    /// These calls, with `lent` behind the ports of each effectful one (ADR 0335 D4). No other call sees it.
+    pub fn with_ports(self, lent: Option<PortCall>) -> Self {
+        ExtensionCalls { lent, ..self }
     }
 
     /// `value` encoded once, for [`Self::run_pass`]. Never fails: a value
@@ -401,8 +415,14 @@ impl<'r> ExtensionCalls<'r> {
         bytes: &[u8],
         expected: &'static str,
     ) -> Result<O, CallError> {
-        let answer = self.call_raw(operation, extension, export, bytes)?;
-        decode(operation, extension, export, &answer, expected)
+        self.call_raw(operation, extension, export, bytes)
+            .and_then(|answer| decode(operation, extension, export, &answer, expected))
+            .map_err(|mut error| {
+                if let Some(lent) = &self.lent {
+                    error.denials = lent.take_denials();
+                }
+                error
+            })
     }
 
     /// The members every call but the handshake and describe carries (ADR 0288): the extension's own settings
@@ -455,10 +475,14 @@ impl<'r> ExtensionCalls<'r> {
             }
             None => bytes,
         };
-        match self
-            .runtime
-            .call_export_within(extension, export, bytes, max_ms)
-        {
+        let answer = if operation.is_effectful() {
+            self.runtime
+                .call_with_ports(extension, export, bytes, operation, self.lent.clone())
+        } else {
+            self.runtime
+                .call_export_within(extension, export, bytes, max_ms)
+        };
+        match answer {
             WasmCallResult::Ok(answer) => Ok(answer),
             WasmCallResult::Trap(trap) => {
                 let failure = if trap.kind == "extension_not_found" {

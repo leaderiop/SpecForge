@@ -1,5 +1,7 @@
+use crate::ports::PortCall;
 use crate::sandbox::Limits;
 use specforge_effects::Provenance;
+use specforge_protocol_types::Operation;
 
 /// Result of calling a Wasm export function.
 #[derive(Debug, Clone)]
@@ -162,6 +164,21 @@ pub trait WasmRuntime: std::any::Any + Send + Sync {
     ) -> WasmCallResult {
         self.call_export(extension_name, export_name, input)
     }
+
+    /// A call of kind `kind` (an effectful one, or none reaches a port), its `specforge:host` imports served through
+    /// `lent` (ADR 0335 D4). `None`: nothing is lent, so a port it calls is answered `denied(scope)`.
+    fn call_with_ports(
+        &self,
+        extension_name: &str,
+        export_name: &str,
+        input: &[u8],
+        kind: Operation,
+        lent: Option<PortCall>,
+    ) -> WasmCallResult;
+
+    /// The `specforge:host` interfaces `extension_name`'s guest imports: empty for one that calls no port, and for
+    /// what is not loaded.
+    fn host_imports(&self, extension_name: &str) -> Vec<String>;
 
     /// Hold `extension_name`'s later calls to `limits` (its handshake's
     /// sandbox, ADR 0037): the component runtime enforces them, the

@@ -15,6 +15,7 @@ fn command_input_differs_from_1_10_only_by_now() {
         json!({"status": "done"}).as_object().unwrap(),
         CommandFormat::Json,
         None,
+        None,
         at("2026-10-03"),
     )
     .unwrap();

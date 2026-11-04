@@ -15,14 +15,14 @@ type PeerDependency "Peer Dependency" {
   verify unit "PeerDependency schema is valid"
 }
 
-type HostFunctionBinding "Host Function Binding" {
-  name          string @readonly
-  input_schema  string
-  output_schema string
-  verify unit "HostFunctionBinding schema is valid"
+type HostPortDenial "Host Port Denial" {
+  port    string @readonly
+  reason  string
+  message string
+  verify unit "HostPortDenial schema is valid"
 }
 
-type SandboxPolicy "The limits an extension asks its sandbox to hold it to (ADR 0037). The host grants a component no capability, so the policy declares limits only, each held to the host's ceiling (30000 ms, 512 MB); an undeclared limit is the ceiling. The permission settings the planned host functions would read (allowed paths, domains, output extensions, file and HTTP limits) come with that surface (behaviors/wasm-host-functions.spec)." {
+type SandboxPolicy "The limits an extension asks its sandbox to hold it to (ADR 0037). The host grants a component no capability, so the policy declares limits only, each held to the host's ceiling (30000 ms, 512 MB); an undeclared limit is the ceiling. What an extension may reach is its capabilities, under its grant (behaviors/wasm-host-functions.spec)." {
   // Wall-clock budget of one call, in milliseconds
   max_execution_ms integer @optional
   // Ceiling of the instance's linear memory, in MiB

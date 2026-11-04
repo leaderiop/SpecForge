@@ -49,6 +49,9 @@ pub(crate) struct Args {
     yes: bool,
 
     #[command(flatten)]
+    effects: crate::effects::EffectsOption,
+
+    #[command(flatten)]
     output: OutputArg,
 }
 
@@ -87,11 +90,18 @@ fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Po
             argv.join(" ")
         ));
     };
+    let consent = specforge_ops::consent::UserConsent::user(root.dir());
     let request = Request {
         runner: options.runner.as_deref(),
         mode,
         announce: &mut announce,
-        caller: crate::caller::of(options.yes, format, terminal),
+        caller: crate::caller::of(options.yes, format, terminal)
+            .lending(
+                ports,
+                &consent,
+                crate::effects::lent(options.effects.effects),
+            )
+            .previewing(options.dry_run),
     };
     // The view is rooted where the project compiled: the report lands where
     // every view over the project reads it.
@@ -100,7 +110,7 @@ fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Po
         &view,
         request,
         &ProcessMachine::new(std::sync::Arc::clone(&ports.process)),
-        &specforge_ops::consent::UserConsent::user(root.dir()),
+        &consent,
     ) {
         Ok(outcome) => outcome,
         Err(e) => {

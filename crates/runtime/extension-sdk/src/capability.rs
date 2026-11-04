@@ -156,6 +156,15 @@ impl Capability {
         self
     }
 
+    /// The environment variables a process capability's program inherits, or a guest may set, beside what any program
+    /// needs to work. A person approves them with the command. A declared secret is never passed, even when named.
+    pub fn env(mut self, names: &[&str]) -> Self {
+        if let PortScope::Process(process) = &mut self.0.port {
+            process.env = names.iter().map(|name| name.to_string()).collect();
+        }
+        self
+    }
+
     /// A process capability's deadline, held to the host's ceiling.
     pub fn deadline_ms(mut self, deadline_ms: u32) -> Self {
         if let PortScope::Process(process) = &mut self.0.port {

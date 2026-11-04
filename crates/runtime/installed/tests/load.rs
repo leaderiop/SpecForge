@@ -283,6 +283,19 @@ impl WasmRuntime for Recording {
     fn provenance(&self, name: &str) -> Option<specforge_wasm::Provenance> {
         self.inner.provenance(name)
     }
+    fn call_with_ports(
+        &self,
+        name: &str,
+        export: &str,
+        input: &[u8],
+        kind: specforge_protocol_types::Operation,
+        lent: Option<specforge_wasm::PortCall>,
+    ) -> WasmCallResult {
+        self.inner.call_with_ports(name, export, input, kind, lent)
+    }
+    fn host_imports(&self, name: &str) -> Vec<String> {
+        self.inner.host_imports(name)
+    }
     fn rename(&self, from: &str, to: &str) -> bool {
         self.inner.rename(from, to)
     }

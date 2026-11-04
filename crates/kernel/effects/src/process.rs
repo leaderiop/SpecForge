@@ -77,7 +77,8 @@ pub enum Shown {
 }
 
 /// How a run ended.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ProcessClass {
     Exited(i32),
     /// Ended by a signal it did not ask for.
@@ -174,6 +175,15 @@ impl ProcessOutcome {
     /// stderr as [`text`].
     pub fn stderr_text(&self) -> String {
         text(&self.stderr)
+    }
+}
+
+/// Whether `a` and `b` name one environment variable: in any case on Windows.
+pub fn same_variable(a: &str, b: &str) -> bool {
+    if cfg!(windows) {
+        a.eq_ignore_ascii_case(b)
+    } else {
+        a == b
     }
 }
 

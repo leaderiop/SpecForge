@@ -1,14 +1,16 @@
 //! Which effects mode a command's compile runs in (ADR 0337 D4): `--effects` when given; else `check` runs `auto`
 //! when someone can answer (human output, a terminal at stdin) and it is not CI, and every other command, and every
-//! unattended run, runs `cached`, performing no effect.
+//! unattended run, runs `cached`, performing no effect. What a command lends an extension runs `online` unless
+//! `--effects` says otherwise: a person asked for that run ([`lent`]).
 
 use specforge_effects::EffectsMode;
 
-/// `--effects <mode>`: on `check` and `watch`, the commands that run the checks to report them.
+/// `--effects <mode>`: on `check` and `watch`, the commands that run the checks to report them, and on `collect`, what
+/// a collector is lent.
 #[derive(clap::Args, Debug, Clone, Copy, Default)]
 pub(crate) struct EffectsOption {
     /// Whether the run performs, reuses or replays an http or process effect (ADR 0337): `check` runs `auto` when
-    /// someone can answer outside CI, every other run `cached`.
+    /// someone can answer outside CI, `collect` lends its collectors `online`, every other run `cached`.
     #[arg(long, value_enum)]
     pub(crate) effects: Option<EffectsMode>,
 }
@@ -33,6 +35,11 @@ pub(crate) fn mode(
         None if command == Command::Check && can_answer && !ci => EffectsMode::Auto,
         None => EffectsMode::Cached,
     }
+}
+
+/// The mode of what a run lends an extension, `asked` with `--effects`: a person asked for that run, so `online`.
+pub(crate) fn lent(asked: Option<EffectsMode>) -> EffectsMode {
+    asked.unwrap_or(EffectsMode::Online)
 }
 
 #[cfg(test)]
@@ -70,6 +77,12 @@ mod tests {
     #[test]
     fn every_other_command_is_cached() {
         assert_eq!(mode(None, Command::Other, true, false), EffectsMode::Cached);
+    }
+
+    #[test]
+    fn what_a_person_runs_lends_online_unless_told_otherwise() {
+        assert_eq!(lent(None), EffectsMode::Online);
+        assert_eq!(lent(Some(EffectsMode::Replay)), EffectsMode::Replay);
     }
 
     #[test]

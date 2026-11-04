@@ -159,6 +159,7 @@ fn run(argv: &[&str]) -> EffectRequest {
         deadline_ms: 1,
         output_cap: 1,
         text: false,
+        inherit: None,
     })
 }
 
@@ -335,7 +336,7 @@ fn a_ceiling_narrows_a_capability_and_what_it_narrows_out_is_denied() {
         )
         .unwrap_err();
     assert_eq!(
-        (denied.why, denied.scope.as_deref()),
+        (denied.why, denied.capability.as_deref()),
         (Denied::Ceiling, Some("links"))
     );
 }

@@ -368,3 +368,40 @@ fn an_entry_importing_a_foreign_interface_is_e028_naming_it() {
          so no specforge loads it"
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "refuse_an_unbacked_port_import",
+    verify = "the environment load reports E089 naming the extension and the port"
+)]
+fn an_unbacked_import_is_e089() {
+    const BYTES: &[u8] = b"\0asm importing";
+    let dir = TempDir::new().unwrap();
+    let builtins = Builtins(&[("@acme/importing", BYTES)]);
+    let runtime = InProcessRuntime::new()
+        .binary(BYTES, || {
+            ContributionsBuilder::new(ExtensionMeta::new("@acme/importing", "0.1.0"))
+        })
+        .importing("@acme/importing", &["specforge:host/http@0.1.0"]);
+
+    let loaded = Installed::at(dir.path()).load(
+        &entries(&["@acme/importing"]),
+        &builtins,
+        &runtime,
+        &PlainDisk,
+    );
+    let reports = reported(dir.path(), &loaded);
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E089");
+    assert!(
+        reports[0].message.contains("'@acme/importing'"),
+        "{:?}",
+        reports[0]
+    );
+    assert!(
+        reports[0].message.contains("specforge:host/http@0.1.0"),
+        "{:?}",
+        reports[0]
+    );
+    assert!(!runtime.unload("@acme/importing"), "nothing is left loaded");
+}

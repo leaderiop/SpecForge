@@ -225,8 +225,10 @@ pub struct Resolved {
     pub case: Option<String>,
     /// The written path used `\`, read as `/` (W175).
     pub backslashes: bool,
-    /// The name, or where it lands, is on the credential deny-list (ADR 0293 D3a).
+    /// The name, or where it lands, is on the credential deny-list or in the host's own state (ADR 0293 D3a).
     pub withheld: bool,
+    /// It, or where it lands, is in the host's own state ([`HOST_STATE`]): no `Fs` request reaches it.
+    pub host_state: bool,
 }
 
 /// The one path containment (ADR 0335 D1): a written path is contained in the root it names, decided lexically, then
@@ -302,10 +304,19 @@ impl<'a> Contained<'a> {
             let on_disk = spelled.iter().fold(base.to_path_buf(), |at, p| at.join(p));
             exists = self.lookup.canonical(&on_disk).is_some();
         }
-        let withheld = withheld(&rel)
+        // Where it lands is judged from its root and the project: what lies above them may be named anything.
+        let host_state = in_host_state(&rel)
+            || real.as_ref().is_some_and(|real| {
+                real_root
+                    .as_deref()
+                    .is_some_and(|root| under_host_state(real, root))
+                    || landed_in_host_state(&self.roots, self.lookup, real)
+            });
+        let withheld = host_state
+            || credential(&rel)
             || real
                 .as_ref()
-                .is_some_and(|real| withheld(&real.to_string_lossy().replace('\\', "/")));
+                .is_some_and(|real| credential(&real.to_string_lossy().replace('\\', "/")));
         Ok(Resolved {
             root,
             rel,
@@ -315,6 +326,7 @@ impl<'a> Contained<'a> {
             case,
             backslashes,
             withheld,
+            host_state,
         })
     }
 
@@ -390,11 +402,39 @@ fn absolute(path: &str) -> bool {
         || Path::new(path).is_absolute()
 }
 
-/// Whether `path` (`/` separated) looks like it holds a credential, which a read for text does not hand to a guest
-/// (ADR 0293 D3a): `.env` and `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `.npmrc`, `.netrc`,
-/// `credentials*` and `.git/config`. shortcut: names only, and no project can opt a file in; upgrade when a project
-/// needs to.
+/// The directory of the host's own state, wherever a root holds it: its effects journal keeps other extensions'
+/// answers, which may have been authenticated, and a project read needs no approval.
+pub const HOST_STATE: &str = ".specforge";
+
+/// Whether `path` (`/` separated, from a root) has a [`HOST_STATE`] component, in any case.
+pub fn in_host_state(path: &str) -> bool {
+    path.split('/')
+        .any(|part| part.eq_ignore_ascii_case(HOST_STATE))
+}
+
+/// Whether `real`, under `root`, is in the host's own state seen from `root`.
+fn under_host_state(real: &Path, root: &Path) -> bool {
+    real.strip_prefix(root)
+        .is_ok_and(|rel| in_host_state(&rel.to_string_lossy().replace('\\', "/")))
+}
+
+/// Whether `real` lands in the project's own state: a named root can be a directory inside it.
+pub(crate) fn landed_in_host_state(roots: &Roots, lookup: &dyn Lookup, real: &Path) -> bool {
+    lookup
+        .canonical(roots.project())
+        .is_some_and(|project| under_host_state(real, &project))
+}
+
+/// Whether `path` (`/` separated, from a root) is not handed to a guest as text (ADR 0293 D3a): the host's own state,
+/// or what looks like a credential.
 pub fn withheld(path: &str) -> bool {
+    in_host_state(path) || credential(path)
+}
+
+/// Whether `path` looks like it holds a credential: `.env` and `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`,
+/// `.npmrc`, `.netrc`, `credentials*` and `.git/config`. shortcut: names only, and no project can opt a file in;
+/// upgrade when a project needs to.
+fn credential(path: &str) -> bool {
     let path = path.to_ascii_lowercase();
     let name = path.rsplit('/').next().unwrap_or_default();
     name == ".env"

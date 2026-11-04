@@ -42,6 +42,15 @@ impl Operation {
         )
     }
 
+    /// Whether a call of this kind may use a `specforge:host` port at all (ADR 0335 D4): the rest get what they need
+    /// as their input.
+    pub const fn is_effectful(self) -> bool {
+        matches!(
+            self,
+            Operation::Command | Operation::McpTool | Operation::McpResource | Operation::Collect
+        )
+    }
+
     /// Every operation.
     pub const ALL: [Operation; 13] = [
         Operation::Handshake,

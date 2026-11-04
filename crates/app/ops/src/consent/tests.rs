@@ -12,6 +12,7 @@ fn approval(scope: &str) -> Approval {
         granted: PortScope::Process(ProcessScope {
             argv: vec!["cargo".into(), "test".into()],
             deadline_ms: None,
+            env: Vec::new(),
         }),
         call_kinds: Vec::new(),
         secret_env: None,

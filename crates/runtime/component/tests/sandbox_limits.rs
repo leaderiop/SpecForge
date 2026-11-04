@@ -11,13 +11,17 @@
 
 use crate::probe_support;
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use probe_support::{ALL, Bait, PROBE, granted_nothing, probe_runtime};
+use probe_support::{
+    ALL, Bait, PROBE, call_ports, granted_nothing, lent, ports_with_http, probe_runtime, reported,
+};
 use serde_json::json;
 use specforge_component::ComponentRuntime;
 use specforge_component::fixtures::custom_bridge;
-use specforge_protocol_types::{CommandInput, RawGraph};
+use specforge_effects::testing::FakeHttp;
+use specforge_protocol_types::{CommandInput, Operation, RawGraph};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 use specforge_wasm::{ExtensionCalls, Limits, LoadError};
@@ -581,4 +585,28 @@ fn under_a_work_budget_the_extensions_limit_is_work() {
     );
     let result = runtime.call_export_within("@repro/spin", "anything", b"{}", 0);
     assert!(answered(&result), "{result:?}");
+}
+
+#[test]
+fn a_ports_answer_never_traps_the_guests_memory() {
+    let runtime = probe_runtime();
+    runtime.apply_limits(
+        PROBE,
+        Limits {
+            execution_ms: 5_000,
+            memory_mb: 16,
+        },
+    );
+    let http = FakeHttp::new().route("https://example.test/big", 200, vec![0u8; 64 << 20]);
+    let lent = lent(&ports_with_http(Arc::new(http)));
+    let answer = reported(call_ports(
+        &runtime,
+        "http",
+        "https://example.test/big",
+        Operation::Command,
+        Some(lent),
+    ));
+    assert_eq!(answer["ok"], 200, "{answer}");
+    assert_eq!(answer["truncated"], true, "{answer}");
+    assert_eq!(answer["bytes"], 4 << 20, "{answer}");
 }

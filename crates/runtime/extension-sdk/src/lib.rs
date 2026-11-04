@@ -73,6 +73,7 @@ mod capability;
 mod command_graph;
 mod contrib;
 mod guest;
+pub mod host;
 pub mod host_contrib;
 mod plan;
 pub mod prompt;

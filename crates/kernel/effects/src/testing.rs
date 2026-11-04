@@ -313,6 +313,7 @@ impl Fs for FakeFs {
                     .filter_map(|f| f.strip_prefix(&root).ok())
                     .filter(|f| f.starts_with(rel) || rel.is_empty())
                     .map(|f| f.to_string_lossy().replace('\\', "/"))
+                    .filter(|f| !crate::contained::in_host_state(f))
                     .filter(|f| {
                         glob.as_deref()
                             .is_none_or(|g| specforge_common::path_glob::matches(g, f))

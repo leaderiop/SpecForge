@@ -1,7 +1,7 @@
 # The host owns every effect through one effect plane
 
 **Status:** accepted (2026-11-03, ports round, plan 01). Plan 01 writes D1, D3 and D5; plan 02 writes D2 and D6
-(grants, consent, secrets); D4 (the faces extensions use) is a numbered gap a later plan of the round fills. **Supersedes exact
+(grants, consent, secrets); plan 04 writes D4 (the faces extensions use) and the E089 of D5. **Supersedes exact
 sentences only:** in [ADR 0002](0002-test-runner-extensions.md) "Execution", "extensions stay pure wasm with no
 process, file or network access" and the sentence that rejects a guest-side `exec` host import; in
 [ADR 0037](0037-the-sandbox-is-limits-the-host-enforces.md) D5, only the clause "and no extension needs it (an analyzer
@@ -127,14 +127,71 @@ allows, what the project's effects ceiling leaves, and what this machine approve
 - **Where records live, and how a run reads them,** is the journal's ADR (the protocol 2.0.0 round); this ADR fixes
   only the record's shape.
 
-## D4. (reserved for the guest-imports plan)
+## D4. An extension has two faces for effects: declared inputs and granted imports
+
+A call gets what its kind is served as **declared inputs** (ADR 0337), or asks for an effect through a **granted
+import**: the four ports of one WIT package, `specforge:host@0.1.0`, shipped in the SDK and read by the host through
+the workspace.
+
+- **Every instance links `http`, `fs`, `process` and `git`, and their `types`, whatever its grant.** What one call may
+  do is decided per call, not by what was linked or bound at load: one extension runs a pass and a command.
+- **A port session decides each request** (`specforge_wasm::PortSession`), made per call from its kind, what its
+  caller lent (`PortCall`: the effects, the local ports, the roots, the grant) and its limits. Both runtimes use the
+  same session, so the in-process one answers as the component one does.
+- **A pure kind is answered `denied(call-kind)`** and nothing runs: only a command, an MCP tool or resource and a
+  collector may call a port. A request the grant refuses is answered `denied(scope)`, and E090 is reported to the
+  person for the gate, the declaration or the ceiling; one nobody approved is `denied(scope)` with no E090, since a
+  stored approval is all it lacks. Nothing prompts mid-call: a caller settles the extension's approvals before the
+  call, and MCP answers from stored approvals only.
+- **What only the host may set never comes from a guest.** A WIT request has no field for the private-address opt-in
+  or an attached secret, and the session clears both whatever a Rust value in process holds. No answer has a field
+  for a secret (ADR 0288). **A program a guest runs starts from an empty environment** plus a fixed list a program needs
+  to work (`PATH`, `HOME`, the locale, the temp directory, the Windows system variables) and the names its process
+  capability declares (`env`). A name list of what to keep out could not hold: `BASH_ENV`, `GIT_SSH_COMMAND` and
+  `CARGO_TARGET_*_RUNNER` choose what an approved command runs, and `DATABASE_URL` holds a secret by no name of it. A
+  guest setting a name its capability does not declare is `denied(scope)` and E090, so the approval line and its digest
+  cover every name, and another name asks again. The secret removal stays last: no variable a declared secret names, of
+  any extension, is passed, even when a capability names it. A program the host itself runs keeps the parent's
+  environment less the deny-list. `git` reads the project's own repository only: a guest
+  names no place, its revisions and paths can be neither an option nor a climb, and a file the disk withholds is
+  withheld at a commit too. **The host's own state is withheld whole:** no `fs` request of any op reaches a path with
+  a `.specforge` component, at the project root or under a named root, and a walk never enters one, a glob naming it
+  or not. The effects journal lives there and holds other extensions' answers, and a project read needs no approval.
+- **An answer is held to a quarter of the guest's memory**, and says `truncated`, so a port's answer can't trap the
+  guest. A listing that has no way to say so fails `capped`.
+- **A port's time is not the guest's.** Epoch interruption counts guest time only (ADR 0037 D3); a request is held to
+  the port's own deadline and to 600 s across all of one call's requests (the port budget), and a spent budget is
+  `Failed{class: "deadline"}`. Fuel counts guest instructions only, so a work budget neither spends on a port nor
+  bounds one.
+- **An effectful call of a guest that imports a port runs on its own instance, outside the extension's lock.** A long
+  port call does not stop the extension's passes, and two such calls run concurrently, each in its own memory. A guest
+  that imports none (every builtin) keeps its shared instance, and is lent nothing.
+- **A lent call runs in its run's mode (ADR 0337 D4).** A person who ran a command or `collect` asked for that run, so
+  it is `online` unless `--effects` says otherwise; an agent's call over MCP is `cached` unless its `effects` argument
+  says otherwise; a resource read, the hook, watch and the LSP stay `cached`. `Effects` holds what `cached` and `replay`
+  need and no port, and fs and git are local reads every mode performs.
+- **A lent record is its asker's.** It is keyed by the extension, the capability and the name of the secret attached
+  (`Effects::serve_lent`): under `cached` or `replay`, an extension never reads another's answer, which may have been
+  authenticated, and no guest reads a host-run check's.
+- **Only a `GET` answers again.** A request of any other method asked for something to happen, and a record 24 hours
+  old cannot say it did: outside `replay`, it is never answered from a fresh record. `cached` answers it
+  `not_performed`, and `auto` performs it again when granted. `replay` answers from the record, since it performs
+  nothing and the caller asked for the past. A process has no fresh record at all (ADR 0337 D3).
+- **The LSP never runs a port on a worker.** It makes no effectful call: a port it reached would be `denied(call-kind)`.
 
 ## D5. The load seam reads imports first
 
 The host lists a component's imports before it instantiates it (`Component::component_type().imports`), as ADR 0326
 D1a/D1b shipped: `imports::admit` checks them against `HOST_PORTS`, empty until the guest-imports plan links the
 ports. An unknown `specforge:host` interface or another protocol major is E088; an import outside `wasi:*` and
-`specforge:host` is E028. This decision states the seam the ports join; it builds nothing.
+`specforge:host` is E028.
+
+A guest imports only what it calls: `wit-component` encodes only the functions a core module imports, and the linker
+drops an extern nothing calls, so an extension built against the four ports that calls none imports none and needs no
+capability. A test holds every committed builtin to it, so a toolchain that keeps an unused import fails there first.
+An extension that imports a port no capability of it backs is not loaded (E089, naming every such port): read in
+`load_declaration`, after the declaration, since `admit` runs on names before there is one. A capability with no
+import is legitimate.
 
 ## D6. A secret rides as a header the host attaches
 
@@ -167,6 +224,17 @@ ports. An unknown `specforge:host` interface or another protocol major is E088; 
   would ask again.
 - **Treating an unusable consent store as empty.** The next approval would write over every approval it held.
 - **A per-extension ceiling.** ADR 0288's `gates` already switch an extension's family off.
+- **Per-port cargo features on the SDK.** A feature an author forgets is E089 or a link error, and it buys nothing the
+  linker doesn't already do. If a toolchain stops pruning, the builtins' test fails first and the features come then.
+- **JSON bytes through one host function** (the bridge's shape). It would hide a field change from both load checks;
+  typed WIT records give link-time checking and real types in other languages, at the cost of one conversion per side.
+- **A second copy of the WIT in the host crate**, kept in step by a test. The host reads the SDK's file.
+- **Binding the grant at load** (like `apply_settings`). The call kind is per call.
+- **A fresh instance for every effectful call.** A builtin that imports no port would pay per-call instantiation for
+  nothing.
+- **Setting the deadline again after each import.** An import gets the host state, not the store; wasmtime's epoch
+  callback is the documented hook, and it keeps the trap as it is.
+- **Failing an answer past its cap.** A collector that reads a long log wants the head, and `truncated` says so.
 - **A process runner kept in `common` as a fallback.** Two runners would again disagree on deadlines; the runner is an
   adapter and the composition root passes it (ADR 0079 D2, ADR 0125 D2).
 

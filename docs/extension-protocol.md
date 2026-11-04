@@ -1052,64 +1052,54 @@ the code in `data.code`):
 The host adds `--dry-run` to a writing command (it prints the diff and writes nothing), so a writing command declares
 no arg of that name. A writing command's MCP tool is a mutation and reports the files it wrote.
 
-## Host Functions
+## Host ports
 
-The protocol was designed to be bidirectional: the host drives the
-conversation (calling exports on the Wasm module), and extensions would call
-back into the host through imported functions to read the graph, emit
-diagnostics, and access files. None of that is built. In particular an
-extension cannot read a business system, a file or the network: what it
-knows is what the call hands it.
+The host drives the conversation: it calls exports on the component. Since protocol 2.0.0 a guest can call back, for
+one thing only: an effect, through the four ports of the WIT package `specforge:host@0.1.0`
+(`crates/runtime/extension-sdk/wit/host.wit`; ADR 0335 D4). Everything else it needs comes as the call's input.
 
-> **Status: not callable from guests today.** The old extism-era import
-> surface was removed with the component-model cutover. Guests are
-> pure-compute wasip2 components; the host passes all needed context as call
-> input (e.g. the `ValidatorContext` snapshot for `validate__*` exports). A
-> typed component host-import surface is future work — the names below are
-> the planned surface, specified in `spec/behaviors/wasm-host-functions.spec`.
-> The permissions those functions would check come with them; today's sandbox grants none
-> (Sandbox, ADR 0037).
+| Interface | Functions | Answers |
+|-----------|-----------|---------|
+| `specforge:host/http@0.1.0` | `send` | an answer of any status; redirects are followed by the host, each hop granted again |
+| `specforge:host/fs@0.1.0` | `stat`, `read`, `walk` | reads under a named root (`spec`, `project`, or one `specforge.json` names) |
+| `specforge:host/process@0.1.0` | `run` | one program, its argv as a capability declares it, in the project's directory |
+| `specforge:host/git@0.1.0` | `locate`, `commit`, `merge-base`, `tree`, `sizes`, `blobs`, `branch`, `status` | reads of the project's own repository |
+| `specforge:host/types@0.1.0` | | `host-error`: `denied(call-kind)`, `denied(scope)`, `failed{class, message}` |
 
-### Host Function Table
+**Who may call what.** Only an effectful call kind reaches a port: a command, an MCP tool or resource, and a collector.
+`process` is a collector's alone. Any other kind (a pass, a validator, a hook, ...) is answered `denied(call-kind)` and
+nothing runs. The call kinds are the gate of ADR 0335 D2.2.
 
-| Function | Signature | Purpose | Allowed call sites |
-|----------|-----------|---------|--------------------|
-| `host_query_graph` | `(pattern: &str) -> Vec<Entity>` | Scope-limited query of the entity graph by kind, field values, or graph pattern | all |
-| `host_emit_diagnostic` | `(severity: Severity, code: &str, msg: &str)` | Emit a diagnostic to the host's diagnostic collection | all |
-| `host_read_file` | `(path: &str) -> Option<String>` | Read a file from the project (subject to sandbox policy) | Validator, Provider, Parser, Analyzer |
-| `host_emit_file` | `(path: &str, content: &[u8])` | Write renderer/collector output (subject to sandbox policy) | Renderer, Collector |
-| `host_http_get` | `(url: &str) -> Vec<u8>` | Fetch from an allowlisted domain | Provider |
-| `host_add_graph_node` | `(kind: &str, id: &str, fields: ...)` | Add a graph node | Parser |
-| `host_add_graph_edge` | `(label: &str, source: &str, target: &str)` | Add a graph edge | Parser |
+**Denials.** A request outside the extension's grant is answered `denied(scope)` and nothing runs. The person gets E090
+for the gate, the declaration or the ceiling. One that lacks this machine's approval is `denied(scope)` with no E090.
+Nothing prompts mid-call: a caller settles the approvals before the call, and MCP answers from stored approvals only.
 
-Reference resolution — resolving an entity ID to its typed node, with a
-`None`/null kind for dangling IDs — is part of `host_query_graph` semantics
-(the scope-filtered graph carries nodes and edges) and of the precomputed
-`ValidatorContext.referenced` snapshot handed to `validate__*` exports.
+**What a request can't say.** There is no field for the private-address opt-in or a secret: the host attaches a
+capability's `secret_header` itself, and no answer shows it (ADR 0288). A program starts from an empty environment plus
+what any program needs to work (`PATH`, `HOME`, the locale, the temp directory, the Windows system variables) and the names
+its process capability's `env` declares. A guest setting any other name is `denied(scope)` and E090, and a variable a
+declared secret names is never passed, even when named. A `git` revision or path can't be an option or
+climb out of the repository, and a file the disk withholds is withheld at a commit too.
 
-### Host API Versioning
+**Effects mode.** A port call's `http` and `process` requests run in its run's mode (`online`, `auto`, `cached`,
+`replay`; ADR 0337 D4); `fs` and `git` are local reads every mode performs. A CLI extension command and `specforge collect`
+default to `online`, and take `--effects`. An MCP tool of an extension with an http or process capability, and MCP `collect`,
+take an `effects` argument, default `cached`; an MCP resource read stays `cached`. So does a dry run, unless it asked for
+`replay`. A request the mode does not perform fails with class `not_performed`, and one `replay` has no record of with
+class `not_in_journal`. A record is its asker's: keyed by the extension, the capability and the name of the secret it
+attaches. Only a `GET` is answered from a fresh record; outside `replay`, any other method is never.
 
-The host-function surface is versioned alongside the wire protocol (`protocol_version` in the handshake response). A compatible major version guarantees the same function names and signatures.
+**Answers.** Every byte payload is held to a quarter of the guest's memory (`max_memory_mb`), and says `truncated` when
+it was cut, so an answer can't trap the guest. A listing that can't say so fails with class `capped`. In a request `0`
+asks for the most the call may have, and every cap and deadline is held to the port's ceiling.
 
-| Protocol Version | Functions Available |
-|-----------------|-------------------|
-| `1.0.0` | `host_query_graph`, `host_emit_diagnostic`, `host_read_file`, `host_emit_file`, `host_http_get`, `host_add_graph_node`, `host_add_graph_edge` |
-| `1.1.0` | the same as `1.0.0` |
-| `1.2.0` | the same as `1.0.0` |
-| `1.3.0` | the same as `1.0.0` |
-| `1.4.0` | the same as `1.0.0` |
-| `1.5.0` | the same as `1.0.0` |
-| `1.6.0` | the same as `1.0.0` |
-| `1.7.0` | the same as `1.0.0` |
-| `1.8.0` | the same as `1.0.0` |
-| `1.9.0` | the same as `1.0.0` |
-| `1.10.0` | the same as `1.0.0` |
-| `1.11.0` | the same as `1.0.0` |
-| `1.12.0` | the same as `1.0.0` |
-| `1.13.0` | the same as `1.0.0` |
-| `1.14.0` | the same as `1.0.0` |
-| `1.15.0` | the same as `1.0.0` |
-| `2.0.0` | the same as `1.0.0` |
+**Time.** A port's time doesn't count against `max_execution_ms`. A request is held to the port's deadline and to 600 s
+across all of one call's requests; a spent budget fails with class `deadline`.
+
+**Imports.** A guest imports only the interfaces it calls, so one that calls no port imports none and needs no capability.
+An extension that imports a port no capability of it backs is not loaded: E089, naming every such port.
+
+**Versioning.** `specforge:host@0.1.0` is what protocol 2.0.0 links; a guest that imports another version of it is E088.
 
 ### Protocol Versions
 
@@ -1146,7 +1136,7 @@ or answered.
 | `1.13.0` | A `when` may name several settings, all of them on (ADR 0317). A prompt argument may be the free-text tail (`rest`) and a prompt's subject optional, the export then answering the `subject` it picked (ADR 0314); a prompt may declare `reads_slash_commands` and is sent `slash_commands` (ADR 0316); a command is sent the `host` that calls it (ADR 0318). A rendered step carries its `agent` (host-side, ADR 0313). A 1.12 host ignores `host`, `slash_commands`, `reads_slash_commands`, `rest` and a picked `subject`, and refuses the `surfaces` declaration of a guest that writes a `when` list (a 1.12 `when` is one string, and a list fails the whole category: `DescribeFailed`), so such a guest needs a 1.13.0 host; a `when` of one name is still a string. |
 | `1.14.0` | A hook may declare `hosts`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings`, its input carries `commands`, `git`, `change`, `other_settings`, each path's `real` (and `toplevel`, `in_git_dir`), a commit's `cleanup`, and the event `file_changed` (ADR 0320-0324). A 1.13 host reports each new key as W138 (it installs a `hosts`-limited hook everywhere), and refuses the whole `surfaces` category of a guest that declares a `file_changed` hook (`HookEvent` is a closed enum there: `DescribeFailed`), so such a guest needs a 1.14.0 host. `HookEvent` decodes an unknown event as `Unknown` from 1.14.0 on, so a newer guest's new event costs a 1.14 host that one hook (W021), not the category. |
 | `1.15.0` | A collector answers `facts`, the entities it observed (ADR 0327): each a `Fact` (`kind`, `id`, optional `title`, `fields`) of a kind that declares `writer: "collector"` and its `schemes`, the prefixes of its ids; a field that declares `writer: "collector"` is W021. Every collector's input carries `cwd`, the project root (a writing collector's only before). A collector may declare `reads` and its input then carries `files` (ports plan 00). A guest of another major is E088, saying which side is behind, and so is a component importing a host port this specforge does not provide (ADR 0326 D1a/D1b). A pass is sent `fact_stores`, the fact stores the session served. A reference in a fact scheme that names no fact is unheld, not E003: a `PassEntity` lists it under `unheld`. A kind may declare `complete_when`, a pass entity carries `pending`, and an unheld reference its `span` (ADR 0329). A collector-written kind may name its facts' `result` field (ADR 0329). An extension may declare `routes`, the steps `specforge trace` follows from a kind (ADR 0330). A 1.14 host ignores `facts` and `schemes` (W138) and reads a `collector` kind writer as nobody's; a guest older than 1.15 is not asked for `routes`. |
-| `2.0.0` | ADR 0337 (the ports round). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A `codes` entry may declare `machine` (`CodeDescriptor.machine`, see [codes](#category-codes)): its finding is this machine's, never promoted by `--strict` nor counted by the gate's warning baseline. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. An extension declares `capabilities` (a describe category, see [capabilities](#category-capabilities)): what it may make the host do, each on one port under a scope name (ADR 0335 D2), and a collector names the process `capability` it runs instead of carrying `run`. |
+| `2.0.0` | ADR 0337 (the ports round). A command, MCP tool or resource and a collector may call the four `specforge:host@0.1.0` ports (see [Host ports](#host-ports)). A pass, command, prompt, hook or collector declares what the host serves it as one tagged list, `inputs`: `files` (a `FileRead`), `tests`, `state`, `graph`, `slash_commands`, `git` (`status`, `when`) and `setting` (`extension`, `name`), replacing `reads`, `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and `reads_settings` (see [Inputs](#inputs-200-adr-0337)); an input its call kind is not served, or a second one of a kind served once, is W021 and served empty. A hook's `git.status` is a typed `GitStatus` (`branch` with `oid`, `head`, `upstream`, `ahead`, `behind`; `entries` with `kind`, `path`, `orig_path`, `index`, `worktree`), not porcelain text. A `codes` entry may declare `machine` (`CodeDescriptor.machine`, see [codes](#category-codes)): its finding is this machine's, never promoted by `--strict` nor counted by the gate's warning baseline. A 1.x guest is E088 (older): its keys would be W138 and its inputs unserved. An extension declares `capabilities` (a describe category, see [capabilities](#category-capabilities)): what it may make the host do, each on one port under a scope name (ADR 0335 D2), and a collector names the process `capability` it runs instead of carrying `run`. |
 
 A host of `1.1.x` still loads a `1.0.0` guest and hands it the `1.1.0` values it knows; a host of
 `1.0.x` refuses a `1.1.0` guest (E088), and every host refuses a guest of another major (E088). A newer patch of the
@@ -1154,9 +1144,9 @@ host's minor loads.
 
 ### Sandbox
 
-An extension runs with no capability: its component's WASI context preopens no directory, passes
+An extension runs with no WASI capability: its component's WASI context preopens no directory, passes
 no environment, arguments or stdin, discards stdout and stderr, and refuses sockets and name
-lookup. What it needs it is handed in each call's input (a scanner gets each file's content, a
+lookup. An effect comes only through a granted port ([Host ports](#host-ports)). What else it needs it is handed in each call's input (a scanner gets each file's content, a
 command the graph, a pass or command that declares `files` inputs the facts and capped text of exactly the project files it
 names, read by the host: the one thing a declaration does grant, so `specforge extensions` and `specforge doctor` list
 every declared read, a text read withholds files that look like credentials, and a file whose real path leaves the
@@ -1165,9 +1155,10 @@ the user's terminal either: the host reads a handshake, describe, pass or valida
 call's failure text, printable where it reads them (ADR 0244); a command's output and an MCP tool's
 or resource's answer are the extension's own and are written as answered.
 
-**Imports.** A guest imports only `wasi:*` and the `specforge:host` interfaces its host provides (none at 1.x). The host
-checks this before it instantiates the component (ADR 0326 D1a): an unknown `specforge:host` port is E088, naming the
-port, its version and the host's protocol, and an interface that is neither is E028 naming it.
+**Imports.** A guest imports only `wasi:*` and the `specforge:host` interfaces its host provides (from 2.0.0
+`specforge:host/{types,http,fs,process,git}@0.1.0`; none at 1.x). The host checks this before it instantiates the
+component (ADR 0326 D1a): an unknown `specforge:host` port is E088, naming the port, its version and the host's protocol,
+and an interface that is neither is E028 naming it. A port no capability of the extension backs is E089 at load.
 
 The handshake's `sandbox_policy` declares limits, which the host enforces on every call:
 
@@ -1177,7 +1168,7 @@ The handshake's `sandbox_policy` declares limits, which the host enforces on eve
 
 | Limit | Ceiling (and value when undeclared) | Enforced by | A call past it |
 |-------|-------------------------------------|-------------|----------------|
-| `max_execution_ms` | 30000 | epoch interruption, checked every 10 ms; never before the budget | traps `deadline_exceeded` |
+| `max_execution_ms` | 30000 | epoch interruption on guest time (a port's time doesn't count), checked every 10 ms; never before the budget | traps `deadline_exceeded` |
 | `max_memory_mb` | 512 | a limit on the instance's linear memory | traps `memory_limit_exceeded` |
 | (fuel, not declared) | a fixed instruction budget, whole for every call | fuel metering | traps `fuel_exhausted` |
 

@@ -7,7 +7,9 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use crate::journal::{self, Answer, EffectJournal, Kept, Lookup, RecordDigest, RecordedRequest};
+use crate::journal::{
+    self, Answer, EffectJournal, Kept, LentRecord, Lookup, RecordDigest, RecordedRequest,
+};
 use crate::{EffectRequest, Ports, UnixMillis};
 
 /// The four modes, as `--effects` and MCP `validate`'s `effects` name them.
@@ -214,13 +216,42 @@ impl Effects {
         now: UnixMillis,
         perform: impl FnOnce(&Ports) -> Answer,
     ) -> Served {
+        let digest = RecordDigest::of(request);
+        self.served(scope, request, &digest, false, now, perform)
+    }
+
+    /// [`Self::serve`] for a guest's request (ADR 0335 D4): its record is `lent`'s own, so a guest is never answered
+    /// another extension's, or a capability's it did not ask through, or a host-run check's. A request that is not a
+    /// `GET` is never answered from a fresh record: it asked for something to happen, and a day-old answer says it did.
+    /// Only `replay`, which performs nothing and says so, answers one from the journal.
+    pub fn serve_lent(
+        &self,
+        lent: LentRecord<'_>,
+        request: &EffectRequest,
+        now: UnixMillis,
+        perform: impl FnOnce(&Ports) -> Answer,
+    ) -> Served {
+        let digest = RecordDigest::lent(request, lent);
+        self.served(lent.capability, request, &digest, true, now, perform)
+    }
+
+    /// The one decision: `request`, found by `digest`; `lent` holds it to what [`Self::serve_lent`] says.
+    fn served(
+        &self,
+        scope: &str,
+        request: &EffectRequest,
+        digest: &RecordDigest,
+        lent: bool,
+        now: UnixMillis,
+        perform: impl FnOnce(&Ports) -> Answer,
+    ) -> Served {
         let Some(shown) = RecordedRequest::of(request) else {
             return Served::Local;
         };
-        let digest = RecordDigest::of(request);
-        let found = self.journal.lookup(&digest, now);
+        let answers_again = !lent || asks_for_nothing_to_happen(request);
+        let found = self.journal.lookup(digest, now);
         let mut log = self.log_lock();
-        if let Some(path) = self.journal.path(&digest) {
+        if let Some(path) = self.journal.path(digest) {
             // Only a fresh record's answer changes with the clock: an expired or missing one changes when written.
             let expires = match &found {
                 Lookup::Fresh(kept) => journal::expires(&kept.record),
@@ -242,12 +273,12 @@ impl Effects {
             }
             (EffectsMode::Replay, Lookup::Missing) => {
                 log.misses.push(Missed {
-                    digest,
+                    digest: digest.clone(),
                     request: shown,
                 });
                 return Served::Miss;
             }
-            (EffectsMode::Cached | EffectsMode::Auto, Lookup::Fresh(kept)) => {
+            (EffectsMode::Cached | EffectsMode::Auto, Lookup::Fresh(kept)) if answers_again => {
                 return answered(kept);
             }
             (EffectsMode::Cached, _) => return not_run(Why::NoFreshRecord),
@@ -260,8 +291,13 @@ impl Effects {
         };
         drop(log);
         let answer = perform(ports);
+        let kept = if lent {
+            self.journal.keep_lent(digest, request, &answer, now)
+        } else {
+            self.journal.keep(request, &answer, now)
+        };
         // A journal that cannot be written costs the cache, not the answer.
-        if let Ok(Some((path, record))) = self.journal.keep(request, &answer, now) {
+        if let Ok(Some((path, record))) = kept {
             self.log_lock()
                 .consulted
                 .insert(path, journal::expires(&record));
@@ -271,6 +307,11 @@ impl Effects {
             from_journal: false,
         }
     }
+}
+
+/// Whether a fresh record may stand in for `request`: an HTTP `GET`. A process has no fresh record at all.
+fn asks_for_nothing_to_happen(request: &EffectRequest) -> bool {
+    matches!(request, EffectRequest::Http(http) if http.method.eq_ignore_ascii_case("GET"))
 }
 
 #[cfg(test)]

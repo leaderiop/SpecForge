@@ -37,6 +37,12 @@ impl Limits {
     };
 }
 
+/// How long one call's port requests may take together, in milliseconds: the process port's ceiling (ADR 0335 D4).
+pub const PORT_BUDGET_MS: u64 = 600_000;
+
+/// A port's answer fits this share of the guest's memory: one copy in the canonical ABI, and the guest's own decode.
+pub const ANSWER_SHARE_OF_MEMORY: u64 = 4;
+
 /// One extension's sandbox: the limits it runs under, and what its
 /// declaration asks for that the host does not honour.
 #[derive(Debug, Clone, PartialEq)]

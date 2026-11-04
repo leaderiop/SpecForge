@@ -194,9 +194,8 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
     `fail` with the offending field and value), read strictly: an answer
     that is not a verdict is a failed call (call_extension_exports), never
     a pass or a fail.
-    The function body MAY call the `specforge.query_graph` host function
-    (see provide_host_function_query_graph) to access the compiled graph
-    for cross-entity semantic checks and custom graph traversals.
+    The function body MAY read the graph a call is handed for cross-entity
+    semantic checks and custom graph traversals.
     On failure, the engine MUST emit a diagnostic using the pattern's
     configured code, severity, and message template. Unresolvable
     wasm_function names MUST produce a warning (W112) at registration

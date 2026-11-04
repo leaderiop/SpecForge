@@ -7,8 +7,8 @@
 >
 > `call(name, export-name, input) -> result<list<u8>, string>` dispatches `__handshake` / `__describe` from the
 > builder, every declared surface and operation to the handler declared with it, and any other export name to the
-> guest's `handler`. Host functions (the old `HostApi`) were removed with the extism runtime; a typed component
-> host-import surface is future work.
+> guest's `handler`. A guest reaches an effect only through the `specforge:host` ports: see
+> [Capabilities and host ports](#capabilities-and-host-ports).
 
 ## Overview
 
@@ -26,7 +26,7 @@ The SDK provides:
 - **Builders** that declare every contribution with the handler that answers it
 - **`component_guest!`**, which serves the declaration as a wasip2 component
 - **`testing`** -- a runtime-free mock host
-- **Host functions (planned)** -- the typed import surface is future work; guests today are pure-compute and receive all context as call input (see [Host Functions](#host-functions))
+- **`host`** -- the four `specforge:host` ports a command, an MCP tool or resource and a collector may call (see [Capabilities and host ports](#capabilities-and-host-ports))
 
 There are no hand-written JSON manifests and no export registration: the declaration the builder builds is what the
 host loads and what `specforge publish` uploads (ADR 0012).
@@ -732,28 +732,80 @@ entity) and each step share `field`, `judgement` and `annotate` through the `Ann
 the route followed when several start at one kind. The builders don't check the route: the host's registry does,
 against the loaded kinds, when the extension loads.
 
-## Host Functions
+## Capabilities and host ports
 
-**Status: not callable from guests today.** The old `HostApi` import surface
-was removed with the extism runtime (see the banner at the top of this page).
-Guests are pure-compute wasip2 components: the host passes everything a guest
-needs as call input (e.g. the `ValidatorContext` snapshot for `validate__*`
-exports, the entity snapshot for `__pass_*`), and the guest's return value is
-the only channel back.
+A guest has no capability of its own: no file, socket, environment or clock beyond WASI's empty ones. It reaches an
+effect only through the four `specforge:host` ports, and a call is answered from what the host decided before it
+started, so nothing ever prompts mid-call.
 
-A typed component host-import surface is future work. When it lands, guests
-will import the functions below, each allowed only from the call sites listed
-(the contracts are specified in `spec/behaviors/wasm-host-functions.spec`):
+**Declare** what the extension uses. A capability names one port and its scope, and says why, in words a person
+approves on this machine:
 
-| Function | Purpose | Allowed call sites |
-|----------|---------|--------------------|
-| `host_emit_diagnostic` | Emit a diagnostic to the host's collection | all |
-| `host_read_file` | Read a file from the project (sandbox-checked) | Validator, Provider, Parser, Analyzer |
-| `host_emit_file` | Write renderer/collector output (sandbox-checked) | Renderer, Collector |
-| `host_http_get` | Fetch from an allowlisted domain | Provider |
-| `host_query_graph` | Scope-limited query of the entity graph (replaces the phantom `query`/`resolve_ref` pair) | all |
-| `host_add_graph_node` | Add a graph node | Parser |
-| `host_add_graph_edge` | Add a graph edge | Parser |
+```rust
+c.capability(
+    Capability::http("links")
+        .hosts(&["*.example.com"])
+        .methods(&[HttpMethod::Head])
+        .why("check that the links the specs write answer"),
+);
+c.capability(Capability::fs("reports").roots(&["project"]).why("read the coverage reports"));
+c.capability(Capability::git("history").why("compare a file with its last commit"));
+c.capability(
+    Capability::process("tests")
+        .argv(&["cargo", "test"])
+        .call_kinds(&[Operation::Collect])
+        .why("run the project's tests"),
+);
+```
+
+**Call** a port. A guest imports only the interfaces it calls, and importing one that no capability backs refuses the
+load (E089):
+
+```rust
+let response = host::http::send(&HttpRequest { method: "HEAD".into(), url, ..Default::default() })?;
+let report = host::fs::read("project", "target/report.json", 0)?;
+let branch = host::git::branch()?;
+```
+
+| Port | Functions | Call kinds that may use it |
+|------|-----------|----------------------------|
+| `host::http` | `send` | command, MCP tool and resource, collector |
+| `host::fs` | `stat`, `read`, `walk` | command, MCP tool and resource, collector |
+| `host::git` | `locate`, `commit`, `merge_base`, `tree`, `sizes`, `blobs`, `branch`, `status` | command, MCP tool and resource, collector |
+| `host::process` | `run` | collector |
+
+Every other call kind (a pass, a validator, a hook) is answered `Denial::CallKind` and nothing runs. Those kinds get
+what they need as the call's input.
+
+**What a guest can't do**, whatever it asks:
+
+- see a secret: the host attaches a capability's `secret_header` to the requests it permits, and the secret never
+  shows in an answer. A program a guest runs inherits no declared secret, and nothing of the host's environment but
+  what a program needs to work and the names its capability's `.env(&[..])` declares;
+- open the private-address opt-in, or set a program's variable its capability does not declare;
+- read a file the host withholds (credentials), from disk or at a commit.
+
+**What it gets back:** `Err(HostError::Denied(..))` for a request outside its grant (reported to the person as E090, and
+to the guest as `Denial::Scope`), `Err(HostError::Failed(..))` with a stable class for a port that failed, and an answer
+held to a quarter of the guest's memory, which says `truncated` when it was cut. A port's time does not count against
+the guest's `execution_ms`; it is bounded by the port's own deadline and 600 s across one call.
+
+**Test** with `testing::serve`, which puts a fake host on the thread for the length of a call. A port nobody overrode
+answers `Denial::CallKind`, as it does for a call kind no port is for:
+
+```rust
+use specforge_extension_sdk::testing::{InProcessHost, serve};
+
+struct Fake;
+impl InProcessHost for Fake {
+    fn git_branch(&self) -> Result<String, HostError> {
+        Ok("main".to_string())
+    }
+}
+
+let branch = serve(std::rc::Rc::new(Fake), || host::git::branch());
+assert_eq!(branch.unwrap(), "main");
+```
 
 ## Building and Testing
 

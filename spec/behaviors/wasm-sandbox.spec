@@ -17,14 +17,15 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
     wasm_runtime_available    "WasmRuntime port is available for enforcement"
   }
   ensures {
-    no_capability_granted   "a component is granted no capability: no preopened directory, environment, arguments or stdin, no socket and no name lookup, whatever its declaration asks for"
+    no_capability_granted   "a component is granted no WASI capability: no preopened directory, environment, arguments or stdin, no socket and no name lookup, whatever its declaration asks for; an effect is reached only through a granted specforge:host port"
     memory_limit_enforced   "the instance's linear memory cannot grow past the extension's memory limit; a growth past it traps the call (memory_limit_exceeded)"
-    execution_time_enforced "each call is held to the extension's wall-clock limit by epoch interruption (deadline_exceeded) and to the host's fuel budget, given whole to every call (fuel_exhausted); under a work budget (SPECFORGE_WASM_FUEL) no clock runs: the fuel replaces the time budget a caller gives a call, and the extension's limit holds as the work it allows"
-    deadline_never_early    "a call is never interrupted before its max_execution_ms budget has elapsed"
+    execution_time_enforced "each call's guest time is held to the extension's limit by epoch interruption (deadline_exceeded), a port call's time by the port, and each call to the host's fuel budget, given whole to every call (fuel_exhausted); under a work budget (SPECFORGE_WASM_FUEL) no clock runs: the fuel replaces the time budget a caller gives a call, and the extension's limit holds as the work it allows"
+    deadline_never_early    "a call is never interrupted before its guest time has reached its max_execution_ms budget"
     violations_trapped      "a call that crosses a limit traps and fails with E028 naming the limit's kind; the extension's next call gets a fresh instance under the same limits"
   }
   contract   """
-    The component runtime MUST grant a component no capability: its WASI
+    The component runtime MUST grant a component no WASI capability (an
+    effect is reached only through a granted specforge:host port): its WASI
     context preopens no directory and passes no environment, arguments or
     stdin; stdout and stderr are discarded; TCP, UDP and name lookup are
     refused. Clocks and randomness are WASI's own. This holds for every
@@ -32,12 +33,13 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
     (ADR 0037). The runtime MUST hold every call to the extension's limits
     (configure_sandbox_policy): its linear memory cannot grow past
     max_memory_mb, a growth past it trapping the call
-    (memory_limit_exceeded); its wall-clock time is bounded by epoch
+    (memory_limit_exceeded); its guest time is bounded by epoch
     interruption (max_execution_ms, checked by a background ticker every
-    10 ms; deadline_exceeded) and its instructions by fuel metering, the
-    host's whole fuel budget given to every call (fuel_exhausted). The
-    wall-clock deadline MUST never interrupt a call before its budget has
-    elapsed, whatever the ticker's phase when the call starts, and SHOULD
+    10 ms; deadline_exceeded), a port call's time by the port, and its
+    instructions by fuel metering, the host's whole fuel budget given to
+    every call (fuel_exhausted). The deadline MUST never interrupt a call
+    before its guest time reaches its budget, whatever the ticker's phase
+    when the call starts, and SHOULD
     overshoot it by no more than two ticks plus scheduling delay. A call
     that crosses a limit fails with E028, its message naming the limit;
     the extension's next call gets a fresh instance under the same limits.

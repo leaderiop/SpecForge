@@ -123,7 +123,7 @@ pub struct Denial {
     /// The request, in one line.
     pub request: String,
     /// The capability that came closest, when one did.
-    pub scope: Option<String>,
+    pub capability: Option<String>,
     pub why: Denied,
     /// What a person reads for `why`.
     pub detail: String,
@@ -132,15 +132,15 @@ pub struct Denial {
 impl Denial {
     /// E090: an effect outside the granted scope.
     pub fn diagnostic(&self) -> Diagnostic {
-        let scope = self
-            .scope
+        let capability = self
+            .capability
             .as_deref()
             .map(|s| format!(" (capability '{s}')"))
             .unwrap_or_default();
         Diagnostic::new(
             codes::E090,
             format!(
-                "extension '{}': `{}` is outside its granted scope{scope}: {}",
+                "extension '{}': `{}` is outside its granted scope{capability}: {}",
                 self.extension, self.request, self.detail
             ),
         )
@@ -441,16 +441,44 @@ impl Grant {
     }
 
     /// The capability that permits `request` for a call of kind `op` ([`Grant::permits`]).
-    pub(crate) fn permitted(
+    pub fn permitted(&self, op: Operation, request: &EffectRequest) -> Result<&Granted, Denial> {
+        let (port, write) = port_of(request);
+        let root = match request {
+            EffectRequest::Fs(fs) => Some(fs.root.as_str()),
+            _ => None,
+        };
+        self.decided(op, (port, write), one_line(request), root, &|scope| {
+            rules(scope).admits(request, self.user)
+        })
+    }
+
+    /// Whether a call of kind `op` may ask git `question`: git is read-only and no [`EffectRequest`], so its scope
+    /// is judged by the port alone.
+    pub fn permits_git(&self, op: Operation, question: &str) -> Result<(), Denial> {
+        let reads = |scope: &PortScope| matches!(scope, PortScope::Git(git) if git.ops.contains(&GitOp::Read));
+        self.decided(
+            op,
+            (Port::Git, false),
+            format!("git {question}"),
+            None,
+            &reads,
+        )
+        .map(|_| ())
+    }
+
+    /// The capability `admits` keeps for a call of kind `op` on `port`, or why there is none.
+    fn decided(
         &self,
         op: Operation,
-        request: &EffectRequest,
+        (port, write): (Port, bool),
+        request: String,
+        root: Option<&str>,
+        admits: &dyn Fn(&PortScope) -> bool,
     ) -> Result<&Granted, Denial> {
-        let (port, write) = port_of(request);
-        let deny = |why: Denied, scope: Option<&str>, detail: String| Denial {
+        let deny = |why: Denied, capability: Option<&str>, detail: String| Denial {
             extension: self.extension.clone(),
-            request: one_line(request),
-            scope: scope.map(str::to_string),
+            request: request.clone(),
+            capability: capability.map(str::to_string),
             why,
             detail,
         };
@@ -468,7 +496,7 @@ impl Grant {
                 (self.user
                     || g.declared.call_kinds.is_empty()
                     || g.declared.call_kinds.contains(&op))
-                    && rules(&g.declared.port).admits(request, self.user)
+                    && admits(&g.declared.port)
             })
             .collect();
         let Some(first) = declared.first() else {
@@ -480,11 +508,7 @@ impl Grant {
         };
         let left: Vec<&&Granted> = declared
             .iter()
-            .filter(|g| {
-                g.scope
-                    .as_ref()
-                    .is_some_and(|s| rules(s).admits(request, self.user))
-            })
+            .filter(|g| g.scope.as_ref().is_some_and(admits))
             .collect();
         let Some(usable) = left
             .iter()
@@ -509,11 +533,8 @@ impl Grant {
                 ),
             ));
         }
-        if let EffectRequest::Fs(fs) = request
-            && let Some(root) = self
-                .outside
-                .iter()
-                .find(|r| r.name == fs.root && !r.approved)
+        if let Some(asked) = root
+            && let Some(root) = self.outside.iter().find(|r| r.name == asked && !r.approved)
         {
             return Err(deny(
                 Denied::Root,

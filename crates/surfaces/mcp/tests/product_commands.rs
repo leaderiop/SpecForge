@@ -82,6 +82,7 @@ fn an_mcp_tool_call_returns_the_json_payload() {
         &serde_json::Map::new(),
         specforge_ops::extension::command::CommandFormat::Json,
         None,
+        specforge_ops::testing::caller(),
     )
     .expect("health runs");
     let cli: Value = serde_json::from_str(&printed.stdout).unwrap();

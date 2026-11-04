@@ -285,13 +285,15 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   **Write journal**.
 - **Effects mode**: whether a run performs, reuses or replays an http or process effect: `online`, `auto` (a fresh
   record, else performed when approved), `cached` (a fresh record only) or `replay` (any record, a miss refuses the
-  run). Sessions are `cached`; the CLI's `--effects` chooses, `check` defaulting to `auto` when someone can answer
-  (ADR 0337 D4).
+  run). Sessions are `cached`; the CLI's `--effects` chooses, `check` defaulting to `auto` when someone can answer.
+  What a run lends an extension runs in a mode too: `online` for what a person ran, `cached` for an agent's call or a
+  dry run, each unless asked otherwise (ADR 0337 D4).
 - **Machine diagnostic**: a finding this machine decided (its approvals, its network, its journal), flagged
   `machine`; `--strict` never promotes it and the gate's warning baseline never counts it (I206, I207, W170; ADR 0337 D7).
 - **Capability**: one effect an extension declares it may ask the host for, in its `capabilities` describe category: a
   **scope name**, a `why`, the call kinds it is for and one port scope (`http` hosts, schemes, methods and an optional
-  secret header; `fs` roots and ops; a `process` argv template; `git` ops). A collector with a command names its
+  secret header; `fs` roots and ops; a `process` argv template and the variables its program inherits or a guest may
+  set; `git` ops). A collector with a command names its
   `process` capability. A bad one is W021 and grants nothing (`specforge_protocol_types::CapabilityDescriptor`, ADR
   0335 D2.1).
 - **Scope name**: a capability's name, a word unique in its extension: what an approval, `specforge grants` and a
@@ -308,6 +310,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   effects ceiling, and approved on this machine, decided once per extension and environment. It permits each request
   (or denies it: E090 for the gate, the declaration or the ceiling) and names the approvals a run needs
   (`specforge_effects::Grant`, ADR 0335 D2).
+- **Granted import**: a `specforge:host` port an effectful call kind (a command, an MCP tool or resource, a collector)
+  calls, answered by the **Port session** under the call's **Grant**: an extension's other face for effects, beside its
+  declared inputs (ADR 0335 D4).
+- **Port session**: what one call may do through the ports, made from its kind, what its caller lent and its limits. It
+  decides each request before any effect, sets what only the host may set, holds an answer to a quarter of the guest's
+  memory and spends the call's port budget (`specforge_wasm::PortSession`, ADR 0335 D4).
 - **Approval**: this machine's consent to a capability (per project, extension, **Provenance** and scope name; it
   covers any narrower grant) or to a named root outside the project (per project and canonical target). File and git
   reads inside the project need none; http, process and writes do. Settled before a run's first effect, asked only

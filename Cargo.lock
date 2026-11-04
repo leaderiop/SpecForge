@@ -2956,6 +2956,7 @@ dependencies = [
  "specforge-common",
  "specforge-component",
  "specforge-diagnostics",
+ "specforge-effects",
  "specforge-extension-sdk",
  "specforge-protocol-types",
  "specforge-registry",
@@ -3285,6 +3286,7 @@ dependencies = [
  "specforge-emitter",
  "specforge-extension-sdk",
  "specforge-formatter",
+ "specforge-fs",
  "specforge-graph",
  "specforge-hosts",
  "specforge-installed",
@@ -3579,6 +3581,7 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "specforge-wasm",
+ "tempfile",
 ]
 
 [[package]]

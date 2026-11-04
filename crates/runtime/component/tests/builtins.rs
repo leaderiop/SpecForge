@@ -9,6 +9,29 @@ use specforge_test_macros::test as specforge_test;
 use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
+/// The spike's permanent form (ADR 0335 D5): a guest imports only the `specforge:host` interfaces it calls, so a
+/// builtin that calls none imports only `wasi:*`. A toolchain that keeps an unused import fails here first.
+#[test]
+fn every_committed_builtin_imports_only_wasi() {
+    let engine = wasmtime::Engine::default();
+    for builtin in builtins::BUILTINS {
+        let component = wasmtime::component::Component::from_binary(&engine, builtin.bytes)
+            .unwrap_or_else(|e| panic!("{} ({}): {e}", builtin.name, builtin.crate_dir));
+        let foreign: Vec<String> = component
+            .component_type()
+            .imports(&engine)
+            .map(|(name, _)| name.to_string())
+            .filter(|name| !name.starts_with("wasi:"))
+            .collect();
+        assert!(
+            foreign.is_empty(),
+            "{} ({}) imports {foreign:?}",
+            builtin.name,
+            builtin.crate_dir
+        );
+    }
+}
+
 #[test]
 fn load_all_builtins() {
     let runtime = ComponentRuntime::new();
@@ -276,4 +299,32 @@ fn product_declares_the_commands_its_cli_surface_specifies() {
     specified.sort();
     assert_eq!(specified.len(), 40);
     assert_eq!(declared, specified);
+}
+
+#[specforge_test_macros::test(
+    behavior = "link_host_ports",
+    verify = "every instance links the four ports, and a guest that calls none imports none"
+)]
+fn the_probe_imports_the_ports_it_calls_and_builtins_none() {
+    let engine = wasmtime::Engine::default();
+    let blob = std::fs::read(specforge_component::committed::PROBE.path()).unwrap();
+    let component = wasmtime::component::Component::from_binary(&engine, &blob).unwrap();
+    let mut hosts: Vec<String> = component
+        .component_type()
+        .imports(&engine)
+        .map(|(name, _)| name.to_string())
+        .filter(|name| !name.starts_with("wasi:"))
+        .collect();
+    hosts.sort();
+    assert_eq!(
+        hosts,
+        [
+            "specforge:host/fs@0.1.0",
+            "specforge:host/git@0.1.0",
+            "specforge:host/http@0.1.0",
+            "specforge:host/process@0.1.0",
+            "specforge:host/types@0.1.0",
+        ]
+    );
+    every_committed_builtin_imports_only_wasi();
 }

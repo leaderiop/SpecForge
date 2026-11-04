@@ -7,11 +7,13 @@
 //! call's event sink when the export returned, whatever it answered.
 
 use serde_json::{Value, json};
+use specforge_effects::EffectsMode;
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommand, RunError};
+use specforge_ops::extension::lend;
 use specforge_ops::host::Host;
 use specforge_protocol_types::command_args::ArgError;
-use specforge_protocol_types::{CommandError, CommandOutput};
-use specforge_wasm::runtime::WasmRuntime;
+use specforge_protocol_types::{CommandError, CommandOutput, Operation};
+use specforge_wasm::PortCall;
 
 use crate::events::McpEvent;
 use crate::reply::Source;
@@ -25,6 +27,12 @@ use crate::tool::{ErrorCode, McpError, ToolOutcome};
 /// refused first, the project resolved after; a command's are normalized by
 /// its run.
 pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value) -> ToolOutcome {
+    let mut arguments = arguments.clone();
+    let mode = match take_effects(entry, &mut arguments) {
+        Ok(mode) => mode,
+        Err(refused) => return (*refused).into(),
+    };
+    let arguments = &arguments;
     let (outcome, dispatched) = match &entry.kind {
         ToolKind::McpTool {
             export,
@@ -35,21 +43,18 @@ pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value
                 return refused;
             }
             match call.project() {
-                Ok(project) => mcp_tool_adapter(
-                    project.runtime.as_ref(),
-                    entry,
-                    export,
-                    output_schema.as_ref(),
-                    arguments,
-                ),
+                Ok(project) => {
+                    let schema = output_schema.as_ref();
+                    mcp_tool_adapter(&project, entry, export, schema, arguments, mode)
+                }
                 Err(refused) => (refused.into(), None),
             }
         }
         ToolKind::Command(command) if command.writes() => {
-            return writing::run(call, entry, command, arguments);
+            return writing::run(call, entry, command, arguments, mode);
         }
         ToolKind::Command(command) => match call.project() {
-            Ok(project) => command_adapter(&project, command, arguments, call.host()),
+            Ok(project) => command_adapter(&project, command, arguments, call.host(), mode),
             Err(refused) => (refused.into(), None),
         },
     };
@@ -59,13 +64,50 @@ pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value
     outcome
 }
 
+/// The host's argument on an extension tool that takes it ([`ToolEntry::takes_effects`]).
+pub(crate) const EFFECTS: &str = "effects";
+
+/// The schema of the host's `effects` argument.
+pub(crate) fn effects_schema() -> Value {
+    json!({
+        "type": "string",
+        "enum": EffectsMode::NAMES,
+        "description": "Whether an http or process effect the tool asks for is performed, reused or replayed (ADR 0337): cached (the default) performs none and answers from the effects journal; replay answers only from it; online and auto perform what the extension's approved capabilities allow",
+    })
+}
+
+/// The mode of what `entry`'s call is lent: its `effects` argument, taken out of `arguments`, else `cached`: an agent's
+/// call stays off the network until it asks otherwise (ADR 0337 D4).
+fn take_effects(entry: &ToolEntry, arguments: &mut Value) -> Result<EffectsMode, Box<McpError>> {
+    let asked = entry
+        .takes_effects
+        .then(|| arguments.as_object_mut()?.remove(EFFECTS))
+        .flatten();
+    let Some(asked) = asked else {
+        return Ok(EffectsMode::Cached);
+    };
+    asked
+        .as_str()
+        .and_then(|name| EffectsMode::parse(&name.to_ascii_lowercase()))
+        .ok_or_else(|| {
+            let names = EffectsMode::NAMES.join(", ");
+            Box::new(
+                McpError::new(
+                    ErrorCode::InvalidInput,
+                    format!("`{EFFECTS}` must be one of {names}"),
+                )
+                .with_argument(EFFECTS),
+            )
+        })
+}
+
 /// The extension resource `entry`, read at `uri` over the call's project. A
 /// failed read is the read's error (E028 in `diagnostic`), and no dispatch
 /// is recorded.
 pub(crate) fn read_resource(call: &mut Call<'_>, entry: &ResourceEntry, uri: &str) -> ReadOutcome {
     // The project the resource reads, in the runtime it was compiled in.
     let (outcome, dispatched) = match call.project() {
-        Ok(project) => resource_adapter(project.runtime.as_ref(), entry, uri),
+        Ok(project) => resource_adapter(&project, entry, uri),
         Err(refused) => (Err(Box::new(refused)), None),
     };
     if let Some(event) = dispatched {
@@ -97,14 +139,23 @@ fn check_input(schema: &Value, arguments: &Value) -> Result<(), ToolOutcome> {
 /// output checked against the output schema it declares. The tool's
 /// outcome, and its dispatch event when its export returned.
 fn mcp_tool_adapter(
-    runtime: &dyn WasmRuntime,
+    project: &ProjectRef<'_>,
     entry: &ToolEntry,
     export: &str,
     output_schema: Option<&Value>,
     arguments: &Value,
+    mode: EffectsMode,
 ) -> (ToolOutcome, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    let result = match specforge_wasm::ExtensionCalls::new(runtime).call_mcp_tool(
+    let lent = project.lend(mode, |caller| {
+        lend::port_call(
+            &project.view(),
+            caller,
+            &entry.extension,
+            Operation::McpTool,
+        )
+    });
+    let result = match lent_calls(project, lent.clone()).call_mcp_tool(
         &entry.extension,
         export,
         arguments,
@@ -121,7 +172,7 @@ fn mcp_tool_adapter(
             None => ToolOutcome::ok(value),
         },
         // A failed call is the tool's error, and no dispatch is recorded.
-        Err(error) => return (failed_call(&error.diagnostic()).into(), None),
+        Err(error) => return (failed_call(&error).into(), None),
     };
     // A tool whose export returned is a dispatched tool; it succeeded when
     // its output is the tool's result.
@@ -131,7 +182,19 @@ fn mcp_tool_adapter(
         duration_ms: elapsed_ms(started),
         success: result.succeeded(),
     };
+    let result = match lent {
+        Some(lent) => result.with_diagnostics(lent.take_denials()),
+        None => result,
+    };
     (result, Some(event))
+}
+
+/// The extension calls of `project`'s runtime, with `lent` behind each effectful one.
+fn lent_calls<'r>(
+    project: &'r ProjectRef<'_>,
+    lent: Option<PortCall>,
+) -> specforge_wasm::ExtensionCalls<'r> {
+    specforge_wasm::ExtensionCalls::new(project.runtime.as_ref()).with_ports(lent)
 }
 
 /// A command's run as a tool result, and its dispatch event when its export
@@ -146,16 +209,21 @@ fn command_adapter(
     command: &ExtensionCommand,
     arguments: &Value,
     host: Option<Host>,
+    mode: EffectsMode,
 ) -> (ToolOutcome, Option<McpEvent>) {
     let given = arguments.as_object().cloned().unwrap_or_default();
     let started = std::time::Instant::now();
-    match specforge_ops::extension::command::run(
-        &project.view(),
-        command,
-        &given,
-        CommandFormat::Json,
-        host,
-    ) {
+    let run = project.lend(mode, |caller| {
+        specforge_ops::extension::command::run(
+            &project.view(),
+            command,
+            &given,
+            CommandFormat::Json,
+            host,
+            caller,
+        )
+    });
+    match run {
         Ok(output) => {
             let event = McpEvent::SurfaceCommandDispatched {
                 extension_name: command.extension().to_string(),
@@ -166,7 +234,7 @@ fn command_adapter(
             (output_result(command, output), Some(event))
         }
         Err(RunError::Args(refused)) => (refused_args(&refused).into(), None),
-        Err(RunError::Call(error)) => (failed_call(&error.diagnostic()).into(), None),
+        Err(RunError::Call(error)) => (failed_call(&error).into(), None),
         Err(RunError::NoProject(error)) => (McpError::from(error).into(), None),
         Err(RunError::Gate(error) | RunError::State(error)) => {
             (McpError::from(*error).into(), None)
@@ -210,16 +278,23 @@ fn refused_args(error: &ArgError) -> McpError {
 /// internal error (-32603) whose `data` is the `McpError` carrying the E028
 /// diagnostic (D6, `mcp_structured_error_responses`).
 fn resource_adapter(
-    runtime: &dyn WasmRuntime,
+    project: &ProjectRef<'_>,
     entry: &ResourceEntry,
     uri: &str,
 ) -> (ReadOutcome, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    match specforge_wasm::ExtensionCalls::new(runtime).read_mcp_resource(
-        &entry.extension,
-        &entry.export,
-        uri,
-    ) {
+    // shortcut: a read has no place for a diagnostic, so a resource's E090 reaches only its guest, as `denied(scope)`;
+    // when a read outcome carries diagnostics, report them here as a tool does.
+    // A read takes no argument of the host's, so it stays `cached` (ADR 0337 D4).
+    let lent = project.lend(EffectsMode::Cached, |caller| {
+        lend::port_call(
+            &project.view(),
+            caller,
+            &entry.extension,
+            Operation::McpResource,
+        )
+    });
+    match lent_calls(project, lent).read_mcp_resource(&entry.extension, &entry.export, uri) {
         // A read whose export answered its content is a dispatched
         // resource; a failed call is the read's error, and no dispatch is
         // recorded.
@@ -233,7 +308,7 @@ fn resource_adapter(
             let text = ResourceText::new(read.mime_type, read.content);
             (Ok(text), Some(event))
         }
-        Err(error) => (Err(Box::new(failed_call(&error.diagnostic()))), None),
+        Err(error) => (Err(Box::new(failed_call(&error))), None),
     }
 }
 
@@ -311,8 +386,12 @@ fn output_result(command: &ExtensionCommand, output: CommandOutput) -> ToolOutco
 
 /// A failed extension call as an MCP error: the diagnostic the runtime
 /// reported, in `diagnostic`.
-pub(crate) fn failed_call(diagnostic: &specforge_common::Diagnostic) -> McpError {
-    McpError::new(ErrorCode::InternalError, diagnostic.message.clone()).with_diagnostic(diagnostic)
+pub(crate) fn failed_call(error: &specforge_wasm::CallError) -> McpError {
+    let diagnostic = error.diagnostic();
+    let mut failed = McpError::new(ErrorCode::InternalError, diagnostic.message.clone())
+        .with_diagnostic(&diagnostic);
+    failed.reported.extend(error.denials.iter().cloned());
+    failed
 }
 
 /// How long since `started`, in whole milliseconds.

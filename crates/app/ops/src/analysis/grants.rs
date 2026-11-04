@@ -572,6 +572,7 @@ mod tests {
                 granted: PortScope::Process(ProcessScope {
                     argv: vec![format!("cargo{HOSTILE}")],
                     deadline_ms: None,
+                    env: vec![format!("VAR{HOSTILE}")],
                 }),
                 call_kinds: Vec::new(),
                 secret_env: None,

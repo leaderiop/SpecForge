@@ -27,6 +27,7 @@ mod infer_sources;
 mod init_enclosing;
 mod invariants;
 mod judged_inputs;
+mod lent_effects;
 mod lifecycle;
 mod local_specifier_containment;
 mod management_view;

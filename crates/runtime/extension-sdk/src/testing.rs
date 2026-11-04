@@ -8,6 +8,8 @@ use std::collections::BTreeMap;
 use crate::{CommandFormat, CommandGraph, CommandInput, CommandOutput, ContributionsBuilder};
 use specforge_protocol_types::{CommandArgType, FileFacts};
 
+pub use crate::host::in_process::{InProcessHost, serve};
+
 /// Wraps a [`ContributionsBuilder`] and asserts on its wire output.
 pub struct MockHost(pub ContributionsBuilder);
 

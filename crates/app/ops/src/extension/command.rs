@@ -20,9 +20,9 @@
 //! recorded test report and today's date, and calls the export (ADR 0011,
 //! "One operation runs a command").
 
-use crate::OpError;
 use crate::host::Host;
 use crate::view::ProjectView;
+use crate::{Caller, OpError};
 use serde_json::{Map, Value, json};
 use specforge_protocol_types::Operation;
 use specforge_protocol_types::command_args::{self, ArgError, normalize_arg, option_name};
@@ -31,8 +31,10 @@ use specforge_protocol_types::{
     CommandInput, CommandOutput, EntityEvidence, RawGraph,
 };
 use specforge_registry::{CommandRoute, RegistryBuild};
-use specforge_wasm::{CallError, CallFailure, ExtensionCalls};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls, PortCall};
 use std::path::{Path, PathBuf};
+
+use super::lend;
 
 /// The output a command is asked for: `human` (the CLI default) or `json`
 /// (always, over MCP). The host's, not the command's: no command declares
@@ -480,8 +482,9 @@ pub fn run(
     given: &Map<String, Value>,
     format: CommandFormat,
     host: Option<Host>,
+    caller: Caller<'_>,
 ) -> Result<CommandOutput, RunError> {
-    let mut output = called(view, command, given, format, host)?;
+    let mut output = called(view, command, given, format, host, caller)?;
     settle(view, command, &mut output)?;
     Ok(output)
 }
@@ -493,8 +496,10 @@ pub(crate) fn called(
     given: &Map<String, Value>,
     format: CommandFormat,
     host: Option<Host>,
+    caller: Caller<'_>,
 ) -> Result<CommandOutput, RunError> {
-    run_on(view, command, given, format, host, instant())
+    let lent = lend::port_call(view, caller, command.extension(), Operation::Command);
+    run_on(view, command, given, format, host, lent, instant())
 }
 
 /// Keep the state `output` patched (and take it out of `output`), unless the command failed.
@@ -555,6 +560,7 @@ fn run_on(
     given: &Map<String, Value>,
     format: CommandFormat,
     host: Option<Host>,
+    lent: Option<PortCall>,
     at: chrono::DateTime<chrono::Utc>,
 ) -> Result<CommandOutput, RunError> {
     let mut args = command.normalize(given).map_err(RunError::Args)?;
@@ -587,9 +593,16 @@ fn run_on(
             CallFailure::NotLoaded,
         )));
     };
-    ExtensionCalls::new(runtime.as_ref())
+    let denials = lent.clone();
+    let calls = ExtensionCalls::new(runtime.as_ref()).with_ports(lent);
+    let mut output = calls
         .run_command(command.extension(), command.export(), &input)
-        .map_err(RunError::Call)
+        .map_err(RunError::Call)?;
+    // What the guest was refused, for the person who ran it: the guest was told, and may say nothing.
+    if let Some(lent) = denials {
+        output.stderr.push_str(&lend::written(&lent.take_denials()));
+    }
+    Ok(output)
 }
 
 /// The instant a call is made, taken once: a command, a hook and a writing collector are told its two renderings,

@@ -6,7 +6,7 @@ use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
 use specforge_protocol_types::Operation;
 use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile, RawGraph};
-use specforge_wasm::{CallError, CallFailure, ExtensionCalls};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls, PortCall};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -78,7 +78,7 @@ pub fn dispatch(
     reports: &[CollectReportFile],
     stdout: Option<&str>,
 ) -> Result<CollectOutput, CallError> {
-    dispatch_over(runtime, collector, reports, stdout, None)
+    dispatch_over(runtime, collector, reports, stdout, None, None)
 }
 
 /// [`dispatch`], with `view`'s project root as `cwd` (ADR 0327); a collector that declares `writes` also receives the
@@ -90,6 +90,7 @@ pub(super) fn dispatch_over(
     reports: &[CollectReportFile],
     stdout: Option<&str>,
     view: Option<&ProjectView<'_>>,
+    lent: Option<PortCall>,
 ) -> Result<CollectOutput, CallError> {
     let writing = view.filter(|_| collector.writes);
     let at = crate::extension::command::instant();
@@ -126,5 +127,6 @@ pub(super) fn dispatch_over(
             CallFailure::NotLoaded,
         ));
     };
-    ExtensionCalls::new(runtime).collect_writing(&collector.extension, &collector.export, &input)
+    let calls = ExtensionCalls::new(runtime).with_ports(lent);
+    calls.collect_writing(&collector.extension, &collector.export, &input)
 }

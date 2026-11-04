@@ -48,6 +48,8 @@ struct Wire {
     argv: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     deadline_ms: Option<u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    env: Vec<String>,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -77,6 +79,7 @@ impl TryFrom<Wire> for CapabilityDescriptor {
             PortName::Process => PortScope::Process(ProcessScope {
                 argv: wire.argv.unwrap_or_default(),
                 deadline_ms: wire.deadline_ms,
+                env: wire.env,
             }),
             PortName::Git => PortScope::Git(GitScope {
                 ops: wire
@@ -115,6 +118,7 @@ impl From<CapabilityDescriptor> for Wire {
             ops: None,
             argv: None,
             deadline_ms: None,
+            env: Vec::new(),
         };
         match capability.port {
             PortScope::Http(http) => {
@@ -132,6 +136,7 @@ impl From<CapabilityDescriptor> for Wire {
                 wire.port = PortName::Process;
                 wire.argv = Some(process.argv);
                 wire.deadline_ms = process.deadline_ms;
+                wire.env = process.env;
             }
             PortScope::Git(git) => {
                 wire.port = PortName::Git;
@@ -294,6 +299,10 @@ pub struct ProcessScope {
     /// The run's deadline, held to the host's ceiling.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deadline_ms: Option<u32>,
+    /// The environment variables, by name, the program inherits or a guest may set beside what any program needs to
+    /// work. A person approves them with the command: another name asks again.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub env: Vec<String>,
 }
 
 /// A git capability.
@@ -369,8 +378,17 @@ pub fn capability_problems(declaration: &ExtensionDeclaration) -> Vec<Capability
             );
         }
         match &capability.port {
-            PortScope::Process(process) if process.argv.is_empty() => {
-                problem("its `argv` is empty".to_string())
+            PortScope::Process(process) => {
+                if process.argv.is_empty() {
+                    problem("its `argv` is empty".to_string());
+                }
+                for name in process
+                    .env
+                    .iter()
+                    .filter(|name| name.is_empty() || name.contains(['=', '\0']))
+                {
+                    problem(format!("its `env` name '{name}' is no variable's name"));
+                }
             }
             PortScope::Http(http) => {
                 if let Hosts::List(hosts) = &http.hosts {
