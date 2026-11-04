@@ -8,6 +8,7 @@ use crate::refusal::ArgumentOf;
 use crate::reply::Answered;
 use crate::target::ProjectRef;
 use crate::tool::McpError;
+use specforge_ops::analysis::check::{CheckField, parse_effects};
 use specforge_ops::analysis::collect::CollectField;
 use specforge_ops::authoring::apply::apply_collected;
 
@@ -24,6 +25,9 @@ pub struct Args {
     run: bool,
     /// Plan a writing collector's edits and write none of them (the report is still recorded)
     dry_run: bool,
+    /// Whether an http or process effect the collector asks for is performed, reused or replayed (ADR 0337): cached (the default) performs none and answers from the effects journal; replay answers only from it; online and auto perform what the collector's approved capabilities allow
+    #[arg(names = &specforge_effects::EffectsMode::NAMES)]
+    effects: Option<String>,
 }
 
 pub(crate) struct Tool;
@@ -33,6 +37,12 @@ impl ArgumentOf<CollectField> for Tool {
         match field {
             CollectField::Runner => Some("runner"),
         }
+    }
+}
+
+impl ArgumentOf<CheckField> for Tool {
+    fn argument(field: CheckField) -> Option<&'static str> {
+        matches!(field, CheckField::Effects).then_some("effects")
     }
 }
 
@@ -57,6 +67,13 @@ impl CoreTool for Tool {
 
         let runner = args.runner.as_deref();
         let run = args.run;
+        let mode = args
+            .effects
+            .as_deref()
+            .map(parse_effects)
+            .transpose()
+            .map_err(Self::refused)?
+            .unwrap_or(specforge_effects::EffectsMode::Cached);
 
         // Tests map to the entities on disk now: the target brought the served
         // project up to date, or compiled the project `path` names for this
@@ -81,7 +98,7 @@ impl CoreTool for Tool {
             // Every file the collect reads or writes lands inside the call's project, and the
             // server never prompts: a command runs only if the user already approved it for this
             // project with `specforge collect` in a terminal.
-            caller: project.caller().lending(project.ports, consent),
+            caller: project.caller().lending(project.ports, consent, mode),
         };
         let view = project.view();
         let mut outcome = collect::collect(&view, request, project.machine, consent)

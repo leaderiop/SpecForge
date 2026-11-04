@@ -500,7 +500,9 @@ mod lending {
 
     use serde_json::Map;
     use specforge_effects::testing::{self, FakeHttp, MemoryConsent};
-    use specforge_effects::{EffectJournal, Grant, Ports, ProcessRequest, Provenance, Roots};
+    use specforge_effects::{
+        EffectJournal, EffectsMode, Grant, Ports, ProcessRequest, Provenance, Roots,
+    };
     use specforge_extension_sdk::host;
     use specforge_extension_sdk::prelude::*;
     use specforge_ops::asking::Asking;
@@ -578,7 +580,11 @@ mod lending {
         };
         let consent = MemoryConsent::approving_everything();
         let containment = Containment::unbounded();
-        let caller = Caller::new(&containment, Asking::Nobody).lending(&ports, &consent);
+        let caller = Caller::new(&containment, Asking::Nobody).lending(
+            &ports,
+            &consent,
+            EffectsMode::Online,
+        );
 
         let output = run(&view, ping, &Map::new(), CommandFormat::Json, None, caller).unwrap();
 

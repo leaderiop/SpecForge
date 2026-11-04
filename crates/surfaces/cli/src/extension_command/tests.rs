@@ -74,6 +74,33 @@ fn parse(argv: &[&str]) -> Result<Map<String, Value>, clap::Error> {
     parse_with_format(argv).map(|(args, _)| args)
 }
 
+#[test]
+fn a_command_lends_online_unless_effects_says_otherwise_or_is_its_own_arg() {
+    use specforge_effects::EffectsMode;
+    let lent = |c: &CommandDescriptor, argv: &[&str]| {
+        let command = ExtensionCommand::new("@acme/x", "x", c);
+        let matches = command_line("x", &[&command])
+            .try_get_matches_from(std::iter::once("specforge x").chain(argv.iter().copied()))
+            .unwrap();
+        lent_mode(&command, matches.subcommand().unwrap().1)
+    };
+    let name = "milestone-completion";
+    let plain = contribution();
+    assert_eq!(lent(&plain, &[name, "m"]), EffectsMode::Online);
+    assert_eq!(
+        lent(&plain, &[name, "m", "--effects", "replay"]),
+        EffectsMode::Replay
+    );
+
+    let mut own = contribution();
+    own.args
+        .push(arg("effects", CommandArgType::String, false, None));
+    assert_eq!(
+        lent(&own, &[name, "m", "--effects", "x"]),
+        EffectsMode::Online
+    );
+}
+
 /// `c`, a command of `@acme/x` (short name `x`).
 fn declared(c: CommandDescriptor) -> ExtensionCommand {
     ExtensionCommand::new("@acme/x", "x", &c)

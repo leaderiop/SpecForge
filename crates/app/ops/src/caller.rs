@@ -2,7 +2,7 @@
 //! A surface builds one per command or call and hands it, unchanged, to every request it fills; an operation
 //! reads its parts where it opens a file (ADR 0104) or puts a question (ADR 0110).
 
-use specforge_effects::{Consent, Ports};
+use specforge_effects::{Consent, EffectsMode, Ports};
 
 use crate::Containment;
 use crate::asking::Asking;
@@ -21,6 +21,7 @@ pub struct Caller<'a> {
 pub struct Lending<'a> {
     ports: &'a Ports,
     consent: &'a dyn Consent,
+    mode: EffectsMode,
 }
 
 impl<'a> Lending<'a> {
@@ -34,6 +35,12 @@ impl<'a> Lending<'a> {
     #[must_use]
     pub const fn consent(&self) -> &'a dyn Consent {
         self.consent
+    }
+
+    /// The run's effects mode: what a lent http or process request does (ADR 0337 D4).
+    #[must_use]
+    pub const fn mode(&self) -> EffectsMode {
+        self.mode
     }
 }
 
@@ -54,12 +61,21 @@ impl<'a> Caller<'a> {
         }
     }
 
-    /// This caller, lending `ports` under `consent` to an effectful extension call. None lent: a port it calls is
-    /// answered `denied(scope)`.
+    /// This caller, lending `ports` under `consent` to an effectful extension call, in the run's `mode`. None lent: a
+    /// port it calls is answered `denied(scope)`.
     #[must_use]
-    pub const fn lending(self, ports: &'a Ports, consent: &'a dyn Consent) -> Self {
+    pub const fn lending(
+        self,
+        ports: &'a Ports,
+        consent: &'a dyn Consent,
+        mode: EffectsMode,
+    ) -> Self {
         Caller {
-            lending: Some(Lending { ports, consent }),
+            lending: Some(Lending {
+                ports,
+                consent,
+                mode,
+            }),
             ..self
         }
     }

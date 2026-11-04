@@ -105,9 +105,13 @@ impl<'a> ProjectRef<'a> {
         lent(self.view.containment())
     }
 
-    /// `run` under [`Self::caller`], which lends the server's ports to an effectful extension call under stored
-    /// approvals only (ADR 0335 D4).
-    pub fn lending<R>(&self, run: impl FnOnce(Caller<'_>) -> R) -> R {
+    /// `run` under [`Self::caller`], which lends the server's ports to an effectful extension call in `mode`, under
+    /// stored approvals only (ADR 0335 D4).
+    pub fn lending<R>(
+        &self,
+        mode: specforge_effects::EffectsMode,
+        run: impl FnOnce(Caller<'_>) -> R,
+    ) -> R {
         let user;
         let consent: &dyn specforge_effects::Consent = match self.consent {
             Some(consent) => consent,
@@ -116,7 +120,7 @@ impl<'a> ProjectRef<'a> {
                 &user
             }
         };
-        run(self.caller().lending(self.ports, consent))
+        run(self.caller().lending(self.ports, consent, mode))
     }
 
     /// Whether it is the served project (not one a `path` named): the server

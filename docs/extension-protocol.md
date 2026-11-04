@@ -1079,6 +1079,14 @@ capability's `secret_header` itself, and no answer shows it (ADR 0288). A progra
 names, and a guest can't set its `PATH`, `PATHEXT`, `LD_*` or `DYLD_*`. A `git` revision or path can't be an option or
 climb out of the repository, and a file the disk withholds is withheld at a commit too.
 
+**Effects mode.** A port call's `http` and `process` requests run in its run's mode (`online`, `auto`, `cached`,
+`replay`; ADR 0337 D4); `fs` and `git` are local reads every mode performs. A CLI extension command and `specforge collect`
+default to `online`, and take `--effects`. An MCP tool of an extension with an http or process capability, and MCP `collect`,
+take an `effects` argument, default `cached`; an MCP resource read stays `cached`. So does a dry run, unless it asked for
+`replay`. A request the mode does not perform fails with class `not_performed`, and one `replay` has no record of with
+class `not_in_journal`. A record is its asker's: keyed by the extension, the capability and the name of the secret it
+attaches. Only a `GET` is answered from a fresh record; outside `replay`, any other method is never.
+
 **Answers.** Every byte payload is held to a quarter of the guest's memory (`max_memory_mb`), and says `truncated` when
 it was cut, so an answer can't trap the guest. A listing that can't say so fails with class `capped`. In a request `0`
 asks for the most the call may have, and every cap and deadline is held to the port's ceiling.

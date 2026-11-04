@@ -1,11 +1,9 @@
-//! What an effectful call is lent (ADR 0335 D4): the caller's ports, under the extension's grant, settled before the
-//! call so nothing prompts during it. A guest that imports no port (every builtin) is lent nothing and costs nothing.
-//!
-//! Lent effects are `online`: a grant decides what runs, and a command's answer is never another extension's journaled
-//! one, which may have been authenticated.
+//! What an effectful call is lent (ADR 0335 D4): the caller's ports, in its run's effects mode, under the extension's
+//! grant, settled before the call so nothing prompts during it. A guest that imports no port (every builtin) is lent
+//! nothing and costs nothing.
 
 use specforge_common::Diagnostic;
-use specforge_effects::{EffectJournal, Roots, Uses};
+use specforge_effects::{Roots, Uses};
 use specforge_protocol_types::{Operation, SettingsItem};
 use specforge_wasm::PortCall;
 
@@ -53,11 +51,9 @@ pub fn port_call(
     let roots = env
         .effects_allowed()
         .with_named(Roots::new(root, env.spec_root()));
-    let journal = match env.project_root() {
-        Some(root) => EffectJournal::for_root(root),
-        None => EffectJournal::detached(),
-    };
-    let call = PortCall::online(lending.ports(), journal, roots, grant, secrets);
+    let effects =
+        specforge_project::effects::lent(lending.mode(), lending.ports(), env.project_root());
+    let call = PortCall::new(effects, lending.ports(), roots, grant, secrets);
     if let Some(unusable) = unusable {
         call.denials
             .lock()

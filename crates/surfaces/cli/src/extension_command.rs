@@ -50,6 +50,10 @@ const DRY_RUN: &str = "dry-run";
 /// of the JSON answer (ADR 0325). It asks for `json`.
 const PICK: &str = "pick";
 
+/// The host's option on every extension command that declares no arg of the name: the effects mode of what the command
+/// is lent (ADR 0337 D4).
+const EFFECTS: &str = "effects";
+
 /// Run the extension command `argv` names (`argv[0]` is the extension).
 /// `builtins` are the CLI's own commands, suggested for a name no extension
 /// has.
@@ -267,7 +271,11 @@ pub(crate) fn run_in(
             .filter(|_| !command.args().iter().any(|a| a.name == HOST))
             .and_then(|h| Host::from_flag(h)),
         dry_run,
-        crate::caller::of(false, output_format, terminal).lending(ports, &consent),
+        crate::caller::of(false, output_format, terminal).lending(
+            ports,
+            &consent,
+            lent_mode(command, matches),
+        ),
         specforge_ops::authoring::apply::Surface::Cli {
             interactive: terminal.facts().interactive,
         },
@@ -276,6 +284,18 @@ pub(crate) fn run_in(
         Ok(run) => plan::ended(run, format, pick, root.dir(), terminal),
         Err(error) => ended(Err(error), format, terminal),
     }
+}
+
+/// The effects mode of what `command`, as `matches` parsed it, is lent. An arg it declares of the name is its own.
+fn lent_mode(command: &ExtensionCommand, matches: &ArgMatches) -> specforge_effects::EffectsMode {
+    crate::effects::lent(
+        matches
+            .try_get_one::<specforge_effects::EffectsMode>(EFFECTS)
+            .ok()
+            .flatten()
+            .filter(|_| !command.args().iter().any(|a| a.name == EFFECTS))
+            .copied(),
+    )
 }
 
 /// What a command's run writes, and the exit code: the output's stdout and
@@ -583,6 +603,15 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .value_name("HOST")
                     .value_parser(PossibleValuesParser::new(Host::ALL.map(Host::as_str)))
                     .help("The host calling the command: claude-code, codex or cursor"),
+            );
+        }
+        if !command.args().iter().any(|a| a.name == EFFECTS) {
+            sub = sub.arg(
+                Arg::new(EFFECTS)
+                    .long(EFFECTS)
+                    .value_name("MODE")
+                    .value_parser(clap::value_parser!(specforge_effects::EffectsMode))
+                    .help("Whether an http or process effect the command asks for is performed, reused or replayed: online unless given"),
             );
         }
         if kernel_picks(command) {

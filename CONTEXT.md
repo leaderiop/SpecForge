@@ -285,8 +285,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   **Write journal**.
 - **Effects mode**: whether a run performs, reuses or replays an http or process effect: `online`, `auto` (a fresh
   record, else performed when approved), `cached` (a fresh record only) or `replay` (any record, a miss refuses the
-  run). Sessions are `cached`; the CLI's `--effects` chooses, `check` defaulting to `auto` when someone can answer
-  (ADR 0337 D4).
+  run). Sessions are `cached`; the CLI's `--effects` chooses, `check` defaulting to `auto` when someone can answer.
+  What a run lends an extension runs in a mode too: `online` for what a person ran, `cached` for an agent's call or a
+  dry run, each unless asked otherwise (ADR 0337 D4).
 - **Machine diagnostic**: a finding this machine decided (its approvals, its network, its journal), flagged
   `machine`; `--strict` never promotes it and the gate's warning baseline never counts it (I206, I207, W170; ADR 0337 D7).
 - **Capability**: one effect an extension declares it may ask the host for, in its `capabilities` describe category: a

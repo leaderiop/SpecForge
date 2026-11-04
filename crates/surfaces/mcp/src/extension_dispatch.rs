@@ -7,6 +7,7 @@
 //! call's event sink when the export returned, whatever it answered.
 
 use serde_json::{Value, json};
+use specforge_effects::EffectsMode;
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommand, RunError};
 use specforge_ops::extension::lend;
 use specforge_ops::host::Host;
@@ -26,6 +27,12 @@ use crate::tool::{ErrorCode, McpError, ToolOutcome};
 /// refused first, the project resolved after; a command's are normalized by
 /// its run.
 pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value) -> ToolOutcome {
+    let mut arguments = arguments.clone();
+    let mode = match take_effects(entry, &mut arguments) {
+        Ok(mode) => mode,
+        Err(refused) => return (*refused).into(),
+    };
+    let arguments = &arguments;
     let (outcome, dispatched) = match &entry.kind {
         ToolKind::McpTool {
             export,
@@ -37,16 +44,17 @@ pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value
             }
             match call.project() {
                 Ok(project) => {
-                    mcp_tool_adapter(&project, entry, export, output_schema.as_ref(), arguments)
+                    let schema = output_schema.as_ref();
+                    mcp_tool_adapter(&project, entry, export, schema, arguments, mode)
                 }
                 Err(refused) => (refused.into(), None),
             }
         }
         ToolKind::Command(command) if command.writes() => {
-            return writing::run(call, entry, command, arguments);
+            return writing::run(call, entry, command, arguments, mode);
         }
         ToolKind::Command(command) => match call.project() {
-            Ok(project) => command_adapter(&project, command, arguments, call.host()),
+            Ok(project) => command_adapter(&project, command, arguments, call.host(), mode),
             Err(refused) => (refused.into(), None),
         },
     };
@@ -54,6 +62,43 @@ pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value
         call.events().record(event);
     }
     outcome
+}
+
+/// The host's argument on an extension tool that takes it ([`ToolEntry::takes_effects`]).
+pub(crate) const EFFECTS: &str = "effects";
+
+/// The schema of the host's `effects` argument.
+pub(crate) fn effects_schema() -> Value {
+    json!({
+        "type": "string",
+        "enum": EffectsMode::NAMES,
+        "description": "Whether an http or process effect the tool asks for is performed, reused or replayed (ADR 0337): cached (the default) performs none and answers from the effects journal; replay answers only from it; online and auto perform what the extension's approved capabilities allow",
+    })
+}
+
+/// The mode of what `entry`'s call is lent: its `effects` argument, taken out of `arguments`, else `cached`: an agent's
+/// call stays off the network until it asks otherwise (ADR 0337 D4).
+fn take_effects(entry: &ToolEntry, arguments: &mut Value) -> Result<EffectsMode, Box<McpError>> {
+    let asked = entry
+        .takes_effects
+        .then(|| arguments.as_object_mut()?.remove(EFFECTS))
+        .flatten();
+    let Some(asked) = asked else {
+        return Ok(EffectsMode::Cached);
+    };
+    asked
+        .as_str()
+        .and_then(|name| EffectsMode::parse(&name.to_ascii_lowercase()))
+        .ok_or_else(|| {
+            let names = EffectsMode::NAMES.join(", ");
+            Box::new(
+                McpError::new(
+                    ErrorCode::InvalidInput,
+                    format!("`{EFFECTS}` must be one of {names}"),
+                )
+                .with_argument(EFFECTS),
+            )
+        })
 }
 
 /// The extension resource `entry`, read at `uri` over the call's project. A
@@ -99,9 +144,10 @@ fn mcp_tool_adapter(
     export: &str,
     output_schema: Option<&Value>,
     arguments: &Value,
+    mode: EffectsMode,
 ) -> (ToolOutcome, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    let lent = project.lending(|caller| {
+    let lent = project.lending(mode, |caller| {
         lend::port_call(
             &project.view(),
             caller,
@@ -167,10 +213,11 @@ fn command_adapter(
     command: &ExtensionCommand,
     arguments: &Value,
     host: Option<Host>,
+    mode: EffectsMode,
 ) -> (ToolOutcome, Option<McpEvent>) {
     let given = arguments.as_object().cloned().unwrap_or_default();
     let started = std::time::Instant::now();
-    let run = project.lending(|caller| {
+    let run = project.lending(mode, |caller| {
         specforge_ops::extension::command::run(
             &project.view(),
             command,
@@ -242,7 +289,8 @@ fn resource_adapter(
     let started = std::time::Instant::now();
     // shortcut: a read has no place for a diagnostic, so a resource's E090 reaches only its guest, as `denied(scope)`;
     // when a read outcome carries diagnostics, report them here as a tool does.
-    let lent = project.lending(|caller| {
+    // A read takes no argument of the host's, so it stays `cached` (ADR 0337 D4).
+    let lent = project.lending(EffectsMode::Cached, |caller| {
         lend::port_call(
             &project.view(),
             caller,

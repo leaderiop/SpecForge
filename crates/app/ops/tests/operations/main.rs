@@ -67,6 +67,7 @@ mod journal;
 mod judged_inputs;
 mod judged_writes;
 mod kinds;
+mod lent_effects;
 mod local_component;
 mod lock_records;
 mod locked_requirers;

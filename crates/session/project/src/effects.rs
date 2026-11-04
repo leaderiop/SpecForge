@@ -31,6 +31,13 @@ pub fn of(
     Effects::of(mode, ports.clone(), approved, EffectJournal::for_root(root))
 }
 
+/// The effects of a call lent `ports` in `mode`, over the journal of `root` (none: detached). A guest's request reaches
+/// them only once its grant permitted it, so what `auto` performs is already decided.
+pub fn lent(mode: EffectsMode, ports: &Ports, root: Option<&ProjectRoot>) -> Effects {
+    let journal = root.map_or_else(EffectJournal::detached, EffectJournal::for_root);
+    Effects::of(mode, ports.clone(), Arc::new(|_| true), journal)
+}
+
 /// Whether one of `grants` permits a request. shortcut: a request names no call kind, so any kind answers; plan 05's
 /// value checks name `Operation::CheckValues` here.
 fn approved_by(grants: Vec<Grant>) -> Approved {

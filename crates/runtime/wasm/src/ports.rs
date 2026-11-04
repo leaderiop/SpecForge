@@ -14,11 +14,11 @@ use specforge_effects::contained::withheld;
 use specforge_effects::fs::{FileKind, READ_CEILING};
 use specforge_effects::git::{GitPlace, Located, Sha};
 use specforge_effects::http::{self, guest_body_cap};
-use specforge_effects::journal::{Answer, Blob};
+use specforge_effects::journal::{Answer, Blob, LentRecord};
 use specforge_effects::process::{DEADLINE_CEILING, OUTPUT_CAP, Output, ProcessClass};
 use specforge_effects::{
     Denial as Refusal, Denied, EffectJournal, EffectRequest, Effects, FsOp, FsRequest, Grant,
-    Outcome, OutcomeClass, Ports, Roots, Served, SharedFs, SharedGit, UnixMillis,
+    Granted, Outcome, OutcomeClass, Ports, Roots, Served, SharedFs, SharedGit, UnixMillis,
 };
 use specforge_protocol_types::{
     Denial, EnvVar, Failure, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
@@ -44,16 +44,16 @@ pub struct PortCall {
 }
 
 impl PortCall {
-    /// `grant` over live `ports`: it decides what runs, so the effects are `online`, with a record in `journal`.
-    pub fn online(
+    /// `grant` over `ports`, its http and process requests served through `effects`: the run's mode (ADR 0337 D4).
+    pub fn new(
+        effects: Effects,
         ports: &Ports,
-        journal: EffectJournal,
         roots: Roots,
         grant: Grant,
         secrets: Vec<String>,
     ) -> Self {
         PortCall {
-            effects: Arc::new(Effects::online(ports.clone(), journal)),
+            effects: Arc::new(effects),
             fs: Arc::clone(&ports.fs),
             git: Arc::clone(&ports.git),
             roots: Arc::new(roots),
@@ -61,6 +61,18 @@ impl PortCall {
             secrets,
             denials: Arc::default(),
         }
+    }
+
+    /// [`Self::new`], `online`, with a record in `journal`.
+    pub fn online(
+        ports: &Ports,
+        journal: EffectJournal,
+        roots: Roots,
+        grant: Grant,
+        secrets: Vec<String>,
+    ) -> Self {
+        let effects = Effects::online(ports.clone(), journal);
+        Self::new(effects, ports, roots, grant, secrets)
     }
 
     /// The denials kept so far, taken: what the caller reports once the call ended.
@@ -239,15 +251,14 @@ impl PortSession {
         }
     }
 
-    /// `request`'s capability name, or why the grant refuses it.
-    fn scope_of(
+    /// The capability that permits `request`, or why the grant refuses it.
+    fn granted<'c>(
         kind: Operation,
-        call: &PortCall,
+        call: &'c PortCall,
         request: &EffectRequest,
-    ) -> Result<String, HostError> {
+    ) -> Result<&'c Granted, HostError> {
         call.grant
             .permitted(kind, request)
-            .map(|granted| granted.declared.name.clone())
             .map_err(|refusal| Self::refused(call, refusal))
     }
 
@@ -267,9 +278,9 @@ impl PortSession {
             ..request
         };
         let asked = EffectRequest::Http(request.clone());
-        let scope = Self::scope_of(kind, call, &asked)?;
+        let lent = lent_record(call, Self::granted(kind, call, &asked)?);
         let mut live = None;
-        let served = call.effects.serve(&scope, &asked, now(), |ports| {
+        let served = call.effects.serve_lent(lent, &asked, now(), |ports| {
             let granted = call.grant.http(kind, Arc::clone(&ports.http));
             let outcome = granted.request(&request, &http::Any);
             let answer = answered(outcome.class, &outcome.body);
@@ -324,7 +335,7 @@ impl PortSession {
             )));
         }
         let asked = EffectRequest::Fs(request.clone());
-        Self::scope_of(kind, call, &asked)?;
+        Self::granted(kind, call, &asked)?;
         let outcome = call
             .grant
             .fs(kind, Arc::clone(&call.fs))
@@ -441,11 +452,7 @@ impl PortSession {
             ..request
         };
         let asked = EffectRequest::Process(request.clone());
-        let granted = call
-            .grant
-            .permitted(kind, &asked)
-            .map_err(|refusal| Self::refused(call, refusal))?;
-        let scope = granted.declared.name.as_str();
+        let granted = Self::granted(kind, call, &asked)?;
         // What the capability declares is the most it runs for, under the port's ceiling.
         let most = match &granted.declared.port {
             PortScope::Process(ProcessScope {
@@ -459,8 +466,9 @@ impl PortSession {
             ..request
         };
         let asked = EffectRequest::Process(request.clone());
+        let lent = lent_record(call, granted);
         let mut live = None;
-        let served = call.effects.serve(scope, &asked, now(), |ports| {
+        let served = call.effects.serve_lent(lent, &asked, now(), |ports| {
             let granted = call.grant.process(kind, Arc::clone(&ports.process));
             let outcome = granted.run(&request, call.roots.project(), Output::Buffer);
             let answer = answered(outcome.class.outcome(), &outcome.stdout);
@@ -658,6 +666,15 @@ impl PortSession {
             ));
         }
         Ok(())
+    }
+}
+
+/// Whose a request's record is: `call`'s extension, through `granted`, with the secret it attaches (ADR 0335 D4).
+fn lent_record<'c>(call: &'c PortCall, granted: &'c Granted) -> LentRecord<'c> {
+    LentRecord {
+        extension: call.grant.extension(),
+        capability: &granted.declared.name,
+        secret_env: granted.secret.as_ref().map(|secret| secret.env.as_str()),
     }
 }
 

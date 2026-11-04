@@ -49,6 +49,7 @@ pub(super) fn run(
     entry: &ToolEntry,
     command: &ExtensionCommand,
     arguments: &Value,
+    mode: specforge_effects::EffectsMode,
 ) -> ToolOutcome {
     let mut given = arguments.as_object().cloned().unwrap_or_default();
     let dry_run = match given.remove(DRY_RUN) {
@@ -61,7 +62,7 @@ pub(super) fn run(
         }
     };
     let (mutation, dispatched) = match call.project() {
-        Ok(project) => attempt(&project, command, &given, call.host(), dry_run),
+        Ok(project) => attempt(&project, command, &given, call.host(), dry_run, mode),
         Err(refused) => return mutation::refused(&entry.name, dry_run, refused, call.events()),
     };
     if let Some(event) = dispatched {
@@ -77,9 +78,10 @@ fn attempt(
     given: &serde_json::Map<String, Value>,
     host: Option<Host>,
     dry_run: bool,
+    mode: specforge_effects::EffectsMode,
 ) -> (Mutation<CommandReply>, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    let run = project.lending(|caller| {
+    let run = project.lending(mode, |caller| {
         execute(
             &project.view(),
             command,

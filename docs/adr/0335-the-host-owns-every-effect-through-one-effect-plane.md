@@ -157,8 +157,17 @@ the workspace.
 - **An effectful call of a guest that imports a port runs on its own instance, outside the extension's lock.** A long
   port call does not stop the extension's passes, and two such calls run concurrently, each in its own memory. A guest
   that imports none (every builtin) keeps its shared instance, and is lent nothing.
-- **What is lent is `online`.** The grant decides what runs, and a lent call never reads another extension's journaled
-  answer, which may have been authenticated.
+- **A lent call runs in its run's mode (ADR 0337 D4).** A person who ran a command or `collect` asked for that run, so
+  it is `online` unless `--effects` says otherwise; an agent's call over MCP is `cached` unless its `effects` argument
+  says otherwise; a resource read, the hook, watch and the LSP stay `cached`. `Effects` holds what `cached` and `replay`
+  need and no port, and fs and git are local reads every mode performs.
+- **A lent record is its asker's.** It is keyed by the extension, the capability and the name of the secret attached
+  (`Effects::serve_lent`): under `cached` or `replay`, an extension never reads another's answer, which may have been
+  authenticated, and no guest reads a host-run check's.
+- **Only a `GET` answers again.** A request of any other method asked for something to happen, and a record 24 hours
+  old cannot say it did: outside `replay`, it is never answered from a fresh record. `cached` answers it
+  `not_performed`, and `auto` performs it again when granted. `replay` answers from the record, since it performs
+  nothing and the caller asked for the past. A process has no fresh record at all (ADR 0337 D3).
 - **The LSP never runs a port on a worker.** It makes no effectful call: a port it reached would be `denied(call-kind)`.
 
 ## D5. The load seam reads imports first

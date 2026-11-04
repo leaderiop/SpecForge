@@ -120,6 +120,11 @@ pub enum Input {
   terminal at stdin) and `CI` is unset, else `cached`; `watch` and every other command run `cached`. `--effects`
   always wins. MCP `validate` takes `effects` (default `cached`) and re-runs the effect phases for that call over the
   served compile, as `since` re-judges, so I017 is kept. The CLI and MCP build the effects of a run in one place.
+- **What a run lends an extension runs in a mode too** (`specforge_project::effects::lent`, ADR 0335 D4). A CLI
+  extension command and `collect` default to `online`, a person having asked for that run, and `--effects` wins (a
+  command that declares its own `effects` arg keeps it, and runs `online`). An MCP extension tool of an extension with
+  an http or process capability, and MCP `collect`, take `effects`, default `cached`; a resource read has no such
+  argument and stays `cached`. So does any `--dry-run`, unless it asked for `replay`.
 - A replay miss refuses the run (`not_in_journal`, exit 2), listing each missed request. It is no diagnostic: a test
   or a forensic replay fails loudly, and a user never reads it as a project finding.
 

@@ -38,7 +38,7 @@ pub use gate::{Port, gate};
 pub use git::{Git, SharedGit};
 pub use grant::{Denial, Denied, Grant, Granted, Need, OutsideRoot, Uses};
 pub use http::{Http, HttpOutcome, Redirects, SharedHttp};
-pub use journal::{Answer, EffectJournal, EffectRecord, RecordDigest};
+pub use journal::{Answer, EffectJournal, EffectRecord, LentRecord, RecordDigest};
 pub use mode::{Effects, EffectsMode, Served};
 pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, SharedProcess, Shown};
 pub use provenance::Provenance;
