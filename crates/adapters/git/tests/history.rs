@@ -512,3 +512,80 @@ fn a_status_past_its_deadline_is_an_error() {
     assert!(timed.is_err(), "{timed:?}");
     assert!(Gix::default().status(&place).unwrap().dirty());
 }
+
+/// A blob over the cap is sized and never read: `blob` gives no bytes, a diff of it counts no lines and says
+/// `truncated`, from a commit and from the worktree; a patch past its cap is cut at a line.
+#[test]
+fn a_read_past_the_caps_is_sized_and_truncated_not_read() {
+    use specforge_effects::git::{BLOB_CAP, DiffQuery, DiffSide, PATCH_CAP};
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    let big = vec![b'a'; usize::try_from(BLOB_CAP).unwrap() + 1];
+    let lines = |tag: &str| -> String {
+        (0..PATCH_CAP / 8)
+            .map(|n| format!("{tag}{n:06}\n"))
+            .collect()
+    };
+    repo.write("big.txt", &big).write("long.txt", lines("a"));
+    let base = repo.commit_all("first");
+    let place = place(&repo);
+    let blob = Gix::default()
+        .blob(&place, "HEAD:big.txt")
+        .unwrap()
+        .unwrap();
+    assert_eq!(blob.size, BLOB_CAP + 1);
+    assert_eq!(blob.bytes, None);
+
+    let mut changed = big.clone();
+    changed[0] = b'b';
+    repo.write("big.txt", &changed)
+        .write("long.txt", lines("b"));
+    for head in [DiffSide::Worktree, {
+        repo.commit_all("second");
+        DiffSide::Commit(Sha::new(repo.sha("HEAD")))
+    }] {
+        let files = Gix::default()
+            .diff(
+                &place,
+                &DiffQuery {
+                    base: Sha::new(base.clone()),
+                    head: head.clone(),
+                    paths: Vec::new(),
+                    patch: true,
+                },
+            )
+            .unwrap();
+        let file = |path: &str| files.iter().find(|f| f.path == path).unwrap();
+        let big = file("big.txt");
+        assert!(big.truncated && big.patch.is_none(), "{head:?}: {big:?}");
+        assert_eq!((big.added, big.removed), (0, 0));
+        let long = file("long.txt");
+        let patch = long.patch.as_deref().unwrap();
+        assert!(long.truncated && patch.len() <= PATCH_CAP, "{head:?}");
+        assert!(patch.ends_with('\n'));
+    }
+}
+
+/// A log lists at most `max` commits and still counts every commit it walks, as `rev-list --count` does.
+#[test]
+fn a_log_past_its_max_counts_every_commit() {
+    use specforge_effects::git::LogQuery;
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    for n in 0..5 {
+        repo.write("a.txt", format!("{n}"));
+        repo.commit_all(&format!("c{n}"));
+    }
+    let log = Gix::default()
+        .log(
+            &place(&repo),
+            &LogQuery {
+                tips: vec![Sha::new(repo.sha("HEAD"))],
+                max: Some(2),
+                ..LogQuery::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(log.count, 5);
+    assert_eq!(log.commits.len(), 2);
+}

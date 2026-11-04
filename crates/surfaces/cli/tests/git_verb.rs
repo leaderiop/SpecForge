@@ -383,7 +383,7 @@ fn show_answers_a_file_at_a_revision() {
     );
     assert_eq!(
         git(&project, &["show", "HEAD:a.txt"]).exits(0).json(),
-        json!({"sha": repo.sha("HEAD:a.txt"), "bytes": 8, "binary": false, "text": "one\ntwo\n"})
+        json!({"sha": repo.sha("HEAD:a.txt"), "bytes": 8, "binary": false, "truncated": false, "text": "one\ntwo\n"})
     );
     let refused = git(&project, &["show", "HEAD"]);
     assert_eq!(refused.json()["code"], "not_a_blob", "{}", refused.stdout);

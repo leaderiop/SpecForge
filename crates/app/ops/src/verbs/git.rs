@@ -4,7 +4,7 @@
 use serde::Serialize;
 use specforge_effects::git::{
     DiffQuery, DiffSide, GitBranchRef, GitCommit, GitError, GitFileDiff, GitPlace, GitRemote,
-    GitStatus, Located, LogQuery, ObjectKind, Sha,
+    GitStatus, LOG_MAX, Located, LogQuery, ObjectKind, Sha, is_binary,
 };
 
 use super::{USER, Verbs, slashed};
@@ -94,6 +94,8 @@ const UNKNOWN_REVISION: &str = "unknown_revision";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LogAnswer {
     pub count: usize,
+    /// The listing stopped at its `--max` (or at [`LOG_MAX`] when none was given) before `count` commits.
+    pub truncated: bool,
     pub commits: Vec<GitCommit>,
 }
 
@@ -144,9 +146,11 @@ pub struct MergeBaseAnswer {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ShowAnswer {
     pub sha: String,
-    pub bytes: usize,
+    pub bytes: u64,
     /// A NUL in the first 8000 bytes, as git decides.
     pub binary: bool,
+    /// Over [`specforge_effects::git::BLOB_CAP`]: the blob is sized, not read, so it has no text (and `binary` is not judged).
+    pub truncated: bool,
     pub text: Option<String>,
 }
 
@@ -342,6 +346,7 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
     if tips.is_empty() {
         return Ok(LogAnswer {
             count: 0,
+            truncated: false,
             commits: Vec::new(),
         });
     }
@@ -350,12 +355,13 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
         hidden,
         paths: request.paths.clone(),
         first_parent: request.first_parent,
-        max: request.max,
+        max: Some(request.max.unwrap_or(LOG_MAX)),
     };
-    let commits = verbs.ports().git.log(&place, &query).map_err(failed)?;
+    let log = verbs.ports().git.log(&place, &query).map_err(failed)?;
     Ok(LogAnswer {
-        count: commits.len(),
-        commits,
+        count: log.count,
+        truncated: log.count > log.commits.len(),
+        commits: log.commits,
     })
 }
 
@@ -427,19 +433,19 @@ pub fn show(verbs: &Verbs, revision: &str) -> Result<ShowAnswer, OpError> {
         }
         Some(_) => {}
     }
-    let Some((sha, bytes)) = git.blob(&place, revision).map_err(failed)? else {
+    let Some(blob) = git.blob(&place, revision).map_err(failed)? else {
         return Err(failed(GitError(format!("git cannot give {revision}"))));
     };
-    let binary = bytes[..bytes.len().min(8000)].contains(&0);
+    let binary = blob.bytes.as_deref().is_some_and(is_binary);
     Ok(ShowAnswer {
-        sha: sha.as_str().to_string(),
-        bytes: bytes.len(),
+        sha: blob.sha.as_str().to_string(),
+        bytes: blob.size,
         binary,
-        text: if binary {
-            None
-        } else {
-            String::from_utf8(bytes).ok()
-        },
+        truncated: blob.bytes.is_none(),
+        text: blob
+            .bytes
+            .filter(|_| !binary)
+            .and_then(|bytes| String::from_utf8(bytes).ok()),
     })
 }
 

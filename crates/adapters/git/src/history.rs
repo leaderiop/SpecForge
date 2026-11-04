@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use gix::bstr::ByteSlice as _;
-use specforge_effects::git::{DiffStatus, GitCommit, GitError, GitFileDiff, GitPerson, Sha};
+use specforge_effects::git::{
+    BLOB_CAP, DiffStatus, GitCommit, GitError, GitFileDiff, GitPerson, PATCH_CAP, Sha, is_binary,
+};
 
 use crate::{failed, id};
 
@@ -133,12 +135,17 @@ pub(crate) fn tree_of(repo: &gix::Repository, sha: &Sha) -> Result<gix::ObjectId
         .map_err(|e| read(&e))
 }
 
-/// The index as a tree, kept in memory; with `worktree`, each tracked file as it is on disk instead.
+/// Blobs a diff names but never reads: worktree files over [`BLOB_CAP`], hashed as they stream and kept out of memory.
+pub(crate) type Unread = std::collections::HashSet<gix::ObjectId>;
+
+/// The index as a tree, kept in memory; with `worktree`, each tracked file as it is on disk instead, and the files over
+/// the cap it hashed without keeping.
 // shortcut: no clean filters (autocrlf, LFS) are applied to a worktree file; upgrade when a block diffs one
 pub(crate) fn index_tree(
     repo: &gix::Repository,
     worktree: bool,
-) -> Result<gix::ObjectId, GitError> {
+) -> Result<(gix::ObjectId, Unread), GitError> {
+    let mut unread = Unread::new();
     use gix::objs::tree::EntryKind;
     let index = repo
         .index_or_empty()
@@ -188,13 +195,20 @@ pub(crate) fn index_tree(
                 | EntryStatus::Conflict { .. }
                 | EntryStatus::IntentToAdd => {
                     let file = top.join(gix::path::from_bstr(rela_path.as_bstr()));
-                    let Some((kind, bytes)) = on_disk(&file) else {
+                    let Some((kind, content)) = on_disk(&file, repo.object_hash()) else {
                         continue;
                     };
-                    let blob = repo
-                        .write_blob(bytes)
-                        .map_err(|e| failed("hash a file", &e))?;
-                    tree.upsert(rela_path.as_bstr(), kind, blob.detach())
+                    let blob = match content {
+                        OnDisk::Bytes(bytes) => repo
+                            .write_blob(bytes)
+                            .map_err(|e| failed("hash a file", &e))?
+                            .detach(),
+                        OnDisk::Over(id) => {
+                            unread.insert(id);
+                            id
+                        }
+                    };
+                    tree.upsert(rela_path.as_bstr(), kind, blob)
                         .map_err(|e| failed("build a tree", &e))?;
                 }
                 _ => {}
@@ -202,19 +216,26 @@ pub(crate) fn index_tree(
         }
     }
     tree.write()
-        .map(|id| id.detach())
+        .map(|id| (id.detach(), unread))
         .map_err(|e| failed("build a tree", &e))
 }
 
-/// A file on disk as a tree holds it: its kind and its bytes (a link's target); `None` when it is gone.
-fn on_disk(file: &Path) -> Option<(gix::objs::tree::EntryKind, Vec<u8>)> {
+/// What a worktree file gives a tree: its bytes, or, over [`BLOB_CAP`], only its blob id, hashed as it streams.
+enum OnDisk {
+    Bytes(Vec<u8>),
+    Over(gix::ObjectId),
+}
+
+/// A file on disk as a tree holds it: its kind and its content (a link's target); `None` when it is gone or is no
+/// regular file.
+fn on_disk(file: &Path, hash: gix::hash::Kind) -> Option<(gix::objs::tree::EntryKind, OnDisk)> {
     use gix::objs::tree::EntryKind;
     let meta = std::fs::symlink_metadata(file).ok()?;
     if meta.file_type().is_symlink() {
         let target = std::fs::read_link(file).ok()?;
         return Some((
             EntryKind::Link,
-            gix::path::into_bstr(target).into_owned().into(),
+            OnDisk::Bytes(gix::path::into_bstr(target).into_owned().into()),
         ));
     }
     let kind = if executable(&meta) {
@@ -222,7 +243,23 @@ fn on_disk(file: &Path) -> Option<(gix::objs::tree::EntryKind, Vec<u8>)> {
     } else {
         EntryKind::Blob
     };
-    Some((kind, std::fs::read(file).ok()?))
+    let mut opened = specforge_common::regular::open_any(file).ok()?;
+    let length = opened.metadata().ok()?.len();
+    if length > BLOB_CAP {
+        let id = gix::objs::compute_stream_hash(
+            hash,
+            gix::objs::Kind::Blob,
+            &mut opened,
+            length,
+            &mut gix::progress::Discard,
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+        .ok()?;
+        return Some((kind, OnDisk::Over(id)));
+    }
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut std::io::Read::take(opened, BLOB_CAP), &mut bytes).ok()?;
+    Some((kind, OnDisk::Bytes(bytes)))
 }
 
 #[cfg(unix)]
@@ -236,17 +273,13 @@ fn executable(_: &std::fs::Metadata) -> bool {
     false
 }
 
-/// Whether `bytes` are binary as git decides: a NUL in the first 8000.
-fn binary(bytes: &[u8]) -> bool {
-    bytes[..bytes.len().min(8000)].contains(&0)
-}
-
 /// One tree change as a diff answers it; `None` for a directory or a path the query does not keep.
 pub(crate) fn file_diff(
     repo: &gix::Repository,
     change: gix::object::tree::diff::ChangeDetached,
     paths: &[String],
     patch: bool,
+    unread: &Unread,
 ) -> Result<Option<GitFileDiff>, GitError> {
     use gix::object::tree::diff::ChangeDetached as Change;
     type Side = Option<(gix::objs::tree::EntryMode, gix::ObjectId)>;
@@ -328,6 +361,17 @@ pub(crate) fn file_diff(
         return Ok(None);
     }
     // a submodule's commit is no blob: it counts no lines
+    let over = |side: Side| -> Result<bool, GitError> {
+        match side {
+            Some((mode, object)) if mode.is_blob_or_symlink() => Ok(unread.contains(&object)
+                || repo
+                    .find_header(object)
+                    .map_err(|e| failed(&format!("give {object}"), &e))?
+                    .size()
+                    > BLOB_CAP),
+            _ => Ok(false),
+        }
+    };
     let bytes = |side: Side| -> Result<Option<Vec<u8>>, GitError> {
         match side {
             Some((mode, object)) if mode.is_blob_or_symlink() => repo
@@ -345,12 +389,17 @@ pub(crate) fn file_diff(
         added: 0,
         removed: 0,
         binary: false,
+        truncated: false,
         patch: None,
     };
+    if over(old)? || over(new)? {
+        file.truncated = true;
+        return Ok(Some(file));
+    }
     let (Some(before), Some(after)) = (bytes(old)?, bytes(new)?) else {
         return Ok(Some(file));
     };
-    if binary(&before) || binary(&after) {
+    if is_binary(&before) || is_binary(&after) {
         file.binary = true;
         return Ok(Some(file));
     }
@@ -368,7 +417,19 @@ pub(crate) fn file_diff(
         )
         .consume()
         .map_err(|e| failed("write a patch", &e))?;
-        file.patch = Some(text);
+        file.truncated = text.len() > PATCH_CAP;
+        file.patch = Some(cut_at_line(text, PATCH_CAP));
     }
     Ok(Some(file))
+}
+
+/// `text` cut after its last whole line within `max` bytes.
+fn cut_at_line(mut text: String, max: usize) -> String {
+    if text.len() > max {
+        let end = text[..text.floor_char_boundary(max)]
+            .rfind('\n')
+            .map_or(0, |at| at + 1);
+        text.truncate(end);
+    }
+    text
 }

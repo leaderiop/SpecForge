@@ -350,7 +350,7 @@ pub(crate) struct LogArgs {
     /// `HEAD` when absent
     range: Option<String>,
 
-    /// At most this many commits
+    /// At most this many commits listed (1000 when absent; `count` still counts them all, and `truncated` says so)
     #[arg(long, value_name = "N")]
     max: Option<usize>,
 

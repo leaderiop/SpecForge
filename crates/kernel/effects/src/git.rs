@@ -83,6 +83,36 @@ pub type Blob = (PathBuf, Option<Vec<u8>>);
 /// A file asked of a commit by name: its path, and its size in bytes when the commit holds it as a file.
 pub type Sized = (PathBuf, Option<u64>);
 
+/// The most bytes of one blob, or of one worktree file, a history read takes in: a larger one is reported (its size,
+/// `truncated`), never read.
+pub const BLOB_CAP: u64 = 16 * 1024 * 1024;
+
+/// The most bytes of one file's patch: a longer one is cut at a line, and the file says `truncated`.
+pub const PATCH_CAP: usize = 1024 * 1024;
+
+/// The most commits a log lists when none is asked; its count still counts every commit it walks.
+pub const LOG_MAX: usize = 1000;
+
+/// Whether `bytes` are binary as git decides: a NUL in the first 8000.
+pub fn is_binary(bytes: &[u8]) -> bool {
+    bytes[..bytes.len().min(8000)].contains(&0)
+}
+
+/// What a log walked: how many commits it keeps (`rev-list --count`) and the first of them, newest first.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GitLog {
+    pub count: usize,
+    pub commits: Vec<GitCommit>,
+}
+
+/// A blob a revision names: its id, its size, and its bytes when it is at most [`BLOB_CAP`] (`None`: not read).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitBlob {
+    pub sha: Sha,
+    pub size: u64,
+    pub bytes: Option<Vec<u8>>,
+}
+
 /// An entry of a commit's tree: its path from the repository's top, and whether it is a regular file (`false` for a
 /// link or a submodule, which the host does not read at a commit). No size: a listing never looks a blob up, so it
 /// cannot fetch one (ADR 0300 D5); [`Git::sizes`] asks for the few files a pass reads.
@@ -179,6 +209,9 @@ pub struct GitFileDiff {
     pub removed: u32,
     /// Either side holds a NUL in its first 8000 bytes, as git decides: no lines are counted.
     pub binary: bool,
+    /// A side is over [`BLOB_CAP`] (not read: no lines are counted), or the patch was cut at [`PATCH_CAP`].
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub truncated: bool,
     /// The unified hunks (`@@ … @@`, three lines of context), when asked and the file is text.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub patch: Option<String>,
@@ -344,16 +377,16 @@ pub trait Git: Send + Sync {
     fn config(&self, _place: &GitPlace, _key: &str) -> Result<Vec<String>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
-    /// The commits `query` walks, newest first.
-    fn log(&self, _place: &GitPlace, _query: &LogQuery) -> Result<Vec<GitCommit>, GitError> {
+    /// How many commits `query` walks, and the first `query.max` of them (every one when none), newest first.
+    fn log(&self, _place: &GitPlace, _query: &LogQuery) -> Result<GitLog, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
     /// The files that differ between `query`'s base and its side, by path.
     fn diff(&self, _place: &GitPlace, _query: &DiffQuery) -> Result<Vec<GitFileDiff>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
-    /// The blob `revision` names (`HEAD:path`, `:path` for the index) and its bytes; `None` when it names no blob.
-    fn blob(&self, _place: &GitPlace, _revision: &str) -> Result<Option<(Sha, Vec<u8>)>, GitError> {
+    /// The blob `revision` names (`HEAD:path`, `:path` for the index); `None` when it names no blob.
+    fn blob(&self, _place: &GitPlace, _revision: &str) -> Result<Option<GitBlob>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
     /// The local branches, or the remote-tracking ones, by name.

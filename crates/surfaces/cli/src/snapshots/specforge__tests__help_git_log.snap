@@ -15,7 +15,7 @@ Arguments:
 
 Options:
       --max <N>
-          At most this many commits
+          At most this many commits listed (1000 when absent; `count` still counts them all, and `truncated` says so)
 
       --first-parent
           Follow only each commit's first parent

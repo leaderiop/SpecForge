@@ -56,6 +56,15 @@ pub fn read_prefix(path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
     Ok((bytes, length))
 }
 
+/// `path`, opened for reading, when it is a regular file of any size (a link is followed): what a caller that streams
+/// or caps its own read opens. The handle opened is checked again.
+pub fn open_any(path: &Path) -> io::Result<File> {
+    judge_kind(&std::fs::metadata(path)?)?;
+    let file = File::open(path)?;
+    judge_kind(&file.metadata()?)?;
+    Ok(file)
+}
+
 /// The SHA-256 of `path`, in lowercase hex, and how long it is: a regular file of any size, in chunks, so a digest pin
 /// holds a large artifact. `TimedOut` once `deadline` passes.
 pub fn digest(path: &Path, deadline: Instant) -> io::Result<(String, u64)> {

@@ -11,6 +11,7 @@ repository.workspace = true
 testing = []
 
 [dependencies]
+specforge-common = { workspace = true }
 specforge-effects = { path = "../../kernel/effects" }
 # Named here, not in the root table: a root entry is every builtin blob's input (ADR 0339 D5).
 gix = { version = "=0.84.0", default-features = false, features = ["status", "blob-diff", "revision", "index", "dirwalk", "excludes", "tree-editor", "sha1"] }

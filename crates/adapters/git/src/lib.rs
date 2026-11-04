@@ -13,10 +13,10 @@ use std::path::{Path, PathBuf};
 use gix::bstr::ByteSlice as _;
 use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
-    Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBranch, GitBranchRef, GitChange,
-    GitCommit, GitEntry, GitEntryKind, GitError, GitFileDiff, GitPlace, GitRemote, GitStash,
-    GitStatus, GitWorktree, Located, LogQuery, Merged, ObjectKind, ResetMode, Sha, Sized, Staging,
-    TreeEntry,
+    Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBlob, GitBranch, GitBranchRef,
+    GitChange, GitEntry, GitEntryKind, GitError, GitFileDiff, GitLog, GitPlace, GitRemote,
+    GitStash, GitStatus, GitWorktree, Located, LogQuery, Merged, ObjectKind, ResetMode, Sha, Sized,
+    Staging, TreeEntry,
 };
 
 mod branching;
@@ -348,7 +348,7 @@ impl Git for Gix {
             .collect())
     }
 
-    fn log(&self, place: &GitPlace, query: &LogQuery) -> Result<Vec<GitCommit>, GitError> {
+    fn log(&self, place: &GitPlace, query: &LogQuery) -> Result<GitLog, GitError> {
         use gix::revision::walk::Sorting;
         use gix::traverse::commit::simple::CommitTimeOrder;
         let repo = open(place)?;
@@ -363,21 +363,27 @@ impl Git for Gix {
         }
         let walk = walk.all().map_err(|e| failed("walk the history", &e))?;
         let paths = wanted_paths(&query.paths);
-        let mut commits = Vec::new();
+        let mut log = GitLog::default();
         for info in walk {
-            if query.max.is_some_and(|max| commits.len() >= max) {
-                break;
-            }
             let info = info.map_err(|e| failed("walk the history", &e))?;
+            let listed = query.max.is_none_or(|max| log.commits.len() < max);
+            if paths.is_empty() && !listed {
+                // past the listing, a commit is only counted, as `rev-list --count` counts it
+                log.count += 1;
+                continue;
+            }
             let commit = repo
                 .find_commit(info.id)
                 .map_err(|e| failed(&format!("read {}", info.id), &e))?;
             if !paths.is_empty() && !touches(&repo, &commit, &paths, query.first_parent)? {
                 continue;
             }
-            commits.push(commit_of(&commit)?);
+            log.count += 1;
+            if listed {
+                log.commits.push(commit_of(&commit)?);
+            }
         }
-        Ok(commits)
+        Ok(log)
     }
 
     fn diff(&self, place: &GitPlace, query: &DiffQuery) -> Result<Vec<GitFileDiff>, GitError> {
@@ -385,8 +391,8 @@ impl Git for Gix {
         // lands in the object store
         let repo = open(place)?.with_object_memory();
         let base = tree_of(&repo, &query.base)?;
-        let head = match &query.head {
-            DiffSide::Commit(sha) => tree_of(&repo, sha)?,
+        let (head, unread) = match &query.head {
+            DiffSide::Commit(sha) => (tree_of(&repo, sha)?, Default::default()),
             DiffSide::Index => index_tree(&repo, false)?,
             DiffSide::Worktree => index_tree(&repo, true)?,
         };
@@ -402,7 +408,7 @@ impl Git for Gix {
         let paths = wanted_paths(&query.paths);
         let mut files = Vec::new();
         for change in changes {
-            if let Some(file) = file_diff(&repo, change, &paths, query.patch)? {
+            if let Some(file) = file_diff(&repo, change, &paths, query.patch, &unread)? {
                 files.push(file);
             }
         }
@@ -410,16 +416,29 @@ impl Git for Gix {
         Ok(files)
     }
 
-    fn blob(&self, place: &GitPlace, revision: &str) -> Result<Option<(Sha, Vec<u8>)>, GitError> {
+    fn blob(&self, place: &GitPlace, revision: &str) -> Result<Option<GitBlob>, GitError> {
         let repo = open(place)?;
         let Ok(id) = repo.rev_parse_single(revision) else {
             return Ok(None);
         };
-        let object = id.object().map_err(|e| failed(&format!("read {id}"), &e))?;
-        if object.kind != gix::objs::Kind::Blob {
+        // the header first: a blob over the cap is sized, never inflated
+        let header = repo
+            .find_header(id)
+            .map_err(|e| failed(&format!("read {id}"), &e))?;
+        if header.kind() != gix::objs::Kind::Blob {
             return Ok(None);
         }
-        Ok(Some((Sha::new(id.to_string()), object.detach().data)))
+        let bytes = if header.size() > specforge_effects::git::BLOB_CAP {
+            None
+        } else {
+            let object = id.object().map_err(|e| failed(&format!("read {id}"), &e))?;
+            Some(object.detach().data)
+        };
+        Ok(Some(GitBlob {
+            sha: Sha::new(id.to_string()),
+            size: header.size(),
+            bytes,
+        }))
     }
 
     fn branches(&self, place: &GitPlace, remote: bool) -> Result<Vec<GitBranchRef>, GitError> {
