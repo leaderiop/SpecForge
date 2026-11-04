@@ -13,6 +13,7 @@ use std::sync::Arc;
 const TERMINAL: Facts = Facts {
     color_out: false,
     color_err: false,
+    out_terminal: true,
     interactive: true,
     ci: false,
 };

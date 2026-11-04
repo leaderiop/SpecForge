@@ -75,7 +75,9 @@ whole port `off`). A request outside it is refused before any effect, with the c
   (ADR 0325 D6); `--format human` is a short listing for people and refuses `--pick` (exit 2). A refusal is the CLI's
   JSON error document (ADR 0029). Insta snapshots pin each answer's shape.
 - Untrusted text a human listing prints (a file name, a commit subject, a response) passes `remedy::printable`. JSON
-  escapes control characters itself.
+  escapes control characters itself. A string `--pick` reaches prints exact into a pipe or a file, which a script
+  reads, and through `remedy::printable_lines` (newlines and tabs kept) when stdout is a terminal, so a response body or
+  a commit subject sends no escape sequence to it.
 - Paths print with `/`, relative to the current directory when under it, else absolute.
 - **`run` passes through.** Its program's stdin, stdout and stderr are the terminal's and its exit is the program's.
   A deadline is **124**, a program not found **127** and one that cannot start **126**, the POSIX shell's numbers, so

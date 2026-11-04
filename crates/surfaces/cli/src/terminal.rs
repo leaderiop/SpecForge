@@ -26,6 +26,8 @@ pub(crate) struct Facts {
     pub color_out: bool,
     /// What is written to stderr may be coloured (`check`).
     pub color_err: bool,
+    /// Stdout is a terminal: a picked string is escaped before it reaches one.
+    pub out_terminal: bool,
     /// Stdin is a terminal: someone can answer a prompt.
     pub interactive: bool,
     /// The run is CI's (`CI` set, and not `false` or `0`): nobody answers, whatever stdin is.
@@ -38,6 +40,7 @@ impl Facts {
     pub(crate) const PIPED: Self = Self {
         color_out: false,
         color_err: false,
+        out_terminal: false,
         interactive: false,
         ci: false,
     };
@@ -51,6 +54,7 @@ impl Facts {
         Self {
             color_out: color(no.as_deref(), force.as_deref(), io::stdout().is_terminal()),
             color_err: color(no.as_deref(), force.as_deref(), io::stderr().is_terminal()),
+            out_terminal: io::stdout().is_terminal(),
             interactive: io::stdin().is_terminal(),
             ci: ci(var("CI").as_deref()),
         }
@@ -457,6 +461,7 @@ mod tests {
     const INTERACTIVE: Facts = Facts {
         color_out: false,
         color_err: false,
+        out_terminal: true,
         interactive: true,
         ci: false,
     };
