@@ -250,7 +250,7 @@ fn row(grant: &Grant, granted: &Granted, uses: &Uses, held: &Approvals) -> Capab
     CapabilityRow {
         name: declared.name.clone(),
         port: declared.port.port().to_string(),
-        scope: granted.scope.as_ref().unwrap_or(&declared.port).summary(),
+        scope: granted.summary(),
         why: declared.why.clone(),
         call_kinds: declared
             .call_kinds
@@ -279,11 +279,11 @@ pub fn list_store(consent: &dyn Consent) -> Result<StoreListing, OpError> {
             .capabilities
             .into_iter()
             .map(|a| StoredCapability {
+                granted: a.summary(),
                 provenance: match a.provenance {
                     Keyed::Builtin => "builtin".to_string(),
                     Keyed::Digest(digest) => format!("sha256:{digest}"),
                 },
-                granted: a.granted.summary(),
                 project: a.project,
                 extension: a.extension,
                 scope: a.scope,

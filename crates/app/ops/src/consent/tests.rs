@@ -14,6 +14,7 @@ fn approval(scope: &str) -> Approval {
             deadline_ms: None,
         }),
         call_kinds: Vec::new(),
+        secret_env: None,
         digest: String::new(),
         specforge: String::new(),
         approved_at: String::new(),

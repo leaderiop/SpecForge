@@ -710,6 +710,7 @@ pub fn consent_contract(consent: &dyn crate::Consent) {
         scope: "history".to_string(),
         granted: PortScope::Git(GitScope { ops: ops.to_vec() }),
         call_kinds: Vec::new(),
+        secret_env: None,
         digest: String::new(),
         specforge: String::new(),
         approved_at: String::new(),

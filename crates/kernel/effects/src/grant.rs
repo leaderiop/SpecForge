@@ -14,7 +14,9 @@ use specforge_protocol_types::{
 use url::Url;
 
 use crate::ceiling::{DEFAULT_ROOTS, EffectsCeiling, host_covers};
-use crate::consent::{Approval, CapabilityApproval, Consent, ConsentError, Keyed, RootApproval};
+use crate::consent::{
+    Approval, CapabilityApproval, Consent, ConsentError, Keyed, RootApproval, approval_line,
+};
 use crate::gate::{Port, gate};
 use crate::{Provenance, Roots};
 
@@ -36,6 +38,16 @@ pub struct Granted {
     /// The secret the host attaches to the requests it permits (ADR 0335 D6): an `http` scope's `secret_header`,
     /// resolved to the declared secret's environment variable, to the hosts the ceiling left.
     pub secret: Option<AttachedSecret>,
+}
+
+impl Granted {
+    /// What the ceiling left of it (what it declares when it left nothing), in the line a person approves.
+    pub fn summary(&self) -> String {
+        approval_line(
+            self.scope.as_ref().unwrap_or(&self.declared.port),
+            self.secret.as_ref().map(|secret| secret.env.as_str()),
+        )
+    }
 }
 
 /// A named root that resolves outside the project.
@@ -305,6 +317,7 @@ impl Grant {
             scope: granted.declared.name.clone(),
             granted: granted.scope.clone()?,
             call_kinds: granted.declared.call_kinds.clone(),
+            secret_env: granted.secret.as_ref().map(|secret| secret.env.clone()),
             digest: provenance.digest().to_string(),
             specforge: env!("CARGO_PKG_VERSION").to_string(),
             approved_at: String::new(),
@@ -334,7 +347,7 @@ impl Grant {
                 needs.push(Need::Capability {
                     approval,
                     why: granted.declared.why.clone(),
-                    summary: scope.summary(),
+                    summary: granted.summary(),
                 });
             }
             if let PortScope::Fs(fs) = scope {

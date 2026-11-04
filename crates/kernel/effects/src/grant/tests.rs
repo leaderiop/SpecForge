@@ -2,7 +2,9 @@ use super::*;
 use crate::ceiling::{HttpCeiling, Narrow};
 use crate::testing::MemoryConsent;
 use serde_json::json;
-use specforge_protocol_types::{FsRequest, HttpMethod, HttpRequest, ProcessRequest};
+use specforge_protocol_types::{
+    FsRequest, HttpMethod, HttpRequest, ProcessRequest, SecretDescriptor,
+};
 
 fn declaration(capabilities: serde_json::Value) -> ExtensionDeclaration {
     let mut declaration = ExtensionDeclaration::default();
@@ -103,6 +105,48 @@ fn the_host_judged_is_the_host_the_url_connects_to() {
     assert!(permits_url(&from_values, "https://[::1]:8080/"));
     assert!(!permits_url(&good, "not a url"));
     assert!(!permits_url(&good, "ftp://good.com/"));
+}
+
+/// An http capability that sends the declared secret, read from `env`.
+fn sending(env: &str) -> ExtensionDeclaration {
+    let mut declaration = declaration(json!([
+        {"name": "feed", "why": "read the feed", "port": "http", "schemes": ["https"],
+         "hosts": {"list": ["api.example.com"]},
+         "secret_header": {"header": "Authorization", "secret": "token", "scheme": "Bearer"}},
+    ]));
+    declaration.settings = vec![SettingsItem::Secret(SecretDescriptor {
+        name: "token".to_string(),
+        env: env.to_string(),
+        description: None,
+    })];
+    declaration
+}
+
+#[test]
+fn the_line_a_person_approves_names_the_secret_and_another_variable_asks_again() {
+    let consent = MemoryConsent::default();
+    let decide = |declaration: &ExtensionDeclaration| {
+        Grant::decide(
+            declaration,
+            &third_party(),
+            &EffectsCeiling::default(),
+            &roots(),
+            &consent,
+        )
+    };
+    let used = uses(&[(Operation::Collect, "feed")]);
+    let needs = decide(&sending("API_TOKEN")).needs(&used);
+    let [Need::Capability { summary, .. }] = needs.as_slice() else {
+        panic!("{needs:?}");
+    };
+    assert!(
+        summary.contains("sends `$API_TOKEN` as the `Authorization` header"),
+        "{summary}"
+    );
+    consent.approve(needs[0].approval()).unwrap();
+    assert!(decide(&sending("API_TOKEN")).needs(&used).is_empty());
+    // The same scope, sending another variable: a person never approved that.
+    assert_eq!(decide(&sending("OTHER_TOKEN")).needs(&used).len(), 1);
 }
 
 fn run(argv: &[&str]) -> EffectRequest {
@@ -493,7 +537,6 @@ fn an_unusable_store_approves_nothing_and_the_grant_says_why() {
 #[test]
 fn a_secret_rides_only_a_listed_https_host() {
     use crate::http::{Any, secret_header};
-    use specforge_protocol_types::{SecretDescriptor, SettingsItem};
     let mut declaration = declaration(json!([
         {"name": "feed", "why": "read the release feed", "port": "http", "schemes": ["https"],
          "hosts": {"list": ["api.example.com"]},

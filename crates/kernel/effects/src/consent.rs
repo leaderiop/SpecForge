@@ -43,6 +43,9 @@ pub struct CapabilityApproval {
     /// The call kinds it was approved for; empty: every kind the gate allows.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub call_kinds: Vec<Operation>,
+    /// The environment variable it sends as a header (ADR 0335 D6): another variable asks again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secret_env: Option<String>,
     /// Audit, never matched: the blob's digest, the specforge that stored it and when (RFC 3339).
     #[serde(default)]
     pub digest: String,
@@ -63,7 +66,13 @@ impl CapabilityApproval {
                         .call_kinds
                         .iter()
                         .all(|k| self.call_kinds.contains(k))))
+            && self.secret_env == wanted.secret_env
             && scope_covers(&self.granted, &wanted.granted)
+    }
+
+    /// What it approved, in the line a person approves ([`approval_line`]).
+    pub fn summary(&self) -> String {
+        approval_line(&self.granted, self.secret_env.as_deref())
     }
 
     /// The same project, extension, provenance and scope name: a new approval replaces it.
@@ -72,6 +81,23 @@ impl CapabilityApproval {
             && self.extension == other.extension
             && self.provenance == other.provenance
             && self.scope == other.scope
+    }
+}
+
+/// The line a person approves: `scope` in one line, and the variable it sends as a header, by name.
+pub fn approval_line(scope: &PortScope, secret_env: Option<&str>) -> String {
+    let header = match scope {
+        PortScope::Http(http) => http.secret_header.as_ref().map(|h| h.header.as_str()),
+        _ => None,
+    };
+    match (secret_env, header) {
+        (Some(env), Some(header)) => {
+            format!(
+                "{}, sends `${env}` as the `{header}` header",
+                scope.summary()
+            )
+        }
+        _ => scope.summary(),
     }
 }
 
