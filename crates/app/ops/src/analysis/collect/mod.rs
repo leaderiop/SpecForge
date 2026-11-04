@@ -467,7 +467,7 @@ fn publishes(env: &Environment, mode: &Mode<'_>) -> bool {
 }
 
 /// Whether this `collect` selects a collector that reads the checks' outcomes: only then does the compile it reads owe
-/// the values phase (ADR 0336 D8). A selection that fails reads none, and `collect` reports it.
+/// the values phase (ADR 0336 D5). A selection that fails reads none, and `collect` reports it.
 pub fn reads_outcomes(
     env: &Environment,
     root: &Path,

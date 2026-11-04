@@ -1,7 +1,8 @@
 //! The checker cache (ADR 0336): what a checker answered is a function of what it was asked, so a plan or a judgement it
 //! has given is not asked again. It is held in memory on the project and on disk where the journal is written, under
-//! `.specforge/effects/checks/<extension>-<origin12>.json`, read in every mode. Only probe records expire, in the
-//! journal; an entry goes when its file is full, least recently used first.
+//! `.specforge/effects/checks/<extension>-<origin12>.json`, read in every mode. Probe records expire, in the journal; a
+//! judgement over an answer that carries an expiry holds for its day; an entry goes when its file is full, least
+//! recently used first.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -11,12 +12,16 @@ use serde::{Deserialize, Serialize};
 use specforge_common::remedy::hold_printable;
 use specforge_common::slug;
 use specforge_effects::digest;
-use specforge_protocol_types::{CheckFinding, CheckItem, CheckPhase, PlannedItem, Probe};
+use specforge_protocol_types::{
+    CheckFinding, CheckItem, CheckPhase, OutcomeData, PlannedItem, Probe,
+};
 
 use crate::Environment;
 
 /// The most entries one file keeps.
 const CAP: usize = 20_000;
+
+const DAY_MS: u64 = 24 * 60 * 60 * 1000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Entry {
@@ -110,12 +115,24 @@ impl<'a> Shelf<'a> {
         }
     }
 
-    /// What `item` is asked, in `phase`: all it was given but its id, and of its answers what they said, not when.
+    /// What `item` is asked, in `phase`: all it was given but its id, and of its answers what they said, not when. The
+    /// day an answer carrying an expiry was observed is what it said: `observed_at` is a pure guest's only clock.
     fn key(&self, phase: CheckPhase, item: &CheckItem) -> String {
         let mut asked = item.clone();
         asked.id = 0;
         for outcome in &mut asked.outcomes {
-            outcome.observed_at = 0;
+            let expires = matches!(
+                outcome.data,
+                OutcomeData::Tls {
+                    not_after: Some(_),
+                    ..
+                }
+            );
+            outcome.observed_at = if expires {
+                outcome.observed_at / DAY_MS
+            } else {
+                0
+            };
             outcome.from_cache = false;
         }
         digest(&(phase, &self.settings, &asked))
@@ -190,6 +207,8 @@ pub(super) fn dir_of(journal: &specforge_effects::EffectJournal) -> Option<PathB
 
 #[cfg(test)]
 mod tests {
+    use specforge_protocol_types::{OutcomeClass, ProbeOutcome};
+
     use super::*;
 
     /// Windows sets no mode, so it cannot tell a committed book this way.
@@ -214,6 +233,73 @@ mod tests {
         assert_eq!(Book::read(Some(&file)).entries.len(), 1);
         std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
         assert!(Book::read(Some(&file)).entries.is_empty());
+    }
+
+    /// A value judged over one answer, observed at `at`.
+    fn judged_over(data: OutcomeData, at: u64) -> CheckItem {
+        CheckItem {
+            checker: "tls".to_string(),
+            text: "a.example".to_string(),
+            outcomes: vec![ProbeOutcome {
+                probe: Probe::DnsResolve {
+                    host: "a.example".to_string(),
+                },
+                class: OutcomeClass::Ok,
+                data,
+                observed_at: at,
+                from_cache: false,
+            }],
+            ..CheckItem::default()
+        }
+    }
+
+    #[test]
+    fn a_judgement_over_an_expiry_holds_for_its_day_and_no_other_for_any_time() {
+        let cache = CheckCache::default();
+        let shelf = Shelf {
+            cache: &cache,
+            file: None,
+            name: "shelf".to_string(),
+            settings: String::new(),
+        };
+        let known = |item: CheckItem| {
+            let (known, unknown) = shelf.split(CheckPhase::Judge, vec![item]);
+            for (key, item) in unknown {
+                let answer = PlannedItem::findings(Vec::new());
+                shelf.keep(
+                    key,
+                    &PlannedItem {
+                        id: item.id,
+                        ..answer
+                    },
+                );
+            }
+            known.len() == 1
+        };
+        let certificate = || OutcomeData::Tls {
+            not_after: Some("2030-01-01T00:00:00Z".to_string()),
+            issuer: None,
+            chain_valid: true,
+        };
+        assert!(!known(judged_over(certificate(), DAY_MS)));
+        assert!(known(judged_over(certificate(), DAY_MS + 1000)), "its day");
+        assert!(
+            !known(judged_over(certificate(), 2 * DAY_MS)),
+            "a later day"
+        );
+
+        let no_expiry = || OutcomeData::Tls {
+            not_after: None,
+            issuer: None,
+            chain_valid: false,
+        };
+        assert!(!known(judged_over(no_expiry(), DAY_MS)));
+        assert!(known(judged_over(no_expiry(), 2 * DAY_MS)));
+        let other = || OutcomeData::Resolve {
+            addresses: vec!["192.0.2.1".to_string()],
+        };
+        assert!(!known(judged_over(other(), DAY_MS)));
+        assert!(known(judged_over(other(), 2 * DAY_MS)));
     }
 
     #[test]
