@@ -121,8 +121,18 @@ impl<'a> Shelf<'a> {
     /// What `item` is asked, in `phase`: all it was given but its id, and of its answers what they said, not when. The
     /// day an answer carrying an expiry was observed is what it said: `observed_at` is a pure guest's only clock.
     fn key(&self, phase: CheckPhase, item: &CheckItem) -> String {
-        let mut asked = item.clone();
-        asked.id = 0;
+        // The answers lean (a body by its digest): a cloned 16 MiB body digested as a JSON array would cost gigabytes.
+        let mut asked = CheckItem {
+            id: 0,
+            checker: item.checker.clone(),
+            entity: item.entity.clone(),
+            field: item.field.clone(),
+            item: item.item,
+            text: item.text.clone(),
+            args: item.args.clone(),
+            outcomes: item.outcomes.iter().map(super::network::lean).collect(),
+            carry: item.carry.clone(),
+        };
         for outcome in &mut asked.outcomes {
             let expires = matches!(
                 outcome.data,

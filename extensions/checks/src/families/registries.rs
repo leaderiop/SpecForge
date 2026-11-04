@@ -181,7 +181,8 @@ fn release_checker(
                     }
                     Err(told) => Judged::Findings(told),
                 },
-                ([_, answer], Some(version)) => {
+                // A later round is sent only its own answer: the release rides in the carry.
+                ([answer], Some(version)) => {
                     Judged::Findings(judge(text, args, &coord, version, answer))
                 }
                 _ => Judged::Findings(Vec::new()),

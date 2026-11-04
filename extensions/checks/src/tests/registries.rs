@@ -146,7 +146,7 @@ fn an_advisory_check_queries_osv_for_the_resolved_release() {
         "advisory",
         "crates:serde@1",
         json!({}),
-        vec![ok(SERDE_INDEX), osv],
+        vec![osv],
         first.carry,
     );
     assert_eq!(codes(&second.findings), ["W179"]);
@@ -181,7 +181,7 @@ fn a_licence_outside_allow_is_w179() {
             "license_of",
             "crates:serde@1",
             json!({"allow": allow}),
-            vec![ok(SERDE_INDEX), record],
+            vec![record],
             first.carry.clone(),
         )
         .findings

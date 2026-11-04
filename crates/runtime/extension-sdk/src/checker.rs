@@ -25,7 +25,8 @@ pub enum Judged {
 }
 
 impl Judged {
-    /// Another round: `probes` performed, their answers added to `item.outcomes`, `carry` handed back.
+    /// Another round: `probes` performed, the next call handed their answers alone in `item.outcomes` and `carry`
+    /// back, which holds what it needs of this round's.
     pub fn more(probes: Vec<Probe>, carry: Value) -> Self {
         Judged::More { probes, carry }
     }

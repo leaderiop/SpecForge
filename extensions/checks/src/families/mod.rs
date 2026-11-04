@@ -244,7 +244,7 @@ fn checker(
 }
 
 /// [`checker`], whose `judge` may answer more probes for another round instead of findings, handed back the `carry` it
-/// asked for with every round's outcomes so far.
+/// asked for with that round's outcomes only.
 fn rounds_checker(
     c: &mut ContributionsBuilder,
     family: &Family,

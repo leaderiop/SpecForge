@@ -200,7 +200,9 @@ impl Asking<'_> {
         let mut batches: Vec<(BTreeMap<u32, String>, Vec<CheckItem>)> = Vec::new();
         let mut held = 0;
         for (key, item) in items {
-            let size = serde_json::to_vec(&item).map_or(usize::MAX, |bytes| bytes.len());
+            let mut counted = Counted(0);
+            let size =
+                serde_json::to_writer(&mut counted, &item).map_or(usize::MAX, |()| counted.0);
             if size > cap {
                 self.effects.count_not_run(budget::OVER, 1);
                 continue;
@@ -229,6 +231,20 @@ impl Asking<'_> {
             .find(|declaration| declaration.name() == extension)
             .and_then(|declaration| declaration.handshake.sandbox_policy.as_ref()?.max_memory_mb);
         ((declared.unwrap_or(ceiling).min(ceiling) as usize) << 20) / 4
+    }
+}
+
+/// A writer that keeps nothing but how many bytes it was given: an item's size, measured without a copy of it.
+struct Counted(usize);
+
+impl std::io::Write for Counted {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 += bytes.len();
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
 }
 
@@ -267,9 +283,16 @@ impl Observed {
                     | Probe::DnsResolve { .. }
             )
         };
+        // Lean: a body is digested by its own digest, never expanded into a JSON array.
         let answered: Vec<_> = outcomes
             .iter()
-            .map(|outcome| (&outcome.probe, &outcome.class, &outcome.data))
+            .map(|outcome| {
+                (
+                    &outcome.probe,
+                    &outcome.class,
+                    network::lean_data(&outcome.data),
+                )
+            })
             .collect();
         Observed {
             at: outcomes
@@ -419,15 +442,19 @@ fn dropped(planned: &[Planned<'_>], answers: &BTreeMap<CallKey, PlannedItem>) ->
 struct Open<'p, 'a> {
     one: &'p Planned<'a>,
     probes: Vec<Probe>,
+    /// The probes asked in the rounds before this one.
+    before: usize,
+    /// Every round's answers as the host keeps them ([`lean`]): what the row says it observed.
     outcomes: Vec<ProbeOutcome>,
     findings: Vec<CheckFinding>,
     carry: Option<serde_json::Value>,
 }
 
 /// Each answered call settled: its probes performed, and the judge call of those all answered, for up to
-/// [`MAX_PROBE_ROUNDS`] rounds: a judge may ask for more probes, performed within the same budget and judged with every
-/// round's answers. A failing judge (E028, once) leaves its extension's values not judged, and so does one asking for a
-/// round past the last (E028, once per checker).
+/// [`MAX_PROBE_ROUNDS`] rounds: a judge may ask for more probes, performed within the same budget, the per-value probe
+/// cap held over every round. A later round's judge is sent that round's answers and what it carried, never the earlier
+/// rounds' answers again. A failing judge (E028, once) leaves its extension's values not judged, and so does one asking
+/// for a round past the last (E028, once per checker).
 fn performed_and_judged(
     asking: &Asking<'_>,
     effects: &Effects,
@@ -466,6 +493,7 @@ fn performed_and_judged(
         open.push(Open {
             one,
             probes: plan.probes.clone(),
+            before: 0,
             outcomes: Vec::new(),
             findings: plan.findings.clone(),
             carry: None,
@@ -483,6 +511,7 @@ fn performed_and_judged(
                 value: &values[call.one.value],
                 call: call.one.call,
                 probes: &call.probes,
+                before: call.before,
             })
             .collect();
         let readings = dispatch::dispatch(asking.env, effects, disk, &asked, &mut spent);
@@ -502,7 +531,9 @@ fn performed_and_judged(
                 );
                 continue;
             }
-            call.outcomes.extend(reading.outcomes);
+            // The judge reads this round's answers and what it carried; the host keeps every round's, lean.
+            call.outcomes
+                .extend(reading.outcomes.iter().map(network::lean));
             let class = call
                 .outcomes
                 .iter()
@@ -519,7 +550,7 @@ fn performed_and_judged(
                 },
             );
             let mut item = item_of(call.one, &values[call.one.value]);
-            item.outcomes = call.outcomes.clone();
+            item.outcomes = reading.outcomes;
             item.carry = call.carry.clone();
             judge
                 .entry(&call.one.call.extension)
@@ -550,6 +581,7 @@ fn performed_and_judged(
                     }
                 } else {
                     call.findings.extend(item.findings);
+                    call.before += call.probes.len();
                     call.probes = item.probes;
                     call.carry = item.carry;
                     open.push(call);

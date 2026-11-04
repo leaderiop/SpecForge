@@ -183,12 +183,12 @@ fn a_licence_outside_allow_is_w179() {
 fn an_unknown_doi_is_e105_and_a_malformed_one_is_e103() {
     let http = FakeHttp::new()
         .route(
-            "https://doi.org/api/handles/10.1000/182",
+            "https://doi.org/api/handles/10.1000%2F182",
             200,
             r#"{"responseCode":1}"#,
         )
         .route(
-            "https://doi.org/api/handles/10.9999/none",
+            "https://doi.org/api/handles/10.9999%2Fnone",
             404,
             r#"{"responseCode":100}"#,
         );

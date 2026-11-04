@@ -87,9 +87,25 @@ fn extension() -> ContributionsBuilder {
                 )
             });
     });
+    // Ten reads, then ten more: twenty over every round, past the per-value cap of sixteen.
+    let ten = |item: &CheckItem, from: u64| -> Vec<Probe> {
+        (from..from + 10)
+            .map(|offset| read(&item.text, ByteRange::Span { offset, len: 1 }))
+            .collect()
+    };
+    c.checker("wide", move |k| {
+        k.applies_to(&["string"])
+            .scope("files")
+            .codes(&["E001"])
+            .plan(move |item: &CheckItem| PlannedItem::probes(ten(item, 0)))
+            .judge(move |item: &CheckItem| match item.carry {
+                None => Judged::more(ten(item, 10), json!(2)),
+                Some(_) => vec![CheckFinding::new("E001", "judged")].into(),
+            });
+    });
     c.kind("service", |k| {
         k.keyword("service");
-        for field in ["pointed", "forever"] {
+        for field in ["pointed", "forever", "wide"] {
             k.field(field, |f| {
                 f.field_type(FieldType::String).check(field);
             });
@@ -128,7 +144,8 @@ fn a_second_round_reads_the_span_the_first_named() {
         .iter()
         .map(|d| d.message.as_str())
         .collect();
-    assert_eq!(told, ["cd from {\"from\":2} after 2"], "{found:?}");
+    // The second round's judge is sent only that round's answer, beside what the first carried.
+    assert_eq!(told, ["cd from {\"from\":2} after 1"], "{found:?}");
     // A plan, then a judgement per round.
     assert_eq!(check_calls(&runtime), 3);
 }
@@ -190,4 +207,23 @@ fn a_cached_check_replays_every_round_without_the_guest() {
     assert_eq!(check_calls(&runtime), calls + 1);
     let told = coded(&changed, "pin.probes/E001");
     assert!(told[0].message.starts_with("XY"), "{told:?}");
+}
+
+#[test]
+fn the_per_value_probe_cap_holds_over_every_round() {
+    let (scene, _) = scene("service a \"A\" {\n  wide \"a.bin\"\n}\n");
+    scene.dir.write("a.bin", "0123456789abcdefghijk");
+    let project = scene.checked(EffectsMode::Cached, &MemoryConsent::default());
+    let found = project.diagnostics();
+    assert!(coded(&found, "pin.probes/E001").is_empty(), "{found:?}");
+    let statuses: Vec<_> = project
+        .value_checks()
+        .iter()
+        .flat_map(|(_, rows)| rows.iter().map(|row| row.status))
+        .collect();
+    assert_eq!(
+        statuses,
+        [specforge_project::values::CheckStatus::NotRun],
+        "the second round's ten are past the cap with the first's"
+    );
 }

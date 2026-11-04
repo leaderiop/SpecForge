@@ -269,19 +269,25 @@ fn a_pdf_asks_for_the_spans_its_page_tree_needs() {
     else {
         panic!("one span: {:?}", first.probes);
     };
-    assert_eq!(first.carry, Some(json!(2)));
-    let mut outcomes = ends(&large);
+    // The carry holds the next round and every read so far: the second round is sent only its own.
+    let carry = first.carry.clone().expect("a carry");
+    assert_eq!(carry[0], json!(2));
+    assert_eq!(
+        carry[2].as_array().map(Vec::len),
+        Some(2),
+        "the head and the tail"
+    );
     let end = (offset as usize + len as usize).min(large.len());
-    outcomes.push(part(
-        &large[offset as usize..end],
-        offset,
-        large.len() as u64,
-    ));
-    let second = round(outcomes, json!({"max_pages": 10}), first.carry);
+    let span = part(&large[offset as usize..end], offset, large.len() as u64);
+    let second = round(vec![span], json!({"max_pages": 10}), first.carry);
     assert!(second.probes.is_empty());
     assert_eq!(codes(&second.findings), ["W177"]);
     // In the last round, a page tree still out of reach leaves max_pages unchecked.
-    let last = round(ends(&large), json!({"max_pages": 10}), Some(json!(3)));
+    let last = round(
+        ends(&large),
+        json!({"max_pages": 10}),
+        Some(json!([3, null, []])),
+    );
     assert_eq!(codes(&last.findings), ["W176"]);
     assert_eq!(codes(&found("pdf", json!({}), b"GIF89a")), ["E099"]);
 }

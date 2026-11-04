@@ -73,7 +73,7 @@ impl MockHost {
             .findings
     }
 
-    /// What `checker` answers in a judge round, handed every round's `outcomes` so far and the `carry` its last round
+    /// What `checker` answers in a judge round, handed that round's `outcomes` and the `carry` its last round
     /// asked for: findings, or the probes of another round with the carry to hand back.
     pub fn judge_round(
         &self,

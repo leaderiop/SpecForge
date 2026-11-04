@@ -2,12 +2,11 @@
 //! the run's effects under its extension's grant. Their answers are journaled as a guest reads them.
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex};
 use std::time::Instant;
 
 use specforge_effects::http::{self, Any, DEFAULT_TIMEOUT};
-use specforge_effects::journal::{Answer, Blob};
+use specforge_effects::journal::{self, Answer, Blob};
 use specforge_effects::{
     Asker, EffectRequest, Effects, HttpOutcome, HttpRequest, Outcome, OutcomeClass, Ports,
     ResolveRequest, Served, TlsRequest, UnixMillis,
@@ -153,7 +152,10 @@ pub(super) struct Spending {
     pub spent: u64,
 }
 
-/// The jobs, on [`WORKERS`] threads, at most [`PER_HOST`] to one host at once. None starts once `spending` is used up.
+/// The jobs, on [`WORKERS`] threads, at most [`PER_HOST`] to one host at once. A job starts only once the most it may
+/// bring (its request's cap, or what a record may hold when the run performs nothing) is reserved within what
+/// `spending` has left, so the answers on the wire never add up past the budget; one that fits only when others finish
+/// waits for them, and one that fits in nothing left is over the budget.
 pub(super) fn perform_all(
     effects: &Effects,
     now: UnixMillis,
@@ -170,7 +172,12 @@ pub(super) fn perform_all(
     });
     let freed = Condvar::new();
     let results = Mutex::new(vec![Performed::OverBudget; jobs.len()]);
-    let spent = AtomicU64::new(spending.spent);
+    let ledger = Mutex::new(Ledger {
+        spent: spending.spent,
+        reserved: 0,
+    });
+    let released = Condvar::new();
+    let live = effects.mode().is_live();
     std::thread::scope(|scope| {
         for _ in 0..WORKERS.min(jobs.len()) {
             scope.spawn(|| {
@@ -199,14 +206,18 @@ pub(super) fn perform_all(
                         }
                     };
                     drop(held);
-                    let spare = spent.load(Ordering::Relaxed) < spending.bytes
-                        && Instant::now() < spending.deadline;
-                    if spare {
+                    let most = most_brought(&jobs[index].request, live);
+                    if reserve(&ledger, &released, most, &spending) {
                         let outcome = perform_one(effects, now, &jobs[index]);
-                        // Before its slot frees: the most it overruns by is what is on the wire to its host now.
-                        if let Performed::Answer(outcome) = &outcome {
-                            spent.fetch_add(budget::cost(&outcome.data), Ordering::Relaxed);
-                        }
+                        let cost = match &outcome {
+                            Performed::Answer(outcome) => budget::cost(&outcome.data),
+                            _ => 0,
+                        };
+                        let mut ledger = lock_of(&ledger);
+                        ledger.reserved -= most;
+                        ledger.spent += cost;
+                        drop(ledger);
+                        released.notify_all();
                         results.lock().unwrap_or_else(|e| e.into_inner())[index] = outcome;
                     }
                     *lock_of(&queue)
@@ -219,6 +230,44 @@ pub(super) fn perform_all(
         }
     });
     results.into_inner().unwrap_or_else(|e| e.into_inner())
+}
+
+/// What the run's answers spent, and what the jobs on the wire hold reserved.
+struct Ledger {
+    spent: u64,
+    reserved: u64,
+}
+
+/// The most an answer to `request` may bring into memory: its cap, or, when the run performs nothing, what a record
+/// may hold ([`journal::payload_cap`]).
+fn most_brought(request: &EffectRequest, live: bool) -> u64 {
+    match request {
+        EffectRequest::Http(http) if live => http.body_cap,
+        request => journal::payload_cap(request),
+    }
+}
+
+/// Reserve `most` within what `spending` has left, waiting while answers on the wire may free room; false when it is
+/// past the run's time, or no room is left or can be freed.
+fn reserve(ledger: &Mutex<Ledger>, released: &Condvar, most: u64, spending: &Spending) -> bool {
+    let mut held = lock_of(ledger);
+    loop {
+        if Instant::now() >= spending.deadline || held.spent >= spending.bytes {
+            return false;
+        }
+        if held.spent + held.reserved + most <= spending.bytes {
+            held.reserved += most;
+            return true;
+        }
+        if held.reserved == 0 {
+            return false;
+        }
+        let left = spending.deadline.saturating_duration_since(Instant::now());
+        held = released
+            .wait_timeout(held, left)
+            .unwrap_or_else(|e| e.into_inner())
+            .0;
+    }
 }
 
 fn lock_of<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -270,17 +319,19 @@ fn answer_of(job: &Job<'_>, ports: &Ports) -> Answer {
                 _ => None,
             };
             let keep = usize::try_from(job.max_bytes).unwrap_or(usize::MAX);
-            let body = served(range, &outcome, keep);
+            let headers = outcome
+                .headers
+                .iter()
+                .map(|(name, value)| Header::plain(name.clone(), value.clone()))
+                .collect();
+            let (status, final_url) = (outcome.status, std::mem::take(&mut outcome.final_url));
+            let body = served(range, outcome, keep);
             (
                 body.class,
                 OutcomeData::Http {
-                    status: outcome.status,
-                    final_url: outcome.final_url,
-                    headers: outcome
-                        .headers
-                        .into_iter()
-                        .map(|(name, value)| Header::plain(name, value))
-                        .collect(),
+                    status,
+                    final_url,
+                    headers,
                     body: body.bytes,
                     truncated: body.truncated,
                     start: body.start,
@@ -334,22 +385,26 @@ struct Body {
     truncated: bool,
 }
 
-/// The body of `outcome` as `range` asked for it, at most `keep` bytes. A 206 says where its bytes start in
-/// `Content-Range` (one with none is `range:ignored`); a 200 to a prefix is its first bytes, and a 200 to a suffix or a
-/// span is the whole, sliced when it was read to its end and `range:ignored` when it was not; a 416 says the length.
-fn served(range: Option<ByteRange>, outcome: &HttpOutcome, keep: usize) -> Body {
+/// The body of `outcome` as `range` asked for it, at most `keep` bytes, moved out of it rather than copied. A 206 says
+/// where its bytes start in `Content-Range` (one with none is `range:ignored`); a 200 to a prefix is its first bytes,
+/// and a 200 to a suffix or a span is the whole, sliced when it was read to its end and `range:ignored` when it was
+/// not; a 416 says the length.
+fn served(range: Option<ByteRange>, outcome: HttpOutcome, keep: usize) -> Body {
     let header = |name: &str| {
         outcome
             .headers
             .iter()
             .find(|(n, _)| n.eq_ignore_ascii_case(name))
-            .map(|(_, v)| v.trim())
+            .map(|(_, v)| v.trim().to_string())
     };
     let length = header("content-length").and_then(|v| v.parse::<u64>().ok());
     let capped = outcome.class == OutcomeClass::Capped || outcome.body.len() > keep;
+    let whole_len = outcome.body.len() as u64;
+    let mut kept = outcome.body;
+    kept.truncate(keep);
     let mut body = Body {
         class: outcome.class,
-        bytes: outcome.body[..outcome.body.len().min(keep)].to_vec(),
+        bytes: kept,
         start: 0,
         total_len: length,
         truncated: capped,
@@ -363,16 +418,16 @@ fn served(range: Option<ByteRange>, outcome: &HttpOutcome, keep: usize) -> Body 
     };
     // A read to the end that the cap did not stop knows the whole's length, said or not (a chunked answer says none).
     if !capped && outcome.status == Some(200) && matches!(range, Some(ByteRange::Whole { .. })) {
-        body.total_len = Some(outcome.body.len() as u64);
+        body.total_len = Some(whole_len);
     }
     let Some(range) = range.filter(|range| !matches!(range, ByteRange::Whole { .. })) else {
         return body;
     };
     match (outcome.status, range) {
-        (Some(206), _) => match header("content-range").and_then(content_range) {
+        (Some(206), _) => match header("content-range").as_deref().and_then(content_range) {
             Some((Some(start), total_len)) => {
                 let len = usize::try_from(range.len()).unwrap_or(usize::MAX);
-                body.truncated = outcome.body.len() > len;
+                body.truncated = whole_len as usize > len;
                 body.bytes.truncate(len);
                 Body {
                     start,
@@ -384,20 +439,23 @@ fn served(range: Option<ByteRange>, outcome: &HttpOutcome, keep: usize) -> Body 
         },
         (Some(200), ByteRange::Prefix { .. }) => body,
         (Some(200), _) if capped => ignored(length),
+        // Not capped: what it kept is the whole.
         (Some(200), _) => {
-            let total = outcome.body.len() as u64;
-            let within = range.within(total);
-            let slice = within.start as usize..within.end as usize;
+            let within = range.within(whole_len);
+            let mut bytes = std::mem::take(&mut body.bytes);
+            bytes.truncate(within.end as usize);
+            bytes.drain(..within.start as usize);
             Body {
-                bytes: outcome.body[slice].to_vec(),
+                bytes,
                 start: within.start,
-                total_len: Some(total),
+                total_len: Some(whole_len),
                 ..body
             }
         }
         (Some(416), _) => Body {
             bytes: Vec::new(),
             total_len: header("content-range")
+                .as_deref()
                 .and_then(content_range)
                 .and_then(|(_, total)| total),
             ..body
@@ -446,6 +504,54 @@ fn encode(data: &OutcomeData) -> Vec<u8> {
             bytes
         }
         other => serde_json::to_vec(other).expect("outcome data serialises"),
+    }
+}
+
+/// `outcome` as the host keeps it past its round, and as a digest reads it: a body or a file's bytes by their own
+/// sha256 (as bytes), so a 16 MiB answer is neither held twice nor expanded into a JSON array to be digested.
+pub(super) fn lean(outcome: &ProbeOutcome) -> ProbeOutcome {
+    ProbeOutcome {
+        probe: outcome.probe.clone(),
+        class: outcome.class,
+        data: lean_data(&outcome.data),
+        observed_at: outcome.observed_at,
+        from_cache: outcome.from_cache,
+    }
+}
+
+/// [`lean`]'s data.
+pub(super) fn lean_data(data: &OutcomeData) -> OutcomeData {
+    let digest = |bytes: &[u8]| Blob::of(bytes).sha256.into_bytes();
+    match data {
+        OutcomeData::Http {
+            status,
+            final_url,
+            headers,
+            body,
+            truncated,
+            start,
+            total_len,
+        } => OutcomeData::Http {
+            status: *status,
+            final_url: final_url.clone(),
+            headers: headers.clone(),
+            body: digest(body),
+            truncated: *truncated,
+            start: *start,
+            total_len: *total_len,
+        },
+        OutcomeData::Bytes {
+            bytes,
+            start,
+            length,
+            truncated,
+        } => OutcomeData::Bytes {
+            bytes: digest(bytes),
+            start: *start,
+            length: *length,
+            truncated: *truncated,
+        },
+        other => other.clone(),
     }
 }
 
@@ -532,9 +638,9 @@ mod tests {
             detail: None,
         };
         let whole = Some(ByteRange::Whole { max: 1024 });
-        assert_eq!(served(whole, &chunked, 1024).total_len, Some(6));
+        assert_eq!(served(whole, chunked.clone(), 1024).total_len, Some(6));
         // One the cap stopped does not: there is more than it read.
-        let cut = served(whole, &chunked, 3);
+        let cut = served(whole, chunked, 3);
         assert!(cut.truncated);
         assert_eq!(cut.total_len, None);
     }

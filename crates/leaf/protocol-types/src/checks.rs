@@ -187,7 +187,8 @@ pub struct CheckItem {
     pub text: String,
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub args: Map<String, Value>,
-    /// What this item's probes answered, every round's in order: the judge phase's only.
+    /// What this item's probes answered in this round, in order: the judge phase's only. A later round's judge is not
+    /// sent an earlier round's answers again: it carries what it needs of them in `carry`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outcomes: Vec<ProbeOutcome>,
     /// What the judge's last round asked to be handed back with the next: every call is a fresh instance.

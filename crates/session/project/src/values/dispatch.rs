@@ -36,6 +36,8 @@ pub(super) struct Asked<'a> {
     pub value: &'a Value<'a>,
     pub call: &'a CheckCall,
     pub probes: &'a [Probe],
+    /// The probes the call asked in its earlier rounds: the per-value cap holds over every round.
+    pub before: usize,
 }
 
 /// What became of one [`Asked`]: every probe's answer in order, unless one was refused or not performed.
@@ -116,7 +118,7 @@ pub(super) fn dispatch(
     let mut slots: Vec<Vec<Slot>> = Vec::with_capacity(asked.len());
     for one in asked {
         let mut reading = Reading::default();
-        if one.probes.len() > budget.probes_per_value {
+        if one.before + one.probes.len() > budget.probes_per_value {
             effects.count_not_run(budget::OVER, 1);
             reading.not_run = true;
             slots.push(Vec::new());

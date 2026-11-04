@@ -316,14 +316,26 @@ fn media_judge(text: &str, args: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFi
     over_bytes(text, args, served.length).into_iter().collect()
 }
 
+/// What a PDF's judge carries to its next round, which is sent only that round's answers: the round, the file's length
+/// as served, and every read so far, each its start and bytes.
+type PdfCarry = (u64, Option<u64>, Vec<(u64, Vec<u8>)>);
+
 /// A PDF's page count from every round's reads: another round for the spans the reader still needs, while the count
 /// is asked for and rounds are left; then the linearization's count, or W176 when the count cannot be read.
 fn pdf_judge(text: &str, args: Args, outcomes: &[ProbeOutcome], carry: Option<&Value>) -> Judged {
     let Ok(source) = source(text) else {
         return Judged::Findings(Vec::new());
     };
-    let mut reads = Vec::new();
-    let mut length = None;
+    let (round, mut length, carried): PdfCarry = carry
+        .and_then(|carry| serde_json::from_value(carry.clone()).ok())
+        .unwrap_or((1, None, Vec::new()));
+    let mut reads: Vec<pdf::Read<'_>> = carried
+        .iter()
+        .map(|(start, bytes)| pdf::Read {
+            start: *start,
+            bytes,
+        })
+        .collect();
     for outcome in outcomes {
         match served(text, args, outcome) {
             Ok(served) => {
@@ -337,6 +349,7 @@ fn pdf_judge(text: &str, args: Args, outcomes: &[ProbeOutcome], carry: Option<&V
         }
     }
     let mut found: Vec<CheckFinding> = over_bytes(text, args, length).into_iter().collect();
+    let served_length = length;
     // With no length served, the reader is held to the bytes it was served.
     let reached = reads.iter().map(|r| r.start + r.bytes.len() as u64).max();
     let length = length.or(reached).unwrap_or(0);
@@ -363,8 +376,7 @@ fn pdf_judge(text: &str, args: Args, outcomes: &[ProbeOutcome], carry: Option<&V
         }
         // The file reads as a PDF so far; its count is read only when it is asked for.
         Err(Failure::Need { .. }) if max_pages.is_none() => None,
-        Err(Failure::Need { spans, .. }) if carry.and_then(Value::as_u64).unwrap_or(1) < ROUNDS => {
-            let round = carry.and_then(Value::as_u64).unwrap_or(1);
+        Err(Failure::Need { spans, .. }) if round < ROUNDS => {
             let probes = spans
                 .iter()
                 .map(|span| {
@@ -375,7 +387,8 @@ fn pdf_judge(text: &str, args: Args, outcomes: &[ProbeOutcome], carry: Option<&V
                     read(text, &source, args, range)
                 })
                 .collect();
-            return Judged::more(probes, json!(round + 1));
+            let kept: Vec<(u64, &[u8])> = reads.iter().map(|r| (r.start, r.bytes)).collect();
+            return Judged::more(probes, json!([round + 1, served_length, kept]));
         }
         Err(Failure::Need {
             hint: Some(pages), ..
