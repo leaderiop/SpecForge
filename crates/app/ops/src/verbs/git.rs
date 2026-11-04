@@ -1,5 +1,5 @@
 //! `specforge git` (ADR 0339): the `Git` port for people and agents, on the repository the project is in, under the
-//! project's effects ceiling (`git` read). Every answer is read in process: no git program runs.
+//! project's effects ceiling (`git` read, and `write` for a change). Everything runs in process: no git program runs.
 
 use serde::Serialize;
 use specforge_effects::git::{

@@ -1,5 +1,5 @@
-//! `specforge git` (ADR 0339): the `Git` port for people and agents, read in process, on the repository the project
-//! is in.
+//! `specforge git` (ADR 0339): the `Git` port for people and agents, in process, on the repository the project is in:
+//! reads, and writes under the ceiling's `git` `write`.
 
 use specforge_effects::Ports;
 use specforge_ops::OpError;

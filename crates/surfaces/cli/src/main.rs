@@ -216,8 +216,8 @@ enum Commands {
         #[command(subcommand)]
         action: verbs::http::Action,
     },
-    /// Read the repository the project is in, with no git program: its place, HEAD, revisions, status and
-    /// configuration, as JSON (ADR 0339)
+    /// Read and change the repository the project is in, with no git program: its place, history and status, and
+    /// commits, branches, worktrees and merges under the effects ceiling, as JSON (ADR 0339)
     Git {
         #[command(subcommand)]
         action: verbs::git::Action,

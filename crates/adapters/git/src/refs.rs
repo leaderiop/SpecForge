@@ -26,12 +26,13 @@ pub(crate) fn branches(
     let mut branches = Vec::new();
     for reference in listed {
         let mut reference = reference.map_err(|e| failed("list the branches", &e))?;
-        let tip = reference.peel_to_id().ok().map(|id| id.detach());
+        // the name before peeling: peeling a symbolic ref turns it into its target
         let name = reference.name().to_owned();
         // a remote's `HEAD` names its default branch, not a branch of its own
         if remote && name.as_bstr().ends_with(b"/HEAD") {
             continue;
         }
+        let tip = reference.peel_to_id().ok().map(|id| id.detach());
         let (upstream, ahead, behind) = if remote {
             (None, 0, 0)
         } else {

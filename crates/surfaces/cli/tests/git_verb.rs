@@ -420,6 +420,12 @@ fn branches_name_their_upstream_and_how_far_each_is_ahead_and_behind() {
             {"name": "side", "sha": first, "current": false, "upstream": null, "ahead": 0, "behind": 0},
         ]})
     );
+    // a clone's `origin/HEAD` names the default branch: listed once, under its own name
+    std::fs::write(
+        repo.git_dir().join("refs/remotes/origin/HEAD"),
+        "ref: refs/remotes/origin/main\n",
+    )
+    .unwrap();
     assert_eq!(
         git(
             &project,
