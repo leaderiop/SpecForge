@@ -79,7 +79,7 @@ module specforge_parser "specforge-parser" {
 
 module specforge_effects "specforge-effects" {
   family      core
-  description "The effect plane: the Process, Http, Fs and Git ports every host effect goes through, their canonical digests and the one path containment (ADR 0335)"
+  description "The effect plane: the Process, Http, Fs and Git ports every host effect goes through, their canonical digests, the one path containment, and the grant, ceiling and consent policy that decide each effect (ADR 0335)"
   depends_on  [specforge_common, specforge_package, specforge_protocol_types]
   tags        ["kernel"]
 }

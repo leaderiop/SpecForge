@@ -3,6 +3,9 @@
 //! object-safe trait shared as an `Arc`; the adapters are pure-Rust crates under `crates/adapters`, the fakes are [`testing`]'s.
 //! [`digest`] gives each request and outcome its canonical digest, and [`contained`] decides where a written path
 //! may lead.
+//!
+//! It also holds the policy that decides each effect: [`grant`] (declared, gated, under the [`ceiling`] and approved),
+//! [`consent`] (the machine's approvals) and [`scope`] (what each kind of scope means).
 
 pub mod ceiling;
 pub mod consent;
