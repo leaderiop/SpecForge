@@ -10,6 +10,7 @@ use std::net::IpAddr;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
+use hyper_util::client::proxy::matcher::Matcher;
 use reqwest::blocking::{Client as Reqwest, Response};
 use reqwest::header::{HeaderValue, LOCATION};
 use reqwest::{Method, Url};
@@ -59,6 +60,19 @@ impl Client {
             proxy: Some(url.to_string()),
             ..Client::default()
         }
+    }
+
+    /// Whether a request to `url` goes through a proxy: this client's own, else the system's or the environment's,
+    /// read as reqwest reads them.
+    fn proxied(&self, url: &Url) -> bool {
+        static SYSTEM: OnceLock<Matcher> = OnceLock::new();
+        self.proxy.is_some()
+            || url.as_str().parse::<http::Uri>().is_ok_and(|uri| {
+                SYSTEM
+                    .get_or_init(Matcher::from_system)
+                    .intercept(&uri)
+                    .is_some()
+            })
     }
 
     fn client(&self, allow_private: bool) -> Result<&Reqwest, &str> {
@@ -194,7 +208,14 @@ impl Http for Client {
             }
             let response = match asked.send() {
                 Ok(response) => response,
-                Err(e) => return HttpOutcome::unreachable(&url, class_of(&e), chain(&e)),
+                Err(e) => {
+                    // Through a proxy, no connection made is the proxy's: it was the one connected to.
+                    let class = match class_of(&e) {
+                        Unreachable::Connect if self.proxied(&parsed) => Unreachable::Proxy,
+                        class => class,
+                    };
+                    return HttpOutcome::unreachable(&url, class, chain(&e));
+                }
             };
             let status = response.status().as_u16();
             let location = response

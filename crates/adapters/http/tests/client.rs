@@ -353,6 +353,37 @@ fn a_request_that_allows_private_addresses_still_goes_through_the_proxy() {
     );
 }
 
+/// A request that fails at the proxy (its connection, its authentication, a refused `CONNECT`) is the proxy's
+/// failure, not the destination's.
+#[test]
+fn a_request_the_proxy_fails_is_unreachable_proxy() {
+    let (refusing, _) = serve(|_, _| {
+        "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".into()
+    });
+    let (asking, _) = serve(|_, _| {
+        "HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            .into()
+    });
+    // A port nothing listens on: bound, then let go.
+    let gone = {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        format!("http://{}", listener.local_addr().unwrap())
+    };
+    for (proxy, url) in [
+        (&refusing, "https://specforge-proxied.invalid/"),
+        (&asking, "https://specforge-proxied.invalid/"),
+        (&gone, "http://specforge-proxied.invalid/"),
+        (&gone, "https://specforge-proxied.invalid/"),
+    ] {
+        let outcome = Client::with_proxy(proxy).request(&get(url), &Any);
+        assert_eq!(
+            outcome.class,
+            OutcomeClass::Unreachable(Unreachable::Proxy),
+            "{proxy} {url}: {outcome:?}"
+        );
+    }
+}
+
 /// A redirect answered `status`, to `to`.
 fn redirect(status: u16, to: &str) -> String {
     format!(

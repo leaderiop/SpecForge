@@ -123,7 +123,10 @@ allows, what the project's effects ceiling leaves, and what this machine approve
 - **The outcome class** is normalised across operating systems and displays as one string: `ok`, `status:404`,
   `exit:1`, `signal`, `deadline`, `capped`, `missing`, `denied`, `outside`, `not_found`, `cannot_start`,
   `unreachable:{dns|connect|tls|timeout|reset|proxy|refused_address}`, `redirect:{limit|downgrade|refused}`. Any TLS
-  rejection is `unreachable:tls` on every OS.
+  rejection is `unreachable:tls` on every OS. A request sent through a proxy (the client's, the system's or the
+  environment's) that makes no connection is `unreachable:proxy`: the proxy refused the connection, asked for
+  authentication or refused the `CONNECT`. A destination the proxy cannot reach is therefore `unreachable:proxy` over
+  `https` (its `CONNECT` is refused) and the proxy's answer, a status, over `http`.
 - **Where records live, and how a run reads them,** is the journal's ADR (the protocol 2.0.0 round); this ADR fixes
   only the record's shape.
 

@@ -3480,6 +3480,8 @@ dependencies = [
 name = "specforge-http"
 version = "0.3.0"
 dependencies = [
+ "http",
+ "hyper-util",
  "reqwest",
  "rustls",
  "rustls-platform-verifier",
