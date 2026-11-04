@@ -1,7 +1,7 @@
 # A field declares the checks its values pass
 
-**Status:** accepted (2026-11-04, ports round, plan 05). D8, generic checkers in one foundation extension, is recorded
-in ADR 0338 (plan 06, extended by plan 07). Builds on
+**Status:** accepted (2026-11-04). D8, generic checkers in one foundation extension, is recorded
+in ADR 0338 (`@specforge/checks`; its structured, media and registry families extend it). Builds on
 [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) and
 [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md). **Amends**
 [ADR 0145](0145-the-session-reads-sources-through-the-disk-the-surface-hands-it.md) D3 (checks read through `Contained`,
@@ -11,10 +11,10 @@ and an outside file only through a named root),
 the prefix), [ADR 0293](0293-a-pass-or-command-declares-the-project-files-it-reads.md) D3 (one containment, and
 `FileRead.root`), [ADR 0304](0304-a-judged-input-reads-a-path-field-goes-on-past-a-reference-and-a-pass-sees-the-tests-a-verdict-cites.md)
 (a judged `file()` path may name its root with `<root>/`), ADR 0337 D4 (`collect` defaults as `check` does), and adds a
-note to [ADR 0026](0026-typed-diagnostic-codes.md) D3. Plans 06 and 07 each add an "Amends 0336" line for the probe kinds
-they add (D9), and plan 07 amends D4 (extra rounds).
+note to [ADR 0026](0026-typed-diagnostic-codes.md) D3. ADR 0338 and the decision for the structured, media and registry checkers each add an "Amends 0336"
+line for the probe kinds they add (D9), and the latter amends D4 (extra rounds).
 
-**As of plan 06** `file_reference`, `file_base` and `file_exists` are deleted, in the commit that adds the `file`
+**Since the `file` checker (ADR 0338)** `file_reference`, `file_base` and `file_exists` are deleted, in the commit that adds the `file`
 checker, so that E016 has exactly one emitter at every commit: a declared `file_exists` rule is W112 naming
 `@specforge/checks:file`, and E016 is a `checks` code. No registry rule reads the file system any more (`RuleInput`
 carries the records and the edges only).
@@ -76,7 +76,7 @@ carries the records and the edges only).
    - it performs the rest concurrently (32 workers, at most 8 per host) under ADR 0335's grant and ADR 0337's journal and mode.
    A probe not performed (offline, `cached` miss, not approved, over budget) leaves its value **not judged**: it counts toward one I206 per checker and toward W170 for the scopes it needed.
 3. **judge(values, outcomes) → findings.** A second `__check_values` call carries the values whose probes all ran. Each finding carries a code, a message and an optional byte sub-span inside the quotes (the scheme, the `#…` part, the root). The host places it on the value's span.
-   - Plan 07 amends this decision: a judge may answer `More { probes, carry }` to ask for another round, at most **3 rounds** per value.
+   - The structured, media and registry checkers amend this decision: a judge may answer `More { probes, carry }` to ask for another round, at most **3 rounds** per value.
 
 - `any_of` passes when one branch yields no error. Otherwise every branch's findings are reported.
 - A trapped or malformed answer is E028, once per extension per run, and that extension's values are not judged.
@@ -93,7 +93,7 @@ carries the records and the edges only).
   - `inspect` and MCP list each checked value as {field, item, value, checker, status, outcome, observed_at, from_cache}.
   - LSP hover prints one line per checker: "`url` · 200 · checked 2 h ago". Hover on a field name lists its checks.
   - A checked value's string token gains the semantic-token modifier `checked`.
-  - A checker that declares its values are paths (the `file` family) gets `<root>/` and contained path completion and document links; one whose values are URLs gets document links (plan 05 T17). The kernel keys on the declaration, never on a checker's name.
+  - A checker that declares its values are paths (the `file` family) gets `<root>/` and contained path completion and document links; one whose values are URLs gets document links. The kernel keys on the declaration, never on a checker's name.
   - The schema shows `SchemaField.checks`, and `specforge extensions` lists each extension's checkers.
   - Export adds outcomes only with `--with-checks` (MCP `with_checks`).
 - **No committed fact by default.** A passing check writes no fact. A collector that declares the `check_outcomes` input is never auto-selected: it runs only when `specforge collect --runner` names it, or on a plain `collect` when `checks.publish` is `true`. It publishes outcomes as K23 facts (R1's fact store). Its evidence is the served rows (`CollectInput.check_outcomes`): it needs no command and no report and is never E045 for want of one, and `--reports` never adds it. The rows are the values phase of the compile the collect read, and that compile runs the phase only when a selected collector reads them, so a `collect` with no reader probes nothing. It takes `--effects`, and `check`'s default effects mode (ADR 0337 D4): `auto` when someone can answer and it is not CI, `cached` otherwise, where the rows say `not_run` for what no record answers; CI publishes fresh rows with `--effects online`.
@@ -128,10 +128,10 @@ The probe set this ADR defines is:
 - `dns.resolve` (std `ToSocketAddrs`, system resolver);
 - `git.object`, `git.ref`, `git.tracked`.
 
-Plans 06 and 07 extend it, each with an "Amends 0336" line:
-- `fs.digest{sha256}`, streamed by the host for any size until the run's deadline, gated as a read (plan 06);
-- one `ByteRange` on `fs.read` and `http.get` (`Whole`, `Prefix`, `Suffix`, `Span`), which replaces `fs.read_prefix` and the separate range form, with no alias (plan 07);
-- `http.post_query`, a bounded JSON POST to a fixed-host capability (plan 07).
+Two later decisions extend it, each with an "Amends 0336" line:
+- `fs.digest{sha256}`, streamed by the host for any size until the run's deadline, gated as a read (ADR 0338);
+- one `ByteRange` on `fs.read` and `http.get` (`Whole`, `Prefix`, `Suffix`, `Span`), which replaces `fs.read_prefix` and the separate range form, with no alias (structured, media and registry checkers);
+- `http.post_query`, a bounded JSON POST to a fixed-host capability (registry checkers).
 
 The guest parses the bytes it is served. The kernel never learns what an image, a PDF or a heading is.
 
@@ -157,7 +157,7 @@ The guest parses the bytes it is served. The kernel never learns what an image, 
 - **A default root declared by the field** (`file_base` kept). Each reader already has its own default, and the prefix overrides every reader.
 - **Keeping E016 unbounded** (ADR 0145 D3 as written). It is an existence oracle for any path on the machine.
 
-## How plan 05 settled the rest
+## How the rest was settled
 
 - **The parser lives in `protocol-types`**, compiled by host and guest, because the guest kit must read the same prefix the host contains; a second parser could disagree with it. `Root` lives beside it, and `Contained` takes it.
 - **A bare path's default root is its reader's**: K11 reads take their own, judged `file()` reads from the project (ADR 0304), a check's is the checker's `root` argument. The prefix overrides every reader.
@@ -170,7 +170,7 @@ The guest parses the bytes it is served. The kernel never learns what an image, 
 
 ## Consequences
 
-- Protocol 2.0.0 (ADR 0337), with ADR 0335: `FieldDescriptor.checks`, checker declarations, `Operation::CheckValues`, `CheckPlan`, `Probe`, `ProbeOutcome`. `FileRead.base` is deleted; `FileRead.root` names a root. Builtins re-vendor. `file_reference` and `file_base` are deleted in plan 06.
+- Protocol 2.0.0 (ADR 0337), with ADR 0335: `FieldDescriptor.checks`, checker declarations, `Operation::CheckValues`, `CheckPlan`, `Probe`, `ProbeOutcome`. `FileRead.base` is deleted; `FileRead.root` names a root. Builtins re-vendor. `file_reference` and `file_base` are deleted with the `file` checker (ADR 0338).
 - Projects that referenced files outside the root turn red with E094 until a named root is declared and, if it lies outside the project, approved on the machine (no shim).
-- The four alias spellings of a check kind are deleted (W112), and `CheckKind::FileExists` in plan 06; `matches` stays (D10).
+- The four alias spellings of a check kind are deleted (W112), and `CheckKind::FileExists` with the `file` checker (ADR 0338); `matches` stays (D10).
 - A probe's journal record is keyed by the request and the extension that asked, so it answers that extension alone in every mode. `cached` and `replay` hold no grant by design (ADR 0337), so the key is what keeps one extension's secret, redirect or 401 from answering another. Two extensions asking one URL each make their own request; that is the cost.

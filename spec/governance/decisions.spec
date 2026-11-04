@@ -580,9 +580,11 @@ decision gherkin_as_extension_field "Gherkin as Extension-Declared Field" {
     with type string_list and file_reference=true on entity kinds that
     support BDD traceability. The supportsGherkin manifest flag is removed.
     The GherkinList AST type is removed — gherkin fields are parsed as
-    standard StringList values. File existence validation is handled by
-    the existing validate_file_reference_paths behavior which already
-    operates on any field with file_reference=true. verify REMAINS as a
+    standard StringList values. File existence was validated by
+    validate_file_reference_paths on any field with file_reference=true;
+    that behavior and file_reference are gone, and a field now declares
+    the @specforge/checks:file check instead (ck_files_family, ADR 0336),
+    which reports E016. verify REMAINS as a
     core grammar construct — it is a domain-agnostic traceability primitive.
   """
   consequences [
@@ -593,7 +595,7 @@ decision gherkin_as_extension_field "Gherkin as Extension-Declared Field" {
     "GherkinList removed from core AST types — one fewer FieldValue variant",
     "verify remains as the sole core traceability construct",
     "W018 (missing gherkin) becomes a pure extension validation pattern",
-    "E016 (missing file) unchanged — validate_file_reference_paths is generic",
+    "E016 (missing file) is generic — today reported by the checks extension's file checker (ck_files_family)",
   ]
   invariants   [zero_domain_knowledge_core]
 }

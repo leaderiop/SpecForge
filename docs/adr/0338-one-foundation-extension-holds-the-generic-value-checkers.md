@@ -1,6 +1,6 @@
 # One foundation extension holds the generic value checkers
 
-**Status:** accepted (2026-11-04, ports round, plan 06). Builds on
+**Status:** accepted (2026-11-04). Builds on
 [ADR 0336](0336-a-field-declares-the-checks-its-values-pass.md), and records its D8. **Amends 0336:** its probe set
 (D9) gains `fs.digest{sha256}`. The host streams a file of any size under `Contained`, so a pin can hold a large
 artifact.
