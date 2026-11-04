@@ -313,6 +313,7 @@ impl Environment {
         }
         let providers = Providers::register(read.config.raw.as_ref(), registries.declarations());
         registries.refuse_provider_schemes(&providers.schemes());
+        settings::attach_checks(&mut registries, &read.config);
         let structural_only = registries.declarations().is_empty().then(|| {
             structural_only_notice(
                 read.found,

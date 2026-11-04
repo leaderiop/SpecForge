@@ -239,6 +239,27 @@ impl RegistryBuild {
         self.graph_inputs = self.derived_graph_inputs();
     }
 
+    /// Add the checks `specforge.json` `checks` attaches after each field's declared ones (ADR 0336), and report what it
+    /// names wrongly (W019, W189) at the key `at` locates.
+    pub fn attach_checks(
+        &mut self,
+        config: &specforge_common::ChecksConfig,
+        at: &dyn Fn(&[&str]) -> Option<specforge_common::SourceSpan>,
+    ) {
+        let (checks, diagnostics) = crate::registries::checks::attach(
+            std::mem::take(&mut self.checks),
+            config,
+            &self.declarations,
+            &self.fields,
+            &self.kinds,
+            &self.candidates,
+            at,
+        );
+        self.checks = checks;
+        self.registry_diagnostics
+            .extend(about(BuildPart::Registries, diagnostics));
+    }
+
     /// The kinds the declarations register, each under its keyword (first
     /// in load order wins, E026).
     pub fn kinds(&self) -> &KindRegistry {

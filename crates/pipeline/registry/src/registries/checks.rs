@@ -5,7 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde_json::{Map, Value};
-use specforge_common::{Diagnostic, codes};
+use specforge_common::{ChecksConfig, Diagnostic, SourceSpan, codes};
 use specforge_diagnostics::{Codebook, Level};
 use specforge_graph::FieldForm;
 use specforge_protocol_types::{
@@ -57,6 +57,10 @@ pub struct CheckRegistry {
     checkers: HashMap<(String, String), CheckerDescriptor>,
     /// Kind, then the declared path (`requires.phase`), then its checks in order.
     fields: BTreeMap<String, BTreeMap<String, Vec<ResolvedCheck>>>,
+    /// What a kept checker's arguments read as, each with whether it is required.
+    forms: HashMap<(String, String), BTreeMap<String, (FieldForm, bool)>>,
+    /// A checker refused (W189 already said so): a check naming it is dropped without a second word.
+    refused: BTreeSet<(String, String)>,
 }
 
 impl CheckRegistry {
@@ -95,18 +99,31 @@ impl CheckRegistry {
     }
 }
 
-/// What a kept checker's arguments read as.
-type ArgForms = HashMap<(String, String), BTreeMap<String, (FieldForm, bool)>>;
-
 struct Resolving<'a> {
     declarations: &'a [ExtensionDeclaration],
     loaded: Vec<&'a str>,
     candidates: &'a CandidateVocabulary,
     registry: CheckRegistry,
-    forms: ArgForms,
-    /// A checker refused (W189 already said so): a check naming it is dropped without a second word.
-    refused: BTreeSet<(String, String)>,
     diagnostics: Vec<Diagnostic>,
+}
+
+impl<'a> Resolving<'a> {
+    fn new(
+        declarations: &'a [ExtensionDeclaration],
+        candidates: &'a CandidateVocabulary,
+        registry: CheckRegistry,
+    ) -> Self {
+        Resolving {
+            declarations,
+            loaded: declarations
+                .iter()
+                .map(ExtensionDeclaration::name)
+                .collect(),
+            candidates,
+            registry,
+            diagnostics: Vec::new(),
+        }
+    }
 }
 
 /// The check registry of `declarations` (load order), and its W019 and W189.
@@ -117,18 +134,7 @@ pub(crate) fn build(
     book: &Codebook,
     candidates: &CandidateVocabulary,
 ) -> (CheckRegistry, Vec<Diagnostic>) {
-    let mut resolving = Resolving {
-        declarations,
-        loaded: declarations
-            .iter()
-            .map(ExtensionDeclaration::name)
-            .collect(),
-        candidates,
-        registry: CheckRegistry::default(),
-        forms: ArgForms::new(),
-        refused: BTreeSet::new(),
-        diagnostics: Vec::new(),
-    };
+    let mut resolving = Resolving::new(declarations, candidates, CheckRegistry::default());
     for declaration in declarations {
         for checker in &declaration.checkers {
             resolving.keep_checker(declaration, checker, book);
@@ -142,6 +148,30 @@ pub(crate) fn build(
         entry.declared().for_each_path(&name, &mut |path, field| {
             resolving.field(kind, &path, field, entry.source_extension(), collected);
         });
+    }
+    (resolving.registry, resolving.diagnostics)
+}
+
+/// `registry` with what `config` attaches added after each field's declared checks, and the W019 and W189 of each key,
+/// spanned at the key by `at` (the path of a member of `specforge.json`).
+pub(crate) fn attach(
+    registry: CheckRegistry,
+    config: &ChecksConfig,
+    declarations: &[ExtensionDeclaration],
+    fields: &FieldRegistry,
+    kinds: &KindRegistry,
+    candidates: &CandidateVocabulary,
+    at: &dyn Fn(&[&str]) -> Option<SourceSpan>,
+) -> (CheckRegistry, Vec<Diagnostic>) {
+    let mut resolving = Resolving::new(declarations, candidates, registry);
+    for (key, checks) in &config.fields {
+        let from = resolving.diagnostics.len();
+        resolving.attach(key, checks, fields, kinds);
+        if let Some(span) = at(&["checks", "fields", key]) {
+            for diagnostic in &mut resolving.diagnostics[from..] {
+                diagnostic.span = Some(span.clone());
+            }
+        }
     }
     (resolving.registry, resolving.diagnostics)
 }
@@ -172,7 +202,7 @@ impl Resolving<'_> {
         match (problem, forms) {
             (None, Some(Ok(forms))) => {
                 self.registry.checkers.insert(key.clone(), checker.clone());
-                self.forms.insert(key, forms);
+                self.registry.forms.insert(key, forms);
             }
             (Some(why), _) | (None, Some(Err(why))) => {
                 self.w189(format!(
@@ -181,7 +211,7 @@ impl Resolving<'_> {
                 ));
                 // A later declaration of the same name is the one refused; the first stands.
                 if !self.registry.checkers.contains_key(&key) {
-                    self.refused.insert(key);
+                    self.registry.refused.insert(key);
                 }
             }
             (None, None) => {}
@@ -209,18 +239,7 @@ impl Resolving<'_> {
         if field.checks.is_empty() {
             return;
         }
-        let writer = field.writer.as_deref();
-        let refused = if collected {
-            Some("is a field of a kind a collector writes".to_string())
-        } else if [FieldWriter::Computed, FieldWriter::Verdict]
-            .iter()
-            .any(|w| writer == Some(w.as_str()))
-        {
-            Some(format!("is a {} field", writer.unwrap_or_default()))
-        } else {
-            None
-        };
-        if let Some(why) = refused {
+        if let Some(why) = not_authored(field, collected) {
             self.w189(format!(
                 "{on} declares checks, but it {why}: its values are not authored, so the checks are dropped"
             ));
@@ -240,8 +259,96 @@ impl Resolving<'_> {
         }
     }
 
+    /// What `specforge.json` writes for `key` (`kind.field` or a member path), after the field's declared checks.
+    fn attach(
+        &mut self,
+        key: &str,
+        checks: &[CheckRef],
+        fields: &FieldRegistry,
+        kinds: &KindRegistry,
+    ) {
+        let found = key
+            .split_once('.')
+            .and_then(|(kind, path)| Some((kind, path, fields.get_path(kind, path)?)));
+        let Some((kind, path, (field, _))) = found else {
+            self.w019(format!(
+                "`checks.fields` names '{key}', which is no `kind.field` of a loaded extension"
+            ));
+            return;
+        };
+        let on = format!("`checks.fields` key '{key}'");
+        let collected = kinds.get(kind).is_some_and(|k| k.is_collected());
+        if let Some(why) = not_authored(field, collected) {
+            self.w189(format!(
+                "{on} attaches checks to a field that {why}: its values are not authored, so the checks are dropped"
+            ));
+            return;
+        }
+        let ty = FieldType::parse(&field.field_type);
+        let mut kept = Vec::new();
+        for check in checks {
+            let check = self.qualified(check, &on);
+            kept.extend(check.and_then(|check| self.resolve(&check, None, &on, ty)));
+        }
+        if !kept.is_empty() {
+            self.registry
+                .fields
+                .entry(kind.to_string())
+                .or_default()
+                .entry(path.to_string())
+                .or_default()
+                .extend(kept);
+        }
+    }
+
+    /// `check` with each short name replaced by the one checker it names; W019 when it names none or several.
+    fn qualified(&mut self, check: &CheckRef, on: &str) -> Option<CheckRef> {
+        match check {
+            CheckRef::One { checker, args } if !checker.contains(':') => {
+                let mut owners: Vec<&str> = self
+                    .registry
+                    .checkers
+                    .keys()
+                    .filter(|(_, name)| name == checker)
+                    .map(|(extension, _)| extension.as_str())
+                    .collect();
+                owners.sort_unstable();
+                match owners.as_slice() {
+                    [owner] => Some(CheckRef::One {
+                        checker: format!("{owner}:{checker}"),
+                        args: args.clone(),
+                    }),
+                    [] => {
+                        self.w019(format!(
+                            "{on} names the checker '{checker}', which no loaded extension declares"
+                        ));
+                        None
+                    }
+                    several => {
+                        let message = format!(
+                            "{on} names the checker '{checker}', which several extensions declare: write one of {}",
+                            several
+                                .iter()
+                                .map(|owner| format!("{owner}:{checker}"))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        );
+                        self.w019(message);
+                        None
+                    }
+                }
+            }
+            CheckRef::One { .. } => Some(check.clone()),
+            CheckRef::AnyOf { any_of } => any_of
+                .iter()
+                .map(|branch| self.qualified(branch, on))
+                .collect::<Option<Vec<_>>>()
+                .map(|any_of| CheckRef::AnyOf { any_of }),
+        }
+    }
+
     /// `check` as `owner` (none: `specforge.json`) wrote it on a field of type `ty`; none when it is refused or inert.
-    pub(crate) fn resolve(
+    fn resolve(
         &mut self,
         check: &CheckRef,
         owner: Option<&str>,
@@ -293,6 +400,7 @@ impl Resolving<'_> {
         let (extension, checker) = match (written.rsplit_once(':'), owner) {
             (Some((extension, checker)), _) => (extension.to_string(), checker.to_string()),
             (None, Some(owner)) => (owner.to_string(), written.to_string()),
+            // `qualified` gave every name of `specforge.json` its extension.
             (None, None) => return None,
         };
         let declaring = owner.and_then(|o| self.declarations.iter().find(|d| d.name() == o));
@@ -308,7 +416,7 @@ impl Resolving<'_> {
             return None;
         }
         let key = (extension.clone(), checker.clone());
-        if self.refused.contains(&key) {
+        if self.registry.refused.contains(&key) {
             return None;
         }
         let Some(descriptor) = self.registry.checkers.get(&key).cloned() else {
@@ -336,7 +444,7 @@ impl Resolving<'_> {
             ));
             return None;
         }
-        if let Err(why) = admit_args(args, &self.forms[&key]) {
+        if let Err(why) = admit_args(args, &self.registry.forms[&key]) {
             self.w189(format!(
                 "{on} gives the checker '{written}' {why}: the check is dropped"
             ));
@@ -348,6 +456,18 @@ impl Resolving<'_> {
             args: args.clone(),
         })
     }
+}
+
+/// Why `field`'s values are not authored, so no check runs on them.
+fn not_authored(field: &FieldDescriptor, collected: bool) -> Option<String> {
+    if collected {
+        return Some("is a field of a kind a collector writes".to_string());
+    }
+    let writer = field.writer.as_deref()?;
+    [FieldWriter::Computed, FieldWriter::Verdict]
+        .iter()
+        .any(|w| writer == w.as_str())
+        .then(|| format!("is a {writer} field"))
 }
 
 /// What the registry refuses in `checker`'s own declaration.

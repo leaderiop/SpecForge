@@ -38,7 +38,7 @@ pub use present::{
     serialize_diagnostics, truncate_diagnostics,
 };
 pub use project::{
-    ConfigProblem, ConfigRead, ExtensionEntry, InferenceConfig, ProjectConfig,
+    ChecksConfig, ConfigProblem, ConfigRead, ExtensionEntry, InferenceConfig, ProjectConfig,
     parse_project_config, project_config_from, read_project_config, validate_project_name,
 };
 pub use project_path::ProjectPath;
