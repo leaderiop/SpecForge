@@ -84,6 +84,9 @@ pub struct FieldRecord {
     /// for it (a check then points at the entity). Host-internal: never on
     /// the wire.
     pub value_span: Option<SourceSpan>,
+    /// Where each item of `items` is written, when the value is a list; empty otherwise. Host-internal: never on the
+    /// wire.
+    pub item_spans: Vec<SourceSpan>,
     /// Each value written in the other form than its field's declared type
     /// gives it (ADR 0147), read from the value as written, in source order. Host-internal: never on the
     /// wire.
@@ -266,6 +269,7 @@ impl EntityRecord {
             items: Some(items.iter().map(|item| item.to_string()).collect()),
             shape: ValueShape::List,
             value_span: None,
+            item_spans: Vec::new(),
             rewrites: Vec::new(),
             origin: Origin::Authored,
         });
@@ -288,6 +292,7 @@ impl EntityRecord {
             items: shape.is_list().then(|| vec![text.to_string()]),
             shape,
             value_span: None,
+            item_spans: Vec::new(),
             rewrites: Vec::new(),
             origin: Origin::Authored,
         });

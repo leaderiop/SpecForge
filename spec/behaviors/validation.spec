@@ -474,3 +474,23 @@ behavior check_collected_kinds "Check Collected Kinds" {
   produces []
   verify unit "an entity of a kind a collector writes, written in a spec file, is E115"
 }
+
+behavior check_field_values "Check Field Values" {
+  features   [structural_validation]
+  category   validation
+  invariants [validation_pipeline_ordering]
+  ports      [FileSystem]
+  consumes   [graph_built]
+  contract   """
+    Every value of a field that declares checks is given to its checkers. A checker
+    plans from the text alone, or names the effects it needs (probes) and judges what
+    they answered; its findings land on the value, under its extension's namespace.
+    What this machine did not perform is not judged, and nothing goes red for it.
+  """
+  verify unit "a pure checker's finding is on the list item it read"
+  verify unit "a finding's byte range points inside the quotes of the value"
+  verify unit "a code the checker did not declare is W150 and the finding is kept"
+  verify unit "a failing checker is E028 once per run and its values are not judged"
+  verify unit "any_of passes when one branch yields no error-level finding"
+  verify unit "a check on a block member reads each written item"
+}

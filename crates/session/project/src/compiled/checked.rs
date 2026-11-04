@@ -1,5 +1,5 @@
 //! The outcome class of each value the checks checked (ADR 0337 §6, amending ADR 0290): what a judged verdict
-//! digests of an entity besides its authored values. Empty until a values phase fills it (plan 05).
+//! digests of an entity besides its authored values, as the values phase gave them.
 
 use specforge_effects::{OutcomeClass, Redirected, Unreachable};
 use std::collections::BTreeMap;
@@ -96,7 +96,12 @@ impl CompiledProject {
         &self.checked_values
     }
 
-    /// This project as its checks run with `values` as the values phase's (tests: no checker runs before plan 05).
+    /// What the value checks found at the last run of the checks (ADR 0336), by entity.
+    pub fn value_checks(&self) -> &crate::values::ValueChecks {
+        &self.value_checks
+    }
+
+    /// This project as its checks run with `values` as the values phase's (tests: a project with no checker keeps them).
     #[cfg(feature = "testing")]
     pub fn with_checked_values(mut self, values: CheckedValues) -> Self {
         self.checked_values = std::sync::Arc::new(values);

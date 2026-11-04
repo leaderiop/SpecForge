@@ -199,6 +199,15 @@ impl Effects {
         std::mem::take(&mut *self.log_lock())
     }
 
+    /// Count `n` effects of `scope` as not performed (I206): what a caller gave up before asking, as over its budget.
+    pub fn count_not_run(&self, scope: &str, n: usize) {
+        *self
+            .log_lock()
+            .not_run
+            .entry(scope.to_string())
+            .or_default() += n;
+    }
+
     fn log_lock(&self) -> std::sync::MutexGuard<'_, Log> {
         self.log
             .lock()

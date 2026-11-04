@@ -63,6 +63,8 @@ pub struct CompiledProject {
     judgements: Arc<crate::judged::Judgements>,
     /// The outcome class of each value the checks checked, which a judged verdict digests (ADR 0337 §6).
     checked_values: Arc<CheckedValues>,
+    /// Every checked value's rows at the last check (ADR 0336): what the surfaces read.
+    value_checks: Arc<crate::values::ValueChecks>,
     digests: Arc<crate::judged::DigestMemo>,
     /// The graph's entity snapshot, the recorded test report and the coverage: seeded with the snapshot the checks
     /// read; made over the graph on first use after an update that skipped them.
@@ -424,6 +426,7 @@ impl CompiledProject {
             computed: Arc::default(),
             judgements: Arc::default(),
             checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
@@ -451,6 +454,7 @@ impl CompiledProject {
             computed: Arc::default(),
             judgements: Arc::default(),
             checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
@@ -483,6 +487,7 @@ impl CompiledProject {
             computed: Arc::default(),
             judgements: Arc::default(),
             checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
@@ -534,6 +539,7 @@ impl CompiledProject {
             computed: Arc::default(),
             judgements: Arc::default(),
             checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
@@ -603,28 +609,52 @@ impl CompiledProject {
                     crate::harness::overlay::through(disk, this, &this.ledger_overlay, &mut ledger);
                 &overlaid
             };
+            // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
+            let values = crate::values::run(&env, &authored, this.effects(), &|file| {
+                this.sources.text(file).cloned()
+            });
+            // No checker at all leaves the values a test gave (`with_checked_values`).
+            let checked_values = if env.registries().checks().is_empty() {
+                Arc::clone(&this.checked_values)
+            } else {
+                Arc::new(values.checks.checked_values())
+            };
             let checked = env.checked(
                 Some(graph),
                 &authored,
                 disk,
                 &read.read,
                 &this.digests,
-                &this.checked_values,
+                &checked_values,
             );
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
-            let mut diagnostics = checked.diagnostics;
+            let mut diagnostics = values.diagnostics;
+            diagnostics.extend(checked.diagnostics);
+            // What this machine did not perform of them: an effect's, once for the run.
+            diagnostics.extend(crate::effects::not_run(&this.effects().log()));
             // A write that was interrupted (ADR 0289): the next writer rolls it back, a check only says so.
             // Read through the checks' disk, so a journal that appears or goes is an input; a detached project has none.
             if let Some(root) = this.root() {
                 diagnostics.extend(crate::journal::pending(root, disk));
             }
-            outcome = Some((diagnostics, entities, checked.computed, checked.judgements));
+            let found = (values.checks, checked_values);
+            outcome = Some((
+                diagnostics,
+                entities,
+                checked.computed,
+                checked.judgements,
+                found,
+            ));
             this.consulted()
         });
         self.checks_skipped = false;
         self.baseline = baseline;
-        if let Some((diagnostics, entities, computed, judgements)) = outcome {
+        if let Some((diagnostics, entities, computed, judgements, (checks, checked_values))) =
+            outcome
+        {
+            self.value_checks = Arc::new(checks);
+            self.checked_values = checked_values;
             self.check_diagnostics = diagnostics;
             self.computed = Arc::new(computed);
             self.judgements = Arc::new(judgements);

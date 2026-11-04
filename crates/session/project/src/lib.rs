@@ -50,6 +50,7 @@ mod setup;
 mod sources;
 #[cfg(feature = "testing")]
 pub mod testing;
+pub mod values;
 mod verdicts;
 
 use std::collections::BTreeMap;

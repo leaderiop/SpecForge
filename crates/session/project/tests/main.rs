@@ -73,3 +73,4 @@ mod test_report_passes;
 mod typed_fields;
 mod unresolved_cascade;
 mod update_bracket;
+mod value_checks;
