@@ -8,13 +8,16 @@
 
 use std::io::Read as _;
 use std::path::Path;
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use specforge_effects::contained::in_host_state;
 use specforge_effects::fs::{
     FILE_CEILING, FileKind, FsStat, READ_CEILING, SKIPPED, WALK_VISITS, held,
 };
 use specforge_effects::{Fs, FsOp, FsOutcome, FsRequest, OutcomeClass, RealFs, Roots};
+
+/// The most time a digest of one file takes; past it the answer is `Denied`, as for a file that cannot be read.
+const DIGEST_TIME: Duration = Duration::from_secs(60);
 
 /// The `Fs` port over the local file system.
 #[derive(Debug, Clone, Copy, Default)]
@@ -40,9 +43,19 @@ impl Fs for LocalFs {
         match &request.op {
             FsOp::Stat => {}
             // The written name or where it lands: `notes.txt -> .env` is not read.
-            FsOp::Read { .. } if held.withheld => return FsOutcome::of(OutcomeClass::Denied),
-            FsOp::Read { .. } if stat.kind != FileKind::File => {}
-            FsOp::Read { .. } if stat.size > FILE_CEILING => outcome.class = OutcomeClass::Capped,
+            FsOp::Read { .. } | FsOp::Digest if held.withheld => {
+                return FsOutcome::of(OutcomeClass::Denied);
+            }
+            FsOp::Read { .. } | FsOp::Digest if stat.kind != FileKind::File => {}
+            FsOp::Read { .. } | FsOp::Digest if stat.size > FILE_CEILING => {
+                outcome.class = OutcomeClass::Capped;
+            }
+            FsOp::Digest => {
+                match specforge_common::regular::digest(&at, Instant::now() + DIGEST_TIME) {
+                    Ok((sha256, _)) => outcome.digest = Some(sha256),
+                    Err(_) => return FsOutcome::of(OutcomeClass::Denied),
+                }
+            }
             FsOp::Read { max_bytes } => {
                 let max = (*max_bytes).min(READ_CEILING);
                 let read = std::fs::File::open(&at)

@@ -177,7 +177,13 @@ impl Fs for FakeFs {
         match &request.op {
             FsOp::Stat => {}
             // The written name or where it lands: `notes.txt -> .env` is not read.
-            FsOp::Read { .. } if held.withheld => return FsOutcome::of(OutcomeClass::Denied),
+            FsOp::Read { .. } | FsOp::Digest if held.withheld => {
+                return FsOutcome::of(OutcomeClass::Denied);
+            }
+            FsOp::Digest => {
+                let bytes = file.map(Vec::as_slice).unwrap_or_default();
+                outcome.digest = Some(specforge_package::Sha256::of(bytes).to_string());
+            }
             FsOp::Read { max_bytes } => {
                 let bytes = file.map(Vec::as_slice).unwrap_or_default();
                 let max = usize::try_from((*max_bytes).min(READ_CEILING)).unwrap_or(usize::MAX);
@@ -268,8 +274,8 @@ pub fn http_contract(port: &dyn Http) {
 }
 
 /// The `Fs` contract over `roots`, whose project root holds `a.txt` with `a\n`, a `.env` and no `missing.txt`: the
-/// file reads back, a missing one is missing, a path that climbs out of its root is outside, and a withheld name is
-/// denied.
+/// file reads back and digests to its bytes' SHA-256, a missing one is missing, a path that climbs out of its root is
+/// outside, and a withheld name is denied a read and a digest.
 pub fn fs_contract(port: &dyn Fs, roots: &Roots) {
     let request = |path: &str, op: FsOp| FsRequest {
         root: "project".into(),
@@ -285,6 +291,11 @@ pub fn fs_contract(port: &dyn Fs, roots: &Roots) {
     let outside = port.run(roots, &request("../a.txt", FsOp::Stat));
     assert_eq!(outside.class, OutcomeClass::Outside, "{outside:?}");
     let denied = port.run(roots, &request(".env", FsOp::Read { max_bytes: 1024 }));
+    assert_eq!(denied.class, OutcomeClass::Denied, "{denied:?}");
+    let digest = port.run(roots, &request("a.txt", FsOp::Digest));
+    let a = specforge_package::Sha256::of(b"a\n").to_string();
+    assert_eq!((digest.class, digest.digest), (OutcomeClass::Ok, Some(a)));
+    let denied = port.run(roots, &request(".env", FsOp::Digest));
     assert_eq!(denied.class, OutcomeClass::Denied, "{denied:?}");
 }
 

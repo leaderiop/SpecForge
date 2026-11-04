@@ -599,6 +599,7 @@ pub fn one_line(request: &EffectRequest) -> String {
             let op = match fs.op {
                 FsOp::Stat => "stat",
                 FsOp::Read { .. } => "read",
+                FsOp::Digest => "digest",
                 FsOp::Walk { .. } => "walk",
             };
             format!("{op} {}/{}", fs.root, fs.path)

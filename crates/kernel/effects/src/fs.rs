@@ -50,6 +50,8 @@ pub struct FsOutcome {
     pub truncated: bool,
     /// A walk's matches: root-relative, `/` separated, sorted.
     pub entries: Vec<String>,
+    /// A digest's SHA-256 of the whole file, in lowercase hex.
+    pub digest: Option<String>,
 }
 
 impl FsOutcome {
@@ -61,6 +63,7 @@ impl FsOutcome {
             bytes: Vec::new(),
             truncated: false,
             entries: Vec::new(),
+            digest: None,
         }
     }
 }

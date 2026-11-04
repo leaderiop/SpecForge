@@ -11,7 +11,7 @@ use specforge_effects::journal::{Answer, Blob};
 use specforge_effects::{
     Asker, EffectRequest, Effects, HttpRequest, Outcome, OutcomeClass, Ports, Served, UnixMillis,
 };
-use specforge_protocol_types::{Header, Operation, OutcomeData, Probe, ProbeOutcome};
+use specforge_protocol_types::{Header, HttpMethod, Operation, OutcomeData, Probe, ProbeOutcome};
 
 use super::budget;
 
@@ -154,9 +154,11 @@ fn answer_of(job: &Job<'_>, ports: &Ports) -> Answer {
         EffectRequest::Http(request) => {
             let mut outcome = ports.http.request(request, &Any);
             // A server that does not serve HEAD is asked once as a GET, through the same grant.
-            if request.method == "HEAD" && matches!(outcome.status, Some(405 | 501)) {
+            if request.method == HttpMethod::Head.as_str()
+                && matches!(outcome.status, Some(405 | 501))
+            {
                 let get = HttpRequest {
-                    method: "GET".to_string(),
+                    method: HttpMethod::Get.as_str().to_string(),
                     ..request.clone()
                 };
                 outcome = ports.http.request(&get, &Any);

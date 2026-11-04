@@ -15,13 +15,14 @@ use specforge_effects::{
     OutcomeClass, ResolveRequest, Roots, TlsRequest, UnixMillis,
 };
 use specforge_protocol_types::{
-    Header, Operation, OutcomeData, PrefixProblem, Probe, ProbeOutcome, Root, RootedPath,
+    Header, HttpMethod, Operation, OutcomeData, PrefixProblem, Probe, ProbeOutcome, Root,
+    RootedPath,
 };
 use specforge_registry::{CheckCall, Disk, DiskLookup};
 
 use super::budget::{self, ValueBudget};
 use super::collect::Value;
-use super::local::{self, WALK_CAP, git_of, stat_of};
+use super::local::{self, GitPath, WALK_CAP, git_of, stat_of};
 use super::network::{HEAD_ROOM, Job, Performed, Spending, perform_all};
 use crate::Environment;
 
@@ -80,16 +81,6 @@ enum Held {
     /// A bare path that names nothing.
     Nothing,
     At(Resolved),
-}
-
-/// The path a git probe asks about, if any.
-#[derive(Clone, Copy)]
-enum Within<'p> {
-    Nothing,
-    /// Written under a root: contained first, then asked at `HEAD`.
-    Under(&'p Root, &'p str),
-    /// From the repository's top, at the probe's revision.
-    FromTop(&'p str),
 }
 
 /// A probe's place in its [`Reading`].
@@ -272,15 +263,7 @@ impl<'a> Probing<'a> {
                 let max_bytes = u64::from((*bytes).min(READ_CAP));
                 self.fs(&mut turn, root, path, FsOp::Read { max_bytes })
             }
-            // A digest reads the whole file: the grant's `read`.
-            Probe::FsDigest { root, path } => self.fs(
-                &mut turn,
-                root,
-                path,
-                FsOp::Read {
-                    max_bytes: u64::MAX,
-                },
-            ),
+            Probe::FsDigest { root, path } => self.fs(&mut turn, root, path, FsOp::Digest),
             Probe::FsWalk { root, path, glob } => {
                 let op = FsOp::Walk {
                     glob: Some(glob.clone()),
@@ -288,11 +271,11 @@ impl<'a> Probing<'a> {
                 };
                 self.fs(&mut turn, root, path, op)
             }
-            Probe::GitObject { rev } => self.git(&mut turn, rev, Within::Nothing),
-            Probe::GitRef { name } => self.git(&mut turn, name, Within::Nothing),
-            Probe::GitFile { rev, path } => self.git(&mut turn, rev, Within::FromTop(path)),
+            Probe::GitObject { rev } => self.git(&mut turn, rev, None),
+            Probe::GitRef { name } => self.git(&mut turn, name, None),
+            Probe::GitFile { rev, path } => self.git(&mut turn, rev, Some(GitPath::FromTop(path))),
             Probe::GitTracked { root, path } => {
-                self.git(&mut turn, "HEAD", Within::Under(root, path))
+                self.git(&mut turn, "HEAD", Some(GitPath::Under((root, path))))
             }
             Probe::HttpHead { .. }
             | Probe::HttpGet { .. }
@@ -458,10 +441,9 @@ impl<'a> Probing<'a> {
                     Some(resolved) if resolved.withheld => {
                         (OutcomeClass::Denied, OutcomeData::None)
                     }
-                    Some(resolved) if matches!(probe, Probe::FsDigest { .. }) => {
-                        local::digest_disk(self.disk, &self.contained, resolved, self.deadline)
+                    Some(resolved) => {
+                        local::read_disk(self.disk, &self.contained, resolved, &op, self.deadline)
                     }
-                    Some(resolved) => local::read_disk(self.disk, &self.contained, resolved, &op),
                     None => (OutcomeClass::Missing, stat_of(None, 0, None)),
                 });
                 self.read_local(probe, &answer);
@@ -489,7 +471,12 @@ impl<'a> Probing<'a> {
 
     /// A git probe: gated on a git capability in the checker's scopes, asked of the Git port in every mode but
     /// `replay`, with no journal: its answer is local.
-    fn git(&mut self, turn: &mut Turn<'_, 'a>, revision: &str, within: Within<'_>) -> Slot {
+    fn git(
+        &mut self,
+        turn: &mut Turn<'_, 'a>,
+        revision: &str,
+        written: Option<GitPath<'_, (&Root, &str)>>,
+    ) -> Slot {
         let Turn {
             one,
             probe,
@@ -497,9 +484,11 @@ impl<'a> Probing<'a> {
             reading,
         } = turn;
         let probe: &'a Probe = probe;
-        let resolved = match within {
-            Within::Under(root, path) => match self.contain(one, root, path, reading) {
-                Held::At(resolved) => Some(resolved),
+        let path = match written {
+            None => None,
+            Some(GitPath::FromTop(path)) => Some(GitPath::FromTop(path)),
+            Some(GitPath::Under((root, path))) => match self.contain(one, root, path, reading) {
+                Held::At(resolved) => Some(GitPath::Under(resolved)),
                 Held::Reported => return Slot::Stopped,
                 Held::Nothing => {
                     return Slot::Done(self.outcome(
@@ -509,12 +498,6 @@ impl<'a> Probing<'a> {
                     ));
                 }
             },
-            Within::Nothing | Within::FromTop(_) => None,
-        };
-        let path = match (&resolved, within) {
-            (Some(resolved), _) => Some(local::GitPath::Under(resolved)),
-            (None, Within::FromTop(path)) => Some(local::GitPath::FromTop(path)),
-            (None, _) => None,
         };
         let question = one_probe(probe);
         let Some(gate) = self.gates.get(&one.call.extension) else {
@@ -700,11 +683,11 @@ fn one_probe(probe: &Probe) -> String {
 /// set here. None for a URL with no host, which no request can reach.
 fn request_of(probe: &Probe) -> Option<(EffectRequest, String, u64)> {
     let timeout_ms = DEFAULT_TIMEOUT.as_millis() as u64;
-    let http = |method: &str, url: &str, redirects: u32, headers, max_bytes: u64| {
+    let http = |method: HttpMethod, url: &str, redirects: u32, headers, max_bytes: u64| {
         let host = http::host_of(url)?;
         Some((
             EffectRequest::Http(HttpRequest {
-                method: method.to_string(),
+                method: method.as_str().to_string(),
                 url: url.to_string(),
                 headers,
                 body_cap: max_bytes + HEAD_ROOM,
@@ -718,7 +701,9 @@ fn request_of(probe: &Probe) -> Option<(EffectRequest, String, u64)> {
         ))
     };
     match probe {
-        Probe::HttpHead { url, redirects } => http("HEAD", url, *redirects, Vec::new(), 0),
+        Probe::HttpHead { url, redirects } => {
+            http(HttpMethod::Head, url, *redirects, Vec::new(), 0)
+        }
         Probe::HttpGet {
             url,
             range,
@@ -728,7 +713,7 @@ fn request_of(probe: &Probe) -> Option<(EffectRequest, String, u64)> {
                 .map(|[from, to]| vec![Header::plain("range", format!("bytes={from}-{to}"))])
                 .unwrap_or_default();
             http(
-                "GET",
+                HttpMethod::Get,
                 url,
                 http::MAX_REDIRECTS,
                 headers,

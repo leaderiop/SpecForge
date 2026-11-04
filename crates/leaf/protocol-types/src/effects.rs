@@ -163,6 +163,8 @@ pub enum FsOp {
     Stat,
     /// At most `max_bytes` of its bytes.
     Read { max_bytes: u64 },
+    /// The SHA-256 of all its bytes: a read of the whole file, which no cap on a read's bytes holds.
+    Digest,
     /// The files under it matching `glob` (every file when `None`), at most `max_entries`.
     Walk {
         #[serde(default, skip_serializing_if = "Option::is_none")]

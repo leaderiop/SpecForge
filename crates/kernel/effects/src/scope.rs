@@ -221,7 +221,7 @@ impl ScopeRules for FsScope {
         };
         let op = match request.op {
             FsOp::Stat => FsAccess::Stat,
-            FsOp::Read { .. } => FsAccess::Read,
+            FsOp::Read { .. } | FsOp::Digest => FsAccess::Read,
             FsOp::Walk { .. } => FsAccess::Walk,
         };
         root_ok && self.ops.contains(&op)

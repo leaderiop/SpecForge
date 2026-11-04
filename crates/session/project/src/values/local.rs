@@ -33,30 +33,14 @@ fn missing(
     })
 }
 
-/// The digest of a whole file: `Deadline` when the run's time ran out first, `Denied` for what is no regular file.
-pub(super) fn digest_disk(
-    disk: &dyn Disk,
-    contained: &Contained<'_>,
-    resolved: &Resolved,
-    deadline: Instant,
-) -> (OutcomeClass, OutcomeData) {
-    if let Some(missing) = missing(disk, contained, resolved) {
-        return missing;
-    }
-    match disk.digest(&resolved.at, deadline) {
-        Ok((sha256, length)) => (OutcomeClass::Ok, OutcomeData::Digest { sha256, length }),
-        Err(error) if error.kind() == io::ErrorKind::TimedOut => {
-            (OutcomeClass::Deadline, OutcomeData::None)
-        }
-        Err(_) => (OutcomeClass::Denied, OutcomeData::None),
-    }
-}
-
+/// What `op` reads of `resolved` from `disk`. A digest reads the whole file: `Deadline` when the run's time ran out
+/// first, `Denied` for what is no regular file.
 pub(super) fn read_disk(
     disk: &dyn Disk,
     contained: &Contained<'_>,
     resolved: &Resolved,
     op: &FsOp,
+    deadline: Instant,
 ) -> (OutcomeClass, OutcomeData) {
     if let Some(missing) = missing(disk, contained, resolved) {
         return missing;
@@ -81,6 +65,13 @@ pub(super) fn read_disk(
                     truncated: length > *max_bytes,
                 },
             ),
+            Err(_) => (OutcomeClass::Denied, OutcomeData::None),
+        },
+        FsOp::Digest => match disk.digest(&resolved.at, deadline) {
+            Ok((sha256, length)) => (OutcomeClass::Ok, OutcomeData::Digest { sha256, length }),
+            Err(error) if error.kind() == io::ErrorKind::TimedOut => {
+                (OutcomeClass::Deadline, OutcomeData::None)
+            }
             Err(_) => (OutcomeClass::Denied, OutcomeData::None),
         },
         FsOp::Walk { glob, .. } => {
@@ -144,11 +135,10 @@ fn walk(
     (entries, truncated)
 }
 
-/// The path a git question asks about.
-pub(super) enum GitPath<'p> {
-    /// Contained under a root.
-    Under(&'p Resolved),
-    /// From the repository's top, as a value wrote it.
+/// The path a git question asks about: under a root, as written (`(root, path)`) and then contained (a [`Resolved`])
+/// and asked at `HEAD`; or from the repository's top, as a value wrote it, at the probe's revision.
+pub(super) enum GitPath<'p, U> {
+    Under(U),
     FromTop(&'p str),
 }
 
@@ -157,7 +147,7 @@ pub(super) enum GitPath<'p> {
 pub(super) fn ask_git(
     env: &Environment,
     revision: &str,
-    path: Option<GitPath<'_>>,
+    path: Option<GitPath<'_, Resolved>>,
 ) -> Option<(OutcomeClass, OutcomeData)> {
     let denied = match &path {
         Some(GitPath::Under(resolved)) => resolved.withheld,
@@ -277,7 +267,8 @@ mod tests {
         let contained = Contained::new(&roots, &RealFs);
         let resolved = contained.resolve("a.md", Root::Project).unwrap();
         let op = FsOp::Read { max_bytes: 2 };
-        let (class, data) = read_disk(&OnlyPrefix, &contained, &resolved, &op);
+        let later = Instant::now() + std::time::Duration::from_secs(60);
+        let (class, data) = read_disk(&OnlyPrefix, &contained, &resolved, &op, later);
         assert_eq!(class, OutcomeClass::Ok);
         assert_eq!(
             data,
