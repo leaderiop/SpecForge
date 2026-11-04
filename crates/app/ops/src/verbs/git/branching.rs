@@ -198,18 +198,35 @@ pub fn worktree_remove(verbs: &Verbs, path: &Path, force: bool) -> Result<Pruned
     let place = verbs.place_to_write("worktree remove")?;
     let at = landed(verbs, path);
     let git = &verbs.ports().git;
-    if !force
-        && let Located::Repo(there) = git.locate(&at)
-        && git.status(&there).map_err(failed)?.dirty()
-    {
-        return Err(refused(
-            "dirty_tree",
-            format!(
-                "the worktree at {} has changes or untracked files",
-                printable(&at.to_string_lossy())
-            ),
-            "commit or stash them, or run specforge git worktree remove --force to remove them with it",
-        ));
+    if !force {
+        let top = std::fs::canonicalize(&at).ok();
+        match git.locate(&at) {
+            Located::Repo(there) if Some(&there.toplevel) == top.as_ref() => {
+                if git.status(&there).map_err(failed)?.dirty() {
+                    return Err(refused(
+                        "dirty_tree",
+                        format!(
+                            "the worktree at {} has changes or untracked files",
+                            printable(&at.to_string_lossy())
+                        ),
+                        "commit or stash them, or run specforge git worktree remove --force to remove them with it",
+                    ));
+                }
+            }
+            // a directory that is gone is only a record to drop, as git's `worktree remove` takes it
+            _ if top.is_none() => {}
+            // git validates the worktree first: a broken `.git` leaves its files unknown, so they may be work
+            _ => {
+                return Err(refused(
+                    "broken_worktree",
+                    format!(
+                        "{} is not a working worktree (its .git is missing or broken)",
+                        printable(&at.to_string_lossy())
+                    ),
+                    "run specforge git worktree remove --force to remove it with its files",
+                ));
+            }
+        }
     }
     git.worktree_remove(&place, &at).map_err(write_failed)?;
     Ok(PrunedAnswer {

@@ -455,6 +455,32 @@ fn a_worktree_is_added_listed_and_removed() {
     );
 }
 
+/// git's `worktree remove` validates the worktree first: one whose `.git` file is broken is refused without `--force`
+/// (its files may be someone's work), and removed with it.
+#[test]
+fn a_worktree_whose_git_file_is_broken_is_removed_only_with_force() {
+    let (project, _repo, _) = committed();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let at = elsewhere.path().join("wt");
+    let path = at.to_string_lossy().into_owned();
+    git(
+        &project,
+        &["worktree", "add", &path, "--branch", "wt", "--create"],
+    )
+    .exits(0);
+    std::fs::write(at.join(".git"), "not a gitdir line\n").unwrap();
+    let refused = git(&project, &["worktree", "remove", &path]).exits(1);
+    assert_eq!(
+        refused.json()["code"],
+        "broken_worktree",
+        "{}",
+        refused.stdout
+    );
+    assert!(at.join("a.txt").is_file(), "its files stay");
+    git(&project, &["worktree", "remove", &path, "--force"]).exits(0);
+    assert!(!at.exists());
+}
+
 #[test]
 fn prune_drops_the_record_of_a_worktree_whose_directory_is_gone() {
     let (project, repo, first) = committed();
