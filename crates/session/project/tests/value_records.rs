@@ -211,3 +211,34 @@ fn a_redirect_one_grant_permits_reaches_no_other_extension() {
     assert_eq!(coded(&found, "E090").len(), 1, "{found:?}");
     assert_eq!(status_of(&auto, "b"), CheckStatus::Failed);
 }
+
+/// Windows sets no mode, so it cannot tell a committed record this way.
+#[cfg(unix)]
+#[specforge_test_macros::test(
+    behavior = "check_field_values",
+    verify = "a committed effect record or checker memo forges no pass"
+)]
+fn a_committed_record_or_memo_forges_no_pass() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let scene = two(FakeHttp::new().route(A_URL, 200, ""), &a_spec());
+    assert_eq!(status_of(&scene.online(), "a"), CheckStatus::Passed);
+    let cached = || scene.checked(EffectsMode::Cached, &MemoryConsent::default());
+    assert_eq!(status_of(&cached(), "a"), CheckStatus::Passed);
+
+    // As a git checkout writes them.
+    fn open_all(dir: &std::path::Path) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                open_all(&path);
+            } else {
+                std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+            }
+        }
+    }
+    open_all(&scene.dir.root().join(".specforge/effects"));
+    let project = cached();
+    assert_eq!(status_of(&project, "a"), CheckStatus::NotRun);
+    assert!(!project.value_checks().of("a")[0].from_cache);
+}

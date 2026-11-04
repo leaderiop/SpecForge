@@ -90,7 +90,8 @@ pub enum Input {
   per machine); a loose root's records go to the user's `~/.specforge/effects/journal/`. A record's path is built
   only from a `RecordDigest`, `sha256:` and 64 lowercase hex characters. Writes are atomic; the last record of a
   request wins. An unreadable or undecodable record is a miss, overwritten by the next record: the journal is a
-  cache, so it costs no code.
+  cache, so it costs no code. So is one not private to this user (a git checkout writes 0644, so a project cannot
+  commit a pass; Windows sets no mode and cannot tell) or dated in the future (ADR 0336).
 - A record shows what identifies the request: the method, URL and argv, the header and env names, a non-sensitive
   header's value, and a body or stdin as its sha256 and length. A sensitive header's value is never written: the
   request digest's canonical form writes it `<redacted>` (ADR 0335 D3), and replay matches by digest.

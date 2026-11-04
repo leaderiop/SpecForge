@@ -40,7 +40,8 @@ struct Book {
 impl Book {
     fn read(path: Option<&Path>) -> Self {
         let mut book: Book = path
-            .and_then(|path| std::fs::read(path).ok())
+            // Written private: one that is not was not written here (a committed memo forges a pass).
+            .and_then(|path| specforge_common::fresh::read_private(path).ok())
             .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
             .and_then(|mut read| {
                 // Answers it gives again go where a guest's go: read printable (ADR 0244).
@@ -190,6 +191,30 @@ pub(super) fn dir_of(journal: &specforge_effects::EffectJournal) -> Option<PathB
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Windows sets no mode, so it cannot tell a committed book this way.
+    #[cfg(unix)]
+    #[test]
+    fn a_book_not_private_to_this_user_is_empty() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("book.json");
+        let mut book = Book::default();
+        book.entries.insert(
+            "key".to_string(),
+            Entry {
+                used: 0,
+                findings: Vec::new(),
+                probes: Vec::new(),
+            },
+        );
+        specforge_common::fresh::replace_private(&file, &serde_json::to_vec(&book).unwrap())
+            .unwrap();
+        assert_eq!(Book::read(Some(&file)).entries.len(), 1);
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(Book::read(Some(&file)).entries.is_empty());
+    }
 
     #[test]
     fn a_full_book_drops_what_was_used_longest_ago() {

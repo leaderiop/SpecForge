@@ -505,7 +505,7 @@ fn missing_files(rule: &Rule, field: &str, base: &Root, input: &RuleInput<'_>) -
     for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
         for finding in files::checked(record, field, base, &contained, input.disk) {
             // A value's escapes and a directory's names reach a terminal here, read printable (ADR 0244).
-            let (path, id) = (printable(&finding.path).into_owned(), &record.id);
+            let (path, id) = (printable(finding.path).into_owned(), &record.id);
             let core = |code, message: String, suggestion: String| {
                 let mut diagnostic = Diagnostic::new(code, message).with_suggestion(suggestion);
                 diagnostic.span = finding.span.clone().or_else(|| Some(record.span.clone()));

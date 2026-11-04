@@ -271,7 +271,8 @@ pub enum Lookup {
     Fresh(Kept),
     /// A record past it, or one never served fresh again (`ttl` none).
     Expired(Kept),
-    /// No record, one that does not read, or one whose payload is missing or not the one it names.
+    /// No record, one that does not read, one this user did not write (not private to it, or dated in the future),
+    /// or one whose payload is missing or not the one it names.
     Missing,
 }
 
@@ -442,19 +443,22 @@ impl EffectJournal {
         let Some(path) = self.path(digest) else {
             return Lookup::Missing;
         };
-        let read = std::fs::read(&path)
+        // A record is only ever written private and in the past: one that is neither was not written here.
+        let read = specforge_common::fresh::read_private(&path)
             .ok()
             .and_then(|bytes| serde_json::from_slice::<EffectRecord>(&bytes).ok())
-            .filter(|record| record.request_digest == *digest);
+            .filter(|record| record.request_digest == *digest && record.observed_at <= now);
         let Some(record) = read else {
             return Lookup::Missing;
         };
         let payload = match &record.payload {
             None => None,
-            Some(blob) => match std::fs::read(path.with_extension("payload")) {
-                Ok(bytes) if Blob::of(&bytes) == *blob => Some(bytes),
-                _ => return Lookup::Missing,
-            },
+            Some(blob) => {
+                match specforge_common::fresh::read_private(&path.with_extension("payload")) {
+                    Ok(bytes) if Blob::of(&bytes) == *blob => Some(bytes),
+                    _ => return Lookup::Missing,
+                }
+            }
         };
         let kept = Kept { record, payload };
         if fresh(&kept.record, now) {
