@@ -1,11 +1,6 @@
-//! The S2 spike (ADR 0339 D5): what the pinned gix answers for each git operation GSD's blocks run, on a repository
+//! What the pinned gix answers (ADR 0339 D5) for each git operation GSD's blocks run, on a repository
 //! gix builds. A test that runs is an operation gix covers; one ignored names what gix lacks, and its body shows the
 //! nearest piece gix has and where it stops. ADR 0339's spike table is this module, one row per test.
-
-#![allow(
-    clippy::unwrap_used,
-    reason = "a test's unwrap is its assertion: a None or an Err fails the test"
-)]
 
 use gix::bstr::ByteSlice as _;
 use gix::refs::transaction::PreviousValue;

@@ -1,4 +1,4 @@
-//! The `Git` port's branch, tag, switch and worktree writes (ADR 0339 D5, the S2 spike): a ref is gix's to write, a
+//! The `Git` port's branch, tag, switch and worktree writes (ADR 0339 D5): a ref is gix's to write, a
 //! checkout and a worktree libgit2's.
 
 use std::path::{Path, PathBuf};

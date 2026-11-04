@@ -140,7 +140,7 @@ const REWRITTEN: &[(&str, usize)] = &[
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
 /// exist here: a state table, a directory, a batch router. Each run opens with a line that says what replaced it.
 const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
-    // plan 08 T10: pull requests through GitHub's REST API (`specforge http --secret @gsd/core:github_token`): gh's
+    // pull requests through GitHub's REST API (`specforge http --secret @gsd/core:github_token`): gh's
     // arguments become fields, its token check a GET of /user, and the states it answers are lower case
     ("gsd-core/workflows/pr-branch.md", 218, 222),
     ("gsd-core/workflows/ship.md", 104, 104),

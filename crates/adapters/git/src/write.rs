@@ -1,4 +1,4 @@
-//! The `Git` port's writes (ADR 0339 D5, the S2 spike). A commit's object and its ref move are gix's; what meets the
+//! The `Git` port's writes (ADR 0339 D5). A commit's object and its ref move are gix's; what meets the
 //! index or the working tree is libgit2's (`git2`, built from source), because gix 0.84.0 has no worktree-to-index
 //! pipeline (ignore rules under a directory, filters) and no checkout over an existing tree. Neither runs a program:
 //! a hook is the caller's to run, through the Process port.

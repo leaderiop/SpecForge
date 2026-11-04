@@ -1,4 +1,4 @@
-//! The `Git` port's merge, reset, restore, stash, cherry-pick and revert (ADR 0339 D5, the S2 spike). A ref move is
+//! The `Git` port's merge, reset, restore, stash, cherry-pick and revert (ADR 0339 D5). A ref move is
 //! gix's (a fast-forward, `reset --soft`); what writes the index and the files is libgit2's, always with a safe
 //! checkout, so a file the worktree changed is never overwritten. A commit the operation makes is recorded as
 //! `git commit` records one.

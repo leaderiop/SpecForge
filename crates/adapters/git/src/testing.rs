@@ -7,10 +7,6 @@
     clippy::expect_used,
     reason = "a fixture's unwrap is its assertion: a repository it cannot build fails the test"
 )]
-#![allow(
-    dead_code,
-    reason = "each test binary uses the part of the fixture it needs"
-)]
 
 use std::cell::Cell;
 use std::path::{Path, PathBuf};

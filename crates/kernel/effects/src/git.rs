@@ -359,7 +359,7 @@ pub trait Git: Send + Sync {
     fn branch(&self, _place: &GitPlace) -> Result<String, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
-    /// The worktree's typed status in `place` (porcelain v2 parsed once, ADR 0320, ADR 0337).
+    /// The worktree's typed status in `place` (read by gix, ADR 0337).
     fn status(&self, _place: &GitPlace) -> Result<GitStatus, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
