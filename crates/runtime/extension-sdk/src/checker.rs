@@ -8,13 +8,34 @@ use std::rc::Rc;
 use serde_json::Value;
 use specforge_protocol_types::{
     CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckPhase, CheckPlan, CheckRef,
-    CheckValuesInput, CheckerDescriptor, FieldDescriptor, PlannedItem, Root, ValueForm,
+    CheckValuesInput, CheckerDescriptor, FieldDescriptor, PlannedItem, Probe, Root, ValueForm,
 };
 
 use crate::{ContributionsBuilder, FieldBuilder};
 
 type Plan = Box<dyn Fn(&CheckItem) -> PlannedItem>;
-type Judge = Box<dyn Fn(&CheckItem) -> Vec<CheckFinding>>;
+type Judge = Box<dyn Fn(&CheckItem) -> Judged>;
+
+/// What a judge says of one value: its findings, or the probes it needs performed in another round (at most
+/// [`specforge_protocol_types::MAX_PROBE_ROUNDS`] in all), with what it carries to it in `item.carry`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Judged {
+    Findings(Vec<CheckFinding>),
+    More { probes: Vec<Probe>, carry: Value },
+}
+
+impl Judged {
+    /// Another round: `probes` performed, their answers added to `item.outcomes`, `carry` handed back.
+    pub fn more(probes: Vec<Probe>, carry: Value) -> Self {
+        Judged::More { probes, carry }
+    }
+}
+
+impl From<Vec<CheckFinding>> for Judged {
+    fn from(findings: Vec<CheckFinding>) -> Self {
+        Judged::Findings(findings)
+    }
+}
 
 pub(crate) struct Handlers {
     plan: Plan,
@@ -88,12 +109,11 @@ pub(crate) fn answer(
         };
         let planned = match input.phase {
             CheckPhase::Plan => (handlers.plan)(item),
-            CheckPhase::Judge => PlannedItem::findings(
-                handlers
-                    .judge
-                    .as_ref()
-                    .map_or_else(Vec::new, |judge| judge(item)),
-            ),
+            CheckPhase::Judge => match handlers.judge.as_ref().map(|judge| judge(item)) {
+                None => PlannedItem::default(),
+                Some(Judged::Findings(findings)) => PlannedItem::findings(findings),
+                Some(Judged::More { probes, carry }) => PlannedItem::more(probes, carry),
+            },
         };
         Ok(PlannedItem {
             id: item.id,
@@ -177,6 +197,13 @@ impl CheckerBuilder {
         &mut self,
         judge: impl Fn(&CheckItem) -> Vec<CheckFinding> + 'static,
     ) -> &mut Self {
+        self.judge = Some(Box::new(move |item| Judged::Findings(judge(item))));
+        self
+    }
+
+    /// [`Self::judge`], which may instead ask for another round of probes ([`Judged::more`]), at most
+    /// [`specforge_protocol_types::MAX_PROBE_ROUNDS`] in all.
+    pub fn judge_rounds(&mut self, judge: impl Fn(&CheckItem) -> Judged + 'static) -> &mut Self {
         self.judge = Some(Box::new(judge));
         self
     }

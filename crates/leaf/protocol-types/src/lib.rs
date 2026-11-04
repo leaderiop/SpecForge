@@ -62,8 +62,8 @@ pub use capability::{
 };
 pub use checks::{
     ByteRange, CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
-    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, OutcomeData, PlannedItem, Probe,
-    ProbeOutcome, StatEntry, ValueForm,
+    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, MAX_PROBE_ROUNDS, OutcomeData,
+    PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
 };
 pub use code_catalog::CodeDescriptor;
 pub use contrib::*;

@@ -9,6 +9,10 @@ use crate::{FieldDescriptor, Header, OutcomeClass, Root};
 /// The export one extension's checkers are all called by; the guest routes each item by its checker's name.
 pub const CHECK_VALUES_EXPORT: &str = "__check_values";
 
+/// The most rounds of probes one value's check runs: the plan's, then at most two its judge asks for after reading the
+/// answers. A judge that asks in the last round answers malformed (E028).
+pub const MAX_PROBE_ROUNDS: u32 = 3;
+
 /// What became of one check on one value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -183,9 +187,12 @@ pub struct CheckItem {
     pub text: String,
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub args: Map<String, Value>,
-    /// What this item's probes answered: the judge phase's only.
+    /// What this item's probes answered, every round's in order: the judge phase's only.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outcomes: Vec<ProbeOutcome>,
+    /// What the judge's last round asked to be handed back with the next: every call is a fresh instance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub carry: Option<Value>,
 }
 
 /// What `__check_values` answers, in either phase.
@@ -195,7 +202,7 @@ pub struct CheckPlan {
     pub items: Vec<PlannedItem>,
 }
 
-/// One item's answer. A judge phase's has no probes.
+/// One item's answer. A judge phase's probes ask for another round, with what it carries to it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlannedItem {
     pub id: u32,
@@ -203,6 +210,8 @@ pub struct PlannedItem {
     pub findings: Vec<CheckFinding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub probes: Vec<Probe>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub carry: Option<Value>,
 }
 
 impl PlannedItem {
@@ -210,6 +219,15 @@ impl PlannedItem {
     pub fn probes(probes: Vec<Probe>) -> Self {
         PlannedItem {
             probes,
+            ..Default::default()
+        }
+    }
+
+    /// A judgement that needs `probes` performed in another round, `carry` handed back with their answers.
+    pub fn more(probes: Vec<Probe>, carry: Value) -> Self {
+        PlannedItem {
+            probes,
+            carry: Some(carry),
             ..Default::default()
         }
     }

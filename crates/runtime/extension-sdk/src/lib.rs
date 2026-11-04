@@ -90,7 +90,7 @@ pub use builders::{
     RuleBuilder,
 };
 pub use capability::Capability;
-pub use checker::CheckerBuilder;
+pub use checker::{CheckerBuilder, Judged};
 pub use command_graph::{CommandGraph, CommandInput};
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
 pub use host_contrib::{
@@ -642,8 +642,8 @@ pub mod prelude {
         PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
     pub use crate::{
-        ByteRange, CheckFinding, CheckItem, CheckRef, CheckerBuilder, OutcomeClass, OutcomeData,
-        PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
+        ByteRange, CheckFinding, CheckItem, CheckRef, CheckerBuilder, Judged, OutcomeClass,
+        OutcomeData, PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
     };
     pub use crate::{Capability, FsAccess, GitOp, HttpMethod, Operation};
     pub use crate::{

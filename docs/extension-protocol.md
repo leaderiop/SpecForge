@@ -994,6 +994,10 @@ judged verdict digests each checked value's outcome class. It makes one `__check
 3. **Judge.** `{"phase": "judge", "items": [..]}` carries the values whose probes all ran, each with `outcomes`:
    `[{"probe", "class", "data", "observed_at", "from_cache"}]`. It answers findings. A finding is `{"code", "message",
    "help"?, "at"?}`, and `at` is a byte range inside the text; the host places it on the value's span.
+4. **More rounds.** A judge may answer `probes` instead, with a `carry` (any JSON): the host performs them as in step 2,
+   under the same run's budget, and asks the judge again with every round's `outcomes` in order and the `carry` handed
+   back. A value runs at most three rounds of probes (the plan's and two more); a judge asking in the third is E028
+   naming the checker, once per checker per run, and its value is not judged. Each round is memoised like the others.
 
 | Probe | Keys | Port |
 |---|---|---|

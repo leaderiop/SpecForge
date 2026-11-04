@@ -62,6 +62,16 @@ fn a_check_values_call_is_typed_both_ways() {
     assert_eq!(input.items[0].outcomes[0].class, OutcomeClass::Status(404));
     assert!(input.items[0].outcomes[0].from_cache);
     assert_eq!(
+        input.items[0].carry,
+        Some(serde_json::json!({ "round": 2 }))
+    );
+    // A judge's probes ask for another round, carrying what it hands back.
+    assert_eq!(judged.items[1].probes.len(), 1);
+    assert_eq!(
+        judged.items[1].carry,
+        Some(serde_json::json!({ "round": 3 }))
+    );
+    assert_eq!(
         serde_json::to_value(&judged).unwrap(),
         wire("check_values.judge.output.json")
     );

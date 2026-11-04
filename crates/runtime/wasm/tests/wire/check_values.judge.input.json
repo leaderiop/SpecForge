@@ -58,7 +58,8 @@
           "data": { "kind": "none" },
           "observed_at": 1700000000000
         }
-      ]
+      ],
+      "carry": { "round": 2 }
     }
   ]
 }

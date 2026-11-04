@@ -95,6 +95,7 @@ impl MockHost {
                 text: text.to_string(),
                 args,
                 outcomes,
+                carry: None,
             }],
         };
         let mut answer = crate::checker::answer(&self.0.checkers.borrow(), &input)

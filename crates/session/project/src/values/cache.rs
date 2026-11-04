@@ -31,6 +31,9 @@ struct Entry {
     findings: Vec<CheckFinding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     probes: Vec<Probe>,
+    /// What a judge asking for another round carries to it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    carry: Option<serde_json::Value>,
 }
 
 /// One extension's answers at one origin version.
@@ -161,6 +164,7 @@ impl<'a> Shelf<'a> {
                         id: item.id,
                         findings: entry.findings.clone(),
                         probes: entry.probes.clone(),
+                        carry: entry.carry.clone(),
                     });
                 }
                 None => unknown.push((key, item)),
@@ -177,6 +181,7 @@ impl<'a> Shelf<'a> {
             used: book.run,
             findings: answer.findings.clone(),
             probes: answer.probes.clone(),
+            carry: answer.carry.clone(),
         };
         book.entries.insert(key, entry);
         book.changed = true;
@@ -226,6 +231,7 @@ mod tests {
                 used: 0,
                 findings: Vec::new(),
                 probes: Vec::new(),
+                carry: None,
             },
         );
         specforge_common::fresh::replace_private(&file, &serde_json::to_vec(&book).unwrap())
@@ -312,6 +318,7 @@ mod tests {
                     used,
                     findings: Vec::new(),
                     probes: Vec::new(),
+                    carry: None,
                 },
             );
         }

@@ -20,7 +20,7 @@ use specforge_protocol_types::{
 };
 use specforge_registry::{CheckCall, Disk, DiskLookup};
 
-use super::budget::{self, ValueBudget};
+use super::budget::{self, Spent, ValueBudget};
 use super::collect::Value;
 use super::local::{self, GitPath, WALK_CAP, git_of, stat_of};
 use super::network::{HEAD_ROOM, Job, Performed, Spending, perform_all};
@@ -92,27 +92,29 @@ enum Slot {
     Stopped,
 }
 
-/// Perform what `asked` asks through `effects` and `disk`: a reading for each, and W170 for what this machine has not
-/// approved of the scopes these values use: only those are asked for.
+/// Perform what `asked` asks through `effects` and `disk`, within what the run has not `spent`: a reading for each. What
+/// these values use of the scopes this machine has not approved joins `spent.uses`: only those are asked for.
 pub(super) fn dispatch(
     env: &Environment,
     effects: &Effects,
     disk: &dyn Disk,
     asked: &[Asked<'_>],
-) -> (Vec<Reading>, Vec<Diagnostic>) {
+    spent: &mut Spent,
+) -> Vec<Reading> {
     let roots = env
         .effects_allowed()
         .with_named(Roots::new(env.root(), env.spec_root()));
     let lookup = DiskLookup(disk);
     let budget = env.value_budget();
-    let deadline = Instant::now() + budget.time;
+    let deadline = spent.deadline;
     let mut probing = Probing {
         env,
         effects,
         disk,
         budget,
         deadline,
-        spent: 0,
+        spent: spent.bytes,
+        read_before: spent.local,
         contained: Contained::new(&roots, &lookup),
         now: UnixMillis::now_or_end(),
         gates: gates(env, &roots, asked),
@@ -145,6 +147,15 @@ pub(super) fn dispatch(
         spent: probing.spent,
     };
     let answers = perform_all(effects, probing.now, &probing.jobs, spending);
+    let fetched: u64 = answers
+        .iter()
+        .filter_map(|answer| match answer {
+            Performed::Answer(outcome) => Some(budget::cost(&outcome.data)),
+            _ => None,
+        })
+        .sum();
+    spent.bytes = probing.spent + fetched;
+    spent.local += probing.local.len();
     let mut counted = vec![false; probing.jobs.len()];
     for ((one, reading), slots) in asked.iter().zip(&mut readings).zip(slots) {
         for slot in slots {
@@ -159,12 +170,19 @@ pub(super) fn dispatch(
             reading.outcomes.extend(outcome);
         }
     }
-    let approvals = probing
+    for (extension, uses) in std::mem::take(&mut probing.uses) {
+        spent.uses.entry(extension).or_default().extend(uses);
+    }
+    readings
+}
+
+/// W170 for what this machine has not approved of the scopes the run's values used, one per extension.
+pub(super) fn approvals(effects: &Effects, spent: &Spent) -> Vec<Diagnostic> {
+    spent
         .uses
         .iter()
         .filter_map(|(extension, uses)| effects.grant(extension)?.unapproved_summary(uses))
-        .collect();
-    (readings, approvals)
+        .collect()
 }
 
 /// Each asking extension's grant as nothing approved it: what it declares, its call kind and the project's ceiling
@@ -204,8 +222,10 @@ struct Probing<'a> {
     disk: &'a dyn Disk,
     budget: ValueBudget,
     deadline: Instant,
-    /// What the local probes read so far (the budget's `bytes`).
+    /// What the run read so far (the budget's `bytes`).
     spent: u64,
+    /// The distinct file and git probes earlier rounds read.
+    read_before: usize,
     contained: Contained<'a>,
     now: UnixMillis,
     gates: BTreeMap<String, Grant>,
@@ -223,7 +243,7 @@ impl<'a> Probing<'a> {
     /// judged and counts toward I206.
     fn local_budget(&self, one_reading: &mut Reading, probe: &Probe) -> bool {
         let spare = self.local.contains_key(probe)
-            || (self.local.len() < self.budget.local_probes
+            || (self.read_before + self.local.len() < self.budget.local_probes
                 && self.spent < self.budget.bytes
                 && Instant::now() < self.deadline);
         if !spare {
