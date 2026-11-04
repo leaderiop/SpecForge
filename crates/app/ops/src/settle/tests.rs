@@ -114,7 +114,7 @@ fn an_answer_is_stored_once_per_scope() {
     let stored = consent.list().unwrap();
     assert_eq!(stored.capabilities.len(), 1);
     assert!(
-        !stored.capabilities[0].approved_at.is_empty(),
+        !stored.capabilities[0].approved_at.0.is_empty(),
         "the approval is dated"
     );
     // The next run holds it: nothing is asked.

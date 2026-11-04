@@ -58,6 +58,22 @@ impl Redirects for SameScheme {
     }
 }
 
+/// The header a secret adds to a hop. Its value never shows in debug output.
+#[derive(Clone, PartialEq, Eq)]
+pub struct SentHeader {
+    pub name: String,
+    pub value: String,
+}
+
+impl std::fmt::Debug for SentHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SentHeader")
+            .field("name", &self.name)
+            .field("value", &"<redacted>")
+            .finish()
+    }
+}
+
 /// The header `secret` adds to a hop to `url` (ADR 0335 D6): `<scheme> <value>` or the bare value, the value as
 /// `read` finds the secret's environment variable now. None unless the hop is `https` to a host the capability
 /// lists, and none while the variable is unset (the response decides). Every adapter asks it of each hop, so a
@@ -66,7 +82,7 @@ pub fn secret_header(
     secret: &AttachedSecret,
     url: &Url,
     read: impl Fn(&str) -> Option<String>,
-) -> Option<(String, String)> {
+) -> Option<SentHeader> {
     let host = url.host_str()?;
     let listed = secret
         .hosts
@@ -76,13 +92,13 @@ pub fn secret_header(
         return None;
     }
     let value = read(&secret.env).filter(|value| !value.is_empty())?;
-    Some((
-        secret.header.clone(),
-        match &secret.scheme {
+    Some(SentHeader {
+        name: secret.header.clone(),
+        value: match &secret.scheme {
             Some(scheme) => format!("{scheme} {value}"),
             None => value,
         },
-    ))
+    })
 }
 
 /// The scheme of `url`, lowercased; empty when it has none.

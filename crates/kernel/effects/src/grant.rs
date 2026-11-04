@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use specforge_common::{Diagnostic, codes};
+use specforge_package::Sha256;
 use specforge_protocol_types::{
     AttachedSecret, CapabilityDescriptor, EffectRequest, ExtensionDeclaration, FsAccess, FsOp,
     GitOp, GitScope, Hosts, HttpScope, Operation, PortScope, ProcessScope, SettingsItem,
@@ -14,7 +15,8 @@ use specforge_protocol_types::{
 
 use crate::ceiling::EffectsCeiling;
 use crate::consent::{
-    Approval, CapabilityApproval, Consent, ConsentError, KeyedBy, RootApproval, approval_line,
+    Approval, ApprovedAt, CapabilityApproval, Consent, ConsentError, KeyedBy, ProjectKey,
+    RootApproval, approval_line,
 };
 use crate::gate::{Port, gate};
 use crate::scope::rules;
@@ -64,7 +66,7 @@ pub struct OutsideRoot {
 pub struct Grant {
     extension: String,
     provenance: Option<Provenance>,
-    project: String,
+    project: ProjectKey,
     /// The user's own act (`specforge http`, …): only the ceiling narrows it.
     user: bool,
     capabilities: Vec<Granted>,
@@ -145,12 +147,14 @@ impl Denial {
 }
 
 /// The current project's key: its canonical root.
-pub fn project_key(project: &Path) -> String {
-    project
-        .canonicalize()
-        .unwrap_or_else(|_| project.to_path_buf())
-        .display()
-        .to_string()
+pub fn project_key(project: &Path) -> ProjectKey {
+    ProjectKey(
+        project
+            .canonicalize()
+            .unwrap_or_else(|_| project.to_path_buf())
+            .display()
+            .to_string(),
+    )
 }
 
 impl Grant {
@@ -210,7 +214,7 @@ impl Grant {
                 project: project.clone(),
                 root: root.name.clone(),
                 target: root.target.clone(),
-                approved_at: String::new(),
+                approved_at: ApprovedAt::default(),
             }));
         }
         grant.store = store;
@@ -242,7 +246,7 @@ impl Grant {
         Grant {
             extension: "the user".to_string(),
             provenance: None,
-            project: String::new(),
+            project: ProjectKey::default(),
             user: true,
             capabilities: open
                 .into_iter()
@@ -318,9 +322,9 @@ impl Grant {
             granted: granted.scope.clone()?,
             call_kinds: granted.declared.call_kinds.clone(),
             secret_env: granted.secret.as_ref().map(|secret| secret.env.clone()),
-            digest: provenance.digest().to_string(),
+            digest: Sha256::parse(provenance.digest()).ok(),
             specforge: env!("CARGO_PKG_VERSION").to_string(),
-            approved_at: String::new(),
+            approved_at: ApprovedAt::default(),
         })
     }
 
@@ -361,7 +365,7 @@ impl Grant {
                             project: self.project.clone(),
                             root: root.name.clone(),
                             target: root.target.clone(),
-                            approved_at: String::new(),
+                            approved_at: ApprovedAt::default(),
                         }));
                     }
                 }

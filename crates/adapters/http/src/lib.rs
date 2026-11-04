@@ -197,11 +197,11 @@ impl Http for Client {
 /// value is marked sensitive, so no debug output of the request shows it.
 fn secret_of(request: &HttpRequest, url: &Url) -> Option<(String, HeaderValue)> {
     let secret = request.secret.as_ref()?;
-    let (name, value) =
+    let header =
         specforge_effects::http::secret_header(secret, url, |env| std::env::var(env).ok())?;
-    let mut value = HeaderValue::from_str(&value).ok()?;
+    let mut value = HeaderValue::from_str(&header.value).ok()?;
     value.set_sensitive(true);
-    Some((name, value))
+    Some((header.name, value))
 }
 
 /// The IP address `url` names literally, if it does.

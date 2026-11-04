@@ -6,8 +6,8 @@ use specforge_common::DiagnosticList;
 use specforge_common::shape::Shape;
 use specforge_effects::grant::project_key;
 use specforge_effects::{
-    Approval, Approvals, Consent, ConsentError, Grant, Granted, KeyedBy, Provenance, Revoke,
-    RootApproval, Roots, Uses,
+    Approval, Approvals, ApprovedAt, Consent, ConsentError, Grant, Granted, KeyedBy, Provenance,
+    Revoke, RootApproval, Roots, Uses,
 };
 
 use crate::analysis::collect::uses_here;
@@ -219,7 +219,7 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
                     project: project.clone(),
                     root: named.name.clone(),
                     target: target.clone(),
-                    approved_at: String::new(),
+                    approved_at: ApprovedAt::default(),
                 }));
             Some(RootRow {
                 name: named.name.clone(),
@@ -248,7 +248,7 @@ fn row(grant: &Grant, granted: &Granted, uses: &Uses, held: &Approvals) -> Capab
         .then(|| grant.key(granted))
         .flatten()
         .and_then(|key| held.capabilities.iter().find(|a| a.covers(&key)))
-        .map(|a| a.approved_at.clone());
+        .map(|a| a.approved_at.0.clone());
     CapabilityRow {
         name: declared.name.clone(),
         port: declared.port.port().to_string(),
@@ -283,20 +283,20 @@ pub fn list_store(consent: &dyn Consent) -> Result<StoreListing, OpError> {
             .map(|a| StoredCapability {
                 granted: a.summary(),
                 provenance: keyed(&a.provenance),
-                project: a.project,
+                project: a.project.0,
                 extension: a.extension,
                 scope: a.scope,
-                approved_at: a.approved_at,
+                approved_at: a.approved_at.0,
             })
             .collect(),
         roots: held
             .roots
             .into_iter()
             .map(|a| StoredRoot {
-                project: a.project,
+                project: a.project.0,
                 root: a.root,
                 target: a.target,
-                approved_at: a.approved_at,
+                approved_at: a.approved_at.0,
             })
             .collect(),
     })
@@ -366,7 +366,7 @@ pub fn approve(
                     project: project_key(root),
                     root: name.to_string(),
                     target: target.display().to_string(),
-                    approved_at: String::new(),
+                    approved_at: ApprovedAt::default(),
                 }));
                 changed.push(format!("root {name}"));
             }

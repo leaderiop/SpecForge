@@ -701,19 +701,21 @@ impl crate::Consent for MemoryConsent {
 /// The contract every [`Consent`](crate::Consent) adapter keeps, given an empty store: nothing is approved; an
 /// approval covers itself and a narrower scope; approving under the same key replaces it; a revoke removes it.
 pub fn consent_contract(consent: &dyn crate::Consent) {
-    use crate::{Approval, CapabilityApproval, KeyedBy, Revoke, RootApproval};
+    use crate::{
+        Approval, ApprovedAt, CapabilityApproval, KeyedBy, ProjectKey, Revoke, RootApproval,
+    };
     use specforge_protocol_types::{GitOp, GitScope, PortScope};
     let git = |ops: &[GitOp]| CapabilityApproval {
-        project: "/p".to_string(),
+        project: ProjectKey("/p".to_string()),
         extension: "@acme/x".to_string(),
         provenance: KeyedBy::Builtin,
         scope: "history".to_string(),
         granted: PortScope::Git(GitScope { ops: ops.to_vec() }),
         call_kinds: Vec::new(),
         secret_env: None,
-        digest: String::new(),
+        digest: None,
         specforge: String::new(),
-        approved_at: String::new(),
+        approved_at: ApprovedAt::default(),
     };
     let both = Approval::Capability(git(&[GitOp::Read, GitOp::Write]));
     let read = Approval::Capability(git(&[GitOp::Read]));
@@ -746,10 +748,10 @@ pub fn consent_contract(consent: &dyn crate::Consent) {
         "the same key is replaced"
     );
     let root = Approval::Root(RootApproval {
-        project: "/p".to_string(),
+        project: ProjectKey("/p".to_string()),
         root: "vendor".to_string(),
         target: "/v".to_string(),
-        approved_at: String::new(),
+        approved_at: ApprovedAt::default(),
     });
     consent
         .approve(root.clone())
@@ -757,7 +759,7 @@ pub fn consent_contract(consent: &dyn crate::Consent) {
     assert!(consent.approved(&root).expect("it answers"));
     let gone = consent
         .revoke(&Revoke::Project {
-            project: "/p".to_string(),
+            project: ProjectKey("/p".to_string()),
         })
         .expect("a revoke is stored");
     assert_eq!(gone, 2);

@@ -572,10 +572,15 @@ fn a_secret_rides_only_a_listed_https_host() {
     assert_eq!(secret.env, "ACME_TOKEN");
     assert_eq!(secret.hosts, ["api.example.com"]);
     let read = |env: &str| (env == "ACME_TOKEN").then(|| "t0k".to_string());
+    let header = crate::http::SentHeader {
+        name: "Authorization".to_string(),
+        value: "Bearer t0k".to_string(),
+    };
     assert_eq!(
         secret_header(&secret, &url("https://api.example.com/v1"), read),
-        Some(("Authorization".to_string(), "Bearer t0k".to_string()))
+        Some(header.clone())
     );
+    assert!(!format!("{header:?}").contains("t0k"), "{header:?}");
     // Plain http, another host (a redirect elsewhere) and an unset variable carry nothing.
     assert_eq!(
         secret_header(&secret, &url("http://api.example.com/v1"), read),

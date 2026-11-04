@@ -3,7 +3,7 @@
 //! is stored; nobody to ask (MCP, `--format json`) means stored approvals only.
 
 use specforge_common::Diagnostic;
-use specforge_effects::{Approval, Consent, Grant, Need, Uses};
+use specforge_effects::{Approval, ApprovedAt, Consent, Grant, Need, Uses};
 use specforge_protocol_types::PortScope;
 
 use crate::asking::{Asking, Question};
@@ -104,7 +104,7 @@ pub fn settle(
 
 /// `approval`, dated now.
 pub(crate) fn stamped(approval: Approval) -> Approval {
-    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let now = ApprovedAt(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
     match approval {
         Approval::Capability(mut a) => {
             a.approved_at = now;

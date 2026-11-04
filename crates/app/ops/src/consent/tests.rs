@@ -1,11 +1,11 @@
 use super::*;
-use specforge_effects::{Approval, CapabilityApproval, KeyedBy};
+use specforge_effects::{Approval, CapabilityApproval, KeyedBy, ProjectKey};
 use specforge_protocol_types::{PortScope, ProcessScope};
 use specforge_test_macros::test as specforge_test;
 
 fn approval(scope: &str) -> Approval {
     Approval::Capability(CapabilityApproval {
-        project: "/p".to_string(),
+        project: ProjectKey("/p".to_string()),
         extension: "@acme/runner".to_string(),
         provenance: KeyedBy::Builtin,
         scope: scope.to_string(),
@@ -15,9 +15,9 @@ fn approval(scope: &str) -> Approval {
         }),
         call_kinds: Vec::new(),
         secret_env: None,
-        digest: String::new(),
+        digest: None,
         specforge: String::new(),
-        approved_at: String::new(),
+        approved_at: Default::default(),
     })
 }
 
@@ -243,7 +243,7 @@ fn an_approval_is_keyed_by_provenance_and_covers_narrower_grants() {
         };
         Approval::Capability(CapabilityApproval {
             provenance,
-            project: project.to_string(),
+            project: ProjectKey(project.to_string()),
             granted: PortScope::Git(GitScope { ops: ops.to_vec() }),
             ..base
         })

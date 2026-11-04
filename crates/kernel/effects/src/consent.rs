@@ -7,6 +7,7 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use specforge_package::Sha256;
 use specforge_protocol_types::{Operation, PortScope};
 
 use crate::Provenance;
@@ -29,11 +30,28 @@ impl KeyedBy {
     }
 }
 
+/// A project as the store keys it: its canonical root ([`crate::grant::project_key`]).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ProjectKey(pub String);
+
+/// When this machine stored an approval (RFC 3339); audit, never matched. Unset until it is stored.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ApprovedAt(pub String);
+
+impl std::ops::Deref for ProjectKey {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.0
+    }
+}
+
 /// One capability approved on this machine.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CapabilityApproval {
-    /// The canonical project root.
-    pub project: String,
+    pub project: ProjectKey,
     pub extension: String,
     pub provenance: KeyedBy,
     /// The capability's scope name.
@@ -46,13 +64,13 @@ pub struct CapabilityApproval {
     /// The environment variable it sends as a header (ADR 0335 D6): another variable asks again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret_env: Option<String>,
-    /// Audit, never matched: the blob's digest, the specforge that stored it and when (RFC 3339).
-    #[serde(default)]
-    pub digest: String,
+    /// Audit, never matched: the blob's digest, the specforge that stored it and when.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub digest: Option<Sha256>,
     #[serde(default)]
     pub specforge: String,
     #[serde(default)]
-    pub approved_at: String,
+    pub approved_at: ApprovedAt,
 }
 
 impl CapabilityApproval {
@@ -104,11 +122,11 @@ pub fn approval_line(scope: &PortScope, secret_env: Option<&str>) -> String {
 /// One named root outside a project, approved on this machine by its canonical target.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RootApproval {
-    pub project: String,
+    pub project: ProjectKey,
     pub root: String,
     pub target: String,
     #[serde(default)]
-    pub approved_at: String,
+    pub approved_at: ApprovedAt,
 }
 
 /// Every approval a store holds.
@@ -184,14 +202,14 @@ impl Approvals {
 pub enum Revoke {
     /// `extension`'s approvals in `project`, of `scopes` (every one when empty).
     Scopes {
-        project: String,
+        project: ProjectKey,
         extension: String,
         scopes: Vec<String>,
     },
     /// The approval of `project`'s named root `root`.
-    Root { project: String, root: String },
+    Root { project: ProjectKey, root: String },
     /// Every approval of `project`.
-    Project { project: String },
+    Project { project: ProjectKey },
 }
 
 /// Why a store cannot be used (W186): nothing in it is approved, and nothing is written over it.
