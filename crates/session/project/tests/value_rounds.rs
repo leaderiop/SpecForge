@@ -64,7 +64,7 @@ fn extension() -> ContributionsBuilder {
             .plan(|item: &CheckItem| {
                 PlannedItem::probes(vec![read(&item.text, ByteRange::Suffix { len: 4 })])
             })
-            .judge_rounds(pointed);
+            .judge(pointed);
     });
     c.checker("forever", |k| {
         k.applies_to(&["string"])
@@ -73,7 +73,7 @@ fn extension() -> ContributionsBuilder {
             .plan(|item: &CheckItem| {
                 PlannedItem::probes(vec![read(&item.text, ByteRange::Prefix { len: 1 })])
             })
-            .judge_rounds(|item: &CheckItem| {
+            .judge(|item: &CheckItem| {
                 let next = item.outcomes.len() as u64;
                 Judged::more(
                     vec![read(

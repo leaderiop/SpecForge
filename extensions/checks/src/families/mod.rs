@@ -268,7 +268,7 @@ fn rounds_checker(
                 Ok(probes) => PlannedItem::probes(probes),
                 Err(found) => PlannedItem::findings(vec![found]),
             })
-            .judge_rounds(move |item| match item.outcomes.as_slice() {
+            .judge(move |item| match item.outcomes.as_slice() {
                 [] => Judged::Findings(Vec::new()),
                 outcomes => judge(&item.text, Args(&item.args), outcomes, item.carry.as_ref()),
             });

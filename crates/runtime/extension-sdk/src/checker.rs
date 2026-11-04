@@ -192,19 +192,14 @@ impl CheckerBuilder {
         self
     }
 
-    /// Its findings from `item.outcomes`, what its probes answered; none when it declares no judge.
-    pub fn judge(
+    /// Its findings from `item.outcomes`, what its probes answered (a `Vec<CheckFinding>`), or another round of probes
+    /// ([`Judged::more`]), at most [`specforge_protocol_types::MAX_PROBE_ROUNDS`] in all; none when it declares no
+    /// judge.
+    pub fn judge<J: Into<Judged>>(
         &mut self,
-        judge: impl Fn(&CheckItem) -> Vec<CheckFinding> + 'static,
+        judge: impl Fn(&CheckItem) -> J + 'static,
     ) -> &mut Self {
-        self.judge = Some(Box::new(move |item| Judged::Findings(judge(item))));
-        self
-    }
-
-    /// [`Self::judge`], which may instead ask for another round of probes ([`Judged::more`]), at most
-    /// [`specforge_protocol_types::MAX_PROBE_ROUNDS`] in all.
-    pub fn judge_rounds(&mut self, judge: impl Fn(&CheckItem) -> Judged + 'static) -> &mut Self {
-        self.judge = Some(Box::new(judge));
+        self.judge = Some(Box::new(move |item| judge(item).into()));
         self
     }
 }
