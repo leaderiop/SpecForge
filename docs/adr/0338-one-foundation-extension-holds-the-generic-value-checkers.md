@@ -102,6 +102,10 @@ jurisdictional, about 1 MB, and go to packs.
 Every committed blob is at most 2,500,000 B, held by the gate's `blob-size` check. It replaces the component test's
 per-blob budget. The test's `TOTAL_BUDGET` stays: it alone catches a build without `[profile.blob]`.
 
+Measured: `@specforge/checks` with its five families and its collector is 2,149,827 B, 350,173 B under the cap; nearly
+all of it is the one `regex` engine with its Unicode tables (formats) and the `url` parser with its IDNA tables (links).
+The twelve builtins total 9,010,614 B, and `TOTAL_BUDGET` is 9,100,000.
+
 ## D9. Outcomes as facts
 
 The `checks` collector declares the `check_outcomes` input and no detection files; `check_outcome` is the kind it

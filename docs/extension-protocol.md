@@ -970,6 +970,8 @@ may ask the host to look at the world for it; it never looks itself:
   an enum argument that selects another code, and both are in `codes` (ADR 0026 D3).
 - `scopes` are the capabilities its probes use, by scope name; none: a pure checker.
 - `codes` lists every code a finding of it may carry, each catalogued. A finding with another is W150, and is kept.
+- `when` names a bool setting of the extension, or a list of them (ADR 0317's shape): while any is false the checker is
+  not called, sends no probe and adds no scope to W170. A `when` that is no bool setting is W189.
 - `value` (`text`, `url`, `path`) and `root_arg` (the argument that names a bare path's default root) are for the editor,
   which offers paths and document links on the declaration, never on a checker's name. They change no check.
 

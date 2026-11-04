@@ -626,6 +626,8 @@ c.kind("service", |k| {
 
 `arg(name, |a| ..)` declares an argument, as a setting declares its form; none may be named `severity`, since a gentler
 reading is another code the checker lists. `root_arg(name)` says which argument names a bare path's default root.
+`when(setting)`, called once per setting, switches the checker with bool settings of the extension: while one is false the
+checker is not called, sends no probe and adds no scope to W170; a setting's `gates(&[..])` lists the codes it silences.
 `check` names the extension's own checker by its name and another extension's as `@acme/x:name`, a declared peer. See
 [Category: checkers](extension-protocol.md#category-checkers) for the phases, the probes and the codes the host reports.
 

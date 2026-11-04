@@ -318,6 +318,41 @@ are not checked and its failing tests are not reported, so a test not written ye
 `node --test` with the `spec` reporter to standard output and the `junit` reporter to `.specforge/reports/node-test.xml`,
 and names each test after the nearest `package.json` with a `name` ([guide](guides/node-test-facts.md)).
 
+## @specforge/checks
+
+The generic value checkers ([ADR 0338](adr/0338-one-foundation-extension-holds-the-generic-value-checkers.md)): each
+decided by a cross-industry standard, attached to a field by its `checks` or by `specforge.json`'s `checks.fields`, and
+run in the values phase ([ADR 0336](adr/0336-a-field-declares-the-checks-its-values-pass.md)). A
+checker reads only the text and what the host's probes answer; the host contains every path and performs every probe.
+Five bool settings, each on by default, switch the families: a family that is off is not called, sends no probe and
+adds no scope to W170, and its setting `gates` the codes only it reports (E103 is shared, so none gates it).
+
+| Family (switch) | Scope | Checkers and their arguments | Codes |
+|-----------------|-------|------------------------------|-------|
+| files (`families.files`) | `files` (fs: stat, read, walk) | `file`, `dir`, `glob` (`min`, `max`), `size` (`min`, `max`), `digest` (`<path>@sha256:<hex>`), `encoding` (`bom`, `line_ends`), `line_range` (`<path>:<from>-<to>`); each takes `root` (default `project`) | E016, E096, W176, E103 |
+| formats (`families.formats`) | none | `email`, `semver` (`prerelease`), `semver_range`, `spdx` (`deprecated`), `iso_date` (`form`), `iso_duration`, `cron` (`seconds`), `regex`, `uuid` (`version`), `mime`, `bcp47`, `iso3166` (`form`), `iso4217` (`form`), `iana_tz` (`canonical`), `e164`, `ip` (`version`), `cidr` (`strict`), `hostname` (`wildcard`), `port` (`zero`), `hex_color` | E103 |
+| digits (`families.digits`) | none | `luhn`, `mod11`, `mod97`, `gtin`, `isbn`, `iban` | E103 |
+| links (`families.links`) | `links` (http: HEAD, GET, from the values) | `url` (`schemes`, default `https`; `status`), `url_anchor` (as `url`), `content_type` (`allow`), `redirect` (`hosts`, `*.` wildcards), `tls` (`days`, default 14), `dns` (a host name) | E091, E092, E093, E104, E112, W172, W173, W178, W181, W182, W183, E103 |
+| git (`families.git`) | `git` | `commit` (`min_len`, default 7), `ref` (`kind`: `tag`, `branch` or `any`), `file_at` (`<revision>:<path>`), `tracked` (`root`) | E106, W180, E103 |
+
+A links checker reads the answer after at most 5 redirects: only 404 or 410 is an error (E093, or W183 on a field
+whose check says `status: "warn"`); 401 and 403 are W182, 429, 5xx and any other status W181, a host that cannot be
+reached W172, and a redirect not followed W173. W172, W173, W181 and W182 are the remote's answers, so they are
+`machine`. A malformed or relative URL, or one with credentials, is E091 and a scheme outside `schemes` E092, both
+never fetched; a HEAD answered 405 or 501 is asked once more as a GET.
+
+The `regex` checker accepts exactly what the kernel's `matches` accepts: one engine, the workspace's `regex`. Domain
+identifiers (a national drug code, a jurisdiction's tax number) go in packs built on `specforge-checks-kit`, not here.
+
+It declares one collector-written kind and the collector that writes it:
+
+| Kind | Scheme and id | Fields |
+|------|---------------|--------|
+| `check_outcome` | `check:<entity>/<field>#<item>@<checker>` | `entity`, `field`, `item`, `checker`, `status` (`passed`, `failed`, `skipped`; the kind's `result`), `outcome` (`ok`, `status:404`, `unreachable:dns`, …), `codes`, `observed_at` (RFC 3339) |
+
+The `checks` collector reads only the `check_outcomes` input and declares no detection, command or report: it runs
+when named (`specforge collect --runner checks`) or, on a plain collect, under `checks.publish`.
+
 ## Related
 
 - [Extension model](extension-model.md): what an extension can declare and how it runs
