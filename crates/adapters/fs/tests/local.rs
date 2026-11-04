@@ -254,3 +254,34 @@ fn a_change_through_a_link_out_of_the_root_is_outside() {
     assert_eq!(LocalFs.change(&roots, &mkdir).class, OutcomeClass::Outside);
     assert!(!outside.path().join("new").exists());
 }
+
+/// A recursive copy, and a move that copies, never write through a link the destination holds: a committed
+/// `b/a/x -> ~/.bashrc` is refused, the file it points at untouched, and so is a directory link inside it.
+#[cfg(unix)]
+#[test]
+fn a_copy_never_writes_through_a_link_in_its_destination() {
+    use specforge_effects::FsChange;
+    let (dir, roots) = project();
+    let root = dir.path().canonicalize().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let victim = outside.path().join("bashrc");
+    std::fs::write(&victim, "mine\n").unwrap();
+    std::fs::create_dir_all(root.join("a/sub")).unwrap();
+    std::fs::write(root.join("a/x"), "theirs\n").unwrap();
+    std::fs::write(root.join("a/sub/y"), "theirs\n").unwrap();
+    std::fs::create_dir_all(root.join("b/a")).unwrap();
+    std::os::unix::fs::symlink(&victim, root.join("b/a/x")).unwrap();
+    let copy = FsChange::Copy {
+        from: at("project", "a"),
+        to: at("project", "b"),
+    };
+    assert_ne!(LocalFs.change(&roots, &copy).class, OutcomeClass::Ok);
+    assert_eq!(std::fs::read_to_string(&victim).unwrap(), "mine\n");
+
+    std::fs::remove_file(root.join("b/a/x")).unwrap();
+    // The first copy may have made `b/a/sub` before it met the link.
+    let _ = std::fs::remove_dir_all(root.join("b/a/sub"));
+    std::os::unix::fs::symlink(outside.path(), root.join("b/a/sub")).unwrap();
+    assert_ne!(LocalFs.change(&roots, &copy).class, OutcomeClass::Ok);
+    assert!(!outside.path().join("y").exists());
+}

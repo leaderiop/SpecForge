@@ -205,17 +205,41 @@ fn private(at: &Path, dir: bool) -> std::io::Result<()> {
 }
 
 /// `from` copied onto `to`: a file, or a directory and what it holds, at most `budget` entries; a link, the host's own
-/// state and a withheld name are left out.
+/// state and a withheld name are left out. Nothing is written through a link: a destination that holds one (a
+/// committed `b/a/x -> ~/.bashrc`) is refused, a directory is made only where none is, and a file is created new
+/// after its name is unlinked, so the inode a name held is never opened (ADR 0144).
 fn copy(from: &Path, to: &Path, budget: &mut usize) -> std::io::Result<()> {
     let meta = std::fs::symlink_metadata(from)?;
+    if !meta.is_file() && !meta.is_dir() {
+        return Ok(());
+    }
+    match std::fs::symlink_metadata(to) {
+        Ok(there) if there.file_type().is_symlink() => {
+            return Err(std::io::Error::other(format!(
+                "{} is a link, never written through",
+                to.display()
+            )));
+        }
+        Ok(there) if there.is_dir() != meta.is_dir() => {
+            return Err(std::io::Error::other(format!(
+                "{} is already there as another kind",
+                to.display()
+            )));
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
     if meta.is_file() {
-        std::fs::copy(from, to)?;
-        return Ok(());
+        let mut source = std::fs::File::open(from)?;
+        let mut target = specforge_common::fresh::create_fresh(to)?;
+        std::io::copy(&mut source, &mut target)?;
+        return target.set_permissions(meta.permissions());
     }
-    if !meta.is_dir() {
-        return Ok(());
+    // `mkdir` never follows a link at the name: one made since the look above fails it.
+    if !present(to) {
+        std::fs::create_dir(to)?;
     }
-    std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
         let entry = entry?;
         *budget = budget.checked_sub(1).ok_or_else(|| {
