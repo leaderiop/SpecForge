@@ -46,4 +46,6 @@ to debug a guest, rebuild its crate with a plain `cargo build --release`.
 Declaration snapshots should change only when the change meant to change a declaration; a snapshot diff nobody
 intended is a bug. The vocabulary changes only when a builtin's kinds or enhancement fields change. The doctor and MCP snapshots (accept with `INSTA_UPDATE=always`, see `briefs/_shared.md`) follow the declarations.
 
-Run it once per round or change set, after the last input changed, then `cargo gate full`.
+Run it once per round or change set, after the last input changed, then `cargo gate full`. Within a series of commits,
+the `builtins` check is the one check an intermediate commit may fail: re-vendor at the last commit that changes an input,
+and earlier only when a commit's own tests need new blobs (a wire change that stale blobs refuse). The tip passes every check.
