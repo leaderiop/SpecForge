@@ -38,6 +38,7 @@ mod extension_surfaces;
 mod extension_text;
 mod extensions;
 mod file_entry_names;
+mod files_verb;
 mod format;
 mod format_corpus;
 mod format_paths;

@@ -59,6 +59,7 @@ mod stats;
 mod terminal;
 mod trace;
 mod update;
+mod verbs;
 mod watch;
 
 use clap::{CommandFactory, Parser, Subcommand};
@@ -203,6 +204,11 @@ enum Commands {
         #[command(subcommand)]
         action: extension_authoring::Action,
     },
+    /// Stat, list and search files in the project's roots: the Fs port for people and agents (ADR 0339)
+    Files {
+        #[command(subcommand)]
+        action: verbs::files::Action,
+    },
     /// An extension's command: `specforge <extension> <command>`, e.g.
     /// `specforge product features` (the project's extensions declare them)
     #[command(external_subcommand)]
@@ -325,6 +331,7 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::Explain(args) => args.run(terminal),
         Commands::Migrate(args) => args.run(terminal),
         Commands::InferStatus(args) => args.run(terminal, ports),
+        Commands::Files { action } => action.run(terminal, ports),
         Commands::External(_) => unreachable!("main runs an extension command itself"),
         Commands::Extension { action } => action.run(terminal, ports),
     }

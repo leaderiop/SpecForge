@@ -72,6 +72,14 @@ pub(crate) const ANSWER_LONG_HELP: &str = concat!(
      is the command's."
 );
 
+/// The long help of `--pick` on a verb (`files`, `http`, `git`), whose answer is JSON by default.
+pub(crate) const VERB_LONG_HELP: &str = concat!(
+    "Print only the values at this path of the verb's JSON answer, one per line, e.g. '.entries[].path' on files \
+     list or '.branch' on git head. ",
+    rules!(),
+    " It takes no --format human: errors print as they do under json, and the exit code is the verb's."
+);
+
 /// `--format human|json` beside `--pick`, for a core command whose JSON form is its answer (`check`, `settings`):
 /// with `--pick` the format is `json` unless one is given, so an explicit `--format human` can be refused.
 #[derive(clap::Args, Clone, Debug)]

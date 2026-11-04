@@ -33,6 +33,65 @@ pub const SKIPPED: &[&str] = &[
 /// `outside`, a withheld name `denied`, an absent one `missing`.
 pub trait Fs: Send + Sync {
     fn run(&self, roots: &Roots, request: &FsRequest) -> FsOutcome;
+
+    /// A person's listing (`specforge files list`, ADR 0339): no guest names one, so only the local adapter answers it
+    /// and every other port, a granted one included, answers `denied`.
+    fn list(&self, _roots: &Roots, _request: &ListRequest) -> FsListing {
+        FsListing::of(OutcomeClass::Denied)
+    }
+}
+
+/// The most entries a person's listing visits.
+pub const LIST_VISITS: usize = 200_000;
+
+/// What a person's listing asks: the entries under `path` in `root`. Host-only: no wire request carries it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListRequest {
+    pub root: String,
+    /// Relative to the root, `/` separated; empty for the root itself.
+    pub path: String,
+    /// A listed entry matches one of them, relative to `path` (a glob with no `/` matches the entry's name); none:
+    /// every entry.
+    pub globs: Vec<String>,
+    /// Only entries of this kind; none: files and directories.
+    pub kind: Option<FileKind>,
+    /// How deep below `path` an entry may be (1: its direct entries); none: any depth.
+    pub depth: Option<usize>,
+    /// Leave out what `.gitignore`, `.ignore` and git's own excludes ignore.
+    pub ignore: bool,
+    /// List names that start with `.`.
+    pub hidden: bool,
+    pub max_entries: usize,
+}
+
+/// One entry a listing found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Listed {
+    /// Relative to the root, `/` separated.
+    pub path: String,
+    pub kind: FileKind,
+    pub size: u64,
+}
+
+/// What a listing answered.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FsListing {
+    pub class: OutcomeClass,
+    /// Sorted by path.
+    pub entries: Vec<Listed>,
+    /// It stopped at `max_entries` or at [`LIST_VISITS`].
+    pub truncated: bool,
+}
+
+impl FsListing {
+    /// A listing of `class` and no entry.
+    pub fn of(class: OutcomeClass) -> Self {
+        FsListing {
+            class,
+            entries: Vec::new(),
+            truncated: false,
+        }
+    }
 }
 
 /// A file port as the composition root shares it.

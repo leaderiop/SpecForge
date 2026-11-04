@@ -12,9 +12,11 @@ use std::time::UNIX_EPOCH;
 
 use specforge_effects::contained::in_host_state;
 use specforge_effects::fs::{
-    FILE_CEILING, FileKind, FsStat, READ_CEILING, SKIPPED, WALK_VISITS, held,
+    FILE_CEILING, FileKind, FsStat, LIST_VISITS, READ_CEILING, SKIPPED, WALK_VISITS, held,
 };
-use specforge_effects::{Fs, FsOp, FsOutcome, FsRequest, OutcomeClass, RealFs, Roots};
+use specforge_effects::{
+    Fs, FsListing, FsOp, FsOutcome, FsRequest, ListRequest, Listed, OutcomeClass, RealFs, Roots,
+};
 
 /// The `Fs` port over the local file system.
 #[derive(Debug, Clone, Copy, Default)]
@@ -70,6 +72,113 @@ impl Fs for LocalFs {
         }
         outcome
     }
+
+    fn list(&self, roots: &Roots, request: &ListRequest) -> FsListing {
+        Self::listing(roots, request)
+    }
+}
+
+impl LocalFs {
+    /// [`Fs::list`]: the directory resolved like a stat, then walked with the `ignore` crate's rules, never through a
+    /// link, never into the host's own state or `.git`, at most [`LIST_VISITS`] entries visited.
+    fn listing(roots: &Roots, request: &ListRequest) -> FsListing {
+        let stat = FsRequest {
+            root: request.root.clone(),
+            path: request.path.clone(),
+            op: FsOp::Stat,
+        };
+        let held = match held(roots, &RealFs, &stat) {
+            Ok(held) => held,
+            Err(class) => return FsListing::of(class),
+        };
+        let Ok((paths, names)) = matchers(&request.globs) else {
+            return FsListing::of(OutcomeClass::Denied);
+        };
+        let start = held.at.clone();
+        let prefix = if held.rel.is_empty() {
+            String::new()
+        } else {
+            format!("{}/", held.rel)
+        };
+        let mut walk = ignore::WalkBuilder::new(&start);
+        walk.hidden(!request.hidden)
+            .ignore(request.ignore)
+            .git_ignore(request.ignore)
+            .git_exclude(request.ignore)
+            .git_global(request.ignore)
+            .parents(request.ignore)
+            .require_git(false)
+            .follow_links(false)
+            .max_depth(request.depth)
+            .filter_entry(|entry| {
+                let name = entry.file_name().to_string_lossy();
+                entry.depth() == 0 || !(in_host_state(&name) || name == ".git")
+            });
+        let mut listing = FsListing::of(OutcomeClass::Ok);
+        for (visits, entry) in walk.build().flatten().enumerate() {
+            if visits >= LIST_VISITS {
+                listing.truncated = true;
+                break;
+            }
+            let Some(kind) = entry.file_type() else {
+                continue;
+            };
+            // A link is neither entered nor listed.
+            let kind = if kind.is_file() {
+                FileKind::File
+            } else if kind.is_dir() {
+                FileKind::Dir
+            } else {
+                continue;
+            };
+            let Ok(below) = entry.path().strip_prefix(&start) else {
+                continue;
+            };
+            if entry.depth() == 0 || request.kind.is_some_and(|wanted| wanted != kind) {
+                continue;
+            }
+            let below = below.to_string_lossy().replace('\\', "/");
+            let name = entry.file_name().to_string_lossy();
+            let globbed =
+                request.globs.is_empty() || paths.is_match(&below) || names.is_match(name.as_ref());
+            if !globbed {
+                continue;
+            }
+            let size = match kind {
+                FileKind::File => entry.metadata().map(|meta| meta.len()).unwrap_or(0),
+                _ => 0,
+            };
+            listing.entries.push(Listed {
+                path: format!("{prefix}{below}"),
+                kind,
+                size,
+            });
+        }
+        listing.entries.sort_by(|a, b| a.path.cmp(&b.path));
+        if listing.entries.len() > request.max_entries {
+            listing.truncated = true;
+            listing.entries.truncate(request.max_entries);
+        }
+        listing
+    }
+}
+
+/// The globs with a `/`, matched against an entry's path below the listed directory, and those without one, matched
+/// against its name; `Err` when one does not parse.
+pub fn matchers(globs: &[String]) -> Result<(globset::GlobSet, globset::GlobSet), globset::Error> {
+    let mut paths = globset::GlobSetBuilder::new();
+    let mut names = globset::GlobSetBuilder::new();
+    for glob in globs {
+        let built = globset::GlobBuilder::new(glob)
+            .literal_separator(true)
+            .build()?;
+        if glob.contains('/') {
+            paths.add(built);
+        } else {
+            names.add(built);
+        }
+    }
+    Ok((paths.build()?, names.build()?))
 }
 
 fn stat_of(meta: &std::fs::Metadata) -> FsStat {

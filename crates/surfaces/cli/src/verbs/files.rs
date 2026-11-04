@@ -1,0 +1,202 @@
+//! `specforge files` (ADR 0339): the `Fs` port for people and agents, in the project's roots.
+
+use std::path::PathBuf;
+
+use specforge_effects::Ports;
+use specforge_effects::fs::FileKind;
+use specforge_ops::verbs::files::{self, LIST_MAX, List, SEARCH_MAX, Search};
+
+use super::{VerbArgs, shown};
+use crate::outcome::Exit;
+use crate::terminal::{Terminal, outln};
+
+#[derive(clap::Subcommand)]
+pub(crate) enum Action {
+    /// Each path's kind, size and modification time, or that it does not exist
+    Stat(StatArgs),
+    /// The files and directories under a directory, honouring .gitignore
+    List(ListArgs),
+    /// The lines under the paths that match a regular expression
+    Search(SearchArgs),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct StatArgs {
+    /// The paths, from the current directory
+    #[arg(required = true)]
+    paths: Vec<PathBuf>,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+/// What `--kind` lists.
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+enum Kind {
+    File,
+    Dir,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct ListArgs {
+    /// The directory, from the current directory
+    #[arg(default_value = ".")]
+    dir: PathBuf,
+
+    /// Only entries that match one of these globs: one with a `/` is matched against the path below the directory,
+    /// one without against the entry's name
+    #[arg(long = "glob", value_name = "GLOB")]
+    globs: Vec<String>,
+
+    /// Only files, or only directories
+    #[arg(long, value_enum)]
+    kind: Option<Kind>,
+
+    /// How deep below the directory to list (1: its own entries)
+    #[arg(long, value_name = "N")]
+    depth: Option<usize>,
+
+    /// List what .gitignore and .ignore leave out too
+    #[arg(long)]
+    no_ignore: bool,
+
+    /// List names that start with `.`
+    #[arg(long)]
+    hidden: bool,
+
+    /// The most entries listed
+    #[arg(long, value_name = "N", default_value_t = LIST_MAX)]
+    max: usize,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct SearchArgs {
+    /// The regular expression (Rust's `regex` syntax)
+    pattern: String,
+
+    /// The files and directories to search, from the current directory (the current directory when none)
+    paths: Vec<PathBuf>,
+
+    /// Only files whose name (or path below a searched directory, for a glob with a `/`) matches one of these globs
+    #[arg(long = "glob", value_name = "GLOB")]
+    globs: Vec<String>,
+
+    /// Match letters in any case
+    #[arg(long, short = 'i')]
+    ignore_case: bool,
+
+    /// The most matches answered
+    #[arg(long, value_name = "N", default_value_t = SEARCH_MAX)]
+    max: usize,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+impl Action {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
+        match self {
+            Action::Stat(args) => args.run(terminal, ports),
+            Action::List(args) => args.run(terminal, ports),
+            Action::Search(args) => args.run(terminal, ports),
+        }
+    }
+}
+
+impl StatArgs {
+    fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
+        let format = match self.verb.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit,
+        };
+        let answer = self
+            .verb
+            .open(ports)
+            .and_then(|verbs| files::stat(&verbs, &self.paths));
+        self.verb
+            .print(terminal, format, answer, |terminal, answer| {
+                for entry in &answer.entries {
+                    let what = match (entry.kind, entry.size) {
+                        (Some(kind), Some(size)) => format!("{kind} {size} B"),
+                        (Some(kind), None) => kind.to_string(),
+                        (None, _) => "missing".to_string(),
+                    };
+                    outln!(terminal, "{}  {what}", shown(&entry.path));
+                }
+            })
+    }
+}
+
+impl ListArgs {
+    fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
+        let format = match self.verb.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit,
+        };
+        let list = List {
+            dir: self.dir,
+            globs: self.globs,
+            kind: self.kind.map(|kind| match kind {
+                Kind::File => FileKind::File,
+                Kind::Dir => FileKind::Dir,
+            }),
+            depth: self.depth,
+            ignore: !self.no_ignore,
+            hidden: self.hidden,
+            max: self.max,
+        };
+        let answer = self
+            .verb
+            .open(ports)
+            .and_then(|verbs| files::list(&verbs, &list));
+        self.verb
+            .print(terminal, format, answer, |terminal, answer| {
+                for entry in &answer.entries {
+                    let slash = if entry.kind == "dir" { "/" } else { "" };
+                    outln!(terminal, "{}{slash}", shown(&entry.path));
+                }
+                if answer.truncated {
+                    outln!(terminal, "(stopped at {} entries)", answer.count);
+                }
+            })
+    }
+}
+
+impl SearchArgs {
+    fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
+        let format = match self.verb.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit,
+        };
+        let search = Search {
+            pattern: self.pattern,
+            paths: self.paths,
+            globs: self.globs,
+            ignore_case: self.ignore_case,
+            max: self.max,
+        };
+        let answer = self
+            .verb
+            .open(ports)
+            .and_then(|verbs| files::search(&verbs, &search));
+        self.verb
+            .print(terminal, format, answer, |terminal, answer| {
+                for found in &answer.matches {
+                    outln!(
+                        terminal,
+                        "{}:{}:{}: {}",
+                        shown(&found.path),
+                        found.line,
+                        found.column,
+                        shown(&found.text)
+                    );
+                }
+                if answer.truncated {
+                    outln!(terminal, "(stopped at {} matches)", answer.count);
+                }
+            })
+    }
+}

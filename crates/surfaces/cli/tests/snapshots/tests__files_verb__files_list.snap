@@ -1,0 +1,45 @@
+---
+source: crates/surfaces/cli/tests/files_verb.rs
+expression: run.json()
+---
+{
+  "count": 7,
+  "entries": [
+    {
+      "kind": "dir",
+      "path": "spec",
+      "size": 0
+    },
+    {
+      "kind": "file",
+      "path": "spec/a.spec",
+      "size": 14
+    },
+    {
+      "kind": "file",
+      "path": "specforge.json",
+      "size": 83
+    },
+    {
+      "kind": "dir",
+      "path": "src",
+      "size": 0
+    },
+    {
+      "kind": "dir",
+      "path": "src/lib",
+      "size": 0
+    },
+    {
+      "kind": "file",
+      "path": "src/lib/util.rs",
+      "size": 18
+    },
+    {
+      "kind": "file",
+      "path": "src/main.rs",
+      "size": 37
+    }
+  ],
+  "truncated": false
+}

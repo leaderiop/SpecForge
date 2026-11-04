@@ -33,7 +33,7 @@ pub use consent::{
 };
 pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, Roots};
 pub use digest::{canonical, digest};
-pub use fs::{Fs, FsOutcome, SharedFs};
+pub use fs::{Fs, FsListing, FsOutcome, ListRequest, Listed, SharedFs};
 pub use gate::{Port, gate};
 pub use git::{Git, SharedGit};
 pub use grant::{Denial, Denied, Grant, Granted, Need, OutsideRoot, Uses};

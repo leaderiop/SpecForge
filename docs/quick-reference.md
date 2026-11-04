@@ -66,6 +66,11 @@ specforge <ext> <command> [args] --pick .<field>   # one value of the command's 
 specforge prompt <ext>.<prompt> [arguments] [--host claude-code|codex|cursor] [--format json]   # also `specforge <ext> <prompt>` when no command has the name
 # MCP: prompts/list lists them after the core five; specforge.prompt { name, arguments | argv, host? } renders any prompt. A gated command or prompt is refused gate_failed (exit 1) with the failing diagnostics.
 
+# Ports for people and agents (ADR 0339): JSON by default, --pick for one value, the project's effects ceiling applies
+specforge files stat <path>...                      # kind, size, modified_ms, or exists:false
+specforge files list src --glob '*.tsx' --pick '.entries[0].path'   # honours .gitignore (--no-ignore, --hidden, --kind, --depth)
+specforge files search 'TODO|FIXME' src -i          # {matches:[{path,line,column,text}]}
+
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions
 specforge add @specforge/product     # enable a builtin, or install @scope/name@version from a registry
