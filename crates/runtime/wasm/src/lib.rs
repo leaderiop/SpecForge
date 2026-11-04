@@ -14,3 +14,4 @@ pub mod testing;
 pub use calls::{CallError, CallFailure, Encoded, ExtensionCalls, Handshake, pass_diagnostics};
 pub use runtime::{ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo};
 pub use sandbox::{Limits, Sandbox};
+pub use specforge_effects::Provenance;

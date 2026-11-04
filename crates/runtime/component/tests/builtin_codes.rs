@@ -37,7 +37,9 @@ fn builtin_rules_use_their_own_codes() {
     let mut checked = 0;
     let mut problems = Vec::new();
     for (name, bytes) in BUILTIN_EXTENSIONS {
-        runtime.load(name, bytes).expect("builtin loads");
+        runtime
+            .load(name, bytes, specforge_wasm::Provenance::third_party(bytes))
+            .expect("builtin loads");
         let declaration = load_declaration(&runtime, name)
             .expect("builtin declares itself")
             .declaration;

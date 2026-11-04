@@ -18,7 +18,11 @@ fn loaded() -> ComponentRuntime {
     let runtime = ComponentRuntime::new();
     let bytes = std::fs::read(component_path()).expect("fixture component blob");
     runtime
-        .load("@test/component", &bytes)
+        .load(
+            "@test/component",
+            &bytes,
+            specforge_wasm::Provenance::third_party(&bytes),
+        )
         .expect("fixture component instantiates");
     runtime
 }
@@ -78,7 +82,11 @@ fn reload_swaps_and_unload_drops() {
 
     let bytes = std::fs::read(component_path()).unwrap();
     runtime
-        .load("@test/component", &bytes)
+        .load(
+            "@test/component",
+            &bytes,
+            specforge_wasm::Provenance::third_party(&bytes),
+        )
         .expect("reload succeeds");
     let result = runtime.call_export("@test/component", "__handshake", b"");
     assert!(matches!(result, WasmCallResult::Ok(_)));
@@ -107,7 +115,11 @@ fn the_component_runtime_keeps_the_module_contract() {
 #[test]
 fn a_refused_load_names_no_load_key() {
     let error = ComponentRuntime::new()
-        .load("@acme/the-key", b"not wasm")
+        .load(
+            "@acme/the-key",
+            b"not wasm",
+            specforge_wasm::Provenance::third_party(b"not wasm"),
+        )
         .unwrap_err();
     let specforge_wasm::LoadError::Unloadable(reason) = error else {
         panic!("bytes that are no component are NotAComponent: {error:?}");

@@ -72,7 +72,13 @@ impl Package {
 /// What `wasm` declares, when it is a loadable extension.
 fn declared(wasm: &[u8]) -> Option<specforge_protocol_types::ExtensionDeclaration> {
     let runtime = specforge_component::ComponentRuntime::new();
-    runtime.load("__served", wasm).ok()?;
+    runtime
+        .load(
+            "__served",
+            wasm,
+            specforge_wasm::Provenance::third_party(wasm),
+        )
+        .ok()?;
     specforge_wasm::protocol::load_declaration(&runtime, "__served")
         .ok()
         .map(|loaded| loaded.declaration)

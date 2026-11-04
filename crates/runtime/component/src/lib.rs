@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use specforge_wasm::Provenance;
 use specforge_wasm::runtime::{
     ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo,
 };
@@ -268,6 +269,8 @@ pub struct ComponentRuntime {
     /// calls into the SAME extension (its `Store` is single-threaded state)
     /// still serialize (audit C7-10).
     plugins: Mutex<HashMap<String, Arc<Mutex<PluginInstance>>>>,
+    /// Each loaded plugin's provenance (ADR 0335 D2.6), beside it under the same name.
+    provenances: Mutex<HashMap<String, Provenance>>,
     fuel: u64,
     /// Whether `fuel` replaces the time budget a caller gives a call
     /// ([`Self::with_work_budget`]).
@@ -338,6 +341,7 @@ impl ComponentRuntime {
             _ticker: EpochTicker::spawn(engine.clone()),
             engine,
             plugins: Mutex::new(HashMap::new()),
+            provenances: Mutex::new(HashMap::new()),
             fuel: DEFAULT_FUEL_LIMIT,
             work_bound: false,
         };
@@ -478,7 +482,7 @@ impl Default for ComponentRuntime {
 impl WasmRuntime for ComponentRuntime {
     /// Compile a component from bytes and register it under `name`,
     /// atomically replacing any existing plugin (hot reload / H1).
-    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), LoadError> {
+    fn load(&self, name: &str, bytes: &[u8], provenance: Provenance) -> Result<(), LoadError> {
         let component = Component::from_binary(&self.engine, bytes)
             .map_err(|e| LoadError::Unloadable(format!("failed to compile component: {e}")))?;
         // Read before instantiating: the linker would refuse an unknown port as a missing implementation.
@@ -489,10 +493,23 @@ impl WasmRuntime for ComponentRuntime {
                 .map(|(name, _)| name),
         )?;
         self.instantiate_with_fuel(name, component, self.fuel)
-            .map_err(LoadError::Unloadable)
+            .map_err(LoadError::Unloadable)?;
+        if let Ok(mut provenances) = self.provenances.lock() {
+            provenances.insert(name.to_string(), provenance);
+        }
+        Ok(())
+    }
+
+    fn provenance(&self, name: &str) -> Option<Provenance> {
+        self.provenances.lock().ok()?.get(name).cloned()
     }
 
     fn rename(&self, from: &str, to: &str) -> bool {
+        if let Ok(mut provenances) = self.provenances.lock()
+            && let Some(provenance) = provenances.remove(from)
+        {
+            provenances.insert(to.to_string(), provenance);
+        }
         let Ok(mut plugins) = self.plugins.lock() else {
             return false;
         };
@@ -506,6 +523,9 @@ impl WasmRuntime for ComponentRuntime {
     }
 
     fn unload(&self, name: &str) -> bool {
+        if let Ok(mut provenances) = self.provenances.lock() {
+            provenances.remove(name);
+        }
         match self.plugins.lock() {
             Ok(mut plugins) => plugins.remove(name).is_some(),
             Err(_) => false,

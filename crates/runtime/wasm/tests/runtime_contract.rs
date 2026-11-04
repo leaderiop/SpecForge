@@ -3,8 +3,8 @@
 //! run over the component runtime in `specforge-component`'s tests).
 
 use specforge_extension_sdk::prelude::*;
-use specforge_wasm::WasmRuntime;
 use specforge_wasm::testing::{InProcessRuntime, assert_module_contract, assert_runtime_contract};
+use specforge_wasm::{Provenance, WasmRuntime};
 
 /// An extension whose `crash` command panics.
 fn crashing() -> ContributionsBuilder {
@@ -42,13 +42,33 @@ fn a_binary_is_served_under_the_name_it_is_loaded_as() {
         .with(|| ContributionsBuilder::new(ExtensionMeta::new("@contract/served", "1.0.0")));
 
     // Bytes it was not given are no component it serves, under any name.
-    assert!(runtime.load("@acme/other", b"two").is_err());
+    assert!(
+        runtime
+            .load(
+                "@acme/other",
+                b"two",
+                specforge_wasm::Provenance::third_party(b"two")
+            )
+            .is_err()
+    );
     // The bytes it was given are served under the name they are loaded as,
     // not the one they declare.
-    runtime.load("@acme/installed", b"one").unwrap();
+    runtime
+        .load(
+            "@acme/installed",
+            b"one",
+            specforge_wasm::Provenance::third_party(b"one"),
+        )
+        .unwrap();
     assert!(runtime.unload("@acme/installed"));
     // A name it serves loads as it is, whatever the bytes.
-    runtime.load("@contract/served", b"anything").unwrap();
+    runtime
+        .load(
+            "@contract/served",
+            b"anything",
+            specforge_wasm::Provenance::third_party(b"anything"),
+        )
+        .unwrap();
     assert!(runtime.unload("@contract/served"));
     assert!(!runtime.unload("@contract/served"));
 }
@@ -65,10 +85,30 @@ fn what_it_cannot_serve_loads_in_the_runtime_beside_it() {
         .binary(b"\0asm local", crashing)
         .beside(beside.clone());
 
-    runtime.load("@contract/served", b"anything").unwrap();
-    runtime.load("@contract/crash", b"\0asm component").unwrap();
+    runtime
+        .load(
+            "@contract/served",
+            b"anything",
+            specforge_wasm::Provenance::third_party(b"anything"),
+        )
+        .unwrap();
+    runtime
+        .load(
+            "@contract/crash",
+            b"\0asm component",
+            specforge_wasm::Provenance::third_party(b"\0asm component"),
+        )
+        .unwrap();
     // A load it refuses is refused beside it too.
-    assert!(runtime.load("@contract/none", b"\0asm other").is_err());
+    assert!(
+        runtime
+            .load(
+                "@contract/none",
+                b"\0asm other",
+                specforge_wasm::Provenance::third_party(b"\0asm other")
+            )
+            .is_err()
+    );
 
     let loaded = load_declaration(&runtime, "@contract/crash").unwrap();
     assert_eq!(loaded.declaration.name(), "@contract/crash");
@@ -92,8 +132,20 @@ fn what_it_cannot_serve_loads_in_the_runtime_beside_it() {
     assert!(!beside.unload("@contract/renamed"), "unloaded beside it");
 
     // A reload it can serve itself takes the name back, and unloads it beside it.
-    runtime.load("@contract/crash", b"\0asm component").unwrap();
-    runtime.load("@contract/crash", b"\0asm local").unwrap();
+    runtime
+        .load(
+            "@contract/crash",
+            b"\0asm component",
+            specforge_wasm::Provenance::third_party(b"\0asm component"),
+        )
+        .unwrap();
+    runtime
+        .load(
+            "@contract/crash",
+            b"\0asm local",
+            specforge_wasm::Provenance::third_party(b"\0asm local"),
+        )
+        .unwrap();
     assert!(!beside.unload("@contract/crash"), "unloaded beside it");
     beside.clear_calls();
     load_declaration(&runtime, "@contract/crash").unwrap();
@@ -118,13 +170,27 @@ fn a_module_whose_bytes_spell_a_declaration_loads_under_any_name() {
         runtime.declared_by("@acme/x", &bytes),
         Some(("2.3.4".to_string(), peers.clone()))
     );
-    runtime.load("@acme/x", &bytes).unwrap();
+    runtime
+        .load(
+            "@acme/x",
+            &bytes,
+            specforge_wasm::Provenance::third_party(&bytes),
+        )
+        .unwrap();
     let loaded = load_declaration(&runtime, "@acme/x").unwrap();
     assert_eq!(loaded.declaration.name(), "@acme/a");
     assert_eq!(loaded.declaration.version(), "2.3.4");
     assert_eq!(loaded.declaration.peers(), peers.as_slice());
     // Bytes that spell nothing are no component, and declare nothing.
-    assert!(runtime.load("@acme/y", b"\0asm other").is_err());
+    assert!(
+        runtime
+            .load(
+                "@acme/y",
+                b"\0asm other",
+                specforge_wasm::Provenance::third_party(b"\0asm other")
+            )
+            .is_err()
+    );
     assert_eq!(runtime.declared_by("@acme/y", b"\0asm other"), None);
 }
 
@@ -201,4 +267,27 @@ fn secret_presence_is_told_to_what_a_person_runs_not_to_a_pass() {
     let carried = runtime.calls().pop().unwrap().input;
     assert_eq!(carried["settings"], json!({"level": 2}));
     assert!(carried.get("secrets").is_none(), "{carried}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_wasm_module",
+    verify = "the runtime keeps the provenance a module was loaded with, across a rename, until it is unloaded"
+)]
+fn the_runtime_keeps_the_provenance_it_loaded_with() {
+    let bytes = b"\0asm provenance";
+    let runtime = InProcessRuntime::new().binary(bytes, crashing);
+    assert_module_contract(&runtime, bytes, "@contract/crash");
+
+    // Loaded again under the same name, the newer provenance replaces the older.
+    runtime
+        .load("@acme/x", bytes, Provenance::third_party(bytes))
+        .unwrap();
+    runtime
+        .load("@acme/x", bytes, Provenance::builtin(bytes))
+        .unwrap();
+    assert_eq!(
+        runtime.provenance("@acme/x"),
+        Some(Provenance::builtin(bytes))
+    );
+    assert_eq!(runtime.provenance("@acme/never"), None);
 }

@@ -22,6 +22,7 @@ use specforge_extension_sdk::{
 
 use crate::runtime::{ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo};
 use crate::sandbox::Limits;
+use specforge_effects::Provenance;
 
 /// What builds an extension's contributions, per call (as its guest does).
 type Build = Arc<dyn Fn() -> ContributionsBuilder + Send + Sync>;
@@ -81,6 +82,8 @@ pub struct InProcessRuntime {
     settings: Mutex<std::collections::HashMap<String, ExtensionSettings>>,
     /// The runtime a load this one cannot serve goes to ([`InProcessRuntime::beside`]).
     beside: Option<Beside>,
+    /// Each loaded name's provenance, as [`WasmRuntime::load`] was given it.
+    provenances: Mutex<BTreeMap<String, Provenance>>,
 }
 
 /// The runtime beside an in-process one, and the names loaded in it, whose calls, limits, settings, renames and
@@ -173,6 +176,10 @@ impl InProcessRuntime {
     }
 
     /// The runtime beside this one, when `name` was loaded in it.
+    fn provenances(&self) -> std::sync::MutexGuard<'_, BTreeMap<String, Provenance>> {
+        self.provenances.lock().expect("provenances lock")
+    }
+
     fn beside_of(&self, name: &str) -> Option<&Beside> {
         self.beside.as_ref().filter(|b| b.loaded().contains(name))
     }
@@ -304,7 +311,7 @@ impl WasmRuntime for InProcessRuntime {
     /// ([`InProcessRuntime::answer_raw`]), loads as it is (an extension
     /// served in process is whatever binary is installed under its name);
     /// any other bytes are no component it serves.
-    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), LoadError> {
+    fn load(&self, name: &str, bytes: &[u8], provenance: Provenance) -> Result<(), LoadError> {
         if let Some((_, error)) = self.refusals.iter().find(|(known, _)| known == bytes) {
             return Err(error.clone());
         }
@@ -312,6 +319,7 @@ impl WasmRuntime for InProcessRuntime {
             if let Some(beside) = &self.beside {
                 beside.forget(name);
             }
+            self.provenances().insert(name.to_string(), provenance);
             return Ok(());
         }
         let Some(beside) = &self.beside else {
@@ -319,12 +327,22 @@ impl WasmRuntime for InProcessRuntime {
                 "not a component the in-process runtime serves".to_string(),
             ));
         };
-        beside.runtime.load(name, bytes)?;
+        beside.runtime.load(name, bytes, provenance.clone())?;
         beside.loaded().insert(name.to_string());
+        self.provenances().insert(name.to_string(), provenance);
         Ok(())
     }
 
+    fn provenance(&self, name: &str) -> Option<Provenance> {
+        self.provenances().get(name).cloned()
+    }
+
     fn rename(&self, from: &str, to: &str) -> bool {
+        let mut provenances = self.provenances();
+        if let Some(provenance) = provenances.remove(from) {
+            provenances.insert(to.to_string(), provenance);
+        }
+        drop(provenances);
         if let Some(beside) = self.beside_of(from) {
             let mut loaded = beside.loaded();
             loaded.remove(from);
@@ -342,6 +360,7 @@ impl WasmRuntime for InProcessRuntime {
     }
 
     fn unload(&self, name: &str) -> bool {
+        self.provenances().remove(name);
         if let Some(beside) = self.beside_of(name) {
             beside.loaded().remove(name);
             return beside.runtime.unload(name);
@@ -537,10 +556,12 @@ pub fn assert_module_contract(runtime: &dyn WasmRuntime, bytes: &[u8], declared:
     };
 
     assert!(!answers("loaded-as"), "nothing is loaded yet");
+    let provenance = Provenance::third_party(bytes);
     runtime
-        .load("loaded-as", bytes)
+        .load("loaded-as", bytes, provenance.clone())
         .expect("the bytes are a component");
     assert!(answers("loaded-as"), "loading registers the bytes by name");
+    assert_eq!(runtime.provenance("loaded-as"), Some(provenance.clone()));
 
     assert!(!runtime.rename("not-loaded", "elsewhere"));
     assert!(runtime.rename("loaded-as", "renamed"));
@@ -549,8 +570,15 @@ pub fn assert_module_contract(runtime: &dyn WasmRuntime, bytes: &[u8], declared:
         "a renamed module answers as its new name"
     );
     assert!(!answers("loaded-as"), "and no longer as the old one");
+    assert_eq!(
+        runtime.provenance("renamed"),
+        Some(provenance),
+        "a rename carries the provenance"
+    );
+    assert_eq!(runtime.provenance("loaded-as"), None);
 
     assert!(runtime.unload("renamed"));
     assert!(!answers("renamed"), "an unloaded module is not loaded");
     assert!(!runtime.unload("renamed"), "nothing is left to unload");
+    assert_eq!(runtime.provenance("renamed"), None, "an unload drops it");
 }

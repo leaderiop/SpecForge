@@ -76,7 +76,11 @@ fn trap_kind(result: &WasmCallResult) -> String {
 fn execution_deadline_traps_long_running_export() {
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@spin", &spin_component_bytes())
+        .load(
+            "@spin",
+            &spin_component_bytes(),
+            specforge_wasm::Provenance::third_party(&spin_component_bytes()),
+        )
         .expect("spin component instantiates");
     runtime.apply_limits(
         "@spin",
@@ -108,7 +112,11 @@ fn execution_deadline_traps_long_running_export() {
 fn zero_deadline_traps_without_ticking() {
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@spin", &spin_component_bytes())
+        .load(
+            "@spin",
+            &spin_component_bytes(),
+            specforge_wasm::Provenance::third_party(&spin_component_bytes()),
+        )
         .expect("spin component instantiates");
     runtime.apply_limits(
         "@spin",
@@ -134,10 +142,18 @@ fn zero_deadline_traps_without_ticking() {
 fn deadline_is_scoped_to_one_extension() {
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@spin", &spin_component_bytes())
+        .load(
+            "@spin",
+            &spin_component_bytes(),
+            specforge_wasm::Provenance::third_party(&spin_component_bytes()),
+        )
         .expect("spin component instantiates");
     runtime
-        .load("@sdk/greet", &greet_wasm_bytes())
+        .load(
+            "@sdk/greet",
+            &greet_wasm_bytes(),
+            specforge_wasm::Provenance::third_party(&greet_wasm_bytes()),
+        )
         .expect("greet component instantiates");
     runtime.apply_limits(
         "@spin",
@@ -163,10 +179,18 @@ fn deadline_is_scoped_to_one_extension() {
 fn different_extensions_run_concurrently() {
     let runtime = Arc::new(ComponentRuntime::new());
     runtime
-        .load("@spin", &spin_component_bytes())
+        .load(
+            "@spin",
+            &spin_component_bytes(),
+            specforge_wasm::Provenance::third_party(&spin_component_bytes()),
+        )
         .expect("spin component instantiates");
     runtime
-        .load("@sdk/greet", &greet_wasm_bytes())
+        .load(
+            "@sdk/greet",
+            &greet_wasm_bytes(),
+            specforge_wasm::Provenance::third_party(&greet_wasm_bytes()),
+        )
         .expect("greet component instantiates");
     // Long enough that the slow call is definitely still executing while the
     // fast extension is served.
@@ -218,7 +242,11 @@ fn different_extensions_run_concurrently() {
 fn same_extension_calls_still_serialize() {
     let runtime = Arc::new(ComponentRuntime::new());
     runtime
-        .load("@sdk/greet", &greet_wasm_bytes())
+        .load(
+            "@sdk/greet",
+            &greet_wasm_bytes(),
+            specforge_wasm::Provenance::third_party(&greet_wasm_bytes()),
+        )
         .expect("greet component instantiates");
 
     // Concurrent calls into the SAME extension share its Store; the

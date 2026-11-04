@@ -63,6 +63,7 @@ behavior load_wasm_module "Load Wasm Module" {
   verify unit "a component importing a host port this specforge does not provide is refused with E088 before it is instantiated, naming the port"
   verify unit "a component importing an interface that is neither WASI nor a specforge host port is refused with E028 naming it"
   verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed, imports_admitted"
+  verify unit "the runtime keeps the provenance a module was loaded with, across a rename, until it is unloaded"
 }
 
 behavior initialize_wasm_extension "Initialize Wasm Extension" {

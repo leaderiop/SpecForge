@@ -218,6 +218,7 @@ mod tests {
                 origin: specforge_installed::Origin::File {
                     path: "greet.wasm".into(),
                 },
+                provenance: None,
                 loaded: true,
                 failure: None,
                 warnings: Vec::new(),

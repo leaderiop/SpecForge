@@ -168,6 +168,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify integration "the environment reports its own diagnostics, then the registry build's, before any source"
   verify integration "the environment says what part of the setup each of its diagnostics is about, and reports an entry's load diagnostics together"
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
+  verify unit "a builtin loads as a builtin, and an installed or file entry with the digest of its bytes"
 }
 
 behavior load_extension_settings "Load Extension Settings" {

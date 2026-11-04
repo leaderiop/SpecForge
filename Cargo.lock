@@ -3568,6 +3568,7 @@ dependencies = [
  "serde",
  "serde_json",
  "specforge-common",
+ "specforge-effects",
  "specforge-extension-sdk",
  "specforge-protocol-types",
  "specforge-registry",

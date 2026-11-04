@@ -203,7 +203,12 @@ module specforge_wasm "specforge-wasm" {
   family      core
   description "The host side of the extension protocol: the WasmRuntime port, every typed extension call and its E028 failure, the sandbox limits and the in-process test runtime (ADR 0013, ADR 0037)"
   features    [wasm_extension_runtime, wasm_extension_authoring]
-  depends_on  [specforge_common, specforge_extension_sdk, specforge_protocol_types]
+  depends_on  [
+    specforge_common,
+    specforge_effects,
+    specforge_extension_sdk,
+    specforge_protocol_types,
+  ]
   tags        ["wasm", "runtime"]
 }
 

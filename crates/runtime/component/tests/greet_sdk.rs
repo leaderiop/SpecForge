@@ -22,7 +22,11 @@ fn sdk_greet_extension_passes_protocol() {
     let blob = std::fs::read(greet_wasm_path()).expect("vendored greet component blob");
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@sdk/greet", &blob)
+        .load(
+            "@sdk/greet",
+            &blob,
+            specforge_wasm::Provenance::third_party(&blob),
+        )
         .expect("greet component instantiates");
 
     // __handshake: identity, derived flags, protocol version.
@@ -148,7 +152,11 @@ fn greet_answers_alike_through_both_runtimes() {
     let blob = std::fs::read(greet_wasm_path()).expect("vendored greet component blob");
     let component = ComponentRuntime::new();
     component
-        .load("@sdk/greet", &blob)
+        .load(
+            "@sdk/greet",
+            &blob,
+            specforge_wasm::Provenance::third_party(&blob),
+        )
         .expect("greet component instantiates");
     let in_process = InProcessRuntime::new().with(greet::build);
 

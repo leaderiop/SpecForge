@@ -12,6 +12,7 @@ pub mod http;
 pub mod journal;
 pub mod mode;
 pub mod process;
+mod provenance;
 #[cfg(feature = "testing")]
 pub mod testing;
 mod time;
@@ -24,6 +25,7 @@ pub use http::{Http, HttpOutcome, Redirects, SharedHttp};
 pub use journal::{Answer, EffectJournal, EffectRecord, RecordDigest};
 pub use mode::{Effects, EffectsMode, Served};
 pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, SharedProcess, Shown};
+pub use provenance::Provenance;
 pub use specforge_protocol_types::{
     EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome, OutcomeClass,
     ProcessRequest, Redirected, Unreachable,

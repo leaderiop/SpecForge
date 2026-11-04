@@ -37,7 +37,11 @@ fn sdk_declarations_match_their_snapshots() {
     let mut stale = Vec::new();
     for blob in sdk_blobs() {
         runtime
-            .load(blob.name, &blob.read())
+            .load(
+                blob.name,
+                &blob.read(),
+                specforge_wasm::Provenance::third_party(&blob.read()),
+            )
             .unwrap_or_else(|e| panic!("{}: {e}", blob.name));
         for answer in wire_answers(&runtime, blob).unwrap() {
             let path = snapshots().join(blob.key()).join(&answer.file);
@@ -124,7 +128,11 @@ fn every_sdk_declaration_round_trips_through_the_typed_declaration() {
             unreachable!("sdk_blobs lists SDK blobs");
         };
         runtime
-            .load(blob.name, &blob.read())
+            .load(
+                blob.name,
+                &blob.read(),
+                specforge_wasm::Provenance::third_party(&blob.read()),
+            )
             .unwrap_or_else(|e| panic!("{}: {e}", blob.name));
         let answers = wire_answers(&runtime, blob).unwrap();
         let text = |file: &str| -> String {
@@ -182,7 +190,11 @@ fn every_committed_blob_loads_unchanged_by_the_printable_read() {
             unreachable!("sdk_blobs lists SDK blobs");
         };
         runtime
-            .load(blob.name, &blob.read())
+            .load(
+                blob.name,
+                &blob.read(),
+                specforge_wasm::Provenance::third_party(&blob.read()),
+            )
             .unwrap_or_else(|e| panic!("{}: {e}", blob.name));
         let answers = wire_answers(&runtime, blob).unwrap();
         let text = |file: &str| -> String {
@@ -238,7 +250,11 @@ fn every_sdk_blob_answers_the_host_protocol() {
     let mut stale = Vec::new();
     for blob in sdk_blobs() {
         runtime
-            .load(blob.name, &blob.read())
+            .load(
+                blob.name,
+                &blob.read(),
+                specforge_wasm::Provenance::third_party(&blob.read()),
+            )
             .unwrap_or_else(|e| panic!("{}: {e}", blob.name));
         let found = handshake_protocol(&runtime, blob.name);
         if found != PROTOCOL_VERSION {
@@ -263,7 +279,11 @@ fn the_bridge_component_answers_its_canned_protocol() {
             continue;
         };
         runtime
-            .load(blob.name, &blob.read())
+            .load(
+                blob.name,
+                &blob.read(),
+                specforge_wasm::Provenance::third_party(&blob.read()),
+            )
             .unwrap_or_else(|e| panic!("{}: {e}", blob.name));
         assert_eq!(handshake_protocol(&runtime, blob.name), canned_protocol);
         checked += 1;

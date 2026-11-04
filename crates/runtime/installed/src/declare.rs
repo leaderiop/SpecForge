@@ -2,8 +2,8 @@
 
 use specforge_common::Diagnostic;
 use specforge_protocol_types::ProtocolError;
-use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::{Loaded, load_declaration};
+use specforge_wasm::{Provenance, WasmRuntime};
 
 use crate::LoadProblem;
 use crate::refusal::{self, Subject};
@@ -24,7 +24,7 @@ pub fn declaration_of(bytes: &[u8], runtime: &dyn WasmRuntime) -> Result<Loaded,
             .expect("a refused load has its diagnostic")
     };
     runtime
-        .load(CANDIDATE, bytes)
+        .load(CANDIDATE, bytes, Provenance::third_party(bytes))
         .map_err(|error| refused(refusal::of_load(error), None))?;
     let loaded = load_declaration(runtime, CANDIDATE);
     runtime.unload(CANDIDATE);

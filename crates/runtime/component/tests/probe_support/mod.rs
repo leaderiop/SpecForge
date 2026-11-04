@@ -21,7 +21,9 @@ pub fn probe_runtime() -> ComponentRuntime {
     let path = specforge_component::committed::PROBE.path();
     let blob = std::fs::read(path).expect("vendored sandbox probe blob");
     let runtime = ComponentRuntime::new();
-    runtime.load(PROBE, &blob).expect("the probe instantiates");
+    runtime
+        .load(PROBE, &blob, specforge_wasm::Provenance::third_party(&blob))
+        .expect("the probe instantiates");
     runtime
 }
 

@@ -228,7 +228,13 @@ fn a_loads_warnings_name_the_extension_its_handshake_declares() {
         );
         b
     });
-    runtime.load("entry.wasm", b"\0asm named").unwrap();
+    runtime
+        .load(
+            "entry.wasm",
+            b"\0asm named",
+            specforge_wasm::Provenance::third_party(b"\0asm named"),
+        )
+        .unwrap();
 
     let loaded = load_declaration(&runtime, "entry.wasm").unwrap();
 

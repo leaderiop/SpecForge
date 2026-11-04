@@ -12,8 +12,8 @@ use std::path::{Path, PathBuf};
 use specforge_common::{Diagnostic, ExtensionEntry, codes};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::Disk;
-use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::load_declaration;
+use specforge_wasm::{Provenance, WasmRuntime};
 
 use crate::Installed;
 use crate::lock::LockFileEntry;
@@ -72,6 +72,9 @@ pub struct EnabledExtension {
     /// Where the load takes its extension from ([`Resolution::origin`](crate::Resolution::origin)):
     /// a repeated entry's is the one it repeats'. It does not depend on whether the entry loaded.
     pub origin: Origin,
+    /// Where the code it loaded came from (ADR 0335 D2.6): a builtin, or a third party's blob by its digest; the
+    /// runtime holds the same value. `None` when it did not load.
+    pub provenance: Option<Provenance>,
     /// Whether it loaded its extension: the registry build holds its declaration under `name`.
     /// False when it failed, repeats another entry, or nothing was loaded.
     pub loaded: bool,
@@ -119,6 +122,7 @@ impl EnabledExtension {
                 entry: entry.trim().to_string(),
                 name: name.to_string(),
                 origin,
+                provenance: None,
                 loaded: false,
                 failure: None,
                 warnings: Vec::new(),
@@ -127,6 +131,7 @@ impl EnabledExtension {
                 entry: entry.trim().to_string(),
                 name: name.unwrap_or(path).to_string(),
                 origin,
+                provenance: None,
                 loaded: false,
                 failure: None,
                 warnings: Vec::new(),
@@ -429,6 +434,8 @@ fn subject<'a>(resolved: &'a Resolved) -> Subject<'a> {
 /// What one entry that loaded brings.
 struct Done {
     declaration: ExtensionDeclaration,
+    /// What it was loaded with.
+    provenance: Provenance,
     /// W153 and W138, in the order they were read.
     warnings: Vec<Diagnostic>,
 }
@@ -514,6 +521,7 @@ impl Installed {
         for (i, slot) in slots.into_iter().enumerate() {
             if let Slot::Loaded(done) = slot {
                 enabled[i].warnings = done.warnings;
+                enabled[i].provenance = Some(done.provenance);
                 declarations.push(done.declaration);
             }
         }
@@ -615,24 +623,28 @@ impl Installed {
         let subject = subject(resolved);
         let fail = |problem: LoadProblem| self.failure(&subject, problem);
         let module;
-        let bytes: &[u8] = match resolved {
-            Resolved::Builtin { bytes, .. } => bytes,
+        // shortcut: a builtin's digest is computed at each load (~6 MB of SHA-256, optimised in every profile that
+        // embeds builtins), not cached per blob; cache it when environment loads show it.
+        let (bytes, provenance): (&[u8], Provenance) = match resolved {
+            Resolved::Builtin { bytes, .. } => (bytes, Provenance::builtin(bytes)),
             Resolved::Locked { entry, .. } => {
                 module = self.check_module(entry, disk).map_err(fail)?;
-                module.bytes()
+                let digest = module.digest().to_string();
+                (module.bytes(), Provenance::ThirdParty { digest })
             }
             Resolved::Unloadable { problem, .. } => return Err(fail(problem.clone())),
             Resolved::File(file) => {
                 module = self
                     .read_module(disk, &file.file, |path| LoadProblem::FileMissing { path })
                     .map_err(fail)?;
-                module.bytes()
+                let digest = module.digest().to_string();
+                (module.bytes(), Provenance::ThirdParty { digest })
             }
             Resolved::Again { .. } => unreachable!("left out of the load order"),
         };
         let key = load_key(resolved);
         runtime
-            .load(&key, bytes)
+            .load(&key, bytes, provenance.clone())
             .map_err(|error| fail(refusal::of_load(error)))?;
         let read = load_declaration(runtime, &key).map_err(|error| {
             runtime.unload(&key);
@@ -642,6 +654,7 @@ impl Installed {
             Declared::of(&read.declaration),
             Done {
                 declaration: read.declaration,
+                provenance,
                 warnings: read.warnings,
             },
         ))

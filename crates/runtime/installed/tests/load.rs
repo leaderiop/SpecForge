@@ -268,12 +268,20 @@ struct Recording {
 }
 
 impl WasmRuntime for Recording {
-    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), specforge_wasm::LoadError> {
+    fn load(
+        &self,
+        name: &str,
+        bytes: &[u8],
+        provenance: specforge_wasm::Provenance,
+    ) -> Result<(), specforge_wasm::LoadError> {
         self.loaded
             .lock()
             .unwrap()
             .push((name.to_string(), bytes.to_vec()));
-        self.inner.load(name, bytes)
+        self.inner.load(name, bytes, provenance)
+    }
+    fn provenance(&self, name: &str) -> Option<specforge_wasm::Provenance> {
+        self.inner.provenance(name)
     }
     fn rename(&self, from: &str, to: &str) -> bool {
         self.inner.rename(from, to)
