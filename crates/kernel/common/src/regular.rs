@@ -41,6 +41,18 @@ pub fn read(path: &Path) -> io::Result<Vec<u8>> {
     read_from(open(path)?)
 }
 
+/// The first `max` bytes of `path` ([`open`]), and how long it is; nothing past `max` and a byte is read.
+pub fn read_prefix(path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
+    let file = open(path)?;
+    let length = file.metadata()?.len();
+    let mut bytes = Vec::new();
+    file.take(max.saturating_add(1)).read_to_end(&mut bytes)?;
+    // Linux's `/proc` reports a smaller length than it holds.
+    let length = length.max(bytes.len() as u64);
+    bytes.truncate(usize::try_from(max).unwrap_or(usize::MAX));
+    Ok((bytes, length))
+}
+
 /// [`read`] as text: bytes that are not UTF-8 are `InvalidData`, as `std::fs::read_to_string` says.
 pub fn read_to_string(path: &Path) -> io::Result<String> {
     String::from_utf8(read(path)?).map_err(|_| {

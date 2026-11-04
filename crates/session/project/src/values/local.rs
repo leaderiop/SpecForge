@@ -38,20 +38,15 @@ pub(super) fn read_disk(
             ),
             Err(_) => (OutcomeClass::Denied, OutcomeData::None),
         },
-        FsOp::Read { max_bytes } => match disk.read(&resolved.at) {
-            Ok(mut bytes) => {
-                let length = bytes.len() as u64;
-                let truncated = length > *max_bytes;
-                bytes.truncate(*max_bytes as usize);
-                (
-                    OutcomeClass::Ok,
-                    OutcomeData::Bytes {
-                        bytes,
-                        length,
-                        truncated,
-                    },
-                )
-            }
+        FsOp::Read { max_bytes } => match disk.read_prefix(&resolved.at, *max_bytes) {
+            Ok((bytes, length)) => (
+                OutcomeClass::Ok,
+                OutcomeData::Bytes {
+                    bytes,
+                    length,
+                    truncated: length > *max_bytes,
+                },
+            ),
             Err(_) => (OutcomeClass::Denied, OutcomeData::None),
         },
         FsOp::Walk { glob, .. } => {
@@ -166,4 +161,55 @@ pub(super) fn stat_of(entry: Option<StatEntry>, size: u64, near: Option<String>)
 
 pub(super) fn git_of(found: bool, oid: Option<String>) -> OutcomeData {
     OutcomeData::Git { found, oid }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::path::Path;
+
+    use specforge_effects::contained::RealFs;
+    use specforge_effects::{Root, Roots};
+    use specforge_registry::Disk;
+
+    use super::*;
+
+    /// A disk on which only a prefix can be read.
+    struct OnlyPrefix;
+
+    impl Disk for OnlyPrefix {
+        fn exists(&self, _: &Path) -> bool {
+            true
+        }
+        fn list(&self, _: &Path) -> Option<Vec<String>> {
+            None
+        }
+        fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
+            panic!("read all of {}", path.display())
+        }
+        fn read_prefix(&self, _: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
+            assert_eq!(max, 2);
+            Ok((b"he".to_vec(), 5))
+        }
+    }
+
+    #[test]
+    fn a_read_reads_only_what_it_answers() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.md"), "hello").unwrap();
+        let roots = Roots::new(dir.path(), dir.path());
+        let contained = Contained::new(&roots, &RealFs);
+        let resolved = contained.resolve("a.md", Root::Project).unwrap();
+        let op = FsOp::Read { max_bytes: 2 };
+        let (class, data) = read_disk(&OnlyPrefix, &contained, &resolved, &op);
+        assert_eq!(class, OutcomeClass::Ok);
+        assert_eq!(
+            data,
+            OutcomeData::Bytes {
+                bytes: b"he".to_vec(),
+                length: 5,
+                truncated: true,
+            }
+        );
+    }
 }
