@@ -6,11 +6,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex};
 use std::time::Instant;
 
-use specforge_effects::http::Any;
+use specforge_effects::http::{self, Any, DEFAULT_TIMEOUT};
 use specforge_effects::journal::{Answer, Blob};
 use specforge_effects::{
-    Asker, EffectRequest, Effects, HttpOutcome, HttpRequest, Outcome, OutcomeClass, Ports, Served,
-    UnixMillis,
+    Asker, EffectRequest, Effects, HttpOutcome, HttpRequest, Outcome, OutcomeClass, Ports,
+    ResolveRequest, Served, TlsRequest, UnixMillis,
 };
 use specforge_protocol_types::{
     ByteRange, Header, HttpMethod, Operation, OutcomeData, Probe, ProbeOutcome,
@@ -23,6 +23,17 @@ const WORKERS: usize = 32;
 const PER_HOST: usize = 8;
 /// What a journaled answer's head may add to its body: a request's cap holds both.
 pub(super) const HEAD_ROOM: u64 = 8 * 1024;
+/// The most of a body an answer keeps, unless its capability says more.
+pub(super) const BODY_CAP: u32 = 1024 * 1024;
+/// The response headers a checker may read.
+const KEPT_HEADERS: [&str; 6] = [
+    "content-length",
+    "content-range",
+    "content-type",
+    "etag",
+    "last-modified",
+    "location",
+];
 
 /// One request on the network, of any number of probes.
 pub(super) struct Job<'a> {
@@ -35,6 +46,91 @@ pub(super) struct Job<'a> {
     pub host: String,
     /// The most body a checker reads of it.
     pub max_bytes: u64,
+}
+
+/// The request a network probe makes, the host it reaches, and the most body it keeps, at most `room`; what only the
+/// host may set is set here. None for a URL with no host, which no request can reach.
+pub(super) fn request_of(probe: &Probe, room: u32) -> Option<(EffectRequest, String, u64)> {
+    let timeout_ms = DEFAULT_TIMEOUT.as_millis() as u64;
+    let http = |method: HttpMethod, url: &str, redirects: u32, headers, body, max_bytes: u64| {
+        let host = http::host_of(url)?;
+        Some((
+            EffectRequest::Http(HttpRequest {
+                method: method.as_str().to_string(),
+                url: url.to_string(),
+                headers,
+                body,
+                body_cap: max_bytes + HEAD_ROOM,
+                timeout_ms,
+                max_redirects: redirects.min(http::MAX_REDIRECTS),
+                keep_headers: KEPT_HEADERS.map(String::from).to_vec(),
+                ..HttpRequest::default()
+            }),
+            host,
+            max_bytes,
+        ))
+    };
+    match probe {
+        Probe::HttpHead { url, redirects } => {
+            http(HttpMethod::Head, url, *redirects, Vec::new(), None, 0)
+        }
+        // A query goes where it is sent: a redirect is not followed.
+        Probe::HttpPostQuery { url, json_body } => http(
+            HttpMethod::Post,
+            url,
+            0,
+            vec![Header::plain("content-type", "application/json")],
+            Some(json_body.as_bytes().to_vec()),
+            u64::from(room),
+        ),
+        Probe::HttpGet { url, range } => {
+            let range = range.held_to(room);
+            let headers = range
+                .header()
+                .map(|bytes| vec![Header::plain("range", bytes)])
+                .unwrap_or_default();
+            // A server may answer a suffix or a span whole: read up to the cap, to slice it.
+            let keep = match range {
+                ByteRange::Whole { .. } | ByteRange::Prefix { .. } => range.len(),
+                ByteRange::Suffix { .. } | ByteRange::Span { .. } => u64::from(room),
+            };
+            http(
+                HttpMethod::Get,
+                url,
+                http::MAX_REDIRECTS,
+                headers,
+                None,
+                keep,
+            )
+        }
+        Probe::HttpTls { host, port } => Some((
+            EffectRequest::Tls(TlsRequest {
+                host: host.clone(),
+                tcp_port: *port,
+                allow_private: false,
+                timeout_ms,
+            }),
+            host.clone(),
+            0,
+        )),
+        Probe::DnsResolve { host } => Some((
+            EffectRequest::Resolve(ResolveRequest {
+                host: host.clone(),
+                allow_private: false,
+                timeout_ms,
+            }),
+            host.clone(),
+            0,
+        )),
+        Probe::FsStat { .. }
+        | Probe::FsDigest { .. }
+        | Probe::FsRead { .. }
+        | Probe::FsWalk { .. }
+        | Probe::GitObject { .. }
+        | Probe::GitRef { .. }
+        | Probe::GitFile { .. }
+        | Probe::GitTracked { .. } => None,
+    }
 }
 
 /// What became of a [`Job`].

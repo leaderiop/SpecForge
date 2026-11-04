@@ -507,3 +507,78 @@ fn capabilities_a_collector_names_must_be_a_process_one() {
         "collector 'runner' cannot run: its capability 'history' is no `process` capability"
     ));
 }
+
+#[specforge_test_macros::test(
+    behavior = "build_registries_from_declarations",
+    verify = "a capability that may POST to the hosts values name is W021"
+)]
+fn capabilities_a_post_from_a_from_values_capability_is_w021() {
+    let found = capability_problems_of(|c| {
+        c.capability(
+            Capability::http("links")
+                .from_values()
+                .methods(&[HttpMethod::Get, HttpMethod::Post])
+                .why("check links"),
+        );
+        c.capability(
+            Capability::http("wide")
+                .from_values()
+                .max_bytes(2 << 20)
+                .why("read more"),
+        );
+        // A listed host may be queried.
+        c.capability(
+            Capability::http("registries")
+                .hosts(&["api.osv.dev"])
+                .methods(&[HttpMethod::Post])
+                .why("ask advisories"),
+        );
+    });
+    assert_eq!(found.len(), 2, "{found:#?}");
+    assert!(found[0].contains("capability 'links' grants nothing: it may POST to the hosts"));
+    assert!(found[1].contains("capability 'wide' grants nothing: its `max_bytes` reaches"));
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_registries_from_declarations",
+    verify = "a capability keeping more than 16 MiB or a sixteenth of its memory is W021"
+)]
+fn capabilities_max_bytes_over_a_sixteenth_of_memory_is_w021() {
+    let mut c = declaration("@acme/caps", "1.0.0");
+    for (name, max) in [
+        ("sixteen", 16 << 20),
+        ("over", (16 << 20) + 1),
+        ("fits", 4 << 20),
+    ] {
+        c.capability(
+            Capability::http(name)
+                .hosts(&["a.example"])
+                .max_bytes(max)
+                .why("read"),
+        );
+    }
+    let mut declaration = c.declaration();
+    // 128 MB of memory holds answers of 8 MiB.
+    declaration.handshake.sandbox_policy = Some(SandboxPolicy {
+        max_execution_ms: None,
+        max_memory_mb: Some(128),
+    });
+    let build = build_registries(vec![declaration]);
+    let found: Vec<String> = diagnostics(&build)
+        .into_iter()
+        .filter(|d| d.code == "W021")
+        .map(|d| d.message.clone())
+        .collect();
+    let expect = [
+        "capability 'sixteen' grants nothing: its `max_bytes` 16777216 is over a sixteenth of the 128 MB",
+        "capability 'over' grants nothing: its `max_bytes` 16777217 is over 16777216 (16 MiB)",
+        "capability 'over' grants nothing: its `max_bytes` 16777217 is over a sixteenth",
+    ];
+    for expected in expect {
+        assert!(
+            found.iter().any(|m| m.contains(expected)),
+            "{expected}\nin {found:#?}"
+        );
+    }
+    assert_eq!(found.len(), expect.len(), "{found:#?}");
+}

@@ -310,6 +310,15 @@ pub enum Probe {
     /// that answers the whole body anyway is sliced when the body is within the cap (`range:ignored` otherwise).
     #[serde(rename = "http.get")]
     HttpGet { url: String, range: ByteRange },
+    /// A JSON query POSTed to a host its capability lists (never to a host a value names), its body at most
+    /// [`MAX_QUERY_BYTES`] of JSON; the answer is read as a `whole` GET's, up to the capability's `max_bytes`. It is
+    /// never retried.
+    #[serde(rename = "http.post_query")]
+    HttpPostQuery {
+        url: String,
+        #[serde(deserialize_with = "bounded_query")]
+        json_body: String,
+    },
     #[serde(rename = "http.tls")]
     HttpTls { host: String, port: u16 },
     /// An operation of the Http port, under the http capability's host scope: there is no dns capability.
@@ -324,6 +333,24 @@ pub enum Probe {
     GitFile { rev: String, path: String },
     #[serde(rename = "git.tracked")]
     GitTracked { root: Root, path: String },
+}
+
+/// The most bytes of JSON an `http.post_query` sends.
+pub const MAX_QUERY_BYTES: usize = 16 * 1024;
+
+/// A query body: JSON, at most [`MAX_QUERY_BYTES`]. Anything else is a malformed answer (E028).
+fn bounded_query<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    use serde::de::Error as _;
+    let body = String::deserialize(deserializer)?;
+    if body.len() > MAX_QUERY_BYTES {
+        return Err(D::Error::custom(format!(
+            "an http.post_query body of {} bytes is over {MAX_QUERY_BYTES}",
+            body.len()
+        )));
+    }
+    serde_json::from_str::<serde::de::IgnoredAny>(&body)
+        .map_err(|e| D::Error::custom(format!("an http.post_query body is not JSON: {e}")))?;
+    Ok(body)
 }
 
 /// Which bytes a read asks for. The host holds each to its cap and answers where the bytes start and how long the whole

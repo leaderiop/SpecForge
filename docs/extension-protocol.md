@@ -932,8 +932,10 @@ the host's gate allows for its port) and what it reaches on one `port`:
 ```
 
 - `http`: `schemes` (`http`, `https`; empty: both), `methods` (empty: any), `hosts` (`{"list": [...]}` of
-  `example.com` or `*.example.com`, or `"from_values"`: the hosts the project's values name) and an optional
-  `secret_header`.
+  `example.com` or `*.example.com`, or `"from_values"`: the hosts the project's values name), an optional
+  `secret_header`, and an optional `max_bytes`: the most body one answer keeps (default 1 MiB), at most 16 MiB and a
+  sixteenth of the extension's `max_memory_mb`, for a capability that lists its hosts. A capability whose only call
+  kind is `check_values` shows its `POST` as `POST (query)` when a person approves it.
 - `fs`: `roots` (`spec`, `project` or a root `specforge.json` names; empty: `spec` and `project`) and `ops` (`stat`,
   `read`, `walk`, `write`).
 - `process`: `argv` (the program, then its arguments) and an optional `deadline_ms`, held to the host's ceiling.
@@ -942,7 +944,8 @@ the host's gate allows for its port) and what it reaches on one `port`:
 `name` is a scope name (`[a-z][a-z0-9-]*`), unique in the extension; approvals and `specforge grants` name it. A
 capability that is not sound is W021 and grants nothing: a name that is no scope name or is repeated, no `why`, an
 empty `argv`, an http capability with no host, a host that is no host or `*.`-prefixed host, a scheme other than
-`http` or `https`, a `write` whose `call_kinds` are empty or name a kind other than `collect` and `command`; so is a
+`http` or `https`, a `write` whose `call_kinds` are empty or name a kind other than `collect` and `command`, a `POST`
+or a `max_bytes` on `from_values` hosts, or a `max_bytes` over 16 MiB or a sixteenth of the memory; so is a
 collector whose `capability` names no `process` capability the extension declares. An unknown `port` fails the
 category (E028).
 
@@ -1006,7 +1009,8 @@ judged verdict digests each checked value's outcome class. It makes one `__check
 | `fs.walk` | `root`, `path`, `glob` | Fs |
 | `fs.digest` | `root`, `path`: the whole file's SHA-256 and length, read in chunks until the run's deadline (asked as a read) | Fs |
 | `http.head` | `url`, `redirects` (held to 5, each under the grant); a 405 or 501 is asked once more as a GET | Http |
-| `http.get` | `url`, `range` (held to 1 MiB) | Http |
+| `http.get` | `url`, `range` (held to 1 MiB, or the capability's `max_bytes`) | Http |
+| `http.post_query` | `url`, `json_body` (JSON, at most 16 KiB): to a host the capability lists, never redirected or retried; its answer is read whole, up to the capability's `max_bytes` | Http |
 | `http.tls` | `host`, `port` | Http |
 | `dns.resolve` | `host` | Http |
 | `git.object` | `rev` | Git |

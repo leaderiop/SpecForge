@@ -720,3 +720,27 @@ fn each_scope_says_itself_in_one_line() {
     );
     assert_eq!(line(PortScope::Git(GitScope { ops: vec![] })), "git no op");
 }
+
+#[test]
+fn a_value_checks_post_is_approved_as_a_query() {
+    let grant = Grant::decide(
+        &declaration(json!([
+            {"name": "registries", "why": "look packages up", "call_kinds": ["check_values"],
+             "port": "http", "methods": ["GET", "POST"], "hosts": {"list": ["api.osv.dev"]}},
+            {"name": "hooks", "why": "post a hook", "call_kinds": ["command"], "port": "http",
+             "methods": ["POST"], "hosts": {"list": ["hooks.example.com"]}},
+        ])),
+        &third_party(),
+        &EffectsCeiling::default(),
+        &roots(),
+        &MemoryConsent::default(),
+    );
+    let lines: Vec<String> = grant.capabilities().iter().map(Granted::summary).collect();
+    assert_eq!(
+        lines,
+        [
+            "http GET,POST (query) http,https api.osv.dev",
+            "http POST http,https hooks.example.com"
+        ]
+    );
+}

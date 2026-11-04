@@ -262,6 +262,7 @@ impl Observed {
                 outcome.probe,
                 Probe::HttpHead { .. }
                     | Probe::HttpGet { .. }
+                    | Probe::HttpPostQuery { .. }
                     | Probe::HttpTls { .. }
                     | Probe::DnsResolve { .. }
             )

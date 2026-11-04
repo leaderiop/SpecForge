@@ -126,3 +126,19 @@ fn a_byte_range_round_trips_on_the_wire() {
     assert_eq!(span.within(8), 7..8);
     assert_eq!(span.within(5), 5..5);
 }
+
+#[test]
+fn a_post_query_body_is_json_of_at_most_16_kib() {
+    use specforge_protocol_types::{MAX_QUERY_BYTES, Probe};
+    let probe = |body: &str| {
+        serde_json::from_value::<Probe>(serde_json::json!({
+            "probe": "http.post_query", "url": "https://api.osv.dev/v1/query", "json_body": body
+        }))
+    };
+    assert!(probe(r#"{"package":{"name":"serde"}}"#).is_ok());
+    let large = format!("\"{}\"", "x".repeat(MAX_QUERY_BYTES));
+    let over = probe(&large).unwrap_err().to_string();
+    assert!(over.contains("is over 16384"), "{over}");
+    let not_json = probe("package=serde").unwrap_err().to_string();
+    assert!(not_json.contains("is not JSON"), "{not_json}");
+}

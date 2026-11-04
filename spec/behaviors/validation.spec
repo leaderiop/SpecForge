@@ -433,6 +433,8 @@ behavior check_field_values "Check Field Values" {
   verify unit "a second round reads the span the first named"
   verify unit "a fourth round of probes is E028 naming the checker, and its value is not judged"
   verify unit "a cached check replays every round without calling the guest"
+  verify unit "a POST query to a listed host is performed, kept to its capability's max_bytes and journaled by body"
+  verify unit "a POST query to a host only a value names is E090 and never sent"
   verify unit "a checker asked again in a later run is not called"
   verify unit "changed args miss the checker cache"
   verify unit "changed settings miss the checker cache"

@@ -39,6 +39,8 @@ struct Wire {
     hosts: Option<Hosts>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     secret_header: Option<SecretHeader>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    max_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     roots: Vec<String>,
     /// An fs capability's [`FsAccess`]es, or a git one's `read` and `write`.
@@ -71,6 +73,7 @@ impl TryFrom<Wire> for CapabilityDescriptor {
                 methods: wire.methods,
                 hosts: wire.hosts.unwrap_or_default(),
                 secret_header: wire.secret_header,
+                max_bytes: wire.max_bytes,
             }),
             PortName::Fs => PortScope::Fs(FsScope {
                 roots: wire.roots,
@@ -114,6 +117,7 @@ impl From<CapabilityDescriptor> for Wire {
             methods: Vec::new(),
             hosts: None,
             secret_header: None,
+            max_bytes: None,
             roots: Vec::new(),
             ops: None,
             argv: None,
@@ -126,6 +130,7 @@ impl From<CapabilityDescriptor> for Wire {
                 wire.methods = http.methods;
                 wire.hosts = Some(http.hosts);
                 wire.secret_header = http.secret_header;
+                wire.max_bytes = http.max_bytes;
             }
             PortScope::Fs(fs) => {
                 wire.port = PortName::Fs;
@@ -199,7 +204,14 @@ pub struct HttpScope {
     /// A secret the host attaches as a header (ADR 0335 D6); the guest never sees its value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret_header: Option<SecretHeader>,
+    /// The most body an answer keeps, for a capability that lists its hosts: at most [`MAX_CAPABILITY_BYTES`] and a
+    /// sixteenth of the extension's `max_memory_mb`. None: the host's 1 MiB.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_bytes: Option<u64>,
 }
+
+/// The most body an http capability may keep of one answer.
+pub const MAX_CAPABILITY_BYTES: u64 = 16 * 1024 * 1024;
 
 /// The hosts an HTTP capability may reach.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -415,6 +427,9 @@ pub fn capability_problems(declaration: &ExtensionDeclaration) -> Vec<Capability
                         problem(why);
                     }
                 }
+                for why in reach_problems(declaration, http) {
+                    problem(why);
+                }
             }
             _ => {}
         }
@@ -433,6 +448,48 @@ pub fn capability_problems(declaration: &ExtensionDeclaration) -> Vec<Capability
                 why: format!("its capability '{name}' is no `process` capability it declares"),
             });
         }
+    }
+    problems
+}
+
+/// Why an http capability reaches further than the host lets it: a POST or a `max_bytes` to the hosts values name
+/// (only a capability that lists its hosts may query or read more), or a `max_bytes` over [`MAX_CAPABILITY_BYTES`] or a
+/// sixteenth of the memory the extension declares.
+fn reach_problems(declaration: &ExtensionDeclaration, http: &HttpScope) -> Vec<String> {
+    let mut problems = Vec::new();
+    let from_values = http.hosts == Hosts::FromValues;
+    if from_values && http.methods.contains(&HttpMethod::Post) {
+        problems.push(
+            "it may POST to the hosts the project's values name; only a capability that lists its hosts may"
+                .to_string(),
+        );
+    }
+    let Some(max) = http.max_bytes else {
+        return problems;
+    };
+    if from_values {
+        problems.push(
+            "its `max_bytes` reaches the hosts the project's values name; only a capability that lists its hosts may \
+             declare one"
+                .to_string(),
+        );
+    }
+    if max > MAX_CAPABILITY_BYTES {
+        problems.push(format!(
+            "its `max_bytes` {max} is over {MAX_CAPABILITY_BYTES} (16 MiB)"
+        ));
+    }
+    let memory = declaration
+        .handshake
+        .sandbox_policy
+        .as_ref()
+        .and_then(|policy| policy.max_memory_mb);
+    if let Some(memory) = memory
+        && max > (u64::from(memory) << 20) / 16
+    {
+        problems.push(format!(
+            "its `max_bytes` {max} is over a sixteenth of the {memory} MB `max_memory_mb` it declares"
+        ));
     }
     problems
 }
