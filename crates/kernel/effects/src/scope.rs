@@ -3,12 +3,49 @@
 //! [`ScopeRules`] and one arm of [`rules`], the one dispatch over `PortScope` these answers go through.
 
 use specforge_protocol_types::{
-    EffectRequest, FsAccess, FsOp, FsScope, GitScope, Hosts, HttpScope, PortScope, ProcessScope,
+    EffectRequest, FsAccess, FsOp, FsScope, GitScope, Hosts, HttpMethod, HttpScope, Operation,
+    PortScope, ProcessScope,
 };
 use url::Url;
 
 use crate::ceiling::{DEFAULT_ROOTS, EffectsCeiling, Narrow, Removed, host_covers};
 use crate::gate::Port;
+
+/// Whether a capability on `scope` for `call_kinds` posts queries (ADR 0338 D12): an http one whose only call kind is
+/// `check_values`, whose hosts it lists and whose methods include POST. Its POST reads, as a GET does: a person approves
+/// it as a query, and a fresh record of it answers again (ADR 0335 D4).
+pub fn posts_queries(scope: &PortScope, call_kinds: &[Operation]) -> bool {
+    matches!(scope, PortScope::Http(http)
+        if call_kinds == [Operation::CheckValues]
+            && matches!(http.hosts, Hosts::List(_))
+            && http.methods.contains(&HttpMethod::Post))
+}
+
+/// `http`'s line for a person, its POST read `POST (query)` when it `queries` ([`posts_queries`]).
+pub fn http_line(http: &HttpScope, queries: bool) -> String {
+    let hosts = match &http.hosts {
+        Hosts::List(hosts) => hosts.join(","),
+        Hosts::FromValues => "the hosts the project's values name".to_string(),
+    };
+    let methods = if http.methods.is_empty() {
+        "any method".to_string()
+    } else {
+        http.methods
+            .iter()
+            .map(|m| match m {
+                HttpMethod::Post if queries => "POST (query)",
+                m => m.as_str(),
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    let schemes = if http.schemes.is_empty() {
+        "http,https".to_string()
+    } else {
+        http.schemes.join(",")
+    };
+    format!("http {methods} {schemes} {hosts}")
+}
 
 /// What one kind of scope means.
 pub trait ScopeRules {
@@ -101,25 +138,7 @@ impl ScopeRules for HttpScope {
     }
 
     fn summary(&self) -> String {
-        let hosts = match &self.hosts {
-            Hosts::List(hosts) => hosts.join(","),
-            Hosts::FromValues => "the hosts the project's values name".to_string(),
-        };
-        let methods = if self.methods.is_empty() {
-            "any method".to_string()
-        } else {
-            self.methods
-                .iter()
-                .map(|m| m.as_str())
-                .collect::<Vec<_>>()
-                .join(",")
-        };
-        let schemes = if self.schemes.is_empty() {
-            "http,https".to_string()
-        } else {
-            self.schemes.join(",")
-        };
-        format!("http {methods} {schemes} {hosts}")
+        http_line(self, false)
     }
 
     fn admits(&self, request: &EffectRequest, _user: bool) -> bool {

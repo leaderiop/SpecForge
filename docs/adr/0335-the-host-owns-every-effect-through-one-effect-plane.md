@@ -173,10 +173,14 @@ the workspace.
 - **A lent record is its asker's.** It is keyed by the extension, the capability and the name of the secret attached
   (`Effects::serve_lent`): under `cached` or `replay`, an extension never reads another's answer, which may have been
   authenticated, and no guest reads a host-run check's.
-- **Only a `GET` answers again.** A request of any other method asked for something to happen, and a record 24 hours
-  old cannot say it did: outside `replay`, it is never answered from a fresh record. `cached` answers it
-  `not_performed`, and `auto` performs it again when granted. `replay` answers from the record, since it performs
-  nothing and the caller asked for the past. A process has no fresh record at all (ADR 0337 D3).
+- **Only a request that asks for nothing to happen answers again,** whoever asks it: a guest, a host-run check or the
+  user. That is a `GET` or a `HEAD`, a name's addresses, a handshake, and a POST whose capability declares it a query
+  (ADR 0338 D12: an http capability whose only call kind is `check_values`, whose hosts it lists and whose methods
+  include POST; the grant carries it as a typed flag, `Granted::queries`, never read back from the approval line). Any
+  other request asked for something to happen, and a record 24 hours old cannot say it did: outside `replay`, it is
+  never answered from a fresh record. `cached` answers it `not_performed`, and `auto` performs it again when granted.
+  `replay` answers from the record, since it performs nothing and the caller asked for the past. A process has no
+  fresh record at all (ADR 0337 D3).
 - **A replay answers what the live call answered.** A lent record's payload is one line saying what the guest was
   told (status, headers, final URL, how a program ended) and then the bytes, so a replay is the same answer. The one
   difference is by design: a response header that carries a secret is not kept, because the journal holds none. The

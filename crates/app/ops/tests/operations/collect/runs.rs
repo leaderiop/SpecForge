@@ -544,6 +544,7 @@ fn auto_performs_what_a_grant_approves_and_nothing_else() {
             extension,
             op: specforge_protocol_types::Operation::Collect,
             scopes: &scopes,
+            queries: false,
         };
         effects.serve_for(&asker, "links", request, UnixMillis(1), |_| {
             specforge_effects::Answer {

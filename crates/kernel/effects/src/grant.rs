@@ -20,7 +20,7 @@ use crate::consent::{
     RootApproval, approval_line,
 };
 use crate::gate::{Port, gate};
-use crate::scope::rules;
+use crate::scope::{posts_queries, rules};
 use crate::{Provenance, Roots};
 
 /// What a run will exercise: each call kind and the capability it uses (O11: only these are asked for).
@@ -46,38 +46,16 @@ pub struct Granted {
 impl Granted {
     /// What the ceiling left of it (what it declares when it left nothing), in the line a person approves.
     pub fn summary(&self) -> String {
-        let line = approval_line(
+        approval_line(
             self.scope.as_ref().unwrap_or(&self.declared.port),
             self.secret.as_ref().map(|secret| secret.env.as_str()),
-        );
-        // A value check's POST is a query (`http.post_query`): it reads, and a person approves it as one.
-        if self.declared.call_kinds == [Operation::CheckValues] {
-            as_queries(&line)
-        } else {
-            line
-        }
+            self.queries(),
+        )
     }
-}
 
-/// An http approval line with its `POST` read `POST (query)`: `http GET,POST https a.example` is
-/// `http GET,POST (query) https a.example`.
-fn as_queries(line: &str) -> String {
-    let mut words = line.splitn(3, ' ');
-    match (words.next(), words.next(), words.next()) {
-        (Some("http"), Some(methods), Some(rest)) => {
-            let methods: Vec<&str> = methods
-                .split(',')
-                .map(|method| {
-                    if method == "POST" {
-                        "POST (query)"
-                    } else {
-                        method
-                    }
-                })
-                .collect();
-            format!("http {} {rest}", methods.join(","))
-        }
-        _ => line.to_string(),
+    /// Whether its POST is a query that reads ([`posts_queries`]), as it declares it.
+    pub fn queries(&self) -> bool {
+        posts_queries(&self.declared.port, &self.declared.call_kinds)
     }
 }
 

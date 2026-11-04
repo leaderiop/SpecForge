@@ -342,6 +342,7 @@ fn served(
         extension,
         op,
         scopes: &scopes,
+        queries: false,
     };
     effects.serve_for(&asker, "links", request, UnixMillis(1), |_| {
         specforge_effects::Answer {

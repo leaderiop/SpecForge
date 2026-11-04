@@ -11,7 +11,7 @@ use specforge_package::Sha256;
 use specforge_protocol_types::{Operation, PortScope};
 
 use crate::Provenance;
-use crate::scope::rules;
+use crate::scope::{http_line, posts_queries, rules};
 
 /// What an approval is keyed by of a provenance: a builtin's name alone, a third-party blob's digest.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -90,7 +90,11 @@ impl CapabilityApproval {
 
     /// What it approved, in the line a person approves ([`approval_line`]).
     pub fn summary(&self) -> String {
-        approval_line(&self.granted, self.secret_env.as_deref())
+        approval_line(
+            &self.granted,
+            self.secret_env.as_deref(),
+            posts_queries(&self.granted, &self.call_kinds),
+        )
     }
 
     /// The same project, extension, provenance and scope name: a new approval replaces it.
@@ -102,20 +106,19 @@ impl CapabilityApproval {
     }
 }
 
-/// The line a person approves: `scope` in one line, and the variable it sends as a header, by name.
-pub fn approval_line(scope: &PortScope, secret_env: Option<&str>) -> String {
-    let header = match scope {
-        PortScope::Http(http) => http.secret_header.as_ref().map(|h| h.header.as_str()),
-        _ => None,
+/// The line a person approves: `scope` in one line, its POST read `POST (query)` when it `queries`
+/// ([`posts_queries`]), and the variable it sends as a header, by name.
+pub fn approval_line(scope: &PortScope, secret_env: Option<&str>, queries: bool) -> String {
+    let (line, header) = match scope {
+        PortScope::Http(http) => (
+            http_line(http, queries),
+            http.secret_header.as_ref().map(|h| h.header.as_str()),
+        ),
+        _ => (rules(scope).summary(), None),
     };
     match (secret_env, header) {
-        (Some(env), Some(header)) => {
-            format!(
-                "{}, sends `${env}` as the `{header}` header",
-                rules(scope).summary()
-            )
-        }
-        _ => rules(scope).summary(),
+        (Some(env), Some(header)) => format!("{line}, sends `${env}` as the `{header}` header"),
+        _ => line,
     }
 }
 

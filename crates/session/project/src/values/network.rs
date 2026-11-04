@@ -46,6 +46,8 @@ pub(super) struct Job<'a> {
     pub host: String,
     /// The most body a checker reads of it.
     pub max_bytes: u64,
+    /// Its capability posts queries: a POST it sends reads, and a fresh record answers it again.
+    pub queries: bool,
 }
 
 /// The request a network probe makes, the host it reaches, and the most body it keeps, at most `room`; what only the
@@ -228,6 +230,7 @@ fn perform_one(effects: &Effects, now: UnixMillis, job: &Job<'_>) -> Performed {
         extension: job.extension,
         op: Operation::CheckValues,
         scopes: job.scopes,
+        queries: job.queries,
     };
     match effects.serve_for(&asker, job.scope, &job.request, now, |ports| {
         answer_of(job, ports)

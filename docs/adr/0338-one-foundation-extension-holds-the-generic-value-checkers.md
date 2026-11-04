@@ -157,7 +157,9 @@ says, and a version requirement resolves to a release only once the index is rea
 
 An http capability whose only call kind is `check_values`, whose `hosts` are fixed and whose methods include POST may
 send a bounded JSON query (`Probe::HttpPostQuery`); its approval line reads `POST (query)`. Its `max_bytes` may reach
-16 MiB, the size of a large package's index. OSV's `v1/query` is POST-only.
+16 MiB, the size of a large package's index. OSV's `v1/query` is POST-only. Such a POST reads: the grant says so
+(`Granted::queries`), and that flag lets a fresh record answer it again as one answers a GET (ADR 0335 D4). A POST
+from any other capability is never answered from a fresh record.
 
 ## D13. One tree for pointers
 

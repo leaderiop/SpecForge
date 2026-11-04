@@ -79,7 +79,7 @@ fn told_in(scene: &Scene, mode: EffectsMode) -> Vec<String> {
 
 #[specforge_test_macros::test(
     behavior = "check_field_values",
-    verify = "a POST query to a listed host is performed, kept to its capability's max_bytes and journaled by body"
+    verify = "a POST query to a listed host is performed, kept to its capability's max_bytes, journaled by body and answered again"
 )]
 fn a_post_query_to_a_listed_host_is_performed_and_journaled_by_body() {
     // Over the host's 1 MiB, within the capability's 4 MiB.
@@ -107,8 +107,10 @@ fn a_post_query_to_a_listed_host_is_performed_and_journaled_by_body() {
                 .iter()
                 .any(|h| h.name == "content-type" && h.value == "application/json")
     }));
-    // One record per body: both are answered from the journal.
+    // One record per body: both are answered from the journal, and a declared query reads, so a fresh record
+    // answers it again outside `replay` too.
     assert_eq!(told_in(&scene, EffectsMode::Replay), live);
+    assert_eq!(told_in(&scene, EffectsMode::Cached), live);
     assert_eq!(scene.http.requests().len(), 2);
 }
 

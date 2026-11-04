@@ -8,7 +8,7 @@ use std::time::Instant;
 use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, SourceSpan, codes};
 use specforge_effects::contained::{Contained, Refused, Resolved};
-use specforge_effects::grant::{Denied, Uses, one_line};
+use specforge_effects::grant::{Denied, Granted, Uses, one_line};
 use specforge_effects::{
     EffectRequest, Effects, EffectsMode, FsOp, FsRequest, Grant, NoConsent, OutcomeClass, Roots,
     UnixMillis,
@@ -623,6 +623,8 @@ impl<'a> Probing<'a> {
                 request,
                 host,
                 max_bytes,
+                queries: matches!(probe, Probe::HttpPostQuery { .. })
+                    && permitting.is_some_and(Granted::queries),
             });
         }
         Slot::Job(job)
