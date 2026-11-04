@@ -262,7 +262,8 @@ fn a_call_that_fails_still_reports_what_it_was_refused() {
     for export in ["refused_then_trap", "refused_then_error"] {
         let runtime = runtime();
         let fakes = lent();
-        let calls = specforge_wasm::ExtensionCalls::new(&runtime).with_ports(fakes.call.clone());
+        let calls =
+            specforge_wasm::ExtensionCalls::new(&runtime).with_ports(Some(fakes.call.clone()));
         let failed = calls
             .call_mcp_tool(EXT, export, &json!({}))
             .expect_err(export);

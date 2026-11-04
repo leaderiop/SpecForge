@@ -78,14 +78,8 @@ impl CoreTool for Tool {
         // Tests map to the entities on disk now: the target brought the served
         // project up to date, or compiled the project `path` names for this
         // call, in the runtime its environment was loaded in.
-        let user;
-        let consent: &dyn specforge_effects::Consent = match project.consent {
-            Some(consent) => consent,
-            None => {
-                user = specforge_ops::consent::UserConsent::user(project.root.dir());
-                &user
-            }
-        };
+        let mut user = None;
+        let consent = project.consent_or_users(&mut user);
         let request = Request {
             runner,
             mode: if run {

@@ -81,16 +81,14 @@ impl PortSession {
             return Err(out_of_scope(format!("'{revision}' is no revision")));
         }
         let (git, place) = self.place("commit")?;
-        git.commit(&place, revision)
-            .map(|sha| sha.map(|sha| sha.as_str().to_string()))
-            .map_err(git_failed)
+        git.commit(&place, revision).map(named).map_err(git_failed)
     }
 
     pub fn git_merge_base(&mut self, a: &str, b: &str) -> Result<Option<String>, HostError> {
         let (a, b) = (sha_of(a)?, sha_of(b)?);
         let (git, place) = self.place("merge-base")?;
         git.merge_base(&place, &a, &b)
-            .map(|sha| sha.map(|sha| sha.as_str().to_string()))
+            .map(named)
             .map_err(git_failed)
     }
 
@@ -102,7 +100,7 @@ impl PortSession {
             .map_err(git_failed)?
             .into_iter()
             .map(|(path, file)| GitTreeEntry {
-                path: path.to_string_lossy().replace('\\', "/"),
+                path: posix(&path),
                 file,
             })
             .collect();
@@ -127,7 +125,7 @@ impl PortSession {
             .map_err(git_failed)?
             .into_iter()
             .map(|(path, size)| GitSized {
-                path: path.to_string_lossy().replace('\\', "/"),
+                path: posix(&path),
                 size,
             })
             .collect())
@@ -158,7 +156,7 @@ impl PortSession {
                     fits
                 });
                 GitBlob {
-                    path: path.to_string_lossy().replace('\\', "/"),
+                    path: posix(&path),
                     bytes,
                 }
             })
@@ -196,6 +194,16 @@ impl PortSession {
         }
         Ok(())
     }
+}
+
+/// A commit as a guest reads it.
+fn named(sha: Option<Sha>) -> Option<String> {
+    sha.map(|sha| sha.as_str().to_string())
+}
+
+/// A repository path as a guest reads it, whatever the platform's separator.
+fn posix(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 fn git_failed(error: specforge_effects::git::GitError) -> HostError {

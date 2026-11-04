@@ -583,7 +583,8 @@ impl WasmRuntime for ComponentRuntime {
         };
         match own {
             Some((component, limits, fuel)) => {
-                self.call_on_own_instance(name, export, input, &component, limits, fuel, session)
+                let held = self.allowance(limits, fuel, u32::MAX);
+                self.call_on_own_instance(name, export, input, &component, held, session)
             }
             None => self.call_in_session(name, export, input, u32::MAX, session),
         }

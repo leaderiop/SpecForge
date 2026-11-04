@@ -594,11 +594,7 @@ fn run_on(
         )));
     };
     let denials = lent.clone();
-    let calls = ExtensionCalls::new(runtime.as_ref());
-    let calls = match lent {
-        Some(lent) => calls.with_ports(lent),
-        None => calls,
-    };
+    let calls = ExtensionCalls::new(runtime.as_ref()).with_ports(lent);
     let mut output = calls
         .run_command(command.extension(), command.export(), &input)
         .map_err(RunError::Call)?;

@@ -162,11 +162,8 @@ impl<'r> ExtensionCalls<'r> {
     }
 
     /// These calls, with `lent` behind the ports of each effectful one (ADR 0335 D4). No other call sees it.
-    pub fn with_ports(self, lent: PortCall) -> Self {
-        ExtensionCalls {
-            lent: Some(lent),
-            ..self
-        }
+    pub fn with_ports(self, lent: Option<PortCall>) -> Self {
+        ExtensionCalls { lent, ..self }
     }
 
     /// `value` encoded once, for [`Self::run_pass`]. Never fails: a value

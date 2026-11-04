@@ -127,10 +127,6 @@ pub(super) fn dispatch_over(
             CallFailure::NotLoaded,
         ));
     };
-    let calls = ExtensionCalls::new(runtime);
-    let calls = match lent {
-        Some(lent) => calls.with_ports(lent),
-        None => calls,
-    };
+    let calls = ExtensionCalls::new(runtime).with_ports(lent);
     calls.collect_writing(&collector.extension, &collector.export, &input)
 }

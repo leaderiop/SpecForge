@@ -194,11 +194,7 @@ fn lent_calls<'r>(
     project: &'r ProjectRef<'_>,
     lent: Option<PortCall>,
 ) -> specforge_wasm::ExtensionCalls<'r> {
-    let calls = specforge_wasm::ExtensionCalls::new(project.runtime.as_ref());
-    match lent {
-        Some(lent) => calls.with_ports(lent),
-        None => calls,
-    }
+    specforge_wasm::ExtensionCalls::new(project.runtime.as_ref()).with_ports(lent)
 }
 
 /// A command's run as a tool result, and its dispatch event when its export
