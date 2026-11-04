@@ -49,6 +49,22 @@ expression: "digest(&load(&runtime, &[name]))"
       "source_extension": "@specforge/checks",
       "target_kind": null
     },
+    "check_outcome.digest": {
+      "derived_from": null,
+      "description": "The digest of what its probes answered, free of when (sha256:<hex>)",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "digest",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    },
     "check_outcome.entity": {
       "derived_from": null,
       "description": "The id of the checked entity",
@@ -99,7 +115,7 @@ expression: "digest(&load(&runtime, &[name]))"
     },
     "check_outcome.observed_at": {
       "derived_from": null,
-      "description": "When its oldest answer was observed (RFC 3339, UTC)",
+      "description": "When its oldest journaled answer was observed (RFC 3339, UTC): the journal record's; absent when it read only the disk or git",
       "edge": null,
       "exempts_obligations": false,
       "field_name": "observed_at",
@@ -152,6 +168,7 @@ expression: "digest(&load(&runtime, &[name]))"
     "field_forms": {
       "check_outcome.checker": "string",
       "check_outcome.codes": "string_list",
+      "check_outcome.digest": "string",
       "check_outcome.entity": "string",
       "check_outcome.field": "string",
       "check_outcome.item": "integer",
