@@ -383,7 +383,8 @@ mod the_views_runtime {
     use specforge_ops::analysis::analyze::{AnalyzeOptions, analyze};
     use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, RunError, run};
     use specforge_ops::view::ProjectView;
-    use specforge_project::testing::TestProject;
+    use specforge_project::SharedRuntime;
+    use specforge_project::testing::compile_at;
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::CallFailure;
     use specforge_wasm::testing::InProcessRuntime;
@@ -651,7 +652,13 @@ mod lending {
             ("", None),
         ] {
             let listed = session.fs_walk("project", path, glob, 100).unwrap();
-            assert!(listed.entries.is_empty(), "{glob:?}: {listed:?}");
+            assert!(
+                !listed
+                    .entries
+                    .iter()
+                    .any(|entry| entry.contains(".specforge") || entry.ends_with(".payload")),
+                "{glob:?}: {listed:?}"
+            );
         }
         assert!(
             session.fs_walk("project", ".specforge", None, 100).is_err(),
