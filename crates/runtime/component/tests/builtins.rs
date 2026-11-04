@@ -9,6 +9,29 @@ use specforge_test_macros::test as specforge_test;
 use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
+/// The spike's permanent form (ADR 0335 D5): a guest imports only the `specforge:host` interfaces it calls, so a
+/// builtin that calls none imports only `wasi:*`. A toolchain that keeps an unused import fails here first.
+#[test]
+fn every_committed_builtin_imports_only_wasi() {
+    let engine = wasmtime::Engine::default();
+    for builtin in builtins::BUILTINS {
+        let component = wasmtime::component::Component::from_binary(&engine, builtin.bytes)
+            .unwrap_or_else(|e| panic!("{} ({}): {e}", builtin.name, builtin.crate_dir));
+        let foreign: Vec<String> = component
+            .component_type()
+            .imports(&engine)
+            .map(|(name, _)| name.to_string())
+            .filter(|name| !name.starts_with("wasi:"))
+            .collect();
+        assert!(
+            foreign.is_empty(),
+            "{} ({}) imports {foreign:?}",
+            builtin.name,
+            builtin.crate_dir
+        );
+    }
+}
+
 #[test]
 fn load_all_builtins() {
     let runtime = ComponentRuntime::new();
