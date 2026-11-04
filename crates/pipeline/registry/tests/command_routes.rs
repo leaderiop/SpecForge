@@ -138,3 +138,24 @@ fn one_cli_name_under_one_short_name_is_e039() {
         assert!(reported[0].contains(part), "{}", reported[0]);
     }
 }
+
+/// `specforge check` is the core command, so `@acme/check`'s commands have no CLI route: E114 says so, and MCP still
+/// serves them as `specforge.check.<id>`.
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "an extension whose short name a core command has is E114, and MCP still serves its commands"
+)]
+#[ignore = "08 T2"]
+fn a_short_name_a_core_command_has_is_e114() {
+    let build = build_registries(declared(&[("@acme/check", None, &["list"])]));
+
+    let reported: Vec<String> = build
+        .diagnostics()
+        .filter(|d| d.code == "E114")
+        .map(|d| d.message.clone())
+        .collect();
+    assert_eq!(reported.len(), 1, "{reported:?}");
+    assert!(reported[0].contains("`specforge check`"), "{}", reported[0]);
+    assert!(reported[0].contains("'@acme/check'"), "{}", reported[0]);
+    assert_eq!(e039s(&build), Vec::<String>::new());
+}

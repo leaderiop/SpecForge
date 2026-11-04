@@ -78,6 +78,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
   verify unit "one extension declaring one CLI name twice produces E039"
   verify unit "duplicate MCP tool name across extensions produces E039"
   verify unit "registration succeeds with no duplicates"
+  verify unit "an extension whose short name a core command has is E114, and MCP still serves its commands"
   verify unit "a surfaces description that does not parse fails the extension's load"
   verify unit "a prompt and a command of one route are E039, and the command is the one routed"
   verify unit "a prompt declaration the registry refuses is W021 and the rest of the declaration is kept"
