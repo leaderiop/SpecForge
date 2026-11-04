@@ -23,6 +23,7 @@ webpki-root-certs = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
+specforge-protocol-types = { path = "../../leaf/protocol-types" }
 
 [lints]
 workspace = true

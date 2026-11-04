@@ -3145,6 +3145,7 @@ dependencies = [
  "rustls",
  "rustls-platform-verifier",
  "specforge-effects",
+ "specforge-protocol-types",
  "specforge-test",
  "specforge-test-macros",
  "tokio",

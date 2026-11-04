@@ -12,8 +12,12 @@ use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
 use specforge_effects::http::{Any, get};
-use specforge_effects::{Header, Http, HttpRequest, OutcomeClass, Redirected, Unreachable};
+use specforge_effects::{
+    AttachedSecret, EffectsCeiling, Grant, Header, Http, HttpCeiling, HttpRequest, Narrow,
+    OutcomeClass, Redirected, Unreachable,
+};
 use specforge_http::Client;
+use specforge_protocol_types::Operation;
 
 /// A server on loopback that answers each connection with `answer(n, head)` (the `n`th request, its head) and sends
 /// back each request head. Its address is `http://127.0.0.1:<port>`.
@@ -247,4 +251,123 @@ fn tls_rejection_is_one_class() {
         );
         assert!(outcome.body.is_empty());
     }
+}
+
+/// The whole request under a grant that lists only `127.0.0.1`.
+fn only_loopback_address() -> Arc<dyn Http> {
+    let ceiling = EffectsCeiling {
+        http: Narrow::Only(HttpCeiling {
+            hosts: Some(vec!["127.0.0.1".to_string()]),
+            ..HttpCeiling::default()
+        }),
+        ..EffectsCeiling::default()
+    };
+    Arc::new(Grant::user(&ceiling)).http(Operation::Collect, Arc::new(Client::new()))
+}
+
+#[test]
+fn a_redirect_the_grant_does_not_permit_stops_as_denied_and_is_never_requested() {
+    let (foreign, foreign_heads) = serve(|_, _| ok("foreign"));
+    let foreign = foreign.replace("127.0.0.1", "localhost");
+    let (base, _) = serve(move |_, _| moved(&format!("{foreign}/")));
+    let outcome = only_loopback_address().request(&private(&format!("{base}/")), &Any);
+    assert_eq!(outcome.class, OutcomeClass::Denied, "{outcome:?}");
+    assert!(outcome.detail.unwrap().contains("redirects to"));
+    assert!(foreign_heads.try_recv().is_err(), "the hop was requested");
+}
+
+#[test]
+fn a_redirect_the_grant_permits_is_followed() {
+    let (next, _) = serve(|_, _| ok("there"));
+    let (base, _) = serve(move |_, _| moved(&format!("{next}/")));
+    let outcome = only_loopback_address().request(&private(&format!("{base}/")), &Any);
+    assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
+    assert_eq!(outcome.body, b"there");
+}
+
+/// A TLS server on loopback answering each connection as [`serve`] does, under the certificate for `localhost` and
+/// `127.0.0.1` that [`trusting`] trusts. Its port.
+fn serve_tls(answer: impl Fn(&str) -> String + Send + 'static) -> (u16, Receiver<String>) {
+    let cert = rustls::pki_types::CertificateDer::from(
+        include_bytes!("self-signed-leaf.cert.der").to_vec(),
+    );
+    let key = rustls::pki_types::PrivateKeyDer::Pkcs8(
+        include_bytes!("self-signed.key.der").to_vec().into(),
+    );
+    let config = Arc::new(
+        rustls::ServerConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert], key)
+        .unwrap(),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (heads, seen) = channel();
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(stream) = stream else { continue };
+            let connection = rustls::ServerConnection::new(config.clone()).unwrap();
+            let mut tls = rustls::StreamOwned::new(connection, stream);
+            let mut head = Vec::new();
+            let mut byte = [0u8; 1];
+            while !head.ends_with(b"\r\n\r\n") && tls.read(&mut byte).is_ok_and(|n| n == 1) {
+                head.push(byte[0]);
+            }
+            let head = String::from_utf8_lossy(&head).to_ascii_lowercase();
+            let _ = heads.send(head.clone());
+            let _ = tls.write_all(answer(&head).as_bytes());
+            tls.conn.send_close_notify();
+            let _ = tls.flush();
+        }
+    });
+    (port, seen)
+}
+
+/// A client that trusts [`serve_tls`]'s certificate.
+fn trusting() -> Client {
+    let mut roots = rustls::RootCertStore::empty();
+    roots
+        .add(rustls::pki_types::CertificateDer::from(
+            include_bytes!("self-signed-leaf.cert.der").to_vec(),
+        ))
+        .unwrap();
+    Client::with_tls(
+        rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(roots)
+        .with_no_client_auth(),
+    )
+}
+
+#[test]
+fn a_secret_goes_to_the_hosts_it_lists_and_is_dropped_on_a_redirect_elsewhere() {
+    let (foreign, foreign_heads) = serve_tls(|_| ok("foreign"));
+    let (listed, listed_heads) =
+        serve_tls(move |_| moved(&format!("https://localhost:{foreign}/")));
+    let request = HttpRequest {
+        secret: Some(AttachedSecret {
+            header: "X-Token".to_string(),
+            // A variable set in every test run: setting one here would race the other tests.
+            env: "PATH".to_string(),
+            scheme: None,
+            hosts: vec!["127.0.0.1".to_string()],
+        }),
+        ..private(&format!("https://127.0.0.1:{listed}/"))
+    };
+    let outcome = trusting().request(&request, &Any);
+    assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
+    let head = listed_heads.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(head.contains("x-token:"), "the listed host gets it: {head}");
+    let head = foreign_heads.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(
+        !head.contains("x-token"),
+        "the hop elsewhere does not: {head}"
+    );
 }

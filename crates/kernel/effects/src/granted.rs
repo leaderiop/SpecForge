@@ -3,7 +3,7 @@
 //! per instance for a guest's imports.
 
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use specforge_protocol_types::{
     EffectRequest, FsRequest, HttpRequest, Operation, OutcomeClass, ProcessRequest,
@@ -29,19 +29,64 @@ impl<P: ?Sized> Granted<P> {
 }
 
 impl Http for Granted<dyn Http> {
-    /// The request as its grant permits it, carrying the secret the permitting capability attaches and no other
-    /// (ADR 0335 D6).
+    /// The request as its grant permits it, carrying the secret the permitting capability attaches and no other, and
+    /// each redirect asked of the grant again: a hop it does not permit stops the request as `denied` (ADR 0335 D6).
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
         let asked = EffectRequest::Http(request.clone());
-        match self.grant.permitted(self.op, &asked) {
-            Ok(granted) => {
-                let request = HttpRequest {
-                    secret: granted.secret.clone(),
-                    ..request.clone()
-                };
-                self.port.request(&request, redirects)
+        let granted = match self.grant.permitted(self.op, &asked) {
+            Ok(granted) => granted,
+            Err(denial) => {
+                return HttpOutcome::failed(&request.url, OutcomeClass::Denied, denial.detail);
             }
-            Err(denial) => HttpOutcome::failed(&request.url, OutcomeClass::Denied, denial.detail),
+        };
+        let request = HttpRequest {
+            secret: granted.secret.clone(),
+            ..request.clone()
+        };
+        let hops = Regranted {
+            grant: &self.grant,
+            op: self.op,
+            request: &request,
+            then: redirects,
+            denied: Mutex::new(None),
+        };
+        let outcome = self.port.request(&request, &hops);
+        match hops.denied.into_inner().unwrap_or_else(|e| e.into_inner()) {
+            Some(detail) => HttpOutcome {
+                class: OutcomeClass::Denied,
+                detail: Some(detail),
+                ..outcome
+            },
+            None => outcome,
+        }
+    }
+}
+
+/// A granted request's redirects: each hop is permitted by the grant as the request it would be, then by the
+/// caller's policy. shortcut: a hop is judged with the request's own method, so a 303 from a POST to a GET under a
+/// POST-only scope is refused; pass the hop's method to `Redirects` if a capability ever needs that hop.
+struct Regranted<'a> {
+    grant: &'a Grant,
+    op: Operation,
+    request: &'a HttpRequest,
+    then: &'a dyn Redirects,
+    /// Why the grant refused a hop: the port reports a refused redirect; the answer is `denied`.
+    denied: Mutex<Option<String>>,
+}
+
+impl Redirects for Regranted<'_> {
+    fn allow(&self, from: &str, to: &str) -> bool {
+        let hop = EffectRequest::Http(HttpRequest {
+            url: to.to_string(),
+            ..self.request.clone()
+        });
+        match self.grant.permits(self.op, &hop) {
+            Ok(()) => self.then.allow(from, to),
+            Err(denial) => {
+                *self.denied.lock().unwrap_or_else(|e| e.into_inner()) =
+                    Some(format!("{from} redirects to {to}: {}", denial.detail));
+                false
+            }
         }
     }
 }

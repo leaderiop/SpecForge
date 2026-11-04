@@ -28,11 +28,21 @@ use address::{Failed, PublicOnly};
 pub struct Client {
     public: OnceLock<Result<Reqwest, String>>,
     any: OnceLock<Result<Reqwest, String>>,
+    /// The TLS configuration to use in place of the platform's verifier.
+    tls: Option<rustls::ClientConfig>,
 }
 
 impl Client {
     pub fn new() -> Self {
         Client::default()
+    }
+
+    /// A client that verifies with `tls`, not the platform's verifier: for a test's own certificate.
+    pub fn with_tls(tls: rustls::ClientConfig) -> Self {
+        Client {
+            tls: Some(tls),
+            ..Client::default()
+        }
     }
 
     fn client(&self, allow_private: bool) -> Result<&Reqwest, &str> {
@@ -41,7 +51,7 @@ impl Client {
         } else {
             &self.public
         };
-        cell.get_or_init(|| build(allow_private))
+        cell.get_or_init(|| build(allow_private, self.tls.clone()))
             .as_ref()
             .map_err(String::as_str)
     }
@@ -49,9 +59,13 @@ impl Client {
 
 /// A reqwest client that follows no redirect, connects within [`CONNECT_TIMEOUT`] and, unless `allow_private`,
 /// resolves names to public addresses only.
-fn build(allow_private: bool) -> Result<Reqwest, String> {
+fn build(allow_private: bool, config: Option<rustls::ClientConfig>) -> Result<Reqwest, String> {
+    let config = match config {
+        Some(config) => config,
+        None => tls()?,
+    };
     let mut builder = Reqwest::builder()
-        .tls_backend_preconfigured(tls()?)
+        .tls_backend_preconfigured(config)
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(TIMEOUT_CEILING);
