@@ -150,6 +150,15 @@ impl Git for Gix {
             return Located::Unavailable("a bare repository has no working tree".into());
         };
         let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| dir.join(p));
+        // git answers no worktree from inside the git directory ("must be run in a work tree"); gix finds the
+        // repository, so a hook would read a `.git/` path as the worktree's own
+        let here = real(dir);
+        if here.starts_with(real(repo.git_dir())) || here.starts_with(real(repo.common_dir())) {
+            return Located::Unavailable(format!(
+                "{} is inside the git directory, which has no working tree",
+                dir.display()
+            ));
+        }
         Located::Repo(GitPlace {
             toplevel: real(top),
             git_dir: real(repo.git_dir()),

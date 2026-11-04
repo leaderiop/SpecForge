@@ -77,6 +77,15 @@ fn history_reads_the_commits_files() {
     let bare = tempfile::tempdir().unwrap();
     gix::init_bare(bare.path()).unwrap();
     assert!(matches!(Gix.locate(bare.path()), Located::Unavailable(_)));
+    // Inside the git directory there is no working tree either, as git says ("must be run in a work tree"): a hook
+    // reads a `.git/` path as a repository's internals, not as its worktree.
+    for inside in [repo.dir().join(".git"), repo.dir().join(".git/refs")] {
+        assert!(
+            matches!(Gix.locate(&inside), Located::Unavailable(_)),
+            "{}",
+            inside.display()
+        );
+    }
 }
 
 #[specforge_test(
