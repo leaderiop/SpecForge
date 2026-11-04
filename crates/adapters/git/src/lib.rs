@@ -13,12 +13,16 @@ use std::path::{Path, PathBuf};
 use gix::bstr::ByteSlice as _;
 use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
-    Blob, CommitFile, Git, GitBranch, GitChange, GitEntry, GitEntryKind, GitError, GitPlace,
-    GitStatus, Located, ObjectKind, Sha, Sized, TreeEntry,
+    Blob, CommitFile, DiffQuery, DiffSide, Git, GitBranch, GitChange, GitCommit, GitEntry,
+    GitEntryKind, GitError, GitFileDiff, GitPlace, GitStatus, Located, LogQuery, ObjectKind, Sha,
+    Sized, TreeEntry,
 };
 
+mod history;
 #[cfg(feature = "testing")]
 pub mod testing;
+
+use history::{commit_of, file_diff, index_tree, touches, tree_of, wanted_paths};
 
 /// The `Git` port read through gix.
 #[derive(Debug, Clone, Copy, Default)]
@@ -285,6 +289,80 @@ impl Git for Gix {
             .into_iter()
             .map(|value| value.to_str_lossy().into_owned())
             .collect())
+    }
+
+    fn log(&self, place: &GitPlace, query: &LogQuery) -> Result<Vec<GitCommit>, GitError> {
+        use gix::revision::walk::Sorting;
+        use gix::traverse::commit::simple::CommitTimeOrder;
+        let repo = open(place)?;
+        let tips = query.tips.iter().map(id).collect::<Result<Vec<_>, _>>()?;
+        let hidden = query.hidden.iter().map(id).collect::<Result<Vec<_>, _>>()?;
+        let mut walk = repo
+            .rev_walk(tips)
+            .with_hidden(hidden)
+            .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst));
+        if query.first_parent {
+            walk = walk.first_parent_only();
+        }
+        let walk = walk.all().map_err(|e| failed("walk the history", &e))?;
+        let paths = wanted_paths(&query.paths);
+        let mut commits = Vec::new();
+        for info in walk {
+            if query.max.is_some_and(|max| commits.len() >= max) {
+                break;
+            }
+            let info = info.map_err(|e| failed("walk the history", &e))?;
+            let commit = repo
+                .find_commit(info.id)
+                .map_err(|e| failed(&format!("read {}", info.id), &e))?;
+            if !paths.is_empty() && !touches(&repo, &commit, &paths, query.first_parent)? {
+                continue;
+            }
+            commits.push(commit_of(&commit)?);
+        }
+        Ok(commits)
+    }
+
+    fn diff(&self, place: &GitPlace, query: &DiffQuery) -> Result<Vec<GitFileDiff>, GitError> {
+        // the index and the worktree are written as trees kept in memory, so every diff is tree to tree and nothing
+        // lands in the object store
+        let repo = open(place)?.with_object_memory();
+        let base = tree_of(&repo, &query.base)?;
+        let head = match &query.head {
+            DiffSide::Commit(sha) => tree_of(&repo, sha)?,
+            DiffSide::Index => index_tree(&repo, false)?,
+            DiffSide::Worktree => index_tree(&repo, true)?,
+        };
+        let old = repo
+            .find_tree(base)
+            .map_err(|e| failed("read a tree", &e))?;
+        let new = repo
+            .find_tree(head)
+            .map_err(|e| failed("read a tree", &e))?;
+        let changes = repo
+            .diff_tree_to_tree(&old, &new, None)
+            .map_err(|e| failed("diff two trees", &e))?;
+        let paths = wanted_paths(&query.paths);
+        let mut files = Vec::new();
+        for change in changes {
+            if let Some(file) = file_diff(&repo, change, &paths, query.patch)? {
+                files.push(file);
+            }
+        }
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        Ok(files)
+    }
+
+    fn blob(&self, place: &GitPlace, revision: &str) -> Result<Option<(Sha, Vec<u8>)>, GitError> {
+        let repo = open(place)?;
+        let Ok(id) = repo.rev_parse_single(revision) else {
+            return Ok(None);
+        };
+        let object = id.object().map_err(|e| failed(&format!("read {id}"), &e))?;
+        if object.kind != gix::objs::Kind::Blob {
+            return Ok(None);
+        }
+        Ok(Some((Sha::new(id.to_string()), object.detach().data)))
     }
 
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {

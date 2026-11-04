@@ -4,6 +4,7 @@
 //! under a directory at a commit, and a worktree's branch and status. Its adapter is `specforge-git`'s `Gix`;
 //! tests use [`crate::testing::FakeGit`].
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -97,6 +98,92 @@ pub enum ObjectKind {
     Tag,
 }
 
+/// Who made a commit, and when.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GitPerson {
+    pub name: String,
+    pub email: String,
+    /// ISO 8601 with the signer's offset, as `%aI` prints it.
+    pub time: String,
+}
+
+/// One commit of a log.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GitCommit {
+    pub sha: Sha,
+    pub parents: Vec<Sha>,
+    pub author: GitPerson,
+    pub committer: GitPerson,
+    /// The message's first paragraph on one line (`%s`).
+    pub subject: String,
+    /// The rest of the message, trailers included (`%b`), trimmed.
+    pub body: String,
+    /// The trailers of the message's last paragraph, every value of each token in order (`Gsd-Task: 7`).
+    pub trailers: BTreeMap<String, Vec<String>>,
+}
+
+/// Which commits a log walks: those `tips` reach that `hidden` do not, newest first.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LogQuery {
+    pub tips: Vec<Sha>,
+    pub hidden: Vec<Sha>,
+    /// Only the commits that change something at one of these paths (from the top; a directory holds what is under
+    /// it). Empty keeps every commit.
+    pub paths: Vec<String>,
+    /// Follow only each commit's first parent.
+    pub first_parent: bool,
+    pub max: Option<usize>,
+}
+
+/// The side a diff compares its base with.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DiffSide {
+    Commit(Sha),
+    /// The index (`--staged`).
+    Index,
+    /// The tracked files as they are on disk (`git diff <base>`): untracked files are not in it.
+    Worktree,
+}
+
+/// A diff between a commit and a side.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DiffQuery {
+    pub base: Sha,
+    pub head: DiffSide,
+    /// Only the files at or under these paths (from the top). Empty keeps every file.
+    pub paths: Vec<String>,
+    /// Give each text file's unified hunks.
+    pub patch: bool,
+}
+
+/// How a file changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffStatus {
+    Added,
+    Deleted,
+    Modified,
+    Renamed,
+    Copied,
+    TypeChanged,
+}
+
+/// One changed file of a diff.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GitFileDiff {
+    pub path: String,
+    /// The path it had at the base, for a rename or a copy.
+    pub old_path: Option<String>,
+    pub status: DiffStatus,
+    pub added: u32,
+    pub removed: u32,
+    /// Either side holds a NUL in its first 8000 bytes, as git decides: no lines are counted.
+    pub binary: bool,
+    /// The unified hunks (`@@ … @@`, three lines of context), when asked and the file is text.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub patch: Option<String>,
+}
+
 /// What the host asks of version control. Every method is read-only. None runs for a check unless a project declares
 /// history or a hook declares the `git` input (ADR 0320, ADR 0337 D2); `specforge git` asks the rest for the user
 /// (ADR 0339).
@@ -159,6 +246,18 @@ pub trait Git: Send + Sync {
     /// Every value `key` (`section.name` or `section.sub.name`) has in the repository's configuration, the last the
     /// one git applies: empty when it has none.
     fn config(&self, _place: &GitPlace, _key: &str) -> Result<Vec<String>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
+    /// The commits `query` walks, newest first.
+    fn log(&self, _place: &GitPlace, _query: &LogQuery) -> Result<Vec<GitCommit>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
+    /// The files that differ between `query`'s base and its side, by path.
+    fn diff(&self, _place: &GitPlace, _query: &DiffQuery) -> Result<Vec<GitFileDiff>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
+    /// The blob `revision` names (`HEAD:path`, `:path` for the index) and its bytes; `None` when it names no blob.
+    fn blob(&self, _place: &GitPlace, _revision: &str) -> Result<Option<(Sha, Vec<u8>)>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
 }
