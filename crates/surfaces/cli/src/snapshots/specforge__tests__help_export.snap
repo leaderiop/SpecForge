@@ -39,6 +39,9 @@ Options:
       --with-schema
           Embed the schema in `context` and `brief` exports, and in a `graph` export under --max-tokens. They leave it out by default: an agent reading the export needs the entities, and the schema is most of the bytes. Under --max-tokens an embedded schema counts toward the budget, and a budget it doesn't fit in fails (E062)
 
+      --with-checks
+          Give each entity in a `graph` or `context` export its checked values' outcomes as `checks`. Plain values otherwise
+
       --schema-version <SCHEMA_VERSION>
           Fail unless a reader of this schema version reads the export: the same major version, not newer than the project's schema
 

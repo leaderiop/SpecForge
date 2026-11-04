@@ -958,7 +958,7 @@ may ask the host to look at the world for it; it never looks itself:
 {
   "category": "checkers",
   "items": [
-    { "name": "url", "applies_to": ["string", "string_list"], "scopes": ["links"], "codes": ["E093", "W181"],
+    { "name": "url", "applies_to": ["string", "string_list"], "scopes": ["links"], "codes": ["E901", "W901"],
       "value": "url", "description": "The URL answers" }
   ]
 }

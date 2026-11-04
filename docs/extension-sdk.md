@@ -602,19 +602,19 @@ phases are pure: `plan` answers from the text, findings or probes, and `judge` f
 performs an effect, and the host contains every path before a guest hears about it.
 
 ```rust
-c.code("E201", |d| { d.title("A dead page").explanation("The page does not answer."); });
+c.code("E901", |d| { d.title("A dead page").explanation("The page does not answer."); });
 c.capability(Capability::http("links").hosts(&["*.example.com"]).why("check that the docs answer"));
 c.checker("page", |k| {
     k.applies_to(&["string"])
         .scope("links")                     // the capability its probes use; none: a pure checker
-        .codes(&["E201"])                   // every code a finding may carry, each catalogued
+        .codes(&["E901"])                   // every code a finding may carry, each catalogued
         .value(ValueForm::Url)              // for the editor only: document links
         .plan(|item: &CheckItem| {
             PlannedItem::probes(vec![Probe::HttpHead { url: item.text.clone(), redirects: 0 }])
         })
         .judge(|item: &CheckItem| {
             let dead = item.outcomes.iter().any(|o| o.class != OutcomeClass::Ok);
-            dead.then(|| CheckFinding::new("E201", format!("{} does not answer", item.text)))
+            dead.then(|| CheckFinding::new("E901", format!("{} does not answer", item.text)))
                 .into_iter()
                 .collect()
         });
