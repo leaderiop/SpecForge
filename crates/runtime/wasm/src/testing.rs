@@ -714,7 +714,7 @@ pub fn assert_port_contract(
     assert_eq!(refused["denied"], "scope", "outside the grant: {refused}");
     let kept = denials.lock().expect("denials lock");
     assert_eq!(kept.len(), 1, "one E090 is kept: {kept:?}");
-    assert_eq!(kept[0].code, "E090");
+    assert_eq!(kept[0].code, specforge_common::codes::E090.id());
     drop(kept);
 
     let unlent = answer(call(inside, Operation::Command, None), "nothing lent");
