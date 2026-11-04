@@ -33,6 +33,8 @@ specforge-diagnostics = { path = "../../leaf/diagnostics" }
 # The registry build's reading of a declaration's `codes` (builtin_codes).
 specforge-registry = { workspace = true }
 specforge-wasm = { workspace = true, features = ["testing"] }
+# The fake ports the sandbox probe is lent.
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 tempfile = { workspace = true }
 serde_json = { workspace = true }
 specforge-test = { workspace = true }

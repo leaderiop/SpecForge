@@ -119,7 +119,7 @@ interface git {
     path: string,
     file: bool,
   }
-  record sized {
+  record file-size {
     path: string,
     size: option<u64>,
   }
@@ -172,7 +172,7 @@ interface git {
   commit: func(revision: string) -> result<option<string>, host-error>;
   merge-base: func(a: string, b: string) -> result<option<string>, host-error>;
   tree: func(commit: string, dir: string) -> result<list<tree-entry>, host-error>;
-  sizes: func(commit: string, paths: list<string>) -> result<list<sized>, host-error>;
+  sizes: func(commit: string, paths: list<string>) -> result<list<file-size>, host-error>;
   blobs: func(commit: string, paths: list<string>) -> result<blobs-answer, host-error>;
   branch: func() -> result<string, host-error>;
   status: func() -> result<status-answer, host-error>;

@@ -1,7 +1,7 @@
 //! The protocol's types and what wit-bindgen generates, at the guest's edge (ADR 0335 D4). A request goes out as WIT
 //! and an answer comes back; the reverse directions exist for the round-trip test that holds the two together.
 
-use super::wit::git::{Blob, BlobsAnswer, Repo, Sized, StatusAnswer, TreeEntry};
+use super::wit::git::{Blob, BlobsAnswer, FileSize, Repo, StatusAnswer, TreeEntry};
 use super::wit::http::{self, Request, Response};
 use super::wit::process::{self, RunOutput, RunRequest};
 use super::wit::{fs, git, types};
@@ -152,8 +152,8 @@ impl From<TreeEntry> for GitTreeEntry {
     }
 }
 
-impl From<Sized> for GitSized {
-    fn from(sized: Sized) -> Self {
+impl From<FileSize> for GitSized {
+    fn from(sized: FileSize) -> Self {
         GitSized {
             path: sized.path,
             size: sized.size,

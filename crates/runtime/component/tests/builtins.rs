@@ -300,3 +300,31 @@ fn product_declares_the_commands_its_cli_surface_specifies() {
     assert_eq!(specified.len(), 40);
     assert_eq!(declared, specified);
 }
+
+#[specforge_test_macros::test(
+    behavior = "link_host_ports",
+    verify = "every instance links the four ports, and a guest that calls none imports none"
+)]
+fn the_probe_imports_the_ports_it_calls_and_builtins_none() {
+    let engine = wasmtime::Engine::default();
+    let blob = std::fs::read(specforge_component::committed::PROBE.path()).unwrap();
+    let component = wasmtime::component::Component::from_binary(&engine, &blob).unwrap();
+    let mut hosts: Vec<String> = component
+        .component_type()
+        .imports(&engine)
+        .map(|(name, _)| name.to_string())
+        .filter(|name| !name.starts_with("wasi:"))
+        .collect();
+    hosts.sort();
+    assert_eq!(
+        hosts,
+        [
+            "specforge:host/fs@0.1.0",
+            "specforge:host/git@0.1.0",
+            "specforge:host/http@0.1.0",
+            "specforge:host/process@0.1.0",
+            "specforge:host/types@0.1.0",
+        ]
+    );
+    every_committed_builtin_imports_only_wasi();
+}

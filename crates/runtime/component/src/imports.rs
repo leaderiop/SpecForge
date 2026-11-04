@@ -3,9 +3,15 @@
 
 use specforge_wasm::LoadError;
 
-/// The `specforge:host` interfaces this host links, `iface@version`. None at protocol 1.x; the ports round adds
-/// each port as it links it.
-pub(crate) const HOST_PORTS: &[&str] = &[];
+/// The `specforge:host` interfaces this host links, `iface@version`: every instance has them (`ports::link`), and a
+/// guest imports only those it calls.
+pub(crate) const HOST_PORTS: &[&str] = &[
+    "specforge:host/types@0.1.0",
+    "specforge:host/http@0.1.0",
+    "specforge:host/fs@0.1.0",
+    "specforge:host/process@0.1.0",
+    "specforge:host/git@0.1.0",
+];
 
 /// Refuses a component by its import names: a foreign import first (no specforge loads it), then a
 /// `specforge:host` interface not in [`HOST_PORTS`] (a guest built for a newer host). Every offending name is listed,
@@ -35,6 +41,42 @@ pub(crate) fn admit<'a>(names: impl Iterator<Item = &'a str>) -> Result<(), Load
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_known_host_port_passes() {
+        let names = [
+            "wasi:io/poll@0.2.6",
+            "specforge:host/types@0.1.0",
+            "specforge:host/http@0.1.0",
+        ];
+        assert_eq!(admit(names.into_iter()), Ok(()));
+        assert_eq!(
+            admit(["specforge:host/http@0.2.0"].into_iter()),
+            Err(LoadError::UnknownPorts(vec![
+                "specforge:host/http@0.2.0".to_string()
+            ]))
+        );
+    }
+
+    #[test]
+    fn the_host_ports_are_the_wit_packages_interfaces() {
+        let wit = include_str!("../../extension-sdk/wit/host.wit");
+        let version = wit
+            .lines()
+            .find_map(|line| line.strip_prefix("package specforge:host@"))
+            .and_then(|rest| rest.strip_suffix(';'))
+            .expect("host.wit names its package");
+        let mut interfaces: Vec<String> = wit
+            .lines()
+            .filter_map(|line| line.strip_prefix("interface "))
+            .filter_map(|rest| rest.strip_suffix(" {"))
+            .map(|interface| format!("specforge:host/{interface}@{version}"))
+            .collect();
+        let mut ports: Vec<String> = HOST_PORTS.iter().map(ToString::to_string).collect();
+        interfaces.sort();
+        ports.sort();
+        assert_eq!(ports, interfaces);
+    }
 
     #[test]
     fn wasi_imports_pass() {

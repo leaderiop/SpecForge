@@ -90,7 +90,11 @@ fn extension() -> ContributionsBuilder {
             .secret_header("Authorization", "api-token", Some("Bearer"))
             .why("call the API"),
     );
-    c.capability(Capability::fs("files").why("read the project"));
+    c.capability(
+        Capability::fs("files")
+            .ops(&[FsAccess::Stat, FsAccess::Read, FsAccess::Walk])
+            .why("read the project"),
+    );
     c.capability(Capability::git("history").why("read the history"));
     c.capability(
         Capability::process("tests")
