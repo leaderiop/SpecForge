@@ -301,6 +301,17 @@ impl ResolvedEffects {
         }
     }
 
+    /// `roots` with every named root that resolved inside the project: what a reader asks no machine's approval for
+    /// (O5). A root outside the project is not among them, so a path naming it is refused like an unknown root.
+    pub fn with_inside(&self, mut roots: Roots) -> Roots {
+        for root in self.roots.iter().filter(|root| root.inside) {
+            if let Some(target) = &root.target {
+                roots = roots.with_named(root.name.clone(), target.clone());
+            }
+        }
+        roots
+    }
+
     /// `roots` with every named root that resolved.
     pub fn with_named(&self, mut roots: Roots) -> Roots {
         for root in &self.roots {
@@ -335,6 +346,13 @@ impl Environment {
     /// root) and their E109 and W171 (ADR 0335 D2.3).
     pub fn effects_allowed(&self) -> &ResolvedEffects {
         &self.effects_allowed
+    }
+
+    /// The roots a path in a value may name with no approval (ADR 0336 D6): the project's, the spec root and the named
+    /// roots inside the project.
+    pub fn read_roots(&self) -> Roots {
+        self.effects_allowed
+            .with_inside(Roots::new(self.root(), self.spec_root()))
     }
 }
 

@@ -88,3 +88,36 @@ fn shown_names_a_held_file_from_the_root_a_link_by_its_own_name() {
     let held = containment.resolve(Path::new("alias.wasm")).unwrap();
     assert_eq!(held.shown(&through).into_string(), "alias.wasm");
 }
+
+#[test]
+fn a_tool_path_names_the_spec_root_by_prefix() {
+    let (_dir, root) = scene();
+    let spec = root.join("sub");
+    let bound = Containment::within(&root).with_roots([("spec".to_string(), spec.clone())]);
+
+    let held = bound.resolve(Path::new("<spec>/a.spec")).unwrap();
+    assert_eq!(held.named, Path::new("<spec>/a.spec"));
+    assert_eq!(
+        (held.at, held.real),
+        (spec.join("a.spec"), spec.join("a.spec"))
+    );
+    let project = bound.resolve(Path::new("<project>/b.json")).unwrap();
+    assert_eq!(project.real, root.join("b.json"));
+
+    for refused in ["<spec>/../../out", "<vendor>/a", "<spec", "<Bad>/a"] {
+        assert!(bound.resolve(Path::new(refused)).is_err(), "{refused}");
+    }
+    assert!(
+        Containment::within(&root)
+            .resolve(Path::new("<spec>/a.spec"))
+            .is_err(),
+        "a root not handed to it is not reached"
+    );
+    let unbounded = Containment::unbounded()
+        .resolve(Path::new("<spec>/a"))
+        .unwrap();
+    assert_eq!(
+        unbounded.named, unbounded.at,
+        "the CLI's user types a path as it is"
+    );
+}

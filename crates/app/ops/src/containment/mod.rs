@@ -13,7 +13,10 @@ mod file;
 pub use disk::ContainedDisk;
 pub use file::{ReadFailure, declared};
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+use specforge_protocol_types::{Root, RootedPath};
 
 // RealFs only looks paths up (where a link lands): a Lookup, not an Fs effect, so it reads no file past the Fs port.
 use specforge_effects::RealFs;
@@ -29,6 +32,9 @@ pub const OUTSIDE_ROOT: &str = "outside_root";
 pub struct Containment {
     /// The directory, canonical as far as it existed when built; `None`: unbounded.
     root: Option<PathBuf>,
+    /// The other roots a `<name>/…` path may name (ADR 0336 D6), each where it lands: the spec root and the named roots
+    /// this machine may reach. Only a bounded containment reads the prefix: the CLI's user types a path as it is.
+    roots: BTreeMap<String, PathBuf>,
 }
 
 /// A path a containment holds (ADR 0104, ADR 0112, ADR 0272): one path, three names, one use each.
@@ -57,14 +63,27 @@ pub struct Outside {
 impl Containment {
     /// Every path: [`resolve`](Self::resolve) hands a name back as given and refuses nothing.
     pub const fn unbounded() -> Self {
-        Containment { root: None }
+        Containment {
+            root: None,
+            roots: BTreeMap::new(),
+        }
     }
 
     /// The paths that land inside `root`, as it is on disk now.
     pub fn within(root: &Path) -> Self {
         Containment {
             root: Some(RealFs::landing(root)),
+            roots: BTreeMap::new(),
         }
+    }
+
+    /// The same bound, and a `<name>/…` path may also name each of `roots`.
+    pub fn with_roots(mut self, roots: impl IntoIterator<Item = (String, PathBuf)>) -> Self {
+        self.roots = roots
+            .into_iter()
+            .map(|(name, at)| (name, RealFs::landing(&at)))
+            .collect();
+        self
     }
 
     /// This containment as the `Disk` port: what a session reads its sources through when the surface
@@ -99,7 +118,37 @@ impl Containment {
     /// `named` read against `base` (an absolute `named` stands); `Outside` (quoting `named`) unless
     /// it lands inside the root.
     pub fn resolve_from(&self, base: &Path, named: &Path) -> Result<Held, Outside> {
+        if let Some(root) = &self.root
+            && let Some(text) = named.to_str().filter(|text| text.starts_with('<'))
+        {
+            return self.hold_rooted(root, named, text);
+        }
         self.hold(named.to_path_buf(), base.join(named))
+    }
+
+    /// The name `text`, whose `<root>/` prefix names one of the roots: it lands inside that root, or `Outside`. A root
+    /// not reached from here (unknown, or outside the project and not approved, O5) is `Outside` too.
+    fn hold_rooted(&self, bound: &Path, named: &Path, text: &str) -> Result<Held, Outside> {
+        let outside = |landed: PathBuf, root: &Path| Outside::new(named, landed, root);
+        let rooted = RootedPath::parse(text, Root::Project)
+            .map_err(|_| outside(named.to_path_buf(), bound))?;
+        let root = match &rooted.root {
+            Root::Project => bound,
+            other => self
+                .roots
+                .get(other.as_str())
+                .ok_or_else(|| outside(named.to_path_buf(), bound))?,
+        };
+        let at = root.join(&rooted.path);
+        let real = RealFs::landing(&at);
+        if !real.starts_with(root) {
+            return Err(outside(real, root));
+        }
+        Ok(Held {
+            named: named.to_path_buf(),
+            at,
+            real,
+        })
     }
 
     /// The name `named`, read at `at`, held: its landing checked against the root when bounded.

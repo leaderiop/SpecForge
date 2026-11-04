@@ -8,7 +8,8 @@ use std::sync::Arc;
 use specforge_common::{Diagnostic, ProjectRoot, codes};
 use specforge_effects::mode::{Approved, Log};
 use specforge_effects::{
-    Consent, EffectJournal, Effects, EffectsMode, Grant, Ports, Provenance, Roots,
+    Approval, Consent, EffectJournal, Effects, EffectsMode, Grant, Ports, Provenance, RootApproval,
+    Roots,
 };
 use specforge_protocol_types::Operation;
 
@@ -94,6 +95,36 @@ pub fn environment(
     let env = Environment::load(root, runtime).with_git(Arc::clone(&ports.git));
     let effects = of(mode, ports, &env, root, consent);
     env.with_effects(effects)
+}
+
+/// The roots beside the project's a request path may name on this machine (ADR 0336 D6): the spec root, the named roots
+/// inside the project, and those outside it `consent` approved (O5). An unusable store approves nothing.
+pub fn reachable_roots(
+    env: &Environment,
+    root: &Path,
+    consent: &dyn Consent,
+) -> Vec<(String, std::path::PathBuf)> {
+    let project = specforge_effects::grant::project_key(root);
+    let mut roots = vec![("spec".to_string(), env.spec_root().to_path_buf())];
+    for named in &env.effects_allowed().roots {
+        let Some(target) = &named.target else {
+            continue;
+        };
+        let approved = || {
+            consent
+                .approved(&Approval::Root(RootApproval {
+                    project: project.clone(),
+                    root: named.name.clone(),
+                    target: target.display().to_string(),
+                    approved_at: Default::default(),
+                }))
+                .unwrap_or(false)
+        };
+        if named.inside || approved() {
+            roots.push((named.name.clone(), target.clone()));
+        }
+    }
+    roots
 }
 
 /// I206, once per compile: how many effects `log` counts as not performed, by scope (`links 2, registries 3`);

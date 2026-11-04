@@ -13,9 +13,9 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use specforge_effects::Root;
 use specforge_effects::contained::{Contained, Resolved};
 use specforge_effects::fs::SKIPPED;
+use specforge_effects::{Root, Roots};
 
 use specforge_protocol_types::{FileFact, FileFacts, FileRead};
 use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_problem};
@@ -32,12 +32,14 @@ pub const MAX_FILES: usize = 2000;
 pub const MAX_VISITS: usize = 20_000;
 
 /// Where the files are read from.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct FileSource<'a> {
     /// Every `exists`, `list` and `read` goes through it.
     pub disk: &'a dyn Disk,
     pub project_root: &'a Path,
     pub spec_root: &'a Path,
+    /// The roots a value's `<root>/` prefix may name.
+    pub roots: Roots,
 }
 
 impl crate::Environment {
@@ -47,6 +49,7 @@ impl crate::Environment {
             disk,
             project_root: self.root(),
             spec_root: self.spec_root(),
+            roots: self.read_roots(),
         }
     }
 }
@@ -89,7 +92,7 @@ pub fn read(
     source: &FileSource<'_>,
 ) -> BTreeMap<String, FileFacts> {
     let lookup = DiskLookup(source.disk);
-    let contained = Contained::project(source.project_root, source.spec_root, &lookup);
+    let contained = Contained::new(&source.roots, &lookup);
     let ctx = Ctx {
         source,
         contained: &contained,
