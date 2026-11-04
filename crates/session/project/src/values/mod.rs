@@ -17,7 +17,7 @@ pub use specforge_protocol_types::CheckStatus;
 use specforge_protocol_types::{
     CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckValuesInput, PlannedItem,
 };
-use specforge_registry::{CheckCall, Disk, EntitySnapshot, ResolvedCheck};
+use specforge_registry::{CheckCall, Disk, EntitySnapshot, QualifiedChecker, ResolvedCheck};
 use specforge_wasm::{ExtensionCalls, Limits};
 
 use crate::Environment;
@@ -35,8 +35,7 @@ pub struct ValueRow {
     /// The written path of the field or member (`links[1].href`).
     pub field: String,
     pub item: usize,
-    /// `<extension>:<checker>`.
-    pub checker: String,
+    pub checker: QualifiedChecker,
     pub value: String,
     pub status: CheckStatus,
     /// The class of what its probes answered: `Ok` for a checker with none; `None` when it did not run.
@@ -77,7 +76,7 @@ impl ValueChecks {
                     field: row.field.clone(),
                     item: row.item as u32,
                     value: row.value.clone(),
-                    checker: row.checker.clone(),
+                    checker: row.checker.to_string(),
                     status: row.status,
                     outcome: row.outcome_class,
                     observed_at: row.observed_at,
@@ -99,7 +98,7 @@ impl ValueChecks {
                     CheckedValue {
                         field: row.field.clone(),
                         item: row.item,
-                        checker: row.checker.clone(),
+                        checker: row.checker.to_string(),
                         outcome: row
                             .outcome_class
                             .map_or(ValueOutcome::Unknown, ValueOutcome::Class),
@@ -126,6 +125,28 @@ struct Planned<'a> {
     call: &'a CheckCall,
     /// Its id in its extension's call.
     id: u32,
+}
+
+impl Planned<'_> {
+    fn key(&self) -> CallKey {
+        CallKey::of(&self.call.extension, self.id)
+    }
+}
+
+/// A call of a checker: its extension, and its id in that extension's call.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct CallKey {
+    extension: String,
+    id: u32,
+}
+
+impl CallKey {
+    fn of(extension: &str, id: u32) -> Self {
+        CallKey {
+            extension: extension.to_string(),
+            id,
+        }
+    }
 }
 
 /// How the phase asks a checker: through the cache, then the extension.
@@ -216,7 +237,13 @@ struct Settled {
     /// The checker has the last word: its plan needed no probe or already failed the value, or it judged the answers.
     judged: bool,
     class: Option<OutcomeClass>,
-    observed_at: Option<u64>,
+    observed: Observed,
+}
+
+/// Where the answers of a row come from: when the oldest was observed, and whether one came from the journal.
+#[derive(Debug, Clone, Copy, Default)]
+struct Observed {
+    at: Option<u64>,
     from_cache: bool,
 }
 
@@ -302,14 +329,10 @@ pub(crate) fn run(
 
 /// Which calls are dropped: those of a value's checks after one whose every branch failed in its plan (an invalid URL
 /// is never fetched).
-fn dropped(
-    planned: &[Planned<'_>],
-    answers: &BTreeMap<(String, u32), PlannedItem>,
-) -> HashSet<(String, u32)> {
-    let key = |one: &Planned<'_>| (one.call.extension.clone(), one.id);
+fn dropped(planned: &[Planned<'_>], answers: &BTreeMap<CallKey, PlannedItem>) -> HashSet<CallKey> {
     let failed = |one: &Planned<'_>| {
         answers
-            .get(&key(one))
+            .get(&one.key())
             .is_some_and(|plan| place::any_error(&plan.findings))
     };
     let mut dropped = HashSet::new();
@@ -324,7 +347,7 @@ fn dropped(
             .iter()
             .filter(|later| later.value == one.value && later.check > one.check)
         {
-            dropped.insert(key(later));
+            dropped.insert(later.key());
         }
     }
     dropped
@@ -338,15 +361,15 @@ fn performed_and_judged(
     disk: &dyn Disk,
     values: &[Value<'_>],
     planned: &[Planned<'_>],
-    answers: &BTreeMap<(String, u32), PlannedItem>,
+    answers: &BTreeMap<CallKey, PlannedItem>,
     diagnostics: &mut Vec<Diagnostic>,
-) -> BTreeMap<(String, u32), Settled> {
+) -> BTreeMap<CallKey, Settled> {
     let dropped = dropped(planned, answers);
     let mut settled = BTreeMap::new();
     let mut waiting = Vec::new();
     let mut asked = Vec::new();
     for one in planned {
-        let key = (one.call.extension.clone(), one.id);
+        let key = one.key();
         let Some(plan) = answers.get(&key) else {
             continue;
         };
@@ -378,7 +401,7 @@ fn performed_and_judged(
     diagnostics.extend(approvals);
     let mut judge: BTreeMap<&str, Vec<CheckItem>> = BTreeMap::new();
     for (one, reading) in waiting.iter().zip(readings) {
-        let key = (one.call.extension.clone(), one.id);
+        let key = one.key();
         let plan = &answers[&key];
         if !reading.answered() {
             settled.insert(
@@ -403,8 +426,10 @@ fn performed_and_judged(
             Settled {
                 findings: plan.findings.clone(),
                 class: Some(class),
-                observed_at: reading.outcomes.iter().map(|o| o.observed_at).min(),
-                from_cache: reading.outcomes.iter().any(|o| o.from_cache),
+                observed: Observed {
+                    at: reading.outcomes.iter().map(|o| o.observed_at).min(),
+                    from_cache: reading.outcomes.iter().any(|o| o.from_cache),
+                },
                 ..Settled::default()
             },
         );
@@ -416,7 +441,7 @@ fn performed_and_judged(
         match asking.ask(extension, CheckPhase::Judge, items) {
             Ok(items) => {
                 for item in items {
-                    if let Some(settled) = settled.get_mut(&(extension.to_string(), item.id)) {
+                    if let Some(settled) = settled.get_mut(&CallKey::of(extension, item.id)) {
                         settled.findings.extend(item.findings);
                         settled.judged = true;
                     }
@@ -469,7 +494,7 @@ fn plans(
     values: &[Value<'_>],
     planned: &[Planned<'_>],
     diagnostics: &mut Vec<Diagnostic>,
-) -> BTreeMap<(String, u32), PlannedItem> {
+) -> BTreeMap<CallKey, PlannedItem> {
     let mut answers = BTreeMap::new();
     for declaration in asking.env.registries().declarations() {
         let extension = declaration.name();
@@ -484,7 +509,7 @@ fn plans(
         match asking.ask(extension, CheckPhase::Plan, items) {
             Ok(items) => {
                 for item in items {
-                    answers.insert((extension.to_string(), item.id), item);
+                    answers.insert(CallKey::of(extension, item.id), item);
                 }
             }
             Err(error) => diagnostics.push(error.diagnostic()),
@@ -499,12 +524,12 @@ fn settle(
     value: &Value<'_>,
     check: &ResolvedCheck,
     branches: &[&Planned<'_>],
-    answers: &BTreeMap<(String, u32), Settled>,
+    answers: &BTreeMap<CallKey, Settled>,
     registries: &specforge_registry::RegistryBuild,
     misused: &mut HashSet<(String, String)>,
     phase: &mut Phase,
 ) {
-    let answer = |one: &&Planned<'_>| answers.get(&(one.call.extension.clone(), one.id));
+    let answer = |one: &&Planned<'_>| answers.get(&one.key());
     let passing = branches
         .iter()
         .find(|one| answer(one).is_some_and(|settled| settled.judged && !settled.fails()));
@@ -563,7 +588,7 @@ fn settle(
             status,
             settled.class.filter(|_| status != CheckStatus::NotRun),
             kept,
-            (settled.observed_at, settled.from_cache),
+            settled.observed,
         );
     }
 }
@@ -576,7 +601,7 @@ impl ValueChecks {
         status: CheckStatus,
         outcome_class: Option<OutcomeClass>,
         codes: Vec<String>,
-        (observed_at, from_cache): (Option<u64>, bool),
+        observed: Observed,
     ) {
         self.0
             .entry(value.entity.to_string())
@@ -584,12 +609,12 @@ impl ValueChecks {
             .push(ValueRow {
                 field: value.field.to_string(),
                 item: value.item,
-                checker: format!("{}:{}", call.extension, call.checker),
+                checker: call.qualified(),
                 value: value.text.to_string(),
                 status,
                 outcome_class,
-                observed_at,
-                from_cache,
+                observed_at: observed.at,
+                from_cache: observed.from_cache,
                 codes,
             });
     }
@@ -601,7 +626,7 @@ impl ValueChecks {
             CheckStatus::NotRun,
             None,
             Vec::new(),
-            (None, false),
+            Observed::default(),
         );
     }
 }

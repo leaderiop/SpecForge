@@ -5,7 +5,7 @@ use specforge_graph::field_form::FieldJson;
 use specforge_graph::{
     AnnotationJson, Computed, Graph, Members, MethodJson, Node, Obligation, VerdictJson,
 };
-use specforge_protocol_types::Judgement;
+use specforge_protocol_types::{CheckStatus, Judgement};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -118,7 +118,8 @@ pub struct ValueCheckJson {
     /// `<extension>:<checker>`.
     pub checker: String,
     /// `passed`, `failed` or `not_run`.
-    pub status: String,
+    #[shape(as = String)]
+    pub status: CheckStatus,
     /// The class of what its probes answered; absent when it did not run.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outcome: Option<String>,

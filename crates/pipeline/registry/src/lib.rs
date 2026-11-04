@@ -23,8 +23,8 @@ pub use disk::{Asked, Disk, DiskLookup, FileStamp, MemoryDisk, PlainDisk};
 pub use registries::{
     CheckCall, CheckRegistry, DeclaredSetting, EdgeRegistry, EdgeRegistryEntry, EdgeWriter,
     ExtensionSettings, FieldProblem, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, Parent, ResolvedCheck, Route, RouteAnnotation, RouteRegistry, RouteStep,
-    SettingsRegistry, Skipped, UnknownFieldType,
+    KindRegistryEntry, Parent, QualifiedChecker, ResolvedCheck, Route, RouteAnnotation,
+    RouteRegistry, RouteStep, SettingsRegistry, Skipped, UnknownFieldType,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---

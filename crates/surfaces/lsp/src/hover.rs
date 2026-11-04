@@ -431,8 +431,7 @@ fn declared_path(written: &str) -> String {
 }
 
 fn check_line(row: &ValueRow, mode: &str, now: u64) -> String {
-    let name = row.checker.rsplit(':').next().unwrap_or(&row.checker);
-    let mut line = format!("`{name}`");
+    let mut line = format!("`{}`", row.checker.checker);
     match row.status {
         CheckStatus::NotRun => {
             line.push_str(&format!(" · not run ({mode})"));

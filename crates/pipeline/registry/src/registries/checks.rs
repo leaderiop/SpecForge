@@ -34,6 +34,29 @@ pub struct CheckCall {
     pub args: Map<String, Value>,
 }
 
+impl CheckCall {
+    /// The checker it calls.
+    pub fn qualified(&self) -> QualifiedChecker {
+        QualifiedChecker {
+            extension: self.extension.clone(),
+            checker: self.checker.clone(),
+        }
+    }
+}
+
+/// A checker by its extension and its name, written `<extension>:<checker>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QualifiedChecker {
+    pub extension: String,
+    pub checker: String,
+}
+
+impl std::fmt::Display for QualifiedChecker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.extension, self.checker)
+    }
+}
+
 /// A check a field's values pass, resolved.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResolvedCheck {

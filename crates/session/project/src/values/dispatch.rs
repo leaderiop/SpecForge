@@ -65,6 +65,23 @@ impl Reading {
     }
 }
 
+/// One probe on its way: who asked it, under which scopes, and the reading its value is building.
+struct Turn<'t, 'a> {
+    one: &'t Asked<'a>,
+    probe: &'a Probe,
+    scopes: &'a [String],
+    reading: &'t mut Reading,
+}
+
+/// What containment made of a written path.
+enum Held {
+    /// A refusal or a warning the host reported on the value: nothing reads it.
+    Reported,
+    /// A bare path that names nothing.
+    Nothing,
+    At(Resolved),
+}
+
 /// A probe's place in its [`Reading`].
 enum Slot {
     Done(ProbeOutcome),
@@ -229,48 +246,36 @@ impl<'a> Probing<'a> {
             .checks()
             .checker(&one.call.extension, &one.call.checker)
             .map_or(&[][..], |checker| checker.scopes.as_slice());
+        let mut turn = Turn {
+            one,
+            probe,
+            scopes,
+            reading,
+        };
         match probe {
-            Probe::FsStat { root, path } => {
-                self.fs(one, probe, root, path, FsOp::Stat, scopes, reading)
-            }
+            Probe::FsStat { root, path } => self.fs(&mut turn, root, path, FsOp::Stat),
             Probe::FsReadPrefix { root, path, bytes } => {
                 let max_bytes = u64::from((*bytes).min(PREFIX_CAP));
-                self.fs(
-                    one,
-                    probe,
-                    root,
-                    path,
-                    FsOp::Read { max_bytes },
-                    scopes,
-                    reading,
-                )
+                self.fs(&mut turn, root, path, FsOp::Read { max_bytes })
             }
             Probe::FsRead { root, path, bytes } => {
                 let max_bytes = u64::from((*bytes).min(READ_CAP));
-                self.fs(
-                    one,
-                    probe,
-                    root,
-                    path,
-                    FsOp::Read { max_bytes },
-                    scopes,
-                    reading,
-                )
+                self.fs(&mut turn, root, path, FsOp::Read { max_bytes })
             }
             Probe::FsWalk { root, path, glob } => {
                 let op = FsOp::Walk {
                     glob: Some(glob.clone()),
                     max_entries: WALK_CAP as u32,
                 };
-                self.fs(one, probe, root, path, op, scopes, reading)
+                self.fs(&mut turn, root, path, op)
             }
-            Probe::GitObject { .. } | Probe::GitRef { .. } | Probe::GitTracked { .. } => {
-                self.git(one, probe, scopes, reading)
-            }
+            Probe::GitObject { rev } => self.git(&mut turn, rev, None),
+            Probe::GitRef { name } => self.git(&mut turn, name, None),
+            Probe::GitTracked { root, path } => self.git(&mut turn, "HEAD", Some((root, path))),
             Probe::HttpHead { .. }
             | Probe::HttpGet { .. }
             | Probe::HttpTls { .. }
-            | Probe::DnsResolve { .. } => self.network(one, probe, scopes, reading),
+            | Probe::DnsResolve { .. } => self.network(&mut turn),
         }
     }
 
@@ -281,7 +286,7 @@ impl<'a> Probing<'a> {
         default: &Root,
         written: &str,
         reading: &mut Reading,
-    ) -> Option<Result<Resolved, ()>> {
+    ) -> Held {
         let value = one.value;
         let shown = printable(written);
         let at = |code, message: String, suggestion: String, span| {
@@ -299,7 +304,7 @@ impl<'a> Probing<'a> {
             )
         };
         let refused = match self.contained.resolve(written, default.clone()) {
-            Err(Refused::Empty) => return Some(Err(())),
+            Err(Refused::Empty) => return Held::Nothing,
             Err(Refused::UnknownRoot(name)) => {
                 reading.refused_class = Some(OutcomeClass::Outside);
                 at(
@@ -344,25 +349,25 @@ impl<'a> Probing<'a> {
                     value.span.clone(),
                 )
             }
-            Ok(resolved) => return Some(Ok(resolved)),
+            Ok(resolved) => return Held::At(resolved),
         };
         // A warning leaves the value unread, so not judged; an escape fails it.
         if reading.refused_class.is_none() {
             self.effects.count_not_run(&one.call.checker, 1);
         }
         reading.refused.push(refused);
-        None
+        Held::Reported
     }
 
     /// Whether the checker's scopes reach `request`: E090 when they do not, in every mode. A root this machine has not
     /// approved is not performed, and asks for its approval.
-    fn gated_fs(
-        &mut self,
-        one: &Asked<'_>,
-        request: &EffectRequest,
-        scopes: &[String],
-        reading: &mut Reading,
-    ) -> bool {
+    fn gated_fs(&mut self, turn: &mut Turn<'_, 'a>, request: &EffectRequest) -> bool {
+        let Turn {
+            one,
+            scopes,
+            reading,
+            ..
+        } = turn;
         let extension = one.call.extension.as_str();
         let Some(gate) = self.gates.get(extension) else {
             return false;
@@ -397,48 +402,42 @@ impl<'a> Probing<'a> {
     }
 
     /// A file probe: contained, gated, performed through the check's disk in every mode but `replay`.
-    #[expect(clippy::too_many_arguments, reason = "one private step of `prepare`")]
-    fn fs(
-        &mut self,
-        one: &Asked<'_>,
-        probe: &'a Probe,
-        root: &Root,
-        written: &str,
-        op: FsOp,
-        scopes: &[String],
-        reading: &mut Reading,
-    ) -> Slot {
-        let resolved = match self.contain(one, root, written, reading) {
-            None => return Slot::Stopped,
-            Some(resolved) => resolved,
+    fn fs(&mut self, turn: &mut Turn<'_, 'a>, root: &Root, written: &str, op: FsOp) -> Slot {
+        let resolved = match self.contain(turn.one, root, written, turn.reading) {
+            Held::Reported => return Slot::Stopped,
+            Held::Nothing => None,
+            Held::At(resolved) => Some(resolved),
         };
         let (rooted, rel) = match &resolved {
-            Ok(resolved) => (resolved.root.as_str().to_string(), resolved.rel.clone()),
-            Err(()) => (root.to_string(), String::new()),
+            Some(resolved) => (resolved.root.as_str().to_string(), resolved.rel.clone()),
+            None => (root.to_string(), String::new()),
         };
         let request = EffectRequest::Fs(FsRequest {
             root: rooted,
             path: rel,
             op: op.clone(),
         });
-        if !self.gated_fs(one, &request, scopes, reading) {
+        if !self.gated_fs(turn, &request) {
             return Slot::Stopped;
         }
         if self.effects.mode() == EffectsMode::Replay {
-            self.effects.count_not_run(&one.call.checker, 1);
-            reading.not_run = true;
+            self.effects.count_not_run(&turn.one.call.checker, 1);
+            turn.reading.not_run = true;
             return Slot::Stopped;
         }
-        if !self.local_budget(reading, probe) {
+        let probe = turn.probe;
+        if !self.local_budget(turn.reading, probe) {
             return Slot::Stopped;
         }
         let answer = match self.local.get(probe) {
             Some(answer) => answer.clone(),
             None => {
                 let answer = Some(match &resolved {
-                    Ok(resolved) if resolved.withheld => (OutcomeClass::Denied, OutcomeData::None),
-                    Ok(resolved) => local::read_disk(self.disk, &self.contained, resolved, &op),
-                    Err(()) => (OutcomeClass::Missing, stat_of(None, 0, None)),
+                    Some(resolved) if resolved.withheld => {
+                        (OutcomeClass::Denied, OutcomeData::None)
+                    }
+                    Some(resolved) => local::read_disk(self.disk, &self.contained, resolved, &op),
+                    None => (OutcomeClass::Missing, stat_of(None, 0, None)),
                 });
                 self.read_local(probe, &answer);
                 answer
@@ -462,24 +461,24 @@ impl<'a> Probing<'a> {
     /// `replay`, with no journal: its answer is local.
     fn git(
         &mut self,
-        one: &Asked<'_>,
-        probe: &'a Probe,
-        scopes: &[String],
-        reading: &mut Reading,
+        turn: &mut Turn<'_, 'a>,
+        revision: &str,
+        tracked: Option<(&Root, &str)>,
     ) -> Slot {
-        let tracked = match probe {
-            Probe::GitTracked { root, path } => match self.contain(one, root, path, reading) {
-                None => return Slot::Stopped,
-                Some(Ok(resolved)) => Some(resolved),
-                Some(Err(())) => {
-                    return Slot::Done(self.outcome(
-                        probe,
-                        OutcomeClass::Missing,
-                        git_of(false, None),
-                    ));
-                }
-            },
-            _ => None,
+        let Turn {
+            one,
+            probe,
+            scopes,
+            reading,
+        } = turn;
+        let probe: &'a Probe = probe;
+        let tracked = match tracked.map(|(root, path)| self.contain(one, root, path, reading)) {
+            None => None,
+            Some(Held::At(resolved)) => Some(resolved),
+            Some(Held::Reported) => return Slot::Stopped,
+            Some(Held::Nothing) => {
+                return Slot::Done(self.outcome(probe, OutcomeClass::Missing, git_of(false, None)));
+            }
         };
         let question = one_probe(probe);
         let Some(gate) = self.gates.get(&one.call.extension) else {
@@ -496,7 +495,7 @@ impl<'a> Probing<'a> {
             (EffectsMode::Replay, _) => None,
             (_, Some(answer)) => answer.clone(),
             (_, None) => {
-                let answer = local::ask_git(self.env, probe, tracked.as_ref());
+                let answer = local::ask_git(self.env, revision, tracked.as_ref());
                 self.read_local(probe, &answer);
                 answer
             }
@@ -512,13 +511,14 @@ impl<'a> Probing<'a> {
     }
 
     /// A network probe: gated, then one job per digest for its extension.
-    fn network(
-        &mut self,
-        one: &Asked<'a>,
-        probe: &'a Probe,
-        scopes: &'a [String],
-        reading: &mut Reading,
-    ) -> Slot {
+    fn network(&mut self, turn: &mut Turn<'_, 'a>) -> Slot {
+        let Turn {
+            one,
+            probe,
+            scopes,
+            reading,
+        } = turn;
+        let (probe, scopes): (&'a Probe, &'a [String]) = (probe, scopes);
         let Some((request, host, max_bytes)) = request_of(probe) else {
             refuse(
                 reading,
@@ -716,6 +716,12 @@ fn request_of(probe: &Probe) -> Option<(EffectRequest, String, u64)> {
             host.clone(),
             0,
         )),
-        _ => None,
+        Probe::FsStat { .. }
+        | Probe::FsReadPrefix { .. }
+        | Probe::FsRead { .. }
+        | Probe::FsWalk { .. }
+        | Probe::GitObject { .. }
+        | Probe::GitRef { .. }
+        | Probe::GitTracked { .. } => None,
     }
 }

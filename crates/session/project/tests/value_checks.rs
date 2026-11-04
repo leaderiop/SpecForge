@@ -123,7 +123,7 @@ fn a_pure_checkers_finding_is_on_the_list_item() {
         (
             rows[1].field.as_str(),
             rows[1].item,
-            rows[1].checker.as_str()
+            rows[1].checker.to_string().as_str()
         ),
         ("docs", 1, "@pin/values:no_todo")
     );

@@ -7,7 +7,7 @@ use specforge_common::path_glob;
 use specforge_effects::contained::{Contained, Resolved};
 use specforge_effects::git::Located;
 use specforge_effects::{FsOp, OutcomeClass};
-use specforge_protocol_types::{OutcomeData, Probe, StatEntry};
+use specforge_protocol_types::{OutcomeData, StatEntry};
 use specforge_registry::Disk;
 
 use crate::Environment;
@@ -113,7 +113,7 @@ fn walk(
 /// What git answers; none when it cannot be asked.
 pub(super) fn ask_git(
     env: &Environment,
-    probe: &Probe,
+    revision: &str,
     tracked: Option<&Resolved>,
 ) -> Option<(OutcomeClass, OutcomeData)> {
     let port = env.git()?;
@@ -121,11 +121,6 @@ pub(super) fn ask_git(
         Located::Repo(place) => place,
         Located::NotARepository => return Some((OutcomeClass::Missing, git_of(false, None))),
         Located::Unavailable(_) => return None,
-    };
-    let revision = match probe {
-        Probe::GitObject { rev } => rev.as_str(),
-        Probe::GitRef { name } => name.as_str(),
-        _ => "HEAD",
     };
     // A value is never an option of the program behind the port.
     if revision.starts_with('-') {

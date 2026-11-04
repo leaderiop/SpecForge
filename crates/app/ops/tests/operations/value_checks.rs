@@ -10,6 +10,7 @@ use specforge_ops::read::inspect;
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
 use specforge_project::testing::TestProject;
+use specforge_project::values::CheckStatus;
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::testing::InProcessRuntime;
 
@@ -79,12 +80,12 @@ fn an_entity_lists_each_checked_values_outcome() {
     assert_eq!(failed[0].field, "home");
     assert_eq!(failed[0].value, "TODO later");
     assert_eq!(failed[0].checker, format!("{EXT}:no_todo"));
-    assert_eq!(failed[0].status, "failed");
+    assert_eq!(failed[0].status, CheckStatus::Failed);
     assert_eq!(failed[0].outcome.as_deref(), Some("ok"));
     assert_eq!(failed[0].codes, ["E001"]);
     assert_eq!(
         inspect::inspect(&view, "b").unwrap().checks[0].status,
-        "passed"
+        CheckStatus::Passed
     );
 }
 

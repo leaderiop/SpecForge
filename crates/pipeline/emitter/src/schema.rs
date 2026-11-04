@@ -170,7 +170,7 @@ pub struct SchemaCheck {
 impl SchemaCheck {
     fn of(check: &ResolvedCheck) -> Self {
         let call = |call: &CheckCall| SchemaCheck {
-            checker: Some(format!("{}:{}", call.extension, call.checker)),
+            checker: Some(call.qualified().to_string()),
             args: call.args.clone(),
             any_of: Vec::new(),
         };

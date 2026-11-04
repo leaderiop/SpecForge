@@ -92,6 +92,16 @@ pub struct CompiledProject {
     effects: Option<Arc<specforge_effects::Effects>>,
 }
 
+/// What one run of the checks gave, held until the run's read of the project ends.
+struct CheckRun {
+    diagnostics: Vec<Diagnostic>,
+    entities: Arc<EntitySnapshot>,
+    computed: Computed,
+    judgements: crate::judged::Judgements,
+    value_checks: crate::values::ValueChecks,
+    checked_values: Arc<CheckedValues>,
+}
+
 impl CompiledProject {
     /// Compile the project at `root`, its extensions loaded into `runtime` (without one no extension loads), which
     /// its environment holds, its sources read from the plain file system. It keeps no stamp (ADR 0030).
@@ -649,27 +659,25 @@ impl CompiledProject {
             if let Some(root) = this.root() {
                 diagnostics.extend(crate::journal::pending(root, disk));
             }
-            let found = (values.checks, checked_values);
-            outcome = Some((
+            outcome = Some(CheckRun {
                 diagnostics,
                 entities,
-                checked.computed,
-                checked.judgements,
-                found,
-            ));
+                computed: checked.computed,
+                judgements: checked.judgements,
+                value_checks: values.checks,
+                checked_values,
+            });
             this.consulted()
         });
         self.checks_skipped = false;
         self.baseline = baseline;
-        if let Some((diagnostics, entities, computed, judgements, (checks, checked_values))) =
-            outcome
-        {
-            self.value_checks = Arc::new(checks);
-            self.checked_values = checked_values;
-            self.check_diagnostics = diagnostics;
-            self.computed = Arc::new(computed);
-            self.judgements = Arc::new(judgements);
-            self.recorded = OnceLock::from(RecordedCoverage::of(entities));
+        if let Some(run) = outcome {
+            self.value_checks = Arc::new(run.value_checks);
+            self.checked_values = run.checked_values;
+            self.check_diagnostics = run.diagnostics;
+            self.computed = Arc::new(run.computed);
+            self.judgements = Arc::new(run.judgements);
+            self.recorded = OnceLock::from(RecordedCoverage::of(run.entities));
             self.reported = OnceLock::new();
         }
     }
