@@ -6,86 +6,45 @@
 
 use super::evidence::Source;
 use super::{Collector, fail};
-use crate::analysis::grants::provenance_of;
+use crate::analysis::grants::grants_of;
 use crate::asking::Asking;
 use crate::grants::{Unsettled, settle};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 use specforge_common::codes;
-use specforge_effects::{Consent, Denied, EffectRequest, Grant, Need, ProcessRequest, Roots, Uses};
+use specforge_effects::{Consent, Denied, EffectRequest, Grant, Need, ProcessRequest, Uses};
 use specforge_protocol_types::Operation;
-use std::path::Path;
-
-/// One extension's grant and the scopes the selected collectors use.
-struct Granting {
-    extension: String,
-    grant: Grant,
-    uses: Uses,
-}
 
 /// Settle every approval the commands of `planned` need, asking `asking` and storing in `consent`, then hold each
 /// command to its extension's grant. Approvals given but not stored are added to `unsaved`.
 pub(super) fn settle_runs(
     view: &ProjectView,
-    root: &Path,
     planned: &[(&Collector, Source<'_>)],
     asking: Asking<'_>,
     consent: &dyn Consent,
     unsaved: &mut Vec<String>,
 ) -> Result<(), OpError> {
-    let env = view.env();
-    let roots = env
-        .effects_allowed()
-        .with_named(Roots::new(root, env.spec_root()));
-    let mut granting: Vec<Granting> = Vec::new();
+    let mut granting: Vec<(Grant, Uses)> = grants_of(view, consent)?
+        .into_iter()
+        .map(|grant| (grant, Uses::new()))
+        .collect();
     for (collector, source) in planned {
         let (Source::Run { .. }, Some(scope)) = (source, &collector.capability) else {
             continue;
         };
-        let at = match granting
-            .iter()
-            .position(|g| g.extension == collector.extension)
+        if let Some((_, uses)) = granting
+            .iter_mut()
+            .find(|(grant, _)| grant.extension() == collector.extension)
         {
-            Some(at) => at,
-            None => {
-                let Some(declaration) = view
-                    .registries()
-                    .declarations()
-                    .iter()
-                    .find(|d| d.name() == collector.extension)
-                else {
-                    continue;
-                };
-                let provenance = provenance_of(view, &collector.extension);
-                let grant = Grant::decide(
-                    declaration,
-                    &provenance,
-                    &env.effects_allowed().ceiling,
-                    &roots,
-                    consent,
-                );
-                granting.push(Granting {
-                    extension: collector.extension.clone(),
-                    grant,
-                    uses: Uses::new(),
-                });
-                granting.len() - 1
-            }
-        };
-        granting[at]
-            .uses
-            .insert((Operation::Collect, scope.clone()));
+            uses.insert((Operation::Collect, scope.clone()));
+        }
     }
-    for Granting {
-        extension,
-        grant,
-        uses,
-    } in &mut granting
-    {
+    granting.retain(|(_, uses)| !uses.is_empty());
+    for (grant, uses) in &mut granting {
         match settle(grant, uses, asking, consent) {
             Ok(settled) => unsaved.extend(settled.unsaved),
             Err(unsettled) => {
-                return Err(unapproved(planned, extension, consent, &unsettled));
+                return Err(unapproved(planned, grant.extension(), consent, &unsettled));
             }
         }
     }
@@ -93,14 +52,17 @@ pub(super) fn settle_runs(
         let Source::Run { argv, .. } = source else {
             continue;
         };
-        let Some(granting) = granting.iter().find(|g| g.extension == collector.extension) else {
+        let Some((grant, _)) = granting
+            .iter()
+            .find(|(grant, _)| grant.extension() == collector.extension)
+        else {
             continue;
         };
         let request = EffectRequest::Process(ProcessRequest {
             argv: argv.clone(),
             ..ProcessRequest::default()
         });
-        if let Err(denial) = granting.grant.permits(Operation::Collect, &request) {
+        if let Err(denial) = grant.permits(Operation::Collect, &request) {
             return Err(match denial.why {
                 Denied::NotApproved | Denied::Root => {
                     e059(argv, &collector.extension, &consent.store(), None)

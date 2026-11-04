@@ -268,14 +268,7 @@ pub fn collect(
             Source::plan(collector, mode, root, containment).map(|source| (collector, source))
         })
         .collect::<Result<Vec<_>, OpError>>()?;
-    approval::settle_runs(
-        view,
-        root,
-        &planned,
-        asking,
-        consent,
-        &mut unsaved_approvals,
-    )?;
+    approval::settle_runs(view, &planned, asking, consent, &mut unsaved_approvals)?;
     for (collector, source) in planned {
         let Evidence {
             files,

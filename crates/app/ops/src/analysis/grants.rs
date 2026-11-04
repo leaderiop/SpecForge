@@ -195,7 +195,9 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
             }
             ExtensionGrants {
                 extension: grant.extension().to_string(),
-                provenance: grant.provenance().map_or_else(String::new, keyed),
+                provenance: grant
+                    .provenance()
+                    .map_or_else(String::new, |p| keyed(&Keyed::of(p))),
                 capabilities: grant
                     .capabilities()
                     .iter()
@@ -264,8 +266,8 @@ fn row(grant: &Grant, granted: &Granted, uses: &Uses, held: &Approvals) -> Capab
     }
 }
 
-fn keyed(provenance: &Provenance) -> String {
-    match Keyed::of(provenance) {
+fn keyed(keyed: &Keyed) -> String {
+    match keyed {
         Keyed::Builtin => "builtin".to_string(),
         Keyed::Digest(digest) => format!("sha256:{digest}"),
     }
@@ -280,10 +282,7 @@ pub fn list_store(consent: &dyn Consent) -> Result<StoreListing, OpError> {
             .into_iter()
             .map(|a| StoredCapability {
                 granted: a.summary(),
-                provenance: match a.provenance {
-                    Keyed::Builtin => "builtin".to_string(),
-                    Keyed::Digest(digest) => format!("sha256:{digest}"),
-                },
+                provenance: keyed(&a.provenance),
                 project: a.project,
                 extension: a.extension,
                 scope: a.scope,
