@@ -8,7 +8,6 @@ use specforge_effects::git::{
 };
 
 use super::{USER, Verbs, slashed};
-use crate::analysis::check::UNKNOWN_REVISION;
 use crate::{OpError, OpErrorKind};
 
 /// `git repo`'s answer: where the repository is.
@@ -72,6 +71,9 @@ pub struct ConfigAnswer {
     pub value: Option<String>,
     pub values: Vec<String>,
 }
+
+/// A revision that names no commit: the code `check --since` refuses one with.
+const UNKNOWN_REVISION: &str = "unknown_revision";
 
 /// `git log`'s answer: the commits, newest first, and how many (`rev-list --count`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

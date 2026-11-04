@@ -303,7 +303,7 @@ fn built(verbs: &Verbs, ask: &Ask) -> Result<HttpRequest, OpError> {
             for (key, path) in files {
                 let text = String::from_utf8(read_body(verbs, path)?).map_err(|_| {
                     invalid(format!(
-                        "--field-file {key}: {} is not UTF-8 text",
+                        "the body field {key} reads {}, which is not UTF-8 text",
                         printable(&path.to_string_lossy())
                     ))
                 })?;
