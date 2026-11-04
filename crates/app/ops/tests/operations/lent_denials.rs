@@ -8,11 +8,14 @@ use specforge_extension_sdk::host;
 use specforge_extension_sdk::prelude::*;
 use specforge_ops::analysis::collect::{Mode, Request, collect};
 use specforge_ops::asking::Asking;
+use specforge_ops::asking::testing::Scripted;
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, RunError, run};
+use specforge_ops::extension::lend::port_call;
 use specforge_ops::testing::ScriptedMachine;
 use specforge_ops::view::ProjectView;
 use specforge_ops::{Caller, Containment};
 use specforge_project::testing::TestProject;
+use specforge_protocol_types::Operation;
 use specforge_wasm::testing::InProcessRuntime;
 
 const EXT: &str = "@t/refused";
@@ -54,6 +57,30 @@ fn project() -> TestProject {
         .serving(runtime)
         .enabling(&[EXT])
         .file("report.json", "{}")
+}
+
+/// An approval a person gave holds for the run; the store that lost it is said, as the caller cannot redo it.
+#[test]
+fn an_approval_that_was_not_kept_is_reported() {
+    let project = project();
+    let compiled = project.compile();
+    let view = ProjectView::of(&compiled);
+    let ports: Ports = testing::ports();
+    let consent = MemoryConsent::unable_to_remember("disk full");
+    let containment = Containment::unbounded();
+    let asker = Scripted::answering(true);
+    let caller = Caller::new(&containment, Asking::Ask(&asker)).lending(
+        &ports,
+        &consent,
+        EffectsMode::Online,
+    );
+
+    let call = port_call(&view, caller, EXT, Operation::Command).expect("its guest imports a port");
+
+    let reported = call.take_denials();
+    assert_eq!(reported.len(), 1, "{reported:?}");
+    assert_eq!(reported[0].code, "W186");
+    assert!(reported[0].message.contains("disk full"), "{reported:?}");
 }
 
 #[test]

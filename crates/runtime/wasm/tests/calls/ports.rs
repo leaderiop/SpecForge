@@ -217,6 +217,45 @@ fn a_port_call_outside_the_grant_is_denied_and_reported() {
     assert!(denials[0].message.contains(EXT), "{}", denials[0].message);
 }
 
+/// What a person can approve is said once per capability, however often a guest asks, in W170's words; each request is
+/// still answered `denied(scope)`.
+#[test]
+fn a_capability_nobody_approved_is_reported_once() {
+    let ports = Ports {
+        http: Arc::new(FakeHttp::new()),
+        process: Arc::new(FakeProcess::new()),
+        fs: Arc::new(FakeFs::new()),
+        git: Arc::new(FakeGit::none()),
+    };
+    let roots = Roots::new("/project", "/project/spec");
+    let grant = Grant::decide(
+        &extension().declaration(),
+        &Provenance::third_party(b"x"),
+        &EffectsCeiling::default(),
+        &roots,
+        &MemoryConsent::default(),
+    );
+    let call = PortCall::online(&ports, EffectJournal::detached(), roots, grant, Vec::new());
+    let mut session = PortSession::effectful(
+        EXT,
+        Operation::Collect,
+        Some(call.clone()),
+        specforge_wasm::Limits::CEILING,
+    );
+    for _ in 0..5 {
+        let answer = session.http(http_request("https://example.test/a"));
+        assert!(matches!(answer, Err(HostError::Denied(_))), "{answer:?}");
+        let answer = session.process_run(ProcessRequest {
+            argv: vec!["cargo".to_string()],
+            ..ProcessRequest::default()
+        });
+        assert!(matches!(answer, Err(HostError::Denied(_))), "{answer:?}");
+    }
+    let reported = call.take_denials();
+    assert_eq!(reported.len(), 2, "one per capability: {reported:?}");
+    assert!(reported.iter().all(|d| d.code == "W170"), "{reported:?}");
+}
+
 /// A guest that was refused cannot hide it by trapping or by answering an error.
 #[test]
 fn a_call_that_fails_still_reports_what_it_was_refused() {

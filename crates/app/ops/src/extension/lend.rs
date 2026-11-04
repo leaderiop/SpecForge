@@ -2,7 +2,7 @@
 //! grant, settled before the call so nothing prompts during it. A guest that imports no port (every builtin) is lent
 //! nothing and costs nothing.
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use specforge_effects::{Roots, Uses};
 use specforge_protocol_types::{Operation, SettingsItem};
 use specforge_wasm::PortCall;
@@ -13,7 +13,8 @@ use crate::view::ProjectView;
 
 /// What `extension`'s call of kind `kind` is lent over `view`: none when `caller` lends no port, or its guest imports
 /// none (a port it then calls is answered `denied(scope)`). Approvals nobody gave stay ungiven: a request that needs
-/// one is answered `denied(scope)`, and W186 of a store that could not be read is kept with the denials.
+/// one is answered `denied(scope)`. W186 of a store that could not be read, or that lost an approval just given, is
+/// kept with the denials.
 pub fn port_call(
     view: &ProjectView<'_>,
     caller: Caller<'_>,
@@ -34,9 +35,18 @@ pub fn port_call(
         .iter()
         .map(|granted| (kind, granted.declared.name.clone()))
         .collect();
-    let unusable = match settle(&mut grant, &uses, caller.asking(), lending.consent()) {
-        Ok(_) => None,
-        Err(unsettled) => unsettled.store,
+    let unusable: Vec<Diagnostic> = match settle(&mut grant, &uses, caller.asking(), lending.consent()) {
+        Ok(settled) => settled
+            .unsaved
+            .iter()
+            .map(|why| {
+                Diagnostic::new(
+                    codes::W186,
+                    format!("an approval given for '{extension}' holds for this run and was not kept: {why}"),
+                )
+            })
+            .collect(),
+        Err(unsettled) => unsettled.store.map(|store| *store).into_iter().collect(),
     };
     let secrets = view
         .registries()
@@ -54,8 +64,8 @@ pub fn port_call(
     let effects =
         specforge_project::effects::lent(lending.mode(), lending.ports(), env.project_root());
     let call = PortCall::new(effects, lending.ports(), roots, grant, secrets);
-    if let Some(unusable) = unusable {
-        call.deny(*unusable);
+    for unusable in unusable {
+        call.deny(unusable);
     }
     Some(call)
 }

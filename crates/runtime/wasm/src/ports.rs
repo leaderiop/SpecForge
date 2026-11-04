@@ -6,6 +6,7 @@
 //! the host side, and a program a guest runs starts from an empty environment plus what its capability declares, less
 //! any variable a declared secret names.
 
+use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -50,6 +51,8 @@ const DENIED_TEXT: usize = 256;
 struct Denials {
     kept: Vec<Diagnostic>,
     more: usize,
+    /// What [`PortCall::deny_once`] already said.
+    said: BTreeSet<String>,
 }
 
 /// `text` held to [`DENIED_TEXT`].
@@ -109,10 +112,17 @@ impl PortCall {
         }
     }
 
+    /// [`Self::deny`], unless this call already said `denial`.
+    fn deny_once(&self, denial: Diagnostic) {
+        if self.denials().said.insert(denial.message.clone()) {
+            self.deny(denial);
+        }
+    }
+
     /// The denials kept so far, taken, the last one saying how many were not kept: what the caller reports once the
     /// call ended.
     pub fn take_denials(&self) -> Vec<Diagnostic> {
-        let Denials { mut kept, more } = std::mem::take(&mut *self.denials());
+        let Denials { mut kept, more, .. } = std::mem::take(&mut *self.denials());
         if more > 0 {
             let extension = self.grant.extension();
             kept.push(Diagnostic::new(
@@ -239,23 +249,31 @@ impl PortSession {
         }
     }
 
-    /// `refusal` as a guest is answered it, with its E090 kept when the grant's decision is one (ADR 0335 D2.7).
+    /// `refusal` as a guest is answered it (ADR 0335 D2.7), with what the caller reports of it kept: an E090 per request
+    /// the grant refuses, and W170 once for what a person can approve, whose text holds nothing of the request.
     fn refused(call: &PortCall, refusal: Refusal) -> HostError {
         let message = format!("`{}`: {}", refusal.request, refusal.detail);
-        if matches!(
-            refusal.why,
-            Denied::CallKind | Denied::Undeclared | Denied::Ceiling
-        ) {
-            call.deny(
+        let why = refusal.why;
+        match why {
+            Denied::CallKind | Denied::Undeclared | Denied::Ceiling => call.deny(
                 Refusal {
                     request: cut_denied(refusal.request),
                     detail: cut_denied(refusal.detail),
                     ..refusal
                 }
                 .diagnostic(),
-            );
+            ),
+            Denied::NotApproved | Denied::Root => call.deny_once(Diagnostic::new(
+                codes::W170,
+                format!(
+                    "extension '{}', capability '{}': {}",
+                    refusal.extension,
+                    refusal.scope.unwrap_or_default(),
+                    refusal.detail
+                ),
+            )),
         }
-        match refusal.why {
+        match why {
             Denied::CallKind => HostError::Denied(Denial::CallKind(message)),
             _ => HostError::Denied(Denial::Scope(message)),
         }
