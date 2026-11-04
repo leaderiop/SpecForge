@@ -18,6 +18,7 @@ specforge-effects = { path = "../../kernel/effects" }
 specforge-registry-wire = { path = "../registry-wire" }
 
 [dev-dependencies]
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 specforge-http = { path = "../http" }
 specforge-installed = { path = "../../runtime/installed" }
 specforge-project = { workspace = true, features = ["testing"] }

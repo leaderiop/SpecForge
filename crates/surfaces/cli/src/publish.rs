@@ -38,8 +38,7 @@ impl Args {
             Ok(root) => root,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
-        let registry =
-            ConfiguredRegistry::for_project(&root, "publish", std::sync::Arc::clone(&ports.http));
+        let registry = ConfiguredRegistry::for_project(&root, "publish", ports);
         let runtime = ComponentRuntime::with_user_cache();
         let report = publish(extension, &registry, &runtime);
         let notes = Notes::new(terminal, format);

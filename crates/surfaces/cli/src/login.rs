@@ -136,8 +136,7 @@ fn login(
         Ok(root) => root,
         Err(error) => return refuse(&error),
     };
-    let registry =
-        ConfiguredRegistry::for_project(&root, "login", std::sync::Arc::clone(&ports.http));
+    let registry = ConfiguredRegistry::for_project(&root, "login", ports);
     let result = registry.log_in(registry_alias, source);
     Notes::new(terminal, format).beside(&registry.reported());
     let logged_in = match result {
@@ -183,17 +182,13 @@ fn logout(
 ) -> Exit {
     let refuse = |error: &OpError| Refusal::of(format).report(terminal, error);
     let logged_out = match url {
-        Some(root) => User::current().log_out(&root),
+        Some(root) => User::current(std::sync::Arc::clone(&ports.git)).log_out(&root),
         None => {
             let root = match project.root() {
                 Ok(root) => root,
                 Err(error) => return refuse(&error),
             };
-            let registry = ConfiguredRegistry::for_project(
-                &root,
-                "logout",
-                std::sync::Arc::clone(&ports.http),
-            );
+            let registry = ConfiguredRegistry::for_project(&root, "logout", ports);
             let result = registry.log_out(registry_alias);
             Notes::new(terminal, format).beside(&registry.reported());
             result

@@ -3,36 +3,56 @@
 use crate::{ConfiguredRegistry, TOKEN_VARIABLE, failure, unusable_credential};
 use specforge_common::Diagnostic;
 use specforge_common::codes;
+use specforge_effects::SharedGit;
+use specforge_effects::git::Located;
 use specforge_ops::registry::{NOT_AUTHENTICATED, UNUSABLE_SIGNING_KEY};
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_registry_client::CredentialStore;
 pub use specforge_registry_client::credential_health::{
     CredentialHealth, CredentialLevel, CredentialLine,
 };
+use specforge_registry_client::credentials::CREDENTIALS_FILE;
 use specforge_registry_client::credentials::TokenReference;
 use specforge_registry_client::signing::load_or_create_signing_key_at;
 use specforge_registry_client::{RegistryConfig, RegistryCredential, SigningKey};
 pub use specforge_registry_wire::RegistryRoot;
 use std::path::PathBuf;
 
+/// The publisher key's file in the user's directory.
+const SIGNING_KEY: &str = "signing-key.json";
+
+/// What to do about a user file a repository tracks.
+const MOVE_HOME: &str = "point HOME at a directory outside every repository, or untrack the file";
+
 /// The user SpecForge runs as, as a registry sees them: the directory that
 /// holds their registry files (`credentials.json`, `signing-key.json`,
 /// `known-keys.json`) and the token their environment gives.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct User {
     dir: PathBuf,
     token: Option<String>,
+    /// Asks whether the git worktree `dir` lies in tracks a file of it; none for files a caller names.
+    git: Option<SharedGit>,
+}
+
+impl std::fmt::Debug for User {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("User")
+            .field("dir", &self.dir)
+            .finish_non_exhaustive()
+    }
 }
 
 impl User {
-    /// `$HOME/.specforge` (`USERPROFILE` on Windows), and `SPECFORGE_REGISTRY_TOKEN` when it is set. The one
-    /// place SpecForge reads `HOME` for registry files.
-    pub fn current() -> Self {
+    /// `$HOME/.specforge` (`USERPROFILE` on Windows), and `SPECFORGE_REGISTRY_TOKEN` when it is set, each file
+    /// refused when `git` says the worktree it lies in tracks it. The one place SpecForge reads `HOME` for registry
+    /// files.
+    pub fn current(git: SharedGit) -> Self {
         let home = std::env::var("HOME")
             .or_else(|_| std::env::var("USERPROFILE"))
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from("."));
-        Self::at(home.join(".specforge"), std::env::var(TOKEN_VARIABLE).ok())
+        Self::at(home.join(".specforge"), std::env::var(TOKEN_VARIABLE).ok()).tracked_by(git)
     }
 
     /// Registry files in `dir`, and `token` as the environment's token (a
@@ -41,20 +61,62 @@ impl User {
         Self {
             dir: dir.into(),
             token,
+            git: None,
         }
     }
 
-    /// The credential store, read now (R012 when it can't be read).
+    /// These files, each refused when `git` says the worktree it lies in tracks it.
+    pub fn tracked_by(mut self, git: SharedGit) -> Self {
+        self.git = Some(git);
+        self
+    }
+
+    /// Why the user file `name` is refused: the git worktree it lies in holds it at `HEAD`, so it came with a
+    /// repository (the home is a project, or lies in one) and records nothing of this user's. `None` when git
+    /// says otherwise or cannot be asked.
+    fn tracked(&self, name: &str) -> Option<String> {
+        let git = self.git.as_ref()?;
+        let path = self.dir.join(name);
+        if !path.is_file() {
+            return None;
+        }
+        let Located::Repo(place) = git.locate(&self.dir) else {
+            return None;
+        };
+        let inside = path.canonicalize().ok()?;
+        let inside = inside.strip_prefix(&place.toplevel).ok()?.to_path_buf();
+        let head = git.commit(&place, "HEAD").ok()??;
+        let sizes = git
+            .sizes(&place, &head, std::slice::from_ref(&inside))
+            .ok()?;
+        sizes.first()?.1.map(|_| {
+            format!(
+                "{} is tracked by the git repository at {}: a repository's file is no record of this user's",
+                path.display(),
+                place.toplevel.display()
+            )
+        })
+    }
+
+    /// The credential store, read now (R012 when it can't be read, or the worktree it lies in tracks it).
     pub(crate) fn store(&self) -> Result<CredentialStore, Diagnostic> {
+        if let Some(why) = self.tracked(CREDENTIALS_FILE) {
+            return Err(Diagnostic::new(codes::R012, why).with_suggestion(MOVE_HOME));
+        }
         CredentialStore::read(&self.dir)
     }
 
     pub(crate) fn signing_key(&self) -> PathBuf {
-        self.dir.join("signing-key.json")
+        self.dir.join(SIGNING_KEY)
     }
 
-    pub(crate) fn known_keys(&self) -> PathBuf {
-        self.dir.join("known-keys.json")
+    /// The known-keys store's path, R-TRUST-006 when the worktree it lies in tracks it.
+    pub(crate) fn known_keys(&self) -> Result<PathBuf, Diagnostic> {
+        const KNOWN_KEYS: &str = "known-keys.json";
+        match self.tracked(KNOWN_KEYS) {
+            Some(why) => Err(Diagnostic::new(codes::R_TRUST_006, why).with_suggestion(MOVE_HOME)),
+            None => Ok(self.dir.join(KNOWN_KEYS)),
+        }
     }
 
     /// The environment's token unless it is blank.
@@ -125,6 +187,12 @@ impl ConfiguredRegistry {
     /// The user's publisher key, and whether it was created just now.
     pub(crate) fn signing_key(&self) -> Result<(SigningKey, bool), OpError> {
         let path = self.user.signing_key();
+        if let Some(why) = self.user.tracked(SIGNING_KEY) {
+            return Err(
+                OpError::coded(OpErrorKind::PreconditionFailed, UNUSABLE_SIGNING_KEY, why)
+                    .with_suggestion(MOVE_HOME),
+            );
+        }
         load_or_create_signing_key_at(&path).map_err(|why| {
             OpError::coded(OpErrorKind::PreconditionFailed, UNUSABLE_SIGNING_KEY, why)
                 .with_suggestion(format!(
@@ -196,10 +264,19 @@ impl User {
 
     /// What doctor reports about these files.
     pub fn credential_health(&self) -> CredentialHealth {
-        specforge_registry_client::credential_health::credential_health_now(
+        let mut health = specforge_registry_client::credential_health::credential_health_now(
             &self.dir,
             &self.signing_key(),
-        )
+        );
+        if let Some(why) = self.tracked(CREDENTIALS_FILE) {
+            // Every reader refuses it (R012): one unusable credential, whatever it holds.
+            health.lines = vec![CredentialLine {
+                level: CredentialLevel::Error,
+                text: format!("{why} — {MOVE_HOME}"),
+            }];
+            health.failures = 1;
+        }
+        health
     }
 }
 

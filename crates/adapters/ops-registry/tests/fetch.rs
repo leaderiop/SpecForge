@@ -130,7 +130,7 @@ impl Project {
     }
 
     fn registry(&self) -> ConfiguredRegistry {
-        ConfiguredRegistry::for_project(&self.dir.project_root(), "add", crate::http())
+        ConfiguredRegistry::for_project(&self.dir.project_root(), "add", &crate::ports())
             .with_client(self.client.clone())
             .as_user(User::at(self.dir.home(), None))
     }

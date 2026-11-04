@@ -216,20 +216,23 @@ pub struct ConfiguredRegistry {
 }
 
 impl ConfiguredRegistry {
-    /// The registries `root`'s `specforge.json` configures, reached through `http`, the surface's Http port. Reads
-    /// nothing yet; `operation` names the command in E063.
+    /// The registries `root`'s `specforge.json` configures, reached through the surface's Http port, for the user
+    /// whose files the Git port vouches for ([`User::current`]). Reads nothing yet; `operation` names the command in
+    /// E063.
     pub fn for_project(
         root: &specforge_common::ProjectRoot,
         operation: &str,
-        http: specforge_effects::SharedHttp,
+        ports: &specforge_effects::Ports,
     ) -> Self {
         Self {
             root: root.clone(),
             operation: operation.to_string(),
             registries: OnceLock::new(),
             store: OnceLock::new(),
-            client: Box::new(Retrying::new(HttpRegistryClient::new(http))),
-            user: User::current(),
+            client: Box::new(Retrying::new(HttpRegistryClient::new(
+                std::sync::Arc::clone(&ports.http),
+            ))),
+            user: User::current(std::sync::Arc::clone(&ports.git)),
             reported_by_policy: PolicyReports::default(),
         }
     }
@@ -333,7 +336,10 @@ impl ConfiguredRegistry {
                 TrustCheck::Verified { key_id } => Some(key_id),
             };
         // The store is read whatever the signer: an unsigned package is held to the name's pin too (ADR 0221).
-        let known = specforge_registry_client::trust_flow::keys(&self.user.known_keys())
+        let known = self
+            .user
+            .known_keys()
+            .and_then(|path| specforge_registry_client::trust_flow::keys(&path))
             .map_err(refused_by_trust)?;
         let key_id = key_id.as_deref();
         let publisher = policy.decide(
@@ -420,7 +426,10 @@ impl Registry for ConfiguredRegistry {
                 replaces: p.replaces.as_deref(),
             })
             .collect();
-        let repinned = specforge_registry_client::trust_flow::record(&new, &self.user.known_keys())
+        let repinned = self
+            .user
+            .known_keys()
+            .and_then(|path| specforge_registry_client::trust_flow::record(&new, &path))
             .map_err(refused_by_trust)?; // R-TRUST-006, nothing saved
         self.reported_by_policy.extend(repinned); // W156, one per re-pin
         Ok(())
@@ -743,7 +752,7 @@ mod tests {
         let registry = ConfiguredRegistry::for_project(
             &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
             "update",
-            std::sync::Arc::new(specforge_http::Client::new()),
+            &specforge_effects::testing::ports(),
         );
         assert!(registry.reported().is_empty());
         let sdk = PackageName::parse("@sdk/greet").unwrap();

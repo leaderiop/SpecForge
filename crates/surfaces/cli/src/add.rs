@@ -41,8 +41,7 @@ impl Args {
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
         let path = root.dir();
-        let registry =
-            ConfiguredRegistry::for_project(&root, "add", std::sync::Arc::clone(&ports.http));
+        let registry = ConfiguredRegistry::for_project(&root, "add", ports);
         let runtime = specforge_component::ComponentRuntime::with_user_cache();
         let request = AddRequest {
             root: &root,

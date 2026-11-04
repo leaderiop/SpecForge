@@ -42,8 +42,7 @@ impl Args {
             Ok(root) => root,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
-        let registry =
-            ConfiguredRegistry::for_project(&root, "update", std::sync::Arc::clone(&ports.http));
+        let registry = ConfiguredRegistry::for_project(&root, "update", ports);
         let runtime = specforge_component::ComponentRuntime::with_user_cache();
         let request = UpdateRequest {
             root: &root,

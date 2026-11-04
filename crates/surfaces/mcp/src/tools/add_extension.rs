@@ -89,7 +89,7 @@ impl CoreTool for Tool {
         let registry = specforge_ops_registry::ConfiguredRegistry::for_project(
             root,
             "add_extension",
-            std::sync::Arc::clone(&project.ports.http),
+            project.ports,
         );
         // The shared operation `specforge add` runs. The call's caller asks nobody, so a publisher
         // key change is refused rather than re-pinned.

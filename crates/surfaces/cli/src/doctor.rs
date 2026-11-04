@@ -61,7 +61,7 @@ impl Args {
                 &view, &renderers, caller,
             ))
             .with_grants(&view, &consent);
-        let credentials = User::current().credential_health();
+        let credentials = User::current(std::sync::Arc::clone(&ports.git)).credential_health();
         let found = OnPath::find(std::env::var_os("PATH").as_deref(), &*process);
         let path_binary = on_path::finding(found.as_ref(), &view);
 

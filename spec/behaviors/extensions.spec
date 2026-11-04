@@ -1595,6 +1595,8 @@ behavior support_private_registries "Support Private Registries" {
   verify unit "error messages do not leak authentication details"
   verify unit "a download from another origin carries no credential"
   verify unit "a read carries the credential kept for its registry's root, and none kept for another root"
+  verify unit "a user store another user could have written counts as missing"
+  verify unit "a user store the git worktree it lies in tracks is refused before any request"
   verify unit "an unusable stored credential refuses the read before any request"
   verify integration "a private registry refuses an anonymous read and answers an authenticated one"
   verify integration "a registry that requires a token to read is read with the stored credential"

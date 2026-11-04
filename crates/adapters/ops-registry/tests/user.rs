@@ -30,7 +30,7 @@ fn a_kept_token_whose_secret_is_gone_refuses_the_read() {
         r#"{"registries":{"https://local.invalid":{}}}"#,
     )
     .unwrap();
-    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add", crate::http())
+    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add", &crate::ports())
         .with_client(client.clone())
         .as_user(User::at(project.home(), None));
 
@@ -62,7 +62,7 @@ fn a_read_carries_the_credential_kept_for_its_root_only() {
     )
     .unwrap();
     let client = MemoryClient::new();
-    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add", crate::http())
+    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add", &crate::ports())
         .with_client(client.clone())
         .as_user(User::at(project.home(), None));
 
@@ -75,6 +75,76 @@ fn a_read_carries_the_credential_kept_for_its_root_only() {
         .map(|call| call.credential.as_ref().map(|c| c.token().to_string()))
         .collect();
     assert_eq!(sent, [Some("ta".to_string()), None]);
+}
+
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "support_private_registries",
+    verify = "a user store another user could have written counts as missing"
+)]
+fn a_user_store_another_user_could_have_written_counts_as_missing() {
+    use std::os::unix::fs::PermissionsExt;
+    let project = TestProject::new().config(|c| {
+        c["name"] = "p".into();
+        c["registries"] = serde_json::json!([
+            { "alias": "main", "url": "https://a.invalid", "default_registry": true }
+        ]);
+    });
+    std::fs::create_dir_all(project.home()).unwrap();
+    let store = project.home().join("credentials.json");
+    std::fs::write(
+        &store,
+        r#"{"registries":{"https://a.invalid":{"token":"ta"}}}"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&store, std::fs::Permissions::from_mode(0o666)).unwrap();
+    let client = MemoryClient::new();
+    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add", &crate::ports())
+        .with_client(client.clone())
+        .as_user(User::at(project.home(), None));
+
+    let _ = registry.versions(&PackageName::parse("@a/x").unwrap());
+
+    let sent: Vec<bool> = client
+        .calls()
+        .iter()
+        .map(|c| c.credential.is_some())
+        .collect();
+    assert_eq!(sent, [false], "a group-writable store gives no credential");
+}
+
+#[specforge_test(
+    behavior = "support_private_registries",
+    verify = "a user store the git worktree it lies in tracks is refused before any request"
+)]
+fn a_user_store_a_git_worktree_tracks_is_refused_before_any_request() {
+    use specforge_effects::testing::FakeGit;
+    let project = TestProject::new().config(|c| {
+        c["name"] = "p".into();
+        c["registries"] = serde_json::json!([
+            { "alias": "main", "url": "https://a.invalid", "default_registry": true }
+        ]);
+    });
+    std::fs::create_dir_all(project.home()).unwrap();
+    let store = br#"{"registries":{"https://a.invalid":{"token":"ta"}}}"#;
+    std::fs::write(project.home().join("credentials.json"), store).unwrap();
+    // The home is a repository's working tree, and its `HEAD` holds the store: it came with a clone.
+    let mut git = FakeGit::repo(project.home(), "abc", Vec::new());
+    git.blobs = vec![("credentials.json".into(), store.to_vec())];
+    let user = User::at(project.home(), None).tracked_by(std::sync::Arc::new(git));
+    let client = MemoryClient::new();
+    let registry = ConfiguredRegistry::for_project(&project.project_root(), "add", &crate::ports())
+        .with_client(client.clone())
+        .as_user(user.clone());
+
+    let error = registry
+        .versions(&PackageName::parse("@a/x").unwrap())
+        .expect_err("a tracked store is refused");
+
+    assert_eq!(error.code, "R012", "{error:?}");
+    assert!(error.message.contains("tracked"), "{error:?}");
+    assert!(client.calls().is_empty(), "{:?}", client.calls());
+    assert_eq!(user.credential_health().failures, 1);
 }
 
 // ── login and logout ──────────────────────────────────────────────────────────────────────────────
@@ -95,7 +165,7 @@ fn registry_for(
     client: &MemoryClient,
     operation: &str,
 ) -> ConfiguredRegistry {
-    ConfiguredRegistry::for_project(&project.project_root(), operation, crate::http())
+    ConfiguredRegistry::for_project(&project.project_root(), operation, &crate::ports())
         .with_client(client.clone())
         .as_user(User::at(project.home(), None))
 }
@@ -226,7 +296,7 @@ fn two_entries_with_one_alias_keep_two_credentials() {
             { "alias": "main", "url": "https://other.invalid", "default_registry": true }
         ]);
     });
-    ConfiguredRegistry::for_project(&other.project_root(), "login", crate::http())
+    ConfiguredRegistry::for_project(&other.project_root(), "login", &crate::ports())
         .with_client(client.clone())
         .as_user(User::at(project.home(), None))
         .log_in(Some("main"), TokenSource::Given("t".into()))

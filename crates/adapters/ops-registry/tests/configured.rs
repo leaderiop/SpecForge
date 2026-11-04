@@ -207,7 +207,7 @@ fn the_configuration_is_reported_once_the_registry_is_asked() {
             {"alias": "main", "url": "https://other.invalid"}
         ]}"#,
     );
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", crate::http())
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", &crate::ports())
         .with_client(MemoryClient::new())
         .as_user(User::at(dir.home(), None));
     assert!(registry.reported().is_empty(), "nothing asked yet");
@@ -253,7 +253,7 @@ fn opening_reads_the_configuration_and_the_store_once_before_any_request() {
     use specforge_ops::registry::Registry as _;
     let sdk = name("@acme/a");
     let open = |dir: &TestProject, client: &MemoryClient| {
-        ConfiguredRegistry::for_project(&dir.project_root(), "update", crate::http())
+        ConfiguredRegistry::for_project(&dir.project_root(), "update", &crate::ports())
             .as_user(User::at(dir.home(), None))
             .with_client(client.clone())
     };
