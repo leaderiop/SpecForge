@@ -433,3 +433,34 @@ fn a_handshake_reads_its_certificate_whether_or_not_the_chain_verifies() {
     );
     assert_eq!(refused.not_after, None);
 }
+
+#[test]
+fn a_host_that_drips_bytes_does_not_outlive_the_deadline() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        // The head of a long handshake record, then its body a byte at a time: each read gets one.
+        let _ = stream.write_all(&[0x16, 0x03, 0x03, 0x40, 0x00]);
+        let began = Instant::now();
+        while began.elapsed() < Duration::from_secs(6) && stream.write_all(&[0]).is_ok() {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    });
+    let began = Instant::now();
+    let dripped = Client::new().tls(&TlsRequest {
+        host: "localhost".to_string(),
+        tcp_port: port,
+        timeout_ms: 300,
+        allow_private: true,
+    });
+    assert_eq!(
+        dripped.class,
+        OutcomeClass::Unreachable(Unreachable::Timeout)
+    );
+    assert!(
+        began.elapsed() < Duration::from_secs(3),
+        "{:?}",
+        began.elapsed()
+    );
+}

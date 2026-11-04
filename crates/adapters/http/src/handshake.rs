@@ -157,7 +157,17 @@ fn shake(
             .set_read_timeout(Some(time))
             .and_then(|()| stream.set_write_timeout(Some(time)));
         timed.map_err(|_| Shaken::Failed(Unreachable::Reset))?;
-        connection.complete_io(&mut stream).map_err(shaken_by)?;
+        // One step a turn, not `complete_io`: that keeps reading while a host drips, and each byte resets the timeout.
+        if connection.wants_write() {
+            connection.write_tls(&mut stream).map_err(shaken_by)?;
+            continue;
+        }
+        if connection.read_tls(&mut stream).map_err(shaken_by)? == 0 {
+            return Err(Shaken::Failed(Unreachable::Reset));
+        }
+        connection
+            .process_new_packets()
+            .map_err(|refused| shaken_by(io::Error::new(io::ErrorKind::InvalidData, refused)))?;
     }
     Ok(connection
         .peer_certificates()
