@@ -321,8 +321,9 @@ fn built(verbs: &Verbs, ask: &Ask) -> Result<HttpRequest, OpError> {
         body_cap: ask.max_bytes.saturating_add(1),
         timeout_ms: u64::try_from(ask.timeout.min(TIMEOUT_CEILING).as_millis()).unwrap_or(u64::MAX),
         max_redirects: MAX_REDIRECTS,
-        // The user typed the address: a server on this machine or the local network is theirs to reach.
-        allow_private: true,
+        // The user typed the address: a server on this machine or the local network is theirs to reach, but not one a
+        // redirect to another origin names.
+        allow_private: specforge_effects::Private::TypedOrigin,
         keep_headers: KEPT_HEADERS.map(String::from).to_vec(),
         secret: ask.secret.clone(),
     })

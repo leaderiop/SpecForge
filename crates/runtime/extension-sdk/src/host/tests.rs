@@ -226,7 +226,7 @@ fn a_request_has_no_place_for_what_only_the_host_sets() {
     let asked = HttpRequest {
         method: "GET".into(),
         url: "https://example.test/".into(),
-        allow_private: true,
+        allow_private: specforge_protocol_types::Private::Any,
         secret: Some(specforge_protocol_types::AttachedSecret {
             header: "authorization".into(),
             env: "A_TOKEN".into(),
@@ -236,7 +236,7 @@ fn a_request_has_no_place_for_what_only_the_host_sets() {
         ..HttpRequest::default()
     };
     let back = convert::request_back((&asked).into());
-    assert!(!back.allow_private);
+    assert!(back.allow_private.is_never());
     assert_eq!(back.secret, None);
 }
 

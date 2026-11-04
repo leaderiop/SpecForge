@@ -42,8 +42,10 @@ whole port `off`). A request outside it is refused before any effect, with the c
   use, so `files temp` and `files remove` work there and nowhere else in it. No guest's roots hold `temp`, and no
   project may name a root `temp` (E109).
 - **Addresses.** The private-address rule binds what a repository names, not the URL the user types: a typed
-  `http://localhost:11434/…` is the user's target, so only the ceiling applies. Each redirect is asked of the grant
-  again, and a redirect from `https` to `http` is never followed.
+  `http://localhost:11434/…` is the user's target, so only the ceiling applies (`Private::TypedOrigin`). A redirect is
+  the server's choice: a hop to another origin is held to the public rule, so a typed public URL that redirects to
+  `169.254.169.254` or `127.0.0.1` is refused, while a typed loopback URL may redirect within its own origin. Each
+  redirect is asked of the grant again, and a redirect from `https` to `http` is never followed.
 - **Secrets.** `http --secret <extension>:<name>` names a secret an extension declares (ADR 0288). The host reads its
   variable and attaches it as `Authorization: Bearer …`, on `https` and to the typed URL's host only, never on a
   redirect elsewhere. The value is never printed, never journaled, and outside the request's digest.

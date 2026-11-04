@@ -46,7 +46,8 @@ pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, Shared
 pub use provenance::Provenance;
 pub use specforge_protocol_types::{
     AttachedSecret, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
-    OutcomeClass, ProcessRequest, Redirected, ResolveRequest, Root, TlsRequest, Unreachable,
+    OutcomeClass, Private, ProcessRequest, Redirected, ResolveRequest, Root, TlsRequest,
+    Unreachable,
 };
 pub use time::{ClockError, UnixMillis};
 

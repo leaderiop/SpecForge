@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use specforge_effects::http::{Any, get};
 use specforge_effects::{
     AttachedSecret, EffectsCeiling, Grant, Header, Http, HttpCeiling, HttpRequest, Narrow,
-    OutcomeClass, Redirected, ResolveRequest, TlsRequest, Unreachable,
+    OutcomeClass, Private, Redirected, ResolveRequest, TlsRequest, Unreachable,
 };
 use specforge_http::Client;
 use specforge_protocol_types::{HttpMethod, Operation};
@@ -58,12 +58,46 @@ fn moved(to: &str) -> String {
     )
 }
 
-/// A `GET` of `url` that may reach loopback.
+/// A `GET` of `url` that may reach loopback on every hop.
 fn private(url: &str) -> HttpRequest {
     HttpRequest {
-        allow_private: true,
+        allow_private: Private::Any,
         ..get(url)
     }
+}
+
+/// A person's `GET` of `url`: loopback is theirs to reach at the typed origin only.
+fn typed(url: &str) -> HttpRequest {
+    HttpRequest {
+        allow_private: Private::TypedOrigin,
+        ..get(url)
+    }
+}
+
+/// A typed private address may redirect within its own origin; a redirect to another origin at a loopback address
+/// (as one to `169.254.169.254` would be) is refused and never asked.
+#[test]
+fn only_the_typed_origin_may_be_private_on_a_typed_request() {
+    let (other, other_heads) = serve(|_, _| ok("other"));
+    let (base, _) = serve(move |n, _| {
+        if n == 0 {
+            moved("/here")
+        } else if n == 1 {
+            ok("here")
+        } else {
+            moved(&format!("{other}/"))
+        }
+    });
+    let same = Client::new().request(&typed(&format!("{base}/")), &Any);
+    assert_eq!(same.class, OutcomeClass::Ok, "{same:?}");
+    assert_eq!(same.body, b"here");
+    let elsewhere = Client::new().request(&typed(&format!("{base}/")), &Any);
+    assert_eq!(
+        elsewhere.class,
+        OutcomeClass::Unreachable(Unreachable::RefusedAddress),
+        "{elsewhere:?}"
+    );
+    assert!(asked(&other_heads).is_empty(), "the hop was requested");
 }
 
 #[specforge_test_macros::test(port = "Http", verify = "Http contract is satisfied")]

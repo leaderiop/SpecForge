@@ -17,7 +17,7 @@ use specforge_effects::http::{
     BODY_CEILING, CONNECT_TIMEOUT, TIMEOUT_CEILING, hop_method, status_class,
 };
 use specforge_effects::{
-    Http, HttpOutcome, HttpRequest, OutcomeClass, Redirected, Redirects, ResolveOutcome,
+    Http, HttpOutcome, HttpRequest, OutcomeClass, Private, Redirected, Redirects, ResolveOutcome,
     ResolveRequest, TlsOutcome, TlsRequest, Unreachable,
 };
 
@@ -122,10 +122,7 @@ impl Http for Client {
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
         let deadline =
             Instant::now() + Duration::from_millis(request.timeout_ms).min(TIMEOUT_CEILING);
-        let client = match self.client(request.allow_private) {
-            Ok(client) => client,
-            Err(why) => return HttpOutcome::unreachable(&request.url, Unreachable::Tls, why),
-        };
+        let typed = Url::parse(&request.url).map(|url| url.origin()).ok();
         let mut url = request.url.clone();
         let mut method = request.method.clone();
         let mut body = request.body.clone();
@@ -142,7 +139,17 @@ impl Http for Client {
                     );
                 }
             };
-            if !request.allow_private && literal(&parsed).is_some_and(|ip| !public(ip)) {
+            // A hop to another origin than the typed one is the server's choice, held to the public rule.
+            let private = match request.allow_private {
+                Private::Never => false,
+                Private::TypedOrigin => typed.as_ref() == Some(&parsed.origin()),
+                Private::Any => true,
+            };
+            let client = match self.client(private) {
+                Ok(client) => client,
+                Err(why) => return HttpOutcome::unreachable(&url, Unreachable::Tls, why),
+            };
+            if !private && literal(&parsed).is_some_and(|ip| !public(ip)) {
                 return HttpOutcome::unreachable(
                     &url,
                     Unreachable::RefusedAddress,
@@ -157,7 +164,7 @@ impl Http for Client {
                     "the request's time ran out",
                 );
             }
-            if !request.allow_private
+            if !private
                 && let Some(url::Host::Domain(name)) = parsed.host()
                 && let Err(refused) = destination(name, left.min(CONNECT_TIMEOUT))
             {

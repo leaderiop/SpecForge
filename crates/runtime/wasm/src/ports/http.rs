@@ -18,7 +18,7 @@ impl PortSession {
         let (kind, call) = self.lent()?;
         // What only the host may set, whatever a guest (in process, a Rust value) put there.
         let request = HttpRequest {
-            allow_private: false,
+            allow_private: specforge_effects::Private::Never,
             secret: None,
             body_cap: asked_cap(request.body_cap, guest_body_cap(u64::from(self.memory_mb))),
             timeout_ms: asked_cap(request.timeout_ms, millis(http::TIMEOUT_CEILING)),

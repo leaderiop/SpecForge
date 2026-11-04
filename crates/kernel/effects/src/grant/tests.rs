@@ -43,7 +43,7 @@ fn http(method: &str, url: &str) -> EffectRequest {
         body_cap: 1,
         timeout_ms: 1,
         max_redirects: 0,
-        allow_private: false,
+        allow_private: crate::Private::Never,
         keep_headers: Vec::new(),
         secret: None,
     })
