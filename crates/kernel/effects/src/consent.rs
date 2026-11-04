@@ -15,16 +15,16 @@ use crate::scope::rules;
 /// What an approval is keyed by of a provenance: a builtin's name alone, a third-party blob's digest.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Keyed {
+pub enum KeyedBy {
     Builtin,
     Digest(String),
 }
 
-impl Keyed {
+impl KeyedBy {
     pub fn of(provenance: &Provenance) -> Self {
         match provenance {
-            Provenance::Builtin { .. } => Keyed::Builtin,
-            Provenance::ThirdParty { digest } => Keyed::Digest(digest.clone()),
+            Provenance::Builtin { .. } => KeyedBy::Builtin,
+            Provenance::ThirdParty { digest } => KeyedBy::Digest(digest.clone()),
         }
     }
 }
@@ -35,7 +35,7 @@ pub struct CapabilityApproval {
     /// The canonical project root.
     pub project: String,
     pub extension: String,
-    pub provenance: Keyed,
+    pub provenance: KeyedBy,
     /// The capability's scope name.
     pub scope: String,
     /// The scope as the ceiling left it when approved.

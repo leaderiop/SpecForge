@@ -35,7 +35,6 @@ mod containment;
 mod edit_report;
 mod error;
 pub mod extension;
-pub mod grants;
 pub mod host;
 mod machine;
 mod noticed;
@@ -46,6 +45,7 @@ pub mod registry;
 mod report;
 pub mod revision;
 pub mod schema_version;
+pub mod settle;
 pub mod solver;
 mod source_key;
 #[cfg(feature = "testing")]

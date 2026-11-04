@@ -1,5 +1,5 @@
 use super::*;
-use specforge_effects::{Approval, CapabilityApproval, Keyed};
+use specforge_effects::{Approval, CapabilityApproval, KeyedBy};
 use specforge_protocol_types::{PortScope, ProcessScope};
 use specforge_test_macros::test as specforge_test;
 
@@ -7,7 +7,7 @@ fn approval(scope: &str) -> Approval {
     Approval::Capability(CapabilityApproval {
         project: "/p".to_string(),
         extension: "@acme/runner".to_string(),
-        provenance: Keyed::Builtin,
+        provenance: KeyedBy::Builtin,
         scope: scope.to_string(),
         granted: PortScope::Process(ProcessScope {
             argv: vec!["cargo".into(), "test".into()],
@@ -237,7 +237,7 @@ fn an_approval_is_keyed_by_provenance_and_covers_narrower_grants() {
     use specforge_protocol_types::{GitOp, GitScope};
     let dir = tempfile::tempdir().unwrap();
     let consent = UserConsent::at(dir.path().join("consent.json"));
-    let git = |ops: &[GitOp], provenance: Keyed, project: &str| {
+    let git = |ops: &[GitOp], provenance: KeyedBy, project: &str| {
         let Approval::Capability(base) = approval("history") else {
             unreachable!()
         };
@@ -248,19 +248,19 @@ fn an_approval_is_keyed_by_provenance_and_covers_narrower_grants() {
             ..base
         })
     };
-    let digest = |d: &str| Keyed::Digest(d.to_string());
+    let digest = |d: &str| KeyedBy::Digest(d.to_string());
     consent
-        .approve(git(&[GitOp::Read, GitOp::Write], Keyed::Builtin, "/p"))
+        .approve(git(&[GitOp::Read, GitOp::Write], KeyedBy::Builtin, "/p"))
         .unwrap();
     assert!(
         consent
-            .approved(&git(&[GitOp::Read], Keyed::Builtin, "/p"))
+            .approved(&git(&[GitOp::Read], KeyedBy::Builtin, "/p"))
             .unwrap(),
         "a narrower grant"
     );
     assert!(
         !consent
-            .approved(&git(&[GitOp::Read], Keyed::Builtin, "/q"))
+            .approved(&git(&[GitOp::Read], KeyedBy::Builtin, "/q"))
             .unwrap(),
         "another project"
     );

@@ -701,12 +701,12 @@ impl crate::Consent for MemoryConsent {
 /// The contract every [`Consent`](crate::Consent) adapter keeps, given an empty store: nothing is approved; an
 /// approval covers itself and a narrower scope; approving under the same key replaces it; a revoke removes it.
 pub fn consent_contract(consent: &dyn crate::Consent) {
-    use crate::{Approval, CapabilityApproval, Keyed, Revoke, RootApproval};
+    use crate::{Approval, CapabilityApproval, KeyedBy, Revoke, RootApproval};
     use specforge_protocol_types::{GitOp, GitScope, PortScope};
     let git = |ops: &[GitOp]| CapabilityApproval {
         project: "/p".to_string(),
         extension: "@acme/x".to_string(),
-        provenance: Keyed::Builtin,
+        provenance: KeyedBy::Builtin,
         scope: "history".to_string(),
         granted: PortScope::Git(GitScope { ops: ops.to_vec() }),
         call_kinds: Vec::new(),

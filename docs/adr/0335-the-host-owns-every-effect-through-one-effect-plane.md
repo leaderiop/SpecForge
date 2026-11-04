@@ -97,7 +97,7 @@ allows, what the project's effects ceiling leaves, and what this machine approve
   extension. An approval stores the scope as the ceiling narrowed it and covers any narrower grant; a wider one asks
   again. A builtin's approval is keyed by its name and meets only a builtin load; a third-party extension's (a `.wasm`
   file entry's included) by its blob's digest, so a new blob asks again. Every approval a run needs is settled before
-  its first effect (`specforge_ops::grants::settle`): `--yes` approves for this run and stores nothing, a terminal is
+  its first effect (`specforge_ops::settle::settle`): `--yes` approves for this run and stores nothing, a terminal is
   asked once per scope or root and a yes is stored, nobody to ask (MCP, `--format json`) means stored approvals only.
   Only the scopes a run uses are asked for (collect: the selected collectors' commands).
 - **D2.5 The store.** The approvals live in the user's **consent store**, `~/.specforge/consent.json` (versioned,

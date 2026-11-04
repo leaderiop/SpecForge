@@ -6,13 +6,13 @@ use specforge_common::DiagnosticList;
 use specforge_common::shape::Shape;
 use specforge_effects::grant::project_key;
 use specforge_effects::{
-    Approval, Approvals, Consent, ConsentError, Grant, Granted, Keyed, Provenance, Revoke,
+    Approval, Approvals, Consent, ConsentError, Grant, Granted, KeyedBy, Provenance, Revoke,
     RootApproval, Roots, Uses,
 };
 
 use crate::analysis::collect::uses_here;
 use crate::consent::unusable_store;
-use crate::grants::stamped;
+use crate::settle::stamped;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
@@ -197,7 +197,7 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
                 extension: grant.extension().to_string(),
                 provenance: grant
                     .provenance()
-                    .map_or_else(String::new, |p| keyed(&Keyed::of(p))),
+                    .map_or_else(String::new, |p| keyed(&KeyedBy::of(p))),
                 capabilities: grant
                     .capabilities()
                     .iter()
@@ -266,10 +266,10 @@ fn row(grant: &Grant, granted: &Granted, uses: &Uses, held: &Approvals) -> Capab
     }
 }
 
-fn keyed(keyed: &Keyed) -> String {
+fn keyed(keyed: &KeyedBy) -> String {
     match keyed {
-        Keyed::Builtin => "builtin".to_string(),
-        Keyed::Digest(digest) => format!("sha256:{digest}"),
+        KeyedBy::Builtin => "builtin".to_string(),
+        KeyedBy::Digest(digest) => format!("sha256:{digest}"),
     }
 }
 

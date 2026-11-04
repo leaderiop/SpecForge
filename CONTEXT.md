@@ -311,7 +311,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Approval**: this machine's consent to a capability (per project, extension, **Provenance** and scope name; it
   covers any narrower grant) or to a named root outside the project (per project and canonical target). File and git
   reads inside the project need none; http, process and writes do. Settled before a run's first effect, asked only
-  for what the run uses (`specforge_ops::grants::settle`, ADR 0335 D2.4).
+  for what the run uses (`specforge_ops::settle::settle`, ADR 0335 D2.4).
 - **Consent store**: where approvals are kept: the user's `~/.specforge/consent.json`, outside every project, behind
   the `Consent` port (`specforge_ops::consent::UserConsent`; `testing::MemoryConsent`). Written privately and
   atomically under a sidecar lock; one it cannot use approves nothing and is never written over (W186). `specforge

@@ -25,7 +25,7 @@ mod time;
 
 pub use ceiling::{EffectsCeiling, FsCeiling, GitCeiling, HttpCeiling, Narrow, Narrowed, Removed};
 pub use consent::{
-    Approval, Approvals, CapabilityApproval, Consent, ConsentError, Keyed, Revoke, RootApproval,
+    Approval, Approvals, CapabilityApproval, Consent, ConsentError, KeyedBy, Revoke, RootApproval,
     SharedConsent,
 };
 pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, RootName, Roots};

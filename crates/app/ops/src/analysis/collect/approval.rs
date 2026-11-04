@@ -8,7 +8,7 @@ use super::evidence::Source;
 use super::{Collector, fail};
 use crate::analysis::grants::grants_of;
 use crate::asking::Asking;
-use crate::grants::{Unsettled, settle};
+use crate::settle::{Unsettled, settle};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 use specforge_common::codes;

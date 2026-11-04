@@ -93,7 +93,7 @@ for the declared locations (the mode and the option could disagree).
 ## Amendment (2026-11-03, ports round, plan 02, [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) D2)
 
 - **D5** covers every approval a run needs, not only a command's: every capability scope the selected collectors use
-  and every named root outside the project is settled before the first command runs (`specforge_ops::grants::settle`),
+  and every named root outside the project is settled before the first command runs (`specforge_ops::settle::settle`),
   and each command is then held to its extension's grant (E090 for what the grant refuses, E059 for what nobody
   approved).
 - **D1:** the approval half of the port moves to the `Consent` port (`specforge_effects::Consent`, the user's

@@ -14,7 +14,7 @@ use specforge_protocol_types::{
 
 use crate::ceiling::EffectsCeiling;
 use crate::consent::{
-    Approval, CapabilityApproval, Consent, ConsentError, Keyed, RootApproval, approval_line,
+    Approval, CapabilityApproval, Consent, ConsentError, KeyedBy, RootApproval, approval_line,
 };
 use crate::gate::{Port, gate};
 use crate::scope::rules;
@@ -313,7 +313,7 @@ impl Grant {
         Some(CapabilityApproval {
             project: self.project.clone(),
             extension: self.extension.clone(),
-            provenance: Keyed::of(provenance),
+            provenance: KeyedBy::of(provenance),
             scope: granted.declared.name.clone(),
             granted: granted.scope.clone()?,
             call_kinds: granted.declared.call_kinds.clone(),

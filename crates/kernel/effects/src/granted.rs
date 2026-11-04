@@ -16,19 +16,19 @@ use crate::process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome};
 use crate::{Roots, SharedFs, SharedHttp, SharedProcess};
 
 /// A port under a grant, for calls of one kind.
-pub struct Granted<P: ?Sized> {
+pub struct GrantedPort<P: ?Sized> {
     pub grant: Arc<Grant>,
     pub op: Operation,
     pub port: Arc<P>,
 }
 
-impl<P: ?Sized> Granted<P> {
+impl<P: ?Sized> GrantedPort<P> {
     fn check(&self, request: EffectRequest) -> Result<(), Denial> {
         self.grant.permits(self.op, &request)
     }
 }
 
-impl Http for Granted<dyn Http> {
+impl Http for GrantedPort<dyn Http> {
     /// The request as its grant permits it, carrying the secret the permitting capability attaches and no other, and
     /// each redirect asked of the grant again: a hop it does not permit stops the request as `denied` (ADR 0335 D6).
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
@@ -91,7 +91,7 @@ impl Redirects for Regranted<'_> {
     }
 }
 
-impl Fs for Granted<dyn Fs> {
+impl Fs for GrantedPort<dyn Fs> {
     fn run(&self, roots: &Roots, request: &FsRequest) -> FsOutcome {
         match self.check(EffectRequest::Fs(request.clone())) {
             Ok(()) => self.port.run(roots, request),
@@ -100,7 +100,7 @@ impl Fs for Granted<dyn Fs> {
     }
 }
 
-impl Process for Granted<dyn Process> {
+impl Process for GrantedPort<dyn Process> {
     fn run_within(
         &self,
         request: &ProcessRequest,
@@ -121,7 +121,7 @@ impl Process for Granted<dyn Process> {
 impl Grant {
     /// `http` under this grant, for calls of kind `op`.
     pub fn http(self: &Arc<Self>, op: Operation, http: SharedHttp) -> SharedHttp {
-        Arc::new(Granted {
+        Arc::new(GrantedPort {
             grant: Arc::clone(self),
             op,
             port: http,
@@ -130,7 +130,7 @@ impl Grant {
 
     /// `fs` under this grant, for calls of kind `op`.
     pub fn fs(self: &Arc<Self>, op: Operation, fs: SharedFs) -> SharedFs {
-        Arc::new(Granted {
+        Arc::new(GrantedPort {
             grant: Arc::clone(self),
             op,
             port: fs,
@@ -139,7 +139,7 @@ impl Grant {
 
     /// `process` under this grant, for calls of kind `op`.
     pub fn process(self: &Arc<Self>, op: Operation, process: SharedProcess) -> SharedProcess {
-        Arc::new(Granted {
+        Arc::new(GrantedPort {
             grant: Arc::clone(self),
             op,
             port: process,
