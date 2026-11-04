@@ -20,7 +20,7 @@ use "ports/outbound"
 
 module specforge_checks_kit "specforge-checks-kit" {
   family      core
-  description "The bare algorithms, parsers and pinned tables of generic value checks: @specforge/checks and the domain packs that build on it compile them, one feature per family"
+  description "The bare algorithms, parsers and pinned tables of generic value checks, for @specforge/checks and the domain packs that build on it"
   tags        ["leaf"]
 }
 

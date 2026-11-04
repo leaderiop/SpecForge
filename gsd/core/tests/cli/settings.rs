@@ -166,9 +166,13 @@ fn a_secret_is_never_listed_with_its_value() {
     assert!(!listing.all().contains("s3cr3t-value"), "{}", listing.all());
     let json = resolved(&p, &[("BRAVE_API_KEY", "s3cr3t-value")]);
     assert!(!json.to_string().contains("s3cr3t-value"));
-    let secrets = json["extensions"][0]["secrets"]
+    let core = json["extensions"]
         .as_array()
-        .expect("secrets");
+        .expect("extensions")
+        .iter()
+        .find(|e| e["extension"] == "@gsd/core")
+        .expect("@gsd/core is listed");
+    let secrets = core["secrets"].as_array().expect("secrets");
     assert_eq!(secrets.len(), 7);
     let set: Vec<&str> = secrets
         .iter()

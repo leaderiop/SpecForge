@@ -266,7 +266,11 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
             f.field_type(FieldType::StringList);
         }
         Ty::Files => {
-            f.field_type(FieldType::StringList).file(Root::Project);
+            f.field_type(FieldType::StringList);
+            // Only an authored value is checked: the host drops a check on a field it writes itself (W189).
+            if field.writer == Writer::Author {
+                f.file(Root::Project);
+            }
         }
         Ty::Ref(target) => {
             f.field_type(FieldType::Reference)

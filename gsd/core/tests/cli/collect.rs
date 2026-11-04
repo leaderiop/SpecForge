@@ -558,7 +558,7 @@ fn the_junit_collector_is_never_run_by_a_plain_collect() {
     let run = p.run(&["collect", "--yes", "--format", "json"]);
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(
-        run.all().contains("E058") && run.all().contains("available: gsd-git, gsd-junit"),
+        run.all().contains("E058") && run.all().contains("available: checks, gsd-git, gsd-junit"),
         "{}",
         run.all()
     );

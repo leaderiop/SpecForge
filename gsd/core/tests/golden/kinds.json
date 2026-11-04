@@ -6219,14 +6219,6 @@
             "writer": "computed"
           },
           {
-            "checks": [
-              {
-                "args": {
-                  "root": "project"
-                },
-                "checker": "@specforge/checks:file"
-              }
-            ],
             "default_value": null,
             "description": "the files the phase's verdicts name",
             "edge": null,
