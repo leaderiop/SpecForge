@@ -349,6 +349,10 @@ impl<'a> Probing<'a> {
             }
             Ok(resolved) => return Some(Ok(resolved)),
         };
+        // A warning leaves the value unread, so not judged; an escape fails it.
+        if reading.refused_class.is_none() {
+            self.effects.count_not_run(&one.call.checker, 1);
+        }
         reading.refused.push(refused);
         None
     }

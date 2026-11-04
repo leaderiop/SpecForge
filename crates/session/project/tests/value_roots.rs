@@ -238,3 +238,26 @@ fn a_root_alone_is_the_root_to_a_probe() {
     assert!(saying("docs/a.md"), "the walk lists under it: {told:?}");
     assert!(saying("Dir"), "the stat finds a directory: {told:?}");
 }
+
+#[test]
+fn a_value_the_host_warns_of_is_not_judged_and_counts_toward_i206() {
+    let run = |value: &str, code: &str| {
+        let scene = Scene::with(
+            FakeHttp::new(),
+            &format!("service one \"A\" {{\n  stat \"{value}\"\n}}\n"),
+            &[EXT],
+            InProcessRuntime::new().with(lister),
+        );
+        std::fs::write(scene.dir.root().join("README.md"), "a").unwrap();
+        let project = scene.checked(EffectsMode::Auto, &MemoryConsent::default());
+        let found = project.diagnostics();
+        assert_eq!(coded(&found, code).len(), 1, "{found:?}");
+        assert_eq!(coded(&found, "I206").len(), 1, "{found:?}");
+        assert!(coded(&found, "pin.probes/E001").is_empty(), "{found:?}");
+        let row = &project.value_checks().of("one")[0];
+        assert_eq!(row.status, CheckStatus::NotRun);
+        assert_eq!(row.outcome_class, None, "a judged verdict over it is I207");
+    };
+    run("<project>/readme.md", "W174");
+    run("<project>/docs\\\\a.md", "W175");
+}
