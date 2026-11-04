@@ -307,3 +307,216 @@ fn the_guest_is_called_once_per_extension_with_every_value() {
     assert_eq!(calls[0].input["items"][1]["item"], 1);
     assert_eq!(calls[0].input["items"][1]["text"], "y");
 }
+
+/// `calls` of `__check_values` so far.
+fn check_calls(runtime: &InProcessRuntime) -> usize {
+    runtime
+        .calls()
+        .iter()
+        .filter(|call| call.export == "__check_values")
+        .count()
+}
+
+const TODO: &str = "service a \"A\" {\n  docs [\"TODO one\", \"fine\"]\n}\n";
+
+/// The environment of a run that keeps its journal at the project.
+fn cached(
+    project: &TestProject,
+    runtime: &Arc<InProcessRuntime>,
+) -> specforge_project::Environment {
+    let env = project.environment_in(Arc::clone(runtime) as _);
+    let journal = specforge_effects::EffectJournal::at(project.root());
+    env.with_effects(specforge_effects::Effects::cached(journal))
+}
+
+fn project_files(spec: &str) -> TestProject {
+    TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[EXT])
+        .installing_enabled()
+        .file("a.spec", spec)
+}
+
+#[specforge_test_macros::test(
+    behavior = "check_field_values",
+    verify = "a checker asked again in a later run is not called"
+)]
+fn a_second_check_run_calls_no_checker() {
+    let project = project_files(TODO);
+    let runtime = Arc::new(InProcessRuntime::new().with(extension));
+    let mut session = project.session_in(Arc::clone(&runtime) as _);
+    let first = check_calls(&runtime);
+    assert_eq!(first, 1, "one plan call for the extension");
+    let found = coded(session.project(), "pin.values/W001");
+    project.write(
+        "a.spec",
+        "service a \"A\" {\n  docs [\"TODO one\", \"fine\"]\n  home \"fine\"\n}\n",
+    );
+    specforge_project::testing::disk_changed(&mut session, &["a.spec"]).expect("a change");
+    assert_eq!(
+        check_calls(&runtime),
+        first + 1,
+        "only the new value is asked"
+    );
+    project.write("a.spec", TODO);
+    specforge_project::testing::disk_changed(&mut session, &["a.spec"]).expect("a change");
+    assert_eq!(
+        check_calls(&runtime),
+        first + 1,
+        "every value was asked before"
+    );
+    assert_eq!(coded(session.project(), "pin.values/W001"), found);
+}
+
+#[specforge_test_macros::test(
+    behavior = "check_field_values",
+    verify = "a cold run reads the checker cache from disk"
+)]
+fn a_cold_cli_run_reads_the_disk_cache() {
+    let project = project_files(TODO);
+    let runtime = Arc::new(InProcessRuntime::new().with(extension));
+    let compile = |env| CompiledProject::compile_through(env, &specforge_registry::PlainDisk);
+    let first = compile(cached(&project, &runtime));
+    assert_eq!(check_calls(&runtime), 1);
+    let books: Vec<_> = std::fs::read_dir(project.root().join(".specforge/effects/checks"))
+        .expect("written where the journal is")
+        .collect();
+    assert_eq!(books.len(), 1);
+    let again = compile(cached(&project, &runtime));
+    assert_eq!(check_calls(&runtime), 1, "a new process asks nothing");
+    assert_eq!(
+        coded(&again, "pin.values/W001"),
+        coded(&first, "pin.values/W001")
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "check_field_values",
+    verify = "a detached project writes no checker cache"
+)]
+fn a_detached_journal_writes_no_cache() {
+    let project = project_files(TODO);
+    let runtime = Arc::new(InProcessRuntime::new().with(extension));
+    let env = project.environment_in(Arc::clone(&runtime) as _);
+    let env = env.with_effects(specforge_effects::Effects::cached(
+        specforge_effects::EffectJournal::detached(),
+    ));
+    CompiledProject::compile_through(env, &specforge_registry::PlainDisk);
+    assert_eq!(check_calls(&runtime), 1);
+    assert!(!project.root().join(".specforge/effects/checks").exists());
+}
+
+#[specforge_test_macros::test(
+    behavior = "check_field_values",
+    verify = "changed args miss the checker cache"
+)]
+fn changed_args_miss_the_cache() {
+    fn checking(args: serde_json::Value) -> ContributionsBuilder {
+        let mut c = extension();
+        c.kind("widget", move |k| {
+            k.keyword("widget");
+            k.field("home", |f| {
+                f.field_type(FieldType::String)
+                    .check_with("levelled", args.clone());
+            });
+        });
+        c.checker("levelled", |k| {
+            k.applies_to(&["string"])
+                .arg("level", |a| {
+                    a.field_type(FieldType::Integer);
+                })
+                .codes(&["W001"])
+                .plan(|_: &CheckItem| PlannedItem::findings(Vec::new()));
+        });
+        c
+    }
+    fn one() -> ContributionsBuilder {
+        checking(serde_json::json!({"level": 1}))
+    }
+    fn two() -> ContributionsBuilder {
+        checking(serde_json::json!({"level": 2}))
+    }
+    let spec = "widget w \"W\" {\n  home \"fine\"\n}\n";
+    let asked = |factory: fn() -> ContributionsBuilder, project: &TestProject| {
+        let runtime = Arc::new(InProcessRuntime::new().with(factory));
+        CompiledProject::compile_through(cached(project, &runtime), &specforge_registry::PlainDisk);
+        check_calls(&runtime)
+    };
+    let project = project_files(spec);
+    assert_eq!(asked(one, &project), 1);
+    assert_eq!(asked(one, &project), 0);
+    assert_eq!(asked(two, &project), 1);
+}
+
+#[specforge_test_macros::test(
+    behavior = "check_field_values",
+    verify = "changed settings miss the checker cache"
+)]
+fn changed_settings_miss_the_cache() {
+    fn levelled() -> ContributionsBuilder {
+        let mut c = extension();
+        c.setting("level", |s| {
+            s.integer().default(1);
+        });
+        c
+    }
+    let runtime = Arc::new(InProcessRuntime::new().with(levelled));
+    let asked = |project: &TestProject| {
+        let before = check_calls(&runtime);
+        CompiledProject::compile_through(cached(project, &runtime), &specforge_registry::PlainDisk);
+        check_calls(&runtime) - before
+    };
+    let project = project_files(TODO);
+    assert_eq!(asked(&project), 1);
+    assert_eq!(asked(&project), 0);
+    let project = project.config(|c| c["settings"] = serde_json::json!({EXT: {"level": 2}}));
+    assert_eq!(asked(&project), 1);
+}
+
+#[specforge_test_macros::test(
+    behavior = "check_field_values",
+    verify = "a new blob digest misses the checker cache"
+)]
+fn a_new_blob_digest_misses_the_cache() {
+    use specforge_effects::Provenance;
+    use specforge_wasm::WasmRuntime;
+
+    let project = project_files(TODO);
+    let runtime = Arc::new(InProcessRuntime::new().with(extension));
+    let module = specforge_wasm::testing::spelled_module(EXT, "1.0.0", &[]);
+    // Loaded after the environment, which loads the installed blob: what the run reads is this digest.
+    let asked = |blob: &[u8]| {
+        let before = check_calls(&runtime);
+        let env = cached(&project, &runtime);
+        runtime
+            .load(EXT, &module, Provenance::third_party(blob))
+            .expect("the in-process extension loads");
+        CompiledProject::compile_through(env, &specforge_registry::PlainDisk);
+        check_calls(&runtime) - before
+    };
+    assert_eq!(asked(b"blob one"), 1);
+    assert_eq!(asked(b"blob one"), 0);
+    assert_eq!(asked(b"blob two"), 1);
+}
+
+#[specforge_test_macros::test(
+    behavior = "digest_judged_inputs",
+    verify = "a verdict over a checked value digests its outcome class"
+)]
+fn a_verdict_over_a_checked_value_digests_its_outcome_class() {
+    use specforge_project::ValueOutcome;
+
+    let project = checked("service a \"A\" {\n  docs [\"fine\"]\n}\n");
+    let digested = project.value_checks().outcome_classes();
+    assert_eq!(
+        project.checked_values(),
+        &digested,
+        "what the verdict reads"
+    );
+    let values = digested.of("a");
+    assert_eq!(values.len(), 1);
+    assert_eq!(
+        values[0].outcome,
+        ValueOutcome::Class(specforge_effects::OutcomeClass::Ok)
+    );
+}

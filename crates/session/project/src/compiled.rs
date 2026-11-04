@@ -66,6 +66,8 @@ pub struct CompiledProject {
     /// Every checked value's rows at the last check (ADR 0336): what the surfaces read.
     value_checks: Arc<crate::values::ValueChecks>,
     digests: Arc<crate::judged::DigestMemo>,
+    /// What checkers answered, kept across this project's later states (ADR 0336).
+    check_cache: Arc<crate::values::CheckCache>,
     /// The graph's entity snapshot, the recorded test report and the coverage: seeded with the snapshot the checks
     /// read; made over the graph on first use after an update that skipped them.
     recorded: OnceLock<RecordedCoverage>,
@@ -428,6 +430,7 @@ impl CompiledProject {
             checked_values: Arc::default(),
             value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk: false,
@@ -456,6 +459,7 @@ impl CompiledProject {
             checked_values: Arc::default(),
             value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -489,6 +493,7 @@ impl CompiledProject {
             checked_values: Arc::default(),
             value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
@@ -541,6 +546,7 @@ impl CompiledProject {
             checked_values: Arc::default(),
             value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -610,14 +616,19 @@ impl CompiledProject {
                 &overlaid
             };
             // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
-            let values = crate::values::run(&env, &authored, this.effects(), disk, &|file| {
-                this.sources.text(file).cloned()
-            });
+            let values = crate::values::run(
+                &env,
+                &authored,
+                this.effects(),
+                disk,
+                &this.check_cache,
+                &|file| this.sources.text(file).cloned(),
+            );
             // No checker at all leaves the values a test gave (`with_checked_values`).
             let checked_values = if env.registries().checks().is_empty() {
                 Arc::clone(&this.checked_values)
             } else {
-                Arc::new(values.checks.checked_values())
+                Arc::new(values.checks.outcome_classes())
             };
             let checked = env.checked(
                 Some(graph),

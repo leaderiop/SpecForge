@@ -104,6 +104,7 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a checked value whose outcome class changes stales the verdict that read it"
   verify unit "a value rechecked later with the same outcome class stales nothing"
   verify unit "a checked value's outcome is digested by its fixed tag, never by how it is shown"
+  verify unit "a verdict over a checked value digests its outcome class"
 }
 
 behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {

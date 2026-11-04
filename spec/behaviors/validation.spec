@@ -508,4 +508,10 @@ behavior check_field_values "Check Field Values" {
   verify unit "a git probe this machine cannot answer is not judged"
   verify unit "a git probe asks the Git port and needs no journal"
   verify unit "a file probe reads a held prefix, and a walk stays under its root"
+  verify unit "a checker asked again in a later run is not called"
+  verify unit "changed args miss the checker cache"
+  verify unit "changed settings miss the checker cache"
+  verify unit "a new blob digest misses the checker cache"
+  verify unit "a cold run reads the checker cache from disk"
+  verify unit "a detached project writes no checker cache"
 }

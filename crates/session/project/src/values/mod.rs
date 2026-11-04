@@ -1,6 +1,7 @@
 //! The values phase (ADR 0336): every value whose field has checks, planned by its checkers, its findings placed on
 //! the value. It reads the authored snapshot, so a computed or collected value is never checked.
 
+mod cache;
 mod collect;
 mod dispatch;
 mod local;
@@ -12,13 +13,14 @@ use std::collections::{BTreeMap, HashSet};
 use specforge_common::{Diagnostic, Severity};
 use specforge_effects::{Effects, OutcomeClass};
 use specforge_protocol_types::{
-    CheckFinding, CheckItem, CheckPhase, CheckValuesInput, ExtensionDeclaration, PlannedItem,
+    CheckFinding, CheckItem, CheckPhase, CheckValuesInput, PlannedItem,
 };
 use specforge_registry::{CheckCall, Disk, EntitySnapshot, ResolvedCheck};
 use specforge_wasm::ExtensionCalls;
 
 use crate::Environment;
 use crate::compiled::{CheckedValue, CheckedValues, ValueOutcome};
+pub(crate) use cache::CheckCache;
 use collect::Value;
 
 /// The most values one run checks; the rest are not judged and count toward I206 as `budget`.
@@ -75,7 +77,7 @@ impl ValueChecks {
 
     /// What a judged verdict digests of them (ADR 0337 §6): a value not run is `unknown` (I207), and the verdict stays
     /// fresh.
-    pub(crate) fn checked_values(&self) -> CheckedValues {
+    pub fn outcome_classes(&self) -> CheckedValues {
         let mut values = CheckedValues::default();
         for (id, rows) in &self.0 {
             for row in rows {
@@ -113,6 +115,49 @@ struct Planned<'a> {
     id: u32,
 }
 
+/// How the phase asks a checker: through the cache, then the extension.
+struct Asking<'a> {
+    env: &'a Environment,
+    calls: ExtensionCalls<'a>,
+    cache: &'a CheckCache,
+    dir: Option<std::path::PathBuf>,
+}
+
+impl Asking<'_> {
+    /// `extension`'s answers to `items` in `phase`: from the cache, the rest from the extension. No item leaves no
+    /// call. A call that fails is the extension's whole answer (E028).
+    fn ask(
+        &self,
+        extension: &str,
+        phase: CheckPhase,
+        items: Vec<CheckItem>,
+    ) -> Result<Vec<PlannedItem>, specforge_wasm::CallError> {
+        let shelf = cache::Shelf::of(self.env, self.cache, self.dir.as_deref(), extension);
+        let (mut known, unknown) = shelf.split(phase, items);
+        if !unknown.is_empty() {
+            let (keys, items): (BTreeMap<u32, String>, Vec<CheckItem>) = {
+                let mut keys = BTreeMap::new();
+                let mut items = Vec::with_capacity(unknown.len());
+                for (key, item) in unknown {
+                    keys.insert(item.id, key);
+                    items.push(item);
+                }
+                (keys, items)
+            };
+            let input = CheckValuesInput { phase, items };
+            let answer = self.calls.check_values(extension, &input)?;
+            for item in answer.items {
+                if let Some(key) = keys.get(&item.id) {
+                    shelf.keep(key.clone(), &item);
+                    known.push(item);
+                }
+            }
+        }
+        shelf.save();
+        Ok(known)
+    }
+}
+
 /// What one call of a checker came to.
 #[derive(Debug, Default)]
 struct Settled {
@@ -140,6 +185,7 @@ pub(crate) fn run(
     entities: &EntitySnapshot,
     effects: &Effects,
     disk: &dyn Disk,
+    cache: &CheckCache,
     text_of: &dyn Fn(&str) -> Option<std::sync::Arc<str>>,
 ) -> Phase {
     let registries = env.registries();
@@ -161,23 +207,20 @@ pub(crate) fn run(
         }
     }
     let planned = planned(&values);
-    let calls = ExtensionCalls::new(runtime.as_ref());
-    let answers = plans(
-        registries.declarations(),
-        &values,
-        &planned,
-        &calls,
-        &mut phase.diagnostics,
-    );
-    let settled = performed_and_judged(
+    let asking = Asking {
         env,
+        calls: ExtensionCalls::new(runtime.as_ref()),
+        cache,
+        dir: cache::dir_of(effects.journal()),
+    };
+    let answers = plans(&asking, &values, &planned, &mut phase.diagnostics);
+    let settled = performed_and_judged(
+        &asking,
         effects,
         disk,
-        registries.declarations(),
         &values,
         &planned,
         &answers,
-        &calls,
         &mut phase.diagnostics,
     );
     let mut misused = HashSet::new();
@@ -239,19 +282,13 @@ fn dropped(
 
 /// Each answered call settled: its probes performed, and the judge call of those all answered. A failing judge (E028,
 /// once) leaves its extension's values not judged.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "the phase's one step between plan and place"
-)]
 fn performed_and_judged(
-    env: &Environment,
+    asking: &Asking<'_>,
     effects: &Effects,
     disk: &dyn Disk,
-    declarations: &[ExtensionDeclaration],
     values: &[Value<'_>],
     planned: &[Planned<'_>],
     answers: &BTreeMap<(String, u32), PlannedItem>,
-    calls: &ExtensionCalls<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> BTreeMap<(String, u32), Settled> {
     let dropped = dropped(planned, answers);
@@ -287,7 +324,7 @@ fn performed_and_judged(
             probes: &plan.probes,
         });
     }
-    let (readings, approvals) = dispatch::dispatch(env, effects, disk, &asked);
+    let (readings, approvals) = dispatch::dispatch(asking.env, effects, disk, &asked);
     diagnostics.extend(approvals);
     let mut judge: BTreeMap<&str, Vec<CheckItem>> = BTreeMap::new();
     for (one, reading) in waiting.iter().zip(readings) {
@@ -325,18 +362,10 @@ fn performed_and_judged(
         item.outcomes = reading.outcomes;
         judge.entry(&one.call.extension).or_default().push(item);
     }
-    for declaration in declarations {
-        let extension = declaration.name();
-        let Some(items) = judge.remove(extension) else {
-            continue;
-        };
-        let input = CheckValuesInput {
-            phase: CheckPhase::Judge,
-            items,
-        };
-        match calls.check_values(extension, &input) {
-            Ok(answer) => {
-                for item in answer.items {
+    for (extension, items) in judge {
+        match asking.ask(extension, CheckPhase::Judge, items) {
+            Ok(items) => {
+                for item in items {
                     if let Some(settled) = settled.get_mut(&(extension.to_string(), item.id)) {
                         settled.findings.extend(item.findings);
                         settled.judged = true;
@@ -386,14 +415,13 @@ fn planned<'a>(values: &'a [Value<'a>]) -> Vec<Planned<'a>> {
 /// Each extension's answers, by extension and id. A failing extension (E028, once) has none, so its values are not
 /// judged; the others still run.
 fn plans(
-    declarations: &[ExtensionDeclaration],
+    asking: &Asking<'_>,
     values: &[Value<'_>],
     planned: &[Planned<'_>],
-    calls: &ExtensionCalls<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> BTreeMap<(String, u32), PlannedItem> {
     let mut answers = BTreeMap::new();
-    for declaration in declarations {
+    for declaration in asking.env.registries().declarations() {
         let extension = declaration.name();
         let items: Vec<CheckItem> = planned
             .iter()
@@ -403,13 +431,9 @@ fn plans(
         if items.is_empty() {
             continue;
         }
-        let input = CheckValuesInput {
-            phase: CheckPhase::Plan,
-            items,
-        };
-        match calls.check_values(extension, &input) {
-            Ok(plan) => {
-                for item in plan.items {
+        match asking.ask(extension, CheckPhase::Plan, items) {
+            Ok(items) => {
+                for item in items {
                     answers.insert((extension.to_string(), item.id), item);
                 }
             }
