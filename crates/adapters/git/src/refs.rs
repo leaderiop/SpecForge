@@ -105,19 +105,28 @@ pub(crate) fn remotes(repo: &gix::Repository) -> Vec<GitRemote> {
         let Some(url) = remote.url(gix::remote::Direction::Fetch) else {
             continue;
         };
-        let push = remote
-            .url(gix::remote::Direction::Push)
-            .map_or_else(|| url.to_bstring(), |push| push.to_bstring());
+        let push = remote.url(gix::remote::Direction::Push).unwrap_or(url);
         let (host, path) = split(url);
         remotes.push(GitRemote {
             name: name.to_string(),
-            url: url.to_bstring().to_string(),
-            push_url: push.to_string(),
+            url: shown(url),
+            push_url: shown(push),
             host,
             path,
         });
     }
     remotes
+}
+
+/// `url` without its credentials: never a password, and no user on http(s), where a token rides as the user; an ssh
+/// login name is kept, since it is no secret and the URL needs it.
+fn shown(url: &gix::Url) -> String {
+    let mut url = url.clone();
+    url.set_password(None);
+    if matches!(url.scheme, gix::url::Scheme::Http | gix::url::Scheme::Https) {
+        url.set_user(None);
+    }
+    url.to_bstring().to_string()
 }
 
 /// A URL's host and path: `owner/repo` (no leading slash, no `.git`) for one with a host, the path itself for a

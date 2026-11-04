@@ -481,6 +481,32 @@ fn worktrees_list_the_main_one_then_the_linked_ones() {
     );
 }
 
+/// A URL's credentials never reach the answer: an http URL loses its user and password (a token rides in either), an
+/// ssh one keeps its login name and loses a password.
+#[test]
+fn remotes_never_print_the_credentials_in_a_url() {
+    let (project, repo, _) = committed();
+    repo.remote(
+        "origin",
+        "https://bot:ghp_secret@github.com/acme/widgets.git",
+    )
+    .config("[remote \"origin\"]\n\tpushurl = https://ghp_secret@github.com/acme/widgets.git")
+    .remote("ssh", "ssh://git:hunter2@gitlab.com/group/tool.git");
+    let out = git(&project, &["remotes"]).exits(0);
+    assert!(
+        !out.stdout.contains("ghp_secret") && !out.stdout.contains("hunter2"),
+        "{}",
+        out.stdout
+    );
+    assert_eq!(
+        out.json()["remotes"],
+        json!([
+            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "https://github.com/acme/widgets.git", "host": "github.com", "path": "acme/widgets"},
+            {"name": "ssh", "url": "ssh://git@gitlab.com/group/tool.git", "push_url": "ssh://git@gitlab.com/group/tool.git", "host": "gitlab.com", "path": "group/tool"},
+        ])
+    );
+}
+
 #[test]
 fn remotes_split_each_url_into_its_host_and_path() {
     let (project, repo, _) = committed();
