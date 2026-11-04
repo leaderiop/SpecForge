@@ -18,7 +18,7 @@ layers            hook       Cargo.toml, crates/**/Cargo.toml, gate/src/layers.r
 file-size         hook       **/*.rs, gate/baseline.json
                              no tracked .rs file is over 800 lines but those gate/baseline.json lists, none past its listed size
 blob-size         hook       **/*.wasm, gate/src/blob_size.rs
-                             every committed .wasm blob is at most 2.5 MB (ADR 0338 D8)
+                             every committed .wasm blob (the staged one, at the hook) is at most 2500000 B (ADR 0338 D8)
 crate-map         hook       computed: ARCHITECTURE.md, crates/README.md, the root manifest, or a member's manifest or crate root
                              ARCHITECTURE.md's layer stack and crates/README.md's crate table are what the members' folders and descriptions say; every member has a description and crate docs
 links             hook       computed: a .spec file; a test file or one with a `verify =` attribute

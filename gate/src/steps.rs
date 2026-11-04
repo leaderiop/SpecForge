@@ -370,14 +370,12 @@ pub fn file_size(ctx: &Ctx, _: &Selection) -> Result<(), String> {
 }
 
 pub fn blob_size(ctx: &Ctx, _: &Selection) -> Result<(), String> {
-    let (listed, out) = ctx.capture(ctx.cmd("git").args(["ls-files", "-z", "--", "*.wasm"]))?;
-    if !listed {
-        return Err("`git ls-files` failed".into());
-    }
-    let found = blob_size::measure(
-        &ctx.repo.root,
-        out.split('\0').filter(|path| !path.is_empty()),
-    );
+    let source = if ctx.mode == Mode::Hook {
+        blob_size::Source::Staged
+    } else {
+        blob_size::Source::Working
+    };
+    let found = blob_size::measure(&ctx.repo.root, &tracked_paths(ctx)?, source);
     ctx.log(&format!("{} blobs, cap {} B", found.len(), blob_size::CAP));
     finish(blob_size::verdict(&found))
 }
