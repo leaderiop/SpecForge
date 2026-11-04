@@ -6,12 +6,12 @@ use mime::Mime;
 use specforge_checks_kit::formats::hostname;
 use specforge_checks_kit::html::anchors;
 use specforge_checks_kit::links::{fragment_id, host_matches, UrlParts};
+use specforge_checks_kit::Invalid;
 use specforge_extension_sdk::prelude::*;
 
-use super::{finding_of, word, Args, LINKS, TEXT};
+use super::{checker, finding_of, no_args, word, Args, LINKS};
 use crate::codes::*;
 
-const SWITCH: &str = "families.links";
 /// The redirects a request follows.
 const HOPS: u32 = 5;
 /// The most of a page `url_anchor` reads: a fragment not found in it is not decided.
@@ -36,14 +36,8 @@ fn list<'a>(args: &'a Args, name: &str) -> Vec<&'a str> {
 /// credentials, E092 for a scheme outside `schemes`.
 fn url_of(text: &str, args: &Args) -> Result<UrlParts, CheckFinding> {
     let parts = UrlParts::parse(text).map_err(|invalid| {
-        let finding = CheckFinding::new(
-            E091,
-            format!("'{text}' is not an absolute URL: {}", invalid.reason),
-        );
-        match invalid.at {
-            Some(at) => finding.at(at.start, at.end),
-            None => finding,
-        }
+        let reason = format!("'{text}' is not an absolute URL: {}", invalid.reason);
+        finding_of(E091, Invalid { reason, ..invalid })
     })?;
     if let Some(at) = &parts.credentials {
         return Err(
@@ -114,10 +108,10 @@ fn answered(text: &str, args: &Args, outcome: &ProbeOutcome) -> Option<CheckFind
     Some(CheckFinding::new(code, message))
 }
 
-/// The one probe a checker's plan asks of a URL that parsed.
-type Probing = fn(&UrlParts, &Args) -> Probe;
-/// What it finds once the page answered 2xx: the value's text, the URL, its args, and the answer.
-type Judging = fn(&str, &UrlParts, &Args, &ProbeOutcome) -> Vec<CheckFinding>;
+/// The one probe a URL checker asks of a URL that parsed.
+type UrlProbe = fn(&UrlParts, &Args) -> Probe;
+/// What a page checker finds once the page answered 2xx: the value's text, the URL, its args, and the answer.
+type PageJudge = fn(&str, &UrlParts, &Args, &ProbeOutcome) -> Vec<CheckFinding>;
 
 fn head(parts: &UrlParts, _: &Args) -> Probe {
     Probe::HttpHead {
@@ -141,8 +135,8 @@ fn page_checker(
     name: &str,
     codes: &[&str],
     args: impl FnOnce(&mut CheckerBuilder),
-    probe: Probing,
-    judge: Judging,
+    probe: UrlProbe,
+    judge: PageJudge,
 ) {
     let mut all = ANSWERS.to_vec();
     all.extend_from_slice(codes);
@@ -162,33 +156,32 @@ fn page_checker(
     );
 }
 
+/// A checker of one URL: E091 or E092 for one it never requests, else `probe`'s answer, judged.
 fn url_checker(
     c: &mut ContributionsBuilder,
     name: &str,
     codes: &[&str],
     args: impl FnOnce(&mut CheckerBuilder),
-    probe: Probing,
+    probe: UrlProbe,
     judge: impl Fn(&str, &UrlParts, &Args, &ProbeOutcome) -> Vec<CheckFinding> + 'static,
 ) {
-    c.checker(name, |k| {
+    let shape = |k: &mut CheckerBuilder| {
         args(k);
-        k.applies_to(TEXT)
-            .value(ValueForm::Url)
-            .scope(LINKS)
-            .codes(codes)
-            .when(SWITCH)
-            .plan(move |item| match url_of(&item.text, &item.args) {
-                _ if item.text.is_empty() => PlannedItem::default(),
-                Ok(parts) => PlannedItem::probes(vec![probe(&parts, &item.args)]),
-                Err(found) => PlannedItem::findings(vec![found]),
-            })
-            .judge(
-                move |item| match (url_of(&item.text, &item.args), item.outcomes.first()) {
-                    (Ok(parts), Some(outcome)) => judge(&item.text, &parts, &item.args, outcome),
-                    _ => Vec::new(),
-                },
-            );
-    });
+        k.value(ValueForm::Url);
+    };
+    let plan = move |text: &str, args: &Args| Ok(vec![probe(&url_of(text, args)?, args)]);
+    checker(
+        c,
+        &LINKS,
+        name,
+        codes,
+        shape,
+        plan,
+        move |text, args, outcomes| match url_of(text, args) {
+            Ok(parts) => judge(text, &parts, args, &outcomes[0]),
+            Err(_) => Vec::new(),
+        },
+    );
 }
 
 fn nothing(_: &str, _: &UrlParts, _: &Args, _: &ProbeOutcome) -> Vec<CheckFinding> {
@@ -350,34 +343,28 @@ pub(crate) fn days_left(end: &str, now_ms: u64) -> Option<i64> {
 
 /// `dns`: a host name, which the text alone may refuse (E103), resolved through the host's Http port.
 fn dns(c: &mut ContributionsBuilder) {
-    c.checker("dns", |k| {
-        k.applies_to(TEXT)
-            .scope(LINKS)
-            .codes(&[E103, W172])
-            .when(SWITCH)
-            .plan(|item| match hostname(&item.text, false) {
-                _ if item.text.is_empty() => PlannedItem::default(),
-                Ok(()) => PlannedItem::probes(vec![Probe::DnsResolve {
-                    host: item.text.clone(),
-                }]),
-                Err(invalid) => PlannedItem::findings(vec![finding_of(invalid)]),
+    let plan = |text: &str, _: &Args| {
+        hostname(text, false)
+            .map(|()| {
+                vec![Probe::DnsResolve {
+                    host: text.to_string(),
+                }]
             })
-            .judge(
-                |item| match item.outcomes.first().map(|outcome| &outcome.class) {
-                    Some(OutcomeClass::Unreachable(why)) => vec![CheckFinding::new(
-                        W172,
-                        format!("'{}' does not resolve ({why:?})", item.text),
-                    )],
-                    _ => Vec::new(),
-                },
-            );
-    });
+            .map_err(|invalid| finding_of(E103, invalid))
+    };
+    let judge = |text: &str, _: &Args, outcomes: &[ProbeOutcome]| match &outcomes[0].class {
+        OutcomeClass::Unreachable(why) => vec![CheckFinding::new(
+            W172,
+            format!("'{text}' does not resolve ({why:?})"),
+        )],
+        _ => Vec::new(),
+    };
+    checker(c, &LINKS, "dns", &[E103, W172], no_args, plan, judge);
 }
 
 pub(super) fn contribute(c: &mut ContributionsBuilder) {
-    let none = |_: &mut CheckerBuilder| {};
-    page_checker(c, "url", &[], none, head, nothing);
-    page_checker(c, "url_anchor", &[E112], none, page, anchored);
+    page_checker(c, "url", &[], no_args, head, nothing);
+    page_checker(c, "url_anchor", &[E112], no_args, page, anchored);
     let allow = |k: &mut CheckerBuilder| {
         k.arg("allow", |f| {
             f.field_type(FieldType::StringList);

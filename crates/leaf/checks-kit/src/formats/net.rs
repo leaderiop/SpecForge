@@ -126,10 +126,10 @@ pub fn hex_color(text: &str) -> Result<(), Invalid> {
         return Err(Invalid::new("a hex color starts with `#`"));
     };
     if let Some(at) = digits.find(|ch: char| !ch.is_ascii_hexdigit()) {
-        let length = digits[at..].chars().next().map_or(1, char::len_utf8);
-        return Err(Invalid::at(
+        return Err(Invalid::char_at(
             "this is not a hexadecimal digit",
-            at + 1..at + 1 + length,
+            text,
+            at + 1,
         ));
     }
     match digits.len() {

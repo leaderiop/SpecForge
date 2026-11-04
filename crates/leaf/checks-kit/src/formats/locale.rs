@@ -77,8 +77,7 @@ pub fn e164(text: &str) -> Result<(), Invalid> {
         return Err(Invalid::new("an E.164 number starts with `+`"));
     };
     if let Some(at) = digits.find(|ch: char| !ch.is_ascii_digit()) {
-        let length = digits[at..].chars().next().map_or(1, char::len_utf8);
-        return Err(Invalid::at("this is not a digit", at + 1..at + 1 + length));
+        return Err(Invalid::char_at("this is not a digit", text, at + 1));
     }
     if digits.len() > 15 {
         return Err(Invalid::new(format!(

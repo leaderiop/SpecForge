@@ -29,6 +29,14 @@ impl Root {
         })
     }
 
+    /// The root `args`' argument `arg` names, as [`Root::parse`] reads it: what a checker and the host both read a
+    /// `root_arg` by.
+    pub fn named_by(args: &serde_json::Map<String, serde_json::Value>, arg: &str) -> Option<Root> {
+        args.get(arg)
+            .and_then(serde_json::Value::as_str)
+            .and_then(Root::parse)
+    }
+
     pub fn as_str(&self) -> &str {
         match self {
             Root::Spec => "spec",

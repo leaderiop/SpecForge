@@ -14,8 +14,7 @@ impl ObjectName {
             return Err(Invalid::new("an object name has 4 to 64 hex digits"));
         }
         if let Some(at) = text.find(|ch: char| !ch.is_ascii_hexdigit()) {
-            let length = text[at..].chars().next().map_or(1, char::len_utf8);
-            return Err(Invalid::at("this is not a hex digit", at..at + length));
+            return Err(Invalid::char_at("this is not a hex digit", text, at));
         }
         Ok(ObjectName(text.to_ascii_lowercase()))
     }

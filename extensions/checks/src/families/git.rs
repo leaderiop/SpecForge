@@ -4,44 +4,12 @@
 use specforge_checks_kit::git::{FileAt, ObjectName, RefName};
 use specforge_extension_sdk::prelude::*;
 
-use super::{finding_of, word, Args, GIT, TEXT};
+use super::{checker, finding_of, no_args, root, word, Args, GIT};
 use crate::codes::*;
 
-const SWITCH: &str = "families.git";
 const KIND: Vocabulary = Vocabulary::new(&["tag", "branch", "any"]);
 /// The fewest hex digits a `commit` value may abbreviate a commit to.
 const MIN_LEN: u64 = 7;
-
-/// The probes a checker's plan asks of a value, or the finding that stops them.
-type Probing = fn(&str, &Args) -> Result<Vec<Probe>, CheckFinding>;
-/// What it finds once the probes answered.
-type Judging = fn(&str, &Args, &[ProbeOutcome]) -> Vec<CheckFinding>;
-
-fn git_checker(
-    c: &mut ContributionsBuilder,
-    name: &str,
-    codes: &[&str],
-    args: impl FnOnce(&mut CheckerBuilder),
-    probe: Probing,
-    judge: Judging,
-) {
-    c.checker(name, |k| {
-        args(k);
-        k.applies_to(TEXT)
-            .scope(GIT)
-            .codes(codes)
-            .when(SWITCH)
-            .plan(move |item| match probe(&item.text, &item.args) {
-                _ if item.text.is_empty() => PlannedItem::default(),
-                Ok(probes) => PlannedItem::probes(probes),
-                Err(found) => PlannedItem::findings(vec![found]),
-            })
-            .judge(move |item| match item.outcomes.as_slice() {
-                [] => Vec::new(),
-                outcomes => judge(&item.text, &item.args, outcomes),
-            });
-    });
-}
 
 /// Whether any probe found what it asked for.
 fn found(outcomes: &[ProbeOutcome]) -> bool {
@@ -63,7 +31,7 @@ fn absent(outcomes: &[ProbeOutcome]) -> bool {
 }
 
 fn object(text: &str, args: &Args) -> Result<Vec<Probe>, CheckFinding> {
-    let name = ObjectName::parse(text).map_err(finding_of)?;
+    let name = ObjectName::parse(text).map_err(|invalid| finding_of(E103, invalid))?;
     let min = args
         .get("min_len")
         .and_then(serde_json::Value::as_u64)
@@ -104,7 +72,7 @@ fn ref_names(text: &str, args: &Args) -> Vec<String> {
 }
 
 fn named(text: &str, args: &Args) -> Result<Vec<Probe>, CheckFinding> {
-    RefName::check(text).map_err(finding_of)?;
+    RefName::check(text).map_err(|invalid| finding_of(E103, invalid))?;
     Ok(ref_names(text, args)
         .into_iter()
         .map(|name| Probe::GitRef { name })
@@ -127,7 +95,7 @@ fn reference(text: &str, args: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFin
 }
 
 fn at_revision(text: &str, _: &Args) -> Result<Vec<Probe>, CheckFinding> {
-    let at = FileAt::parse(text).map_err(finding_of)?;
+    let at = FileAt::parse(text).map_err(|invalid| finding_of(E103, invalid))?;
     Ok(vec![Probe::GitFile {
         rev: at.rev.to_string(),
         path: at.path.to_string(),
@@ -152,41 +120,21 @@ fn file_at(text: &str, _: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding>
     .at(path_from, text.len())]
 }
 
-/// Where a bare path starts: the `root` argument, which the host admits only as a root's name, else the project.
-fn root(args: &Args) -> Root {
-    args.get("root")
-        .and_then(|name| serde_json::from_value(name.clone()).ok())
-        .unwrap_or(Root::Project)
+fn tracking(text: &str, args: &Args) -> Result<Vec<Probe>, CheckFinding> {
+    Ok(vec![Probe::GitTracked {
+        root: root(args),
+        path: text.to_string(),
+    }])
 }
 
-fn tracked(c: &mut ContributionsBuilder) {
-    c.checker("tracked", |k| {
-        k.arg("root", |f| {
-            f.field_type(FieldType::String);
-        });
-        k.applies_to(TEXT)
-            .value(ValueForm::Path)
-            .root_arg("root")
-            .scope(GIT)
-            .codes(&[W180])
-            .when(SWITCH)
-            .plan(|item| match item.text.as_str() {
-                "" => PlannedItem::default(),
-                path => PlannedItem::probes(vec![Probe::GitTracked {
-                    root: root(&item.args),
-                    path: path.to_string(),
-                }]),
-            })
-            .judge(|item| {
-                if item.outcomes.is_empty() || !absent(&item.outcomes) {
-                    return Vec::new();
-                }
-                vec![CheckFinding::new(
-                    W180,
-                    format!("'{}' is not in the commit at HEAD", item.text),
-                )]
-            });
-    });
+fn tracked(text: &str, _: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
+    if !absent(outcomes) {
+        return Vec::new();
+    }
+    vec![CheckFinding::new(
+        W180,
+        format!("'{text}' is not in the commit at HEAD"),
+    )]
 }
 
 pub(super) fn contribute(c: &mut ContributionsBuilder) {
@@ -195,14 +143,27 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
             f.field_type(FieldType::Integer).minimum(4).maximum(64);
         });
     };
-    git_checker(c, "commit", &[E103, E106], min_len, object, commit);
+    checker(c, &GIT, "commit", &[E103, E106], min_len, object, commit);
     let kind = |k: &mut CheckerBuilder| {
         k.arg("kind", |f| {
             f.vocabulary(&KIND);
         });
     };
-    git_checker(c, "ref", &[E103, E106], kind, named, reference);
-    let none = |_: &mut CheckerBuilder| {};
-    git_checker(c, "file_at", &[E103, E106], none, at_revision, file_at);
-    tracked(c);
+    checker(c, &GIT, "ref", &[E103, E106], kind, named, reference);
+    checker(
+        c,
+        &GIT,
+        "file_at",
+        &[E103, E106],
+        no_args,
+        at_revision,
+        file_at,
+    );
+    let rooted = |k: &mut CheckerBuilder| {
+        k.arg("root", |f| {
+            f.field_type(FieldType::String);
+        });
+        k.value(ValueForm::Path).root_arg("root");
+    };
+    checker(c, &GIT, "tracked", &[W180], rooted, tracking, tracked);
 }

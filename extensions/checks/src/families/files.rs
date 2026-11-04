@@ -5,55 +5,48 @@ use specforge_checks_kit::files::{glob, DigestPin, LineEnds, LineRange, Text};
 use specforge_checks_kit::Invalid;
 use specforge_extension_sdk::prelude::*;
 
-use super::{finding_of, flag, word, Args, FILES, TEXT};
+use super::{checker, finding_of, flag, no_args, root, word, Args, FILES};
 use crate::codes::*;
 
-const SWITCH: &str = "families.files";
 /// The most of a file `encoding` and `line_range` read: past it, a line range not yet reached is not decided.
 const READ: u32 = 1024 * 1024;
 const LINE_ENDS: Vocabulary = Vocabulary::new(&["lf", "crlf", "any"]);
 
-/// Where a bare path starts: the `root` argument, which the host admits only as a root's name, else the project.
-fn root(args: &Args) -> Root {
-    args.get("root")
-        .and_then(|name| serde_json::from_value(name.clone()).ok())
-        .unwrap_or(Root::Project)
-}
+/// The one probe a path checker asks of a value's text, or what the kit refused in it.
+type PathProbe = fn(&str, &Args) -> Result<Probe, Invalid>;
+/// What a path checker finds in the one answer to it.
+type PathJudge = fn(&str, &Args, &ProbeOutcome) -> Vec<CheckFinding>;
 
-/// The one probe a path checker's plan asks, or E103 for text it cannot read.
-type Probing = fn(&str, &Args) -> Result<Probe, Invalid>;
-/// What it finds once the probe answered: the value's text, its args, and the answer.
-type Judging = fn(&str, &Args, &ProbeOutcome) -> Vec<CheckFinding>;
-
+/// A checker of one path under its `root` argument: E103 for text the kit refuses.
 fn path_checker(
     c: &mut ContributionsBuilder,
     name: &str,
     codes: &[&str],
     args: impl FnOnce(&mut CheckerBuilder),
-    probe: Probing,
-    judge: Judging,
+    probe: PathProbe,
+    judge: PathJudge,
 ) {
-    c.checker(name, |k| {
+    let shape = |k: &mut CheckerBuilder| {
         k.arg("root", |f| {
             f.field_type(FieldType::String);
         });
         args(k);
-        k.applies_to(TEXT)
-            .value(ValueForm::Path)
-            .root_arg("root")
-            .scope(FILES)
-            .codes(codes)
-            .when(SWITCH)
-            .plan(move |item| match probe(&item.text, &item.args) {
-                _ if item.text.is_empty() => PlannedItem::default(),
-                Ok(probe) => PlannedItem::probes(vec![probe]),
-                Err(invalid) => PlannedItem::findings(vec![finding_of(invalid)]),
-            })
-            .judge(move |item| match item.outcomes.first() {
-                Some(outcome) => judge(&item.text, &item.args, outcome),
-                None => Vec::new(),
-            });
-    });
+        k.value(ValueForm::Path).root_arg("root");
+    };
+    let plan = move |text: &str, args: &Args| {
+        probe(text, args)
+            .map(|probe| vec![probe])
+            .map_err(|invalid| finding_of(E103, invalid))
+    };
+    checker(
+        c,
+        &FILES,
+        name,
+        codes,
+        shape,
+        plan,
+        move |text, args, outcomes| judge(text, args, &outcomes[0]),
+    );
 }
 
 fn stat(text: &str, args: &Args) -> Result<Probe, Invalid> {
@@ -91,26 +84,33 @@ fn entry(outcome: &ProbeOutcome) -> Option<StatEntry> {
     }
 }
 
-fn file(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
-    let found = match outcome.class {
-        OutcomeClass::Missing => missing(text, args, outcome, whole(text)),
-        _ if entry(outcome) == Some(StatEntry::Dir) => {
-            CheckFinding::new(E016, format!("'{text}' is a directory, not a file"))
+/// E016 for `text`, missing or not `wanted`, as `fs.stat` answered it.
+fn of_entry(
+    text: &str,
+    args: &Args,
+    outcome: &ProbeOutcome,
+    wanted: StatEntry,
+) -> Vec<CheckFinding> {
+    let found = match (outcome.class, entry(outcome)) {
+        (OutcomeClass::Missing, _) => missing(text, args, outcome, whole(text)),
+        (_, Some(other)) if other != wanted => {
+            let (is, not) = match wanted {
+                StatEntry::File => ("a directory", "a file"),
+                StatEntry::Dir => ("a file", "a directory"),
+            };
+            CheckFinding::new(E016, format!("'{text}' is {is}, not {not}"))
         }
         _ => return Vec::new(),
     };
     vec![found]
 }
 
+fn file(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+    of_entry(text, args, outcome, StatEntry::File)
+}
+
 fn dir(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
-    let found = match outcome.class {
-        OutcomeClass::Missing => missing(text, args, outcome, whole(text)),
-        _ if entry(outcome) == Some(StatEntry::File) => {
-            CheckFinding::new(E016, format!("'{text}' is a file, not a directory"))
-        }
-        _ => return Vec::new(),
-    };
-    vec![found]
+    of_entry(text, args, outcome, StatEntry::Dir)
 }
 
 /// A glob's literal leading directories, walked, and the rest, matched under them.
@@ -319,12 +319,18 @@ fn bounds(k: &mut CheckerBuilder) {
 }
 
 pub(super) fn contribute(c: &mut ContributionsBuilder) {
-    let none = |_: &mut CheckerBuilder| {};
-    path_checker(c, "file", &[E016], none, stat, file);
-    path_checker(c, "dir", &[E016], none, stat, dir);
+    path_checker(c, "file", &[E016], no_args, stat, file);
+    path_checker(c, "dir", &[E016], no_args, stat, dir);
     path_checker(c, "glob", &[E016, W176, E103], bounds, walk, matched);
     path_checker(c, "size", &[E016, W176], bounds, stat, sized);
-    path_checker(c, "digest", &[E016, E096, E103, W176], none, pinned, digest);
+    path_checker(
+        c,
+        "digest",
+        &[E016, E096, E103, W176],
+        no_args,
+        pinned,
+        digest,
+    );
     let encoding = |k: &mut CheckerBuilder| {
         k.arg("bom", |f| {
             f.field_type(FieldType::Bool);
@@ -341,5 +347,5 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         |t, a| Ok(read(t, a)),
         encoded,
     );
-    path_checker(c, "line_range", &[E016, W176, E103], none, ranged, lines);
+    path_checker(c, "line_range", &[E016, W176, E103], no_args, ranged, lines);
 }

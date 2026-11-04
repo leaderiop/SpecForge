@@ -24,4 +24,10 @@ impl Invalid {
             at: Some(at),
         }
     }
+
+    /// About the one character of `text` that starts at byte `at`.
+    pub fn char_at(reason: impl Into<String>, text: &str, at: usize) -> Self {
+        let length = text[at..].chars().next().map_or(1, char::len_utf8);
+        Invalid::at(reason, at..at + length)
+    }
 }

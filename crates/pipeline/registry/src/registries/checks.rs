@@ -125,15 +125,11 @@ impl CheckRegistry {
             .root_arg
             .as_deref()
             .and_then(|arg| {
-                args.get(arg)
-                    .and_then(Value::as_str)
-                    .map(str::to_string)
-                    .or_else(|| {
-                        let declared = checker.args.iter().find(|a| a.name == arg)?;
-                        declared.default_value.clone()
-                    })
+                Root::named_by(args, arg).or_else(|| {
+                    let declared = checker.args.iter().find(|a| a.name == arg)?;
+                    Root::parse(declared.default_value.as_deref()?)
+                })
             })
-            .and_then(|name| Root::parse(&name))
             .unwrap_or(Root::Project)
     }
 
