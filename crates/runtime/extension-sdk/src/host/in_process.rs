@@ -11,7 +11,7 @@ use super::{
 };
 
 /// What answers a port call in process. A method not given answers [`no_port`].
-#[allow(unused_variables, reason = "each default answers whatever is asked")]
+#[expect(unused_variables, reason = "each default answers whatever is asked")]
 pub trait InProcessHost {
     fn http_send(&self, request: &HttpRequest) -> Result<HttpResponse, HostError> {
         Err(no_port())

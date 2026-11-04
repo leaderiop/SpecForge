@@ -383,8 +383,7 @@ mod the_views_runtime {
     use specforge_ops::analysis::analyze::{AnalyzeOptions, analyze};
     use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, RunError, run};
     use specforge_ops::view::ProjectView;
-    use specforge_project::SharedRuntime;
-    use specforge_project::testing::compile_at;
+    use specforge_project::testing::TestProject;
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::CallFailure;
     use specforge_wasm::testing::InProcessRuntime;
@@ -509,8 +508,7 @@ mod lending {
     use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, run};
     use specforge_ops::view::ProjectView;
     use specforge_ops::{Caller, Containment};
-    use specforge_project::SharedRuntime;
-    use specforge_project::testing::compile_at;
+    use specforge_project::testing::TestProject;
     use specforge_protocol_types::Operation;
     use specforge_wasm::testing::InProcessRuntime;
     use specforge_wasm::{Limits, PortCall, PortSession};
@@ -552,23 +550,10 @@ mod lending {
             .importing(EXT, &["specforge:host/http@0.1.0"])
     }
 
-    fn project() -> TempDir {
-        let dir = TempDir::new().unwrap();
-        std::fs::write(
-            dir.path().join("specforge.json"),
-            format!(r#"{{"name":"p","version":"0.1.0","extensions":["{EXT}"]}}"#),
-        )
-        .unwrap();
-        specforge_installed::testing::install(dir.path(), &runtime(), &[EXT]);
-        std::fs::write(dir.path().join("main.spec"), "").unwrap();
-        dir
-    }
-
     #[test]
     fn a_command_run_lends_the_views_ports() {
-        let dir = project();
-        let shared: SharedRuntime = Arc::new(runtime());
-        let compiled = compile_at(dir.path(), Some(shared));
+        let project = TestProject::new().serving(runtime()).enabling(&[EXT]);
+        let compiled = project.compile();
         let view = ProjectView::of(&compiled);
         let commands = ExtensionCommands::build(view.registries());
         let ping = commands.all().iter().find(|c| c.id() == "ping").unwrap();
@@ -605,8 +590,8 @@ mod lending {
     /// Another extension's answer, kept where the journal keeps it: a project read does not reach it.
     #[test]
     fn a_guest_with_a_project_read_cannot_read_the_effects_journal() {
-        let dir = TempDir::new().unwrap();
-        let root = dir.path().canonicalize().unwrap();
+        let project = TestProject::new();
+        let root = project.root().canonicalize().unwrap();
         let journal = EffectJournal::at(&root);
         let request = specforge_effects::EffectRequest::Http(specforge_effects::HttpRequest {
             method: "GET".to_string(),

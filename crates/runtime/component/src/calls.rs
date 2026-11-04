@@ -41,10 +41,6 @@ impl GuestClock {
 
 impl ComponentRuntime {
     /// `name`'s plugin, or the trap of a call of `export` that finds none.
-    #[allow(
-        clippy::result_large_err,
-        reason = "the error is the call's answer, returned at once"
-    )]
     pub(crate) fn plugin(
         &self,
         name: &str,
@@ -70,7 +66,7 @@ impl ComponentRuntime {
 
     /// One effectful call of a guest that imports a port, on an instance of its own, outside the extension's lock: a
     /// trap takes only this instance with it, and nothing of the guest outlives the call (ADR 0335 D4).
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "what the shared path reads off the plugin under its lock"
     )]

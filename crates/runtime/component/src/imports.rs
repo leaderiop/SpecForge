@@ -60,7 +60,10 @@ mod tests {
 
     #[test]
     fn the_host_ports_are_the_wit_packages_interfaces() {
-        let wit = include_str!("../../extension-sdk/wit/host.wit");
+        let wit = std::fs::read_to_string(
+            specforge_repo_root::repo_root().join("crates/runtime/extension-sdk/wit/host.wit"),
+        )
+        .expect("host.wit is the SDK's");
         let version = wit
             .lines()
             .find_map(|line| line.strip_prefix("package specforge:host@"))
