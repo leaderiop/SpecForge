@@ -279,46 +279,53 @@ fn handshake(parts: &UrlParts, _: &Args) -> Probe {
     }
 }
 
+/// W172 for a handshake that failed or a chain the host did not trust, and W178 for a certificate near or past its
+/// end, which a rejected one may be too.
 fn certified(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
-    if let OutcomeClass::Unreachable(why) = &outcome.class {
-        let chain = matches!(
-            outcome.data,
-            OutcomeData::Tls {
-                chain_valid: false,
-                not_after: Some(_),
-                ..
-            }
-        );
-        if !chain {
-            return vec![CheckFinding::new(
-                W172,
-                format!("'{text}' could not be reached ({why:?})"),
-            )];
+    let mut found = Vec::new();
+    let rejected = matches!(
+        outcome.data,
+        OutcomeData::Tls {
+            chain_valid: false,
+            ..
         }
+    );
+    if let OutcomeClass::Unreachable(why) = &outcome.class {
+        let message = if rejected {
+            format!("the certificate of '{text}' is not trusted ({why:?}): self-signed, for another host or unknown")
+        } else {
+            format!("'{text}' could not be reached ({why:?})")
+        };
+        found.push(CheckFinding::new(W172, message));
+    } else if rejected {
+        found.push(CheckFinding::new(
+            W172,
+            format!("the certificate of '{text}' is not trusted"),
+        ));
     }
     let OutcomeData::Tls {
         not_after: Some(end),
         ..
     } = &outcome.data
     else {
-        return Vec::new();
+        return found;
     };
     let days = args
         .get("days")
         .and_then(serde_json::Value::as_i64)
         .unwrap_or(DAYS);
-    let left = days_left(end, outcome.observed_at);
-    match left {
-        Some(left) if left < 0 => vec![CheckFinding::new(
+    match days_left(end, outcome.observed_at) {
+        Some(left) if left < 0 => found.push(CheckFinding::new(
             W178,
             format!("the certificate of '{text}' ended on {end}"),
-        )],
-        Some(left) if left < days => vec![CheckFinding::new(
+        )),
+        Some(left) if left < days => found.push(CheckFinding::new(
             W178,
             format!("the certificate of '{text}' ends on {end}, in {left} day(s)"),
-        )],
-        _ => Vec::new(),
+        )),
+        _ => {}
     }
+    found
 }
 
 /// Whole days from `now_ms` (Unix milliseconds) to `end` (`YYYY-MM-DDTHH:MM:SSZ`), rounded down; None for another form.

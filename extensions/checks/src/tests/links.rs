@@ -329,6 +329,28 @@ fn links_tls_warns_within_its_days_and_refuses_http() {
 }
 
 #[test]
+fn links_tls_rejected_chain_is_w172_and_w178_near_its_end() {
+    // 2026-01-01T00:00:00Z.
+    let now = 1_767_225_600_000;
+    let rejected = |end: &str| ProbeOutcome {
+        observed_at: now,
+        ..answer(
+            OutcomeClass::Unreachable(Unreachable::Tls),
+            OutcomeData::Tls {
+                not_after: Some(end.into()),
+                issuer: Some("CN=self".into()),
+                chain_valid: false,
+            },
+        )
+    };
+    let far = judged("tls", URL, json!({}), rejected("2030-01-01T00:00:00Z"));
+    assert_eq!(codes(&far), ["W172"]);
+    assert!(far[0].message.contains("not trusted"), "{}", far[0].message);
+    let near = judged("tls", URL, json!({}), rejected("2026-01-05T00:00:00Z"));
+    assert_eq!(codes(&near), ["W172", "W178"]);
+}
+
+#[test]
 fn links_days_left_counts_whole_days_to_the_end() {
     let now = 1_767_225_600_000; // 2026-01-01T00:00:00Z
     assert_eq!(days_left("2026-01-01T00:00:00Z", now), Some(0));

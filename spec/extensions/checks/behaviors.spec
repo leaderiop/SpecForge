@@ -94,7 +94,9 @@ behavior ck_links_family "Links Family" {
     and reports a fragment no `id` or `name` matches as E112 on the
     fragment; a page cut off at that cap is not decided. `content_type`
     reports a type outside `allow`, or none, as E104; `tls` a certificate
-    ending within `days` (default 14) as W178; `redirect` a final host
+    the host does not trust (self-signed, for another host, from an
+    unknown issuer) as W172, and one ending within `days` (default 14) or
+    already ended as W178, whether trusted or not; `redirect` a final host
     outside `hosts` as W173; `dns` a host that does not resolve as W172
     and a malformed host name as E103.
   """
