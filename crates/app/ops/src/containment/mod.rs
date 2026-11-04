@@ -127,7 +127,7 @@ impl Containment {
     }
 
     /// The name `text`, whose `<root>/` prefix names one of the roots: it lands inside that root, or `Outside`. A root
-    /// not reached from here (unknown, or outside the project and not approved, O5) is `Outside` too.
+    /// not reached from here (unknown, or outside the project and not approved) is `Outside` too.
     fn hold_rooted(&self, bound: &Path, named: &Path, text: &str) -> Result<Held, Outside> {
         let outside = |landed: PathBuf, root: &Path| Outside::new(named, landed, root);
         let rooted = RootedPath::parse(text, Root::Project)

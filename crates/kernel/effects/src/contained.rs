@@ -30,7 +30,7 @@ impl Roots {
         }
     }
 
-    /// These roots and `name` at `path`: plan 05's named roots (`specforge.json` `roots`) are built with it.
+    /// These roots and `name` at `path`: the named roots of `specforge.json` `roots` are built with it.
     pub fn with_named(mut self, name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
         self.named.insert(name.into(), path.into());
         self

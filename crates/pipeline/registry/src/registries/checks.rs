@@ -246,7 +246,7 @@ impl Resolving<'_> {
     ) {
         let on = format!("field '{path}' on kind '{kind}'");
         let ty = FieldType::parse(&field.field_type);
-        // A value read as a path has to be text (05-D4); plan 06 retires `file_reference` for the `file` check.
+        // A value read as a path has to be text; a `file_reference` rule reads its value the same way.
         if field.file_reference && !matches!(ty, Some(FieldType::String | FieldType::StringList)) {
             self.w189(format!(
                 "{on} declares a file check, but its type is '{}': a path is text",

@@ -91,7 +91,7 @@ enum Slot {
 }
 
 /// Perform what `asked` asks through `effects` and `disk`: a reading for each, and W170 for what this machine has not
-/// approved of the scopes these values use (O11).
+/// approved of the scopes these values use: only those are asked for.
 pub(super) fn dispatch(
     env: &Environment,
     effects: &Effects,

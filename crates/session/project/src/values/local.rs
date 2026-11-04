@@ -1,5 +1,5 @@
 //! What a checker's local probes read: the check's disk, and the Git port. Each is local and needs no journal: a missing
-//! file is checked again by its stamp, not by a time to live (O12).
+//! file is checked again by its stamp, not by a time to live.
 
 use std::collections::VecDeque;
 
@@ -21,7 +21,7 @@ pub(super) fn read_disk(
     resolved: &Resolved,
     op: &FsOp,
 ) -> (OutcomeClass, OutcomeData) {
-    // Asked as written too: a session records the path itself, so a file that appears re-runs the check (O12).
+    // Asked as written too: a session records the path itself, so a file that appears re-runs the check.
     let there = disk.exists(&resolved.at);
     if !resolved.exists || !there {
         let near = contained.sibling(resolved);

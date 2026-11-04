@@ -1,5 +1,5 @@
-//! `specforge export --with-checks` (ADR 0336). No extension a test binary can load declares a checker before plan 06's
-//! `@specforge/checks`, so the outcomes themselves are pinned in `specforge-ops` (`value_checks::`).
+//! `specforge export --with-checks` (ADR 0336). No extension a test binary can load declares a checker yet (no builtin
+//! `@specforge/checks`), so the outcomes themselves are pinned in `specforge-ops` (`value_checks::`).
 
 use crate::support::{Cli, TestProject};
 use specforge_test_macros::test as specforge_test;
