@@ -299,6 +299,7 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "a baseline asks for the commit's tree only when a compute pass reads, and runs each compute pass once"
   verify unit "a file git cannot give or a file over the cap is not absent at the baseline"
   verify unit "check since judges history against the merge-base and refuses an unknown revision"
+  verify integration "check since reads history with no git program on PATH"
   verify unit "validate since judges per request"
 }
 

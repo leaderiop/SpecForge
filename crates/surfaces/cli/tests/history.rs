@@ -63,6 +63,32 @@ fn check_cache_is_gone() {
 
 #[specforge_test_macros::test(
     behavior = "read_git_baseline",
+    verify = "check since reads history with no git program on PATH"
+)]
+#[ignore = "08 T12"]
+fn check_since_reads_history_with_no_git_on_path() {
+    let repo = fixture();
+    git_repo(repo.root());
+    // Nothing to install: the history is read in process, so a machine with no git program reads it too.
+    let empty = tempfile::tempdir().unwrap();
+    let unknown = Cli::on(&repo)
+        .env("PATH", empty.path())
+        .run(&["check", "--since", "nosuch", "--format", "json"]);
+    assert_eq!(unknown.code, 2, "{}{}", unknown.stdout, unknown.stderr);
+    assert!(
+        unknown.stdout.contains("unknown_revision") || unknown.stderr.contains("unknown_revision"),
+        "{}{}",
+        unknown.stdout,
+        unknown.stderr
+    );
+    let head = Cli::on(&repo)
+        .env("PATH", empty.path())
+        .run(&["check", "--since", "HEAD", "--format", "json"]);
+    assert!(!head.stdout.contains("W164"), "{}", head.stdout);
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_git_baseline",
     verify = "check since judges history against the merge-base and refuses an unknown revision"
 )]
 fn check_since_judges_against_the_merge_base() {
