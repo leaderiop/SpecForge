@@ -87,7 +87,11 @@ fn the_process_machine_keeps_the_port_contract() {
     let changed = c.approval(dir.path());
     assert!(!machine.approved(&changed), "a changed command re-prompts");
     machine.approve(&changed).unwrap();
-    assert_eq!(machine.load().approved.len(), 1, "approval replaced");
+    assert_eq!(
+        machine.load().unwrap().approved.len(),
+        1,
+        "approval replaced"
+    );
 
     // A store whose parent is a file cannot be written.
     let file = dir.path().join("a-file");
@@ -161,7 +165,11 @@ fn consent_is_keyed_by_project_extension_and_command() {
     let changed = c.approval(root);
     assert!(!machine.approved(&changed), "a changed command re-prompts");
     machine.approve(&changed).unwrap();
-    assert_eq!(machine.load().approved.len(), 1, "approval replaced");
+    assert_eq!(
+        machine.load().unwrap().approved.len(),
+        1,
+        "approval replaced"
+    );
 }
 
 #[cfg(unix)]
@@ -278,7 +286,6 @@ fn a_cmd_shim_on_path_runs() {
 }
 
 #[cfg(unix)]
-#[ignore = "02 T2"]
 #[specforge_test(
     behavior = "approve_collector_command",
     verify = "the consent store is replaced privately and atomically, never through a link"
@@ -312,7 +319,6 @@ fn the_consent_store_is_replaced_privately_never_through_a_link() {
     assert_eq!(parent.permissions().mode() & 0o777, 0o700);
 }
 
-#[ignore = "02 T2"]
 #[specforge_test(
     behavior = "approve_collector_command",
     verify = "an approval is never written over a consent store that cannot be read"

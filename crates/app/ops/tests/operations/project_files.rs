@@ -36,18 +36,6 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
         "the user's consent store, not a project file",
     ),
     (
-        "analysis/collect/process.rs",
-        "fs::create_dir_all(",
-        1,
-        "the user's consent store, not a project file",
-    ),
-    (
-        "analysis/collect/process.rs",
-        "fs::write(",
-        1,
-        "the user's consent store, not a project file",
-    ),
-    (
         "solver.rs",
         "fs::write(",
         1,

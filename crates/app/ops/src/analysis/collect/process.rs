@@ -66,11 +66,22 @@ impl ProcessMachine {
         }
     }
 
-    fn load(&self) -> ConsentStore {
-        std::fs::read_to_string(&self.store)
-            .ok()
-            .and_then(|raw| serde_json::from_str(&raw).ok())
-            .unwrap_or_default()
+    /// The store: empty when it does not exist; `Err` naming the file when it exists but cannot be read or parsed,
+    /// so nothing in it counts and nothing is written over it.
+    fn load(&self) -> Result<ConsentStore, String> {
+        let raw = match std::fs::read_to_string(&self.store) {
+            Ok(raw) => raw,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(ConsentStore::default());
+            }
+            Err(e) => return Err(format!("{}: {e}", self.store.display())),
+        };
+        serde_json::from_str(&raw).map_err(|e| {
+            format!(
+                "{}: not a consent store ({e}); fix it or move it away, nothing is written over it",
+                self.store.display()
+            )
+        })
     }
 }
 
@@ -131,19 +142,19 @@ impl CollectorMachine for ProcessMachine {
     }
 
     fn approved(&self, approval: &CommandApproval) -> bool {
-        self.load().approved.contains(approval)
+        self.load()
+            .is_ok_and(|store| store.approved.contains(approval))
     }
 
+    /// Written privately and atomically (ADR 0193): a link at the store's name is replaced, never followed.
     fn approve(&self, approval: &CommandApproval) -> Result<(), String> {
-        let mut consents = self.load();
+        let mut consents = self.load()?;
         consents.approved.retain(|c| !approval.replaces(c));
         consents.approved.push(approval.clone());
-        if let Some(dir) = self.store.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-        }
         let json =
             serde_json::to_string_pretty(&consents).expect("consent serialization cannot fail");
-        std::fs::write(&self.store, json).map_err(|e| format!("{}: {e}", self.store.display()))
+        specforge_common::fresh::replace_private(&self.store, json.as_bytes())
+            .map_err(|e| format!("{}: {e}", self.store.display()))
     }
 }
 
