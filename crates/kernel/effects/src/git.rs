@@ -368,6 +368,15 @@ pub trait Git: Send + Sync {
     fn remotes(&self, _place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
+    /// Write `message` where git hands a commit message to its `commit-msg` hook (`COMMIT_EDITMSG` in the git
+    /// directory): that file's path.
+    fn write_commit_message(&self, _place: &GitPlace, _message: &str) -> Result<PathBuf, GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// The message as the `commit-msg` hook left it in `COMMIT_EDITMSG`.
+    fn read_commit_message(&self, _place: &GitPlace) -> Result<String, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
     /// Write `staging` into the index.
     fn stage(&self, _place: &GitPlace, _staging: &Staging) -> Result<(), GitError> {
         Err(GitError("this git port cannot write".into()))

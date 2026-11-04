@@ -281,24 +281,19 @@ impl<'v> Hooks<'v> {
         if self.find(name).is_none() {
             return Ok(message.to_string());
         }
-        let file = self.place.git_dir.join("COMMIT_EDITMSG");
-        let io = |e: std::io::Error| {
-            OpError::new(
-                OpErrorKind::Internal,
-                OpErrorKind::Internal.as_str(),
-                format!("the commit message cannot be handed to the {name} hook: {e}"),
-            )
-        };
-        std::fs::write(&file, message).map_err(io)?;
+        let git = &self.verbs.ports().git;
+        let file = git
+            .write_commit_message(self.place, message)
+            .map_err(write_failed)?;
         self.run(name, &[file.to_string_lossy().into_owned()])?;
-        let edited = std::fs::read_to_string(&file).map_err(io)?;
+        let edited = git.read_commit_message(self.place).map_err(write_failed)?;
         cleaned(&edited).ok_or_else(empty_message)
     }
 }
 
 fn no_verify(name: &str) -> String {
     format!(
-        "fix what the {name} hook reports, or give --no-verify to commit without the repository's hooks"
+        "fix what the {name} hook reports, or run specforge git commit --no-verify to commit without the repository's hooks"
     )
 }
 

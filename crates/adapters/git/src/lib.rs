@@ -391,6 +391,14 @@ impl Git for Gix {
         Ok(refs::remotes(&open(place)?))
     }
 
+    fn write_commit_message(&self, place: &GitPlace, message: &str) -> Result<PathBuf, GitError> {
+        write::write_commit_message(place, message)
+    }
+
+    fn read_commit_message(&self, place: &GitPlace) -> Result<String, GitError> {
+        write::read_commit_message(place)
+    }
+
     fn stage(&self, place: &GitPlace, staging: &Staging) -> Result<(), GitError> {
         write::stage(place, staging)
     }

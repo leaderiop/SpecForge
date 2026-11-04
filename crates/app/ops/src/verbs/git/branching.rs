@@ -72,7 +72,7 @@ pub fn branch_delete(verbs: &Verbs, name: &str, force: bool) -> Result<RefAnswer
             return Err(refused(
                 "not_merged",
                 format!("{} holds commits HEAD does not", printable(name)),
-                "merge it first, or give --force to delete it with them",
+                "merge it first, or run specforge git branch delete --force to delete it with them",
             ));
         }
     }
@@ -208,7 +208,7 @@ pub fn worktree_remove(verbs: &Verbs, path: &Path, force: bool) -> Result<Pruned
                 "the worktree at {} has changes or untracked files",
                 printable(&at.to_string_lossy())
             ),
-            "commit or stash them, or give --force to remove them with it",
+            "commit or stash them, or run specforge git worktree remove --force to remove them with it",
         ));
     }
     git.worktree_remove(&place, &at).map_err(write_failed)?;

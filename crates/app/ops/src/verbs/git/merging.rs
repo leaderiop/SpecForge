@@ -149,8 +149,8 @@ pub fn reset(
         clean_tree(
             verbs,
             &place,
-            "reset --hard",
-            "commit or stash them, or give --yes to discard them",
+            "a hard reset",
+            "commit or stash them, or run specforge git reset --hard --yes to discard them",
         )?;
     }
     let to = commit_named(verbs, &place, revision)?;

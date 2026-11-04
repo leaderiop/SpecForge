@@ -35,6 +35,26 @@ pub(crate) fn gix_owned(place: &GitPlace) -> Result<gix::Repository, GitError> {
     open(place)
 }
 
+/// Where git hands a commit message to a hook: `COMMIT_EDITMSG` in this worktree's git directory.
+fn message_file(place: &GitPlace) -> std::path::PathBuf {
+    place.git_dir.join("COMMIT_EDITMSG")
+}
+
+pub(crate) fn write_commit_message(
+    place: &GitPlace,
+    message: &str,
+) -> Result<std::path::PathBuf, GitError> {
+    owned(place)?;
+    let file = message_file(place);
+    std::fs::write(&file, message).map_err(|e| failed("hand the message to its hook", &e))?;
+    Ok(file)
+}
+
+pub(crate) fn read_commit_message(place: &GitPlace) -> Result<String, GitError> {
+    std::fs::read_to_string(message_file(place))
+        .map_err(|e| failed("read the message its hook left", &e))
+}
+
 pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError> {
     let repo = libgit2(place)?;
     let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
