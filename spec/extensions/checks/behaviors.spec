@@ -147,11 +147,14 @@ behavior ck_outcome_facts "Check Outcome Facts" {
     only under `checks.publish`. Each served row MUST become one
     check_outcome fact, its id check:<entity>/<field>#<item>@<checker>,
     its status passed (no finding), failed (a finding) or skipped (not
-    performed), with the outcome class, the codes found and the time of
-    the oldest answer in RFC 3339.
+    performed), with the outcome class, the codes found, the digest of
+    what its probes answered and, when one answer has a journal record,
+    that record's time in RFC 3339. A disk or git answer has no record,
+    so two runs over the same tree publish the same facts.
   """
   verify unit "the checks collector declares the check_outcomes input and no detection, command or report"
   verify unit "each served row becomes one check_outcome fact, a finding failed and a check not performed skipped"
+  verify integration "two runs over the same tree give equal check outcomes"
   verify integration "collect --runner checks stores one check_outcome fact per checked value under the head commit"
   verify integration "a plain collect leaves the checks collector out unless checks.publish is set"
 }

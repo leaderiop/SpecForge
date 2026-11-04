@@ -123,7 +123,8 @@ pub struct ValueCheckJson {
     /// The class of what its probes answered; absent when it did not run.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outcome: Option<String>,
-    /// When its oldest probe answer was observed (Unix milliseconds); absent for a checker with no probes.
+    /// When its oldest journaled answer was observed (Unix milliseconds, the record's); absent when no answer has a
+    /// journal record: a checker with no probes, or one that read only the disk or git.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub observed_at: Option<u64>,
     /// Whether an answer came from the effect journal rather than this run.

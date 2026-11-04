@@ -443,7 +443,7 @@ fn check_line(row: &ValueRow, mode: &str, now: u64) -> String {
         }
         CheckStatus::Passed => line.push_str(" · passed"),
     }
-    // A pure checker asked nothing of the world: its answer has no age.
+    // A pure checker asked nothing of the world, and the disk and git answer as of now: only a journaled answer ages.
     if let Some(observed) = row.observed_at {
         if let Some(class) = &row.outcome_class {
             line.push_str(&format!(" · {class}"));

@@ -49,7 +49,12 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
         text(
             k,
             "observed_at",
-            "When its oldest answer was observed (RFC 3339, UTC)",
+            "When its oldest journaled answer was observed (RFC 3339, UTC): the journal record's; absent when it read only the disk or git",
+        );
+        text(
+            k,
+            "digest",
+            "The digest of what its probes answered, free of when (sha256:<hex>)",
         );
     });
     c.collector("checks", |k| {
@@ -90,6 +95,9 @@ pub(crate) fn fact(row: &CheckOutcome) -> Fact {
     }
     if let Some(at) = row.observed_at {
         fact = fact.field("observed_at", rfc3339(at));
+    }
+    if let Some(digest) = &row.digest {
+        fact = fact.field("digest", digest.as_str());
     }
     fact
 }

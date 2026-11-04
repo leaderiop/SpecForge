@@ -556,3 +556,31 @@ fn checks_git_a_miss_git_cannot_decide_is_unchecked() {
     let found = with_git(&scene, repo(&scene, &[]));
     assert_eq!(coded(&found, "E106").len(), 1, "{found:?}");
 }
+
+#[specforge_test_macros::test(
+    behavior = "ck_outcome_facts",
+    verify = "two runs over the same tree give equal check outcomes"
+)]
+fn checks_outcomes_of_a_tree_are_the_same_run_after_run() {
+    let checks = json!({ "feature.refs": ["@specforge/checks:file"] });
+    let dir = links_project(&["a.md", "gone.md"], "o", checks).file("a.md", "x");
+    let scene = over(dir, FakeHttp::new());
+    let first = compiled_with_git(&scene, repo(&scene, &[]))
+        .value_checks()
+        .outcomes();
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    let again = compiled_with_git(&scene, repo(&scene, &[]))
+        .value_checks()
+        .outcomes();
+    assert_eq!(first, again);
+    assert_eq!(first.len(), 2, "{first:?}");
+    assert!(
+        first.iter().all(|row| row.observed_at.is_none()),
+        "{first:?}"
+    );
+    assert!(first.iter().all(|row| row.digest.is_some()), "{first:?}");
+    assert_ne!(
+        first[0].digest, first[1].digest,
+        "a file there and one gone"
+    );
+}

@@ -15,7 +15,8 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_effects::{Effects, OutcomeClass};
 pub use specforge_protocol_types::CheckStatus;
 use specforge_protocol_types::{
-    CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckValuesInput, PlannedItem,
+    CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckValuesInput, PlannedItem, Probe,
+    ProbeOutcome,
 };
 use specforge_registry::{CheckCall, Disk, EntitySnapshot, QualifiedChecker, ResolvedCheck};
 use specforge_wasm::{ExtensionCalls, Limits};
@@ -40,9 +41,11 @@ pub struct ValueRow {
     pub status: CheckStatus,
     /// The class of what its probes answered: `Ok` for a checker with none; `None` when it did not run.
     pub outcome_class: Option<OutcomeClass>,
-    /// When its oldest probe answer was observed (Unix milliseconds); `None` for a pure checker.
+    /// When its oldest journaled answer was observed (Unix milliseconds); `None` when no answer has a record.
     pub observed_at: Option<u64>,
     pub from_cache: bool,
+    /// The digest of what its probes answered, free of when; `None` when it did not run.
+    pub digest: Option<String>,
     /// The codes it found, as written by the checker.
     pub codes: Vec<String>,
 }
@@ -81,6 +84,7 @@ impl ValueChecks {
                     outcome: row.outcome_class,
                     observed_at: row.observed_at,
                     from_cache: row.from_cache,
+                    digest: row.digest.clone(),
                     codes: row.codes.clone(),
                 })
             })
@@ -240,11 +244,42 @@ struct Settled {
     observed: Observed,
 }
 
-/// Where the answers of a row come from: when the oldest was observed, and whether one came from the journal.
-#[derive(Debug, Clone, Copy, Default)]
+/// Where the answers of a row come from: when the oldest journaled one was observed, whether one came from the
+/// journal, and their digest.
+#[derive(Debug, Clone, Default)]
 struct Observed {
     at: Option<u64>,
     from_cache: bool,
+    digest: Option<String>,
+}
+
+impl Observed {
+    /// What `outcomes` came to. A disk or git answer has no journal record, so it gives no time: two runs over the same
+    /// tree say the same. The digest leaves out the time and the cache for that reason too.
+    fn of(outcomes: &[ProbeOutcome]) -> Observed {
+        let journaled = |outcome: &&ProbeOutcome| {
+            matches!(
+                outcome.probe,
+                Probe::HttpHead { .. }
+                    | Probe::HttpGet { .. }
+                    | Probe::HttpTls { .. }
+                    | Probe::DnsResolve { .. }
+            )
+        };
+        let answered: Vec<_> = outcomes
+            .iter()
+            .map(|outcome| (&outcome.probe, &outcome.class, &outcome.data))
+            .collect();
+        Observed {
+            at: outcomes
+                .iter()
+                .filter(journaled)
+                .map(|o| o.observed_at)
+                .min(),
+            from_cache: outcomes.iter().any(|outcome| outcome.from_cache),
+            digest: Some(specforge_effects::digest(&answered)),
+        }
+    }
 }
 
 impl Settled {
@@ -410,6 +445,7 @@ fn performed_and_judged(
                     findings: plan.findings.clone(),
                     judged: true,
                     class: Some(OutcomeClass::Ok),
+                    observed: Observed::of(&[]),
                     ..Settled::default()
                 },
             );
@@ -451,10 +487,7 @@ fn performed_and_judged(
             Settled {
                 findings: plan.findings.clone(),
                 class: Some(class),
-                observed: Observed {
-                    at: reading.outcomes.iter().map(|o| o.observed_at).min(),
-                    from_cache: reading.outcomes.iter().any(|o| o.from_cache),
-                },
+                observed: Observed::of(&reading.outcomes),
                 ..Settled::default()
             },
         );
@@ -613,7 +646,7 @@ fn settle(
             status,
             settled.class.filter(|_| status != CheckStatus::NotRun),
             kept,
-            settled.observed,
+            settled.observed.clone(),
         );
     }
 }
@@ -640,6 +673,7 @@ impl ValueChecks {
                 outcome_class,
                 observed_at: observed.at,
                 from_cache: observed.from_cache,
+                digest: observed.digest.filter(|_| status != CheckStatus::NotRun),
                 codes,
             });
     }

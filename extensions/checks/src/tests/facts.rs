@@ -55,6 +55,7 @@ fn row(
         outcome,
         observed_at: Some(1_767_225_600_000),
         from_cache: false,
+        digest: outcome.map(|_| format!("sha256:{item}")),
         codes: codes.iter().map(ToString::to_string).collect(),
     }
 }
@@ -95,8 +96,15 @@ fn each_outcome_row_becomes_one_fact_and_a_finding_is_failed() {
     assert_eq!(field(1, "outcome"), Some("status:404".into()));
     assert_eq!(field(1, "codes"), Some(serde_json::json!(["E093"])));
     assert_eq!(field(1, "observed_at"), Some("2026-01-01T00:00:00Z".into()));
+    assert_eq!(field(1, "digest"), Some("sha256:1".into()));
     assert_eq!(field(2, "status"), Some("skipped".into()));
     assert_eq!(field(2, "outcome"), None);
+    assert_eq!(field(2, "digest"), None);
+    let local = CheckOutcome {
+        observed_at: None,
+        ..row(3, CheckStatus::Passed, Some(OutcomeClass::Ok), &[])
+    };
+    assert_eq!(crate::facts::fact(&local).fields.get("observed_at"), None);
     assert_eq!(field(2, "item"), Some(2.into()));
 
     let unreachable = row(

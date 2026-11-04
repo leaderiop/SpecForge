@@ -44,11 +44,16 @@ pub struct CheckOutcome {
     /// The class of what its probes answered; absent when it did not run.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub outcome: Option<OutcomeClass>,
-    /// When its oldest probe answer was observed (Unix milliseconds); absent for a checker with no probes.
+    /// When its oldest journaled answer was observed (Unix milliseconds, the journal record's); absent when no answer
+    /// has a record: a pure checker, or one that read only the disk or git.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub observed_at: Option<u64>,
     #[serde(default)]
     pub from_cache: bool,
+    /// The digest of what its probes answered, free of when they were observed (`sha256:<hex>`); absent when it did
+    /// not run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub digest: Option<String>,
     /// The codes it found.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub codes: Vec<String>,
