@@ -1,4 +1,472 @@
 {
   "category": "checkers",
-  "items": []
+  "items": [
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "email",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "prerelease",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "semver",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "semver_range",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "deprecated",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "spdx",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list",
+        "date"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "date",
+            "datetime",
+            "any"
+          ],
+          "field_type": "enum",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "form",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iso_date",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iso_duration",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "seconds",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "cron",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "regex",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "file_reference": false,
+          "inverse_of": null,
+          "maximum": 8,
+          "minimum": 1,
+          "name": "version",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "uuid",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "mime",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "bcp47",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "alpha2",
+            "alpha3",
+            "numeric",
+            "any"
+          ],
+          "field_type": "enum",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "form",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iso3166",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "alpha2",
+            "alpha3",
+            "numeric",
+            "any"
+          ],
+          "field_type": "enum",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "form",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iso4217",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "canonical",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iana_tz",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "e164",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "4",
+            "6"
+          ],
+          "field_type": "enum",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "version",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "ip",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "strict",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "cidr",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "wildcard",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "hostname",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list",
+        "integer"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "zero",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "port",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "hex_color",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "luhn",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "mod11",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "mod97",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "gtin",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "isbn",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iban",
+      "when": "families.digits"
+    }
+  ]
 }

@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_checks.wasm",
-  "artifact_sha256": "1ab9020494ffc538618d9cf02d3e14b63cfbcfbb25e2417a1cf4e7e39cb727af",
+  "artifact_sha256": "0d579452c8a1f1f5eda9b8396daf2475f70a9f19ac738e6430c6b69fbd361ecb",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9566c33b63edf6f83a0624a96fa8d1b4e605c4b558117a14f3ea89c13793c4d3",
@@ -56,7 +56,7 @@
     "crates/runtime/extension-sdk/Cargo.toml": "41c03d21f457d3e7394d86a625742a525700ac1ddcb92b49487e0fc5dcaa2797",
     "crates/runtime/extension-sdk/src/builders.rs": "37cd35460bb6502327381f81d6db11f8f484589ffbc09a56c0503cb08bcddd22",
     "crates/runtime/extension-sdk/src/capability.rs": "61840b8f4306d89c5b93507d3380a626c7d2aa8166dfe0bac269bf3ceee6866c",
-    "crates/runtime/extension-sdk/src/checker.rs": "703b821311516ac1d21a6cd63ce5668152031e579e24c09e5676a1cefb13ebab",
+    "crates/runtime/extension-sdk/src/checker.rs": "d901733b45bcf542260f64114d3c01458cca53744f8695db7606e9b5b0947235",
     "crates/runtime/extension-sdk/src/command_graph.rs": "e88d26d3134c7591aa1afeee1f432ecdf0437a191c23b5d2eb50a50a0b7e5562",
     "crates/runtime/extension-sdk/src/contrib.rs": "68d63b1213a97250f15f6483640adff7aa887c10bb862db47d8bbfc476f10a68",
     "crates/runtime/extension-sdk/src/guest.rs": "d1805a20fb3cb635e1765026c31cfa7e9d14716573bcb39f8519f91d7a0d3466",
@@ -76,9 +76,11 @@
     "crates/runtime/extension-sdk/src/vocabulary.rs": "93f85b5300e870259d78823b33cc19639aac0c30d966e934d9125e693fc94281",
     "crates/runtime/extension-sdk/wit/host.wit": "ddc4443af93a787d3b3c521867adf60b47964cb4f9cb950706d556bb00e43ee5",
     "extensions/checks/Cargo.lock": "2d8d415f9ba8cf3e8d416be4d3e9a1e22c615bbc7cadab5c6fede413ea2d35b3",
-    "extensions/checks/Cargo.toml": "bf4ae73e13ffcc255fefc1464507a35a1dc93334d042d45626e4264e5acfbb34",
-    "extensions/checks/src/codes.rs": "e3ae850c40218aa09f052804ab29d53a2c1def3917383bc024b37ac2f33bc3ef",
-    "extensions/checks/src/families/mod.rs": "2d289b21e812c17032bddcb123f5f7a89eec468a4a3a8286d00e0b202e5559f2",
+    "extensions/checks/Cargo.toml": "586043f0edd41cc096f2ceeacf6abbc379d4c5bc0a02dda9a28ea53623cd61c2",
+    "extensions/checks/src/codes.rs": "ac06b46a421289cfeaa81515b4249c841da7dc543b1aa4dfabc71431d3482ebd",
+    "extensions/checks/src/families/digits.rs": "56cbca96440aff5b4a1255951f1ad6a80ffc27de394d316680555fb757ecc326",
+    "extensions/checks/src/families/formats.rs": "b9e7f87a99ae4e62da8d92e00bb414841a04aa34ab7f0b0855bb9e562cd6899a",
+    "extensions/checks/src/families/mod.rs": "6fae953fe7280dacef436137228552bc3abf826a5a85f8da4c4fe76ad09115e9",
     "extensions/checks/src/lib.rs": "9dcf94cba615e1bda56d8e07ea453856636b6d46bfd2507d8427643d6a80c275"
   }
 }

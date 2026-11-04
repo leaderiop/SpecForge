@@ -439,13 +439,8 @@ fn explain_catalog_matches_emitted_codes() {
             }
         }
     }
-    for code in AWAITED {
-        if emitted.contains(code) {
-            problems.push(format!("{code} is reported now; drop it from AWAITED"));
-        }
-    }
     for code in catalog.keys() {
-        if !emitted.contains(code) && !AWAITED.contains(code) {
+        if !emitted.contains(code) {
             problems.push(format!(
                 "{code} is in CATALOG but nothing reports it any more; remove the entry"
             ));
@@ -460,9 +455,6 @@ fn explain_catalog_matches_emitted_codes() {
         problems.join("\n  ")
     );
 }
-
-/// Codes catalogued ahead of the checkers that report them; the list empties as those land.
-const AWAITED: [&str; 1] = ["E103"];
 
 #[test]
 fn checks_transport_codes_are_machine() {

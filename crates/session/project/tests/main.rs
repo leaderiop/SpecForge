@@ -11,6 +11,7 @@ mod builtins;
 mod changes;
 mod check_passes;
 mod check_reads;
+mod checks_foundation;
 mod compile;
 mod computed;
 mod copy;

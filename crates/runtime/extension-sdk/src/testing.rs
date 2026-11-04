@@ -6,7 +6,10 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use crate::{CommandFormat, CommandGraph, CommandInput, CommandOutput, ContributionsBuilder};
-use specforge_protocol_types::{CommandArgType, FileFacts};
+use specforge_protocol_types::{
+    CheckFinding, CheckItem, CheckPhase, CheckValuesInput, CommandArgType, FileFacts, PlannedItem,
+    ProbeOutcome,
+};
 
 pub use crate::host::in_process::{InProcessHost, serve};
 
@@ -51,6 +54,52 @@ impl MockHost {
             serde_json::from_str(&self.handshake_json()).expect("actual is valid JSON");
         let e: serde_json::Value = serde_json::from_str(expected).expect("expected is valid JSON");
         assert_eq!(a, e, "handshake wire output mismatch");
+    }
+
+    /// What `checker` plans for a value of `text`, as `__check_values` answers it.
+    pub fn plan(&self, checker: &str, text: &str, args: serde_json::Value) -> PlannedItem {
+        self.check_values(CheckPhase::Plan, checker, text, args, Vec::new())
+    }
+
+    /// What `checker` judges of a value of `text` once its probes answered `outcomes`.
+    pub fn judge(
+        &self,
+        checker: &str,
+        text: &str,
+        args: serde_json::Value,
+        outcomes: Vec<ProbeOutcome>,
+    ) -> Vec<CheckFinding> {
+        self.check_values(CheckPhase::Judge, checker, text, args, outcomes)
+            .findings
+    }
+
+    fn check_values(
+        &self,
+        phase: CheckPhase,
+        checker: &str,
+        text: &str,
+        args: serde_json::Value,
+        outcomes: Vec<ProbeOutcome>,
+    ) -> PlannedItem {
+        let serde_json::Value::Object(args) = args else {
+            panic!("a checker's args are an object");
+        };
+        let input = CheckValuesInput {
+            phase,
+            items: vec![CheckItem {
+                id: 0,
+                checker: checker.to_string(),
+                entity: "an_entity".to_string(),
+                field: "a_field".to_string(),
+                item: 0,
+                text: text.to_string(),
+                args,
+                outcomes,
+            }],
+        };
+        let mut answer = crate::checker::answer(&self.0.checkers.borrow(), &input)
+            .unwrap_or_else(|why| panic!("{why}"));
+        answer.items.remove(0)
     }
 }
 

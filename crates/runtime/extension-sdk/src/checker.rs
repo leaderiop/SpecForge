@@ -78,7 +78,7 @@ impl ContributionsBuilder {
 }
 
 /// Each item's answer, by its checker and the call's phase. A checker the extension does not have fails the call.
-fn answer(
+pub(crate) fn answer(
     checkers: &BTreeMap<String, Handlers>,
     input: &CheckValuesInput,
 ) -> Result<CheckPlan, String> {

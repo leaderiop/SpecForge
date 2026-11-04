@@ -12,6 +12,7 @@ specforge-checks-kit = { path = "../../crates/leaf/checks-kit", features = ["dig
 serde_json = "1.0"
 
 [dev-dependencies]
+specforge-extension-sdk = { path = "../../crates/runtime/extension-sdk", features = ["testing"] }
 specforge-protocol-types = { path = "../../crates/leaf/protocol-types" }
 # Spec links: #[specforge_test(behavior = "…", verify = "…")] (ADR 0002).
 specforge-test = { path = "../../integrations/rust/specforge-test" }

@@ -37,7 +37,7 @@
     "crates/runtime/extension-sdk/Cargo.toml": "41c03d21f457d3e7394d86a625742a525700ac1ddcb92b49487e0fc5dcaa2797",
     "crates/runtime/extension-sdk/src/builders.rs": "37cd35460bb6502327381f81d6db11f8f484589ffbc09a56c0503cb08bcddd22",
     "crates/runtime/extension-sdk/src/capability.rs": "61840b8f4306d89c5b93507d3380a626c7d2aa8166dfe0bac269bf3ceee6866c",
-    "crates/runtime/extension-sdk/src/checker.rs": "703b821311516ac1d21a6cd63ce5668152031e579e24c09e5676a1cefb13ebab",
+    "crates/runtime/extension-sdk/src/checker.rs": "d901733b45bcf542260f64114d3c01458cca53744f8695db7606e9b5b0947235",
     "crates/runtime/extension-sdk/src/command_graph.rs": "e88d26d3134c7591aa1afeee1f432ecdf0437a191c23b5d2eb50a50a0b7e5562",
     "crates/runtime/extension-sdk/src/contrib.rs": "68d63b1213a97250f15f6483640adff7aa887c10bb862db47d8bbfc476f10a68",
     "crates/runtime/extension-sdk/src/guest.rs": "d1805a20fb3cb635e1765026c31cfa7e9d14716573bcb39f8519f91d7a0d3466",

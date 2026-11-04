@@ -1,7 +1,13 @@
 //! The guest's tests, one module per family, against the declaration and the handlers themselves.
 
-use specforge_protocol_types::{ExtensionDeclaration, PortScope, SettingDescriptor, SettingsItem};
+use specforge_extension_sdk::testing::MockHost;
+use specforge_protocol_types::{
+    CheckFinding, ExtensionDeclaration, PlannedItem, PortScope, SettingDescriptor, SettingsItem,
+};
 use specforge_test::prelude::*;
+
+mod digits;
+mod formats;
 
 fn declaration() -> ExtensionDeclaration {
     crate::specforge_extension_build().declaration()
@@ -78,4 +84,35 @@ fn each_switch_gates_only_its_familys_codes() {
     assert_eq!(of("families.git"), ["E106", "W180"]);
     assert!(of("families.formats").is_empty() && of("families.digits").is_empty());
     assert_eq!(of("families.links").len(), 11);
+}
+
+/// What `checker` plans for `text` under `args`.
+fn planned(checker: &str, text: &str, args: serde_json::Value) -> PlannedItem {
+    MockHost::new(crate::specforge_extension_build()).plan(checker, text, args)
+}
+
+fn finding(checker: &str, text: &str, args: serde_json::Value) -> Option<CheckFinding> {
+    let plan = planned(checker, text, args);
+    assert!(plan.probes.is_empty(), "{checker} asked probes");
+    assert!(plan.findings.len() < 2, "{:?}", plan.findings);
+    plan.findings.into_iter().next()
+}
+
+fn clean(checker: &str, text: &str, args: serde_json::Value) {
+    assert_eq!(finding(checker, text, args), None, "{checker} on '{text}'");
+}
+
+fn e103(checker: &str, text: &str, args: serde_json::Value) -> CheckFinding {
+    let found =
+        finding(checker, text, args).unwrap_or_else(|| panic!("{checker} accepted '{text}'"));
+    assert_eq!(found.code, "E103");
+    found
+}
+
+/// The bytes of the value an E103 points at.
+fn e103_at(checker: &str, text: &str, args: serde_json::Value) -> [usize; 2] {
+    let found = e103(checker, text, args);
+    found
+        .at
+        .unwrap_or_else(|| panic!("{checker} on '{text}' points at nothing"))
 }

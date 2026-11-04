@@ -1,8 +1,13 @@
 //! The five families: what each may make the host do and the setting that switches it.
 
+use serde_json::{Map, Value};
+use specforge_checks_kit::Invalid;
 use specforge_extension_sdk::prelude::*;
 
 use crate::codes::*;
+
+mod digits;
+mod formats;
 
 /// The scopes the families' probes run under. Formats and digits read only the text, so they have none.
 const FILES: &str = "files";
@@ -70,5 +75,54 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
                 .describe(family.describe)
                 .gates(family.gates);
         });
+    }
+    formats::contribute(c);
+    digits::contribute(c);
+}
+
+/// A checker's arguments, as the host admitted them.
+pub(crate) type Args = Map<String, Value>;
+
+/// The field types a checker of text reads.
+const TEXT: &[&str] = &["string", "string_list"];
+
+fn flag(args: &Args, name: &str, otherwise: bool) -> bool {
+    args.get(name).and_then(Value::as_bool).unwrap_or(otherwise)
+}
+
+fn word<'a>(args: &'a Args, name: &str) -> Option<&'a str> {
+    args.get(name).and_then(Value::as_str)
+}
+
+/// A checker the text alone decides: a refusal is E103, on the part the kit points at, and it needs no scope. An empty
+/// value is the kernel's `required` to judge.
+fn well_formed(
+    c: &mut ContributionsBuilder,
+    switch: &str,
+    name: &str,
+    types: &[&str],
+    args: impl FnOnce(&mut CheckerBuilder),
+    check: impl Fn(&str, &Args) -> Result<(), Invalid> + 'static,
+) {
+    c.checker(name, |k| {
+        args(k);
+        k.applies_to(types)
+            .codes(&[E103])
+            .when(switch)
+            .plan(move |item| {
+                if item.text.is_empty() {
+                    return PlannedItem::default();
+                }
+                let finding = check(&item.text, &item.args).err().map(finding_of);
+                PlannedItem::findings(finding.into_iter().collect())
+            });
+    });
+}
+
+fn finding_of(invalid: Invalid) -> CheckFinding {
+    let finding = CheckFinding::new(E103, invalid.reason);
+    match invalid.at {
+        Some(range) => finding.at(range.start, range.end),
+        None => finding,
     }
 }

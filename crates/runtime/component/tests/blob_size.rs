@@ -38,8 +38,9 @@ use specforge_component::committed::COMMITTED;
 // about 26 KB per blob. The rule gives 6,900,000, with 48,622 B of headroom. The per-blob cap moved to the gate at 2.5 MB (ADR 0338 D8), so the
 // comments above that weigh product against its cap are history. A checker's `when` and the twelfth builtin, the skeleton
 // of `@specforge/checks` (478,009 B with no checker yet), measured 7,358,820 B; the rule gives 7,400,000, with 41,180 B of
-// headroom. Its families raise this again.
-const TOTAL_BUDGET: usize = 7_400_000;
+// headroom. Its families raise this again: formats and digits bring that blob to 1,838,772 B, nearly all of it
+// the one `regex` engine with its Unicode tables, and the total to 8,719,583 B; the rule gives 8,800,000.
+const TOTAL_BUDGET: usize = 8_800_000;
 
 #[test]
 fn committed_builtins_stay_under_their_size_budget() {
