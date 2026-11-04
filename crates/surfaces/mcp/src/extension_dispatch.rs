@@ -172,7 +172,7 @@ fn mcp_tool_adapter(
             None => ToolOutcome::ok(value),
         },
         // A failed call is the tool's error, and no dispatch is recorded.
-        Err(error) => return (failed_call(&error.diagnostic()).into(), None),
+        Err(error) => return (failed_call(&error).into(), None),
     };
     // A tool whose export returned is a dispatched tool; it succeeded when
     // its output is the tool's result.
@@ -238,7 +238,7 @@ fn command_adapter(
             (output_result(command, output), Some(event))
         }
         Err(RunError::Args(refused)) => (refused_args(&refused).into(), None),
-        Err(RunError::Call(error)) => (failed_call(&error.diagnostic()).into(), None),
+        Err(RunError::Call(error)) => (failed_call(&error).into(), None),
         Err(RunError::NoProject(error)) => (McpError::from(error).into(), None),
         Err(RunError::Gate(error) | RunError::State(error)) => {
             (McpError::from(*error).into(), None)
@@ -312,7 +312,7 @@ fn resource_adapter(
             let text = ResourceText::new(read.mime_type, read.content);
             (Ok(text), Some(event))
         }
-        Err(error) => (Err(Box::new(failed_call(&error.diagnostic()))), None),
+        Err(error) => (Err(Box::new(failed_call(&error))), None),
     }
 }
 
@@ -390,8 +390,12 @@ fn output_result(command: &ExtensionCommand, output: CommandOutput) -> ToolOutco
 
 /// A failed extension call as an MCP error: the diagnostic the runtime
 /// reported, in `diagnostic`.
-pub(crate) fn failed_call(diagnostic: &specforge_common::Diagnostic) -> McpError {
-    McpError::new(ErrorCode::InternalError, diagnostic.message.clone()).with_diagnostic(diagnostic)
+pub(crate) fn failed_call(error: &specforge_wasm::CallError) -> McpError {
+    let diagnostic = error.diagnostic();
+    let mut failed = McpError::new(ErrorCode::InternalError, diagnostic.message.clone())
+        .with_diagnostic(&diagnostic);
+    failed.reported.extend(error.denials.iter().cloned());
+    failed
 }
 
 /// How long since `started`, in whole milliseconds.

@@ -75,6 +75,14 @@ fn guest(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
             ),
             _ => return None,
         },
+        "refused_then_trap" | "refused_then_error" => {
+            let refused = host::http::send(&http_request("https://elsewhere.test/a"));
+            assert!(refused.is_err(), "{refused:?}");
+            if export == "refused_then_trap" {
+                panic!("the guest traps");
+            }
+            return Some(Err("the guest answers an error".to_string()));
+        }
         _ => return None,
     };
     Some(Ok(answer.to_string().into_bytes()))
@@ -207,6 +215,22 @@ fn a_port_call_outside_the_grant_is_denied_and_reported() {
     assert_eq!(denials.len(), 1, "{denials:?}");
     assert_eq!(denials[0].code, "E090");
     assert!(denials[0].message.contains(EXT), "{}", denials[0].message);
+}
+
+/// A guest that was refused cannot hide it by trapping or by answering an error.
+#[test]
+fn a_call_that_fails_still_reports_what_it_was_refused() {
+    for export in ["refused_then_trap", "refused_then_error"] {
+        let runtime = runtime();
+        let fakes = lent();
+        let calls = specforge_wasm::ExtensionCalls::new(&runtime).with_ports(fakes.call.clone());
+        let failed = calls
+            .call_mcp_tool(EXT, export, &json!({}))
+            .expect_err(export);
+        assert_eq!(failed.denials.len(), 1, "{export}: {failed:?}");
+        assert_eq!(failed.denials[0].code, "E090", "{export}");
+        assert!(fakes.call.take_denials().is_empty(), "{export}: taken once");
+    }
 }
 
 /// A guest in a loop is told each time, and costs the host a bounded list: the first denials, each cut to a fixed

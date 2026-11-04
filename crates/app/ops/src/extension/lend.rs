@@ -61,6 +61,6 @@ pub fn port_call(
 }
 
 /// `denials` as a person reads them, one a line: what a command adds to its stderr.
-pub(crate) fn written(denials: &[Diagnostic]) -> String {
+pub fn written(denials: &[Diagnostic]) -> String {
     denials.iter().map(|denial| format!("{denial}\n")).collect()
 }

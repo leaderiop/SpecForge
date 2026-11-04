@@ -299,7 +299,16 @@ pub fn collect(
             Some(view),
             lent.clone(),
         )
-        .map_err(|error| OpError::of(OpErrorKind::Internal, error.diagnostic()))?;
+        .map_err(|error| {
+            let mut failed = OpError::of(OpErrorKind::Internal, error.diagnostic());
+            // A failure has no diagnostics of its own: what a guest was refused, this collector or an earlier one,
+            // goes with its message, or failing would hide it.
+            let earlier = diagnostics.iter().filter(|d| codes::E090.matches(&d.code));
+            for denial in earlier.chain(&error.denials) {
+                failed.message.push_str(&format!("\n{denial}"));
+            }
+            failed
+        })?;
         if let Some(lent) = lent {
             diagnostics.extend(lent.take_denials());
         }

@@ -67,6 +67,7 @@ mod journal;
 mod judged_inputs;
 mod judged_writes;
 mod kinds;
+mod lent_denials;
 mod lent_effects;
 mod lent_process;
 mod local_component;

@@ -96,7 +96,7 @@ fn attempt(
     let run = match run {
         Ok(run) => run,
         Err(RunError::Args(refused)) => return (Err(refused_args(&refused).into()), None),
-        Err(RunError::Call(error)) => return (Err(failed_call(&error.diagnostic()).into()), None),
+        Err(RunError::Call(error)) => return (Err(failed_call(&error).into()), None),
         Err(RunError::NoProject(error)) => return (Err(McpError::from(error).into()), None),
         Err(RunError::Gate(error) | RunError::State(error)) => {
             return (Err(McpError::from(*error).into()), None);

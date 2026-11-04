@@ -25,6 +25,16 @@ fn declaration() -> ContributionsBuilder {
             .schemes(&["https"])
             .why("call the API"),
     );
+    c.command("refused", |cmd| {
+        cmd.title("Refused").handler(|_| {
+            let refused = host::http::send(&HttpRequest {
+                method: "GET".to_string(),
+                url: "https://elsewhere.test/a".to_string(),
+                ..Default::default()
+            });
+            panic!("traps after {refused:?}");
+        });
+    });
     c.command("ping", |cmd| {
         cmd.title("Ping").handler(|_| {
             let answered = host::http::send(&HttpRequest {
@@ -57,6 +67,13 @@ fn served() -> (Served, Arc<FakeHttp>) {
     .with_consent(Arc::new(MemoryConsent::approving_everything()))
     .with_extension_runtime(shared);
     (Served::over(project, server), http)
+}
+
+#[test]
+fn a_tool_that_traps_still_reports_what_it_was_refused() {
+    let (mut served, _) = served();
+    let reply = call_tool(&mut served, "specforge.lent.refused", json!({}));
+    assert!(reply.to_string().contains("E090"), "{reply}");
 }
 
 #[test]

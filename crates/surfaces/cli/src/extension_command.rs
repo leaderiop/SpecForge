@@ -340,6 +340,13 @@ fn written(error: &RunError, format: CommandFormat) -> String {
                     "suggestion": refusal.suggestion, "data": refusal.data,
                 })
                 .to_string(),
+                // What the guest was refused on its way to failing.
+                RunError::Call(call) if !call.denials.is_empty() => {
+                    let mut line = serde_json::to_value(error.to_command_error())
+                        .expect("command error serialization cannot fail");
+                    line["data"] = serde_json::json!({ "denials": call.denials });
+                    line.to_string()
+                }
                 _ => serde_json::to_string(&error.to_command_error())
                     .expect("command error serialization cannot fail"),
             };
@@ -348,7 +355,10 @@ fn written(error: &RunError, format: CommandFormat) -> String {
         }
         CommandFormat::Human => match error {
             RunError::Args(error) => format!("error: {error}\n"),
-            RunError::Call(error) => call_text(&error.diagnostic()),
+            RunError::Call(error) => {
+                specforge_ops::extension::lend::written(&error.denials)
+                    + &call_text(&error.diagnostic())
+            }
             RunError::NoProject(error) => format!("error[{}]: {}\n", error.code, error.message),
             RunError::State(error) => format!("error[{}]: {}\n", error.code, error.message),
             RunError::Gate(error) => failed_gate(error),

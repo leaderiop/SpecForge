@@ -66,6 +66,8 @@ pub struct CallError {
     pub extension: String,
     pub export: String,
     pub failure: CallFailure,
+    /// What the call was refused before it failed (ADR 0335 D4): failing is no way for a guest to hide an E090.
+    pub denials: Vec<Diagnostic>,
 }
 
 impl CallError {
@@ -80,6 +82,7 @@ impl CallError {
             extension: extension.to_string(),
             export: export.to_string(),
             failure,
+            denials: Vec::new(),
         }
     }
 
@@ -415,8 +418,14 @@ impl<'r> ExtensionCalls<'r> {
         bytes: &[u8],
         expected: &'static str,
     ) -> Result<O, CallError> {
-        let answer = self.call_raw(operation, extension, export, bytes)?;
-        decode(operation, extension, export, &answer, expected)
+        self.call_raw(operation, extension, export, bytes)
+            .and_then(|answer| decode(operation, extension, export, &answer, expected))
+            .map_err(|mut error| {
+                if let Some(lent) = &self.lent {
+                    error.denials = lent.take_denials();
+                }
+                error
+            })
     }
 
     /// The members every call but the handshake and describe carries (ADR 0288): the extension's own settings

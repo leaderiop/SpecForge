@@ -427,6 +427,37 @@ fn a_usage_error_names_an_arg_as_it_is_declared() {
     behavior = "dispatch_surface_command",
     verify = "under --format json a command whose export trapped prints one JSON error object"
 )]
+fn a_trapped_command_reports_what_it_was_refused_in_either_format() {
+    let mut trap = CallError::new(
+        Operation::Command,
+        "@acme/x",
+        "cmd__x",
+        CallFailure::Trapped {
+            kind: "call_failed".into(),
+            message: "unreachable: the command panicked".into(),
+        },
+    );
+    trap.denials = vec![specforge_common::Diagnostic::new(
+        specforge_common::codes::E090,
+        "extension '@acme/x': outside",
+    )];
+    let trap = RunError::Call(trap);
+
+    let human = written(&trap, CommandFormat::Human);
+    assert!(human.contains("E090"), "{human}");
+    assert!(human.contains("error[E028]"), "{human}");
+
+    let json = written(&trap, CommandFormat::Json);
+    assert_eq!(json.lines().count(), 1, "{json}");
+    let error: Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(error["code"], "E028", "{json}");
+    assert_eq!(error["data"]["denials"][0]["code"], "E090", "{json}");
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "under --format json a command whose export trapped prints one JSON error object"
+)]
 fn a_trapped_command_reports_in_the_format_asked_for() {
     let trap = CallError::new(
         Operation::Command,
