@@ -5,6 +5,7 @@
 //! The file is untrusted: no entity is expanded and nesting is held to [`MAX_DEPTH`].
 
 use quick_xml::Reader;
+use quick_xml::escape::unescape;
 use quick_xml::events::attributes::Attribute;
 use quick_xml::events::{BytesStart, Event};
 
@@ -62,9 +63,8 @@ fn at(bytes: &[u8], offset: u64) -> At {
 }
 
 /// A name's local part (after any prefix), as text.
-fn local(name: &[u8]) -> String {
-    let local = name.rsplit(|b| *b == b':').next().unwrap_or(name);
-    String::from_utf8_lossy(local).into_owned()
+fn local(name: &str) -> String {
+    name.rsplit(':').next().unwrap_or(name).to_string()
 }
 
 /// Whether a written URL runs script: its scheme, once tabs and newlines are dropped and leading spaces and controls
@@ -80,9 +80,8 @@ fn runs_script(value: &str) -> bool {
 }
 
 /// Whether `raw` refers to an entity other than XML's five and character references.
-fn unknown_entity(raw: &[u8]) -> Option<String> {
-    let text = String::from_utf8_lossy(raw);
-    text.split('&').skip(1).find_map(|rest| {
+fn unknown_entity(raw: &str) -> Option<String> {
+    raw.split('&').skip(1).find_map(|rest| {
         let name = rest.split(';').next().unwrap_or(rest);
         let known = matches!(name, "lt" | "gt" | "amp" | "apos" | "quot") || name.starts_with('#');
         (!known).then(|| format!("&{name};"))
@@ -93,10 +92,8 @@ fn unknown_entity(raw: &[u8]) -> Option<String> {
 fn active_attribute(element: &str, attribute: &Attribute<'_>) -> Option<String> {
     let name = local(attribute.key.as_ref());
     let raw = attribute.value.as_ref();
-    let value = attribute
-        .unescape_value()
-        .map(|v| v.into_owned())
-        .unwrap_or_else(|_| String::from_utf8_lossy(raw).into_owned());
+    // Unescaped but not whitespace-normalized: an SVG inlined in HTML keeps a tab or a newline, which a URL drops.
+    let value = unescape(raw).map_or_else(|_| raw.to_string(), |v| v.into_owned());
     let lower = name.to_ascii_lowercase();
     if lower.len() > 2 && lower.starts_with("on") {
         return Some(format!("an event attribute '{name}' on <{element}>"));
@@ -184,7 +181,7 @@ pub fn scan(bytes: &[u8]) -> Result<Option<Active>, Refusal> {
             }
             Event::End(_) => depth = depth.saturating_sub(1),
             Event::Text(text) if depth == 0 => {
-                if !text.iter().all(u8::is_ascii_whitespace) {
+                if !text.bytes().all(|b| b.is_ascii_whitespace()) {
                     return Err(refused("text outside the root element".to_string(), start));
                 }
             }
@@ -192,7 +189,7 @@ pub fn scan(bytes: &[u8]) -> Result<Option<Active>, Refusal> {
                 return Err(refused("text outside the root element".to_string(), start));
             }
             Event::GeneralRef(reference) => {
-                let name = String::from_utf8_lossy(reference.as_ref()).into_owned();
+                let name = String::from(&*reference);
                 let known = matches!(name.as_str(), "lt" | "gt" | "amp" | "apos" | "quot")
                     || name.starts_with('#');
                 if !known && first.is_none() {
@@ -221,7 +218,7 @@ pub fn is_svg(head: &[u8]) -> bool {
             Ok(Event::Start(element) | Event::Empty(element)) => {
                 return local(element.name().as_ref()) == "svg";
             }
-            Ok(Event::Text(text)) if text.iter().all(u8::is_ascii_whitespace) => {}
+            Ok(Event::Text(text)) if text.bytes().all(|b| b.is_ascii_whitespace()) => {}
             Ok(Event::Decl(_) | Event::Comment(_) | Event::PI(_) | Event::DocType(_)) => {}
             _ => return false,
         }
