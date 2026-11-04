@@ -25,7 +25,7 @@ const NEEDLES: &[&str] = &[
 const ALLOWED: &[(&str, &str, usize, &str)] = &[
     (
         "consent.rs",
-        "fs::read_to_string(",
+        "File::open(",
         1,
         "the user's consent store, not a project file",
     ),
