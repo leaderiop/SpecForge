@@ -79,3 +79,4 @@ mod value_probes;
 mod value_records;
 mod value_roots;
 mod value_text;
+mod value_when;

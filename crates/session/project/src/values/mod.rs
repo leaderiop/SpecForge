@@ -270,19 +270,26 @@ pub(crate) fn run(
     let Some(runtime) = env.runtime().filter(|_| wanted) else {
         return phase;
     };
+    let running = |call: &CheckCall| running(env, call);
     let mut values = collect::values(entities, checks, text_of);
+    values.retain(|value| {
+        value
+            .checks
+            .iter()
+            .any(|check| check.calls().iter().any(running))
+    });
     if values.len() > VALUE_CAP {
         let over = values.split_off(VALUE_CAP);
         effects.count_not_run(budget::OVER, over.len());
         for value in &over {
             for check in value.checks {
-                for call in check.calls() {
+                for call in check.calls().iter().filter(|call| running(call)) {
                     phase.checks.add_not_run(value, call);
                 }
             }
         }
     }
-    let planned = planned(&values);
+    let planned = planned(&values, &running);
     let asking = Asking {
         env,
         effects,
@@ -325,6 +332,24 @@ pub(crate) fn run(
         }
     }
     phase
+}
+
+/// Whether `call`'s checker is on: a `when` setting that is false leaves it uncalled, so it sends no probe and asks no
+/// scope, and its value owes nothing.
+fn running(env: &Environment, call: &CheckCall) -> bool {
+    let checker = env
+        .registries()
+        .checks()
+        .checker(&call.extension, &call.checker);
+    let settings = env.settings().of(&call.extension);
+    checker.is_none_or(|checker| {
+        checker.when.iter().all(|name| {
+            settings
+                .and_then(|values| values.get(name))
+                .and_then(|setting| setting.value.as_ref())
+                != Some(&serde_json::Value::Bool(false))
+        })
+    })
 }
 
 /// Which calls are dropped: those of a value's checks after one whose every branch failed in its plan (an invalid URL
@@ -466,13 +491,13 @@ fn item_of(one: &Planned<'_>, value: &Value<'_>) -> CheckItem {
     }
 }
 
-/// One [`Planned`] per call of each check of each value, ids counted per extension.
-fn planned<'a>(values: &'a [Value<'a>]) -> Vec<Planned<'a>> {
+/// One [`Planned`] per running call of each check of each value, ids counted per extension.
+fn planned<'a>(values: &'a [Value<'a>], running: &dyn Fn(&CheckCall) -> bool) -> Vec<Planned<'a>> {
     let mut next: BTreeMap<&str, u32> = BTreeMap::new();
     let mut planned = Vec::new();
     for (index, value) in values.iter().enumerate() {
         for (position, check) in value.checks.iter().enumerate() {
-            for call in check.calls() {
+            for call in check.calls().iter().filter(|call| running(call)) {
                 let id = next.entry(&call.extension).or_default();
                 planned.push(Planned {
                     value: index,

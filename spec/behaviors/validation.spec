@@ -517,6 +517,7 @@ behavior check_field_values "Check Field Values" {
   verify unit "a record fetched with one extension's secret answers no other extension in any mode"
   verify unit "a 401 one extension was answered does not answer another"
   verify unit "a committed effect record or checker memo forges no pass"
+  verify unit "a checker whose when setting is off is not called and asks no scope"
   verify unit "a spec root outside the project is an outside root a probe needs approval to read"
   verify unit "what is over a run's budget is not run and counts toward I206 as budget"
   verify unit "a judge call stays inside its guest's memory limit"

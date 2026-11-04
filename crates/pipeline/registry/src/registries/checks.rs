@@ -10,7 +10,7 @@ use specforge_diagnostics::{Codebook, letter_level};
 use specforge_graph::FieldForm;
 use specforge_protocol_types::{
     CheckRef, CheckerDescriptor, ExtensionDeclaration, FieldDescriptor, FieldType, FieldWriter,
-    ValueForm,
+    SettingsItem, ValueForm,
 };
 
 use super::{FieldRegistry, FieldRegistryEntry, KindRegistry};
@@ -520,6 +520,16 @@ fn checker_problem(
     }) {
         return Some(format!(
             "uses the scope '{scope}', which the extension declares no capability for"
+        ));
+    }
+    if let Some(setting) = checker.when.iter().find(|name| {
+        !declaration.settings.iter().any(|item| {
+            matches!(item, SettingsItem::Setting(setting)
+                if setting.name == **name && setting.field_type == "bool")
+        })
+    }) {
+        return Some(format!(
+            "runs when '{setting}', which is no bool setting of the extension"
         ));
     }
     let extension = declaration.name();

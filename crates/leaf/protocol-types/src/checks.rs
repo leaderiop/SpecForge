@@ -125,6 +125,13 @@ pub struct CheckerDescriptor {
     /// A `path` checker's argument that names a bare path's default root.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root_arg: Option<String>,
+    /// Bool settings of the extension: while one is false the checker is not called, sends no probe and asks no scope.
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        with = "crate::contrib::when_names"
+    )]
+    pub when: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }

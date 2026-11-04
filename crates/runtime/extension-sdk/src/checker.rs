@@ -160,6 +160,12 @@ impl CheckerBuilder {
         self
     }
 
+    /// A bool setting of the extension: while it is false the checker is not called. All of them must be on.
+    pub fn when(&mut self, setting: &str) -> &mut Self {
+        self.descriptor.when.push(setting.to_string());
+        self
+    }
+
     /// Its findings from the text, or the probes it needs performed.
     pub fn plan(&mut self, plan: impl Fn(&CheckItem) -> PlannedItem + 'static) -> &mut Self {
         self.plan = Some(Box::new(plan));
