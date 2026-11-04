@@ -125,3 +125,25 @@ behavior ck_git_family "Git Family" {
   verify unit "a commit, ref or file at a revision the repository lacks is E106"
   verify unit "a path the commit at HEAD does not hold is W180"
 }
+
+behavior ck_outcome_facts "Check Outcome Facts" {
+  features [ck_value_checks]
+  category command
+  ensures {
+    one_fact_per_check "Each checked value's outcome becomes one check_outcome fact"
+    published_on_ask   "The checks collector runs only when named or under checks.publish"
+  }
+  contract """
+    The checks collector MUST read only the check_outcomes input and
+    declare no detection, command or report, so a plain collect runs it
+    only under `checks.publish`. Each served row MUST become one
+    check_outcome fact, its id check:<entity>/<field>#<item>@<checker>,
+    its status passed (no finding), failed (a finding) or skipped (not
+    performed), with the outcome class, the codes found and the time of
+    the oldest answer in RFC 3339.
+  """
+  verify unit "the checks collector declares the check_outcomes input and no detection, command or report"
+  verify unit "each served row becomes one check_outcome fact, a finding failed and a check not performed skipped"
+  verify integration "collect --runner checks stores one check_outcome fact per checked value under the head commit"
+  verify integration "a plain collect leaves the checks collector out unless checks.publish is set"
+}

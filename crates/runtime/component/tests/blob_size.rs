@@ -43,8 +43,10 @@ use specforge_component::committed::COMMITTED;
 // The files family brings it to 1,859,652 B and the total to 8,720,439 B, the SDK's `file_reference` gone from every
 // blob: the budget holds, with 79,561 B of headroom. The links family (the WHATWG `url` parser, with its IDNA tables,
 // and the HTML anchor reader) brings it to 2,064,823 B and the total to 8,925,610 B; the rule gives 9,000,000, with
-// 74,390 B of headroom.
-const TOTAL_BUDGET: usize = 9_000_000;
+// 74,390 B of headroom. The git family brings it to 2,079,490 B, and the `checks` collector with its `check_outcome`
+// kind (the SDK's collector and fact machinery, linked for the first time) to 2,149,827 B and the total to
+// 9,010,614 B; the rule gives 9,100,000, with 89,386 B of headroom.
+const TOTAL_BUDGET: usize = 9_100_000;
 
 #[test]
 fn committed_builtins_stay_under_their_size_budget() {

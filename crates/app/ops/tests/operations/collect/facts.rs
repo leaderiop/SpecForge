@@ -519,3 +519,103 @@ fn a_pass_is_sent_each_unheld_reference() {
         "no store was served"
     );
 }
+
+/// A feature whose `owner` is a URL the `url` checker reads and whose `refs` name `here.md`, which `file` finds: the
+/// builtin `@specforge/checks` beside `@specforge/product`, the head commit `SHA`.
+fn checked_project(publish: bool) -> (TestProject, specforge_project::CompiledProject) {
+    let project = TestProject::new()
+        .config(move |c| {
+            c["name"] = "p".into();
+            c["checks"] = json!({
+                "publish": publish,
+                "fields": {
+                    "feature.owner": ["@specforge/checks:url"],
+                    "feature.refs": ["@specforge/checks:file"]
+                }
+            });
+        })
+        .enabling(&["@specforge/product", "@specforge/checks"])
+        .file("here.md", "here")
+        .file(
+            "a.spec",
+            "feature f \"F\" {\n  status planned\n  problem \"p\"\n  solution \"s\"\n  owner \"https://a.example/\"\n  refs [\"here.md\"]\n}\n",
+        );
+    let git: SharedGit = Arc::new(FakeGit::repo(project.root(), SHA, Vec::new()));
+    let compiled = project.compile_with(specforge_project::testing::component_runtime(), Some(git));
+    (project, compiled)
+}
+
+fn run(compiled: &specforge_project::CompiledProject, runner: Option<&str>) -> Option<Outcome> {
+    let view = ProjectView::of(compiled);
+    let mut outcome = collect::collect(
+        &view,
+        Request {
+            runner,
+            mode: Mode::NoRun,
+            announce: &mut |_, _| {},
+            caller: caller(),
+        },
+        &ScriptedMachine::new(),
+        &specforge_effects::testing::MemoryConsent::default(),
+    )
+    .ok()?;
+    let facts = std::mem::take(&mut outcome.facts);
+    apply_collected(&view, Vec::new(), facts, false, caller()).expect("the facts are stored");
+    Some(outcome)
+}
+
+#[specforge_test(
+    behavior = "ck_outcome_facts",
+    verify = "collect --runner checks stores one check_outcome fact per checked value under the head commit"
+)]
+fn checks_collect_runner_checks_stores_check_outcome_facts() {
+    let (project, compiled) = checked_project(false);
+    let outcome = run(&compiled, Some("checks")).expect("the collect runs");
+    assert!(
+        outcome.diagnostics.iter().all(|d| d.code != "E116"),
+        "{:?}",
+        outcome.diagnostics
+    );
+
+    let bytes = std::fs::read(project.root().join(Store::path("checks", SHA))).expect("a store");
+    let stored: Value = serde_json::from_slice(&bytes).unwrap();
+    let facts = stored["facts"].as_array().expect("facts");
+    assert_eq!(facts.len(), 2, "{stored}");
+    let of = |checker: &str| {
+        facts
+            .iter()
+            .find(|f| f["fields"]["checker"] == checker)
+            .unwrap_or_else(|| panic!("{checker}: {stored}"))
+    };
+    let file = of("@specforge/checks:file");
+    assert_eq!(file["kind"], "check_outcome");
+    assert_eq!(file["id"], "check:f/refs#0@@specforge/checks:file");
+    assert_eq!(file["fields"]["status"], "passed");
+    // Not approved to reach the network here: not performed, so skipped.
+    assert_eq!(of("@specforge/checks:url")["fields"]["status"], "skipped");
+}
+
+#[specforge_test(
+    behavior = "ck_outcome_facts",
+    verify = "a plain collect leaves the checks collector out unless checks.publish is set"
+)]
+fn checks_a_plain_collect_leaves_the_checks_collector_out() {
+    let (project, compiled) = checked_project(false);
+    assert!(!collect::reads_outcomes(
+        compiled.environment(),
+        project.root(),
+        None,
+        &Mode::NoRun
+    ));
+    let ran = run(&compiled, None).map(|o| o.runners.iter().any(|r| r.name == "checks"));
+    assert_ne!(ran, Some(true));
+    assert!(!project.root().join(Store::path("checks", SHA)).exists());
+
+    let (project, compiled) = checked_project(true);
+    assert!(collect::reads_outcomes(
+        compiled.environment(),
+        project.root(),
+        None,
+        &Mode::NoRun
+    ));
+}

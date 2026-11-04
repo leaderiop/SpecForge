@@ -7,6 +7,7 @@ use specforge_protocol_types::{
 use specforge_test::prelude::*;
 
 mod digits;
+mod facts;
 mod files;
 mod formats;
 mod git;

@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_checks.wasm",
-  "artifact_sha256": "8058ec58ce45b9cbdb8e9a9def9d9b17e39b7fb65c6d15f05cd165cdafeff788",
+  "artifact_sha256": "235491aa47ded811af0a688f0c261f637a9ebc6bcfb07872f4c102d56751b82e",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9566c33b63edf6f83a0624a96fa8d1b4e605c4b558117a14f3ea89c13793c4d3",
@@ -78,12 +78,13 @@
     "extensions/checks/Cargo.lock": "2d8d415f9ba8cf3e8d416be4d3e9a1e22c615bbc7cadab5c6fede413ea2d35b3",
     "extensions/checks/Cargo.toml": "586043f0edd41cc096f2ceeacf6abbc379d4c5bc0a02dda9a28ea53623cd61c2",
     "extensions/checks/src/codes.rs": "e6fd55af41d801344e17200a7ec23fe885bc11baafa75edc265d3024df0c2a73",
+    "extensions/checks/src/facts.rs": "9a6b29aed7d1b77187047ec044989907202361e70aafe608f54b5681c3e1c38f",
     "extensions/checks/src/families/digits.rs": "56cbca96440aff5b4a1255951f1ad6a80ffc27de394d316680555fb757ecc326",
     "extensions/checks/src/families/files.rs": "319a0db6b5f8487ae8d46a940c20656f242590891ce65f4d586c81da09bc08da",
     "extensions/checks/src/families/formats.rs": "b9e7f87a99ae4e62da8d92e00bb414841a04aa34ab7f0b0855bb9e562cd6899a",
     "extensions/checks/src/families/git.rs": "7335a10bd235bb7adeab206db661be7b5c2e3f6ca705516abb97857aca86c4e7",
     "extensions/checks/src/families/links.rs": "23eba96b46ac7b0871fcf47f8bb3ece4e4e7cfb4a4e1a3b8be3673648690032d",
     "extensions/checks/src/families/mod.rs": "18fcabf362eccff8b6ba3c4d7f9bb08f37162f4e080813bb625d6609b4814f74",
-    "extensions/checks/src/lib.rs": "9dcf94cba615e1bda56d8e07ea453856636b6d46bfd2507d8427643d6a80c275"
+    "extensions/checks/src/lib.rs": "4997471bfe74f948e99807ca3930681b5bf01a2e8205fc1062a24b9cacf53640"
   }
 }
