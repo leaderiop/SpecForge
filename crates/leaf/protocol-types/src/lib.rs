@@ -42,6 +42,7 @@ mod inputs;
 mod judged;
 mod operation;
 mod plan;
+mod ports;
 mod prompt;
 mod reads;
 mod route;
@@ -72,6 +73,10 @@ pub use inputs::{GitInput, Input, InputKind, Inputs};
 pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgement};
 pub use operation::Operation;
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
+pub use ports::{
+    Denial, Failure, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs, GitRepo,
+    GitSized, GitTreeEntry, HostError, HttpResponse, ProcessOutput,
+};
 pub use prompt::{
     Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptOutput,
     PromptRole, PromptStep, ServedSlash,

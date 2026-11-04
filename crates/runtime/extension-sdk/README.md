@@ -103,12 +103,13 @@ Categories the builders do not cover can be served with
 declares go to `component_guest!`'s `handler`, which can decode and encode with
 `answer_export`.
 
-## Host functions
+## Host ports
 
-None: a guest is pure compute. Everything it needs comes in its call's input,
-and its answer is the only channel back. It has no file system, environment or
-network, so an extension cannot reach a live business system; a typed
-host-import surface is planned.
+An extension reaches an effect only through the four `specforge:host` ports:
+`host::http`, `host::fs`, `host::process` and `host::git`. A guest imports only
+the interfaces it calls, and each call is judged by its call kind and its
+extension's grant, so declare what it uses with `c.capability(..)`. See
+[Capabilities and host ports](https://github.com/leaderiop/SpecForge/blob/main/docs/extension-sdk.md#capabilities-and-host-ports).
 
 ## License
 
