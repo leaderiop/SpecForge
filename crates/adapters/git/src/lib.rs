@@ -18,6 +18,7 @@ use specforge_effects::git::{
     GitWorktree, Located, LogQuery, ObjectKind, Sha, Sized, Staging, TreeEntry,
 };
 
+mod branching;
 mod history;
 mod refs;
 #[cfg(feature = "testing")]
@@ -399,6 +400,40 @@ impl Git for Gix {
         allow_empty: bool,
     ) -> Result<Committed, GitError> {
         write::commit(self, place, message, allow_empty)
+    }
+
+    fn branch_create(&self, place: &GitPlace, name: &str, at: &Sha) -> Result<(), GitError> {
+        branching::branch_create(place, name, at)
+    }
+
+    fn branch_delete(&self, place: &GitPlace, name: &str) -> Result<Sha, GitError> {
+        branching::branch_delete(place, name)
+    }
+
+    fn tag(
+        &self,
+        place: &GitPlace,
+        name: &str,
+        at: &Sha,
+        message: Option<&str>,
+    ) -> Result<Sha, GitError> {
+        branching::tag(place, name, at, message)
+    }
+
+    fn switch(&self, place: &GitPlace, name: &str) -> Result<(), GitError> {
+        branching::switch(place, name)
+    }
+
+    fn worktree_add(&self, place: &GitPlace, path: &Path, branch: &str) -> Result<(), GitError> {
+        branching::worktree_add(place, path, branch)
+    }
+
+    fn worktree_remove(&self, place: &GitPlace, path: &Path) -> Result<(), GitError> {
+        branching::worktree_remove(place, path)
+    }
+
+    fn worktree_prune(&self, place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
+        branching::worktree_prune(place)
     }
 
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {

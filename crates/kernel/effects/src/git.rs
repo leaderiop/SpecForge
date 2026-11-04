@@ -337,6 +337,42 @@ pub trait Git: Send + Sync {
     fn stage(&self, _place: &GitPlace, _staging: &Staging) -> Result<(), GitError> {
         Err(GitError("this git port cannot write".into()))
     }
+    /// Create the branch `name` at `at`; `Err` when it exists or is no valid branch name.
+    fn branch_create(&self, _place: &GitPlace, _name: &str, _at: &Sha) -> Result<(), GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Delete the branch `name`: the commit it named.
+    fn branch_delete(&self, _place: &GitPlace, _name: &str) -> Result<Sha, GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Create the tag `name` at `at`: annotated with `message` by the configured identity, else a plain ref. The object
+    /// it names (the tag object for an annotated one).
+    fn tag(
+        &self,
+        _place: &GitPlace,
+        _name: &str,
+        _at: &Sha,
+        _message: Option<&str>,
+    ) -> Result<Sha, GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Check out the branch `name` and move `HEAD` to it. A file the worktree changed that the checkout would
+    /// overwrite refuses it, and nothing moves.
+    fn switch(&self, _place: &GitPlace, _name: &str) -> Result<(), GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Add a linked worktree at `path` (absent or empty) on the existing branch `branch`.
+    fn worktree_add(&self, _place: &GitPlace, _path: &Path, _branch: &str) -> Result<(), GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Remove the linked worktree at `path`, its directory and its record.
+    fn worktree_remove(&self, _place: &GitPlace, _path: &Path) -> Result<(), GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
+    /// Drop the records of the linked worktrees whose directories are gone: where each was.
+    fn worktree_prune(&self, _place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
     /// Record the index as a commit on `HEAD` with `message` (kept byte for byte), by the identity the repository's
     /// configuration names, and move `HEAD`'s branch to it. `Err` when the index matches `HEAD` and `allow_empty` is
     /// false, or holds a conflict.

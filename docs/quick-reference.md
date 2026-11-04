@@ -89,6 +89,10 @@ specforge git branches [--remote]                  # {branches:[{name,sha,curren
 specforge git worktrees                            # {worktrees:[{path,branch,sha,main,locked,current}]}
 specforge git remotes --pick '.remotes[0].path'    # {remotes:[{name,url,push_url,host,path}]}: owner/repo
 specforge git commit --add spec -m 'feat: x'       # {sha,branch,parents,files}: hooks run; --all, --remove, --no-verify
+specforge git branch create|delete NAME            # {name,sha}: --at REV; delete --force for unmerged commits
+specforge git switch [--create] NAME               # the head answer; a changed file is never overwritten
+specforge git tag NAME [-m MSG] [--at REV]         # {name,sha}: annotated with -m
+specforge git worktree add|remove|prune DIR        # add --branch B [--create]; remove --force with changes
 
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions

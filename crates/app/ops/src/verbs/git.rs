@@ -10,8 +10,13 @@ use specforge_effects::git::{
 use super::{USER, Verbs, slashed};
 use crate::{OpError, OpErrorKind};
 
+mod branching;
 mod commit;
 
+pub use branching::{
+    PrunedAnswer, RefAnswer, branch_create, branch_delete, switch, tag, worktree_add,
+    worktree_prune, worktree_remove,
+};
 pub use commit::{CommitAnswer, CommitRequest, cleaned, commit};
 
 /// `git repo`'s answer: where the repository is.

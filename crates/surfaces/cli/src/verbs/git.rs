@@ -37,6 +37,127 @@ pub(crate) enum Action {
     Remotes(Plain),
     /// Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
     Commit(CommitArgs),
+    /// Create or delete a branch
+    #[command(subcommand)]
+    Branch(BranchAction),
+    /// Move HEAD to a branch, its files checked out; a file the worktree changed is never overwritten
+    Switch(SwitchArgs),
+    /// Create a tag: annotated with -m, else a plain ref
+    Tag(TagArgs),
+    /// Add, remove or prune linked worktrees
+    #[command(subcommand)]
+    Worktree(WorktreeAction),
+}
+
+#[derive(clap::Subcommand)]
+pub(crate) enum BranchAction {
+    /// Create a branch at a revision (HEAD when absent)
+    Create(BranchCreateArgs),
+    /// Delete a branch: never HEAD's, and one with commits HEAD does not hold only with --force
+    Delete(BranchDeleteArgs),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct BranchCreateArgs {
+    name: String,
+
+    /// Where the branch starts; HEAD when absent
+    #[arg(long, value_name = "REV")]
+    at: Option<String>,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct BranchDeleteArgs {
+    name: String,
+
+    /// Delete it even when HEAD does not hold its commits
+    #[arg(long)]
+    force: bool,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct SwitchArgs {
+    /// The branch
+    name: String,
+
+    /// Create the branch first (at --at, or HEAD)
+    #[arg(short, long)]
+    create: bool,
+
+    /// Where a created branch starts; HEAD when absent
+    #[arg(long, value_name = "REV", requires = "create")]
+    at: Option<String>,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct TagArgs {
+    name: String,
+
+    /// The commit tagged; HEAD when absent
+    #[arg(long, value_name = "REV")]
+    at: Option<String>,
+
+    /// An annotated tag's message, by git's configured identity
+    #[arg(short, long, value_name = "MESSAGE")]
+    message: Option<String>,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Subcommand)]
+pub(crate) enum WorktreeAction {
+    /// Add a linked worktree at a directory (absent or empty) on a branch: its name when no --branch, made when missing
+    Add(WorktreeAddArgs),
+    /// Remove a linked worktree and its directory: one with changes or untracked files only with --force
+    Remove(WorktreeRemoveArgs),
+    /// Drop the records of linked worktrees whose directories are gone
+    Prune(Plain),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct WorktreeAddArgs {
+    /// The worktree's directory, from the current directory
+    #[arg(value_name = "DIR")]
+    dir: std::path::PathBuf,
+
+    /// The branch it is on
+    #[arg(long, value_name = "NAME")]
+    branch: Option<String>,
+
+    /// Create the branch first (at --at, or HEAD)
+    #[arg(short, long)]
+    create: bool,
+
+    /// Where a created branch starts; HEAD when absent
+    #[arg(long, value_name = "REV")]
+    at: Option<String>,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct WorktreeRemoveArgs {
+    /// The worktree's directory, from the current directory
+    #[arg(value_name = "DIR")]
+    dir: std::path::PathBuf,
+
+    /// Remove it with its changes and untracked files
+    #[arg(long)]
+    force: bool,
+
+    #[command(flatten)]
+    verb: VerbArgs,
 }
 
 #[derive(clap::Args)]
@@ -361,6 +482,74 @@ impl Action {
                         );
                     },
                 )
+            }
+            Action::Branch(BranchAction::Create(args)) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::branch_create(v, &args.name, args.at.as_deref()),
+                |t, a| outln!(t, "{} {}", shown(&a.name), a.sha),
+            ),
+            Action::Branch(BranchAction::Delete(args)) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::branch_delete(v, &args.name, args.force),
+                |t, a| outln!(t, "deleted {} (was {})", shown(&a.name), a.sha),
+            ),
+            Action::Switch(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::switch(v, &args.name, args.create, args.at.as_deref()),
+                |t, a| outln!(t, "{}", shown(a.branch.as_deref().unwrap_or("(detached)"))),
+            ),
+            Action::Tag(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::tag(v, &args.name, args.at.as_deref(), args.message.as_deref()),
+                |t, a| outln!(t, "{} {}", shown(&a.name), a.sha),
+            ),
+            Action::Worktree(WorktreeAction::Add(args)) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| {
+                    git::worktree_add(
+                        v,
+                        &args.dir,
+                        args.branch.as_deref(),
+                        args.create,
+                        args.at.as_deref(),
+                    )
+                },
+                |t, a| {
+                    outln!(
+                        t,
+                        "{} {}",
+                        shown(&a.path),
+                        shown(a.branch.as_deref().unwrap_or("(detached)"))
+                    )
+                },
+            ),
+            Action::Worktree(WorktreeAction::Remove(args)) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::worktree_remove(v, &args.dir, args.force),
+                |t, a| {
+                    for path in &a.pruned {
+                        outln!(t, "removed {}", shown(path));
+                    }
+                },
+            ),
+            Action::Worktree(WorktreeAction::Prune(args)) => {
+                answer(&args.verb, terminal, ports, git::worktree_prune, |t, a| {
+                    for path in &a.pruned {
+                        outln!(t, "pruned {}", shown(path));
+                    }
+                })
             }
         }
     }

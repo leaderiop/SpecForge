@@ -282,3 +282,177 @@ fn a_commit_in_a_linked_worktree_moves_its_branch() {
     assert_eq!(repo.sha("feature"), answer["sha"].as_str().unwrap());
     assert_eq!(repo.sha("main"), first);
 }
+
+#[test]
+fn a_branch_is_created_at_a_revision_and_deleted_once_head_holds_it() {
+    let (project, repo, first) = committed();
+    repo.write("b.txt", "b\n");
+    let second = repo.commit_all("second");
+    assert_eq!(
+        git(&project, &["branch", "create", "topic", "--at", "HEAD~1"])
+            .exits(0)
+            .json(),
+        json!({"name": "topic", "sha": first})
+    );
+    assert_eq!(repo.sha("topic"), first);
+    let refused = git(&project, &["branch", "create", "topic", "--at", "HEAD~1"]).exits(1);
+    assert_eq!(refused.json()["code"], "git_refused", "{}", refused.stdout);
+    git(&project, &["branch", "delete", "topic"]).exits(0);
+    assert_eq!(
+        git(&project, &["rev", "topic", "--pick", ".revs[0].exists"])
+            .exits(0)
+            .stdout,
+        "false\n"
+    );
+    // a branch with commits HEAD does not hold needs --force; HEAD's own is never deleted
+    repo.branch("ahead", &second).detach(&first);
+    let refused = git(&project, &["branch", "delete", "ahead"]).exits(1);
+    assert_eq!(refused.json()["code"], "not_merged", "{}", refused.stdout);
+    git(&project, &["branch", "delete", "ahead", "--force"]).exits(0);
+    repo.head_on("main");
+    let refused = git(&project, &["branch", "delete", "main"]).exits(1);
+    assert_eq!(
+        refused.json()["code"],
+        "current_branch",
+        "{}",
+        refused.stdout
+    );
+}
+
+#[test]
+fn switch_create_moves_head_and_switch_checks_the_files_out() {
+    let (project, repo, first) = committed();
+    let head = git(&project, &["switch", "--create", "topic"])
+        .exits(0)
+        .json();
+    assert_eq!(
+        (head["branch"].as_str(), head["sha"].as_str()),
+        (Some("topic"), Some(first.as_str()))
+    );
+    repo.write("t.txt", "topic\n");
+    git(&project, &["commit", "--add", "t.txt", "-m", "t"]).exits(0);
+    git(&project, &["switch", "main"]).exits(0);
+    assert!(!project.root().join("t.txt").exists(), "main's files");
+    git(&project, &["switch", "topic"]).exits(0);
+    assert!(project.root().join("t.txt").is_file(), "topic's files");
+    // from a detached HEAD too
+    repo.detach(&first);
+    let head = git(&project, &["switch", "main"]).exits(0).json();
+    assert_eq!(head["detached"], false);
+}
+
+#[test]
+fn switching_over_a_changed_file_refuses_and_keeps_the_change() {
+    let (project, repo, first) = committed();
+    repo.branch("side", &first).head_on("side");
+    repo.write("a.txt", "side\n");
+    repo.commit_all("side");
+    repo.head_on("main");
+    repo.write("a.txt", "one\n");
+    repo.stage(&["a.txt"]);
+    repo.write("a.txt", "my unsaved work\n");
+    let refused = git(&project, &["switch", "side"]).exits(1);
+    assert_eq!(refused.json()["code"], "git_refused", "{}", refused.stdout);
+    assert_eq!(
+        std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
+        "my unsaved work\n"
+    );
+    assert_eq!(
+        git(&project, &["head", "--pick", ".branch"])
+            .exits(0)
+            .stdout,
+        "main\n"
+    );
+    // and a refused `switch --create` leaves no branch behind
+    let refused = git(&project, &["switch", "--create", "other", "--at", "side"]).exits(1);
+    assert_eq!(refused.json()["code"], "git_refused", "{}", refused.stdout);
+    assert_eq!(
+        git(&project, &["rev", "other", "--pick", ".revs[0].exists"])
+            .exits(0)
+            .stdout,
+        "false\n"
+    );
+}
+
+#[test]
+fn an_annotated_tag_names_a_tag_object_and_a_plain_one_the_commit() {
+    let (project, repo, first) = committed();
+    repo.config("[user]\n\tname = Ada\n\temail = ada@example.com");
+    let tag = git(&project, &["tag", "v1", "-m", "release\n"])
+        .exits(0)
+        .json();
+    assert_ne!(tag["sha"], json!(first));
+    assert_eq!(
+        git(&project, &["rev", "v1", "--pick", ".revs[0].kind"])
+            .exits(0)
+            .stdout,
+        "tag\n"
+    );
+    assert_eq!(repo.sha("v1^{commit}"), first);
+    assert_eq!(
+        git(&project, &["tag", "v0"]).exits(0).json(),
+        json!({"name": "v0", "sha": first})
+    );
+    let refused = git(&project, &["tag", "v0"]).exits(1);
+    assert_eq!(refused.json()["code"], "git_refused", "{}", refused.stdout);
+}
+
+#[test]
+fn a_worktree_is_added_listed_and_removed() {
+    let (project, _repo, first) = committed();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let at = elsewhere.path().join("feature-wt");
+    let path = at.to_string_lossy().into_owned();
+    let added = git(
+        &project,
+        &["worktree", "add", &path, "--branch", "feature", "--create"],
+    )
+    .exits(0)
+    .json();
+    assert_eq!(
+        (added["branch"].as_str(), added["sha"].as_str()),
+        (Some("feature"), Some(first.as_str()))
+    );
+    assert!(at.join("a.txt").is_file(), "its files are checked out");
+    assert_eq!(
+        git(
+            &project,
+            &["worktrees", "--pick", ".worktrees[main=false].branch"]
+        )
+        .exits(0)
+        .stdout,
+        "feature\n"
+    );
+    // one with changes stays unless forced
+    std::fs::write(at.join("a.txt"), "changed\n").unwrap();
+    let refused = git(&project, &["worktree", "remove", &path]).exits(1);
+    assert_eq!(refused.json()["code"], "dirty_tree", "{}", refused.stdout);
+    git(&project, &["worktree", "remove", &path, "--force"]).exits(0);
+    assert!(!at.exists());
+    assert_eq!(
+        git(&project, &["worktrees", "--pick", ".worktrees[].branch"])
+            .exits(0)
+            .stdout,
+        "main\n"
+    );
+}
+
+#[test]
+fn prune_drops_the_record_of_a_worktree_whose_directory_is_gone() {
+    let (project, repo, first) = committed();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let linked = repo.linked_worktree(&elsewhere.path().join("gone"), "gone", &first);
+    std::fs::remove_dir_all(linked.dir()).unwrap();
+    let pruned = git(&project, &["worktree", "prune", "--pick", ".pruned[]"]).exits(0);
+    assert!(
+        pruned.stdout.trim_end().ends_with("gone"),
+        "{}",
+        pruned.stdout
+    );
+    assert_eq!(
+        git(&project, &["worktrees", "--pick", ".worktrees[].branch"])
+            .exits(0)
+            .stdout,
+        "main\n"
+    );
+}
