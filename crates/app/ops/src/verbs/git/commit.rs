@@ -52,7 +52,7 @@ pub(super) fn write_failed(error: GitError) -> OpError {
 
 pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, OpError> {
     let place = verbs.place_to_write("commit")?;
-    refuse_signing(verbs, &place)?;
+    refuse_signing(verbs, &place, Signed::Commit)?;
     let mut message = cleaned(&request.message).ok_or_else(empty_message)?;
     let staging = Staging {
         add: in_repository(verbs, &place, &request.add)?,
@@ -89,26 +89,39 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
     })
 }
 
-/// gix signs nothing: a repository that asks every commit to be signed gets none rather than an unsigned one.
-fn refuse_signing(verbs: &Verbs, place: &GitPlace) -> Result<(), OpError> {
-    let asked = verbs
+/// What git signs when the repository asks: every commit, or every annotated tag.
+#[derive(Debug, Clone, Copy)]
+pub(super) enum Signed {
+    Commit,
+    Tag,
+}
+
+/// specforge signs nothing: a repository that asks for `what` to be signed gets none rather than an unsigned one.
+pub(super) fn refuse_signing(verbs: &Verbs, place: &GitPlace, what: Signed) -> Result<(), OpError> {
+    let key = match what {
+        Signed::Commit => "commit.gpgSign",
+        Signed::Tag => "tag.gpgSign",
+    };
+    let signs = verbs
         .ports()
         .git
-        .config(place, "commit.gpgsign")
+        .config_flag(place, key)
         .map_err(write_failed)?;
-    let signs = asked.last().is_some_and(|value| {
-        matches!(
-            value.to_ascii_lowercase().as_str(),
-            "" | "true" | "yes" | "on" | "1"
-        )
-    });
-    if signs {
+    if signs == Some(true) {
+        let (kind, last) = match what {
+            Signed::Commit => ("commit", "commit"),
+            Signed::Tag => ("annotated tag", "tag"),
+        };
         return Err(OpError::new(
             OpErrorKind::PreconditionFailed,
             "signing_unsupported",
-            "the repository asks every commit to be signed (commit.gpgsign), and specforge signs none",
+            format!(
+                "the repository asks every {kind} to be signed ({key}), and specforge signs none"
+            ),
         )
-        .with_suggestion("sign it with the git program, or set commit.gpgsign to false for this commit's repository"));
+        .with_suggestion(format!(
+            "sign it with the git program, or set {key} to false for this {last}'s repository"
+        )));
     }
     Ok(())
 }

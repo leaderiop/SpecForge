@@ -381,6 +381,11 @@ pub trait Git: Send + Sync {
     fn config(&self, _place: &GitPlace, _key: &str) -> Result<Vec<String>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
+    /// `key` read as git reads a boolean (`true`/`yes`/`on`, a non-zero integer, or the bare key): `None` when unset,
+    /// an error when it holds no boolean.
+    fn config_flag(&self, _place: &GitPlace, _key: &str) -> Result<Option<bool>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
     /// How many commits `query` walks, and the first `query.max` of them (every one when none), newest first.
     fn log(&self, _place: &GitPlace, _query: &LogQuery) -> Result<GitLog, GitError> {
         Err(GitError("this git port cannot answer it".into()))

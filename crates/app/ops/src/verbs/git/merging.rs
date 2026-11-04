@@ -9,7 +9,7 @@ use serde::Serialize;
 use specforge_common::remedy::printable;
 use specforge_effects::git::{GitConflict, GitEntryKind, GitPlace, GitStash, Merged, ResetMode};
 
-use super::commit::{in_repository, write_failed};
+use super::commit::{Signed, in_repository, refuse_signing, write_failed};
 use super::{commit_named, failed};
 use crate::verbs::Verbs;
 use crate::{OpError, OpErrorKind};
@@ -106,9 +106,26 @@ pub fn merge(
     message: Option<&str>,
 ) -> Result<MergeAnswer, OpError> {
     let place = verbs.place_to_write("merge")?;
-    clean_tree(verbs, &place, "a merge", COMMIT_OR_STASH)?;
     let theirs = commit_named(verbs, &place, revision)?;
-    let branch = verbs.ports().git.head(&place).map_err(failed)?.head;
+    let git = &verbs.ports().git;
+    let ours = git.commit(&place, "HEAD").map_err(failed)?;
+    let base = match &ours {
+        Some(ours) => git.merge_base(&place, ours, &theirs).map_err(failed)?,
+        None => None,
+    };
+    // a merge commit is made unless `revision` is already in, or `HEAD` fast-forwards to it
+    let up_to_date = base.as_ref() == Some(&theirs);
+    let forwards = ours.is_none() || base == ours;
+    let commits = !up_to_date
+        && !matches!(
+            (fast_forward, forwards),
+            (FastForward::Only, _) | (FastForward::Allowed, true)
+        );
+    if commits {
+        refuse_signing(verbs, &place, Signed::Commit)?;
+    }
+    clean_tree(verbs, &place, "a merge", COMMIT_OR_STASH)?;
+    let branch = git.head(&place).map_err(failed)?.head;
     let message = match message {
         Some(message) => super::cleaned(message).ok_or_else(|| {
             OpError::new(
@@ -223,6 +240,7 @@ pub fn stash_list(verbs: &Verbs) -> Result<StashesAnswer, OpError> {
 pub fn pick(verbs: &Verbs, revision: &str, revert: bool) -> Result<MergeAnswer, OpError> {
     let what = if revert { "revert" } else { "cherry-pick" };
     let place = verbs.place_to_write(what)?;
+    refuse_signing(verbs, &place, Signed::Commit)?;
     clean_tree(verbs, &place, &format!("a {what}"), COMMIT_OR_STASH)?;
     let commit = commit_named(verbs, &place, revision)?;
     verbs

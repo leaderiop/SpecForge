@@ -217,20 +217,6 @@ fn a_hook_that_cannot_run_refuses_the_commit() {
 }
 
 #[test]
-fn a_repository_that_signs_every_commit_refuses() {
-    let (project, repo, first) = committed();
-    repo.config("[commit]\n\tgpgsign = true");
-    let refused = git(&project, &["commit", "--allow-empty", "-m", "x"]).exits(1);
-    assert_eq!(
-        refused.json()["code"],
-        "signing_unsupported",
-        "{}",
-        refused.stdout
-    );
-    assert_eq!(repo.sha("HEAD"), first);
-}
-
-#[test]
 fn a_ceiling_with_git_read_refuses_a_commit() {
     let (project, repo, first) = committed();
     let project = project.config(|config| {
@@ -537,7 +523,7 @@ fn prune_drops_the_record_of_a_worktree_whose_directory_is_gone() {
 
 /// [`committed`], then a branch `side` from it with its own commit changing `file` to `side_text`, and `HEAD` back on
 /// `main`.
-fn side(file: &str, side_text: &str) -> (TestProject, Repo, String, String) {
+pub(super) fn side(file: &str, side_text: &str) -> (TestProject, Repo, String, String) {
     let (project, repo, first) = committed();
     repo.branch("side", &first).head_on("side");
     repo.write(file, side_text);

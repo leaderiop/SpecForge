@@ -1,9 +1,9 @@
 //! The branches, worktrees and remotes `Gix` lists.
 
 use gix::bstr::ByteSlice as _;
-use specforge_effects::git::{GitBranchRef, GitError, GitRemote, GitWorktree, Sha};
+use specforge_effects::git::{GitBranch, GitBranchRef, GitError, GitRemote, GitWorktree, Sha};
 
-use crate::{failed, local_branch, upstream_of};
+use crate::failed;
 
 /// The local branches, or the remote-tracking ones, by name.
 pub(crate) fn branches(
@@ -144,4 +144,72 @@ fn split(url: &gix::Url) -> (Option<String>, String) {
         }
         None => (None, path.into_owned()),
     }
+}
+
+/// The branch `HEAD` is on, born or not; `None` when it is detached.
+pub(crate) fn local_branch(repo: &gix::Repository) -> Result<Option<String>, GitError> {
+    let name = repo.head_name().map_err(|e| failed("read HEAD", &e))?;
+    Ok(name
+        .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+        .map(|name| name.shorten().to_string()))
+}
+
+/// `status`'s branch headers: `HEAD`'s commit and branch, its upstream, and how far each is ahead of the other.
+pub(crate) fn branch_of(repo: &gix::Repository) -> Result<GitBranch, GitError> {
+    let oid = repo.head_id().ok().map(|id| id.detach());
+    let mut branch = GitBranch {
+        oid: oid.map(|id| id.to_string()),
+        head: local_branch(repo)?,
+        ..GitBranch::default()
+    };
+    if let Some(name) = repo.head_name().map_err(|e| failed("read HEAD", &e))? {
+        (branch.upstream, branch.ahead, branch.behind) = upstream_of(repo, name.as_ref(), oid)?;
+    }
+    Ok(branch)
+}
+
+/// The upstream of the local branch `name` at `tip`, and how many commits each is ahead of the other.
+pub(crate) fn upstream_of(
+    repo: &gix::Repository,
+    name: &gix::refs::FullNameRef,
+    tip: Option<gix::ObjectId>,
+) -> Result<(Option<String>, u32, u32), GitError> {
+    let Some(Ok(tracking)) =
+        repo.branch_remote_tracking_ref_name(name, gix::remote::Direction::Fetch)
+    else {
+        return Ok((None, 0, 0));
+    };
+    let upstream = repo
+        .try_find_reference(tracking.as_ref())
+        .ok()
+        .flatten()
+        .and_then(|mut r| r.peel_to_id().ok())
+        .map(|id| id.detach());
+    let (ahead, behind) = match (tip, upstream) {
+        (Some(tip), Some(upstream)) => (
+            count_hiding(repo, tip, upstream)?,
+            count_hiding(repo, upstream, tip)?,
+        ),
+        _ => (0, 0),
+    };
+    Ok((Some(tracking.shorten().to_string()), ahead, behind))
+}
+
+/// How many commits `tip` reaches that `hidden` does not.
+fn count_hiding(
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    hidden: gix::ObjectId,
+) -> Result<u32, GitError> {
+    let walk = repo
+        .rev_walk([tip])
+        .with_hidden([hidden])
+        .all()
+        .map_err(|e| failed("walk the history", &e))?;
+    let mut count = 0u32;
+    for info in walk {
+        info.map_err(|e| failed("walk the history", &e))?;
+        count = count.saturating_add(1);
+    }
+    Ok(count)
 }

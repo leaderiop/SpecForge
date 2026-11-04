@@ -9,7 +9,7 @@ use specforge_common::remedy::printable;
 use specforge_effects::RealFs;
 use specforge_effects::git::{GitPlace, Located, Sha};
 
-use super::commit::{held, write_failed};
+use super::commit::{Signed, held, refuse_signing, write_failed};
 use super::{HeadAnswer, Worktree, commit_named, failed, head, slashed};
 use crate::verbs::Verbs;
 use crate::{OpError, OpErrorKind};
@@ -115,6 +115,9 @@ pub fn tag(
     message: Option<&str>,
 ) -> Result<RefAnswer, OpError> {
     let place = verbs.place_to_write("tag")?;
+    if message.is_some() {
+        refuse_signing(verbs, &place, Signed::Tag)?;
+    }
     let sha = commit_named(verbs, &place, at.unwrap_or("HEAD"))?;
     let tagged = verbs
         .ports()

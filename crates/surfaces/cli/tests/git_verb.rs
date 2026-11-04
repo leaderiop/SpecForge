@@ -6,6 +6,7 @@ use specforge_git::testing::Repo;
 
 use crate::support::{Cli, TestProject};
 
+mod signing;
 mod writes;
 
 /// A project in a repository with one commit, `HEAD` on `main`.
