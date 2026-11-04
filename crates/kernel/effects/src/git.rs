@@ -368,6 +368,11 @@ pub trait Git: Send + Sync {
     fn remotes(&self, _place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
+    /// Whether a write may change the repository at `place`: `Err` names why not (another user owns it; an operation
+    /// the port cannot continue, a rebase, is in progress). A verb asks it before it runs anything, a hook included.
+    fn writable(&self, _place: &GitPlace) -> Result<(), GitError> {
+        Err(GitError("this git port cannot write".into()))
+    }
     /// Write `message` where git hands a commit message to its `commit-msg` hook (`COMMIT_EDITMSG` in the git
     /// directory): that file's path.
     fn write_commit_message(&self, _place: &GitPlace, _message: &str) -> Result<PathBuf, GitError> {

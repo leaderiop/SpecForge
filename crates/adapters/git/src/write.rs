@@ -46,7 +46,7 @@ fn foreign_operation(place: &GitPlace) -> Option<&'static str> {
 }
 
 /// A write only where [`owned`] and with no [`foreign_operation`] in progress.
-fn writable(place: &GitPlace) -> Result<(), GitError> {
+pub(crate) fn writable(place: &GitPlace) -> Result<(), GitError> {
     owned(place)?;
     match foreign_operation(place) {
         Some(operation) => Err(GitError(format!(

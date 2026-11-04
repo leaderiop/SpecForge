@@ -434,6 +434,10 @@ impl Git for Gix {
         Ok(refs::remotes(&open(place)?))
     }
 
+    fn writable(&self, place: &GitPlace) -> Result<(), GitError> {
+        write::writable(place)
+    }
+
     fn write_commit_message(&self, place: &GitPlace, message: &str) -> Result<PathBuf, GitError> {
         write::write_commit_message(place, message)
     }

@@ -152,6 +152,24 @@ fn a_failing_pre_commit_hook_refuses_and_nothing_is_committed() {
     assert_eq!(answer["files"], json!(["a.txt"]));
 }
 
+/// A repository the port may not write runs none of its hooks: the refusal comes before the `pre-commit` hook,
+/// with nothing to stage. A test cannot make a git directory another user owns without root, so a rebase in
+/// progress stands in: both are `Git::writable`'s refusal, which the verb asks before anything runs.
+#[cfg(unix)]
+#[test]
+fn a_repository_the_port_may_not_write_runs_no_hook() {
+    let (project, repo, first) = committed();
+    hook(&repo, "pre-commit", "echo ran > pre-commit.ran");
+    std::fs::create_dir_all(repo.git_dir().join("rebase-merge")).unwrap();
+    let refused = git(&project, &["commit", "--allow-empty", "-m", "x"]).exits(1);
+    assert_eq!(refused.json()["code"], "git_refused", "{}", refused.stdout);
+    assert!(
+        !project.root().join("pre-commit.ran").exists(),
+        "the hook ran"
+    );
+    assert_eq!(repo.sha("HEAD"), first);
+}
+
 #[cfg(unix)]
 #[test]
 fn the_commit_msg_hook_edits_the_message_and_post_commit_runs_after() {

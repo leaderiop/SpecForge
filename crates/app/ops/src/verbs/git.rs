@@ -194,7 +194,13 @@ impl Verbs {
         self.grant
             .permits_git_write(USER, question)
             .map_err(|denial| super::outside_ceiling(&denial.request, &denial))?;
-        self.place(question)
+        let place = self.place(question)?;
+        // Before anything runs, a hook included: a repository another user owns runs none of its hooks.
+        self.ports()
+            .git
+            .writable(&place)
+            .map_err(commit::write_failed)?;
+        Ok(place)
     }
 
     /// The repository the project is in, once the ceiling lets git be asked `question`.
