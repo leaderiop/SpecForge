@@ -111,13 +111,6 @@ impl CheckRegistry {
             .get(&(extension.to_string(), name.to_string()))
     }
 
-    /// Every checker kept, by extension and name.
-    pub fn checkers(&self) -> impl Iterator<Item = (&str, &CheckerDescriptor)> {
-        self.checkers
-            .iter()
-            .map(|((extension, _), checker)| (extension.as_str(), checker))
-    }
-
     pub fn is_empty(&self) -> bool {
         self.fields.is_empty()
     }
