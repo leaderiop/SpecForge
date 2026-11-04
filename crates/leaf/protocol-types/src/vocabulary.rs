@@ -279,13 +279,7 @@ vocabulary! {
         /// required, and `target_kind`, `field`, `edge_type`, `constraint` and `wasm_function` are not read.
         Judged = "judged",
     }
-    aliases {
-        // Emitted by SDK releases before the vocabulary was shared.
-        "missing_field" => MissingRequiredField,
-        "field_constraint" => FieldValueConstraint,
-        "cycle" => CycleDetection,
-        "conditional_required" => ConditionalFieldRequired,
-    }
+    aliases {}
 }
 
 vocabulary! {

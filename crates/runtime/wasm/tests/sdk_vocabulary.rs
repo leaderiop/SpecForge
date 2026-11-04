@@ -168,37 +168,26 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
     assert!(fired("you.vocab/E901", &fine).is_empty());
 }
 
-/// Rules written by SDK releases before the vocabulary was shared still
-/// load: the host reads their check names as aliases.
+/// A check kind has one spelling (ADR 0336): a rule written with an older SDK's name is W112, and the rule is lost.
 #[test]
-fn older_sdk_check_names_still_load() {
+fn an_older_sdk_check_name_is_w112() {
     let mut ext = loaded(extension);
-    for (rule, old) in ext
-        .validation_rules
-        .iter_mut()
-        .zip(["missing_field", "field_constraint"])
-    {
-        rule.check = old.to_string();
-    }
-    ext.entities[0].fields[0].field_type = "boolean".to_string();
+    ext.validation_rules[0].check = "missing_field".to_string();
 
     let build = build_registries(vec![ext]);
-    let unread: Vec<_> = build
-        .diagnostics()
-        .filter(|d| d.code == "W019" || d.code == "W112")
-        .collect();
-    assert!(unread.is_empty(), "host could not read: {unread:?}");
+    let w112: Vec<_> = build.diagnostics().filter(|d| d.code == "W112").collect();
+    assert_eq!(w112.len(), 1, "{w112:?}");
     assert!(
-        build
+        w112[0]
+            .message
+            .contains("unrecognized validation pattern kind 'missing_field'"),
+        "{w112:?}"
+    );
+    assert!(
+        !build
             .rules()
             .iter()
             .any(|rule| rule.code() == "you.vocab/W900")
-    );
-    assert!(
-        build
-            .rules()
-            .iter()
-            .any(|rule| rule.code() == "you.vocab/E901")
     );
 }
 

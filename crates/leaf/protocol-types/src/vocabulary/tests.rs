@@ -58,19 +58,18 @@ fn older_spellings_are_accepted() {
     assert_eq!(FieldType::parse("bool_type"), Some(FieldType::Bool));
     assert_eq!(FieldType::parse("boolean"), Some(FieldType::Bool));
     assert_eq!(FieldType::parse("block_type"), Some(FieldType::Block));
-    assert_eq!(
-        CheckKind::parse("missing_field"),
-        Some(CheckKind::MissingRequiredField)
-    );
-    assert_eq!(
-        CheckKind::parse("field_constraint"),
-        Some(CheckKind::FieldValueConstraint)
-    );
-    assert_eq!(CheckKind::parse("cycle"), Some(CheckKind::CycleDetection));
-    assert_eq!(
-        CheckKind::parse("conditional_required"),
-        Some(CheckKind::ConditionalFieldRequired)
-    );
+}
+
+#[test]
+fn a_check_kind_has_no_older_spelling() {
+    for old in [
+        "missing_field",
+        "field_constraint",
+        "cycle",
+        "conditional_required",
+    ] {
+        assert_eq!(CheckKind::parse(old), None, "{old}");
+    }
 }
 
 #[test]
