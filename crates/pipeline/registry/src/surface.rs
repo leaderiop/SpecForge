@@ -72,6 +72,24 @@ pub fn register_surface_contributions(
     for declaration in declarations {
         let ext_name = declaration.name();
         let surfaces = &declaration.surfaces;
+        let short = declaration.short();
+        if specforge_common::structural::is_core_command(&short)
+            && !(surfaces.commands.is_empty() && surfaces.prompts.is_empty())
+        {
+            diagnostics.push(
+                Diagnostic::new(
+                    codes::E114,
+                    format!(
+                        "extension '{ext_name}': its short name '{short}' is a core command's, so `specforge {short}` \
+                         routes none of its commands or prompts; MCP still serves its commands as `specforge.{short}.<id>`"
+                    ),
+                )
+                .with_suggestion(
+                    "give the extension another short name (ext_short; the SDK's #[extension(short = \"...\")])"
+                        .to_string(),
+                ),
+            );
+        }
         for cmd in &surfaces.commands {
             diagnostics.extend(routes.add(declaration, cmd));
         }

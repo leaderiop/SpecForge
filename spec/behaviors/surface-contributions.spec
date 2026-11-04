@@ -58,7 +58,10 @@ behavior register_surface_contributions "Register Surface Contributions" {
     same one, MUST run on no surface and produce E039, naming the command
     that has the name; so MUST a duplicate MCP tool name or MCP resource
     name across extensions. One command id under two short names is two
-    names, not a duplicate.
+    names, not a duplicate. An extension whose short name is a core
+    command's (`check`, `files`, `git`) and that declares commands or
+    prompts MUST produce E114: the CLI routes none of them, and MCP
+    still serves its commands.
     Registration happens when the project's registries are built from
     the manifests its extensions describe, before any surface export is
     dispatched: surface contributions are declarative, like entity

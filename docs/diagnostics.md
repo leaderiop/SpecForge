@@ -1478,6 +1478,24 @@ Owner: @specforge/checks
 Level: error
 ```
 
+## E114
+
+```
+E114: Short name taken by a core command
+
+An extension whose short name (its `ext_short`, else the last segment of its
+name: `@acme/check` is `check`) is the name of a core command of `specforge`
+(`check`, `files`, `git`, `http`, `run`, …) declares commands or prompts. The
+binary matches its own command first, so the CLI routes none of them: `specforge
+check list` runs the core `check`. MCP still serves the commands as
+`specforge.<short>.<id>`, and `specforge prompt <short>.<id>` still renders a
+prompt. Give the extension another short name (`ext_short`; the SDK's
+`#[extension(short = "...")]`).
+
+Owner: core
+Level: error
+```
+
 ## E115
 
 ```

@@ -364,6 +364,22 @@ mod tests {
         pin_help(&root, &[]);
     }
 
+    /// `CORE_COMMANDS`, which the registry reads to report E114, is the clap tree's list of core commands.
+    #[test]
+    fn core_commands_are_the_declared_tree() {
+        let mut root = declared();
+        root.build();
+        let mut tree: Vec<&str> = root
+            .get_subcommands()
+            .filter(|sub| sub.get_name() != "help" && !sub.is_allow_external_subcommands_set())
+            .map(clap::Command::get_name)
+            .collect();
+        tree.sort_unstable();
+        let mut listed = specforge_common::structural::CORE_COMMANDS.to_vec();
+        listed.sort_unstable();
+        assert_eq!(tree, listed);
+    }
+
     /// The commands that read no project: they take no `--path`.
     const NO_PROJECT: [&str; 7] = [
         "init",
