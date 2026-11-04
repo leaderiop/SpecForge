@@ -32,8 +32,10 @@ use specforge_component::committed::COMMITTED;
 // 23,208 B of headroom. The product blob is 1,021,477 B, 78,523 B under its cap. ADR 0335's `capabilities` (a describe
 // category, the collector's named capability and the SDK's `.run` sugar) measured 6,561,573 B: +284,781 B, about 25 KB
 // per blob (a flattened, internally tagged wire form measured 41 KB, so the wire is one flat object). The rule gives
-// 6,600,000, with 38,427 B of headroom; product is 1,046,792 B, 53,208 B under its cap.
-const TOTAL_BUDGET: usize = 6_600_000;
+// 6,600,000, with 38,427 B of headroom; product is 1,046,792 B, 53,208 B under its cap. ADR 0336's value checks (a
+// describe category, `checks` on every field in an untagged form, the SDK's `checker`) measured 6,815,832 B: +254,259 B,
+// about 23 KB per blob. The rule gives 6,900,000, with 84,168 B of headroom; product is 1,070,046 B, 29,954 B under its cap.
+const TOTAL_BUDGET: usize = 6_900_000;
 const BLOB_BUDGET: usize = 1_100_000;
 
 #[test]

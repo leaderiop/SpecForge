@@ -4,6 +4,7 @@
 )]
 
 mod calls;
+mod check_wire;
 mod extension_text;
 mod handshake_conformance;
 mod host_wire;

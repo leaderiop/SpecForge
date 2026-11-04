@@ -28,11 +28,12 @@ use serde_json::Value;
 use specforge_common::remedy::{DECLARED_LINES, hold_printable, printable};
 use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym, codes};
 use specforge_protocol_types::{
-    CollectInput, CollectOutput, CommandInput, CommandOutput, DeclaredCategory, DescribeRequest,
-    DescribeResponse, HandshakeRequest, HandshakeResponse, McpResourceContent, McpResourceRequest,
-    MigrationInput, Operation, PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput,
-    PassSeverity, PassSpan, PromptInput, PromptOutput, RawGraph, ScanRequest, ScanResponse,
-    ValidatorContext, ValidatorVerdict, pass_export,
+    CHECK_VALUES_EXPORT, CheckPlan, CheckValuesInput, CollectInput, CollectOutput, CommandInput,
+    CommandOutput, DeclaredCategory, DescribeRequest, DescribeResponse, HandshakeRequest,
+    HandshakeResponse, McpResourceContent, McpResourceRequest, MigrationInput, Operation,
+    PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput, PassSeverity, PassSpan,
+    PromptInput, PromptOutput, RawGraph, ScanRequest, ScanResponse, ValidatorContext,
+    ValidatorVerdict, pass_export,
 };
 
 use crate::runtime::{WasmCallResult, WasmRuntime};
@@ -353,6 +354,21 @@ impl<'r> ExtensionCalls<'r> {
             function,
             context,
             "ValidatorVerdict",
+        )
+    }
+
+    /// An extension's value checkers on `input`: its plans or its judgements, by the input's phase (ADR 0336).
+    pub fn check_values(
+        &self,
+        extension: &str,
+        input: &CheckValuesInput,
+    ) -> Result<CheckPlan, CallError> {
+        self.call_typed(
+            Operation::CheckValues,
+            extension,
+            CHECK_VALUES_EXPORT,
+            input,
+            "CheckPlan",
         )
     }
 

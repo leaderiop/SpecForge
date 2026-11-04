@@ -32,6 +32,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub mod calls;
 mod capability;
+mod checks;
 mod code_catalog;
 pub mod command_args;
 mod contrib;
@@ -57,6 +58,11 @@ pub use capability::{
     CAPABILITY_KEYS, CapabilityDescriptor, CapabilityProblem, FsAccess, FsScope, GitOp, GitScope,
     Hosts, HttpMethod, HttpScope, Owner, PortScope, ProcessScope, SecretHeader, WRITING_KINDS,
     capability_problems, is_host_pattern, is_scope_name,
+};
+pub use checks::{
+    CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckPhase, CheckPlan, CheckRef,
+    CheckValuesInput, CheckerDescriptor, OutcomeData, PlannedItem, Probe, ProbeOutcome, StatEntry,
+    ValueForm,
 };
 pub use code_catalog::CodeDescriptor;
 pub use contrib::*;

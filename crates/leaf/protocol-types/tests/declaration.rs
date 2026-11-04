@@ -148,6 +148,11 @@ fn full() -> ExtensionDeclaration {
              "secret_header": {"header": "Authorization", "secret": "token", "scheme": "Bearer"}},
         ]))
         .unwrap(),
+        checkers: vec![specforge_protocol_types::CheckerDescriptor {
+            name: "exists".to_string(),
+            applies_to: vec!["string".to_string()],
+            ..Default::default()
+        }],
     }
 }
 

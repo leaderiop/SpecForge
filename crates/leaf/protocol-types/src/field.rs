@@ -87,6 +87,9 @@ pub struct FieldDescriptor {
     /// The baseline list is a prefix of the current one (ADR 0287), items compared as resolved values.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub append_only: bool,
+    /// The checks each of its values passes (ADR 0336), run in this order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks: Vec<crate::CheckRef>,
 }
 
 impl FieldDescriptor {

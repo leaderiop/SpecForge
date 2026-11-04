@@ -26,6 +26,7 @@ pub fn export_of(operation: Operation) -> &'static str {
         Operation::Prompt => "prompt__x",
         Operation::Render => "render__",
         Operation::Hook => "hook__x",
+        Operation::CheckValues => "__check_values",
     }
 }
 
@@ -76,5 +77,6 @@ pub fn perform(
         Operation::Hook => calls
             .run_hook(extension, export, &Default::default(), 5_000)
             .map(drop),
+        Operation::CheckValues => calls.check_values(extension, &Default::default()).map(drop),
     }
 }

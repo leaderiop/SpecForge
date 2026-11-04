@@ -390,19 +390,19 @@ entry writes, the name of a builtin, or an extension another entry already
 loads); its handshake or one of its describe categories failed or does not
 parse, so its declaration cannot be read (`specforge add` and `specforge
 publish` refuse such a binary); or a call the host makes on the loaded extension
-failed. The host calls thirteen exports: the handshake and describe, a command,
+failed. The host calls fourteen exports: the handshake and describe, a command,
 an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator,
 a scanner, the migration hook, an MCP prompt, the renderer of an agent's or
-skill's body and a hook. Each call fails when the export traps (a limit of its
-sandbox included: its time, its fuel or its memory, the trap naming which), when
-the extension does not route it, or when it answers output that is not the
-protocol type the operation owes (a collector's test whose status is not
-`passed`, `failed` or `skipped`, say); the message names the operation, the
-export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What
-the failure costs is the operation's: a check pass's is the compile's error, an
-analyze pass's a finding of that pass, a scanner's makes `infer` approximate.
-Report the failure to the extension's author, and confirm the extension is
-installed and up to date.
+skill's body, a hook and a value checker. Each call fails when the export traps
+(a limit of its sandbox included: its time, its fuel or its memory, the trap
+naming which), when the extension does not route it, or when it answers output
+that is not the protocol type the operation owes (a collector's test whose
+status is not `passed`, `failed` or `skipped`, say); the message names the
+operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
+...`). What the failure costs is the operation's: a check pass's is the
+compile's error, an analyze pass's a finding of that pass, a scanner's makes
+`infer` approximate. Report the failure to the extension's author, and confirm
+the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -2894,9 +2894,9 @@ served, a collector's included, or a second one of a kind served once (`tests`,
 `state`, `graph`, `slash_commands`, `git`), a `setting` input naming the call's
 own extension or no extension and setting, and a `files` input whose name is no
 word or is repeated, that names neither or both of `field` and `glob`, a `field`
-that is not `kind.field` or that no loaded extension declares, a `base` on a
-glob or other than `spec` or `project`, and a glob that is empty, absolute,
-climbs with `..`, or has more than four `**` segments.
+that is not `kind.field` or that no loaded extension declares, a `root` on a
+glob or that is no root's name, and a glob that is empty, absolute, climbs with
+`..`, or has more than four `**` segments.
 
 Owner: core
 Level: warning

@@ -22,6 +22,7 @@ pub enum Operation {
     Prompt,
     Render,
     Hook,
+    CheckValues,
 }
 
 impl Operation {
@@ -39,11 +40,12 @@ impl Operation {
                 | Operation::Prompt
                 | Operation::Render
                 | Operation::Hook
+                | Operation::CheckValues
         )
     }
 
     /// Every operation.
-    pub const ALL: [Operation; 13] = [
+    pub const ALL: [Operation; 14] = [
         Operation::Handshake,
         Operation::Describe,
         Operation::Command,
@@ -57,6 +59,7 @@ impl Operation {
         Operation::Prompt,
         Operation::Render,
         Operation::Hook,
+        Operation::CheckValues,
     ];
 
     /// How a message names the operation.
@@ -75,6 +78,7 @@ impl Operation {
             Operation::Prompt => "MCP prompt",
             Operation::Render => "renderer",
             Operation::Hook => "hook",
+            Operation::CheckValues => "value checker",
         }
     }
 }
