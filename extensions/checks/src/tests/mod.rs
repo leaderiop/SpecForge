@@ -12,6 +12,7 @@ mod files;
 mod formats;
 mod git;
 mod links;
+mod structured;
 
 fn declaration() -> ExtensionDeclaration {
     crate::specforge_extension_build().declaration()
@@ -30,9 +31,9 @@ fn switches() -> Vec<SettingDescriptor> {
 
 #[specforge_test(
     behavior = "ck_family_switches",
-    verify = "the extension declares the scopes files, links and git, and five family switches on by default"
+    verify = "the extension declares the scopes files, links and git, and one switch per family on by default"
 )]
-fn declares_three_scopes_and_five_switches() {
+fn declares_three_scopes_and_a_switch_per_family() {
     let declaration = declaration();
     let scopes: Vec<_> = declaration
         .capabilities
@@ -53,7 +54,8 @@ fn declares_three_scopes_and_five_switches() {
             "families.formats",
             "families.digits",
             "families.links",
-            "families.git"
+            "families.git",
+            "families.structured"
         ]
     );
     for switch in &switches {
@@ -69,7 +71,7 @@ fn declares_three_scopes_and_five_switches() {
 
 #[specforge_test(
     behavior = "ck_family_switches",
-    verify = "each switch gates only codes its family alone reports, and E103 under no switch"
+    verify = "each switch gates only codes its family alone reports, and E103, E016 and W176 under no switch"
 )]
 fn each_switch_gates_only_its_familys_codes() {
     let switches = switches();
@@ -79,12 +81,15 @@ fn each_switch_gates_only_its_familys_codes() {
         .collect();
     let distinct: std::collections::BTreeSet<&str> = gated.iter().copied().collect();
     assert_eq!(distinct.len(), gated.len(), "a code gated twice: {gated:?}");
-    assert!(!distinct.contains("E103"));
+    for shared in ["E103", "E016", "W176"] {
+        assert!(!distinct.contains(shared), "{shared} is shared");
+    }
     let of = |name: &str| {
         let switch = switches.iter().find(|s| s.name == name).unwrap();
         switch.gates.clone()
     };
-    assert_eq!(of("families.files"), ["E016", "E096", "W176"]);
+    assert_eq!(of("families.files"), ["E096"]);
+    assert_eq!(of("families.structured"), ["E097", "E098"]);
     assert_eq!(of("families.git"), ["E106", "W180"]);
     assert!(of("families.formats").is_empty() && of("families.digits").is_empty());
     assert_eq!(of("families.links").len(), 11);

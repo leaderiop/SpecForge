@@ -70,7 +70,12 @@ fn stat(text: &str, args: Args) -> Result<Probe, Invalid> {
 
 /// E016 for `path`, missing under the root, on the bytes `at` of the value; with the sibling the host found inside
 /// the root, when it found one.
-fn missing(path: &str, args: Args, outcome: &ProbeOutcome, at: [usize; 2]) -> CheckFinding {
+pub(super) fn missing(
+    path: &str,
+    args: Args,
+    outcome: &ProbeOutcome,
+    at: [usize; 2],
+) -> CheckFinding {
     let finding = CheckFinding::new(
         E016,
         format!("'{path}' does not exist under <{}>", args.root()),

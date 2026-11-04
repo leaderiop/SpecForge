@@ -1,4 +1,4 @@
-//! @specforge/checks: the generic value checkers, in five families a setting switches (ADR 0338). Each is decided by a
+//! @specforge/checks: the generic value checkers, in families a setting switches (ADR 0338). Each is decided by a
 //! cross-industry standard, so a domain's own checks go in a pack that builds on the same kit. The host performs every
 //! probe; a family that is off is not called, sends no probe and adds no scope. The `checks` collector publishes what
 //! each check said as `check_outcome` facts.
@@ -12,7 +12,7 @@ mod families;
 #[specforge_extension_sdk::extension(
     name = "@specforge/checks",
     version = "1.0.0",
-    description = "The generic value checkers: files, formats, check digits, links and git"
+    description = "The generic value checkers: files, formats, check digits, links, git and structured files"
 )]
 struct Checks;
 

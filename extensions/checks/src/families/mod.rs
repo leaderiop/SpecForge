@@ -1,4 +1,4 @@
-//! The five families: what each may make the host do and the setting that switches it.
+//! The families: what each may make the host do and the setting that switches it.
 
 use serde_json::{Map, Value};
 use specforge_checks_kit::Invalid;
@@ -11,9 +11,10 @@ pub(crate) mod files;
 mod formats;
 mod git;
 pub(crate) mod links;
+mod structured;
 
 /// A family: the setting that switches it, the scope its probes run under (none when it reads only the text), the codes
-/// only it reports, and what the setting says. E103 is shared, so no switch gates it.
+/// only it reports, and what the setting says. E103, E016 and W176 are shared, so no switch gates them.
 pub(crate) struct Family {
     pub(crate) switch: &'static str,
     pub(crate) scope: Option<&'static str>,
@@ -24,8 +25,14 @@ pub(crate) struct Family {
 pub(crate) const FILES: Family = Family {
     switch: "families.files",
     scope: Some("files"),
-    gates: &[E016, E096, W176],
+    gates: &[E096],
     describe: "Check the files and directories the values name",
+};
+pub(crate) const STRUCTURED: Family = Family {
+    switch: "families.structured",
+    scope: Some("files"),
+    gates: &[E097, E098],
+    describe: "Check that JSON, YAML and TOML files parse, and that pointers and Markdown anchors into files exist",
 };
 pub(crate) const FORMATS: Family = Family {
     switch: "families.formats",
@@ -55,7 +62,7 @@ pub(crate) const GIT: Family = Family {
     describe: "Check the commits, refs and tracked paths values name",
 };
 
-const FAMILIES: [&Family; 5] = [&FILES, &FORMATS, &DIGITS, &LINKS, &GIT];
+const FAMILIES: [&Family; 6] = [&FILES, &FORMATS, &DIGITS, &LINKS, &GIT, &STRUCTURED];
 
 /// A family's scope, which it declares.
 fn scope_of(family: &Family) -> &'static str {
@@ -92,6 +99,7 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
     digits::contribute(c);
     links::contribute(c);
     git::contribute(c);
+    structured::contribute(c);
 }
 
 /// A checker's arguments as the host admitted them, read by type: one that is missing, or of another type, is absent.

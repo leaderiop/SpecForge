@@ -6,9 +6,7 @@
       "description": "Check the files and directories the values name",
       "field_type": "bool",
       "gates": [
-        "E016",
-        "E096",
-        "W176"
+        "E096"
       ],
       "kind": "setting",
       "name": "families.files"
@@ -57,6 +55,17 @@
       ],
       "kind": "setting",
       "name": "families.git"
+    },
+    {
+      "default": true,
+      "description": "Check that JSON, YAML and TOML files parse, and that pointers and Markdown anchors into files exist",
+      "field_type": "bool",
+      "gates": [
+        "E097",
+        "E098"
+      ],
+      "kind": "setting",
+      "name": "families.structured"
     }
   ]
 }

@@ -1093,6 +1093,173 @@
       ],
       "value": "path",
       "when": "families.git"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E097",
+        "W176"
+      ],
+      "name": "json",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E097",
+        "W176"
+      ],
+      "name": "yaml",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E097",
+        "W176"
+      ],
+      "name": "toml",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "json",
+            "yaml",
+            "toml"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "format",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E097",
+        "E098",
+        "E103",
+        "W176"
+      ],
+      "name": "pointer",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E098",
+        "W176"
+      ],
+      "name": "markdown_anchor",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
     }
   ]
 }
