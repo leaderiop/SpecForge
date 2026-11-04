@@ -30,7 +30,7 @@ specforge run --which kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo
 
 # Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);
 # hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)
-for lane in "ollama http://localhost:11434 {{setting:review.ollama_host|}}" "lm_studio http://localhost:1234 {{setting:review.lm_studio_host|}}" "llama_cpp http://localhost:8080 {{setting:review.llama_cpp_host|}}"; do read -r name def host <<<"$lane"; { [ -z "$host" ] || [ "$host" = null ]; } && host=$def; curl -s --max-time 2 "$host/v1/models" >/dev/null 2>&1 && echo "$name:available" || echo "$name:missing"; done
+for lane in "ollama http://localhost:11434 {{setting:review.ollama_host|}}" "lm_studio http://localhost:1234 {{setting:review.lm_studio_host|}}" "llama_cpp http://localhost:8080 {{setting:review.llama_cpp_host|}}"; do read -r name def host <<<"$lane"; { [ -z "$host" ] || [ "$host" = null ]; } && host=$def; [ "$(specforge http get "$host/v1/models" --timeout 2s --pick .ok 2>/dev/null)" = true ] && echo "$name:available" || echo "$name:missing"; done
 
 # No JSON tool here (#2589): the config, model and budget lookups read --pick, and
 # a structured lane answer (an OpenAI-compatible /v1/chat/completions response,

@@ -682,7 +682,7 @@ cargo --version 2>/dev/null
 # Databases / services — check if process is running or port is open
 pg_isready 2>/dev/null
 redis-cli ping 2>/dev/null
-curl -s http://localhost:27017 2>/dev/null
+specforge http get http://localhost:27017 --timeout 2s --pick .ok 2>/dev/null
 
 # Docker
 docker info 2>/dev/null | head -3

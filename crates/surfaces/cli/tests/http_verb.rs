@@ -122,6 +122,35 @@ fn a_body_is_built_from_fields() {
 }
 
 #[test]
+fn a_long_text_field_is_read_from_a_file_in_the_project() {
+    let project = TestProject::new().file("pr.md", "Says \"why\".\n\n- a\n");
+    let server = Server::answering(201, "application/json", "{}");
+    Cli::on(&project)
+        .run(&[
+            "http",
+            "post",
+            &server.base,
+            "--field",
+            "title=x",
+            "--field-file",
+            "body=pr.md",
+        ])
+        .exits(0);
+    let seen = &server.requests()[0];
+    assert!(
+        seen.ends_with(r#"{"body":"Says \"why\".\n\n- a\n","title":"x"}"#),
+        "{seen}"
+    );
+    // a file outside the project's roots is never read, and nothing is sent
+    let outside = tempfile::NamedTempFile::new().unwrap();
+    let field = format!("body={}", outside.path().display());
+    Cli::on(&project)
+        .run(&["http", "post", &server.base, "--field-file", &field])
+        .exits(1);
+    assert_eq!(server.requests().len(), 1);
+}
+
+#[test]
 fn a_secret_is_declared_rides_https_alone_and_is_never_shown() {
     let project = TestProject::new();
     let server = Server::answering(200, "application/json", "{}");

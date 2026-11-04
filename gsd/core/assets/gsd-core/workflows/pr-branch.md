@@ -176,7 +176,7 @@ fi
 ```
 
 Only when `$SUBREPO_EXIT` is `0`, read `remote_slug` from the structured result and open the
-companion PR. If `remote_slug` is null (non-GitHub remote), skip `gh pr create` and show
+companion PR. If `remote_slug` is null (non-GitHub remote), skip the pull request and show
 the push URL instead:
 
 ```bash
@@ -216,12 +216,12 @@ if [ -n "$REMOTE_SLUG" ]; then
     fi
   fi
 
-  gh pr create \
-    --repo "$REMOTE_SLUG" \
-    --base "$SUB_TARGET" \
-    --head "$SUB_BRANCH" \
-    --title "$COMMIT_MSG" \
-    --body "Companion PR for root repo branch \`$CURRENT_BRANCH\`."
+  specforge http post "https://api.github.com/repos/$REMOTE_SLUG/pulls" --secret @gsd/core:github_token \
+    --pick .json.html_url \
+    --field "base=$SUB_TARGET" \
+    --field "head=$SUB_BRANCH" \
+    --field "title=$COMMIT_MSG" \
+    --field "body=Companion PR for root repo branch \`$CURRENT_BRANCH\`."
 else
   echo "No GitHub remote detected for $REPO_REL — branch pushed, open PR manually."
 fi

@@ -81,4 +81,12 @@ pub fn declare(c: &mut ContributionsBuilder) {
             "API key of the search source; read from the environment, never from specforge.json.",
         );
     }
+    // the token GitHub's API takes for a pull request (`specforge http --secret @gsd/core:github_token`); no search
+    // source's key, so it is declared on its own
+    c.secret(
+        "github_token",
+        "GH_TOKEN",
+        "GitHub token the ship and pr-branch workflows send to api.github.com; read from the environment, never \
+         from specforge.json.",
+    );
 }

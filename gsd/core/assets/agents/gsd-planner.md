@@ -175,7 +175,7 @@ Every task has four required fields:
 
 - Good: Specific automated command that runs in < 60 seconds
 - Bad: "It works", "Looks good", manual-only verification
-- Simple format also accepted: `npm test` passes, `curl -X POST /api/auth/login` returns 200
+- Simple format also accepted: `npm test` passes, `specforge http post http://localhost:$PORT/api/auth/login --pick .status` prints 200
 
 **Nyquist Rule:** Every `<verify>` includes `<automated>`. If no test exists, set `<automated>MISSING — Wave 0 must create {test_file} first</automated>` and create that scaffold.
 

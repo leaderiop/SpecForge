@@ -567,27 +567,32 @@ fn the_default_reviewers_are_counted_from_the_setting() {
     );
 }
 
+/// Plan 08 T10: the PR's head, state and checks come from GitHub's REST API, one `specforge http` GET a field.
 #[test]
-fn the_pull_request_state_is_one_line_from_gh() {
+fn the_pull_request_state_is_read_from_github_s_rest_api() {
     let Some(sh) = shell() else { return };
     let text = asset("gsd-core/workflows/ship.md");
     let read = [
-        line(&text, "HEAD_OID="),
-        line(&text, "STATUS=$(echo \"$PR_STATE\""),
-        line(&text, "CHECKS="),
-    ]
-    .join("\n");
-    for (state, want) in [
-        ("abc123 BLOCKED 0", "[abc123][BLOCKED][0]"),
-        ("- UNKNOWN 0", "[-][UNKNOWN][0]"),
+        line(&text, "HEAD_OID=$(specforge http get"),
+        line(&text, "MERGEABLE=$(specforge http get"),
+        line(&text, "CHECKS=$(specforge http get"),
+    ];
+    let token = "--secret @gsd/core:github_token";
+    assert!(read.iter().all(|l| l.contains(token)));
+    // a `specforge` that answers each field the GET picks, or nothing (exit 1) when the field is unset
+    let stub = "specforge() { case \"$*\" in *head.sha*) v=$H;; *mergeable_state*) v=$M;; *total_count*) v=$C;; esac; \
+                [ -n \"$v\" ] && printf '%s\\n' \"$v\" || return 1; }";
+    for (answers, want) in [
+        ("H=abc123 M=blocked C=0", "[abc123][blocked][0]"),
+        ("H=abc123 M=clean C=3", "[abc123][clean][3]"),
+        ("H= M= C=", "[][unknown][0]"),
     ] {
         let out = sh.run(&format!(
-            "PR_STATE={}\n{read}\nprintf '[%s][%s][%s]' \"$HEAD_OID\" \"$STATUS\" \"$CHECKS\"",
-            q(state)
+            "{stub}\n{answers}\nPR_URL=u REPO=acme/w SHIP_NOTE_SHA=abc123\n{}\nprintf '[%s][%s][%s]' \"$HEAD_OID\" \"$STATUS\" \"$CHECKS\"",
+            read.join("\n")
         ));
-        assert_eq!(out, want, "{state}");
+        assert_eq!(out, want, "{answers}");
     }
-    assert!(line(&text, "PR_STATE=$(gh pr view").contains("--jq"));
 }
 
 /// Plan 05 review R8: the edge probe's requirements guard is `specforge gsd edge-probe-requirements`, upstream's rule

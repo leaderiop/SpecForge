@@ -20,6 +20,9 @@ Options:
   -F, --field-json <KEY=JSON>
           A field of a JSON body given as JSON, `key=<json>` (repeatable): a number, a boolean, an array, an object
 
+      --field-file <KEY=PATH>
+          A string field of a JSON body read from a file in the project's roots, `key=<path>` (repeatable): a long text, such as a pull request's description, with no JSON escaping
+
       --body-file <PATH>
           The body, read from a file in the project's roots
 

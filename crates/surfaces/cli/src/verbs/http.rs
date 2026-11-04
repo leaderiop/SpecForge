@@ -46,8 +46,13 @@ pub(crate) struct AskArgs {
     #[arg(long = "field-json", short = 'F', value_name = "KEY=JSON")]
     json_fields: Vec<String>,
 
+    /// A string field of a JSON body read from a file in the project's roots, `key=<path>` (repeatable): a long
+    /// text, such as a pull request's description, with no JSON escaping
+    #[arg(long = "field-file", value_name = "KEY=PATH")]
+    file_fields: Vec<String>,
+
     /// The body, read from a file in the project's roots
-    #[arg(long, value_name = "PATH", conflicts_with_all = ["fields", "json_fields"])]
+    #[arg(long, value_name = "PATH", conflicts_with_all = ["fields", "json_fields", "file_fields"])]
     body_file: Option<PathBuf>,
 
     /// A secret an extension declares, `<extension>:<name>` (e.g. `@gsd/core:github_token`), sent as
@@ -124,10 +129,15 @@ impl AskArgs {
             })?;
             object.insert(key.to_string(), value);
         }
+        let mut files = Vec::new();
+        for field in &self.file_fields {
+            let (key, path) = split_field(field)?;
+            files.push((key.to_string(), PathBuf::from(path)));
+        }
         let body = match &self.body_file {
             Some(path) => Some(Body::File(path.clone())),
-            None if object.is_empty() => None,
-            None => Some(Body::Json(object)),
+            None if object.is_empty() && files.is_empty() => None,
+            None => Some(Body::Json { object, files }),
         };
         let secret = match &self.secret {
             Some(named) => {

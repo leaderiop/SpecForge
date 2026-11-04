@@ -99,11 +99,11 @@ Verify the work is ready to ship:
    ```
    Detect `origin` remote. If no remote: error — can't create PR.
 
-5. **`gh` CLI available?**
+5. **GitHub token set?**
    ```bash
-   specforge run --which gh && gh auth status 2>&1
+   [ "$(specforge http get https://api.github.com/user --secret @gsd/core:github_token --pick .ok)" = true ] && echo github:authenticated
    ```
-   If `gh` not found or not authenticated: provide setup instructions and exit.
+   If GH_TOKEN is unset or GitHub refuses it: tell the user to export a token with the repo scope as GH_TOKEN (a token kept only in gh's keyring is not read) and exit.
 
 6. **Capability ship gates and steps (generic dispatch).**
 
@@ -373,13 +373,13 @@ PR_BODY_FILE=$(specforge files temp --prefix gsd-pr-body- --suffix .md --pick .p
 trap 'rm -f "${PR_BODY_FILE:-}"' EXIT
 printf '%s\n' "${PR_BODY}" > "${PR_BODY_FILE}"
 
-gh pr create \
-  --title "Phase ${PHASE_NUMBER}: ${PHASE_NAME}" \
-  --body-file "${PR_BODY_FILE}" \
-  --base "${BASE_BRANCH}"
+REPO=$(specforge git remotes --pick '.remotes[name=origin].path'); CURRENT_BRANCH=$(specforge git head --pick .branch)
+PR_NUMBER=$(specforge http post "https://api.github.com/repos/${REPO}/pulls" --secret @gsd/core:github_token --pick .json.number \
+  --field "title=Phase ${PHASE_NUMBER}: ${PHASE_NAME}" --field "head=${CURRENT_BRANCH}" --field "base=${BASE_BRANCH}" \
+  --field-file "body=${PR_BODY_FILE}"); [ -n "$PR_NUMBER" ] || { echo "GitHub created no PR: run the request without --pick to read why"; exit 1; }
 ```
 
-If `--draft` flag was passed: add `--draft`.
+If `--draft` flag was passed: add `--field-json draft=true` to the request.
 
 Report: "PR #{number} created: {url}"
 </step>
@@ -470,7 +470,7 @@ AskUserQuestion:
 
 **If "Request review":**
 ```bash
-gh pr edit ${PR_NUMBER} --add-reviewer "${REVIEWER}"
+REPO=$(specforge git remotes --pick '.remotes[name=origin].path'); specforge http post "https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}/requested_reviewers" --secret @gsd/core:github_token --field-json "reviewers=[\"${REVIEWER}\"]" --pick .ok
 ```
 
 **If "Self-review":**
@@ -502,28 +502,28 @@ git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note pu
 # The recovery commit message MUST NOT contain any of these tokens.
 # Recovery keys on the head only (BLOCKED, zero checks, skip token), never the review state (#4993).
 
-STATUS="UNKNOWN"
+STATUS="unknown"
 CHECKS=0
 for i in {1..5}; do
-  PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup --jq '"\(.headRefOid) \(.mergeStateStatus) \((.statusCheckRollup // []) | length)"' 2>/dev/null || echo '- UNKNOWN 0')   # gh's own --jq filter: "<head> <status> <checks>"
-  HEAD_OID=${PR_STATE%% *}
+  REPO=$(specforge git remotes --pick '.remotes[name=origin].path'); PR_URL="https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}"   # GitHub's REST API: mergeable_state is lower case
+  HEAD_OID=$(specforge http get "$PR_URL" --secret @gsd/core:github_token --pick .json.head.sha 2>/dev/null)
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ]; then
-    STATUS=$(echo "$PR_STATE" | cut -d' ' -f2)
-    CHECKS=${PR_STATE##* }
+    MERGEABLE=$(specforge http get "$PR_URL" --secret @gsd/core:github_token --pick .json.mergeable_state 2>/dev/null); STATUS=${MERGEABLE:-unknown}
+    CHECKS=$(specforge http get "https://api.github.com/repos/${REPO}/commits/${SHIP_NOTE_SHA}/check-runs" --secret @gsd/core:github_token --pick .json.total_count 2>/dev/null); CHECKS=${CHECKS:-0}
   fi
-  if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ] && [ "$STATUS" != "UNKNOWN" ]; then
+  if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ] && [ "$STATUS" != "unknown" ]; then
     break
   fi
   sleep 3
 done
 
-if [ "$STATUS" = "BLOCKED" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
+if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
   echo "⚠ PR is BLOCKED with zero checks. The [ci skip] trailer wedged the PR due to required checks."
   echo "Pushing an empty commit to trigger the required pipelines..."
   # a commit with no files is made with git directly (an intentionally empty commit).
   git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
   git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
-elif [ "$STATUS" = "UNKNOWN" ]; then
+elif [ "$STATUS" = "unknown" ]; then
   echo "⚠ track_shipping: PR mergeStateStatus is UNKNOWN after polling; PR may require manual check re-trigger."
 fi
 ```

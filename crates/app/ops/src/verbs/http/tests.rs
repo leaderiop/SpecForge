@@ -195,12 +195,13 @@ fn cached_answers_a_get_again_and_sends_a_post_each_time() {
     assert_eq!(http.requests().len(), 1);
     let post = Ask {
         method: "POST".to_string(),
-        body: Some(Body::Json(
-            serde_json::json!({"title": "x"})
+        body: Some(Body::Json {
+            object: serde_json::json!({"title": "x"})
                 .as_object()
                 .unwrap()
                 .clone(),
-        )),
+            files: Vec::new(),
+        }),
         ..get(url)
     };
     for _ in 0..2 {

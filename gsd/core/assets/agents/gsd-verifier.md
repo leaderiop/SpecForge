@@ -428,7 +428,7 @@ Anti-pattern scanning (Step 7) checks for code smells. Behavioral spot-checks go
 
 ```bash
 # API endpoint returns non-empty data
-curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | head -c 2000   # read the answer: it passes when it is non-empty data (an array, an object or a string with content)
+specforge http get "http://localhost:$PORT/api/$ENDPOINT" --max-bytes 2000 --pick .body 2>/dev/null   # read the answer: it passes when it is non-empty data (an array, an object or a string with content)
 
 # CLI command produces expected output
 node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"

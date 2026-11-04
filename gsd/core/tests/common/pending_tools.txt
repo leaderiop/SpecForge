@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 915 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 912 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
@@ -85,7 +85,6 @@ agents/gsd-verifier.md	grep	node -e "const m = require('$MODULE_PATH'); console.
 agents/gsd-verifier.md	grep	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
 agents/gsd-verifier.md	grep	grep -R -n -E 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' "$PHASE_DIR"/*-PLAN.md "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
 agents/gsd-verifier.md	head	COMMIT_HASHES=$(grep -oE "[a-f0-9]{7,40}" "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null | head -10)
-agents/gsd-verifier.md	head	curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | head -c 2000   # read the answer: it passes when it is non-empty data (an array, an object or a string with content)
 agents/gsd-verifier.md	sed	grep -E "^\- \`" "$PHASE_DIR"/*-SUMMARY.md | sed 's/.*`\([^`]*\)`.*/\1/' | sort -u
 agents/gsd-verifier.md	sort	grep -E "^\- \`" "$PHASE_DIR"/*-SUMMARY.md | sed 's/.*`\([^`]*\)`.*/\1/' | sort -u
 agents/gsd-verifier.md	wc	grep -r "import.*$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l
@@ -596,9 +595,8 @@ gsd-core/workflows/settings-advanced.md	cat	cat "$GSD_CONFIG_PATH" | python3 -c 
 gsd-core/workflows/settings.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/ship.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/ship.md	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
-gsd-core/workflows/ship.md	cut	STATUS=$(echo "$PR_STATE" | cut -d' ' -f2)
 gsd-core/workflows/ship.md	grep	WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
-gsd-core/workflows/ship.md	grep	if [ "$STATUS" = "BLOCKED" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
+gsd-core/workflows/ship.md	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
 gsd-core/workflows/ship.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/ship.md	head	git remote -v | head -2
 gsd-core/workflows/ship.md	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
@@ -874,9 +872,8 @@ prompt:review	wc	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
 prompt:settings	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:ship	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:ship	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
-prompt:ship	cut	STATUS=$(echo "$PR_STATE" | cut -d' ' -f2)
 prompt:ship	grep	WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
-prompt:ship	grep	if [ "$STATUS" = "BLOCKED" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
+prompt:ship	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
 prompt:ship	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:ship	head	git remote -v | head -2
 prompt:ship	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
@@ -1390,7 +1387,7 @@ gsd-core/workflows/ship.md	git	git add spec && git commit -m "docs(${padded_phas
 gsd-core/workflows/ship.md	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
 gsd-core/workflows/ship.md	git	SHIP_NOTE_SHA=$(git rev-parse HEAD)
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
-gsd-core/workflows/ship.md	git	if [ "$STATUS" = "BLOCKED" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
+gsd-core/workflows/ship.md	git	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
 gsd-core/workflows/ship.md	git	git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
 gsd-core/workflows/spec-phase.md	git	_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
@@ -1585,7 +1582,7 @@ prompt:ship	git	git add spec && git commit -m "docs(${padded_phase}): ship phase
 prompt:ship	git	git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
 prompt:ship	git	SHIP_NOTE_SHA=$(git rev-parse HEAD)
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
-prompt:ship	git	if [ "$STATUS" = "BLOCKED" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
+prompt:ship	git	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
 prompt:ship	git	git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
 prompt:spec_phase	git	_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
@@ -1631,22 +1628,7 @@ prompt:workspace	git	[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required
 prompt:workspace	git	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 prompt:workspace	git	if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1; then
 
-# E network: the host HTTP service and a GitHub provider (R3). 15 rows.
-agents/gsd-phase-researcher.md	curl	curl -s http://localhost:27017 2>/dev/null
-agents/gsd-planner.md	curl	curl -X POST /api/auth/login
-agents/gsd-verifier.md	curl	curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | head -c 2000   # read the answer: it passes when it is non-empty data (an array, an object or a string with content)
-gsd-core/workflows/pr-branch.md	gh	gh pr create \
-gsd-core/workflows/review.md	curl	for lane in "ollama http://localhost:11434 {{setting:review.ollama_host|}}" "lm_studio http://localhost:1234 {{setting:review.lm_studio_host|}}" "llama_cpp http://localhost:8080 {{setting:review.llama_cpp_host|}}"; do read -r name def host <<<"$lane"; { [ -z "$host" ] || [ "$host" = null ]; } && host=$def; curl -s --max-time 2 "$host/v1/models" >/dev/null 2>&1 && echo "$name:available" || echo "$name:missing"; done
-gsd-core/workflows/ship.md	gh	specforge run --which gh && gh auth status 2>&1
-gsd-core/workflows/ship.md	gh	gh pr create \
-gsd-core/workflows/ship.md	gh	gh pr edit ${PR_NUMBER} --add-reviewer "${REVIEWER}"
-gsd-core/workflows/ship.md	gh	PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup --jq '"\(.headRefOid) \(.mergeStateStatus) \((.statusCheckRollup // []) | length)"' 2>/dev/null || echo '- UNKNOWN 0')   # gh's own --jq filter: "<head> <status> <checks>"
-prompt:pr_branch	gh	gh pr create \
-prompt:review	curl	for lane in "ollama http://localhost:11434 http://localhost:11434" "lm_studio http://localhost:1234 http://localhost:1234" "llama_cpp http://localhost:8080 http://localhost:8080"; do read -r name def host <<<"$lane"; { [ -z "$host" ] || [ "$host" = null ]; } && host=$def; curl -s --max-time 2 "$host/v1/models" >/dev/null 2>&1 && echo "$name:available" || echo "$name:missing"; done
-prompt:ship	gh	specforge run --which gh && gh auth status 2>&1
-prompt:ship	gh	gh pr create \
-prompt:ship	gh	gh pr edit ${PR_NUMBER} --add-reviewer "${REVIEWER}"
-prompt:ship	gh	PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup --jq '"\(.headRefOid) \(.mergeStateStatus) \((.statusCheckRollup // []) | length)"' 2>/dev/null || echo '- UNKNOWN 0')   # gh's own --jq filter: "<head> <status> <checks>"
+# E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 
 # F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 78 rows.
 agents/gsd-executor.md	npx	npx --yes

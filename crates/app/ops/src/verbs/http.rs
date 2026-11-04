@@ -56,8 +56,12 @@ pub struct Ask {
 /// A request body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Body {
-    /// A JSON object, sent as `application/json`.
-    Json(serde_json::Map<String, serde_json::Value>),
+    /// A JSON object, sent as `application/json`: its fields, then each `files` field a string read from a file in
+    /// the project's roots (`--field-file`), so a long text needs no JSON escaping in a shell.
+    Json {
+        object: serde_json::Map<String, serde_json::Value>,
+        files: Vec<(String, PathBuf)>,
+    },
     /// A file in the project's roots, from the current directory, sent as it is.
     File(PathBuf),
 }
@@ -291,11 +295,21 @@ fn built(verbs: &Verbs, ask: &Ask) -> Result<HttpRequest, OpError> {
         .any(|header| header.name.eq_ignore_ascii_case("content-type"));
     let body = match &ask.body {
         None => None,
-        Some(Body::Json(object)) => {
+        Some(Body::Json { object, files }) => {
             if !typed_type {
                 headers.push(Header::plain("Content-Type", "application/json"));
             }
-            Some(serde_json::to_vec(object).map_err(|error| invalid(error.to_string()))?)
+            let mut object = object.clone();
+            for (key, path) in files {
+                let text = String::from_utf8(read_body(verbs, path)?).map_err(|_| {
+                    invalid(format!(
+                        "--field-file {key}: {} is not UTF-8 text",
+                        printable(&path.to_string_lossy())
+                    ))
+                })?;
+                object.insert(key.clone(), serde_json::Value::String(text));
+            }
+            Some(serde_json::to_vec(&object).map_err(|error| invalid(error.to_string()))?)
         }
         Some(Body::File(path)) => Some(read_body(verbs, path)?),
     };
