@@ -3,10 +3,10 @@
 //! name. `Contained` holds every path, so nothing outside a root, and nothing on the credential deny-list, is listed or
 //! linked.
 
-use serde_json::{Map, Value};
 use specforge_effects::contained::{Contained, Lookup, RealFs};
 use specforge_ops::view::ProjectView;
-use specforge_protocol_types::{CheckerDescriptor, Root, RootedPath, ValueForm};
+use specforge_protocol_types::{Root, RootedPath, ValueForm};
+use specforge_registry::CheckRegistry;
 use tower_lsp::lsp_types::{CompletionItem, CompletionItemKind, DocumentLink, Url};
 
 use crate::document::StringValue;
@@ -28,30 +28,14 @@ fn forms(view: &ProjectView, kind: &str, field: &str) -> Vec<Form> {
         .filter_map(|call| {
             let checker = checks.checker(&call.extension, &call.checker)?;
             match checker.value {
-                ValueForm::Path => Some(Form::Path(default_root(checker, &call.args))),
+                ValueForm::Path => {
+                    Some(Form::Path(CheckRegistry::default_root(checker, &call.args)))
+                }
                 ValueForm::Url => Some(Form::Url),
                 _ => None,
             }
         })
         .collect()
-}
-
-/// The check's `root_arg` argument, else that argument's declared default, else the project.
-fn default_root(checker: &CheckerDescriptor, args: &Map<String, Value>) -> Root {
-    checker
-        .root_arg
-        .as_deref()
-        .and_then(|arg| {
-            args.get(arg)
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .or_else(|| {
-                    let declared = checker.args.iter().find(|a| a.name == arg)?;
-                    declared.default_value.clone()
-                })
-        })
-        .and_then(|name| Root::parse(&name))
-        .unwrap_or(Root::Project)
 }
 
 /// What completes inside `value` when a check reads it as a path: the `<root>/` prefixes while none is written, then

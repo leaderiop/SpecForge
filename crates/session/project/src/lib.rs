@@ -497,7 +497,7 @@ impl Environment {
     /// the relative paths the rules read. The one place a snapshot is
     /// taken from an environment.
     pub fn entity_snapshot(&self, graph: &GraphBuild) -> EntitySnapshot {
-        EntitySnapshot::of(graph, &self.registries, self.sources.dir(), self.root())
+        EntitySnapshot::of(graph, &self.registries)
     }
 
     /// Every check a compile runs over the entity snapshot `entities` of a
@@ -597,7 +597,7 @@ impl Environment {
             };
             diagnostics.extend(
                 self.registries
-                    .check(&entities.rule_input(disk), verdicts.as_ref()),
+                    .check(&entities.rule_input(), verdicts.as_ref()),
             );
             if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
                 diagnostics.extend(harness::check(

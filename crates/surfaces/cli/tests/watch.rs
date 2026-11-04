@@ -536,7 +536,7 @@ fn docref_project(spec: &str) -> TestProject {
     fs::create_dir_all(root.join("ext")).unwrap();
     fs::write(
         root.join("specforge.json"),
-        r#"{"name":"p","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@sdk/docref=ext/docref.wasm"]}"#,
+        r#"{"name":"p","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@specforge/checks","@sdk/docref=ext/docref.wasm"]}"#,
     )
     .unwrap();
     fs::copy(
@@ -554,7 +554,7 @@ fn gadget_naming(reference: &str) -> String {
 }
 
 /// How `spec/a.spec` of a `docref_project` spells a file at `<rest>` under the project root, outside the spec root
-/// (a file reference never leaves the project, ADR 0335).
+/// (a files check never reads outside the project, ADR 0335).
 fn project_reference(rest: &str) -> String {
     format!("<project>/{rest}")
 }
@@ -571,7 +571,7 @@ fn codes(event: &serde_json::Value) -> Vec<String> {
 
 #[specforge_test(
     behavior = "classify_project_changes",
-    verify = "a file a file_reference field names re-runs the checks"
+    verify = "a file a files check names re-runs the checks"
 )]
 fn watch_rechecks_when_a_referenced_file_outside_the_spec_root_appears() {
     let project = docref_project(&gadget_naming(&project_reference("shared/guide.md")));

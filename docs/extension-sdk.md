@@ -311,7 +311,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 
 ### Fields
 
-`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `file_reference()` (string values are file paths) and `file_base(FileBase::Project)` (relative paths start at the project root, not the spec root), `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is), `enum_list(&V)` (a list of a vocabulary's values, each once), and the checks its values pass (ADR 0336, see [Value checkers](#value-checkers)): `check(checker)`, `check_with(checker, args)`, `any_of([CheckRef::named(..), ..])` and `file(Root::Spec)`, the `file` check of `@specforge/checks` with that root. Who writes the field is declared too (ADR 0287): `computed()` (a compute pass gives the value; one written by hand is E082), `harness()` (a command's plan sets it and the host records it in `specforge-harness`; E083 without a line), `immutable()` (a value that differs from its git baseline is E084) and `append_only()` (a list that rewrites its baseline's items is E085; a kind's `append_only()` makes removing an entity E085). A pass declares `compute()` and `computes(&["kind.field"])` to answer `PassOutput.values` (`PassValue { entity, field, value }`), and `baseline(&["kind"])` for the kinds it reads as `previous`. `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
+`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is), `enum_list(&V)` (a list of a vocabulary's values, each once), and the checks its values pass (ADR 0336, see [Value checkers](#value-checkers)): `check(checker)`, `check_with(checker, args)`, `any_of([CheckRef::named(..), ..])` and `file(Root::Spec)`, the `file` check of `@specforge/checks` with that root. Who writes the field is declared too (ADR 0287): `computed()` (a compute pass gives the value; one written by hand is E082), `harness()` (a command's plan sets it and the host records it in `specforge-harness`; E083 without a line), `immutable()` (a value that differs from its git baseline is E084) and `append_only()` (a list that rewrites its baseline's items is E085; a kind's `append_only()` makes removing an entity E085). A pass declares `compute()` and `computes(&["kind.field"])` to answer `PassOutput.values` (`PassValue { entity, field, value }`), and `baseline(&["kind"])` for the kinds it reads as `previous`. `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
 
 | `FieldType` | Holds |
 |---|---|
@@ -359,7 +359,6 @@ One `const` per vocabulary; the field declaration, the list filters, the passes 
 | `MissingFieldWhenFlagSet`, `MissingRequiredField` | `field` (required) |
 | `FieldValueConstraint` | `field` and a `constraint`: `NonEmpty`, `OneOf` with `values`, or `Matches` with a `pattern` |
 | `CycleDetection` | `edge_type` (required) |
-| `FileExists` | the path in `field` (required) |
 | `Custom` | the rule's own function (below) |
 | `ConditionalFieldRequired` | `field`, and a `WhenFieldEquals` constraint |
 | `VerifyKindAllowlist` | the `constraint` values |
@@ -662,7 +661,7 @@ none, runs the pass only under `specforge analyze`, which skips check passes.
 
 A pass may declare `p.input(Input::files(name, FileReadSpec::field("plan.files_modified")))` or `FileReadSpec::glob(..)`
 (add `.text()` for the
-file's text, at most 64 KiB; `.base(FileBase::Spec)` for a field whose relative paths start at the spec) and receives the facts
+file's text, at most 64 KiB; `.root(Root::Spec)` for a field whose bare paths start at the spec root) and receives the facts
 under `input.files[name]` (protocol 1.11.0, ADR 0293): `{path, entity?, exists, bytes?, lines?, digest?, text?, error?}`,
 and `truncated` on a glob that matched over 2000 files. A file the host reads is a check input, so the pass runs again
 when it changes. `p.input(Input::Tests)` makes a check, compute or guard pass receive the recorded test report as `test_results`
@@ -946,19 +945,13 @@ struct Gherkin;
 impl Contributions for Gherkin {
     fn contribute(c: &mut ContributionsBuilder) {
         c.peer("@specforge/software", "^1.0");
+        c.peer("@specforge/checks", "^1.0");
         c.enhance("behavior", |e| {
             e.field("gherkin", |f| {
                 f.field_type(FieldType::StringList)
                     .description("BDD scenario files")
-                    .file_reference();
+                    .file(Root::Spec);
             });
-        });
-        c.rule("W904", |r| {
-            r.check(CheckKind::FileExists)
-                .target_kind("behavior")
-                .field("gherkin")
-                .severity(ValidationSeverity::Warning)
-                .message_template("behavior '{id}' names a gherkin file that does not exist");
         });
     }
 }

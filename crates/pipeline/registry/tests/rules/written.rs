@@ -10,15 +10,13 @@ use specforge_test_macros::test as spec;
 
 use super::cycles::cycle_rule;
 use super::{Built, constraint, declaring_with_kinds, messages, rule, rules, rules_of};
+use crate::support::declare;
 use crate::support::written::{linked, snapshot_of};
-use crate::support::{NoDisk, declare};
 
 /// What `built`'s rules report over `text`, written as one file.
 fn over_text(built: &Built, text: &str) -> Vec<Diagnostic> {
     let snapshot = snapshot_of(&built.build, &[("t.spec", text)]);
-    built
-        .rules
-        .check(&snapshot.rule_input(&NoDisk), &NoVerdicts)
+    built.rules.check(&snapshot.rule_input(), &NoVerdicts)
 }
 
 /// `@test` declaring `behavior`, `feature` (only when `with_feature`), `event` and the edges

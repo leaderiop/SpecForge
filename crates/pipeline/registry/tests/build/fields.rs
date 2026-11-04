@@ -4,7 +4,7 @@
 
 use specforge_common::Severity;
 use specforge_extension_sdk::Vocabulary;
-use specforge_protocol_types::{ExtensionDeclaration, Root};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     FieldDescriptor, FieldRegistryEntry, FieldType, ProofRole, UnknownFieldType,
 };
@@ -483,9 +483,7 @@ fn a_blocks_members_register_by_path() {
                         m.field_type(FieldType::Integer).minimum(0).maximum(100);
                     })
                     .member("path", |m| {
-                        m.field_type(FieldType::String)
-                            .file_reference()
-                            .file_base(Root::Project);
+                        m.field_type(FieldType::String);
                     });
             });
         });
@@ -498,9 +496,7 @@ fn a_blocks_members_register_by_path() {
     assert!(phase.required());
     let (_, score) = fields.get_path("thing", "requires.score").unwrap();
     assert_eq!(score.bounds(), (Some(0), Some(100)));
-    let (declared, path) = fields.get_path("thing", "requires.path").unwrap();
-    assert_eq!(path.base(), &Root::Project);
-    assert!(declared.file_reference);
+    assert!(fields.get_path("thing", "requires.path").is_some());
     assert!(fields.get_path("thing", "requires").is_some());
     assert!(fields.get_path("thing", "requires.nope").is_none());
     let names: Vec<_> = fields
@@ -540,17 +536,4 @@ fn a_kind_field_of_type_number_is_w021() {
     );
     assert!(!build.fields().contains("task", "ratio"));
     assert!(build.fields().contains("task", "estimate"));
-}
-
-#[test]
-fn a_file_check_on_an_integer_field_is_w189() {
-    let build = build([declare("@test/ext", |c| {
-        c.kind("Thing", |k| {
-            k.keyword("thing");
-            k.field("count", |f| {
-                f.field_type(FieldType::Integer).file_reference();
-            });
-        });
-    })]);
-    assert!(codes(&build).contains(&"W189"), "{:?}", diagnostics(&build));
 }

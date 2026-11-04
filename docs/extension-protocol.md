@@ -143,7 +143,7 @@ nothing else:
 
 | `input` | Keys | Served to | The call's input carries |
 |---|---|---|---|
-| `files` | `name`, `field` or `glob`, `base`?, `text`? | pass, command, collector | `files`, the facts (and capped text) under `name` (see "File reads" under [Category: passes](#category-passes)) |
+| `files` | `name`, `field` or `glob`, `root`?, `text`? | pass, command, collector | `files`, the facts (and capped text) under `name` (see "File reads" under [Category: passes](#category-passes)) |
 | `tests` | | pass | `test_results`, the recorded test report |
 | `state` | | command, prompt, hook | `state`, the extension's state |
 | `graph` | | prompt, hook | `graph` |
@@ -235,7 +235,7 @@ its `enum_values`; `identifier` one word (letters, digits and `_`, starting with
 `string_list` and `reference_list` a list (a single value is stored as a one-item list; a list is stored as written), written as an
 array of strings; `enum_list` a list of its `enum_values` (a word twice is E061), written as an array of strings; `block` a block, written as an object of its entries, and, when the field declares `members`, an object of those members; `block_list` a list of blocks, `[ { phase 02 provides "x" } { .. } ]` (commas optional, `specforge format` writes none), written as an array of objects. Anything else is E061.
 
-A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them); and `file_base`, `spec` (the default) or `project`, where a `file_reference` field's relative paths start. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
+A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); and `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them). A field whose values name files carries a check on `@specforge/checks:file` (`checks`, below) with the root its paths start from. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
 
 A field of 2.0.0 may also declare `checks` (ADR 0336), the checks its values pass, run in order (see
 [Category: checkers](#category-checkers)): `{"checker": "<name>", "args": {..}}`, or `{"any_of": [..]}`, one level deep,
@@ -389,7 +389,6 @@ ledger line.
 | `no_edges` | no edge points at the entity and it points at nothing (as `no_outgoing_edges`) | — | — | `edge_type`, `constraint`, `wasm_function` |
 | `missing_field_when_flag_set` | `field` is absent (when `field` is `verify`, the entity's `verify` statements; an entity owing none is exempt) | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
 | `missing_required_field` | `field` is absent | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
-| `file_exists` | a path `field` names (its text, or each item of a list; a block or an expression names none) does not exist, relative to the spec root; the diagnostic suggests a close sibling | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
 | `field_value_constraint` | `field`'s value breaks the constraint | `field`; a constraint `non_empty`, `one_of` with values, or `matches` with a `pattern` that compiles | the constraint | `edge_type`, `wasm_function`; `pattern` on `non_empty`/`one_of`; `values` on `non_empty`/`matches` |
 | `conditional_field_required` | `field` is absent or empty while the field named by `constraint.pattern` holds one of `constraint.values` | `field`; `constraint.pattern` and non-empty `constraint.values` | constraint kind `when_field_equals` | `edge_type`, `wasm_function`; any other constraint kind (read as `when_field_equals`) |
 | `cycle_detection` | the entity sits on a cycle of `edge_type` edges, following every field that writes it | `edge_type` | `target_kind` (unset: every entity) | `constraint`, `wasm_function` |
@@ -397,8 +396,9 @@ ledger line.
 | `no_verify_statements` | a testable entity declares no `verify` obligations (or does not write `field` when it names another obligation field) | a target kind that accepts `verify` (for `verify` statements) | `field` (default `verify`) | `edge_type`, `constraint`, `wasm_function` |
 | `custom` | the rule's `wasm_function` export answers `fail` | `wasm_function` | — | `edge_type`, `constraint` |
 
-Older spellings earlier SDK releases emitted (`missing_field`,
-`field_constraint`, `cycle`, `conditional_required`) are still read.
+A check kind outside this table is W112, and the rule is not registered. `file_exists`, the
+host's file rule before ADR 0336, names `@specforge/checks:file` in its W112: a field whose values name files carries
+that check.
 
 Constraint kinds (`specforge_protocol_types::ConstraintKind`): `non_empty`,
 `one_of` and `matches` (regex in `pattern`) for `field_value_constraint`;
@@ -752,14 +752,14 @@ means. A `PassEntity` carries `pending: true` (1.15.0, ADR 0329 D4) while its ow
 does not; it is absent otherwise, and decided on the snapshot the passes read, computed values included. A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface, the `graph` a command, a prompt, a hook or a writing collector receives included (as `fields`, with the judgements beside them; ADR 0299, no protocol change); a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
 
 **File reads (1.11.0, ADR 0293).** A pass, a command or a collector may declare `files` inputs, each
-`{"input": "files", "name", "field"?, "glob"?, "base"?, "text"?}`: the project files it wants the host to read, because
+`{"input": "files", "name", "field"?, "glob"?, "root"?, "text"?}`: the project files it wants the host to read, because
 a guest has no file system. Exactly one of
-`field` (`kind.field` or `kind.field.member`: the paths the entities of that kind write there, read as `file_exists`
-reads them) or `glob` (project-relative, `/`-separated; `*`, `?` and a `**` segment, at most four of them; never `..` or an absolute path).
-`name` is a word, unique among the owner's reads. `base` (`spec` or `project`, default `project`) says where a field's
-relative paths start and is for a field read only. `text: true` asks for the file's text as well as its facts. A
+`field` (`kind.field` or `kind.field.member`: the paths the entities of that kind write there, each scalar's text or each
+item of a list) or `glob` (project-relative, `/`-separated; `*`, `?` and a `**` segment, at most four of them; never `..` or an absolute path).
+`name` is a word, unique among the owner's reads. `root` (a root's name, default `project`) says where a field's
+bare paths start and is for a field read only. `text: true` asks for the file's text as well as its facts. A
 malformed read (neither or both of `field` and `glob`, a repeated name, a field no loaded extension declares, a glob
-that is absolute, climbs with `..`, has an empty segment or has more than four `**` segments, `base` on a glob) is W021 from the registry build, and that read is served empty: the pass is kept.
+that is absolute, climbs with `..`, has an empty segment or has more than four `**` segments, `root` on a glob) is W021 from the registry build, and that read is served empty: the pass is kept.
 
 The input then carries `files`, `{"<name>": {"facts": [FileFact], "truncated"?: true}}`. A `FileFact` is `{"path",
 "entity"?, "exists", "bytes"?, "lines"?, "digest"?, "text"?, "error"?}`, one per (entity, path) sorted by `(entity, path)`
@@ -999,6 +999,7 @@ judged verdict digests each checked value's outcome class. It makes one `__check
 | `fs.read_prefix` | `root`, `path`, `bytes` (held to 64 KiB) | Fs |
 | `fs.read` | `root`, `path`, `bytes` (held to 1 MiB) | Fs |
 | `fs.walk` | `root`, `path`, `glob` | Fs |
+| `fs.digest` | `root`, `path`: the whole file's SHA-256 and length, read in chunks until the run's deadline (asked as a read) | Fs |
 | `http.head` | `url`, `redirects` (held to 5, each under the grant) | Http |
 | `http.get` | `url`, `range`?, `max_bytes` (held to 64 KiB) | Http |
 | `http.tls` | `host`, `port` | Http |

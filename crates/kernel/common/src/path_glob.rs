@@ -2,40 +2,57 @@
 //! `/`-separated; `*` is any run of characters within a segment, `?` one character, and a segment `**` any number of
 //! segments (none included).
 
-/// Whether `path` matches `pattern`.
+/// Whether `path` matches `pattern`. The pattern may come from a project's own values, so the time is bounded by the
+/// product of the two lengths, however many wildcards it holds.
 pub fn matches(pattern: &str, path: &str) -> bool {
-    let mut pattern: Vec<&str> = pattern.split('/').filter(|s| *s != ".").collect();
-    // `**/**` is `**`: collapsed, so a run of them is not a run of nested searches.
-    pattern.dedup_by(|a, b| *a == "**" && *b == "**");
+    let pattern: Vec<&str> = pattern.split('/').filter(|s| *s != ".").collect();
     let path: Vec<&str> = path.split('/').filter(|s| *s != ".").collect();
-    segments(&pattern, &path)
-}
-
-fn segments(pattern: &[&str], path: &[&str]) -> bool {
-    match pattern.split_first() {
-        None => path.is_empty(),
-        Some((&"**", rest)) => (0..=path.len()).any(|skip| segments(rest, &path[skip..])),
-        Some((first, rest)) => path
-            .split_first()
-            .is_some_and(|(head, tail)| segment(first, head) && segments(rest, tail)),
-    }
+    wild(
+        &pattern,
+        &path,
+        |word| *word == "**",
+        |word, text| segment(word, text),
+    )
 }
 
 fn segment(pattern: &str, text: &str) -> bool {
-    fn go(p: &[char], t: &[char]) -> bool {
-        match p.split_first() {
-            None => t.is_empty(),
-            Some(('*', rest)) => (0..=t.len()).any(|n| go(rest, &t[n..])),
-            Some(('?', rest)) => t.split_first().is_some_and(|(_, tail)| go(rest, tail)),
-            Some((c, rest)) => t
-                .split_first()
-                .is_some_and(|(h, tail)| h == c && go(rest, tail)),
+    let pattern: Vec<char> = pattern.chars().collect();
+    let text: Vec<char> = text.chars().collect();
+    wild(&pattern, &text, |c| *c == '*', |c, t| *c == '?' || c == t)
+}
+
+/// Whether `pattern` matches all of `text`, where `any` is a run of any length (none included) and `one` says whether
+/// an element matches one of `text`'s. Only the last `any` is ever gone back to: one that matched earlier can match
+/// no more than it did, so going back further finds nothing new.
+fn wild<P, T>(
+    pattern: &[P],
+    text: &[T],
+    any: impl Fn(&P) -> bool,
+    one: impl Fn(&P, &T) -> bool,
+) -> bool {
+    let (mut at, mut read) = (0, 0);
+    let mut back: Option<(usize, usize)> = None;
+    while read < text.len() {
+        match pattern.get(at) {
+            Some(element) if any(element) => {
+                back = Some((at + 1, read));
+                at += 1;
+            }
+            Some(element) if one(element, &text[read]) => {
+                at += 1;
+                read += 1;
+            }
+            _ => {
+                let Some((after, tried)) = back else {
+                    return false;
+                };
+                back = Some((after, tried + 1));
+                at = after;
+                read = tried + 1;
+            }
         }
     }
-    go(
-        &pattern.chars().collect::<Vec<_>>(),
-        &text.chars().collect::<Vec<_>>(),
-    )
+    pattern[at..].iter().all(any)
 }
 
 #[cfg(test)]
@@ -60,5 +77,25 @@ mod tests {
         let path = "a/".repeat(30) + "y";
         assert!(!matches(&pattern, &path));
         assert!(matches(&pattern, &("a/".repeat(30) + "x")));
+    }
+
+    #[test]
+    fn a_hostile_pattern_is_answered_in_time() {
+        let stars = "*a".repeat(64) + "b";
+        assert!(!matches(&stars, &"a".repeat(4096)));
+        let spread = "**/a/".repeat(64) + "b";
+        assert!(!matches(&spread, &"a/".repeat(2048)));
+    }
+
+    #[test]
+    fn wildcards_match_as_their_grammar_says() {
+        assert!(matches("a*b*c", "axxbxxc"));
+        assert!(!matches("a*b*c", "axxbxx"));
+        assert!(matches("**/x/**/y", "x/y"));
+        assert!(matches("**/x/**/y", "a/x/b/c/y"));
+        assert!(!matches("**/x/**/y", "a/y/x"));
+        assert!(matches("*", ""));
+        assert!(!matches("?", ""));
+        assert!(matches("é?", "éa"));
     }
 }

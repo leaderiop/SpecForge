@@ -93,7 +93,7 @@ behavior classify_project_changes "Classify Project Changes" {
     environment inputs, and the target of each of these that is a
     symlink; every path the checks read is a check input:
     every file a
-    file_reference field or a file_exists rule names, which the checks
+    files check names, which the checks
     look for, and every directory a missing named file's suggestion listed, and the
     target of each of these that is a symlink; a specforge.json
     in a directory below the spec root marks a nested project, and its
@@ -133,9 +133,8 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a discovered .spec file is a source keyed from the project root"
   verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
   verify unit "a .wasm file no extension loads changes nothing"
-  verify unit "a file a file_reference field names re-runs the checks"
-  verify unit "a file a file_exists rule names re-runs the checks"
-  verify unit "a file beside a missing file a file_exists rule names changes its suggestion"
+  verify unit "a file a files check names re-runs the checks"
+  verify unit "a file beside a missing file a files check names changes its suggestion"
   verify unit "a session's check inputs are the paths its checks read"
   verify unit "a check input that is a symlink is followed to its target"
   verify unit "an environment input that is a symlink is followed to its target"

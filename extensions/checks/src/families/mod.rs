@@ -7,10 +7,11 @@ use specforge_extension_sdk::prelude::*;
 use crate::codes::*;
 
 mod digits;
+pub(crate) mod files;
 mod formats;
 
 /// The scopes the families' probes run under. Formats and digits read only the text, so they have none.
-const FILES: &str = "files";
+pub(crate) const FILES: &str = "files";
 const LINKS: &str = "links";
 const GIT: &str = "git";
 
@@ -24,7 +25,7 @@ struct Family {
 const FAMILIES: [Family; 5] = [
     Family {
         switch: "families.files",
-        gates: &[E096, W176],
+        gates: &[E016, E096, W176],
         describe: "Check the files and directories the values name",
     },
     Family {
@@ -76,6 +77,7 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
                 .gates(family.gates);
         });
     }
+    files::contribute(c);
     formats::contribute(c);
     digits::contribute(c);
 }

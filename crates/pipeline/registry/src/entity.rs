@@ -4,12 +4,9 @@
 //! read them.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
 
 use specforge_common::SourceSpan;
 use specforge_graph::{Obligation, Rewrite, ValueShape};
-
-use crate::disk::Disk;
 
 /// One entity as the registry checks, the rules and the custom validators
 /// read it. Made by the entity snapshot (`crate::snapshot`); tests whose subject
@@ -197,28 +194,12 @@ pub enum Direction {
     Outgoing,
 }
 
-/// What the rules run over: the snapshot's records in id order, its edges
-/// in graph order, the spec root relative paths resolve against, and the
-/// disk every file read goes through (ADR 0107).
-#[derive(Clone, Copy)]
+/// What the rules run over: the snapshot's records in id order and its edges in graph order. No
+/// rule reads the file system: a path is read by a value checker (ADR 0338).
+#[derive(Debug, Clone, Copy)]
 pub struct RuleInput<'a> {
     pub entities: &'a [EntityRecord],
     pub edges: &'a [EdgeRecord],
-    pub spec_root: &'a Path,
-    /// The directory holding `specforge.json`: where a file field declaring the `project` base starts its paths.
-    pub project_root: &'a Path,
-    pub disk: &'a dyn Disk,
-}
-
-impl std::fmt::Debug for RuleInput<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RuleInput")
-            .field("entities", &self.entities)
-            .field("edges", &self.edges)
-            .field("spec_root", &self.spec_root)
-            .field("project_root", &self.project_root)
-            .finish_non_exhaustive()
-    }
 }
 
 impl EntityRecord {

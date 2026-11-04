@@ -1,7 +1,7 @@
 use crate::{
     CheckKind, CollectInput, CollectOutput, ConstraintKind, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    FieldType, FieldWriter, PassAnswer, PassInput, Root, ScanRequest, ScanResponse,
+    FieldType, FieldWriter, PassAnswer, PassInput, ScanRequest, ScanResponse,
     ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary,
     operations,
 };
@@ -253,15 +253,6 @@ impl FieldBuilder {
     /// `"method_signatures"` (its method parameter and return types).
     pub fn derived_from(&mut self, source: &str) -> &mut Self {
         self.0.derived_from = Some(source.to_string());
-        self
-    }
-    pub fn file_reference(&mut self) -> &mut Self {
-        self.0.file_reference = true;
-        self
-    }
-    /// Where a [`Self::file_reference`] field's relative paths start (ADR 0285): the spec root by default.
-    pub fn file_base(&mut self, base: Root) -> &mut Self {
-        self.0.file_base = Some(base.as_str().to_string());
         self
     }
     /// The kinds a reference field may name when it names more than one, exclusive with [`Self::target_kind`]

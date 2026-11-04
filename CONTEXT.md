@@ -642,16 +642,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   extension declares is skipped silently when its extension declares an optional peer the project does not load, and
   is I004 otherwise (ADR 0096).
 - **Rule set**: the extensions' declared validation rules plus the host's E006 rules for required
-  fields and E016 rules for file-reference fields, each turned once per registry build into a typed rule that carries only what its check
+  fields, each turned once per registry build into a typed rule that carries only what its check
   reads, resolved against the registries (a compiled regex, an edge rule's edge type and the fields that
   write it). An edge rule counts the edges of its edge type; a cycle rule follows them and reports every member of a cycle (ADR 0196). It runs itself over the entity snapshot's records (`RuleInput`, ADR
   0019), cycles included, and answers which rule applies to a kind, which the snapshot's standing
   reads (`specforge_registry::rules::Rules`, ADR 0020). A declared rule that cannot work is W112; a
   property its check does not read is W147.
 - **Named paths**: the paths an entity's field names: a scalar's text, or each item of a list, when not
-  empty; a block, an expression group, a variant list or a type union names none. Every `file_exists` rule,
-  E016 among them, reads them and suggests a close sibling of a missing one
-  (`specforge_registry::rules::files`, ADR 0118).
+  empty; a block, an expression group, a variant list or a type union names none. A pass's or command's `field`
+  read hands them to the host (`specforge_registry::rules::paths_named`, ADR 0293); no rule reads a path, a value
+  checker does (`@specforge/checks:file`, E016, ADR 0336).
 - **Structural checks**: the host's own checks over the entity snapshot's records, run by the
   registry build before the rule set, in this order: W012 (a `ref` nothing references), then, unless the project is structural-only, E024, E013, E014, W020 and E061
   (`specforge_registry`'s `checks`, ADR 0031). E022 is the linker's (ADR 0117). None reads a graph node. Whether every reference
@@ -763,9 +763,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`MemberPath`, ADR 0285).
 - **Member (of a block)**: a field a typed block declares. Not an entity's members (below), and not a type member (a
   field written in a `type` entity, ADR 0282): a typed block's member is never a type expression.
-- **File base**: where a `file_reference` field's relative paths start, `spec` (the spec root, the default) or
-  `project` (the directory of `specforge.json`), declared by the field (`file_base`, ADR 0285; ADR 0118 D1 for the
-  default).
+- **Default root (of a path)**: where a bare path starts, the root its reader names: a check's `root` argument
+  (`@specforge/checks:file`, the project root when it names none), a `files` input's `root`; a `<name>/` prefix
+  overrides it (ADR 0335, ADR 0336). A field declares none.
 - **Members**: what an entity holds besides its id, kind, title and obligations, as every output writes it
   (`specforge_graph::Members`, ADR 0222): its fields' values (`FieldJson`), the annotations written after them, by the
   field's name (an entry of a block field's by `outer.key`), and its methods (`MethodJson`: name, parameters with their

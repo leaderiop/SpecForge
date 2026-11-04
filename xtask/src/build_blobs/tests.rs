@@ -55,8 +55,8 @@ fn builtins() -> impl Iterator<Item = &'static CommittedBlob> {
 }
 
 /// The crates a builtin blob compiles besides its own sources: the guest wire, the SDK and its
-/// macros, the coverage rule and the cycle answer (ADR 0039, 0050, 0196), and any extension library it links (ADR
-/// 0328 D3). A host-only module in one of them, or a new path dependency of a guest, shows here as an input outside
+/// macros, the coverage rule, the cycle answer and the checks kit `@specforge/checks` links (ADR 0039, 0050, 0196,
+/// 0338), and any extension library it links (ADR 0328 D3). A host-only module in one of them, or a new path dependency of a guest, shows here as an input outside
 /// this list.
 const GUEST_CRATES: &[&str] = &[
     "crates/leaf/protocol-types/",
@@ -64,6 +64,7 @@ const GUEST_CRATES: &[&str] = &[
     "crates/runtime/extension-sdk-macros/",
     "crates/leaf/coverage/",
     "crates/leaf/cycles/",
+    "crates/leaf/checks-kit/",
 ];
 
 /// Whether `key` (a repo-relative input) lies in an extension library: a crate

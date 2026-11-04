@@ -128,7 +128,7 @@ behavior require_block_titles "Require Block Titles" {
 // WITHOUT knowledge of entity semantics. They check: dangling references,
 // duplicate IDs, import cycles, unreferenced structural nodes (W012 for any
 // grammar-level structural kind — ref, spec — with zero incoming edges),
-// and file-reference existence. Extension-defined entity kinds opt into
+// (a file a field names is a value check's: @specforge/checks). Extension-defined entity kinds opt into
 // generic unreferenced detection via extension-defined `no_incoming_edges`
 // ValidationRulePatterns. Domain-specific unreferenced rules (e.g., W001 unreferenced
 // entity) are extension-defined ValidationRulePatterns.
@@ -181,87 +181,6 @@ behavior detect_unreferenced_refs "Detect Unreferenced Refs" {
   verify unit "structural node with at least one incoming edge suppresses W012"
   verify contract "Detect Unreferenced Refs: unreferenced ref detection holds — graph_built_fired, unreferenced_detected, referenced_nodes_clean"
   verify unit "spec block is a root container and does not produce W012"
-}
-
-// Core structural validation: checks file existence for ANY field declared as
-// a file reference in extension metadata. This is purely structural and
-// domain-agnostic — the core checks that referenced files exist, just like it
-// checks that referenced entity IDs exist (E003). This mechanism applies to
-// any file-reference field registered by any extension (e.g., gherkin from
-// @specforge/software, or a future openapi field from another extension).
-// W018 (missing file-reference field on supported kind) is an extension-level
-// concern: it is declared as a missing_field_when_flag_set ValidationRulePattern
-// by the owning extension, not hardcoded in core. The core only handles E016.
-behavior validate_file_reference_paths "Validate File Reference Paths" {
-  features   [structural_validation, se_gherkin_bridge]
-  // reference_resolution_completeness applies here because file paths are a form
-  // of reference that must resolve: just as entity-ID references must resolve to
-  // graph nodes, file-path references must resolve to existing filesystem entries.
-  // Both are "references" in the graph-integrity sense — unresolved file paths
-  // violate the same completeness guarantee as dangling entity references.
-  category   validation
-  invariants [reference_resolution_completeness, validation_pipeline_ordering]
-  ports      [FileSystem]
-  consumes   [graph_built]
-  // Diagnostics from this validator flow into the declarative_validation_executed
-  // aggregate and ultimately to validation_complete. No separate event produced.
-  requires {
-    graph_built_fired    "graph_built event has fired, confirming the in-memory graph is fully constructed"
-    filesystem_available "FileSystem port is available for checking file existence"
-  }
-  ensures {
-    missing_files_diagnosed "Every non-existent file path in a file-reference field produces an E016 diagnostic"
-    existing_files_pass     "File-reference fields pointing to existing files produce no diagnostic"
-    paths_contained         "A file-reference path that leaves its root (absolute, a climbing .., a link out) produces E094 and is not read"
-    case_reported           "A file-reference path that exists only under another case produces W174 naming the disk's spelling"
-  }
-  contract   """
-    This behavior performs generic file-path validation for any entity
-    field whose extension metadata declares it as a file reference.
-    The validation is domain-agnostic: the core does not interpret the
-    semantics of the referenced file — it only checks existence.
-    Any extension can register file-reference fields (e.g., gherkin
-    from @specforge/software, openapi, protobuf, schema) and they
-    will all be validated by this same mechanism.
-
-    File existence (E016): every file path in a file-reference field
-    MUST reference an existing file inside the root it is read in: the
-    spec root, the project root where the field declares that base, or
-    the root a `<spec>/` or `<project>/` prefix names (ADR 0335). A path
-    that leaves its root (absolute, a `..` above it, a link out) is
-    E094, an unknown prefix E095, a case variant of a file on disk W174
-    and a backslash W175; a suggestion names only a sibling inside the
-    root.
-    Non-existent files MUST produce an E016 diagnostic. A field is a
-    file reference on the kinds whose registry entry declares it so: a
-    field of the same name on another kind is not one. Its value names
-    its paths: a single value's text, quoted or a bare word, or each item of
-    a list; an empty value names none, and so do a block and an expression
-    group. E016 is a rule the host builds for each such field; it runs with
-    the rule set, after E006.
-
-    Field-presence warnings (e.g., W018 for missing file-reference
-    field on a supported kind) are NOT handled here — they are declared
-    as missing_field_when_flag_set ValidationRulePatterns in the owning
-    extension manifest and executed by the declarative validation engine.
-  """
-  verify unit "non-existent file reference produces E016"
-  verify unit "existing file reference passes silently"
-  verify unit "multiple file references in same entity each validated independently"
-  verify unit "relative path resolved from the spec root"
-  verify unit "a file reference is read from the spec root and suggests a close sibling there"
-  verify unit "a field another kind declares as a file reference is not one on this kind"
-  verify unit "a single path on a file-reference field is checked like a one-item list"
-  verify unit "a bare word on a file-reference field is a path"
-  verify integration "a compile checks a bare word on a file-reference field as a path"
-  verify unit "a file field declaring the project base reads its relative paths from the directory of specforge.json"
-  verify unit "a file reference whose .. climbs out of its root is E094"
-  verify unit "an absolute file reference is E094"
-  verify unit "a file reference through a link out of its root is E094"
-  verify unit "a file reference whose case differs from the disk is W174 naming the disk's spelling"
-  verify unit "a name read from the disk or a value's escape reaches E016 and W174 printable"
-  verify unit "a missing file reference outside its root suggests no name from outside it"
-  verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass, paths_contained, case_reported"
 }
 
 // W017 (testable kind without verify support) is registry_build_kinds, in behaviors/zero-entity-registries.spec.

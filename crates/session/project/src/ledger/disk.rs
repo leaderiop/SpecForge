@@ -5,6 +5,7 @@
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Instant;
 
 use specforge_registry::{Disk, FileStamp};
 
@@ -41,6 +42,13 @@ impl Disk for RunDisk<'_, '_> {
         self.record_link_targets(path);
         self.0.read(Reading::File, path, self.1, |path| {
             self.1.read_prefix(path, max)
+        })
+    }
+
+    fn digest(&self, path: &Path, deadline: Instant) -> io::Result<(String, u64)> {
+        self.record_link_targets(path);
+        self.0.read(Reading::File, path, self.1, |path| {
+            self.1.digest(path, deadline)
         })
     }
 

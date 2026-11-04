@@ -214,7 +214,7 @@ constraint validation_pass_correctness "Validation Pass Correctness" {
     detect_duplicate_entity_ids,
     detect_import_cycles,
     detect_unreferenced_refs,
-    validate_file_reference_paths,
+    ck_files_family,
   ]
   protects    [reference_resolution_completeness]
   verify unit "each validation code fires iff its condition holds"
@@ -302,7 +302,7 @@ constraint traceability_completeness "Traceability Completeness" {
     declarations but no recorded test results, and recorded results
     that name unknown entities.
   """
-  constrains  [ingest_collector_report, te_coverage_pass, validate_file_reference_paths]
+  constrains  [ingest_collector_report, te_coverage_pass, ck_files_family]
   protects    [traceability_chain_integrity]
   verify unit "all broken traceability links are detected with zero false negatives"
 }

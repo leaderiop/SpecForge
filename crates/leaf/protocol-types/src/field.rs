@@ -17,8 +17,6 @@ pub struct FieldDescriptor {
     pub edge: Option<String>,
     #[serde(default)]
     pub target_kind: Option<String>,
-    #[serde(default)]
-    pub file_reference: bool,
     /// What an absent value counts as: for an enum, one of its `enum_values`
     /// (W021 otherwise). The host never writes it into the graph; the schema,
     /// the model, the guide and the hover show it.
@@ -70,11 +68,6 @@ pub struct FieldDescriptor {
     /// An `integer` field's greatest value, inclusive (E061 above it).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub maximum: Option<i64>,
-    /// Where a `file_reference` field's relative paths start: a [`Root`](crate::Root) name, `spec` (the
-    /// spec root, the default) or `project` (the directory holding `specforge.json`). Kept a string, as
-    /// `derived_from`, so an unknown base costs this field its base (W021).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub file_base: Option<String>,
     /// Who writes the field (protocol 1.8.0, ADR 0287): absent, its author; `computed`, a compute pass of the
     /// declaring extension, never a `.spec` file; `harness`, only a host write a command or collector plan
     /// makes, recorded in `specforge-harness`. Kept a string, as `proof_role`, so an unknown writer costs this

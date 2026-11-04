@@ -1,7 +1,7 @@
 //! The host's checks over the entity snapshot's records (ADR 0019, ADR 0031):
 //! the structural checks, in one order behind one gate, then the rule set.
 //! Only [`RegistryBuild::check`] reaches them; no check reads a graph node,
-//! and none reaches the file system but through `input.disk` (ADR 0107).
+//! and none reads the file system: a path is a value checker's to read (ADR 0338).
 
 mod fields;
 mod identifiers;
@@ -36,11 +36,7 @@ impl RegistryBuild {
     /// The suggestions of E024, W151 and W020 come from the build's candidate vocabulary
     /// ([`crate::build_registries_with`], ADR 0122); it changes no other part of a diagnostic.
     ///
-    /// Each check reports its entities in record (id) order. The rule set's
-    /// `file_exists` rules, E016 among them (the host builds one per
-    /// `file_reference` field), ask `input.disk` whether a path exists and
-    /// list a missing one's directory for the suggestion; nothing else reads
-    /// the file system.
+    /// Each check reports its entities in record (id) order.
     pub fn check(&self, input: &RuleInput<'_>, verdicts: &dyn CustomVerdicts) -> Vec<Diagnostic> {
         let entities = input.entities;
         let mut diagnostics = refs::unreferenced(entities); // W012

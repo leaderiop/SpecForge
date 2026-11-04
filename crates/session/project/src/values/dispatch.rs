@@ -262,6 +262,15 @@ impl<'a> Probing<'a> {
                 let max_bytes = u64::from((*bytes).min(READ_CAP));
                 self.fs(&mut turn, root, path, FsOp::Read { max_bytes })
             }
+            // A digest reads the whole file: the grant's `read`.
+            Probe::FsDigest { root, path } => self.fs(
+                &mut turn,
+                root,
+                path,
+                FsOp::Read {
+                    max_bytes: u64::MAX,
+                },
+            ),
             Probe::FsWalk { root, path, glob } => {
                 let op = FsOp::Walk {
                     glob: Some(glob.clone()),
@@ -436,6 +445,9 @@ impl<'a> Probing<'a> {
                     Some(resolved) if resolved.withheld => {
                         (OutcomeClass::Denied, OutcomeData::None)
                     }
+                    Some(resolved) if matches!(probe, Probe::FsDigest { .. }) => {
+                        local::digest_disk(self.disk, &self.contained, resolved, self.deadline)
+                    }
                     Some(resolved) => local::read_disk(self.disk, &self.contained, resolved, &op),
                     None => (OutcomeClass::Missing, stat_of(None, 0, None)),
                 });
@@ -444,6 +456,11 @@ impl<'a> Probing<'a> {
             }
         };
         let (class, data) = answer.expect("a file probe always answers");
+        if class == OutcomeClass::Deadline {
+            self.effects.count_not_run(budget::OVER, 1);
+            turn.reading.not_run = true;
+            return Slot::Stopped;
+        }
         Slot::Done(self.outcome(probe, class, data))
     }
 
@@ -654,6 +671,7 @@ fn one_probe(probe: &Probe) -> String {
         Probe::FsStat { path, .. }
         | Probe::FsReadPrefix { path, .. }
         | Probe::FsRead { path, .. }
+        | Probe::FsDigest { path, .. }
         | Probe::FsWalk { path, .. } => path.clone(),
     }
 }
@@ -717,6 +735,7 @@ fn request_of(probe: &Probe) -> Option<(EffectRequest, String, u64)> {
             0,
         )),
         Probe::FsStat { .. }
+        | Probe::FsDigest { .. }
         | Probe::FsReadPrefix { .. }
         | Probe::FsRead { .. }
         | Probe::FsWalk { .. }

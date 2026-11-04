@@ -53,9 +53,9 @@ fn the_plan_kind_declares_the_fields_of_the_model() {
             "{computed}"
         );
     }
-    // Paths a plan creates are text, never `file_reference` (the host's E016).
+    // Paths a plan creates are text, never a file check (E016).
     for paths in ["files_modified", "files_deleted", "context_refs"] {
-        assert_ne!(field_of("plan", paths)["file_reference"], true, "{paths}");
+        assert!(field_of("plan", paths)["checks"].is_null(), "{paths}");
     }
 }
 
@@ -145,8 +145,8 @@ fn the_task_and_checkpoint_kinds_declare_the_fields_of_the_model() {
     }
     assert_eq!(field_of("task", "status")["writer"], "computed");
     // A path a task names is text: it may be a file the task creates.
-    assert_ne!(field_of("task", "files")["file_reference"], true);
-    assert_ne!(field_of("task", "read_first")["file_reference"], true);
+    assert!(field_of("task", "files")["checks"].is_null());
+    assert!(field_of("task", "read_first")["checks"].is_null());
 }
 
 fn members(field: &serde_json::Value) -> Vec<(String, bool)> {
@@ -276,7 +276,7 @@ fn must_haves_golden() {
                 "{kind}.{field}"
             );
             // Every path a must-have names is a file the plan may create.
-            assert_ne!(field_of(kind, &field)["file_reference"], true);
+            assert!(field_of(kind, &field)["checks"].is_null());
         }
         assert_eq!(field_of(kind, "plan")["immutable"], true, "{kind}");
     }

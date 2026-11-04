@@ -269,6 +269,9 @@ pub enum Probe {
         path: String,
         bytes: u32,
     },
+    /// The SHA-256 of a whole file, of any size: the host streams it, bounded by the run's time.
+    #[serde(rename = "fs.digest")]
+    FsDigest { root: Root, path: String },
     #[serde(rename = "fs.walk")]
     FsWalk {
         root: Root,
@@ -338,6 +341,11 @@ pub enum OutcomeData {
         length: u64,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         truncated: bool,
+    },
+    Digest {
+        /// Lowercase hex.
+        sha256: String,
+        length: u64,
     },
     Walk {
         entries: Vec<String>,

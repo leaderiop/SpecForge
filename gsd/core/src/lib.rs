@@ -37,6 +37,8 @@ impl Contributions for GsdCore {
     fn contribute(c: &mut ContributionsBuilder) {
         c.meta.keywords.push(format!("tracks:{TRACKS}"));
         c.optional_peer("@code/core", CODE_CORE_RANGE);
+        // A `files` field is read by `@specforge/checks:file`.
+        c.peer("@specforge/checks", "^1.0");
         agents::declare(c);
         kinds::declare(c);
         rules::declare(c);

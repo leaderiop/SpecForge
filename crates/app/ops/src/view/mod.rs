@@ -329,13 +329,11 @@ mod tests {
         );
         assert_eq!(view.entities().kind_of("a"), Some("behavior"));
 
-        // A graph assembled without a compile: the view takes one, once,
-        // with the environment's spec root.
+        // A graph assembled without a compile: the view takes one, once.
         let project = Assembled::new().config_json(serde_json::json!({"spec_root": "spec"}));
         let view = project.view();
         assert!(view.entities().is_empty());
         assert!(std::ptr::eq(view.entities(), view.entities()));
-        assert_eq!(view.entities().spec_root(), view.env().spec_root());
         let coverage = view.coverage().unwrap();
         assert!(
             coverage

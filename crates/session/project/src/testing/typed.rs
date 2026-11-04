@@ -32,17 +32,28 @@ fn kind(name: &str, keyword: &str, scoped_by: Option<&str>, wire: Value) -> Enti
 /// - `project.constraints` a block list of `{kind enum{tech_stack, timeline} R, what string R, why string}`
 /// - `plan.gap_closure` a reference list of `verify_gap | uat_gap`
 /// - `plan.coupling_justified` a block list of `{peer plan R, reason string R}`
-/// - `plan.files_modified` a required string list of files from the project root
+/// - `plan.files_modified` a required string list of files from the project root (`@specforge/checks:file`)
 /// - `summary.requires` a block list of `{phase phase R, provides string R}`
 /// - `milestone.completion` a block `{at date, audit audit}`
 /// - `discussion.scores` a block `{goal integer 0..100, ambiguity integer 0..100}`
 /// - `refactor_proposal.reasons` an enum list `{threshold, jump}`, `.score` an integer of at least 0
 /// - `context.canonical_refs` a block list of `{topic string, paths string list of files from the project root}`
+///
+/// The file checks name `@specforge/checks`, an optional peer: inert until a project loads it.
 /// - `shape.tags` an enum list `{cli, api}`, `shape.checks` a block list of `{kind enum{cli, api}, note string}`
 /// - `truth.criterion` an integer from 1 to 5
 pub fn typed_extension() -> ExtensionDeclaration {
     let mut declaration = super::scoped_extension().declaration();
     declaration.handshake.name = TYPED_EXTENSION.into();
+    // The file checks are inert until a project loads `@specforge/checks`.
+    declaration
+        .handshake
+        .peer_dependencies
+        .push(specforge_protocol_types::PeerDependency {
+            name: "@specforge/checks".into(),
+            version: "^1.0".into(),
+            optional: true,
+        });
     let kinds = &mut declaration.entities;
     let add = |kinds: &mut Vec<EntityKindDescriptor>, name: &str, wire: Value| {
         kinds
@@ -61,8 +72,8 @@ pub fn typed_extension() -> ExtensionDeclaration {
                 {"name": "peer", "field_type": "reference", "target_kind": "plan", "required": true},
                 {"name": "reason", "field_type": "string", "required": true},
             ]},
-            {"name": "files_modified", "field_type": "string_list", "file_reference": true,
-             "file_base": "project", "required": true},
+            {"name": "files_modified", "field_type": "string_list", "required": true,
+             "checks": [{"checker": "@specforge/checks:file", "args": {"root": "project"}}]},
         ]),
     );
     add(
@@ -131,7 +142,8 @@ pub fn typed_extension() -> ExtensionDeclaration {
             None,
             json!([{"name": "canonical_refs", "field_type": "block_list", "members": [
                 {"name": "topic", "field_type": "string"},
-                {"name": "paths", "field_type": "string_list", "file_reference": true, "file_base": "project"},
+                {"name": "paths", "field_type": "string_list",
+                 "checks": [{"checker": "@specforge/checks:file", "args": {"root": "project"}}]},
             ]}]),
         ),
         kind(
@@ -151,6 +163,7 @@ pub fn typed_extension() -> ExtensionDeclaration {
 pub fn typed_runtime() -> InProcessRuntime {
     InProcessRuntime::new().with(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new(TYPED_EXTENSION, "1.0.0"));
+        c.optional_peer("@specforge/checks", "^1.0");
         typed_kinds(&mut c);
         c.pass("observe", |p| {
             p.phase("check")

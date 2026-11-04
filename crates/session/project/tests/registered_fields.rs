@@ -358,8 +358,6 @@ fn malformed_attributes() -> specforge_protocol_types::ExtensionDeclaration {
         {"name": "one_target_kind", "field_type": "reference", "target_kinds": ["thing"]},
         {"name": "bound_on_a_string", "field_type": "string", "minimum": 1},
         {"name": "inverted_bounds", "field_type": "integer", "minimum": 5, "maximum": 1},
-        {"name": "base_without_files", "field_type": "string", "file_base": "project"},
-        {"name": "unknown_base", "field_type": "string", "file_reference": true, "file_base": "root"},
         {"name": "empty_enum_list", "field_type": "enum_list"},
         {"name": "derived_member", "field_type": "block", "members": [
             {"name": "x", "field_type": "reference_list", "target_kind": "thing", "derived_from": "type_expressions"}]},
@@ -378,7 +376,7 @@ fn malformed_attributes() -> specforge_protocol_types::ExtensionDeclaration {
 /// keeps the rest.
 #[specforge_test(
     behavior = "registry_build_declaration_consistency",
-    verify = "a malformed members, target kinds, bound or file base attribute is W021 and costs the attribute, not the field"
+    verify = "a malformed members, target kinds or bound attribute is W021 and costs the attribute, not the field"
 )]
 fn the_registry_refuses_a_malformed_k3_attribute() {
     let registries = specforge_registry::build_registries(vec![malformed_attributes()]);

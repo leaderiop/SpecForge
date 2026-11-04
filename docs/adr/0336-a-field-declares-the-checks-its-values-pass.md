@@ -14,9 +14,10 @@ the prefix), [ADR 0293](0293-a-pass-or-command-declares-the-project-files-it-rea
 note to [ADR 0026](0026-typed-diagnostic-codes.md) D3. Plans 06 and 07 each add an "Amends 0336" line for the probe kinds
 they add (D9), and plan 07 amends D4 (extra rounds).
 
-**As of plan 05** `file_reference`, `file_base` and `file_exists` still exist beside `checks`: their deletion, W112
-naming the `file` checker and the migration of the fields that use them land together with the `file` checker in plan
-06, so that E016 has exactly one emitter at every commit. D1, D6 and D10 state the design those plans finish.
+**As of plan 06** `file_reference`, `file_base` and `file_exists` are deleted, in the commit that adds the `file`
+checker, so that E016 has exactly one emitter at every commit: a declared `file_exists` rule is W112 naming
+`@specforge/checks:file`, and E016 is a `checks` code. No registry rule reads the file system any more (`RuleInput`
+carries the records and the edges only).
 
 ## Context
 
@@ -99,7 +100,7 @@ naming the `file` checker and the migration of the fields that use them land tog
 
 ## D6. Files: named roots, contained, one way
 
-- **The written form** is a bare path, which uses the reader's default root, or `"<root>/path"` naming a root. A field declares no default root: `file_base` is gone, and the `file` checker's `root` argument (default `spec`) is the checker's.
+- **The written form** is a bare path, which uses the reader's default root, or `"<root>/path"` naming a root. A field declares no default root: `file_base` is gone, and the `file` checker's `root` argument (default `project`, as a `files` input's and a judged `file()` read's) is the checker's. A `root` argument that is no root's name is W189, and the check is dropped.
 - **One parser.** `RootedPath::parse` in `protocol-types` reads the prefix. The host and the guest kit compile the same parser. Every path reader uses it: value-check probes, K11 field `reads`, the judged `file()` selector and MCP project paths.
 - **The roots** are `spec`, `project`, and named roots in `specforge.json` `roots: {name: path}`. `<root>` alone names the root itself, so a walk can start there. A named root is the only way to name a file outside the project, and a root that resolves outside the project needs a per-machine root approval keyed by its canonical target (ADR 0335 D2). MCP refuses it unless it is approved. A `spec_root` outside the project (ADR 0145 D4) is treated the same way.
 - **Resolution** goes through the kernel's `Contained`. A path is contained in the root it names:
@@ -128,7 +129,7 @@ The probe set this ADR defines is:
 - `git.object`, `git.ref`, `git.tracked`.
 
 Plans 06 and 07 extend it, each with an "Amends 0336" line:
-- `fs.digest{sha256}`, streamed by the host for any size;
+- `fs.digest{sha256}`, streamed by the host for any size until the run's deadline, gated as a read (plan 06);
 - one `ByteRange` on `fs.read` and `http.get` (`Whole`, `Prefix`, `Suffix`, `Span`), which replaces `fs.read_prefix` and the separate range form, with no alias (plan 07);
 - `http.post_query`, a bounded JSON POST to a fixed-host capability (plan 07).
 
@@ -169,7 +170,7 @@ The guest parses the bytes it is served. The kernel never learns what an image, 
 
 ## Consequences
 
-- Protocol 2.0.0 (ADR 0337), with ADR 0335: `FieldDescriptor.checks`, checker declarations, `Operation::CheckValues`, `CheckPlan`, `Probe`, `ProbeOutcome`. `FileRead.base` is deleted; `FileRead.root` names a root. Builtins re-vendor. `file_reference` and `file_base` follow in plan 06.
+- Protocol 2.0.0 (ADR 0337), with ADR 0335: `FieldDescriptor.checks`, checker declarations, `Operation::CheckValues`, `CheckPlan`, `Probe`, `ProbeOutcome`. `FileRead.base` is deleted; `FileRead.root` names a root. Builtins re-vendor. `file_reference` and `file_base` are deleted in plan 06.
 - Projects that referenced files outside the root turn red with E094 until a named root is declared and, if it lies outside the project, approved on the machine (no shim).
-- The four alias spellings of a check kind are deleted (W112); `CheckKind::FileExists` follows in plan 06; `matches` stays (D10).
+- The four alias spellings of a check kind are deleted (W112), and `CheckKind::FileExists` in plan 06; `matches` stays (D10).
 - A probe's journal record is keyed by the request and the extension that asked, so it answers that extension alone in every mode. `cached` and `replay` hold no grant by design (ADR 0337), so the key is what keeps one extension's secret, redirect or 401 from answering another. Two extensions asking one URL each make their own request; that is the cost.

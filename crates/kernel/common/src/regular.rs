@@ -6,6 +6,9 @@
 use std::fs::File;
 use std::io::{self, Read as _};
 use std::path::Path;
+use std::time::Instant;
+
+use sha2::{Digest as _, Sha256};
 
 /// The most bytes read from one project file: the largest package a registry stores
 /// ([`specforge_package::MAX_PACKAGE_BYTES`], 64 MiB), so every module a registry serves reads, and every other
@@ -53,6 +56,38 @@ pub fn read_prefix(path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
     Ok((bytes, length))
 }
 
+/// The SHA-256 of `path`, in lowercase hex, and how long it is: a regular file of any size, in chunks, so a digest pin
+/// holds a large artifact. `TimedOut` once `deadline` passes.
+pub fn digest(path: &Path, deadline: Instant) -> io::Result<(String, u64)> {
+    judge_kind(&std::fs::metadata(path)?)?;
+    let mut file = File::open(path)?;
+    judge_kind(&file.metadata()?)?;
+    let mut hasher = Sha256::new();
+    let mut chunk = vec![0; 1024 * 1024];
+    let mut length = 0;
+    loop {
+        if Instant::now() >= deadline {
+            return Err(io::ErrorKind::TimedOut.into());
+        }
+        let read = file.read(&mut chunk)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&chunk[..read]);
+        length += read as u64;
+    }
+    Ok((hex_of(&hasher.finalize()), length))
+}
+
+/// The SHA-256 of `bytes`, in lowercase hex: what [`digest`] gives for a file holding them.
+pub fn sha256_hex(bytes: &[u8]) -> String {
+    hex_of(&Sha256::digest(bytes))
+}
+
+fn hex_of(digest: &[u8]) -> String {
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
 /// [`read`] as text: bytes that are not UTF-8 are `InvalidData`, as `std::fs::read_to_string` says.
 pub fn read_to_string(path: &Path) -> io::Result<String> {
     String::from_utf8(read(path)?).map_err(|_| {
@@ -64,13 +99,18 @@ pub fn read_to_string(path: &Path) -> io::Result<String> {
 }
 
 fn judge(meta: &std::fs::Metadata) -> io::Result<()> {
+    judge_kind(meta)?;
+    if meta.len() > MAX_FILE_BYTES {
+        Err(too_large())
+    } else {
+        Ok(())
+    }
+}
+
+fn judge_kind(meta: &std::fs::Metadata) -> io::Result<()> {
     let kind = meta.file_type();
     if kind.is_file() {
-        return if meta.len() > MAX_FILE_BYTES {
-            Err(too_large())
-        } else {
-            Ok(())
-        };
+        return Ok(());
     }
     if kind.is_dir() {
         return Err(io::Error::new(
@@ -112,4 +152,32 @@ fn too_large() -> io::Error {
             "it is larger than 64 MiB ({MAX_FILE_BYTES} bytes), the most SpecForge reads from one project file"
         ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use super::{digest, sha256_hex};
+
+    #[test]
+    fn a_digest_streams_the_file_and_stops_at_its_deadline() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("abc");
+        std::fs::write(&path, "abc").unwrap();
+        let abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        let later = Instant::now() + Duration::from_secs(60);
+        assert_eq!(digest(&path, later).unwrap(), (abc.to_string(), 3));
+        assert_eq!(sha256_hex(b"abc"), abc);
+
+        let past = Instant::now();
+        assert_eq!(
+            digest(&path, past).unwrap_err().kind(),
+            std::io::ErrorKind::TimedOut
+        );
+        assert_eq!(
+            digest(dir.path(), later).unwrap_err().kind(),
+            std::io::ErrorKind::IsADirectory
+        );
+    }
 }

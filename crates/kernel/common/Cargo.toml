@@ -10,6 +10,8 @@ autotests = false
 [dependencies]
 # The catalog's title on every diagnostics JSON entry; it has no dependencies.
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
+# `regular::digest`, which streams a file too long to read at once.
+sha2 = { workspace = true }
 # `ExtensionEntry` reads package names; `peers` reports the peer rule's verdicts (ADR 0050).
 specforge-package = { path = "../../leaf/package" }
 # `peers` reports on `PeerDependency`; `shape` describes `FieldType`.

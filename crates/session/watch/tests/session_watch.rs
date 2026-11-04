@@ -75,7 +75,7 @@ impl Fixture {
             "name": "p",
             "version": "0.1.0",
             "spec_root": "spec",
-            "extensions": ["@specforge/software", "@sdk/docref=ext/docref.wasm"],
+            "extensions": ["@specforge/software", "@specforge/checks", "@sdk/docref=ext/docref.wasm"],
         });
         fs::write(root.join("specforge.json"), config.to_string()).unwrap();
         fs::copy(
@@ -225,7 +225,7 @@ fn a_moved_spec_root_rearms_and_catches_up() {
         "name": "p",
         "version": "0.1.0",
         "spec_root": "../specs",
-        "extensions": ["@specforge/software", "@sdk/docref=ext/docref.wasm"],
+        "extensions": ["@specforge/software", "@specforge/checks", "@sdk/docref=ext/docref.wasm"],
     });
     fixture.write("specforge.json", &config.to_string());
     let events = watch.changed(&[fixture.root.join("specforge.json")]);

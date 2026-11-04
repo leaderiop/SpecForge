@@ -1,5 +1,5 @@
-//! What the docref extension declares: a kind whose `docs` field names
-//! files (`file_reference`) and a `file_exists` rule over its `guide` field.
+//! What the docref extension declares: a kind whose `docs` and `guide` fields
+//! name files, each checked by `@specforge/checks:file` from the spec root.
 //! The host's session tests load it to exercise the files the checks read.
 //!
 //! The vendored release blob `wasm/docref.wasm` is built from this source;
@@ -17,26 +17,15 @@ pub struct DocRef;
 
 impl Contributions for DocRef {
     fn contribute(c: &mut ContributionsBuilder) {
+        c.peer("@specforge/checks", "^1.0");
         c.kind("gadget", |k| {
             k.description("A thing with docs").testable(false);
             k.field("docs", |f| {
-                f.field_type(FieldType::StringList).file_reference();
+                f.field_type(FieldType::StringList).file(Root::Spec);
             });
             k.field("guide", |f| {
-                f.field_type(FieldType::String);
+                f.field_type(FieldType::String).file(Root::Spec);
             });
-        });
-        c.rule("W901", |r| {
-            r.check(CheckKind::FileExists)
-                .severity(ValidationSeverity::Warning)
-                .target_kind("gadget")
-                .field("guide")
-                .message_template("gadget '{id}': missing '{value}'");
-        });
-        c.code("W901", |d| {
-            d.title("Gadget guide missing").explanation(
-                "The file named by a gadget's `guide` does not exist: create it or fix the path.",
-            );
         });
     }
 }

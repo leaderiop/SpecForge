@@ -5,12 +5,13 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde_json::{Map, Value};
+use specforge_common::remedy::printable;
 use specforge_common::{ChecksConfig, Diagnostic, SourceSpan, codes};
 use specforge_diagnostics::{Codebook, letter_level};
 use specforge_graph::FieldForm;
 use specforge_protocol_types::{
     CheckRef, CheckerDescriptor, ExtensionDeclaration, FieldDescriptor, FieldType, FieldWriter,
-    SettingsItem, ValueForm,
+    Root, SettingsItem, ValueForm,
 };
 
 use super::{FieldRegistry, FieldRegistryEntry, KindRegistry};
@@ -103,6 +104,37 @@ impl CheckRegistry {
             .into_iter()
             .flatten()
             .map(|(path, checks)| (path.as_str(), checks.as_slice()))
+    }
+
+    /// Where a bare path written in `path` of `kind` starts: the root of the first check that reads it as a path, `None`
+    /// when no check does.
+    pub fn path_root(&self, kind: &str, path: &str) -> Option<Root> {
+        self.on(kind, path)
+            .iter()
+            .flat_map(ResolvedCheck::calls)
+            .find_map(|call| {
+                let checker = self.checker(&call.extension, &call.checker)?;
+                (checker.value == ValueForm::Path).then(|| Self::default_root(checker, &call.args))
+            })
+    }
+
+    /// A path checker's root for a call with `args`: its `root_arg` argument (the registry admits only a root's name
+    /// there), else that argument's declared default, else the project.
+    pub fn default_root(checker: &CheckerDescriptor, args: &Map<String, Value>) -> Root {
+        checker
+            .root_arg
+            .as_deref()
+            .and_then(|arg| {
+                args.get(arg)
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+                    .or_else(|| {
+                        let declared = checker.args.iter().find(|a| a.name == arg)?;
+                        declared.default_value.clone()
+                    })
+            })
+            .and_then(|name| Root::parse(&name))
+            .unwrap_or(Root::Project)
     }
 
     /// The checker `name` of `extension`, as the registry kept it.
@@ -246,13 +278,6 @@ impl Resolving<'_> {
     ) {
         let on = format!("field '{path}' on kind '{kind}'");
         let ty = FieldType::parse(&field.field_type);
-        // A value read as a path has to be text; a `file_reference` rule reads its value the same way.
-        if field.file_reference && !matches!(ty, Some(FieldType::String | FieldType::StringList)) {
-            self.w189(format!(
-                "{on} declares a file check, but its type is '{}': a path is text",
-                field.field_type
-            ));
-        }
         if field.checks.is_empty() {
             return;
         }
@@ -464,6 +489,20 @@ impl Resolving<'_> {
         if let Err(why) = admit_args(args, &self.registry.forms[&key]) {
             self.w189(format!(
                 "{on} gives the checker '{written}' {why}: the check is dropped"
+            ));
+            return None;
+        }
+        // The guest builds its probes' root from this argument, so only a root's name reaches it.
+        if let Some(name) = descriptor
+            .root_arg
+            .as_deref()
+            .and_then(|arg| args.get(arg))
+            .and_then(Value::as_str)
+            && Root::parse(name).is_none()
+        {
+            self.w189(format!(
+                "{on} gives the checker '{written}' the root '{}', which is no root's name: the check is dropped",
+                printable(name)
             ));
             return None;
         }

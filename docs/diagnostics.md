@@ -267,15 +267,17 @@ Level: error
 ```
 E016: Referenced file does not exist
 
-A file-reference field on an entity, or a file-reference member of a typed block
-or block list item, points at a path that doesn't exist under the field's base:
-the spec root, or, when the field declares `file_base` `project`, the project
-root. A path is read inside the root it names: one that leaves it is E094, not
-E016, and one that exists under another case is W174. Fix the path, or create
-the missing file; a similarly-named file in the path's own directory inside its
-root is suggested when one is found.
+A `@specforge/checks` files check (`file`, `dir`, `glob`, `size`, `digest`,
+`encoding`, `line_range`) names a path that is not there under the root it
+reads: the project root, or the root its `root` argument or the value's
+`<name>/` prefix names. `file` also reports a directory and `dir` a file, and
+`glob` matching fewer than its `min` entries. It sits on the value. A path that
+leaves its root is E094 and one that exists under another case is W174, both
+reported by the host before anything is read. Fix the path, or create the
+missing file; a similarly named file in the path's own directory inside its root
+is suggested when one is found.
 
-Owner: core
+Owner: @specforge/checks
 Level: error
 ```
 
@@ -1360,13 +1362,13 @@ Level: error
 ```
 E094: Path leaves its root
 
-A file-reference field, or a file-reference member of a typed block, names a
-path that leaves the root it is read in (ADR 0335): an absolute path
+A path a check reads (a `@specforge/checks` files check, or a path-valued
+extension check) leaves the root it is read in (ADR 0335): an absolute path
 (`/etc/passwd`, `C:/x`), a `..` that climbs above the root, or a link whose
 target lies outside it. Every path the host reads is resolved inside a root, the
 spec root or the project root, or the root its `<name>/` prefix names: lexically
 first, then link by link on disk. The path is not read and no sibling is
-suggested. Name a file inside the root; a spec-rooted field names a project file
+suggested. Name a file inside the root; a spec-rooted check names a project file
 as `<project>/…`.
 
 Owner: core
@@ -1378,10 +1380,10 @@ Level: error
 ```
 E095: Unknown path root
 
-A file-reference path starts with a `<name>/` prefix that names no root (ADR
+A path a check reads starts with a `<name>/` prefix that names no root (ADR
 0335). The roots are `<spec>` and `<project>`; a path without a prefix is read
-in the field's own root (the spec root, or the project root where the field
-declares `file_base` `project`). Write a known prefix, or drop it.
+in its check's root (the one its `root` argument names, or the checker's
+default). Write a known prefix, or drop it.
 
 Owner: core
 Level: error
@@ -2963,10 +2965,9 @@ other than `block` or `block_list`, a `block_list` with none, a member named
 twice or not one identifier, a member that declares `derived_from`,
 `target_kinds` together with `target_kind`, on a type other than `reference` or
 `reference_list`, or naming one kind, a `minimum` or `maximum` on a type other
-than `integer` (or `number`, a setting's) or a `minimum` above the `maximum`, a
-field of type `number` on a kind (the `.spec` grammar has no decimal literal,
-ADR 0305), and a `file_base` other than `spec` or `project`, or without
-`file_reference`; a `scoped_by` field with `target_kinds` scopes nothing. Who
+than `integer` (or `number`, a setting's) or a `minimum` above the `maximum`,
+and a field of type `number` on a kind (the `.spec` grammar has no decimal
+literal, ADR 0305); a `scoped_by` field with `target_kinds` scopes nothing. Who
 writes a field is checked too (ADR 0287): a `writer` other than `computed`,
 `harness`, `human` or `verdict`, `harness` or `verdict` on a member, a computed
 or verdict field that is also `required`, `immutable`, `append_only` or
@@ -4169,7 +4170,7 @@ Level: warning
 ```
 W174: Path case differs from the disk
 
-A file-reference path names a file that exists only under another case
+A path a check reads names a file that exists only under another case
 (`README.md` for `Readme.md`) (ADR 0335). Each name is compared with its
 directory's listing on every OS, so a spec that passes on a case-insensitive
 macOS or Windows disk does not fail on Linux. The message names the spelling on
@@ -4184,7 +4185,7 @@ Level: warning
 ```
 W175: Path uses backslashes
 
-A file-reference path uses `\` as a separator (ADR 0335). It is read as `/`, so
+A path a check reads uses `\` as a separator (ADR 0335). It is read as `/`, so
 the path resolves on every OS, but a spec writes `/`. Replace each backslash
 with `/`.
 
@@ -4310,8 +4311,8 @@ code its catalogue lacks, a `value` other than `text`, `url` or `path`, a
 not paths. A check: a field type its checker does not read, a `computed` or
 `verdict` field or a field of a kind a collector writes (their values are not
 authored), arguments the checker's schema refuses, or an `any_of` with fewer
-than two branches or nested. Also a `file_reference` on a field that is not
-text. Correct the declaration in the extension's source and rebuild it.
+than two branches or nested. Also a `root_arg` value that names no root. Correct
+the declaration in the extension's source and rebuild it.
 
 Owner: core
 Level: warning

@@ -40,10 +40,35 @@ behavior ck_digits_family "Digits Family" {
 behavior ck_files_family "Files Family" {
   features [ck_value_checks]
   category command
+  ensures {
+    missing_files_diagnosed "Every path a files check names that is not there is E016 on its value"
+    existing_files_pass     "A path that is there, and is what its checker asks for, reports nothing"
+    paths_contained         "A path that leaves its root is E094, reported by the host, and is not read"
+  }
   contract """
-    Each files checker MUST read only what the host's probes answer, under
-    the root its value names, and MUST report a missing file as E016 on the
-    value's own span, with a sibling only the host found inside the root.
+    Each files checker (file, dir, glob, size, digest, encoding,
+    line_range) MUST read only what the host's probes answer, under the
+    root its `root` argument names (the project root when it names none)
+    or the root a `<name>/` prefix names, and MUST report a missing file
+    as E016 on the value's own span, with a sibling only the host found
+    inside the root. A check attached to a field reads that field on the
+    kinds it is attached to only. A single value's text, quoted or a bare
+    word, is one path; each item of a list is its own. `glob` reports
+    fewer than `min` matches as E016 and more than `max` as W176; `size`
+    and `encoding` report W176; `digest` reports a file whose SHA-256 is
+    another than its pin as E096 and a malformed pin as E103; `line_range`
+    reports a range past the end as W176, and a file cut off at its read
+    cap whose range is not covered is not decided. A path that leaves its
+    root is E094 and one that exists under another case W174, reported by
+    the host before anything is read.
   """
   verify unit "a missing file in a list reports E016 on that item's span, not the entity's"
+  verify unit "a field of the same name on another kind is not checked"
+  verify unit "a single path on a string field is checked like a one-item list"
+  verify integration "a compile checks a bare word as a path"
+  verify unit "a path is read from the root its check names and suggests a close sibling there"
+  verify unit "a check whose root is the project reads its relative paths from the directory of specforge.json"
+  verify unit "a sibling is suggested only from inside the root"
+  verify unit "a file whose digest differs from its pin is E096"
+  verify unit "a line range past the end of the file is W176"
 }

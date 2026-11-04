@@ -47,7 +47,7 @@ pub fn docref_project(spec: &str) -> tempfile::TempDir {
         "name": "p",
         "version": "0.1.0",
         "spec_root": "spec",
-        "extensions": ["@specforge/software", "@sdk/docref=ext/docref.wasm"],
+        "extensions": ["@specforge/software", "@specforge/checks", "@sdk/docref=ext/docref.wasm"],
     });
     std::fs::write(root.join("specforge.json"), config.to_string()).unwrap();
     std::fs::copy(

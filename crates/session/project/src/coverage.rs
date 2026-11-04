@@ -454,12 +454,7 @@ mod tests {
 
         /// The snapshot its compile would seed the memo with.
         fn entities(&self) -> Arc<EntitySnapshot> {
-            Arc::new(EntitySnapshot::of(
-                &self.graph,
-                &self.registries,
-                Path::new(""),
-                Path::new(""),
-            ))
+            Arc::new(EntitySnapshot::of(&self.graph, &self.registries))
         }
     }
 
@@ -536,7 +531,6 @@ mod tests {
             crate::ExtensionLoad::NoRuntime,
         );
         let over = RecordedCoverage::over(&env.graph_of([]), &env);
-        assert_eq!(over.entities().spec_root(), env.spec_root());
         assert!(Arc::ptr_eq(
             &over.at(None, &unasked).unwrap().coverage.entities,
             over.entities()

@@ -188,7 +188,6 @@ fn digest(env: &Environment) -> Value {
                     "source_extension": f.source_extension(),
                     "edge": f.declared().edge,
                     "target_kind": f.declared().target_kind,
-                    "file_reference": f.declared().file_reference,
                     "required": f.declared().required,
                     "inverse_of": f.declared().inverse_of,
                     "normative": f.declared().normative,

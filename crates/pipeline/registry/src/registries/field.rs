@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use specforge_graph::FieldForm;
 use specforge_graph::field_form::BlockMembers;
-use specforge_protocol_types::{FieldDescriptor, FieldType, FieldWriter, ProofRole, Root};
+use specforge_protocol_types::{FieldDescriptor, FieldType, FieldWriter, ProofRole};
 
 /// A declared field type this host does not read. The registry build
 /// reports it as W019 and registers nothing.
@@ -408,23 +408,6 @@ fn read(
         );
         (declared.minimum, declared.maximum) = (None, None);
     }
-    if let Some(base) = declared.file_base.clone() {
-        if !declared.file_reference {
-            refuse(
-                problems,
-                path,
-                "declares file_base without file_reference".into(),
-            );
-            declared.file_base = None;
-        } else if !matches!(Root::parse(&base), Some(Root::Spec | Root::Project)) {
-            refuse(
-                problems,
-                path,
-                format!("declares file_base '{base}': expected 'spec' or 'project'"),
-            );
-            declared.file_base = None;
-        }
-    }
     if matches!(field_type, FieldType::Enum | FieldType::EnumList)
         && declared.enum_values.is_empty()
     {
@@ -486,11 +469,6 @@ fn read(
         Some(kind) => form.targeting(kind),
         None => form.targeting_any(&declared.target_kinds),
     };
-    if declared.file_reference
-        && let Some(base) = declared.file_base.as_deref().and_then(Root::parse)
-    {
-        form = form.based(base);
-    }
     if field_type.is_block() && !forms.is_empty() {
         form = form.with_members(BlockMembers::new(forms));
     }

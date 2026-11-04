@@ -165,7 +165,11 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
     let p = Project {
         dir,
         root,
-        extensions: vec![("@gsd/core".to_string(), Some(wasm))],
+        // `@specforge/checks` is a required peer of `@gsd/core`: its `files` fields are read by `@specforge/checks:file`.
+        extensions: vec![
+            ("@gsd/core".to_string(), Some(wasm)),
+            ("@specforge/checks".to_string(), None),
+        ],
         quiet: Vec::new(),
     };
     p.settings(serde_json::json!({}));

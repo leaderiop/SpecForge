@@ -164,7 +164,6 @@ type FieldDescriptor "Field Descriptor" {
   description         string                 @optional
   edge                string                 @optional
   target_kind         string                 @optional
-  file_reference      boolean                @optional
   // The checks its values pass (ADR 0336): a checker with args, or any_of one level deep
   checks              string[]               @optional
   default_value       string                 @optional
@@ -244,7 +243,6 @@ type ValidationPatternKind "The check kinds of the extension vocabulary (CheckKi
   | conditional_field_required
   | field_value_constraint
   | cycle_detection
-  | file_exists
   | verify_kind_allowlist
   | no_verify_statements
   | custom
@@ -267,7 +265,6 @@ type FieldRegistryEntry "Field Registry Entry" {
   source_extension    string                 @readonly
   edge                string                 @optional
   target_kind         string                 @optional
-  file_reference      boolean                @optional
   // Its resolved checks: declared ones, then what specforge.json attaches
   checks              string[]               @optional
   required            boolean                @optional

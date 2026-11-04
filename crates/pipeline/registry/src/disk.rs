@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 /// The file system as the checks and the environment load read it. Each call
 /// is one read; an adapter may record it (a project session's ledger stamps
@@ -32,6 +33,16 @@ pub trait Disk {
         let length = bytes.len() as u64;
         bytes.truncate(usize::try_from(max).unwrap_or(usize::MAX));
         Ok((bytes, length))
+    }
+    /// The SHA-256 of the file at `path` in lowercase hex, and its length; `TimedOut` once `deadline` passes. The
+    /// default reads it whole; the plain file system streams a file of any size. A session records it as a read.
+    fn digest(&self, path: &Path, deadline: Instant) -> io::Result<(String, u64)> {
+        let _ = deadline;
+        let bytes = self.read(path)?;
+        Ok((
+            specforge_common::regular::sha256_hex(&bytes),
+            bytes.len() as u64,
+        ))
     }
     /// [`Self::read`] of a file the git baseline is named by (`HEAD`, a ref, `packed-refs`): a session records it
     /// as an input of its own kind, watched through its directory's own entries (ADR 0287).
@@ -122,6 +133,10 @@ impl Disk for PlainDisk {
 
     fn read_prefix(&self, path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
         specforge_common::regular::read_prefix(path, max)
+    }
+
+    fn digest(&self, path: &Path, deadline: Instant) -> io::Result<(String, u64)> {
+        specforge_common::regular::digest(path, deadline)
     }
 
     fn is_dir(&self, path: &Path) -> bool {

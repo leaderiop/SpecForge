@@ -19,7 +19,7 @@ feature declarative_validation_rules "Declarative Validation Rules" {
   solution """
     Extensions declare validation rules as declarative patterns in their
     manifest. Each pattern specifies a check kind (no_incoming_edges,
-    missing_field_when_flag_set, cycle_detection, file_exists, etc.), a
+    missing_field_when_flag_set, cycle_detection, etc.), a
     target entity kind, a diagnostic code, severity, and message template
     with interpolation variables ({id}, {kind}, {field}). The core engine
     interprets these patterns against the compiled graph, eliminating the

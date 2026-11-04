@@ -8,22 +8,36 @@
       "dot_shape": null,
       "fields": [
         {
+          "checks": [
+            {
+              "args": {
+                "root": "spec"
+              },
+              "checker": "@specforge/checks:file"
+            }
+          ],
           "default_value": null,
           "description": null,
           "edge": null,
           "field_type": "string_list",
-          "file_reference": true,
           "inverse_of": null,
           "name": "docs",
           "required": false,
           "target_kind": null
         },
         {
+          "checks": [
+            {
+              "args": {
+                "root": "spec"
+              },
+              "checker": "@specforge/checks:file"
+            }
+          ],
           "default_value": null,
           "description": null,
           "edge": null,
           "field_type": "string",
-          "file_reference": false,
           "inverse_of": null,
           "name": "guide",
           "required": false,

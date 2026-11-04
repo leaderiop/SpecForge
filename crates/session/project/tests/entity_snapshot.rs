@@ -5,9 +5,6 @@
 //! `@pin/snapshot` declares, in process, the rules that echo what each
 //! reader saw (plan 01 §3, Appendix A).
 
-use std::fs;
-use std::path::Path;
-
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_extension_sdk::prelude::*;
@@ -33,7 +30,7 @@ const FIELDS: &[&str] = &[
 /// testable, accepts verify) and `memo` (neither); `P100` a custom rule answering `Pass` (its
 /// inputs are read from the runtime's calls); `P200`–`P206` rules that
 /// never match, on the fields of [`FIELDS`]; `P300` an obligation rule
-/// with no target kind; `P400` `file_exists` on `doc`; a check pass `echo`
+/// with no target kind; a check pass `echo`
 /// that reports nothing.
 fn extension() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "0.1.0"));
@@ -80,13 +77,6 @@ fn extension() -> ContributionsBuilder {
             .severity(ValidationSeverity::Warning)
             .field("verify")
             .message_template("{kind} '{id}' declares no verify obligations");
-    });
-    c.rule("P400", |r| {
-        r.check(CheckKind::FileExists)
-            .severity(ValidationSeverity::Warning)
-            .target_kind("item")
-            .field("doc")
-            .message_template("{id}: file '{value}' does not exist");
     });
     c.pass("echo", |p| {
         p.phase("check")
@@ -433,26 +423,6 @@ fn an_untargeted_obligation_rule_skips_kinds_that_accept_no_verify() {
     assert_eq!(pass_entity(&runtime, "epsilon")["owes_none"], true);
     assert_eq!(pass_entity(&runtime, "epsilon")["testable"], false);
     assert_eq!(testable_total(&compiled), 2);
-}
-
-#[specforge_test_macros::test(
-    behavior = "execute_validation_pattern",
-    verify = "file_exists resolves a relative path against the spec root, never the working directory"
-)]
-fn file_exists_resolves_against_the_spec_root() {
-    let dir = project();
-    // The test runs in the crate directory, where no `doc.md` is: only the
-    // spec root holds one.
-    assert!(!Path::new("doc.md").exists());
-    let (_, diagnostics) = compile(&dir, &runtime());
-    assert!(reported(&diagnostics, "P4").is_empty(), "{diagnostics:?}");
-
-    fs::remove_file(dir.root().join("spec/doc.md")).unwrap();
-    let (_, diagnostics) = compile(&dir, &runtime());
-    assert_eq!(
-        reported(&diagnostics, "P4"),
-        ["P400 alpha: file 'doc.md' does not exist"]
-    );
 }
 
 #[specforge_test_macros::test(

@@ -11,7 +11,7 @@ use serde_json::Value;
 use specforge_graph::{FieldForms, Graph, Node, wire};
 use specforge_protocol_types::{FieldType, Root};
 use specforge_registry::judged::{Chain, Head, Step};
-use specforge_registry::{FieldRegistry, RegistryBuild};
+use specforge_registry::{CheckRegistry, FieldRegistry, RegistryBuild};
 
 /// A file a chain names as written, and the root a bare path starts at: a `<root>/` prefix in `path` overrides it.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -29,6 +29,7 @@ pub struct Selection<'a> {
     graph: &'a Graph,
     fields: &'a FieldRegistry,
     forms: &'a FieldForms,
+    checks: &'a CheckRegistry,
     referrers: Referrers,
 }
 
@@ -39,6 +40,7 @@ impl<'a> Selection<'a> {
             graph,
             fields: registries.fields(),
             forms: registries.field_forms(),
+            checks: registries.checks(),
             referrers: Referrers::default(),
         }
     }
@@ -144,15 +146,13 @@ impl<'a> Selection<'a> {
                 };
                 let kind = node.kind.raw.as_str();
                 let rest = words[at..].join(".");
-                // A file field, or (ADR 0304) a string or string list field holding a path from the project root.
+                // A string or string list field holding paths (ADR 0304): from the root its path check gives, else
+                // from the project root.
                 if files
-                    && let Some((declared, form)) = self.fields.get_path(kind, &rest)
+                    && let Some((_, form)) = self.fields.get_path(kind, &rest)
                     && matches!(form.field_type(), FieldType::String | FieldType::StringList)
                 {
-                    let root = match declared.file_reference {
-                        true => form.base().clone(),
-                        false => Root::Project,
-                    };
+                    let root = self.checks.path_root(kind, &rest).unwrap_or(Root::Project);
                     named.extend(self.values_at(node, &rest).into_iter().map(|path| FileRef {
                         root: root.clone(),
                         path,

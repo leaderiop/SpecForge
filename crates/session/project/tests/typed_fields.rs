@@ -291,16 +291,16 @@ fn checks_reach_block_members() {
 }
 
 #[specforge_test(
-    behavior = "validate_file_reference_paths",
-    verify = "a file field declaring the project base reads its relative paths from the directory of specforge.json"
+    behavior = "ck_files_family",
+    verify = "a check whose root is the project reads its relative paths from the directory of specforge.json"
 )]
-fn a_project_file_field_reads_from_the_project_root() {
+fn a_project_file_check_reads_from_the_project_root() {
     let dir = TestProject::new()
         .config(|c| {
             c["name"] = "p".into();
             c["spec_root"] = "spec".into();
         })
-        .enabling(&[TYPED_EXTENSION])
+        .enabling(&[TYPED_EXTENSION, "@specforge/checks"])
         .installing_enabled()
         .file("spec/a.spec", format!(
             "{HIERARCHY}\nplan 03-03 \"Other\" {{\n  phase v1.0/03\n  files_modified [\"src/b.ts\", \"src/c.ts\"]\n}}\n\
@@ -308,7 +308,9 @@ fn a_project_file_field_reads_from_the_project_root() {
         .file("src/a.ts", "")
         .file("src/b.ts", "")
         .file("src/missing.ts", "");
-    let compiled = dir.compile_in(Arc::new(typed_runtime()));
+    let compiled = dir.compile_in(Arc::new(
+        typed_runtime().beside(specforge_project::testing::component_runtime()),
+    ));
     let diagnostics = compiled.diagnostics();
     let mut e016 = coded(&diagnostics, "E016");
     e016.sort_by(|a, b| a.message.cmp(&b.message));

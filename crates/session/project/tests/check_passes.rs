@@ -30,12 +30,11 @@ const EXT: &str = "@test/passes";
 pub(crate) fn passes_extension() -> InProcessRuntime {
     InProcessRuntime::new().with(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
-        // `docs` names files (a file reference field): the checks report
-        // a missing one (E016).
+        // `docs` names files: a project that attaches `@specforge/checks:file` to it reports a missing one (E016).
         c.kind("gadget", |k| {
             k.keyword("gadget");
             k.field("docs", |f| {
-                f.field_type(FieldType::StringList).file_reference();
+                f.field_type(FieldType::StringList);
             });
         });
         for (code, title) in [

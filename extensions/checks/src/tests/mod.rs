@@ -7,6 +7,7 @@ use specforge_protocol_types::{
 use specforge_test::prelude::*;
 
 mod digits;
+mod files;
 mod formats;
 
 fn declaration() -> ExtensionDeclaration {
@@ -80,7 +81,7 @@ fn each_switch_gates_only_its_familys_codes() {
         let switch = switches.iter().find(|s| s.name == name).unwrap();
         switch.gates.clone()
     };
-    assert_eq!(of("families.files"), ["E096", "W176"]);
+    assert_eq!(of("families.files"), ["E016", "E096", "W176"]);
     assert_eq!(of("families.git"), ["E106", "W180"]);
     assert!(of("families.formats").is_empty() && of("families.digits").is_empty());
     assert_eq!(of("families.links").len(), 11);
@@ -93,7 +94,6 @@ fn planned(checker: &str, text: &str, args: serde_json::Value) -> PlannedItem {
 
 fn finding(checker: &str, text: &str, args: serde_json::Value) -> Option<CheckFinding> {
     let plan = planned(checker, text, args);
-    assert!(plan.probes.is_empty(), "{checker} asked probes");
     assert!(plan.findings.len() < 2, "{:?}", plan.findings);
     plan.findings.into_iter().next()
 }
@@ -115,4 +115,14 @@ fn e103_at(checker: &str, text: &str, args: serde_json::Value) -> [usize; 2] {
     found
         .at
         .unwrap_or_else(|| panic!("{checker} on '{text}' points at nothing"))
+}
+
+/// What `checker` finds in a value of `text` once its one probe answered `outcome`.
+fn judged(
+    checker: &str,
+    text: &str,
+    args: serde_json::Value,
+    outcome: specforge_protocol_types::ProbeOutcome,
+) -> Vec<CheckFinding> {
+    MockHost::new(crate::specforge_extension_build()).judge(checker, text, args, vec![outcome])
 }

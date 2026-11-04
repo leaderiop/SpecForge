@@ -101,8 +101,6 @@ pub enum Scalar {
     Minimum,
     /// An integer field's greatest value.
     Maximum,
-    /// Where a file field's relative paths start.
-    FileBase,
     /// The checks its values pass (ADR 0336): one more, or other args, is major; one fewer minor. Its values are the
     /// checks as JSON.
     Checks,
@@ -156,11 +154,9 @@ impl AttributeChange {
                 before,
                 after,
             } => match attribute {
-                Scalar::FieldType
-                | Scalar::Required
-                | Scalar::Edge
-                | Scalar::TargetKind
-                | Scalar::FileBase => Bump::Major,
+                Scalar::FieldType | Scalar::Required | Scalar::Edge | Scalar::TargetKind => {
+                    Bump::Major
+                }
                 Scalar::Checks => checks_bump(before, after),
                 Scalar::Minimum => bound_bump(before, after, |after, before| after < before),
                 Scalar::Maximum => bound_bump(before, after, |after, before| after > before),
@@ -241,7 +237,6 @@ impl Scalar {
             Scalar::DefaultValue => "default value",
             Scalar::Minimum => "minimum",
             Scalar::Maximum => "maximum",
-            Scalar::FileBase => "file base",
             Scalar::Checks => "checks",
         }
     }
@@ -613,7 +608,6 @@ fn diff_field(
         target_kinds: old_target_kinds,
         minimum: old_minimum,
         maximum: old_maximum,
-        file_base: old_file_base,
         checks: old_checks,
         // Who writes a field and its history are the declaration's (ADR 0287), not the document's shape.
         writer: _,
@@ -634,7 +628,6 @@ fn diff_field(
         target_kinds: new_target_kinds,
         minimum: new_minimum,
         maximum: new_maximum,
-        file_base: new_file_base,
         checks: new_checks,
         writer: _,
         immutable: _,
@@ -686,11 +679,6 @@ fn diff_field(
         Scalar::Maximum,
         old_maximum.map(|n| n.to_string()),
         new_maximum.map(|n| n.to_string()),
-    ));
-    attributes.extend(scalar(
-        Scalar::FileBase,
-        old_file_base.clone(),
-        new_file_base.clone(),
     ));
     let checks = |checks: &Vec<SchemaCheck>| {
         (!checks.is_empty()).then(|| serde_json::to_string(checks).expect("JSON values"))

@@ -241,10 +241,6 @@ vocabulary! {
         /// required), following every field that writes that edge type;
         /// every entity when `target_kind` is unset.
         CycleDetection = "cycle_detection",
-        /// The path in `field` (required; each item of a list field)
-        /// does not exist, relative to its field's base: the spec root unless the field
-        /// declares `project` (ADR 0019, ADR 0285).
-        FileExists = "file_exists",
         /// The extension's `wasm_function` (required) decides; a function
         /// that cannot answer is W112 at load, W148 at check.
         Custom = "custom",

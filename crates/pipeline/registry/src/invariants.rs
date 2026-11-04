@@ -243,9 +243,6 @@ mod tests {
             &crate::entity::RuleInput {
                 entities: &[record],
                 edges: &[],
-                spec_root: std::path::Path::new("."),
-                project_root: std::path::Path::new("."),
-                disk: &crate::MemoryDisk::new(),
             },
             &crate::rules::NoVerdicts,
         );

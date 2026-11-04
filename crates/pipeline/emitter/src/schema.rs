@@ -137,9 +137,6 @@ pub struct SchemaField {
     pub minimum: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub maximum: Option<i64>,
-    /// Where a file field's relative paths start, when it is not the spec root.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub file_base: Option<String>,
     /// The checks its values pass (ADR 0336), each resolved to `<extension>:<checker>`, declared ones first.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub checks: Vec<SchemaCheck>,
@@ -202,7 +199,6 @@ impl Default for SchemaField {
             target_kinds: Vec::new(),
             minimum: None,
             maximum: None,
-            file_base: None,
             checks: Vec::new(),
             writer: None,
             immutable: false,
@@ -277,7 +273,6 @@ impl SchemaField {
             target_kinds: declared.target_kinds.clone(),
             minimum: declared.minimum,
             maximum: declared.maximum,
-            file_base: declared.file_base.clone(),
             checks: checks_on(path),
             writer: declared.writer.clone(),
             immutable: declared.immutable,

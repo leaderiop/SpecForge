@@ -4,9 +4,6 @@
 //! of an in-process extension. A pin that still encodes a bug says which
 //! ticket of plan 02 flips it.
 
-use std::fs;
-use std::path::Path;
-
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_extension_sdk::prelude::*;
@@ -243,30 +240,6 @@ fn a_cycle_rule_naming_an_undeclared_edge_type_is_inert_and_w021() {
         [
             "extension '@pin/rules': rule 'X003' references edge type 'NoSuchEdge' not declared among its edges or its peers' edges"
         ]
-    );
-}
-
-// REGRESSION (01-T5): file_exists resolves against the spec root, never the
-// working directory. Never flipped.
-#[test]
-fn file_exists_reads_the_spec_root_whatever_the_working_directory() {
-    let rules = json!([{
-        "code": "X004", "severity": "warning", "check": "file_exists",
-        "message_template": "X004 '{id}': missing file '{value}'",
-        "target_kind": "node", "field": "doc"
-    }]);
-    let dir = project(NODES);
-    // The test's working directory does not hold the file.
-    assert!(!Path::new("pin-only-under-spec-root.md").exists());
-
-    let diagnostics = compile_with(&dir, rules.clone(), false).diagnostics();
-    assert!(messages(&diagnostics, "X004").is_empty(), "{diagnostics:?}");
-
-    fs::remove_file(dir.root().join("spec/pin-only-under-spec-root.md")).unwrap();
-    let diagnostics = compile_with(&dir, rules, false).diagnostics();
-    assert_eq!(
-        messages(&diagnostics, "X004"),
-        ["X004 'gamma': missing file 'pin-only-under-spec-root.md'"]
     );
 }
 

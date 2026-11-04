@@ -250,58 +250,7 @@ fn required_fields_get_e006_rules() {
 
 #[spec(
     behavior = "registry_build_rules",
-    verify = "extensions produce E016 rules for file-reference fields"
-)]
-fn a_file_reference_field_has_a_host_e016_rule() {
-    let declared = declare("@test/files", |c| {
-        c.kind("Alpha", |k| {
-            k.keyword("alpha");
-            k.field("name", |f| {
-                f.field_type(FieldType::String).required();
-            });
-            k.field("docs", |f| {
-                f.field_type(FieldType::StringList).file_reference();
-            });
-        });
-        c.kind("Zeta", |k| {
-            k.keyword("zeta");
-            k.field("guide", |f| {
-                f.field_type(FieldType::String).file_reference();
-            });
-        });
-    });
-    let build = build([declared]);
-
-    let found: Vec<String> = build
-        .rules()
-        .iter()
-        .map(|rule| {
-            format!(
-                "{} {}.{}",
-                rule.code(),
-                rule.target_kind().unwrap(),
-                rule.describe()["field"].as_str().unwrap()
-            )
-        })
-        .collect();
-    assert_eq!(
-        found,
-        ["E006 alpha.name", "E016 alpha.docs", "E016 zeta.guide"]
-    );
-    for rule in build.rules().iter().filter(|rule| rule.code() == "E016") {
-        assert_eq!(rule.origin(), &Origin::Host);
-        assert_eq!(rule.check_kind(), CheckKind::FileExists);
-        assert_eq!(rule.severity(), Severity::Error);
-        assert_eq!(
-            rule.describe()["message_template"],
-            "file reference '{value}' in entity '{id}' does not exist"
-        );
-    }
-}
-
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "Registry Build Collects Rules: rule collection holds — declarations_in_load_order, rules_collected, duplicates_warned, required_enforced, files_enforced, unloaded_targets_inert, rule_codes_checked"
+    verify = "Registry Build Collects Rules: rule collection holds — declarations_in_load_order, rules_collected, duplicates_warned, required_enforced, unloaded_targets_inert, rule_codes_checked"
 )]
 fn rule_collection_holds() {
     // declarations_in_load_order: each extension's rules out of code order;

@@ -9,8 +9,21 @@ use specforge_project::testing::TestProject;
 use specforge_project::{ProjectSession, SharedRuntime, UpdateKind, Watched};
 use specforge_test::prelude::*;
 
-use crate::changes::file_rule_extension;
 use crate::check_passes::{passes_extension, project as passes_project};
+
+/// `passes_project(spec)` with each `gadget.docs` item read by `@specforge/checks:file` from the project root.
+pub(crate) fn docs_project(spec: &str) -> TestProject {
+    passes_project(spec)
+        .config(|c| {
+            c["checks"] = json!({ "fields": { "gadget.docs": ["@specforge/checks:file"] } })
+        })
+        .enabling(&["@test/passes", "@specforge/checks"])
+}
+
+/// `passes_extension()`, with the builtins' component beside it for `@specforge/checks`.
+pub(crate) fn docs_runtime() -> SharedRuntime {
+    Arc::new(passes_extension().beside(specforge_project::testing::component_runtime()))
+}
 
 fn e016(session: &ProjectSession) -> usize {
     session
@@ -21,7 +34,7 @@ fn e016(session: &ProjectSession) -> usize {
         .count()
 }
 
-/// A `file_reference` path that is a symlink is read through the link: its
+/// A path a files check reads that is a symlink is read through the link: its
 /// target, created or deleted, must re-run the checks. The target lies in the
 /// project: a link out of it is E094 (ADR 0335).
 #[cfg(unix)]
@@ -30,13 +43,12 @@ fn e016(session: &ProjectSession) -> usize {
     verify = "a check input that is a symlink is followed to its target"
 )]
 fn a_symlinked_check_inputs_target_reruns_the_checks() {
-    let dir: TestProject = passes_project("gadget doc \"Doc\" {\n  docs [\"link.md\"]\n}\n");
+    let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"link.md\"]\n}\n");
     let root = fs::canonicalize(dir.root()).unwrap();
     fs::create_dir_all(root.join("real")).unwrap();
     let target = root.join("real/target.md");
     std::os::unix::fs::symlink(&target, root.join("link.md")).unwrap();
-    let ext = Arc::new(passes_extension());
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
+    let mut session = dir.session_in(docs_runtime());
     assert_eq!(e016(&session), 1, "{:?}", session.project().diagnostics());
 
     fs::write(&target, "# target\n").unwrap();
@@ -54,7 +66,7 @@ fn a_symlinked_check_inputs_target_reruns_the_checks() {
     assert_eq!(e016(&session), 1, "{:?}", session.project().diagnostics());
 }
 
-/// A `file_reference` path that is a symlink and is pointed elsewhere is
+/// A path a files check reads that is a symlink and is pointed elsewhere is
 /// its own change: the link is keyed by its name, not by its old target.
 #[cfg(unix)]
 #[specforge_test(
@@ -62,14 +74,13 @@ fn a_symlinked_check_inputs_target_reruns_the_checks() {
     verify = "an input that is a symlink pointed elsewhere is its change"
 )]
 fn a_check_input_link_pointed_elsewhere_reruns_the_checks() {
-    let dir: TestProject = passes_project("gadget doc \"Doc\" {\n  docs [\"link.md\"]\n}\n");
+    let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"link.md\"]\n}\n");
     let root = fs::canonicalize(dir.root()).unwrap();
     fs::create_dir_all(root.join("real")).unwrap();
     fs::write(root.join("real/target.md"), "# target\n").unwrap();
     let link = root.join("link.md");
     std::os::unix::fs::symlink(root.join("real/target.md"), &link).unwrap();
-    let ext = Arc::new(passes_extension());
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
+    let mut session = dir.session_in(docs_runtime());
     assert_eq!(e016(&session), 0, "{:?}", session.project().diagnostics());
 
     fs::remove_file(&link).unwrap();
@@ -81,36 +92,29 @@ fn a_check_input_link_pointed_elsewhere_reruns_the_checks() {
     assert_eq!(e016(&session), 1, "{:?}", session.project().diagnostics());
 }
 
-/// A `file_exists` rule's missing file lists its directory for the close-sibling help (ADR 0118),
-/// so a file created beside it re-runs the checks and changes that help.
+/// A files check's missing file lists its directory for the close-sibling help, so a file created beside it
+/// re-runs the checks and changes that help.
 #[specforge_test(
     behavior = "classify_project_changes",
-    verify = "a file beside a missing file a file_exists rule names changes its suggestion"
+    verify = "a file beside a missing file a files check names changes its suggestion"
 )]
-fn a_file_beside_a_missing_file_exists_file_changes_its_suggestion() {
-    let dir = TestProject::new()
-        .raw_config(
-            json!({"name": "c", "version": "0.1.0", "spec_root": "spec", "extensions": ["@test/files"]})
-                .to_string(),
-        )
-        .files(&[("spec/a.spec", "note n \"N\" {\n  doc \"guide.md\"\n}\n")]);
+fn a_file_beside_a_missing_checked_file_changes_its_suggestion() {
+    let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"guide.md\"]\n}\n");
     let root = dir.root();
-    let ext = Arc::new(file_rule_extension());
-    specforge_installed::testing::install(root, &*ext, &["@test/files"]);
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
+    let mut session = dir.session_in(docs_runtime());
     let suggestion = |session: &ProjectSession| {
         session
             .project()
             .diagnostics()
             .iter()
-            .find(|d| d.code.ends_with("/F001"))
+            .find(|d| d.code == "E016")
             .unwrap_or_else(|| panic!("{:?}", session.project().diagnostics()))
             .suggestion
             .clone()
     };
     assert_eq!(suggestion(&session), None);
 
-    let near = root.join("spec/guid.md");
+    let near = root.join("guid.md");
     fs::write(&near, "notes\n").unwrap();
     let changes = session.changes([near.as_path()]);
     assert!(!changes.is_empty(), "{changes:?}");
@@ -130,14 +134,14 @@ fn a_file_beside_a_missing_file_exists_file_changes_its_suggestion() {
     verify = "a session's check inputs are the paths its checks read"
 )]
 fn the_check_inputs_are_the_paths_the_checks_asked() {
-    let dir = passes_project("gadget doc \"Doc\" {\n  docs [\"a.md\", \"missing/b.md\"]\n}\n");
+    let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"a.md\", \"missing/b.md\"]\n}\n");
     let root = fs::canonicalize(dir.root()).unwrap();
     fs::write(root.join("a.md"), "# a\n").unwrap();
-    let ext = Arc::new(passes_extension());
+    let ext = docs_runtime();
     dir.record_declarations(&*ext);
     let session = ProjectSession::open_with_runtime(
         &specforge_common::ProjectRoot::of(&root).unwrap(),
-        Some(Arc::clone(&ext) as SharedRuntime),
+        Some(ext),
     );
     let watched = session.inputs().watched();
     for expected in [

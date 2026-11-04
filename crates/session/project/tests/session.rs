@@ -2232,16 +2232,12 @@ fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
 
     // The file now has a parse error: the checks are skipped, and nothing
     // seeded the memo. What the session scores is still its own graph's
-    // snapshot, taken once, in its environment (the spec root included).
+    // snapshot, taken once.
     write(root, "b.spec", "behavior b \"B\" {\n  contract \"\n");
     let broken = Buffer::new(root.join("b.spec"), "behavior b \"B\" {\n  contract \"\n");
     session.hold_with(&[broken], CheckMode::SyntaxOnlyIfParseErrors);
     let entities = session.project().entities();
     assert!(!std::ptr::eq(entities, &*before), "a fresh memo per update");
-    assert_eq!(
-        entities.spec_root(),
-        session.project().environment().spec_root()
-    );
     assert!(
         std::ptr::eq(entities, session.project().entities()),
         "taken once"

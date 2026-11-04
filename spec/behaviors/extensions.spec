@@ -180,10 +180,11 @@ behavior load_extension_settings "Load Extension Settings" {
   ports      [WasmRuntime]
   contract   """
     An extension declares typed settings, presets and secrets (ADR 0288); specforge.json sets them. A project
-    that sets none reads, calls and reports as before, and the builtins declare none.
+    that sets none reads, calls and reports as before, and no builtin but @specforge/checks (its family
+    switches) declares one.
   """
   verify unit "a project without settings reads and calls as it did before settings existed"
-  verify unit "no builtin declares a feature flag or a setting"
+  verify unit "no builtin declares a feature flag, and none but @specforge/checks a setting: its family switches"
   verify unit "the SDK declares a setting, a preset and a secret, and a feature flag is a bool setting"
   verify unit "json admitted by a form conforms to the form's published schema, and json the schema refuses is refused"
   verify integration "the environment reports a setting not used as written after the registry build's diagnostics"

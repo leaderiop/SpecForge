@@ -2,12 +2,12 @@
 source: crates/surfaces/mcp/tests/output_schemas.rs
 expression: "lines.join(\"\\n\")"
 ---
-specforge.query 8441
+specforge.query 8411
 specforge.analyze 3759
 specforge.trace 3389
 specforge.search 481
 specforge.explain 786
-specforge.schema 2436
+specforge.schema 2406
 specforge.coverage 683
 specforge.stats 948
 specforge.list 290
@@ -37,4 +37,4 @@ specforge.infer_session 295
 specforge.find_implementation 502
 specforge.find_spec_for_source 642
 specforge.prompt 283
-total 76415
+total 76355

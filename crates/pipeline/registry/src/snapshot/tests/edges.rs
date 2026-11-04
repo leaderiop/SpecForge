@@ -2,7 +2,6 @@
 
 use super::{declared, graph_of};
 use crate::snapshot::EntitySnapshot;
-use std::path::Path;
 
 #[specforge_test_macros::test(
     behavior = "snapshot_entities_once",
@@ -13,7 +12,7 @@ fn an_entitys_edge_counts_leave_out_an_edge_to_itself() {
     let source = "behavior loop \"Loop\" {\n  features [loop, other]\n}\n\n\
                   behavior other \"Other\" {\n}\n";
     let build = graph_of(source, &registries);
-    let snapshot = EntitySnapshot::of(&build, &registries, Path::new(""), Path::new(""));
+    let snapshot = EntitySnapshot::of(&build, &registries);
     let by_id = |id: &str| {
         snapshot
             .records()

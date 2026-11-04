@@ -6,6 +6,7 @@
       "description": "Check the files and directories the values name",
       "field_type": "bool",
       "gates": [
+        "E016",
         "E096",
         "W176"
       ],

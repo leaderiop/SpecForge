@@ -477,28 +477,26 @@ fn declares_reads_the_content() {
     );
 }
 
-/// A descriptor carrying members, a target union, bounds and a file base keeps them on the wire (ADR 0285); one
+/// A descriptor carrying members, a target union and bounds keeps them on the wire (ADR 0285); one
 /// that writes none reads as before.
 #[specforge_test_macros::test(
     behavior = "check_field_value_types",
-    verify = "a field descriptor carries its members, target kinds, bounds and file base on the wire"
+    verify = "a field descriptor carries its members, target kinds and bounds on the wire"
 )]
-fn a_field_declares_members_a_union_bounds_and_a_base() {
+fn a_field_declares_members_a_union_and_bounds() {
     let wire = json!({
         "name": "requires", "field_type": "block_list",
         "members": [
             {"name": "phase", "field_type": "reference", "target_kinds": ["phase", "milestone"], "required": true},
             {"name": "score", "field_type": "integer", "minimum": 0, "maximum": 100},
-            {"name": "path", "field_type": "string", "file_reference": true, "file_base": "project"},
         ],
     });
     let field: FieldDescriptor = serde_json::from_value(wire.clone()).unwrap();
-    let [phase, score, path] = &field.members[..] else {
-        panic!("three members: {:?}", field.members);
+    let [phase, score] = &field.members[..] else {
+        panic!("two members: {:?}", field.members);
     };
     assert_eq!(phase.target_kinds, ["phase", "milestone"]);
     assert_eq!((score.minimum, score.maximum), (Some(0), Some(100)));
-    assert_eq!(path.file_base.as_deref(), Some("project"));
     let written = serde_json::to_value(&field).unwrap();
     let again: FieldDescriptor = serde_json::from_value(written).unwrap();
     assert_eq!(again, field, "the attributes survive the wire");
@@ -506,7 +504,7 @@ fn a_field_declares_members_a_union_bounds_and_a_base() {
     let older = json!({"name": "title", "field_type": "string"});
     let field: FieldDescriptor = serde_json::from_value(older.clone()).unwrap();
     let written = serde_json::to_value(&field).unwrap();
-    for key in ["members", "target_kinds", "minimum", "maximum", "file_base"] {
+    for key in ["members", "target_kinds", "minimum", "maximum"] {
         assert!(
             written.get(key).is_none(),
             "{key} is written for a field that declares none"

@@ -1,6 +1,9 @@
 //! The diagnostic codes of `@specforge/checks` (ADR 0338): a table `catalog.rs` merges into `CATALOG`, sorted by code.
 
 catalog! {
+    E016: Error checks,
+        "Referenced file does not exist",
+        "A `@specforge/checks` files check (`file`, `dir`, `glob`, `size`, `digest`, `encoding`, `line_range`) names a path that is not there under the root it reads: the project root, or the root its `root` argument or the value's `<name>/` prefix names. `file` also reports a directory and `dir` a file, and `glob` matching fewer than its `min` entries. It sits on the value. A path that leaves its root is E094 and one that exists under another case is W174, both reported by the host before anything is read. Fix the path, or create the missing file; a similarly named file in the path's own directory inside its root is suggested when one is found.";
     E091: Error checks,
         "The URL is not valid",
         "A field whose check is `@specforge/checks:url` (or another of the links family) holds a text that is no absolute URL, or one that carries a user name or password. It is never fetched. Write the whole URL with its scheme, and keep credentials out of it: a value is committed, and an approved secret is the way to send one.";

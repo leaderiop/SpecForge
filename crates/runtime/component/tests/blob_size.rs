@@ -40,6 +40,8 @@ use specforge_component::committed::COMMITTED;
 // of `@specforge/checks` (478,009 B with no checker yet), measured 7,358,820 B; the rule gives 7,400,000, with 41,180 B of
 // headroom. Its families raise this again: formats and digits bring that blob to 1,838,772 B, nearly all of it
 // the one `regex` engine with its Unicode tables, and the total to 8,719,583 B; the rule gives 8,800,000.
+// The files family brings it to 1,859,652 B and the total to 8,720,439 B, the SDK's `file_reference` gone from every
+// blob: the budget holds, with 79,561 B of headroom.
 const TOTAL_BUDGET: usize = 8_800_000;
 
 #[test]

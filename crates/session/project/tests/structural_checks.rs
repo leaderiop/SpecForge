@@ -1,6 +1,6 @@
 //! The structural checks over a compiled project's entities (architecture
 //! plan 04, T0): the order they report in, the gate that switches the kind
-//! checks off, which fields count as file references, and which rules fire.
+//! checks off, which fields a files check reads, and which rules fire.
 //! Each pin that encodes a bug says which ticket flips it.
 
 use specforge_common::Diagnostic;
@@ -34,8 +34,8 @@ fn codes_of(reported: &[[String; 2]]) -> Vec<&str> {
     reported.iter().map(|[code, _]| code.as_str()).collect()
 }
 
-/// `gadget` (an integer, an enum, a reference list to gadgets, a list of
-/// files), `widget`, and a rule that fires on a widget linking nothing.
+/// `gadget` (an integer, an enum, a reference list to gadgets), `widget`, and a rule that fires on a widget
+/// linking nothing.
 fn shapes() -> InProcessRuntime {
     InProcessRuntime::new().with(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/shapes", "1.0.0"));
@@ -49,9 +49,6 @@ fn shapes() -> InProcessRuntime {
             });
             k.field("parts", |f| {
                 f.field_type(FieldType::ReferenceList).target_kind("gadget");
-            });
-            k.field("docs", |f| {
-                f.field_type(FieldType::StringList).file_reference();
             });
         });
         c.kind("widget", |k| {
@@ -74,7 +71,6 @@ fn shapes() -> InProcessRuntime {
 /// compile that reorders them shows.
 const ONE_OF_EACH: &str = "\
 ref gh.issue:1 \"Unreferenced\"
-gadget g_docs { docs [\"missing.md\"] }
 wibble wb_one { }
 gadget gadget { }
 gadget x { }
@@ -84,7 +80,7 @@ gadget g_parts { parts [w_one] }
 gadget g_size { size \"big\" }
 ";
 
-const ORDER: [&str; 10] = [
+const ORDER: [&str; 9] = [
     "E022",
     "W012",
     "E024",
@@ -94,12 +90,11 @@ const ORDER: [&str; 10] = [
     "W158",
     "E061",
     "test.shapes/W900",
-    "E016",
 ];
 
 /// E022 first, the linker's, reported with the graph build's diagnostics (ADR 0117); then every
 /// structural check, then the rules: W012, E024, E013, E014, W020, W158, E061, W159, then the extension's
-/// rule, then E016, a host rule after the extension's (ADR 0118).
+/// rule.
 #[specforge_test(
     behavior = "check_entities_in_one_order",
     verify = "a compile reports the structural checks in the order the registry build runs them"
@@ -190,52 +185,61 @@ fn a_rule_is_inert_for_an_undeclared_target_kind() {
     assert_eq!(codes_of(&found), ["E024"], "{found:#?}");
 }
 
-/// `doc` has file-reference fields (`paths`, `guide`); `note` has a field
-/// named `paths` that is not one.
+/// `doc` has the fields a project attaches `@specforge/checks:file` to (`paths`, `guide`); `note` has a field
+/// named `paths` that none is attached to. The builtins' component beside it serves `@specforge/checks`.
 fn docs() -> InProcessRuntime {
-    InProcessRuntime::new().with(|| {
-        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/docs", "1.0.0"));
-        c.kind("doc", |k| {
-            k.keyword("doc");
-            k.field("paths", |f| {
-                f.field_type(FieldType::StringList).file_reference();
+    InProcessRuntime::new()
+        .with(|| {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/docs", "1.0.0"));
+            c.kind("doc", |k| {
+                k.keyword("doc");
+                k.field("paths", |f| {
+                    f.field_type(FieldType::StringList);
+                });
+                k.field("guide", |f| {
+                    f.field_type(FieldType::String);
+                });
             });
-            k.field("guide", |f| {
-                f.field_type(FieldType::String).file_reference();
+            c.kind("note", |k| {
+                k.keyword("note");
+                k.field("paths", |f| {
+                    f.field_type(FieldType::StringList);
+                });
             });
-        });
-        c.kind("note", |k| {
-            k.keyword("note");
-            k.field("paths", |f| {
-                f.field_type(FieldType::StringList);
-            });
-        });
-        c
+            c
+        })
+        .beside(specforge_project::testing::component_runtime())
+}
+
+/// A project loading `@test/docs` and `@specforge/checks`, whose `doc` fields are read from `root`.
+fn docs_project(root: &str, spec: &str) -> TestProject {
+    let file =
+        serde_json::json!([{ "checker": "@specforge/checks:file", "args": { "root": root } }]);
+    project(&["@test/docs", "@specforge/checks"], spec).config(|c| {
+        c["checks"] = serde_json::json!({ "fields": { "doc.paths": file, "doc.guide": file } })
     })
 }
 
-/// `note.paths` is no file reference: a field of that name is one on `doc`
-/// only (a file reference is one on the kinds that declare it).
+/// `note.paths` is not checked: the check is attached to `doc.paths` only.
 #[specforge_test(
-    behavior = "validate_file_reference_paths",
-    verify = "a field another kind declares as a file reference is not one on this kind"
+    behavior = "ck_files_family",
+    verify = "a field of the same name on another kind is not checked"
 )]
-fn a_field_named_like_another_kinds_file_reference_is_not_checked() {
-    let dir = project(&["@test/docs"], "note n1 { paths [\"alpha\"] }\n");
+fn a_field_named_like_another_kinds_checked_field_is_not_checked() {
+    let dir = docs_project("project", "note n1 { paths [\"alpha\"] }\n");
 
     let found = reported(docs(), &dir, &["E016"]);
 
     assert!(found.is_empty(), "{found:#?}");
 }
 
-/// A single path on a `string` file-reference field is checked like a
-/// one-item list.
+/// A single path on a `string` field is checked like a one-item list.
 #[specforge_test(
-    behavior = "validate_file_reference_paths",
-    verify = "a single path on a file-reference field is checked like a one-item list"
+    behavior = "ck_files_family",
+    verify = "a single path on a string field is checked like a one-item list"
 )]
-fn a_single_path_on_a_file_reference_field_is_checked() {
-    let dir = project(&["@test/docs"], "doc d1 { guide \"missing.md\" }\n");
+fn a_single_path_is_checked() {
+    let dir = docs_project("project", "doc d1 { guide \"missing.md\" }\n");
 
     let found = reported(docs(), &dir, &["E016"]);
 
@@ -243,14 +247,14 @@ fn a_single_path_on_a_file_reference_field_is_checked() {
     assert!(found[0][1].contains("'missing.md'"), "{found:#?}");
 }
 
-/// A bare word on a `string` file-reference field is a path (ADR 0118); the graph stores it as an
-/// identifier, which the checks read as the one word it is.
+/// A bare word on a `string` field is a path; the graph stores it as an identifier, which the checker reads as the
+/// one word it is.
 #[specforge_test(
-    behavior = "validate_file_reference_paths",
-    verify = "a compile checks a bare word on a file-reference field as a path"
+    behavior = "ck_files_family",
+    verify = "a compile checks a bare word as a path"
 )]
-fn a_bare_word_on_a_file_reference_field_is_checked() {
-    let dir = project(&["@test/docs"], "doc d1 { guide README }\n");
+fn a_bare_word_is_checked() {
+    let dir = docs_project("project", "doc d1 { guide README }\n");
 
     let found = reported(docs(), &dir, &["E016"]);
 
@@ -258,25 +262,20 @@ fn a_bare_word_on_a_file_reference_field_is_checked() {
         found,
         [[
             "E016".to_string(),
-            "file reference 'README' in entity 'd1' does not exist".to_string()
+            "'README' does not exist under <project>".to_string()
         ]]
     );
 }
 
-/// With `spec_root: spec`, a file field names its paths from the spec root, and a close sibling there is the
-/// suggestion (ADR 0118 D1): K3 T8 adds a field that reads another root; this one stays as it is.
+/// With `spec_root: spec` and a check whose `root` is `spec`, the paths start at the spec root, and a close sibling
+/// there is the suggestion.
 #[specforge_test(
-    behavior = "validate_file_reference_paths",
-    verify = "a file reference is read from the spec root and suggests a close sibling there"
+    behavior = "ck_files_family",
+    verify = "a path is read from the root its check names and suggests a close sibling there"
 )]
-fn a_file_field_is_read_from_the_spec_root_and_suggests_a_sibling() {
-    let dir = TestProject::new()
-        .config(|c| {
-            c["name"] = "p".into();
-            c["spec_root"] = "spec".into();
-        })
-        .enabling(&["@test/docs"])
-        .installing_enabled()
+fn a_file_is_read_from_its_checks_root_and_suggests_a_sibling() {
+    let dir = docs_project("spec", "")
+        .config(|c| c["spec_root"] = "spec".into())
         .file(
             "spec/a.spec",
             "doc d1 { guide \"guid.md\" }\ndoc d2 { guide \"src/x.ts\" }\n",

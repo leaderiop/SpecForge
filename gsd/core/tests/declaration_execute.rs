@@ -97,15 +97,11 @@ fn the_execute_kinds_declare_the_fields_of_the_model() {
     for field in ["duration", "actuals", "files_created", "files_modified"] {
         assert_eq!(writer("summary", field), "computed", "{field}");
     }
-    // A path a commit touched may be deleted or renamed since: text, never the host's `file_reference` (E016).
+    // A path a commit touched may be deleted or renamed since: text, never a file check (E016).
     for field in ["files_created", "files_modified"] {
-        assert_ne!(
-            field_of("summary", field)["file_reference"],
-            true,
-            "{field}"
-        );
+        assert!(field_of("summary", field)["checks"].is_null(), "{field}");
     }
-    assert_ne!(field_of("deviation", "files")["file_reference"], true);
+    assert!(field_of("deviation", "files")["checks"].is_null());
 }
 
 #[test]
@@ -181,7 +177,7 @@ fn the_commit_kind_is_harness_written() {
     // The commit is in the project scope, and a path it touched is text: a later commit may delete it.
     assert!(kind_of("commit")["scoped_by"].is_null());
     for field in ["files", "created"] {
-        assert_ne!(field_of("commit", field)["file_reference"], true, "{field}");
+        assert!(field_of("commit", field)["checks"].is_null(), "{field}");
     }
     // The task and the plan read their commits back by one name each.
     for field in ["task", "plan"] {

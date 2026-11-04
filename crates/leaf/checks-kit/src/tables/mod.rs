@@ -26,7 +26,7 @@ pub struct TableSource {
 }
 
 /// FNV-1a over a table's rows: a pin that fails on an edit of any row.
-#[cfg(test)]
+#[cfg(all(test, any(feature = "formats", feature = "digits")))]
 pub(crate) fn fingerprint(rows: impl IntoIterator<Item = String>) -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
     for row in rows {

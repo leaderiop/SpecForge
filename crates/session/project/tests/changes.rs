@@ -5,15 +5,14 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use serde_json::json;
 use specforge_project::testing::{TestProject, compile_at, disk_changed};
-use specforge_project::{Buffer, ProjectSession, SharedRuntime, UpdateKind, WatchRoot, Watched};
+use specforge_project::{Buffer, ProjectSession, UpdateKind, WatchRoot, Watched};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
-use crate::check_passes::{passes_extension, project as passes_project};
+use crate::check_reads::{docs_project, docs_runtime};
 
 fn write(root: &Path, path: &str, text: &str) {
     let path = root.join(path);
@@ -378,13 +377,12 @@ fn an_unloaded_wasm_changes_nothing() {
 
 #[specforge_test(
     behavior = "classify_project_changes",
-    verify = "a file a file_reference field names re-runs the checks"
+    verify = "a file a files check names re-runs the checks"
 )]
 fn a_referenced_file_reruns_the_checks() {
-    let dir = passes_project("gadget doc \"Doc\" {\n  docs [\"docs/guide.md\"]\n}\n");
+    let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"docs/guide.md\"]\n}\n");
     let root = dir.root();
-    let ext = Arc::new(passes_extension());
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
+    let mut session = dir.session_in(docs_runtime());
     let e016 = |session: &ProjectSession| {
         session
             .project()
@@ -409,10 +407,9 @@ fn a_referenced_file_reruns_the_checks() {
     verify = "an update that names a new file the checks read changes the session's inputs"
 )]
 fn an_update_that_names_a_new_file_changes_the_inputs() {
-    let dir = passes_project("gadget doc \"Doc\" {\n}\n");
+    let dir = docs_project("gadget doc \"Doc\" {\n}\n");
     let root = dir.root();
-    let ext = Arc::new(passes_extension());
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
+    let mut session = dir.session_in(docs_runtime());
     let before = session.inputs().clone();
 
     // An edit that names a file: the inputs gain it.
@@ -444,92 +441,17 @@ fn an_update_that_names_a_new_file_changes_the_inputs() {
     // A reload that moves the spec root changes them.
     fs::write(
         root.join("specforge.json"),
-        json!({"name": "p", "version": "0.1.0", "extensions": ["@test/passes"], "spec_root": "other"})
-            .to_string(),
+        json!({
+            "name": "p",
+            "version": "0.1.0",
+            "extensions": ["@test/passes", "@specforge/checks"],
+            "checks": { "fields": { "gadget.docs": ["@specforge/checks:file"] } },
+            "spec_root": "other",
+        })
+        .to_string(),
     )
     .unwrap();
     assert!(session.reload_environment().inputs_changed);
-}
-
-/// An extension whose `note` kind's `doc` (a string) and `docs` (a list)
-/// a `file_exists` rule `F001` reads.
-pub(crate) fn file_rule_extension() -> specforge_wasm::testing::InProcessRuntime {
-    use specforge_extension_sdk::prelude::*;
-    specforge_wasm::testing::InProcessRuntime::new().with(|| {
-        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/files", "1.0.0"));
-        c.kind("note", |k| {
-            k.keyword("note");
-            k.field("doc", |f| {
-                f.field_type(FieldType::String);
-            });
-            k.field("docs", |f| {
-                f.field_type(FieldType::StringList);
-            });
-        });
-        for (code, field) in [("F001", "doc"), ("F002", "docs")] {
-            c.rule(code, |r| {
-                r.check(CheckKind::FileExists)
-                    .severity(ValidationSeverity::Warning)
-                    .target_kind("note")
-                    .field(field)
-                    .message_template("note '{id}': missing '{value}'");
-            });
-        }
-        c
-    })
-}
-
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a file a file_exists rule names re-runs the checks"
-)]
-fn a_file_a_file_exists_rule_names_reruns_the_checks() {
-    let (dir, _) = open(
-        json!({"name": "c", "version": "0.1.0", "spec_root": "spec", "extensions": ["@test/files"]}),
-        &[(
-            "spec/a.spec",
-            "note n \"N\" {\n  doc \"guide.md\"\n  docs [\"more/one.md\"]\n}\n",
-        )],
-    );
-    let root = dir.root();
-    let ext = Arc::new(file_rule_extension());
-    specforge_installed::testing::install(root, &*ext, &["@test/files"]);
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
-    let missing = |session: &ProjectSession| -> Vec<String> {
-        session
-            .project()
-            .diagnostics()
-            .iter()
-            .filter(|d| d.code.contains("/F"))
-            .map(|d| d.message.clone())
-            .collect()
-    };
-    assert_eq!(
-        missing(&session),
-        [
-            "note 'n': missing 'guide.md'",
-            "note 'n': missing 'more/one.md'"
-        ]
-    );
-
-    // A file named by a scalar field, under the spec root.
-    write(root, "spec/guide.md", "# Guide\n");
-    let guide = root.join("spec/guide.md");
-    let update = session
-        .apply(&session.changes([guide.as_path()]))
-        .expect("a file a file_exists rule names changed");
-    assert_eq!(update.kind, UpdateKind::Checks);
-    assert_eq!(missing(&session), ["note 'n': missing 'more/one.md'"]);
-
-    // An item of a list field, in a directory that did not exist.
-    write(root, "spec/more/one.md", "# One\n");
-    let one = root.join("spec/more/one.md");
-    session.apply(&session.changes([one.as_path()])).unwrap();
-    assert!(
-        missing(&session).is_empty(),
-        "{:?}",
-        session.project().diagnostics()
-    );
 }
 
 #[specforge_test(
@@ -607,13 +529,14 @@ fn inputs_layout() -> InputsLayout {
     let module_dir = fs::canonicalize(far.path()).unwrap().join("mods");
     fs::create_dir_all(&module_dir).unwrap();
     let module = module_dir.join("ext.wasm");
-    let project = passes_project("");
+    let project = docs_project("");
     fs::write(
         project.root().join("specforge.json"),
         json!({
             "name": "p",
             "version": "0.1.0",
-            "extensions": ["@test/passes", format!("@acme/far={}", module.display())],
+            "extensions": ["@test/passes", "@specforge/checks", format!("@acme/far={}", module.display())],
+            "checks": { "fields": { "gadget.docs": ["@specforge/checks:file"] } },
         })
         .to_string(),
     )
@@ -642,8 +565,7 @@ fn inputs_layout() -> InputsLayout {
 fn every_input_lies_under_a_watch_root() {
     let layout = inputs_layout();
     let root = layout.project.root();
-    let ext = Arc::new(passes_extension());
-    let session = layout.project.session_in(ext as SharedRuntime);
+    let session = layout.project.session_in(docs_runtime());
     let roots: Vec<_> = session
         .inputs()
         .watch_roots()

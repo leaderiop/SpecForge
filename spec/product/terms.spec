@@ -87,7 +87,7 @@ term coverage "Coverage" {
 }
 
 term declarative_validation "Declarative Validation" {
-  definition "The pattern-based validation engine where extensions declare validation rules as data (ValidationRulePattern entries in the manifest) rather than imperative code. The core compiler interprets these patterns. Patterns include: no_incoming_edges, no_outgoing_edges, missing_field_when_flag_set, field_value_constraint, cycle_detection, file_exists, and custom (Wasm-backed)."
+  definition "The pattern-based validation engine where extensions declare validation rules as data (ValidationRulePattern entries in the manifest) rather than imperative code. The core compiler interprets these patterns. Patterns include: no_incoming_edges, no_outgoing_edges, missing_field_when_flag_set, field_value_constraint, cycle_detection, and custom (Wasm-backed)."
   context    "All 47 product diagnostic codes are declared as validation patterns. The engine executes them deterministically in diagnostic-code order."
   aliases    ["pattern_validation", "rule_engine"]
   tags       ["core", "validation"]

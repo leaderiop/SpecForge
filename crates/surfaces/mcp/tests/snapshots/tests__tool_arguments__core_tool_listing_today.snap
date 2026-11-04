@@ -404,9 +404,6 @@ expression: listing
               ],
               "type": "string"
             },
-            "file_base": {
-              "type": "string"
-            },
             "immutable": {
               "type": "boolean"
             },
@@ -2177,9 +2174,6 @@ expression: listing
                 "enum_list",
                 "block_list"
               ],
-              "type": "string"
-            },
-            "file_base": {
               "type": "string"
             },
             "immutable": {

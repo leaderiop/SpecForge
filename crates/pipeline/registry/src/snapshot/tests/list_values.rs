@@ -1,7 +1,5 @@
 //! A list field reaches a pass and a validator as its items (ADR 0294), not only as the text joined by `", "`.
 
-use std::path::Path;
-
 use serde_json::{Value, json};
 use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
 
@@ -46,12 +44,7 @@ fn registries() -> crate::compilation::RegistryBuild {
 /// The snapshot of `source` over [`registries`].
 fn snapshot(source: &str) -> EntitySnapshot {
     let registries = registries();
-    EntitySnapshot::of(
-        &super::graph_of(source, &registries),
-        &registries,
-        Path::new(""),
-        Path::new(""),
-    )
+    EntitySnapshot::of(&super::graph_of(source, &registries), &registries)
 }
 
 /// `a`'s `values` as a pass is sent them, and as a validator is.

@@ -2,6 +2,8 @@
 //! file is checked again by its stamp, not by a time to live.
 
 use std::collections::VecDeque;
+use std::io;
+use std::time::Instant;
 
 use specforge_common::path_glob;
 use specforge_effects::contained::{Contained, Resolved};
@@ -15,17 +17,47 @@ use crate::Environment;
 /// The most entries `fs.walk` answers, and the most directories it opens: a loop of links ends here.
 pub(super) const WALK_CAP: usize = 10_000;
 
+/// A missing path's answer, with its contained nearest sibling; none when it is there.
+fn missing(
+    disk: &dyn Disk,
+    contained: &Contained<'_>,
+    resolved: &Resolved,
+) -> Option<(OutcomeClass, OutcomeData)> {
+    // Asked as written too: a session records the path itself, so a file that appears re-runs the check.
+    let there = disk.exists(&resolved.at);
+    (!resolved.exists || !there).then(|| {
+        let near = contained.sibling(resolved);
+        (OutcomeClass::Missing, stat_of(None, 0, near))
+    })
+}
+
+/// The digest of a whole file: `Deadline` when the run's time ran out first, `Denied` for what is no regular file.
+pub(super) fn digest_disk(
+    disk: &dyn Disk,
+    contained: &Contained<'_>,
+    resolved: &Resolved,
+    deadline: Instant,
+) -> (OutcomeClass, OutcomeData) {
+    if let Some(missing) = missing(disk, contained, resolved) {
+        return missing;
+    }
+    match disk.digest(&resolved.at, deadline) {
+        Ok((sha256, length)) => (OutcomeClass::Ok, OutcomeData::Digest { sha256, length }),
+        Err(error) if error.kind() == io::ErrorKind::TimedOut => {
+            (OutcomeClass::Deadline, OutcomeData::None)
+        }
+        Err(_) => (OutcomeClass::Denied, OutcomeData::None),
+    }
+}
+
 pub(super) fn read_disk(
     disk: &dyn Disk,
     contained: &Contained<'_>,
     resolved: &Resolved,
     op: &FsOp,
 ) -> (OutcomeClass, OutcomeData) {
-    // Asked as written too: a session records the path itself, so a file that appears re-runs the check.
-    let there = disk.exists(&resolved.at);
-    if !resolved.exists || !there {
-        let near = contained.sibling(resolved);
-        return (OutcomeClass::Missing, stat_of(None, 0, near));
+    if let Some(missing) = missing(disk, contained, resolved) {
+        return missing;
     }
     match op {
         FsOp::Stat if disk.is_dir(&resolved.at) => {
