@@ -38,6 +38,16 @@ pub(crate) fn branch_create(place: &GitPlace, name: &str, at: &Sha) -> Result<()
 
 pub(crate) fn branch_delete(place: &GitPlace, name: &str) -> Result<Sha, GitError> {
     let repo = gix_owned(place)?;
+    // as git, even with `--force`: a branch a worktree (the main one or a linked one) has checked out stays
+    if let Some(there) = crate::refs::worktrees(&repo)?
+        .into_iter()
+        .find(|worktree| worktree.branch.as_deref() == Some(name))
+    {
+        return Err(GitError(format!(
+            "the branch {name} is checked out in the worktree {}",
+            there.path.display()
+        )));
+    }
     let reference = repo
         .find_reference(&branch_ref(name)?)
         .map_err(|e| failed(&format!("find the branch {name}"), &e))?;

@@ -162,3 +162,17 @@ fn a_commit_concluding_a_merge_removes_only_the_merges_files() {
     assert!(!repo.git_dir().join("MERGE_MSG").exists());
     assert!(repo.git_dir().join("BISECT_START").exists());
 }
+
+/// As git, even with `--force`: a branch a linked worktree has checked out is not deleted.
+#[test]
+fn a_branch_another_worktree_has_checked_out_is_not_deleted() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a");
+    let first = repo.commit_all("first");
+    let linked = tempfile::tempdir().unwrap();
+    repo.linked_worktree(&linked.path().join("wt"), "side", &first);
+    let refused = Gix::default().branch_delete(&place(&repo), "side");
+    assert!(refused.is_err(), "{refused:?}");
+    assert_eq!(repo.sha("side"), first);
+}
