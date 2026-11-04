@@ -3,9 +3,11 @@
 //! reaches, or a short listing under `--format human`; a refusal is the JSON error document (ADR 0029).
 
 pub(crate) mod files;
+pub(crate) mod http;
 pub(crate) mod run;
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use specforge_effects::Ports;
 use specforge_ops::OpError;
@@ -88,4 +90,40 @@ pub(crate) fn refusal(format: OutputFormat, pick: bool) -> Refusal<'static> {
 /// `text` from a file, a repository or a server, as a terminal may show it (ADR 0230).
 pub(crate) fn shown(text: &str) -> std::borrow::Cow<'_, str> {
     specforge_common::remedy::printable(text)
+}
+
+/// A duration as `timeout` reads one: `10` or `10s`, `500ms`, `2m` or `1h`.
+pub(crate) fn parse_duration(text: &str) -> Result<Duration, String> {
+    let split = text
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(text.len());
+    let (number, unit) = text.split_at(split);
+    let number: u64 = number
+        .parse()
+        .map_err(|_| format!("{text:?} is no duration: write 10, 10s, 500ms, 2m or 1h"))?;
+    match unit {
+        "" | "s" => Ok(Duration::from_secs(number)),
+        "ms" => Ok(Duration::from_millis(number)),
+        "m" => Ok(Duration::from_secs(number.saturating_mul(60))),
+        "h" => Ok(Duration::from_secs(number.saturating_mul(3600))),
+        _ => Err(format!(
+            "{text:?} is no duration: write 10, 10s, 500ms, 2m or 1h"
+        )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_duration_reads_like_timeout() {
+        assert_eq!(parse_duration("10"), Ok(Duration::from_secs(10)));
+        assert_eq!(parse_duration("10s"), Ok(Duration::from_secs(10)));
+        assert_eq!(parse_duration("500ms"), Ok(Duration::from_millis(500)));
+        assert_eq!(parse_duration("2m"), Ok(Duration::from_secs(120)));
+        assert_eq!(parse_duration("1h"), Ok(Duration::from_secs(3600)));
+        assert!(parse_duration("1d").is_err());
+        assert!(parse_duration("s").is_err());
+    }
 }

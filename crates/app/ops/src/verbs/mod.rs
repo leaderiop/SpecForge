@@ -5,6 +5,7 @@
 //! `temp`.
 
 pub mod files;
+pub mod http;
 pub mod run;
 
 use std::path::{Path, PathBuf};

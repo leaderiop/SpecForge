@@ -49,6 +49,7 @@ mod history;
 mod hook_exit;
 mod host_ports;
 mod hostile_files;
+mod http_verb;
 mod init;
 mod init_enclosing;
 mod init_starter;

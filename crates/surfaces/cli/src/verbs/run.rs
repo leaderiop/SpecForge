@@ -27,7 +27,7 @@ pub(crate) struct RunArgs {
     argv: Vec<String>,
 
     /// Stop the program and its children after this long and exit 124: `10` or `10s`, `500ms`, `2m`, `1h`
-    #[arg(long, value_name = "DURATION", value_parser = parse_deadline)]
+    #[arg(long, value_name = "DURATION", value_parser = super::parse_duration)]
     deadline: Option<Duration>,
 
     /// Print where the runner finds each program, and run none
@@ -49,26 +49,6 @@ pub(crate) struct RunArgs {
     /// effects journal (replay). A program asks for something to happen, so cached performs it too
     #[arg(long, value_enum)]
     effects: Option<EffectsMode>,
-}
-
-/// `10`, `10s`, `500ms`, `2m` or `1h`.
-fn parse_deadline(text: &str) -> Result<Duration, String> {
-    let split = text
-        .find(|c: char| !c.is_ascii_digit())
-        .unwrap_or(text.len());
-    let (number, unit) = text.split_at(split);
-    let number: u64 = number
-        .parse()
-        .map_err(|_| format!("{text:?} is no duration: write 10, 10s, 500ms, 2m or 1h"))?;
-    match unit {
-        "" | "s" => Ok(Duration::from_secs(number)),
-        "ms" => Ok(Duration::from_millis(number)),
-        "m" => Ok(Duration::from_secs(number.saturating_mul(60))),
-        "h" => Ok(Duration::from_secs(number.saturating_mul(3600))),
-        _ => Err(format!(
-            "{text:?} is no duration: write 10, 10s, 500ms, 2m or 1h"
-        )),
-    }
 }
 
 impl RunArgs {
@@ -155,21 +135,5 @@ impl RunArgs {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let consent = UserConsent::user(root.dir());
         Ok(Verbs::open(&root, &cwd, ports, &consent))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_deadline_reads_like_timeout() {
-        assert_eq!(parse_deadline("10"), Ok(Duration::from_secs(10)));
-        assert_eq!(parse_deadline("10s"), Ok(Duration::from_secs(10)));
-        assert_eq!(parse_deadline("500ms"), Ok(Duration::from_millis(500)));
-        assert_eq!(parse_deadline("2m"), Ok(Duration::from_secs(120)));
-        assert_eq!(parse_deadline("1h"), Ok(Duration::from_secs(3600)));
-        assert!(parse_deadline("1d").is_err());
-        assert!(parse_deadline("s").is_err());
     }
 }
