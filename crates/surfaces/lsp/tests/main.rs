@@ -17,6 +17,7 @@ mod contracts;
 mod cursor;
 mod defaults;
 mod document;
+mod document_links;
 mod duplicates;
 mod e2e;
 mod field_references;

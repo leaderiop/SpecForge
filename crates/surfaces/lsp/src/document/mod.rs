@@ -101,6 +101,24 @@ impl Document {
         })
     }
 
+    /// Every one-line string value the document holds, with the range its quotes hold.
+    pub fn string_values(&self) -> Vec<(StringValue<'_>, Range)> {
+        self.syntax()
+            .lexemes
+            .iter()
+            .filter(|lexeme| matches!(lexeme.kind, specforge_parser::lex::LexemeKind::Str { .. }))
+            .filter_map(|lexeme| {
+                let start = lexeme.start + 1;
+                let value = self.at(self.index.position(start))?.string_value()?;
+                let range = Range {
+                    start: self.index.position(start),
+                    end: self.index.position(start + value.text.len()),
+                };
+                Some((value, range))
+            })
+            .collect()
+    }
+
     /// The semantic tokens, in document order, one per line of a lexeme
     /// (a multi-line string or comment is cut at each line end). `view`
     /// gives each kind's declared token type, each field's declared type

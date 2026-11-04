@@ -30,7 +30,9 @@ pub fn items(
     place: Place<'_>,
 ) -> Vec<CompletionItem> {
     let registries = view.registries();
-    let edit = cursor.word_edit();
+    let edit = cursor
+        .path_part_edit()
+        .unwrap_or_else(|| cursor.word_edit());
     let holder = holder(cursor, view, place);
     let mut items = match cursor.completion() {
         CompletionSite::Keywords { prefix } => keywords(prefix, view, &Skeletons::at(view, place)),
@@ -155,7 +157,9 @@ pub fn items(
             });
             value(registries.fields(), kind, &field, prefix, view, from)
         }
-        CompletionSite::Nothing => Vec::new(),
+        CompletionSite::Nothing => cursor
+            .string_value()
+            .map_or_else(Vec::new, |value| crate::links::path_items(view, &value)),
     };
     for item in &mut items {
         let new_text = item

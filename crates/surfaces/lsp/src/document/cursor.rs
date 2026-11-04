@@ -365,6 +365,25 @@ impl<'d> Cursor<'d> {
         })
     }
 
+    /// The ranges an edit inside a string value covers: the part of its path around the cursor, between two `/`.
+    pub fn path_part_edit(&self) -> Option<WordEdit> {
+        let value = self.string_value()?;
+        let before = value.prefix.rsplit('/').next().unwrap_or_default().len();
+        let rest = &value.text[value.prefix.len()..];
+        let after = rest.find('/').unwrap_or(rest.len());
+        let start = self.index.position(self.offset - before);
+        Some(WordEdit {
+            insert: Range {
+                start,
+                end: self.position,
+            },
+            replace: Range {
+                start,
+                end: self.index.position(self.offset + after),
+            },
+        })
+    }
+
     /// Whether the cursor is in code, a string or a comment.
     pub fn place(&self) -> Place {
         let Some(last) = self.last_started() else {

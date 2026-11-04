@@ -14,6 +14,7 @@ mod document;
 pub mod editor;
 pub mod files;
 pub mod hover;
+pub mod links;
 mod navigation;
 pub mod pending;
 pub mod publish;
