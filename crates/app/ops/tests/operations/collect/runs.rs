@@ -468,3 +468,21 @@ fn a_third_party_collector_asks_again_after_its_blob_changes() {
     assert_eq!(asker.asked().len(), 2, "another blob asks again");
     assert_eq!(machine.runs().len(), 3);
 }
+
+#[test]
+fn an_unusable_store_is_w186_even_when_the_run_needs_no_approval() {
+    let fx = acme();
+    let w186 = |outcome: &specforge_ops::analysis::collect::Outcome| {
+        outcome.diagnostics.iter().any(|d| d.code == "W186")
+    };
+    let machine = Machine::new()
+        .unusable_store("it is not JSON")
+        .answering(reports());
+    let outcome = fx.run(Asking::Yes, &machine).unwrap();
+    assert!(w186(&outcome), "{:?}", outcome.diagnostics);
+
+    // A store that works says nothing.
+    let machine = Machine::new().answering(reports());
+    let outcome = fx.run(Asking::Yes, &machine).unwrap();
+    assert!(!w186(&outcome), "{:?}", outcome.diagnostics);
+}

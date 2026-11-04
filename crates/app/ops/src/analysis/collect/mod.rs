@@ -252,7 +252,13 @@ pub fn collect(
     let mut stores = Vec::new();
     let mut runners = Vec::new();
     let mut plans: Vec<CollectedPlan> = Vec::new();
-    let mut diagnostics = Vec::new();
+    // Reported whether or not this run needs an approval (ADR 0335 D2.5): `--yes` and a report-only run say it too.
+    let mut diagnostics: Vec<Diagnostic> = consent
+        .list()
+        .err()
+        .map(|error| crate::consent::unusable_store(&error))
+        .into_iter()
+        .collect();
     let mut unsaved_approvals = Vec::new();
     // Decided for every collector before anything runs (ADR 0125 D5): a refusal that needs no run never
     // follows an earlier collector's command.

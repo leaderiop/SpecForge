@@ -72,6 +72,12 @@ impl Machine {
         self
     }
 
+    /// The store cannot be used at all: `why`.
+    pub fn unusable_store(mut self, why: &str) -> Self {
+        self.consent = MemoryConsent::unusable(why);
+        self
+    }
+
     /// The next run does `run`.
     pub fn answering(mut self, run: ScriptedRun) -> Self {
         self.scripted = self.scripted.answering(run);
