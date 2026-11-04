@@ -220,3 +220,18 @@ fn atx_and_setext_headings_follow_the_commonmark_examples() {
     assert_eq!(heading("- foo\n-----\n"), Vec::<String>::new());
     assert_eq!(heading("> foo\n> ---\n"), ["foo"]);
 }
+
+#[test]
+fn a_heading_of_unclosed_markup_is_read_in_linear_time() {
+    for unit in ["<", "]("] {
+        let markdown = format!("# {}\n", unit.repeat((1 << 20) / unit.len()));
+        let started = std::time::Instant::now();
+        let found = anchors(&markdown);
+        assert_eq!(found.len(), 1);
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(2),
+            "`{unit}` took {:?}",
+            started.elapsed()
+        );
+    }
+}

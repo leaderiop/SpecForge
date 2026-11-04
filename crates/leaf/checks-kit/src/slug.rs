@@ -75,11 +75,15 @@ fn text_of(inline: &str) -> String {
     let mut code = false;
     let mut chars = inline.char_indices().peekable();
     let mut previous = ' ';
+    // Once a search for a closing `>` or `)` failed, every later one fails too: never search again, so a line of
+    // `<<<<` or `](](` is read once.
+    let (mut no_angle, mut no_paren) = (false, false);
     while let Some((at, c)) = chars.next() {
         let next = chars.peek().map_or(' ', |(_, c)| *c);
         match c {
             '`' => code = !code,
             _ if code => out.push(c),
+            '<' if no_angle => out.push(c),
             '<' => match inline[at..].find('>') {
                 // An autolink keeps its address; a tag is dropped.
                 Some(end) => {
@@ -91,15 +95,20 @@ fn text_of(inline: &str) -> String {
                         chars.next();
                     }
                 }
-                None => out.push(c),
+                None => {
+                    no_angle = true;
+                    out.push(c);
+                }
             },
-            ']' if next == '(' => {
-                if let Some(end) = inline[at..].find(')') {
+            ']' if next == '(' && !no_paren => match inline[at..].find(')') {
+                Some(end) => {
                     while chars.peek().is_some_and(|(i, _)| *i <= at + end) {
                         chars.next();
                     }
                 }
-            }
+                None => no_paren = true,
+            },
+            ']' if next == '(' => {}
             // An underscore at a word's edge is emphasis; inside a word it is text.
             '_' if !previous.is_alphanumeric() || !next.is_alphanumeric() => {}
             _ => out.push(c),
