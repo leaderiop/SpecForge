@@ -2,17 +2,17 @@
 //! `commit-msg` and `post-commit` hooks through the Process port, and record the index as a commit by the identity
 //! git's configuration names. The git program is never run.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use specforge_common::remedy::printable;
 use specforge_effects::git::{GitError, GitPlace, Staging};
 use specforge_effects::process::{OUTPUT_CAP, USER_CEILING};
 use specforge_effects::{
-    Ceiling, EffectRequest, EnvVar, Output, ProcessClass, ProcessRequest, RealFs, Shown,
+    Ceiling, EffectRequest, EnvVar, Output, ProcessClass, ProcessRequest, Shown,
 };
 
-use super::super::Verbs;
+use super::super::{Access, Verbs};
 use crate::{OpError, OpErrorKind};
 
 /// What `git commit` is asked.
@@ -142,8 +142,8 @@ pub fn cleaned(message: &str) -> Option<String> {
     (!out.is_empty()).then_some(out)
 }
 
-/// Each typed path (read from the current directory) as a path from the repository's top: one outside the working
-/// tree is refused.
+/// Each typed path (read from the current directory) as a path from the repository's top: one the project's roots do
+/// not hold for a write (outside them, or the host's own state), or one outside the working tree, is refused.
 pub(super) fn in_repository(
     verbs: &Verbs,
     place: &GitPlace,
@@ -152,7 +152,7 @@ pub(super) fn in_repository(
     typed
         .iter()
         .map(|path| {
-            let at = RealFs::landing(&verbs.cwd().join(path));
+            let at = held(verbs, path)?;
             let rel = at.strip_prefix(&place.toplevel).map_err(|_| {
                 OpError::new(
                     OpErrorKind::InvalidInput,
@@ -169,6 +169,24 @@ pub(super) fn in_repository(
             Ok(if rel.is_empty() { "*".to_string() } else { rel })
         })
         .collect()
+}
+
+/// Where `path` (read from the current directory) lands, once the project's roots hold it for a write and it is not
+/// the host's own state or a credential file. shortcut: the name itself is checked, not each file under a directory
+/// (`.specforge/` is git-ignored by `specforge init`); upgrade if a directory-wide write must skip them.
+pub(super) fn held(verbs: &Verbs, path: &Path) -> Result<PathBuf, OpError> {
+    let (located, _) = verbs.located(path, Access::Write)?;
+    if specforge_effects::contained::withheld(&located.rel) {
+        return Err(OpError::new(
+            OpErrorKind::PermissionDenied,
+            OpErrorKind::PermissionDenied.as_str(),
+            format!(
+                "{} is withheld: the host's own state and credential files are never written through git",
+                printable(&path.to_string_lossy())
+            ),
+        ));
+    }
+    Ok(located.at)
 }
 
 /// The repository's hooks, where git finds them.

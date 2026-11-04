@@ -242,18 +242,14 @@ fn a_ceiling_with_git_read_refuses_a_commit() {
     git(&project, &["head"]).exits(0);
 }
 
+/// The project's roots are checked first: a path outside the project (and the repository) is no root's.
 #[test]
 fn a_path_outside_the_repository_is_refused() {
     let (project, _repo, _) = committed();
     let elsewhere = tempfile::tempdir().unwrap();
     let outside = elsewhere.path().to_string_lossy().into_owned();
     let refused = git(&project, &["commit", "--add", &outside, "-m", "x"]).exits(1);
-    assert_eq!(
-        refused.json()["code"],
-        "outside_repository",
-        "{}",
-        refused.stdout
-    );
+    assert_eq!(refused.json()["code"], "outside_root", "{}", refused.stdout);
 }
 
 #[test]
@@ -418,8 +414,8 @@ fn an_annotated_tag_names_a_tag_object_and_a_plain_one_the_commit() {
 #[test]
 fn a_worktree_is_added_listed_and_removed() {
     let (project, _repo, first) = committed();
-    let elsewhere = tempfile::tempdir().unwrap();
-    let at = elsewhere.path().join("feature-wt");
+    // in the project: a write is held to its roots
+    let at = project.root().join("feature-wt");
     let path = at.to_string_lossy().into_owned();
     let added = git(
         &project,
@@ -460,8 +456,7 @@ fn a_worktree_is_added_listed_and_removed() {
 #[test]
 fn a_worktree_whose_git_file_is_broken_is_removed_only_with_force() {
     let (project, _repo, _) = committed();
-    let elsewhere = tempfile::tempdir().unwrap();
-    let at = elsewhere.path().join("wt");
+    let at = project.root().join("wt");
     let path = at.to_string_lossy().into_owned();
     git(
         &project,
@@ -479,6 +474,45 @@ fn a_worktree_whose_git_file_is_broken_is_removed_only_with_force() {
     assert!(at.join("a.txt").is_file(), "its files stay");
     git(&project, &["worktree", "remove", &path, "--force"]).exits(0);
     assert!(!at.exists());
+}
+
+/// The paths a write names are held to the project's roots, as `files` holds them, not only to the repository: the
+/// host's own `.specforge/` and a path outside the project (here a project nested in the repository) are refused.
+#[test]
+fn a_git_write_never_reaches_past_the_projects_roots() {
+    let (outer, repo, first) = committed();
+    let inner = outer.root().join("inner");
+    std::fs::create_dir_all(inner.join(".specforge")).unwrap();
+    std::fs::copy(
+        outer.root().join("specforge.json"),
+        inner.join("specforge.json"),
+    )
+    .unwrap();
+    std::fs::write(inner.join(".specforge/state.json"), "{}").unwrap();
+    repo.write("a.txt", "changed\n");
+    for args in [
+        &["commit", "-m", "x", "--add", ".specforge/state.json"][..],
+        &["restore", ".specforge/state.json"],
+        &["commit", "-m", "x", "--add", "../a.txt"],
+        &["restore", "../a.txt"],
+        &["worktree", "add", "../../wt", "--branch", "wt", "--create"],
+    ] {
+        let out = git_in(&outer, &inner, args);
+        // outside the project: no root holds it; inside it: withheld
+        let outside = args.contains(&"../a.txt") || args[0] == "worktree";
+        let code = if outside {
+            "outside_root"
+        } else {
+            "permission_denied"
+        };
+        assert_eq!(out.json()["code"], code, "{args:?}: {}", out.stdout);
+    }
+    assert_eq!(repo.sha("HEAD"), first, "nothing committed");
+    assert_eq!(
+        std::fs::read_to_string(outer.root().join("a.txt")).unwrap(),
+        "changed\n"
+    );
+    assert!(!outer.root().parent().unwrap().join("wt").exists());
 }
 
 #[test]

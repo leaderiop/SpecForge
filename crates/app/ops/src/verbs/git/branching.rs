@@ -9,7 +9,7 @@ use specforge_common::remedy::printable;
 use specforge_effects::RealFs;
 use specforge_effects::git::{GitPlace, Located, Sha};
 
-use super::commit::write_failed;
+use super::commit::{held, write_failed};
 use super::{HeadAnswer, Worktree, commit_named, failed, head, slashed};
 use crate::verbs::Verbs;
 use crate::{OpError, OpErrorKind};
@@ -143,7 +143,7 @@ pub fn worktree_add(
     start: Option<&str>,
 ) -> Result<Worktree, OpError> {
     let place = verbs.place_to_write("worktree add")?;
-    let at = landed(verbs, path);
+    let at = held(verbs, path)?;
     if std::fs::read_dir(&at).is_ok_and(|mut entries| entries.next().is_some()) {
         return Err(refused(
             "path_taken",
