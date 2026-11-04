@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use specforge_effects::process::request;
 use specforge_effects::{Output, Process, ProcessClass, ProcessRequest};
-use specforge_process::{Runner, resolve, secret};
+use specforge_process::{Runner, inherited, resolve, secret};
 
 fn run(request: &ProcessRequest) -> specforge_effects::ProcessOutcome {
     Runner.run(request, &std::env::temp_dir(), Output::Buffer)
@@ -145,6 +145,42 @@ fn a_secret_variable_is_not_passed() {
     let env = outcome.text();
     assert!(!env.contains("SPECFORGE_PROBE_TOKEN"), "{env}");
     assert!(env.contains("SPECFORGE_PROBE_SET=y"), "{env}");
+}
+
+#[cfg(unix)]
+#[test]
+#[allow(
+    unsafe_code,
+    reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
+)]
+fn a_guests_program_inherits_what_it_was_told_and_a_hosts_all_but_a_secret() {
+    // SAFETY: no other thread of this test reads the environment.
+    unsafe {
+        std::env::set_var("SPECFORGE_PROBE_PLAIN", "x");
+        std::env::set_var("SPECFORGE_PROBE_DECLARED", "y");
+    }
+    let host = run(&request(["env"], Duration::from_secs(10))).text();
+    assert!(host.contains("SPECFORGE_PROBE_PLAIN=x"), "{host}");
+
+    let mut guests = request(["env"], Duration::from_secs(10));
+    guests.inherit = Some(vec!["SPECFORGE_PROBE_DECLARED".to_string()]);
+    let guests = run(&guests).text();
+    assert!(!guests.contains("SPECFORGE_PROBE_PLAIN"), "{guests}");
+    assert!(guests.contains("SPECFORGE_PROBE_DECLARED=y"), "{guests}");
+    assert!(guests.contains("PATH="), "{guests}");
+}
+
+#[test]
+fn what_any_program_inherits_is_a_short_list() {
+    for needed in ["PATH", "HOME", "LANG", "LC_ALL", "TMPDIR"] {
+        assert!(inherited(needed.as_ref(), &[]), "{needed}");
+    }
+    for other in ["BASH_ENV", "GIT_SSH_COMMAND", "LD_PRELOAD", "DATABASE_URL"] {
+        assert!(!inherited(other.as_ref(), &[]), "{other}");
+    }
+    assert!(inherited("RUSTFLAGS".as_ref(), &["RUSTFLAGS".to_string()]));
+    assert_eq!(inherited("path".as_ref(), &[]), cfg!(windows));
+    assert_eq!(inherited("SystemRoot".as_ref(), &[]), cfg!(windows));
 }
 
 #[test]

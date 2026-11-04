@@ -177,6 +177,15 @@ impl ProcessOutcome {
     }
 }
 
+/// Whether `a` and `b` name one environment variable: in any case on Windows.
+pub fn same_variable(a: &str, b: &str) -> bool {
+    if cfg!(windows) {
+        a.eq_ignore_ascii_case(b)
+    } else {
+        a == b
+    }
+}
+
 /// `bytes` as UTF-8, an invalid sequence read as U+FFFD, and `\r\n` read as `\n`.
 pub fn text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).replace("\r\n", "\n")

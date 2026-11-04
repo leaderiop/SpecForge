@@ -3,7 +3,8 @@
 //! a guest's request meets the host: what only the host may set is taken out of it here, in every runtime.
 //!
 //! An answer holds what may reach a guest and nothing else (ADR 0288): an attached secret is the granted port's, on
-//! the host side, and a program a guest runs inherits no variable a declared secret names.
+//! the host side, and a program a guest runs starts from an empty environment plus what its capability declares, less
+//! any variable a declared secret names.
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -15,7 +16,9 @@ use specforge_effects::fs::{FileKind, READ_CEILING};
 use specforge_effects::git::{GitPlace, Located, Sha};
 use specforge_effects::http::{self, guest_body_cap};
 use specforge_effects::journal::{Answer, Blob, LentRecord};
-use specforge_effects::process::{DEADLINE_CEILING, OUTPUT_CAP, Output, ProcessClass};
+use specforge_effects::process::{
+    DEADLINE_CEILING, OUTPUT_CAP, Output, ProcessClass, same_variable,
+};
 use specforge_effects::{
     Denial as Refusal, Denied, EffectJournal, EffectRequest, Effects, FsOp, FsRequest, Grant,
     Granted, Outcome, OutcomeClass, Ports, Roots, Served, SharedFs, SharedGit, UnixMillis,
@@ -23,7 +26,7 @@ use specforge_effects::{
 use specforge_protocol_types::{
     Denial, EnvVar, Failure, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
     GitRepo, GitSized, GitStatus, GitTreeEntry, HostError, HttpRequest, HttpResponse, Operation,
-    PortScope, ProcessOutput, ProcessRequest, ProcessScope,
+    PortScope, ProcessOutput, ProcessRequest,
 };
 
 use crate::sandbox::{ANSWER_SHARE_OF_MEMORY, Limits, PORT_BUDGET_MS};
@@ -96,13 +99,6 @@ pub struct PortSession {
     memory_mb: u32,
     /// What its requests took so far: not the guest's time, and held to the port budget.
     in_ports: Duration,
-}
-
-/// Variables a program's lookup or loader reads: a guest's request cannot set them, so the program a person approved
-/// is the program that runs. shortcut: names only; extend the list when a platform adds a loader variable.
-fn host_only_variable(name: &str) -> bool {
-    let name = name.to_ascii_uppercase();
-    name == "PATH" || name == "PATHEXT" || name.starts_with("LD_") || name.starts_with("DYLD_")
 }
 
 fn failed(class: impl ToString, message: impl Into<String>) -> HostError {
@@ -437,32 +433,40 @@ impl PortSession {
     /// One program, its argv as a capability declares it, in the project's directory, through the call's effects.
     pub fn process_run(&mut self, request: ProcessRequest) -> Result<ProcessOutput, HostError> {
         let (kind, call) = self.lent()?;
-        if let Some(var) = request.env.iter().find(|var| host_only_variable(&var.name)) {
-            return Err(out_of_scope(format!(
-                "a guest cannot set {}: it chooses what the approved command runs",
-                var.name
-            )));
+        let asked = EffectRequest::Process(request.clone());
+        let granted = Self::granted(kind, call, &asked)?;
+        let PortScope::Process(scope) = &granted.declared.port else {
+            return Err(out_of_scope("no process capability permits it"));
+        };
+        // A name it does not declare is one nobody approved: `BASH_ENV` chooses what an approved command runs.
+        if let Some(var) = request
+            .env
+            .iter()
+            .find(|var| !scope.env.iter().any(|name| same_variable(name, &var.name)))
+        {
+            let refusal = Refusal {
+                extension: call.grant.extension().to_string(),
+                request: specforge_effects::grant::one_line(&asked),
+                scope: Some(granted.declared.name.clone()),
+                why: Denied::Undeclared,
+                detail: format!("its capability does not declare the variable {}", var.name),
+            };
+            return Err(Self::refused(call, refusal));
         }
         let mut env = request.env;
         // Removed after what the guest asked: a program cannot echo a secret into its answer.
         env.extend(call.secrets.iter().map(EnvVar::removed));
+        // What the capability declares is the most it runs for, under the port's ceiling.
+        let most = scope
+            .deadline_ms
+            .map_or(millis(DEADLINE_CEILING), |declared| {
+                u64::from(declared).min(millis(DEADLINE_CEILING))
+            });
         let request = ProcessRequest {
             env,
             output_cap: asked_cap(request.output_cap, self.answer_cap.min(OUTPUT_CAP)),
-            ..request
-        };
-        let asked = EffectRequest::Process(request.clone());
-        let granted = Self::granted(kind, call, &asked)?;
-        // What the capability declares is the most it runs for, under the port's ceiling.
-        let most = match &granted.declared.port {
-            PortScope::Process(ProcessScope {
-                deadline_ms: Some(declared),
-                ..
-            }) => u64::from(*declared).min(millis(DEADLINE_CEILING)),
-            _ => millis(DEADLINE_CEILING),
-        };
-        let request = ProcessRequest {
             deadline_ms: asked_cap(request.deadline_ms, most.min(self.budget_left())),
+            inherit: Some(scope.env.clone()),
             ..request
         };
         let asked = EffectRequest::Process(request.clone());

@@ -1075,8 +1075,10 @@ for the gate, the declaration or the ceiling. One that lacks this machine's appr
 Nothing prompts mid-call: a caller settles the approvals before the call, and MCP answers from stored approvals only.
 
 **What a request can't say.** There is no field for the private-address opt-in or a secret: the host attaches a
-capability's `secret_header` itself, and no answer shows it (ADR 0288). A program inherits no variable a declared secret
-names, and a guest can't set its `PATH`, `PATHEXT`, `LD_*` or `DYLD_*`. A `git` revision or path can't be an option or
+capability's `secret_header` itself, and no answer shows it (ADR 0288). A program starts from an empty environment plus
+what any program needs to work (`PATH`, `HOME`, the locale, the temp directory, the Windows system variables) and the names
+its process capability's `env` declares. A guest setting any other name is `denied(scope)` and E090, and a variable a
+declared secret names is never passed, even when named. A `git` revision or path can't be an option or
 climb out of the repository, and a file the disk withholds is withheld at a commit too.
 
 **Effects mode.** A port call's `http` and `process` requests run in its run's mode (`online`, `auto`, `cached`,

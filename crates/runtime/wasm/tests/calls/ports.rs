@@ -99,6 +99,7 @@ fn extension() -> ContributionsBuilder {
     c.capability(
         Capability::process("tests")
             .argv(&["cargo"])
+            .env(&["MODE", "ACME_API_VALUE"])
             .why("run the tests"),
     );
     c
@@ -390,6 +391,11 @@ fn a_program_a_guest_runs_inherits_no_declared_secret_and_cannot_set_its_path_or
     let env = &fakes.process.requests()[0].env;
     assert_eq!(env.first(), Some(&EnvVar::set("ACME_API_VALUE", "guest")));
     assert_eq!(env.last(), Some(&EnvVar::removed("ACME_API_VALUE")));
+    assert_eq!(
+        fakes.process.requests()[0].inherit.as_deref(),
+        Some(["MODE".to_string(), "ACME_API_VALUE".to_string()].as_slice()),
+        "the host says what it inherits"
+    );
 
     for name in [
         "PATH",
@@ -397,6 +403,7 @@ fn a_program_a_guest_runs_inherits_no_declared_secret_and_cannot_set_its_path_or
         "PATHEXT",
         "LD_PRELOAD",
         "DYLD_INSERT_LIBRARIES",
+        "BASH_ENV",
     ] {
         let refused = run(vec![EnvVar::set(name, "/tmp/evil")]);
         assert!(

@@ -33,6 +33,7 @@ fn every_port_request_and_answer_survives_the_wit_conversion() {
         deadline_ms: 6,
         output_cap: 7,
         text: true,
+        inherit: None,
     };
     assert_eq!(convert::run_request_back((&run).into()), run);
     let response = HttpResponse {

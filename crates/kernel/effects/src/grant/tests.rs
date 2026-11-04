@@ -158,6 +158,7 @@ fn run(argv: &[&str]) -> EffectRequest {
         deadline_ms: 1,
         output_cap: 1,
         text: false,
+        inherit: None,
     })
 }
 

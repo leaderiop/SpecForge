@@ -25,6 +25,11 @@ pub struct ProcessRequest {
     /// The caller reads the output as text (UTF-8, `\r\n` read as `\n`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub text: bool,
+    /// What the program inherits of the host's environment. None: all of it but a secret, as a program the host itself
+    /// runs. Some: only what a program needs to work and these names, as a program a guest runs (ADR 0335 D4). Only the
+    /// host sets it: the WIT request has no field for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inherit: Option<Vec<String>>,
 }
 
 /// One environment change: set `name` to `value`, or remove it when `value` is `None`.

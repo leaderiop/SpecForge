@@ -238,7 +238,12 @@ impl ScopeRules for ProcessScope {
     }
 
     fn summary(&self) -> String {
-        format!("process {}", self.argv.join(" "))
+        let command = format!("process {}", self.argv.join(" "));
+        if self.env.is_empty() {
+            command
+        } else {
+            format!("{command}, inherits or sets {}", self.env.join(","))
+        }
     }
 
     fn admits(&self, request: &EffectRequest, user: bool) -> bool {

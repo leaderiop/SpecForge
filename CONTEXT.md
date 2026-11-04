@@ -292,7 +292,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `machine`; `--strict` never promotes it and the gate's warning baseline never counts it (I206, I207, W170; ADR 0337 D7).
 - **Capability**: one effect an extension declares it may ask the host for, in its `capabilities` describe category: a
   **scope name**, a `why`, the call kinds it is for and one port scope (`http` hosts, schemes, methods and an optional
-  secret header; `fs` roots and ops; a `process` argv template; `git` ops). A collector with a command names its
+  secret header; `fs` roots and ops; a `process` argv template and the variables its program inherits or a guest may
+  set; `git` ops). A collector with a command names its
   `process` capability. A bad one is W021 and grants nothing (`specforge_protocol_types::CapabilityDescriptor`, ADR
   0335 D2.1).
 - **Scope name**: a capability's name, a word unique in its extension: what an approval, `specforge grants` and a

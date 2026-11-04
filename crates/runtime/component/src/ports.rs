@@ -141,6 +141,7 @@ impl process::Host for HostState {
             deadline_ms: req.deadline_ms,
             output_cap: req.output_cap,
             text: req.text,
+            inherit: None,
         };
         let output = self
             .ports

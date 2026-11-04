@@ -142,8 +142,14 @@ the workspace.
   call, and MCP answers from stored approvals only.
 - **What only the host may set never comes from a guest.** A WIT request has no field for the private-address opt-in
   or an attached secret, and the session clears both whatever a Rust value in process holds. No answer has a field
-  for a secret (ADR 0288). A program a guest runs inherits no variable a declared secret names, of any extension, and
-  a guest cannot set its `PATH`, `PATHEXT` or loader variables. `git` reads the project's own repository only: a guest
+  for a secret (ADR 0288). **A program a guest runs starts from an empty environment** plus a fixed list a program needs
+  to work (`PATH`, `HOME`, the locale, the temp directory, the Windows system variables) and the names its process
+  capability declares (`env`). A name list of what to keep out could not hold: `BASH_ENV`, `GIT_SSH_COMMAND` and
+  `CARGO_TARGET_*_RUNNER` choose what an approved command runs, and `DATABASE_URL` holds a secret by no name of it. A
+  guest setting a name its capability does not declare is `denied(scope)` and E090, so the approval line and its digest
+  cover every name, and another name asks again. The secret removal stays last: no variable a declared secret names, of
+  any extension, is passed, even when a capability names it. A program the host itself runs keeps the parent's
+  environment less the deny-list. `git` reads the project's own repository only: a guest
   names no place, its revisions and paths can be neither an option nor a climb, and a file the disk withholds is
   withheld at a commit too. **The host's own state is withheld whole:** no `fs` request of any op reaches a path with
   a `.specforge` component, at the project root or under a named root, and a walk never enters one, a glob naming it

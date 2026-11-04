@@ -780,8 +780,9 @@ what they need as the call's input.
 **What a guest can't do**, whatever it asks:
 
 - see a secret: the host attaches a capability's `secret_header` to the requests it permits, and the secret never
-  shows in an answer. A program a guest runs inherits no declared secret;
-- open the private-address opt-in, or set a program's `PATH` or loader variables;
+  shows in an answer. A program a guest runs inherits no declared secret, and nothing of the host's environment but
+  what a program needs to work and the names its capability's `.env(&[..])` declares;
+- open the private-address opt-in, or set a program's variable its capability does not declare;
 - read a file the host withholds (credentials), from disk or at a commit.
 
 **What it gets back:** `Err(HostError::Denied(..))` for a request outside its grant (reported to the person as E090, and

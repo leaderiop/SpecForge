@@ -266,6 +266,7 @@ pub(super) fn run_request_back(request: RunRequest) -> ProcessRequest {
         deadline_ms: request.deadline_ms,
         output_cap: request.output_cap,
         text: request.text,
+        inherit: None,
     }
 }
 

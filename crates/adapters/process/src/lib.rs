@@ -1,6 +1,7 @@
 //! The adapter behind the effect plane's `Process` port (ADR 0335): the one runner every spawn goes through. It
 //! resolves the program (PATH × PATHEXT on Windows, the request's own when it sets them), passes the parent's
-//! environment with the request's variables, less a secret deny-list applied last, holds the run and its output to the
+//! environment (for a program a guest runs, only what [`inherited`] keeps) with the request's variables, less a secret
+//! deny-list applied last, holds the run and its output to the
 //! request's deadline (at most 600 s) and output cap, and ends the program's whole process group (a Job object on
 //! Windows) when either passes, or when the host itself is interrupted ([`stop_on_interrupt`]). A program that exits
 //! cleanly is never killed: a child it left holding its output is read for a short grace, then left alone.
@@ -12,7 +13,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
-use specforge_effects::process::{OUTPUT_CAP, started_now, text};
+use specforge_effects::process::{OUTPUT_CAP, same_variable, started_now, text};
 use specforge_effects::{
     Ceiling, Output, Process, ProcessClass, ProcessOutcome, ProcessRequest, Shown,
 };
@@ -40,6 +41,41 @@ pub fn secret(name: &OsStr) -> bool {
         .iter()
         .any(|end| name.ends_with(end))
         || name.starts_with("AWS_")
+}
+
+/// What any program needs of the host's environment to work.
+const NEEDED: &[&str] = &["PATH", "HOME", "TMPDIR", "TEMP", "TMP", "LANG", "LANGUAGE"];
+
+/// What a program needs on Windows beside [`NEEDED`]: without `SystemRoot` a program cannot even start its sockets.
+const NEEDED_ON_WINDOWS: &[&str] = &[
+    "PATHEXT",
+    "SystemRoot",
+    "SystemDrive",
+    "windir",
+    "ComSpec",
+    "USERPROFILE",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+    "OS",
+];
+
+/// Whether a program a guest runs inherits the variable `name`: what any program needs to work (the locale's `LC_*`
+/// among it), or one its capability `declared`. In any case on Windows.
+pub fn inherited(name: &OsStr, declared: &[String]) -> bool {
+    let name = name.to_string_lossy();
+    let is = |known: &&str| same_variable(known, &name);
+    name.starts_with("LC_")
+        || NEEDED.iter().any(is)
+        || (cfg!(windows) && NEEDED_ON_WINDOWS.iter().any(is))
+        || declared.iter().any(|known| same_variable(known, &name))
 }
 
 /// The extensions Windows tries when `PATHEXT` is not set.
@@ -103,6 +139,10 @@ impl Process for Runner {
         };
         let mut command = Command::new(program);
         command.args(args).current_dir(dir);
+        if let Some(declared) = &request.inherit {
+            command.env_clear();
+            command.envs(std::env::vars_os().filter(|(name, _)| inherited(name, declared)));
+        }
         for var in &request.env {
             match &var.value {
                 Some(value) => command.env(&var.name, value),
