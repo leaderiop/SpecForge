@@ -25,8 +25,8 @@ use super::sides;
 use super::validate::validate_extension_testability;
 use crate::rules::{CustomVerdicts, Registries, Rules};
 use crate::{
-    CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, RouteRegistry, SettingsRegistry,
-    refuse_malformed_tool_schemas, register_surface_contributions,
+    CheckRegistry, CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, RouteRegistry,
+    SettingsRegistry, refuse_malformed_tool_schemas, register_surface_contributions,
 };
 
 /// The phase a pass declares to run with every compile instead of under
@@ -170,6 +170,8 @@ pub struct RegistryBuild {
     settings: SettingsRegistry,
     /// The routes `specforge trace` follows, checked against the registries and the judged rules (ADR 0330).
     routes: RouteRegistry,
+    /// Every field's value checks, resolved, and the checkers the registry kept (ADR 0336).
+    checks: CheckRegistry,
     /// The extensions' commands as the CLI and MCP route them; a shadowed
     /// one is E039 (ADR 0097).
     pub(crate) commands: CommandRoutes,
@@ -182,7 +184,8 @@ pub struct RegistryBuild {
     declaration_diagnostics: Vec<Reported>,
     /// Populate (E026, W018, W019, W021, I004, then the edge types' W021),
     /// W017, the rule set's (W150, W147 or W112 per declared rule), then the routes' E118 and W195, then
-    /// E039 for a shared code namespace, then the settings' W019 and W021 — in that order.
+    /// E039 for a shared code namespace, then the settings' W019 and W021, then the value checks' W019 and W189 — in
+    /// that order.
     registry_diagnostics: Vec<Reported>,
     /// The custom rules' probes (W112), set by [`Self::probe`]; empty until then.
     probe_diagnostics: Vec<Diagnostic>,
@@ -296,6 +299,11 @@ impl RegistryBuild {
     /// Every declared pass with its extension, in order (both phases).
     pub fn passes(&self) -> &[DeclaredPass] {
         &self.passes
+    }
+
+    /// Every field's value checks, resolved, and the checkers the registry kept (ADR 0336).
+    pub fn checks(&self) -> &CheckRegistry {
+        &self.checks
     }
 
     /// The extensions' commands as the CLI and MCP route them, each under
@@ -531,6 +539,10 @@ pub fn build_registries_with(
     registry_diagnostics.extend(about(BuildPart::Registries, route_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
+    // The value checks: W019 and W189.
+    let (checks, check_diagnostics) =
+        crate::registries::checks::build(&declarations, &fields, &kinds, &codes, &candidates);
+    registry_diagnostics.extend(about(BuildPart::Registries, check_diagnostics));
 
     // A slash command names a prompt or command the registry kept; then the host's names are claimed (E039).
     surface_diagnostics.extend(about(
@@ -556,6 +568,7 @@ pub fn build_registries_with(
         codes,
         settings,
         routes,
+        checks,
         commands,
         passes,
         declaration_diagnostics,

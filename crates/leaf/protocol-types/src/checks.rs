@@ -60,6 +60,9 @@ pub enum ValueForm {
     Text,
     Url,
     Path,
+    /// A form this host does not read: the checker is W189, not the whole describe payload.
+    #[serde(other)]
+    Unknown,
 }
 
 /// A value checker an extension declares.

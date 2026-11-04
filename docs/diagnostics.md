@@ -2779,14 +2779,20 @@ Level: warning
 ## W019
 
 ```
-W019: Unknown field type
+W019: Unknown field type or checker
 
 An extension manifest declares a field whose `field_type` value the compiler
 doesn't recognize (it must be one of `string`, `integer`, `bool`, `date`,
 `enum`, `enum_list`, `identifier`, `string_list`, `reference`, `reference_list`,
 `block` or `block_list`); a member of a block or block list is a field and is
-read the same way, and one with an unknown type is dropped. Correct the field's
-`field_type` in the manifest.
+read the same way, and one with an unknown type is dropped. Or a field names a
+value checker that leads nowhere: no loaded extension is the one it names, the
+extension declares no checker of that name, a name without an extension is not
+the declaring extension's own checker, another extension's checker is used
+without declaring it a peer, or an `any_of` branch names nothing. The check is
+dropped. A checker of an optional peer the project does not load is no mistake:
+its check is inert. Correct the field's `field_type` or the check's name,
+declare the peer, or enable the extension.
 
 Owner: core
 Level: warning
@@ -4044,6 +4050,30 @@ shared directory). Nothing in it is approved, and nothing is written over it: an
 approval given now is not kept. The message names the file and why. Fix the file
 or move it away, update specforge, or point `SPECFORGE_CONSENT_FILE` at an
 absolute path outside the project.
+
+Owner: core
+Level: warning
+```
+
+## W189
+
+```
+W189: Check or checker the registry refuses
+
+An extension declares a value checker or a field's check the host cannot run,
+and it is dropped while the rest of the declaration is kept. A checker: a name
+that is not snake_case or is declared twice, an `applies_to` naming a type that
+holds no value a checker reads (it reads `string`, `string_list`, `identifier`,
+`date` and `integer`), an argument named `severity` (severity is a code: give an
+enum argument whose values select one code each, and list both codes) or of a
+form a setting cannot have, a scope the extension declares no capability for, a
+code its catalogue lacks, a `value` other than `text`, `url` or `path`, a
+`root_arg` that is none of its arguments or sits on a checker whose values are
+not paths. A check: a field type its checker does not read, a `computed` or
+`verdict` field or a field of a kind a collector writes (their values are not
+authored), arguments the checker's schema refuses, or an `any_of` with fewer
+than two branches or nested. Also a `file_reference` on a field that is not
+text. Correct the declaration in the extension's source and rebuild it.
 
 Owner: core
 Level: warning
