@@ -139,3 +139,20 @@ fn only_names_a_comma_separated_list_of_checks() {
     assert!(!named(Some("doc-links,links,specs"), "audit"));
     assert!(!named(Some("doc-links"), "links"));
 }
+
+#[test]
+fn a_compile_turn_excludes_another_until_it_drops() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("compile.lock");
+    let turn = compile_turn(&path).expect("the first takes its turn");
+    let other = File::create(&path).unwrap();
+    assert!(other.try_lock().is_err(), "a second must wait");
+    drop(turn);
+    assert!(other.try_lock().is_ok(), "the lock goes with its holder");
+}
+
+#[test]
+fn a_compile_turn_that_cannot_be_taken_does_not_stop_the_check() {
+    let dir = tempfile::tempdir().unwrap();
+    assert!(compile_turn(&dir.path().join("missing/compile.lock")).is_none());
+}
