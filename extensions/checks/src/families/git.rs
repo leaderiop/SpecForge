@@ -4,10 +4,21 @@
 use specforge_checks_kit::git::{FileAt, ObjectName, RefName};
 use specforge_extension_sdk::prelude::*;
 
-use super::{checker, finding_of, no_args, root, word, Args, GIT};
+use super::{checker, choice_arg, finding_of, no_args, Args, Word, GIT};
 use crate::codes::*;
 
-const KIND: Vocabulary = Vocabulary::new(&["tag", "branch", "any"]);
+/// What a `ref` value may name.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RefKind {
+    Tag,
+    Branch,
+    Any,
+}
+
+impl Word for RefKind {
+    const VOCABULARY: Vocabulary = Vocabulary::new(&["tag", "branch", "any"]);
+    const ALL: &'static [Self] = &[RefKind::Tag, RefKind::Branch, RefKind::Any];
+}
 /// The fewest hex digits a `commit` value may abbreviate a commit to.
 const MIN_LEN: u64 = 7;
 
@@ -30,12 +41,9 @@ fn absent(outcomes: &[ProbeOutcome]) -> bool {
             .all(|outcome| outcome.class == OutcomeClass::Missing)
 }
 
-fn object(text: &str, args: &Args) -> Result<Vec<Probe>, CheckFinding> {
+fn object(text: &str, args: Args) -> Result<Vec<Probe>, CheckFinding> {
     let name = ObjectName::parse(text).map_err(|invalid| finding_of(E103, invalid))?;
-    let min = args
-        .get("min_len")
-        .and_then(serde_json::Value::as_u64)
-        .unwrap_or(MIN_LEN);
+    let min = args.count("min_len").unwrap_or(MIN_LEN);
     if (text.len() as u64) < min {
         return Err(CheckFinding::new(
             E103,
@@ -47,7 +55,7 @@ fn object(text: &str, args: &Args) -> Result<Vec<Probe>, CheckFinding> {
     }])
 }
 
-fn commit(text: &str, _: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
+fn commit(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
     if !absent(outcomes) {
         return Vec::new();
     }
@@ -58,20 +66,20 @@ fn commit(text: &str, _: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> 
 }
 
 /// The full names a `ref` value may stand for under its `kind`.
-fn ref_names(text: &str, args: &Args) -> Vec<String> {
+fn ref_names(text: &str, args: Args) -> Vec<String> {
     if text.starts_with("refs/") {
         return vec![text.to_string()];
     }
     let tag = format!("refs/tags/{text}");
     let branch = format!("refs/heads/{text}");
-    match word(args, "kind") {
-        Some("tag") => vec![tag],
-        Some("branch") => vec![branch],
-        _ => vec![tag, branch],
+    match args.choice("kind").unwrap_or(RefKind::Any) {
+        RefKind::Tag => vec![tag],
+        RefKind::Branch => vec![branch],
+        RefKind::Any => vec![tag, branch],
     }
 }
 
-fn named(text: &str, args: &Args) -> Result<Vec<Probe>, CheckFinding> {
+fn named(text: &str, args: Args) -> Result<Vec<Probe>, CheckFinding> {
     RefName::check(text).map_err(|invalid| finding_of(E103, invalid))?;
     Ok(ref_names(text, args)
         .into_iter()
@@ -79,14 +87,14 @@ fn named(text: &str, args: &Args) -> Result<Vec<Probe>, CheckFinding> {
         .collect())
 }
 
-fn reference(text: &str, args: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
+fn reference(text: &str, args: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
     if !absent(outcomes) {
         return Vec::new();
     }
-    let what = match word(args, "kind") {
-        Some("tag") => "tag",
-        Some("branch") => "branch",
-        _ => "tag or branch",
+    let what = match args.choice("kind").unwrap_or(RefKind::Any) {
+        RefKind::Tag => "tag",
+        RefKind::Branch => "branch",
+        RefKind::Any => "tag or branch",
     };
     vec![CheckFinding::new(
         E106,
@@ -94,7 +102,7 @@ fn reference(text: &str, args: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFin
     )]
 }
 
-fn at_revision(text: &str, _: &Args) -> Result<Vec<Probe>, CheckFinding> {
+fn at_revision(text: &str, _: Args) -> Result<Vec<Probe>, CheckFinding> {
     let at = FileAt::parse(text).map_err(|invalid| finding_of(E103, invalid))?;
     Ok(vec![Probe::GitFile {
         rev: at.rev.to_string(),
@@ -102,7 +110,7 @@ fn at_revision(text: &str, _: &Args) -> Result<Vec<Probe>, CheckFinding> {
     }])
 }
 
-fn file_at(text: &str, _: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
+fn file_at(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
     let Ok(at) = FileAt::parse(text) else {
         return Vec::new();
     };
@@ -120,14 +128,14 @@ fn file_at(text: &str, _: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding>
     .at(path_from, text.len())]
 }
 
-fn tracking(text: &str, args: &Args) -> Result<Vec<Probe>, CheckFinding> {
+fn tracking(text: &str, args: Args) -> Result<Vec<Probe>, CheckFinding> {
     Ok(vec![Probe::GitTracked {
-        root: root(args),
+        root: args.root(),
         path: text.to_string(),
     }])
 }
 
-fn tracked(text: &str, _: &Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
+fn tracked(text: &str, _: Args, outcomes: &[ProbeOutcome]) -> Vec<CheckFinding> {
     if !absent(outcomes) {
         return Vec::new();
     }
@@ -144,11 +152,7 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         });
     };
     checker(c, &GIT, "commit", &[E103, E106], min_len, object, commit);
-    let kind = |k: &mut CheckerBuilder| {
-        k.arg("kind", |f| {
-            f.vocabulary(&KIND);
-        });
-    };
+    let kind = choice_arg::<RefKind>("kind");
     checker(c, &GIT, "ref", &[E103, E106], kind, named, reference);
     checker(
         c,

@@ -5,17 +5,29 @@ use specforge_checks_kit::files::{glob, DigestPin, LineEnds, LineRange, Text};
 use specforge_checks_kit::Invalid;
 use specforge_extension_sdk::prelude::*;
 
-use super::{checker, finding_of, flag, no_args, root, word, Args, FILES};
+use super::{checker, choice_arg, finding_of, no_args, Args, Word, FILES};
 use crate::codes::*;
 
 /// The most of a file `encoding` and `line_range` read: past it, a line range not yet reached is not decided.
 const READ: u32 = 1024 * 1024;
-const LINE_ENDS: Vocabulary = Vocabulary::new(&["lf", "crlf", "any"]);
+
+/// The line ends `encoding` wants.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Ends {
+    Lf,
+    Crlf,
+    Any,
+}
+
+impl Word for Ends {
+    const VOCABULARY: Vocabulary = Vocabulary::new(&["lf", "crlf", "any"]);
+    const ALL: &'static [Self] = &[Ends::Lf, Ends::Crlf, Ends::Any];
+}
 
 /// The one probe a path checker asks of a value's text, or what the kit refused in it.
-type PathProbe = fn(&str, &Args) -> Result<Probe, Invalid>;
+type PathProbe = fn(&str, Args) -> Result<Probe, Invalid>;
 /// What a path checker finds in the one answer to it.
-type PathJudge = fn(&str, &Args, &ProbeOutcome) -> Vec<CheckFinding>;
+type PathJudge = fn(&str, Args, &ProbeOutcome) -> Vec<CheckFinding>;
 
 /// A checker of one path under its `root` argument: E103 for text the kit refuses.
 fn path_checker(
@@ -33,7 +45,7 @@ fn path_checker(
         args(k);
         k.value(ValueForm::Path).root_arg("root");
     };
-    let plan = move |text: &str, args: &Args| {
+    let plan = move |text: &str, args: Args| {
         probe(text, args)
             .map(|probe| vec![probe])
             .map_err(|invalid| finding_of(E103, invalid))
@@ -49,19 +61,19 @@ fn path_checker(
     );
 }
 
-fn stat(text: &str, args: &Args) -> Result<Probe, Invalid> {
+fn stat(text: &str, args: Args) -> Result<Probe, Invalid> {
     Ok(Probe::FsStat {
-        root: root(args),
+        root: args.root(),
         path: text.to_string(),
     })
 }
 
 /// E016 for `path`, missing under the root, on the bytes `at` of the value; with the sibling the host found inside
 /// the root, when it found one.
-fn missing(path: &str, args: &Args, outcome: &ProbeOutcome, at: [usize; 2]) -> CheckFinding {
+fn missing(path: &str, args: Args, outcome: &ProbeOutcome, at: [usize; 2]) -> CheckFinding {
     let finding = CheckFinding::new(
         E016,
-        format!("'{path}' does not exist under <{}>", root(args)),
+        format!("'{path}' does not exist under <{}>", args.root()),
     )
     .at(at[0], at[1]);
     match &outcome.data {
@@ -87,7 +99,7 @@ fn entry(outcome: &ProbeOutcome) -> Option<StatEntry> {
 /// E016 for `text`, missing or not `wanted`, as `fs.stat` answered it.
 fn of_entry(
     text: &str,
-    args: &Args,
+    args: Args,
     outcome: &ProbeOutcome,
     wanted: StatEntry,
 ) -> Vec<CheckFinding> {
@@ -105,11 +117,11 @@ fn of_entry(
     vec![found]
 }
 
-fn file(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn file(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     of_entry(text, args, outcome, StatEntry::File)
 }
 
-fn dir(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn dir(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     of_entry(text, args, outcome, StatEntry::Dir)
 }
 
@@ -125,10 +137,10 @@ pub(crate) fn split_glob(pattern: &str) -> (&str, &str) {
     }
 }
 
-fn walk(text: &str, args: &Args) -> Result<Probe, Invalid> {
+fn walk(text: &str, args: Args) -> Result<Probe, Invalid> {
     glob::validate(text)?;
     let (base, rest) = split_glob(text);
-    let root = root(args);
+    let root = args.root();
     let path = match base {
         "" => format!("<{root}>"),
         base => base.to_string(),
@@ -140,11 +152,7 @@ fn walk(text: &str, args: &Args) -> Result<Probe, Invalid> {
     })
 }
 
-fn bound(args: &Args, name: &str) -> Option<u64> {
-    args.get(name).and_then(serde_json::Value::as_u64)
-}
-
-fn matched(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn matched(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     let (count, truncated) = match (&outcome.class, &outcome.data) {
         (OutcomeClass::Ok, OutcomeData::Walk { entries, truncated }) => {
             (entries.len() as u64, *truncated)
@@ -152,18 +160,18 @@ fn matched(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding>
         (OutcomeClass::Missing, _) => (0, false),
         _ => return Vec::new(),
     };
-    let min = bound(args, "min").unwrap_or(1);
+    let min = args.count("min").unwrap_or(1);
     if count < min && !truncated {
         let found = CheckFinding::new(
             E016,
             format!(
                 "'{text}' matches {count} file(s) under <{}>, fewer than {min}",
-                root(args)
+                args.root()
             ),
         );
         return vec![found];
     }
-    match bound(args, "max") {
+    match args.count("max") {
         Some(max) if count > max => vec![CheckFinding::new(
             W176,
             format!("'{text}' matches {count} file(s), more than {max}"),
@@ -172,7 +180,7 @@ fn matched(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding>
     }
 }
 
-fn sized(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn sized(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     if outcome.class == OutcomeClass::Missing {
         return vec![missing(text, args, outcome, whole(text))];
     }
@@ -184,8 +192,8 @@ fn sized(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     else {
         return file(text, args, outcome);
     };
-    let small = bound(args, "min").filter(|min| size < *min);
-    let large = bound(args, "max").filter(|max| size > *max);
+    let small = args.count("min").filter(|min| size < *min);
+    let large = args.count("max").filter(|max| size > *max);
     let found = match (small, large) {
         (Some(min), _) => format!("'{text}' is {size} bytes, fewer than {min}"),
         (_, Some(max)) => format!("'{text}' is {size} bytes, more than {max}"),
@@ -194,15 +202,15 @@ fn sized(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     vec![CheckFinding::new(W176, found)]
 }
 
-fn pinned(text: &str, args: &Args) -> Result<Probe, Invalid> {
+fn pinned(text: &str, args: Args) -> Result<Probe, Invalid> {
     let pin = DigestPin::parse(text)?;
     Ok(Probe::FsDigest {
-        root: root(args),
+        root: args.root(),
         path: pin.path.to_string(),
     })
 }
 
-fn digest(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn digest(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     let Ok(pin) = DigestPin::parse(text) else {
         return Vec::new();
     };
@@ -229,9 +237,9 @@ fn digest(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> 
     vec![found]
 }
 
-fn read(path: &str, args: &Args) -> Probe {
+fn read(path: &str, args: Args) -> Probe {
     Probe::FsRead {
-        root: root(args),
+        root: args.root(),
         path: path.to_string(),
         bytes: READ,
     }
@@ -250,7 +258,7 @@ fn bytes(outcome: &ProbeOutcome) -> Option<(&[u8], bool)> {
     }
 }
 
-fn encoded(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn encoded(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     if outcome.class == OutcomeClass::Missing {
         return vec![missing(text, args, outcome, whole(text))];
     }
@@ -264,26 +272,26 @@ fn encoded(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding>
         }
     }
     let text_is = Text::classify(read);
-    let wanted = word(args, "line_ends").unwrap_or("any");
+    let wanted = args.choice("line_ends").unwrap_or(Ends::Any);
     let problem = if !text_is.utf8 {
         "is not UTF-8"
-    } else if text_is.bom && !flag(args, "bom", false) {
+    } else if text_is.bom && !args.flag("bom", false) {
         "starts with a byte order mark"
     } else {
         match (wanted, text_is.line_ends) {
-            ("lf", LineEnds::Crlf | LineEnds::Mixed) => "has lines that end in CRLF, not LF",
-            ("crlf", LineEnds::Lf | LineEnds::Mixed) => "has lines that end in LF, not CRLF",
+            (Ends::Lf, LineEnds::Crlf | LineEnds::Mixed) => "has lines that end in CRLF, not LF",
+            (Ends::Crlf, LineEnds::Lf | LineEnds::Mixed) => "has lines that end in LF, not CRLF",
             _ => return Vec::new(),
         }
     };
     vec![CheckFinding::new(W176, format!("'{text}' {problem}"))]
 }
 
-fn ranged(text: &str, args: &Args) -> Result<Probe, Invalid> {
+fn ranged(text: &str, args: Args) -> Result<Probe, Invalid> {
     LineRange::parse(text).map(|range| read(range.path, args))
 }
 
-fn lines(text: &str, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn lines(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     let Ok(range) = LineRange::parse(text) else {
         return Vec::new();
     };
@@ -335,9 +343,7 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         k.arg("bom", |f| {
             f.field_type(FieldType::Bool);
         });
-        k.arg("line_ends", |f| {
-            f.vocabulary(&LINE_ENDS);
-        });
+        choice_arg::<Ends>("line_ends")(k);
     };
     path_checker(
         c,

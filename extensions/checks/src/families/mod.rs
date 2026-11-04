@@ -94,25 +94,72 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
     git::contribute(c);
 }
 
-/// A checker's arguments, as the host admitted them.
-pub(crate) type Args = Map<String, Value>;
+/// A checker's arguments as the host admitted them, read by type: one that is missing, or of another type, is absent.
+#[derive(Clone, Copy)]
+pub(crate) struct Args<'a>(&'a Map<String, Value>);
+
+impl<'a> Args<'a> {
+    fn get(self, name: &str) -> Option<&'a Value> {
+        self.0.get(name)
+    }
+
+    fn flag(self, name: &str, otherwise: bool) -> bool {
+        self.get(name).and_then(Value::as_bool).unwrap_or(otherwise)
+    }
+
+    fn word(self, name: &str) -> Option<&'a str> {
+        self.get(name).and_then(Value::as_str)
+    }
+
+    /// A string list's strings.
+    fn words(self, name: &str) -> Vec<&'a str> {
+        self.get(name)
+            .and_then(Value::as_array)
+            .map(|items| items.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default()
+    }
+
+    /// A count: an integer of at least 0.
+    fn count(self, name: &str) -> Option<u64> {
+        self.get(name).and_then(Value::as_u64)
+    }
+
+    fn integer(self, name: &str) -> Option<i64> {
+        self.get(name).and_then(Value::as_i64)
+    }
+
+    /// An argument of a closed vocabulary, as its variant.
+    fn choice<W: Word>(self, name: &str) -> Option<W> {
+        let word = self.word(name)?;
+        let at = W::VOCABULARY.values().iter().position(|w| *w == word)?;
+        W::ALL.get(at).copied()
+    }
+
+    /// Where a bare path starts: the `root` argument, which the host admits only as a root's name, else the project.
+    /// The host reads it the same way (`CheckRegistry::default_root`).
+    fn root(self) -> Root {
+        Root::named_by(self.0, "root").unwrap_or(Root::Project)
+    }
+}
+
+/// A closed set of words an argument takes, one variant each: `VOCABULARY` declares them, and `ALL` holds the variants
+/// in the same order, so a word is parsed once, by its place.
+pub(crate) trait Word: Copy + 'static {
+    const VOCABULARY: Vocabulary;
+    const ALL: &'static [Self];
+}
+
+/// The argument `name`, one word of `W`.
+fn choice_arg<W: Word>(name: &'static str) -> impl FnOnce(&mut CheckerBuilder) {
+    move |k| {
+        k.arg(name, |f| {
+            f.vocabulary(&W::VOCABULARY);
+        });
+    }
+}
 
 /// The field types a checker of text reads.
 const TEXT: &[&str] = &["string", "string_list"];
-
-fn flag(args: &Args, name: &str, otherwise: bool) -> bool {
-    args.get(name).and_then(Value::as_bool).unwrap_or(otherwise)
-}
-
-fn word<'a>(args: &'a Args, name: &str) -> Option<&'a str> {
-    args.get(name).and_then(Value::as_str)
-}
-
-/// Where a bare path starts: the `root` argument, which the host admits only as a root's name, else the project. The
-/// host reads it the same way (`CheckRegistry::default_root`).
-fn root(args: &Args) -> Root {
-    Root::named_by(args, "root").unwrap_or(Root::Project)
-}
 
 /// A checker that takes no argument.
 fn no_args(_: &mut CheckerBuilder) {}
@@ -126,8 +173,8 @@ fn checker(
     name: &str,
     codes: &[&str],
     shape: impl FnOnce(&mut CheckerBuilder),
-    plan: impl Fn(&str, &Args) -> Result<Vec<Probe>, CheckFinding> + 'static,
-    judge: impl Fn(&str, &Args, &[ProbeOutcome]) -> Vec<CheckFinding> + 'static,
+    plan: impl Fn(&str, Args) -> Result<Vec<Probe>, CheckFinding> + 'static,
+    judge: impl Fn(&str, Args, &[ProbeOutcome]) -> Vec<CheckFinding> + 'static,
 ) {
     c.checker(name, |k| {
         k.applies_to(TEXT);
@@ -137,7 +184,7 @@ fn checker(
         }
         k.codes(codes)
             .when(family.switch)
-            .plan(move |item| match plan(&item.text, &item.args) {
+            .plan(move |item| match plan(&item.text, Args(&item.args)) {
                 _ if item.text.is_empty() => PlannedItem::default(),
                 Ok(probes) if probes.is_empty() => PlannedItem::default(),
                 Ok(probes) => PlannedItem::probes(probes),
@@ -145,7 +192,7 @@ fn checker(
             })
             .judge(move |item| match item.outcomes.as_slice() {
                 [] => Vec::new(),
-                outcomes => judge(&item.text, &item.args, outcomes),
+                outcomes => judge(&item.text, Args(&item.args), outcomes),
             });
     });
 }
@@ -157,13 +204,13 @@ fn well_formed(
     name: &str,
     types: &[&str],
     args: impl FnOnce(&mut CheckerBuilder),
-    check: impl Fn(&str, &Args) -> Result<(), Invalid> + 'static,
+    check: impl Fn(&str, Args) -> Result<(), Invalid> + 'static,
 ) {
     let shape = |k: &mut CheckerBuilder| {
         args(k);
         k.applies_to(types);
     };
-    let plan = move |text: &str, args: &Args| {
+    let plan = move |text: &str, args: Args| {
         check(text, args)
             .map(|()| Vec::new())
             .map_err(|invalid| finding_of(E103, invalid))

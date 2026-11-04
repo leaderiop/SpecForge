@@ -9,7 +9,7 @@ use specforge_checks_kit::links::{fragment_id, host_matches, UrlParts};
 use specforge_checks_kit::Invalid;
 use specforge_extension_sdk::prelude::*;
 
-use super::{checker, finding_of, no_args, word, Args, LINKS};
+use super::{checker, choice_arg, finding_of, no_args, Args, Word, LINKS};
 use crate::codes::*;
 
 /// The redirects a request follows.
@@ -18,23 +18,27 @@ const HOPS: u32 = 5;
 const PAGE: u32 = 1024 * 1024;
 /// Schemes no `schemes` argument allows.
 const NEVER: [&str; 3] = ["javascript", "data", "file"];
-const STATUS: Vocabulary = Vocabulary::new(&["error", "warn"]);
 /// The days before a certificate's end that `tls` warns from.
 const DAYS: i64 = 14;
+
+/// How `url` reports a page that is gone (404, 410): E093, or W183 on a field that lowers it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Gone {
+    Error,
+    Warn,
+}
+
+impl Word for Gone {
+    const VOCABULARY: Vocabulary = Vocabulary::new(&["error", "warn"]);
+    const ALL: &'static [Self] = &[Gone::Error, Gone::Warn];
+}
 
 /// The codes the status table reports, which every checker that requests the page reports.
 const ANSWERS: [&str; 8] = [E091, E092, E093, W183, W182, W181, W172, W173];
 
-fn list<'a>(args: &'a Args, name: &str) -> Vec<&'a str> {
-    args.get(name)
-        .and_then(serde_json::Value::as_array)
-        .map(|items| items.iter().filter_map(serde_json::Value::as_str).collect())
-        .unwrap_or_default()
-}
-
 /// The URL written, or why it is refused unread: E091 for one that does not parse, is relative or carries
 /// credentials, E092 for a scheme outside `schemes`.
-fn url_of(text: &str, args: &Args) -> Result<UrlParts, CheckFinding> {
+fn url_of(text: &str, args: Args) -> Result<UrlParts, CheckFinding> {
     let parts = UrlParts::parse(text).map_err(|invalid| {
         let reason = format!("'{text}' is not an absolute URL: {}", invalid.reason);
         finding_of(E091, Invalid { reason, ..invalid })
@@ -47,7 +51,7 @@ fn url_of(text: &str, args: &Args) -> Result<UrlParts, CheckFinding> {
         );
     }
     let scheme = parts.url.scheme();
-    let allowed = match list(args, "schemes") {
+    let allowed = match args.words("schemes") {
         schemes if schemes.is_empty() => vec!["https"],
         schemes => schemes,
     };
@@ -73,7 +77,7 @@ fn requested(parts: &UrlParts) -> String {
 }
 
 /// The status table: what the answer to a request of `text` reports, or nothing for a page that is there.
-fn answered(text: &str, args: &Args, outcome: &ProbeOutcome) -> Option<CheckFinding> {
+fn answered(text: &str, args: Args, outcome: &ProbeOutcome) -> Option<CheckFinding> {
     let status = match &outcome.data {
         OutcomeData::Http { status, .. } => *status,
         _ => None,
@@ -92,7 +96,7 @@ fn answered(text: &str, args: &Args, outcome: &ProbeOutcome) -> Option<CheckFind
             format!("'{text}' leads where the links grant does not reach"),
         ),
         (_, Some(200..=299) | None) => return None,
-        (_, Some(code @ (404 | 410))) if word(args, "status") == Some("warn") => {
+        (_, Some(code @ (404 | 410))) if args.choice("status") == Some(Gone::Warn) => {
             (W183, format!("'{text}' answered {code}"))
         }
         (_, Some(code @ (404 | 410))) => (
@@ -109,11 +113,11 @@ fn answered(text: &str, args: &Args, outcome: &ProbeOutcome) -> Option<CheckFind
 }
 
 /// The one probe a URL checker asks of a URL that parsed.
-type UrlProbe = fn(&UrlParts, &Args) -> Probe;
+type UrlProbe = fn(&UrlParts, Args) -> Probe;
 /// What a page checker finds once the page answered 2xx: the value's text, the URL, its args, and the answer.
-type PageJudge = fn(&str, &UrlParts, &Args, &ProbeOutcome) -> Vec<CheckFinding>;
+type PageJudge = fn(&str, &UrlParts, Args, &ProbeOutcome) -> Vec<CheckFinding>;
 
-fn head(parts: &UrlParts, _: &Args) -> Probe {
+fn head(parts: &UrlParts, _: Args) -> Probe {
     Probe::HttpHead {
         url: requested(parts),
         redirects: HOPS,
@@ -124,9 +128,7 @@ fn common(k: &mut CheckerBuilder) {
     k.arg("schemes", |f| {
         f.field_type(FieldType::StringList);
     });
-    k.arg("status", |f| {
-        f.vocabulary(&STATUS);
-    });
+    choice_arg::<Gone>("status")(k);
 }
 
 /// A checker that requests the page and reads the status table, then `judge`, when it answered 2xx.
@@ -163,13 +165,13 @@ fn url_checker(
     codes: &[&str],
     args: impl FnOnce(&mut CheckerBuilder),
     probe: UrlProbe,
-    judge: impl Fn(&str, &UrlParts, &Args, &ProbeOutcome) -> Vec<CheckFinding> + 'static,
+    judge: impl Fn(&str, &UrlParts, Args, &ProbeOutcome) -> Vec<CheckFinding> + 'static,
 ) {
     let shape = |k: &mut CheckerBuilder| {
         args(k);
         k.value(ValueForm::Url);
     };
-    let plan = move |text: &str, args: &Args| Ok(vec![probe(&url_of(text, args)?, args)]);
+    let plan = move |text: &str, args: Args| Ok(vec![probe(&url_of(text, args)?, args)]);
     checker(
         c,
         &LINKS,
@@ -184,23 +186,23 @@ fn url_checker(
     );
 }
 
-fn nothing(_: &str, _: &UrlParts, _: &Args, _: &ProbeOutcome) -> Vec<CheckFinding> {
+fn nothing(_: &str, _: &UrlParts, _: Args, _: &ProbeOutcome) -> Vec<CheckFinding> {
     Vec::new()
 }
 
 /// The page itself, up to [`PAGE`], when its fragment is to be found in it.
-fn page(parts: &UrlParts, _: &Args) -> Probe {
+fn page(parts: &UrlParts, args: Args) -> Probe {
     match &parts.fragment {
         Some(at) if !at.is_empty() => Probe::HttpGet {
             url: requested(parts),
             range: Some([0, u64::from(PAGE) - 1]),
             max_bytes: PAGE,
         },
-        _ => head(parts, &Args::new()),
+        _ => head(parts, args),
     }
 }
 
-fn anchored(text: &str, parts: &UrlParts, _: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn anchored(text: &str, parts: &UrlParts, _: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     let (
         Some(at),
         OutcomeData::Http {
@@ -228,7 +230,7 @@ fn anchored(text: &str, parts: &UrlParts, _: &Args, outcome: &ProbeOutcome) -> V
     .at(at.start, at.end)]
 }
 
-fn typed(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn typed(text: &str, _: &UrlParts, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     let OutcomeData::Http { headers, .. } = &outcome.data else {
         return Vec::new();
     };
@@ -249,7 +251,7 @@ fn typed(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> Vec<C
         )];
     };
     let media = media.essence_str();
-    let allow = list(args, "allow");
+    let allow = args.words("allow");
     if allow.is_empty() || allow.iter().any(|a| a.eq_ignore_ascii_case(media)) {
         return Vec::new();
     }
@@ -259,11 +261,11 @@ fn typed(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> Vec<C
     )]
 }
 
-fn landed(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn landed(text: &str, _: &UrlParts, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     let OutcomeData::Http { final_url, .. } = &outcome.data else {
         return Vec::new();
     };
-    let hosts = list(args, "hosts");
+    let hosts = args.words("hosts");
     let host = UrlParts::parse(final_url)
         .ok()
         .and_then(|parts| parts.url.host_str().map(str::to_string))
@@ -277,7 +279,7 @@ fn landed(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> Vec<
     )]
 }
 
-fn handshake(parts: &UrlParts, _: &Args) -> Probe {
+fn handshake(parts: &UrlParts, _: Args) -> Probe {
     Probe::HttpTls {
         host: parts.url.host_str().unwrap_or_default().to_string(),
         port: parts.url.port_or_known_default().unwrap_or(443),
@@ -286,7 +288,7 @@ fn handshake(parts: &UrlParts, _: &Args) -> Probe {
 
 /// W172 for a handshake that failed or a chain the host did not trust, and W178 for a certificate near or past its
 /// end, which a rejected one may be too.
-fn certified(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
+fn certified(text: &str, _: &UrlParts, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     let mut found = Vec::new();
     let rejected = matches!(
         outcome.data,
@@ -315,10 +317,7 @@ fn certified(text: &str, _: &UrlParts, args: &Args, outcome: &ProbeOutcome) -> V
     else {
         return found;
     };
-    let days = args
-        .get("days")
-        .and_then(serde_json::Value::as_i64)
-        .unwrap_or(DAYS);
+    let days = args.integer("days").unwrap_or(DAYS);
     match days_left(end, outcome.observed_at) {
         Some(left) if left < 0 => found.push(CheckFinding::new(
             W178,
@@ -343,7 +342,7 @@ pub(crate) fn days_left(end: &str, now_ms: u64) -> Option<i64> {
 
 /// `dns`: a host name, which the text alone may refuse (E103), resolved through the host's Http port.
 fn dns(c: &mut ContributionsBuilder) {
-    let plan = |text: &str, _: &Args| {
+    let plan = |text: &str, _: Args| {
         hostname(text, false)
             .map(|()| {
                 vec![Probe::DnsResolve {
@@ -352,7 +351,7 @@ fn dns(c: &mut ContributionsBuilder) {
             })
             .map_err(|invalid| finding_of(E103, invalid))
     };
-    let judge = |text: &str, _: &Args, outcomes: &[ProbeOutcome]| match &outcomes[0].class {
+    let judge = |text: &str, _: Args, outcomes: &[ProbeOutcome]| match &outcomes[0].class {
         OutcomeClass::Unreachable(why) => vec![CheckFinding::new(
             W172,
             format!("'{text}' does not resolve ({why:?})"),

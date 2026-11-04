@@ -3,41 +3,29 @@
 use specforge_checks_kit::formats::{self as kit, CodeForm, DateForm};
 use specforge_extension_sdk::prelude::*;
 
-use super::{flag, no_args, well_formed, word, Args, FORMATS, TEXT};
+use super::{choice_arg, no_args, well_formed, Word, FORMATS, TEXT};
 
-const DATE_FORM: Vocabulary = Vocabulary::new(&["date", "datetime", "any"]);
-const CODE_FORM: Vocabulary = Vocabulary::new(&["alpha2", "alpha3", "numeric", "any"]);
 const IP_VERSION: Vocabulary = Vocabulary::new(&["4", "6"]);
 
-fn code_form(args: &Args) -> CodeForm {
-    match word(args, "form") {
-        Some("alpha2") => CodeForm::Alpha2,
-        Some("alpha3") => CodeForm::Alpha3,
-        Some("numeric") => CodeForm::Numeric,
-        _ => CodeForm::Any,
-    }
+impl Word for DateForm {
+    const VOCABULARY: Vocabulary = Vocabulary::new(&["date", "datetime", "any"]);
+    const ALL: &'static [Self] = &[DateForm::Date, DateForm::DateTime, DateForm::Any];
 }
 
-fn date_form(args: &Args) -> DateForm {
-    match word(args, "form") {
-        Some("date") => DateForm::Date,
-        Some("datetime") => DateForm::DateTime,
-        _ => DateForm::Any,
-    }
+impl Word for CodeForm {
+    const VOCABULARY: Vocabulary = Vocabulary::new(&["alpha2", "alpha3", "numeric", "any"]);
+    const ALL: &'static [Self] = &[
+        CodeForm::Alpha2,
+        CodeForm::Alpha3,
+        CodeForm::Numeric,
+        CodeForm::Any,
+    ];
 }
 
 fn bool_arg(name: &'static str) -> impl FnOnce(&mut CheckerBuilder) {
     move |k| {
         k.arg(name, |f| {
             f.field_type(FieldType::Bool);
-        });
-    }
-}
-
-fn form_arg(forms: &'static Vocabulary) -> impl FnOnce(&mut CheckerBuilder) {
-    move |k| {
-        k.arg("form", |f| {
-            f.vocabulary(forms);
         });
     }
 }
@@ -50,13 +38,13 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         "semver",
         TEXT,
         bool_arg("prerelease"),
-        |t, a| kit::semver(t, flag(a, "prerelease", true)),
+        |t, a| kit::semver(t, a.flag("prerelease", true)),
     );
     well_formed(c, &FORMATS, "semver_range", TEXT, no_args, |t, _| {
         kit::semver_range(t)
     });
     well_formed(c, &FORMATS, "spdx", TEXT, bool_arg("deprecated"), |t, a| {
-        kit::spdx(t, flag(a, "deprecated", false))
+        kit::spdx(t, a.flag("deprecated", false))
     });
     let dated = &["string", "string_list", "date"];
     well_formed(
@@ -64,14 +52,14 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         &FORMATS,
         "iso_date",
         dated,
-        form_arg(&DATE_FORM),
-        |t, a| kit::iso_date(t, date_form(a)),
+        choice_arg::<DateForm>("form"),
+        |t, a| kit::iso_date(t, a.choice("form").unwrap_or_default()),
     );
     well_formed(c, &FORMATS, "iso_duration", TEXT, no_args, |t, _| {
         kit::iso_duration(t)
     });
     well_formed(c, &FORMATS, "cron", TEXT, bool_arg("seconds"), |t, a| {
-        kit::cron(t, flag(a, "seconds", false))
+        kit::cron(t, a.flag("seconds", false))
     });
     well_formed(c, &FORMATS, "regex", TEXT, no_args, |t, _| kit::regex(t));
     let uuid_version = |k: &mut CheckerBuilder| {
@@ -80,8 +68,7 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         });
     };
     well_formed(c, &FORMATS, "uuid", TEXT, uuid_version, |t, a| {
-        let version = a.get("version").and_then(serde_json::Value::as_u64);
-        kit::uuid(t, version.and_then(|v| u8::try_from(v).ok()))
+        kit::uuid(t, a.count("version").and_then(|v| u8::try_from(v).ok()))
     });
     well_formed(c, &FORMATS, "mime", TEXT, no_args, |t, _| kit::mime(t));
     well_formed(c, &FORMATS, "bcp47", TEXT, no_args, |t, _| kit::bcp47(t));
@@ -90,16 +77,16 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         &FORMATS,
         "iso3166",
         TEXT,
-        form_arg(&CODE_FORM),
-        |t, a| kit::iso3166(t, code_form(a)),
+        choice_arg::<CodeForm>("form"),
+        |t, a| kit::iso3166(t, a.choice("form").unwrap_or_default()),
     );
     well_formed(
         c,
         &FORMATS,
         "iso4217",
         TEXT,
-        form_arg(&CODE_FORM),
-        |t, a| kit::iso4217(t, code_form(a)),
+        choice_arg::<CodeForm>("form"),
+        |t, a| kit::iso4217(t, a.choice("form").unwrap_or_default()),
     );
     well_formed(
         c,
@@ -107,7 +94,7 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         "iana_tz",
         TEXT,
         bool_arg("canonical"),
-        |t, a| kit::iana_tz(t, flag(a, "canonical", false)),
+        |t, a| kit::iana_tz(t, a.flag("canonical", false)),
     );
     well_formed(c, &FORMATS, "e164", TEXT, no_args, |t, _| kit::e164(t));
     let ip_version = |k: &mut CheckerBuilder| {
@@ -116,10 +103,10 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         });
     };
     well_formed(c, &FORMATS, "ip", TEXT, ip_version, |t, a| {
-        kit::ip(t, word(a, "version").and_then(|v| v.parse().ok()))
+        kit::ip(t, a.word("version").and_then(|v| v.parse().ok()))
     });
     well_formed(c, &FORMATS, "cidr", TEXT, bool_arg("strict"), |t, a| {
-        kit::cidr(t, flag(a, "strict", true))
+        kit::cidr(t, a.flag("strict", true))
     });
     well_formed(
         c,
@@ -127,11 +114,11 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         "hostname",
         TEXT,
         bool_arg("wildcard"),
-        |t, a| kit::hostname(t, flag(a, "wildcard", false)),
+        |t, a| kit::hostname(t, a.flag("wildcard", false)),
     );
     let numbered = &["string", "string_list", "integer"];
     well_formed(c, &FORMATS, "port", numbered, bool_arg("zero"), |t, a| {
-        kit::port(t, flag(a, "zero", false))
+        kit::port(t, a.flag("zero", false))
     });
     well_formed(c, &FORMATS, "hex_color", TEXT, no_args, |t, _| {
         kit::hex_color(t)
