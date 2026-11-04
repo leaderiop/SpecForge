@@ -255,24 +255,24 @@ impl CheckFinding {
 #[serde(tag = "probe")]
 pub enum Probe {
     #[serde(rename = "fs.stat")]
-    FsStat { root: String, path: String },
+    FsStat { root: Root, path: String },
     /// Held to 64 KiB.
     #[serde(rename = "fs.read_prefix")]
     FsReadPrefix {
-        root: String,
+        root: Root,
         path: String,
         bytes: u32,
     },
     /// Held to 1 MiB.
     #[serde(rename = "fs.read")]
     FsRead {
-        root: String,
+        root: Root,
         path: String,
         bytes: u32,
     },
     #[serde(rename = "fs.walk")]
     FsWalk {
-        root: String,
+        root: Root,
         path: String,
         glob: String,
     },
@@ -301,7 +301,7 @@ pub enum Probe {
     #[serde(rename = "git.ref")]
     GitRef { name: String },
     #[serde(rename = "git.tracked")]
-    GitTracked { root: String, path: String },
+    GitTracked { root: Root, path: String },
 }
 
 /// What one performed probe answered.

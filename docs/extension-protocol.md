@@ -1008,7 +1008,7 @@ judged verdict digests each checked value's outcome class. It makes one `__check
 | `git.tracked` | `root`, `path` | Git |
 
 A probe's `root` is the default of a bare path and its `path` the text as written: only the host reads a `<root>/` prefix
-and decides where a path may lead.
+and decides where a path may lead. A `root` that is no root's name (`[a-z][a-z0-9_-]*`) is a malformed answer.
 
 A probe not performed (offline, a `cached` miss, not approved, over budget) leaves its value **not judged**: it counts
 toward one I206 per checker and W170 for the scopes it needed, and a judged verdict over the entity digests `unknown`

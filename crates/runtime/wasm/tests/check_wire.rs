@@ -81,3 +81,34 @@ fn a_malformed_checker_answer_is_a_call_error_naming_the_type() {
         "{error}"
     );
 }
+
+#[test]
+fn a_probe_root_that_is_no_name_fails_the_call() {
+    let plan_under = |root: &'static str| {
+        serde_json::json!({ "items": [{ "id": 0, "probes": [
+            { "probe": "fs.read", "root": root, "path": "a.md", "bytes": 8 }
+        ] }] })
+    };
+    let asks = serde_json::from_value::<CheckPlan>;
+    assert!(asks(plan_under("project")).is_ok());
+    for hostile in ["", "..", "../etc", "Project", "a/b"] {
+        assert!(asks(plan_under(hostile)).is_err(), "{hostile}");
+    }
+
+    // On the host that is a malformed answer, the extension's E028.
+    let runtime = InProcessRuntime::new().with_handler(extension, |export, _| {
+        (export == CHECK_VALUES_EXPORT).then(|| {
+            Ok(br#"{"items":[{"id":0,"probes":[
+                {"probe":"fs.read","root":"../etc","path":"passwd","bytes":8}
+            ]}]}"#
+                .to_vec())
+        })
+    });
+    let error = ExtensionCalls::new(&runtime)
+        .check_values(EXT, &CheckValuesInput::default())
+        .unwrap_err();
+    assert!(
+        matches!(error.failure, CallFailure::Malformed { .. }),
+        "{error}"
+    );
+}

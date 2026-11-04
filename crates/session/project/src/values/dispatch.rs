@@ -278,11 +278,10 @@ impl<'a> Probing<'a> {
     fn contain(
         &self,
         one: &Asked<'_>,
-        root: &str,
+        default: &Root,
         written: &str,
         reading: &mut Reading,
     ) -> Option<Result<Resolved, ()>> {
-        let default = Root::parse(root).unwrap_or(Root::Project);
         let value = one.value;
         let shown = printable(written);
         let at = |code, message: String, suggestion: String, span| {
@@ -302,7 +301,7 @@ impl<'a> Probing<'a> {
                 value.span.clone(),
             )
         };
-        let refused = match self.contained.resolve(written, default) {
+        let refused = match self.contained.resolve(written, default.clone()) {
             Err(Refused::Empty) => return Some(Err(())),
             Err(Refused::UnknownRoot(name)) => {
                 reading.refused_class = Some(OutcomeClass::Outside);
@@ -402,7 +401,7 @@ impl<'a> Probing<'a> {
         &mut self,
         one: &Asked<'_>,
         probe: &'a Probe,
-        root: &str,
+        root: &Root,
         written: &str,
         op: FsOp,
         scopes: &[String],

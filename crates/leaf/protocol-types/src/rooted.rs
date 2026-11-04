@@ -4,8 +4,12 @@
 use std::fmt;
 use std::ops::Range;
 
-/// A root a path in a value starts at: the spec root, the project root, or a root `specforge.json` names.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+use serde::{Deserialize, Serialize};
+
+/// A root a path in a value starts at: the spec root, the project root, or a root `specforge.json` names. On the wire
+/// it is its name, and text that is no root's name does not decode.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub enum Root {
     Spec,
     Project,
@@ -31,6 +35,20 @@ impl Root {
             Root::Project => "project",
             Root::Named(name) => name,
         }
+    }
+}
+
+impl TryFrom<String> for Root {
+    type Error = String;
+
+    fn try_from(name: String) -> Result<Root, String> {
+        Root::parse(&name).ok_or_else(|| format!("'{name}' is not a root's name"))
+    }
+}
+
+impl From<Root> for String {
+    fn from(root: Root) -> String {
+        root.as_str().to_string()
     }
 }
 

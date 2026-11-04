@@ -68,3 +68,15 @@ fn the_parser_never_normalises_dot_dot() {
         "../a"
     );
 }
+
+#[test]
+fn a_root_on_the_wire_is_its_name_and_nothing_else() {
+    for root in [Root::Spec, Root::Project, Root::Named("docs".to_string())] {
+        let wire = serde_json::to_value(&root).unwrap();
+        assert_eq!(wire, root.as_str());
+        assert_eq!(serde_json::from_value::<Root>(wire).unwrap(), root);
+    }
+    for bad in ["", "..", "../etc", "Project", "<spec>", "a/b"] {
+        assert!(serde_json::from_value::<Root>(bad.into()).is_err(), "{bad}");
+    }
+}

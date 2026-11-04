@@ -40,7 +40,7 @@ pub(crate) fn head(item: &CheckItem) -> PlannedItem {
 
 fn stat(item: &CheckItem) -> PlannedItem {
     PlannedItem::probes(vec![Probe::FsStat {
-        root: "project".to_string(),
+        root: Root::Project,
         path: item.text.clone(),
     }])
 }
@@ -147,7 +147,7 @@ fn extension_named(name: &str) -> ContributionsBuilder {
             .codes(&["E001"])
             .plan(|item: &CheckItem| {
                 PlannedItem::probes(vec![Probe::FsReadPrefix {
-                    root: "project".to_string(),
+                    root: Root::Project,
                     path: item.text.clone(),
                     bytes: 3,
                 }])
@@ -160,7 +160,7 @@ fn extension_named(name: &str) -> ContributionsBuilder {
             .codes(&["E001"])
             .plan(|item: &CheckItem| {
                 PlannedItem::probes(vec![Probe::FsWalk {
-                    root: "project".to_string(),
+                    root: Root::Project,
                     path: item.text.clone(),
                     glob: "**/*.md".to_string(),
                 }])

@@ -30,7 +30,7 @@ fn reader() -> ContributionsBuilder {
             .codes(&["E001"])
             .plan(|item: &CheckItem| {
                 PlannedItem::probes(vec![Probe::FsRead {
-                    root: "spec".to_string(),
+                    root: Root::Spec,
                     path: item.text.clone(),
                     bytes: 64,
                 }])

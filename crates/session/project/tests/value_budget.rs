@@ -51,7 +51,7 @@ fn extension(meta: ExtensionMeta) -> ContributionsBuilder {
             .codes(&["E001"])
             .plan(|item: &CheckItem| {
                 PlannedItem::probes(vec![Probe::FsRead {
-                    root: "project".to_string(),
+                    root: Root::Project,
                     path: item.text.clone(),
                     bytes: 1024,
                 }])
