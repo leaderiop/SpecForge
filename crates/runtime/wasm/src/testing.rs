@@ -23,7 +23,7 @@ use specforge_extension_sdk::{
     no_other_exports,
 };
 use specforge_protocol_types::{
-    FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitSized, GitStatus, GitTreeEntry, HostError,
+    FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitStatus, GitTreeEntry, HostError,
     HttpRequest, HttpResponse, Operation, ProcessOutput, ProcessRequest,
 };
 
@@ -495,7 +495,7 @@ impl InProcessHost for ServedPorts {
             .borrow_mut()
             .timed(|session| session.git_tree(commit, dir))
     }
-    fn git_sizes(&self, commit: &str, paths: &[String]) -> Result<Vec<GitSized>, HostError> {
+    fn git_sizes(&self, commit: &str, paths: &[String]) -> Result<Vec<FileSize>, HostError> {
         self.0
             .borrow_mut()
             .timed(|session| session.git_sizes(commit, paths))

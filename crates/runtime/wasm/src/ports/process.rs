@@ -32,7 +32,7 @@ impl PortSession {
             let refusal = Refusal {
                 extension: call.grant.extension().to_string(),
                 request: specforge_effects::grant::one_line(&asked),
-                scope: Some(granted.declared.name.clone()),
+                capability: Some(granted.declared.name.clone()),
                 why: Denied::Undeclared,
                 detail: format!("its capability does not declare the variable {}", var.name),
             };

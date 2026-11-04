@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::{
-    Denial, FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitSized, GitStatus, GitTreeEntry,
+    Denial, FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitStatus, GitTreeEntry,
     HostError, HttpRequest, HttpResponse, ProcessOutput, ProcessRequest,
 };
 
@@ -46,7 +46,7 @@ pub trait InProcessHost {
     fn git_tree(&self, commit: &str, dir: &str) -> Result<Vec<GitTreeEntry>, HostError> {
         Err(no_port())
     }
-    fn git_sizes(&self, commit: &str, paths: &[String]) -> Result<Vec<GitSized>, HostError> {
+    fn git_sizes(&self, commit: &str, paths: &[String]) -> Result<Vec<FileSize>, HostError> {
         Err(no_port())
     }
     fn git_blobs(&self, commit: &str, paths: &[String]) -> Result<GitBlobs, HostError> {

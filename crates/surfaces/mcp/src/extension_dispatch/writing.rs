@@ -81,7 +81,7 @@ fn attempt(
     mode: specforge_effects::EffectsMode,
 ) -> (Mutation<CommandReply>, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    let run = project.lending(mode, |caller| {
+    let run = project.lend(mode, |caller| {
         execute(
             &project.view(),
             command,

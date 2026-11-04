@@ -147,7 +147,7 @@ fn mcp_tool_adapter(
     mode: EffectsMode,
 ) -> (ToolOutcome, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    let lent = project.lending(mode, |caller| {
+    let lent = project.lend(mode, |caller| {
         lend::port_call(
             &project.view(),
             caller,
@@ -213,7 +213,7 @@ fn command_adapter(
 ) -> (ToolOutcome, Option<McpEvent>) {
     let given = arguments.as_object().cloned().unwrap_or_default();
     let started = std::time::Instant::now();
-    let run = project.lending(mode, |caller| {
+    let run = project.lend(mode, |caller| {
         specforge_ops::extension::command::run(
             &project.view(),
             command,
@@ -286,7 +286,7 @@ fn resource_adapter(
     // shortcut: a read has no place for a diagnostic, so a resource's E090 reaches only its guest, as `denied(scope)`;
     // when a read outcome carries diagnostics, report them here as a tool does.
     // A read takes no argument of the host's, so it stays `cached` (ADR 0337 D4).
-    let lent = project.lending(EffectsMode::Cached, |caller| {
+    let lent = project.lend(EffectsMode::Cached, |caller| {
         lend::port_call(
             &project.view(),
             caller,

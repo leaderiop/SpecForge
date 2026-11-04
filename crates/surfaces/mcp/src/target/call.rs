@@ -121,7 +121,7 @@ impl<'a> ProjectRef<'a> {
 
     /// `run` under [`Self::caller`], which lends the server's ports to an effectful extension call in `mode`, under
     /// stored approvals only (ADR 0335 D4).
-    pub fn lending<R>(
+    pub fn lend<R>(
         &self,
         mode: specforge_effects::EffectsMode,
         run: impl FnOnce(Caller<'_>) -> R,

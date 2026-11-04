@@ -335,7 +335,7 @@ fn a_ceiling_narrows_a_capability_and_what_it_narrows_out_is_denied() {
         )
         .unwrap_err();
     assert_eq!(
-        (denied.why, denied.scope.as_deref()),
+        (denied.why, denied.capability.as_deref()),
         (Denied::Ceiling, Some("links"))
     );
 }

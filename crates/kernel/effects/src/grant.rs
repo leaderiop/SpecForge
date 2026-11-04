@@ -122,7 +122,7 @@ pub struct Denial {
     /// The request, in one line.
     pub request: String,
     /// The capability that came closest, when one did.
-    pub scope: Option<String>,
+    pub capability: Option<String>,
     pub why: Denied,
     /// What a person reads for `why`.
     pub detail: String,
@@ -131,15 +131,15 @@ pub struct Denial {
 impl Denial {
     /// E090: an effect outside the granted scope.
     pub fn diagnostic(&self) -> Diagnostic {
-        let scope = self
-            .scope
+        let capability = self
+            .capability
             .as_deref()
             .map(|s| format!(" (capability '{s}')"))
             .unwrap_or_default();
         Diagnostic::new(
             codes::E090,
             format!(
-                "extension '{}': `{}` is outside its granted scope{scope}: {}",
+                "extension '{}': `{}` is outside its granted scope{capability}: {}",
                 self.extension, self.request, self.detail
             ),
         )
@@ -470,10 +470,10 @@ impl Grant {
         root: Option<&str>,
         admits: &dyn Fn(&PortScope) -> bool,
     ) -> Result<&Granted, Denial> {
-        let deny = |why: Denied, scope: Option<&str>, detail: String| Denial {
+        let deny = |why: Denied, capability: Option<&str>, detail: String| Denial {
             extension: self.extension.clone(),
             request: request.clone(),
-            scope: scope.map(str::to_string),
+            capability: capability.map(str::to_string),
             why,
             detail,
         };

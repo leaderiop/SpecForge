@@ -99,7 +99,7 @@ pub struct GitTreeEntry {
 
 /// A file asked of a commit: its size when the commit holds it as a file.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GitSized {
+pub struct FileSize {
     pub path: String,
     pub size: Option<u64>,
 }

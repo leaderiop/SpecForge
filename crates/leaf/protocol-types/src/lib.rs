@@ -74,8 +74,8 @@ pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgem
 pub use operation::Operation;
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
 pub use ports::{
-    Denial, Failure, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs, GitRepo,
-    GitSized, GitTreeEntry, HostError, HttpResponse, ProcessOutput,
+    Denial, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
+    GitRepo, GitTreeEntry, HostError, HttpResponse, ProcessOutput,
 };
 pub use prompt::{
     Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptOutput,

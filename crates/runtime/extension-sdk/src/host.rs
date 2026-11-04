@@ -11,8 +11,8 @@ mod convert;
 pub mod in_process;
 
 pub use specforge_protocol_types::{
-    Denial, EnvVar, Failure, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
-    GitChange, GitEntry, GitEntryKind, GitRepo, GitSized, GitStatus, GitTreeEntry, Header,
+    Denial, EnvVar, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob,
+    GitBlobs, GitChange, GitEntry, GitEntryKind, GitRepo, GitStatus, GitTreeEntry, Header,
     HostError, HttpRequest, HttpResponse, ProcessOutput, ProcessRequest,
 };
 
@@ -145,7 +145,7 @@ pub mod git {
     }
 
     /// The sizes of the named files at `commit`, in the order asked.
-    pub fn sizes(commit: &str, paths: &[String]) -> Result<Vec<GitSized>, HostError> {
+    pub fn sizes(commit: &str, paths: &[String]) -> Result<Vec<FileSize>, HostError> {
         if !IN_COMPONENT {
             return in_process::with(|host| host.git_sizes(commit, paths));
         }

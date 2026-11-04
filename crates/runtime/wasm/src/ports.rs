@@ -146,6 +146,13 @@ pub struct PortSession {
     in_ports: Duration,
 }
 
+/// What a port's failure names that no [`OutcomeClass`] does: nothing was performed for its mode, no record holds its
+/// answer, git could not answer, the project is in no repository.
+const NOT_PERFORMED: &str = "not_performed";
+const NOT_IN_JOURNAL: &str = "not_in_journal";
+const UNAVAILABLE: &str = "unavailable";
+const NOT_A_REPOSITORY: &str = "not_a_repository";
+
 fn failed(class: impl ToString, message: impl Into<String>) -> HostError {
     HostError::Failed(Failure {
         class: class.to_string(),
@@ -216,10 +223,10 @@ impl PortSession {
         request: impl FnOnce(&mut Self) -> Result<T, HostError>,
     ) -> Result<T, HostError> {
         if self.budget_left() == 0 {
-            return Err(HostError::Failed(Failure {
-                class: "deadline".to_string(),
-                message: format!("the call spent its {PORT_BUDGET_MS} ms budget in host ports"),
-            }));
+            return Err(failed(
+                OutcomeClass::Deadline,
+                format!("the call spent its {PORT_BUDGET_MS} ms budget in host ports"),
+            ));
         }
         let started = Instant::now();
         let answer = request(self);
@@ -268,7 +275,7 @@ impl PortSession {
                 format!(
                     "extension '{}', capability '{}': {}",
                     refusal.extension,
-                    refusal.scope.unwrap_or_default(),
+                    refusal.capability.unwrap_or_default(),
                     refusal.detail
                 ),
             )),
@@ -317,7 +324,7 @@ fn now() -> UnixMillis {
 
 fn not_performed(request: &EffectRequest) -> HostError {
     failed(
-        "not_performed",
+        NOT_PERFORMED,
         format!(
             "`{}` is not performed in this call's effects mode",
             specforge_effects::grant::one_line(request)
@@ -327,7 +334,7 @@ fn not_performed(request: &EffectRequest) -> HostError {
 
 fn not_in_journal(request: &EffectRequest) -> HostError {
     failed(
-        "not_in_journal",
+        NOT_IN_JOURNAL,
         format!(
             "`{}` is not in the effects journal",
             specforge_effects::grant::one_line(request)

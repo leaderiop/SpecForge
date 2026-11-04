@@ -7,10 +7,10 @@ use specforge_effects::contained::withheld;
 use specforge_effects::git::{GitPlace, Located, Sha};
 use specforge_effects::{OutcomeClass, SharedGit};
 use specforge_protocol_types::{
-    GitBlob, GitBlobs, GitRepo, GitSized, GitStatus, GitTreeEntry, HostError,
+    FileSize, GitBlob, GitBlobs, GitRepo, GitStatus, GitTreeEntry, HostError,
 };
 
-use super::{PortSession, failed, out_of_scope};
+use super::{NOT_A_REPOSITORY, PortSession, UNAVAILABLE, failed, out_of_scope};
 
 /// A commit a guest names: hex, so it can be neither an option nor a revision expression.
 fn sha_of(text: &str) -> Result<Sha, HostError> {
@@ -53,10 +53,10 @@ impl PortSession {
         match git.locate(dir) {
             Located::Repo(place) => Ok((git, place)),
             Located::NotARepository => Err(failed(
-                "not_a_repository",
+                NOT_A_REPOSITORY,
                 format!("{} is in no git repository", dir.display()),
             )),
-            Located::Unavailable(why) => Err(failed("unavailable", why)),
+            Located::Unavailable(why) => Err(failed(UNAVAILABLE, why)),
         }
     }
 
@@ -68,7 +68,7 @@ impl PortSession {
                 shallow: place.shallow,
             })),
             Located::NotARepository => Ok(None),
-            Located::Unavailable(why) => Err(failed("unavailable", why)),
+            Located::Unavailable(why) => Err(failed(UNAVAILABLE, why)),
         }
     }
 
@@ -113,7 +113,7 @@ impl PortSession {
         &mut self,
         commit: &str,
         paths: &[String],
-    ) -> Result<Vec<GitSized>, HostError> {
+    ) -> Result<Vec<FileSize>, HostError> {
         let commit = sha_of(commit)?;
         let paths: Vec<PathBuf> = paths
             .iter()
@@ -124,7 +124,7 @@ impl PortSession {
             .sizes(&place, &commit, &paths)
             .map_err(git_failed)?
             .into_iter()
-            .map(|(path, size)| GitSized {
+            .map(|(path, size)| FileSize {
                 path: posix(&path),
                 size,
             })
@@ -207,5 +207,5 @@ fn posix(path: &Path) -> String {
 }
 
 fn git_failed(error: specforge_effects::git::GitError) -> HostError {
-    failed("unavailable", error.0)
+    failed(UNAVAILABLE, error.0)
 }

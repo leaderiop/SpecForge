@@ -142,11 +142,11 @@ fn every_port_request_and_answer_survives_the_wit_conversion() {
         }
     );
     assert_eq!(
-        GitSized::from(git::FileSize {
+        FileSize::from(git::FileSize {
             path: "a".into(),
             size: Some(1),
         }),
-        GitSized {
+        FileSize {
             path: "a".into(),
             size: Some(1),
         }

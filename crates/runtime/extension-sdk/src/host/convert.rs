@@ -1,13 +1,13 @@
 //! The protocol's types and what wit-bindgen generates, at the guest's edge (ADR 0335 D4). A request goes out as WIT
 //! and an answer comes back; the reverse directions exist for the round-trip test that holds the two together.
 
-use super::wit::git::{Blob, BlobsAnswer, FileSize, Repo, StatusAnswer, TreeEntry};
+use super::wit::git::{Blob, BlobsAnswer, Repo, StatusAnswer, TreeEntry};
 use super::wit::http::{self, Request, Response};
 use super::wit::process::{self, RunOutput, RunRequest};
 use super::wit::{fs, git, types};
 use super::{
-    Denial, Failure, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs, GitChange,
-    GitEntry, GitEntryKind, GitRepo, GitSized, GitStatus, GitTreeEntry, HostError, HttpRequest,
+    Denial, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
+    GitChange, GitEntry, GitEntryKind, GitRepo, GitStatus, GitTreeEntry, HostError, HttpRequest,
     HttpResponse, ProcessOutput, ProcessRequest,
 };
 use specforge_protocol_types::{GitBranch, Header};
@@ -152,9 +152,9 @@ impl From<TreeEntry> for GitTreeEntry {
     }
 }
 
-impl From<FileSize> for GitSized {
-    fn from(sized: FileSize) -> Self {
-        GitSized {
+impl From<git::FileSize> for FileSize {
+    fn from(sized: git::FileSize) -> Self {
+        FileSize {
             path: sized.path,
             size: sized.size,
         }
