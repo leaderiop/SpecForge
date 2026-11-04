@@ -509,7 +509,7 @@ for i in {1..5}; do
   HEAD_OID=$(specforge http get "$PR_URL" --secret @gsd/core:github_token --pick .json.head.sha 2>/dev/null)
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ]; then
     MERGEABLE=$(specforge http get "$PR_URL" --secret @gsd/core:github_token --pick .json.mergeable_state 2>/dev/null); STATUS=${MERGEABLE:-unknown}
-    CHECKS=$(specforge http get "https://api.github.com/repos/${REPO}/commits/${SHIP_NOTE_SHA}/check-runs" --secret @gsd/core:github_token --pick .json.total_count 2>/dev/null); CHECKS=${CHECKS:-0}
+    RUNS=$(specforge http get "https://api.github.com/repos/${REPO}/commits/${SHIP_NOTE_SHA}/check-runs" --secret @gsd/core:github_token --pick .json.total_count 2>/dev/null); STATUSES=$(specforge http get "https://api.github.com/repos/${REPO}/commits/${SHIP_NOTE_SHA}/status" --secret @gsd/core:github_token --pick .json.total_count 2>/dev/null); CHECKS=$(( ${RUNS:-0} + ${STATUSES:-0} ))   # check runs and commit statuses, as gh's statusCheckRollup counts both
   fi
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ] && [ "$STATUS" != "unknown" ]; then
     break

@@ -567,7 +567,7 @@ fn the_default_reviewers_are_counted_from_the_setting() {
     );
 }
 
-/// Plan 08 T10: the PR's head, state and checks come from GitHub's REST API, one `specforge http` GET a field.
+/// The PR's head, state and checks come from GitHub's REST API, one GET a field; checks are runs plus statuses.
 #[test]
 fn the_pull_request_state_is_read_from_github_s_rest_api() {
     let Some(sh) = shell() else { return };
@@ -575,17 +575,19 @@ fn the_pull_request_state_is_read_from_github_s_rest_api() {
     let read = [
         line(&text, "HEAD_OID=$(specforge http get"),
         line(&text, "MERGEABLE=$(specforge http get"),
-        line(&text, "CHECKS=$(specforge http get"),
+        line(&text, "RUNS=$(specforge http get"),
     ];
     let token = "--secret @gsd/core:github_token";
     assert!(read.iter().all(|l| l.contains(token)));
     // a `specforge` that answers each field the GET picks, or nothing (exit 1) when the field is unset
-    let stub = "specforge() { case \"$*\" in *head.sha*) v=$H;; *mergeable_state*) v=$M;; *total_count*) v=$C;; esac; \
+    let stub = "specforge() { case \"$*\" in *head.sha*) v=$H;; *mergeable_state*) v=$M;; *check-runs*) v=$C;; */status*) v=$S;; esac; \
                 [ -n \"$v\" ] && printf '%s\\n' \"$v\" || return 1; }";
     for (answers, want) in [
-        ("H=abc123 M=blocked C=0", "[abc123][blocked][0]"),
-        ("H=abc123 M=clean C=3", "[abc123][clean][3]"),
-        ("H= M= C=", "[][unknown][0]"),
+        ("H=abc123 M=blocked C=0 S=0", "[abc123][blocked][0]"),
+        ("H=abc123 M=clean C=3 S=0", "[abc123][clean][3]"),
+        ("H=abc123 M=blocked C=0 S=2", "[abc123][blocked][2]"),
+        ("H=abc123 M=clean C=1 S=2", "[abc123][clean][3]"),
+        ("H= M= C= S=", "[][unknown][0]"),
     ] {
         let out = sh.run(&format!(
             "{stub}\n{answers}\nPR_URL=u REPO=acme/w SHIP_NOTE_SHA=abc123\n{}\nprintf '[%s][%s][%s]' \"$HEAD_OID\" \"$STATUS\" \"$CHECKS\"",
@@ -595,9 +597,8 @@ fn the_pull_request_state_is_read_from_github_s_rest_api() {
     }
 }
 
-/// Plan 05 review R8: the edge probe's requirements guard is `specforge gsd edge-probe-requirements`, upstream's rule
-/// (a non-empty array whose every item has a string `text` that is not blank and holds no `<replace:` placeholder),
-/// not two `grep`s: a blank text, a bare object, a `null` item or a non-string text passed them.
+/// The edge probe's requirements guard is `specforge gsd edge-probe-requirements`, upstream's rule: a non-empty array
+/// whose every item has a string `text`, not blank, holding no `<replace:` placeholder (two `grep`s let all of those by).
 #[test]
 fn the_requirements_guard_refuses_a_placeholder_or_an_empty_list() {
     let Some(sh) = shell() else { return };
