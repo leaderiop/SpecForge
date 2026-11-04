@@ -103,10 +103,38 @@ git installed. `GitCli` is deleted, with no shim.
 
 ### The S2 spike
 
-What the pinned gix answers for each operation the blocks run (filled by the spike's tests).
+What gix 0.84.0 answers for each operation the blocks run, measured by the spike's tests
+(`crates/adapters/git/tests/history/spike.rs`, one test per row; an ignored test names the gap). Under U1 (a), a row
+marked git2 goes to vendored libgit2.
 
-| Operation | Adapter |
-|---|---|
+| Operation | Adapter | What gix has |
+|---|---|---|
+| locate (`rev-parse --show-toplevel`, `--git-dir`, `--git-common-dir`) | gix | `discover`, `workdir`, `git_dir`, `common_dir`, `is_shallow` |
+| rev-parse forms (`HEAD~1`, `HEAD^`, a short sha, `<rev>:<path>`, a branch) | gix | `rev_parse_single` |
+| status, dirty | gix | `status` (tree→index and index→worktree), `is_dirty` |
+| log, `rev-list --count`, trailers | gix | `ancestors`, `message_raw` |
+| diff tree to tree, with patch text | gix | `diff_tree_to_tree`, imara-diff's unified diff |
+| diff base to worktree or index | gix | `status` with another head tree |
+| merge-base | gix | `merge_base` |
+| show `<rev>:<path>` | gix | `rev_parse_single`, the blob's bytes |
+| branches, upstream, ahead and behind | gix | `local_branches`, `remote_branches`, `remote_tracking_ref_name` |
+| worktree list | gix | `worktrees`, a linked worktree opened |
+| remotes | gix | `remote_names`, `find_remote`, its URL's host and path |
+| config | gix | `config_snapshot` |
+| index add and remove | gix | the index file's entries, written |
+| commit with identity | gix | `commit` (identity from config), its branch's loose ref |
+| signing detected | gix | `commit.gpgsign` read; gix signs nothing, so the verb refuses |
+| hooks invoked | host | gix runs none: the host runs them through the Process port |
+| branch create and delete | gix | `reference`, `delete` |
+| tag (annotated) | gix | `tag` |
+| switch | git2 | gix moves `HEAD` but checks out only into an empty directory |
+| worktree add and remove | git2 | gix lists and opens worktrees, and creates none |
+| merge, fast-forward | gix | a ref move after `merge_base` |
+| merge, three-way and conflicts | git2 | gix's `merge_commits` gives the tree and the conflicts, and writes no index or file |
+| reset `--soft`, `--mixed` | gix | a ref move, the index from the commit's tree |
+| reset `--hard`, restore | git2 | no checkout over an existing worktree |
+| stash | git2 | gix reads and writes no `refs/stash` |
+| cherry-pick, revert | git2 | gix's `merge_trees` gives the tree, and writes no index or file |
 
 ## D6. Out of scope
 

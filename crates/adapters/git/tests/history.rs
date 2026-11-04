@@ -13,6 +13,11 @@ use specforge_effects::git::{Git, GitEntryKind, Located, Sha};
 use specforge_git::GitCli;
 use specforge_test::prelude::*;
 
+#[path = "history/repo.rs"]
+mod repo;
+#[path = "history/spike.rs"]
+mod spike;
+
 /// What a baseline asks the files of: the specs and the harness ledger.
 fn baseline(path: &Path) -> bool {
     path.extension().is_some_and(|e| e == "spec")
