@@ -114,6 +114,26 @@ pub fn resolve(program: &str, path: Option<&OsStr>, pathext: Option<&OsStr>) -> 
 }
 
 impl Process for Runner {
+    fn which(&self, program: &str) -> Option<PathBuf> {
+        let path = std::env::var_os("PATH");
+        if cfg!(windows) {
+            return resolve(
+                program,
+                path.as_deref(),
+                std::env::var_os("PATHEXT").as_deref(),
+            );
+        }
+        let named = Path::new(program);
+        let dirs: Vec<PathBuf> = if named.components().count() > 1 || named.is_absolute() {
+            vec![PathBuf::new()]
+        } else {
+            std::env::split_paths(&path?).collect()
+        };
+        dirs.iter()
+            .map(|dir| dir.join(program))
+            .find(|candidate| executable(candidate))
+    }
+
     fn run_within(
         &self,
         request: &ProcessRequest,
@@ -149,17 +169,20 @@ impl Process for Runner {
                 None => command.env_remove(&var.name),
             };
         }
-        // The deny-list last: a request cannot put a secret back.
+        // The deny-list last: a request cannot put a secret back. A program the user types is the user's own act.
+        let user = ceiling == Ceiling::User;
         let named = request.env.iter().map(|var| OsString::from(&var.name));
         for name in std::env::vars_os().map(|(name, _)| name).chain(named) {
-            if secret(&name) {
+            if secret(&name) && !user {
                 command.env_remove(name);
             }
         }
-        command.stdin(if request.stdin.is_some() {
-            Stdio::piped()
-        } else {
-            Stdio::null()
+        command.stdin(match (&request.stdin, user) {
+            (Some(_), _) => Stdio::piped(),
+            // shortcut: the program leads its own process group, so one that reads a terminal itself (not a pipe) is
+            // stopped by SIGTTIN; hand the group the terminal's foreground when an interactive program needs it.
+            (None, true) => Stdio::inherit(),
+            (None, false) => Stdio::null(),
         });
         let (stdout, stderr) = match &output {
             Output::Buffer => (Stdio::piped(), Stdio::piped()),
@@ -203,6 +226,18 @@ impl Process for Runner {
         }
         outcome
     }
+}
+
+/// Whether `path` is a file this user may run.
+fn executable(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::metadata(path)
+            .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+    }
+    #[cfg(not(unix))]
+    path.is_file()
 }
 
 /// The value `name` has in the program's environment: the request's last word on it, else the parent's.

@@ -77,6 +77,7 @@ pub const CORE_COMMANDS: &[&str] = &[
     "infer-status",
     "extension",
     "files",
+    "run",
 ];
 
 /// `name` is one of [`CORE_COMMANDS`].

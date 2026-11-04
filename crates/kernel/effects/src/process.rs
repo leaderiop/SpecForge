@@ -2,7 +2,7 @@
 //! adapter is `specforge-process`, the one runner every spawn goes through.
 
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
@@ -12,6 +12,8 @@ use specforge_protocol_types::{OutcomeClass, ProcessRequest};
 pub const DEADLINE_CEILING: Duration = Duration::from_secs(600);
 /// The ceiling of the host's own `extension build`: a cold release build of a wasm component can pass 600 s.
 pub const BUILD_CEILING: Duration = Duration::from_secs(30 * 60);
+/// The ceiling of a program the user types (`specforge run`): a build or a test suite can run for hours.
+pub const USER_CEILING: Duration = Duration::from_secs(24 * 60 * 60);
 /// The most bytes kept of each of stdout and stderr.
 pub const OUTPUT_CAP: u64 = 64 * 1024 * 1024;
 
@@ -31,6 +33,12 @@ pub trait Process: Send + Sync {
         output: Output<'_>,
         ceiling: Ceiling,
     ) -> ProcessOutcome;
+
+    /// Where the runner finds `program` (PATH, and PATHEXT on Windows), as a run of it would: host-only, for
+    /// `specforge run --which`; none when it finds nothing, and on every port but the runner.
+    fn which(&self, _program: &str) -> Option<PathBuf> {
+        None
+    }
 }
 
 /// The most a run's deadline may be: a host-owned choice, never part of the wire request.
@@ -40,6 +48,9 @@ pub enum Ceiling {
     Request,
     /// [`BUILD_CEILING`]: the host's own `extension build`.
     HostBuild,
+    /// [`USER_CEILING`]: a program the user types (`specforge run`, ADR 0339 D2). It is the user's own act, so it gets
+    /// the user's whole environment, a secret included, and the terminal's stdin when the request gives none.
+    User,
 }
 
 impl Ceiling {
@@ -47,6 +58,7 @@ impl Ceiling {
         match self {
             Ceiling::Request => DEADLINE_CEILING,
             Ceiling::HostBuild => BUILD_CEILING,
+            Ceiling::User => USER_CEILING,
         }
     }
 }

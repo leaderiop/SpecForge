@@ -5,6 +5,7 @@
 //! `temp`.
 
 pub mod files;
+pub mod run;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -126,6 +127,15 @@ impl Verbs {
 
     pub fn ports(&self) -> &Ports {
         &self.ports
+    }
+
+    pub fn root(&self) -> &ProjectRoot {
+        &self.root
+    }
+
+    /// The current directory, links resolved: where a typed path is read from and a program runs.
+    pub fn cwd(&self) -> &Path {
+        &self.cwd
     }
 
     pub fn roots(&self) -> &Roots {

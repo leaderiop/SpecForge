@@ -94,6 +94,14 @@ impl<'p> Cli<'p> {
         self.env("CARGO_HOME", cargo).env("RUSTUP_HOME", rustup)
     }
 
+    /// The directory that holds the binary under test: a `PATH` that finds `specforge`.
+    pub fn binary_dir() -> PathBuf {
+        std::path::Path::new(env!("CARGO_BIN_EXE_specforge"))
+            .parent()
+            .expect("the binary is in a directory")
+            .to_path_buf()
+    }
+
     /// Feed `bytes` on stdin.
     pub fn stdin(mut self, bytes: impl Into<Vec<u8>>) -> Self {
         self.stdin = bytes.into();

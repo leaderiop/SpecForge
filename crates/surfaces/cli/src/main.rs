@@ -204,11 +204,15 @@ enum Commands {
         #[command(subcommand)]
         action: extension_authoring::Action,
     },
-    /// Stat, list and search files in the project's roots: the Fs port for people and agents (ADR 0339)
+    /// Stat, list, search, change and digest files in the project's roots: the Fs port for people and agents
+    /// (ADR 0339)
     Files {
         #[command(subcommand)]
         action: verbs::files::Action,
     },
+    /// Run a program: its output and exit pass through (124 at --deadline, 127 not found, 126 cannot start), or
+    /// --format json captures them (ADR 0339)
+    Run(verbs::run::RunArgs),
     /// An extension's command: `specforge <extension> <command>`, e.g.
     /// `specforge product features` (the project's extensions declare them)
     #[command(external_subcommand)]
@@ -247,6 +251,8 @@ fn main() {
                 .collect();
             extension_command::run(&argv, &builtins, &terminal, &ports)
         }
+        // A program's exit code is its own (ADR 0339 D4).
+        Commands::Run(args) => args.run(&terminal, &ports),
         command => run(command, &terminal, &ports).code(),
     };
     terminal.flush();
@@ -333,6 +339,7 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::InferStatus(args) => args.run(terminal, ports),
         Commands::Files { action } => action.run(terminal, ports),
         Commands::External(_) => unreachable!("main runs an extension command itself"),
+        Commands::Run(_) => unreachable!("main runs a program itself"),
         Commands::Extension { action } => action.run(terminal, ports),
     }
 }

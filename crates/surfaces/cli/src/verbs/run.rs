@@ -1,0 +1,167 @@
+//! `specforge run` (ADR 0339): the one runner for people and agents. Its exit is the program's, or 124 at its deadline,
+//! 127 when not found and 126 when it cannot start; `--format json` captures the run instead, and `--which` finds
+//! programs without running any.
+
+use std::path::PathBuf;
+use std::time::Duration;
+
+use specforge_effects::{EffectsMode, Ports};
+use specforge_ops::consent::UserConsent;
+use specforge_ops::verbs::Verbs;
+use specforge_ops::verbs::run::{self as ran, Run};
+
+use super::shown;
+use crate::outcome::{Exit, OutputFormat, Refusal};
+use crate::pick::{self, Pick};
+use crate::terminal::{Terminal, errln, outln};
+
+#[derive(clap::Args)]
+pub(crate) struct RunArgs {
+    /// The program, then its arguments (after `--` when one starts with `-`)
+    #[arg(
+        trailing_var_arg = true,
+        allow_hyphen_values = true,
+        value_name = "PROGRAM",
+        required = true
+    )]
+    argv: Vec<String>,
+
+    /// Stop the program and its children after this long and exit 124: `10` or `10s`, `500ms`, `2m`, `1h`
+    #[arg(long, value_name = "DURATION", value_parser = parse_deadline)]
+    deadline: Option<Duration>,
+
+    /// Print where the runner finds each program, and run none
+    #[arg(long)]
+    which: bool,
+
+    #[command(flatten)]
+    project: crate::project::ProjectArg,
+
+    /// Output format: human (the default) passes the program's stdin, stdout and stderr through; json captures them
+    #[arg(long, default_value = "human")]
+    format: OutputFormat,
+
+    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = pick::HELP, long_help = pick::VERB_LONG_HELP)]
+    pick: Option<Pick>,
+
+    /// With --format json: whether the run is performed (online, the default; auto is online) or answered from the
+    /// effects journal (replay). A program asks for something to happen, so cached performs it too
+    #[arg(long, value_enum)]
+    effects: Option<EffectsMode>,
+}
+
+/// `10`, `10s`, `500ms`, `2m` or `1h`.
+fn parse_deadline(text: &str) -> Result<Duration, String> {
+    let split = text
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(text.len());
+    let (number, unit) = text.split_at(split);
+    let number: u64 = number
+        .parse()
+        .map_err(|_| format!("{text:?} is no duration: write 10, 10s, 500ms, 2m or 1h"))?;
+    match unit {
+        "" | "s" => Ok(Duration::from_secs(number)),
+        "ms" => Ok(Duration::from_millis(number)),
+        "m" => Ok(Duration::from_secs(number.saturating_mul(60))),
+        "h" => Ok(Duration::from_secs(number.saturating_mul(3600))),
+        _ => Err(format!(
+            "{text:?} is no duration: write 10, 10s, 500ms, 2m or 1h"
+        )),
+    }
+}
+
+impl RunArgs {
+    /// The exit code: the program's own, or the verb's.
+    pub(crate) fn run(self, terminal: &Terminal, ports: &Ports) -> i32 {
+        let json = self.format == OutputFormat::Json;
+        if self.pick.is_some() && !json {
+            errln!(
+                terminal,
+                "error: --pick reads the JSON answer: add --format json"
+            );
+            return Exit::Unjudged.code();
+        }
+        let mode = self.effects.unwrap_or(EffectsMode::Online);
+        if !json && !self.which && !mode.is_live() {
+            errln!(
+                terminal,
+                "error: a run that passes its output through keeps none, so nothing answers it again: --effects {} \
+                 takes --format json",
+                mode.name()
+            );
+            return Exit::Unjudged.code();
+        }
+        let verbs = match self.open(ports) {
+            Ok(verbs) => verbs,
+            Err(error) => return Refusal::of(self.format).report(terminal, &error).code(),
+        };
+        let run = Run {
+            argv: self.argv.clone(),
+            deadline: self.deadline,
+        };
+        if self.which {
+            let answer = ran::which(&verbs, &self.argv);
+            return match self.format {
+                // The answer says what was found: printed, it is the run's success.
+                OutputFormat::Json => {
+                    pick::print_json(terminal, self.pick.as_ref(), &answer);
+                    Exit::Passed.code()
+                }
+                // As `command -v`: the paths found, and 1 when one is missing.
+                OutputFormat::Human => {
+                    for program in &answer.programs {
+                        if let Some(path) = &program.path {
+                            outln!(terminal, "{}", shown(path));
+                        }
+                    }
+                    let all = answer.programs.iter().all(|program| program.found);
+                    if all { Exit::Passed } else { Exit::Failed }.code()
+                }
+            };
+        }
+        if json {
+            return match ran::capture(&verbs, &run, mode) {
+                Ok(answer) => {
+                    pick::print_json(terminal, self.pick.as_ref(), &answer);
+                    Exit::Passed.code()
+                }
+                Err(error) => Refusal::of(self.format).report(terminal, &error).code(),
+            };
+        }
+        // What the program printed is on the terminal: flush ours first, so the two never interleave out of order.
+        terminal.flush();
+        match ran::pass_through(&verbs, &run) {
+            Ok(class) => {
+                let code = ran::exit_of(&class);
+                if !matches!(class, specforge_effects::ProcessClass::Exited(_)) {
+                    errln!(terminal, "specforge run: {} {class}", shown(&self.argv[0]));
+                }
+                code
+            }
+            Err(error) => Refusal::of(self.format).report(terminal, &error).code(),
+        }
+    }
+
+    fn open(&self, ports: &Ports) -> Result<Verbs, specforge_ops::OpError> {
+        let root = self.project.root()?;
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let consent = UserConsent::user(root.dir());
+        Ok(Verbs::open(&root, &cwd, ports, &consent))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_deadline_reads_like_timeout() {
+        assert_eq!(parse_deadline("10"), Ok(Duration::from_secs(10)));
+        assert_eq!(parse_deadline("10s"), Ok(Duration::from_secs(10)));
+        assert_eq!(parse_deadline("500ms"), Ok(Duration::from_millis(500)));
+        assert_eq!(parse_deadline("2m"), Ok(Duration::from_secs(120)));
+        assert_eq!(parse_deadline("1h"), Ok(Duration::from_secs(3600)));
+        assert!(parse_deadline("1d").is_err());
+        assert!(parse_deadline("s").is_err());
+    }
+}

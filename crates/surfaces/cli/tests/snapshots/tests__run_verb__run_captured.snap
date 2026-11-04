@@ -1,0 +1,20 @@
+---
+source: crates/surfaces/cli/tests/run_verb.rs
+expression: steady(live.clone())
+---
+{
+  "argv": [
+    "<test binary>",
+    "run_verb::child_program",
+    "--exact",
+    "--nocapture",
+    "--test-threads",
+    "1"
+  ],
+  "duration_ms": "<duration_ms>",
+  "exit": 0,
+  "outcome": "exited",
+  "stderr": "child:err\n",
+  "stdout": "child:out\n",
+  "truncated": false
+}
