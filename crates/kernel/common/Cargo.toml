@@ -28,6 +28,10 @@ serde_json = { workspace = true }
 strsim = { workspace = true }
 walkdir = { workspace = true }
 
+# `O_NOFOLLOW`, which std does not name, for a lock file that never goes through a link.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

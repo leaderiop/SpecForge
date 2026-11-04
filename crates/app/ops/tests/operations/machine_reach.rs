@@ -14,7 +14,7 @@ const NEEDLES: &[&str] = &["Command::new(", "env::var(", "env::var_os("];
 const ALLOWED: &[(&str, &str, usize, &str)] = &[(
     "consent.rs",
     "env::var_os(",
-    3,
+    2,
     "the user's consent store, outside every project (ADR 0335 D2.5)",
 )];
 

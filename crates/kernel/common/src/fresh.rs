@@ -49,13 +49,7 @@ pub fn replace_file(path: &Path, contents: &[u8]) -> Result<()> {
 /// unlinked first, never followed, and what is at `path` (its mode, a link) is replaced, not kept. On
 /// failure the temp is removed and `path` is as it was.
 pub fn replace_private(path: &Path, contents: &[u8]) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        let mut dirs = std::fs::DirBuilder::new();
-        dirs.recursive(true);
-        #[cfg(unix)]
-        std::os::unix::fs::DirBuilderExt::mode(&mut dirs, 0o700);
-        dirs.create(parent)?;
-    }
+    private_parent(path)?;
     let temp = temporary(path);
     unlink(&temp)?;
     let mut options = OpenOptions::new();
@@ -73,6 +67,35 @@ pub fn replace_private(path: &Path, contents: &[u8]) -> Result<()> {
         let _ = std::fs::remove_file(&temp);
     }
     written
+}
+
+/// Create the missing parent directories of `path`, 0700 (unix).
+pub fn private_parent(path: &Path) -> Result<()> {
+    let Some(parent) = path.parent() else {
+        return Ok(());
+    };
+    let mut dirs = std::fs::DirBuilder::new();
+    dirs.recursive(true);
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut dirs, 0o700);
+    dirs.create(parent)
+}
+
+/// Open the sidecar lock file `path`, created 0600 (unix). A link at the name is refused, never followed: creating
+/// through a dangling link would make a file wherever it points. Elsewhere than unix the name is looked at first.
+pub fn open_private_lock(path: &Path) -> Result<File> {
+    let mut options = OpenOptions::new();
+    options.create(true).truncate(false).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    #[cfg(not(unix))]
+    if std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) {
+        return Err(std::io::Error::other("it is a link"));
+    }
+    options.open(path)
 }
 
 /// A new file at `path`, to stream into: the name is unlinked first (a link, never its target; a

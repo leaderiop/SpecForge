@@ -4,10 +4,11 @@
 //! and written privately and atomically (`replace_private`: 0600, a new parent 0700, a rename). A store that cannot
 //! be read or parsed, or that a newer specforge wrote, is never written over: nothing in it counts (W186).
 
-use std::path::{Path, PathBuf};
+use std::ffi::OsString;
+use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use specforge_common::fresh::replace_private;
+use specforge_common::fresh::{open_private_lock, private_parent, replace_private};
 use specforge_common::{Diagnostic, codes};
 use specforge_effects::{Approvals, Consent, ConsentError};
 
@@ -33,13 +34,30 @@ pub struct UserConsent {
 }
 
 impl UserConsent {
-    /// The user's store for the project at `project`: `$SPECFORGE_CONSENT_FILE`, else
-    /// `$HOME/.specforge/consent.json` (`USERPROFILE`, then the temp dir). A store named inside the project is
-    /// refused: a repository could approve its own effects.
+    /// The user's store for the project at `project`: `$SPECFORGE_CONSENT_FILE`, else [`UserConsent::of_home`]. A
+    /// store named inside the project, or by a relative path, is refused: a repository could approve its own effects.
     pub fn user(project: &Path) -> Self {
         match std::env::var_os(CONSENT_FILE_ENV) {
             Some(path) => Self::at(PathBuf::from(path)).within(project),
-            None => Self::at(default_store()),
+            None => Self::of_home(),
+        }
+    }
+
+    /// `$HOME/.specforge/consent.json` (`USERPROFILE`). With no home there is no store: nothing is approved and W186
+    /// says why. Never a shared directory, where another user could create the store first and fill it.
+    pub fn of_home() -> Self {
+        Self::under(std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")))
+    }
+
+    fn under(home: Option<OsString>) -> Self {
+        match home.map(PathBuf::from).filter(|home| home.is_absolute()) {
+            Some(home) => Self::at(home.join(".specforge").join("consent.json")),
+            None => UserConsent {
+                store: PathBuf::from("~/.specforge/consent.json"),
+                refused: Some(format!(
+                    "there is no home directory (HOME); set {CONSENT_FILE_ENV} to a file outside the project"
+                )),
+            },
         }
     }
 
@@ -51,11 +69,13 @@ impl UserConsent {
         }
     }
 
-    /// This store, refused when its canonical parent lies under the canonical `project`.
+    /// This store, refused when it is named by a relative path or resolves under the canonical `project`.
     pub fn within(mut self, project: &Path) -> Self {
-        let canonical = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
-        let parent = self.store.parent().map(canonical).unwrap_or_default();
-        if parent.starts_with(canonical(project)) {
+        if self.store.is_relative() {
+            self.refused = Some(format!(
+                "a relative path could lie inside any project; point {CONSENT_FILE_ENV} at an absolute path"
+            ));
+        } else if resolved(&self.store).starts_with(resolved(project)) {
             self.refused = Some(format!(
                 "it is inside the project, where a repository could approve its own effects; point \
                  {CONSENT_FILE_ENV} outside the project"
@@ -106,14 +126,30 @@ impl UserConsent {
     }
 }
 
-/// `$HOME/.specforge/consent.json` (`USERPROFILE`, then the temp dir).
-pub fn default_store() -> PathBuf {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir)
-        .join(".specforge")
-        .join("consent.json")
+/// `path` as the disk resolves it: its nearest existing ancestor canonical (every link and spelling followed), then
+/// the rest lexically, since a name that does not exist yet is no link.
+fn resolved(path: &Path) -> PathBuf {
+    let Some((real, ancestor)) = path
+        .ancestors()
+        .find_map(|ancestor| Some((ancestor.canonicalize().ok()?, ancestor)))
+    else {
+        return path.to_path_buf();
+    };
+    let mut resolved = real;
+    for part in path
+        .strip_prefix(ancestor)
+        .unwrap_or(Path::new(""))
+        .components()
+    {
+        match part {
+            Component::ParentDir => {
+                resolved.pop();
+            }
+            Component::Normal(name) => resolved.push(name),
+            _ => {}
+        }
+    }
+    resolved
 }
 
 /// W186: the store `error` names cannot be used; nothing in it is approved and nothing is written over it.
@@ -128,6 +164,10 @@ pub fn unusable_store(error: &ConsentError) -> Diagnostic {
 }
 
 impl Consent for UserConsent {
+    fn store(&self) -> String {
+        self.store.display().to_string()
+    }
+
     fn list(&self) -> Result<Approvals, ConsentError> {
         self.read()
     }
@@ -136,21 +176,11 @@ impl Consent for UserConsent {
         if let Some(why) = &self.refused {
             return Err(self.error(why.clone()));
         }
-        if let Some(parent) = self.store.parent() {
-            let mut dirs = std::fs::DirBuilder::new();
-            dirs.recursive(true);
-            #[cfg(unix)]
-            std::os::unix::fs::DirBuilderExt::mode(&mut dirs, 0o700);
-            dirs.create(parent)
-                .map_err(|e| self.error(format!("its directory cannot be made ({e})")))?;
-        }
+        private_parent(&self.store)
+            .map_err(|e| self.error(format!("its directory cannot be made ({e})")))?;
         let mut lock_path = self.store.as_os_str().to_owned();
         lock_path.push(".lock");
-        let lock = std::fs::OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .write(true)
-            .open(PathBuf::from(lock_path))
+        let lock = open_private_lock(Path::new(&lock_path))
             .map_err(|e| self.error(format!("its lock cannot be opened ({e})")))?;
         lock.lock()
             .map_err(|e| self.error(format!("it cannot be locked ({e})")))?;

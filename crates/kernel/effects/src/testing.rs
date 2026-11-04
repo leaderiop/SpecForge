@@ -671,6 +671,10 @@ impl MemoryConsent {
 }
 
 impl crate::Consent for MemoryConsent {
+    fn store(&self) -> String {
+        "memory".to_string()
+    }
+
     fn list(&self) -> Result<crate::Approvals, crate::ConsentError> {
         self.usable()?;
         Ok(self.held.lock().expect("consent lock").clone())

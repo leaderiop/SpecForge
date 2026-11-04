@@ -55,9 +55,7 @@ impl Args {
         let consent = view
             .root()
             .map(specforge_ops::consent::UserConsent::user)
-            .unwrap_or_else(|| {
-                specforge_ops::consent::UserConsent::at(specforge_ops::consent::default_store())
-            });
+            .unwrap_or_else(specforge_ops::consent::UserConsent::of_home);
         let report = diagnose(&view, &Z3::new(process.clone(), Z3::DEFAULT_TIMEOUT))
             .with_hosts(specforge_ops::host::diagnose::findings(
                 &view, &renderers, caller,

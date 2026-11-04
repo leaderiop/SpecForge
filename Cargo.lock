@@ -2933,6 +2933,7 @@ dependencies = [
  "ariadne",
  "glob",
  "lasso",
+ "libc",
  "serde",
  "serde_json",
  "specforge-coverage",

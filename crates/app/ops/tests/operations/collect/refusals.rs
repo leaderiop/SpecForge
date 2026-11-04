@@ -192,6 +192,8 @@ fn an_unapproved_command_with_nobody_to_ask_is_e059() {
         suggestion.contains("`specforge collect` in a terminal"),
         "{suggestion}"
     );
+    // The store it names is the one in use, not a hard-coded path.
+    assert!(suggestion.contains("(kept in memory)"), "{suggestion}");
     untouched(&fx, &machine);
 }
 

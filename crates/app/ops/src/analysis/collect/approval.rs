@@ -84,7 +84,9 @@ pub(super) fn settle_runs(
     {
         match settle(grant, uses, asking, consent) {
             Ok(settled) => unsaved.extend(settled.unsaved),
-            Err(unsettled) => return Err(unapproved(planned, extension, &unsettled)),
+            Err(unsettled) => {
+                return Err(unapproved(planned, extension, consent, &unsettled));
+            }
         }
     }
     for (collector, source) in planned {
@@ -100,7 +102,9 @@ pub(super) fn settle_runs(
         });
         if let Err(denial) = granting.grant.permits(Operation::Collect, &request) {
             return Err(match denial.why {
-                Denied::NotApproved | Denied::Root => e059(argv, &collector.extension, None),
+                Denied::NotApproved | Denied::Root => {
+                    e059(argv, &collector.extension, &consent.store(), None)
+                }
                 _ => OpError::of(OpErrorKind::PermissionDenied, denial.diagnostic()),
             });
         }
@@ -112,6 +116,7 @@ pub(super) fn settle_runs(
 fn unapproved(
     planned: &[(&Collector, Source<'_>)],
     extension: &str,
+    consent: &dyn Consent,
     unsettled: &Unsettled,
 ) -> OpError {
     let scopes: Vec<&str> = unsettled
@@ -140,12 +145,13 @@ fn unapproved(
     e059(
         argv,
         extension,
+        &consent.store(),
         unsettled.store.as_ref().map(|d| d.message.as_str()),
     )
 }
 
 /// E059: running `argv` needs this machine's approval; `store` says why the consent store could not be used.
-fn e059(argv: &[String], extension: &str, store: Option<&str>) -> OpError {
+fn e059(argv: &[String], extension: &str, kept: &str, store: Option<&str>) -> OpError {
     let mut message = format!(
         "running `{}` needs approval for this project",
         argv.join(" ")
@@ -154,7 +160,7 @@ fn e059(argv: &[String], extension: &str, store: Option<&str>) -> OpError {
         message.push_str(&format!(" ({store})"));
     }
     fail(OpErrorKind::PermissionDenied, codes::E059, message).with_suggestion(format!(
-        "approve it with `{}` (kept in ~/.specforge/consent.json), once with `specforge collect` in a terminal, \
+        "approve it with `{}` (kept in {kept}), once with `specforge collect` in a terminal, \
          or run `specforge collect --yes`; reading the report the runner already wrote needs no approval",
         specforge_common::remedy::command("specforge grants approve {}", &[extension])
     ))

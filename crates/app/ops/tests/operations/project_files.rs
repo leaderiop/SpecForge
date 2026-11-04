@@ -25,12 +25,6 @@ const NEEDLES: &[&str] = &[
 const ALLOWED: &[(&str, &str, usize, &str)] = &[
     (
         "consent.rs",
-        "OpenOptions::new(",
-        1,
-        "the consent store's lock, beside the store, not a project file",
-    ),
-    (
-        "consent.rs",
         "fs::read_to_string(",
         1,
         "the user's consent store, not a project file",

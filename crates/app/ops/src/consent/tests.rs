@@ -101,6 +101,101 @@ fn a_store_named_inside_the_project_is_refused() {
 }
 
 #[test]
+fn a_store_inside_the_project_is_refused_however_it_is_spelled_and_even_before_it_exists() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    let canonical = project.canonicalize().unwrap();
+    let inside = |store: PathBuf, project: &Path| {
+        let error = UserConsent::at(store).within(project).list().unwrap_err();
+        error.why.contains("inside the project")
+    };
+    // Its parent does not exist yet.
+    assert!(inside(project.join("not/yet/consent.json"), &project));
+    // `/var` and `/private/var` on macOS: one spelling for the store, the other for the project.
+    assert!(inside(canonical.join("not/yet/consent.json"), &project));
+    assert!(inside(project.join("not/yet/consent.json"), &canonical));
+    // Up from a missing directory, and back in.
+    let climbs = dir.path().join("elsewhere/../project/consent.json");
+    assert!(inside(climbs, &project));
+    let leaves = project.join("not/../../consent.json");
+    assert!(UserConsent::at(leaves).within(&project).list().is_ok());
+}
+
+#[test]
+#[cfg(unix)]
+fn a_store_behind_a_link_into_the_project_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    let link = dir.path().join("link");
+    std::os::unix::fs::symlink(&project, &link).unwrap();
+    let consent = UserConsent::at(link.join("not/yet/consent.json")).within(&project);
+    assert!(
+        consent
+            .list()
+            .unwrap_err()
+            .why
+            .contains("inside the project")
+    );
+}
+
+#[test]
+fn a_relative_store_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let consent = UserConsent::at(PathBuf::from("consent.json")).within(dir.path());
+    assert!(consent.list().unwrap_err().why.contains("relative"));
+    assert!(consent.approve(approval("tests")).is_err());
+    assert!(!Path::new("consent.json").exists());
+}
+
+#[test]
+fn with_no_home_there_is_no_store_and_nothing_is_approved() {
+    for home in [
+        None,
+        Some(OsString::new()),
+        Some(OsString::from("relative")),
+    ] {
+        let consent = UserConsent::under(home);
+        let error = consent.list().unwrap_err();
+        assert!(error.why.contains("no home directory"), "{error}");
+        assert!(unusable_store(&error).message.contains("no home directory"));
+        assert!(consent.approve(approval("tests")).is_err());
+        assert!(
+            !consent
+                .store()
+                .starts_with(&*std::env::temp_dir().to_string_lossy())
+        );
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let home = UserConsent::under(Some(dir.path().as_os_str().to_owned()));
+    assert_eq!(home.path(), dir.path().join(".specforge/consent.json"));
+}
+
+#[test]
+#[cfg(unix)]
+fn the_lock_is_private_and_never_goes_through_a_link() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let dir = tempfile::tempdir().unwrap();
+    let store = dir.path().join("consent.json");
+    let lock = dir.path().join("consent.json.lock");
+    let victim = dir.path().join("victim");
+
+    // A dangling link: opening through it would create the victim.
+    std::os::unix::fs::symlink(&victim, &lock).unwrap();
+    let consent = UserConsent::at(store.clone());
+    let error = consent.approve(approval("tests")).unwrap_err();
+    assert!(error.why.contains("its lock cannot be opened"), "{error}");
+    assert!(!victim.exists());
+    assert!(!store.exists());
+
+    std::fs::remove_file(&lock).unwrap();
+    consent.approve(approval("tests")).unwrap();
+    let mode = std::fs::metadata(&lock).unwrap().permissions().mode();
+    assert_eq!(mode & 0o777, 0o600);
+}
+
+#[test]
 fn a_newer_store_version_is_never_overwritten() {
     let dir = tempfile::tempdir().unwrap();
     let store = dir.path().join("consent.json");

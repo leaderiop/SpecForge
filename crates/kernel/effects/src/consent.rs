@@ -186,6 +186,9 @@ impl std::error::Error for ConsentError {}
 
 /// The machine's approvals.
 pub trait Consent: Send + Sync {
+    /// Where it keeps them, as a person finds it.
+    fn store(&self) -> String;
+
     /// Every approval it holds.
     fn list(&self) -> Result<Approvals, ConsentError>;
 
