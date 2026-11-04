@@ -138,6 +138,7 @@ fn collect_and_apply_in(
             caller: caller(),
         },
         &ScriptedMachine::new(),
+        &specforge_effects::testing::MemoryConsent::default(),
     )
     .unwrap();
     let plans = std::mem::take(&mut outcome.plans);

@@ -340,7 +340,7 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
 
 // Cross-ref: the collect flow (ADR 0002) spans these behaviors:
 // register_collector_contributions → auto_detect_collector →
-// approve_collector_command → run_collector_command → dispatch_collector →
+// approve_capability → run_collector_command → dispatch_collector →
 // ingest_collector_report. The CLI entry point is `specforge collect`; the
 // MCP entry point is provide_mcp_collect_tool (behaviors/mcp-operations.spec).
 behavior register_collector_contributions "Register Collector Contributions" {
@@ -409,42 +409,55 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed"
 }
 
-behavior approve_collector_command "Approve Collector Command" {
+behavior approve_capability "Approve Capability" {
   invariants [extension_isolation]
   category   validation
-  types      [CollectorDescriptor]
+  types      [CollectorDescriptor, CapabilityApproval, RootApproval]
   ports      [Consent, CollectorMachine]
   requires {
-    command_declared "the selected collector declares a command"
+    command_declared "the selected collector names a process capability its extension declares"
   }
   ensures {
     consent_outside_project   "approvals are stored in the user-level consent store, never in the project"
-    changed_command_reprompts "an approval covers one project, extension, collector and exact argv; any change asks again"
+    changed_command_reprompts "an approval covers one project, extension provenance and scope; a wider scope, a new argv or another blob asks again"
     non_interactive_refuses   "without a terminal, or with JSON output, an unapproved command is refused with E059 unless --yes is passed"
   }
   contract   """
-    `specforge collect` runs a collector's command only after the user
-    approves it. It shows the extension, the project root and the exact
-    command, asks once (y or yes, in any case, approves; any other answer
-    refuses), and remembers the answer per project, extension,
-    collector and argv in `~/.specforge/collector-consent.json`
-    (`$SPECFORGE_CONSENT_FILE` overrides). The store lives outside the
-    project, so a cloned repository can't approve its own commands. A
-    changed command asks again. Without a terminal, or with `--format
-    json`, nothing is asked: an unapproved command fails with E059, `--yes`
-    runs it without recording an approval, and `--no-run` parses an
-    existing report. The MCP server never prompts and runs only approved
-    commands. With several collectors, every approval is asked before any
-    command runs.
+    An extension's effects run only through its grant (ADR 0335 D2): what
+    it declares as a capability, held to the call kind's gate and the
+    project's effects ceiling, and approved on this machine. A collector's
+    command is its extension's process capability, so `specforge collect`
+    runs it only once this machine approves that capability, and a root
+    outside the project an fs capability reads needs its own approval.
+    Every approval a run needs is decided before its first effect: a
+    terminal is asked once per scope or root, showing the extension and
+    the command or what the scope allows (y or yes, in any case, approves;
+    any other answer refuses), and a yes is remembered in
+    `~/.specforge/consent.json` (`$SPECFORGE_CONSENT_FILE` overrides,
+    refused inside the project). An approval is keyed by project,
+    extension, provenance (a builtin by its name, a third-party extension
+    by its blob's digest) and scope, and stores the granted scope whole:
+    it covers a narrower grant, while a wider scope, a changed command or
+    a new blob asks again. `specforge grants` lists, approves and revokes
+    them. The store lives outside the project, so a cloned repository
+    can't approve its own effects; one that cannot be used is W186 and
+    approves nothing. Without a terminal, or with `--format json`,
+    nothing is asked: an unapproved command fails with E059, `--yes` runs
+    it without recording an approval, and `--no-run` parses an existing
+    report. A command the grant refuses (a ceiling that turns process off,
+    a command the capability does not declare) is E090 before anything
+    runs. The MCP server never prompts and runs only approved commands.
   """
   produces   []
-  verify unit "consent is keyed by project, extension and command"
+  verify unit "an approval is keyed by project, extension provenance and scope, and covers narrower grants"
   verify unit "the consent store is replaced privately and atomically, never through a link"
   verify unit "an approval is never written over a consent store that cannot be read"
+  verify integration "a third-party collector asks again after its blob changes"
+  verify integration "a ceiling that turns process off refuses collect with E090 before anything runs"
   verify integration "unapproved command without a terminal fails with E059 and runs nothing"
   verify integration "--yes runs the declared command"
   verify unit "a terminal that can answer is asked; with nobody to ask, or under --format json, only an approved command runs"
-  verify contract "Approve Collector Command: consent holds — command_declared, consent_outside_project, changed_command_reprompts, non_interactive_refuses"
+  verify contract "Approve Capability: consent holds — command_declared, consent_outside_project, changed_command_reprompts, non_interactive_refuses"
 }
 
 behavior run_collector_command "Run Collector Command" {
@@ -453,7 +466,7 @@ behavior run_collector_command "Run Collector Command" {
   types      [CollectorDescriptor]
   ports      [FileSystem, CollectorMachine, Process]
   requires {
-    command_approved "approve_collector_command allowed the command"
+    command_approved "approve_capability allowed the command"
   }
   ensures {
     report_inside_project  "a report location outside the project (absolute or with ..) is refused with E058"

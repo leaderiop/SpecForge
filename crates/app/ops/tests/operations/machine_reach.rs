@@ -1,5 +1,5 @@
 //! Only the machine's adapters touch the machine (ADR 0079, ADR 0125, ADR 0335): no process is spawned and no
-//! environment variable is read in `src/` outside the collector machine's consent store; the collector's command,
+//! environment variable is read in `src/` outside the user's consent store; the collector's command,
 //! the SMT solver and doctor's probe of the specforge on PATH spawn through the Process port.
 //! A new `Command::new(` or `env::var(` elsewhere fails here, and so does a listed entry that no longer
 //! matches.
@@ -11,20 +11,12 @@ use std::path::{Path, PathBuf};
 const NEEDLES: &[&str] = &["Command::new(", "env::var(", "env::var_os("];
 
 /// `(file under src/, needle, how many lines, why it may reach the machine)`.
-const ALLOWED: &[(&str, &str, usize, &str)] = &[
-    (
-        "analysis/collect/process.rs",
-        "env::var_os(",
-        3,
-        "the collector machine's adapter, ADR 0125",
-    ),
-    (
-        "consent.rs",
-        "env::var_os(",
-        3,
-        "the user's consent store, outside every project (ADR 0335 D2.5)",
-    ),
-];
+const ALLOWED: &[(&str, &str, usize, &str)] = &[(
+    "consent.rs",
+    "env::var_os(",
+    3,
+    "the user's consent store, outside every project (ADR 0335 D2.5)",
+)];
 
 /// Test support, which stands for the machine.
 fn exempt(file: &str) -> bool {

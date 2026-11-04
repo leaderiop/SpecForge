@@ -60,9 +60,12 @@ pub struct McpState {
     /// The SMT solver doctor checks: z3 from PATH unless the host gave
     /// another ([`crate::McpServer::with_solver`]).
     pub(crate) solver: Arc<dyn Solver>,
-    /// The machine `specforge.collect` runs commands on and keeps approvals in: the user's unless the
-    /// host gave another ([`crate::McpServer::with_collector_machine`], ADR 0125).
+    /// The machine `specforge.collect` runs commands on: the user's unless the host gave another
+    /// ([`crate::McpServer::with_collector_machine`], ADR 0125).
     pub(crate) collector_machine: Arc<dyn CollectorMachine>,
+    /// This machine's approvals (ADR 0335 D2.5): the user's consent store for the call's project unless the host
+    /// gave another ([`crate::McpServer::with_consent`]). The server never asks: only what is stored counts.
+    pub(crate) consent: Option<specforge_effects::SharedConsent>,
     /// The host the client named in `initialize` (`clientInfo.name`), when it is one SpecForge renders prompts for.
     pub(crate) host: Option<specforge_ops::host::Host>,
     /// The effect plane's adapters (ADR 0335), the ones the host built ([`crate::McpServer::over`]): every session
@@ -84,7 +87,8 @@ impl McpState {
             subscriptions: Subscriptions::new(),
             extension_runtime: None,
             solver: Arc::new(Z3::new(Arc::clone(&ports.process), Z3::DEFAULT_TIMEOUT)),
-            collector_machine: Arc::new(ProcessMachine::user(Arc::clone(&ports.process))),
+            collector_machine: Arc::new(ProcessMachine::new(Arc::clone(&ports.process))),
+            consent: None,
             host: None,
             ports,
         }

@@ -4,6 +4,7 @@
 
 use specforge_common::Diagnostic;
 use specforge_effects::{Approval, Consent, Grant, Need, Uses};
+use specforge_protocol_types::PortScope;
 
 use crate::asking::{Asking, Question};
 use crate::consent::unusable_store;
@@ -67,6 +68,10 @@ pub fn settle(
                 summary,
                 why,
                 project: &approval.project,
+                command: match &approval.granted {
+                    PortScope::Process(process) => Some(&process.argv),
+                    _ => None,
+                },
             },
             Need::Root(root) => Question::Root {
                 name: &root.root,

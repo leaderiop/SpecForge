@@ -6,7 +6,6 @@
 use super::collector::{capture_path, captures_stdout, command_line, read_capture, report_path};
 use super::dispatch::read_report;
 use super::{Collector, Mode, fail};
-use crate::asking::{Asking, Question};
 use crate::machine::{CollectorCommand, CollectorMachine, Ran, RunFailure, RunnerOutput};
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
@@ -65,15 +64,13 @@ pub(super) struct Evidence {
 
 impl<'m> Source<'m> {
     /// `collector`'s source under `mode`, decided without running anything or writing a file. Under a run
-    /// that it has a command and that the command may run (asking whoever can be asked; E059 otherwise).
+    /// that it has a command; whether the command may run is settled next, for every collector at once
+    /// (`approval::settle_runs`).
     pub(super) fn plan(
         collector: &Collector,
         mode: Mode<'m>,
         root: &Path,
-        asking: Asking<'_>,
         containment: &Containment,
-        machine: &dyn CollectorMachine,
-        unsaved_approvals: &mut Vec<String>,
     ) -> Result<Self, OpError> {
         match mode {
             Mode::Reports(paths) => Ok(Source::Given(paths)),
@@ -90,20 +87,6 @@ impl<'m> Source<'m> {
                              report they already wrote",
                             collector.name, collector.extension
                         ),
-                    ));
-                }
-                if !allowed(asking, machine, collector, &argv, root, unsaved_approvals) {
-                    return Err(fail(
-                        OpErrorKind::PermissionDenied,
-                        codes::E059,
-                        format!(
-                            "running `{}` needs approval for this project",
-                            argv.join(" ")
-                        ),
-                    )
-                    .with_suggestion(
-                        "approve it once with `specforge collect` in a terminal, or run `specforge \
-                         collect --yes`; reading the report the runner already wrote needs no approval",
                     ));
                 }
                 Ok(Source::Run {
@@ -188,39 +171,6 @@ impl<'m> Source<'m> {
                 declared.report.named.display()
             ),
             Source::Given(_) => "the report files given don't exist".to_string(),
-        }
-    }
-}
-
-/// Whether `collector`'s command `argv` may run in `root`, with the approvals `machine` keeps: `--yes`
-/// first, then a command approved for this project before, then whoever can be asked (ADR 0002,
-/// ADR 0110). A yes from the asker is remembered. An approval that could not be remembered is
-/// noted in `unsaved`.
-fn allowed(
-    asking: Asking<'_>,
-    machine: &dyn CollectorMachine,
-    collector: &Collector,
-    argv: &[String],
-    root: &Path,
-    unsaved: &mut Vec<String>,
-) -> bool {
-    match asking {
-        Asking::Yes => true,
-        _ if machine.approved(&collector.approval(root)) => true,
-        Asking::Nobody => false,
-        Asking::Ask(asker) => {
-            let question = Question::RunCommand {
-                extension: &collector.extension,
-                argv,
-                root,
-            };
-            if !asker.answer(&question) {
-                return false;
-            }
-            if let Err(e) = machine.approve(&collector.approval(root)) {
-                unsaved.push(e);
-            }
-            true
         }
     }
 }

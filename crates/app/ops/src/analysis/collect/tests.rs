@@ -17,6 +17,7 @@ fn collector(report: &str) -> Collector {
         capture: None,
         writes: false,
         inputs: Vec::new(),
+        capability: None,
     }
 }
 
@@ -252,6 +253,7 @@ fn collect_without_a_root_is_no_project() {
             caller: crate::testing::caller(),
         },
         &crate::testing::ScriptedMachine::new(),
+        &specforge_effects::testing::MemoryConsent::default(),
     )
     .unwrap_err();
 

@@ -47,6 +47,7 @@ fn a_collector_plan_creates_commits_and_records_results() {
             caller: caller(),
         },
         &ScriptedMachine::new(),
+        &specforge_effects::testing::MemoryConsent::default(),
     )
     .unwrap();
     let plans = std::mem::take(&mut outcome.plans);
@@ -76,12 +77,12 @@ fn a_collector_plan_creates_commits_and_records_results() {
     verify = "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
 )]
 fn every_collector_is_sent_the_project_root_as_cwd() {
-    use super::{Fixture, Runner};
+    use super::{Fixture, Machine, Runner};
 
     let fixture = Fixture::new(vec![Runner::new("acme")]);
     fixture.write("out/acme.json", "{}");
     fixture
-        .no_run(Some("acme"), &ScriptedMachine::new())
+        .no_run(Some("acme"), &Machine::new())
         .expect("the collect runs");
     let calls = fixture.dispatched();
     let input = &calls

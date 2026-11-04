@@ -624,12 +624,14 @@ impl Git for FakeGit {
 }
 
 /// A consent store in memory (ADR 0335 D2.4): what it was given, or everything ([`MemoryConsent::approving_everything`]),
-/// or an unusable store ([`MemoryConsent::unusable`]).
+/// or an unusable store ([`MemoryConsent::unusable`]), or one that keeps nothing ([`MemoryConsent::unable_to_remember`]).
 #[derive(Default)]
 pub struct MemoryConsent {
     held: Mutex<crate::Approvals>,
     everything: bool,
     unusable: Option<crate::ConsentError>,
+    /// Why a change cannot be kept: it reads, but nothing is written.
+    unwritable: Option<crate::ConsentError>,
 }
 
 impl MemoryConsent {
@@ -645,6 +647,17 @@ impl MemoryConsent {
     pub fn unusable(why: &str) -> Self {
         MemoryConsent {
             unusable: Some(crate::ConsentError {
+                store: "memory".to_string(),
+                why: why.to_string(),
+            }),
+            ..Self::default()
+        }
+    }
+
+    /// A store that reads but keeps no change: `why` names the reason.
+    pub fn unable_to_remember(why: &str) -> Self {
+        MemoryConsent {
+            unwritable: Some(crate::ConsentError {
                 store: "memory".to_string(),
                 why: why.to_string(),
             }),
@@ -668,6 +681,9 @@ impl crate::Consent for MemoryConsent {
         change: &mut dyn FnMut(&mut crate::Approvals),
     ) -> Result<(), crate::ConsentError> {
         self.usable()?;
+        if let Some(error) = &self.unwritable {
+            return Err(error.clone());
+        }
         change(&mut self.held.lock().expect("consent lock"));
         Ok(())
     }

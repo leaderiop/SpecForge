@@ -9,7 +9,8 @@
 //! `--report` skip running and parse an existing report instead. The flow
 //! itself lives in [`specforge_ops::analysis::collect`], shared with MCP; this
 //! adapter only hands the operation who can be asked (`--yes`, the
-//! terminal, or nobody) and the machine it runs on (`ProcessMachine`, ADR 0125), and presents the
+//! terminal, or nobody), the machine it runs on (`ProcessMachine`, ADR 0125) and this machine's approvals
+//! (`UserConsent`, ADR 0335 D2.5), and presents the
 //! outcome.
 
 use crate::notes::Notes;
@@ -98,7 +99,8 @@ fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Po
     let mut outcome = match collect::collect(
         &view,
         request,
-        &ProcessMachine::user(std::sync::Arc::clone(&ports.process)),
+        &ProcessMachine::new(std::sync::Arc::clone(&ports.process)),
+        &specforge_ops::consent::UserConsent::user(root.dir()),
     ) {
         Ok(outcome) => outcome,
         Err(e) => {

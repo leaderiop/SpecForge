@@ -87,6 +87,8 @@ pub struct ProjectRef<'a> {
     pub solver: &'a dyn Solver,
     /// The host's collector machine (the server's): what `specforge.collect` runs commands on.
     pub machine: &'a dyn CollectorMachine,
+    /// The host's approvals (the server's), when it gave some; none: the user's consent store for this project.
+    pub consent: Option<&'a dyn specforge_effects::Consent>,
     /// The server's effect-plane adapters (ADR 0335): what a tool reaches the network and the disk through.
     pub ports: &'a specforge_effects::Ports,
     /// The project view, built once for the call: rooted at the project
@@ -223,6 +225,7 @@ impl<'s> Call<'s> {
                     source: self.state.source(),
                     solver: &*self.state.solver,
                     machine: &*self.state.collector_machine,
+                    consent: self.state.consent.as_deref(),
                     ports: &self.state.ports,
                     view,
                     served: true,
@@ -244,6 +247,7 @@ impl<'s> Call<'s> {
                     source: self.state.source(),
                     solver: &*self.state.solver,
                     machine: &*self.state.collector_machine,
+                    consent: self.state.consent.as_deref(),
                     ports: &self.state.ports,
                     view,
                     served: false,

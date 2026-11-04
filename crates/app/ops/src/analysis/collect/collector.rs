@@ -1,7 +1,6 @@
 //! The collectors runner extensions declare: what selects each, the command it runs, where its report
 //! lands.
 
-use crate::machine::CommandApproval;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
 use specforge_protocol_types::{ExtensionDeclaration, Input, PortScope};
@@ -24,6 +23,8 @@ pub struct Collector {
     /// What the host serves it before the call: `files`, whose facts its input's `files` carries (ADR 0293,
     /// ADR 0337 D2).
     pub inputs: Vec<Input>,
+    /// The process capability its command is (ADR 0335 D2.1): the scope a run is granted and approved under.
+    pub capability: Option<String>,
 }
 
 /// The only `capture` value: the command's standard output.
@@ -60,16 +61,10 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
                 capture: c.capture.clone(),
                 writes: c.writes,
                 inputs: c.inputs.clone(),
+                capability: c.capability.clone(),
             })
         })
         .collect()
-}
-
-impl Collector {
-    /// The approval running this collector's declared command in `root` needs.
-    pub fn approval(&self, root: &Path) -> CommandApproval {
-        CommandApproval::new(&self.extension, &self.name, &self.run, root)
-    }
 }
 
 /// Collectors whose detection files are present at the project root.

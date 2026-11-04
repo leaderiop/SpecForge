@@ -1,0 +1,178 @@
+//! Whether each collector's command may run (ADR 0335 D2, ADR 0125 D5): a collector's command is its extension's
+//! process capability, so it runs only through that extension's grant. Every grant is decided and settled for every
+//! selected collector before the first command runs: the approvals the runs need are asked for once, then each
+//! command is held to its grant. A command its grant refuses is E090 (the project's effects ceiling, or a command
+//! its capability does not declare); one nobody approved is E059.
+
+use super::evidence::Source;
+use super::{Collector, fail};
+use crate::asking::Asking;
+use crate::grants::{Unsettled, settle};
+use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
+use specforge_common::codes;
+use specforge_effects::{
+    Consent, Denied, EffectRequest, Grant, Need, ProcessRequest, Provenance, Roots, Uses,
+};
+use specforge_protocol_types::Operation;
+use std::path::Path;
+
+/// One extension's grant and the scopes the selected collectors use.
+struct Granting {
+    extension: String,
+    grant: Grant,
+    uses: Uses,
+}
+
+/// Settle every approval the commands of `planned` need, asking `asking` and storing in `consent`, then hold each
+/// command to its extension's grant. Approvals given but not stored are added to `unsaved`.
+pub(super) fn settle_runs(
+    view: &ProjectView,
+    root: &Path,
+    planned: &[(&Collector, Source<'_>)],
+    asking: Asking<'_>,
+    consent: &dyn Consent,
+    unsaved: &mut Vec<String>,
+) -> Result<(), OpError> {
+    let env = view.env();
+    let roots = env
+        .effects_allowed()
+        .with_named(Roots::new(root, env.spec_root()));
+    let mut granting: Vec<Granting> = Vec::new();
+    for (collector, source) in planned {
+        let (Source::Run { .. }, Some(scope)) = (source, &collector.capability) else {
+            continue;
+        };
+        let at = match granting
+            .iter()
+            .position(|g| g.extension == collector.extension)
+        {
+            Some(at) => at,
+            None => {
+                let Some(declaration) = view
+                    .registries()
+                    .declarations()
+                    .iter()
+                    .find(|d| d.name() == collector.extension)
+                else {
+                    continue;
+                };
+                let provenance = provenance(view, &collector.extension);
+                let grant = Grant::decide(
+                    declaration,
+                    &provenance,
+                    &env.effects_allowed().ceiling,
+                    &roots,
+                    consent,
+                );
+                granting.push(Granting {
+                    extension: collector.extension.clone(),
+                    grant,
+                    uses: Uses::new(),
+                });
+                granting.len() - 1
+            }
+        };
+        granting[at]
+            .uses
+            .insert((Operation::Collect, scope.clone()));
+    }
+    for Granting {
+        extension,
+        grant,
+        uses,
+    } in &mut granting
+    {
+        match settle(grant, uses, asking, consent) {
+            Ok(settled) => unsaved.extend(settled.unsaved),
+            Err(unsettled) => return Err(unapproved(planned, extension, &unsettled)),
+        }
+    }
+    for (collector, source) in planned {
+        let Source::Run { argv, .. } = source else {
+            continue;
+        };
+        let Some(granting) = granting.iter().find(|g| g.extension == collector.extension) else {
+            continue;
+        };
+        let request = EffectRequest::Process(ProcessRequest {
+            argv: argv.clone(),
+            ..ProcessRequest::default()
+        });
+        if let Err(denial) = granting.grant.permits(Operation::Collect, &request) {
+            return Err(match denial.why {
+                Denied::NotApproved | Denied::Root => e059(argv, &collector.extension, None),
+                _ => OpError::of(OpErrorKind::PermissionDenied, denial.diagnostic()),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Where `extension`'s code came from: as the runtime loaded it, else as the load recorded it. One loaded with
+/// neither (an environment assembled in memory) is keyed as a third party by its name, so no builtin approval
+/// meets it.
+fn provenance(view: &ProjectView, extension: &str) -> Provenance {
+    view.runtime()
+        .and_then(|runtime| runtime.provenance(extension))
+        .or_else(|| {
+            view.env()
+                .enabled()
+                .iter()
+                .find(|e| e.name == extension)
+                .and_then(|e| e.provenance.clone())
+        })
+        .unwrap_or_else(|| Provenance::third_party(extension.as_bytes()))
+}
+
+/// E059 for the first command of `extension` whose scope `unsettled` lists.
+fn unapproved(
+    planned: &[(&Collector, Source<'_>)],
+    extension: &str,
+    unsettled: &Unsettled,
+) -> OpError {
+    let scopes: Vec<&str> = unsettled
+        .needs
+        .iter()
+        .filter_map(|need| match need {
+            Need::Capability { approval, .. } => Some(approval.scope.as_str()),
+            Need::Root(_) => None,
+        })
+        .collect();
+    let argv = planned
+        .iter()
+        .find_map(|(collector, source)| match source {
+            Source::Run { argv, .. }
+                if collector.extension == extension
+                    && collector
+                        .capability
+                        .as_deref()
+                        .is_some_and(|scope| scopes.contains(&scope)) =>
+            {
+                Some(argv.as_slice())
+            }
+            _ => None,
+        })
+        .unwrap_or_default();
+    e059(
+        argv,
+        extension,
+        unsettled.store.as_ref().map(|d| d.message.as_str()),
+    )
+}
+
+/// E059: running `argv` needs this machine's approval; `store` says why the consent store could not be used.
+fn e059(argv: &[String], extension: &str, store: Option<&str>) -> OpError {
+    let mut message = format!(
+        "running `{}` needs approval for this project",
+        argv.join(" ")
+    );
+    if let Some(store) = store {
+        message.push_str(&format!(" ({store})"));
+    }
+    fail(OpErrorKind::PermissionDenied, codes::E059, message).with_suggestion(format!(
+        "approve it with `{}` (kept in ~/.specforge/consent.json), once with `specforge collect` in a terminal, \
+         or run `specforge collect --yes`; reading the report the runner already wrote needs no approval",
+        specforge_common::remedy::command("specforge grants approve {}", &[extension])
+    ))
+}

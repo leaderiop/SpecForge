@@ -76,6 +76,7 @@ fn collector() -> Collector {
         capture: None,
         writes: false,
         inputs: Vec::new(),
+        capability: None,
     }
 }
 

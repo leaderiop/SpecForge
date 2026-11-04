@@ -29,7 +29,7 @@ fn the_user_consent_keeps_the_port_contract() {
 }
 
 #[specforge_test(
-    behavior = "approve_collector_command",
+    behavior = "approve_capability",
     verify = "the consent store is replaced privately and atomically, never through a link"
 )]
 #[cfg(unix)]
@@ -67,7 +67,7 @@ fn the_consent_store_is_replaced_privately_never_through_a_link() {
 }
 
 #[specforge_test(
-    behavior = "approve_collector_command",
+    behavior = "approve_capability",
     verify = "an approval is never written over a consent store that cannot be read"
 )]
 fn the_consent_store_is_never_overwritten_when_it_cannot_be_read() {
@@ -131,4 +131,62 @@ fn two_approvals_at_once_keep_both() {
         thread.join().unwrap();
     }
     assert_eq!(UserConsent::at(store).list().unwrap().capabilities.len(), 8);
+}
+
+#[specforge_test(
+    behavior = "approve_capability",
+    verify = "an approval is keyed by project, extension provenance and scope, and covers narrower grants"
+)]
+fn an_approval_is_keyed_by_provenance_and_covers_narrower_grants() {
+    use specforge_protocol_types::{GitOp, GitScope};
+    let dir = tempfile::tempdir().unwrap();
+    let consent = UserConsent::at(dir.path().join("consent.json"));
+    let git = |ops: &[GitOp], provenance: Keyed, project: &str| {
+        let Approval::Capability(base) = approval("history") else {
+            unreachable!()
+        };
+        Approval::Capability(CapabilityApproval {
+            provenance,
+            project: project.to_string(),
+            granted: PortScope::Git(GitScope { ops: ops.to_vec() }),
+            ..base
+        })
+    };
+    let digest = |d: &str| Keyed::Digest(d.to_string());
+    consent
+        .approve(git(&[GitOp::Read, GitOp::Write], Keyed::Builtin, "/p"))
+        .unwrap();
+    assert!(
+        consent
+            .approved(&git(&[GitOp::Read], Keyed::Builtin, "/p"))
+            .unwrap(),
+        "a narrower grant"
+    );
+    assert!(
+        !consent
+            .approved(&git(&[GitOp::Read], Keyed::Builtin, "/q"))
+            .unwrap(),
+        "another project"
+    );
+    assert!(
+        !consent
+            .approved(&git(&[GitOp::Read], digest("ab"), "/p"))
+            .unwrap(),
+        "a builtin approval never meets a third-party load"
+    );
+    consent
+        .approve(git(&[GitOp::Read], digest("ab"), "/p"))
+        .unwrap();
+    assert!(
+        !consent
+            .approved(&git(&[GitOp::Read], digest("cd"), "/p"))
+            .unwrap(),
+        "another blob"
+    );
+    assert!(
+        !consent
+            .approved(&git(&[GitOp::Read, GitOp::Write], digest("ab"), "/p"))
+            .unwrap(),
+        "a wider grant asks again"
+    );
 }

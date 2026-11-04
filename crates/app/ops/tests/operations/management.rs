@@ -151,6 +151,7 @@ fn management_operations_read_the_project_from_their_view() {
                 caller: specforge_ops::testing::caller(),
             },
             &specforge_ops::testing::ScriptedMachine::new(),
+            &specforge_effects::testing::MemoryConsent::default(),
         )
         .map(drop)
         .map_err(specforge_ops::Refusal::into_error),
@@ -262,6 +263,7 @@ fn collect_at_a_root_that_is_no_project_is_no_project() {
             caller: specforge_ops::testing::caller(),
         },
         &specforge_ops::testing::ScriptedMachine::new(),
+        &specforge_effects::testing::MemoryConsent::default(),
     )
     .map(drop)
     .unwrap_err();

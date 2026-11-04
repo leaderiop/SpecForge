@@ -17,10 +17,14 @@ fn z3_ready() -> Arc<dyn specforge_ops::solver::Solver> {
     Arc::new(specforge_ops::testing::ScriptedSolver::ready())
 }
 
-/// The machine every served test project's collect sees: nothing approved, nothing to run (ADR 0125), whatever
-/// is in the developer's home.
+/// The machine every served test project's collect sees: nothing to run (ADR 0125).
 fn no_approvals() -> Arc<dyn specforge_ops::analysis::collect::CollectorMachine> {
     Arc::new(specforge_ops::testing::ScriptedMachine::new())
+}
+
+/// The approvals every served test project sees: none, whatever is in the developer's home (ADR 0335 D2.5).
+fn no_consent() -> specforge_effects::SharedConsent {
+    Arc::new(specforge_effects::testing::MemoryConsent::default())
 }
 
 /// The server `specforge mcp <root>` builds (`McpServer::with_project_root`), its doctor seeing z3. For the tests
@@ -29,6 +33,7 @@ pub fn rooted_server(root: &Path) -> McpServer {
     McpServer::with_project_root(root.to_path_buf())
         .with_solver(z3_ready())
         .with_collector_machine(no_approvals())
+        .with_consent(no_consent())
 }
 
 /// An initialized server over a [`TestProject`]: what a client of `specforge mcp <root>` talks to. Dereferences
@@ -82,7 +87,8 @@ impl Served {
     fn server_for(project: &TestProject) -> McpServer {
         let server = McpServer::new()
             .with_solver(z3_ready())
-            .with_collector_machine(no_approvals());
+            .with_collector_machine(no_approvals())
+            .with_consent(no_consent());
         match project.served() {
             Some(served) => server.with_extension_runtime(Arc::clone(served) as SharedRuntime),
             None => server,
@@ -114,6 +120,7 @@ impl Served {
         })
         .with_solver(z3_ready())
         .with_collector_machine(no_approvals())
+        .with_consent(no_consent())
         .with_extension_runtime(runtime);
         Self::over_with(project, server, json!({}))
     }
@@ -129,6 +136,7 @@ impl Served {
         let server = McpServer::new()
             .with_solver(z3_ready())
             .with_collector_machine(no_approvals())
+            .with_consent(no_consent())
             .with_extension_runtime(runtime);
         Self::over_with(project, server, params)
     }

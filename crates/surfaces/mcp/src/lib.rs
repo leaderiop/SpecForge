@@ -249,13 +249,20 @@ impl McpServer {
         self
     }
 
-    /// The same server, `specforge.collect` running commands and keeping approvals on `machine` instead of
-    /// the user's (`specforge_ops::testing::ScriptedMachine`, ADR 0125).
+    /// The same server, `specforge.collect` running commands on `machine` instead of the user's
+    /// (`specforge_ops::testing::ScriptedMachine`, ADR 0125).
     pub fn with_collector_machine(
         mut self,
         machine: std::sync::Arc<dyn specforge_ops::analysis::collect::CollectorMachine>,
     ) -> Self {
         self.state.collector_machine = machine;
+        self
+    }
+
+    /// The same server, its effects approved by `consent` instead of the user's consent store
+    /// (`specforge_effects::testing::MemoryConsent`, ADR 0335 D2.5).
+    pub fn with_consent(mut self, consent: specforge_effects::SharedConsent) -> Self {
+        self.state.consent = Some(consent);
         self
     }
 }

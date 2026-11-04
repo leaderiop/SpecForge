@@ -202,7 +202,7 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
     test_result_collection feature. Surface contributions (CLI commands,
     MCP tools, MCP resources) are owned by the surface_contributions feature.
     Collector behaviors (register_collector_contributions,
-    auto_detect_collector, approve_collector_command, run_collector_command,
+    auto_detect_collector, approve_capability, run_collector_command,
     dispatch_collector, ingest_collector_report) are owned by the
     test_result_collection feature.
   """

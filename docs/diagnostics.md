@@ -720,15 +720,20 @@ Level: error
 ```
 E059: Test command not approved
 
-A runner extension declares the command that runs its tests, and `specforge
-collect` only runs it after you approve it for the project. The approval is
-asked at an interactive prompt and remembered per project, extension and
-command, in your user-level `~/.specforge/collector-consent.json`, never in the
-project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes`
-to run the command, or `--no-run` to parse a report the runner already wrote.
-The MCP server never asks: approve the command once with `specforge collect` in
-a terminal, or call `specforge.collect` without `run` to parse the existing
-report.
+A runner extension declares the command that runs its tests as a process
+capability, and `specforge collect` only runs it after this machine approves
+that capability for the project (ADR 0335 D2). The approval is asked at an
+interactive prompt, or given with `specforge grants approve <extension>
+<scope>`, and remembered per project, extension, provenance (a builtin by its
+name, a third-party extension by its blob's digest) and scope, in your
+user-level `~/.specforge/consent.json`, never in the project: a changed command,
+a wider scope or a new blob asks again. Without a terminal (CI, `--format json`)
+nothing is asked: pass `--yes` to run the command without remembering it, or
+`--no-run` to parse a report the runner already wrote. When the consent store
+cannot be used (W186) nothing is asked whose answer it would lose. The MCP
+server never asks: approve the command with `specforge grants approve` or once
+with `specforge collect` in a terminal, or call `specforge.collect` without
+`run` to parse the existing report.
 
 Owner: core
 Level: error

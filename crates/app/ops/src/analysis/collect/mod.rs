@@ -10,9 +10,11 @@
 //! keyed here ([`facts`]); the caller stores them with the plans.
 //!
 //! The CLI and MCP are adapters: they hand the operation who can be asked
-//! (`crate::asking::Asking`) and the machine it runs on ([`CollectorMachine`], ADR 0125),
-//! and present the [`Outcome`].
+//! (`crate::asking::Asking`), the machine it runs on ([`CollectorMachine`], ADR 0125) and this
+//! machine's approvals (the `Consent` port, ADR 0335 D2), and present the [`Outcome`]. A collector's
+//! command is its extension's process capability, run only through that extension's grant.
 
+mod approval;
 mod collector;
 mod convention;
 mod dispatch;
@@ -22,7 +24,7 @@ mod merge;
 mod process;
 
 pub use crate::machine::{
-    CollectorCommand, CollectorMachine, CommandApproval, REPORT_ENV, Ran, RunFailure, RunnerOutput,
+    CollectorCommand, CollectorMachine, REPORT_ENV, Ran, RunFailure, RunnerOutput,
 };
 use collector::detect;
 pub use collector::{Collector, collectors};
@@ -71,7 +73,7 @@ pub struct Request<'a> {
     /// inside `caller.containment()` (ADR 0104 D3, ADR 0112 D2): the report, a collector's
     /// report files and its captured output; a name that lands outside is refused before any
     /// command runs, for every collector whose mode reads it. `caller.asking()` decides whether a collector's command may run; the consent
-    /// store is read first (ADR 0110).
+    /// store is read first (ADR 0110, ADR 0335 D2.4).
     pub caller: Caller<'a>,
 }
 
@@ -197,14 +199,15 @@ pub enum CollectStatus {
 /// results or the report holds that runner's tests, and the report is written only when a merge changed it. The
 /// facts collectors answer are admitted (E116) and keyed (I209) here, and stored by the caller with the plans. Every refusal that needs no run (a
 /// report location or capture the mode reads, a command, an approval) is decided for every selected
-/// collector before the first command runs (ADR 0125 D5, D7); the request's `caller.asking()` decides whether a
-/// collector's command may run, and its `announce` is told just before it runs. The machine runs
-/// the commands and keeps the approvals. Without a root, or at a root that holds no project:
-/// `no_project`.
+/// collector before the first command runs (ADR 0125 D5, D7): each command runs through its extension's grant
+/// (ADR 0335 D2), the approvals it needs settled with the request's `caller.asking()` and kept in `consent`; a
+/// command the grant refuses is E090. Its `announce` is told just before a command runs. The machine runs the
+/// commands. Without a root, or at a root that holds no project: `no_project`.
 pub fn collect(
     view: &ProjectView,
     request: Request,
     machine: &dyn CollectorMachine,
+    consent: &dyn specforge_effects::Consent,
 ) -> Result<Outcome, Refusal<CollectField>> {
     let root = view.project_root()?;
     if !view.env().config_found() {
@@ -256,18 +259,17 @@ pub fn collect(
     let planned = selected
         .into_iter()
         .map(|collector| {
-            Source::plan(
-                collector,
-                mode,
-                root,
-                asking,
-                containment,
-                machine,
-                &mut unsaved_approvals,
-            )
-            .map(|source| (collector, source))
+            Source::plan(collector, mode, root, containment).map(|source| (collector, source))
         })
         .collect::<Result<Vec<_>, OpError>>()?;
+    approval::settle_runs(
+        view,
+        root,
+        &planned,
+        asking,
+        consent,
+        &mut unsaved_approvals,
+    )?;
     for (collector, source) in planned {
         let Evidence {
             files,

@@ -159,6 +159,7 @@ fn a_writing_collectors_graph_carries_the_computed_values() {
             caller: caller(),
         },
         &ScriptedMachine::new(),
+        &specforge_effects::testing::MemoryConsent::default(),
     )
     .unwrap();
 

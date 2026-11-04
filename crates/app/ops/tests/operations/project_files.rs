@@ -42,12 +42,6 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
         "the write journal under .specforge, which the host owns",
     ),
     (
-        "analysis/collect/process.rs",
-        "fs::read_to_string(",
-        1,
-        "the user's consent store, not a project file",
-    ),
-    (
         "solver.rs",
         "fs::write(",
         1,

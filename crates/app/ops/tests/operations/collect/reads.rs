@@ -2,11 +2,10 @@
 //! facts to the export as `files`, held to the project as a pass's are.
 
 use serde_json::Value;
-use specforge_ops::testing::ScriptedMachine;
 use specforge_protocol_types::FileRead;
 use specforge_test_macros::test as specforge_test;
 
-use super::{Fixture, Runner};
+use super::{Fixture, Machine, Runner};
 
 /// A glob read of `glob`, with the files' text when `text`.
 fn glob(glob: &str, text: bool) -> FileRead {
@@ -30,7 +29,7 @@ fn collected(reads: &[(&str, FileRead)], files: &[(&str, &str)]) -> Value {
         fixture.write(path, text);
     }
     fixture
-        .no_run(Some("acme"), &ScriptedMachine::new())
+        .no_run(Some("acme"), &Machine::new())
         .expect("the collect runs");
     let calls = fixture.dispatched();
     calls
@@ -108,7 +107,7 @@ fn a_collectors_read_outside_the_project_is_refused() {
         )
         .unwrap();
         fixture
-            .no_run(Some("acme"), &ScriptedMachine::new())
+            .no_run(Some("acme"), &Machine::new())
             .expect("the collect runs");
         let calls = fixture.dispatched();
         let input = &calls

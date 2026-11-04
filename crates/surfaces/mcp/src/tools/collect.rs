@@ -76,7 +76,15 @@ impl CoreTool for Tool {
             caller: project.caller(),
         };
         let view = project.view();
-        let mut outcome = collect::collect(&view, request, project.machine)
+        let user;
+        let consent: &dyn specforge_effects::Consent = match project.consent {
+            Some(consent) => consent,
+            None => {
+                user = specforge_ops::consent::UserConsent::user(project.root.dir());
+                &user
+            }
+        };
+        let mut outcome = collect::collect(&view, request, project.machine, consent)
             .map_err(|refusal| Box::new(Self::refused(refusal)))?;
         // A writing collector's plans are applied after the report was written (ADR 0289).
         let applied = apply_collected(

@@ -1,10 +1,10 @@
 //! collect's flow past consent, through a scripted machine: approve, run, read, dispatch, merge.
 
-use super::{Fixture, Runner, paths};
+use super::{Fixture, Machine, Runner, paths};
 use specforge_ops::analysis::collect::{Mode, RunnerOutput};
 use specforge_ops::asking::Asking;
 use specforge_ops::asking::testing::{Asked, Scripted};
-use specforge_ops::testing::{ScriptedMachine, ScriptedRun};
+use specforge_ops::testing::ScriptedRun;
 use specforge_test_macros::test as specforge_test;
 
 /// A run that writes the runner's report file and exits 0.
@@ -23,7 +23,7 @@ fn acme() -> Fixture {
 #[test]
 fn an_approved_command_runs_once_and_its_report_is_merged() {
     let fx = acme();
-    let machine = ScriptedMachine::new()
+    let machine = Machine::new()
         .approving(fx.approval("acme"))
         .answering(reports());
 
@@ -53,9 +53,7 @@ fn an_approved_command_runs_once_and_its_report_is_merged() {
 )]
 fn the_command_line_expands_the_report_placeholder() {
     let fx = acme();
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
-        .answering(reports());
+    let machine = Machine::new().approving_everything().answering(reports());
 
     fx.run(Asking::Nobody, &machine).unwrap();
 
@@ -77,9 +75,7 @@ fn a_collector_whose_detection_file_is_present_is_selected() {
         Runner::new("second").proving("b", "t"),
     ]);
     fx.write("first.cfg", "");
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
-        .answering(reports());
+    let machine = Machine::new().approving_everything().answering(reports());
 
     fx.run(Asking::Nobody, &machine).unwrap();
 
@@ -95,9 +91,7 @@ fn a_collector_whose_detection_file_is_present_is_selected() {
 fn a_single_enabled_runner_needs_no_detection() {
     let fx = acme();
     assert!(!fx.exists("acme.cfg"));
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
-        .answering(reports());
+    let machine = Machine::new().approving_everything().answering(reports());
 
     fx.run(Asking::Nobody, &machine).unwrap();
 
@@ -107,7 +101,7 @@ fn a_single_enabled_runner_needs_no_detection() {
 #[test]
 fn yes_runs_the_command_and_remembers_nothing() {
     let fx = acme();
-    let machine = ScriptedMachine::new().answering(reports());
+    let machine = Machine::new().answering(reports());
 
     fx.run(Asking::Yes, &machine).unwrap();
 
@@ -119,16 +113,14 @@ fn yes_runs_the_command_and_remembers_nothing() {
 fn an_asker_is_asked_once_and_its_yes_is_remembered() {
     let fx = acme();
     let asker = Scripted::answering(true);
-    let machine = ScriptedMachine::new()
-        .answering(reports())
-        .answering(reports());
+    let machine = Machine::new().answering(reports()).answering(reports());
 
     fx.run(Asking::Ask(&asker), &machine).unwrap();
 
     let asked = asker.asked();
     assert_eq!(asked.len(), 1, "{asked:?}");
-    assert!(matches!(&asked[0], Asked::RunCommand { extension, .. } if extension == "@acme/acme"));
-    assert_eq!(machine.approvals(), [fx.approval("acme")]);
+    assert!(matches!(&asked[0], Asked::Capability { extension, .. } if extension == "@acme/acme"));
+    assert_eq!(machine.approvals(), ["acme"]);
     // The second collect finds the approval and asks nobody.
     fx.run(Asking::Ask(&asker), &machine).unwrap();
     assert_eq!(asker.asked().len(), 1);
@@ -139,14 +131,14 @@ fn an_asker_is_asked_once_and_its_yes_is_remembered() {
 fn an_approval_that_cannot_be_remembered_is_an_unsaved_approval() {
     let fx = acme();
     let asker = Scripted::answering(true);
-    let machine = ScriptedMachine::new()
+    let machine = Machine::new()
         .unable_to_remember("disk full")
         .answering(reports());
 
     let outcome = fx.run(Asking::Ask(&asker), &machine).unwrap();
 
     assert_eq!(machine.runs().len(), 1, "the command still runs");
-    assert_eq!(outcome.unsaved_approvals, ["disk full"]);
+    assert_eq!(outcome.unsaved_approvals, ["memory: disk full"]);
 }
 
 #[specforge_test(
@@ -157,8 +149,8 @@ fn a_report_file_left_by_an_earlier_run_is_never_read() {
     // A report file is removed before the command starts: a run that writes none has no report.
     let fx = acme();
     fx.write("out/acme.json", "stale");
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             exit_code: Some(101),
             ..ScriptedRun::default()
@@ -179,10 +171,12 @@ fn a_report_file_left_by_an_earlier_run_is_never_read() {
         .open(fx.root().join("out/old.json"))
         .unwrap();
     earlier
-        .set_modified(ScriptedMachine::started() - std::time::Duration::from_secs(1))
+        .set_modified(
+            specforge_ops::testing::ScriptedMachine::started() - std::time::Duration::from_secs(1),
+        )
         .unwrap();
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             files: vec![("new.json".into(), "{}".to_string())],
             exit_code: Some(0),
@@ -202,7 +196,7 @@ fn reads_a_file_or_every_json_file_in_a_directory() {
     fx.write("out/b.json", "{}");
     fx.write("out/a.json", "[]");
     fx.write("out/notes.txt", "x");
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     fx.no_run(None, &machine).unwrap();
 
@@ -212,8 +206,8 @@ fn reads_a_file_or_every_json_file_in_a_directory() {
 #[test]
 fn a_failing_run_with_a_report_is_recorded() {
     let fx = acme();
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             exit_code: Some(101),
             ..reports()
@@ -233,8 +227,8 @@ fn a_captured_stdout_reaches_the_export_and_is_kept() {
             .capturing_stdout()
             .proving("a", "t"),
     ]);
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             stdout: Some("t ... ok\n".to_string()),
             exit_code: Some(0),
@@ -254,7 +248,7 @@ fn a_captured_stdout_reaches_the_export_and_is_kept() {
 fn no_run_reads_the_existing_report_and_runs_nothing() {
     let fx = acme();
     fx.write("out/acme.json", "{}");
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let outcome = fx.no_run(None, &machine).unwrap();
 
@@ -269,7 +263,7 @@ fn reports_mode_reads_the_named_files_and_runs_nothing() {
     let fx = acme();
     fx.write("elsewhere/mine.json", "{}");
     let files = [fx.root().join("elsewhere/mine.json")];
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let outcome = fx
         .collect_with(
@@ -293,14 +287,14 @@ fn reports_mode_reads_the_named_files_and_runs_nothing() {
 fn the_run_and_approval_contracts_hold() {
     // command_approved: an unapproved command with nobody to ask runs nothing (E059).
     let fx = acme();
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
     let refusal = fx.run(Asking::Nobody, &machine).unwrap_err();
     assert_eq!(refusal.error.code, "E059");
     assert!(machine.runs().is_empty());
 
     // report_inside_project: a report declared outside is E058 and runs nothing.
     let outside = Fixture::new(vec![Runner::new("acme").report("../x.json")]);
-    let machine = ScriptedMachine::new().approving_every_command();
+    let machine = Machine::new().approving_everything();
     let refusal = outside.run(Asking::Nobody, &machine).unwrap_err();
     assert_eq!(refusal.error.code, "E058");
     assert!(machine.runs().is_empty());
@@ -308,8 +302,8 @@ fn the_run_and_approval_contracts_hold() {
     // stale_report_ignored, report_path_exported, failing_tests_recorded.
     let fx = acme();
     fx.write("out/acme.json", "stale");
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             exit_code: Some(101),
             ..reports()
@@ -323,7 +317,7 @@ fn the_run_and_approval_contracts_hold() {
     let two = Fixture::new(vec![Runner::new("first"), Runner::new("second")]);
     two.write("first.cfg", "");
     two.write("second.cfg", "");
-    let machine = ScriptedMachine::new().approving(two.approval("first"));
+    let machine = Machine::new().approving(two.approval("first"));
     let refusal = two.run(Asking::Nobody, &machine).unwrap_err();
     assert_eq!(refusal.error.code, "E059");
     assert!(machine.runs().is_empty());
@@ -347,8 +341,8 @@ fn collect_capture_is_not_written_through_a_hard_link() {
     std::fs::write(&victim, "ORIGINAL").unwrap();
     std::fs::create_dir_all(fx.root().join("out")).unwrap();
     std::fs::hard_link(&victim, fx.root().join("out/r.json.stdout.txt")).unwrap();
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             stdout: Some("t ... ok\n".to_string()),
             exit_code: Some(0),
@@ -379,8 +373,8 @@ fn detected() -> Fixture {
 fn a_detected_collector_with_no_evidence_is_skipped_and_the_others_are_kept() {
     let fx = detected();
     // `first` writes no report; `second` writes one.
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             exit_code: Some(1),
             ..ScriptedRun::default()
@@ -422,8 +416,8 @@ fn a_detected_collector_with_no_evidence_is_skipped_and_the_others_are_kept() {
 )]
 fn a_named_collector_with_no_evidence_is_still_e045() {
     let fx = detected();
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             exit_code: Some(1),
             ..ScriptedRun::default()
@@ -439,6 +433,38 @@ fn a_named_collector_with_no_evidence_is_still_e045() {
         .unwrap_err();
     assert_eq!(refusal.error.code, "E045");
     // Read without a run, a detected collector with no report is skipped too.
-    let outcome = fx.no_run(None, &ScriptedMachine::new()).unwrap();
+    let outcome = fx.no_run(None, &Machine::new()).unwrap();
     assert!(outcome.runners.iter().all(|r| r.skip_reason.is_some()));
+}
+
+#[specforge_test(
+    behavior = "approve_capability",
+    verify = "a third-party collector asks again after its blob changes"
+)]
+fn a_third_party_collector_asks_again_after_its_blob_changes() {
+    use specforge_wasm::WasmRuntime;
+    let fx = acme();
+    let asker = Scripted::answering(true);
+    let machine = Machine::new()
+        .answering(reports())
+        .answering(reports())
+        .answering(reports());
+    let load = |blob: &[u8]| {
+        fx.runtime
+            .load(
+                "@acme/acme",
+                blob,
+                specforge_effects::Provenance::third_party(blob),
+            )
+            .unwrap();
+    };
+
+    load(b"v1");
+    fx.run(Asking::Ask(&asker), &machine).unwrap();
+    fx.run(Asking::Ask(&asker), &machine).unwrap();
+    assert_eq!(asker.asked().len(), 1, "the same blob is approved");
+    load(b"v2");
+    fx.run(Asking::Ask(&asker), &machine).unwrap();
+    assert_eq!(asker.asked().len(), 2, "another blob asks again");
+    assert_eq!(machine.runs().len(), 3);
 }

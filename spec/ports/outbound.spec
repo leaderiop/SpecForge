@@ -202,13 +202,11 @@ port CollectorMachine "Collector Machine" {
   direction outbound
   category  "analysis/collect"
   // What collect asks the machine it runs on (ADR 0125): run a collector's
-  // command to its end (answering when it started), and the user's approvals
-  // of commands. Its adapters are a child process run through the Process
-  // port, held to a deadline and an output cap (ADR 0335), with the
-  // user-level consent store (production) and a scripted machine (tests).
+  // command to its end (answering when it started). Whether it may run is
+  // the grant's and the Consent port's (ADR 0335 D2). Its adapters are a
+  // child process run through the Process port, held to a deadline and an
+  // output cap (ADR 0335) (production), and a scripted machine (tests).
   method run(command: CollectorCommand) -> Result<CollectorRun, CollectorRunFailure>
-  method approved(approval: CommandApproval) -> Result<boolean, never>
-  method approve(approval: CommandApproval) -> Result<void, string>
   verify integration "CollectorMachine contract is satisfied"
 }
 

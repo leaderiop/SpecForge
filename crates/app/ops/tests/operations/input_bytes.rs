@@ -49,6 +49,7 @@ fn command_collect_and_hook_inputs_differ_from_1_10_only_by_now() {
             caller: caller(),
         },
         &ScriptedMachine::new(),
+        &specforge_effects::testing::MemoryConsent::default(),
     )
     .unwrap();
     let sent = runtime

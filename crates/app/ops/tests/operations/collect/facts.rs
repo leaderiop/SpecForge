@@ -78,6 +78,7 @@ fn collect(
             caller: caller(),
         },
         &ScriptedMachine::new(),
+        &specforge_effects::testing::MemoryConsent::default(),
     )
     .expect("the collect runs");
     let facts = std::mem::take(&mut outcome.facts);

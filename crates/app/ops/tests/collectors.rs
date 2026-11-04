@@ -70,6 +70,7 @@ fn run_collect(
             caller: specforge_ops::testing::caller(),
         },
         machine,
+        &specforge_effects::testing::MemoryConsent::approving_everything(),
     )
     .unwrap()
 }
@@ -248,6 +249,7 @@ fn collect_maps_results_to_the_views_entities() {
             caller: specforge_ops::testing::caller(),
         },
         &specforge_ops::testing::ScriptedMachine::new(),
+        &specforge_effects::testing::MemoryConsent::default(),
     )
     .unwrap();
 
@@ -329,19 +331,17 @@ fn collect_links_plain_tests_by_naming_convention() {
     use specforge_ops::testing::{ScriptedMachine, ScriptedRun};
     let (dir, project) = project_with("@specforge/cargo-test", LOGIN);
     // Plain `#[test]` functions print libtest's lines and write no report.
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
-        .answering(ScriptedRun {
-            stdout: Some(
-                "running 3 tests\n\
+    let machine = ScriptedMachine::new().answering(ScriptedRun {
+        stdout: Some(
+            "running 3 tests\n\
                  test tests::login__accepts_valid_credentials ... ok\n\
                  test login::rejects_a_locked_account ... FAILED\n\
                  test tests::unrelated ... ok\n"
-                    .to_string(),
-            ),
-            exit_code: Some(101),
-            ..ScriptedRun::default()
-        });
+                .to_string(),
+        ),
+        exit_code: Some(101),
+        ..ScriptedRun::default()
+    });
 
     let outcome = run_collect(&project, "cargo-test", &machine);
 
@@ -380,7 +380,6 @@ fn vitest_runs_with_the_report_path_and_maps_linked_tests() {
     use specforge_ops::testing::{ScriptedMachine, ScriptedRun};
     let (dir, project) = project_with("@specforge/vitest", LOGIN);
     let machine = ScriptedMachine::new()
-        .approving_every_command()
         .answering(ScriptedRun {
             files: vec![(
                 "".into(),
@@ -474,6 +473,7 @@ fn collect_stored(
             caller: specforge_ops::testing::caller(),
         },
         machine,
+        &specforge_effects::testing::MemoryConsent::approving_everything(),
     )
     .unwrap();
     let facts = std::mem::take(&mut outcome.facts);
@@ -492,13 +492,11 @@ fn collect_stored(
 /// A machine whose one run writes `report` and exits with `exit_code`.
 fn node_run(report: String, exit_code: i32) -> specforge_ops::testing::ScriptedMachine {
     use specforge_ops::testing::{ScriptedMachine, ScriptedRun};
-    ScriptedMachine::new()
-        .approving_every_command()
-        .answering(ScriptedRun {
-            files: vec![("".into(), report)],
-            exit_code: Some(exit_code),
-            ..ScriptedRun::default()
-        })
+    ScriptedMachine::new().answering(ScriptedRun {
+        files: vec![("".into(), report)],
+        exit_code: Some(exit_code),
+        ..ScriptedRun::default()
+    })
 }
 
 /// The `(id, status)` of every entity of `kind` the project compiles to now, its stored facts served.
