@@ -93,6 +93,37 @@ fn html_anchors_reads_a_page_cut_anywhere() {
 }
 
 #[test]
+fn html_anchors_survives_hostile_pages() {
+    let names = |page: &[u8]| anchors(page).into_iter().collect::<Vec<_>>();
+    // Unclosed: a tag, a quoted value, a comment and a raw-text element each run to the end.
+    assert_eq!(names(br#"<p id="open"#), ["open"]);
+    assert_eq!(names(br#"<p id=bare"#), ["bare"]);
+    assert_eq!(names(br#"<p id="x <p id='y'>"#), ["x <p id='y'>"]);
+    assert!(names(br#"<!-- <p id="hidden">"#).is_empty());
+    assert!(names(br#"<script><p id="hidden">"#).is_empty());
+    // A comment does not nest: the first `-->` closes it, as in HTML.
+    assert_eq!(names(br#"<!-- <!-- --> <p id="after"> -->"#), ["after"]);
+    assert!(names(br#"<!-- <!-- <p id="in"> -->"#).is_empty());
+    // A raw-text element closes only on its own name, in any case.
+    assert_eq!(
+        names(br#"<script></scrip></style></SCRIPT ><p id="s">"#),
+        ["s"]
+    );
+    // Bytes that are not UTF-8 name an anchor lossily, and never fail.
+    assert_eq!(names(b"<p id=\"\xff\">"), ["\u{fffd}"]);
+    // Huge: one 4 MiB value, and 200,000 attributes, each read once.
+    let mut huge = b"<p id=\"".to_vec();
+    huge.resize(huge.len() + (4 << 20), b'a');
+    huge.extend_from_slice(b"\"><a id=next>");
+    let found = anchors(&huge);
+    assert_eq!(found.len(), 2);
+    assert!(found.contains("next"));
+    let many = [b"<p ".as_slice(), &b"x=1 ".repeat(200_000), b"id=last>"].concat();
+    assert_eq!(names(&many), ["last"]);
+    assert!(names(&b"<script></".repeat(100_000)).is_empty());
+}
+
+#[test]
 fn line_range_parses_a_line_and_a_span_and_refuses_start_after_end() {
     let span = LineRange::parse("src/a.rs:10-40").unwrap();
     assert_eq!((span.path, span.start, span.end), ("src/a.rs", 10, 40));
