@@ -6,7 +6,7 @@
 use gix::refs::transaction::PreviousValue;
 use specforge_effects::git::{GitConflict, GitError, GitPlace, GitStash, Merged, ResetMode, Sha};
 
-use crate::write::{Author, gix_owned, libgit2, record};
+use crate::write::{Author, gix_owned, head_of, libgit2, record};
 use crate::{Gix, failed, id};
 
 fn oid(sha: &Sha) -> Result<git2::Oid, GitError> {
@@ -64,14 +64,6 @@ fn conflicts(repo: &git2::Repository) -> Result<Vec<GitConflict>, GitError> {
     }
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)
-}
-
-/// `HEAD`'s commit, when it has one.
-fn head_of(repo: &git2::Repository) -> Option<Sha> {
-    repo.head()
-        .ok()
-        .and_then(|head| head.target())
-        .map(|oid| Sha::new(oid.to_string()))
 }
 
 pub(crate) fn merge(

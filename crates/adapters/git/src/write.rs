@@ -61,7 +61,43 @@ pub(crate) fn commit(
     message: &str,
     allow_empty: bool,
 ) -> Result<Committed, GitError> {
-    record(gix_port, place, message, None, allow_empty, None)
+    // a merge the user resolved concludes as git concludes it: MERGE_HEAD's commits are parents too, and the
+    // operation's state (a merge's, a cherry-pick's, a revert's) is ended once the commit is recorded
+    let mut repo = libgit2(place)?;
+    let state = repo.state();
+    let parents = if state == git2::RepositoryState::Merge {
+        let mut parents: Vec<Sha> = head_of(&repo).into_iter().collect();
+        repo.mergehead_foreach(|oid| {
+            parents.push(Sha::new(oid.to_string()));
+            true
+        })
+        .map_err(|e| failed("read MERGE_HEAD", &e))?;
+        Some(parents)
+    } else {
+        None
+    };
+    let merging = state != git2::RepositoryState::Clean;
+    let committed = record(
+        gix_port,
+        place,
+        message,
+        parents,
+        allow_empty || merging,
+        None,
+    )?;
+    if merging {
+        repo.cleanup_state()
+            .map_err(|e| failed("end the operation the commit concludes", &e))?;
+    }
+    Ok(committed)
+}
+
+/// `HEAD`'s commit, when it has one.
+pub(crate) fn head_of(repo: &git2::Repository) -> Option<Sha> {
+    repo.head()
+        .ok()
+        .and_then(|head| head.target())
+        .map(|oid| Sha::new(oid.to_string()))
 }
 
 /// Who made a commit another one records again (a cherry-pick keeps its author), its time as git writes it

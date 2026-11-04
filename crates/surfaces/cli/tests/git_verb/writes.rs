@@ -659,3 +659,26 @@ fn a_conflicting_cherry_pick_answers_its_conflicts() {
     );
     assert_eq!(repo.sha("HEAD"), main);
 }
+
+#[test]
+fn a_commit_after_a_resolved_conflict_concludes_the_merge() {
+    let (project, repo, _first, side) = side("a.txt", "one\nside\n");
+    repo.write("a.txt", "one\nmain\n");
+    let main = repo.commit_all("on main");
+    git(&project, &["merge", "side"]).exits(1);
+    repo.write("a.txt", "one\nboth\n");
+    let answer = git(&project, &["commit", "--add", "a.txt", "-m", "Merge side"])
+        .exits(0)
+        .json();
+    assert_eq!(answer["parents"], json!([main, side]));
+    assert!(
+        !repo.git_dir().join("MERGE_HEAD").exists(),
+        "the merge is ended"
+    );
+    assert_eq!(
+        git(&project, &["status", "--pick", ".clean"])
+            .exits(0)
+            .stdout,
+        "true\n"
+    );
+}
