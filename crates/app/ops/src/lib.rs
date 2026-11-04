@@ -30,6 +30,7 @@ mod caller;
 mod change;
 pub mod config;
 mod config_edit;
+pub mod consent;
 mod containment;
 mod edit_report;
 mod error;

@@ -4024,6 +4024,24 @@ Owner: core
 Level: warning
 ```
 
+## W186
+
+```
+W186: Consent store not usable
+
+The user's consent store (`~/.specforge/consent.json`, or the file
+`SPECFORGE_CONSENT_FILE` names) cannot be used (ADR 0335 D2.5): it cannot be
+read, is not JSON or not a consent store, was written by a newer specforge (a
+higher `version`), or `SPECFORGE_CONSENT_FILE` names a file inside the project,
+where a repository could approve its own effects. Nothing in it is approved, and
+nothing is written over it: an approval given now is not kept. The message names
+the file and why. Fix the file or move it away, update specforge, or point
+`SPECFORGE_CONSENT_FILE` outside the project.
+
+Owner: core
+Level: warning
+```
+
 ## W191
 
 ```

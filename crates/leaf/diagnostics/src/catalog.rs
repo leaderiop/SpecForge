@@ -778,6 +778,9 @@ catalog! {
     W175: Warning core,
         "Path uses backslashes",
         "A file-reference path uses `\\` as a separator (ADR 0335). It is read as `/`, so the path resolves on every OS, but a spec writes `/`. Replace each backslash with `/`.";
+    W186: Warning core,
+        "Consent store not usable",
+        "The user's consent store (`~/.specforge/consent.json`, or the file `SPECFORGE_CONSENT_FILE` names) cannot be used (ADR 0335 D2.5): it cannot be read, is not JSON or not a consent store, was written by a newer specforge (a higher `version`), or `SPECFORGE_CONSENT_FILE` names a file inside the project, where a repository could approve its own effects. Nothing in it is approved, and nothing is written over it: an approval given now is not kept. The message names the file and why. Fix the file or move it away, update specforge, or point `SPECFORGE_CONSENT_FILE` outside the project.";
     W191: Warning core,
         "A fact store the harness ledger does not record",
         "A file under `.specforge/facts/<key>/` is a collector's fact store (ADR 0327), but no `facts:` line of `specforge-harness` records exactly its collector, its key and its digest: it was collected on another commit or branch (the ledger is committed, the store is not), or it changed since. Its facts are not served, so the references to them are unheld. Run `specforge collect` to collect the facts again and record them.";

@@ -11,12 +11,20 @@ use std::path::{Path, PathBuf};
 const NEEDLES: &[&str] = &["Command::new(", "env::var(", "env::var_os("];
 
 /// `(file under src/, needle, how many lines, why it may reach the machine)`.
-const ALLOWED: &[(&str, &str, usize, &str)] = &[(
-    "analysis/collect/process.rs",
-    "env::var_os(",
-    3,
-    "the collector machine's adapter, ADR 0125",
-)];
+const ALLOWED: &[(&str, &str, usize, &str)] = &[
+    (
+        "analysis/collect/process.rs",
+        "env::var_os(",
+        3,
+        "the collector machine's adapter, ADR 0125",
+    ),
+    (
+        "consent.rs",
+        "env::var_os(",
+        3,
+        "the user's consent store, outside every project (ADR 0335 D2.5)",
+    ),
+];
 
 /// Test support, which stands for the machine.
 fn exempt(file: &str) -> bool {

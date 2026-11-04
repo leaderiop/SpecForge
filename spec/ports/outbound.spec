@@ -182,6 +182,22 @@ port Editor "Editor" {
   verify integration "Editor contract is satisfied"
 }
 
+port Consent "Consent" {
+  direction outbound
+  category  "effects/consent"
+  // This machine's approvals of extension effects (ADR 0335 D2.4, D2.5):
+  // a capability by project, extension, provenance and scope, and a named
+  // root outside the project by its target. Its adapter is the user's
+  // consent store, ~/.specforge/consent.json, outside every project, read
+  // and written whole under a lock and replaced privately; the fake is
+  // specforge_effects::testing::MemoryConsent.
+  method approved(approval: string) -> Result<boolean, string>
+  method approve(approval: string) -> Result<void, string>
+  method revoke(which: string) -> Result<integer, string>
+  method list() -> Result<string[], string>
+  verify integration "Consent contract is satisfied"
+}
+
 port CollectorMachine "Collector Machine" {
   direction outbound
   category  "analysis/collect"

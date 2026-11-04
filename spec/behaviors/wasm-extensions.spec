@@ -413,7 +413,7 @@ behavior approve_collector_command "Approve Collector Command" {
   invariants [extension_isolation]
   category   validation
   types      [CollectorDescriptor]
-  ports      [CollectorMachine]
+  ports      [Consent, CollectorMachine]
   requires {
     command_declared "the selected collector declares a command"
   }
