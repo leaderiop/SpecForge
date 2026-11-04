@@ -8,13 +8,42 @@ use std::rc::Rc;
 use serde_json::Value;
 use specforge_protocol_types::{
     CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckPhase, CheckPlan, CheckRef,
-    CheckValuesInput, CheckerDescriptor, FieldDescriptor, PlannedItem, Root, ValueForm,
+    CheckValuesInput, CheckerDescriptor, FieldDescriptor, PlannedItem, Probe, Root, ValueForm,
 };
 
 use crate::{ContributionsBuilder, FieldBuilder};
 
 type Plan = Box<dyn Fn(&CheckItem) -> PlannedItem>;
-type Judge = Box<dyn Fn(&CheckItem) -> Vec<CheckFinding>>;
+type Judge = Box<dyn Fn(&CheckItem) -> Judged>;
+
+/// What a judge says of one value: its findings, the probes it needs performed in another round (at most
+/// [`specforge_protocol_types::MAX_PROBE_ROUNDS`] in all) with what it carries to it in `item.carry`, or that the
+/// answers do not let it judge.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Judged {
+    Findings(Vec<CheckFinding>),
+    More {
+        probes: Vec<Probe>,
+        carry: Value,
+    },
+    /// The answers hold nothing the checker can judge (an answer past what it reads): the value is left out of the
+    /// reply, so the host leaves it unchecked and counts it toward I206, never a pass.
+    Unchecked,
+}
+
+impl Judged {
+    /// Another round: `probes` performed, the next call handed their answers alone in `item.outcomes` and `carry`
+    /// back, which holds what it needs of this round's.
+    pub fn more(probes: Vec<Probe>, carry: Value) -> Self {
+        Judged::More { probes, carry }
+    }
+}
+
+impl From<Vec<CheckFinding>> for Judged {
+    fn from(findings: Vec<CheckFinding>) -> Self {
+        Judged::Findings(findings)
+    }
+}
 
 pub(crate) struct Handlers {
     plan: Plan,
@@ -77,28 +106,29 @@ impl ContributionsBuilder {
     }
 }
 
-/// Each item's answer, by its checker and the call's phase. A checker the extension does not have fails the call.
+/// Each item's answer, by its checker and the call's phase; a value its judge left unchecked has none. A checker the
+/// extension does not have fails the call.
 pub(crate) fn answer(
     checkers: &BTreeMap<String, Handlers>,
     input: &CheckValuesInput,
 ) -> Result<CheckPlan, String> {
-    let items = input.items.iter().map(|item| {
+    let items = input.items.iter().filter_map(|item| {
         let Some(handlers) = checkers.get(&item.checker) else {
-            return Err(format!("no checker named '{}'", item.checker));
+            return Some(Err(format!("no checker named '{}'", item.checker)));
         };
         let planned = match input.phase {
             CheckPhase::Plan => (handlers.plan)(item),
-            CheckPhase::Judge => PlannedItem::findings(
-                handlers
-                    .judge
-                    .as_ref()
-                    .map_or_else(Vec::new, |judge| judge(item)),
-            ),
+            CheckPhase::Judge => match handlers.judge.as_ref().map(|judge| judge(item)) {
+                None => PlannedItem::default(),
+                Some(Judged::Findings(findings)) => PlannedItem::findings(findings),
+                Some(Judged::More { probes, carry }) => PlannedItem::more(probes, carry),
+                Some(Judged::Unchecked) => return None,
+            },
         };
-        Ok(PlannedItem {
+        Some(Ok(PlannedItem {
             id: item.id,
             ..planned
-        })
+        }))
     });
     Ok(CheckPlan {
         items: items.collect::<Result<_, String>>()?,
@@ -172,12 +202,14 @@ impl CheckerBuilder {
         self
     }
 
-    /// Its findings from `item.outcomes`, what its probes answered; none when it declares no judge.
-    pub fn judge(
+    /// Its findings from `item.outcomes`, what its probes answered (a `Vec<CheckFinding>`), or another round of probes
+    /// ([`Judged::more`]), at most [`specforge_protocol_types::MAX_PROBE_ROUNDS`] in all; none when it declares no
+    /// judge.
+    pub fn judge<J: Into<Judged>>(
         &mut self,
-        judge: impl Fn(&CheckItem) -> Vec<CheckFinding> + 'static,
+        judge: impl Fn(&CheckItem) -> J + 'static,
     ) -> &mut Self {
-        self.judge = Some(Box::new(judge));
+        self.judge = Some(Box::new(move |item| judge(item).into()));
         self
     }
 }

@@ -33,6 +33,7 @@ impl ValueOutcome {
             OutcomeClass::Outside => "outside",
             OutcomeClass::NotFound => "not_found",
             OutcomeClass::CannotStart => "cannot_start",
+            OutcomeClass::RangeIgnored => "range:ignored",
             OutcomeClass::Unreachable(why) => {
                 let why = match why {
                     Unreachable::Dns => "dns",

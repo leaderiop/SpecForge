@@ -31,6 +31,9 @@ struct Entry {
     findings: Vec<CheckFinding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     probes: Vec<Probe>,
+    /// What a judge asking for another round carries to it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    carry: Option<serde_json::Value>,
 }
 
 /// One extension's answers at one origin version.
@@ -118,8 +121,18 @@ impl<'a> Shelf<'a> {
     /// What `item` is asked, in `phase`: all it was given but its id, and of its answers what they said, not when. The
     /// day an answer carrying an expiry was observed is what it said: `observed_at` is a pure guest's only clock.
     fn key(&self, phase: CheckPhase, item: &CheckItem) -> String {
-        let mut asked = item.clone();
-        asked.id = 0;
+        // The answers lean (a body by its digest): a cloned 16 MiB body digested as a JSON array would cost gigabytes.
+        let mut asked = CheckItem {
+            id: 0,
+            checker: item.checker.clone(),
+            entity: item.entity.clone(),
+            field: item.field.clone(),
+            item: item.item,
+            text: item.text.clone(),
+            args: item.args.clone(),
+            outcomes: item.outcomes.iter().map(super::network::lean).collect(),
+            carry: item.carry.clone(),
+        };
         for outcome in &mut asked.outcomes {
             let expires = matches!(
                 outcome.data,
@@ -161,6 +174,7 @@ impl<'a> Shelf<'a> {
                         id: item.id,
                         findings: entry.findings.clone(),
                         probes: entry.probes.clone(),
+                        carry: entry.carry.clone(),
                     });
                 }
                 None => unknown.push((key, item)),
@@ -177,6 +191,7 @@ impl<'a> Shelf<'a> {
             used: book.run,
             findings: answer.findings.clone(),
             probes: answer.probes.clone(),
+            carry: answer.carry.clone(),
         };
         book.entries.insert(key, entry);
         book.changed = true;
@@ -226,6 +241,7 @@ mod tests {
                 used: 0,
                 findings: Vec::new(),
                 probes: Vec::new(),
+                carry: None,
             },
         );
         specforge_common::fresh::replace_private(&file, &serde_json::to_vec(&book).unwrap())
@@ -312,6 +328,7 @@ mod tests {
                     used,
                     findings: Vec::new(),
                     probes: Vec::new(),
+                    carry: None,
                 },
             );
         }

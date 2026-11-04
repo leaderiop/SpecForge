@@ -124,6 +124,8 @@ reqwest = { version = "0.13", default-features = false, features = ["blocking", 
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-platform-verifier = "0.7"
 webpki-root-certs = "1"
+# Typed HTTP headers: a ranged answer's `Content-Range`, read on the host where no blob cap weighs a parser.
+headers = "0.4"
 
 # CLI
 clap = { version = "4.5.60", features = ["derive"] }

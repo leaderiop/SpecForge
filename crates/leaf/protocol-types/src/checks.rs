@@ -9,6 +9,10 @@ use crate::{FieldDescriptor, Header, OutcomeClass, Root};
 /// The export one extension's checkers are all called by; the guest routes each item by its checker's name.
 pub const CHECK_VALUES_EXPORT: &str = "__check_values";
 
+/// The most rounds of probes one value's check runs: the plan's, then at most two its judge asks for after reading the
+/// answers. A judge that asks in the last round answers malformed (E028).
+pub const MAX_PROBE_ROUNDS: u32 = 3;
+
 /// What became of one check on one value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -141,6 +145,10 @@ pub struct CheckerDescriptor {
     pub description: Option<String>,
 }
 
+fn is_zero(value: &u64) -> bool {
+    *value == 0
+}
+
 fn is_text(value: &ValueForm) -> bool {
     *value == ValueForm::Text
 }
@@ -179,9 +187,13 @@ pub struct CheckItem {
     pub text: String,
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub args: Map<String, Value>,
-    /// What this item's probes answered: the judge phase's only.
+    /// What this item's probes answered in this round, in order: the judge phase's only. A later round's judge is not
+    /// sent an earlier round's answers again: it carries what it needs of them in `carry`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outcomes: Vec<ProbeOutcome>,
+    /// What the judge's last round asked to be handed back with the next: every call is a fresh instance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub carry: Option<Value>,
 }
 
 /// What `__check_values` answers, in either phase.
@@ -191,7 +203,7 @@ pub struct CheckPlan {
     pub items: Vec<PlannedItem>,
 }
 
-/// One item's answer. A judge phase's has no probes.
+/// One item's answer. A judge phase's probes ask for another round, with what it carries to it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlannedItem {
     pub id: u32,
@@ -199,6 +211,8 @@ pub struct PlannedItem {
     pub findings: Vec<CheckFinding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub probes: Vec<Probe>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub carry: Option<Value>,
 }
 
 impl PlannedItem {
@@ -206,6 +220,15 @@ impl PlannedItem {
     pub fn probes(probes: Vec<Probe>) -> Self {
         PlannedItem {
             probes,
+            ..Default::default()
+        }
+    }
+
+    /// A judgement that needs `probes` performed in another round, `carry` handed back with their answers.
+    pub fn more(probes: Vec<Probe>, carry: Value) -> Self {
+        PlannedItem {
+            probes,
+            carry: Some(carry),
             ..Default::default()
         }
     }
@@ -260,19 +283,13 @@ impl CheckFinding {
 pub enum Probe {
     #[serde(rename = "fs.stat")]
     FsStat { root: Root, path: String },
-    /// Held to 64 KiB.
-    #[serde(rename = "fs.read_prefix")]
-    FsReadPrefix {
-        root: Root,
-        path: String,
-        bytes: u32,
-    },
-    /// Held to 1 MiB.
+    /// The bytes `range` names: a prefix is held to 64 KiB, any other range to 1 MiB. A file of any size is read,
+    /// since no range holds more than that.
     #[serde(rename = "fs.read")]
     FsRead {
         root: Root,
         path: String,
-        bytes: u32,
+        range: ByteRange,
     },
     /// The SHA-256 of a whole file, of any size: the host streams it, bounded by the run's time.
     #[serde(rename = "fs.digest")]
@@ -290,13 +307,18 @@ pub enum Probe {
         #[serde(default)]
         redirects: u32,
     },
-    /// `max_bytes` is held to 1 MiB; `range` is the inclusive bytes asked for.
+    /// The bytes `range` names, held to 1 MiB: a range other than `whole` is asked with a `Range` header, and a server
+    /// that answers the whole body anyway is sliced when the body is within the cap (`range:ignored` otherwise).
     #[serde(rename = "http.get")]
-    HttpGet {
+    HttpGet { url: String, range: ByteRange },
+    /// A JSON query POSTed to a host its capability lists (never to a host a value names), its body at most
+    /// [`MAX_QUERY_BYTES`] of JSON; the answer is read as a `whole` GET's, up to the capability's `max_bytes`. It is
+    /// never retried.
+    #[serde(rename = "http.post_query")]
+    HttpPostQuery {
         url: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        range: Option<[u64; 2]>,
-        max_bytes: u32,
+        #[serde(deserialize_with = "bounded_query")]
+        json_body: String,
     },
     #[serde(rename = "http.tls")]
     HttpTls { host: String, port: u16 },
@@ -312,6 +334,98 @@ pub enum Probe {
     GitFile { rev: String, path: String },
     #[serde(rename = "git.tracked")]
     GitTracked { root: Root, path: String },
+}
+
+/// The most bytes of JSON an `http.post_query` sends.
+pub const MAX_QUERY_BYTES: usize = 16 * 1024;
+
+/// A query body: JSON, at most [`MAX_QUERY_BYTES`]. Anything else is a malformed answer (E028).
+fn bounded_query<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    use serde::de::Error as _;
+    let body = String::deserialize(deserializer)?;
+    if body.len() > MAX_QUERY_BYTES {
+        return Err(D::Error::custom(format!(
+            "an http.post_query body of {} bytes is over {MAX_QUERY_BYTES}",
+            body.len()
+        )));
+    }
+    serde_json::from_str::<serde::de::IgnoredAny>(&body)
+        .map_err(|e| D::Error::custom(format!("an http.post_query body is not JSON: {e}")))?;
+    Ok(body)
+}
+
+/// Which bytes a read asks for. The host holds each to its cap and answers where the bytes start and how long the whole
+/// is, so one shape says which bytes on a file and on a URL.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ByteRange {
+    /// From the start, at most `max` bytes; a request names no range.
+    Whole { max: u64 },
+    /// The first `len` bytes.
+    Prefix { len: u32 },
+    /// The last `len` bytes: where a PDF keeps its trailer.
+    Suffix { len: u32 },
+    /// `len` bytes from `offset`.
+    Span { offset: u64, len: u32 },
+}
+
+impl ByteRange {
+    /// The most bytes it asks for.
+    pub fn len(self) -> u64 {
+        match self {
+            ByteRange::Whole { max } => max,
+            ByteRange::Prefix { len } | ByteRange::Suffix { len } | ByteRange::Span { len, .. } => {
+                u64::from(len)
+            }
+        }
+    }
+
+    /// Whether it asks for no byte.
+    pub fn is_empty(self) -> bool {
+        self.len() == 0
+    }
+
+    /// The same range, asking for at most `cap` bytes.
+    pub fn held_to(self, cap: u32) -> ByteRange {
+        let len = |len: u32| len.min(cap);
+        match self {
+            ByteRange::Whole { max } => ByteRange::Whole {
+                max: max.min(u64::from(cap)),
+            },
+            ByteRange::Prefix { len: n } => ByteRange::Prefix { len: len(n) },
+            ByteRange::Suffix { len: n } => ByteRange::Suffix { len: len(n) },
+            ByteRange::Span { offset, len: n } => ByteRange::Span {
+                offset,
+                len: len(n),
+            },
+        }
+    }
+
+    /// The bytes it names of a whole `length` bytes long: empty past the end.
+    pub fn within(self, length: u64) -> std::ops::Range<u64> {
+        let start = match self {
+            ByteRange::Whole { .. } | ByteRange::Prefix { .. } => 0,
+            ByteRange::Suffix { len } => length.saturating_sub(u64::from(len)),
+            ByteRange::Span { offset, .. } => offset.min(length),
+        };
+        start..start.saturating_add(self.len()).min(length)
+    }
+
+    /// The `Range` header's value that asks for it; none for [`ByteRange::Whole`].
+    pub fn header(self) -> Option<String> {
+        match self {
+            ByteRange::Whole { .. } => None,
+            ByteRange::Suffix { len } => Some(format!("bytes=-{len}")),
+            ByteRange::Prefix { .. } | ByteRange::Span { .. } => {
+                let range = self.within(u64::MAX);
+                Some(format!(
+                    "bytes={}-{}",
+                    range.start,
+                    range.end.saturating_sub(1)
+                ))
+            }
+        }
+    }
 }
 
 /// What one performed probe answered.
@@ -345,6 +459,9 @@ pub enum OutcomeData {
     },
     Bytes {
         bytes: Vec<u8>,
+        /// Where they start in the file.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        start: u64,
         /// The whole file's length.
         length: u64,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -370,6 +487,12 @@ pub enum OutcomeData {
         body: Vec<u8>,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         truncated: bool,
+        /// Where a ranged body starts in the whole.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        start: u64,
+        /// The whole's length, when the server said it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        total_len: Option<u64>,
     },
     Resolve {
         addresses: Vec<String>,

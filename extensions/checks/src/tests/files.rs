@@ -40,6 +40,7 @@ fn read(bytes: &[u8], truncated: bool) -> ProbeOutcome {
         OutcomeClass::Ok,
         OutcomeData::Bytes {
             bytes: bytes.to_vec(),
+            start: 0,
             length: bytes.len() as u64,
             truncated,
         },

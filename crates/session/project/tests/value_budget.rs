@@ -30,8 +30,7 @@ fn extension(meta: ExtensionMeta) -> ContributionsBuilder {
     );
     let get = |url: String, n: usize| Probe::HttpGet {
         url: format!("{url}?{n}"),
-        range: None,
-        max_bytes: 64 * 1024,
+        range: ByteRange::Whole { max: 64 * 1024 },
     };
     for (name, times) in [("one", 1), ("eight", 8), ("many", 17)] {
         c.checker(name, move |k| {
@@ -53,7 +52,7 @@ fn extension(meta: ExtensionMeta) -> ContributionsBuilder {
                 PlannedItem::probes(vec![Probe::FsRead {
                     root: Root::Project,
                     path: item.text.clone(),
-                    bytes: 1024,
+                    range: ByteRange::Whole { max: 1024 },
                 }])
             })
             .judge(judged_by_class);
@@ -144,23 +143,39 @@ fn past_the_runs_time_no_request_starts() {
 #[test]
 fn past_the_runs_bytes_no_request_starts() {
     const VALUES: usize = 40;
+    // What a `one` probe may bring: its 64 KiB read and the head room a record adds.
+    const MOST: u64 = (64 + 8) * 1024;
     let scene = scene_of(
-        network(VALUES, b"xx"),
+        network(VALUES, &[b'x'; 64 * 1024]),
         &services("one", (0..VALUES).map(url)),
     );
     let budget = ValueBudget {
-        bytes: 1,
+        bytes: 3 * MOST,
         ..ValueBudget::RUN
     };
     let project = within(&scene, budget);
-    // One host holds 8 at once: what was on the wire when the first answer spent the budget.
+    // A request starts only once the most it may bring is reserved within what is left: three fit, and after their
+    // 192 KiB no fourth does, however many were on the wire at once.
     let asked = scene.http.requests().len();
-    assert!((1..=8).contains(&asked), "{asked}");
+    assert_eq!(asked, 3);
     let statuses = statuses(&project);
     let passed = statuses.iter().filter(|s| **s == CheckStatus::Passed);
     assert_eq!(passed.count(), asked);
     let over = VALUES - asked;
     assert!(asks_for_budget(&project).contains(&format!("budget {over}")));
+}
+
+#[test]
+fn a_request_whose_cap_the_budget_cannot_hold_does_not_start() {
+    let scene = scene_of(network(3, b"xx"), &services("one", (0..3).map(url)));
+    let budget = ValueBudget {
+        bytes: 1024,
+        ..ValueBudget::RUN
+    };
+    let project = within(&scene, budget);
+    assert!(scene.http.requests().is_empty());
+    assert!(statuses(&project).iter().all(|s| *s == CheckStatus::NotRun));
+    assert!(asks_for_budget(&project).contains("budget 3"));
 }
 
 #[test]

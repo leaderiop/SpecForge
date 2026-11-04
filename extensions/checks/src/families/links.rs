@@ -9,7 +9,7 @@ use specforge_checks_kit::links::{fragment_id, host_matches, UrlParts};
 use specforge_checks_kit::Invalid;
 use specforge_extension_sdk::prelude::*;
 
-use super::{checker, choice_arg, finding_of, no_args, Args, Word, LINKS};
+use super::{checker, choice_arg, finding_of, no_args, transport, Args, Word, LINKS};
 use crate::codes::*;
 
 /// The redirects a request follows.
@@ -78,36 +78,22 @@ fn requested(parts: &UrlParts) -> String {
 
 /// The status table: what the answer to a request of `text` reports, or nothing for a page that is there.
 fn answered(text: &str, args: Args, outcome: &ProbeOutcome) -> Option<CheckFinding> {
+    if let Some((code, message)) = transport(text, outcome, "links") {
+        return Some(CheckFinding::new(code, message));
+    }
     let status = match &outcome.data {
         OutcomeData::Http { status, .. } => *status,
         _ => None,
     };
-    let (code, message) = match (&outcome.class, status) {
-        (OutcomeClass::Unreachable(why), _) => {
-            (W172, format!("'{text}' could not be reached ({why:?})"))
-        }
-        (OutcomeClass::Deadline, _) => (W172, format!("'{text}' did not answer in time")),
-        (OutcomeClass::Redirect(why), _) => (
-            W173,
-            format!("'{text}' redirects where it is not followed ({why:?})"),
-        ),
-        (OutcomeClass::Denied, _) => (
-            W173,
-            format!("'{text}' leads where the links grant does not reach"),
-        ),
-        (_, Some(200..=299) | None) => return None,
-        (_, Some(code @ (404 | 410))) if args.choice("status") == Some(Gone::Warn) => {
+    let (code, message) = match status {
+        Some(code @ (404 | 410)) if args.choice("status") == Some(Gone::Warn) => {
             (W183, format!("'{text}' answered {code}"))
         }
-        (_, Some(code @ (404 | 410))) => (
+        Some(code @ (404 | 410)) => (
             E093,
             format!("'{text}' answered {code}: the page does not exist"),
         ),
-        (_, Some(code @ (401 | 403))) => (
-            W182,
-            format!("'{text}' answered {code}: it needs credentials"),
-        ),
-        (_, Some(code)) => (W181, format!("'{text}' answered {code}")),
+        _ => return None,
     };
     Some(CheckFinding::new(code, message))
 }
@@ -195,8 +181,7 @@ fn page(parts: &UrlParts, args: Args) -> Probe {
     match &parts.fragment {
         Some(at) if !at.is_empty() => Probe::HttpGet {
             url: requested(parts),
-            range: Some([0, u64::from(PAGE) - 1]),
-            max_bytes: PAGE,
+            range: ByteRange::Prefix { len: PAGE },
         },
         _ => head(parts, args),
     }

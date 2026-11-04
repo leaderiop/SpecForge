@@ -110,6 +110,15 @@ impl Capability {
         self
     }
 
+    /// The most body an http capability's answers keep: at most 16 MiB and a sixteenth of the extension's
+    /// `max_memory_mb`, and only for a capability that lists its hosts; none: the host's 1 MiB.
+    pub fn max_bytes(mut self, max_bytes: u64) -> Self {
+        if let PortScope::Http(http) = &mut self.0.port {
+            http.max_bytes = Some(max_bytes);
+        }
+        self
+    }
+
     /// An https capability's secret, which the host attaches as `header: <scheme> <value>` (ADR 0335 D6): `secret`
     /// is a secret the extension declares; its value never reaches the extension.
     pub fn secret_header(mut self, header: &str, secret: &str, scheme: Option<&str>) -> Self {

@@ -23,9 +23,9 @@
           "observed_at": 1700000000000
         },
         {
-          "probe": { "probe": "fs.read", "root": "spec", "path": "a.md", "bytes": 2 },
+          "probe": { "probe": "fs.read", "root": "spec", "path": "a.md", "range": { "kind": "suffix", "len": 2 } },
           "class": "ok",
-          "data": { "kind": "bytes", "bytes": [104, 105], "length": 9, "truncated": true },
+          "data": { "kind": "bytes", "bytes": [104, 105], "start": 7, "length": 9, "truncated": true },
           "observed_at": 1700000000000
         },
         {
@@ -58,7 +58,8 @@
           "data": { "kind": "none" },
           "observed_at": 1700000000000
         }
-      ]
+      ],
+      "carry": { "round": 2 }
     }
   ]
 }

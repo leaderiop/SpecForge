@@ -42,8 +42,7 @@ fn extension() -> ContributionsBuilder {
             .plan(|item: &CheckItem| {
                 PlannedItem::probes(vec![Probe::HttpGet {
                     url: item.text.clone(),
-                    range: None,
-                    max_bytes: 1024,
+                    range: ByteRange::Whole { max: 1024 },
                 }])
             })
             .judge(told_body);

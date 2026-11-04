@@ -32,10 +32,10 @@ fn reader() -> ContributionsBuilder {
                 PlannedItem::probes(vec![Probe::FsRead {
                     root: Root::Spec,
                     path: item.text.clone(),
-                    bytes: 64,
+                    range: ByteRange::Whole { max: 64 },
                 }])
             })
-            .judge(|item: &CheckItem| {
+            .judge(|item: &CheckItem| -> Vec<CheckFinding> {
                 item.outcomes
                     .iter()
                     .map(|outcome| CheckFinding::new("E001", format!("{:?}", outcome.data)))
@@ -179,7 +179,7 @@ fn lister() -> ContributionsBuilder {
             .ops(&[FsAccess::Stat, FsAccess::Walk])
             .why("to read"),
     );
-    let told = |item: &CheckItem| {
+    let told = |item: &CheckItem| -> Vec<CheckFinding> {
         item.outcomes
             .iter()
             .map(|outcome| CheckFinding::new("E001", format!("{:?}", outcome.data)))

@@ -331,33 +331,30 @@ pub fn retention(request: &EffectRequest, class: OutcomeClass) -> Retention {
     }
 }
 
-/// The record of `request` answered `answer` at `observed_at`; none when the answer is not journaled. A payload is
-/// kept when it is within the request's cap and [`PAYLOAD_CAP`].
+/// The record of `request` answered `answer` at `observed_at`; none when the answer is not journaled. It names its
+/// payload by digest whatever its size; the journal keeps the payload itself only within [`payload_cap`].
 pub fn record_of(
     request: &EffectRequest,
     answer: &Answer,
     observed_at: UnixMillis,
 ) -> Option<EffectRecord> {
-    let cap = match request {
+    keyed_record(&RecordDigest::of(request), request, answer, observed_at)
+}
+
+/// The most payload the journal keeps of an answer to `request`: the request's own cap, within [`PAYLOAD_CAP`].
+pub fn payload_cap(request: &EffectRequest) -> u64 {
+    match request {
         EffectRequest::Http(http) => http.body_cap,
         EffectRequest::Process(process) => process.output_cap,
         EffectRequest::Resolve(_) | EffectRequest::Tls(_) => PAYLOAD_CAP,
         EffectRequest::Fs(_) => 0,
     }
-    .min(PAYLOAD_CAP);
-    keyed_record(
-        &RecordDigest::of(request),
-        cap,
-        request,
-        answer,
-        observed_at,
-    )
+    .min(PAYLOAD_CAP)
 }
 
-/// The record of `request`, found by `digest`, answered `answer` at `observed_at`, its payload kept within `cap`.
+/// The record of `request`, found by `digest`, answered `answer` at `observed_at`.
 fn keyed_record(
     digest: &RecordDigest,
-    cap: u64,
     request: &EffectRequest,
     answer: &Answer,
     observed_at: UnixMillis,
@@ -373,11 +370,7 @@ fn keyed_record(
         outcome: answer.outcome.clone(),
         observed_at,
         ttl,
-        payload: answer
-            .payload
-            .as_deref()
-            .filter(|payload| payload.len() as u64 <= cap)
-            .map(Blob::of),
+        payload: answer.payload.as_deref().map(Blob::of),
     })
 }
 
@@ -450,7 +443,11 @@ impl EffectJournal {
         answer: &Answer,
         observed_at: UnixMillis,
     ) -> std::io::Result<Option<(PathBuf, EffectRecord)>> {
-        self.write(record_of(request, answer, observed_at), answer)
+        self.write(
+            record_of(request, answer, observed_at),
+            answer,
+            payload_cap(request),
+        )
     }
 
     /// [`Self::keep`], the record found by `digest`.
@@ -465,7 +462,7 @@ impl EffectJournal {
             request_digest: digest.clone(),
             ..record
         });
-        self.write(record, answer)
+        self.write(record, answer, payload_cap(request))
     }
 
     /// [`Self::keep`] for a lent call: found by `digest`, its payload (what the guest was answered) within
@@ -477,14 +474,18 @@ impl EffectJournal {
         answer: &Answer,
         observed_at: UnixMillis,
     ) -> std::io::Result<Option<(PathBuf, EffectRecord)>> {
-        let record = keyed_record(digest, PAYLOAD_CAP, request, answer, observed_at);
-        self.write(record, answer)
+        let record = keyed_record(digest, request, answer, observed_at);
+        self.write(record, answer, PAYLOAD_CAP)
     }
 
+    /// Write `record`, and its payload beside it when it is within `cap`. One over it is not kept: the record still
+    /// names it, so a lookup finds no payload to match and misses (the request is performed again, or left unchecked),
+    /// rather than answering again as if it carried nothing.
     fn write(
         &self,
         record: Option<EffectRecord>,
         answer: &Answer,
+        cap: u64,
     ) -> std::io::Result<Option<(PathBuf, EffectRecord)>> {
         let Some(record) = record else {
             return Ok(None);
@@ -493,7 +494,17 @@ impl EffectJournal {
             return Ok(None);
         };
         if let (Some(_), Some(payload)) = (&record.payload, &answer.payload) {
-            specforge_common::fresh::replace_private(&path.with_extension("payload"), payload)?;
+            let beside = path.with_extension("payload");
+            if payload.len() as u64 <= cap {
+                specforge_common::fresh::replace_private(&beside, payload)?;
+            } else {
+                match std::fs::remove_file(&beside) {
+                    Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                        return Err(error);
+                    }
+                    _ => {}
+                }
+            }
         }
         let bytes = serde_json::to_vec_pretty(&record).map_err(std::io::Error::other)?;
         specforge_common::fresh::replace_private(&path, &bytes)?;

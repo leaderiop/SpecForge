@@ -5,11 +5,8 @@ use specforge_checks_kit::files::{glob, DigestPin, LineEnds, LineRange, Text};
 use specforge_checks_kit::Invalid;
 use specforge_extension_sdk::prelude::*;
 
-use super::{checker, choice_arg, finding_of, no_args, Args, Word, FILES};
+use super::{checker, choice_arg, finding_of, no_args, path_shape, read_whole, Args, Word, FILES};
 use crate::codes::*;
-
-/// The most of a file `encoding` and `line_range` read: past it, a line range not yet reached is not decided.
-const READ: u32 = 1024 * 1024;
 
 /// The line ends `encoding` wants.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -38,13 +35,7 @@ fn path_checker(
     probe: PathProbe,
     judge: PathJudge,
 ) {
-    let shape = |k: &mut CheckerBuilder| {
-        k.arg("root", |f| {
-            f.field_type(FieldType::String);
-        });
-        args(k);
-        k.value(ValueForm::Path).root_arg("root");
-    };
+    let shape = path_shape(args);
     let plan = move |text: &str, args: Args| {
         probe(text, args)
             .map(|probe| vec![probe])
@@ -70,7 +61,12 @@ fn stat(text: &str, args: Args) -> Result<Probe, Invalid> {
 
 /// E016 for `path`, missing under the root, on the bytes `at` of the value; with the sibling the host found inside
 /// the root, when it found one.
-fn missing(path: &str, args: Args, outcome: &ProbeOutcome, at: [usize; 2]) -> CheckFinding {
+pub(super) fn missing(
+    path: &str,
+    args: Args,
+    outcome: &ProbeOutcome,
+    at: [usize; 2],
+) -> CheckFinding {
     let finding = CheckFinding::new(
         E016,
         format!("'{path}' does not exist under <{}>", args.root()),
@@ -237,14 +233,6 @@ fn digest(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
     vec![found]
 }
 
-fn read(path: &str, args: Args) -> Probe {
-    Probe::FsRead {
-        root: args.root(),
-        path: path.to_string(),
-        bytes: READ,
-    }
-}
-
 /// The bytes read and whether the file goes on past them, when the host read it.
 fn bytes(outcome: &ProbeOutcome) -> Option<(&[u8], bool)> {
     match (&outcome.class, &outcome.data) {
@@ -288,7 +276,7 @@ fn encoded(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> 
 }
 
 fn ranged(text: &str, args: Args) -> Result<Probe, Invalid> {
-    LineRange::parse(text).map(|range| read(range.path, args))
+    LineRange::parse(text).map(|range| read_whole(range.path, args))
 }
 
 fn lines(text: &str, args: Args, outcome: &ProbeOutcome) -> Vec<CheckFinding> {
@@ -350,7 +338,7 @@ pub(super) fn contribute(c: &mut ContributionsBuilder) {
         "encoding",
         &[E016, W176],
         encoding,
-        |t, a| Ok(read(t, a)),
+        |t, a| Ok(read_whole(t, a)),
         encoded,
     );
     path_checker(c, "line_range", &[E016, W176, E103], no_args, ranged, lines);

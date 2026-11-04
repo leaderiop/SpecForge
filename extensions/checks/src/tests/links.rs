@@ -2,7 +2,8 @@
 
 use serde_json::json;
 use specforge_protocol_types::{
-    CheckFinding, Header, OutcomeClass, OutcomeData, Probe, ProbeOutcome, Redirected, Unreachable,
+    ByteRange, CheckFinding, Header, OutcomeClass, OutcomeData, Probe, ProbeOutcome, Redirected,
+    Unreachable,
 };
 
 use super::{judged, planned};
@@ -30,6 +31,8 @@ fn http(status: u16, headers: &[(&str, &str)], body: &str, truncated: bool) -> O
         headers: headers.iter().map(|(n, v)| Header::plain(*n, *v)).collect(),
         body: body.as_bytes().to_vec(),
         truncated,
+        start: 0,
+        total_len: None,
     }
 }
 
@@ -197,8 +200,7 @@ fn links_fragment_missing_is_e112_on_the_fragment() {
         plan.probes,
         [Probe::HttpGet {
             url: URL.into(),
-            range: Some([0, 1024 * 1024 - 1]),
-            max_bytes: 1024 * 1024
+            range: ByteRange::Prefix { len: 1024 * 1024 },
         }]
     );
     let page = |body: &str| answer(OutcomeClass::Ok, http(200, &[], body, false));

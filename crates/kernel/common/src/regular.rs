@@ -4,7 +4,7 @@
 //! spec, source and manifest reads go through here (a user-named plan file or credential file does not); [`crate::fresh`] is where one is written.
 
 use std::fs::File;
-use std::io::{self, Read as _};
+use std::io::{self, Read as _, Seek as _, SeekFrom};
 use std::path::Path;
 use std::time::Instant;
 
@@ -44,16 +44,38 @@ pub fn read(path: &Path) -> io::Result<Vec<u8>> {
     read_from(open(path)?)
 }
 
-/// The first `max` bytes of `path` ([`open`]), and how long it is; nothing past `max` and a byte is read.
-pub fn read_prefix(path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
-    let file = open(path)?;
-    let length = file.metadata()?.len();
+/// Some bytes of a file: where they start in it, and how long it is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Ranged {
+    pub bytes: Vec<u8>,
+    pub start: u64,
+    pub length: u64,
+}
+
+/// The bytes `within` names of `path`, given its length: a regular file (a link followed to one) of any size, since a
+/// range holds no more than its caller asks; the ceiling of a whole read does not apply. Nothing outside them is read,
+/// and the length comes from the handle read, so a file that grew is not read past what was asked.
+pub fn read_range(
+    path: &Path,
+    within: impl FnOnce(u64) -> std::ops::Range<u64>,
+) -> io::Result<Ranged> {
+    judge_kind(&std::fs::metadata(path)?)?;
+    let mut file = File::open(path)?;
+    let meta = file.metadata()?;
+    judge_kind(&meta)?;
+    let range = within(meta.len());
+    file.seek(SeekFrom::Start(range.start))?;
     let mut bytes = Vec::new();
-    file.take(max.saturating_add(1)).read_to_end(&mut bytes)?;
+    (&mut file)
+        .take(range.end.saturating_sub(range.start))
+        .read_to_end(&mut bytes)?;
     // Linux's `/proc` reports a smaller length than it holds.
-    let length = length.max(bytes.len() as u64);
-    bytes.truncate(usize::try_from(max).unwrap_or(usize::MAX));
-    Ok((bytes, length))
+    let length = meta.len().max(range.start + bytes.len() as u64);
+    Ok(Ranged {
+        bytes,
+        start: range.start,
+        length,
+    })
 }
 
 /// The SHA-256 of `path`, in lowercase hex, and how long it is: a regular file of any size, in chunks, so a digest pin

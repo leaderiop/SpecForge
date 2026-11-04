@@ -20,7 +20,7 @@ use crate::consent::{
     RootApproval, approval_line,
 };
 use crate::gate::{Port, gate};
-use crate::scope::rules;
+use crate::scope::{posts_queries, rules};
 use crate::{Provenance, Roots};
 
 /// What a run will exercise: each call kind and the capability it uses (O11: only these are asked for).
@@ -49,7 +49,13 @@ impl Granted {
         approval_line(
             self.scope.as_ref().unwrap_or(&self.declared.port),
             self.secret.as_ref().map(|secret| secret.env.as_str()),
+            self.queries(),
         )
+    }
+
+    /// Whether its POST is a query that reads ([`posts_queries`]), as it declares it.
+    pub fn queries(&self) -> bool {
+        posts_queries(&self.declared.port, &self.declared.call_kinds)
     }
 }
 

@@ -601,3 +601,69 @@ fn a_host_that_drips_bytes_does_not_outlive_the_deadline() {
         began.elapsed()
     );
 }
+
+/// A server that reads one request whole (its head, then `Content-Length` bytes of body), sends it back, and answers
+/// `answer`; it counts the connections it accepts.
+fn serve_bodies(answer: &'static str) -> (String, Receiver<String>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let (requests, seen) = channel();
+    std::thread::spawn(move || {
+        // A server with no answer holds each connection open.
+        let mut held = Vec::new();
+        for stream in listener.incoming() {
+            let Ok(mut stream) = stream else { continue };
+            let head = head_of(&mut stream);
+            let length = head
+                .lines()
+                .find_map(|line| line.strip_prefix("content-length: "))
+                .and_then(|n| n.trim().parse::<usize>().ok())
+                .unwrap_or(0);
+            let mut body = vec![0; length];
+            let _ = stream.read_exact(&mut body);
+            let _ = requests.send(format!("{head}{}", String::from_utf8_lossy(&body)));
+            if answer.is_empty() {
+                held.push(stream);
+            } else {
+                let _ = stream.write_all(answer.as_bytes());
+            }
+        }
+    });
+    (base, seen)
+}
+
+#[test]
+fn a_post_query_sends_its_json_body_and_is_never_retried() {
+    let (base, seen) =
+        serve_bodies("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}");
+    let query = |url: String, timeout_ms| HttpRequest {
+        method: "POST".into(),
+        headers: vec![Header::plain("content-type", "application/json")],
+        body: Some(br#"{"package":"serde"}"#.to_vec()),
+        max_redirects: 0,
+        timeout_ms,
+        ..private(&url)
+    };
+    let client = Client::new();
+    let outcome = client.request(&query(format!("{base}/v1/query"), 5_000), &Any);
+    assert_eq!(outcome.status, Some(200), "{outcome:?}");
+    assert_eq!(outcome.body, b"{}");
+    let asked = seen.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(asked.starts_with("post /v1/query "), "{asked}");
+    assert!(asked.contains("content-type: application/json"), "{asked}");
+    assert!(asked.ends_with(r#"{"package":"serde"}"#), "{asked}");
+
+    // A server that never answers: the query times out once, and is not sent again.
+    let (silent, heard) = serve_bodies("");
+    let outcome = client.request(&query(format!("{silent}/v1/query"), 300), &Any);
+    assert_eq!(
+        outcome.class,
+        OutcomeClass::Unreachable(Unreachable::Timeout),
+        "{outcome:?}"
+    );
+    assert!(heard.recv_timeout(Duration::from_secs(2)).is_ok());
+    assert!(
+        heard.recv_timeout(Duration::from_millis(500)).is_err(),
+        "sent once"
+    );
+}

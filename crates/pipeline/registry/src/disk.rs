@@ -9,6 +9,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+pub use specforge_common::regular::Ranged;
+use specforge_protocol_types::ByteRange;
+
 /// The file system as the checks and the environment load read it. Each call
 /// is one read; an adapter may record it (a project session's ledger stamps
 /// the path and records it as an input).
@@ -26,13 +29,20 @@ pub trait Disk {
     /// most 64 MiB is read (ADR 0264): anything else is an error naming what
     /// it is.
     fn read(&self, path: &Path) -> io::Result<Vec<u8>>;
-    /// The first `max` bytes of the file [`Self::read`] would read, and how long it is. The default reads it all; the
-    /// plain file system reads only those. A session records it as it records a read.
-    fn read_prefix(&self, path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
-        let mut bytes = self.read(path)?;
+    /// The bytes `range` names of the file at `path`, where they start and how long it is. The default reads it whole
+    /// as [`Self::read`] does; the plain file system reads only those, of a regular file of any size. A session records
+    /// it as it records a read.
+    fn read_range(&self, path: &Path, range: ByteRange) -> io::Result<Ranged> {
+        let bytes = self.read(path)?;
         let length = bytes.len() as u64;
-        bytes.truncate(usize::try_from(max).unwrap_or(usize::MAX));
-        Ok((bytes, length))
+        let within = range.within(length);
+        let slice = usize::try_from(within.start).unwrap_or(usize::MAX)
+            ..usize::try_from(within.end).unwrap_or(usize::MAX);
+        Ok(Ranged {
+            bytes: bytes[slice].to_vec(),
+            start: within.start,
+            length,
+        })
     }
     /// The SHA-256 of the file at `path` in lowercase hex, and its length; `TimedOut` once `deadline` passes. The
     /// default reads it whole; the plain file system streams a file of any size. A session records it as a read.
@@ -131,8 +141,8 @@ impl Disk for PlainDisk {
         specforge_common::regular::read(path)
     }
 
-    fn read_prefix(&self, path: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
-        specforge_common::regular::read_prefix(path, max)
+    fn read_range(&self, path: &Path, range: ByteRange) -> io::Result<Ranged> {
+        specforge_common::regular::read_range(path, |length| range.within(length))
     }
 
     fn digest(&self, path: &Path, deadline: Instant) -> io::Result<(String, u64)> {

@@ -15,11 +15,11 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_effects::{Effects, OutcomeClass};
 pub use specforge_protocol_types::CheckStatus;
 use specforge_protocol_types::{
-    CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckValuesInput, PlannedItem, Probe,
-    ProbeOutcome,
+    CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckValuesInput,
+    MAX_PROBE_ROUNDS, Operation, PlannedItem, Probe, ProbeOutcome,
 };
 use specforge_registry::{CheckCall, Disk, EntitySnapshot, QualifiedChecker, ResolvedCheck};
-use specforge_wasm::{ExtensionCalls, Limits};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Limits};
 
 use crate::Environment;
 use crate::compiled::{CheckedValue, CheckedValues, ValueOutcome};
@@ -176,11 +176,17 @@ impl Asking<'_> {
         for (keys, items) in self.batches(extension, unknown) {
             let input = CheckValuesInput { phase, items };
             let answer = self.calls.check_values(extension, &input)?;
+            let mut unanswered = keys.len();
             for item in answer.items {
                 if let Some(key) = keys.get(&item.id) {
+                    unanswered = unanswered.saturating_sub(1);
                     shelf.keep(key.clone(), &item);
                     known.push(item);
                 }
+            }
+            // A value left out of the reply (its judge could not judge the answers) is unchecked, never a pass.
+            if unanswered > 0 {
+                self.effects.count_not_run(budget::OVER, unanswered);
             }
         }
         shelf.save();
@@ -200,7 +206,9 @@ impl Asking<'_> {
         let mut batches: Vec<(BTreeMap<u32, String>, Vec<CheckItem>)> = Vec::new();
         let mut held = 0;
         for (key, item) in items {
-            let size = serde_json::to_vec(&item).map_or(usize::MAX, |bytes| bytes.len());
+            let mut counted = Counted(0);
+            let size =
+                serde_json::to_writer(&mut counted, &item).map_or(usize::MAX, |()| counted.0);
             if size > cap {
                 self.effects.count_not_run(budget::OVER, 1);
                 continue;
@@ -229,6 +237,20 @@ impl Asking<'_> {
             .find(|declaration| declaration.name() == extension)
             .and_then(|declaration| declaration.handshake.sandbox_policy.as_ref()?.max_memory_mb);
         ((declared.unwrap_or(ceiling).min(ceiling) as usize) << 20) / 4
+    }
+}
+
+/// A writer that keeps nothing but how many bytes it was given: an item's size, measured without a copy of it.
+struct Counted(usize);
+
+impl std::io::Write for Counted {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 += bytes.len();
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
 }
 
@@ -262,13 +284,21 @@ impl Observed {
                 outcome.probe,
                 Probe::HttpHead { .. }
                     | Probe::HttpGet { .. }
+                    | Probe::HttpPostQuery { .. }
                     | Probe::HttpTls { .. }
                     | Probe::DnsResolve { .. }
             )
         };
+        // Lean: a body is digested by its own digest, never expanded into a JSON array.
         let answered: Vec<_> = outcomes
             .iter()
-            .map(|outcome| (&outcome.probe, &outcome.class, &outcome.data))
+            .map(|outcome| {
+                (
+                    &outcome.probe,
+                    &outcome.class,
+                    network::lean_data(&outcome.data),
+                )
+            })
             .collect();
         Observed {
             at: outcomes
@@ -413,8 +443,24 @@ fn dropped(planned: &[Planned<'_>], answers: &BTreeMap<CallKey, PlannedItem>) ->
     dropped
 }
 
-/// Each answered call settled: its probes performed, and the judge call of those all answered. A failing judge (E028,
-/// once) leaves its extension's values not judged.
+/// A call whose probes are on their way: those of its round, every answer so far, the findings its plan and judge
+/// gave, and what its judge carries to the next round.
+struct Open<'p, 'a> {
+    one: &'p Planned<'a>,
+    probes: Vec<Probe>,
+    /// The probes asked in the rounds before this one.
+    before: usize,
+    /// Every round's answers as the host keeps them ([`lean`]): what the row says it observed.
+    outcomes: Vec<ProbeOutcome>,
+    findings: Vec<CheckFinding>,
+    carry: Option<serde_json::Value>,
+}
+
+/// Each answered call settled: its probes performed, and the judge call of those all answered, for up to
+/// [`MAX_PROBE_ROUNDS`] rounds: a judge may ask for more probes, performed within the same budget, the per-value probe
+/// cap held over every round. A later round's judge is sent that round's answers and what it carried, never the earlier
+/// rounds' answers again. A failing judge (E028, once) leaves its extension's values not judged, and so does one asking
+/// for a round past the last (E028, once per checker).
 fn performed_and_judged(
     asking: &Asking<'_>,
     effects: &Effects,
@@ -426,8 +472,7 @@ fn performed_and_judged(
 ) -> BTreeMap<CallKey, Settled> {
     let dropped = dropped(planned, answers);
     let mut settled = BTreeMap::new();
-    let mut waiting = Vec::new();
-    let mut asked = Vec::new();
+    let mut open = Vec::new();
     for one in planned {
         let key = one.key();
         let Some(plan) = answers.get(&key) else {
@@ -451,64 +496,125 @@ fn performed_and_judged(
             );
             continue;
         }
-        waiting.push(one);
-        asked.push(dispatch::Asked {
-            value: &values[one.value],
-            call: one.call,
-            probes: &plan.probes,
+        open.push(Open {
+            one,
+            probes: plan.probes.clone(),
+            before: 0,
+            outcomes: Vec::new(),
+            findings: plan.findings.clone(),
+            carry: None,
         });
     }
-    let (readings, approvals) = dispatch::dispatch(asking.env, effects, disk, &asked);
-    diagnostics.extend(approvals);
-    let mut judge: BTreeMap<&str, Vec<CheckItem>> = BTreeMap::new();
-    for (one, reading) in waiting.iter().zip(readings) {
-        let key = one.key();
-        let plan = &answers[&key];
-        if !reading.answered() {
+    let mut spent = budget::Spent::starting(asking.env.value_budget());
+    let mut endless = HashSet::new();
+    for round in 1..=MAX_PROBE_ROUNDS {
+        if open.is_empty() {
+            break;
+        }
+        let asked: Vec<dispatch::Asked<'_>> = open
+            .iter()
+            .map(|call| dispatch::Asked {
+                value: &values[call.one.value],
+                call: call.one.call,
+                probes: &call.probes,
+                before: call.before,
+            })
+            .collect();
+        let readings = dispatch::dispatch(asking.env, effects, disk, &asked, &mut spent);
+        let mut judge: BTreeMap<&str, Vec<CheckItem>> = BTreeMap::new();
+        let mut waiting = BTreeMap::new();
+        for (mut call, reading) in open.drain(..).zip(readings) {
+            let key = call.one.key();
+            if !reading.answered() {
+                settled.insert(
+                    key,
+                    Settled {
+                        findings: call.findings,
+                        host: reading.refused,
+                        class: reading.refused_class,
+                        ..Settled::default()
+                    },
+                );
+                continue;
+            }
+            // The judge reads this round's answers and what it carried; the host keeps every round's, lean.
+            call.outcomes
+                .extend(reading.outcomes.iter().map(network::lean));
+            let class = call
+                .outcomes
+                .iter()
+                .map(|outcome| outcome.class)
+                .find(|class| *class != OutcomeClass::Ok)
+                .unwrap_or(OutcomeClass::Ok);
             settled.insert(
-                key,
+                key.clone(),
                 Settled {
-                    findings: plan.findings.clone(),
-                    host: reading.refused,
-                    class: reading.refused_class,
+                    findings: call.findings.clone(),
+                    class: Some(class),
+                    observed: Observed::of(&call.outcomes),
                     ..Settled::default()
                 },
             );
-            continue;
+            let mut item = item_of(call.one, &values[call.one.value]);
+            item.outcomes = reading.outcomes;
+            item.carry = call.carry.clone();
+            judge
+                .entry(&call.one.call.extension)
+                .or_default()
+                .push(item);
+            waiting.insert(key, call);
         }
-        let class = reading
-            .outcomes
-            .iter()
-            .map(|outcome| outcome.class)
-            .find(|class| *class != OutcomeClass::Ok)
-            .unwrap_or(OutcomeClass::Ok);
-        settled.insert(
-            key,
-            Settled {
-                findings: plan.findings.clone(),
-                class: Some(class),
-                observed: Observed::of(&reading.outcomes),
-                ..Settled::default()
-            },
-        );
-        let mut item = item_of(one, &values[one.value]);
-        item.outcomes = reading.outcomes;
-        judge.entry(&one.call.extension).or_default().push(item);
-    }
-    for (extension, items) in judge {
-        match asking.ask(extension, CheckPhase::Judge, items) {
-            Ok(items) => {
-                for item in items {
-                    if let Some(settled) = settled.get_mut(&CallKey::of(extension, item.id)) {
-                        settled.findings.extend(item.findings);
-                        settled.judged = true;
+        for (extension, items) in judge {
+            let items = match asking.ask(extension, CheckPhase::Judge, items) {
+                Ok(items) => items,
+                Err(error) => {
+                    diagnostics.push(error.diagnostic());
+                    continue;
+                }
+            };
+            for item in items {
+                let key = CallKey::of(extension, item.id);
+                let (Some(settled), Some(mut call)) = (settled.get_mut(&key), waiting.remove(&key))
+                else {
+                    continue;
+                };
+                if item.probes.is_empty() {
+                    settled.findings.extend(item.findings);
+                    settled.judged = true;
+                } else if round == MAX_PROBE_ROUNDS {
+                    if endless.insert((extension, call.one.call.checker.as_str())) {
+                        diagnostics.push(past_the_last_round(extension, &call.one.call.checker));
                     }
+                } else {
+                    call.findings.extend(item.findings);
+                    call.before += call.probes.len();
+                    call.probes = item.probes;
+                    call.carry = item.carry;
+                    open.push(call);
                 }
             }
-            Err(error) => diagnostics.push(error.diagnostic()),
         }
     }
+    diagnostics.extend(dispatch::approvals(effects, &spent));
     settled
+}
+
+/// E028: `checker` of `extension` asked for a round of probes past the last.
+fn past_the_last_round(extension: &str, checker: &str) -> Diagnostic {
+    let failure = CallFailure::Malformed {
+        expected: "CheckPlan",
+        reason: format!(
+            "its checker '{checker}' asked for a fourth round of probes; a judge asks for at most {} more",
+            MAX_PROBE_ROUNDS - 1
+        ),
+    };
+    CallError::new(
+        Operation::CheckValues,
+        extension,
+        CHECK_VALUES_EXPORT,
+        failure,
+    )
+    .diagnostic()
 }
 
 fn item_of(one: &Planned<'_>, value: &Value<'_>) -> CheckItem {
@@ -521,6 +627,7 @@ fn item_of(one: &Planned<'_>, value: &Value<'_>) -> CheckItem {
         text: value.text.to_string(),
         args: one.call.args.clone(),
         outcomes: Vec::new(),
+        carry: None,
     }
 }
 

@@ -62,6 +62,16 @@ fn a_check_values_call_is_typed_both_ways() {
     assert_eq!(input.items[0].outcomes[0].class, OutcomeClass::Status(404));
     assert!(input.items[0].outcomes[0].from_cache);
     assert_eq!(
+        input.items[0].carry,
+        Some(serde_json::json!({ "round": 2 }))
+    );
+    // A judge's probes ask for another round, carrying what it hands back.
+    assert_eq!(judged.items[1].probes.len(), 1);
+    assert_eq!(
+        judged.items[1].carry,
+        Some(serde_json::json!({ "round": 3 }))
+    );
+    assert_eq!(
         serde_json::to_value(&judged).unwrap(),
         wire("check_values.judge.output.json")
     );
@@ -86,7 +96,7 @@ fn a_malformed_checker_answer_is_a_call_error_naming_the_type() {
 fn a_probe_root_that_is_no_name_fails_the_call() {
     let plan_under = |root: &'static str| {
         serde_json::json!({ "items": [{ "id": 0, "probes": [
-            { "probe": "fs.read", "root": root, "path": "a.md", "bytes": 8 }
+            { "probe": "fs.read", "root": root, "path": "a.md", "range": { "kind": "prefix", "len": 8 } }
         ] }] })
     };
     let asks = serde_json::from_value::<CheckPlan>;
@@ -99,7 +109,7 @@ fn a_probe_root_that_is_no_name_fails_the_call() {
     let runtime = InProcessRuntime::new().with_handler(extension, |export, _| {
         (export == CHECK_VALUES_EXPORT).then(|| {
             Ok(br#"{"items":[{"id":0,"probes":[
-                {"probe":"fs.read","root":"../etc","path":"passwd","bytes":8}
+                {"probe":"fs.read","root":"../etc","path":"passwd","range":{"kind":"prefix","len":8}}
             ]}]}"#
                 .to_vec())
         })

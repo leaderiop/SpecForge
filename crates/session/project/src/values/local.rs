@@ -11,7 +11,7 @@ use specforge_common::path_glob;
 use specforge_effects::contained::{Contained, Resolved, withheld};
 use specforge_effects::git::{GitPlace, Located};
 use specforge_effects::{FsOp, OutcomeClass};
-use specforge_protocol_types::{OutcomeData, StatEntry};
+use specforge_protocol_types::{ByteRange, OutcomeData, StatEntry};
 use specforge_registry::Disk;
 
 use crate::Environment;
@@ -33,13 +33,14 @@ fn missing(
     })
 }
 
-/// What `op` reads of `resolved` from `disk`. A digest reads the whole file: `Deadline` when the run's time ran out
-/// first, `Denied` for what is no regular file.
+/// What `op` reads of `resolved` from `disk`; a read reads the bytes `range` names, else its first `max_bytes`. A digest
+/// reads the whole file: `Deadline` when the run's time ran out first, `Denied` for what is no regular file.
 pub(super) fn read_disk(
     disk: &dyn Disk,
     contained: &Contained<'_>,
     resolved: &Resolved,
     op: &FsOp,
+    range: Option<ByteRange>,
     deadline: Instant,
 ) -> (OutcomeClass, OutcomeData) {
     if let Some(missing) = missing(disk, contained, resolved) {
@@ -56,15 +57,23 @@ pub(super) fn read_disk(
             ),
             Err(_) => (OutcomeClass::Denied, OutcomeData::None),
         },
-        FsOp::Read { max_bytes } => match disk.read_prefix(&resolved.at, *max_bytes) {
-            Ok((bytes, length)) => (
-                OutcomeClass::Ok,
-                OutcomeData::Bytes {
-                    bytes,
-                    length,
-                    truncated: length > *max_bytes,
-                },
-            ),
+        FsOp::Read { max_bytes } => match disk.read_range(
+            &resolved.at,
+            range.unwrap_or(ByteRange::Whole { max: *max_bytes }),
+        ) {
+            Ok(read) => {
+                // The file holds bytes this read did not answer.
+                let truncated = read.bytes.len() as u64 != read.length;
+                (
+                    OutcomeClass::Ok,
+                    OutcomeData::Bytes {
+                        bytes: read.bytes,
+                        start: read.start,
+                        length: read.length,
+                        truncated,
+                    },
+                )
+            }
             Err(_) => (OutcomeClass::Denied, OutcomeData::None),
         },
         FsOp::Digest => match disk.digest(&resolved.at, deadline) {
@@ -236,14 +245,14 @@ mod tests {
 
     use specforge_effects::contained::RealFs;
     use specforge_effects::{Root, Roots};
-    use specforge_registry::Disk;
+    use specforge_registry::{Disk, Ranged};
 
     use super::*;
 
-    /// A disk on which only a prefix can be read.
-    struct OnlyPrefix;
+    /// A disk on which only a range can be read.
+    struct OnlyRange;
 
-    impl Disk for OnlyPrefix {
+    impl Disk for OnlyRange {
         fn exists(&self, _: &Path) -> bool {
             true
         }
@@ -253,9 +262,13 @@ mod tests {
         fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
             panic!("read all of {}", path.display())
         }
-        fn read_prefix(&self, _: &Path, max: u64) -> io::Result<(Vec<u8>, u64)> {
-            assert_eq!(max, 2);
-            Ok((b"he".to_vec(), 5))
+        fn read_range(&self, _: &Path, range: ByteRange) -> io::Result<Ranged> {
+            assert_eq!(range, ByteRange::Suffix { len: 2 });
+            Ok(Ranged {
+                bytes: b"lo".to_vec(),
+                start: 3,
+                length: 5,
+            })
         }
     }
 
@@ -267,13 +280,15 @@ mod tests {
         let contained = Contained::new(&roots, &RealFs);
         let resolved = contained.resolve("a.md", Root::Project).unwrap();
         let op = FsOp::Read { max_bytes: 2 };
+        let range = Some(ByteRange::Suffix { len: 2 });
         let later = Instant::now() + std::time::Duration::from_secs(60);
-        let (class, data) = read_disk(&OnlyPrefix, &contained, &resolved, &op, later);
+        let (class, data) = read_disk(&OnlyRange, &contained, &resolved, &op, range, later);
         assert_eq!(class, OutcomeClass::Ok);
         assert_eq!(
             data,
             OutcomeData::Bytes {
-                bytes: b"he".to_vec(),
+                bytes: b"lo".to_vec(),
+                start: 3,
                 length: 5,
                 truncated: true,
             }

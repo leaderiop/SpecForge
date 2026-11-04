@@ -1,5 +1,12 @@
 {
   "items": [
-    { "id": 0, "findings": [{ "code": "E093", "message": "answers 404" }] }
+    { "id": 0, "findings": [{ "code": "E093", "message": "answers 404" }] },
+    {
+      "id": 1,
+      "probes": [
+        { "probe": "fs.read", "root": "spec", "path": "a.md", "range": { "kind": "span", "offset": 4, "len": 2 } }
+      ],
+      "carry": { "round": 3 }
+    }
   ]
 }

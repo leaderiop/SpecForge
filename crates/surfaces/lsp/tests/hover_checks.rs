@@ -30,7 +30,7 @@ fn declare(c: &mut ContributionsBuilder) {
                     redirects: 5,
                 }])
             })
-            .judge(|_: &CheckItem| Vec::new());
+            .judge(|_: &CheckItem| Vec::<CheckFinding>::new());
     });
     c.kind("service", |k| {
         k.keyword("service");

@@ -57,13 +57,13 @@ mod vocabulary;
 pub use calls::*;
 pub use capability::{
     CAPABILITY_KEYS, CapabilityDescriptor, CapabilityProblem, FsAccess, FsScope, GitOp, GitScope,
-    Hosts, HttpMethod, HttpScope, Owner, PortScope, ProcessScope, SecretHeader, WRITING_KINDS,
-    capability_problems, is_host_pattern, is_scope_name,
+    Hosts, HttpMethod, HttpScope, MAX_CAPABILITY_BYTES, Owner, PortScope, ProcessScope,
+    SecretHeader, WRITING_KINDS, capability_problems, is_host_pattern, is_scope_name,
 };
 pub use checks::{
-    CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan, CheckRef,
-    CheckStatus, CheckValuesInput, CheckerDescriptor, OutcomeData, PlannedItem, Probe,
-    ProbeOutcome, StatEntry, ValueForm,
+    ByteRange, CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
+    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, MAX_PROBE_ROUNDS, MAX_QUERY_BYTES,
+    OutcomeData, PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
 };
 pub use code_catalog::CodeDescriptor;
 pub use contrib::*;

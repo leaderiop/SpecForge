@@ -932,8 +932,10 @@ the host's gate allows for its port) and what it reaches on one `port`:
 ```
 
 - `http`: `schemes` (`http`, `https`; empty: both), `methods` (empty: any), `hosts` (`{"list": [...]}` of
-  `example.com` or `*.example.com`, or `"from_values"`: the hosts the project's values name) and an optional
-  `secret_header`.
+  `example.com` or `*.example.com`, or `"from_values"`: the hosts the project's values name), an optional
+  `secret_header`, and an optional `max_bytes`: the most body one answer keeps (default 1 MiB), at most 16 MiB and a
+  sixteenth of the extension's `max_memory_mb`, for a capability that lists its hosts. A capability whose only call
+  kind is `check_values` shows its `POST` as `POST (query)` when a person approves it.
 - `fs`: `roots` (`spec`, `project` or a root `specforge.json` names; empty: `spec` and `project`) and `ops` (`stat`,
   `read`, `walk`, `write`).
 - `process`: `argv` (the program, then its arguments) and an optional `deadline_ms`, held to the host's ceiling.
@@ -942,7 +944,8 @@ the host's gate allows for its port) and what it reaches on one `port`:
 `name` is a scope name (`[a-z][a-z0-9-]*`), unique in the extension; approvals and `specforge grants` name it. A
 capability that is not sound is W021 and grants nothing: a name that is no scope name or is repeated, no `why`, an
 empty `argv`, an http capability with no host, a host that is no host or `*.`-prefixed host, a scheme other than
-`http` or `https`, a `write` whose `call_kinds` are empty or name a kind other than `collect` and `command`; so is a
+`http` or `https`, a `write` whose `call_kinds` are empty or name a kind other than `collect` and `command`, a `POST`
+or a `max_bytes` on `from_values` hosts, or a `max_bytes` over 16 MiB or a sixteenth of the memory; so is a
 collector whose `capability` names no `process` capability the extension declares. An unknown `port` fails the
 category (E028).
 
@@ -994,22 +997,32 @@ judged verdict digests each checked value's outcome class. It makes one `__check
 3. **Judge.** `{"phase": "judge", "items": [..]}` carries the values whose probes all ran, each with `outcomes`:
    `[{"probe", "class", "data", "observed_at", "from_cache"}]`. It answers findings. A finding is `{"code", "message",
    "help"?, "at"?}`, and `at` is a byte range inside the text; the host places it on the value's span.
+4. **More rounds.** A judge may answer `probes` instead, with a `carry` (any JSON): the host performs them as in step 2,
+   under the same run's budget, and asks the judge again with every round's `outcomes` in order and the `carry` handed
+   back. A value runs at most three rounds of probes (the plan's and two more); a judge asking in the third is E028
+   naming the checker, once per checker per run, and its value is not judged. Each round is memoised like the others.
 
 | Probe | Keys | Port |
 |---|---|---|
 | `fs.stat` | `root`, `path` | Fs |
-| `fs.read_prefix` | `root`, `path`, `bytes` (held to 64 KiB) | Fs |
-| `fs.read` | `root`, `path`, `bytes` (held to 1 MiB) | Fs |
+| `fs.read` | `root`, `path`, `range` (a prefix held to 64 KiB, any other range to 1 MiB; a file of any size) | Fs |
 | `fs.walk` | `root`, `path`, `glob` | Fs |
 | `fs.digest` | `root`, `path`: the whole file's SHA-256 and length, read in chunks until the run's deadline (asked as a read) | Fs |
 | `http.head` | `url`, `redirects` (held to 5, each under the grant); a 405 or 501 is asked once more as a GET | Http |
-| `http.get` | `url`, `range`?, `max_bytes` (held to 1 MiB) | Http |
+| `http.get` | `url`, `range` (held to 1 MiB, or the capability's `max_bytes`) | Http |
+| `http.post_query` | `url`, `json_body` (JSON, at most 16 KiB): to a host the capability lists, never redirected or retried; its answer is read whole, up to the capability's `max_bytes` | Http |
 | `http.tls` | `host`, `port` | Http |
 | `dns.resolve` | `host` | Http |
 | `git.object` | `rev` | Git |
 | `git.ref` | `name` | Git |
 | `git.file` | `rev`, `path` (from the repository's top; no `.`, `..` or leading `/`) | Git |
 | `git.tracked` | `root`, `path` | Git |
+
+A `range` is one object on both reads: `{"kind": "whole", "max"}` (from the start, no `Range` header), `{"kind": "prefix",
+"len"}`, `{"kind": "suffix", "len"}` (the last bytes) or `{"kind": "span", "offset", "len"}`. A read answers where its bytes
+`start` and the whole's length (`length` for a file, `total_len` for a body when the server said it). A 206 answer says
+where in `Content-Range`; a 200 to a prefix is its first bytes; a 200 to a suffix or a span is sliced when the whole body
+is within the cap, else its class is `range:ignored`; a 416 keeps its `status:416`.
 
 A probe's `root` is the default of a bare path and its `path` the text as written: only the host reads a `<root>/` prefix
 and decides where a path may lead. A `root` that is no root's name (`[a-z][a-z0-9_-]*`) is a malformed answer.

@@ -80,6 +80,13 @@ specforge check --strict             # warnings count as errors
 specforge explain <code>             # what a diagnostic means and how to fix it
 ```
 
+When `@specforge/checks` is loaded, a field's values can be held to a standard too: the field's `checks`, or
+`specforge.json`'s `checks.fields` for a field you do not declare, attaches a checker such as `json`, `pointer`,
+`markdown_anchor`, `image` or `package`
+(`"checks": {"fields": {"feature.refs": [{"checker": "@specforge/checks:pointer"}]}}`). A check that needs the network
+asks for approval first (W170); one not performed is not an error. The checkers, their arguments and codes are in
+[the inventory](../../../docs/extension-inventory.md).
+
 ## Builtin kinds: delegation table
 
 Use a child skill only when `specforge extensions` lists its extension.

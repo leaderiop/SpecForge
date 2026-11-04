@@ -14,6 +14,11 @@ the prefix), [ADR 0293](0293-a-pass-or-command-declares-the-project-files-it-rea
 note to [ADR 0026](0026-typed-diagnostic-codes.md) D3. ADR 0338 and the decision for the structured, media and registry checkers each add an "Amends 0336"
 line for the probe kinds they add (D9), and the latter amends D4 (extra rounds).
 
+**Amended by [ADR 0338](0338-one-foundation-extension-holds-the-generic-value-checkers.md)** (D10–D12): `fs.read` and
+`http.get` name a byte range (whole, prefix, suffix or span) in place of a probe kind per end; a fixed-host capability
+whose only call kind is `check_values` may POST a bounded JSON query; and D4's judge may answer with more probes, at
+most three rounds a value, reading every round's outcomes in order.
+
 **Since the `file` checker (ADR 0338)** `file_reference`, `file_base` and `file_exists` are deleted, in the commit that adds the `file`
 checker, so that E016 has exactly one emitter at every commit: a declared `file_exists` rule is W112 naming
 `@specforge/checks:file`, and E016 is a `checks` code. No registry rule reads the file system any more (`RuleInput`
@@ -74,7 +79,7 @@ carries the records and the edges only).
    - it contains every path itself (D6) and reports a refusal on the value, so the guest never learns about a path outside its root;
    - it deduplicates by request digest;
    - it performs the rest concurrently (32 workers, at most 8 per host) under ADR 0335's grant and ADR 0337's journal and mode.
-   A probe not performed (offline, `cached` miss, not approved, over budget) leaves its value **not judged**: it counts toward one I206 per checker and toward W170 for the scopes it needed.
+   A probe not performed (offline, `cached` miss, not approved, over budget) leaves its value **not judged**: it counts toward one I206 per checker and toward W170 for the scopes it needed. A judge that cannot judge what came back (an answer cut at its read) leaves the value out of its reply (`Judged::Unchecked`): not judged either, counted toward I206 as `budget`.
 3. **judge(values, outcomes) → findings.** A second `__check_values` call carries the values whose probes all ran. Each finding carries a code, a message and an optional byte sub-span inside the quotes (the scheme, the `#…` part, the root). The host places it on the value's span.
    - The structured, media and registry checkers amend this decision: a judge may answer `More { probes, carry }` to ask for another round, at most **3 rounds** per value.
 

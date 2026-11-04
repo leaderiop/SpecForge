@@ -8,44 +8,36 @@ use std::time::Instant;
 use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, SourceSpan, codes};
 use specforge_effects::contained::{Contained, Refused, Resolved};
-use specforge_effects::grant::{Denied, Uses, one_line};
-use specforge_effects::http::{self, DEFAULT_TIMEOUT};
+use specforge_effects::grant::{Denied, Granted, Uses, one_line};
 use specforge_effects::{
-    EffectRequest, Effects, EffectsMode, FsOp, FsRequest, Grant, HttpRequest, NoConsent,
-    OutcomeClass, ResolveRequest, Roots, TlsRequest, UnixMillis,
+    EffectRequest, Effects, EffectsMode, FsOp, FsRequest, Grant, NoConsent, OutcomeClass, Roots,
+    UnixMillis,
 };
 use specforge_protocol_types::{
-    Header, HttpMethod, Operation, OutcomeData, PrefixProblem, Probe, ProbeOutcome, Root,
-    RootedPath,
+    ByteRange, Hosts, MAX_CAPABILITY_BYTES, Operation, OutcomeData, PortScope, PrefixProblem,
+    Probe, ProbeOutcome, Root, RootedPath,
 };
 use specforge_registry::{CheckCall, Disk, DiskLookup};
 
-use super::budget::{self, ValueBudget};
+use super::budget::{self, Spent, ValueBudget};
 use super::collect::Value;
 use super::local::{self, GitPath, WALK_CAP, git_of, stat_of};
-use super::network::{HEAD_ROOM, Job, Performed, Spending, perform_all};
+use super::network::{BODY_CAP, Job, Performed, Spending, perform_all, request_of};
 use crate::Environment;
 
 /// The kind of call a probe is asked under.
 const OP: Operation = Operation::CheckValues;
-/// The most of a file `fs.read_prefix` and `fs.read` answer, and of a body `http.get` does.
+/// The most of a file `fs.read` answers for a prefix and for any other range, and of a body `http.get` does.
 const PREFIX_CAP: u32 = 64 * 1024;
 const READ_CAP: u32 = 1024 * 1024;
-const BODY_CAP: u32 = 1024 * 1024;
-/// The response headers a checker may read.
-const KEPT_HEADERS: [&str; 5] = [
-    "content-length",
-    "content-type",
-    "etag",
-    "last-modified",
-    "location",
-];
 
 /// One checker's call on one value, with the probes its plan asks.
 pub(super) struct Asked<'a> {
     pub value: &'a Value<'a>,
     pub call: &'a CheckCall,
     pub probes: &'a [Probe],
+    /// The probes the call asked in its earlier rounds: the per-value cap holds over every round.
+    pub before: usize,
 }
 
 /// What became of one [`Asked`]: every probe's answer in order, unless one was refused or not performed.
@@ -91,27 +83,29 @@ enum Slot {
     Stopped,
 }
 
-/// Perform what `asked` asks through `effects` and `disk`: a reading for each, and W170 for what this machine has not
-/// approved of the scopes these values use: only those are asked for.
+/// Perform what `asked` asks through `effects` and `disk`, within what the run has not `spent`: a reading for each. What
+/// these values use of the scopes this machine has not approved joins `spent.uses`: only those are asked for.
 pub(super) fn dispatch(
     env: &Environment,
     effects: &Effects,
     disk: &dyn Disk,
     asked: &[Asked<'_>],
-) -> (Vec<Reading>, Vec<Diagnostic>) {
+    spent: &mut Spent,
+) -> Vec<Reading> {
     let roots = env
         .effects_allowed()
         .with_named(Roots::new(env.root(), env.spec_root()));
     let lookup = DiskLookup(disk);
     let budget = env.value_budget();
-    let deadline = Instant::now() + budget.time;
+    let deadline = spent.deadline;
     let mut probing = Probing {
         env,
         effects,
         disk,
         budget,
         deadline,
-        spent: 0,
+        spent: spent.bytes,
+        read_before: spent.local,
         contained: Contained::new(&roots, &lookup),
         now: UnixMillis::now_or_end(),
         gates: gates(env, &roots, asked),
@@ -124,7 +118,7 @@ pub(super) fn dispatch(
     let mut slots: Vec<Vec<Slot>> = Vec::with_capacity(asked.len());
     for one in asked {
         let mut reading = Reading::default();
-        if one.probes.len() > budget.probes_per_value {
+        if one.before + one.probes.len() > budget.probes_per_value {
             effects.count_not_run(budget::OVER, 1);
             reading.not_run = true;
             slots.push(Vec::new());
@@ -144,6 +138,15 @@ pub(super) fn dispatch(
         spent: probing.spent,
     };
     let answers = perform_all(effects, probing.now, &probing.jobs, spending);
+    let fetched: u64 = answers
+        .iter()
+        .filter_map(|answer| match answer {
+            Performed::Answer(outcome) => Some(budget::cost(&outcome.data)),
+            _ => None,
+        })
+        .sum();
+    spent.bytes = probing.spent + fetched;
+    spent.local += probing.local.len();
     let mut counted = vec![false; probing.jobs.len()];
     for ((one, reading), slots) in asked.iter().zip(&mut readings).zip(slots) {
         for slot in slots {
@@ -158,12 +161,19 @@ pub(super) fn dispatch(
             reading.outcomes.extend(outcome);
         }
     }
-    let approvals = probing
+    for (extension, uses) in std::mem::take(&mut probing.uses) {
+        spent.uses.entry(extension).or_default().extend(uses);
+    }
+    readings
+}
+
+/// W170 for what this machine has not approved of the scopes the run's values used, one per extension.
+pub(super) fn approvals(effects: &Effects, spent: &Spent) -> Vec<Diagnostic> {
+    spent
         .uses
         .iter()
         .filter_map(|(extension, uses)| effects.grant(extension)?.unapproved_summary(uses))
-        .collect();
-    (readings, approvals)
+        .collect()
 }
 
 /// Each asking extension's grant as nothing approved it: what it declares, its call kind and the project's ceiling
@@ -203,8 +213,10 @@ struct Probing<'a> {
     disk: &'a dyn Disk,
     budget: ValueBudget,
     deadline: Instant,
-    /// What the local probes read so far (the budget's `bytes`).
+    /// What the run read so far (the budget's `bytes`).
     spent: u64,
+    /// The distinct file and git probes earlier rounds read.
+    read_before: usize,
     contained: Contained<'a>,
     now: UnixMillis,
     gates: BTreeMap<String, Grant>,
@@ -222,7 +234,7 @@ impl<'a> Probing<'a> {
     /// judged and counts toward I206.
     fn local_budget(&self, one_reading: &mut Reading, probe: &Probe) -> bool {
         let spare = self.local.contains_key(probe)
-            || (self.local.len() < self.budget.local_probes
+            || (self.read_before + self.local.len() < self.budget.local_probes
                 && self.spent < self.budget.bytes
                 && Instant::now() < self.deadline);
         if !spare {
@@ -255,12 +267,8 @@ impl<'a> Probing<'a> {
         };
         match probe {
             Probe::FsStat { root, path } => self.fs(&mut turn, root, path, FsOp::Stat),
-            Probe::FsReadPrefix { root, path, bytes } => {
-                let max_bytes = u64::from((*bytes).min(PREFIX_CAP));
-                self.fs(&mut turn, root, path, FsOp::Read { max_bytes })
-            }
-            Probe::FsRead { root, path, bytes } => {
-                let max_bytes = u64::from((*bytes).min(READ_CAP));
+            Probe::FsRead { root, path, range } => {
+                let max_bytes = held(*range).len();
                 self.fs(&mut turn, root, path, FsOp::Read { max_bytes })
             }
             Probe::FsDigest { root, path } => self.fs(&mut turn, root, path, FsOp::Digest),
@@ -279,6 +287,7 @@ impl<'a> Probing<'a> {
             }
             Probe::HttpHead { .. }
             | Probe::HttpGet { .. }
+            | Probe::HttpPostQuery { .. }
             | Probe::HttpTls { .. }
             | Probe::DnsResolve { .. } => self.network(&mut turn),
         }
@@ -442,7 +451,12 @@ impl<'a> Probing<'a> {
                         (OutcomeClass::Denied, OutcomeData::None)
                     }
                     Some(resolved) => {
-                        local::read_disk(self.disk, &self.contained, resolved, &op, self.deadline)
+                        let range = match probe {
+                            Probe::FsRead { range, .. } => Some(held(*range)),
+                            _ => None,
+                        };
+                        let disk = self.disk;
+                        local::read_disk(disk, &self.contained, resolved, &op, range, self.deadline)
                     }
                     None => (OutcomeClass::Missing, stat_of(None, 0, None)),
                 });
@@ -538,7 +552,7 @@ impl<'a> Probing<'a> {
             reading,
         } = turn;
         let (probe, scopes): (&'a Probe, &'a [String]) = (probe, scopes);
-        let Some((request, host, max_bytes)) = request_of(probe) else {
+        let Some((request, host, max_bytes)) = request_of(probe, BODY_CAP) else {
             refuse(
                 reading,
                 one.value,
@@ -557,12 +571,39 @@ impl<'a> Probing<'a> {
         let Some(gate) = self.gates.get(extension) else {
             return Slot::Stopped;
         };
-        if let Err(denial) = gate.only(scopes).permits(OP, &request)
-            && !matches!(denial.why, Denied::NotApproved | Denied::Root)
-        {
-            refuse(reading, one.value, denial.diagnostic());
+        let only = gate.only(scopes);
+        let permitting = match only.permitted(OP, &request) {
+            Ok(granted) => Some(granted),
+            Err(denial) if matches!(denial.why, Denied::NotApproved | Denied::Root) => denial
+                .capability
+                .and_then(|name| only.capabilities().iter().find(|g| g.declared.name == name)),
+            Err(denial) => {
+                refuse(reading, one.value, denial.diagnostic());
+                return Slot::Stopped;
+            }
+        };
+        // What a capability that lists its hosts lets the answer hold; none for the hosts values name.
+        let listed = permitting.and_then(|granted| match &granted.declared.port {
+            PortScope::Http(http) if matches!(http.hosts, Hosts::List(_)) => Some(http.max_bytes),
+            _ => None,
+        });
+        if matches!(probe, Probe::HttpPostQuery { .. }) && listed.is_none() {
+            let why = format!(
+                "extension '{}': `http.post_query {}` goes only to a host its capability lists",
+                one.call.extension,
+                one_probe(probe)
+            );
+            refuse(reading, one.value, Diagnostic::new(codes::E090, why));
             return Slot::Stopped;
         }
+        let room = listed
+            .flatten()
+            .and_then(|max| u32::try_from(max.min(MAX_CAPABILITY_BYTES)).ok())
+            .unwrap_or(BODY_CAP);
+        let (request, host, max_bytes) = match room {
+            BODY_CAP => (request, host, max_bytes),
+            room => request_of(probe, room).unwrap_or((request, host, max_bytes)),
+        };
         if let Some(grant) = self.effects.grant(extension)
             && let Err(denial) = grant.only(scopes).permits(OP, &request)
             && let Some(name) = denial.capability
@@ -584,6 +625,8 @@ impl<'a> Probing<'a> {
                 request,
                 host,
                 max_bytes,
+                queries: matches!(probe, Probe::HttpPostQuery { .. })
+                    && permitting.is_some_and(Granted::queries),
             });
         }
         Slot::Job(job)
@@ -634,6 +677,14 @@ impl<'a> Probing<'a> {
     }
 }
 
+/// `range` held to what a file read answers: a prefix to 64 KiB, any other range to 1 MiB.
+fn held(range: ByteRange) -> ByteRange {
+    match range {
+        ByteRange::Prefix { .. } => range.held_to(PREFIX_CAP),
+        _ => range.held_to(READ_CAP),
+    }
+}
+
 /// `diagnostic` on `value`: the host's, and the value fails or warns by it.
 fn refuse(reading: &mut Reading, value: &Value<'_>, mut diagnostic: Diagnostic) {
     value.places(&mut diagnostic, value.span.clone());
@@ -668,85 +719,14 @@ fn one_probe(probe: &Probe) -> String {
         Probe::GitRef { name } => format!("ref {name}"),
         Probe::GitFile { rev, path } => format!("file {rev}:{path}"),
         Probe::GitTracked { path, .. } => format!("tracked {path}"),
-        Probe::HttpHead { url, .. } | Probe::HttpGet { url, .. } => url.clone(),
+        Probe::HttpHead { url, .. }
+        | Probe::HttpGet { url, .. }
+        | Probe::HttpPostQuery { url, .. } => url.clone(),
         Probe::HttpTls { host, port } => format!("tls {host}:{port}"),
         Probe::DnsResolve { host } => format!("resolve {host}"),
         Probe::FsStat { path, .. }
-        | Probe::FsReadPrefix { path, .. }
         | Probe::FsRead { path, .. }
         | Probe::FsDigest { path, .. }
         | Probe::FsWalk { path, .. } => path.clone(),
-    }
-}
-
-/// The request a network probe makes, the host it reaches, and the most body it keeps; what only the host may set is
-/// set here. None for a URL with no host, which no request can reach.
-fn request_of(probe: &Probe) -> Option<(EffectRequest, String, u64)> {
-    let timeout_ms = DEFAULT_TIMEOUT.as_millis() as u64;
-    let http = |method: HttpMethod, url: &str, redirects: u32, headers, max_bytes: u64| {
-        let host = http::host_of(url)?;
-        Some((
-            EffectRequest::Http(HttpRequest {
-                method: method.as_str().to_string(),
-                url: url.to_string(),
-                headers,
-                body_cap: max_bytes + HEAD_ROOM,
-                timeout_ms,
-                max_redirects: redirects.min(http::MAX_REDIRECTS),
-                keep_headers: KEPT_HEADERS.map(String::from).to_vec(),
-                ..HttpRequest::default()
-            }),
-            host,
-            max_bytes,
-        ))
-    };
-    match probe {
-        Probe::HttpHead { url, redirects } => {
-            http(HttpMethod::Head, url, *redirects, Vec::new(), 0)
-        }
-        Probe::HttpGet {
-            url,
-            range,
-            max_bytes,
-        } => {
-            let headers = range
-                .map(|[from, to]| vec![Header::plain("range", format!("bytes={from}-{to}"))])
-                .unwrap_or_default();
-            http(
-                HttpMethod::Get,
-                url,
-                http::MAX_REDIRECTS,
-                headers,
-                u64::from((*max_bytes).min(BODY_CAP)),
-            )
-        }
-        Probe::HttpTls { host, port } => Some((
-            EffectRequest::Tls(TlsRequest {
-                host: host.clone(),
-                tcp_port: *port,
-                allow_private: false,
-                timeout_ms,
-            }),
-            host.clone(),
-            0,
-        )),
-        Probe::DnsResolve { host } => Some((
-            EffectRequest::Resolve(ResolveRequest {
-                host: host.clone(),
-                allow_private: false,
-                timeout_ms,
-            }),
-            host.clone(),
-            0,
-        )),
-        Probe::FsStat { .. }
-        | Probe::FsDigest { .. }
-        | Probe::FsReadPrefix { .. }
-        | Probe::FsRead { .. }
-        | Probe::FsWalk { .. }
-        | Probe::GitObject { .. }
-        | Probe::GitRef { .. }
-        | Probe::GitFile { .. }
-        | Probe::GitTracked { .. } => None,
     }
 }

@@ -6,9 +6,7 @@
       "description": "Check the files and directories the values name",
       "field_type": "bool",
       "gates": [
-        "E016",
-        "E096",
-        "W176"
+        "E096"
       ],
       "kind": "setting",
       "name": "families.files"
@@ -37,11 +35,7 @@
         "E093",
         "E104",
         "E112",
-        "W172",
-        "W173",
         "W178",
-        "W181",
-        "W182",
         "W183"
       ],
       "kind": "setting",
@@ -57,6 +51,40 @@
       ],
       "kind": "setting",
       "name": "families.git"
+    },
+    {
+      "default": true,
+      "description": "Check that JSON, YAML and TOML files parse, and that pointers and Markdown anchors into files exist",
+      "field_type": "bool",
+      "gates": [
+        "E097",
+        "E098"
+      ],
+      "kind": "setting",
+      "name": "families.structured"
+    },
+    {
+      "default": true,
+      "description": "Check that images, SVGs, PDFs and media files are what they say, within their limits",
+      "field_type": "bool",
+      "gates": [
+        "E099",
+        "E113",
+        "W177"
+      ],
+      "kind": "setting",
+      "name": "families.media"
+    },
+    {
+      "default": true,
+      "description": "Check that packages, DOIs and ORCID iDs exist, and the advisories and licences of the packages",
+      "field_type": "bool",
+      "gates": [
+        "E105",
+        "W179"
+      ],
+      "kind": "setting",
+      "name": "families.registries"
     }
   ]
 }
