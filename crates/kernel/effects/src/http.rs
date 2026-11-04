@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use specforge_package::MAX_PACKAGE_BYTES;
 use specforge_protocol_types::{AttachedSecret, HttpRequest, OutcomeClass, Unreachable};
+use url::Url;
 
 /// Connecting gives up after this.
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -63,15 +64,15 @@ impl Redirects for SameScheme {
 /// redirect elsewhere carries nothing.
 pub fn secret_header(
     secret: &AttachedSecret,
-    url: &str,
+    url: &Url,
     read: impl Fn(&str) -> Option<String>,
 ) -> Option<(String, String)> {
-    let (scheme, host) = crate::grant::scheme_and_host(url);
+    let host = url.host_str()?;
     let listed = secret
         .hosts
         .iter()
-        .any(|pattern| crate::ceiling::host_covers(pattern, &host));
-    if scheme != "https" || host.is_empty() || !listed {
+        .any(|pattern| crate::ceiling::host_covers(pattern, host));
+    if url.scheme() != "https" || !listed {
         return None;
     }
     let value = read(&secret.env).filter(|value| !value.is_empty())?;

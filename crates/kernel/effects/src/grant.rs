@@ -11,6 +11,7 @@ use specforge_protocol_types::{
     AttachedSecret, CapabilityDescriptor, EffectRequest, ExtensionDeclaration, FsAccess, FsOp,
     GitOp, GitScope, Hosts, HttpScope, Operation, PortScope, ProcessScope, SettingsItem,
 };
+use url::Url;
 
 use crate::ceiling::{DEFAULT_ROOTS, EffectsCeiling, host_covers};
 use crate::consent::{Approval, CapabilityApproval, Consent, ConsentError, Keyed, RootApproval};
@@ -548,11 +549,17 @@ pub fn one_line(request: &EffectRequest) -> String {
 fn admits(scope: &PortScope, request: &EffectRequest, user: bool) -> bool {
     match (scope, request) {
         (PortScope::Http(http), EffectRequest::Http(request)) => {
-            let (scheme, host) = scheme_and_host(&request.url);
+            // The parser the adapter requests with (WHATWG): what is judged is what is sent.
+            let Ok(url) = Url::parse(&request.url) else {
+                return false;
+            };
+            let host = url.host_str().unwrap_or_default();
             let schemes_ok = if http.schemes.is_empty() {
-                matches!(scheme.as_str(), "http" | "https")
+                matches!(url.scheme(), "http" | "https")
             } else {
-                http.schemes.iter().any(|s| s.eq_ignore_ascii_case(&scheme))
+                http.schemes
+                    .iter()
+                    .any(|s| s.eq_ignore_ascii_case(url.scheme()))
             };
             let method_ok = http.methods.is_empty()
                 || http
@@ -561,7 +568,7 @@ fn admits(scope: &PortScope, request: &EffectRequest, user: bool) -> bool {
                     .any(|m| m.as_str().eq_ignore_ascii_case(&request.method));
             let host_ok = match &http.hosts {
                 Hosts::FromValues => !host.is_empty(),
-                Hosts::List(hosts) => hosts.iter().any(|h| host_covers(h, &host)),
+                Hosts::List(hosts) => hosts.iter().any(|h| host_covers(h, host)),
             };
             schemes_ok && method_ok && host_ok
         }
@@ -599,21 +606,6 @@ pub fn argv_matches(template: &[String], argv: &[String]) -> bool {
                         && a.ends_with(after)
                 }
             })
-}
-
-/// The scheme and the host (lowercased, no user, no port) of `url`.
-pub fn scheme_and_host(url: &str) -> (String, String) {
-    let Some((scheme, rest)) = url.split_once("://") else {
-        return (String::new(), String::new());
-    };
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
-    let host = authority.rsplit('@').next().unwrap_or("");
-    let host = if let Some(v6) = host.strip_prefix('[') {
-        v6.split(']').next().unwrap_or("")
-    } else {
-        host.split(':').next().unwrap_or("")
-    };
-    (scheme.to_ascii_lowercase(), host.to_ascii_lowercase())
 }
 
 /// The secret `declared`'s `secret_header` names, attached to the hosts `granted` lists (ADR 0335 D6); none for a

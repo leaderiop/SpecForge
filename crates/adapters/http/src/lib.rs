@@ -178,20 +178,19 @@ impl Http for Client {
     }
 }
 
-/// The IP address `url` names literally, if it does.
 /// The header the grant's secret adds to the hop to `url`, its value read from the environment now (ADR 0335 D6):
 /// asked of every hop, so a redirect to a host the capability does not list, or off `https`, carries none. The
 /// value is marked sensitive, so no debug output of the request shows it.
 fn secret_of(request: &HttpRequest, url: &Url) -> Option<(String, HeaderValue)> {
     let secret = request.secret.as_ref()?;
-    let (name, value) = specforge_effects::http::secret_header(secret, url.as_str(), |env| {
-        std::env::var(env).ok()
-    })?;
+    let (name, value) =
+        specforge_effects::http::secret_header(secret, url, |env| std::env::var(env).ok())?;
     let mut value = HeaderValue::from_str(&value).ok()?;
     value.set_sensitive(true);
     Some((name, value))
 }
 
+/// The IP address `url` names literally, if it does.
 fn literal(url: &Url) -> Option<IpAddr> {
     match url.host()? {
         url::Host::Ipv4(ip) => Some(IpAddr::V4(ip)),

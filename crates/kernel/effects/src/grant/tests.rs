@@ -45,6 +45,66 @@ fn http(method: &str, url: &str) -> EffectRequest {
     })
 }
 
+fn url(text: &str) -> Url {
+    Url::parse(text).unwrap()
+}
+
+/// `hosts`' http capability, approved: only its hosts decide.
+fn hosts(hosts: &[&str]) -> Grant {
+    Grant::decide(
+        &declaration(json!([
+            {"name": "links", "why": "check links", "port": "http", "hosts": {"list": hosts}},
+        ])),
+        &third_party(),
+        &EffectsCeiling::default(),
+        &roots(),
+        &MemoryConsent::approving_everything(),
+    )
+}
+
+fn permits_url(grant: &Grant, url: &str) -> bool {
+    grant.permits(Operation::Collect, &http("GET", url)).is_ok()
+}
+
+#[test]
+fn the_host_judged_is_the_host_the_url_connects_to() {
+    let good = hosts(&["good.com"]);
+    // A backslash ends the authority (WHATWG): this is evil.com, its path `/@good.com/`.
+    assert!(!permits_url(&good, "https://evil.com\\@good.com/"));
+    // Userinfo is not the host, either way round.
+    assert!(!permits_url(&good, "https://good.com@evil.com/"));
+    assert!(!permits_url(&good, "https://good.com:pw@evil.com/"));
+    assert!(permits_url(&good, "https://user:pw@good.com/"));
+    // A port is not part of the host, and the host compares without case.
+    assert!(permits_url(&good, "https://good.com:8443/a?b#c"));
+    assert!(permits_url(&good, "https://GOOD.com/"));
+    // A name under or beside the host is another host; a trailing dot is one this scope does not list.
+    assert!(!permits_url(&good, "https://good.com.evil.com/"));
+    assert!(!permits_url(&good, "https://notgood.com/"));
+    assert!(!permits_url(&good, "https://good.com./"));
+    // An IDN is judged as it goes on the wire: a look-alike is not the host, and punycode lists the real one.
+    assert!(!permits_url(&good, "https://g\u{043e}od.com/"));
+    assert!(permits_url(
+        &hosts(&["xn--bcher-kva.example"]),
+        "https://b\u{fc}cher.example/"
+    ));
+    // An IPv6 literal is no listed name, however it is written; what cannot be parsed is nothing.
+    assert!(!permits_url(&good, "https://[::1]/"));
+    assert!(!permits_url(&good, "https://[::1]@good.com@evil.com/"));
+    let from_values = Grant::decide(
+        &declaration(json!([
+            {"name": "links", "why": "check links", "port": "http", "hosts": "from_values"},
+        ])),
+        &third_party(),
+        &EffectsCeiling::default(),
+        &roots(),
+        &MemoryConsent::approving_everything(),
+    );
+    assert!(permits_url(&from_values, "https://[::1]:8080/"));
+    assert!(!permits_url(&good, "not a url"));
+    assert!(!permits_url(&good, "ftp://good.com/"));
+}
+
 fn run(argv: &[&str]) -> EffectRequest {
     EffectRequest::Process(ProcessRequest {
         argv: argv.iter().map(|a| a.to_string()).collect(),
@@ -469,24 +529,24 @@ fn a_secret_rides_only_a_listed_https_host() {
     assert_eq!(secret.hosts, ["api.example.com"]);
     let read = |env: &str| (env == "ACME_TOKEN").then(|| "t0k".to_string());
     assert_eq!(
-        secret_header(&secret, "https://api.example.com/v1", read),
+        secret_header(&secret, &url("https://api.example.com/v1"), read),
         Some(("Authorization".to_string(), "Bearer t0k".to_string()))
     );
     // Plain http, another host (a redirect elsewhere) and an unset variable carry nothing.
     assert_eq!(
-        secret_header(&secret, "http://api.example.com/v1", read),
+        secret_header(&secret, &url("http://api.example.com/v1"), read),
         None
     );
     assert_eq!(
-        secret_header(&secret, "https://evil.example.org/", read),
+        secret_header(&secret, &url("https://evil.example.org/"), read),
         None
     );
     assert_eq!(
-        secret_header(&secret, "https://api.example.com.evil.org/", read),
+        secret_header(&secret, &url("https://api.example.com.evil.org/"), read),
         None
     );
     assert_eq!(
-        secret_header(&secret, "https://api.example.com/", |_| None),
+        secret_header(&secret, &url("https://api.example.com/"), |_| None),
         None
     );
     // Neither the request's wire form nor its digest holds the secret.

@@ -3010,6 +3010,7 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
+ "url",
 ]
 
 [[package]]
