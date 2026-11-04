@@ -245,10 +245,13 @@ fn a_body_still_arriving_after_the_timeout_is_r004() {
             every: Duration::from_millis(100),
         },
     );
-    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()))
-        .with_timeout(Duration::from_secs(1));
+    let http = std::sync::Arc::new(specforge_http::Client::new());
     let (name, version) = the_package();
-    let metadata = client.metadata(&name, &version, &registry, None).unwrap();
+    // The metadata on the default timeout: a busy suite must not time it out. Only the download races the short one.
+    let metadata = HttpRegistryClient::new(http.clone())
+        .metadata(&name, &version, &registry, None)
+        .unwrap();
+    let client = HttpRegistryClient::new(http).with_timeout(Duration::from_secs(1));
     let started = Instant::now();
     let error = refused(client.download(&metadata, &registry, None));
     assert_eq!(error.to_diagnostic().code, "R004", "{error:?}");
