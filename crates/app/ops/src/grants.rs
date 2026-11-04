@@ -103,7 +103,7 @@ pub fn settle(
 }
 
 /// `approval`, dated now.
-fn stamped(approval: Approval) -> Approval {
+pub(crate) fn stamped(approval: Approval) -> Approval {
     let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     match approval {
         Approval::Capability(mut a) => {

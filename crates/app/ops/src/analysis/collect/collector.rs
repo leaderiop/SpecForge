@@ -3,7 +3,8 @@
 
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
-use specforge_protocol_types::{ExtensionDeclaration, Input, PortScope};
+use specforge_effects::Uses;
+use specforge_protocol_types::{ExtensionDeclaration, Input, Operation, PortScope};
 use std::path::Path;
 
 /// A collector contributed by an enabled extension.
@@ -73,6 +74,26 @@ pub(super) fn detect<'a>(collectors: &'a [Collector], root: &Path) -> Vec<&'a Co
         .iter()
         .filter(|c| c.detect.iter().any(|p| pattern_matches(root, p)))
         .collect()
+}
+
+/// The scopes a collect run here would use, per extension: each detected collector's process capability (ADR 0335
+/// D2, O11): what `specforge grants` and doctor call in use.
+pub fn uses_here(declarations: &[ExtensionDeclaration], root: &Path) -> Vec<(String, Uses)> {
+    let all = collectors(declarations);
+    let mut uses: Vec<(String, Uses)> = Vec::new();
+    for collector in detect(&all, root) {
+        let Some(scope) = &collector.capability else {
+            continue;
+        };
+        let used = (Operation::Collect, scope.clone());
+        match uses.iter_mut().find(|(e, _)| *e == collector.extension) {
+            Some((_, of)) => {
+                of.insert(used);
+            }
+            None => uses.push((collector.extension.clone(), Uses::from([used]))),
+        }
+    }
+    uses
 }
 
 /// A detection pattern is a path relative to the project root whose last

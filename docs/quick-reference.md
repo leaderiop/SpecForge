@@ -86,6 +86,7 @@ specforge add ./path/to/ext.wasm     # load it in a project
 specforge format                     # format .spec files
 specforge migrate                    # bring .spec files to the current format: titles, and repeated reference lists moved into `defaults`
 specforge collect                    # run the test runners (with your approval) and record what they prove
+specforge grants                     # what the extensions may make the host do here, and this machine's approvals; approve, revoke, --store
 specforge doctor                     # health-check installed extensions and the files install wrote into a host
 specforge install claude-code        # write the extensions' agents, skills, slash commands and hooks into a host (codex, cursor too); --check, --dry-run, --force
 specforge uninstall claude-code      # remove exactly what install wrote

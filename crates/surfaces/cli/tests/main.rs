@@ -40,6 +40,7 @@ mod file_entry_names;
 mod format;
 mod format_corpus;
 mod format_paths;
+mod grants;
 mod hard_links;
 mod harness;
 mod history;

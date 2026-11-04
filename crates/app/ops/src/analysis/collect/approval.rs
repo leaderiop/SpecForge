@@ -6,14 +6,13 @@
 
 use super::evidence::Source;
 use super::{Collector, fail};
+use crate::analysis::grants::provenance_of;
 use crate::asking::Asking;
 use crate::grants::{Unsettled, settle};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 use specforge_common::codes;
-use specforge_effects::{
-    Consent, Denied, EffectRequest, Grant, Need, ProcessRequest, Provenance, Roots, Uses,
-};
+use specforge_effects::{Consent, Denied, EffectRequest, Grant, Need, ProcessRequest, Roots, Uses};
 use specforge_protocol_types::Operation;
 use std::path::Path;
 
@@ -57,7 +56,7 @@ pub(super) fn settle_runs(
                 else {
                     continue;
                 };
-                let provenance = provenance(view, &collector.extension);
+                let provenance = provenance_of(view, &collector.extension);
                 let grant = Grant::decide(
                     declaration,
                     &provenance,
@@ -107,22 +106,6 @@ pub(super) fn settle_runs(
         }
     }
     Ok(())
-}
-
-/// Where `extension`'s code came from: as the runtime loaded it, else as the load recorded it. One loaded with
-/// neither (an environment assembled in memory) is keyed as a third party by its name, so no builtin approval
-/// meets it.
-fn provenance(view: &ProjectView, extension: &str) -> Provenance {
-    view.runtime()
-        .and_then(|runtime| runtime.provenance(extension))
-        .or_else(|| {
-            view.env()
-                .enabled()
-                .iter()
-                .find(|e| e.name == extension)
-                .and_then(|e| e.provenance.clone())
-        })
-        .unwrap_or_else(|| Provenance::third_party(extension.as_bytes()))
 }
 
 /// E059 for the first command of `extension` whose scope `unsettled` lists.

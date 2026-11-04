@@ -24,6 +24,7 @@ mod extension_authoring;
 mod extension_command;
 mod extensions;
 mod format;
+mod grants;
 mod harness;
 mod hook;
 #[cfg(test)]
@@ -160,6 +161,10 @@ enum Commands {
     ///
     /// `settings set` and `settings unset` write one setting of specforge.json (ADR 0296).
     Settings(settings::Args),
+    /// List what the project's extensions may make the host do and this machine's approvals of it
+    ///
+    /// `grants approve` and `grants revoke` change the approvals, kept in the user's consent store (ADR 0335).
+    Grants(grants::Args),
     /// Run the project's test runners and record which entities their tests prove
     Collect(collect::Args),
     /// The harness ledger: specforge-harness records the values only a command's plan sets
@@ -308,6 +313,7 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::Logout(args) => args.run(terminal, ports),
         Commands::Providers(args) => args.run(terminal, ports),
         Commands::Settings(args) => args.run(terminal, ports),
+        Commands::Grants(args) => args.run(terminal, ports),
         Commands::Collect(args) => args.run(terminal, ports),
         Commands::Harness { action } => action.run(terminal, ports),
         Commands::Hook(args) => args.run(terminal, ports),
@@ -423,9 +429,9 @@ mod tests {
                 );
                 continue;
             }
-            // A command with subcommands only dispatches; its leaves read. `settings` also lists, and takes --path
-            // for the listing (its subcommands conflict with the listing's flags).
-            if command.has_subcommands() && name != "settings" {
+            // A command with subcommands only dispatches; its leaves read. `settings` and `grants` also list, and
+            // take --path for the listing (their subcommands conflict with the listing's flags).
+            if command.has_subcommands() && name != "settings" && name != "grants" {
                 assert!(
                     paths.is_empty(),
                     "`specforge {name}` dispatches but takes --path"

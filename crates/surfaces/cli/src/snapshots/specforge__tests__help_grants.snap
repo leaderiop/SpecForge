@@ -1,0 +1,34 @@
+---
+source: crates/surfaces/cli/src/main.rs
+expression: command.clone().render_long_help().to_string()
+---
+List what the project's extensions may make the host do and this machine's approvals of it
+
+`grants approve` and `grants revoke` change the approvals, kept in the user's consent store (ADR 0335).
+
+Usage: specforge grants [OPTIONS]
+       specforge grants <COMMAND>
+
+Commands:
+  list     List each capability, its grant here and the project's named roots (the default)
+  approve  Approve an extension's scopes on this machine (every scope that needs it when none is named), or a root
+  revoke   Revoke an extension's approvals (every scope when none is named), a root's, or the whole project's
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+      --path <PATH>
+          A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
+          
+          [default: .]
+
+      --store
+          List every approval the consent store holds, for every project
+
+      --format <FORMAT>
+          Output format: human or json
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help (see a summary with '-h')
