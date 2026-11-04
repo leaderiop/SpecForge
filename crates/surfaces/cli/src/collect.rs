@@ -21,6 +21,7 @@ use specforge_ops::analysis::collect::{
 };
 use specforge_ops::view::ProjectView;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 // `specforge collect`'s command line.
 #[derive(clap::Args)]
@@ -66,7 +67,19 @@ fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Po
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
 
-    let project = crate::project::compile_at(&root, ports);
+    let project = crate::project::compiled(
+        &root,
+        Some(Arc::new(
+            specforge_component::ComponentRuntime::with_user_cache(),
+        )),
+        ports,
+        crate::effects::mode(
+            None,
+            crate::effects::Command::Collect,
+            crate::asking::can_answer(format, terminal.facts()),
+            terminal.facts().ci,
+        ),
+    );
 
     let mode = if !options.reports.is_empty() {
         Mode::Reports(&options.reports)

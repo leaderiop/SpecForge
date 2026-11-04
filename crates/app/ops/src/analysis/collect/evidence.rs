@@ -51,6 +51,8 @@ pub(super) enum Source<'m> {
     Written(Declared),
     /// Read these files, and nothing the collector declares.
     Given(&'m [PathBuf]),
+    /// Read nothing: the collector declares `check_outcomes`, and the served rows are its evidence.
+    Outcomes,
 }
 
 /// What one collector's source gave.
@@ -74,6 +76,7 @@ impl<'m> Source<'m> {
     ) -> Result<Self, OpError> {
         match mode {
             Mode::Reports(paths) => Ok(Source::Given(paths)),
+            _ if collector.reads_outcomes() => Ok(Source::Outcomes),
             Mode::NoRun => Declared::of(collector, root, containment).map(Source::Written),
             Mode::Run(output) => {
                 let declared = Declared::of(collector, root, containment)?;
@@ -141,8 +144,13 @@ impl<'m> Source<'m> {
                     .collect();
                 (files, None, None, false)
             }
+            Source::Outcomes => (Vec::new(), None, None, false),
         };
-        if files.is_empty() && stdout.as_deref().is_none_or(str::is_empty) {
+        // The served rows are all a reader of the checks' outcomes needs, however few.
+        if !matches!(self, Source::Outcomes)
+            && files.is_empty()
+            && stdout.as_deref().is_none_or(str::is_empty)
+        {
             return Err(fail(
                 OpErrorKind::SchemaMismatch,
                 codes::E045,
@@ -171,6 +179,7 @@ impl<'m> Source<'m> {
                 declared.report.named.display()
             ),
             Source::Given(_) => "the report files given don't exist".to_string(),
+            Source::Outcomes => format!("{} read no outcome", collector.name),
         }
     }
 }

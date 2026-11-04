@@ -402,6 +402,9 @@ behavior auto_detect_collector "Auto-Detect Collector" {
     available.
   """
   produces   []
+  verify unit "a collector reading check outcomes is not run by a plain collect"
+  verify unit "a check outcomes input on anything but a collector is W021 and served empty"
+  verify unit "checks.publish adds a collector reading check outcomes to a plain collect, and never to a reports run"
   verify unit "file pattern match selects collector"
   verify unit "wildcards match within the last path segment"
   verify unit "no match emits E058 with available collectors"
@@ -568,6 +571,9 @@ behavior dispatch_collector "Dispatch Collector" {
     change under the write lock.
   """
   produces   [collector_dispatched]
+  verify unit "a collector named by the runner receives each checked value's outcome"
+  verify unit "a collector reading check outcomes needs no command and no report"
+  verify unit "published outcomes are stored under the collect key"
   verify unit "reads a file or every json file in a directory"
   verify unit "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
   verify unit "--report reads only the named files, whatever the collector declares"

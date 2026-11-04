@@ -31,9 +31,9 @@ pub use specforge_protocol_types::{
 };
 
 pub use specforge_protocol_types::{
-    CapabilityDescriptor, CheckFinding, CheckItem, CheckPhase, CheckPlan, CheckRef,
-    CheckValuesInput, CheckerDescriptor, FsAccess, GitOp, HttpMethod, Operation, OutcomeClass,
-    OutcomeData, PlannedItem, PortScope, Probe, ProbeOutcome, StatEntry, ValueForm,
+    CapabilityDescriptor, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan, CheckRef,
+    CheckStatus, CheckValuesInput, CheckerDescriptor, FsAccess, GitOp, HttpMethod, Operation,
+    OutcomeClass, OutcomeData, PlannedItem, PortScope, Probe, ProbeOutcome, StatEntry, ValueForm,
 };
 
 pub use specforge_protocol_types::{

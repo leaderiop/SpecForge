@@ -6,6 +6,7 @@
 mod facts;
 mod modes;
 mod order;
+mod outcomes;
 mod plans;
 mod reads;
 mod refusals;

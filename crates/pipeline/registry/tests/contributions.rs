@@ -261,6 +261,31 @@ fn an_input_its_call_kind_is_not_served_is_w021_and_served_empty() {
 }
 
 #[specforge_test(
+    behavior = "auto_detect_collector",
+    verify = "a check outcomes input on anything but a collector is W021 and served empty"
+)]
+fn a_check_outcomes_input_on_a_pass_is_w021_and_served_empty() {
+    use specforge_protocol_types::Input;
+    use specforge_registry::{CallKind, served};
+    for kind in [
+        CallKind::Pass,
+        CallKind::Command,
+        CallKind::Prompt,
+        CallKind::Hook,
+    ] {
+        assert!(!served(kind, &Input::CheckOutcomes), "{kind:?}");
+    }
+    assert!(served(CallKind::Collector, &Input::CheckOutcomes));
+    let build = build_registries(vec![core(json!({
+        "commands": [{"id": "go", "title": "Go", "description": "Go", "export": "cmd__go",
+                      "inputs": [{"input": "check_outcomes"}]}],
+    }))]);
+    let w021 = w021(&build);
+    assert_eq!(w021.len(), 1, "{w021:#?}");
+    assert!(w021[0].contains("the input 'check_outcomes'"), "{w021:#?}");
+}
+
+#[specforge_test(
     behavior = "install_into_a_host",
     verify = "the registry answers an agent by its id, with the extension that declares it"
 )]

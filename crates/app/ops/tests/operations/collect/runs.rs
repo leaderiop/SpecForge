@@ -98,8 +98,10 @@ fn a_single_enabled_runner_needs_no_detection() {
     assert_eq!(machine.runs().len(), 1);
 }
 
-#[test]
-#[ignore = "plan 05 T14"]
+#[specforge_test(
+    behavior = "auto_detect_collector",
+    verify = "a collector reading check outcomes is not run by a plain collect"
+)]
 fn a_collector_reading_check_outcomes_is_not_run_by_a_plain_collect() {
     let fx = Fixture::new(vec![
         Runner::new("outcomes")
@@ -563,4 +565,38 @@ fn auto_performs_what_a_grant_approves_and_nothing_else() {
     );
     let other = request(&["rm".to_string(), "-rf".to_string()]);
     assert_eq!(served(&approved, &other), not_approved);
+}
+
+#[specforge_test(
+    behavior = "auto_detect_collector",
+    verify = "checks.publish adds a collector reading check outcomes to a plain collect, and never to a reports run"
+)]
+fn publish_never_joins_a_reports_run() {
+    let fx = Fixture::configured(
+        vec![
+            Runner::new("unit").detecting_nothing(),
+            Runner::new("outcomes")
+                .detecting_nothing()
+                .inputs_raw(serde_json::json!([{"input": "check_outcomes"}])),
+        ],
+        r#"{"name": "demo", "checks": {"publish": true}}"#,
+    );
+    fx.write("mine.json", "{}");
+
+    let files = [fx.root().join("mine.json")];
+    fx.collect_with(
+        None,
+        Mode::Reports(&files),
+        &specforge_ops::Containment::unbounded(),
+        Asking::Nobody,
+        &Machine::new(),
+    )
+    .unwrap();
+
+    let called: Vec<String> = fx
+        .dispatched()
+        .into_iter()
+        .map(|call| call.export)
+        .collect();
+    assert_eq!(called, ["collect__unit"]);
 }

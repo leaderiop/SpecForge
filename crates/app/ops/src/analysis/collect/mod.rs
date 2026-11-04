@@ -226,7 +226,8 @@ pub fn collect(
     let (asking, containment) = (caller.asking(), caller.containment());
     let known = &KnownEntities::of(view.entities());
     let available = collectors(view.registries().declarations());
-    let (selected, chosen) = select(&available, runner, root)?;
+    let publish = view.env().config().checks.publish && !matches!(mode, Mode::Reports(_));
+    let (selected, chosen) = select(&available, runner, root, publish)?;
     if let Mode::Reports(_) = mode
         && selected.len() > 1
     {
@@ -389,12 +390,13 @@ enum Chosen {
 }
 
 /// The collectors to use: the one `runner` names, else every collector
-/// whose detection files are present. A runner no collector answers to is
-/// invalid input about the runner (E058).
+/// whose detection files are present, and with `publish` every collector that reads the checks' outcomes. A runner
+/// no collector answers to is invalid input about the runner (E058).
 fn select<'a>(
     available: &'a [Collector],
     runner: Option<&str>,
     root: &Path,
+    publish: bool,
 ) -> Result<(Vec<&'a Collector>, Chosen), Refusal<CollectField>> {
     if available.is_empty() {
         return Err(fail(
@@ -426,14 +428,24 @@ fn select<'a>(
                 .about(CollectField::Runner)
             });
     }
-    let detected = detect(available, root);
+    let mut detected = detect(available, root);
+    let (publishers, runners): (Vec<&Collector>, Vec<&Collector>) =
+        available.iter().partition(|c| c.reads_outcomes());
+    let published = publishers.into_iter().filter(|_| publish);
     // A project that enabled a single runner chose it: detection only
     // decides between several (vitest configured inside vite.config.ts,
     // for one, has no file of its own to detect).
-    if detected.is_empty() && available.len() == 1 {
-        return Ok((vec![&available[0]], Chosen::Named));
+    if let ([], [only]) = (detected.as_slice(), runners.as_slice()) {
+        return Ok((
+            std::iter::once(*only).chain(published).collect(),
+            Chosen::Named,
+        ));
     }
     if detected.is_empty() {
+        let published: Vec<&Collector> = published.collect();
+        if !published.is_empty() {
+            return Ok((published, Chosen::Named));
+        }
         return Err(fail(
             OpErrorKind::PreconditionFailed,
             codes::E058,
@@ -445,6 +457,7 @@ fn select<'a>(
         )
         .into());
     }
+    detected.extend(published);
     Ok((detected, Chosen::Detected))
 }
 

@@ -18,6 +18,7 @@ fn each() -> Vec<Input> {
         Input::SlashCommands,
         Input::git().status().when("x.y"),
         Input::setting("@a/b", "x.y"),
+        Input::CheckOutcomes,
     ]
 }
 

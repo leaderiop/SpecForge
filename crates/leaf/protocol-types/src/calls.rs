@@ -710,6 +710,9 @@ pub struct CollectInput<G = GraphWire> {
     /// The facts of the files the collector's `files` inputs name, by read name (ADR 0293).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub files: crate::FileMap,
+    /// Each checked value's outcome, for a collector that declares `check_outcomes` (ADR 0336).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub check_outcomes: Vec<crate::CheckOutcome>,
 }
 
 impl<G> Default for CollectInput<G> {
@@ -723,6 +726,7 @@ impl<G> Default for CollectInput<G> {
             graph: None,
             revisions: BTreeMap::new(),
             files: crate::FileMap::new(),
+            check_outcomes: Vec::new(),
         }
     }
 }

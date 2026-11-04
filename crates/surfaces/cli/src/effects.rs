@@ -1,6 +1,7 @@
-//! Which effects mode a command's compile runs in (ADR 0337 D4): `--effects` when given; else `check` runs `auto`
-//! when someone can answer (human output, a terminal at stdin) and it is not CI, and every other command, and every
-//! unattended run, runs `cached`, performing no effect.
+//! Which effects mode a command's compile runs in (ADR 0337 D4): `--effects` when given; else `check` and `collect`
+//! (whose collectors may read the checks' outcomes, ADR 0336) run `auto` when someone can answer (human output, a
+//! terminal at stdin) and it is not CI, and every other command, and every unattended run, runs `cached`, performing
+//! no effect.
 
 use specforge_effects::EffectsMode;
 
@@ -13,10 +14,11 @@ pub(crate) struct EffectsOption {
     pub(crate) effects: Option<EffectsMode>,
 }
 
-/// The command a compile is for: only `check` may default to performing effects.
+/// The command a compile is for: only `check` and `collect` may default to performing effects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Command {
     Check,
+    Collect,
     Other,
 }
 
@@ -30,7 +32,7 @@ pub(crate) fn mode(
 ) -> EffectsMode {
     match asked {
         Some(asked) => asked,
-        None if command == Command::Check && can_answer && !ci => EffectsMode::Auto,
+        None if command != Command::Other && can_answer && !ci => EffectsMode::Auto,
         None => EffectsMode::Cached,
     }
 }
@@ -51,6 +53,10 @@ mod tests {
     fn a_terminal_check_is_auto() {
         let human = can_answer(OutputFormat::Human, TERMINAL);
         assert_eq!(mode(None, Command::Check, human, false), EffectsMode::Auto);
+        assert_eq!(
+            mode(None, Command::Collect, human, false),
+            EffectsMode::Auto
+        );
     }
 
     #[test]

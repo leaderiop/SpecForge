@@ -30,6 +30,7 @@ pub fn served(kind: CallKind, input: &Input) -> bool {
         InputKind::Graph => matches!(kind, Prompt | Hook),
         InputKind::SlashCommands => kind == Prompt,
         InputKind::Git | InputKind::Setting => kind == Hook,
+        InputKind::CheckOutcomes => kind == Collector,
     }
 }
 

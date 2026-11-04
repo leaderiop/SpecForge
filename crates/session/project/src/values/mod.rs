@@ -12,8 +12,9 @@ use std::collections::{BTreeMap, HashSet};
 
 use specforge_common::{Diagnostic, Severity};
 use specforge_effects::{Effects, OutcomeClass};
+pub use specforge_protocol_types::CheckStatus;
 use specforge_protocol_types::{
-    CheckFinding, CheckItem, CheckPhase, CheckValuesInput, PlannedItem,
+    CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckValuesInput, PlannedItem,
 };
 use specforge_registry::{CheckCall, Disk, EntitySnapshot, ResolvedCheck};
 use specforge_wasm::ExtensionCalls;
@@ -25,27 +26,6 @@ use collect::Value;
 
 /// The most values one run checks; the rest are not judged and count toward I206 as `budget`.
 const VALUE_CAP: usize = 10_000;
-
-/// What became of one check on one value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CheckStatus {
-    Passed,
-    Failed,
-    /// Not performed or not answered: not judged, and nothing goes red for it.
-    NotRun,
-}
-
-impl CheckStatus {
-    /// Its name in every output.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            CheckStatus::Passed => "passed",
-            CheckStatus::Failed => "failed",
-            CheckStatus::NotRun => "not_run",
-        }
-    }
-}
 
 /// One checker's reading of one value.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,6 +64,26 @@ impl ValueChecks {
 
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// Every row as a collector that declares `check_outcomes` receives it, by entity id then collection order.
+    pub fn outcomes(&self) -> Vec<CheckOutcome> {
+        self.iter()
+            .flat_map(|(entity, rows)| {
+                rows.iter().map(move |row| CheckOutcome {
+                    entity: entity.to_string(),
+                    field: row.field.clone(),
+                    item: row.item as u32,
+                    value: row.value.clone(),
+                    checker: row.checker.clone(),
+                    status: row.status,
+                    outcome: row.outcome_class,
+                    observed_at: row.observed_at,
+                    from_cache: row.from_cache,
+                    codes: row.codes.clone(),
+                })
+            })
+            .collect()
     }
 
     /// What a judged verdict digests of them (ADR 0337 §6): a value not run is `unknown` (I207), and the verdict stays

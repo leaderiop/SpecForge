@@ -9,6 +9,51 @@ use crate::{FieldDescriptor, Header, OutcomeClass, Root};
 /// The export one extension's checkers are all called by; the guest routes each item by its checker's name.
 pub const CHECK_VALUES_EXPORT: &str = "__check_values";
 
+/// What became of one check on one value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckStatus {
+    Passed,
+    Failed,
+    /// Not performed or not answered: not judged, and nothing goes red for it.
+    NotRun,
+}
+
+impl CheckStatus {
+    /// Its name in every output.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CheckStatus::Passed => "passed",
+            CheckStatus::Failed => "failed",
+            CheckStatus::NotRun => "not_run",
+        }
+    }
+}
+
+/// One checker's reading of one value, as a collector that declares `check_outcomes` receives it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckOutcome {
+    pub entity: String,
+    /// The written path of the field or member (`links[1].href`).
+    pub field: String,
+    pub item: u32,
+    pub value: String,
+    /// `<extension>:<checker>`.
+    pub checker: String,
+    pub status: CheckStatus,
+    /// The class of what its probes answered; absent when it did not run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<OutcomeClass>,
+    /// When its oldest probe answer was observed (Unix milliseconds); absent for a checker with no probes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_at: Option<u64>,
+    #[serde(default)]
+    pub from_cache: bool,
+    /// The codes it found.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub codes: Vec<String>,
+}
+
 /// A check a field names: one checker, or a value that passes when one branch does.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
