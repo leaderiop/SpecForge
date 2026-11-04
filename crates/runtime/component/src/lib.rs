@@ -590,11 +590,9 @@ impl WasmRuntime for ComponentRuntime {
     }
 
     fn host_imports(&self, extension_name: &str) -> Vec<String> {
-        let Ok(plugins) = self.plugins.lock() else {
-            return Vec::new();
-        };
-        plugins
-            .get(extension_name)
+        // The map's lock is let go first: this waits on a call the extension is making, and every call needs the map.
+        self.plugin(extension_name, "")
+            .ok()
             .and_then(|plugin| plugin.lock().ok().map(|p| p.host_imports.clone()))
             .unwrap_or_default()
     }
