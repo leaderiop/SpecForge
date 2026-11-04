@@ -29,11 +29,20 @@ impl<P: ?Sized> Granted<P> {
 }
 
 impl Http for Granted<dyn Http> {
+    /// The request as its grant permits it, carrying the secret the permitting capability attaches and no other
+    /// (ADR 0335 D6).
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
-        if let Err(denial) = self.check(EffectRequest::Http(request.clone())) {
-            return HttpOutcome::failed(&request.url, OutcomeClass::Denied, denial.detail);
+        let asked = EffectRequest::Http(request.clone());
+        match self.grant.permitted(self.op, &asked) {
+            Ok(granted) => {
+                let request = HttpRequest {
+                    secret: granted.secret.clone(),
+                    ..request.clone()
+                };
+                self.port.request(&request, redirects)
+            }
+            Err(denial) => HttpOutcome::failed(&request.url, OutcomeClass::Denied, denial.detail),
         }
-        self.port.request(request, redirects)
     }
 }
 

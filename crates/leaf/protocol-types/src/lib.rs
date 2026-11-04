@@ -64,8 +64,8 @@ pub use declaration::{
     protocol_minor,
 };
 pub use effects::{
-    EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome, OutcomeClass,
-    ProcessRequest, REDACTED, Redirected, UnknownClass, Unreachable,
+    AttachedSecret, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
+    OutcomeClass, ProcessRequest, REDACTED, Redirected, UnknownClass, Unreachable,
 };
 pub use field::FieldDescriptor;
 pub use inputs::{GitInput, Input, InputKind, Inputs};

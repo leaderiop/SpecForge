@@ -8,7 +8,7 @@ fn digest_is_canonical() {
         method: "GET".into(),
         url: "https://example.org/a\r\nb".into(),
         headers: vec![
-            Header::sensitive("authorization", "Bearer secret"),
+            Header::sensitive("authorization", "Bearer hunter2"),
             Header::plain("accept", "text/html"),
         ],
         ..HttpRequest::default()
@@ -21,9 +21,9 @@ fn digest_is_canonical() {
         "{text}"
     );
     // A credential never reaches the canonical form, and is written redacted in Debug.
-    assert!(!text.contains("secret"), "{text}");
+    assert!(!text.contains("hunter2"), "{text}");
     assert!(text.contains("\"value\":\"<redacted>\""), "{text}");
-    assert!(!format!("{request:?}").contains("secret"));
+    assert!(!format!("{request:?}").contains("hunter2"));
     // CRLF is kept byte for byte.
     assert!(text.contains("a\\r\\nb"), "{text}");
     let digest_of = digest(&request);

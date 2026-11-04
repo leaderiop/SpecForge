@@ -8,8 +8,8 @@ use std::path::Path;
 
 use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::{
-    CapabilityDescriptor, EffectRequest, ExtensionDeclaration, FsAccess, FsOp, GitOp, GitScope,
-    Hosts, HttpScope, Operation, PortScope, ProcessScope,
+    AttachedSecret, CapabilityDescriptor, EffectRequest, ExtensionDeclaration, FsAccess, FsOp,
+    GitOp, GitScope, Hosts, HttpScope, Operation, PortScope, ProcessScope, SettingsItem,
 };
 
 use crate::ceiling::{DEFAULT_ROOTS, EffectsCeiling, host_covers};
@@ -32,6 +32,9 @@ pub struct Granted {
     pub needs_approval: bool,
     /// This machine approved it, its granted scope covered.
     pub approved: bool,
+    /// The secret the host attaches to the requests it permits (ADR 0335 D6): an `http` scope's `secret_header`,
+    /// resolved to the declared secret's environment variable, to the hosts the ceiling left.
+    pub secret: Option<AttachedSecret>,
 }
 
 /// A named root that resolves outside the project.
@@ -171,12 +174,17 @@ impl Grant {
             let needs_approval =
                 matches!(declared.port, PortScope::Http(_) | PortScope::Process(_))
                     || declared.port.writes();
+            let secret = narrowed
+                .scope
+                .as_ref()
+                .and_then(|scope| attached(declaration, &declared.port, scope));
             let mut granted = Granted {
                 declared: declared.clone(),
                 scope: narrowed.scope,
                 removed: narrowed.removed,
                 needs_approval,
                 approved: false,
+                secret,
             };
             granted.approved = needs_approval
                 && grant
@@ -238,6 +246,7 @@ impl Grant {
                         removed: narrowed.removed,
                         needs_approval: false,
                         approved: true,
+                        secret: None,
                     }
                 })
                 .collect(),
@@ -405,6 +414,15 @@ impl Grant {
 
     /// Whether a call of kind `op` may make `request`: `Err` names why not.
     pub fn permits(&self, op: Operation, request: &EffectRequest) -> Result<(), Denial> {
+        self.permitted(op, request).map(|_| ())
+    }
+
+    /// The capability that permits `request` for a call of kind `op` ([`Grant::permits`]).
+    pub(crate) fn permitted(
+        &self,
+        op: Operation,
+        request: &EffectRequest,
+    ) -> Result<&Granted, Denial> {
         let (port, write) = port_of(request);
         let deny = |why: Denied, scope: Option<&str>, detail: String| Denial {
             extension: self.extension.clone(),
@@ -483,7 +501,7 @@ impl Grant {
                 ),
             ));
         }
-        Ok(())
+        Ok(**usable)
     }
 
     fn allows_kind(&self, granted: &Granted, op: Operation, scope: &PortScope) -> bool {
@@ -596,6 +614,32 @@ pub fn scheme_and_host(url: &str) -> (String, String) {
         host.split(':').next().unwrap_or("")
     };
     (scheme.to_ascii_lowercase(), host.to_ascii_lowercase())
+}
+
+/// The secret `declared`'s `secret_header` names, attached to the hosts `granted` lists (ADR 0335 D6); none for a
+/// capability whose hosts come from values, or a secret the extension does not declare (both W021).
+fn attached(
+    declaration: &ExtensionDeclaration,
+    declared: &PortScope,
+    granted: &PortScope,
+) -> Option<AttachedSecret> {
+    let (PortScope::Http(declared), PortScope::Http(granted)) = (declared, granted) else {
+        return None;
+    };
+    let header = declared.secret_header.as_ref()?;
+    let Hosts::List(hosts) = &granted.hosts else {
+        return None;
+    };
+    let env = declaration.settings.iter().find_map(|item| match item {
+        SettingsItem::Secret(secret) if secret.name == header.secret => Some(secret.env.clone()),
+        _ => None,
+    })?;
+    Some(AttachedSecret {
+        header: header.header.clone(),
+        env,
+        scheme: header.scheme.clone(),
+        hosts: hosts.clone(),
+    })
 }
 
 /// The named roots of `roots` that resolve outside `project` (canonical), by name.

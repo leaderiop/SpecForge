@@ -39,8 +39,8 @@ pub use mode::{Effects, EffectsMode, Served};
 pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, SharedProcess, Shown};
 pub use provenance::Provenance;
 pub use specforge_protocol_types::{
-    EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome, OutcomeClass,
-    ProcessRequest, Redirected, Unreachable,
+    AttachedSecret, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
+    OutcomeClass, ProcessRequest, Redirected, Unreachable,
 };
 pub use time::{ClockError, UnixMillis};
 

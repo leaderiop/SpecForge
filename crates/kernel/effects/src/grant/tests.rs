@@ -41,6 +41,7 @@ fn http(method: &str, url: &str) -> EffectRequest {
         max_redirects: 0,
         allow_private: false,
         keep_headers: Vec::new(),
+        secret: None,
     })
 }
 
@@ -426,5 +427,72 @@ fn an_unusable_store_approves_nothing_and_the_grant_says_why() {
     assert_eq!(
         grant.store_problem().map(|e| e.why.as_str()),
         Some("not JSON")
+    );
+}
+
+#[test]
+fn a_secret_rides_only_a_listed_https_host() {
+    use crate::http::{Any, secret_header};
+    use specforge_protocol_types::{SecretDescriptor, SettingsItem};
+    let mut declaration = declaration(json!([
+        {"name": "feed", "why": "read the release feed", "port": "http", "schemes": ["https"],
+         "hosts": {"list": ["api.example.com"]},
+         "secret_header": {"header": "Authorization", "secret": "token", "scheme": "Bearer"}},
+    ]));
+    declaration.settings = vec![SettingsItem::Secret(SecretDescriptor {
+        name: "token".to_string(),
+        env: "ACME_TOKEN".to_string(),
+        description: None,
+    })];
+    let consent = MemoryConsent::approving_everything();
+    let grant = std::sync::Arc::new(Grant::decide(
+        &declaration,
+        &third_party(),
+        &EffectsCeiling::default(),
+        &roots(),
+        &consent,
+    ));
+    let fake = std::sync::Arc::new(crate::testing::FakeHttp::new());
+    let granted = grant.http(Operation::Collect, fake.clone());
+    let EffectRequest::Http(asked) = http("GET", "https://api.example.com/v1/releases") else {
+        unreachable!()
+    };
+    granted.request(&asked, &Any);
+
+    // The grant puts the secret's variable name on the request it permits; the value is read at send time.
+    let sent = fake.requests();
+    let secret = sent[0]
+        .secret
+        .clone()
+        .expect("the grant attaches its secret");
+    assert_eq!(secret.env, "ACME_TOKEN");
+    assert_eq!(secret.hosts, ["api.example.com"]);
+    let read = |env: &str| (env == "ACME_TOKEN").then(|| "t0k".to_string());
+    assert_eq!(
+        secret_header(&secret, "https://api.example.com/v1", read),
+        Some(("Authorization".to_string(), "Bearer t0k".to_string()))
+    );
+    // Plain http, another host (a redirect elsewhere) and an unset variable carry nothing.
+    assert_eq!(
+        secret_header(&secret, "http://api.example.com/v1", read),
+        None
+    );
+    assert_eq!(
+        secret_header(&secret, "https://evil.example.org/", read),
+        None
+    );
+    assert_eq!(
+        secret_header(&secret, "https://api.example.com.evil.org/", read),
+        None
+    );
+    assert_eq!(
+        secret_header(&secret, "https://api.example.com/", |_| None),
+        None
+    );
+    // Neither the request's wire form nor its digest holds the secret.
+    let wire = serde_json::to_string(&sent[0]).unwrap();
+    assert!(
+        !wire.contains("ACME_TOKEN") && !wire.contains("secret"),
+        "{wire}"
     );
 }

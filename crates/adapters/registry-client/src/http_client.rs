@@ -59,6 +59,7 @@ impl HttpRegistryClient {
             max_redirects: MAX_REDIRECTS,
             allow_private: true,
             keep_headers: vec!["retry-after".into()],
+            secret: None,
         }
     }
 

@@ -10,7 +10,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use reqwest::blocking::{Client as Reqwest, Response};
-use reqwest::header::LOCATION;
+use reqwest::header::{HeaderValue, LOCATION};
 use reqwest::{Method, Url};
 use specforge_effects::http::{BODY_CEILING, CONNECT_TIMEOUT, TIMEOUT_CEILING, status_class};
 use specforge_effects::{
@@ -128,8 +128,18 @@ impl Http for Client {
                 );
             };
             let mut asked = client.request(verb, parsed.clone()).timeout(left);
+            let secret = secret_of(request, &parsed);
             for header in &headers {
+                if secret
+                    .as_ref()
+                    .is_some_and(|(name, _)| name.eq_ignore_ascii_case(&header.name))
+                {
+                    continue;
+                }
                 asked = asked.header(&header.name, &header.value);
+            }
+            if let Some((name, value)) = secret {
+                asked = asked.header(name, value);
             }
             if let Some(body) = &body {
                 asked = asked.body(body.clone());
@@ -169,6 +179,19 @@ impl Http for Client {
 }
 
 /// The IP address `url` names literally, if it does.
+/// The header the grant's secret adds to the hop to `url`, its value read from the environment now (ADR 0335 D6):
+/// asked of every hop, so a redirect to a host the capability does not list, or off `https`, carries none. The
+/// value is marked sensitive, so no debug output of the request shows it.
+fn secret_of(request: &HttpRequest, url: &Url) -> Option<(String, HeaderValue)> {
+    let secret = request.secret.as_ref()?;
+    let (name, value) = specforge_effects::http::secret_header(secret, url.as_str(), |env| {
+        std::env::var(env).ok()
+    })?;
+    let mut value = HeaderValue::from_str(&value).ok()?;
+    value.set_sensitive(true);
+    Some((name, value))
+}
+
 fn literal(url: &Url) -> Option<IpAddr> {
     match url.host()? {
         url::Host::Ipv4(ip) => Some(IpAddr::V4(ip)),

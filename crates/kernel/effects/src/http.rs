@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use specforge_package::MAX_PACKAGE_BYTES;
-use specforge_protocol_types::{HttpRequest, OutcomeClass, Unreachable};
+use specforge_protocol_types::{AttachedSecret, HttpRequest, OutcomeClass, Unreachable};
 
 /// Connecting gives up after this.
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -55,6 +55,33 @@ impl Redirects for SameScheme {
     fn allow(&self, from: &str, to: &str) -> bool {
         scheme(from) == scheme(to)
     }
+}
+
+/// The header `secret` adds to a hop to `url` (ADR 0335 D6): `<scheme> <value>` or the bare value, the value as
+/// `read` finds the secret's environment variable now. None unless the hop is `https` to a host the capability
+/// lists, and none while the variable is unset (the response decides). Every adapter asks it of each hop, so a
+/// redirect elsewhere carries nothing.
+pub fn secret_header(
+    secret: &AttachedSecret,
+    url: &str,
+    read: impl Fn(&str) -> Option<String>,
+) -> Option<(String, String)> {
+    let (scheme, host) = crate::grant::scheme_and_host(url);
+    let listed = secret
+        .hosts
+        .iter()
+        .any(|pattern| crate::ceiling::host_covers(pattern, &host));
+    if scheme != "https" || host.is_empty() || !listed {
+        return None;
+    }
+    let value = read(&secret.env).filter(|value| !value.is_empty())?;
+    Some((
+        secret.header.clone(),
+        match &secret.scheme {
+            Some(scheme) => format!("{scheme} {value}"),
+            None => value,
+        },
+    ))
 }
 
 /// The scheme of `url`, lowercased; empty when it has none.

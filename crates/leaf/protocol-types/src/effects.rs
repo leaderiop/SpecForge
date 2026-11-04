@@ -74,6 +74,23 @@ pub struct HttpRequest {
     /// The response headers the outcome keeps, by name (case-insensitive).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keep_headers: Vec<String>,
+    /// The secret the host attaches as a header, set by the grant that permitted the request (ADR 0335 D6). Never
+    /// serialised: no guest names or sees it, and it is outside the request's digest.
+    #[serde(skip)]
+    pub secret: Option<AttachedSecret>,
+}
+
+/// A secret the host attaches to a granted request as `header: <scheme> <value>` (or the bare value), its value
+/// read from `env` when the request is sent, and only on an `https` hop to one of `hosts` (ADR 0335 D6). It holds
+/// the variable's name, never its value.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AttachedSecret {
+    pub header: String,
+    /// The environment variable the declared secret names.
+    pub env: String,
+    pub scheme: Option<String>,
+    /// The hosts the granted capability lists.
+    pub hosts: Vec<String>,
 }
 
 /// A request header. A sensitive one (a credential) is written `<redacted>` in `Debug` and in the canonical form a
