@@ -172,6 +172,132 @@ fn search_reports_every_line_once_and_the_first_column() {
     assert_eq!(anchored.stdout, "2\n");
 }
 
+/// A project with `notes/ctx.txt`: `hit` on lines 2, 5 and 10.
+fn context_project() -> TestProject {
+    project().files(&[(
+        "notes/ctx.txt",
+        "a\nhit one\nb\nc\nhit two\nd\ne\nf\ng\nhit three\n",
+    )])
+}
+
+/// The library reports each line once: a line between two close matches is the earlier match's `after`, never the
+/// later's `before`.
+#[test]
+fn context_lines_belong_to_the_nearest_match() {
+    let project = context_project();
+    let run = Cli::on(&project)
+        .run(&["files", "search", "hit", "notes", "-C", "2"])
+        .exits(0);
+    insta::assert_json_snapshot!("files_search_context", run.answer());
+    let human = Cli::on(&project)
+        .run(&[
+            "files", "search", "hit", "notes", "-B", "1", "-A", "0", "-C", "3", "--format", "human",
+        ])
+        .exits(0);
+    assert_eq!(
+        human.stdout,
+        "notes/ctx.txt-1- a\nnotes/ctx.txt:2:1: hit one\nnotes/ctx.txt-4- c\nnotes/ctx.txt:5:1: hit two\n\
+         notes/ctx.txt-9- g\nnotes/ctx.txt:10:1: hit three\n"
+    );
+}
+
+/// `-U 'X(.*\n){0,N}?.*Y'`: a Y line within N lines after an X line, Y on X's own line included.
+#[test]
+fn a_multiline_pattern_finds_y_within_n_lines_of_x() {
+    let project = project().files(&[("notes/xy.txt", "X start\na\nb\nY end\n-\nX and Y\n")]);
+    let count = |n: usize| {
+        let pattern = format!("X(.*\\n){{0,{n}}}?.*Y");
+        Cli::on(&project)
+            .run(&[
+                "files",
+                "search",
+                "-U",
+                &pattern,
+                "notes",
+                "--pick",
+                ".matches[].line",
+            ])
+            .exits(0)
+            .stdout
+    };
+    // The library joins matches on adjacent lines into one, so the fixture keeps them apart.
+    assert_eq!(count(3), "1\n6\n");
+    assert_eq!(count(2), "6\n");
+    let spans = Cli::on(&project)
+        .run(&[
+            "files",
+            "search",
+            "-U",
+            "X(.*\\n){0,3}?.*Y",
+            "notes",
+            "--pick",
+            ".matches[0]",
+        ])
+        .exits(0)
+        .json();
+    assert_eq!(spans["end_line"], 4, "{spans}");
+    assert_eq!(spans["text"], "X start\na\nb\nY end", "{spans}");
+}
+
+#[test]
+fn a_newline_pattern_without_u_is_refused() {
+    let project = project();
+    let run = Cli::on(&project)
+        .run(&["files", "search", "a\\nb", "src"])
+        .exits(1);
+    assert_eq!(run.json()["code"], "invalid_input", "{}", run.stdout);
+    assert!(
+        run.json()["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("not allowed"),
+        "{}",
+        run.stdout
+    );
+}
+
+#[test]
+fn an_inverted_search_answers_the_other_lines() {
+    let project = project();
+    let run = Cli::on(&project)
+        .run(&[
+            "files",
+            "search",
+            "-v",
+            "hello",
+            "src/main.rs",
+            "--pick",
+            ".matches[]",
+        ])
+        .exits(0);
+    assert_eq!(
+        run.stdout,
+        "{\"column\":1,\"line\":1,\"path\":\"src/main.rs\",\"text\":\"fn main() {\"}\n\
+         {\"column\":1,\"line\":3,\"path\":\"src/main.rs\",\"text\":\"}\"}\n"
+    );
+}
+
+#[test]
+fn fixed_strings_match_a_regex_character_literally() {
+    let project = project().files(&[("notes/dots.txt", "a.b\naxb\n")]);
+    let regex = Cli::on(&project)
+        .run(&["files", "search", "a.b", "notes", "--pick", ".count"])
+        .exits(0);
+    assert_eq!(regex.stdout, "2\n");
+    let fixed = Cli::on(&project)
+        .run(&[
+            "files",
+            "search",
+            "-F",
+            "a.b",
+            "notes",
+            "--pick",
+            ".matches[].line",
+        ])
+        .exits(0);
+    assert_eq!(fixed.stdout, "1\n");
+}
+
 #[test]
 fn a_path_from_a_subdirectory_is_read_from_there_and_printed_from_there() {
     let project = project();

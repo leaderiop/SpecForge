@@ -1,0 +1,66 @@
+---
+source: crates/surfaces/cli/tests/files_verb.rs
+expression: run.answer()
+---
+{
+  "count": 3,
+  "matches": [
+    {
+      "after": [
+        {
+          "line": 3,
+          "text": "b"
+        },
+        {
+          "line": 4,
+          "text": "c"
+        }
+      ],
+      "before": [
+        {
+          "line": 1,
+          "text": "a"
+        }
+      ],
+      "column": 1,
+      "line": 2,
+      "path": "notes/ctx.txt",
+      "text": "hit one"
+    },
+    {
+      "after": [
+        {
+          "line": 6,
+          "text": "d"
+        },
+        {
+          "line": 7,
+          "text": "e"
+        }
+      ],
+      "before": [],
+      "column": 1,
+      "line": 5,
+      "path": "notes/ctx.txt",
+      "text": "hit two"
+    },
+    {
+      "after": [],
+      "before": [
+        {
+          "line": 8,
+          "text": "f"
+        },
+        {
+          "line": 9,
+          "text": "g"
+        }
+      ],
+      "column": 1,
+      "line": 10,
+      "path": "notes/ctx.txt",
+      "text": "hit three"
+    }
+  ],
+  "truncated": false
+}

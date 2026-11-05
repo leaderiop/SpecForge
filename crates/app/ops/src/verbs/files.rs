@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 
 use grep_matcher::{LineTerminator, Matcher as _};
 use grep_regex::{RegexMatcher, RegexMatcherBuilder};
-use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
+use grep_searcher::{
+    BinaryDetection, Searcher, SearcherBuilder, Sink, SinkContext, SinkContextKind, SinkMatch,
+};
 use serde::Serialize;
 use specforge_effects::contained::{TEMP, temp_root};
 use specforge_effects::fs::{FileKind, READ_CEILING};
@@ -78,15 +80,33 @@ pub struct List {
     pub max: usize,
 }
 
-/// One line `search` matched.
+/// One line `search` matched, or under `multiline` the lines one match spans.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Match {
     pub path: String,
     /// 1-based.
     pub line: usize,
-    /// 1-based, in characters.
+    /// The last line a multiline match spans; only under `multiline`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_line: Option<usize>,
+    /// 1-based, in characters; 1 for an inverted line.
     pub column: usize,
-    /// The line, at most [`LINE_CHARS`] characters.
+    /// The line (the lines, joined by `\n`), at most [`LINE_CHARS`] characters.
+    pub text: String,
+    /// The lines before it; only when context is asked.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub before: Option<Vec<Context>>,
+    /// The lines after it; only when context is asked. A line between two close matches is the earlier's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub after: Option<Vec<Context>>,
+}
+
+/// A line around a match.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Context {
+    /// 1-based.
+    pub line: usize,
+    /// At most [`LINE_CHARS`] characters.
     pub text: String,
 }
 
@@ -106,6 +126,16 @@ pub struct Search {
     pub paths: Vec<PathBuf>,
     pub globs: Vec<String>,
     pub ignore_case: bool,
+    /// The pattern is a literal, not a regex.
+    pub fixed: bool,
+    /// The lines that do not match.
+    pub invert: bool,
+    /// A match may span lines: the pattern may hold `\n`.
+    pub multiline: bool,
+    /// Lines answered before each match.
+    pub before: usize,
+    /// Lines answered after each match.
+    pub after: usize,
     pub max: usize,
 }
 
@@ -216,6 +246,10 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
     let mut searcher = SearcherBuilder::new()
         .line_number(true)
         .line_terminator(LineTerminator::crlf())
+        .invert_match(search.invert)
+        .multi_line(search.multiline)
+        .before_context(search.before)
+        .after_context(search.after)
         // A binary file is skipped before it is searched, by git's rule.
         .binary_detection(BinaryDetection::none())
         .build();
@@ -294,9 +328,11 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
             let shown = verbs.shown_in(&root, &rel);
             let mut found = Found {
                 matcher: &matcher,
+                search,
                 path: &shown,
-                max: search.max,
                 answer: &mut answer,
+                before: Vec::new(),
+                last: None,
             };
             searcher
                 .search_slice(&matcher, &outcome.bytes, &mut found)
@@ -314,39 +350,50 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
 }
 
 /// `pattern` as `search` asks it matched, as ripgrep builds its matcher: a line's `^` and `$` at each line, CRLF lines
-/// read without their `\r`, and no match that crosses a line (a pattern that needs a `\n` is refused).
+/// read without their `\r`, and unless `multiline` no match that crosses a line (a pattern that needs a `\n` is
+/// refused).
 fn matcher(search: &Search, pattern: &str) -> Result<RegexMatcher, OpError> {
-    RegexMatcherBuilder::new()
+    let mut builder = RegexMatcherBuilder::new();
+    builder
         .case_insensitive(search.ignore_case)
+        .fixed_strings(search.fixed)
         .multi_line(true)
-        .crlf(true)
-        .build(pattern)
-        .map_err(|error| {
-            OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("the pattern does not parse: {error}"),
-            )
-        })
+        .crlf(true);
+    if search.multiline {
+        builder.line_terminator(None);
+    }
+    builder.build(pattern).map_err(|error| {
+        OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            format!("the pattern does not parse: {error}"),
+        )
+    })
 }
 
-/// The answer one file's search adds to: each line the searcher reports, until the answer holds `max`.
+/// The answer one file's search adds to: each match the searcher reports, with its context, until the answer holds
+/// `max`.
 struct Found<'a> {
     matcher: &'a RegexMatcher,
+    search: &'a Search,
     path: &'a str,
-    max: usize,
     answer: &'a mut SearchAnswer,
+    /// The context lines reported since the last match: the next match's `before`.
+    before: Vec<Context>,
+    /// The index of this file's last match in the answer: an `after` line is its.
+    last: Option<usize>,
 }
 
 impl Sink for Found<'_> {
     type Error = std::io::Error;
 
     fn matched(&mut self, _: &Searcher, found: &SinkMatch<'_>) -> Result<bool, Self::Error> {
-        if self.answer.matches.len() >= self.max {
+        if self.answer.matches.len() >= self.search.max {
             self.answer.truncated = true;
             return Ok(false);
         }
         let bytes = found.bytes();
+        let line = found.line_number().unwrap_or(0) as usize;
         let column = match self.matcher.find(bytes) {
             Ok(Some(at)) => {
                 String::from_utf8_lossy(&bytes[..at.start()])
@@ -356,21 +403,47 @@ impl Sink for Found<'_> {
             }
             _ => 1,
         };
+        let context = self.search.before > 0 || self.search.after > 0;
         self.answer.matches.push(Match {
             path: self.path.to_string(),
-            line: found.line_number().unwrap_or(0) as usize,
+            line,
+            end_line: self
+                .search
+                .multiline
+                .then(|| line + found.lines().count().saturating_sub(1)),
             column,
-            text: line_text(bytes),
+            text: lines_text(bytes),
+            before: context.then(|| std::mem::take(&mut self.before)),
+            after: context.then(Vec::new),
         });
+        self.last = Some(self.answer.matches.len() - 1);
+        Ok(true)
+    }
+
+    fn context(&mut self, _: &Searcher, context: &SinkContext<'_>) -> Result<bool, Self::Error> {
+        let line = Context {
+            line: context.line_number().unwrap_or(0) as usize,
+            text: lines_text(context.bytes()),
+        };
+        match (context.kind(), self.last) {
+            (SinkContextKind::After, Some(last)) => {
+                if let Some(after) = self.answer.matches[last].after.as_mut() {
+                    after.push(line);
+                }
+            }
+            _ => self.before.push(line),
+        }
         Ok(true)
     }
 }
 
-/// A line the searcher reported, without its terminator, at most [`LINE_CHARS`] characters.
-fn line_text(line: &[u8]) -> String {
-    let line = line.strip_suffix(b"\n").unwrap_or(line);
-    let line = line.strip_suffix(b"\r").unwrap_or(line);
-    String::from_utf8_lossy(line)
+/// The line or lines the searcher reported, each without its terminator, joined by `\n`, at most [`LINE_CHARS`]
+/// characters.
+fn lines_text(bytes: &[u8]) -> String {
+    let bytes = bytes.strip_suffix(b"\n").unwrap_or(bytes);
+    let bytes = bytes.strip_suffix(b"\r").unwrap_or(bytes);
+    String::from_utf8_lossy(bytes)
+        .replace("\r\n", "\n")
         .chars()
         .take(LINE_CHARS)
         .collect()

@@ -20,6 +20,24 @@ Options:
   -i, --ignore-case
           Match letters in any case
 
+  -F, --fixed-strings
+          The pattern is a literal string, not a regular expression
+
+  -v, --invert-match
+          Answer the lines that do not match
+
+  -U, --multiline
+          A match may span lines: the pattern may hold `\n` (and `\s` then matches one)
+
+  -A, --after-context <N>
+          Answer N lines after each match, in its `after`
+
+  -B, --before-context <N>
+          Answer N lines before each match, in its `before`
+
+  -C, --context <N>
+          Answer N lines before and after each match (-A and -B win over it)
+
       --max <N>
           The most matches answered
           

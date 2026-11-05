@@ -175,6 +175,30 @@ pub(crate) struct SearchArgs {
     #[arg(long, short = 'i')]
     ignore_case: bool,
 
+    /// The pattern is a literal string, not a regular expression
+    #[arg(long, short = 'F')]
+    fixed_strings: bool,
+
+    /// Answer the lines that do not match
+    #[arg(long, short = 'v')]
+    invert_match: bool,
+
+    /// A match may span lines: the pattern may hold `\n` (and `\s` then matches one)
+    #[arg(long, short = 'U')]
+    multiline: bool,
+
+    /// Answer N lines after each match, in its `after`
+    #[arg(long, short = 'A', value_name = "N")]
+    after_context: Option<usize>,
+
+    /// Answer N lines before each match, in its `before`
+    #[arg(long, short = 'B', value_name = "N")]
+    before_context: Option<usize>,
+
+    /// Answer N lines before and after each match (-A and -B win over it)
+    #[arg(long, short = 'C', value_name = "N")]
+    context: Option<usize>,
+
     /// The most matches answered
     #[arg(long, value_name = "N", default_value_t = SEARCH_MAX)]
     max: usize,
@@ -300,6 +324,11 @@ impl SearchArgs {
             paths: self.paths,
             globs: self.globs,
             ignore_case: self.ignore_case,
+            fixed: self.fixed_strings,
+            invert: self.invert_match,
+            multiline: self.multiline,
+            before: self.before_context.or(self.context).unwrap_or(0),
+            after: self.after_context.or(self.context).unwrap_or(0),
             max: self.max,
         };
         self.verb.answer(
@@ -307,15 +336,34 @@ impl SearchArgs {
             ports,
             |verbs| files::search(&verbs, &search),
             |terminal, answer| {
+                let path = |found: &files::Match| shown(&found.path).into_owned();
                 for found in &answer.matches {
+                    for line in found.before.iter().flatten() {
+                        outln!(
+                            terminal,
+                            "{}-{}- {}",
+                            path(found),
+                            line.line,
+                            shown(&line.text)
+                        );
+                    }
                     outln!(
                         terminal,
                         "{}:{}:{}: {}",
-                        shown(&found.path),
+                        path(found),
                         found.line,
                         found.column,
                         shown(&found.text)
                     );
+                    for line in found.after.iter().flatten() {
+                        outln!(
+                            terminal,
+                            "{}-{}- {}",
+                            path(found),
+                            line.line,
+                            shown(&line.text)
+                        );
+                    }
                 }
                 if answer.truncated {
                     outln!(terminal, "(stopped at {} matches)", answer.count);
