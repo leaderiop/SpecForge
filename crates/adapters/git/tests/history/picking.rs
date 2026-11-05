@@ -333,6 +333,27 @@ fn a_worktree_is_locked_and_unlocked_once_each() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn a_worktree_named_through_a_link_is_the_same_worktree() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "one\n");
+    let first = repo.commit_all("first");
+    let elsewhere = tempfile::tempdir().unwrap();
+    let linked = repo.linked_worktree(&elsewhere.path().join("wt"), "wt", &first);
+    let link = elsewhere.path().join("link");
+    std::os::unix::fs::symlink(linked.dir(), &link).unwrap();
+    let git = Gix::default();
+    git.worktree_lock(&place(&repo), &link, true, None).unwrap();
+    assert!(
+        git.worktrees(&place(&repo))
+            .unwrap()
+            .iter()
+            .any(|w| w.locked)
+    );
+}
+
 #[test]
 fn init_makes_a_repository_once() {
     use specforge_effects::git::Located;

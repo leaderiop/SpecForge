@@ -56,7 +56,7 @@ impl Repo {
         let repo = Repo::init(dir);
         std::fs::create_dir_all(git_dir.parent().unwrap()).unwrap();
         std::fs::rename(dir.join(".git"), git_dir).unwrap();
-        std::fs::write(dir.join(".git"), format!("gitdir: {}\n", git_dir.display())).unwrap();
+        std::fs::write(dir.join(".git"), format!("gitdir: {}\n", slashed(git_dir))).unwrap();
         Repo {
             git_dir: git_dir.to_path_buf(),
             common_dir: git_dir.to_path_buf(),
@@ -312,12 +312,12 @@ impl Repo {
         std::fs::write(private.join("commondir"), "../..\n").unwrap();
         std::fs::write(
             private.join("gitdir"),
-            format!("{}\n", path.join(".git").display()),
+            format!("{}\n", slashed(&path.join(".git"))),
         )
         .unwrap();
         std::fs::write(
             path.join(".git"),
-            format!("gitdir: {}\n", private.display()),
+            format!("gitdir: {}\n", slashed(&private)),
         )
         .unwrap();
         let linked = Repo {
@@ -337,6 +337,11 @@ impl Repo {
         linked.stage_all();
         linked
     }
+}
+
+/// `path` as git writes it into a `gitdir` file, `/` separated on Windows too: libgit2 splits such a path on `/` only.
+fn slashed(path: &Path) -> String {
+    path.display().to_string().replace('\\', "/")
 }
 
 /// Every file under `dir` but the git directory, from `top`, `/` separated.
