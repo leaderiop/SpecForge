@@ -14,24 +14,53 @@ use crate::terminal::{Terminal, errln, outln};
 use args::*;
 
 /// `specforge git [--in <dir>] <action>`: with `--in`, the action runs as if typed in `dir`, as `git -C` runs one
-/// (its current directory is `dir`).
+/// (its current directory is `dir`), once the roots of the project it is typed in hold `dir` as a typed path.
 pub(crate) fn run(
     dir: Option<&std::path::Path>,
     action: Action,
     terminal: &Terminal,
     ports: &Ports,
 ) -> Exit {
-    if let Some(dir) = dir
-        && let Err(error) = std::env::set_current_dir(dir)
-    {
-        errln!(
-            terminal,
-            "error: --in {}: {error}",
-            shown(&dir.to_string_lossy())
-        );
-        return Exit::Unjudged;
+    if let Some(dir) = dir {
+        let held = super::open(&crate::project::ProjectArg::scan(&[]), ports)
+            .and_then(|verbs| verbs.held(dir, specforge_effects::FsOp::Stat))
+            .map(|(located, _)| located.at);
+        let at = match held {
+            Ok(at) => at,
+            Err(error) => {
+                let error = error.with_suggestion(format!(
+                    "run it from that directory's own project: cd {} && specforge git {}",
+                    shown(&dir.to_string_lossy()),
+                    shown(&without_in().join(" "))
+                ));
+                return super::refusal(crate::outcome::OutputFormat::Human, true)
+                    .report(terminal, &error);
+            }
+        };
+        if let Err(error) = std::env::set_current_dir(&at) {
+            errln!(
+                terminal,
+                "error: --in {}: {error}",
+                shown(&dir.to_string_lossy())
+            );
+            return Exit::Unjudged;
+        }
     }
     action.run(terminal, ports)
+}
+
+/// The words after `git` on this command line, `--in` and its directory left out.
+fn without_in() -> Vec<String> {
+    let mut words = std::env::args().skip_while(|word| word != "git").skip(1);
+    let mut kept = Vec::new();
+    while let Some(word) = words.next() {
+        if word == "--in" {
+            words.next();
+        } else if !word.starts_with("--in=") {
+            kept.push(word);
+        }
+    }
+    kept
 }
 
 #[derive(clap::Subcommand)]

@@ -93,6 +93,26 @@ fn in_runs_a_verb_as_if_typed_in_its_directory() {
     git(&project, &["repo", "--in", "nosuch"]).exits(2);
 }
 
+/// `--in` is held to the invoking project's roots as a typed path is: a repository elsewhere is refused, and the
+/// remedy is the whole command run from there.
+#[test]
+fn in_is_held_to_the_projects_roots() {
+    let (project, _repo, _) = committed();
+    let elsewhere = tempfile::tempdir().unwrap();
+    Repo::init(elsewhere.path()).write("x.txt", "x\n");
+    let dir = elsewhere.path().to_string_lossy().into_owned();
+    let refused = git(&project, &["status", "--in", &dir, "--pick", ".clean"]).exits(1);
+    assert_eq!(refused.stdout, "");
+    assert!(refused.stderr.contains("root"), "{}", refused.stderr);
+    assert!(
+        refused
+            .stderr
+            .contains("specforge git status --pick .clean"),
+        "{}",
+        refused.stderr
+    );
+}
+
 #[test]
 fn head_names_the_branch_and_its_commit() {
     let (project, repo, sha) = committed();

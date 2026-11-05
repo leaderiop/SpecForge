@@ -540,7 +540,7 @@ gsd-core/workflows/quick.md	sort	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FIL
 gsd-core/workflows/quick.md	tr	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
 gsd-core/workflows/quick.md	tr	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
 gsd-core/workflows/remove-workspace.md	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
-gsd-core/workflows/remove-workspace.md	sed	SOURCE_REPO_PATH=$(specforge git repo --in "$WORKSPACE_PATH/$REPO_NAME" --pick .common_dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
+gsd-core/workflows/remove-workspace.md	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 gsd-core/workflows/resume-project.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/resume-project.md	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
 gsd-core/workflows/resume-project.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -865,7 +865,7 @@ prompt:verify_work	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]
 prompt:workspace	grep	CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)
 prompt:workspace	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
 prompt:workspace	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
-prompt:workspace	sed	SOURCE_REPO_PATH=$(specforge git repo --in "$WORKSPACE_PATH/$REPO_NAME" --pick .common_dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
+prompt:workspace	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 
 # B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 71 rows.
 gsd-core/references/checkpoints.md	lsof	lsof -ti:3000 | xargs kill
@@ -1004,9 +1004,17 @@ prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; t
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 
-# D git: git, embedded (R2). 23 rows.
+# D git: git, embedded (R2). 33 rows.
 # Stays: push, fetch, ls-remote, remote show (17 rows) reach a remote: no network git transport yet (ADR 0339 D6).
 # Stays: new-workspace's worktree add, clone (6 rows) write in $HOME/gsd-workspaces, outside the roots (ADR 0339 D2).
+# Stays: git -C into remove-workspace's repos under $HOME/gsd-workspaces and worktree-path-safety's pinned root (10 rows):
+# --in reaches only the project's roots (ADR 0339 D2), and the pin compares toplevels in git's own spelling.
+gsd-core/references/worktree-path-safety.md	git	ACTUAL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+gsd-core/references/worktree-path-safety.md	git	PIN_DIAG="git rev-parse --show-toplevel from the cwd failed: $(git rev-parse --show-toplevel 2>&1 1>/dev/null)"
+gsd-core/references/worktree-path-safety.md	git	PINNED_TL=$(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>/dev/null)
+gsd-core/references/worktree-path-safety.md	git	PIN_DIAG="git -C <pinned root> rev-parse --show-toplevel failed: $(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>&1 1>/dev/null)"
+gsd-core/references/worktree-path-safety.md	git	SUPER_TL=$(git rev-parse --show-superproject-working-tree 2>/dev/null)
+gsd-core/references/worktree-path-safety.md	git	git -C
 gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git push origin v[X.Y]
 gsd-core/workflows/execute-phase.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
 gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
@@ -1015,6 +1023,8 @@ gsd-core/workflows/new-workspace.md	git	git clone "$SOURCE_REPO_PATH" "$TARGET_P
 gsd-core/workflows/pr-branch.md	git	if git -C "$SUB_REPO_DIR" ls-remote --exit-code --heads origin "$TARGET" \
 gsd-core/workflows/pr-branch.md	git	SUB_TARGET=$(git -C "$SUB_REPO_DIR" remote show origin 2>/dev/null \
 gsd-core/workflows/quick.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
+gsd-core/workflows/remove-workspace.md	git	[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required" >&2; exit 1; }; case "$WORKSPACE_NAME" in */*|*..*) echo "Invalid workspace name: $WORKSPACE_NAME" >&2; exit 1;; esac; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(for r in "$WORKSPACE_PATH"/*/; do [ -n "$(git -C "$r" status --porcelain 2>/dev/null)" ] && { r=${r%/}; printf '%s\n' "${r##*/}"; }; done)
+gsd-core/workflows/remove-workspace.md	git	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1
 gsd-core/workflows/ship.md	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
@@ -1030,6 +1040,8 @@ prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shippi
 prompt:workspace	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
 prompt:workspace	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
 prompt:workspace	git	git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
+prompt:workspace	git	[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required" >&2; exit 1; }; case "$WORKSPACE_NAME" in */*|*..*) echo "Invalid workspace name: $WORKSPACE_NAME" >&2; exit 1;; esac; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(for r in "$WORKSPACE_PATH"/*/; do [ -n "$(git -C "$r" status --porcelain 2>/dev/null)" ] && { r=${r%/}; printf '%s\n' "${r##*/}"; }; done)
+prompt:workspace	git	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 
 # E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 
