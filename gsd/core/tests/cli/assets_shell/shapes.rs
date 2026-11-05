@@ -248,9 +248,9 @@ fn the_worktree_handoff_counts_and_lists_what_is_left_indented() {
     let base = p.git(&["rev-list", "--max-parents=0", "HEAD"], T1);
     let text = asset("gsd-core/workflows/execute-phase.md");
     let code = [
-        "_WT_DIRTY=$(",
+        "_WT_DIRTY_ALL=$(",
         "_WT_DIRTY_N=0",
-        "[ -n \"$_WT_DIRTY\" ] && { _WT_DIRTY_N=",
+        "[ -n \"$_WT_DIRTY_ALL\" ] && { _WT_DIRTY_N=",
         "_WT_LOG=$(specforge git log",
     ]
     .map(|start| line(&text, start))
@@ -265,7 +265,7 @@ fn the_worktree_handoff_counts_and_lists_what_is_left_indented() {
     for n in 1..=22 {
         p.write(&format!("u{n:02}.txt"), "left\n");
     }
-    let shown = line(&text, "printf '    %s\\n' \"$_WT_DIRTY\"");
+    let shown = line(&text, "printf '    %s\\n' \"$_WT_DIRTY_ALL\"");
     let script = format!(
         "_WT_BASE={}\n{code}\n{shown}\nprintf '[%s]' \"$_WT_DIRTY_N\"",
         base.trim()
