@@ -31,6 +31,38 @@ fn refused(code: &'static str, message: String, suggestion: &str) -> OpError {
     OpError::new(OpErrorKind::PreconditionFailed, code, message).with_suggestion(suggestion)
 }
 
+/// `git worktree lock` and `unlock`'s answer: the worktree and whether it is locked now.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LockAnswer {
+    pub path: String,
+    pub locked: bool,
+}
+
+/// Lock the linked worktree at `path` (read from the current directory) against a prune or a removal, `reason` kept
+/// with it, or unlock it (`lock` false).
+pub fn worktree_lock(
+    verbs: &Verbs,
+    path: &Path,
+    lock: bool,
+    reason: Option<&str>,
+) -> Result<LockAnswer, OpError> {
+    let place = verbs.place_to_write(if lock {
+        "worktree lock"
+    } else {
+        "worktree unlock"
+    })?;
+    let at = landed(verbs, path);
+    verbs
+        .ports()
+        .git
+        .worktree_lock(&place, &at, lock, reason)
+        .map_err(write_failed)?;
+    Ok(LockAnswer {
+        path: slashed(&at),
+        locked: lock,
+    })
+}
+
 /// The branch `HEAD` is on, when one is.
 fn current(verbs: &Verbs, place: &GitPlace) -> Result<Option<String>, OpError> {
     Ok(verbs.ports().git.head(place).map_err(failed)?.head)

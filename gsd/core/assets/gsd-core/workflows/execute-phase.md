@@ -904,7 +904,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
      WT_BRANCH=$(specforge git head --path "$WT" --pick .branch 2>/dev/null)
      [ -z "$WT_BRANCH" ] || [ "$WT_BRANCH" = "HEAD" ] && continue
      echo "Cleaning up residual worktree: $WT (branch: $WT_BRANCH)"
-     git worktree unlock "$WT" 2>/dev/null || true
+     specforge git worktree unlock "$WT" >/dev/null 2>&1 || true
      if ! specforge git worktree remove "$WT" --force; then
        WT_NAME=${WT##*/}
        if [ -f ".git/worktrees/${WT_NAME}/locked" ]; then

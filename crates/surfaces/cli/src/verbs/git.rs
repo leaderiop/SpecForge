@@ -412,6 +412,20 @@ impl Action {
                     }
                 },
             ),
+            Action::Worktree(WorktreeAction::Lock(args)) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::worktree_lock(v, &args.dir, true, args.reason.as_deref()),
+                |_, _| {},
+            ),
+            Action::Worktree(WorktreeAction::Unlock(args)) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::worktree_lock(v, &args.dir, false, None),
+                |_, _| {},
+            ),
             Action::Worktree(WorktreeAction::Prune(args)) => {
                 answer(&args.verb, terminal, ports, git::worktree_prune, |t, a| {
                     for path in &a.pruned {

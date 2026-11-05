@@ -214,6 +214,34 @@ pub(crate) enum WorktreeAction {
     Remove(WorktreeRemoveArgs),
     /// Drop the records of linked worktrees whose directories are gone
     Prune(Plain),
+    /// Lock a linked worktree so no prune or removal drops it
+    Lock(WorktreeLockArgs),
+    /// Unlock a locked worktree
+    Unlock(WorktreeUnlockArgs),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct WorktreeLockArgs {
+    /// The worktree's directory, from the current directory
+    #[arg(value_name = "DIR")]
+    pub(super) dir: std::path::PathBuf,
+
+    /// Why it is locked, kept with the lock
+    #[arg(long, value_name = "TEXT")]
+    pub(super) reason: Option<String>,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct WorktreeUnlockArgs {
+    /// The worktree's directory, from the current directory
+    #[arg(value_name = "DIR")]
+    pub(super) dir: std::path::PathBuf,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
 }
 
 #[derive(clap::Args)]

@@ -197,3 +197,30 @@ fn a_merge_without_commit_keeps_merge_head_for_the_commit_that_records_it() {
     assert_eq!(committed.parents[1].as_str(), side);
     assert!(!repo.git_dir().join("MERGE_HEAD").exists());
 }
+
+#[test]
+fn a_worktree_is_locked_and_unlocked_once_each() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "one\n");
+    let first = repo.commit_all("first");
+    let elsewhere = tempfile::tempdir().unwrap();
+    let linked = repo.linked_worktree(&elsewhere.path().join("wt"), "wt", &first);
+    let place = place(&repo);
+    let git = Gix::default();
+    git.worktree_lock(&place, linked.dir(), true, Some("busy"))
+        .unwrap();
+    let reason = std::fs::read_to_string(repo.git_dir().join("worktrees/wt/locked")).unwrap();
+    assert_eq!(reason, "busy");
+    assert!(git.worktrees(&place).unwrap().iter().any(|w| w.locked));
+    assert!(git.worktree_lock(&place, linked.dir(), true, None).is_err());
+    git.worktree_lock(&place, linked.dir(), false, None)
+        .unwrap();
+    assert!(git.worktrees(&place).unwrap().iter().all(|w| !w.locked));
+    assert!(
+        git.worktree_lock(&place, linked.dir(), false, None)
+            .unwrap_err()
+            .0
+            .contains("not locked")
+    );
+}

@@ -78,3 +78,33 @@ fn merge_squash_and_no_commit_leave_the_merge_for_a_commit() {
     assert_eq!(parents.json().as_array().map(Vec::len), Some(2));
     assert!(!repo.git_dir().join("MERGE_HEAD").exists());
 }
+
+#[test]
+fn a_locked_worktree_is_kept_from_removal_until_unlocked() {
+    let (project, _repo, _) = committed();
+    let at = project.root().join("wt");
+    let path = at.to_string_lossy().into_owned();
+    git(
+        &project,
+        &["worktree", "add", &path, "--branch", "wt", "--create"],
+    )
+    .exits(0);
+    let locked = git(&project, &["worktree", "lock", &path, "--reason", "busy"])
+        .exits(0)
+        .answer();
+    assert_eq!(locked["locked"], true);
+    let listed = git(
+        &project,
+        &["worktrees", "--pick", ".worktrees[main=false].locked"],
+    )
+    .exits(0);
+    assert_eq!(listed.stdout, "true\n");
+    let again = git(&project, &["worktree", "lock", &path]).exits(1);
+    assert!(again.stdout.contains("already locked"), "{}", again.stdout);
+    git(&project, &["worktree", "remove", &path, "--force"]).exits(1);
+    git(&project, &["worktree", "unlock", &path]).exits(0);
+    let not = git(&project, &["worktree", "unlock", &path]).exits(1);
+    assert!(not.stdout.contains("is not locked"), "{}", not.stdout);
+    git(&project, &["worktree", "remove", &path, "--force"]).exits(0);
+    assert!(!at.exists());
+}

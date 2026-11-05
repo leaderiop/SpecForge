@@ -579,6 +579,16 @@ impl Git for Gix {
         branching::worktree_remove(place, path)
     }
 
+    fn worktree_lock(
+        &self,
+        place: &GitPlace,
+        path: &Path,
+        lock: bool,
+        reason: Option<&str>,
+    ) -> Result<(), GitError> {
+        branching::worktree_lock(place, path, lock, reason)
+    }
+
     fn worktree_prune(&self, place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
         branching::worktree_prune(place)
     }

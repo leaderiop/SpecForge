@@ -608,6 +608,17 @@ pub trait Git: Send + Sync {
     fn worktree_remove(&self, _place: &GitPlace, _path: &Path) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }
+    /// Lock the linked worktree whose top is `path`, so no prune or removal drops it (`reason` kept in its `locked`
+    /// file), or with `lock` false unlock it. Refused when it is already in the state asked, as git refuses.
+    fn worktree_lock(
+        &self,
+        _place: &GitPlace,
+        _path: &Path,
+        _lock: bool,
+        _reason: Option<&str>,
+    ) -> Result<(), GitError> {
+        Err(GitError::unwritable())
+    }
     /// Drop the records of the linked worktrees whose directories are gone: where each was.
     fn worktree_prune(&self, _place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
         Err(GitError::unwritable())
