@@ -328,3 +328,24 @@ fn pr_branch_and_quick_start_from_the_declared_base_branch() {
         assert_eq!(run(&line), "main", "{id}");
     }
 }
+
+/// A typed `--target` is data: the line that binds `TARGET` runs no part of it as shell.
+#[test]
+fn pr_branch_target_is_data_not_shell() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(
+        &p,
+        "pr_branch",
+        &["--target", "x$(touch CANARY)"],
+        "claude-code",
+    )));
+    let line = text
+        .lines()
+        .find(|l| l.starts_with("TARGET=$(echo"))
+        .expect("the TARGET line");
+    let dir = tempfile::tempdir().expect("a dir");
+    bash_in(dir.path(), line);
+    // pinned: the line re-parses the rendered `--target "x$(touch CANARY)"`, so the substitution runs; reading the
+    // typed value instead flips this
+    assert!(dir.path().join("CANARY").exists(), "{line}");
+}
