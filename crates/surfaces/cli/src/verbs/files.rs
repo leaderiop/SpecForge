@@ -7,7 +7,7 @@ use specforge_effects::fs::FileKind;
 use specforge_ops::OpError;
 use specforge_ops::verbs::Verbs;
 use specforge_ops::verbs::files::{
-    self, ChangeAnswer, LIST_MAX, List, SEARCH_MAX, Search, SearchMode, Temp,
+    self, ChangeAnswer, LIST_MAX, List, SEARCH_BYTES, SEARCH_MAX, Search, SearchMode, Temp,
 };
 
 use super::{VerbArgs, shown};
@@ -165,7 +165,8 @@ pub(crate) struct SearchArgs {
     /// The regular expression (Rust's `regex` syntax)
     pattern: String,
 
-    /// The files and directories to search, from the current directory (the current directory when none)
+    /// The files and directories to search, from the current directory (the current directory when none); `-` is
+    /// standard input, read only when typed
     paths: Vec<PathBuf>,
 
     /// Only files whose name (or path below a searched directory, for a glob with a `/`) matches one of these globs
@@ -342,6 +343,19 @@ impl ListArgs {
     }
 }
 
+/// Standard input, at most [`SEARCH_BYTES`], and whether it held more; what could not be read is not searched.
+fn stdin_bytes() -> (Vec<u8>, bool) {
+    use std::io::Read as _;
+    let mut bytes = Vec::new();
+    let _ = std::io::stdin()
+        .lock()
+        .take(SEARCH_BYTES + 1)
+        .read_to_end(&mut bytes);
+    let truncated = bytes.len() as u64 > SEARCH_BYTES;
+    bytes.truncate(SEARCH_BYTES as usize);
+    (bytes, truncated)
+}
+
 /// What `-q` and `--none` take no part of: an answer they do not print.
 const QUIET_CONFLICTS: [&str; 8] = [
     "files_with_matches",
@@ -357,6 +371,12 @@ const QUIET_CONFLICTS: [&str; 8] = [
 impl SearchArgs {
     fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
         let verdict = self.quiet || self.none;
+        // Read once, and only when `-` is typed: no search waits on a terminal or an agent's open stdin.
+        let (stdin, stdin_truncated) = if self.paths.iter().any(|path| path.as_os_str() == "-") {
+            stdin_bytes()
+        } else {
+            (Vec::new(), false)
+        };
         let search = Search {
             pattern: self.pattern,
             paths: self.paths,
@@ -377,6 +397,8 @@ impl SearchArgs {
             },
             // A verdict is judged at the first match.
             max: if verdict { 1 } else { self.max },
+            stdin,
+            stdin_truncated,
         };
         if verdict {
             let quiet = self.quiet;

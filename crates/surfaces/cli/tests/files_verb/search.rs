@@ -350,3 +350,66 @@ fn a_path_outside_the_roots_still_refuses() {
         .exits(1);
     assert_eq!(run.json()["code"], "outside_root", "{}", run.stdout);
 }
+
+/// `-` is standard input, named `<stdin>`, beside other paths; `-q` judges it.
+#[test]
+fn a_dash_searches_standard_input() {
+    let project = project();
+    let run = Cli::on(&project)
+        .stdin("one\nvite@7.1.0\n")
+        .run(&[
+            "files",
+            "search",
+            "vite@7",
+            "-",
+            "src/main.rs",
+            "--pick",
+            ".matches[].path",
+        ])
+        .exits(0);
+    assert_eq!(run.stdout, "<stdin>\n");
+    let hello = Cli::on(&project)
+        .stdin("x\n")
+        .run(&[
+            "files",
+            "search",
+            "hello",
+            "-",
+            "src/main.rs",
+            "--pick",
+            ".matches[].path",
+        ])
+        .exits(0);
+    assert_eq!(hello.stdout, "src/main.rs\n");
+    let quiet = |input: &str| {
+        Cli::on(&project)
+            .stdin(input)
+            .run(&["files", "search", "-q", "[0-9]+ passed", "-"])
+            .code
+    };
+    assert_eq!(quiet("12 passed\n"), 0);
+    assert_eq!(quiet("failed\n"), 1);
+}
+
+/// With no `-`, a search never reads standard input: an open stdin does not hold it.
+#[test]
+fn no_dash_never_reads_stdin() {
+    let project = project();
+    let root = project.root().display().to_string();
+    let mut child =
+        Cli::on(&project).start(&["files", "search", "-q", "hello", "src", "--path", &root]);
+    let started = std::time::Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if started.elapsed() > std::time::Duration::from_secs(60) {
+            let _ = child.kill();
+            panic!("the search waited on its open stdin");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    // The stdin pipe is still open here: the child ended without it.
+    drop(child.stdin.take());
+    assert_eq!(status.code(), Some(0));
+}

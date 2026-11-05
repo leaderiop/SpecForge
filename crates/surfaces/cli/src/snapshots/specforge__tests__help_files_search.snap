@@ -11,7 +11,7 @@ Arguments:
           The regular expression (Rust's `regex` syntax)
 
   [PATHS]...
-          The files and directories to search, from the current directory (the current directory when none)
+          The files and directories to search, from the current directory (the current directory when none); `-` is standard input, read only when typed
 
 Options:
       --glob <GLOB>
