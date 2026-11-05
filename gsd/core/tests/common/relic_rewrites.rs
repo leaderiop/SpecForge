@@ -20,7 +20,7 @@ pub const LINES: &[(&str, usize)] = &[
 
 /// `(path, first, last)`, inclusive.
 pub const SPANS: &[(&str, usize, usize)] = &[
-    // Branches no input reaches (ADR 0343 D4): todos are @gsd/ops entities, a requirement is complete when a summary
+    // Branches no input reaches (ADR 0343 D4): todos are `@gsd/ops` entities, a requirement is complete when a summary
     // lists it, and quick commits every spec change with the work.
     ("gsd-core/workflows/execute-phase.md", 1352, 1352),
     ("gsd-core/workflows/execute-phase.md", 1355, 1373),
@@ -31,7 +31,8 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 719, 720),
     ("gsd-core/workflows/quick.md", 723, 723),
     ("gsd-core/workflows/quick.md", 725, 728),
-    // pr-branch has one mode (strict), no sub-repositories and no third bucket: every spec path is filtered.
+    // The pr-branch workflow has one mode (strict), no sub-repositories and no third bucket: every spec path is
+    // filtered.
     ("gsd-core/workflows/pr-branch.md", 62, 62),
     ("gsd-core/workflows/pr-branch.md", 77, 78),
     ("gsd-core/workflows/pr-branch.md", 80, 80),
@@ -213,7 +214,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         37,
         37,
     ),
-    // the disposition ledger, the AI spec's framework line and the user profile are their extensions'
+    // The disposition ledger, the AI spec's framework line and the user profile are their extensions'.
     (
         "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
         83,
@@ -226,10 +227,10 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/discuss-phase/modes/advisor.md", 29, 29),
     ("gsd-core/workflows/discuss-phase/modes/advisor.md", 47, 47),
     ("gsd-core/workflows/discuss-phase/modes/advisor.md", 50, 50),
-    // the default reviewers are a settings pick
+    // The default reviewers are a settings pick.
     ("gsd-core/workflows/plan-review-convergence.md", 114, 114),
     ("gsd-core/workflows/plan-review-convergence.md", 124, 125),
-    // the model writes the review agent's counts and sections; the shell checks them
+    // The model writes the review agent's counts and sections; the shell checks them.
     ("gsd-core/workflows/plan-review-convergence.md", 389, 389),
     ("gsd-core/workflows/plan-review-convergence.md", 392, 400),
     ("gsd-core/workflows/plan-review-convergence.md", 402, 402),
@@ -237,7 +238,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/plan-review-convergence.md", 407, 407),
     ("gsd-core/workflows/plan-review-convergence.md", 409, 410),
     ("gsd-core/workflows/plan-review-convergence.md", 414, 416),
-    // @gsd/core runs no worktree isolation: one dispatch template, sequential mode
+    // `@gsd/core` runs no worktree isolation: one dispatch template, sequential mode.
     ("gsd-core/workflows/execute-phase.md", 634, 634),
     ("gsd-core/workflows/execute-phase.md", 642, 642),
     ("gsd-core/workflows/execute-phase.md", 690, 690),
@@ -252,7 +253,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/execute-phase.md", 976, 976),
     ("gsd-core/references/dispatch-isolation-gate.md", 127, 128),
     ("gsd-core/references/dispatch-isolation-gate.md", 130, 131),
-    // quick-batch runs no worktree isolation either: its executors dispatch in sequential mode, and nothing is merged
+    // Quick-batch runs no worktree isolation either: its executors dispatch in sequential mode, and nothing is merged.
     ("gsd-core/workflows/quick-batch.md", 4, 4),
     ("gsd-core/workflows/quick-batch.md", 85, 85),
     ("gsd-core/workflows/quick-batch.md", 166, 166),
@@ -326,7 +327,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         75,
     ),
     ("gsd-core/workflows/quick-batch/steps/completion.md", 24, 25),
-    // chunked planning resumes past a plan entity
+    // Chunked planning resumes past a plan entity.
     (
         "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
         119,
@@ -386,16 +387,16 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ),
 ];
 
-/// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line (when not blank) says what replaced them. Every other
-/// line of the run is blank; upstream's blank lines stay blank, so they are not listed as rewritten.
+/// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line (when not blank) says what replaced
+/// them. Every other line of the run is blank; upstream's blank lines stay blank, so they are not listed as rewritten.
 pub const BLANKED: &[(&str, usize, usize)] = &[
-    // the disposition ledger is @gsd/ops's: @gsd/core keeps no REVIEW.md parser
+    // The disposition ledger is `@gsd/ops`'s: `@gsd/core` keeps no REVIEW.md parser.
     (
         "gsd-core/workflows/execute-phase/steps/code-review-disposition.md",
         0,
         1018,
     ),
-    // @gsd/core runs no worktree isolation: its steps are not reached, its branches are gone
+    // `@gsd/core` runs no worktree isolation: its steps are not reached, its branches are gone.
     (
         "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
         0,
@@ -455,15 +456,12 @@ pub const BLANKED: &[(&str, usize, usize)] = &[
 /// Whether body line `n` of `path`, upstream's `theirs`, is a line of a [`BLANKED`] run that upstream did not leave
 /// blank.
 pub fn blanked(path: &str, n: usize, theirs: &str) -> bool {
-    !theirs.is_empty()
-        && BLANKED
-            .iter()
-            .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
+    !theirs.is_empty() && super::rule::in_spans(BLANKED, path, n)
 }
 
 /// Asserts every line of `path`'s [`BLANKED`] runs after the first is blank.
 pub fn assert_blanked(path: &str, asset: &str) {
-    let lines: Vec<&str> = asset.split('\n').skip(1).collect();
+    let lines = super::rule::body_lines(asset);
     for (_, a, b) in BLANKED.iter().filter(|(p, _, _)| *p == path) {
         for (n, line) in lines.iter().enumerate().take(b + 1).skip(a + 1) {
             assert!(line.is_empty(), "{path}:{n}: a blanked run holds {line}");

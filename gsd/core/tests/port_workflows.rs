@@ -556,13 +556,16 @@ fn workflow_assets_diff_only_in_ported_passages() {
                     || jq_rewrites::LINES.contains(&(path.as_str(), n))
                     || review_rewrites::LINES.contains(&(path.as_str(), n))
                     || relic_rewrites::LINES.contains(&(path.as_str(), n))
-                    || REWRITTEN_SPANS
-                        .iter()
-                        .chain(jq_rewrites::SPANS)
-                        .chain(quick_rewrites::SPANS)
-                        .chain(git_rewrites::SPANS)
-                        .chain(relic_rewrites::SPANS)
-                        .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
+                    || rule::in_spans(
+                        REWRITTEN_SPANS
+                            .iter()
+                            .chain(jq_rewrites::SPANS)
+                            .chain(quick_rewrites::SPANS)
+                            .chain(git_rewrites::SPANS)
+                            .chain(relic_rewrites::SPANS),
+                        &path,
+                        n,
+                    )
                     || relic_rewrites::blanked(&path, n, &theirs[n])
             });
         };

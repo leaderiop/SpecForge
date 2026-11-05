@@ -40,18 +40,18 @@ pub fn check_lines(
     rx: &Regex,
     rewritten: &dyn Fn(usize) -> bool,
 ) -> usize {
-    let lines: Vec<&str> = asset.split('\n').collect();
+    let header_line = asset.split('\n').next().unwrap_or_default();
+    let lines = body_lines(asset);
     assert!(
-        lines[0].starts_with(&format!(
+        header_line.starts_with(&format!(
             "<!-- Ported from gsd-core v{} {header}, MIT",
             gsd_kit::tracked_version!()
         )),
-        "{label}: header {}",
-        lines[0]
+        "{label}: header {header_line}"
     );
-    assert_eq!(lines.len() - 1, body.len(), "{label}: line count");
+    assert_eq!(lines.len(), body.len(), "{label}: line count");
     let mut changed = 0;
-    for (n, (mine, theirs)) in lines[1..].iter().zip(body).enumerate() {
+    for (n, (mine, theirs)) in lines.iter().zip(body).enumerate() {
         if rx.is_match(theirs) {
             assert_ne!(
                 mine, theirs,
@@ -73,4 +73,20 @@ pub fn check_lines(
         }
     }
     changed
+}
+
+/// The lines of `asset` after its attribution header: body line `n` of the asset is upstream's line `n`.
+pub fn body_lines(asset: &str) -> Vec<&str> {
+    asset.split('\n').skip(1).collect()
+}
+
+/// Whether one of `spans` (`(path, first, last)`, inclusive) holds body line `n` of `path`.
+pub fn in_spans<'a>(
+    spans: impl IntoIterator<Item = &'a (&'a str, usize, usize)>,
+    path: &str,
+    n: usize,
+) -> bool {
+    spans
+        .into_iter()
+        .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
 }

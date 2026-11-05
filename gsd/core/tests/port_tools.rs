@@ -517,30 +517,40 @@ fn every_gsd_invocation_in_an_asset_or_a_prompt_fits_its_command() {
     assert!(bad.is_empty(), "the CLI refuses:\n{}", bad.join("\n"));
 }
 
+/// Every line of every shell block of the assets the ledger scans, with its asset's path.
+fn shell_lines() -> Vec<(String, String)> {
+    specforge_only::shell_assets()
+        .into_iter()
+        .flat_map(|(path, lines)| {
+            specforge_only::shell_blocks(&lines)
+                .into_iter()
+                .flatten()
+                .map(|line| (path.clone(), line.to_string()))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
 /// A graph read picks the export's `nodes` or `edges`: `specforge query` prints a subgraph's export, and `--pick` of a
 /// key it lacks (an upstream init-bundle key: `phase_dir`, `roadmap_path`, …) prints nothing (ADR 0343 D3).
 #[test]
 fn every_graph_read_picks_nodes_or_edges() {
     let mut found = Vec::new();
-    for (path, lines) in specforge_only::shell_assets() {
-        for block in specforge_only::shell_blocks(&lines) {
-            for line in block {
-                let Some(at) = line.find("specforge query") else {
-                    continue;
-                };
-                let Some(pick) = line[at..].find("--pick ") else {
-                    continue;
-                };
-                let rest = &line[at + pick + "--pick ".len()..];
-                let word = rest
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-                    .trim_matches(|c| c == '\'' || c == '"');
-                if !word.starts_with(".nodes") && !word.starts_with(".edges") {
-                    found.push(format!("{path}: {}", line.trim()));
-                }
-            }
+    for (path, line) in shell_lines() {
+        let Some(at) = line.find("specforge query") else {
+            continue;
+        };
+        let Some(pick) = line[at..].find("--pick ") else {
+            continue;
+        };
+        let rest = &line[at + pick + "--pick ".len()..];
+        let word = rest
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .trim_matches(|c| c == '\'' || c == '"');
+        if !word.starts_with(".nodes") && !word.starts_with(".edges") {
+            found.push(format!("{path}: {}", line.trim()));
         }
     }
     assert!(
@@ -570,17 +580,13 @@ fn no_shell_line_reads_a_phase_directory() {
     ))
     .expect("a regex");
     let mut found = Vec::new();
-    for (path, lines) in specforge_only::shell_assets() {
-        for block in specforge_only::shell_blocks(&lines) {
-            for line in block {
-                let code = line.trim_start();
-                if !code.starts_with('#')
-                    && rx.is_match(code)
-                    && !PHASE_DIR_FILES.iter().any(|f| code.contains(f))
-                {
-                    found.push(format!("{path}: {}", line.trim()));
-                }
-            }
+    for (path, line) in shell_lines() {
+        let code = line.trim_start();
+        if !code.starts_with('#')
+            && rx.is_match(code)
+            && !PHASE_DIR_FILES.iter().any(|f| code.contains(f))
+        {
+            found.push(format!("{path}: {}", line.trim()));
         }
     }
     assert!(
