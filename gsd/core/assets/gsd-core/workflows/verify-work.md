@@ -173,13 +173,13 @@ If `section_manifest` is `null` or `"automated-ui-verification"` is in its `incl
 <step name="find_summaries">
 **Find what to test:**
 
-Use `phase_dir` from init (or run init if not already done).
+The phase is `$PHASE_ID`: its summaries are entities.
 
 ```bash
-specforge files list "$phase_dir" --depth 1 --kind file --no-ignore --glob '*-SUMMARY.md' --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 2 --kinds summary --format context
 ```
 
-Read each SUMMARY.md to extract testable deliverables.
+Read each summary to extract testable deliverables.
 
 **Commit-claim reconciliation (#3968).** A SUMMARY's `commits:` frontmatter is a MEASURED
 number (the executor derives it from its on-disk plan commit ledger and records the base as
@@ -308,7 +308,7 @@ This catches bugs that only manifest on fresh start — race conditions in start
 **Create UAT file with all tests:**
 
 ```bash
-specforge files mkdir "$PHASE_DIR" >/dev/null
+: # the UAT is uat_session entities: no directory to create
 ```
 
 Build test list from extracted deliverables.

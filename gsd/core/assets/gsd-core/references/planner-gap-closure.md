@@ -7,14 +7,14 @@ Triggered by `--gaps` flag. Creates plans to address verification or UAT failure
 
 **1. Find gap sources:**
 
-Use init context (from load_project_state) which provides `phase_dir`:
+The phase is `$PHASE_ID` (from load_project_state):
 
 ```bash
 # Check for VERIFICATION.md (code verification gaps)
-specforge files list "$phase_dir" --depth 1 --kind file --no-ignore --glob '*-VERIFICATION.md' --format human 2>/dev/null
+specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id'
 
 # Check for UAT.md with diagnosed status (user testing gaps)
-grep -l "status: diagnosed" "$phase_dir"/*-UAT.md 2>/dev/null
+specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[fields.status=diagnosed].id'
 ```
 
 **2. Parse gaps:** Each gap has: truth (failed behavior), reason, artifacts (files with issues), missing (things to add/fix).

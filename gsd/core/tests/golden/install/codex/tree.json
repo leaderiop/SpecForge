@@ -32,16 +32,16 @@
     "sha256": "895be238f84647e510021965d67550e1936d5d56f80c84b318a4dc2f27d245da"
   },
   ".codex/agents/gsd-phase-researcher.toml": {
-    "bytes": 43939,
-    "sha256": "c2880f682b746c872f5cac0931936147c24fa34246cbaa218778e9f14d034880"
+    "bytes": 43926,
+    "sha256": "27f107cc33fa5fc60b98b34df42d8d6988209446a6ab1e9357f957e375167b09"
   },
   ".codex/agents/gsd-plan-checker.toml": {
-    "bytes": 49667,
-    "sha256": "a6b75dc59aaf418356886c9d4c4394db86ee3ebea9b3580aef3f566d47568a08"
+    "bytes": 49624,
+    "sha256": "330e6cf182bc3cdd0ea824565d44234a94bd9cf5b4fc4548800e73b9a816ed32"
   },
   ".codex/agents/gsd-planner.toml": {
-    "bytes": 49615,
-    "sha256": "92544207337021b662ce97f285f88f081ed22fd76ae9a4f1d5924576cb6a2a72"
+    "bytes": 49360,
+    "sha256": "4555de71f8f2ff40093a0707159eee12ee41761df24dad6669b4ccf7f34f710b"
   },
   ".codex/agents/gsd-project-researcher.toml": {
     "bytes": 18356,
@@ -56,8 +56,8 @@
     "sha256": "c8b3c81f3376b6e91e41db9f7c90f71473344bf51b4395e649d4d030c9185aac"
   },
   ".codex/agents/gsd-verifier.toml": {
-    "bytes": 50895,
-    "sha256": "e7b8f49c2c193b93aa3f7cee05f6ecbe89c4ca74dcb30b0a7d53894558f10976"
+    "bytes": 51040,
+    "sha256": "78a703bb3e50557a10e3bc7e20430205b3b554597fcc1f12045ad086c20c25ee"
   },
   ".codex/config.toml": {
     "bytes": 124,

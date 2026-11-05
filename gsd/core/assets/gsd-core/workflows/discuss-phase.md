@@ -202,7 +202,7 @@ Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md lo
 Check if CONTEXT.md already exists using `has_context` from init.
 
 ```bash
-specforge files list ${phase_dir} --depth 1 --kind file --no-ignore --glob '*-CONTEXT.md' --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 1 --kinds context --format brief
 ```
 
 **If exists:**

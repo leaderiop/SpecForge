@@ -48,8 +48,8 @@ Display banner: `GSD > VALIDATE PHASE {N}: {name}`
 ## 1. Detect Input State
 
 ```bash
-VALIDATION_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-VALIDATION.md' --pick '.entries[0].path' 2>/dev/null)
-SUMMARY_FILES=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-SUMMARY.md' --pick '.entries[].path' 2>/dev/null)
+VALIDATION_FILE=$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id')
+SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --pick '.nodes[kind=summary].id')
 ```
 
 - **State A** (`VALIDATION_FILE` non-empty): Audit existing

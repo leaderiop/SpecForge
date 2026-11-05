@@ -122,7 +122,7 @@ Parse the `success_criteria` array from the JSON output. These are the **roadmap
 **Step 2b: Load PLAN frontmatter must-haves (if present)**
 
 ```bash
-grep -l "must_haves:" "$PHASE_DIR"/*-PLAN.md 2>/dev/null
+specforge query "$PHASE_ID" --depth 2 --kinds truth,artifact,key_link --format json   # the plans' must-haves
 ```
 
 If found, extract:
@@ -346,7 +346,7 @@ Verify each link below; per-pattern procedures and recipes:
 **6a. Extract requirement IDs from PLAN frontmatter:**
 
 ```bash
-grep -A5 "^requirements:" "$PHASE_DIR"/*-PLAN.md 2>/dev/null
+specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].fields.requirements[]'
 ```
 
 Collect ALL requirement IDs declared across plans for this phase.
@@ -378,14 +378,14 @@ Identify files modified in this phase from the summary's `key_files`, or extract
 SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --format json)   # each summary's key_files
 
 # Option 2: Verify commits exist (if commit hashes documented)
-COMMIT_HASHES=$(grep -oE "[a-f0-9]{7,40}" "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null | head -10)
+COMMIT_HASHES=$(specforge query "$PHASE_ID" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash')
 if [ -n "$COMMIT_HASHES" ]; then
   # Every hash must be a commit; "missing" is a finding. Not a git repo: report that you could not look.
   COMMITS_VALID=$(for h in $COMMIT_HASHES; do [ "$(specforge git rev "$h^{commit}" --pick '.revs[0].exists' 2>/dev/null)" = true ] && echo "$h ok" || echo "$h missing"; done)
 fi
 
-# Fallback: grep for files
-grep -E "^\- \`" "$PHASE_DIR"/*-SUMMARY.md | sed 's/.*`\([^`]*\)`.*/\1/' | sort -u
+# The files the summaries list
+for f in files_created files_modified; do specforge query "$PHASE_ID" --depth 2 --kinds summary --pick ".nodes[kind=summary].fields.$f[]"; done
 ```
 
 Run anti-pattern detection on each file:
@@ -479,7 +479,7 @@ SUMMARY.md probe pass claims are not evidence. If a phase declares or implies pr
 specforge files list scripts --kind file --glob 'tests/probe-*.sh' --glob '*/tests/probe-*.sh' --pick '.entries[].path' 2>/dev/null
 
 # Phase-declared probes
-grep -R -n -E 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' "$PHASE_DIR"/*-PLAN.md "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+specforge files search 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' spec/ --pick '.matches[].text'
 ```
 
 **Execution contract:**

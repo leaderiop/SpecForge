@@ -8,7 +8,7 @@ Step 3a.5 of `/gsd:autonomous`: resolve whether the current phase needs a UI-SPE
 Resolve active `plan:pre` hooks:
 
 ```bash
-UI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
+UI_SPEC_FILE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --kinds ui_spec --pick '.nodes[kind=ui_spec].id' 2>/dev/null)   # @gsd/ui's: empty when it is not loaded
 HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 ```
 
@@ -37,7 +37,7 @@ Skill(skill="gsd-${ref.skill}", args="${PHASE_NUM}")
 After all step hooks return, re-read:
 
 ```bash
-UI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
+UI_SPEC_FILE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --kinds ui_spec --pick '.nodes[kind=ui_spec].id' 2>/dev/null)   # @gsd/ui's: empty when it is not loaded
 ```
 
 **If `UI_SPEC_FILE` is still empty:** Display warning `Phase ${PHASE_NUM}: UI-SPEC generation did not produce output — continuing without design contract.` and proceed to 3b. NON-BLOCKING.

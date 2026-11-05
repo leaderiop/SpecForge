@@ -279,6 +279,27 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-planner.md", 978),
     ("gsd-phase-researcher.md", 189),
     ("gsd-phase-researcher.md", 471),
+    // A phase's files are its entities (ADR 0343 D3): read from the graph, never globbed under a phase directory.
+    ("gsd-phase-researcher.md", 537),
+    ("gsd-phase-researcher.md", 538),
+    ("gsd-plan-checker.md", 851),
+    ("gsd-plan-checker.md", 852),
+    ("gsd-plan-checker.md", 854),
+    ("gsd-plan-checker.md", 855),
+    ("gsd-planner.md", 654),
+    ("gsd-planner.md", 688),
+    ("gsd-planner.md", 691),
+    ("gsd-planner.md", 692),
+    ("gsd-planner.md", 693),
+    ("gsd-planner.md", 694),
+    ("gsd-planner.md", 695),
+    ("gsd-planner.md", 696),
+    ("gsd-verifier.md", 123),
+    ("gsd-verifier.md", 347),
+    ("gsd-verifier.md", 379),
+    ("gsd-verifier.md", 385),
+    ("gsd-verifier.md", 386),
+    ("gsd-verifier.md", 480),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.

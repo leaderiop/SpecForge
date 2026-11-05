@@ -34,7 +34,7 @@ no `<decisions>` block.
 ```bash
 GATE_CFG="{{setting:workflow.context_coverage_gate|true}}"   # workflow.context_coverage_gate (the settings)
 if [ "$GATE_CFG" != "false" ]; then
-  CONTEXT_PATH=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-CONTEXT.md' --pick '.entries[0].path' 2>/dev/null)  # #2962: not a for-glob (zsh aborts)
+  CONTEXT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')
   DECISION_RESULT=$(specforge check --format json) && DECISION_EXIT=0 || DECISION_EXIT=$?   # gsd/W506 reports a decision no summary honours
 fi
 ```

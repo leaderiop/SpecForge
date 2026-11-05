@@ -652,8 +652,8 @@ Select top 2-4 phases. Skip phases with no relevance signal.
 
 **Step 3 — Read full SUMMARYs for selected phases:**
 ```bash
-specforge query "{selected-phase}" --depth 2 --kinds summary --format context > /tmp/summaries.txt; _SUMMARIES=( /tmp/summaries.txt )
-if [ -e "${_SUMMARIES[0]}" ]; then cat "${_SUMMARIES[@]}"; fi
+specforge query "{selected-phase}" --depth 2 --kinds summary --format context
+
 ```
 
 From full SUMMARYs extract:
@@ -687,15 +687,15 @@ If `features.global_learnings` is `true`: global learnings are not part of @gsd/
 </step>
 
 <step name="gather_phase_context">
-Use `phase_dir` from init context (already loaded in load_project_state).
+The phase is `$PHASE_ID` (already loaded in load_project_state).
 
 ```bash
-_CTX=( "$phase_dir"/*-CONTEXT.md )
-if [ -e "${_CTX[0]}" ]; then cat "${_CTX[@]}"; fi   # From /gsd:discuss-phase
-_RESEARCH=( "$phase_dir"/*-RESEARCH.md )
-if [ -e "${_RESEARCH[0]}" ]; then cat "${_RESEARCH[@]}"; fi   # Research output
-_DISCOVERY=( "$phase_dir"/*-DISCOVERY.md )
-if [ -e "${_DISCOVERY[0]}" ]; then cat "${_DISCOVERY[@]}"; fi  # From mandatory discovery
+specforge query "$PHASE_ID" --depth 1 --kinds context --format context   # From /gsd:discuss-phase
+
+specforge query "$PHASE_ID" --depth 1 --kinds research --format context   # Research output
+
+# discovery is recorded as research (above)
+
 ```
 
 **If CONTEXT.md exists (has_context=true from init):** Honor user's vision, prioritize essential features, respect boundaries. Locked decisions — do not revisit.

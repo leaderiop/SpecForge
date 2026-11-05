@@ -299,7 +299,7 @@ If "Run discuss-phase first":
 AI integration activation is owned by the `ai-integration` capability's `plan:pre` step hook. The plan-phase host only discovers existing artifacts here so the planner can consume them; it must not read the capability's config key directly.
 
 ```bash
-AI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-AI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
+AI_SPEC_FILE=$(specforge query "$PHASE_ID" --depth 1 --kinds ai_spec --pick '.nodes[kind=ai_spec].id' 2>/dev/null)   # @gsd/ai's: empty when it is not loaded
 AI_SPEC_PATH="${AI_SPEC_FILE}"
 FRAMEWORK_LINE=""
 if [ -n "$AI_SPEC_FILE" ]; then
@@ -459,10 +459,10 @@ If `research_enabled` is false and `nyquist_validation_enabled` is true: warn "N
 In that case: **skip validation-strategy creation entirely**. Do **not** expect `RESEARCH.md` or `VALIDATION.md` for this run, and continue to Step 6.
 
 ```bash
-grep -l "## Validation Architecture" "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=research].id'
 ```
 
-**If found:**
+**If the phase has research:**
 1. Read template: `~/.claude/gsd-core/templates/VALIDATION.md`
 2. Write to `${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md` (use Write tool)
 3. Fill frontmatter: `{N}` → phase number, `{phase-slug}` → slug, `{date}` → current date
@@ -542,7 +542,7 @@ A non-zero `GATE_EXIT` is a command failure, including `69` (`UNAVAILABLE`: the 
 **Branch 3 — UI-SPEC already exists (`hasUiSpec` is `true`):**
 
 ```bash
-UI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
+UI_SPEC_FILE=$(specforge query "$PHASE_ID" --depth 1 --kinds ui_spec --pick '.nodes[kind=ui_spec].id' 2>/dev/null)   # @gsd/ui's: empty when it is not loaded
 UI_SPEC_PATH="${UI_SPEC_FILE}"
 ```
 
@@ -568,7 +568,7 @@ Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto ${GSD_WS}")
 After all UI step hooks return, re-read:
 
 ```bash
-UI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
+UI_SPEC_FILE=$(specforge query "$PHASE_ID" --depth 1 --kinds ui_spec --pick '.nodes[kind=ui_spec].id' 2>/dev/null)   # @gsd/ui's: empty when it is not loaded
 UI_SPEC_PATH="${UI_SPEC_FILE}"
 ```
 
@@ -608,7 +608,7 @@ map is refreshed first. (`drift_action: auto-remap` stays at `execute:wave:post`
 ## 6. Check Existing Plans
 
 ```bash
-specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-PLAN.md' --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --kinds plan --format brief
 ```
 
 **If exists AND no `--reviews` flag:** Offer: 1) Add more plans, 2) View existing, 3) Replan from scratch.
@@ -663,7 +663,7 @@ Also skip if all of the following are true:
 In that no-research path, Nyquist artifacts are **not required** for this run.
 
 ```bash
-VALIDATION_EXISTS=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-VALIDATION.md' --pick '.entries[0].path' 2>/dev/null)
+VALIDATION_EXISTS=$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id')
 ```
 
 If missing and Nyquist is still enabled/applicable — ask user:
@@ -1310,7 +1310,7 @@ After plans pass the checker (or checker is skipped), verify that all phase requ
 **Step 1: Extract requirement IDs claimed by plans**
 ```bash
 # Collect all requirement IDs from plan frontmatter
-PLAN_REQS=$(grep -h "requirements_addressed\|requirements:" ${PHASE_DIR}/*-PLAN.md 2>/dev/null | tr -d '[]' | tr ',' '\n' | sed 's/^[[:space:]]*//' | sort -u)
+PLAN_REQS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].fields.requirements[]')
 ```
 
 **Step 2: Compare against phase requirements from ROADMAP**
@@ -1367,7 +1367,7 @@ if [ "$GATE_CFG" != "false" ]; then
   # #2770: CONTEXT_PATH from step-1 init doesn't survive into this Bash block;
   # recompute it. Only run when a CONTEXT.md exists (handler fails closed on an
   # empty arg, so an unguarded empty glob would halt a context-less phase).
-  CONTEXT_PATH=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-CONTEXT.md' --pick '.entries[0].path' 2>/dev/null)
+  CONTEXT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')
   if [ -n "$CONTEXT_PATH" ]; then
     GATE_RESULT=$(specforge check --pick '.[code=gsd/E310].message') && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans): one line per uncovered decision
     # 69 UNAVAILABLE (#5170) = the gate could not look: surface it and stop.

@@ -850,11 +850,11 @@ Inspect the tasks in the JSON; open the plan in the editor for prose-level revie
 ## Step 6: Verify Dependency Graph
 
 ```bash
-# #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
-shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
-for plan in "$PHASE_DIR"/*-PLAN.md; do
-  grep "depends_on:" "$plan"
+
+
+for plan in $(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id'); do
+  echo "$plan depends_on: $(specforge query "$plan" --depth 0 --pick '.nodes[0].fields.depends_on[]')"
 done
 ```
 

@@ -560,7 +560,6 @@ fn every_graph_read_picks_nodes_or_edges() {
 /// No shell line globs or lists a phase directory: nothing answers one, and the files it held are entities (ADR 0343
 /// D3). The discuss checkpoint is a scratch file of its own.
 #[test]
-#[ignore = "pin: shell lines still read a phase directory"]
 fn no_shell_line_reads_a_phase_directory() {
     let dir = r#"\$\{?(PHASE_DIR|phase_dir|PHASE_DIR_FOR_SPEC)\}?"?"#;
     let rx = Regex::new(&format!(

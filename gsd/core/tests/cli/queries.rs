@@ -84,7 +84,9 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "{selected-phase}"
         | "$MILESTONE/${N}"
         | "$UNDO_MILESTONE/${N}" => "v1.0/01",
-        "$PLAN_ID" | "$PLAN_FULL_ID" | "${TARGET_PLAN_ID}" | "$plan_id" => "v1.0/01/01-01",
+        "$PLAN_ID" | "$PLAN_FULL_ID" | "${TARGET_PLAN_ID}" | "$plan_id" | "$plan" => {
+            "v1.0/01/01-01"
+        }
         _ => return None,
     })
 }
@@ -113,6 +115,7 @@ const UNBOUND: &[&str] = &[
     "$TASK_ID",
     "$SPEC_ID",
     "$SUMMARY_FILE",
+    "$RESEARCH_ID",
     "$uat_path",
     "$PLAN_REF",
     "$PHASE_NUM",

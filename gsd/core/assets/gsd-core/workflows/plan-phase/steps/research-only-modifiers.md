@@ -11,7 +11,7 @@ Three branches in research-only mode (`--research-phase <N>`):
 
 ```bash
 if [[ "$VIEW_ONLY" == "true" ]]; then
-  [[ -f "$research_path" ]] || { echo "Error: --view requires an existing RESEARCH.md (Phase ${PHASE}). Drop --view to spawn the researcher."; exit 1; }
-  cat "$research_path"; exit 0
+  RESEARCH_ID=$(specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=research].id'); [ -n "$RESEARCH_ID" ] || { echo "Error: --view requires an existing research (Phase ${PHASE}). Drop --view to spawn the researcher." >&2; exit 1; }
+  specforge query "$RESEARCH_ID" --format context; exit 0
 fi
 ```

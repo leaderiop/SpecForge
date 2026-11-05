@@ -536,8 +536,8 @@ Also read the setting `workflow.nyquist_validation` (`specforge settings`) — i
 
 Then read CONTEXT.md if exists:
 ```bash
-_CTX=( "$phase_dir"/*-CONTEXT.md )
-if [ -e "${_CTX[0]}" ]; then cat "${_CTX[@]}"; fi
+specforge query "$PHASE_ID" --depth 1 --kinds context --format context
+
 ```
 
 **If CONTEXT.md exists**, it constrains research:
