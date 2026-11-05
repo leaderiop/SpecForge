@@ -25,20 +25,20 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 Parse `$ARGUMENTS` before doing anything else:
 
 - `--reset-phase-numbers` flag → opt into restarting roadmap phase numbering at `1`. If absent, keep the current behavior of continuing phase numbering from the previous milestone.
-- `--ws <name>` flag → active workstream scope, parsed into `GSD_WS`
-- remaining text, with `--ws <name>` stripped → use as milestone name if present, captured into `MILESTONE_ARG`
+- `--ws <name>` flag → active workstream scope, bound to `WS`
+- the words that stand without an option → the milestone name if present, bound to `MILESTONE_NAME`
 
-Parse `GSD_WS` and `MILESTONE_ARG` using the established idiom (see `verify-work.md`):
+Bind `WS` and `MILESTONE_NAME` from the typed values:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-GSD_WS=""
-echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
-MILESTONE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
+WS="{{arg:ws|}}"
+
+MILESTONE_NAME="{{arg:name|}}"
 # #4456: persist GSD_WS to a file so later steps' bash fences (each a
 # separate shell) can forward it — the same cross-fence problem Step 5/6
 # already solve for OUTGOING_MILESTONE via .gsd-outgoing-milestone.
@@ -301,11 +301,11 @@ specforge git commit --add spec -m "docs: start milestone v[X.Y] [Name]" && spec
 ## 7. Load Context and Resolve Models
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-RESET_PHASE_NUMBERS_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--reset-phase-numbers([[:space:]]|$) ]]; then RESET_PHASE_NUMBERS_PARAM="--reset-phase-numbers"; fi
+
+
+
+
+
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT=$(specforge query "$MILESTONE" --depth 1 --format json)
 

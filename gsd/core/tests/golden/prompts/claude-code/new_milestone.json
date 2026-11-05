@@ -49,19 +49,19 @@
     "Parse `Next` before doing anything else:",
     "",
     "- `--reset-phase-numbers` flag → opt into restarting roadmap phase numbering at `1`. If absent, keep the current behavior of continuing phase numbering from the previous milestone.",
-    "- `--ws <name>` flag → active workstream scope, parsed into `GSD_WS`",
-    "- remaining text, with `--ws <name>` stripped → use as milestone name if present, captured into `MILESTONE_ARG`",
+    "- `--ws <name>` flag → active workstream scope, bound to `WS`",
+    "- the words that stand without an option → the milestone name if present, bound to `MILESTONE_NAME`",
     "",
-    "Parse `GSD_WS` and `MILESTONE_ARG` using the established idiom (see `verify-work.md`):",
+    "Bind `WS` and `MILESTONE_NAME` from the typed values:",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "Next",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
+    "",
+    "",
+    "",
+    "",
     "# the commands below are specforge commands: there is no launcher to define"
   ],
-  "bytes": 69674,
+  "bytes": 69059,
   "end": [
     "| CONT-03 | Phase 3 | Pending |",
     "| CONT-04 | Phase 3 | Pending |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:61034d5b4834974046949d0e5a64e1ccecd0aaa610cb7995ad63f8eca13ba1d2",
+    "digest": "sha256:ab8ad40ff66eff8709624d26dd7b8e7053b3f71c842b21245b3a120c50e5c4ea",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "61034d5b4834974046949d0e5a64e1ccecd0aaa610cb7995ad63f8eca13ba1d2"
+  "sha256": "ab8ad40ff66eff8709624d26dd7b8e7053b3f71c842b21245b3a120c50e5c4ea"
 }

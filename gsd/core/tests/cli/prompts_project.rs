@@ -197,29 +197,17 @@ fn new_milestone_binds_its_ws_and_name_as_typed() {
     let run = |args: &[&str]| {
         let text = text_of(&payload(&prompt(&p, "new_milestone", args, "claude-code")));
         let script = format!(
-            "{}\necho \"[$GSD_WS][$MILESTONE_ARG]\"",
-            fence_lines(&text, "IFS= read -rd '' GSD_ARGS", "MILESTONE_ARG=")
+            "{}\necho \"[$WS][$MILESTONE_NAME]\"",
+            fence_lines(&text, "WS=\"", "MILESTONE_NAME=")
         );
         let out = std::process::Command::new("bash")
             .args(["--noprofile", "--norc", "-c", &script])
             .output()
             .expect("bash");
-        (
-            String::from_utf8_lossy(&out.stdout).trim().to_string(),
-            String::from_utf8_lossy(&out.stderr).into_owned(),
-        )
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
     };
-    // pinned: `--ws "alpha"` matches no regex, so the workstream is lost and stays in the name
-    assert_eq!(run(&["--ws", "alpha"]).0, "[][--ws alpha]");
-    // pinned: no arguments reads as a name
-    assert_eq!(run(&[]).0, "[][(no arguments)]");
-    // pinned: the flag stays in the name, and xargs refuses an apostrophe
-    assert_eq!(
-        run(&["Next", "--reset-phase-numbers"]).0,
-        "[][--reset-phase-numbers Next]"
-    );
-    assert!(
-        run(&["Bob's app"]).1.contains("unterminated quote"),
-        "xargs reads the apostrophe"
-    );
+    assert_eq!(run(&["--ws", "alpha"]), "[alpha][]");
+    assert_eq!(run(&[]), "[][]");
+    assert_eq!(run(&["Next", "--reset-phase-numbers"]), "[][Next]");
+    assert_eq!(run(&["Bob's app"]), "[][Bob's app]");
 }

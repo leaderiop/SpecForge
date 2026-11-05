@@ -476,7 +476,6 @@ const ARGS_PENDING: &[&str] = &[
     "gsd-core/workflows/extract-learnings.md",
     "gsd-core/workflows/manager.md",
     "gsd-core/workflows/milestone-summary.md",
-    "gsd-core/workflows/new-milestone.md",
     "gsd-core/workflows/new-project.md",
     "gsd-core/workflows/next.md",
     "gsd-core/workflows/plan-phase.md",

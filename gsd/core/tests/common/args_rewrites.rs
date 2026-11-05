@@ -7,4 +7,14 @@
 pub const SPANS: &[(&str, usize, usize)] = &[
     // The target is the typed `--target`, not a parse of the argument text.
     ("gsd-core/workflows/pr-branch.md", 23, 23),
+    // new-milestone binds the workstream and the name from `ws` and `name`; `--reset-phase-numbers` has no reader.
+    ("gsd-core/workflows/new-milestone.md", 26, 27),
+    ("gsd-core/workflows/new-milestone.md", 29, 29),
+    ("gsd-core/workflows/new-milestone.md", 37, 37),
+    ("gsd-core/workflows/new-milestone.md", 306, 306),
+    (
+        "gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md",
+        0,
+        0,
+    ),
 ];
