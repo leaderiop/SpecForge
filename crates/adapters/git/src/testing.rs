@@ -262,10 +262,11 @@ impl Repo {
         self
     }
 
-    /// A remote `name` at `url`.
+    /// A remote `name` at `url`, quoted as git writes a config value, where a Windows path's `\` starts an escape.
     pub fn remote(&self, name: &str, url: &str) -> &Self {
+        let quoted = url.replace('\\', "\\\\").replace('"', "\\\"");
         self.config(&format!(
-            "[remote \"{name}\"]\n\turl = {url}\n\tfetch = +refs/heads/*:refs/remotes/{name}/*"
+            "[remote \"{name}\"]\n\turl = \"{quoted}\"\n\tfetch = +refs/heads/*:refs/remotes/{name}/*"
         ))
     }
 
