@@ -269,22 +269,22 @@ state, and a dated archive label only if no version label is resolvable at all. 
 rejects any `--archive-version` value that is not a plain version token (no path separators or
 `..`), so a malformed capture fails loudly rather than writing outside the archive directory.
 
-Stage the phase archive move + source removal so they land in the same commit as the milestone start (atomic — no orphaned uncommitted deletions, no un-archived dirs carried forward). `phases.clear` archives each non-999 dir to `milestones/<version>-phases/`; staging both dirs captures the new archive and the removals together (#1871).
+The archived phases are entities: Step 6's commit carries them (`--add spec`), so there is nothing to stage here.
 
 ```bash
-COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
+
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 
 
-# a field of the answer is read with --pick, never jq
-ARCHIVE_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .archive_dir)
-PHASES_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .phases_dir)
-if [ "$COMMIT_DOCS" != "false" ]; then
-  specforge git add "$ARCHIVE_DIR/" "$PHASES_DIR/" 2>/dev/null || true
-fi
+
+
+
+
+
+
 ```
 
-When `commit_docs` is false, the archive move and phase removals are deliberately left unstaged here — not a bug — since Step 6's commit is skipped too.
+Nothing is left unstaged: the archived phases are entities, and Step 6's commit carries them.
 
 Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is what protects the shared `## Current Milestone` heading (#2308): when a workstream is active Part A never writes it, so the only change PROJECT.md can carry here is Part B's idempotent `## Evolution` backfill, which must be committed rather than stranded as a dangling edit. Do NOT reintroduce a `[ -n "$GSD_WS" ]` branch around this commit: `GSD_WS` is set in Step 1's shell and each step's bash block runs in its own shell (the same reason Step 6 repeats `OUTGOING_MILESTONE` by hand), so such a guard reads an unset variable, always takes the flat-mode branch, and only appears to work. STATE.md, unlike PROJECT.md, is computed, so there is no state file to stage.
 
@@ -292,9 +292,9 @@ Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 
 
-# a field of the answer is read with --pick, never jq
-STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
-PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
+
+
+
 specforge git commit --add spec -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
 ```
 
@@ -534,8 +534,8 @@ If "adjust": Return to scoping.
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 
 
-# a field of the answer is read with --pick, never jq
-REQUIREMENTS_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .requirements_path)
+
+
 specforge git commit --add spec -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
 ```
 
@@ -623,10 +623,10 @@ Success criteria:
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 
 
-# a field of the answer is read with --pick, never jq
-ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
-STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
-REQUIREMENTS_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .requirements_path)
+
+
+
+
 specforge git commit --add spec -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
 # #4456: true last consumer of the persisted --ws in this workflow — the
 # round-trip file is no longer needed after this commit.

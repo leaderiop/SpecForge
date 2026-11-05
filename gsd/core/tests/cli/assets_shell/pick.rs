@@ -45,16 +45,6 @@ fn a_field_of_a_gsd_answer_is_picked() {
         value(&sh, &p, cm, "", "GSD_ACTIVE_WS=$(", "GSD_ACTIVE_WS"),
         "[]"
     );
-    let flat = line(&asset(cm), "_gsd_flat_mode() {").to_string();
-    assert_eq!(
-        run(
-            &sh,
-            &p,
-            &format!("GSD_WS=\n{flat}\n_gsd_flat_mode && echo flat")
-        )
-        .0,
-        "flat\n"
-    );
     let next = asset("gsd-core/workflows/next.md");
     assert_eq!(
         value(
@@ -267,29 +257,64 @@ fn a_graph_read_is_picked() {
             "PHASE_DIR",
             "[]",
         ),
-        // a field the answer does not have: nothing, or the line's own default (jq printed `null` without one)
+        // the phase's status ladder: executed, needs_review and complete have every plan summarised
         (
             "verify-work.md",
             phase,
-            "IMPLEMENTATION_COMPLETE=$(",
+            "case \"$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.status')\"",
+            "IMPLEMENTATION_COMPLETE",
+            "[true]",
+        ),
+        (
+            "verify-work.md",
+            "PHASE_ID=v1.0/02",
+            "case \"$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.status')\"",
             "IMPLEMENTATION_COMPLETE",
             "[false]",
         ),
+        // the phase's state as entity ids; a kind of an extension that is not loaded is empty
         (
-            "verify-work.md",
+            "plan-phase.md",
             phase,
-            "PHASE_NUMBER=$(",
-            "PHASE_NUMBER",
+            "ROADMAP_PATH=$(",
+            "ROADMAP_PATH",
+            "[v1.0]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "REQUIREMENTS_PATH=$(",
+            "REQUIREMENTS_PATH",
+            "[TASK-01\nTASK-02]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "VERIFICATION_PATH=$(",
+            "VERIFICATION_PATH",
+            "[v1.0/01/01-VERIFICATION]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "UAT_PATH=$(",
+            "UAT_PATH",
+            "[v1.0/01/01-UAT]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "CONTEXT_PATH=$(",
+            "CONTEXT_PATH",
             "[]",
         ),
         (
-            "progress.md",
-            "PHASE_DIR=v1.0/01",
-            "VERIFICATION_NEXT_COMMAND=$(",
-            "VERIFICATION_NEXT_COMMAND",
+            "plan-phase.md",
+            phase,
+            "PATTERNS_PATH=$(",
+            "PATTERNS_PATH",
             "[]",
         ),
-        ("plan-phase.md", phase, "STATE_PATH=$(", "STATE_PATH", "[]"),
     ];
     for (file, setup, start, var, want) in cases {
         let path = format!("{w}{file}");

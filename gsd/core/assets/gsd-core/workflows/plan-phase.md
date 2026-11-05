@@ -112,7 +112,7 @@ Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_
 
 **If `response_language` is set:** All user-facing orchestrator output — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be in `{response_language}`; technical terms, code, paths, and subagent prompts stay in English. Pass `response_language: {value}` into every spawned subagent prompt.
 
-**File paths (for <required_reading> blocks):** `state_path`, `roadmap_path`, `requirements_path`, `context_path`, `research_path`, `verification_path`, `uat_path`, `reviews_path`. These are null if files don't exist.
+**Entity ids (for <required_reading> blocks):** `state_path`, `roadmap_path`, `requirements_path`, `context_path`, `research_path`, `verification_path`, `uat_path`, `reviews_path` each name an entity, read with `specforge query <id> --format context`. These are empty if the phase has no such entity.
 
 **If `planning_exists` is false:** Error — run `/gsd:new-project` first.
 
@@ -618,16 +618,16 @@ specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-
 Extract from INIT JSON:
 
 ```bash
-# a field of the answer is read with --pick, never jq
-STATE_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .state_path)
-ROADMAP_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .roadmap_path)
-REQUIREMENTS_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .requirements_path)
-RESEARCH_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .research_path)
-VERIFICATION_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .verification_path)
-UAT_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .uat_path)
-CONTEXT_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .context_path)
-REVIEWS_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .reviews_path)
-PATTERNS_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .patterns_path)
+# the phase's state is entities: each value is an entity id, read with `specforge query <id> --format context`; empty when the phase has none
+STATE_PATH=""   # the project state is computed: specforge gsd progress-report
+ROADMAP_PATH=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone')
+REQUIREMENTS_PATH=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]')
+RESEARCH_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=research].id')
+VERIFICATION_PATH=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id')
+UAT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[kind=uat_session].id')
+CONTEXT_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')
+REVIEWS_PATH=""   # REVIEWS.md is written by /gsd:review, not an entity
+PATTERNS_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds pattern_map --pick '.nodes[kind=pattern_map].id' 2>/dev/null)   # @gsd/codebase's: empty when it is not loaded
 
 # Detect spike/sketch findings skills (project-local)
 SPIKE_FINDINGS_PATH=$(specforge files list .claude/skills --depth 2 --kind file --no-ignore --glob 'spike-findings-*/SKILL.md' --pick '.entries[0].path' 2>/dev/null || true)
@@ -637,12 +637,12 @@ SKETCH_FINDINGS_PATH=$(specforge files list .claude/skills --depth 2 --kind file
 # edges from). UNCONDITIONAL — must NOT live in §4.5 Check AI-SPEC, which is skipped
 # on non-AI phases; gating it there silently starves the planner of the SPEC (#550 review).
 # init resolves the plain phase SPEC (never the -AI-SPEC.md / -UI-SPEC.md variants) through the one shared predicate.
-PHASE_DIR_FOR_SPEC=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
+
 SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
 SPEC_FILE="${SPEC_PATH}"
 # Resolve the phase UI-SPEC separately (the glob above excludes -UI-SPEC.md); it carries the
 # ## UI Considerations section the planner lifts by the same rule as ## Edge Coverage (#1867).
-UI_SPEC_FILE=$(specforge files list "${PHASE_DIR_FOR_SPEC}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
+UI_SPEC_FILE=$(specforge query "$PHASE_ID" --depth 1 --kinds ui_spec --pick '.nodes[kind=ui_spec].id' 2>/dev/null)   # @gsd/ui's: empty when it is not loaded
 UI_SPEC_PATH="${UI_SPEC_FILE}"
 ```
 

@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 767 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 766 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -278,7 +278,6 @@ gsd-core/workflows/autonomous.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* 
 gsd-core/workflows/autonomous.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/autonomous.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/autonomous.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/complete-milestone.md	awk	BACKLOG_SECTION=$(awk '/^## Backlog/{found=1} found{print}' "$ROADMAP_PATH")
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)

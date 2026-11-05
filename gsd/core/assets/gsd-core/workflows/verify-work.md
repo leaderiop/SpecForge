@@ -75,8 +75,8 @@ registry, not hardcoded here.
 
 ```bash
 VERIFY_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
-PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
-PHASE_NUMBER=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_number)
+PHASE_DIR="$PHASE_ID"   # a phase is addressed by its id, not a directory
+PHASE_NUMBER="${PHASE_ID##*/}"
 ```
 
 Read the `activeHooks` of every line of `VERIFY_PRE_HOOKS_JSON`, one per capability extension, in-context (do NOT pipe through a shell parser).
@@ -647,14 +647,14 @@ If the secure-phase step hook is not enabled (absent from both `activeHooks` and
 If execution verification is waiting only on human UAT and this session recorded zero issues, canonicalize the report before the shared completion predicate. (#4663) Zero issues is NOT pass evidence on its own — blocked rows are not issues by this workflow's own rule, so a session that observed nothing (0 passed / 0 issues / N blocked) must NOT flip the report. The flip runs the SAME UAT-row predicate the phase-close uses, in its `--uat-only` form: it skips the verification-status blockers (the report still reads `human_needed` at this point — the full predicate could never pass here), and `passed` means at least one UAT check passed with no row pending/blocked/failed or skipped without a reason. The flagged transition-gate call below stays the final say on canonical verification:
 
 ```bash
-PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
+PHASE_DIR="$PHASE_ID"   # a phase is addressed by its id, not a directory
 VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
 # #5118: stderr kept; an out-of-set report status is a hard error, never "no result".
 VERIFICATION_STATUS_VALUE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE%%$'\n'*}; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE:-pending}
 case "$VERIFICATION_STATUS_VALUE" in passed) VERIFICATION_ROUTE=complete ;; gaps_found) VERIFICATION_ROUTE=gap-closure ;; human_needed) VERIFICATION_ROUTE=human ;; *) VERIFICATION_ROUTE=verify ;; esac
 NEXT_COMMAND=   # a verification has no next-command field: the route names the next step
 
-IMPLEMENTATION_COMPLETE=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_completion.implementation_complete); IMPLEMENTATION_COMPLETE=${IMPLEMENTATION_COMPLETE:-false}
+case "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.status')" in executed|needs_review|complete) IMPLEMENTATION_COMPLETE=true ;; *) IMPLEMENTATION_COMPLETE=false ;; esac
 PHASE_VERIFICATION_STATUS="$VERIFICATION_STATUS_VALUE"
 if [ "$VERIFICATION_STATUS_VALUE" = "human_needed" ]; then
   # #5170: exit 0 and exit 1 are VERDICTS (1 = the predicate says not passed) — the JSON on stdout is
@@ -681,7 +681,7 @@ dispatch the step: the code review, regression gate and verifier have nothing co
 there, so fall through to the completion predicate below, which blocks with the owner's own
 `NEXT_COMMAND` (execute-phase) exactly as before #5118. This workflow never rewrites VERIFICATION.md
 itself (its only write is the canonicalization, #4663).
-Load the step's inputs through the SAME bundle execute-phase loads, then include the step:
+Load the step's inputs from the graph (the models and the response language are settings the step reads), then include the step:
 
 ```bash
 IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
@@ -691,10 +691,10 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 
 
-for _k in phase_dir phase_number verifier_model phase_req_ids requirements_path section_manifest response_language; do
-  printf '%s=%s\n' "$_k" "$(specforge query "$PHASE_ID" --depth 1 --pick ".${_k}")"
-done
-PHASE_NUMBER=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_number)
+PHASE_DIR="$PHASE_ID"
+PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]')
+
+PHASE_NUMBER="${PHASE_ID##*/}"
 ```
 
 Read and execute `gsd-core/workflows/execute-phase/steps/verify-phase-goal.md`. If it stopped,

@@ -61,7 +61,7 @@
     "02",
     "GSD_ARGS_END"
   ],
-  "bytes": 76108,
+  "bytes": 75995,
   "end": [
     "## Gaps",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:dc54f44349f14c59f12dcec020a183758f2004534ac3ec902bfbcbfed0621488",
+    "digest": "sha256:d2c3adfbf03f7a29aee7af07048012f6e9de3210d18bd6a8faa03351ed990046",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "dc54f44349f14c59f12dcec020a183758f2004534ac3ec902bfbcbfed0621488"
+  "sha256": "d2c3adfbf03f7a29aee7af07048012f6e9de3210d18bd6a8faa03351ed990046"
 }

@@ -328,31 +328,9 @@ After archival, the AI still handles:
 
 After `milestone complete` has archived, reorganize ROADMAP.md with milestone groupings, then commit archives as a safety checkpoint before removing originals.
 
-**Backlog preservation — do this FIRST before rewriting ROADMAP.md:**
-
-Extract the Backlog section from the current ROADMAP.md before making any changes:
-
-```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+**Backlog preservation:** backlog phases (`phase.backlog`) are entities of the milestone, so nothing is extracted or re-appended.
 
 
-# a field of the answer is read with --pick, never jq
-ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
-# Extract lines under ## Backlog through end of file (or next ## section)
-BACKLOG_SECTION=$(awk '/^## Backlog/{found=1} found{print}' "$ROADMAP_PATH")
-```
-
-If `$BACKLOG_SECTION` is empty, there is no Backlog section — skip silently.
-
-**Reorganize ROADMAP.md** — overwrite in place (do NOT delete first) with milestone groupings.
-
-This rewrite is an *intentional* catastrophic shrink: phase detail was just archived to `milestones/v[X.Y]-ROADMAP.md`, and a multi-hundred-line ROADMAP.md collapses to a compact grouped summary. The `gsd-write-guard` PreToolUse hook (#2255) hard-blocks exactly that shape on curated the spec files — this step is the legitimate milestone reset its escape hatch exists for. A hook inherits the *runtime's* environment, so no per-step env var can reach it; the hatch is a **single-use sentinel file the guard itself consumes**. Arm it, then write:
-
-1. Arm the sentinel (single-use; the guard checks it is fresh — within 15 minutes — and names exactly this file, then consumes it):
 
 ```bash
 IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
@@ -362,38 +340,60 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 
 
-# a field of the answer is read with --pick, never jq
-ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
-printf '%s\n' "$ROADMAP_PATH" > a scratch value
-echo "Write target: $ROADMAP_PATH"
+# the roadmap is the milestone's phase entities: backlog phases stay entities, nothing to extract
+
+
+
 ```
 
-2. Compose the full new ROADMAP.md content (template below) and overwrite the file at **`$ROADMAP_PATH`** (the "Write target" path printed above — under an active workstream this is the workstream-scoped roadmap, NOT the literal the `milestone` and `phase` entities) with the **Write tool** — the normal path. The guard allows this one shrink and deletes the sentinel. If the Write is blocked anyway, the sentinel was stale or consumed — re-run the `printf` and retry the Write.
+**Reorganize ROADMAP.md**: the roadmap is the `milestone` and `phase` entities: there is no ROADMAP.md to reorganize, no sentinel to arm and no Backlog section to re-append (backlog phases stay entities of the milestone).
 
-Template for the composed content:
 
-```markdown
-# Roadmap: [Project Name]
 
-## Milestones
 
-- ✅ **v1.0 MVP** — Phases 1-4 (shipped YYYY-MM-DD)
-- 🚧 **v1.1 Security** — Phases 5-6 (in progress)
 
-## Phases
 
-<details>
-<summary>✅ v1.0 MVP (Phases 1-4) — SHIPPED YYYY-MM-DD</summary>
 
-- [x] Phase 1: Foundation (2/2 plans) — completed YYYY-MM-DD
-- [x] Phase 2: Authentication (2/2 plans) — completed YYYY-MM-DD
+```bash
+IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
+$ARGUMENTS
+GSD_ARGS_END
+GSD_ARGS=${GSD_ARGS%$'\n'}
+GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 
-</details>
+
+
+
+
+
 ```
 
-**Re-append Backlog section after the rewrite** (only if `$BACKLOG_SECTION` was non-empty):
 
-Append the extracted Backlog content verbatim to the end of the newly written ROADMAP.md. This ensures 999.x backlog items are never silently dropped during milestone reorganization.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 **Safety commit — commit archive files BEFORE deleting any originals:**
 
@@ -405,15 +405,15 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 
 
-# a field of the answer is read with --pick, never jq
-STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
-ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
-ARCHIVE_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .archive_dir)
-MILESTONES_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .milestones_path)
-PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
-# #5195: PROJECT.md is shared across workstreams. Stage it only in flat mode (no --ws, no active workstream) — the same test the review step is gated on, so the two cannot disagree.
-_gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --pick .active) || return 1; [ -z "$GSD_WS" ] && [ -z "$j" ]; }
-_gsd_flat_mode || PROJECT_PATH=""
+# the commit stages spec: the archive is entities, with no state, roadmap or project file to name
+
+
+
+
+
+
+
+
 specforge git commit --add spec -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 ```
 

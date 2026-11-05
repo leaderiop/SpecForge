@@ -33,7 +33,6 @@ fn the_ui_gate_reads_the_phases_frontend_field() {
 /// Closing a milestone writes no roadmap file: the roadmap is the `milestone` and `phase` entities. Upstream's sentinel
 /// line `printf … > <path>`, with its path swapped for prose, wrote a file named `a`.
 #[test]
-#[ignore = "pin: the milestone close still writes a scratch file"]
 fn the_milestone_close_writes_no_scratch_file() {
     let Some(sh) = Shell::without_jq() else {
         return;

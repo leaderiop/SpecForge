@@ -526,7 +526,6 @@ fn every_gsd_invocation_in_an_asset_or_a_prompt_fits_its_command() {
 /// A graph read picks the export's `nodes` or `edges`: `specforge query` prints a subgraph's export, and `--pick` of a
 /// key it lacks (an upstream init-bundle key: `phase_dir`, `roadmap_path`, …) prints nothing (ADR 0343 D3).
 #[test]
-#[ignore = "pin: graph reads still pick init-bundle keys"]
 fn every_graph_read_picks_nodes_or_edges() {
     let mut found = Vec::new();
     for (path, lines) in specforge_only::shell_assets() {
