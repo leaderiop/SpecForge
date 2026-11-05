@@ -156,7 +156,7 @@ fn sample() -> tempfile::TempDir {
     std::fs::create_dir(&src).expect("src");
     std::fs::write(
         src.join("dashboard.tsx"),
-        "export default function Dashboard() {}\n",
+        "<a href=\"/dashboard\">dashboard</a>\n",
     )
     .expect("a page");
     std::fs::write(src.join("a.ts"), "const key = process.env.API_KEY;\n").expect("a use");
@@ -205,8 +205,7 @@ fn the_protected_pages_are_found() {
         "\"$protected_patterns\"",
     );
     let (out, err, _) = sh.run_in(p.path(), &step);
-    // pinned: without `-E` the `|` of the pattern is a literal, so no page matches
-    assert_eq!(out, "", "{step}\n{err}");
+    assert_eq!(out, "src/dashboard.tsx\n", "{step}\n{err}");
 }
 
 /// The environment check finds a file that reads the variable through `process.env`.

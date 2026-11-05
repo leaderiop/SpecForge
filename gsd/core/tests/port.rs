@@ -304,6 +304,18 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-roadmapper.md", 400),
     ("gsd-roadmapper.md", 422),
     ("gsd-roadmapper.compact.md", 217),
+    // The catalogs search with `specforge files search` (`--glob`, `--and-not`, `-q`, `--pick .count`): a line of
+    // the rewritten search that names no tool itself, or a route listing whose `sed` loop became a sentence.
+    ("gsd-integration-checker.md", 130),
+    ("gsd-integration-checker.md", 135),
+    ("gsd-integration-checker.md", 164),
+    ("gsd-integration-checker.md", 166),
+    ("gsd-integration-checker.md", 167),
+    ("gsd-integration-checker.md", 172),
+    ("gsd-integration-checker.md", 173),
+    ("gsd-integration-checker.md", 182),
+    ("gsd-integration-checker.md", 187),
+    ("gsd-verifier.md", 389),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.

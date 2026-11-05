@@ -4,42 +4,11 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 384 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 339 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
-agents/gsd-integration-checker.md	grep	local imports=$(grep -r "import.*$export_name" "$search_path" \
-agents/gsd-integration-checker.md	grep	grep -v "$source_phase" | wc -l)
-agents/gsd-integration-checker.md	grep	local uses=$(grep -r "$export_name" "$search_path" \
-agents/gsd-integration-checker.md	grep	grep -v "import" | grep -v "$source_phase" | wc -l)
-agents/gsd-integration-checker.md	grep	grep -v "import" | grep -v "$source_phase" | wc -l)
-agents/gsd-integration-checker.md	grep	local fetches=$(grep -r "fetch.*['\"]$route\|axios.*['\"]$route" "$search_path" \
-agents/gsd-integration-checker.md	grep	local dynamic_fetches=$(grep -r "fetch.*['\"]$dynamic_route\|axios.*['\"]$dynamic_route" "$search_path" \
-agents/gsd-integration-checker.md	grep	grep -r -l "$protected_patterns" src/ --include="*.tsx" 2>/dev/null
-agents/gsd-integration-checker.md	grep	local has_auth=$(grep -E "useAuth|useSession|getCurrentUser|isAuthenticated" "$file" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local has_redirect=$(grep -E "redirect.*login|router.push.*login|navigate.*login" "$file" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local login_form=$(grep -r -l "login\|Login" src/ --include="*.tsx" 2>/dev/null | head -1)
-agents/gsd-integration-checker.md	grep	local submits=$(grep -E "fetch.*auth|axios.*auth|/api/auth" "$login_form" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local redirect=$(grep -E "redirect|router.push|navigate" "$login_form" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local fetches=$(grep -E "fetch|axios|useSWR|useQuery" "$comp_file" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local has_state=$(grep -E "useState|useQuery|useSWR" "$comp_file" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local renders=$(grep -E "\{.*$data_var.*\}|\{$data_var\." "$comp_file" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local returns_data=$(grep -E "return.*json|res.json" "$route_file" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local has_form=$(grep -E "<form|onSubmit" "$form_file" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local calls_api=$(grep -E "fetch.*$api_route|axios.*$api_route" "$form_file" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local handles_response=$(grep -E "\.then|await.*fetch|setError|setSuccess" "$form_file" 2>/dev/null)
-agents/gsd-integration-checker.md	grep	local shows_feedback=$(grep -E "error|success|loading|isLoading" "$form_file" 2>/dev/null)
-agents/gsd-integration-checker.md	head	local login_form=$(grep -r -l "login\|Login" src/ --include="*.tsx" 2>/dev/null | head -1)
-agents/gsd-integration-checker.md	sed	path=$(echo "$route" | sed 's|src/app/api||' | sed 's|/route.ts||')
-agents/gsd-integration-checker.md	sed	path=$(echo "$route" | sed 's|src/app/api||' | sed 's|/route.ts||')
-agents/gsd-integration-checker.md	sed	path=$(echo "$route" | sed 's|src/pages/api||' | sed 's|\.ts||')
-agents/gsd-integration-checker.md	sed	path=$(echo "$route" | sed 's|src/pages/api||' | sed 's|\.ts||')
-agents/gsd-integration-checker.md	sed	local dynamic_route=$(echo "$route" | sed 's/\[.*\]/.*/g')
-agents/gsd-integration-checker.md	wc	grep -v "$source_phase" | wc -l)
-agents/gsd-integration-checker.md	wc	grep -v "import" | grep -v "$source_phase" | wc -l)
-agents/gsd-integration-checker.md	wc	--include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
-agents/gsd-integration-checker.md	wc	--include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
 agents/gsd-phase-researcher.md	head	specforge run --which $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
 agents/gsd-phase-researcher.md	head	docker info 2>/dev/null | head -3
 agents/gsd-plan-checker.md	grep	pnpm ls … | grep -E '^package'
@@ -51,23 +20,9 @@ agents/gsd-planner.md	grep	grep -c
 agents/gsd-planner.md	grep	grep -v '^#' | grep -c token
 agents/gsd-planner.md	grep	grep -v '^#' | grep -c token
 agents/gsd-planner.md	tail	tail -n 5
-agents/gsd-verifier.md	grep	grep -r "import.*$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l
-agents/gsd-verifier.md	grep	grep -r "$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "import" | wc -l
-agents/gsd-verifier.md	grep	grep -r "$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "import" | wc -l
-agents/gsd-verifier.md	grep	grep -n -E "TBD|FIXME|XXX" "$file" 2>/dev/null
-agents/gsd-verifier.md	grep	grep -n -E "TODO|HACK|PLACEHOLDER" "$file" 2>/dev/null
-agents/gsd-verifier.md	grep	grep -n -E "placeholder|coming soon|will be here|not yet implemented|not available" "$file" -i 2>/dev/null
-agents/gsd-verifier.md	grep	grep -n -E "return null|return \{\}|return \[\]|=> \{\}" "$file" 2>/dev/null
-agents/gsd-verifier.md	grep	grep -n -E "=\s*\[\]|=\s*\{\}|=\s*null|=\s*undefined" "$file" 2>/dev/null | grep -v -E "(test|spec|mock|fixture|\.test\.|\.spec\.)" 2>/dev/null
-agents/gsd-verifier.md	grep	grep -n -E "=\s*\[\]|=\s*\{\}|=\s*null|=\s*undefined" "$file" 2>/dev/null | grep -v -E "(test|spec|mock|fixture|\.test\.|\.spec\.)" 2>/dev/null
-agents/gsd-verifier.md	grep	grep -n -E "=\{(\[\]|\{\}|null|undefined|''|\"\")\}" "$file" 2>/dev/null
-agents/gsd-verifier.md	grep	grep -n -B 2 -A 2 "console\.log" "$file" 2>/dev/null | grep -E "^\s*(const|function|=>)"
-agents/gsd-verifier.md	grep	grep -n -B 2 -A 2 "console\.log" "$file" 2>/dev/null | grep -E "^\s*(const|function|=>)"
 agents/gsd-verifier.md	grep	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
 agents/gsd-verifier.md	grep	node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
 agents/gsd-verifier.md	grep	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
-agents/gsd-verifier.md	wc	grep -r "import.*$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l
-agents/gsd-verifier.md	wc	grep -r "$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "import" | wc -l
 commands/gsd/quick.md	awk	grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} ' spec 2>/dev/null | awk '{print $2}'   # the quick plans: the plans with no phase
 commands/gsd/quick.md	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 commands/gsd/quick.md	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title

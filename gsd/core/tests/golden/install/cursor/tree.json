@@ -20,8 +20,8 @@
     "sha256": "98d1e60b696cfcb8c6bcc7b85d9d8d677b66f8d4c47441491fc769f6841712c4"
   },
   ".cursor/agents/gsd-integration-checker.md": {
-    "bytes": 17508,
-    "sha256": "3ff83f0beb0f178b39f03efbf71bf63040119ae2be38cb175209659eeafec334"
+    "bytes": 17785,
+    "sha256": "ec7dca67007aaee12a35e9fde37658e99a588fc17562e71be826a4b282ccf67e"
   },
   ".cursor/agents/gsd-nyquist-auditor.md": {
     "bytes": 7748,
@@ -56,8 +56,8 @@
     "sha256": "8385221757f900fee07941b4478a3e2407192a25dd8135906ddbdab3d45017f5"
   },
   ".cursor/agents/gsd-verifier.md": {
-    "bytes": 50986,
-    "sha256": "50952b0629da48db97801f16c5bf8d6956f4e93136a792036d5004a368d272ea"
+    "bytes": 51226,
+    "sha256": "b2e3ce49e49a940fe714e49640926e8c99fb92a508b0a7a31c5f0c047d3cebed"
   },
   ".cursor/hooks.json": {
     "bytes": 2050,

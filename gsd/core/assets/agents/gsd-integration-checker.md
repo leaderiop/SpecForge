@@ -128,14 +128,14 @@ check_export_used() {
   local search_path="${3:-src/}"
 
   # Find imports
-  local imports=$(grep -r "import.*$export_name" "$search_path" \
-    --include="*.ts" --include="*.tsx" 2>/dev/null | \
-    grep -v "$source_phase" | wc -l)
+  local imports=$(specforge files search "import.*$export_name" "$search_path" \
+    --glob '*.ts' --glob '*.tsx' \
+    --glob "!**/$source_phase/**" --pick .count)
 
   # Find usage (not just import)
-  local uses=$(grep -r "$export_name" "$search_path" \
-    --include="*.ts" --include="*.tsx" 2>/dev/null | \
-    grep -v "import" | grep -v "$source_phase" | wc -l)
+  local uses=$(specforge files search "$export_name" "$search_path" \
+    --glob '*.ts' --glob '*.tsx' --and-not import \
+    --glob "!**/$source_phase/**" --pick .count)
 
   if [ "$imports" -gt 0 ] && [ "$uses" -gt 0 ]; then
     echo "CONNECTED ($imports imports, $uses uses)"
@@ -162,17 +162,17 @@ Check that API routes have consumers.
 
 ```bash
 # Next.js App Router
-specforge files list src/app/api --kind file --glob route.ts --pick '.entries[].path' 2>/dev/null | while read route; do
-  # Extract route path from file path
-  path=$(echo "$route" | sed 's|src/app/api||' | sed 's|/route.ts||')
-  echo "/api$path"
-done
+specforge files list src/app/api --kind file --glob route.ts --pick '.entries[].path' 2>/dev/null
+# A route's URL is /api and the route's directory below src/app/api:
+# src/app/api/users/[id]/route.ts serves /api/users/[id].
+
+
 
 # Next.js Pages Router
-specforge files list src/pages/api --kind file --glob '*.ts' --pick '.entries[].path' 2>/dev/null | while read route; do
-  path=$(echo "$route" | sed 's|src/pages/api||' | sed 's|\.ts||')
-  echo "/api$path"
-done
+specforge files list src/pages/api --kind file --glob '*.ts' --pick '.entries[].path' 2>/dev/null
+# A route's URL is /api and the file's path below src/pages/api, without .ts:
+# src/pages/api/users/[id].ts serves /api/users/[id].
+
 ```
 
 **Check each route has consumers:**
@@ -181,15 +181,15 @@ done
 check_api_consumed() {
   local route="$1"
   local search_path="${2:-src/}"
-
+  local dynamic_route="$3"
   # Search for fetch/axios calls to this route
-  local fetches=$(grep -r "fetch.*['\"]$route\|axios.*['\"]$route" "$search_path" \
-    --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+  local fetches=$(specforge files search "(fetch|axios).*['\"]$route" "$search_path" \
+    --glob '*.ts' --glob '*.tsx' --pick .count)
 
-  # Also check for dynamic routes (replace [id] with pattern)
-  local dynamic_route=$(echo "$route" | sed 's/\[.*\]/.*/g')
-  local dynamic_fetches=$(grep -r "fetch.*['\"]$dynamic_route\|axios.*['\"]$dynamic_route" "$search_path" \
-    --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+  # Also check the dynamic route (the third argument: the route with each [segment] as [^/'"]+)
+  local dynamic_fetches=0
+  [ -n "$dynamic_route" ] && dynamic_fetches=$(specforge files search "(fetch|axios).*['\"]$dynamic_route" \
+    "$search_path" --glob '*.ts' --glob '*.tsx' --pick .count)
 
   local total=$((fetches + dynamic_fetches))
 
@@ -212,7 +212,7 @@ Check that routes requiring auth actually check auth.
 protected_patterns="dashboard|settings|profile|account|user"
 
 # Find components/pages matching these patterns
-grep -r -l "$protected_patterns" src/ --include="*.tsx" 2>/dev/null
+specforge files search -l "$protected_patterns" src --glob '*.tsx' --pick '.files[]'
 ```
 
 **Check auth usage in protected areas:**
@@ -222,10 +222,10 @@ check_auth_protection() {
   local file="$1"
 
   # Check for auth hooks/context usage
-  local has_auth=$(grep -E "useAuth|useSession|getCurrentUser|isAuthenticated" "$file" 2>/dev/null)
+  local has_auth=$(specforge files search -q 'useAuth|useSession|getCurrentUser|isAuthenticated' "$file" && echo yes)
 
   # Check for redirect on no auth
-  local has_redirect=$(grep -E "redirect.*login|router.push.*login|navigate.*login" "$file" 2>/dev/null)
+  local has_redirect=$(specforge files search -q 'redirect.*login|router.push.*login|navigate.*login' "$file" && echo yes)
 
   if [ -n "$has_auth" ] || [ -n "$has_redirect" ]; then
     echo "PROTECTED"
@@ -248,12 +248,12 @@ verify_auth_flow() {
   echo "=== Auth Flow ==="
 
   # Step 1: Login form exists
-  local login_form=$(grep -r -l "login\|Login" src/ --include="*.tsx" 2>/dev/null | head -1)
+  local login_form=$(specforge files search -l 'login|Login' src --glob '*.tsx' --pick '.files[0]' 2>/dev/null)
   [ -n "$login_form" ] && echo "✓ Login form: $login_form" || echo "✗ Login form: MISSING"
 
   # Step 2: Form submits to API
   if [ -n "$login_form" ]; then
-    local submits=$(grep -E "fetch.*auth|axios.*auth|/api/auth" "$login_form" 2>/dev/null)
+    local submits=$(specforge files search -q 'fetch.*auth|axios.*auth|/api/auth' "$login_form" && echo yes)
     [ -n "$submits" ] && echo "✓ Submits to API" || echo "✗ Form doesn't submit to API"
   fi
 
@@ -263,7 +263,7 @@ verify_auth_flow() {
 
   # Step 4: Redirect after success
   if [ -n "$login_form" ]; then
-    local redirect=$(grep -E "redirect|router.push|navigate" "$login_form" 2>/dev/null)
+    local redirect=$(specforge files search -q 'redirect|router.push|navigate' "$login_form" && echo yes)
     [ -n "$redirect" ] && echo "✓ Redirects after login" || echo "✗ No redirect after login"
   fi
 }
@@ -285,15 +285,15 @@ verify_data_flow() {
 
   if [ -n "$comp_file" ]; then
     # Step 2: Fetches data
-    local fetches=$(grep -E "fetch|axios|useSWR|useQuery" "$comp_file" 2>/dev/null)
+    local fetches=$(specforge files search -q 'fetch|axios|useSWR|useQuery' "$comp_file" && echo yes)
     [ -n "$fetches" ] && echo "✓ Has fetch call" || echo "✗ No fetch call"
 
     # Step 3: Has state for data
-    local has_state=$(grep -E "useState|useQuery|useSWR" "$comp_file" 2>/dev/null)
+    local has_state=$(specforge files search -q 'useState|useQuery|useSWR' "$comp_file" && echo yes)
     [ -n "$has_state" ] && echo "✓ Has state" || echo "✗ No state for data"
 
     # Step 4: Renders data
-    local renders=$(grep -E "\{.*$data_var.*\}|\{$data_var\." "$comp_file" 2>/dev/null)
+    local renders=$(specforge files search -q "\{.*$data_var.*\}|\{$data_var\." "$comp_file" && echo yes)
     [ -n "$renders" ] && echo "✓ Renders data" || echo "✗ Doesn't render data"
   fi
 
@@ -302,7 +302,7 @@ verify_data_flow() {
   [ -n "$route_file" ] && echo "✓ API route: $route_file" || echo "✗ API route: MISSING"
 
   if [ -n "$route_file" ]; then
-    local returns_data=$(grep -E "return.*json|res.json" "$route_file" 2>/dev/null)
+    local returns_data=$(specforge files search -q 'return.*json|res.json' "$route_file" && echo yes)
     [ -n "$returns_data" ] && echo "✓ API returns data" || echo "✗ API doesn't return data"
   fi
 }
@@ -321,19 +321,19 @@ verify_form_flow() {
 
   if [ -n "$form_file" ]; then
     # Step 1: Has form element
-    local has_form=$(grep -E "<form|onSubmit" "$form_file" 2>/dev/null)
+    local has_form=$(specforge files search -q '<form|onSubmit' "$form_file" && echo yes)
     [ -n "$has_form" ] && echo "✓ Has form" || echo "✗ No form element"
 
     # Step 2: Handler calls API
-    local calls_api=$(grep -E "fetch.*$api_route|axios.*$api_route" "$form_file" 2>/dev/null)
+    local calls_api=$(specforge files search -q "fetch.*$api_route|axios.*$api_route" "$form_file" && echo yes)
     [ -n "$calls_api" ] && echo "✓ Calls API" || echo "✗ Doesn't call API"
 
     # Step 3: Handles response
-    local handles_response=$(grep -E "\.then|await.*fetch|setError|setSuccess" "$form_file" 2>/dev/null)
+    local handles_response=$(specforge files search -q '\.then|await.*fetch|setError|setSuccess' "$form_file" && echo yes)
     [ -n "$handles_response" ] && echo "✓ Handles response" || echo "✗ Doesn't handle response"
 
     # Step 4: Shows feedback
-    local shows_feedback=$(grep -E "error|success|loading|isLoading" "$form_file" 2>/dev/null)
+    local shows_feedback=$(specforge files search -q 'error|success|loading|isLoading' "$form_file" && echo yes)
     [ -n "$shows_feedback" ] && echo "✓ Shows feedback" || echo "✗ No user feedback"
   fi
 }

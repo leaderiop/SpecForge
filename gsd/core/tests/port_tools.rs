@@ -293,7 +293,7 @@ fn a_shell_block_calls_only_specforge() {
         .flat_map(|(path, lines)| specforge_only::hits(path, lines, &functions))
         .collect();
     assert!(
-        hits.len() > 500,
+        hits.len() > 100,
         "only {} hits: the scan finds nothing",
         hits.len()
     );
