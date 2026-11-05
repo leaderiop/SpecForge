@@ -2,7 +2,7 @@
 source: crates/surfaces/cli/src/main.rs
 expression: command.clone().render_long_help().to_string()
 ---
-Where the repository is: its top directory, git directory and common directory
+Where the repository is: its top directory, git directory and common directory, the current directory's prefix and the repository it is a submodule of
 
 Usage: specforge git repo [OPTIONS]
 

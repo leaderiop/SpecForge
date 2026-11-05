@@ -4,7 +4,7 @@
 use serde::Serialize;
 use specforge_effects::git::{
     DiffQuery, DiffSide, GitBranchRef, GitCommit, GitError, GitFileDiff, GitPlace, GitRemote,
-    GitStatus, LOG_MAX, Located, LogQuery, ObjectKind, Sha, Tracking, is_binary,
+    GitStatus, GitSubmodule, LOG_MAX, Located, LogQuery, ObjectKind, Sha, Tracking, is_binary,
 };
 
 use super::{USER, Verbs, slashed};
@@ -203,6 +203,12 @@ pub struct Worktree {
     pub locked: bool,
     /// The worktree the project is in.
     pub current: bool,
+}
+
+/// `git submodules`' answer: what `.gitmodules` declares.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SubmodulesAnswer {
+    pub submodules: Vec<GitSubmodule>,
 }
 
 /// `git remotes`' answer.
@@ -531,4 +537,10 @@ pub fn remotes(verbs: &Verbs) -> Result<RemotesAnswer, OpError> {
     let place = verbs.place("remotes")?;
     let remotes = verbs.ports().git.remotes(&place).map_err(failed)?;
     Ok(RemotesAnswer { remotes })
+}
+
+pub fn submodules(verbs: &Verbs) -> Result<SubmodulesAnswer, OpError> {
+    let place = verbs.place("submodules")?;
+    let submodules = verbs.ports().git.submodules(&place).map_err(failed)?;
+    Ok(SubmodulesAnswer { submodules })
 }

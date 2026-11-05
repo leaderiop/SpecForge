@@ -7,7 +7,7 @@ Read and change the repository the project is in, with no git program: its place
 Usage: specforge git [OPTIONS] <COMMAND>
 
 Commands:
-  repo         Where the repository is: its top directory, git directory and common directory
+  repo         Where the repository is: its top directory, git directory and common directory, the current directory's prefix and the repository it is a submodule of
   head         HEAD's commit and branch, whether it is detached or unborn, and its upstream
   rev          What each revision names: its sha and kind, or that it names nothing
   status       The working tree's status: each changed, conflicted and untracked path, and whether it is clean
@@ -19,6 +19,7 @@ Commands:
   branches     The local branches with their upstream and how far each is ahead and behind, or the remote-tracking ones
   worktrees    The main worktree and the linked ones, with the branch each is on
   remotes      The remotes, with each URL's host and `owner/repo` path
+  submodules   The submodules `.gitmodules` declares: each name, path and URL
   commit       Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
   branch       Create or delete a branch
   switch       Move HEAD to a branch, its files checked out; a file the worktree changed is never overwritten

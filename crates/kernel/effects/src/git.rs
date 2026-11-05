@@ -279,6 +279,16 @@ pub struct GitRemote {
     pub head: Option<String>,
 }
 
+/// A submodule `.gitmodules` declares.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GitSubmodule {
+    pub name: String,
+    /// Where it is checked out, from the repository's top.
+    pub path: String,
+    /// Where it is cloned from, credentials removed; none when unset or unreadable.
+    pub url: Option<String>,
+}
+
 /// What a commit stages before it records the index: paths from the repository's top.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Staging {
@@ -441,6 +451,11 @@ pub trait Git: Send + Sync {
     /// The top of the repository whose submodule `place` is, as `git rev-parse --show-superproject-working-tree`
     /// finds it: the repository above `place`'s top whose index holds that top as a submodule. None when there is none.
     fn superproject(&self, _place: &GitPlace) -> Result<Option<PathBuf>, GitError> {
+        Err(GitError::unanswered())
+    }
+    /// The submodules the worktree's `.gitmodules` declares, in its order (`git config --file .gitmodules`): one whose
+    /// path is absolute or leaves the top is left out. Empty when there is no `.gitmodules`.
+    fn submodules(&self, _place: &GitPlace) -> Result<Vec<GitSubmodule>, GitError> {
         Err(GitError::unanswered())
     }
     /// The remotes, by name.

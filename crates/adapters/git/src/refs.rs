@@ -2,7 +2,7 @@
 
 use gix::bstr::ByteSlice as _;
 use specforge_effects::git::{
-    GitBranch, GitBranchRef, GitError, GitRemote, GitWorktree, Sha, Tracking,
+    GitBranch, GitBranchRef, GitError, GitRemote, GitSubmodule, GitWorktree, Sha, Tracking,
 };
 
 use crate::failed;
@@ -234,4 +234,25 @@ fn count_hiding(
         count = count.saturating_add(1);
     }
     Ok(count)
+}
+
+pub(crate) fn submodules(repo: &gix::Repository) -> Result<Vec<GitSubmodule>, GitError> {
+    let Some(modules) = repo
+        .open_modules_file()
+        .map_err(|e| failed("read .gitmodules", &e))?
+    else {
+        return Ok(Vec::new());
+    };
+    Ok(modules
+        .names()
+        .filter_map(|name| {
+            // a path that is absolute or climbs out of the top is refused by gix: never listed
+            let path = modules.path(name).ok()?;
+            Some(GitSubmodule {
+                name: name.to_str_lossy().into_owned(),
+                path: path.to_str_lossy().into_owned(),
+                url: modules.url(name).ok().map(|url| shown(&url)),
+            })
+        })
+        .collect())
 }

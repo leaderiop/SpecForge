@@ -572,6 +572,29 @@ fn remotes_split_each_url_into_its_host_and_path() {
     );
 }
 
+/// `submodules` reads `.gitmodules` as git's config parser does, and lists no path that leaves the top.
+#[test]
+fn submodules_list_what_gitmodules_declares() {
+    let (project, repo, _) = committed();
+    assert_eq!(
+        git(&project, &["submodules"]).exits(0).answer(),
+        json!({"submodules": []})
+    );
+    repo.write(
+        ".gitmodules",
+        "[submodule \"lib\"]\n\tpath = vendor/lib\n\turl = https://bot:tok@example.com/acme/lib.git\n\
+         [submodule \"out\"]\n\tpath = ../escape\n\turl = ../escape.git\n\
+         [submodule \"docs\"]\n\tpath = docs/site\n",
+    );
+    assert_eq!(
+        git(&project, &["submodules"]).exits(0).answer(),
+        json!({"submodules": [
+            {"name": "lib", "path": "vendor/lib", "url": "https://example.com/acme/lib.git"},
+            {"name": "docs", "path": "docs/site", "url": null},
+        ]})
+    );
+}
+
 /// `origin/HEAD`, which a clone writes, names the remote's default branch.
 #[test]
 fn remotes_name_the_default_branch_their_head_points_at() {

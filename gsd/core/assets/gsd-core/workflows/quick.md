@@ -175,7 +175,7 @@ If the project uses git submodules, worktree isolation is unsafe **only when the
 # the commit and surface the conflict rather than silently corrupting the
 # submodule state.
 if [ -f .gitmodules ]; then
-  SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
+  SUBMODULE_PATHS=$(specforge git submodules --pick '.submodules[].path' 2>/dev/null)
 else
   SUBMODULE_PATHS=""
 fi

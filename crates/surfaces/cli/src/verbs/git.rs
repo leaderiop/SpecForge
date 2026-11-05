@@ -60,6 +60,8 @@ pub(crate) enum Action {
     Worktrees(Plain),
     /// The remotes, with each URL's host and `owner/repo` path
     Remotes(Plain),
+    /// The submodules `.gitmodules` declares: each name, path and URL
+    Submodules(Plain),
     /// Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
     Commit(CommitArgs),
     /// Create or delete a branch
@@ -246,6 +248,13 @@ impl Action {
                     for worktree in &a.worktrees {
                         let branch = worktree.branch.as_deref().unwrap_or("(detached)");
                         outln!(t, "{} {}", shown(&worktree.path), shown(branch));
+                    }
+                })
+            }
+            Action::Submodules(args) => {
+                answer(&args.verb, terminal, ports, git::submodules, |t, a| {
+                    for module in &a.submodules {
+                        outln!(t, "{}", shown(&module.path));
                     }
                 })
             }

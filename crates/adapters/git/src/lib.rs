@@ -15,8 +15,8 @@ use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBlob, GitBranch, GitBranchRef,
     GitChange, GitEntry, GitEntryKind, GitError, GitFileDiff, GitLog, GitPlace, GitRemote,
-    GitStash, GitStatus, GitWorktree, Located, LogQuery, Merged, ObjectKind, ResetMode, Sha, Sized,
-    Staging, TreeEntry,
+    GitStash, GitStatus, GitSubmodule, GitWorktree, Located, LogQuery, Merged, ObjectKind,
+    ResetMode, Sha, Sized, Staging, TreeEntry,
 };
 
 mod branching;
@@ -502,6 +502,10 @@ impl Git for Gix {
             .entry_by_path(rel.as_str().into())
             .is_some_and(|entry| entry.mode == gix::index::entry::Mode::COMMIT);
         Ok(submodule.then_some(outer.toplevel))
+    }
+
+    fn submodules(&self, place: &GitPlace) -> Result<Vec<GitSubmodule>, GitError> {
+        refs::submodules(&open(place)?)
     }
 
     fn remotes(&self, place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
