@@ -236,7 +236,7 @@ Classify commits:
 
 ```bash
 # Get all commits ahead of target
-git log --oneline "$TARGET".."$CURRENT_BRANCH" --no-merges
+specforge git log "$TARGET".."$CURRENT_BRANCH" --no-merges --format human
 ```
 
 **Canonical path declarations.** These three lines are the single source of truth for the

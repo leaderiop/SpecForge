@@ -28,7 +28,7 @@ use refs::{branch_of, local_branch};
 pub mod testing;
 mod write;
 
-use history::{commit_of, file_diff, index_tree, touches, tree_of, wanted_paths};
+use history::{file_diff, index_tree, tree_of, wanted_paths};
 
 /// The `Git` port read through gix.
 #[derive(Debug, Clone, Copy, Default)]
@@ -400,41 +400,13 @@ impl Git for Gix {
     }
 
     fn log(&self, place: &GitPlace, query: &LogQuery) -> Result<GitLog, GitError> {
-        use gix::revision::walk::Sorting;
-        use gix::traverse::commit::simple::CommitTimeOrder;
-        let repo = open(place)?;
-        let tips = query.tips.iter().map(id).collect::<Result<Vec<_>, _>>()?;
-        let hidden = query.hidden.iter().map(id).collect::<Result<Vec<_>, _>>()?;
-        let mut walk = repo
-            .rev_walk(tips)
-            .with_hidden(hidden)
-            .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst));
-        if query.first_parent {
-            walk = walk.first_parent_only();
-        }
-        let walk = walk.all().map_err(|e| failed("walk the history", &e))?;
-        let paths = wanted_paths(&query.paths);
-        let mut log = GitLog::default();
-        for info in walk {
-            let info = info.map_err(|e| failed("walk the history", &e))?;
-            let listed = query.max.is_none_or(|max| log.commits.len() < max);
-            if paths.is_empty() && !listed {
-                // past the listing, a commit is only counted, as `rev-list --count` counts it
-                log.count += 1;
-                continue;
-            }
-            let commit = repo
-                .find_commit(info.id)
-                .map_err(|e| failed(&format!("read {}", info.id), &e))?;
-            if !paths.is_empty() && !touches(&repo, &commit, &paths, query.first_parent)? {
-                continue;
-            }
-            log.count += 1;
-            if listed {
-                log.commits.push(commit_of(&commit)?);
-            }
-        }
-        Ok(log)
+        history::log(&open(place)?, query)
+    }
+
+    fn date(&self, text: &str) -> Result<i64, GitError> {
+        gix::date::parse(text, Some(std::time::SystemTime::now()))
+            .map(|time| time.seconds)
+            .map_err(|e| GitError(format!("{text:?} is no date git reads: {e}")))
     }
 
     fn diff(&self, place: &GitPlace, query: &DiffQuery) -> Result<Vec<GitFileDiff>, GitError> {

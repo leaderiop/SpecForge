@@ -187,10 +187,10 @@ Wait for confirmation.
 Calculate milestone statistics:
 
 ```bash
-git log --oneline --grep="feat(" | head -20
+specforge git log --grep="feat\(" --max 20 --format human
 git diff --stat FIRST_COMMIT..LAST_COMMIT | tail -1
 find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
-git log --format="%ai" FIRST_COMMIT | tail -1
+specforge git log FIRST_COMMIT --reverse --pick '.commits[0].author.time'
 specforge git log LAST_COMMIT --max 1 --pick '.commits[0].author.time'
 ```
 

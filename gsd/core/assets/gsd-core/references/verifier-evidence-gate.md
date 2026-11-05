@@ -58,7 +58,7 @@ which case it is in-contract and blocks unconditionally, evidence or not:
    unreliable; file-level modification is a single, robust command:
 
    ```bash
-   git log --since="$PREV_VERIFIED_TS" --oneline -- "$file"
+   specforge git log --since="$PREV_VERIFIED_TS" --format human -- "$file"
    ```
 
    A non-empty result means the file changed since the prior pass — the

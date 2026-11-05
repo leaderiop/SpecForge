@@ -572,6 +572,80 @@ fn remotes_split_each_url_into_its_host_and_path() {
     );
 }
 
+/// `log` keeps the commits git's flags keep: `--grep` (a regex per line), `--no-merges`, `--since`/`--until` (git's
+/// dates), `-S` (a text, or a regex with `--pickaxe-regex`, within the paths), and lists them `--reverse`.
+#[test]
+fn log_filters_as_git_filters_and_lists_oldest_first() {
+    let (project, repo, first) = committed();
+    repo.write("plan.spec", "plan 7 \"x\" {}\n");
+    let planned = repo.commit_all("feat(01-02): plan it\n\nbody");
+    repo.write("b.txt", "plan 7 in prose\n");
+    let red = repo.commit_all("test(01-02): red");
+    let merge = repo.merge("Merge side", &first);
+    let picked = |args: &[&str]| git(&project, args).exits(0).stdout;
+    let shas = |shas: &[&str]| shas.iter().map(|s| format!("{s}\n")).collect::<String>();
+    assert_eq!(
+        picked(&[
+            "log",
+            "--grep",
+            r"^feat\((0*1)-(0*2)\):",
+            "--pick",
+            ".commits[].sha"
+        ]),
+        shas(&[&planned])
+    );
+    assert_eq!(
+        picked(&["log", "--grep", "^body$", "--pick", ".count"]),
+        "1\n"
+    );
+    assert_eq!(picked(&["log", "--no-merges", "--pick", ".count"]), "3\n");
+    assert_eq!(
+        picked(&["log", "--reverse", "--pick", ".commits[].sha"]),
+        shas(&[&first, &planned, &red, &merge])
+    );
+    assert_eq!(
+        picked(&["log", "--reverse", "--max", "2", "--pick", ".commits[].sha"]),
+        shas(&[&red, &merge]),
+        "--max keeps the newest, as git applies -n before --reverse"
+    );
+    assert_eq!(
+        picked(&["log", "-S", "plan 7", "--pick", ".commits[].sha"]),
+        shas(&[&red, &planned])
+    );
+    assert_eq!(
+        picked(&[
+            "log",
+            "-S",
+            "^plan 7 ",
+            "--pickaxe-regex",
+            "--pick",
+            ".commits[].sha",
+            "--",
+            "plan.spec"
+        ]),
+        shas(&[&planned])
+    );
+    // the test clock: the first commit at 1700000000 (22:13:20 UTC), each next one a minute later
+    assert_eq!(
+        picked(&[
+            "log",
+            "--since",
+            "2023-11-14 22:14:00 +0000",
+            "--until",
+            "2023-11-14 22:15:30 +0000",
+            "--pick",
+            ".commits[].sha"
+        ]),
+        shas(&[&red, &planned])
+    );
+    assert_eq!(
+        picked(&["log", "--since", "24 hours ago", "--pick", ".count"]),
+        "0\n"
+    );
+    git(&project, &["log", "--since", "not a date"]).exits(1);
+    git(&project, &["log", "--grep", "feat("]).exits(1);
+}
+
 /// `rev --sorted` orders commits by committer date as `rev-list --no-walk=sorted`, newest first or `--reverse`, reading
 /// more revisions from `--stdin`; a revision that names no commit refuses them all.
 #[test]

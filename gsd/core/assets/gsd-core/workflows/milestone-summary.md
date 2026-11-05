@@ -97,7 +97,7 @@ git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSI
 **Method 2 — Project start date** (if no tag):
 Read the progress report and extract the `started_at` or earliest session date. Use it as the `--since` boundary:
 ```bash
-git log --oneline --since="<started_at_date>" | wc -l
+specforge git log --since="<started_at_date>" --pick .count
 ```
 
 **Method 3 — Earliest recorded commit** (if no date was recorded):

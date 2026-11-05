@@ -4470,6 +4470,7 @@ version = "0.3.0"
 dependencies = [
  "git2",
  "gix",
+ "regex",
  "specforge-common",
  "specforge-effects",
  "specforge-git",

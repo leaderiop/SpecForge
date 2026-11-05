@@ -56,7 +56,7 @@ if [ "${USE_WORKTREES}" != "false" ]; then
   # commit attempt so it holds whether the planner already committed the plan or this
   # step just did. Empty when docs commits are off, for a root commit, and with no plan commit.
   if [ "$COMMIT_DOCS" != "false" ]; then
-    _GSD_PLAN_AT=$(git log -1 --format=%H --pickaxe-regex -S "^plan ${quick_id} " -- spec 2>/dev/null || true)
+    _GSD_PLAN_AT=$(specforge git log --max 1 --pickaxe-regex -S "^plan ${quick_id} " --pick '.commits[0].sha' -- spec 2>/dev/null || true)
     QUICK_PLAN_PARENT=""
     [ -z "$_GSD_PLAN_AT" ] || QUICK_PLAN_PARENT=$(specforge git rev "${_GSD_PLAN_AT}^" --pick '.revs[0].sha' 2>/dev/null || true)
   fi

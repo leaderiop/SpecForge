@@ -23,6 +23,31 @@ Options:
       --first-parent
           Follow only each commit's first parent
 
+      --reverse
+          List oldest first; --max still keeps the newest, as git applies -n before --reverse
+
+      --grep <REGEX>
+          Only the commits a line of whose message this regex matches (Rust's regex syntax, ^ and $ at each line)
+
+      --since <DATE>
+          Only the commits made at or after this date: ISO 8601, RFC 2822, a unix time, or `24 hours ago`, as git reads one
+          
+          [aliases: --after]
+
+      --until <DATE>
+          Only the commits made at or before this date
+          
+          [aliases: --before]
+
+      --no-merges
+          No commit with more than one parent
+
+  -S <TEXT>
+          Only the commits that change how many times this text occurs in a file (of the paths), against their parent
+
+      --pickaxe-regex
+          -S names a regex, not a text
+
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
           

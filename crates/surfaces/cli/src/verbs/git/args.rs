@@ -320,6 +320,35 @@ pub(crate) struct LogArgs {
     #[arg(long)]
     pub(super) first_parent: bool,
 
+    /// List oldest first; --max still keeps the newest, as git applies -n before --reverse
+    #[arg(long)]
+    pub(super) reverse: bool,
+
+    /// Only the commits a line of whose message this regex matches (Rust's regex syntax, ^ and $ at each line)
+    #[arg(long, value_name = "REGEX")]
+    pub(super) grep: Option<String>,
+
+    /// Only the commits made at or after this date: ISO 8601, RFC 2822, a unix time, or `24 hours ago`, as git reads
+    /// one
+    #[arg(long, value_name = "DATE", visible_alias = "after")]
+    pub(super) since: Option<String>,
+
+    /// Only the commits made at or before this date
+    #[arg(long, value_name = "DATE", visible_alias = "before")]
+    pub(super) until: Option<String>,
+
+    /// No commit with more than one parent
+    #[arg(long)]
+    pub(super) no_merges: bool,
+
+    /// Only the commits that change how many times this text occurs in a file (of the paths), against their parent
+    #[arg(short = 'S', value_name = "TEXT")]
+    pub(super) pickaxe: Option<String>,
+
+    /// -S names a regex, not a text
+    #[arg(long, requires = "pickaxe")]
+    pub(super) pickaxe_regex: bool,
+
     #[command(flatten)]
     pub(super) verb: VerbArgs,
 }

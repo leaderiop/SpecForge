@@ -19,6 +19,9 @@ mod jq_rewrites;
 #[path = "common/quick_rewrites.rs"]
 mod quick_rewrites;
 
+#[path = "common/git_rewrites.rs"]
+mod git_rewrites;
+
 #[path = "common/review_rewrites.rs"]
 mod review_rewrites;
 
@@ -159,64 +162,10 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/manager.md", 31, 31),
     ("gsd-core/workflows/autonomous.md", 125, 125),
     ("gsd-core/workflows/settings.md", 668, 668),
-    ("gsd-core/workflows/settings.md", 614, 614),
-    ("gsd-core/workflows/settings.md", 613, 613),
-    ("gsd-core/workflows/settings.md", 612, 612),
-    ("gsd-core/workflows/settings.md", 611, 611),
-    ("gsd-core/workflows/settings.md", 610, 610),
-    ("gsd-core/workflows/settings.md", 609, 609),
-    ("gsd-core/workflows/settings.md", 608, 608),
-    ("gsd-core/workflows/settings.md", 607, 607),
-    ("gsd-core/workflows/settings.md", 606, 606),
-    ("gsd-core/workflows/settings.md", 605, 605),
-    ("gsd-core/workflows/settings.md", 604, 604),
-    ("gsd-core/workflows/settings.md", 603, 603),
-    ("gsd-core/workflows/settings.md", 602, 602),
-    ("gsd-core/workflows/settings.md", 601, 601),
-    ("gsd-core/workflows/settings.md", 600, 600),
-    ("gsd-core/workflows/settings.md", 599, 599),
-    ("gsd-core/workflows/settings.md", 598, 598),
-    ("gsd-core/workflows/settings.md", 597, 597),
-    ("gsd-core/workflows/settings.md", 596, 596),
-    ("gsd-core/workflows/settings.md", 595, 595),
-    ("gsd-core/workflows/settings.md", 594, 594),
-    ("gsd-core/workflows/settings.md", 593, 593),
-    ("gsd-core/workflows/settings.md", 592, 592),
-    ("gsd-core/workflows/settings.md", 591, 591),
-    ("gsd-core/workflows/settings.md", 590, 590),
-    ("gsd-core/workflows/settings.md", 589, 589),
-    ("gsd-core/workflows/settings.md", 588, 588),
-    ("gsd-core/workflows/settings.md", 587, 587),
-    ("gsd-core/workflows/settings.md", 586, 586),
-    ("gsd-core/workflows/settings.md", 585, 585),
-    ("gsd-core/workflows/settings.md", 584, 584),
-    ("gsd-core/workflows/settings.md", 583, 583),
-    ("gsd-core/workflows/settings.md", 582, 582),
-    ("gsd-core/workflows/settings.md", 581, 581),
-    ("gsd-core/workflows/settings.md", 580, 580),
-    ("gsd-core/workflows/settings.md", 579, 579),
-    ("gsd-core/workflows/settings.md", 578, 578),
-    ("gsd-core/workflows/settings.md", 577, 577),
-    ("gsd-core/workflows/settings.md", 576, 576),
-    ("gsd-core/workflows/settings.md", 574, 574),
-    ("gsd-core/workflows/settings.md", 573, 573),
-    ("gsd-core/workflows/settings.md", 572, 572),
+    ("gsd-core/workflows/settings.md", 576, 614),
+    ("gsd-core/workflows/settings.md", 572, 574),
     ("gsd-core/workflows/settings.md", 570, 570),
-    ("gsd-core/workflows/settings.md", 568, 568),
-    ("gsd-core/workflows/settings.md", 567, 567),
-    ("gsd-core/workflows/settings.md", 566, 566),
-    ("gsd-core/workflows/settings.md", 565, 565),
-    ("gsd-core/workflows/settings.md", 564, 564),
-    ("gsd-core/workflows/settings.md", 563, 563),
-    ("gsd-core/workflows/settings.md", 562, 562),
-    ("gsd-core/workflows/settings.md", 561, 561),
-    ("gsd-core/workflows/settings.md", 560, 560),
-    ("gsd-core/workflows/settings.md", 559, 559),
-    ("gsd-core/workflows/settings.md", 558, 558),
-    ("gsd-core/workflows/settings.md", 557, 557),
-    ("gsd-core/workflows/settings.md", 556, 556),
-    ("gsd-core/workflows/settings.md", 555, 555),
-    ("gsd-core/workflows/settings.md", 554, 554),
+    ("gsd-core/workflows/settings.md", 554, 568),
     // Settings lines the host accepts, no secret taken in chat, the roadmap-wide backlog and the batch ids.
     ("gsd-core/workflows/settings-integrations.md", 150, 150),
     ("gsd-core/workflows/settings-integrations.md", 148, 148),
@@ -610,6 +559,7 @@ fn workflow_assets_diff_only_in_ported_passages() {
                         .iter()
                         .chain(jq_rewrites::SPANS)
                         .chain(quick_rewrites::SPANS)
+                        .chain(git_rewrites::SPANS)
                         .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
             });
         };

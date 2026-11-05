@@ -35,7 +35,7 @@ SUMMARY_EXISTS=$(test -f "{phase_dir}/{plan_number}-{plan_padded}-SUMMARY.md" &&
 COMMITS_SCOPE=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "{phase_number}-{plan_padded}" --kinds commit --pick '.nodes[kind=commit].fields.hash') && COMMITS_SCOPE_RC=0 || COMMITS_SCOPE_RC=$?
 COMMITS_FOUND=""
 if [ "$COMMITS_SCOPE_RC" -eq 0 ]; then COMMITS_FOUND=${COMMITS_SCOPE%%$'\n'*}; fi
-COMMITS_SINCE_DISPATCH=$(git log "${EXPECTED_BRANCH}" --since="${DISPATCH_TS}" --oneline | head -1)
+COMMITS_SINCE_DISPATCH=$(specforge git log "${EXPECTED_BRANCH}" --since="${DISPATCH_TS}" --max 1 --format human)
 ```
 
 ## Verdicts

@@ -55,7 +55,7 @@ Based on MODE, gather candidate commits.
 
 Run:
 ```bash
-git log --oneline --no-merges -${COUNT}
+specforge git log --no-merges --max ${COUNT} --format human
 ```
 
 Filter for GSD conventional commits matching `type(scope): message` pattern (e.g., `feat(04-01):`, `docs(03):`, `fix(02-03):`).

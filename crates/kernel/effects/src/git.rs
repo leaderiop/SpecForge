@@ -174,7 +174,21 @@ pub struct LogQuery {
     pub paths: Vec<String>,
     /// Follow only each commit's first parent.
     pub first_parent: bool,
+    /// At most this many listed: the newest (`git log -n`), or the oldest with [`LogQuery::oldest`].
     pub max: Option<usize>,
+    /// [`LogQuery::max`] keeps the oldest commits walked rather than the newest.
+    pub oldest: bool,
+    /// Only the commits a line of whose message this regex matches (`--grep`, Rust's regex syntax).
+    pub grep: Option<String>,
+    /// Only the commits whose committer date is at or after this time, seconds since the epoch (`--since`).
+    pub since: Option<i64>,
+    /// Only the commits whose committer date is at or before this time (`--until`).
+    pub until: Option<i64>,
+    /// No commit with more than one parent (`--no-merges`).
+    pub no_merges: bool,
+    /// Only the commits that change how many times this regex matches in a file of [`LogQuery::paths`] against their
+    /// parent (`git log -S --pickaxe-regex`): a merge never does, a root commit is compared with nothing.
+    pub pickaxe: Option<String>,
 }
 
 /// The side a diff compares its base with.
@@ -361,6 +375,11 @@ pub trait Git: Send + Sync {
     /// `commits` newest first by committer date, as `git rev-list --no-walk=sorted` orders them (a tie keeps the order
     /// given).
     fn sorted(&self, _place: &GitPlace, _commits: &[Sha]) -> Result<Vec<Sha>, GitError> {
+        Err(GitError::unanswered())
+    }
+    /// The time `text` names as git reads a date (`--since`): ISO 8601, RFC 2822, a unix time, or relative to now
+    /// (`24 hours ago`, `yesterday`), seconds since the epoch.
+    fn date(&self, _text: &str) -> Result<i64, GitError> {
         Err(GitError::unanswered())
     }
     /// The nearest common ancestor of two commits.

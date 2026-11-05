@@ -133,6 +133,17 @@ pub struct LogRequest {
     pub paths: Vec<String>,
     pub first_parent: bool,
     pub max: Option<usize>,
+    /// Oldest first; `max` still keeps the newest, as git applies `-n` before `--reverse`.
+    pub reverse: bool,
+    /// A regex a line of the message matches (`--grep`).
+    pub grep: Option<String>,
+    /// Dates as git reads them (`--since`, `--until`).
+    pub since: Option<String>,
+    pub until: Option<String>,
+    pub no_merges: bool,
+    /// The text, or with `pickaxe_regex` the regex, whose count in a file a commit changes (`-S`).
+    pub pickaxe: Option<String>,
+    pub pickaxe_regex: bool,
 }
 
 /// The side `git diff` compares its base with.
@@ -405,6 +416,25 @@ fn commit_named(verbs: &Verbs, place: &GitPlace, revision: &str) -> Result<Sha, 
         })
 }
 
+/// A user's value the port refused as no date or no pattern (`InvalidInput`).
+fn invalid(error: GitError) -> OpError {
+    OpError::new(
+        OpErrorKind::InvalidInput,
+        OpErrorKind::InvalidInput.as_str(),
+        error.0,
+    )
+}
+
+/// `pattern`, once it is a regex.
+fn checked(pattern: String) -> Result<String, OpError> {
+    match regex::Regex::new(&pattern) {
+        Ok(_) => Ok(pattern),
+        Err(error) => Err(invalid(GitError(format!(
+            "{pattern:?} is no regex: {error}"
+        )))),
+    }
+}
+
 /// `HEAD` for an empty side of a range.
 fn or_head(side: &str) -> &str {
     if side.is_empty() { "HEAD" } else { side }
@@ -442,14 +472,36 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
             commits: Vec::new(),
         });
     }
+    let date = |text: &Option<String>| -> Result<Option<i64>, OpError> {
+        text.as_deref()
+            .map(|text| verbs.ports().git.date(text).map_err(invalid))
+            .transpose()
+    };
+    let pickaxe = request.pickaxe.as_deref().map(|text| {
+        if request.pickaxe_regex {
+            text.to_string()
+        } else {
+            regex::escape(text)
+        }
+    });
     let query = LogQuery {
         tips,
         hidden,
         paths: request.paths.clone(),
         first_parent: request.first_parent,
+        // with --reverse and no -n, the oldest commits are the ones listed, git's whole reversed log cut at the cap
         max: Some(request.max.unwrap_or(LOG_MAX)),
+        oldest: request.reverse && request.max.is_none(),
+        grep: request.grep.clone().map(checked).transpose()?,
+        since: date(&request.since)?,
+        until: date(&request.until)?,
+        no_merges: request.no_merges,
+        pickaxe: pickaxe.map(checked).transpose()?,
     };
-    let log = verbs.ports().git.log(&place, &query).map_err(failed)?;
+    let mut log = verbs.ports().git.log(&place, &query).map_err(failed)?;
+    if request.reverse {
+        log.commits.reverse();
+    }
     Ok(LogAnswer {
         count: log.count,
         truncated: log.count > log.commits.len(),

@@ -162,6 +162,13 @@ impl Action {
                     paths: args.paths,
                     first_parent: args.first_parent,
                     max: args.max,
+                    reverse: args.reverse,
+                    grep: args.grep,
+                    since: args.since,
+                    until: args.until,
+                    no_merges: args.no_merges,
+                    pickaxe: args.pickaxe,
+                    pickaxe_regex: args.pickaxe_regex,
                 };
                 answer(
                     &args.verb,
