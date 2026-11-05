@@ -186,6 +186,69 @@ fn a_walk_does_not_descend_through_a_directory_link() {
     assert_eq!(walk(&roots, Some("**/*.md")), ["real/x.md"]);
 }
 
+/// The listed paths of `dir` under `globs`, files and directories.
+fn listed(roots: &Roots, globs: &[&str]) -> Vec<String> {
+    let listing = LocalFs.list(
+        roots,
+        &specforge_effects::ListRequest {
+            root: "project".into(),
+            path: String::new(),
+            globs: globs.iter().map(|glob| (*glob).to_string()).collect(),
+            kind: None,
+            depth: None,
+            ignore: true,
+            hidden: false,
+            max_entries: 100,
+        },
+    );
+    assert_eq!(listing.class, OutcomeClass::Ok, "{listing:?}");
+    listing
+        .entries
+        .into_iter()
+        .map(|entry| entry.path)
+        .collect()
+}
+
+/// A listing's globs are the `ignore` crate's overrides: gitignore semantics, a `!` glob leaves out a file or prunes
+/// a directory, and no glob reaches a hidden name the listing leaves out.
+#[test]
+fn a_listing_takes_the_walkers_overrides() {
+    let (_dir, roots) = project();
+    let root = roots.project();
+    for dir in ["src/deep", "build/src"] {
+        std::fs::create_dir_all(root.join(dir)).unwrap();
+    }
+    for file in [
+        "src/a.rs",
+        "src/deep/b.rs",
+        "build/c.rs",
+        "build/src/d.rs",
+        "README.md",
+        ".hidden.rs",
+    ] {
+        std::fs::write(root.join(file), "").unwrap();
+    }
+    // A name glob matches at any depth; a hidden name stays out.
+    assert_eq!(
+        listed(&roots, &["*.rs"]),
+        ["build/c.rs", "build/src/d.rs", "src/a.rs", "src/deep/b.rs"]
+    );
+    // A glob with a `/` is anchored at the listed directory.
+    assert_eq!(listed(&roots, &["src/*.rs"]), ["src/a.rs"]);
+    // `!build` prunes the directory and what it holds.
+    assert_eq!(
+        listed(&roots, &["*.rs", "!build"]),
+        ["src/a.rs", "src/deep/b.rs"]
+    );
+    // An exclusion alone keeps the rest, directories included.
+    let rest = listed(&roots, &["!*.md", "!*.txt"]);
+    assert!(!rest.iter().any(|path| path.ends_with(".md")), "{rest:?}");
+    assert!(rest.contains(&"build/src".to_string()), "{rest:?}");
+    assert!(rest.contains(&"src/deep/b.rs".to_string()), "{rest:?}");
+    // A trailing `/` names a directory, not a file of that name.
+    assert_eq!(listed(&roots, &["!build/"]), listed(&roots, &["!build"]));
+}
+
 fn at(root: &str, path: &str) -> specforge_effects::Place {
     specforge_effects::Place {
         root: root.into(),

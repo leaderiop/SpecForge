@@ -129,8 +129,8 @@ pub(crate) struct ListArgs {
     #[arg(default_value = ".")]
     dir: PathBuf,
 
-    /// Only entries that match one of these globs: one with a `/` is matched against the path below the directory,
-    /// one without against the entry's name
+    /// Only entries that match one of these globs (gitignore's): one with a `/` is matched against the path below the
+    /// directory, one without against a name at any depth; `!GLOB` leaves a file or a whole directory out
     #[arg(long = "glob", value_name = "GLOB")]
     globs: Vec<String>,
 
@@ -167,6 +167,7 @@ pub(crate) struct SearchArgs {
     paths: Vec<PathBuf>,
 
     /// Only files whose name (or path below a searched directory, for a glob with a `/`) matches one of these globs
+    /// (gitignore's); `!GLOB` leaves a file or a whole directory out
     #[arg(long = "glob", value_name = "GLOB")]
     globs: Vec<String>,
 

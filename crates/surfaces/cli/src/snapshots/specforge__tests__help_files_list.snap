@@ -14,7 +14,7 @@ Arguments:
 
 Options:
       --glob <GLOB>
-          Only entries that match one of these globs: one with a `/` is matched against the path below the directory, one without against the entry's name
+          Only entries that match one of these globs (gitignore's): one with a `/` is matched against the path below the directory, one without against a name at any depth; `!GLOB` leaves a file or a whole directory out
 
       --kind <KIND>
           Only files, or only directories

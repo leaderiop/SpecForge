@@ -115,10 +115,11 @@ impl LocalFs {
             Ok(held) => held,
             Err(class) => return FsListing::of(class),
         };
-        let Ok((paths, names)) = matchers(&request.globs) else {
+        let start = held.at.clone();
+        let Ok(wanted) = overrides(&start, &request.globs) else {
             return FsListing::of(OutcomeClass::Denied);
         };
-        let start = held.at.clone();
+        let globs = wanted.clone();
         let prefix = if held.rel.is_empty() {
             String::new()
         } else {
@@ -134,9 +135,15 @@ impl LocalFs {
             .require_git(false)
             .follow_links(false)
             .max_depth(request.depth)
-            .filter_entry(|entry| {
+            // The globs judge what the walk reaches, never widen it past `hidden` and `ignore`: ripgrep's overrides
+            // would whitelist a hidden or ignored name.
+            .filter_entry(move |entry| {
                 let name = entry.file_name().to_string_lossy();
-                entry.depth() == 0 || !(in_host_state(&name) || name == ".git")
+                let dir = entry.file_type().is_some_and(|kind| kind.is_dir());
+                entry.depth() == 0
+                    || !(in_host_state(&name)
+                        || name == ".git"
+                        || globs.matched(entry.path(), dir).is_ignore())
             });
         let mut listing = FsListing::of(OutcomeClass::Ok);
         for (visits, entry) in walk.build().flatten().enumerate() {
@@ -158,16 +165,19 @@ impl LocalFs {
             let Ok(below) = entry.path().strip_prefix(&start) else {
                 continue;
             };
-            if entry.depth() == 0 || request.kind.is_some_and(|wanted| wanted != kind) {
+            if entry.depth() == 0 || request.kind.is_some_and(|only| only != kind) {
                 continue;
             }
-            let below = below.to_string_lossy().replace('\\', "/");
-            let name = entry.file_name().to_string_lossy();
-            let globbed =
-                request.globs.is_empty() || paths.is_match(&below) || names.is_match(name.as_ref());
+            // A directory no glob names is walked but, beside a whitelist glob, not listed.
+            let globbed = match wanted.matched(entry.path(), kind == FileKind::Dir) {
+                ignore::Match::Whitelist(_) => true,
+                ignore::Match::Ignore(_) => false,
+                ignore::Match::None => wanted.num_whitelists() == 0,
+            };
             if !globbed {
                 continue;
             }
+            let below = below.to_string_lossy().replace('\\', "/");
             let size = match kind {
                 FileKind::File => entry.metadata().map(|meta| meta.len()).unwrap_or(0),
                 _ => 0,
@@ -187,22 +197,15 @@ impl LocalFs {
     }
 }
 
-/// The globs with a `/`, matched against an entry's path below the listed directory, and those without one, matched
-/// against its name; `Err` when one does not parse.
-pub fn matchers(globs: &[String]) -> Result<(globset::GlobSet, globset::GlobSet), globset::Error> {
-    let mut paths = globset::GlobSetBuilder::new();
-    let mut names = globset::GlobSetBuilder::new();
+/// The globs as the `ignore` crate's overrides at `start`: gitignore semantics, so one with a `/` matches the path
+/// below `start` and one without a name at any depth, and `!glob` leaves a file or a directory out; `Err` when one
+/// does not parse.
+fn overrides(start: &Path, globs: &[String]) -> Result<ignore::overrides::Override, ignore::Error> {
+    let mut built = ignore::overrides::OverrideBuilder::new(start);
     for glob in globs {
-        let built = globset::GlobBuilder::new(glob)
-            .literal_separator(true)
-            .build()?;
-        if glob.contains('/') {
-            paths.add(built);
-        } else {
-            names.add(built);
-        }
+        built.add(glob)?;
     }
-    Ok((paths.build()?, names.build()?))
+    built.build()
 }
 
 fn stat_of(meta: &std::fs::Metadata) -> FsStat {

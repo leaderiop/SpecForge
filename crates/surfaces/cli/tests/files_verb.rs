@@ -89,6 +89,42 @@ fn list_filters_by_glob_kind_and_depth() {
     assert_eq!(nested.stdout, "2\n");
 }
 
+/// `!GLOB` leaves out a file, or a directory and what it holds, on `list` and `search` alike.
+#[test]
+fn a_bang_glob_excludes_from_list_and_search() {
+    let project = project();
+    let listed = Cli::on(&project)
+        .run(&[
+            "files",
+            "list",
+            "--kind",
+            "file",
+            "--glob",
+            "!lib",
+            "--glob",
+            "!*.spec",
+            "--glob",
+            "!*.json",
+            "--pick",
+            ".entries[].path",
+        ])
+        .exits(0);
+    assert_eq!(listed.stdout, "src/main.rs\n");
+    let searched = Cli::on(&project)
+        .run(&[
+            "files",
+            "search",
+            "hello",
+            "src",
+            "--glob",
+            "!main.rs",
+            "--pick",
+            ".matches[].path",
+        ])
+        .exits(0);
+    assert_eq!(searched.stdout, "src/lib/util.rs\n");
+}
+
 #[test]
 fn search_answers_each_matching_line() {
     let project = project();

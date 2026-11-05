@@ -4455,7 +4455,6 @@ dependencies = [
 name = "specforge-fs"
 version = "0.3.0"
 dependencies = [
- "globset",
  "ignore",
  "specforge-common",
  "specforge-effects",

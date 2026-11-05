@@ -146,10 +146,11 @@ pub fn stat(verbs: &Verbs, paths: &[PathBuf]) -> Result<StatAnswer, OpError> {
     Ok(StatAnswer { entries })
 }
 
-/// The globs, checked: `invalid_input` names the one that does not parse.
+/// The globs, checked: `invalid_input` names the one that does not parse (a leading `!` excludes, and is not part of
+/// the glob).
 fn checked_globs(globs: &[String]) -> Result<(), OpError> {
     for glob in globs {
-        globset::Glob::new(glob).map_err(|error| {
+        globset::Glob::new(glob.strip_prefix('!').unwrap_or(glob)).map_err(|error| {
             OpError::new(
                 OpErrorKind::InvalidInput,
                 OpErrorKind::InvalidInput.as_str(),

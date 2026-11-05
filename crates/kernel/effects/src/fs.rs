@@ -123,8 +123,8 @@ pub struct ListRequest {
     pub root: String,
     /// Relative to the root, `/` separated; empty for the root itself.
     pub path: String,
-    /// A listed entry matches one of them, relative to `path` (a glob with no `/` matches the entry's name); none:
-    /// every entry.
+    /// Gitignore globs, relative to `path`: a listed entry matches one of them (a glob with no `/` matches a name at
+    /// any depth), and one that starts with `!` leaves a file or a whole directory out; none: every entry.
     pub globs: Vec<String>,
     /// Only entries of this kind; none: files and directories.
     pub kind: Option<FileKind>,

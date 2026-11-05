@@ -15,7 +15,7 @@ Arguments:
 
 Options:
       --glob <GLOB>
-          Only files whose name (or path below a searched directory, for a glob with a `/`) matches one of these globs
+          Only files whose name (or path below a searched directory, for a glob with a `/`) matches one of these globs (gitignore's); `!GLOB` leaves a file or a whole directory out
 
   -i, --ignore-case
           Match letters in any case
