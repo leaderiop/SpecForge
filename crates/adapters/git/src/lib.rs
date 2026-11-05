@@ -228,7 +228,9 @@ impl Git for Gix {
     fn sorted(&self, place: &GitPlace, commits: &[Sha]) -> Result<Vec<Sha>, GitError> {
         let repo = open(place)?;
         let mut dated = Vec::with_capacity(commits.len());
-        for sha in commits {
+        let mut seen = std::collections::HashSet::new();
+        // a commit named twice is listed once, at its first place
+        for sha in commits.iter().filter(|sha| seen.insert(sha.as_str())) {
             let read = |e: &dyn std::fmt::Display| failed(&format!("read {}", sha.short()), e);
             let time = repo
                 .find_commit(id(sha)?)

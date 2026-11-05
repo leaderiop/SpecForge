@@ -615,6 +615,19 @@ fn rev_sorted_orders_commits_by_their_date() {
         .exits(0)
         .stdout;
     assert_eq!(piped, format!("{third}\n{first}\n"));
+    // a commit named twice (by sha and by HEAD) is listed once, as --no-walk lists it
+    assert_eq!(
+        picked(&[
+            "rev",
+            "--sorted",
+            &third,
+            "HEAD",
+            &first,
+            "--pick",
+            ".revs[].sha"
+        ]),
+        format!("{third}\n{first}\n")
+    );
     assert_eq!(picked(&["rev", "--sorted", "--pick", ".revs[].sha"]), "");
     let refused = git(&project, &["rev", "--sorted", &first, "nosuch"]).exits(1);
     assert_eq!(

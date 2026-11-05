@@ -434,8 +434,8 @@ pub trait Git: Send + Sync {
     fn locate(&self, dir: &Path) -> Located;
     /// The commit `revision` names in `place`; `None` when it names none (an unborn `HEAD`, an unknown name).
     fn commit(&self, place: &GitPlace, revision: &str) -> Result<Option<Sha>, GitError>;
-    /// `commits` newest first by committer date, as `git rev-list --no-walk=sorted` orders them (a tie keeps the order
-    /// given).
+    /// `commits` newest first by committer date, each once, as `git rev-list --no-walk=sorted` orders them (a tie
+    /// keeps the order given).
     fn sorted(&self, _place: &GitPlace, _commits: &[Sha]) -> Result<Vec<Sha>, GitError> {
         Err(GitError::unanswered())
     }
