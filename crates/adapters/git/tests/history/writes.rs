@@ -575,6 +575,11 @@ fn removing_a_changed_file_needs_force_and_cached_keeps_it_on_disk() {
         .remove(&place, &["a.txt".into()], Removal::default())
         .unwrap_err();
     assert!(refused.0.contains("local modifications"), "{refused}");
+    assert!(
+        refused.0.contains("specforge git rm -f -- a.txt")
+            && refused.0.contains("specforge git rm --cached -- a.txt"),
+        "{refused}"
+    );
     let cached = Removal {
         cached: true,
         ..Removal::default()
