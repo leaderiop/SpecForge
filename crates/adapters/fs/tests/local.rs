@@ -5,7 +5,7 @@
     reason = "a test fails on the first unexpected value"
 )]
 
-use specforge_effects::{Fs, FsOp, FsOutcome, FsRequest, OutcomeClass, Roots};
+use specforge_effects::{Fs, FsChange, FsOp, FsOutcome, FsRequest, OutcomeClass, Place, Roots};
 use specforge_fs::LocalFs;
 
 /// A project with `a.txt` (`a\n`) and a `.env`, and its roots.
@@ -378,4 +378,33 @@ fn a_digest_of_a_named_pipe_is_refused_without_waiting() {
             2
         )
     );
+}
+
+#[test]
+fn a_file_with_more_than_one_name_is_denied_a_read_and_a_digest() {
+    let (dir, roots) = project();
+    let root = dir.path().canonicalize().unwrap();
+    std::fs::create_dir(root.join("sec")).unwrap();
+    std::fs::hard_link(root.join(".env"), root.join("sec/hl.txt")).unwrap();
+
+    let read = run(&roots, "sec/hl.txt", FsOp::Read { max_bytes: 1024 });
+    assert_eq!(read.class, OutcomeClass::Denied, "{read:?}");
+    assert!(read.bytes.is_empty());
+    let digest = run(&roots, "sec/hl.txt", FsOp::Digest);
+    assert_eq!(digest.class, OutcomeClass::Denied, "{digest:?}");
+    let at = Place {
+        root: "project".into(),
+        path: "sec/hl.txt".into(),
+    };
+    assert_eq!(LocalFs.digest(&roots, &at).class, OutcomeClass::Denied);
+    // Its name stays listed: what a name says is no content.
+    let stat = run(&roots, "sec/hl.txt", FsOp::Stat);
+    assert_eq!(stat.class, OutcomeClass::Ok, "{stat:?}");
+    let to = Place {
+        root: "project".into(),
+        path: "plain.txt".into(),
+    };
+    let copied = LocalFs.change(&roots, &FsChange::Copy { from: at, to });
+    assert_eq!(copied.class, OutcomeClass::Denied, "{copied:?}");
+    assert!(!root.join("plain.txt").exists());
 }

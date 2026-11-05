@@ -5,6 +5,7 @@ use serde_json::Value;
 
 use crate::support::{Cli, TestProject};
 
+mod links;
 mod search;
 
 /// A project with a spec file, a source tree, an ignored build directory and the host's own state.

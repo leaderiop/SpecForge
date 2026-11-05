@@ -1,6 +1,6 @@
 # A file with more than one name is not read through a bound
 
-**Status:** accepted (2026-10-17, round 14 follow-up J1). Amends [ADR 0145](0145-the-session-reads-sources-through-the-disk-the-surface-hands-it.md) D5 (a hard link was accepted and pinned; its "What would reopen it" condition, a stated promise that a sandboxed agent cannot learn the contents of outside files, is met by the user's request). Amends [ADR 0144](0144-a-project-file-is-written-by-replacing-its-name.md) D3 and [ADR 0139](0139-a-compiled-project-reads-its-recorded-report-through-the-disk-it-is-handed.md) (their hard-link read sentences). D1-D4 of ADR 0145 stand. **Amended by ADR 0158 (2026-10-19):** D4: the migration's source read joins what is read through the bound. **Amended by [ADR 0169](0169-the-format-configuration-is-read-through-the-callers-disk.md) (2026-10-19):** D4: `format`'s targets and the format configuration join the reads through the bound; a bounded format run fails a file with more than one name. **Amended by [ADR 0172](0172-the-extension-a-path-names-is-read-by-one-module.md) (round 18):** D4: the extension a path names (add, init) is read through the bound too; a bounded read refuses a file with more than one name. **Amended by [ADR 0183](0183-a-project-scoped-call-reads-and-writes-through-one-containment.md) (2026-10-21):** D4: the schema cache joins the reads through the bound. **Extended by [ADR 0264](0264-a-project-file-is-read-bounded-and-only-when-regular.md) (round 28):** D4, `specforge.json` and the lock, read through the plain environment disk, are read only when regular and at most 64 MiB, as every project file is; the content rule of D1 is unchanged.
+**Status:** accepted (2026-10-17, round 14 follow-up J1). Amends [ADR 0145](0145-the-session-reads-sources-through-the-disk-the-surface-hands-it.md) D5 (a hard link was accepted and pinned; its "What would reopen it" condition, a stated promise that a sandboxed agent cannot learn the contents of outside files, is met by the user's request). Amends [ADR 0144](0144-a-project-file-is-written-by-replacing-its-name.md) D3 and [ADR 0139](0139-a-compiled-project-reads-its-recorded-report-through-the-disk-it-is-handed.md) (their hard-link read sentences). D1-D4 of ADR 0145 stand. **Amended by ADR 0158 (2026-10-19):** D4: the migration's source read joins what is read through the bound. **Amended by [ADR 0169](0169-the-format-configuration-is-read-through-the-callers-disk.md) (2026-10-19):** D4: `format`'s targets and the format configuration join the reads through the bound; a bounded format run fails a file with more than one name. **Amended by [ADR 0172](0172-the-extension-a-path-names-is-read-by-one-module.md) (round 18):** D4: the extension a path names (add, init) is read through the bound too; a bounded read refuses a file with more than one name. **Amended by [ADR 0183](0183-a-project-scoped-call-reads-and-writes-through-one-containment.md) (2026-10-21):** D4: the schema cache joins the reads through the bound. **Extended by [ADR 0264](0264-a-project-file-is-read-bounded-and-only-when-regular.md) (round 28):** D4, `specforge.json` and the lock, read through the plain environment disk, are read only when regular and at most 64 MiB, as every project file is; the content rule of D1 is unchanged. **Amended (2026-11-06, the verbs):** D4, D5, D6, see the amendment at the end.
 
 A hard link inside the project to a file outside is another directory entry for the same inode, so its canonical path
 is inside and a bounded read opened it. Over MCP `ln outside/secret.txt proj/spec/leak.spec` was parsed: the parser
@@ -54,3 +54,20 @@ hard link gets an E025 per source and works over the CLI and the LSP. Pins: `cra
 A legitimate layout that cannot copy the file (then an opt-out in the environment of the `specforge mcp` process); a
 content leak through `specforge.json` or the lock; a file system where `st_nlink` is a constant above 1; the link count
 stabilising in std on Windows.
+
+## Amendment (2026-11-06, the verbs read through the bound)
+
+`specforge files` holds a typed path to the project's roots and withholds credentials ([ADR 0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) D2), and
+`ln .env sec/hl.txt` or a link to a file outside walked past both: `files read`, `files search`, `files digest` and
+`files copy` answered the content. So:
+
+- **D4.** The `Fs` port's adapter joins the reads through the bound: `FsOp::Read`, `FsOp::Digest`, `Fs::digest` and the
+  file a `FsChange::Copy` (or a move across devices) reads refuse a regular file with more than one name, checked on the
+  handle that is read (D2), class `denied`. So `files read`, `files search` (typed and walked), `files list --lines`,
+  `files digest`, `files copy`, `http --body-file` and `--field-file`, and every guest's read through the port hold it.
+  A stat and a listing still name the file: a name is no content.
+- **D5.** The CLI's compile, watch and LSP stay unbounded; a verb the CLI serves is bounded, since its roots are.
+- **D6.** Windows is no longer skipped: `specforge_common::regular::refuse_if_linked`, the one helper, reads the
+  handle's link count through `winapi-util` (already in the tree under `walkdir`), std's own being unstable there.
+- **The cost.** A tree of hard links (pnpm's `node_modules`, `cp -al`, `rsync --link-dest`) reads as refused through the
+  verbs: a typed file is refused, a walked one is listed in the answer's `unread`. The refusal says to copy it in.

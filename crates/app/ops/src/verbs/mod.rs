@@ -393,7 +393,7 @@ fn refused(class: specforge_effects::OutcomeClass, shown: &str) -> OpError {
             OpErrorKind::PermissionDenied,
             OpErrorKind::PermissionDenied.as_str(),
             format!(
-                "{shown} is not reachable ({other}): the host's own state and credential files are withheld"
+                "{shown} is not reachable ({other}): the host's own state and credential files are withheld, a file with more than one name (a hard link) is not read, so copy it in as a plain file, and a file the system denies stays unread"
             ),
         ),
     }

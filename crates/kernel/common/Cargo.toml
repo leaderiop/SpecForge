@@ -34,6 +34,10 @@ walkdir = { workspace = true }
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# A file's link count, which std's Windows `MetadataExt` keeps unstable (ADR 0146).
+[target.'cfg(windows)'.dependencies]
+winapi-util = "0.1"
+
 [dev-dependencies]
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

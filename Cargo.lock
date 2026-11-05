@@ -4357,6 +4357,7 @@ dependencies = [
  "strsim",
  "tempfile",
  "walkdir",
+ "winapi-util",
 ]
 
 [[package]]

@@ -91,7 +91,11 @@ pub fn open_any(path: &Path) -> io::Result<File> {
 /// holds a large artifact. Its kind is judged before it is opened, so a named pipe is refused, never waited on.
 /// `TimedOut` once `deadline`, when there is one, passes.
 pub fn digest(path: &Path, deadline: Option<Instant>) -> io::Result<(String, u64)> {
-    let mut file = open_any(path)?;
+    digest_of(open_any(path)?, deadline)
+}
+
+/// [`digest`] of `file`, one [`open_any`] gave and its caller judged: the bytes digested are the handle's.
+pub fn digest_of(mut file: File, deadline: Option<Instant>) -> io::Result<(String, u64)> {
     let mut hasher = Sha256::new();
     let mut chunk = vec![0; 1024 * 1024];
     let mut length = 0;
@@ -108,6 +112,32 @@ pub fn digest(path: &Path, deadline: Option<Instant>) -> io::Result<(String, u64
     }
     // Lowercase hex, as `specforge_package::Sha256` writes a digest of bytes held whole.
     Ok((format!("{:x}", hasher.finalize()), length))
+}
+
+/// `InvalidInput` when `file`, the handle about to be read, is a regular file with more than one name: its other names
+/// may be outside every bound or withheld, and no bound can find them, so a bounded read refuses it (ADR 0146).
+pub fn refuse_if_linked(file: &File) -> io::Result<()> {
+    let meta = file.metadata()?;
+    let names = names_of(file, &meta)?;
+    if meta.is_file() && names > 1 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("it has {names} names, so no bound can say where its content is"),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn names_of(_: &File, meta: &std::fs::Metadata) -> io::Result<u64> {
+    use std::os::unix::fs::MetadataExt as _;
+    Ok(meta.nlink())
+}
+
+// std's `number_of_links` is unstable on Windows; the handle's own information holds the count.
+#[cfg(windows)]
+fn names_of(file: &File, _: &std::fs::Metadata) -> io::Result<u64> {
+    winapi_util::file::information(file).map(|information| information.number_of_links())
 }
 
 /// [`read`] as text: bytes that are not UTF-8 are `InvalidData`, as `std::fs::read_to_string` says.
@@ -180,7 +210,20 @@ fn too_large() -> io::Error {
 mod tests {
     use std::time::{Duration, Instant};
 
-    use super::digest;
+    use super::{digest, refuse_if_linked};
+
+    #[test]
+    fn a_file_with_a_second_name_is_refused_on_its_open_handle() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("one");
+        std::fs::write(&path, "x").unwrap();
+        let file = std::fs::File::open(&path).unwrap();
+        refuse_if_linked(&file).unwrap();
+        std::fs::hard_link(&path, dir.path().join("two")).unwrap();
+        let refused = refuse_if_linked(&file).unwrap_err();
+        assert_eq!(refused.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(refused.to_string().contains("2 names"), "{refused}");
+    }
 
     #[test]
     fn a_digest_streams_the_file_and_stops_at_its_deadline() {

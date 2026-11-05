@@ -33,7 +33,7 @@ impl Held {
     fn read_checked(&self, bounded: bool) -> std::io::Result<Vec<u8>> {
         let file = specforge_common::regular::open(&self.real)?;
         if bounded {
-            refuse_if_linked(&file)?;
+            specforge_common::regular::refuse_if_linked(&file)?;
         }
         specforge_common::regular::read_from(file)
     }
@@ -160,28 +160,6 @@ impl Containment {
     pub fn read_held(&self, held: &Held) -> std::io::Result<Vec<u8>> {
         held.read_checked(self.root.is_some())
     }
-}
-
-#[cfg(unix)]
-fn refuse_if_linked(file: &std::fs::File) -> std::io::Result<()> {
-    use std::os::unix::fs::MetadataExt as _;
-    let meta = file.metadata()?;
-    if meta.is_file() && meta.nlink() > 1 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!(
-                "it has {} names, so no bound can say where its content is",
-                meta.nlink()
-            ),
-        ));
-    }
-    Ok(())
-}
-
-// shortcut: std's `number_of_links` is unstable on Windows, so the check is skipped there; upgrade when it stabilises.
-#[cfg(not(unix))]
-fn refuse_if_linked(_: &std::fs::File) -> std::io::Result<()> {
-    Ok(())
 }
 
 /// Why [`Containment::read`] read nothing.

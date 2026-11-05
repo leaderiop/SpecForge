@@ -1,6 +1,6 @@
 //! The adapter behind the effect plane's `Fs` port (ADR 0335): `std::fs` behind [`Contained`] over the real file
 //! system. A path is resolved in its root first (`outside`, `missing`); a read answers at most its `max_bytes` (held
-//! to 1 MiB) of a file no larger than 64 MiB, never a withheld one; a walk visits at most 20 000 entries, skips
+//! to 1 MiB) of a file no larger than 64 MiB, never a withheld one or one with more than one name; a walk visits at most 20 000 entries, skips
 //! tool and dependency directories the glob does not name, never enters the host's own state, and does not descend
 //! through links.
 //!
@@ -56,15 +56,18 @@ impl Fs for LocalFs {
                 outcome.class = OutcomeClass::Capped;
             }
             FsOp::Digest => {
-                match specforge_common::regular::digest(&at, Some(Instant::now() + DIGEST_TIME)) {
+                match change::digest_of_one_name(&at, Some(Instant::now() + DIGEST_TIME)) {
                     Ok((sha256, _)) => outcome.digest = Some(sha256),
                     Err(_) => return FsOutcome::of(OutcomeClass::Denied),
                 }
             }
             FsOp::Read { max_bytes } => {
                 let max = (*max_bytes).min(READ_CEILING);
-                let read = std::fs::File::open(&at)
-                    .and_then(|file| file.take(max + 1).read_to_end(&mut outcome.bytes));
+                // The handle checked is the handle read (ADR 0146 D2).
+                let read = std::fs::File::open(&at).and_then(|file| {
+                    specforge_common::regular::refuse_if_linked(&file)?;
+                    file.take(max + 1).read_to_end(&mut outcome.bytes)
+                });
                 if read.is_err() {
                     return FsOutcome::of(OutcomeClass::Denied);
                 }

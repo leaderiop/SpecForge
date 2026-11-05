@@ -41,6 +41,8 @@ whole port `off`). A request outside it is refused before any effect, with the c
   `<project>/.specforge/tmp/` (a loose root's under the home directory, as its journal is), made owner-only on first
   use, so `files temp` and `files remove` work there and nowhere else in it. No guest's roots hold `temp`, and no
   project may name a root `temp` (E109).
+- **A file with more than one name** is not read through the port ([ADR 0146](0146-a-file-with-more-than-one-name-is-not-read-through-a-bound.md)'s amendment): its other name may be
+  withheld or outside every root.
 - **Addresses.** The private-address rule binds what a repository names, not the URL the user types: a typed
   `http://localhost:11434/…` is the user's target, so only the ceiling applies (`Private::TypedOrigin`). A redirect is
   the server's choice: a hop to another origin is held to the public rule, so a typed public URL that redirects to

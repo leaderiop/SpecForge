@@ -234,6 +234,8 @@ fn copy(from: &Path, to: &Path, budget: &mut usize) -> std::io::Result<()> {
     }
     if meta.is_file() {
         let mut source = std::fs::File::open(from)?;
+        // A copy reads: it would hand the content on under a name with no other (ADR 0146).
+        specforge_common::regular::refuse_if_linked(&source)?;
         let mut target = specforge_common::fresh::create_fresh(to)?;
         std::io::copy(&mut source, &mut target)?;
         return target.set_permissions(meta.permissions());
@@ -267,8 +269,19 @@ fn remove(at: &Path, recursive: bool) -> std::io::Result<()> {
     }
 }
 
+/// The SHA-256 of the regular file at `at`, refused when it has more than one name (ADR 0146): the kind is judged
+/// before the open, since a named pipe would wait for a writer (ADR 0264).
+pub(crate) fn digest_of_one_name(
+    at: &Path,
+    deadline: Option<std::time::Instant>,
+) -> std::io::Result<(String, u64)> {
+    let file = specforge_common::regular::open_any(at)?;
+    specforge_common::regular::refuse_if_linked(&file)?;
+    specforge_common::regular::digest_of(file, deadline)
+}
+
 /// [`specforge_effects::Fs::digest`] over the local file system: a regular file's SHA-256, streamed, never a withheld
-/// one.
+/// one or one with more than one name.
 pub(crate) fn digest(roots: &Roots, at: &Place) -> FsDigest {
     let Some(name) = Root::parse(&at.root) else {
         return FsDigest::of(OutcomeClass::Outside);
@@ -279,8 +292,7 @@ pub(crate) fn digest(roots: &Roots, at: &Place) -> FsDigest {
         Ok(_) => return FsDigest::of(OutcomeClass::Missing),
         Err(_) => return FsDigest::of(OutcomeClass::Outside),
     };
-    // the kind is judged before the open: a named pipe would wait for a writer (ADR 0264)
-    match specforge_common::regular::digest(&held.at, None) {
+    match digest_of_one_name(&held.at, None) {
         Ok((sha256, bytes)) => FsDigest {
             class: OutcomeClass::Ok,
             sha256,
