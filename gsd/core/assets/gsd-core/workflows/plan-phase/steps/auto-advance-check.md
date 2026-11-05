@@ -45,10 +45,10 @@ Plans ready. Launching execute-phase...
 
 Launch execute-phase using the Skill tool to avoid nested Task sessions (which cause runtime freezes due to deep agent nesting):
 ```
-Skill(skill="gsd-execute-phase", args="${PHASE} --auto --no-transition ${GSD_WS}")
+Skill(skill="gsd-execute-phase", args="${PHASE}")
 ```
 
-The `--no-transition` flag tells execute-phase to return status after verification instead of chaining further. This keeps the auto-advance chain flat — each phase runs at the same nesting level rather than spawning deeper Task agents.
+Execute-phase returns its status after verification instead of chaining further. This keeps the auto-advance chain flat — each phase runs at the same nesting level rather than spawning deeper Task agents.
 
 **Handle execute-phase return:**
 - **PHASE COMPLETE** → Display final summary:

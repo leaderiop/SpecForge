@@ -462,7 +462,6 @@ fn no_file_read_by_reference_holds_an_arg_token() {
 const ARGS_PENDING: &[&str] = &[
     "gsd-core/workflows/add-tests.md",
     "gsd-core/workflows/audit-milestone.md",
-    "gsd-core/workflows/autonomous.md",
     "gsd-core/workflows/complete-milestone.md",
     "gsd-core/workflows/complete-milestone/detail/elaboration.md",
     "gsd-core/workflows/diagnose-issues.md",
@@ -477,12 +476,10 @@ const ARGS_PENDING: &[&str] = &[
     "gsd-core/workflows/manager.md",
     "gsd-core/workflows/milestone-summary.md",
     "gsd-core/workflows/new-project.md",
-    "gsd-core/workflows/next.md",
     "gsd-core/workflows/plan-phase.md",
     "gsd-core/workflows/plan-phase/steps/auto-advance-check.md",
     "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
     "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
-    "gsd-core/workflows/plan-review-convergence.md",
     "gsd-core/workflows/progress.md",
     "gsd-core/workflows/quick.md",
     "gsd-core/workflows/resume-project.md",
@@ -592,23 +589,5 @@ fn every_dispatch_forwards_only_options_its_prompt_declares() {
         }
     }
     assert!(seen > 30, "{seen} dispatches");
-    // pinned: the dispatches the host refuses today; reading typed values and dropping undeclared options empties it
-    let known: BTreeSet<String> = [
-        "gsd-core/workflows/autonomous.md:119 override-gate",
-        "gsd-core/workflows/autonomous.md:404 no-transition",
-        "gsd-core/workflows/autonomous.md:413 no-transition",
-        "gsd-core/workflows/autonomous.md:419 no-transition",
-        "gsd-core/workflows/autonomous.md:507 no-transition",
-        "gsd-core/workflows/discuss-phase/modes/chain.md:66 GSD_WS",
-        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md:48 GSD_WS",
-        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md:48 auto",
-        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md:48 no-transition",
-        "gsd-core/workflows/plan-review-convergence.md:181 GSD_WS",
-        "gsd-core/workflows/plan-review-convergence.md:218 GSD_WS",
-        "gsd-core/workflows/plan-review-convergence.md:598 GSD_WS",
-    ]
-    .into_iter()
-    .map(String::from)
-    .collect();
-    assert_eq!(offenders, known);
+    assert!(offenders.is_empty(), "{offenders:#?}");
 }

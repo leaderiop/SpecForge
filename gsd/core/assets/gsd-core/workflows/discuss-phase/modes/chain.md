@@ -63,7 +63,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
    Launch plan-phase using the Skill tool to avoid nested Task sessions
    (which cause runtime freezes due to deep agent nesting — see #686):
    ```
-   Skill(skill="gsd-plan-phase", args="${PHASE} --auto ${GSD_WS}")
+   Skill(skill="gsd-plan-phase", args="${PHASE} --auto")
    ```
 
    This keeps the auto-advance chain flat — discuss, plan, and execute all

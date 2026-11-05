@@ -39,29 +39,29 @@
     "",
     "## 1. Parse and Normalize Arguments",
     "",
-    "Extract from 02: phase number, reviewer flags (the declared reviewer lane flags, plus `--all`), `--max-cycles N`, `--text`, `--ws`.",
+    "The host has parsed the phase, the reviewer flags (the declared reviewer lane flags, plus `--all`), `--max-cycles N`, `--text` and `--ws`; the lines below read them.",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "02",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
+    "",
+    "",
+    "",
+    "",
     "# #4748: canonical phase grammar (digits, optional [A-Z], dotted segments) —",
     "# `12A` / `23.1.2` extract whole instead of truncating to `12` / `23.1`.",
-    "PHASE=$(echo \"$GSD_ARGS\" | grep -oE '[0-9]+[A-Z]?(\\.[0-9]+)*' | head -1)",
+    "PHASE=\"v1.0/02\"",
     "",
     "# #2315: do NOT default REVIEWER_FLAGS to --codex here. The default is resolved",
     "# against review.default_reviewers in step 1.5 (after the config gate) so a bare",
     "# invocation respects the configured reviewer lineup per ADR-0011 / ADR-0015.",
     "",
-    "MAX_CYCLES=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-max-cycles\\s+[0-9]+' | awk '{print $2}')",
-    "if [ -z \"$MAX_CYCLES\" ]; then MAX_CYCLES=3; fi",
+    "MAX_CYCLES=\"3\"",
     "",
-    "GSD_WS=\"\"",
-    "echo \"$GSD_ARGS\" | grep -qE '\\-\\-ws\\s+\\S+' && GSD_WS=$(echo \"$GSD_ARGS\" | grep -oE '\\-\\-ws\\s+\\S+')",
+    "",
+    "",
+    "",
     "```"
   ],
-  "bytes": 83617,
+  "bytes": 83565,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2ac3ebacdd319211f368e51a2020ddd4dd6260b1d68d76b16760bad5e93d0a23",
+    "digest": "sha256:dc5ca6b2730124d28e348560fcd3918a625ed2a42273dba92f510bc0f14d8a36",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "2ac3ebacdd319211f368e51a2020ddd4dd6260b1d68d76b16760bad5e93d0a23"
+  "sha256": "dc5ca6b2730124d28e348560fcd3918a625ed2a42273dba92f510bc0f14d8a36"
 }

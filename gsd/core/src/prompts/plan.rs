@@ -118,6 +118,8 @@ const CONVERGENCE_ARGS: &[Arg] = &[
     Arg::text("ws"),
     Arg::flag("all"),
     Arg::integer("max_cycles"),
+    // autonomous --converge's dispatch carries it to bypass the feature setting (#4600); not in the hint
+    Arg::flag("override_gate"),
 ];
 
 const CONVERGENCE_STEPS: &[Step] = &[
