@@ -455,7 +455,12 @@ impl Action {
             }
             Action::Status(args) => answer(&args.verb, terminal, ports, git::status, |t, a| {
                 for entry in &a.status.entries {
-                    outln!(t, "{:?} {}", entry.kind, shown(&entry.path));
+                    // The word the JSON answer says (`untracked`), not the Rust variant's name.
+                    let kind = serde_json::to_value(entry.kind).expect("a unit variant serializes");
+                    let kind = kind
+                        .as_str()
+                        .expect("a unit variant serializes as a string");
+                    outln!(t, "{kind} {}", shown(&entry.path));
                 }
             }),
             Action::Config(args) => {

@@ -29,7 +29,8 @@ pub fn is_structural(keyword: &str) -> bool {
 
 /// Every core command of the `specforge` binary, by its name on the command line: an extension whose short name is
 /// one of them has no CLI route (E114), since the binary matches the core command first. The CLI's tests keep it
-/// equal to the clap tree.
+/// equal to the clap tree. It is written out, not derived: the clap tree lives in the CLI, a surface, and the
+/// registry that reports E114 sits below every surface, so the one list lives here and the CLI checks against it.
 pub const CORE_COMMANDS: &[&str] = &[
     "init",
     "check",
