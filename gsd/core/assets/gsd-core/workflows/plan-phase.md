@@ -179,7 +179,7 @@ Defer the `phase.mvp-mode` query until `PHASE` is finalized (after explicit argu
 ```bash
 WALKING_SKELETON=false
 if [ "$MVP_MODE" = "true" ] && [ "$padded_phase" = "01" ]; then
-  PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' 2>/dev/null | wc -l | tr -d ' ')
+  PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' --count 2>/dev/null) || PRIOR_SUMMARIES=0
   if [ "$PRIOR_SUMMARIES" = "0" ]; then WALKING_SKELETON=true; fi
 fi
 ```
@@ -998,7 +998,7 @@ If `section_manifest` is `null` or `"chunked-planning-mode"` is in its `included
 **Triggered when:** Agent() returns but the return contains no recognized marker (`## PLANNING COMPLETE`, `## PHASE SPLIT RECOMMENDED`, `## ⚠ Source Audit`, `## CHECKPOINT REACHED`, `## PLANNING INCONCLUSIVE`).
 
 ```bash
-DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
+DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' --count) || DISK_PLANS=0
 ```
 
 If `DISK_PLANS` is greater than 0 (a known Windows stdio hang pattern — the planner wrote plans to disk but the return never arrived), offer: 1) Accept plans (treat as `## PLANNING COMPLETE`), 2) Retry planner (return to step 8), 3) Stop. If it is 0 and no marker, treat as `## PLANNING INCONCLUSIVE`. Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9a.
@@ -1131,7 +1131,7 @@ Agent(
 **Triggered when:** Checker Agent() returns but the return contains neither `## VERIFICATION PASSED` nor `## ISSUES FOUND`.
 
 ```bash
-DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
+DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' --count) || DISK_PLANS=0
 ```
 
 If `DISK_PLANS` is greater than 0 (plans exist on disk; a known Windows stdio hang pattern), offer: 1) Accept verification (treat as `## VERIFICATION PASSED`, continue to step 13), 2) Retry checker (return to step 10), 3) Stop. If it is 0, something is seriously wrong — display error and stop. Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 11a.

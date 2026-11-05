@@ -254,7 +254,7 @@ report of this phase alone, by its id (a plan has no superseded status):
 
 X=$(specforge gsd progress-report --phase "$CURRENT_PHASE" --pick '.phases[0].plans')   # the phase's own plans, by its id
 Y=$(specforge gsd progress-report --phase "$CURRENT_PHASE" --pick '.phases[0].summaries')
-specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
+specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' --count
 ```
 
 State: "This phase has {X} plans, {Y} summaries."

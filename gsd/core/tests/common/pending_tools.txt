@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 467 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 449 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -266,8 +266,6 @@ gsd-core/workflows/execute-plan.md	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0
 gsd-core/workflows/execute-plan.md	head	specforge query "$PLAN_ID" --kinds user_setup --format context | head -50
 gsd-core/workflows/execute-plan.md	sort	(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
 gsd-core/workflows/execute-plan.md	sort	(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
-gsd-core/workflows/execute-plan.md	tr	TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' 2>/dev/null | wc -l | tr -d ' ')
-gsd-core/workflows/execute-plan.md	wc	TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' 2>/dev/null | wc -l | tr -d ' ')
 gsd-core/workflows/graduation.md	sort	specforge query "$MILESTONE" --depth 2 --kinds lesson --pick '.nodes[kind=lesson].id' | sort | tail -n "$GRADUATION_WINDOW"
 gsd-core/workflows/graduation.md	tail	specforge query "$MILESTONE" --depth 2 --kinds lesson --pick '.nodes[kind=lesson].id' | sort | tail -n "$GRADUATION_WINDOW"
 gsd-core/workflows/list-workspaces.md	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
@@ -285,15 +283,9 @@ gsd-core/workflows/plan-phase.md	head	SPEC_PATH=$(specforge query "$PHASE_ID" --
 gsd-core/workflows/plan-phase.md	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
-gsd-core/workflows/plan-phase.md	tr	PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' 2>/dev/null | wc -l | tr -d ' ')
-gsd-core/workflows/plan-phase.md	tr	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
-gsd-core/workflows/plan-phase.md	tr	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 gsd-core/workflows/plan-phase.md	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	tr	RES=$(printf '%s' "${CONFLICT_RESOLUTION}" | tr '\r\n\t' '   ')
-gsd-core/workflows/plan-phase.md	wc	PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' 2>/dev/null | wc -l | tr -d ' ')
-gsd-core/workflows/plan-phase.md	wc	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
-gsd-core/workflows/plan-phase.md	wc	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	grep	if [[ -f "$OUTLINE_FILE" ]] && grep -q "^## OUTLINE COMPLETE" "$OUTLINE_FILE"; then
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	cat	cat <<EOF >&2
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	cat	cat <<EOF >&2
@@ -312,7 +304,6 @@ gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGE
 gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 gsd-core/workflows/pr-branch.md	sed	else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
 gsd-core/workflows/pr-branch.md	tr	FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
-gsd-core/workflows/progress.md	wc	specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
 gsd-core/workflows/progress/steps/forensic-audit.md	grep	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/progress/steps/forensic-audit.md	grep	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/progress/steps/forensic-audit.md	head	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
@@ -385,8 +376,6 @@ prompt:execute_plan	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0
 prompt:execute_plan	head	specforge query "$PLAN_ID" --kinds user_setup --format context | head -50
 prompt:execute_plan	sort	(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
 prompt:execute_plan	sort	(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
-prompt:execute_plan	tr	TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' 2>/dev/null | wc -l | tr -d ' ')
-prompt:execute_plan	wc	TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' 2>/dev/null | wc -l | tr -d ' ')
 prompt:milestone_summary	head	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:milestone_summary	sort	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:milestone_summary	tr	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
@@ -400,15 +389,9 @@ prompt:plan_phase	head	SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick 
 prompt:plan_phase	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
 prompt:plan_phase	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 prompt:plan_phase	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
-prompt:plan_phase	tr	PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' 2>/dev/null | wc -l | tr -d ' ')
-prompt:plan_phase	tr	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
-prompt:plan_phase	tr	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 prompt:plan_phase	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 prompt:plan_phase	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 prompt:plan_phase	tr	RES=$(printf '%s' "${CONFLICT_RESOLUTION}" | tr '\r\n\t' '   ')
-prompt:plan_phase	wc	PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' 2>/dev/null | wc -l | tr -d ' ')
-prompt:plan_phase	wc	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
-prompt:plan_phase	wc	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 prompt:plan_review_convergence	awk	if OPEN_CONFLICTS=$(awk '
 prompt:plan_review_convergence	paste	REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
 prompt:plan_review_convergence	sed	REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
@@ -423,7 +406,6 @@ prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH
 prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 prompt:pr_branch	sed	else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
 prompt:pr_branch	tr	FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
-prompt:progress	wc	specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
 prompt:quick	awk	grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} ' spec 2>/dev/null | awk '{print $2}'   # the quick plans: the plans with no phase
 prompt:quick	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title

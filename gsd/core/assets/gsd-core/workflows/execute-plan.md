@@ -97,7 +97,7 @@ PLAN_START_EPOCH=$(date +%s)
 <step name="parse_segments">
 ```bash
 # Count tasks — match <task tag at any indentation level
-TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' 2>/dev/null | wc -l | tr -d ' ')
+TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' --count 2>/dev/null) || TASK_COUNT=0
 INLINE_THRESHOLD="{{setting:workflow.inline_plan_threshold|2}}"   # workflow.inline_plan_threshold (the settings)
 USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings)
