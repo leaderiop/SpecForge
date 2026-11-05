@@ -524,3 +524,15 @@ fn remotes_split_each_url_into_its_host_and_path() {
         ]})
     );
 }
+
+/// A history read is local: `replay` with an empty journal performs it, and the answer says so.
+#[test]
+fn git_takes_every_effects_mode_and_performs_the_read_in_each() {
+    let (project, _, sha) = committed();
+    for mode in ["online", "cached", "replay"] {
+        let head = git(&project, &["head", "--effects", mode]).exits(0).json();
+        assert_eq!(head["sha"], sha.as_str(), "{mode}: {head}");
+        assert_eq!(head["effect"]["from_journal"], false, "{mode}");
+        assert_eq!(head["effect"]["digest"], serde_json::Value::Null, "{mode}");
+    }
+}

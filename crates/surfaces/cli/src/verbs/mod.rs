@@ -10,7 +10,7 @@ pub(crate) mod run;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use specforge_effects::Ports;
+use specforge_effects::{EffectsMode, Ports};
 use specforge_ops::OpError;
 use specforge_ops::consent::UserConsent;
 use specforge_ops::verbs::{Answered, Verbs};
@@ -31,9 +31,20 @@ pub(crate) struct VerbArgs {
 
     #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = pick::HELP, long_help = pick::VERB_LONG_HELP)]
     pick: Option<Pick>,
+
+    /// The effects mode: online (the default; auto is online), cached or replay. http sends the request, answers a
+    /// GET from a fresh record of the effects journal (cached), or answers from the journal alone (replay); files and
+    /// git read and write this machine's disk in every mode, and the journal keeps none of it
+    #[arg(long, value_enum)]
+    effects: Option<EffectsMode>,
 }
 
 impl VerbArgs {
+    /// The effects mode `--effects` names, `online` when none.
+    pub(crate) fn mode(&self) -> EffectsMode {
+        self.effects.unwrap_or(EffectsMode::Online)
+    }
+
     /// The output format, or the usage error (exit 2) of `--pick` beside `--format human`.
     pub(crate) fn format(&self, terminal: &Terminal) -> Result<OutputFormat, Exit> {
         match (&self.pick, self.format) {

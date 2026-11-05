@@ -68,11 +68,6 @@ pub(crate) struct AskArgs {
     #[arg(long, value_name = "BYTES", default_value_t = ANSWER_BYTES)]
     max_bytes: u64,
 
-    /// Whether the request is sent (online, the default; auto is online), a GET answered from a fresh record of the
-    /// effects journal (cached), or every request answered from the journal alone (replay)
-    #[arg(long, value_enum)]
-    effects: Option<EffectsMode>,
-
     #[command(flatten)]
     verb: VerbArgs,
 }
@@ -93,7 +88,7 @@ impl Action {
 
 impl AskArgs {
     fn run(self, method: &str, terminal: &Terminal, ports: &Ports) -> Exit {
-        let mode = self.effects.unwrap_or(EffectsMode::Online);
+        let mode = self.verb.mode();
         self.verb.answered(
             terminal,
             ports,

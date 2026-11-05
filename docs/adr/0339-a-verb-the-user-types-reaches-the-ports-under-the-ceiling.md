@@ -63,10 +63,13 @@ whole port `off`). A request outside it is refused before any effect, with the c
   but `GET`, any program) is never answered from a fresh record: a day-old answer would say it happened.
 - `replay` answers only from the journal, expired records included, and a miss refuses (exit 1). A replayed answer
   equals the live one, except the secret-carrying headers, which no record holds.
-- `run` without `--format json` passes its program's output through and keeps none, so it refuses `cached` and `replay`
-  as a usage error (exit 2).
-- `files` and `git` take no `--effects`: their effects are local reads and writes, which the journal never holds
-  (ADR 0337 D3), and they are performed in every run.
+- `run` without `--format json` passes its program's output through. It is journaled for audit, as ADR 0337 D3 keeps
+  a process run: its request (the argv) and how it ended, with no output, so no record answers it again and it
+  refuses `cached` and `replay` as a usage error (exit 2).
+- `files` and `git` take `--effects` as every verb does, and perform in every mode: their effects are local reads and
+  writes, which ADR 0337 D3 never journals and D4 performs in `replay` too. So a `files` write keeps no record, and
+  `replay` with an empty journal performs a read rather than refuse it: ADR 0337 decides both. The answer's `effect`
+  says the read or write was performed (no digest, `from_journal: false`).
 - A loose root (no `specforge.json`) journals under the user's home, as ADR 0337 puts it.
 
 ## D4. The answer

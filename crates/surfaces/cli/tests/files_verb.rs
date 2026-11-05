@@ -172,14 +172,10 @@ fn project_with_fs_off() -> TestProject {
 }
 
 #[test]
-fn pick_takes_no_human_format_and_files_take_no_effects_mode() {
+fn pick_takes_no_human_format() {
     let project = project();
     Cli::on(&project)
         .run(&["files", "list", "--format", "human", "--pick", ".count"])
-        .exits(2);
-    // A local read is never journaled (ADR 0337 D3): there is no mode to choose.
-    Cli::on(&project)
-        .run(&["files", "list", "--effects", "replay"])
         .exits(2);
 }
 
@@ -442,4 +438,39 @@ fn remove_force_skips_a_missing_path() {
         ])
         .exits(0);
     assert_eq!(run.stdout, "build/out.txt\n");
+}
+
+/// fs reads and writes are local: performed in every effects mode, `replay` included, and never journaled (ADR 0337
+/// D3, D4), so the answer says it was performed now, with no record.
+#[test]
+fn files_takes_every_effects_mode_and_performs_the_read_in_each() {
+    let project = project();
+    for mode in ["online", "auto", "cached", "replay"] {
+        let read = Cli::on(&project)
+            .run(&["files", "stat", "src/main.rs", "--effects", mode])
+            .exits(0)
+            .json();
+        assert_eq!(read["entries"][0]["kind"], "file", "{mode}: {read}");
+        assert_eq!(
+            (&read["effect"]["digest"], &read["effect"]["from_journal"]),
+            (&Value::Null, &Value::Bool(false)),
+            "{mode}"
+        );
+    }
+    let written = Cli::on(&project)
+        .run(&["files", "mkdir", "made", "--effects", "replay"])
+        .exits(0)
+        .answer();
+    assert_eq!(
+        written["changed"].as_array().map(Vec::len),
+        Some(1),
+        "{written}"
+    );
+    assert!(project.root().join("made").is_dir());
+    let journal = std::fs::read_dir(project.root().join(".specforge/effects/journal")).unwrap();
+    assert_eq!(
+        journal.count(),
+        1,
+        "a local effect writes no record: only the fixture's is there"
+    );
 }

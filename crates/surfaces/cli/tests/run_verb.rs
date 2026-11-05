@@ -84,6 +84,48 @@ fn the_programs_exit_passes_through() {
         .exits(0);
 }
 
+/// A pass-through run is journaled for audit (ADR 0337 D3): its argv and how it ended, with no output kept.
+#[test]
+fn a_pass_through_run_is_journaled_as_its_argv_and_how_it_ended() {
+    let project = TestProject::new();
+    let argv = child();
+    run(&project, "exit:3")
+        .bare(&args(&["run", "--"], &argv))
+        .exits(3);
+    let journal = project.root().join(".specforge/effects/journal");
+    let records: Vec<Value> = walkdir(&journal)
+        .into_iter()
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+        .map(|path| serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap())
+        .collect();
+    assert_eq!(records.len(), 1, "{records:?}");
+    let record = &records[0];
+    assert_eq!(record["request"]["argv"][0], argv[0].as_str(), "{record}");
+    assert_eq!(record["outcome"]["class"], "exit:3", "{record}");
+    assert!(
+        record.get("payload").is_none(),
+        "no output is kept: {record}"
+    );
+    assert!(
+        record.get("ttl_s").is_none(),
+        "never served again: {record}"
+    );
+}
+
+/// Every file under `dir`.
+fn walkdir(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            found.extend(walkdir(&path));
+        } else {
+            found.push(path);
+        }
+    }
+    found
+}
+
 #[test]
 fn a_program_past_its_deadline_is_stopped_with_124() {
     let project = TestProject::new();

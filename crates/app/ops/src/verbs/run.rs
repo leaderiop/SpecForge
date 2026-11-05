@@ -110,16 +110,41 @@ fn request(verbs: &Verbs, run: &Run, output_cap: u64) -> Result<ProcessRequest, 
     Ok(request)
 }
 
-/// `run` passing the program's stdin, stdout and stderr through, in the current directory: how it ended. Never
-/// journaled: what it did is the terminal's, and nothing could answer it again.
+/// `run` passing the program's stdin, stdout and stderr through, in the current directory: how it ended. It is
+/// journaled for audit (ADR 0337 D3) as its request (the argv) and how it ended, with no output: what it printed is
+/// the terminal's, so no record answers it again.
 pub fn pass_through(verbs: &Verbs, run: &Run) -> Result<ProcessClass, OpError> {
     let request = request(verbs, run, u64::MAX)?;
-    let outcome =
-        verbs
-            .ports()
-            .process
-            .run_within(&request, verbs.cwd(), Output::Inherit, Ceiling::User);
-    Ok(outcome.class)
+    let asked = EffectRequest::Process(request.clone());
+    let effects = Effects::of(
+        EffectsMode::Online,
+        verbs.ports().clone(),
+        Vec::new(),
+        EffectJournal::for_root(verbs.root()),
+    );
+    let mut ended = None;
+    effects.serve_user(verbs.ports(), &asked, UnixMillis::now_or_end(), |ports| {
+        let outcome =
+            ports
+                .process
+                .run_within(&request, verbs.cwd(), Output::Inherit, Ceiling::User);
+        let answer = Answer {
+            outcome: Outcome {
+                class: outcome.class.outcome(),
+                digest: Blob::of(&[]).sha256,
+            },
+            payload: None,
+        };
+        ended = Some(outcome.class);
+        answer
+    });
+    ended.ok_or_else(|| {
+        OpError::new(
+            OpErrorKind::Internal,
+            OpErrorKind::Internal.as_str(),
+            "the run was not performed",
+        )
+    })
 }
 
 /// `run --format json`: the program run with a null stdin and its output captured, through the effects journal in
