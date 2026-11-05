@@ -68,4 +68,65 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         49,
         49,
     ),
+    // plan-phase and execute-phase read their declared flags typed; their unread *_PARAM values, the undeclared
+    // --auto, --mvp and --force branches and the closed-phase --force advice go.
+    ("gsd-core/workflows/plan-phase.md", 77, 82),
+    ("gsd-core/workflows/plan-phase.md", 87, 88),
+    ("gsd-core/workflows/plan-phase.md", 119, 119),
+    ("gsd-core/workflows/plan-phase.md", 137, 139),
+    ("gsd-core/workflows/plan-phase.md", 141, 141),
+    ("gsd-core/workflows/plan-phase.md", 143, 143),
+    ("gsd-core/workflows/plan-phase.md", 160, 161),
+    ("gsd-core/workflows/plan-phase.md", 166, 166),
+    ("gsd-core/workflows/plan-phase.md", 168, 168),
+    ("gsd-core/workflows/plan-phase.md", 215, 215),
+    ("gsd-core/workflows/execute-phase.md", 93, 93),
+    ("gsd-core/workflows/execute-phase.md", 191, 192),
+    ("gsd-core/workflows/execute-phase.md", 194, 194),
+    ("gsd-core/workflows/execute-phase.md", 203, 204),
+    (
+        "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
+        4,
+        4,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
+        12,
+        14,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
+        17,
+        17,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
+        32,
+        33,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md",
+        15,
+        15,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md",
+        17,
+        17,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md",
+        30,
+        30,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md",
+        32,
+        32,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        129,
+        129,
+    ),
 ];

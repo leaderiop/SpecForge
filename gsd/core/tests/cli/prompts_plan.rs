@@ -374,10 +374,9 @@ fn research_phase_turns_on_research_only_mode() {
         ))
         .output()
         .expect("bash");
-    // pinned: the phase renders quoted (`--research-phase "3"`) and the regex needs a digit after the space
     assert_eq!(
         String::from_utf8_lossy(&out.stdout).trim(),
-        "[false][false][]",
+        "[true][true][3]",
         "{fence}"
     );
 }

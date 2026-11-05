@@ -88,12 +88,12 @@ Load all context in one call:
 @~/.claude/gsd-core/references/gsd-run-resolver.md
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-WAVE_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--wave[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then WAVE_PARAM="--wave ${BASH_REMATCH[2]}"; fi
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 AGENT_SKILLS=""   # the host install carries the skills of gsd-executor
@@ -186,25 +186,25 @@ inline path for each plan.
 
 **REQUIRED — Sync chain flag with intent.** If user invoked manually (no `--auto`), clear the ephemeral chain flag from any previous interrupted `--auto` chain. This prevents stale `_auto_chain_active: true` from causing unwanted auto-advance. This does NOT touch `workflow.auto_advance` (the user's persistent settings preference). You MUST execute this bash block before any config reads:
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-# REQUIRED: prevents stale auto-chain from previous --auto runs
-if [[ ! "$GSD_ARGS" =~ --auto ]]; then
-  : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
-fi
+
+
+
+
+
+
+
+
 ```
 
 Resolve `MVP_MODE` once via the centralized `phase.mvp-mode` query verb (precedence chain: CLI flag → ROADMAP `**Mode:** mvp` → `workflow.mvp_mode` config → false):
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-MVP_FLAG_ARG=""
-if [[ "$GSD_ARGS" =~ (^|[[:space:]])--mvp([[:space:]]|$) ]]; then MVP_FLAG_ARG="--cli-flag"; fi
-MVP_MODE=$([ -n "$MVP_FLAG_ARG" ] && echo true || { [ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false; })
+
+
+
+
+
+
+MVP_MODE=$([ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false)
 EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 TDD_MODE="false"   # the loop capability is not part of @gsd/core: --tdd is read from the arguments
 ```

@@ -3,20 +3,20 @@
 
 The init JSON includes `phase_status` — one of `Pending | Planned | In Progress | Executed | Complete | Needs Review`. `Complete` means the phase has all summaries AND a `VERIFICATION.md` with `status: passed`. Replanning a closed phase silently rewrites plan docs that no longer match the shipped code, so the workflow must hard-stop here unless the operator explicitly overrides.
 
-Parse `phase_status` from the init JSON, then:
+Parse `phase_status` from the init JSON, and take `REVIEWS` from step 1 (`--reviews`), then:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 FORCE_REPLAN=false
-if [[ "$GSD_ARGS" =~ (^|[[:space:]])--force([[:space:]]|$) ]]; then
-  FORCE_REPLAN=true
-fi
+
+
+
 
 if [ "${phase_status}" = "Complete" ]; then
-  if [[ "$GSD_ARGS" =~ (^|[[:space:]])--reviews([[:space:]]|$) ]]; then
+  if [ "${REVIEWS:-false}" = true ]; then
     # --reviews on a closed phase is never legitimate — concerns belong in a
     # new phase or issue against the closed phase's commits.
     cat <<EOF >&2
@@ -31,8 +31,8 @@ EOF
     cat <<EOF >&2
 Phase ${phase_number} (${phase_name}) is already CLOSED (VERIFICATION status: passed).
 Replanning a closed phase will overwrite plan docs that no longer match the
-shipped code. If you intentionally want to replan over closed work, re-run
-with: /gsd:plan-phase ${phase_number} --force
+shipped code. For new work on what this phase shipped, open a follow-up phase.
+
 
 Otherwise, to view what shipped, see: ${verification_path}
 EOF

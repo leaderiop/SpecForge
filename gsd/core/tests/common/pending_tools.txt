@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 591 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 579 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -268,9 +268,7 @@ gsd-core/workflows/discuss-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/
 gsd-core/workflows/discuss-phase.md	sort	specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort -r
 gsd-core/workflows/discuss-phase/modes/power.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
-gsd-core/workflows/execute-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/execute-phase.md	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
-gsd-core/workflows/execute-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/execute-phase.md	sed	specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
 gsd-core/workflows/execute-phase.md	sed	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 gsd-core/workflows/execute-phase.md	tr	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
@@ -328,14 +326,10 @@ gsd-core/workflows/pause-work.md	cut	phase=$(specforge gsd progress-report --pic
 gsd-core/workflows/pause-work.md	grep	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 gsd-core/workflows/pause-work.md	head	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 gsd-core/workflows/plan-phase.md	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-gsd-core/workflows/plan-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/plan-phase.md	head	SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
-gsd-core/workflows/plan-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/plan-phase.md	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
-gsd-core/workflows/plan-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
-gsd-core/workflows/plan-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/plan-phase.md	tr	PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' 2>/dev/null | wc -l | tr -d ' ')
 gsd-core/workflows/plan-phase.md	tr	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 gsd-core/workflows/plan-phase.md	tr	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
@@ -455,9 +449,7 @@ prompt:audit_milestone	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A
 prompt:audit_milestone	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:autonomous	head	AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' | head -1)
 prompt:execute_phase	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
-prompt:execute_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:execute_phase	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
-prompt:execute_phase	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:execute_phase	sed	specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
 prompt:execute_phase	sed	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 prompt:execute_phase	tr	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
@@ -493,14 +485,10 @@ prompt:pause_work	cut	phase=$(specforge gsd progress-report --pick '.phases[].st
 prompt:pause_work	grep	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 prompt:pause_work	head	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 prompt:plan_phase	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-prompt:plan_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:plan_phase	head	SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
-prompt:plan_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:plan_phase	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
-prompt:plan_phase	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:plan_phase	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 prompt:plan_phase	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
-prompt:plan_phase	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:plan_phase	tr	PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' 2>/dev/null | wc -l | tr -d ' ')
 prompt:plan_phase	tr	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 prompt:plan_phase	tr	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')

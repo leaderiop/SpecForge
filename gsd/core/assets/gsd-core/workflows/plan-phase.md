@@ -71,26 +71,26 @@ Read and follow `gsd-core/references/compact-content-gate.md` now — it states 
 Load all context in one call (paths only to minimize orchestrator context):
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-GRAN_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--granularity[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then GRAN_PARAM="--granularity ${BASH_REMATCH[2]}"; fi
-PRD_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--prd[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then PRD_PARAM="--prd ${BASH_REMATCH[2]}"; fi
-INGEST_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--ingest[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then INGEST_PARAM="--ingest ${BASH_REMATCH[2]}"; fi
-RESEARCH_PHASE_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--research-phase[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then RESEARCH_PHASE_PARAM="--research-phase ${BASH_REMATCH[2]}"; fi
-REVIEWS_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--reviews([[:space:]]|$) ]]; then REVIEWS_PARAM="--reviews"; fi
-CHUNKED_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--chunked([[:space:]]|$) ]]; then CHUNKED_PARAM="--chunked"; fi
+
+
+
+
+REVIEWS="{{arg:reviews|false}}"   # closed-phase-gate.md and chunked-planning-mode.md read it
+
 # Project the just-completed planning mode onto the execute-phase follow-up (#3297):
 # a --gaps run creates gap_closure plans, so the Next Up handoff must point at
 # execute-phase's matching --gaps-only scope rather than the whole-phase run.
 # Standard and --reviews runs leave GAPS_EXEC_FLAG empty → their Next Up is unchanged.
-GAPS_MODE=false
-if [[ "$GSD_ARGS" =~ (^|[[:space:]])--gaps([[:space:]]|$) ]]; then GAPS_MODE=true; fi
+GAPS_MODE="{{arg:gaps|false}}"
+
 GAPS_EXEC_FLAG=""
 if [ "$GAPS_MODE" = "true" ]; then GAPS_EXEC_FLAG="--gaps-only"; fi
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
@@ -118,7 +118,7 @@ Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_
 
 ## 1.5. Closed-Phase Gate (#3569)
 
-Read and execute `gsd-core/workflows/plan-phase/steps/closed-phase-gate.md` — it parses `phase_status` from the init JSON, sets `FORCE_REPLAN` from `$ARGUMENTS`, and hard-stops replanning a `Complete` phase: `--reviews` on a closed phase is never overridable (exit 1), and replanning otherwise requires `--force` (else exit 1, pointing at `${verification_path}`); under `--force` it continues but emits a WARNING banner. Only `Complete` is gated — `Executed` / `Needs Review` are legitimate replans.
+Read and execute `gsd-core/workflows/plan-phase/steps/closed-phase-gate.md` — it parses `phase_status` from the init JSON, reads `REVIEWS` from step 1, and hard-stops replanning a `Complete` phase: `--reviews` on a closed phase is never overridable (exit 1), and replanning otherwise stops too (exit 1, pointing at `${verification_path}` and at a follow-up phase). Only `Complete` is gated — `Executed` / `Needs Review` are legitimate replans.
 
 ## 2. Parse and Normalize Arguments
 
@@ -132,17 +132,17 @@ In research-only mode, two modifiers control behavior when `RESEARCH.md` already
 - **`--view`** — view-only: print existing `RESEARCH.md` to stdout, do **not** spawn the researcher. Sets `VIEW_ONLY=true`. Cheapest mode for the correction-without-replanning loop. If `RESEARCH.md` does not exist, error with a hint to drop `--view`.
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-RESEARCH_ONLY=false
-VIEW_ONLY=false
-if [[ "$GSD_ARGS" =~ --research-phase[[:space:]]+([0-9]+[A-Z]?(\.[0-9]+)*) ]]; then
+
+
+
+
+RESEARCH_PHASE="{{arg:research_phase|}}"
+RESEARCH_ONLY=false; VIEW_ONLY=false
+if [ -n "$RESEARCH_PHASE" ]; then
   RESEARCH_ONLY=true
-  PHASE="${BASH_REMATCH[1]}"
+  PHASE="$RESEARCH_PHASE"
 fi
-if $RESEARCH_ONLY && [[ "$GSD_ARGS" =~ (^|[[:space:]])--view([[:space:]]|$) ]]; then
+if $RESEARCH_ONLY && [ "{{arg:view|false}}" = true ]; then
   VIEW_ONLY=true
 fi
 ```
@@ -154,20 +154,20 @@ Set `TEXT_MODE=true` if `--text` is present in $ARGUMENTS OR `text_mode` from in
 **MVP_MODE resolution.** Resolve `MVP_MODE` once via the centralized `phase.mvp-mode` query verb. Precedence (first hit wins): CLI flag → ROADMAP.md `**Mode:** mvp` → `workflow.mvp_mode` config → false. The verb is the single source of truth — do not re-implement the chain.
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 MVP_FLAG_ARG=""
-if [[ "$GSD_ARGS" =~ (^|[[:space:]])--mvp([[:space:]]|$) ]]; then MVP_FLAG_ARG="--cli-flag"; fi
-if [[ "$GSD_ARGS" =~ (^|[[:space:]])--tdd([[:space:]]|$) ]]; then
+[ "{{arg:mvp|false}}" = true ] && MVP_FLAG_ARG="--cli-flag"
+if [ "{{arg:tdd|false}}" = true ]; then
   specforge settings set @gsd/core workflow.tdd_mode true 2>/dev/null || true
 fi
 # Tracer-first is the default; --no-tracer opts back into the legacy horizontal-layer shape.
 TRACER_MODE=true
-if [[ "$GSD_ARGS" =~ (^|[[:space:]])--no-tracer([[:space:]]|$) ]]; then TRACER_MODE=false; fi
+[ "{{arg:no_tracer|false}}" = true ] && TRACER_MODE=false
 REVERSIBILITY_GATES=true
-if [[ "$GSD_ARGS" =~ (^|[[:space:]])--no-reversibility-gates([[:space:]]|$) ]]; then REVERSIBILITY_GATES=false; fi
+[ "{{arg:no_reversibility_gates|false}}" = true ] && REVERSIBILITY_GATES=false
 ```
 
 **Baseline-discipline flags.** `TRACER_MODE` and `REVERSIBILITY_GATES` default to `true`; neither is persisted per-phase nor read from config.
@@ -208,13 +208,13 @@ Set `phase_dir="${expected_phase_dir}"` after creation.
 
 Set `CHUNKED_MODE` from flag or config:
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 CHUNKED_CFG="{{setting:workflow.plan_chunked|false}}"   # workflow.plan_chunked (the settings)
 CHUNKED_MODE=false
-if [[ "$GSD_ARGS" =~ --chunked ]] || [[ "$CHUNKED_CFG" == "true" ]]; then
+if [ "{{arg:chunked|false}}" = true ] || [[ "$CHUNKED_CFG" == "true" ]]; then
   CHUNKED_MODE=true
 fi
 ```
@@ -1462,12 +1462,12 @@ Proactive, non-blocking coverage report gated on `workflow.post_planning_gaps`
 `<decisions>` and cross-references each REQ-ID / D-ID against the phase's plan entities.
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 PLAN_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
 PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
 PHASE_REQ_IDS="${PHASE_REQ_IDS:-TBD}"
 ```
