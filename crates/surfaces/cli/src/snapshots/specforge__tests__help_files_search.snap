@@ -38,6 +38,12 @@ Options:
   -C, --context <N>
           Answer N lines before and after each match (-A and -B win over it)
 
+  -l, --files-with-matches
+          Answer the files that match, not their lines (each file's search stops at its first match)
+
+      --counts
+          Answer each file's count of matching lines: every file with a match, and every file typed by name, even at 0
+
       --and-not <REGEX>
           Leave out a line (or -U match) this pattern also matches, as `| grep -v`; it takes -i and -F too, and context lines are kept
 

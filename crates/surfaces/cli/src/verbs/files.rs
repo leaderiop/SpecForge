@@ -6,7 +6,9 @@ use specforge_effects::Ports;
 use specforge_effects::fs::FileKind;
 use specforge_ops::OpError;
 use specforge_ops::verbs::Verbs;
-use specforge_ops::verbs::files::{self, ChangeAnswer, LIST_MAX, List, SEARCH_MAX, Search, Temp};
+use specforge_ops::verbs::files::{
+    self, ChangeAnswer, LIST_MAX, List, SEARCH_MAX, Search, SearchMode, Temp,
+};
 
 use super::{VerbArgs, shown};
 use crate::outcome::Exit;
@@ -199,6 +201,14 @@ pub(crate) struct SearchArgs {
     #[arg(long, short = 'C', value_name = "N")]
     context: Option<usize>,
 
+    /// Answer the files that match, not their lines (each file's search stops at its first match)
+    #[arg(long, short = 'l', conflicts_with_all = ["counts", "after_context", "before_context", "context"])]
+    files_with_matches: bool,
+
+    /// Answer each file's count of matching lines: every file with a match, and every file typed by name, even at 0
+    #[arg(long, conflicts_with_all = ["after_context", "before_context", "context"])]
+    counts: bool,
+
     /// Leave out a line (or -U match) this pattern also matches, as `| grep -v`; it takes -i and -F too, and context
     /// lines are kept
     #[arg(long = "and-not", value_name = "REGEX")]
@@ -335,6 +345,13 @@ impl SearchArgs {
             before: self.before_context.or(self.context).unwrap_or(0),
             after: self.after_context.or(self.context).unwrap_or(0),
             and_not: self.and_not,
+            mode: if self.files_with_matches {
+                SearchMode::Files
+            } else if self.counts {
+                SearchMode::Counts
+            } else {
+                SearchMode::Lines
+            },
             max: self.max,
         };
         self.verb.answer(
@@ -371,8 +388,14 @@ impl SearchArgs {
                         );
                     }
                 }
+                for file in answer.files.iter().flatten() {
+                    outln!(terminal, "{}", shown(file));
+                }
+                for counted in answer.counts.iter().flatten() {
+                    outln!(terminal, "{}:{}", shown(&counted.path), counted.count);
+                }
                 if answer.truncated {
-                    outln!(terminal, "(stopped at {} matches)", answer.count);
+                    outln!(terminal, "(stopped at {} answered)", answer.count);
                 }
             },
         )

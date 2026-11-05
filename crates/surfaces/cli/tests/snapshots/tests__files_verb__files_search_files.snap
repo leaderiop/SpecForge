@@ -1,0 +1,15 @@
+---
+source: crates/surfaces/cli/tests/files_verb.rs
+expression: run.answer()
+---
+{
+  "count": 4,
+  "files": [
+    "src/lib/util.rs",
+    "src/main.rs",
+    "src/twice.rs",
+    "build/out.txt"
+  ],
+  "matches": [],
+  "truncated": false
+}

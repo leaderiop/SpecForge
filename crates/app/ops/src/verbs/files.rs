@@ -110,10 +110,37 @@ pub struct Context {
     pub text: String,
 }
 
+/// One file's count of matching lines, under [`SearchMode::Counts`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Counted {
+    pub path: String,
+    pub count: usize,
+}
+
+/// What `files search` answers.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SearchMode {
+    /// Each matching line.
+    #[default]
+    Lines,
+    /// The files that match, each at its first match (`-l`).
+    Files,
+    /// Each file's count of matching lines: every file with a match, and every file typed by name (`--counts`).
+    Counts,
+}
+
 /// `files search`'s answer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SearchAnswer {
+    /// Each matching line; empty under `-l` and `--counts`.
     pub matches: Vec<Match>,
+    /// The files that match; only under `-l`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub files: Option<Vec<String>>,
+    /// Each file's count; only under `--counts`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub counts: Option<Vec<Counted>>,
+    /// The length of the list the mode answers.
     pub count: usize,
     /// It stopped at its bound, or a file was larger than one read.
     pub truncated: bool,
@@ -138,6 +165,8 @@ pub struct Search {
     pub after: usize,
     /// A reported line (or multiline match) one of these matches is left out; context is kept.
     pub and_not: Vec<String>,
+    pub mode: SearchMode,
+    /// The most matches, files or counts answered.
     pub max: usize,
 }
 
@@ -262,6 +291,8 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
         .build();
     let mut answer = SearchAnswer {
         matches: Vec::new(),
+        files: (search.mode == SearchMode::Files).then(Vec::new),
+        counts: (search.mode == SearchMode::Counts).then(Vec::new),
         count: 0,
         truncated: false,
     };
@@ -274,40 +305,42 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
     for path in &typed {
         let (located, request) = verbs.held(path, FsOp::Stat)?;
         let outcome = verbs.ports().fs.run(verbs.roots(), &request);
-        let files: Vec<(Root, String)> = match (outcome.class, outcome.stat.map(|stat| stat.kind)) {
-            (OutcomeClass::Ok, Some(FileKind::Dir)) => {
-                let (walked, walk) = verbs.held(
-                    path,
-                    FsOp::Walk {
-                        glob: None,
-                        max_entries: LIST_MAX as u32,
-                    },
-                )?;
-                let listing = verbs.ports().fs.list(
-                    verbs.roots(),
-                    &ListRequest {
-                        root: walk.root,
-                        path: walk.path,
-                        globs: search.globs.clone(),
-                        kind: Some(FileKind::File),
-                        depth: None,
-                        ignore: true,
-                        hidden: false,
-                        max_entries: LIST_MAX,
-                    },
-                );
-                answer.truncated |= listing.truncated;
-                listing
-                    .entries
-                    .into_iter()
-                    .map(|entry| (walked.root.clone(), entry.path))
-                    .collect()
-            }
-            (OutcomeClass::Ok, _) => vec![(located.root.clone(), request.path.clone())],
-            (class, _) => return Err(refused(class, &verbs.shown(&located.at))),
-        };
-        for (root, rel) in files {
-            if answer.matches.len() >= search.max || budget == 0 {
+        // Each file to search, and whether it was typed by name.
+        let files: Vec<(Root, String, bool)> =
+            match (outcome.class, outcome.stat.map(|stat| stat.kind)) {
+                (OutcomeClass::Ok, Some(FileKind::Dir)) => {
+                    let (walked, walk) = verbs.held(
+                        path,
+                        FsOp::Walk {
+                            glob: None,
+                            max_entries: LIST_MAX as u32,
+                        },
+                    )?;
+                    let listing = verbs.ports().fs.list(
+                        verbs.roots(),
+                        &ListRequest {
+                            root: walk.root,
+                            path: walk.path,
+                            globs: search.globs.clone(),
+                            kind: Some(FileKind::File),
+                            depth: None,
+                            ignore: true,
+                            hidden: false,
+                            max_entries: LIST_MAX,
+                        },
+                    );
+                    answer.truncated |= listing.truncated;
+                    listing
+                        .entries
+                        .into_iter()
+                        .map(|entry| (walked.root.clone(), entry.path, false))
+                        .collect()
+                }
+                (OutcomeClass::Ok, _) => vec![(located.root.clone(), request.path.clone(), true)],
+                (class, _) => return Err(refused(class, &verbs.shown(&located.at))),
+            };
+        for (root, rel, named) in files {
+            if answer.listed() >= search.max || budget == 0 {
                 answer.truncated = true;
                 break;
             }
@@ -341,6 +374,7 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
                 answer: &mut answer,
                 before: Vec::new(),
                 last: None,
+                kept: 0,
             };
             searcher
                 .search_slice(&matcher, &outcome.bytes, &mut found)
@@ -351,10 +385,30 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
                         format!("the search of {shown} stopped: {error}"),
                     )
                 })?;
+            let kept = found.kept;
+            match (&mut answer.files, &mut answer.counts) {
+                (Some(files), _) if kept > 0 => files.push(shown),
+                (_, Some(counts)) if kept > 0 || named => counts.push(Counted {
+                    path: shown,
+                    count: kept,
+                }),
+                _ => {}
+            }
         }
     }
-    answer.count = answer.matches.len();
+    answer.count = answer.listed();
     Ok(answer)
+}
+
+impl SearchAnswer {
+    /// The length of the list the mode answers.
+    fn listed(&self) -> usize {
+        match (&self.files, &self.counts) {
+            (Some(files), _) => files.len(),
+            (_, Some(counts)) => counts.len(),
+            _ => self.matches.len(),
+        }
+    }
 }
 
 /// `pattern` (the search's own or an `--and-not`) as `search` asks it matched, as ripgrep builds its matcher: a line's `^` and `$` at each line, CRLF lines
@@ -392,16 +446,14 @@ struct Found<'a> {
     before: Vec<Context>,
     /// The index of this file's last match in the answer: an `after` line is its.
     last: Option<usize>,
+    /// The matches kept in this file.
+    kept: usize,
 }
 
 impl Sink for Found<'_> {
     type Error = std::io::Error;
 
     fn matched(&mut self, _: &Searcher, found: &SinkMatch<'_>) -> Result<bool, Self::Error> {
-        if self.answer.matches.len() >= self.search.max {
-            self.answer.truncated = true;
-            return Ok(false);
-        }
         let bytes = found.bytes();
         let text = bytes.strip_suffix(b"\n").unwrap_or(bytes);
         let text = text.strip_suffix(b"\r").unwrap_or(text);
@@ -414,6 +466,22 @@ impl Sink for Found<'_> {
             self.before.clear();
             self.last = None;
             return Ok(true);
+        }
+        match self.search.mode {
+            // A file's first match names it.
+            SearchMode::Files => {
+                self.kept += 1;
+                return Ok(false);
+            }
+            SearchMode::Counts => {
+                self.kept += 1;
+                return Ok(true);
+            }
+            SearchMode::Lines if self.answer.matches.len() >= self.search.max => {
+                self.answer.truncated = true;
+                return Ok(false);
+            }
+            SearchMode::Lines => self.kept += 1,
         }
         let line = found.line_number().unwrap_or(0) as usize;
         let column = match self.matcher.find(bytes) {

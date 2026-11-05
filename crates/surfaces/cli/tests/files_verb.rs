@@ -345,6 +345,57 @@ fn and_not_leaves_out_the_lines_it_matches() {
     assert_eq!(context.stdout, "1\n");
 }
 
+/// `-l`: each file once, its search stopped at its first match; `--max` bounds the files.
+#[test]
+fn files_with_matches_stops_at_each_files_first_match() {
+    let project = project().files(&[("src/twice.rs", "hello\nhello\n")]);
+    let run = Cli::on(&project)
+        .run(&["files", "search", "-l", "hello", "src", "build/out.txt"])
+        .exits(0);
+    insta::assert_json_snapshot!("files_search_files", run.answer());
+    let first = Cli::on(&project)
+        .run(&[
+            "files", "search", "-l", "hello", "src", "--max", "1", "--format", "human",
+        ])
+        .exits(0);
+    assert_eq!(first.stdout, "src/lib/util.rs\n(stopped at 1 answered)\n");
+}
+
+/// `--counts`: every file with a match, and a file typed by name even at 0, as `grep -c` names it.
+#[test]
+fn counts_name_every_typed_file_even_at_zero() {
+    let project = project().files(&[("src/twice.rs", "hello\nhello\n")]);
+    let run = Cli::on(&project)
+        .run(&["files", "search", "--counts", "hello", "spec/a.spec", "src"])
+        .exits(0);
+    insta::assert_json_snapshot!("files_search_counts", run.answer());
+    let human = Cli::on(&project)
+        .run(&[
+            "files",
+            "search",
+            "--counts",
+            "hello",
+            "src/twice.rs",
+            "--format",
+            "human",
+        ])
+        .exits(0);
+    assert_eq!(human.stdout, "src/twice.rs:2\n");
+}
+
+#[test]
+fn list_and_count_modes_refuse_context() {
+    let project = project();
+    for mode in ["-l", "--counts"] {
+        Cli::on(&project)
+            .run(&["files", "search", mode, "hello", "-C", "1"])
+            .exits(2);
+    }
+    Cli::on(&project)
+        .run(&["files", "search", "-l", "--counts", "hello"])
+        .exits(2);
+}
+
 #[test]
 fn a_path_from_a_subdirectory_is_read_from_there_and_printed_from_there() {
     let project = project();
