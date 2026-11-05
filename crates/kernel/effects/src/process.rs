@@ -61,6 +61,16 @@ impl Ceiling {
             Ceiling::User => USER_CEILING,
         }
     }
+
+    /// Whether the run keeps the secrets of the host's environment: only a program the user types, their own act.
+    pub fn keeps_secrets(self) -> bool {
+        self == Ceiling::User
+    }
+
+    /// Whether a run whose request gives no stdin reads the terminal's: only a program the user types.
+    pub fn reads_the_terminal(self) -> bool {
+        self == Ceiling::User
+    }
 }
 
 /// A process port as the composition root shares it.

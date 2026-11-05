@@ -171,15 +171,15 @@ impl Process for Runner {
                 None => command.env_remove(&var.name),
             };
         }
-        // The deny-list last: a request cannot put a secret back. A program the user types is the user's own act.
-        let user = ceiling == Ceiling::User;
+        // The deny-list last: a request cannot put a secret back.
         let named = request.env.iter().map(|var| OsString::from(&var.name));
         for name in std::env::vars_os().map(|(name, _)| name).chain(named) {
-            if secret(&name) && !user {
+            if secret(&name) && !ceiling.keeps_secrets() {
                 command.env_remove(name);
             }
         }
-        command.stdin(match (&request.stdin, user) {
+        let terminal = ceiling.reads_the_terminal();
+        command.stdin(match (&request.stdin, terminal) {
             (Some(_), _) => Stdio::piped(),
             (None, true) => Stdio::inherit(),
             (None, false) => Stdio::null(),
@@ -187,7 +187,7 @@ impl Process for Runner {
         // A program in front of the person, on their terminal, leads its own group: that group takes the terminal.
         #[cfg(unix)]
         let in_front = request.stdin.is_none()
-            && user
+            && terminal
             && matches!(output, Output::Inherit)
             && group::Foreground::wanted();
         #[cfg(unix)]
