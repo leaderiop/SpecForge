@@ -399,6 +399,19 @@ fn a_git_write_never_reaches_past_the_projects_roots() {
     assert!(!outer.root().parent().unwrap().join("wt").exists());
 }
 
+/// A worktree is removed only inside the project's roots, as one is added (ADR 0339 D2): a linked worktree elsewhere
+/// is refused, its files kept.
+#[test]
+fn a_worktree_outside_the_roots_is_not_removed() {
+    let (project, repo, first) = committed();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let linked = repo.linked_worktree(&elsewhere.path().join("wt"), "wt", &first);
+    let path = linked.dir().to_string_lossy().into_owned();
+    let refused = git(&project, &["worktree", "remove", &path, "--force"]).exits(1);
+    assert_eq!(refused.json()["code"], "outside_root", "{}", refused.stdout);
+    assert!(linked.dir().join("a.txt").is_file());
+}
+
 #[test]
 fn prune_drops_the_record_of_a_worktree_whose_directory_is_gone() {
     let (project, repo, first) = committed();

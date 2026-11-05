@@ -1004,11 +1004,11 @@ prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; t
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 
-# D git: git, embedded (R2). 33 rows.
+# D git: git, embedded (R2). 35 rows.
 # Stays: push, fetch, ls-remote, remote show (17 rows) reach a remote: no network git transport yet (ADR 0339 D6).
 # Stays: new-workspace's worktree add, clone (6 rows) write in $HOME/gsd-workspaces, outside the roots (ADR 0339 D2).
-# Stays: git -C into remove-workspace's repos under $HOME/gsd-workspaces and worktree-path-safety's pinned root (10 rows):
-# --in reaches only the project's roots (ADR 0339 D2), and the pin compares toplevels in git's own spelling.
+# Stays: remove-workspace's git -C and worktree remove under $HOME/gsd-workspaces, worktree-path-safety's pin (12 rows):
+# --in and worktree remove reach only the project's roots (ADR 0339 D2); the pin compares toplevels in git's spelling.
 gsd-core/references/worktree-path-safety.md	git	ACTUAL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 gsd-core/references/worktree-path-safety.md	git	PIN_DIAG="git rev-parse --show-toplevel from the cwd failed: $(git rev-parse --show-toplevel 2>&1 1>/dev/null)"
 gsd-core/references/worktree-path-safety.md	git	PINNED_TL=$(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>/dev/null)
@@ -1025,6 +1025,7 @@ gsd-core/workflows/pr-branch.md	git	SUB_TARGET=$(git -C "$SUB_REPO_DIR" remote s
 gsd-core/workflows/quick.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
 gsd-core/workflows/remove-workspace.md	git	[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required" >&2; exit 1; }; case "$WORKSPACE_NAME" in */*|*..*) echo "Invalid workspace name: $WORKSPACE_NAME" >&2; exit 1;; esac; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(for r in "$WORKSPACE_PATH"/*/; do [ -n "$(git -C "$r" status --porcelain 2>/dev/null)" ] && { r=${r%/}; printf '%s\n' "${r##*/}"; }; done)
 gsd-core/workflows/remove-workspace.md	git	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
+gsd-core/workflows/remove-workspace.md	git	if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1; then
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1
 gsd-core/workflows/ship.md	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
@@ -1042,6 +1043,7 @@ prompt:workspace	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAM
 prompt:workspace	git	git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
 prompt:workspace	git	[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required" >&2; exit 1; }; case "$WORKSPACE_NAME" in */*|*..*) echo "Invalid workspace name: $WORKSPACE_NAME" >&2; exit 1;; esac; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(for r in "$WORKSPACE_PATH"/*/; do [ -n "$(git -C "$r" status --porcelain 2>/dev/null)" ] && { r=${r%/}; printf '%s\n' "${r##*/}"; }; done)
 prompt:workspace	git	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
+prompt:workspace	git	if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1; then
 
 # E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 

@@ -246,11 +246,12 @@ pub fn worktree_add(
     })
 }
 
-/// Remove the linked worktree at `path`, its directory with it: one with a change or an untracked file only when
-/// `force` (`git worktree remove --force`).
+/// Remove the linked worktree at `path` (held to the project's roots), its directory with it: one with a change or an
+/// untracked file only when `force` (`git worktree remove --force`).
 pub fn worktree_remove(verbs: &Verbs, path: &Path, force: bool) -> Result<PrunedAnswer, OpError> {
     let place = verbs.place_to_write("worktree remove")?;
-    let at = landed(verbs, path);
+    // its files are deleted: held to the roots, as `worktree add` holds where it writes
+    let at = held(verbs, path)?;
     let git = &verbs.ports().git;
     if !force {
         let top = std::fs::canonicalize(&at).ok();
