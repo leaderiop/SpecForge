@@ -649,7 +649,7 @@ specforge git commit --add spec -m "chore: add project config" && specforge coll
 
 Check for directories with their own `.git` (separate repos within the workspace —
 this also finds linked git worktree children, whose `.git` is a file rather than a
-directory, unlike a plain `find -type d` predicate would):
+directory, unlike a plain directory walk would):
 
 ```bash
 specforge check --format json

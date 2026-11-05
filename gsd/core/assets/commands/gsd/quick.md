@@ -65,7 +65,7 @@ For each directory found:
   ```bash
 specforge query "{dir}" --depth 1 --kinds summary --pick '.nodes[kind=summary].fields.status' --first 1
   ```
-- Determine directory creation date: `stat -f "%SB" -t "%Y-%m-%d"` (macOS) or `stat -c "%w"` (Linux); fall back to the date prefix in the directory name (format: `YYYYMMDD-` prefix)
+- Determine the creation date: the id's `YYMMDD` prefix (a quick id is `YYMMDD-xxx`)
 - Derive display status:
   - SUMMARY.md exists, frontmatter status=complete → `complete ✓`
   - SUMMARY.md exists, frontmatter status=incomplete OR status missing → `incomplete`

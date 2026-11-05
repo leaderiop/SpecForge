@@ -61,7 +61,7 @@
     "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)"
   ],
-  "bytes": 56323,
+  "bytes": 56353,
   "end": [
     "",
     "| Condition | Route | Action |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e8d19f8e479cb03b5ae2611c2481c4815922fb443f053585a262f2b2b7479622",
+    "digest": "sha256:bb3b1db440219c73489e18a8d650e1a4a86adf85a6cbeced44efb4c2de131d11",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "e8d19f8e479cb03b5ae2611c2481c4815922fb443f053585a262f2b2b7479622"
+  "sha256": "bb3b1db440219c73489e18a8d650e1a4a86adf85a6cbeced44efb4c2de131d11"
 }

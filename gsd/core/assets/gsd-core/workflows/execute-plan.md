@@ -471,7 +471,7 @@ From SUMMARY: Extract decisions and add to STATE.md:
   --phase "${PHASE}" --summary-file "${DECISION_TEXT_FILE}" --rationale-file "${RATIONALE_FILE}"
 
 # Add blockers if any found
-specforge gsd raise-blocker "$(cat "${BLOCKER_TEXT_FILE}")" --phase "${PHASE}"
+specforge gsd raise-blocker "$(specforge files read "${BLOCKER_TEXT_FILE}" --pick .text)" --phase "${PHASE}"
 ```
 </step>
 
